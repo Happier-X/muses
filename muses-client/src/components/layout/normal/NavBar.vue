@@ -1,6 +1,6 @@
 <template>
   <div
-    class="w-full h-full flex items-center justify-between px-2"
+    class="size-full flex items-center justify-between px-2"
     data-tauri-drag-region
   >
     <div class="flex items-center gap-1">
