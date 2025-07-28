@@ -2,7 +2,6 @@ import { Injectable, StreamableFile } from '@nestjs/common';
 import { readdirSync, statSync, createReadStream } from 'fs';
 import { join, extname } from 'path';
 import { createHash } from 'crypto';
-import { parseFile } from 'music-metadata';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 
@@ -15,7 +14,7 @@ export class SongsService {
 
     // 计算文件的哈希值
     private async calcFileHash(filePath: string) {
-        const { format } = await parseFile(filePath);
+        const { format } = await (await import('music-metadata')).parseFile(filePath);
         const duration = typeof format.duration === 'number' ? format.duration : 0;
         const audioStream = createReadStream(filePath, {
             start: duration > 60 ? 500000 : 0,
