@@ -1,0 +1,12 @@
+services:
+  muses-server:
+    image: zhf521/muses-server:latest
+    container_name: muses-server
+    ports:
+      - '3000:3000'
+    environment:
+      - DATABASE_URL=file:./data/dev.db
+      - JWT_SECRET=muses-secret
+    volumes:
+      - ./data:/app/data
+      - /your/local/music/path:/app/music

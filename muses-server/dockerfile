@@ -1,0 +1,56 @@
+# 使用国内可用的Node.js镜像
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/node:lts-alpine
+
+# 配置 npm 镜像源为国内镜像（如淘宝镜像）
+RUN npm config set registry https://registry.npmmirror.com
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制package.json和package-lock.json（如果存在）
+COPY package*.json ./
+
+# 安装项目依赖
+RUN npm ci --only=production
+
+# 复制Prisma相关的文件
+COPY prisma ./prisma/
+COPY generated ./generated/
+
+# 复制应用源代码
+COPY src ./src/
+COPY tsconfig.json ./
+COPY nest-cli.json ./
+
+# 安装开发依赖以支持构建
+RUN npm install --only=dev
+
+# 构建应用
+RUN npm run build
+
+# 删除开发依赖以减小镜像体积
+RUN npm prune --production
+
+# 暴露端口
+EXPOSE 3000
+
+# 创建一个非root用户来运行应用
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+
+# 创建数据目录并赋权
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
+
+# 设置文件所有权
+RUN chown -R nextjs:nodejs /app/dist
+RUN chown -R nextjs:nodejs /app/generated
+RUN chown -R nextjs:nodejs /app/node_modules
+
+# 切换到非root用户
+USER nextjs
+
+# 生成Prisma客户端
+RUN npx prisma generate
+
+# 启动前自动 migrate（可选）
+CMD npx prisma migrate deploy && npm run start:prod
