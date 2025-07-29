@@ -1,23 +1,28 @@
 <template>
   <div class="size-screen flex flex-col">
-    <div class="w-full flex-1 flex">
+    <div class="w-screen h-[calc(100%-4.5rem)] flex">
       <div class="w-50 h-full">
         <SideBar />
       </div>
-      <div class="flex-1 h-full flex flex-col">
+      <div class="w-[calc(100%-12.5rem)] h-full flex flex-col">
         <div class="w-full h-10">
           <NavBar />
         </div>
-        <div class="w-full flex-1 overflow-y-auto bg-gray-100">
+        <div
+          class="w-full h-[calc(100%-2.5rem)] bg-[--lew-bgcolor-2] overflow-hidden p-2"
+        >
           <RouterView v-slot="{ Component }">
             <KeepAlive>
-              <component :is="Component"></component>
+              <component
+                :is="Component"
+                class="size-full overflow-y-auto lew-scrollbar-hover"
+              ></component>
             </KeepAlive>
           </RouterView>
         </div>
       </div>
     </div>
-    <div class="w-full h-18">
+    <div class="w-screen h-18">
       <PlayBar />
     </div>
   </div>

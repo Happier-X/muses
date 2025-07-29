@@ -1,5 +1,8 @@
 <template>
-  <div class="size-full p-3 flex items-center">
+  <div class="size-full p-3 flex items-center relative">
+    <div class="absolute w-full left-0 top-[-1rem] overflow-hidden">
+      <ProgressBar />
+    </div>
     <div class="size-full">
       <lew-image
         class="h-full! w-unset! aspect-square!"
@@ -15,6 +18,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import ProgressBar from "@/components/common/ProgressBar.vue";
 import PlayControls from "@/components/common/PlayControls.vue";
 import QueueControls from "@/components/common/QueueControls.vue";
 </script>

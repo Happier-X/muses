@@ -1,12 +1,26 @@
 <template>
-  <div class="size-full flex items-center justify-center">
-    <lew-button type="text" single-icon size="small">
+  <div class="size-full flex items-center justify-center gap-2.5">
+    <lew-button
+      type="text"
+      single-icon
+      size="small"
+      v-tooltip="{
+        content: '上一曲',
+      }"
+    >
       <PreviousIcon class="size-5" />
     </lew-button>
     <lew-button type="text" single-icon size="large">
       <PauseIcon class="size-6" />
     </lew-button>
-    <lew-button type="text" single-icon size="small">
+    <lew-button
+      type="text"
+      single-icon
+      size="small"
+      v-tooltip="{
+        content: '下一曲',
+      }"
+    >
       <NextIcon class="size-5" />
     </lew-button>
   </div>

@@ -1,12 +1,19 @@
 <template>
-  <div class="size-full flex items-center justify-end">
+  <div class="size-full flex items-center justify-end gap-2.5">
     <lew-button type="text" single-icon size="small">
       <ListLoopIcon class="size-5" />
     </lew-button>
     <lew-button type="text" single-icon size="small">
       <OrderPlayIcon class="size-5" />
     </lew-button>
-    <lew-button type="text" single-icon size="small">
+    <lew-button
+      type="text"
+      single-icon
+      size="small"
+      v-tooltip="{
+        content: '播放队列',
+      }"
+    >
       <PlayQueueIcon class="size-5" />
     </lew-button>
   </div>
