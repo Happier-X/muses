@@ -1,7 +1,8 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { registerIpc } from './ipc'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -19,8 +20,11 @@ function createWindow(): void {
     }
   })
 
+  // IPC
+  registerIpc(mainWindow as BrowserWindow,app)
+
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow?.show()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
