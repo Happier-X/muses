@@ -1,10 +1,17 @@
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 
 export function useWindowControl() {
     // 是否最大化
     const isMaximized = ref(false)
-    onMounted(async () => {
+    /**
+     * 获取窗口是否最大化
+     */
+    const getIsMaximized = async()=>{
         isMaximized.value = await window.api.isMaximized()
+    }
+    onMounted(async () => {
+        getIsMaximized()
+        window.addEventListener('resize',getIsMaximized)
     })
     /**
      * 最小化
@@ -17,7 +24,6 @@ export function useWindowControl() {
      */
     const handleToggleWindowSize = () => {
         window.api.toggleWindowSize()
-        isMaximized.value = !isMaximized.value
     }
     /**
      * 关闭
@@ -25,6 +31,9 @@ export function useWindowControl() {
     const handleClose =  () => {
         window.api.closeWindow()
     }
+    onBeforeUnmount(()=>{
+        window.removeEventListener('resize',getIsMaximized)
+    })
 
     return { isMaximized, handleMinimize, handleToggleWindowSize, handleClose }
 }
