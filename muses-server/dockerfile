@@ -1,56 +1,47 @@
-# 使用国内可用的Node.js镜像
-FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/node:lts-alpine
-
-# 配置 npm 镜像源为国内镜像（如淘宝镜像）
-RUN npm config set registry https://registry.npmmirror.com
+# 使用 Node.js 的 Alpine Linux 版本作为基础镜像
+FROM node:alpine
 
 # 设置工作目录
 WORKDIR /app
 
-# 复制package.json和package-lock.json（如果存在）
+# 复制 package.json 和 package-lock.json (如果存在)
 COPY package*.json ./
 
-# 安装项目依赖
-RUN npm ci --only=production
+# 设置 NODE_ENV 环境变量并安装生产环境依赖
+ENV NODE_ENV=production
+RUN npm ci --only=production && npm cache clean --force
 
-# 复制Prisma相关的文件
+# 复制 Prisma 相关文件
 COPY prisma ./prisma/
-COPY generated ./generated/
 
-# 复制应用源代码
+# 复制源代码和配置文件
 COPY src ./src/
 COPY tsconfig.json ./
 COPY nest-cli.json ./
 
-# 安装开发依赖以支持构建
-RUN npm install --only=dev
-
 # 构建应用
-RUN npm run build
+RUN npm install --include=dev && \
+    npx prisma generate && \
+    npm run build && \
+    npm prune --production && \
+    npm cache clean --force
 
-# 删除开发依赖以减小镜像体积
-RUN npm prune --production
+# 创建非 root 用户
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001
+
+# 设置文件权限
+RUN mkdir -p /app/data && \
+    chown -R nestjs:nodejs /app/data && \
+    chown -R nestjs:nodejs /app/dist && \
+    chown -R nestjs:nodejs /app/node_modules && \
+    chown nestjs:nodejs /app/prisma/schema.prisma
+
+# 切换到非 root 用户
+USER nestjs
 
 # 暴露端口
 EXPOSE 3000
 
-# 创建一个非root用户来运行应用
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
-
-# 创建数据目录并赋权
-RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
-
-# 设置文件所有权
-RUN chown -R nextjs:nodejs /app/dist
-RUN chown -R nextjs:nodejs /app/generated
-RUN chown -R nextjs:nodejs /app/node_modules
-
-# 切换到非root用户
-USER nextjs
-
-# 生成Prisma客户端
-RUN npx prisma generate
-
-# 启动前自动 migrate（可选）
+# 启动应用
 CMD npx prisma migrate deploy && npm run start:prod
