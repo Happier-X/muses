@@ -4,44 +4,22 @@ FROM node:alpine
 # 设置工作目录
 WORKDIR /app
 
-# 复制 package.json 和 package-lock.json (如果存在)
-COPY package*.json ./
+# 复制项目文件
+COPY . .
 
-# 设置 NODE_ENV 环境变量并安装生产环境依赖
-ENV NODE_ENV=production
-RUN npm ci --only=production && npm cache clean --force
-
-# 复制 Prisma 相关文件
-COPY prisma ./prisma/
-
-# 复制源代码和配置文件
-COPY src ./src/
-COPY tsconfig.json ./
-COPY nest-cli.json ./
+# 设置环境变量
+ENV DATABASE_URL="file:./prisma/dev.db"
 
 # 构建应用
-RUN npm install --include=dev && \
+RUN npm install && \
     npx prisma generate && \
+    npx prisma migrate deploy && \
     npm run build && \
     npm prune --production && \
     npm cache clean --force
-
-# 创建非 root 用户
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
-
-# 设置文件权限
-RUN mkdir -p /app/data && \
-    chown -R nestjs:nodejs /app/data && \
-    chown -R nestjs:nodejs /app/dist && \
-    chown -R nestjs:nodejs /app/node_modules && \
-    chown nestjs:nodejs /app/prisma/schema.prisma
-
-# 切换到非 root 用户
-USER nestjs
 
 # 暴露端口
 EXPOSE 3000
 
 # 启动应用
-CMD npx prisma migrate deploy && npm run start:prod
+CMD ["npm", "run", "start:prod"]
