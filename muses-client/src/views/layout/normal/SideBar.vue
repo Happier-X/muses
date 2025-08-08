@@ -8,10 +8,10 @@
 <script setup lang="ts">
 import {
   House as HomeIcon,
-  Music as SongIcon,
-  Disc3 as AlbumIcon,
-  MicVocal as ArtistIcon,
-  ScrollText as PlaylistIcon,
+  Music as SongsIcon,
+  Disc3 as AlbumsIcon,
+  MicVocal as ArtistsIcon,
+  ScrollText as PlaylistsIcon,
   Settings as SettingsIcon,
 } from "lucide-vue-next";
 import { h, ref, watch } from "vue";
@@ -30,27 +30,28 @@ const menuOptions = ref([
       },
       {
         label: "歌曲",
-        value: "song",
-        icon: () => h(SongIcon, { size: 14 }),
+        value: "songs",
+        icon: () => h(SongsIcon, { size: 14 }),
       },
       {
         label: "专辑",
-        value: "album",
-        icon: () => h(AlbumIcon, { size: 14 }),
+        value: "albums",
+
+        icon: () => h(AlbumsIcon, { size: 14 }),
       },
       {
         label: "艺术家",
-        value: "artist",
-        icon: () => h(ArtistIcon, { size: 14 }),
+        value: "artists",
+        icon: () => h(ArtistsIcon, { size: 14 }),
       },
       {
         label: "歌单",
-        value: "playlist",
-        icon: () => h(PlaylistIcon, { size: 14 }),
+        value: "playlists",
+        icon: () => h(PlaylistsIcon, { size: 14 }),
       },
       {
         label: "设置",
-        value: "setting",
+        value: "settings",
         icon: () => h(SettingsIcon, { size: 14 }),
       },
     ],
@@ -65,10 +66,10 @@ const handleMenuChange = (item: any) => {
 const route = useRoute();
 const pathToMenu: Record<string, string> = {
   home: "home",
-  song: "song",
-  album: "album",
-  artist: "artist",
-  playlist: "playlist",
+  songs: "songs",
+  albums: "albums",
+  artists: "artists",
+  playlists: "playlists",
   settings: "settings",
 };
 
@@ -76,7 +77,7 @@ watch(
   () => route.path,
   () => {
     const key = Object.keys(pathToMenu).find((k) =>
-      route.path.startsWith(`/${k}`)
+      route.path.startsWith(`/app/${k}`)
     );
     activeMenu.value = key ? pathToMenu[key] : "";
   }
