@@ -8,32 +8,32 @@ const routes = [
     {
         path: '/home',
         name: 'home',
-        component: () => import('@renderer/views/home/index.vue')
+        component: () => import('@/views/home/index.vue')
     },
     {
         path: '/song',
         name: 'song',
-        component: () => import('@renderer/views/song/index.vue')
+        component: () => import('@/views/song/index.vue')
     },
     {
         path: '/album',
         name: 'album',
-        component: () => import('@renderer/views/album/index.vue')
+        component: () => import('@/views/album/index.vue')
     },
     {
         path: '/artist',
         name: 'artist',
-        component: () => import('@renderer/views/artist/index.vue')
+        component: () => import('@/views/artist/index.vue')
     },
     {
         path: '/playlist',
         name: 'playlist',
-        component: () => import('@renderer/views/playlist/index.vue')
+        component: () => import('@/views/playlist/index.vue')
     },
     {
         path: '/settings',
         name: 'settings',
-        component: () => import('@renderer/views/settings/index.vue')
+        component: () => import('@/views/settings/index.vue')
     }
 ]
 

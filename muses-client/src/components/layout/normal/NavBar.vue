@@ -28,7 +28,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { useWindowControl } from '@renderer/composables/useWindowControl'
+import { useWindowControl } from '@/composables/useWindowControl'
 import {
   ChevronLeft as BackIcon,
   X as CloseIcon,

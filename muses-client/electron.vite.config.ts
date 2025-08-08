@@ -5,17 +5,39 @@ import UnoCSS from 'unocss/vite'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build:{
+      rollupOptions:{
+        input:{
+          index:resolve(__dirname,'electron/main/index.ts')
+        }
+      }
+    }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build:{
+      rollupOptions:{
+        input:{
+          index:resolve(__dirname,'electron/preload/index.ts')
+        }
+      }
+    }
   },
   renderer: {
-    resolve: {
-      alias: {
-        '@renderer': resolve('src/renderer/src')
+    plugins: [vue(), UnoCSS()],
+    root:'.',
+    build:{
+      rollupOptions:{
+        input:{
+          index:resolve(__dirname,'index.html')
+        }
       }
     },
-    plugins: [vue(), UnoCSS()]
+    resolve: {
+      alias: {
+        '@': resolve(__dirname,'src/')
+      }
+    },
   }
 })

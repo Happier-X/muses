@@ -2,5 +2,5 @@
   <Normal />
 </template>
 <script setup lang="ts">
-import Normal from "@renderer/components/layout/Normal/index.vue";
+import Normal from "@/components/layout/normal/index.vue";
 </script>
