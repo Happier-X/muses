@@ -28,7 +28,8 @@
     "@unocss/reset": "^66.4.2",
     "alova": "^3.3.4",
     "electron-updater": "^6.6.2",
-    "lew-ui": "^2.7.16",
+    "element-plus": "^2.10.6",
+    "lucide-vue-next": "^0.539.0",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {

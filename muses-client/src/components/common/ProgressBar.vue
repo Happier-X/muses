@@ -1,4 +1,4 @@
 <template>
-  <lew-slider size="small" :options="{}" />
+  <el-slider />
 </template>
 <script setup lang="ts"></script>

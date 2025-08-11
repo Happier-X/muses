@@ -1,28 +1,14 @@
 <template>
   <div class="size-full flex items-center justify-center gap-2.5">
-    <lew-button
-      type="text"
-      single-icon
-      size="small"
-      v-tooltip="{
-        content: '上一曲',
-      }"
-    >
+    <el-button text size="large" class="ml-0! rounded-lg!" circle>
       <PreviousIcon class="size-5" />
-    </lew-button>
-    <lew-button type="text" single-icon size="large">
-      <PauseIcon class="size-6" />
-    </lew-button>
-    <lew-button
-      type="text"
-      single-icon
-      size="small"
-      v-tooltip="{
-        content: '下一曲',
-      }"
-    >
+    </el-button>
+    <el-button text size="large" class="ml-0! rounded-lg!" circle >
+      <PauseIcon class="size-5" />
+    </el-button>
+    <el-button text size="large" class="ml-0! rounded-lg!" circle>
       <NextIcon class="size-5" />
-    </lew-button>
+    </el-button>
   </div>
 </template>
 <script setup lang="ts">
@@ -30,8 +16,8 @@ import {
   //   Play as PlayIcon,
   SkipBack as PreviousIcon,
   SkipForward as NextIcon,
-  Pause as PauseIcon,
-} from "lucide-vue-next";
+  Pause as PauseIcon
+} from 'lucide-vue-next'
 // import { usePlayerStore } from '@/stores/player'
 // const playerStore = usePlayerStore()
 </script>

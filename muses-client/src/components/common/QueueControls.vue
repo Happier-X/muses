@@ -1,21 +1,14 @@
 <template>
   <div class="size-full flex items-center justify-end gap-2.5">
-    <lew-button type="text" single-icon size="small">
+    <el-button text size="large" class="ml-0! rounded-lg!" circle>
       <ListLoopIcon class="size-5" />
-    </lew-button>
-    <lew-button type="text" single-icon size="small">
+    </el-button>
+    <el-button text size="large" class="ml-0! rounded-lg!" circle>
       <OrderPlayIcon class="size-5" />
-    </lew-button>
-    <lew-button
-      type="text"
-      single-icon
-      size="small"
-      v-tooltip="{
-        content: '播放队列',
-      }"
-    >
+    </el-button>
+    <el-button text size="large" class="ml-0! rounded-lg!" circle>
       <PlayQueueIcon class="size-5" />
-    </lew-button>
+    </el-button>
   </div>
 </template>
 <script setup lang="ts">
@@ -24,8 +17,8 @@ import {
   Repeat1 as SingleLoopIcon,
   ListOrdered as OrderPlayIcon,
   Shuffle as ShufflePlayIcon,
-  ListMusic as PlayQueueIcon,
-} from "lucide-vue-next";
+  ListMusic as PlayQueueIcon
+} from 'lucide-vue-next'
 // import { usePlayerStore } from '@/stores/player'
 // const playerStore = usePlayerStore()
 </script>

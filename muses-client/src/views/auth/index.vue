@@ -1,97 +1,54 @@
 <template>
-  <div class="size-screen flex items-center justify-center">
-    <div class="w-1/3 h-1/2 shadow-lg p-4 flex items-center justify-center">
-      <lew-form
-        class="!min-w-0"
-        width="80%"
-        ref="formRef"
-        :options="options"
-        @mounted="setForm"
-        @change="change"
-      />
-    </div>
+  <div
+    class="size-screen bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center"
+  >
+    <el-card class="w-sm flex-col gap-6 rounded-lg">
+      <div class="text-center">
+        <h2 class="text-lg font-semibold text-gray-800">欢迎!</h2>
+      </div>
+      <el-form :model="form">
+        <el-form-item prop="username">
+          <el-input v-model="form.username" placeholder="用户名" />
+        </el-form-item>
+        <el-form-item prop="password">
+          <el-input v-model="form.password" placeholder="密码" type="password" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" class="w-full" :loading="loading" @click="handleLogin"
+            >登录</el-button
+          >
+        </el-form-item>
+      </el-form>
+    </el-card>
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { LewMessage } from 'lew-ui'
-import * as Yup from 'yup'
+import { delayLoadingMiddleware } from '@/api'
+import { login } from '@/api/methods/auth'
+import { useForm } from 'alova/client'
+import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 
-
-const form = ref({} as any)
-const formRef = ref()
-
-function submit() {
-  LewMessage.request({ loadingMessage: '处理中···' }, () => {
-    return new Promise<any>((resolve, reject) => {
-      formRef.value
-        .validate()
-        .then((vail: boolean) => {
-          if (vail) {
-            form.value = formRef.value.getForm()
-            resolve({
-              content: '加载成功！',
-              duration: 1000,
-              type: 'success',
-            })
-          }
-          else {
-            resolve({
-              content: '请完善表单',
-              duration: 1000,
-              type: 'warning',
-            })
-          }
-        })
-        .catch((err: any) => {
-          reject(err)
-        })
-    })
-  })
-}
-const options = ref([
-  {
-    field: 'input',
-    label: '用户名',
-    as: 'input',
-    rule: Yup.string().required('请输入用户名'),
+const { loading, form, send, onSuccess } = useForm((form) => login(form), {
+  initialForm: {
+    username: '',
+    password: ''
   },
-  {
-    field: 'password',
-    label: '密码',
-    as: 'input',
-    rule: Yup.string().min(6).required('请输入密码'),
-    props: {
-      type:'password'
-    },
-  },
-  {
-    as: 'button',
-    props: {
-      text: '提交',
-      request: submit,
-    },
-  },
-])
-
-function setForm() {
-  // 设置表单
-  formRef.value.setForm({
-    size: 'medium',
-  })
-}
-
-function resetForm() {
-  // 重置表单
-  formRef.value.setForm({ size: 'medium' })
-}
-
-function change() {
-  // 获取表单
-  form.value = formRef.value.getForm()
-}
-
-onMounted(() => {
-  setForm()
+  middleware: delayLoadingMiddleware()
 })
+const router = useRouter()
+onSuccess((res: any) => {
+  console.log(res)
+  if (res.data.statusCode === 201) {
+    router.push({
+      path: '/app'
+    })
+    localStorage.setItem('access_token',res.data.access_token)
+  } else {
+    ElMessage.error(res.data.message)
+  }
+})
+const handleLogin = () => {
+  send()
+}
 </script>

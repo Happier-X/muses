@@ -4,8 +4,9 @@
       <ProgressBar />
     </div>
     <div class="size-full">
-      <lew-image
-        class="h-full! w-unset! aspect-square!"
+      <el-image
+        class="h-full! w-unset! aspect-square! rounded-lg"
+        fit="cover"
         src="https://app.tngeek.com/api_sso/open/file/b4c64ae_cat-8321993_1280.webp"
       />
     </div>

@@ -1,34 +1,29 @@
 <template>
   <div class="size-full flex items-center justify-between px-2 drag">
-    <div class="flex items-center gap-1 no-drag">
-      <lew-button type="text" single-icon size="small" @click="handleBack">
+    <div class="flex items-center gap-1 no-drag" v-if="isElectron()">
+      <el-button text @click="handleBack">
         <BackIcon class="size-4" />
-      </lew-button>
-      <lew-button type="text" single-icon size="small" @click="handleForward">
+      </el-button>
+      <el-button text @click="handleForward">
         <ForwardIcon class="size-4" />
-      </lew-button>
+      </el-button>
     </div>
-    <div class="flex items-center gap-1 no-drag">
-      <lew-button type="text" single-icon size="small" @click="handleMinimize">
+    <div class="flex items-center gap-1 no-drag" v-if="isElectron()">
+      <el-button text @click="handleMinimize">
         <MinimizeIcon class="size-4" />
-      </lew-button>
-      <lew-button
-        type="text"
-        single-icon
-        size="small"
-        class="scale-x-[-1]"
-        @click="handleToggleWindowSize"
-      >
+      </el-button>
+      <el-button text class="scale-x-[-1]" @click="handleToggleWindowSize">
         <component :is="isMaximized ? RestoreIcon : MaximizeIcon" class="size-4" />
-      </lew-button>
-      <lew-button type="text" single-icon size="small" @click="handleClose">
+      </el-button>
+      <el-button text @click="handleClose">
         <CloseIcon class="size-4" />
-      </lew-button>
+      </el-button>
     </div>
   </div>
 </template>
 <script setup lang="ts">
 import { useWindowControl } from '@/composables/useWindowControl'
+import { isElectron } from '@/utils/isElectron'
 import {
   ChevronLeft as BackIcon,
   X as CloseIcon,

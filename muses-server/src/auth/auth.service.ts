@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import * as argon2 from 'argon2';
 import { RegisterDto } from './dto/register.dto';
@@ -30,6 +30,7 @@ export class AuthService {
     async login(user: any) {
         const payload = { username: user.username, sub: user.id }
         return {
+            statusCode:HttpStatus.CREATED,
             access_token: this.jwtService.sign(payload),
         }
     }
