@@ -1,6 +1,6 @@
 <template>
   <div class="size-full p-3 flex items-center relative">
-    <div class="absolute w-full left-0 top-[-1rem] overflow-hidden">
+    <div class="absolute w-full left-0 top-[-0.8rem] overflow-hidden">
       <ProgressBar />
     </div>
     <div class="size-full">

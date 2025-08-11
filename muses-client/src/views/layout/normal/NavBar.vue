@@ -1,21 +1,21 @@
 <template>
   <div class="size-full flex items-center justify-between px-2 drag">
-    <div class="flex items-center gap-1 no-drag" v-if="isElectron()">
-      <el-button text @click="handleBack">
+    <div class="flex items-center gap-1 no-drag">
+      <el-button text @click="handleBack" class="ml-0! rounded-lg!" circle>
         <BackIcon class="size-4" />
       </el-button>
-      <el-button text @click="handleForward">
+      <el-button text @click="handleForward" class="ml-0! rounded-lg!" circle>
         <ForwardIcon class="size-4" />
       </el-button>
     </div>
-    <div class="flex items-center gap-1 no-drag" v-if="isElectron()">
-      <el-button text @click="handleMinimize">
+    <div class="flex items-center gap-1 no-drag">
+      <el-button text @click="handleMinimize" class="ml-0! rounded-lg!" circle>
         <MinimizeIcon class="size-4" />
       </el-button>
-      <el-button text class="scale-x-[-1]" @click="handleToggleWindowSize">
+      <el-button text @click="handleToggleWindowSize" class="scale-x-[-1] ml-0! rounded-lg!" circle>
         <component :is="isMaximized ? RestoreIcon : MaximizeIcon" class="size-4" />
       </el-button>
-      <el-button text @click="handleClose">
+      <el-button text @click="handleClose" class="ml-0! rounded-lg!" circle>
         <CloseIcon class="size-4" />
       </el-button>
     </div>

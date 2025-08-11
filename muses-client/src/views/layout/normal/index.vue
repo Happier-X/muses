@@ -9,14 +9,15 @@
           <NavBar />
         </div>
         <div
-          class="w-full h-[calc(100%-2.5rem)] bg-[--lew-bgcolor-2] overflow-hidden p-2"
+          class="w-full h-[calc(100%-2.5rem)] bg-[var(--el-bg-color-page)] overflow-hidden p-2"
         >
           <RouterView v-slot="{ Component }">
             <KeepAlive>
-              <component
-                :is="Component"
-                class="size-full overflow-y-auto lew-scrollbar-hover"
-              ></component>
+              <el-scrollbar class="size-full overflow-y-auto">
+                <component
+                  :is="Component"
+                ></component>
+              </el-scrollbar>
             </KeepAlive>
           </RouterView>
         </div>
