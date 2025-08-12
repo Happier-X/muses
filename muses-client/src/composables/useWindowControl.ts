@@ -1,5 +1,5 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { isElectron } from '@/utils/isElectron';
+import { isWeb } from '@/utils/isWeb';
 
 export function useWindowControl() {
     // 是否最大化
@@ -8,14 +8,14 @@ export function useWindowControl() {
      * 获取窗口是否最大化
      */
     const getIsMaximized = async()=>{
-        if (isElectron() && window.api) {
+        if (!isWeb() && window.api) {
             isMaximized.value = await window.api.isMaximized();
         } else {
             isMaximized.value = false;
         }
     }
     onMounted(async () => {
-        if (isElectron()) {
+        if (!isWeb()) {
             getIsMaximized();
             window.addEventListener('resize', getIsMaximized);
         }

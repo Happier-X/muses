@@ -11,7 +11,7 @@ export const login = (data: any) => {
   return method
 }
 
-export const refreshToken = () => {
+export const refreshToken:any = () => {
   const method = alova.Get('/auth/refreshToken', {
     headers: {
       refreshToken: localStorage.getItem('refresh_token')

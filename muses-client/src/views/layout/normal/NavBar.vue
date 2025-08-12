@@ -1,6 +1,6 @@
 <template>
   <div class="size-full flex items-center justify-between px-2 drag">
-    <div class="flex items-center gap-1 no-drag">
+    <div class="flex items-center gap-1 no-drag" v-if="!isWeb()">
       <el-button text @click="handleBack" class="ml-0! rounded-lg!" circle>
         <BackIcon class="size-4" />
       </el-button>
@@ -8,7 +8,7 @@
         <ForwardIcon class="size-4" />
       </el-button>
     </div>
-    <div class="flex items-center gap-1 no-drag">
+    <div class="flex items-center gap-1 no-drag" v-if="!isWeb()">
       <el-button text @click="handleMinimize" class="ml-0! rounded-lg!" circle>
         <MinimizeIcon class="size-4" />
       </el-button>
@@ -23,7 +23,7 @@
 </template>
 <script setup lang="ts">
 import { useWindowControl } from '@/composables/useWindowControl'
-import { isElectron } from '@/utils/isElectron'
+import { isWeb } from '@/utils/isWeb'
 import {
   ChevronLeft as BackIcon,
   X as CloseIcon,
