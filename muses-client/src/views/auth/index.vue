@@ -26,27 +26,13 @@
 import { delayLoadingMiddleware } from '@/api'
 import { login } from '@/api/methods/auth'
 import { useForm } from 'alova/client'
-import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
 
-const { loading, form, send, onSuccess } = useForm((form) => login(form), {
+const { loading, form, send } = useForm((form) => login(form), {
   initialForm: {
     username: '',
     password: ''
   },
   middleware: delayLoadingMiddleware()
-})
-const router = useRouter()
-onSuccess((res: any) => {
-  console.log(res)
-  if (res.data.statusCode === 201) {
-    router.push({
-      path: '/app'
-    })
-    localStorage.setItem('access_token',res.data.access_token)
-  } else {
-    ElMessage.error(res.data.message)
-  }
 })
 const handleLogin = () => {
   send()

@@ -2,10 +2,9 @@ import { createAlova } from 'alova'
 import VueHook from 'alova/vue'
 import adapterFetch from 'alova/fetch'
 import { createServerTokenAuthentication } from 'alova/client'
-import { useRouter } from 'vue-router'
 import { refreshToken } from './methods/auth'
+import { ElMessage } from 'element-plus'
 
-const router = useRouter()
 const { onResponseRefreshToken } = createServerTokenAuthentication({
   refreshTokenOnSuccess: {
     isExpired: (response) => {
@@ -13,18 +12,24 @@ const { onResponseRefreshToken } = createServerTokenAuthentication({
     },
     handler: async () => {
       try {
-        const { access_token, refresh_token } = await refreshToken()
-        localStorage.setItem('access_token', access_token)
-        localStorage.setItem('refresh_token', refresh_token)
+        const res = await refreshToken()
+        localStorage.setItem('access_token', res.data.access_token)
+        localStorage.setItem('refresh_token', res.data.refresh_token)
       } catch (error) {
-        router.push('/auth')
+        location.href = '/auth'
         throw error
       }
     }
   },
-  login(response: any) {
-    localStorage.setItem('access_token', response.access_token)
-    localStorage.setItem('refresh_token', response.refresh_token)
+  async login(response: any) {
+    const res = await response.clone().json()
+    if (res.statusCode === 201) {
+      localStorage.setItem('access_token', res.access_token)
+      localStorage.setItem('refresh_token', res.refresh_token)
+      location.href = '/app'
+    } else {
+      ElMessage.error(res.message)
+    }
   },
   assignToken: (method) => {
     method.config.headers.Authorization = localStorage.getItem('access_token')
