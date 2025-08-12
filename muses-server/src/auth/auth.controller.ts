@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { Public } from './decorator/auth.decorator';
@@ -20,5 +20,10 @@ export class AuthController {
     @Post('register')
     register(@Body() registerObj: RegisterDto) {
         return this.authService.register(registerObj);
+    }
+
+    @Get('refreshToken')
+    refreshToken(@Req() req: Request) {
+        return this.authService.refreshToken(req.headers.refreshToken as string);
     }
 }
