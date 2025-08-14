@@ -21,7 +21,7 @@
         "build:mac": "npm run build && electron-builder --mac",
         "build:linux": "npm run build && electron-builder --linux",
         "build:web": "vite build",
-        "prepare": "husky"
+        "prepare": "cd .. && husky muses-client/.husky"
     },
     "dependencies": {
         "@electron-toolkit/preload": "^3.0.2",

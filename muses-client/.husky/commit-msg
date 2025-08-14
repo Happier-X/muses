@@ -1,1 +1,2 @@
+cd muses-client
 npx --no-install commitlint --edit $1

@@ -1,1 +1,2 @@
+cd muses-client
 npx lint-staged
