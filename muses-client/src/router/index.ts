@@ -14,7 +14,7 @@ const routes = [
         path: '/app',
         name: 'app',
         redirect:'/app/home',
-        component: () => import('@/views/layout/normal/index.vue'),
+        component: () => import('@/views/layout/index.vue'),
         children: [
             {
                 path: 'home',

@@ -3,7 +3,6 @@ import VueHook from 'alova/vue'
 import adapterFetch from 'alova/fetch'
 import { createServerTokenAuthentication } from 'alova/client'
 import { refreshToken } from './methods/auth'
-import { ElMessage } from 'element-plus'
 
 const { onResponseRefreshToken } = createServerTokenAuthentication({
   refreshTokenOnSuccess: {
@@ -28,7 +27,7 @@ const { onResponseRefreshToken } = createServerTokenAuthentication({
       localStorage.setItem('refresh_token', res.refresh_token)
       location.href = '/app'
     } else {
-      ElMessage.error(res.message)
+      window.$message.error(res.message)
     }
   },
   assignToken: (method) => {

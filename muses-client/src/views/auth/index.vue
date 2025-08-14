@@ -2,24 +2,24 @@
   <div
     class="size-screen bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center"
   >
-    <el-card class="w-sm flex-col gap-6 rounded-lg">
+    <n-card class="w-sm flex-col gap-6 rounded-lg" hoverable>
       <div class="text-center">
         <h2 class="text-lg font-semibold text-gray-800">欢迎!</h2>
       </div>
-      <el-form :model="form">
-        <el-form-item prop="username">
-          <el-input v-model="form.username" placeholder="用户名" />
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input v-model="form.password" placeholder="密码" type="password" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" class="w-full" :loading="loading" @click="handleLogin"
-            >登录</el-button
+      <n-form :model="form">
+        <n-form-item>
+          <n-input v-model:value="form.username" placeholder="用户名" />
+        </n-form-item>
+        <n-form-item>
+          <n-input v-model:value="form.password" placeholder="密码" type="password" />
+        </n-form-item>
+        <n-form-item>
+          <n-button type="primary" class="w-full" :loading="loading" @click="handleLogin"
+            >登录</n-button
           >
-        </el-form-item>
-      </el-form>
-    </el-card>
+        </n-form-item>
+      </n-form>
+    </n-card>
   </div>
 </template>
 <script setup lang="ts">
