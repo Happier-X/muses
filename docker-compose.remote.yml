@@ -2,9 +2,5 @@
 # 使用方式: docker-compose -f docker-compose.yml -f docker-compose.remote.yml up -d
 
 services:
-  music-api:
-    image: ${DOCKERHUB_USERNAME}/muses-backend:latest
-    build:  # 保留 build 配置但不使用
-
-  web:
-    image: ${DOCKERHUB_USERNAME}/muses-web:latest
+  muses:
+    image: ${DOCKERHUB_USERNAME}/muses:latest

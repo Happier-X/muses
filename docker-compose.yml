@@ -5,34 +5,26 @@ version: '3.8'
 # 2. 使用 Docker Hub 镜像: docker-compose -f docker-compose.yml -f docker-compose.remote.yml up -d
 
 services:
-  music-api:
-    build: ./backend
-    image: ${DOCKERHUB_USERNAME:-yourusername}/muses-backend:latest
-    container_name: muses-api
+  muses:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME:-yourusername}/muses:latest
+    container_name: muses
     ports:
-      - "3000:3000"
+      - "80:80"
     volumes:
       - /path/to/your/music:/music:ro
-      - ./data/database:/app/data
-      - ./data/cache:/app/cache
+      - ./data/database:/app/backend/data
+      - ./data/cache:/app/backend/cache
     environment:
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:-change-this-to-a-secure-random-string}
       - DATABASE_URL=file:./data/database.db
       - MUSIC_PATH=/music
-      - TRANSCODE_CACHE_PATH=/app/cache
+      - TRANSCODE_CACHE_PATH=/app/backend/cache
       - PORT=3000
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:80}
-    restart: unless-stopped
-
-  web:
-    build: ./web
-    image: ${DOCKERHUB_USERNAME:-yourusername}/muses-web:latest
-    container_name: muses-web
-    ports:
-      - "80:80"
-    depends_on:
-      - music-api
     restart: unless-stopped
 
 volumes:
