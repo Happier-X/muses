@@ -1,0 +1,93 @@
+<template>
+  <view class="page">
+    <view class="header">
+      <image class="cover" :src="artist.cover_art || '/static/logo.png'" />
+      <text class="name">{{ artist.name }}</text>
+    </view>
+    <view class="songs">
+      <text class="section-title">歌曲</text>
+      <view v-for="song in artist.songs" :key="song.id" class="song-item" @click="playSong(song)">
+        <text class="title">{{ song.title }}</text>
+        <text class="duration">{{ formatDuration(song.duration) }}</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+import { api } from '@/utils/api.js';
+import { playSong } from '@/utils/player.js';
+
+const artist = ref({});
+
+uni.onLoad((options) => {
+  loadArtist(options.id);
+});
+
+async function loadArtist(id) {
+  try {
+    artist.value = await api.getArtist(id);
+  } catch (err) {
+    uni.showToast({ title: '加载失败', icon: 'none' });
+  }
+}
+
+function playSong(song) {
+  playSong(song, artist.value.songs || []);
+}
+
+function formatDuration(seconds) {
+  if (!seconds) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+</script>
+
+<style>
+.page {
+  flex: 1;
+  background-color: #f5f5f5;
+}
+.header {
+  align-items: center;
+  padding: 30px;
+  background-color: #fff;
+}
+.cover {
+  width: 150px;
+  height: 150px;
+  border-radius: 8px;
+}
+.name {
+  font-size: 20px;
+  font-weight: bold;
+  margin-top: 16px;
+}
+.songs {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: #fff;
+}
+.section-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+.song-item {
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom-width: 1px;
+  border-bottom-color: #f5f5f5;
+}
+.title {
+  font-size: 14px;
+  color: #333;
+}
+.duration {
+  font-size: 12px;
+  color: #999;
+}
+</style>

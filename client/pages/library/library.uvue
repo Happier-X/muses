@@ -1,0 +1,157 @@
+<template>
+  <view class="page">
+    <view class="tabs">
+      <text
+        v-for="tab in tabs"
+        :key="tab.key"
+        :class="['tab', { active: currentTab === tab.key }]"
+        @click="currentTab = tab.key"
+      >{{ tab.label }}</text>
+    </view>
+
+    <view v-if="currentTab === 'artists'" class="list">
+      <view v-for="artist in artists" :key="artist.id" class="item" @click="goArtist(artist)">
+        <image class="cover" :src="artist.cover_art || '/static/logo.png'" />
+        <text class="name">{{ artist.name }}</text>
+      </view>
+    </view>
+
+    <view v-if="currentTab === 'albums'" class="list">
+      <view v-for="album in albums" :key="album.id" class="item" @click="goAlbum(album)">
+        <image class="cover" :src="album.cover_art || '/static/logo.png'" />
+        <view class="album-info">
+          <text class="name">{{ album.title }}</text>
+          <text class="sub">{{ album.artist?.name }}</text>
+        </view>
+      </view>
+    </view>
+
+    <view v-if="currentTab === 'songs'" class="list">
+      <view v-for="song in songs" :key="song.id" class="song-item" @click="playSong(song)">
+        <text class="title">{{ song.title }}</text>
+        <text class="sub">{{ song.artist?.name }} - {{ song.album?.title }}</text>
+      </view>
+    </view>
+
+    <PlayerBar v-if="currentSong" />
+  </view>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import { api } from '@/utils/api.js';
+import { playSong as playSongFunc } from '@/utils/player.js';
+import { getCurrentSong } from '@/utils/player.js';
+import PlayerBar from '@/components/PlayerBar.uvue';
+
+const currentTab = ref('songs');
+const tabs = [
+  { key: 'songs', label: '歌曲' },
+  { key: 'albums', label: '专辑' },
+  { key: 'artists', label: '艺术家' }
+];
+
+const artists = ref([]);
+const albums = ref([]);
+const songs = ref([]);
+const currentSong = ref(null);
+
+onMounted(async () => {
+  currentSong.value = getCurrentSong();
+  try {
+    const [artistsRes, albumsRes, songsRes] = await Promise.all([
+      api.getArtists(),
+      api.getAlbums(),
+      api.getSongs()
+    ]);
+    artists.value = artistsRes;
+    albums.value = albumsRes;
+    songs.value = songsRes;
+  } catch (err) {
+    uni.showToast({ title: '加载失败', icon: 'none' });
+  }
+});
+
+function goArtist(artist) {
+  uni.navigateTo({ url: `/pages/library/artists?id=${artist.id}` });
+}
+
+function goAlbum(album) {
+  uni.navigateTo({ url: `/pages/library/albums?id=${album.id}` });
+}
+
+function playSong(song) {
+  playSongFunc(song, songs.value);
+}
+</script>
+
+<style>
+.page {
+  flex: 1;
+  background-color: #f5f5f5;
+  padding-bottom: 60px;
+}
+.tabs {
+  flex-direction: row;
+  background-color: #fff;
+  padding: 12px;
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+  padding-bottom: 8px;
+}
+.tab.active {
+  color: #1DB954;
+  border-bottom-width: 2px;
+  border-bottom-color: #1DB954;
+}
+.list {
+  padding: 12px;
+}
+.item {
+  flex-direction: row;
+  align-items: center;
+  padding: 12px;
+  background-color: #fff;
+  margin-bottom: 8px;
+  border-radius: 8px;
+}
+.cover {
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+}
+.name {
+  font-size: 14px;
+  color: #333;
+  margin-left: 12px;
+}
+.album-info {
+  flex: 1;
+  margin-left: 12px;
+}
+.sub {
+  font-size: 12px;
+  color: #999;
+  margin-left: 8px;
+}
+.song-item {
+  flex-direction: column;
+  padding: 12px;
+  background-color: #fff;
+  margin-bottom: 8px;
+  border-radius: 8px;
+}
+.title {
+  font-size: 14px;
+  color: #333;
+}
+.sub {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+</style>
