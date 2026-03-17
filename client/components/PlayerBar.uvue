@@ -6,101 +6,132 @@
       <text class="artist">{{ artistText }}</text>
     </view>
     <view class="controls">
-      <text class="icon" @click.stop="togglePlay">{{ isPlaying ? '⏸' : '▶' }}</text>
+      <text class="icon" @click.stop="togglePlay">{{ isPlayingText }}</text>
       <text class="icon" @click.stop="playNext">⏭</text>
     </view>
   </view>
 </template>
 
-<script setup>
-import { ref, onMounted, computed } from 'vue';
+<script setup lang="uts">
+	import { ref, onMounted, computed } from 'vue'
 
-const song = ref(null);
-const isPlaying = ref(false);
+	type AlbumType = {
+		id?: number
+		title?: string
+		cover_art?: string
+	}
 
-const coverUrl = computed((): string => {
-  if (song.value != null && song.value.album != null && song.value.album.cover_art != null) {
-    return song.value.album.cover_art;
-  }
-  return '/static/logo.png';
-});
+	type ArtistType = {
+		id?: number
+		name?: string
+	}
 
-const titleText = computed((): string => {
-  if (song.value != null && song.value.title != null) {
-    return song.value.title;
-  }
-  return '未在播放';
-});
+	type SongType = {
+		id?: number
+		title?: string
+		album?: AlbumType
+		artist?: ArtistType
+		duration?: number
+	}
 
-const artistText = computed((): string => {
-  if (song.value != null && song.value.artist != null && song.value.artist.name != null) {
-    return song.value.artist.name;
-  }
-  return '';
-});
+	const song = ref<SongType | null>(null)
+	const isPlaying = ref(false)
 
-onMounted(() => {
-  song.value = uni.$player.getCurrentSong();
-  isPlaying.value = uni.$player.getIsPlaying();
+	function getApiUrl(): string {
+		const url = uni.getStorageSync('apiUrl') as string
+		if (url != null && url !== '') {
+			return url
+		}
+		return 'http://localhost:3000'
+	}
 
-  uni.$on('player-change', (s) => {
-    song.value = s;
-    isPlaying.value = true;
-  });
+	const coverUrl = computed((): string => {
+		if (song.value != null && song.value.album != null && song.value.album.cover_art != null) {
+			return song.value.album.cover_art
+		}
+		return '/static/logo.png'
+	})
 
-  uni.$on('player-play', () => isPlaying.value = true);
-  uni.$on('player-pause', () => isPlaying.value = false);
-});
+	const titleText = computed((): string => {
+		if (song.value != null && song.value.title != null) {
+			return song.value.title
+		}
+		return '未在播放'
+	})
 
-function togglePlay() {
-  if (isPlaying.value) {
-    uni.$player.pause();
-  } else {
-    uni.$player.resume();
-  }
-}
+	const artistText = computed((): string => {
+		if (song.value != null && song.value.artist != null && song.value.artist.name != null) {
+			return song.value.artist.name
+		}
+		return ''
+	})
 
-function goPlayer() {
-  uni.navigateTo({ url: '/pages/player/player' });
-}
+	const isPlayingText = computed((): string => {
+		return isPlaying.value ? '⏸' : '▶'
+	})
+
+	function loadState() {
+		const songData = uni.getStorageSync('currentSong')
+		if (songData != null && songData !== '') {
+			song.value = songData as SongType
+		}
+		isPlaying.value = uni.getStorageSync('isPlaying') == true
+	}
+
+	onMounted(() => {
+		loadState()
+	})
+
+	function togglePlay() {
+		isPlaying.value = !isPlaying.value
+		uni.setStorageSync('isPlaying', isPlaying.value)
+	}
+
+	function playNext() {
+		uni.$emit('player-next', {})
+	}
+
+	function goPlayer() {
+		uni.navigateTo({ url: '/pages/player/player' })
+	}
 </script>
 
 <style>
 .player-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  background-color: #fff;
-  flex-direction: row;
-  align-items: center;
-  padding: 0 16px;
-  border-top-width: 1px;
-  border-top-color: #eee;
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 60px;
+	background-color: #fff;
+	flex-direction: row;
+	align-items: center;
+	padding: 0 16px;
+	border-top-width: 1px;
+	border-top-color: #eee;
 }
 .cover {
-  width: 44px;
-  height: 44px;
-  border-radius: 4px;
+	width: 44px;
+	height: 44px;
+	border-radius: 4px;
 }
 .info {
-  flex: 1;
-  margin-left: 12px;
+	flex: 1;
+	margin-left: 12px;
 }
 .title {
-  font-size: 14px;
-  color: #333;
+	font-size: 14px;
+	color: #333;
 }
 .artist {
-  font-size: 12px;
-  color: #999;
+	font-size: 12px;
+	color: #999;
 }
 .controls {
-  flex-direction: row;
+	flex-direction: row;
 }
 .icon {
-  font-size: 24px;
-  margin-left: 16px;
+	font-size: 24px;
+	margin-left: 16px;
 }
 </style>

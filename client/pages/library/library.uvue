@@ -33,178 +33,242 @@
       </view>
     </view>
 
-    <PlayerBar v-if="currentSong != null" />
+    <PlayerBar v-if="hasCurrentSong" />
   </view>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue';
-import PlayerBar from '../../components/PlayerBar.uvue';
+<script setup lang="uts">
+	import { ref, onMounted, computed } from 'vue'
+	import PlayerBar from '../../components/PlayerBar.uvue'
 
-const currentTab = ref('songs');
-const tabs = [
-  { key: 'songs', label: '歌曲' },
-  { key: 'albums', label: '专辑' },
-  { key: 'artists', label: '艺术家' }
-];
+	type ArtistType = {
+		id: number
+		name: string
+		cover_art?: string
+	}
 
-const artists = ref([]);
-const albums = ref([]);
-const songs = ref([]);
-const currentSong = ref(null);
+	type AlbumType = {
+		id: number
+		title: string
+		cover_art?: string
+		artist?: ArtistType
+	}
 
-function getArtistCover(artist: any): string {
-  if (artist != null && artist.cover_art != null) {
-    return artist.cover_art;
-  }
-  return '/static/logo.png';
-}
+	type SongType = {
+		id: number
+		title: string
+		album?: AlbumType
+		artist?: ArtistType
+		duration?: number
+	}
 
-function getArtistName(artist: any): string {
-  if (artist != null && artist.name != null) {
-    return artist.name;
-  }
-  return '';
-}
+	type ResponseData = {
+		data: any
+		statusCode: number
+	}
 
-function getAlbumCover(album: any): string {
-  if (album != null && album.cover_art != null) {
-    return album.cover_art;
-  }
-  return '/static/logo.png';
-}
+	type TabType = {
+		key: string
+		label: string
+	}
 
-function getAlbumTitle(album: any): string {
-  if (album != null && album.title != null) {
-    return album.title;
-  }
-  return '';
-}
+	const currentTab = ref('songs')
+	const tabs: TabType[] = [
+		{ key: 'songs', label: '歌曲' },
+		{ key: 'albums', label: '专辑' },
+		{ key: 'artists', label: '艺术家' }
+	]
 
-function getAlbumArtist(album: any): string {
-  if (album != null && album.artist != null && album.artist.name != null) {
-    return album.artist.name;
-  }
-  return '';
-}
+	const artists = ref<ArtistType[]>([])
+	const albums = ref<AlbumType[]>([])
+	const songs = ref<SongType[]>([])
 
-function getSongTitle(song: any): string {
-  if (song != null && song.title != null) {
-    return song.title;
-  }
-  return '';
-}
+	function getApiUrl(): string {
+		const url = uni.getStorageSync('apiUrl') as string
+		if (url != null && url !== '') {
+			return url
+		}
+		return 'http://localhost:3000'
+	}
 
-function getSongArtistAlbum(song: any): string {
-  let result = '';
-  if (song != null && song.artist != null && song.artist.name != null) {
-    result = song.artist.name;
-  }
-  if (song != null && song.album != null && song.album.title != null) {
-    if (result.length > 0) {
-      result += ' - ';
-    }
-    result += song.album.title;
-  }
-  return result;
-}
+	const hasCurrentSong = computed((): boolean => {
+		const songData = uni.getStorageSync('currentSong')
+		return songData != null && songData !== ''
+	})
 
-onMounted(async () => {
-  currentSong.value = uni.$player.getCurrentSong();
-  try {
-    const [artistsRes, albumsRes, songsRes] = await Promise.all([
-      uni.$api.getArtists(),
-      uni.$api.getAlbums(),
-      uni.$api.getSongs()
-    ]);
-    artists.value = artistsRes;
-    albums.value = albumsRes;
-    songs.value = songsRes;
-  } catch (err) {
-    uni.showToast({ title: '加载失败', icon: 'none' });
-  }
-});
+	function getArtistCover(artist: ArtistType): string {
+		if (artist != null && artist.cover_art != null) {
+			return artist.cover_art
+		}
+		return '/static/logo.png'
+	}
 
-function goArtist(artist: any) {
-  uni.navigateTo({ url: `/pages/library/artists?id=${artist.id}` });
-}
+	function getArtistName(artist: ArtistType): string {
+		if (artist != null && artist.name != null) {
+			return artist.name
+		}
+		return ''
+	}
 
-function goAlbum(album: any) {
-  uni.navigateTo({ url: `/pages/library/albums?id=${album.id}` });
-}
+	function getAlbumCover(album: AlbumType): string {
+		if (album != null && album.cover_art != null) {
+			return album.cover_art
+		}
+		return '/static/logo.png'
+	}
 
-function playSong(song: any) {
-  uni.$player.playSong(song);
-}
+	function getAlbumTitle(album: AlbumType): string {
+		if (album != null && album.title != null) {
+			return album.title
+		}
+		return ''
+	}
+
+	function getAlbumArtist(album: AlbumType): string {
+		if (album != null && album.artist != null && album.artist.name != null) {
+			return album.artist.name
+		}
+		return ''
+	}
+
+	function getSongTitle(song: SongType): string {
+		if (song != null && song.title != null) {
+			return song.title
+		}
+		return ''
+	}
+
+	function getSongArtistAlbum(song: SongType): string {
+		let result = ''
+		if (song != null && song.artist != null && song.artist.name != null) {
+			result = song.artist.name
+		}
+		if (song != null && song.album != null && song.album.title != null) {
+			if (result.length > 0) {
+				result += ' - '
+			}
+			result += song.album.title
+		}
+		return result
+	}
+
+	function loadData(): void {
+		uni.request({
+			url: getApiUrl() + '/api/artists',
+			method: 'GET',
+			success: (res) => {
+				if ((res as ResponseData).statusCode == 200) {
+					artists.value = (res as ResponseData).data as ArtistType[]
+				}
+			}
+		})
+		uni.request({
+			url: getApiUrl() + '/api/albums',
+			method: 'GET',
+			success: (res) => {
+				if ((res as ResponseData).statusCode == 200) {
+					albums.value = (res as ResponseData).data as AlbumType[]
+				}
+			}
+		})
+		uni.request({
+			url: getApiUrl() + '/api/songs',
+			method: 'GET',
+			success: (res) => {
+				if ((res as ResponseData).statusCode == 200) {
+					songs.value = (res as ResponseData).data as SongType[]
+				}
+			},
+			fail: () => {
+				uni.showToast({ title: '加载失败', icon: 'none' })
+			}
+		})
+	}
+
+	onMounted(() => {
+		loadData()
+	})
+
+	function goArtist(artist: ArtistType) {
+		uni.navigateTo({ url: '/pages/library/artists?id=' + artist.id })
+	}
+
+	function goAlbum(album: AlbumType) {
+		uni.navigateTo({ url: '/pages/library/albums?id=' + album.id })
+	}
+
+	function playSong(song: SongType) {
+		uni.setStorageSync('currentSong', song)
+	}
 </script>
 
 <style>
 .page {
-  flex: 1;
-  background-color: #f5f5f5;
-  padding-bottom: 60px;
+	flex: 1;
+	background-color: #f5f5f5;
+	padding-bottom: 60px;
 }
 .tabs {
-  flex-direction: row;
-  background-color: #fff;
-  padding: 12px;
+	flex-direction: row;
+	background-color: #fff;
+	padding: 12px;
 }
 .tab {
-  flex: 1;
-  text-align: center;
-  font-size: 14px;
-  color: #666;
-  padding-bottom: 8px;
+	flex: 1;
+	text-align: center;
+	font-size: 14px;
+	color: #666;
+	padding-bottom: 8px;
 }
 .tab.active {
-  color: #1DB954;
-  border-bottom-width: 2px;
-  border-bottom-color: #1DB954;
+	color: #1DB954;
+	border-bottom-width: 2px;
+	border-bottom-color: #1DB954;
 }
 .list {
-  padding: 12px;
+	padding: 12px;
 }
 .item {
-  flex-direction: row;
-  align-items: center;
-  padding: 12px;
-  background-color: #fff;
-  margin-bottom: 8px;
-  border-radius: 8px;
+	flex-direction: row;
+	align-items: center;
+	padding: 12px;
+	background-color: #fff;
+	margin-bottom: 8px;
+	border-radius: 8px;
 }
 .cover {
-  width: 50px;
-  height: 50px;
-  border-radius: 4px;
+	width: 50px;
+	height: 50px;
+	border-radius: 4px;
 }
 .name {
-  font-size: 14px;
-  color: #333;
-  margin-left: 12px;
+	font-size: 14px;
+	color: #333;
+	margin-left: 12px;
 }
 .album-info {
-  flex: 1;
-  margin-left: 12px;
+	flex: 1;
+	margin-left: 12px;
 }
 .sub {
-  font-size: 12px;
-  color: #999;
-  margin-left: 8px;
+	font-size: 12px;
+	color: #999;
+	margin-left: 8px;
 }
 .song-item {
-  flex-direction: column;
-  padding: 12px;
-  background-color: #fff;
-  margin-bottom: 8px;
-  border-radius: 8px;
+	flex-direction: column;
+	padding: 12px;
+	background-color: #fff;
+	margin-bottom: 8px;
+	border-radius: 8px;
 }
 .title {
-  font-size: 14px;
-  color: #333;
+	font-size: 14px;
+	color: #333;
 }
 .sub {
-  font-size: 12px;
-  color: #999;
-  margin-top: 4px;
+	font-size: 12px;
+	color: #999;
+	margin-top: 4px;
 }
 </style>

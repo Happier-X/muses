@@ -20,114 +20,158 @@
       </view>
     </view>
 
-    <button v-if="isLoggedIn" class="btn-logout" @click="handleLogout">退出登录</button>
+    <button v-if="isLoggedInValue" class="btn-logout" @click="handleLogout">退出登录</button>
 
-    <PlayerBar v-if="currentSong != null" />
+    <PlayerBar v-if="hasCurrentSong" />
   </view>
 </template>
 
-<script setup>
-import { ref, onMounted, computed } from 'vue';
-import PlayerBar from '../../components/PlayerBar.uvue';
+<script setup lang="uts">
+	import { ref, onMounted, computed } from 'vue'
+	import PlayerBar from '../../components/PlayerBar.uvue'
 
-const user = ref(null);
-const currentSong = ref(null);
+	type UserType = {
+		username?: string
+	}
 
-const isLoggedIn = computed((): boolean => {
-  return uni.$auth.isLoggedIn();
-});
+	type ResponseData = {
+		data: any
+		statusCode: number
+	}
 
-const usernameText = computed((): string => {
-  if (user.value != null && user.value.username != null) {
-    return user.value.username;
-  }
-  return '未登录';
-});
+	const isLoggedInValue = ref(false)
+	const hasCurrentSong = computed((): boolean => {
+		const songData = uni.getStorageSync('currentSong')
+		return songData != null && songData !== ''
+	})
 
-onMounted(async () => {
-  currentSong.value = uni.$player.getCurrentSong();
-  if (uni.$auth.isLoggedIn()) {
-    try {
-      user.value = await uni.$api.getMe();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-});
+	const usernameText = computed((): string => {
+		const userData = uni.getStorageSync('user')
+		if (userData != null && userData !== '') {
+			const user = userData as UserType
+			if (user.username != null) {
+				return user.username
+			}
+		}
+		return '未登录'
+	})
 
-function goFavorites() {
-  if (!uni.$auth.isLoggedIn()) {
-    goLogin();
-    return;
-  }
-  uni.navigateTo({ url: '/pages/library/songs?type=favorites' });
-}
+	function getApiUrl(): string {
+		const url = uni.getStorageSync('apiUrl') as string
+		if (url != null && url !== '') {
+			return url
+		}
+		return 'http://localhost:3000'
+	}
 
-function goPlaylists() {
-  if (!uni.$auth.isLoggedIn()) {
-    goLogin();
-    return;
-  }
-  uni.navigateTo({ url: '/pages/profile/playlists' });
-}
+	function getAuthHeader(): UTSJSONObject {
+		const header: UTSJSONObject = {}
+		const token = uni.getStorageSync('token')
+		if (token != null && token !== '') {
+			header['Authorization'] = 'Bearer ' + token
+		}
+		return header
+	}
 
-function goSettings() {
-  uni.navigateTo({ url: '/pages/profile/settings' });
-}
+	function loadUser(): void {
+		const token = uni.getStorageSync('token')
+		isLoggedInValue.value = token != null && token !== ''
 
-function goLogin() {
-  uni.navigateTo({ url: '/pages/login/login' });
-}
+		if (isLoggedInValue.value) {
+			uni.request({
+				url: getApiUrl() + '/api/users/me',
+				method: 'GET',
+				header: getAuthHeader(),
+				success: (res) => {
+					if ((res as ResponseData).statusCode == 200) {
+						uni.setStorageSync('user', (res as ResponseData).data)
+					}
+				},
+				fail: (err) => {
+					console.error(err)
+				}
+			})
+		}
+	}
 
-function handleLogout() {
-  uni.$auth.removeToken();
-  user.value = null;
-  uni.switchTab({ url: '/pages/index/index' });
-}
+	onMounted(() => {
+		loadUser()
+	})
+
+	function goLogin() {
+		uni.navigateTo({ url: '/pages/login/login' })
+	}
+
+	function goFavorites() {
+		if (!isLoggedInValue.value) {
+			goLogin()
+			return
+		}
+		uni.navigateTo({ url: '/pages/library/songs?type=favorites' })
+	}
+
+	function goPlaylists() {
+		if (!isLoggedInValue.value) {
+			goLogin()
+			return
+		}
+		uni.navigateTo({ url: '/pages/profile/playlists' })
+	}
+
+	function goSettings() {
+		uni.navigateTo({ url: '/pages/profile/settings' })
+	}
+
+	function handleLogout() {
+		uni.removeStorageSync('token')
+		uni.removeStorageSync('user')
+		isLoggedInValue.value = false
+		uni.switchTab({ url: '/pages/index/index' })
+	}
 </script>
 
 <style>
 .page {
-  flex: 1;
-  background-color: #f5f5f5;
-  padding-bottom: 60px;
+	flex: 1;
+	background-color: #f5f5f5;
+	padding-bottom: 60px;
 }
 .user-info {
-  align-items: center;
-  padding: 40px;
-  background-color: #fff;
+	align-items: center;
+	padding: 40px;
+	background-color: #fff;
 }
 .avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 40px;
+	width: 80px;
+	height: 80px;
+	border-radius: 40px;
 }
 .username {
-  font-size: 18px;
-  font-weight: bold;
-  margin-top: 12px;
+	font-size: 18px;
+	font-weight: bold;
+	margin-top: 12px;
 }
 .menu {
-  margin-top: 16px;
-  background-color: #fff;
+	margin-top: 16px;
+	background-color: #fff;
 }
 .menu-item {
-  flex-direction: row;
-  justify-content: space-between;
-  padding: 16px;
-  border-bottom-width: 1px;
-  border-bottom-color: #f5f5f5;
+	flex-direction: row;
+	justify-content: space-between;
+	padding: 16px;
+	border-bottom-width: 1px;
+	border-bottom-color: #f5f5f5;
 }
 .label {
-  font-size: 14px;
-  color: #333;
+	font-size: 14px;
+	color: #333;
 }
 .arrow {
-  color: #999;
+	color: #999;
 }
 .btn-logout {
-  margin: 30px 16px;
-  background-color: #fff;
-  color: #f00;
+	margin: 30px 16px;
+	background-color: #fff;
+	color: #f00;
 }
 </style>

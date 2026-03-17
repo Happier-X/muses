@@ -16,53 +16,65 @@
   </view>
 </template>
 
-<script setup>
-import { ref } from 'vue';
+<script setup lang="uts">
+	import { ref, onMounted } from 'vue'
 
-const apiUrl = ref(uni.getStorageSync('apiUrl') || '');
+	const apiUrl = ref('')
 
-function saveApiUrl() {
-  uni.setStorageSync('apiUrl', apiUrl.value);
-  uni.showToast({ title: '保存成功' });
-}
+	function getApiUrl(): string {
+		const url = uni.getStorageSync('apiUrl') as string
+		if (url != null && url !== '') {
+			return url
+		}
+		return 'http://localhost:3000'
+	}
+
+	onMounted(() => {
+		apiUrl.value = getApiUrl()
+	})
+
+	function saveApiUrl() {
+		uni.setStorageSync('apiUrl', apiUrl.value)
+		uni.showToast({ title: '保存成功' })
+	}
 </script>
 
 <style>
 .page {
-  flex: 1;
-  background-color: #f5f5f5;
+	flex: 1;
+	background-color: #f5f5f5;
 }
 .section {
-  margin-top: 16px;
-  padding: 16px;
-  background-color: #fff;
+	margin-top: 16px;
+	padding: 16px;
+	background-color: #fff;
 }
 .section-title {
-  font-size: 14px;
-  color: #999;
-  margin-bottom: 12px;
+	font-size: 14px;
+	color: #999;
+	margin-bottom: 12px;
 }
 .item {
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 12px;
+	flex-direction: row;
+	align-items: center;
+	margin-bottom: 12px;
 }
 .label {
-  font-size: 14px;
-  color: #333;
-  width: 80px;
+	font-size: 14px;
+	color: #333;
+	width: 80px;
 }
 .input {
-  flex: 1;
-  font-size: 14px;
+	flex: 1;
+	font-size: 14px;
 }
 .btn-save {
-  background-color: #1DB954;
-  color: #fff;
-  margin-top: 12px;
+	background-color: #1DB954;
+	color: #fff;
+	margin-top: 12px;
 }
 .version {
-  font-size: 12px;
-  color: #999;
+	font-size: 12px;
+	color: #999;
 }
 </style>

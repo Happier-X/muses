@@ -15,125 +15,170 @@
   </view>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue';
+<script setup lang="uts">
+	import { ref, computed, onLoad } from 'vue'
 
-const album = ref({});
+	type ArtistType = {
+		id: number
+		name: string
+		cover_art?: string
+	}
 
-const albumCover = computed((): string => {
-  if (album.value != null && album.value.cover_art != null) {
-    return album.value.cover_art;
-  }
-  return '/static/logo.png';
-});
+	type AlbumType = {
+		id: number
+		title: string
+		cover_art?: string
+		artist?: ArtistType
+		songs?: SongType[]
+	}
 
-const albumTitle = computed((): string => {
-  if (album.value != null && album.value.title != null) {
-    return album.value.title;
-  }
-  return '';
-});
+	type SongType = {
+		id: number
+		title: string
+		album?: AlbumType
+		artist?: ArtistType
+		duration?: number
+	}
 
-const albumArtist = computed((): string => {
-  if (album.value != null && album.value.artist != null && album.value.artist.name != null) {
-    return album.value.artist.name;
-  }
-  return '';
-});
+	type ResponseData = {
+		data: any
+		statusCode: number
+	}
+	}
 
-const albumSongs = computed((): any[] => {
-  if (album.value != null && album.value.songs != null) {
-    return album.value.songs;
-  }
-  return [];
-});
+	const album = ref<AlbumType | null>(null)
 
-function getSongTitle(song: any): string {
-  if (song != null && song.title != null) {
-    return song.title;
-  }
-  return '';
-}
+	function getApiUrl(): string {
+		const url = uni.getStorageSync('apiUrl') as string
+		if (url != null && url !== '') {
+			return url
+		}
+		return 'http://localhost:3000'
+	}
 
-function getSongDuration(song: any): number {
-  if (song != null && song.duration != null) {
-    return song.duration;
-  }
-  return 0;
-}
+	const albumCover = computed((): string => {
+		if (album.value != null && album.value.cover_art != null) {
+			return album.value.cover_art
+		}
+		return '/static/logo.png'
+	})
 
-uni.onLoad((options) => {
-  loadAlbum(options.id);
-});
+	const albumTitle = computed((): string => {
+		if (album.value != null && album.value.title != null) {
+			return album.value.title
+		}
+		return ''
+	})
 
-async function loadAlbum(id: string) {
-  try {
-    album.value = await uni.$api.getAlbum(parseInt(id));
-  } catch (err) {
-    uni.showToast({ title: '加载失败', icon: 'none' });
-  }
-}
+	const albumArtist = computed((): string => {
+		if (album.value != null && album.value.artist != null && album.value.artist.name != null) {
+			return album.value.artist.name
+		}
+		return ''
+	})
 
-function playSong(song: any) {
-  uni.$player.playSong(song);
-}
+	const albumSongs = computed((): SongType[] => {
+		if (album.value != null && album.value.songs != null) {
+			return album.value.songs
+		}
+		return []
+	})
 
-function formatDuration(seconds: number): string {
-  if (seconds == null || seconds <= 0) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
+	function getSongTitle(song: SongType): string {
+		if (song != null && song.title != null) {
+			return song.title
+		}
+		return ''
+	}
+
+	function getSongDuration(song: SongType): number {
+		if (song != null && song.duration != null) {
+			return song.duration
+		}
+		return 0
+	}
+
+	function loadAlbum(id: string | undefined): void {
+		if (id == null) return
+		uni.request({
+			url: getApiUrl() + '/api/albums/' + id,
+			method: 'GET',
+			success: (res) => {
+				if ((res as ResponseData).statusCode == 200) {
+					album.value = (res as ResponseData).data as AlbumType
+				}
+			},
+			fail: () => {
+				uni.showToast({ title: '加载失败', icon: 'none' })
+			}
+		})
+	}
+
+	onLoad((options) => {
+		const id = options['id'] as string
+		loadAlbum(id)
+	})
+
+	function playSong(song: SongType) {
+		uni.setStorageSync('currentSong', song)
+	}
+
+	function formatDuration(seconds: number): string {
+		if (seconds == null || seconds <= 0) return '0:00'
+		const m = Math.floor(seconds / 60)
+		const s = seconds % 60
+		return m + ':' + s.toString().padStart(2, '0')
+	}
 </script>
 
 <style>
 .page {
-  flex: 1;
-  background-color: #f5f5f5;
+	flex: 1;
+	background-color: #f5f5f5;
 }
 .header {
-  align-items: center;
-  padding: 30px;
-  background-color: #fff;
+	align-items: center;
+	padding: 30px;
+	background-color: #fff;
 }
 .cover {
-  width: 150px;
-  height: 150px;
-  border-radius: 8px;
+	width: 150px;
+	height: 150px;
+	border-radius: 8px;
 }
 .title {
-  font-size: 20px;
-  font-weight: bold;
-  margin-top: 16px;
+	font-size: 20px;
+	font-weight: bold;
+	margin-top: 16px;
 }
 .artist {
-  font-size: 14px;
-  color: #999;
-  margin-top: 8px;
+	font-size: 14px;
+	color: #999;
+	margin-top: 8px;
 }
 .songs {
-  margin-top: 16px;
-  padding: 16px;
-  background-color: #fff;
+	margin-top: 16px;
+	padding: 16px;
+	background-color: #fff;
 }
 .section-title {
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 12px;
+	font-size: 16px;
+	font-weight: bold;
+	margin-bottom: 12px;
 }
 .song-item {
-  flex-direction: row;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom-width: 1px;
-  border-bottom-color: #f5f5f5;
+	flex-direction: row;
+	justify-content: space-between;
+	padding: 12px 0;
+	border-bottom-width: 1px;
+	border-bottom-color: #f5f5f5;
 }
 .title {
-  font-size: 14px;
-  color: #333;
+	font-size: 14px;
+	color: #333;
 }
 .duration {
-  font-size: 12px;
-  color: #999;
+	font-size: 12px;
+	color: #999;
 }
 </style>
