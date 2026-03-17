@@ -12,7 +12,7 @@ services:
     image: ${DOCKERHUB_USERNAME:-yourusername}/muses:latest
     container_name: muses
     ports:
-      - "80:80"
+      - "3000:3000"
     volumes:
       - /path/to/your/music:/music:ro
       - ./data/database:/app/backend/data
