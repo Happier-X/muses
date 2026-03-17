@@ -1,14 +1,8 @@
 version: '3.8'
 
-# 使用方式：
-# 1. 本地构建: docker-compose up -d
-# 2. 使用 Docker Hub 镜像: docker-compose -f docker-compose.yml -f docker-compose.remote.yml up -d
-
 services:
   muses:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     image: ${DOCKERHUB_USERNAME:-yourusername}/muses:latest
     container_name: muses
     ports:
@@ -24,12 +18,5 @@ services:
       - MUSIC_PATH=/music
       - TRANSCODE_CACHE_PATH=/app/backend/cache
       - PORT=3000
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:80}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
     restart: unless-stopped
-
-volumes:
-  data:
-
-networks:
-  default:
-    name: muses-network
