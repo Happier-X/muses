@@ -1,0 +1,95 @@
+<template>
+  <view class="container">
+    <view class="header">
+      <text class="title">注册账号</text>
+    </view>
+
+    <view class="form">
+      <input class="input" v-model="form.username" placeholder="用户名" />
+      <input class="input" v-model="form.password" type="password" placeholder="密码" />
+      <input class="input" v-model="form.confirmPassword" type="password" placeholder="确认密码" />
+
+      <button class="btn-primary" @click="handleRegister" :loading="loading">注册</button>
+      <button class="btn-link" @click="goLogin">已有账号？去登录</button>
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+import { api } from '@/utils/api.js';
+import { setToken } from '@/utils/auth.js';
+
+const form = ref({ username: '', password: '', confirmPassword: '' });
+const loading = ref(false);
+
+async function handleRegister() {
+  if (!form.value.username || !form.value.password) {
+    uni.showToast({ title: '请填写完整', icon: 'none' });
+    return;
+  }
+  if (form.value.password !== form.value.confirmPassword) {
+    uni.showToast({ title: '两次密码不一致', icon: 'none' });
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const res = await api.register({
+      username: form.value.username,
+      password: form.value.password
+    });
+    setToken(res.token);
+    uni.switchTab({ url: '/pages/index/index' });
+  } catch (err) {
+    uni.showToast({ title: err.message || '注册失败', icon: 'none' });
+  } finally {
+    loading.value = false;
+  }
+}
+
+function goLogin() {
+  uni.navigateBack();
+}
+</script>
+
+<style>
+.container {
+  flex: 1;
+  padding: 40px 24px;
+  background-color: #fff;
+}
+.header {
+  margin-bottom: 40px;
+}
+.title {
+  font-size: 24px;
+  font-weight: bold;
+}
+.form {
+  width: 100%;
+}
+.input {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.btn-primary {
+  width: 100%;
+  height: 48px;
+  background-color: #1DB954;
+  color: #fff;
+  border-radius: 24px;
+  font-size: 16px;
+  margin-top: 16px;
+}
+.btn-link {
+  margin-top: 16px;
+  color: #1DB954;
+  font-size: 14px;
+}
+</style>

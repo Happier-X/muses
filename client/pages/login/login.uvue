@@ -1,0 +1,95 @@
+<template>
+  <view class="container">
+    <view class="logo-area">
+      <text class="app-name">Muses</text>
+      <text class="app-desc">音乐流媒体平台</text>
+    </view>
+
+    <view class="form">
+      <input class="input" v-model="form.username" placeholder="用户名" />
+      <input class="input" v-model="form.password" type="password" placeholder="密码" />
+
+      <button class="btn-primary" @click="handleLogin" :loading="loading">登录</button>
+      <button class="btn-link" @click="goRegister">没有账号？去注册</button>
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+import { api } from '@/utils/api.js';
+import { setToken } from '@/utils/auth.js';
+
+const form = ref({ username: '', password: '' });
+const loading = ref(false);
+
+async function handleLogin() {
+  if (!form.value.username || !form.value.password) {
+    uni.showToast({ title: '请填写完整', icon: 'none' });
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const res = await api.login(form.value);
+    setToken(res.token);
+    uni.switchTab({ url: '/pages/index/index' });
+  } catch (err) {
+    uni.showToast({ title: err.message || '登录失败', icon: 'none' });
+  } finally {
+    loading.value = false;
+  }
+}
+
+function goRegister() {
+  uni.navigateTo({ url: '/pages/login/register' });
+}
+</script>
+
+<style>
+.container {
+  flex: 1;
+  padding: 40px 24px;
+  background-color: #fff;
+}
+.logo-area {
+  align-items: center;
+  margin-bottom: 60px;
+}
+.app-name {
+  font-size: 32px;
+  font-weight: bold;
+  color: #1DB954;
+}
+.app-desc {
+  font-size: 14px;
+  color: #999;
+  margin-top: 8px;
+}
+.form {
+  width: 100%;
+}
+.input {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.btn-primary {
+  width: 100%;
+  height: 48px;
+  background-color: #1DB954;
+  color: #fff;
+  border-radius: 24px;
+  font-size: 16px;
+  margin-top: 16px;
+}
+.btn-link {
+  margin-top: 16px;
+  color: #1DB954;
+  font-size: 14px;
+}
+</style>
