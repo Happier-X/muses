@@ -8,6 +8,5 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '30d',
   databaseUrl: process.env.DATABASE_URL || 'file:./data/database.db',
   musicPath: process.env.MUSIC_PATH || '/music',
-  cachePath: process.env.TRANSCODE_CACHE_PATH || './cache',
-  corsOrigin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173']
+  cachePath: process.env.TRANSCODE_CACHE_PATH || './cache'
 };

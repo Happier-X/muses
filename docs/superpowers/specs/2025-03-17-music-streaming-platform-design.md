@@ -91,7 +91,6 @@
 ├── web/                  # React 管理界面
 │   ├── Dockerfile
 │   └── ...
-├── nginx.conf
 ├── ssl/                  # SSL 证书
 └── data/
     ├── database/         # SQLite 数据库
@@ -295,7 +294,6 @@ ffmpeg -i input.flac -c:a aac -b:a 320k -ar 48000 output.aac
 
 - **HTTPS 强制**: 所有 API 通信加密
 - **Rate Limiting**: 防止暴力破解
-- **CORS 配置**: 只允许信任的域名
 - **文件访问控制**: 音乐文件通过 API 代理，不直接暴露
 
 ### 7.3 数据安全
@@ -328,25 +326,13 @@ services:
       - MUSIC_PATH=/music
       - TRANSCODE_CACHE_PATH=/app/cache
     restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro            # SSL证书
-    depends_on:
-      - music-api
-    restart: unless-stopped
 ```
 
 ### 8.2 网络配置
 
-- **内网访问**: http://nas-local-ip:80
+- **内网访问**: http://nas-local-ip:3000
 - **外网访问**: 配置 NAS 端口转发 + 域名（可选）
-- **HTTPS**: Let's Encrypt 或自签名证书
+- **HTTPS**: Let's Encrypt 或自签名证书（可在 NAS 层面配置）
 
 ---
 

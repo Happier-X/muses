@@ -93,7 +93,6 @@ muses/
 │   │   └── build.gradle.kts
 │   └── gradle/
 ├── docker-compose.yml
-├── nginx.conf
 └── README.md
 ```
 
@@ -127,7 +126,6 @@ muses/
   "dependencies": {
     "@prisma/client": "^5.10.0",
     "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
     "dotenv": "^16.4.0",
     "express": "^4.18.2",
     "fluent-ffmpeg": "^2.1.2",
@@ -138,7 +136,6 @@ muses/
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/fluent-ffmpeg": "^2.1.24",
     "@types/jsonwebtoken": "^9.0.5",
@@ -273,10 +270,7 @@ import { errorHandler } from './middleware/error.js';
 export function createApp() {
   const app = express();
 
-  app.use(cors({
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:3001'],
-    credentials: true
-  }));
+  app.use(cors());
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
@@ -351,8 +345,7 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '30d',
   databaseUrl: process.env.DATABASE_URL || 'file:./data/database.db',
   musicPath: process.env.MUSIC_PATH || '/music',
-  cachePath: process.env.TRANSCODE_CACHE_PATH || './cache',
-  corsOrigin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173']
+  cachePath: process.env.TRANSCODE_CACHE_PATH || './cache'
 };
 ```
 
@@ -2286,47 +2279,19 @@ export default function Settings() {
 }
 ```
 
-- [ ] **Step 7: 创建 Web Dockerfile**
+- [ ] **Step 7: 创建 Web 构建配置**
 
-```dockerfile
-# web/Dockerfile
-FROM node:20-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=0 /dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-```nginx
-# web/nginx.conf
-server {
-    listen 80;
-    root /usr/share/nginx/html;
-    index index.html;
-
-    location /api {
-        proxy_pass http://music-api:3000;
-    }
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
+```json
+// web/package.json (添加 build 脚本)
+{
+  "scripts": {
+    "build": "tsc && vite build",
+    // ...
+  }
 }
 ```
 
-- [ ] **Step 8: 提交代码**
+### Task 15: 部署脚本与配置
 
 ```bash
 git add web/
@@ -3276,7 +3241,6 @@ git commit -m "feat(android): add UI screens and player service"
 
 **Files:**
 - Create: `docker-compose.yml`
-- Create: `nginx.conf`
 
 - [ ] **Step 1: 创建 docker-compose.yml**
 
@@ -3300,16 +3264,6 @@ services:
       - MUSIC_PATH=/music
       - TRANSCODE_CACHE_PATH=/app/cache
       - PORT=3000
-      - CORS_ORIGIN=http://your-nas-ip:80
-    restart: unless-stopped
-
-  web:
-    build: ./web
-    container_name: muses-web
-    ports:
-      - "80:80"
-    depends_on:
-      - music-api
     restart: unless-stopped
 
 volumes:
@@ -3318,32 +3272,6 @@ volumes:
 networks:
   default:
     name: muses-network
-```
-
-- [ ] **Step 2: 创建 nginx.conf**
-
-```nginx
-upstream api {
-    server music-api:3000;
-}
-
-server {
-    listen 80;
-    server_name localhost;
-
-    location /api {
-        proxy_pass http://api;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location / {
-        proxy_pass http://web:80;
-    }
-}
 ```
 
 - [ ] **Step 3: 创建部署说明 README**
@@ -3367,7 +3295,6 @@ cd muses
 - 编辑 `docker-compose.yml` 中的：
   - `/path/to/your/music` - 你的音乐目录
   - `JWT_SECRET` - 安全密钥
-  - `CORS_ORIGIN` - 你的访问地址
 
 3. 启动服务
 ```bash
@@ -3386,7 +3313,7 @@ docker-compose up -d
 - [ ] **Step 4: 提交代码**
 
 ```bash
-git add docker-compose.yml nginx.conf
+git add docker-compose.yml
 git commit -m "feat: add Docker Compose deployment configuration"
 ```
 
@@ -3423,5 +3350,4 @@ git commit -m "feat: add Docker Compose deployment configuration"
 
 5. **部署** (1周)
    - Docker Compose
-   - Nginx
    - NAS 部署
