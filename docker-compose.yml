@@ -3,7 +3,7 @@ version: '3.8'
 services:
   muses:
     build: .
-    image: ${DOCKERHUB_USERNAME:-yourusername}/muses:latest
+    image: happierx/muses:latest
     container_name: muses
     ports:
       - "3000:3000"
