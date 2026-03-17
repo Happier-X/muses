@@ -12,7 +12,7 @@ RUN npm run build
 # 构建后端
 WORKDIR /app/backend
 COPY backend/package.json backend/package-lock.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 COPY backend/ .
 COPY backend/prisma ./prisma/
