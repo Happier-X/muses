@@ -1,24 +1,66 @@
 <template>
-	<view>
-		<image class="logo" src="/static/logo.png"></image>
-		<text class="title">{{title}}</text>
-	</view>
+  <view class="page">
+    <view v-if="!isLoggedIn()" class="not-login">
+      <text class="tip">登录后享受更多功能</text>
+      <button class="btn-login" @click="goLogin">立即登录</button>
+    </view>
+
+    <view v-else class="content">
+      <view class="section">
+        <text class="section-title">最近播放</text>
+      </view>
+    </view>
+
+    <PlayerBar v-if="currentSong" />
+  </view>
 </template>
 
-<script setup lang="uts">
-	const title = ref('Hello')
+<script setup>
+import { ref, onMounted } from 'vue';
+import { isLoggedIn } from '@/utils/auth.js';
+import { getCurrentSong } from '@/utils/player.js';
+import PlayerBar from '@/components/PlayerBar.uvue';
+
+const currentSong = ref(null);
+
+onMounted(() => {
+  uni.$on('player-change', (song) => {
+    currentSong.value = song;
+  });
+  currentSong.value = getCurrentSong();
+});
+
+function goLogin() {
+  uni.navigateTo({ url: '/pages/login/login' });
+}
 </script>
 
 <style>
-	.logo {
-		height: 100px;
-		width: 100px;
-		margin: 100px auto 25px auto;
-	}
-
-	.title {
-		font-size: 18px;
-		color: #8f8f94;
-		text-align: center;
-	}
+.page {
+  flex: 1;
+  background-color: #f5f5f5;
+  padding-bottom: 60px;
+}
+.not-login {
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+}
+.tip {
+  color: #999;
+  margin-bottom: 20px;
+}
+.btn-login {
+  background-color: #1DB954;
+  color: #fff;
+  padding: 10px 40px;
+  border-radius: 20px;
+}
+.content {
+  padding: 16px;
+}
+.section-title {
+  font-size: 18px;
+  font-weight: bold;
+}
 </style>

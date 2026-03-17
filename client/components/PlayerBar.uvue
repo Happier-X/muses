@@ -1,0 +1,86 @@
+<template>
+  <view class="player-bar" @click="goPlayer">
+    <image class="cover" :src="song?.album?.cover_art || '/static/logo.png'" />
+    <view class="info">
+      <text class="title">{{ song?.title || '未在播放' }}</text>
+      <text class="artist">{{ song?.artist?.name || '' }}</text>
+    </view>
+    <view class="controls">
+      <text class="icon" @click.stop="togglePlay">{{ isPlaying ? '⏸' : '▶' }}</text>
+      <text class="icon" @click.stop="playNext">⏭</text>
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import { getCurrentSong, playNext, pause, resume, getIsPlaying } from '@/utils/player.js';
+
+const song = ref(null);
+const isPlaying = ref(false);
+
+onMounted(() => {
+  song.value = getCurrentSong();
+  isPlaying.value = getIsPlaying();
+
+  uni.$on('player-change', (s) => {
+    song.value = s;
+    isPlaying.value = true;
+  });
+
+  uni.$on('player-play', () => isPlaying.value = true);
+  uni.$on('player-pause', () => isPlaying.value = false);
+});
+
+function togglePlay() {
+  if (isPlaying.value) {
+    pause();
+  } else {
+    resume();
+  }
+}
+
+function goPlayer() {
+  uni.navigateTo({ url: '/pages/player/player' });
+}
+</script>
+
+<style>
+.player-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background-color: #fff;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 16px;
+  border-top-width: 1px;
+  border-top-color: #eee;
+}
+.cover {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+}
+.info {
+  flex: 1;
+  margin-left: 12px;
+}
+.title {
+  font-size: 14px;
+  color: #333;
+}
+.artist {
+  font-size: 12px;
+  color: #999;
+}
+.controls {
+  flex-direction: row;
+}
+.icon {
+  font-size: 24px;
+  margin-left: 16px;
+}
+</style>
