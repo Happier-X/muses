@@ -5,6 +5,8 @@ import authRoutes from './routes/auth.js';
 import artistsRoutes from './routes/artists.js';
 import albumsRoutes from './routes/albums.js';
 import songsRoutes from './routes/songs.js';
+import playlistsRoutes from './routes/playlists.js';
+import favoritesRoutes from './routes/favorites.js';
 
 export function createApp() {
   const app = express();
@@ -21,6 +23,8 @@ export function createApp() {
   app.use('/api/artists', artistsRoutes);
   app.use('/api/albums', albumsRoutes);
   app.use('/api/songs', songsRoutes);
+  app.use('/api/playlists', playlistsRoutes);
+  app.use('/api/favorites', favoritesRoutes);
 
   app.use(errorHandler);
 
