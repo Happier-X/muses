@@ -28,9 +28,9 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { isLoggedIn, removeToken } from '../../utils/auth.js';
-import { getCurrentSong } from '../../utils/player.js';
-import { api } from '../../utils/api.js';
+import { isLoggedIn, removeToken } from '../../utils/auth.uts';
+import { getCurrentSong } from '../../utils/player.uts';
+import { api } from '../../utils/api.uts';
 import PlayerBar from '../../components/PlayerBar.uvue';
 
 const user = ref(null);

@@ -17,8 +17,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { isLoggedIn } from '../../utils/auth.js';
-import { getCurrentSong } from '../../utils/player.js';
+import { isLoggedIn } from '../../utils/auth.uts';
+import { getCurrentSong } from '../../utils/player.uts';
 import PlayerBar from '../../components/PlayerBar.uvue';
 
 const currentSong = ref(null);

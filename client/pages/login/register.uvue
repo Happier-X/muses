@@ -17,8 +17,8 @@
 
 <script setup>
 import { ref } from 'vue';
-import { api } from '../../utils/api.js';
-import { setToken } from '../../utils/auth.js';
+import { api } from '../../utils/api.uts';
+import { setToken } from '../../utils/auth.uts';
 
 const form = ref({ username: '', password: '', confirmPassword: '' });
 const loading = ref(false);
