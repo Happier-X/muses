@@ -28,10 +28,10 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { isLoggedIn, removeToken } from '@/utils/auth.js';
-import { getCurrentSong } from '@/utils/player.js';
-import { api } from '@/utils/api.js';
-import PlayerBar from '@/components/PlayerBar.uvue';
+import { isLoggedIn, removeToken } from '../../utils/auth.js';
+import { getCurrentSong } from '../../utils/player.js';
+import { api } from '../../utils/api.js';
+import PlayerBar from '../../components/PlayerBar.uvue';
 
 const user = ref(null);
 const currentSong = ref(null);

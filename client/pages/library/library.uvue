@@ -39,10 +39,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { api } from '@/utils/api.js';
-import { playSong as playSongFunc } from '@/utils/player.js';
-import { getCurrentSong } from '@/utils/player.js';
-import PlayerBar from '@/components/PlayerBar.uvue';
+import { api } from '../../utils/api.js';
+import { playSong as playSongFunc } from '../../utils/player.js';
+import { getCurrentSong } from '../../utils/player.js';
+import PlayerBar from '../../components/PlayerBar.uvue';
 
 const currentTab = ref('songs');
 const tabs = [

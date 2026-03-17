@@ -14,7 +14,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { getCurrentSong, playNext, pause, resume, getIsPlaying } from '@/utils/player.js';
+import { getCurrentSong, playNext, pause, resume, getIsPlaying } from '../../utils/player.js';
 
 const song = ref(null);
 const isPlaying = ref(false);
