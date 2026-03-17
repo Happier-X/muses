@@ -1,8 +1,13 @@
 version: '3.8'
 
+# 使用方式：
+# 1. 本地构建: docker-compose up -d
+# 2. 使用 Docker Hub 镜像: docker-compose -f docker-compose.yml -f docker-compose.remote.yml up -d
+
 services:
   music-api:
     build: ./backend
+    image: ${DOCKERHUB_USERNAME:-yourusername}/muses-backend:latest
     container_name: muses-api
     ports:
       - "3000:3000"
@@ -12,16 +17,17 @@ services:
       - ./data/cache:/app/cache
     environment:
       - NODE_ENV=production
-      - JWT_SECRET=change-this-to-a-secure-random-string
+      - JWT_SECRET=${JWT_SECRET:-change-this-to-a-secure-random-string}
       - DATABASE_URL=file:./data/database.db
       - MUSIC_PATH=/music
       - TRANSCODE_CACHE_PATH=/app/cache
       - PORT=3000
-      - CORS_ORIGIN=http://your-nas-ip:80
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:80}
     restart: unless-stopped
 
   web:
     build: ./web
+    image: ${DOCKERHUB_USERNAME:-yourusername}/muses-web:latest
     container_name: muses-web
     ports:
       - "80:80"
