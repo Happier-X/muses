@@ -17,8 +17,6 @@
 
 <script setup>
 import { ref } from 'vue';
-import { api } from '../../utils/api.uts';
-import { setToken } from '../../utils/auth.uts';
 
 const form = ref({ username: '', password: '', confirmPassword: '' });
 const loading = ref(false);
@@ -35,11 +33,8 @@ async function handleRegister() {
 
   loading.value = true;
   try {
-    const res = await api.register({
-      username: form.value.username,
-      password: form.value.password
-    });
-    setToken(res.token);
+    const res = await uni.$api.register(form.value.username, form.value.password, form.value.username + '@example.com');
+    uni.$auth.setToken(res.token);
     uni.switchTab({ url: '/pages/index/index' });
   } catch (err) {
     uni.showToast({ title: err.message || '注册失败', icon: 'none' });

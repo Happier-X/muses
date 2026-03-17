@@ -14,7 +14,6 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { getCurrentSong, playNext, pause, resume, getIsPlaying } from '../../utils/player.uts';
 
 const song = ref(null);
 const isPlaying = ref(false);
@@ -41,8 +40,8 @@ const artistText = computed((): string => {
 });
 
 onMounted(() => {
-  song.value = getCurrentSong();
-  isPlaying.value = getIsPlaying();
+  song.value = uni.$player.getCurrentSong();
+  isPlaying.value = uni.$player.getIsPlaying();
 
   uni.$on('player-change', (s) => {
     song.value = s;
@@ -55,9 +54,9 @@ onMounted(() => {
 
 function togglePlay() {
   if (isPlaying.value) {
-    pause();
+    uni.$player.pause();
   } else {
-    resume();
+    uni.$player.resume();
   }
 }
 

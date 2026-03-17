@@ -17,8 +17,6 @@
 
 <script setup>
 import { ref } from 'vue';
-import { api } from '../../utils/api.uts';
-import { setToken } from '../../utils/auth.uts';
 
 const form = ref({ username: '', password: '' });
 const loading = ref(false);
@@ -31,8 +29,8 @@ async function handleLogin() {
 
   loading.value = true;
   try {
-    const res = await api.login(form.value);
-    setToken(res.token);
+    const res = await uni.$api.login(form.value.username, form.value.password);
+    uni.$auth.setToken(res.token);
     uni.switchTab({ url: '/pages/index/index' });
   } catch (err) {
     uni.showToast({ title: err.message || '登录失败', icon: 'none' });

@@ -16,8 +16,6 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { api } from '../../utils/api.uts';
-import { playSong } from '../../utils/player.uts';
 
 const artist = ref({});
 
@@ -62,15 +60,14 @@ uni.onLoad((options) => {
 
 async function loadArtist(id: string) {
   try {
-    artist.value = await api.getArtist(id);
+    artist.value = await uni.$api.getArtist(parseInt(id));
   } catch (err) {
     uni.showToast({ title: '加载失败', icon: 'none' });
   }
 }
 
 function playSong(song: any) {
-  const songs = artist.value.songs != null ? artist.value.songs : [];
-  playSong(song, songs);
+  uni.$player.playSong(song);
 }
 
 function formatDuration(seconds: number): string {

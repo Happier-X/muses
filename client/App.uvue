@@ -1,7 +1,203 @@
 <script setup lang="uts">
+	// 全局状态初始化
 	// #ifdef APP-ANDROID || APP-HARMONY
 	let firstBackTime = 0
 	// #endif
+
+	// Auth 全局状态
+	const auth = {
+		isLoggedIn: (): boolean => {
+			return uni.getStorageSync('token') != null && uni.getStorageSync('token') !== ''
+		},
+		setToken: (token: string): void => {
+			uni.setStorageSync('token', token)
+		},
+		removeToken: (): void => {
+			uni.removeStorageSync('token')
+		}
+	}
+	uni.$auth = auth
+
+	// Player 全局状态
+	const player = {
+		currentSong: null as any,
+		isPlaying: false,
+
+		getCurrentSong: (): any => {
+			return player.currentSong
+		},
+
+		setCurrentSong: (song: any): void => {
+			player.currentSong = song
+			uni.$emit('player-change', song)
+		},
+
+		getIsPlaying: (): boolean => {
+			return player.isPlaying
+		},
+
+		setIsPlaying: (playing: boolean): void => {
+			player.isPlaying = playing
+			uni.$emit('player-state-change', playing)
+		},
+
+		playSong: (song: any): void => {
+			player.setCurrentSong(song)
+			player.setIsPlaying(true)
+			// TODO: 实现实际音频播放
+		},
+
+		playNext: (): void => {
+			// TODO: 实现下一首
+		},
+
+		playPrev: (): void => {
+			// TODO: 实现上一首
+		},
+
+		pause: (): void => {
+			player.setIsPlaying(false)
+		},
+
+		resume: (): void => {
+			player.setIsPlaying(true)
+		}
+	}
+	uni.$player = player
+
+	// API 全局状态
+	const getApiUrl = (): string => {
+		return uni.getStorageSync('apiUrl') || 'http://localhost:3000'
+	}
+
+	const api = {
+		getApiUrl,
+
+		async request(options: { url: string; method?: string; data?: any; needAuth?: boolean }): Promise<any> {
+			const url = getApiUrl() + options.url
+			const header: Record<string, string> = {}
+			if (options.needAuth) {
+				const token = uni.getStorageSync('token')
+				if (token) {
+					header['Authorization'] = 'Bearer ' + token
+				}
+			}
+			return new Promise((resolve, reject) => {
+				uni.request({
+					url,
+					method: options.method || 'GET',
+					data: options.data,
+					header,
+					success: (res) => {
+						if (res.statusCode >= 200 && res.statusCode < 300) {
+							resolve(res.data)
+						} else {
+							reject(res.data)
+						}
+					},
+					fail: reject
+				})
+			})
+		},
+
+		async login(username: string, password: string): Promise<any> {
+			const res = await api.request({
+				url: '/api/auth/login',
+				method: 'POST',
+				data: { username, password }
+			})
+			if (res.token) {
+				auth.setToken(res.token)
+			}
+			return res
+		},
+
+		async register(username: string, password: string, email: string): Promise<any> {
+			return api.request({
+				url: '/api/auth/register',
+				method: 'POST',
+				data: { username, password, email }
+			})
+		},
+
+		async getMe(): Promise<any> {
+			return api.request({ url: '/api/users/me', needAuth: true })
+		},
+
+		async getSongs(params?: { albumId?: number; artistId?: number; playlistId?: number }): Promise<any[]> {
+			let url = '/api/songs'
+			if (params != null) {
+				const query: string[] = []
+				if (params.albumId != null) query.push('albumId=' + params.albumId)
+				if (params.artistId != null) query.push('artistId=' + params.artistId)
+				if (params.playlistId != null) query.push('playlistId=' + params.playlistId)
+				if (query.length > 0) url += '?' + query.join('&')
+			}
+			return api.request({ url })
+		},
+
+		async getAlbums(): Promise<any[]> {
+			return api.request({ url: '/api/albums' })
+		},
+
+		async getAlbum(id: number): Promise<any> {
+			return api.request({ url: '/api/albums/' + id })
+		},
+
+		async getArtists(): Promise<any[]> {
+			return api.request({ url: '/api/artists' })
+		},
+
+		async getArtist(id: number): Promise<any> {
+			return api.request({ url: '/api/artists/' + id })
+		},
+
+		async getPlaylists(): Promise<any[]> {
+			return api.request({ url: '/api/playlists', needAuth: true })
+		},
+
+		async createPlaylist(data: { name: string; description?: string }): Promise<any> {
+			return api.request({ url: '/api/playlists', method: 'POST', data, needAuth: true })
+		},
+
+		async getPlaylistDetail(id: number): Promise<any> {
+			return api.request({ url: '/api/playlists/' + id })
+		},
+
+		async addSongToPlaylist(playlistId: number, songId: number): Promise<any> {
+			return api.request({
+				url: '/api/playlists/' + playlistId + '/songs',
+				method: 'POST',
+				data: { songId },
+				needAuth: true
+			})
+		},
+
+		async getFavorites(): Promise<any[]> {
+			return api.request({ url: '/api/favorites', needAuth: true })
+		},
+
+		async addFavorite(songId: number): Promise<any> {
+			return api.request({ url: '/api/favorites', method: 'POST', data: { songId }, needAuth: true })
+		},
+
+		async removeFavorite(songId: number): Promise<any> {
+			return api.request({ url: '/api/favorites/' + songId, method: 'DELETE', needAuth: true })
+		},
+
+		async getRecentlyPlayed(): Promise<any[]> {
+			return api.request({ url: '/api/users/recently-played', needAuth: true })
+		},
+
+		async search(keyword: string): Promise<any> {
+			return api.request({ url: '/api/search?q=' + encodeURIComponent(keyword) })
+		},
+
+		async deletePlaylist(id: number): Promise<any> {
+			return api.request({ url: '/api/playlists/' + id, method: 'DELETE', needAuth: true })
+		}
+	}
+	uni.$api = api
 
 	onLaunch(() => {
 		console.log('App Launch')

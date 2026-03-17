@@ -1,6 +1,6 @@
 <template>
   <view class="page">
-    <view v-if="!isLoggedIn()" class="not-login">
+    <view v-if="!isLoggedIn" class="not-login">
       <text class="tip">登录后享受更多功能</text>
       <button class="btn-login" @click="goLogin">立即登录</button>
     </view>
@@ -11,23 +11,25 @@
       </view>
     </view>
 
-    <PlayerBar v-if="currentSong" />
+    <PlayerBar v-if="currentSong != null" />
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { isLoggedIn } from '../../utils/auth.uts';
-import { getCurrentSong } from '../../utils/player.uts';
+import { ref, onMounted, computed } from 'vue';
 import PlayerBar from '../../components/PlayerBar.uvue';
 
 const currentSong = ref(null);
+
+const isLoggedIn = computed((): boolean => {
+  return uni.$auth.isLoggedIn();
+});
 
 onMounted(() => {
   uni.$on('player-change', (song) => {
     currentSong.value = song;
   });
-  currentSong.value = getCurrentSong();
+  currentSong.value = uni.$player.getCurrentSong();
 });
 
 function goLogin() {

@@ -20,7 +20,7 @@
       </view>
     </view>
 
-    <button v-if="isLoggedIn()" class="btn-logout" @click="handleLogout">退出登录</button>
+    <button v-if="isLoggedIn" class="btn-logout" @click="handleLogout">退出登录</button>
 
     <PlayerBar v-if="currentSong != null" />
   </view>
@@ -28,13 +28,14 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { isLoggedIn, removeToken } from '../../utils/auth.uts';
-import { getCurrentSong } from '../../utils/player.uts';
-import { api } from '../../utils/api.uts';
 import PlayerBar from '../../components/PlayerBar.uvue';
 
 const user = ref(null);
 const currentSong = ref(null);
+
+const isLoggedIn = computed((): boolean => {
+  return uni.$auth.isLoggedIn();
+});
 
 const usernameText = computed((): string => {
   if (user.value != null && user.value.username != null) {
@@ -44,10 +45,10 @@ const usernameText = computed((): string => {
 });
 
 onMounted(async () => {
-  currentSong.value = getCurrentSong();
-  if (isLoggedIn()) {
+  currentSong.value = uni.$player.getCurrentSong();
+  if (uni.$auth.isLoggedIn()) {
     try {
-      user.value = await api.getMe();
+      user.value = await uni.$api.getMe();
     } catch (err) {
       console.error(err);
     }
@@ -55,7 +56,7 @@ onMounted(async () => {
 });
 
 function goFavorites() {
-  if (!isLoggedIn()) {
+  if (!uni.$auth.isLoggedIn()) {
     goLogin();
     return;
   }
@@ -63,7 +64,7 @@ function goFavorites() {
 }
 
 function goPlaylists() {
-  if (!isLoggedIn()) {
+  if (!uni.$auth.isLoggedIn()) {
     goLogin();
     return;
   }
@@ -79,7 +80,7 @@ function goLogin() {
 }
 
 function handleLogout() {
-  removeToken();
+  uni.$auth.removeToken();
   user.value = null;
   uni.switchTab({ url: '/pages/index/index' });
 }

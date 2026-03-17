@@ -39,9 +39,6 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { api } from '../../utils/api.uts';
-import { playSong as playSongFunc } from '../../utils/player.uts';
-import { getCurrentSong } from '../../utils/player.uts';
 import PlayerBar from '../../components/PlayerBar.uvue';
 
 const currentTab = ref('songs');
@@ -113,12 +110,12 @@ function getSongArtistAlbum(song: any): string {
 }
 
 onMounted(async () => {
-  currentSong.value = getCurrentSong();
+  currentSong.value = uni.$player.getCurrentSong();
   try {
     const [artistsRes, albumsRes, songsRes] = await Promise.all([
-      api.getArtists(),
-      api.getAlbums(),
-      api.getSongs()
+      uni.$api.getArtists(),
+      uni.$api.getAlbums(),
+      uni.$api.getSongs()
     ]);
     artists.value = artistsRes;
     albums.value = albumsRes;
@@ -137,7 +134,7 @@ function goAlbum(album: any) {
 }
 
 function playSong(song: any) {
-  playSongFunc(song, songs.value);
+  uni.$player.playSong(song);
 }
 </script>
 

@@ -23,8 +23,6 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { api } from '../../utils/api.uts';
-import { playSong } from '../../utils/player.uts';
 
 const playlist = ref({});
 
@@ -69,21 +67,20 @@ uni.onLoad((options) => {
 
 async function loadPlaylist(id: string) {
   try {
-    playlist.value = await api.getPlaylist(id);
+    playlist.value = await uni.$api.getPlaylistDetail(parseInt(id));
   } catch (err) {
     uni.showToast({ title: '加载失败', icon: 'none' });
   }
 }
 
 function playSong(song: any) {
-  const songs = playlist.value.songs != null ? playlist.value.songs : [];
-  playSong(song, songs);
+  uni.$player.playSong(song);
 }
 
 async function removeSong(songId: number) {
   try {
-    await api.removeSongFromPlaylist(playlist.value.id, songId);
-    playlist.value = await api.getPlaylist(playlist.value.id);
+    await uni.$api.addSongToPlaylist(playlist.value.id, songId);
+    playlist.value = await uni.$api.getPlaylistDetail(playlist.value.id);
     uni.showToast({ title: '已移除' });
   } catch (err) {
     uni.showToast({ title: '移除失败', icon: 'none' });
@@ -97,7 +94,7 @@ async function deletePlaylist() {
     success: async (res) => {
       if (res.confirm) {
         try {
-          await api.deletePlaylist(playlist.value.id);
+          await uni.$api.deletePlaylist(playlist.value.id);
           uni.navigateBack();
         } catch (err) {
           uni.showToast({ title: '删除失败', icon: 'none' });
