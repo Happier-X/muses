@@ -21,7 +21,7 @@
 
 ### 1.3 技术约束
 - 部署环境：飞牛 NAS（支持 Docker）
-- 客户端：Android 手机
+- 客户端：uniappx (Android/iOS)
 - 音频格式：混合格式（FLAC/APE/MP3/AAC 等）
 - 网络环境：家庭内网 + 外网访问（可选）
 
@@ -42,12 +42,12 @@
 - **样式**: Tailwind CSS
 - **组件库**: shadcn/ui
 
-### 2.3 安卓客户端
-- **语言**: Kotlin
-- **UI**: Jetpack Compose
-- **播放器**: ExoPlayer
-- **网络**: Retrofit
-- **本地存储**: Room
+### 2.3 移动客户端
+- **框架**: uniappx (UVue)
+- **语法**: Vue 3
+- **播放器**: uni.getBackgroundAudioManager()
+- **网络**: uni.request
+- **本地存储**: uni.getStorageSync
 
 ---
 
@@ -70,12 +70,12 @@
 │  └──────────────┬────────────────┘                            │
 └─────────────────┼──────────────────────────────────────────┘
                   │ REST API
-                  │ (HTTPS)
+                  │ (HTTP/HTTPS)
           ┌───────┴────────┐
           │                │
     ┌─────▼─────┐   ┌──────▼──────┐
-    │  手机 App │   │  Web 管理端  │
-    │(Android)  │   │   (React)   │
+    │ uniappx   │   │  Web 管理端  │
+    │  移动端    │   │   (React)   │
     └───────────┘   └─────────────┘
 ```
 
@@ -91,6 +91,11 @@
 ├── web/                  # React 管理界面
 │   ├── Dockerfile
 │   └── ...
+├── client/               # uniappx 移动端
+│   ├── pages/
+│   ├── components/
+│   ├── utils/
+│   └── manifest.json
 ├── ssl/                  # SSL 证书
 └── data/
     ├── database/         # SQLite 数据库
@@ -285,10 +290,9 @@ ffmpeg -i input.flac -c:a aac -b:a 320k -ar 48000 output.aac
 ### 7.1 认证流程
 
 1. 用户注册/登录 → 返回 JWT Token
-2. Token 存储在客户端（Encrypted SharedPreferences）
+2. Token 存储在客户端（uni.setStorageSync）
 3. 每次请求携带: `Authorization: Bearer <token>`
 4. Token 过期时间: 30天
-5. 刷新机制: 使用 Refresh Token
 
 ### 7.2 API 安全
 
@@ -356,11 +360,12 @@ services:
 - [ ] 播放列表管理
 - [ ] 设置页面
 
-### Phase 4: 安卓客户端（2-3周）
-- [ ] Kotlin 项目搭建
+### Phase 4: 移动客户端（2-3周）
+- [ ] uniappx 项目搭建
 - [ ] 登录/注册界面
-- [ ] 音乐播放器（ExoPlayer）
-- [ ] 后台播放 + 媒体通知
+- [ ] 音乐播放器（BackgroundAudioManager）
+- [ ] 后台播放 + 锁屏控制
+- [ ] 音乐库浏览
 - [ ] 播放列表功能
 - [ ] 收藏功能
 
@@ -377,11 +382,9 @@ services:
 ## 10. 未来迭代功能
 
 - [ ] 多设备播放进度同步
-- [ ] Android Auto 车机支持
 - [ ] 智能推荐系统
 - [ ] 歌词显示
 - [ ] 社交分享功能
-- [ ] iOS 客户端
 
 ---
 
@@ -393,11 +396,10 @@ services:
 2. **SQLite**: NAS 部署友好，无需额外数据库服务
 3. **FFmpeg**: 最成熟的音频处理工具，格式支持最广
 4. **React**: Web 开发效率高，生态成熟
-5. **Kotlin + ExoPlayer**: Android 官方推荐的最佳实践
+5. **uniappx**: 跨平台 Android/iOS，Vue 语法上手快
 
 ### B. 参考资源
 
-- ExoPlayer 官方文档: https://developer.android.com/guide/topics/media/exoplayer
+- uniappx 官方文档: https://uniappx.com/
 - FFmpeg 文档: https://ffmpeg.org/documentation.html
 - Prisma 文档: https://www.prisma.io/docs
-- Jetpack Compose 文档: https://developer.android.com/jetpack/compose
