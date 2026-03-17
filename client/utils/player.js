@@ -1,0 +1,83 @@
+import { api } from './api.js';
+
+let backgroundAudioManager = null;
+let currentSong = null;
+let playlist = [];
+let currentIndex = 0;
+
+function getManager() {
+  if (!backgroundAudioManager) {
+    backgroundAudioManager = uni.getBackgroundAudioManager();
+
+    backgroundAudioManager.onPlay(() => {
+      uni.$emit('player-play');
+    });
+
+    backgroundAudioManager.onPause(() => {
+      uni.$emit('player-pause');
+    });
+
+    backgroundAudioManager.onStop(() => {
+      uni.$emit('player-stop');
+    });
+
+    backgroundAudioManager.onEnded(() => {
+      playNext();
+    });
+
+    backgroundAudioManager.onTimeUpdate(() => {
+      uni.$emit('player-time-update', {
+        currentTime: backgroundAudioManager.currentTime,
+        duration: backgroundAudioManager.duration
+      });
+    });
+  }
+  return backgroundAudioManager;
+}
+
+export function playSong(song, list = []) {
+  currentSong = song;
+  playlist = list;
+  currentIndex = list.findIndex(s => s.id === song.id);
+
+  const manager = getManager();
+  manager.title = song.title;
+  manager.singer = song.artist?.name || '';
+  manager.coverImageUrl = song.album?.cover_art || '';
+  manager.src = api.getSongStream(song.id);
+
+  uni.$emit('player-change', song);
+}
+
+export function pause() {
+  getManager().pause();
+}
+
+export function resume() {
+  getManager().play();
+}
+
+export function playNext() {
+  if (playlist.length === 0) return;
+  currentIndex = (currentIndex + 1) % playlist.length;
+  playSong(playlist[currentIndex], playlist);
+}
+
+export function playPrev() {
+  if (playlist.length === 0) return;
+  currentIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+  playSong(playlist[currentIndex], playlist);
+}
+
+export function seek(time) {
+  getManager().seek(time);
+}
+
+export function getCurrentSong() {
+  return currentSong;
+}
+
+export function getIsPlaying() {
+  const manager = getManager();
+  return manager.paused === false;
+}
