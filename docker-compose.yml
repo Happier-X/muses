@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  music-api:
+    build: ./backend
+    container_name: muses-api
+    ports:
+      - "3000:3000"
+    volumes:
+      - /path/to/your/music:/music:ro
+      - ./data/database:/app/data
+      - ./data/cache:/app/cache
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=change-this-to-a-secure-random-string
+      - DATABASE_URL=file:./data/database.db
+      - MUSIC_PATH=/music
+      - TRANSCODE_CACHE_PATH=/app/cache
+      - PORT=3000
+      - CORS_ORIGIN=http://your-nas-ip:80
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    container_name: muses-web
+    ports:
+      - "80:80"
+    depends_on:
+      - music-api
+    restart: unless-stopped
+
+volumes:
+  data:
+
+networks:
+  default:
+    name: muses-network
