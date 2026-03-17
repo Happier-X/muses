@@ -35,7 +35,7 @@ async function parseMetadata(filePath: string): Promise<ScannedFile> {
       artist: metadata.common.artist,
       album: metadata.common.album,
       year: metadata.common.year,
-      track: metadata.common.track.no,
+      track: metadata.common.track.no || undefined,
       duration: Math.round(metadata.format.duration || 0),
       bitrate: metadata.format.bitrate
     }
