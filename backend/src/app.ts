@@ -16,10 +16,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 export function createApp() {
   const app = express();
 
-  app.use(cors({
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:3001'],
-    credentials: true
-  }));
+  app.use(cors());
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
