@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import { errorHandler } from './middleware/error.js';
 import authRoutes from './routes/auth.js';
+import artistsRoutes from './routes/artists.js';
+import albumsRoutes from './routes/albums.js';
+import songsRoutes from './routes/songs.js';
 
 export function createApp() {
   const app = express();
@@ -15,6 +18,9 @@ export function createApp() {
 
   // Routes will be added here
   app.use('/api/auth', authRoutes);
+  app.use('/api/artists', artistsRoutes);
+  app.use('/api/albums', albumsRoutes);
+  app.use('/api/songs', songsRoutes);
 
   app.use(errorHandler);
 
