@@ -1,8 +1,9 @@
+# 构建阶段
 FROM node:20-alpine AS builder
 
 # 构建前端
 WORKDIR /app/web
-COPY web/package*.json web/
+COPY web/package.json web/package-lock.json ./
 RUN npm ci
 
 COPY web/ .
@@ -10,7 +11,7 @@ RUN npm run build
 
 # 构建后端
 WORKDIR /app/backend
-COPY backend/package*.json backend/
+COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --only=production
 
 COPY backend/ .
