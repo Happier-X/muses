@@ -1,9 +1,9 @@
 <template>
   <view class="player-bar" @click="goPlayer">
-    <image class="cover" :src="song?.album?.cover_art || '/static/logo.png'" />
+    <image class="cover" :src="coverUrl" />
     <view class="info">
-      <text class="title">{{ song?.title || '未在播放' }}</text>
-      <text class="artist">{{ song?.artist?.name || '' }}</text>
+      <text class="title">{{ titleText }}</text>
+      <text class="artist">{{ artistText }}</text>
     </view>
     <view class="controls">
       <text class="icon" @click.stop="togglePlay">{{ isPlaying ? '⏸' : '▶' }}</text>
@@ -13,11 +13,32 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { getCurrentSong, playNext, pause, resume, getIsPlaying } from '@/utils/player.js';
 
 const song = ref(null);
 const isPlaying = ref(false);
+
+const coverUrl = computed((): string => {
+  if (song.value != null && song.value.album != null && song.value.album.cover_art != null) {
+    return song.value.album.cover_art;
+  }
+  return '/static/logo.png';
+});
+
+const titleText = computed((): string => {
+  if (song.value != null && song.value.title != null) {
+    return song.value.title;
+  }
+  return '未在播放';
+});
+
+const artistText = computed((): string => {
+  if (song.value != null && song.value.artist != null && song.value.artist.name != null) {
+    return song.value.artist.name;
+  }
+  return '';
+});
 
 onMounted(() => {
   song.value = getCurrentSong();

@@ -8,7 +8,7 @@
     <view class="list">
       <view v-for="playlist in playlists" :key="playlist.id" class="item" @click="goDetail(playlist)">
         <text class="name">{{ playlist.name }}</text>
-        <text class="count">{{ playlist.songs?.length || 0 }} 首</text>
+        <text class="count">{{ getSongCount(playlist) }} 首</text>
       </view>
     </view>
   </view>
@@ -19,6 +19,13 @@ import { ref, onMounted } from 'vue';
 import { api } from '@/utils/api.js';
 
 const playlists = ref([]);
+
+function getSongCount(playlist: any): number {
+  if (playlist != null && playlist.songs != null && playlist.songs.length != null) {
+    return playlist.songs.length;
+  }
+  return 0;
+}
 
 onMounted(async () => {
   try {
@@ -46,7 +53,7 @@ function showCreateDialog() {
   });
 }
 
-function goDetail(playlist) {
+function goDetail(playlist: any) {
   uni.navigateTo({ url: `/pages/playlist/detail?id=${playlist.id}` });
 }
 </script>

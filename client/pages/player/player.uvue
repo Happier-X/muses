@@ -5,12 +5,12 @@
     </view>
 
     <view class="cover-area">
-      <image class="cover" :src="song?.album?.cover_art || '/static/logo.png'" />
+      <image class="cover" :src="coverUrl" />
     </view>
 
     <view class="info">
-      <text class="title">{{ song?.title }}</text>
-      <text class="artist">{{ song?.artist?.name }}</text>
+      <text class="title">{{ titleText }}</text>
+      <text class="artist">{{ artistText }}</text>
     </view>
 
     <view class="progress">
@@ -34,7 +34,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { getCurrentSong, playNext, playPrev, pause, resume } from '@/utils/player.js';
 import { api } from '@/utils/api.js';
 
@@ -44,6 +44,27 @@ const currentTime = ref(0);
 const duration = ref(0);
 const progress = ref(0);
 const isFavorite = ref(false);
+
+const coverUrl = computed((): string => {
+  if (song.value != null && song.value.album != null && song.value.album.cover_art != null) {
+    return song.value.album.cover_art;
+  }
+  return '/static/logo.png';
+});
+
+const titleText = computed((): string => {
+  if (song.value != null && song.value.title != null) {
+    return song.value.title;
+  }
+  return '';
+});
+
+const artistText = computed((): string => {
+  if (song.value != null && song.value.artist != null && song.value.artist.name != null) {
+    return song.value.artist.name;
+  }
+  return '';
+});
 
 onMounted(() => {
   song.value = getCurrentSong();
@@ -58,10 +79,14 @@ onMounted(() => {
   uni.$on('player-time-update', (data) => {
     currentTime.value = data.currentTime;
     duration.value = data.duration;
-    progress.value = data.duration > 0 ? (data.currentTime / data.duration) * 100 : 0;
+    if (data.duration > 0) {
+      progress.value = (data.currentTime / data.duration) * 100;
+    } else {
+      progress.value = 0;
+    }
   });
 
-  if (song.value) {
+  if (song.value != null) {
     checkFavorite();
   }
 });
@@ -81,8 +106,8 @@ function togglePlay() {
   }
 }
 
-function formatTime(seconds) {
-  if (!seconds || isNaN(seconds)) return '0:00';
+function formatTime(seconds: number): string {
+  if (seconds == null || isNaN(seconds)) return '0:00';
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
@@ -93,15 +118,15 @@ function goBack() {
 }
 
 async function checkFavorite() {
-  if (!song.value) return;
+  if (song.value == null) return;
   try {
     const favorites = await api.getFavorites();
-    isFavorite.value = favorites.some(f => f.id === song.value.id);
+    isFavorite.value = favorites.some((f: any) => f.id === song.value!.id);
   } catch (err) {}
 }
 
 async function toggleFavorite() {
-  if (!song.value) return;
+  if (song.value == null) return;
   try {
     if (isFavorite.value) {
       await api.removeFavorite(song.value.id);

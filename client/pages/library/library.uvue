@@ -11,29 +11,29 @@
 
     <view v-if="currentTab === 'artists'" class="list">
       <view v-for="artist in artists" :key="artist.id" class="item" @click="goArtist(artist)">
-        <image class="cover" :src="artist.cover_art || '/static/logo.png'" />
-        <text class="name">{{ artist.name }}</text>
+        <image class="cover" :src="getArtistCover(artist)" />
+        <text class="name">{{ getArtistName(artist) }}</text>
       </view>
     </view>
 
     <view v-if="currentTab === 'albums'" class="list">
       <view v-for="album in albums" :key="album.id" class="item" @click="goAlbum(album)">
-        <image class="cover" :src="album.cover_art || '/static/logo.png'" />
+        <image class="cover" :src="getAlbumCover(album)" />
         <view class="album-info">
-          <text class="name">{{ album.title }}</text>
-          <text class="sub">{{ album.artist?.name }}</text>
+          <text class="name">{{ getAlbumTitle(album) }}</text>
+          <text class="sub">{{ getAlbumArtist(album) }}</text>
         </view>
       </view>
     </view>
 
     <view v-if="currentTab === 'songs'" class="list">
       <view v-for="song in songs" :key="song.id" class="song-item" @click="playSong(song)">
-        <text class="title">{{ song.title }}</text>
-        <text class="sub">{{ song.artist?.name }} - {{ song.album?.title }}</text>
+        <text class="title">{{ getSongTitle(song) }}</text>
+        <text class="sub">{{ getSongArtistAlbum(song) }}</text>
       </view>
     </view>
 
-    <PlayerBar v-if="currentSong" />
+    <PlayerBar v-if="currentSong != null" />
   </view>
 </template>
 
@@ -56,6 +56,62 @@ const albums = ref([]);
 const songs = ref([]);
 const currentSong = ref(null);
 
+function getArtistCover(artist: any): string {
+  if (artist != null && artist.cover_art != null) {
+    return artist.cover_art;
+  }
+  return '/static/logo.png';
+}
+
+function getArtistName(artist: any): string {
+  if (artist != null && artist.name != null) {
+    return artist.name;
+  }
+  return '';
+}
+
+function getAlbumCover(album: any): string {
+  if (album != null && album.cover_art != null) {
+    return album.cover_art;
+  }
+  return '/static/logo.png';
+}
+
+function getAlbumTitle(album: any): string {
+  if (album != null && album.title != null) {
+    return album.title;
+  }
+  return '';
+}
+
+function getAlbumArtist(album: any): string {
+  if (album != null && album.artist != null && album.artist.name != null) {
+    return album.artist.name;
+  }
+  return '';
+}
+
+function getSongTitle(song: any): string {
+  if (song != null && song.title != null) {
+    return song.title;
+  }
+  return '';
+}
+
+function getSongArtistAlbum(song: any): string {
+  let result = '';
+  if (song != null && song.artist != null && song.artist.name != null) {
+    result = song.artist.name;
+  }
+  if (song != null && song.album != null && song.album.title != null) {
+    if (result.length > 0) {
+      result += ' - ';
+    }
+    result += song.album.title;
+  }
+  return result;
+}
+
 onMounted(async () => {
   currentSong.value = getCurrentSong();
   try {
@@ -72,15 +128,15 @@ onMounted(async () => {
   }
 });
 
-function goArtist(artist) {
+function goArtist(artist: any) {
   uni.navigateTo({ url: `/pages/library/artists?id=${artist.id}` });
 }
 
-function goAlbum(album) {
+function goAlbum(album: any) {
   uni.navigateTo({ url: `/pages/library/albums?id=${album.id}` });
 }
 
-function playSong(song) {
+function playSong(song: any) {
   playSongFunc(song, songs.value);
 }
 </script>

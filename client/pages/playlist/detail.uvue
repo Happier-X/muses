@@ -1,15 +1,15 @@
 <template>
   <view class="page">
     <view class="header">
-      <text class="title">{{ playlist.name }}</text>
-      <text class="count">{{ playlist.songs?.length || 0 }} 首</text>
+      <text class="title">{{ playlistName }}</text>
+      <text class="count">{{ songCount }} 首</text>
     </view>
 
     <view class="list">
-      <view v-for="song in playlist.songs" :key="song.id" class="item" @click="playSong(song)">
+      <view v-for="song in playlistSongs" :key="song.id" class="item" @click="playSong(song)">
         <view class="song-info">
-          <text class="title">{{ song.title }}</text>
-          <text class="artist">{{ song.artist?.name }}</text>
+          <text class="title">{{ songTitle(song) }}</text>
+          <text class="artist">{{ songArtist(song) }}</text>
         </view>
         <text class="remove" @click.stop="removeSong(song.id)">-</text>
       </view>
@@ -22,17 +22,52 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { api } from '@/utils/api.js';
 import { playSong } from '@/utils/player.js';
 
 const playlist = ref({});
 
+const playlistName = computed((): string => {
+  if (playlist.value != null && playlist.value.name != null) {
+    return playlist.value.name;
+  }
+  return '';
+});
+
+const songCount = computed((): number => {
+  if (playlist.value != null && playlist.value.songs != null && playlist.value.songs.length != null) {
+    return playlist.value.songs.length;
+  }
+  return 0;
+});
+
+const playlistSongs = computed((): any[] => {
+  if (playlist.value != null && playlist.value.songs != null) {
+    return playlist.value.songs;
+  }
+  return [];
+});
+
+function songTitle(song: any): string {
+  if (song != null && song.title != null) {
+    return song.title;
+  }
+  return '';
+}
+
+function songArtist(song: any): string {
+  if (song != null && song.artist != null && song.artist.name != null) {
+    return song.artist.name;
+  }
+  return '';
+}
+
 uni.onLoad((options) => {
   loadPlaylist(options.id);
 });
 
-async function loadPlaylist(id) {
+async function loadPlaylist(id: string) {
   try {
     playlist.value = await api.getPlaylist(id);
   } catch (err) {
@@ -40,11 +75,12 @@ async function loadPlaylist(id) {
   }
 }
 
-function playSong(song) {
-  playSong(song, playlist.value.songs || []);
+function playSong(song: any) {
+  const songs = playlist.value.songs != null ? playlist.value.songs : [];
+  playSong(song, songs);
 }
 
-async function removeSong(songId) {
+async function removeSong(songId: number) {
   try {
     await api.removeSongFromPlaylist(playlist.value.id, songId);
     playlist.value = await api.getPlaylist(playlist.value.id);

@@ -1,31 +1,66 @@
 <template>
   <view class="page">
     <view class="header">
-      <image class="cover" :src="artist.cover_art || '/static/logo.png'" />
-      <text class="name">{{ artist.name }}</text>
+      <image class="cover" :src="artistCover" />
+      <text class="name">{{ artistName }}</text>
     </view>
     <view class="songs">
       <text class="section-title">歌曲</text>
-      <view v-for="song in artist.songs" :key="song.id" class="song-item" @click="playSong(song)">
-        <text class="title">{{ song.title }}</text>
-        <text class="duration">{{ formatDuration(song.duration) }}</text>
+      <view v-for="song in artistSongs" :key="song.id" class="song-item" @click="playSong(song)">
+        <text class="title">{{ getSongTitle(song) }}</text>
+        <text class="duration">{{ formatDuration(getSongDuration(song)) }}</text>
       </view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { api } from '@/utils/api.js';
 import { playSong } from '@/utils/player.js';
 
 const artist = ref({});
 
+const artistCover = computed((): string => {
+  if (artist.value != null && artist.value.cover_art != null) {
+    return artist.value.cover_art;
+  }
+  return '/static/logo.png';
+});
+
+const artistName = computed((): string => {
+  if (artist.value != null && artist.value.name != null) {
+    return artist.value.name;
+  }
+  return '';
+});
+
+const artistSongs = computed((): any[] => {
+  if (artist.value != null && artist.value.songs != null) {
+    return artist.value.songs;
+  }
+  return [];
+});
+
+function getSongTitle(song: any): string {
+  if (song != null && song.title != null) {
+    return song.title;
+  }
+  return '';
+}
+
+function getSongDuration(song: any): number {
+  if (song != null && song.duration != null) {
+    return song.duration;
+  }
+  return 0;
+}
+
 uni.onLoad((options) => {
   loadArtist(options.id);
 });
 
-async function loadArtist(id) {
+async function loadArtist(id: string) {
   try {
     artist.value = await api.getArtist(id);
   } catch (err) {
@@ -33,12 +68,13 @@ async function loadArtist(id) {
   }
 }
 
-function playSong(song) {
-  playSong(song, artist.value.songs || []);
+function playSong(song: any) {
+  const songs = artist.value.songs != null ? artist.value.songs : [];
+  playSong(song, songs);
 }
 
-function formatDuration(seconds) {
-  if (!seconds) return '0:00';
+function formatDuration(seconds: number): string {
+  if (seconds == null || seconds <= 0) return '0:00';
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;

@@ -2,7 +2,7 @@
   <view class="page">
     <view class="user-info">
       <image class="avatar" src="/static/logo.png" />
-      <text class="username">{{ user?.username || '未登录' }}</text>
+      <text class="username">{{ usernameText }}</text>
     </view>
 
     <view class="menu">
@@ -22,12 +22,12 @@
 
     <button v-if="isLoggedIn()" class="btn-logout" @click="handleLogout">退出登录</button>
 
-    <PlayerBar v-if="currentSong" />
+    <PlayerBar v-if="currentSong != null" />
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { isLoggedIn, removeToken } from '@/utils/auth.js';
 import { getCurrentSong } from '@/utils/player.js';
 import { api } from '@/utils/api.js';
@@ -35,6 +35,13 @@ import PlayerBar from '@/components/PlayerBar.uvue';
 
 const user = ref(null);
 const currentSong = ref(null);
+
+const usernameText = computed((): string => {
+  if (user.value != null && user.value.username != null) {
+    return user.value.username;
+  }
+  return '未登录';
+});
 
 onMounted(async () => {
   currentSong.value = getCurrentSong();
@@ -48,12 +55,18 @@ onMounted(async () => {
 });
 
 function goFavorites() {
-  if (!isLoggedIn()) return goLogin();
+  if (!isLoggedIn()) {
+    goLogin();
+    return;
+  }
   uni.navigateTo({ url: '/pages/library/songs?type=favorites' });
 }
 
 function goPlaylists() {
-  if (!isLoggedIn()) return goLogin();
+  if (!isLoggedIn()) {
+    goLogin();
+    return;
+  }
   uni.navigateTo({ url: '/pages/profile/playlists' });
 }
 

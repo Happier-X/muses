@@ -1,32 +1,74 @@
 <template>
   <view class="page">
     <view class="header">
-      <image class="cover" :src="album.cover_art || '/static/logo.png'" />
-      <text class="title">{{ album.title }}</text>
-      <text class="artist">{{ album.artist?.name }}</text>
+      <image class="cover" :src="albumCover" />
+      <text class="title">{{ albumTitle }}</text>
+      <text class="artist">{{ albumArtist }}</text>
     </view>
     <view class="songs">
       <text class="section-title">歌曲</text>
-      <view v-for="song in album.songs" :key="song.id" class="song-item" @click="playSong(song)">
-        <text class="title">{{ song.title }}</text>
-        <text class="duration">{{ formatDuration(song.duration) }}</text>
+      <view v-for="song in albumSongs" :key="song.id" class="song-item" @click="playSong(song)">
+        <text class="title">{{ getSongTitle(song) }}</text>
+        <text class="duration">{{ formatDuration(getSongDuration(song)) }}</text>
       </view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { api } from '@/utils/api.js';
 import { playSong } from '@/utils/player.js';
 
 const album = ref({});
 
+const albumCover = computed((): string => {
+  if (album.value != null && album.value.cover_art != null) {
+    return album.value.cover_art;
+  }
+  return '/static/logo.png';
+});
+
+const albumTitle = computed((): string => {
+  if (album.value != null && album.value.title != null) {
+    return album.value.title;
+  }
+  return '';
+});
+
+const albumArtist = computed((): string => {
+  if (album.value != null && album.value.artist != null && album.value.artist.name != null) {
+    return album.value.artist.name;
+  }
+  return '';
+});
+
+const albumSongs = computed((): any[] => {
+  if (album.value != null && album.value.songs != null) {
+    return album.value.songs;
+  }
+  return [];
+});
+
+function getSongTitle(song: any): string {
+  if (song != null && song.title != null) {
+    return song.title;
+  }
+  return '';
+}
+
+function getSongDuration(song: any): number {
+  if (song != null && song.duration != null) {
+    return song.duration;
+  }
+  return 0;
+}
+
 uni.onLoad((options) => {
   loadAlbum(options.id);
 });
 
-async function loadAlbum(id) {
+async function loadAlbum(id: string) {
   try {
     album.value = await api.getAlbum(id);
   } catch (err) {
@@ -34,12 +76,13 @@ async function loadAlbum(id) {
   }
 }
 
-function playSong(song) {
-  playSong(song, album.value.songs || []);
+function playSong(song: any) {
+  const songs = album.value.songs != null ? album.value.songs : [];
+  playSong(song, songs);
 }
 
-function formatDuration(seconds) {
-  if (!seconds) return '0:00';
+function formatDuration(seconds: number): string {
+  if (seconds == null || seconds <= 0) return '0:00';
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
