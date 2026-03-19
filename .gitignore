@@ -37,3 +37,4 @@ Thumbs.db
 # Cache
 cache/
 tmp/
+backend/.env
