@@ -1,7 +1,8 @@
 # Dependencies
 node_modules/
+npm-debug.log*
 
-# Build outputs
+# Build
 dist/
 build/
 
@@ -9,10 +10,6 @@ build/
 .env
 .env.local
 .env.*.local
-
-# Logs
-*.log
-npm-debug.log*
 
 # IDE
 .vscode/
@@ -24,15 +21,9 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Claude
-.claude/
-
-# Docker
-.dockerignore
-
-# Database
-*.db
-*.db-journal
+# Prisma
+prisma/*.db
+prisma/*.db-journal
 
 # Cache
 cache/

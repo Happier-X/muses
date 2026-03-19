@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,30 +8,72 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int          @id @default(autoincrement())
+  username     String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  playlists    Playlist[]
+  favorites    Favorite[]
+}
+
+model Artist {
+  id        Int     @id @default(autoincrement())
+  name      String
+  coverArt  String?
+  albums    Album[]
+  songs     Song[]
+}
+
+model Album {
+  id        Int      @id @default(autoincrement())
+  title     String
+  artistId  Int
+  artist    Artist   @relation(fields: [artistId], references: [id])
+  coverArt  String?
+  year      Int?
+  songs     Song[]
 }
 
 model Song {
-  id          String   @id @default(cuid())
+  id          Int       @id @default(autoincrement())
   title       String
-  artist      String?
-  album       String?
-  albumArtist String?
-  year        Int?
-  track       Int?
-  genre       String?
-  duration    Float?
-  bitrate     Int?
-  sampleRate  Int?
-  format      String
-  filePath    String   @unique
-  fileSize    Int?
-  coverPath   String?
-  playCount   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  albumId     Int
+  album       Album     @relation(fields: [albumId], references: [id])
+  artistId    Int
+  artist      Artist    @relation(fields: [artistId], references: [id])
+  duration    Int
+  filePath    String
+  fileFormat  String
+  bitrate     Int
+  trackNumber Int?
+  createdAt   DateTime  @default(now())
+  playlistSongs PlaylistSong[]
+  favorites   Favorite[]
+}
+
+model Playlist {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  user      User             @relation(fields: [userId], references: [id])
+  name      String
+  createdAt DateTime         @default(now())
+  songs     PlaylistSong[]
+}
+
+model PlaylistSong {
+  playlistId Int
+  playlist   Playlist @relation(fields: [playlistId], references: [id])
+  songId     Int
+  song       Song     @relation(fields: [songId], references: [id])
+  position   Int
+  @@id([playlistId, songId])
+}
+
+model Favorite {
+  userId    Int
+  user      User   @relation(fields: [userId], references: [id])
+  songId    Int
+  song      Song   @relation(fields: [songId], references: [id])
+  createdAt DateTime @default(now())
+  @@id([userId, songId])
 }

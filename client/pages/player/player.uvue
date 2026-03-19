@@ -1,0 +1,274 @@
+<template>
+  <view class="page">
+    <view class="header" @click="goBack">
+      <text class="back"><</text>
+    </view>
+
+    <view class="cover-area">
+      <image class="cover" :src="coverUrl" />
+    </view>
+
+    <view class="info">
+      <text class="title">{{ titleText }}</text>
+      <text class="artist">{{ artistText }}</text>
+    </view>
+
+    <view class="progress">
+      <text class="time">{{ formatTime(currentTime) }}</text>
+      <view class="progress-bar">
+        <view class="progress-inner" :style="{ width: progress + '%' }"></view>
+      </view>
+      <text class="time">{{ formatTime(duration) }}</text>
+    </view>
+
+    <view class="controls">
+      <text class="control prev" @click="playPrev">⏮</text>
+      <text class="control play" @click="togglePlay">{{ isPlaying ? '⏸' : '▶' }}</text>
+      <text class="control next" @click="playNext">⏭</text>
+    </view>
+
+    <view class="extra-controls">
+      <text class="icon" @click="toggleFavorite">{{ isFavorite ? '❤️' : '🤍' }}</text>
+    </view>
+  </view>
+</template>
+
+<script setup lang="uts">
+	import { ref, onMounted, onUnmounted, computed } from 'vue'
+
+	type AlbumType = {
+		id?: number
+		title?: string
+		cover_art?: string
+	}
+
+	type ArtistType = {
+		id?: number
+		name?: string
+	}
+
+	type SongType = {
+		id?: number
+		title?: string
+		album?: AlbumType
+		artist?: ArtistType
+		duration?: number
+	}
+
+	type ResponseData = {
+		data: any
+		statusCode: number
+	}
+
+	const song = ref<SongType | null>(null)
+	const isPlaying = ref(false)
+	const currentTime = ref(0)
+	const duration = ref(0)
+	const progress = ref(0)
+	const isFavorite = ref(false)
+
+	function getApiUrl(): string {
+		const url = uni.getStorageSync('apiUrl') as string
+		if (url != null && url !== '') {
+			return url
+		}
+		return 'http://localhost:3000'
+	}
+
+	const coverUrl = computed((): string => {
+		if (song.value != null && song.value.album != null && song.value.album.cover_art != null) {
+			return song.value.album.cover_art
+		}
+		return '/static/logo.png'
+	})
+
+	const titleText = computed((): string => {
+		if (song.value != null && song.value.title != null) {
+			return song.value.title
+		}
+		return ''
+	})
+
+	const artistText = computed((): string => {
+		if (song.value != null && song.value.artist != null && song.value.artist.name != null) {
+			return song.value.artist.name
+		}
+		return ''
+	})
+
+	function getAuthHeader(): UTSJSONObject {
+		const header: UTSJSONObject = {}
+		const token = uni.getStorageSync('token')
+		if (token != null && token !== '') {
+			header['Authorization'] = 'Bearer ' + token
+		}
+		return header
+	}
+
+	function togglePlay() {
+		isPlaying.value = !isPlaying.value
+		uni.setStorageSync('isPlaying', isPlaying.value)
+	}
+
+	function playNext() {
+		uni.$emit('player-next', {})
+	}
+
+	function playPrev() {
+		uni.$emit('player-prev', {})
+	}
+
+	function formatTime(seconds: number): string {
+		if (seconds == null || isNaN(seconds)) return '0:00'
+		const m = Math.floor(seconds / 60)
+		const s = Math.floor(seconds % 60)
+		return m + ':' + s.toString().padStart(2, '0')
+	}
+
+	function goBack() {
+		uni.navigateBack()
+	}
+
+	function checkFavorite(): void {
+		if (song.value == null) return
+		uni.request({
+			url: getApiUrl() + '/api/favorites',
+			method: 'GET',
+			header: getAuthHeader(),
+			success: (res) => {
+				if ((res as ResponseData).statusCode == 200) {
+					const favorites = (res as ResponseData).data as SongType[]
+					isFavorite.value = favorites.some((f: SongType) => f.id === song.value!.id)
+				}
+			},
+			fail: () => {}
+		})
+	}
+
+	function toggleFavorite(): void {
+		if (song.value == null) return
+		if (isFavorite.value) {
+			uni.request({
+				url: getApiUrl() + '/api/favorites/' + song.value.id,
+				method: 'DELETE',
+				header: getAuthHeader(),
+				success: () => {
+					isFavorite.value = !isFavorite.value
+				},
+				fail: () => {
+					uni.showToast({ title: '操作失败', icon: 'none' })
+				}
+			})
+		} else {
+			uni.request({
+				url: getApiUrl() + '/api/favorites',
+				method: 'POST',
+				data: { songId: song.value.id },
+				header: getAuthHeader(),
+				success: () => {
+					isFavorite.value = !isFavorite.value
+				},
+				fail: () => {
+					uni.showToast({ title: '操作失败', icon: 'none' })
+				}
+			})
+		}
+	}
+
+	onMounted(() => {
+		const songData = uni.getStorageSync('currentSong')
+		if (songData != null && songData !== '') {
+			song.value = songData as SongType
+		}
+		isPlaying.value = uni.getStorageSync('isPlaying') == true
+
+		if (song.value != null) {
+			checkFavorite()
+		}
+	})
+
+	onUnmounted(() => {
+	})
+</script>
+
+<style>
+.page {
+	flex: 1;
+	background-color: #1a1a1a;
+	padding: 40px 20px;
+}
+.header {
+	margin-bottom: 20px;
+}
+.back {
+	color: #fff;
+	font-size: 24px;
+}
+.cover-area {
+	align-items: center;
+	margin: 40px 0;
+}
+.cover {
+	width: 250px;
+	height: 250px;
+	border-radius: 12px;
+}
+.info {
+	align-items: center;
+	margin-bottom: 30px;
+}
+.title {
+	font-size: 20px;
+	color: #fff;
+	font-weight: bold;
+}
+.artist {
+	font-size: 14px;
+	color: #999;
+	margin-top: 8px;
+}
+.progress {
+	flex-direction: row;
+	align-items: center;
+	margin-bottom: 30px;
+}
+.time {
+	font-size: 12px;
+	color: #999;
+	width: 40px;
+}
+.progress-bar {
+	flex: 1;
+	height: 4px;
+	background-color: #333;
+	border-radius: 2px;
+	margin: 0 10px;
+}
+.progress-inner {
+	height: 100%;
+	background-color: #1DB954;
+	border-radius: 2px;
+}
+.controls {
+	flex-direction: row;
+	justify-content: center;
+	align-items: center;
+	margin-bottom: 30px;
+}
+.control {
+	color: #fff;
+	font-size: 32px;
+	margin: 0 20px;
+}
+.play {
+	font-size: 48px;
+}
+.extra-controls {
+	flex-direction: row;
+	justify-content: center;
+}
+.icon {
+	font-size: 24px;
+	margin: 0 20px;
+}
+</style>

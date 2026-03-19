@@ -1,0 +1,19 @@
+services:
+  muses:
+    build: .
+    image: happierx/muses:latest
+    container_name: muses
+    ports:
+      - "3000:3000"
+    volumes:
+      - /path/to/your/music:/music:ro
+      - ./data/database:/app/backend/data
+      - ./data/cache:/app/backend/cache
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-change-this-to-a-secure-random-string}
+      - DATABASE_URL=file:./data/database.db
+      - MUSIC_PATH=/music
+      - TRANSCODE_CACHE_PATH=/app/backend/cache
+      - PORT=3000
+    restart: unless-stopped
