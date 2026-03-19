@@ -23,16 +23,14 @@ async function initDefaultUser() {
 
 initDefaultUser().then(() => {
   const app = new Elysia({ adapter: node() })
-    .use(openapi({ provider: 'scalar' }))
-    .use(cors())
-    .use(auth)
-    .use(music)
-    .get('/', () => 'Muses Music Streaming API')
-    .get('/health', () => ({ status: 'ok' }))
-    .listen(3000)
+      .use(openapi({ provider: 'scalar' }))
+      .use(cors())
+      .use(auth)
+      .use(music)
+      .get('/', () => 'Muses Music Streaming API')
+      .get('/health', () => ({ status: 'ok' }))
+      .listen(3000)
 
-  console.log('Server is running at http://localhost:3000')
-  console.log('OpenAPI docs at http://localhost:3000/openapi')
-
-  export type App = typeof app
-})
+    console.log('Server is running at http://localhost:3000')
+    console.log('OpenAPI docs at http://localhost:3000/openapi')
+  })
