@@ -25,14 +25,10 @@ export class AuthService {
   }
 
   // 创建用户
-  async createUser(username: string, password: string, email?: string): Promise<User> {
+  async createUser(username: string, password: string): Promise<User> {
     const hashedPassword = await bcrypt.hash(password, 10)
     return prisma.user.create({
-      data: {
-        username,
-        password: hashedPassword,
-        email
-      }
+      data: { username, password: hashedPassword }
     })
   }
 

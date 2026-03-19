@@ -42,8 +42,7 @@ export const auth = new Elysia({ prefix: '/auth' })
       token,
       user: {
         id: user.id,
-        username: user.username,
-        email: user.email
+        username: user.username
       }
     }
   }, {
@@ -103,7 +102,6 @@ export const auth = new Elysia({ prefix: '/auth' })
     return {
       id: user.id,
       username: user.username,
-      email: user.email,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString()
     }
@@ -114,5 +112,3 @@ export const auth = new Elysia({ prefix: '/auth' })
       404: ErrorResponse
     }
   })
-
-export type Auth = typeof auth

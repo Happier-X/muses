@@ -1,18 +1,18 @@
 # Muses
 
-个人音乐流媒体平台，支持在移动端（Expo）和 Web 端管理和播放音乐。
+个人音乐流媒体平台，移动端（Expo）和后端（Elysia）。
 
 ## 项目结构
 
 ```
 muses/
-├── app/          # Expo 移动端应用
-└── backend/      # Express REST API
+├── app/       # Expo 移动端应用
+└── backend/   # Elysia REST API
 ```
 
 ## 快速开始
 
-### 1. 后端
+### 后端
 
 ```bash
 cd backend
@@ -22,7 +22,7 @@ npm install
 
 # 配置环境变量
 cp .env.example .env
-# 编辑 .env，修改 JWT_SECRET 和音乐路径
+# 编辑 .env，修改 JWT_SECRET 和 MUSIC_DIR
 
 # 初始化数据库
 npx prisma db push
@@ -31,7 +31,7 @@ npx prisma db push
 npm run dev
 ```
 
-### 2. 移动端
+### 移动端
 
 ```bash
 cd app
@@ -56,27 +56,24 @@ npx expo start
 
 ### 后端 (backend/)
 
-- **框架**: Express.js
+- **框架**: Elysia.js
 - **ORM**: Prisma + SQLite
-- **认证**: JWT + bcryptjs
-- **验证**: Zod
+- **认证**: @elysiajs/jwt + bcryptjs
+- **文档**: @elysiajs/openapi (Scalar)
 
 ## API
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | /api/auth/register | 注册 |
-| POST | /api/auth/login | 登录 |
-| GET | /api/artists | 歌手列表 |
-| GET | /api/artists/:id | 歌手详情 |
-| GET | /api/albums | 专辑列表 |
-| GET | /api/albums/:id | 专辑详情 |
-| GET | /api/songs | 歌曲列表 |
-| GET | /api/songs/:id | 歌曲详情 |
-| GET | /api/playlists | 播放列表 |
-| POST | /api/playlists | 创建播放列表 |
-| GET | /api/favorites | 收藏列表 |
-| POST | /api/favorites/:songId | 收藏歌曲 |
+| POST | /auth/register | 注册 |
+| POST | /auth/login | 登录 |
+| GET | /auth/me | 当前用户 |
+| GET | /music | 歌曲列表 |
+| GET | /music/:id | 歌曲详情 |
+| POST | /music/scan | 扫描音乐目录 |
+| GET | /music/search/:query | 搜索歌曲 |
+| DELETE | /music/:id | 删除歌曲 |
+| POST | /music/:id/play | 增加播放次数 |
 
 ## 环境变量
 
@@ -84,6 +81,4 @@ npx expo start
 |------|------|--------|
 | DATABASE_URL | 数据库路径 | file:./data/database.db |
 | JWT_SECRET | JWT 密钥 | - |
-| PORT | 服务端口 | 3000 |
-| MUSIC_PATH | 音乐文件目录 | /music |
-| CORS_ORIGIN | 允许的跨域来源 | http://localhost:5173 |
+| MUSIC_DIR | 音乐文件目录 | /music |

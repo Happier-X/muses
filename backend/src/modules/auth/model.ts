@@ -21,8 +21,7 @@ export const LoginResponse = t.Object({
   token: t.String(),
   user: t.Object({
     id: t.String(),
-    username: t.String(),
-    email: t.Optional(t.String())
+    username: t.String()
   })
 })
 
@@ -32,7 +31,6 @@ export type LoginResponse = typeof LoginResponse.static
 export const UserResponse = t.Object({
   id: t.String(),
   username: t.String(),
-  email: t.Optional(t.String()),
   createdAt: t.String(),
   updatedAt: t.String()
 })
