@@ -1,0 +1,40 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Song {
+  id          String   @id @default(cuid())
+  title       String
+  artist      String?
+  album       String?
+  albumArtist String?
+  year        Int?
+  track       Int?
+  genre       String?
+  duration    Float?
+  bitrate     Int?
+  sampleRate  Int?
+  format      String
+  filePath    String   @unique
+  fileSize    Int?
+  coverPath   String?
+  playCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

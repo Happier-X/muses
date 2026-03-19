@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "muses-client",
+    "slug": "muses-client",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./src/assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "package": "com.happierx.muses"
+    },
+    "web": {
+      "favicon": "./src/assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router", "expo-sqlite", "expo-audio", "expo-asset"],
+    "scheme": "muses",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c2b6ca9a-e790-458b-a922-cf7fb63a4f9d"
+      }
+    }
+  }
+}
