@@ -98,7 +98,11 @@
       "Bash(node C:/Users/zhf52/.claude/skills/heroui-native/scripts/get_theme.mjs)",
       "Bash(node C:/Users/zhf52/.claude/skills/heroui-native/scripts/get_docs.mjs native/getting-started/theming)",
       "Bash(node C:/Users/zhf52/.claude/skills/heroui-native/scripts/get_docs.mjs native/getting-started/colors)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(bunx tsc:*)",
+      "Bash(bun add:*)",
+      "Bash(bun --bun run prisma migrate dev --name add_song)",
+      "Bash(bun --bun run prisma generate)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": []
