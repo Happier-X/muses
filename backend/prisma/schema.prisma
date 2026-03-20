@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  playlists     Playlist[]
+  likedTracks  LikedTrack[]
+  followedArtists Artist[]
+
+  @@map("users")
+}
+
+model Artist {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  avatar      String?
+  genre       String?
+  createdAt   DateTime @default(now())
+
+  tracks    Track[]
+  albums    Album[]
+  followers User[]
+
+  @@map("artists")
+}
+
+model Album {
+  id          String    @id @default(cuid())
+  title       String
+  artistName  String?
+  description String?
+  cover       String?
+  year        Int?
+  genre       String?
+  releaseDate DateTime?
+  createdAt   DateTime  @default(now())
+
+  artistId String
+  artist   Artist  @relation(fields: [artistId], references: [id])
+  tracks   Track[]
+
+  @@map("albums")
+}
+
+model Track {
+  id        String   @id @default(cuid())
+  title     String
+  artistName String?
+  albumName  String?
+  duration  Int
+  trackNumber Int?
+  discNumber  Int?
+  year       Int?
+  genre      String?
+  audioUrl  String
+  coverUrl  String?
+  filePath  String?
+  createdAt DateTime @default(now())
+
+  albumId   String
+  album     Album   @relation(fields: [albumId], references: [id])
+  artistId  String
+  artist    Artist  @relation(fields: [artistId], references: [id])
+  likedBy   LikedTrack[]
+  inPlaylists PlaylistTrack[]
+
+  @@map("tracks")
+}
+
+model Playlist {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  cover       String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  tracks PlaylistTrack[]
+
+  @@map("playlists")
+}
+
+model PlaylistTrack {
+  id      String   @id @default(cuid())
+  addedAt DateTime @default(now())
+
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  trackId    String
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, trackId])
+  @@map("playlist_tracks")
+}
+
+model LikedTrack {
+  id      String   @id @default(cuid())
+  likedAt DateTime @default(now())
+
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId String
+  track   Track  @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trackId])
+  @@map("liked_tracks")
+}
+
+model ScanConfig {
+  id           String   @id @default(cuid())
+  musicFolder  String
+  lastScanAt   DateTime?
+  scanStatus   String   @default("idle")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("scan_configs")
+}

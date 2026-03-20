@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  muses:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: muses-backend
+    ports:
+      - "3000:3000"
+    volumes:
+      # 音乐文件夹映射 - 修改为你的 NAS 音乐路径
+      - /volume1/music:/music:ro
+      # 数据库持久化
+      - ./data:/app/data
+      # 封面图持久化
+      - ./covers:/app/public/covers
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=file:./data/dev.db
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+      - JWT_EXPIRES_IN=7d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/config/music"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

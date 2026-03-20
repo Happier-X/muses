@@ -11,12 +11,22 @@
   "dependencies": {
     "@heroui/react": "^3.0.0-rc.1",
     "@heroui/styles": "^3.0.0-rc.1",
+    "@prisma/client": "^5.22.0",
+    "@scalar/hono-api-reference": "^0.10.4",
+    "@scalar/nextjs-api-reference": "^0.10.4",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.3.1",
+    "jsonwebtoken": "^9.0.3",
+    "music-metadata": "^11.12.3",
     "next": "16.2.0",
+    "prisma": "^5.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
