@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,6 +41,9 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
   static const String _prefsFilterUnknown = 'artists_filter_unknown_v1';
   static const String _prefsShowBlockedEntry = 'artists_show_blocked_entry_v1';
   static const String _prefsBlockedArtists = 'blocked_artists_v1';
+  static List<SongEntity>? _cachedSongsRef;
+  static final Map<String, List<_ArtistGroup>> _groupCache =
+      <String, List<_ArtistGroup>>{};
 
   final SongDao _songDao = SongDao();
   final ScrollController _controller = ScrollController();
@@ -56,7 +61,12 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
   @override
   void initState() {
     super.initState();
-    _init();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 120), () {
+        if (!mounted) return;
+        unawaited(_init());
+      });
+    });
   }
 
   Future<void> _init() async {
@@ -93,20 +103,38 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
 
   Future<void> _load() async {
     _loading.value = true;
-    final songs = await _songDao.fetchAll();
-    final groups = await compute(
-      _buildArtistGroups,
-      {
-        'songs': songs.map((e) => e.toMap()).toList(),
-        'blocked': _blockedArtists.value.toList(),
-        'sortKey': _sortKey.value,
-        'ascending': _ascending.value,
-        'filterUnknown': _filterUnknown.value,
-      },
-    );
+    final songs = await _songDao.fetchAllCached();
+    final blockedSorted = _blockedArtists.value.toList()..sort();
+    final cacheKey =
+        '${_sortKey.value}|${_ascending.value ? 1 : 0}|${_filterUnknown.value ? 1 : 0}|${blockedSorted.join(',')}';
+    final canUseCache =
+        identical(_cachedSongsRef, songs) && _groupCache.containsKey(cacheKey);
+
+    if (canUseCache) {
+      _groups.value = _groupCache[cacheKey]!
+          .map(
+            (g) => _ArtistGroup(
+              name: g.name,
+              songCount: g.songCount,
+              albumCount: g.albumCount,
+              representative: g.representative,
+            ),
+          )
+          .toList();
+      _loading.value = false;
+      return;
+    }
+
+    final groups = await compute(_buildArtistGroups, {
+      'songs': songs.map((e) => e.toMap()).toList(),
+      'blocked': blockedSorted,
+      'sortKey': _sortKey.value,
+      'ascending': _ascending.value,
+      'filterUnknown': _filterUnknown.value,
+    });
 
     if (!mounted) return;
-    _groups.value = groups
+    final mapped = groups
         .map(
           (e) => _ArtistGroup(
             name: e['name'] as String,
@@ -118,6 +146,12 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
           ),
         )
         .toList();
+    _cachedSongsRef = songs;
+    _groupCache[cacheKey] = mapped;
+    if (_groupCache.length > 8) {
+      _groupCache.remove(_groupCache.keys.first);
+    }
+    _groups.value = mapped;
     _loading.value = false;
   }
 
@@ -158,8 +192,16 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
           title: '艺术家排序',
           options: const [
             SortOption(key: 'name', label: '名称', icon: Icons.sort_by_alpha),
-            SortOption(key: 'songCount', label: '歌曲数', icon: Icons.music_note_outlined),
-            SortOption(key: 'albumCount', label: '专辑数', icon: Icons.album_outlined),
+            SortOption(
+              key: 'songCount',
+              label: '歌曲数',
+              icon: Icons.music_note_outlined,
+            ),
+            SortOption(
+              key: 'albumCount',
+              label: '专辑数',
+              icon: Icons.album_outlined,
+            ),
           ],
           currentKey: _sortKey.value,
           ascending: _ascending.value,
@@ -214,7 +256,9 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
     await BlockListService.instance.add(_prefsBlockedArtists, trimmed);
-    _blockedArtists.value = await BlockListService.instance.load(_prefsBlockedArtists);
+    _blockedArtists.value = await BlockListService.instance.load(
+      _prefsBlockedArtists,
+    );
     if (!mounted) return;
     AppToast.show(context, '已屏蔽艺术家: $trimmed', type: ToastType.success);
     await _load();
@@ -232,7 +276,9 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
             ..sort((a, b) => pinyinKey(a).compareTo(pinyinKey(b))),
           onUnblock: (name) async {
             await BlockListService.instance.remove(_prefsBlockedArtists, name);
-            _blockedArtists.value = await BlockListService.instance.load(_prefsBlockedArtists);
+            _blockedArtists.value = await BlockListService.instance.load(
+              _prefsBlockedArtists,
+            );
             if (context.mounted) {
               Navigator.pop(context);
               _load();
@@ -256,9 +302,7 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          SortActionButton(onTap: _showSortSheet),
-        ],
+        actions: [SortActionButton(onTap: _showSortSheet)],
       ),
       drawer: SideMenu(
         onCloseDrawer: () => _scaffoldKey.currentState?.closeDrawer(),
@@ -266,7 +310,9 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
       body: Watch.builder(
         builder: (context) {
           final headerCount =
-              (_showBlockedEntry.value && _blockedArtists.value.isNotEmpty) ? 1 : 0;
+              (_showBlockedEntry.value && _blockedArtists.value.isNotEmpty)
+              ? 1
+              : 0;
           final itemCount = _groups.value.length + headerCount;
           return RefreshIndicator(
             onRefresh: _load,
@@ -299,7 +345,10 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
                           child: Row(
                             children: [
                               const SizedBox(width: 16),
-                              Icon(Icons.person_off_outlined, color: theme.colorScheme.error),
+                              Icon(
+                                Icons.person_off_outlined,
+                                color: theme.colorScheme.error,
+                              ),
                               const SizedBox(width: 12),
                               const Expanded(child: Text('已屏蔽的艺术家')),
                               Text('${_blockedArtists.value.length} 个'),
@@ -314,7 +363,9 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
                   );
                 }
                 final g = _groups.value[index - headerCount];
-                final initial = g.name.isNotEmpty ? g.name.characters.first : '?';
+                final initial = g.name.isNotEmpty
+                    ? g.name.characters.first
+                    : '?';
                 return MediaListTile(
                   leading: ArtworkWidget(
                     song: g.representative,
@@ -344,9 +395,14 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               ListTile(
-                                leading: const Icon(Icons.person_off_outlined, color: Colors.red),
+                                leading: const Icon(
+                                  Icons.person_off_outlined,
+                                  color: Colors.red,
+                                ),
                                 title: const Text('屏蔽艺术家'),
-                                titleTextStyle: TextStyle(color: Theme.of(context).colorScheme.error),
+                                titleTextStyle: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
                                 onTap: () async {
                                   Navigator.pop(context);
                                   await _blockArtist(g.name);
@@ -383,8 +439,7 @@ List<Map<String, dynamic>> _buildArtistGroups(Map<String, dynamic> payload) {
   final representative = <String, Map<String, dynamic>>{};
   for (final raw in rawSongs) {
     final artistRaw = raw['artist']?.toString().trim() ?? '';
-    final names =
-        artistRaw.isEmpty ? const ['未知艺术家'] : splitArtists(artistRaw);
+    final names = artistRaw.isEmpty ? const ['未知艺术家'] : splitArtists(artistRaw);
     for (final name in names) {
       songCounts[name] = (songCounts[name] ?? 0) + 1;
       final rawAlbum = (raw['album']?.toString() ?? '').trim();
@@ -416,7 +471,9 @@ List<Map<String, dynamic>> _buildArtistGroups(Map<String, dynamic> payload) {
     if (sortKey == 'albumCount') {
       return (a['albumCount'] as int).compareTo(b['albumCount'] as int);
     }
-    return pinyinKey(a['name'] as String).compareTo(pinyinKey(b['name'] as String));
+    return pinyinKey(
+      a['name'] as String,
+    ).compareTo(pinyinKey(b['name'] as String));
   }
 
   groups.sort(compare);

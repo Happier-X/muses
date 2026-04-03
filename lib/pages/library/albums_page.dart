@@ -38,6 +38,9 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
   static const String _prefsGridColumns = 'albums_grid_columns_v1';
   static const String _prefsShowBlockedEntry = 'albums_show_blocked_entry_v1';
   static const String _prefsBlockedAlbums = 'blocked_albums_v1';
+  static List<SongEntity>? _cachedSongsRef;
+  static final Map<String, List<_AlbumGroup>> _groupCache =
+      <String, List<_AlbumGroup>>{};
 
   final SongDao _songDao = SongDao();
   final ScrollController _gridController = ScrollController();
@@ -70,7 +73,12 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
   @override
   void initState() {
     super.initState();
-    _init();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 120), () {
+        if (!mounted) return;
+        unawaited(_init());
+      });
+    });
   }
 
   @override
@@ -133,19 +141,35 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
 
   Future<void> _load() async {
     _loading.value = true;
-    final songs = await _songDao.fetchAll();
-    final groups = await compute(
-      _buildAlbumGroups,
-      {
-        'songs': songs.map((e) => e.toMap()).toList(),
-        'blocked': _blockedAlbums.value.toList(),
-        'sortMode': _sortMode.value,
-        'ascending': _ascending.value,
-      },
-    );
+    final songs = await _songDao.fetchAllCached();
+    final cacheKey =
+        '${_sortMode.value}|${_ascending.value ? 1 : 0}|${_blockedAlbums.value.join(',')}';
+    final canUseCache =
+        identical(_cachedSongsRef, songs) && _groupCache.containsKey(cacheKey);
+
+    if (canUseCache) {
+      _groups.value = _groupCache[cacheKey]!
+          .map(
+            (g) => _AlbumGroup(
+              name: g.name,
+              songCount: g.songCount,
+              representative: g.representative,
+            ),
+          )
+          .toList();
+      _loading.value = false;
+      return;
+    }
+
+    final groups = await compute(_buildAlbumGroups, {
+      'songs': songs.map((e) => e.toMap()).toList(),
+      'blocked': _blockedAlbums.value.toList(),
+      'sortMode': _sortMode.value,
+      'ascending': _ascending.value,
+    });
 
     if (!mounted) return;
-    _groups.value = groups
+    final mapped = groups
         .map(
           (e) => _AlbumGroup(
             name: e['name'] as String,
@@ -156,6 +180,12 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
           ),
         )
         .toList();
+    _cachedSongsRef = songs;
+    _groupCache[cacheKey] = mapped;
+    if (_groupCache.length > 8) {
+      _groupCache.remove(_groupCache.keys.first);
+    }
+    _groups.value = mapped;
     _loading.value = false;
   }
 
@@ -203,9 +233,17 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
           title: '专辑排序',
           options: const [
             SortOption(key: 'name', label: '名称', icon: Icons.sort_by_alpha),
-            SortOption(key: 'songCount', label: '歌曲数', icon: Icons.music_note_outlined),
+            SortOption(
+              key: 'songCount',
+              label: '歌曲数',
+              icon: Icons.music_note_outlined,
+            ),
             SortOption(key: 'artist', label: '艺术家', icon: Icons.person_outline),
-            SortOption(key: 'year', label: '年份', icon: Icons.calendar_today_outlined),
+            SortOption(
+              key: 'year',
+              label: '年份',
+              icon: Icons.calendar_today_outlined,
+            ),
           ],
           currentKey: _sortMode.value,
           ascending: _ascending.value,
@@ -282,7 +320,9 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
     await BlockListService.instance.add(_prefsBlockedAlbums, trimmed);
-    _blockedAlbums.value = await BlockListService.instance.load(_prefsBlockedAlbums);
+    _blockedAlbums.value = await BlockListService.instance.load(
+      _prefsBlockedAlbums,
+    );
     if (!mounted) return;
     AppToast.show(context, '已屏蔽专辑: $trimmed', type: ToastType.success);
     await _load();
@@ -300,7 +340,9 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
             ..sort((a, b) => pinyinKey(a).compareTo(pinyinKey(b))),
           onUnblock: (name) async {
             await BlockListService.instance.remove(_prefsBlockedAlbums, name);
-            _blockedAlbums.value = await BlockListService.instance.load(_prefsBlockedAlbums);
+            _blockedAlbums.value = await BlockListService.instance.load(
+              _prefsBlockedAlbums,
+            );
             if (context.mounted) {
               Navigator.pop(context);
               _load();
@@ -314,7 +356,9 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
   void _scrollToIndex(int index, BuildContext context) {
     if (!_gridController.hasClients) return;
     final headerHeight =
-        (_showBlockedEntry.value && _blockedAlbums.value.isNotEmpty) ? 64.0 + 8.0 : 8.0;
+        (_showBlockedEntry.value && _blockedAlbums.value.isNotEmpty)
+        ? 64.0 + 8.0
+        : 8.0;
     final screenWidth = MediaQuery.of(context).size.width;
     final totalSpacing = 14.0 * (_gridColumns.value - 1);
     final totalPadding = 12.0 + 12.0;
@@ -356,7 +400,10 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
                         child: Row(
                           children: [
                             const SizedBox(width: 16),
-                            Icon(Icons.album_outlined, color: theme.colorScheme.error),
+                            Icon(
+                              Icons.album_outlined,
+                              color: theme.colorScheme.error,
+                            ),
                             const SizedBox(width: 12),
                             const Expanded(child: Text('已屏蔽的专辑')),
                             Text('${_blockedAlbums.value.length} 个'),
@@ -373,131 +420,140 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 160),
               sliver: SliverGrid(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final g = _groups.value[index];
-                    final artist = primaryArtistLabel(g.representative.artist);
-                    final year = g.representative.fileModifiedMs == null
-                        ? ''
-                        : DateTime.fromMillisecondsSinceEpoch(
-                            g.representative.fileModifiedMs!,
-                          ).year.toString();
-                    final subtitle = year.isEmpty
-                        ? '${g.songCount}首 $artist'
-                        : '${g.songCount}首 $year $artist';
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => AlbumDetailPage(albumName: g.name),
-                          ),
-                        );
-                      },
-                      onLongPress: () {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          builder: (context) {
-                            return AppSheetPanel(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    leading: const Icon(Icons.album_outlined, color: Colors.red),
-                                    title: const Text('屏蔽专辑'),
-                                    titleTextStyle: TextStyle(color: Theme.of(context).colorScheme.error),
-                                    onTap: () async {
-                                      Navigator.pop(context);
-                                      await _blockAlbum(g.name);
-                                    },
-                                  ),
-                                  const SizedBox(height: 8),
-                                ],
-                              ),
-                            );
-                          },
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            const gapAfterArtwork = 8.0;
-                            const gapAfterTitle = 3.0;
-                            const titleStyle = TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              height: 1.1,
-                            );
-                            final subtitleStyle =
-                                (theme.textTheme.bodySmall ?? const TextStyle())
-                                    .copyWith(
-                              fontSize: 12,
-                              height: 1.1,
-                              color: theme.textTheme.bodySmall?.color
-                                  ?.withValues(alpha: 0.7),
-                            );
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final g = _groups.value[index];
+                  final artist = primaryArtistLabel(g.representative.artist);
+                  final year = g.representative.fileModifiedMs == null
+                      ? ''
+                      : DateTime.fromMillisecondsSinceEpoch(
+                          g.representative.fileModifiedMs!,
+                        ).year.toString();
+                  final subtitle = year.isEmpty
+                      ? '${g.songCount}首 $artist'
+                      : '${g.songCount}首 $year $artist';
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AlbumDetailPage(albumName: g.name),
+                        ),
+                      );
+                    },
+                    onLongPress: () {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) {
+                          return AppSheetPanel(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Expanded(
-                                  child: LayoutBuilder(
-                                    builder: (context, box) {
-                                      final size = box.maxWidth.clamp(
-                                        0.0,
-                                        box.maxHeight.clamp(0.0, double.infinity),
-                                      );
-                                      if (size <= 0) return const SizedBox.shrink();
-                                      return Align(
-                                        alignment: Alignment.topLeft,
-                                        child: ArtworkWidget(
-                                          song: g.representative,
-                                          size: size,
-                                          borderRadius: 16,
-                                          placeholder: Container(
-                                            width: size,
-                                            height: size,
-                                            decoration: BoxDecoration(
-                                              color: theme.cardColor,
-                                              borderRadius: BorderRadius.circular(16),
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.album_outlined,
+                                    color: Colors.red,
+                                  ),
+                                  title: const Text('屏蔽专辑'),
+                                  titleTextStyle: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                  onTap: () async {
+                                    Navigator.pop(context);
+                                    await _blockAlbum(g.name);
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          const gapAfterArtwork = 8.0;
+                          const gapAfterTitle = 3.0;
+                          const titleStyle = TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            height: 1.1,
+                          );
+                          final subtitleStyle =
+                              (theme.textTheme.bodySmall ?? const TextStyle())
+                                  .copyWith(
+                                    fontSize: 12,
+                                    height: 1.1,
+                                    color: theme.textTheme.bodySmall?.color
+                                        ?.withValues(alpha: 0.7),
+                                  );
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: LayoutBuilder(
+                                  builder: (context, box) {
+                                    final size = box.maxWidth.clamp(
+                                      0.0,
+                                      box.maxHeight.clamp(0.0, double.infinity),
+                                    );
+                                    if (size <= 0) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Align(
+                                      alignment: Alignment.topLeft,
+                                      child: ArtworkWidget(
+                                        song: g.representative,
+                                        size: size,
+                                        borderRadius: 16,
+                                        placeholder: Container(
+                                          width: size,
+                                          height: size,
+                                          decoration: BoxDecoration(
+                                            color: theme.cardColor,
+                                            borderRadius: BorderRadius.circular(
+                                              16,
                                             ),
                                           ),
                                         ),
-                                      );
-                                    },
-                                  ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                                const SizedBox(height: gapAfterArtwork),
-                                Text(
-                                  g.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: titleStyle,
-                                ),
-                                const SizedBox(height: gapAfterTitle),
-                                Text(
-                                  subtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: subtitleStyle,
-                                ),
-                              ],
-                            );
-                          },
-                        ),
+                              ),
+                              const SizedBox(height: gapAfterArtwork),
+                              Text(
+                                g.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: titleStyle,
+                              ),
+                              const SizedBox(height: gapAfterTitle),
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: subtitleStyle,
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                    );
-                  },
-                  childCount: _groups.value.length,
-                ),
+                    ),
+                  );
+                }, childCount: _groups.value.length),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: _gridColumns.value,
                   crossAxisSpacing: 14,
-                  mainAxisSpacing:
-                      _gridMainAxisSpacingForColumns(_gridColumns.value),
-                  childAspectRatio: _gridAspectRatioForColumns(_gridColumns.value),
+                  mainAxisSpacing: _gridMainAxisSpacingForColumns(
+                    _gridColumns.value,
+                  ),
+                  childAspectRatio: _gridAspectRatioForColumns(
+                    _gridColumns.value,
+                  ),
                 ),
               ),
             ),
@@ -543,16 +599,17 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          SortActionButton(onTap: _showSortSheet),
-        ],
+        actions: [SortActionButton(onTap: _showSortSheet)],
       ),
       drawer: SideMenu(
         onCloseDrawer: () => _scaffoldKey.currentState?.closeDrawer(),
       ),
       body: Watch.builder(
         builder: (context) {
-          final headerCount = (_showBlockedEntry.value && _blockedAlbums.value.isNotEmpty) ? 1 : 0;
+          final headerCount =
+              (_showBlockedEntry.value && _blockedAlbums.value.isNotEmpty)
+              ? 1
+              : 0;
           return RefreshIndicator(
             onRefresh: _load,
             child: _sortMode.value == 'year'
@@ -568,8 +625,9 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
                       }
                       final years = grouped.keys.toList()
                         ..sort(
-                          (a, b) =>
-                              _ascending.value ? a.compareTo(b) : b.compareTo(a),
+                          (a, b) => _ascending.value
+                              ? a.compareTo(b)
+                              : b.compareTo(a),
                         );
                       return ListView.builder(
                         controller: _yearController,
@@ -598,20 +656,21 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
                               ),
                             );
                           }
-                          final year =
-                              years[index - headerCount];
+                          final year = years[index - headerCount];
                           final albums = grouped[year] ?? const [];
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding:
-                                    const EdgeInsets.only(top: 12, bottom: 4),
+                                padding: const EdgeInsets.only(
+                                  top: 12,
+                                  bottom: 4,
+                                ),
                                 child: Text(
                                   year == 0 ? '未知年份' : '$year',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
                                 ),
                               ),
                               ListView.builder(
@@ -640,9 +699,9 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
                                                   ),
                                                   title: const Text('屏蔽专辑'),
                                                   titleTextStyle: TextStyle(
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .error,
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.error,
                                                   ),
                                                   onTap: () async {
                                                     Navigator.pop(context);
@@ -669,9 +728,9 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
                                         album.name,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyLarge,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge,
                                       ),
                                       subtitle: Text(
                                         '${album.songCount}首 · $artist',
@@ -679,10 +738,9 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontSize: 13,
-                                          color: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.color,
+                                          color: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall?.color,
                                         ),
                                       ),
                                       onTap: () {
@@ -704,7 +762,7 @@ class _AlbumsPageState extends State<AlbumsPage> with SignalsMixin {
                       );
                     },
                   )
-                    : _buildGrid(context),
+                : _buildGrid(context),
           );
         },
       ),
@@ -758,7 +816,9 @@ List<Map<String, dynamic>> _buildAlbumGroups(Map<String, dynamic> payload) {
     if (sortMode == 'year') {
       return yearOf(a).compareTo(yearOf(b));
     }
-    return pinyinKey(a['name'] as String).compareTo(pinyinKey(b['name'] as String));
+    return pinyinKey(
+      a['name'] as String,
+    ).compareTo(pinyinKey(b['name'] as String));
   }
 
   groups.sort(compare);

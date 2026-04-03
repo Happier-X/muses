@@ -20,6 +20,11 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with SignalsMixin {
   static const String _prefsHomeFilter = 'home_filter';
+  static int? _cachedCountAll;
+  static int? _cachedCountLocal;
+  static int? _cachedCountRemote;
+  static List<WebDavSource>? _cachedWebDavSources;
+  static Map<String, int>? _cachedWebDavCounts;
 
   final GlobalKey<AppPageScaffoldState> _scaffoldKey =
       GlobalKey<AppPageScaffoldState>();
@@ -72,23 +77,59 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool includeWebDavCounts = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_prefsHomeFilter) ?? 'all';
 
-    final counts = await Future.wait<int>([
+    final cachedAll = _cachedCountAll;
+    final cachedLocal = _cachedCountLocal;
+    final cachedRemote = _cachedCountRemote;
+    final cachedSources = _cachedWebDavSources;
+    if (cachedAll != null && cachedLocal != null && cachedRemote != null) {
+      _countAll.value = cachedAll;
+      _countLocal.value = cachedLocal;
+      _countRemote.value = cachedRemote;
+      if (cachedSources != null) {
+        _webDavSources.value = cachedSources;
+      }
+      _webDavCounts.value = _cachedWebDavCounts ?? const {};
+      _loading.value = false;
+    }
+
+    await _refreshData(
+      rawFilter: raw,
+      includeWebDavCounts: includeWebDavCounts,
+    );
+  }
+
+  Future<void> _refreshData({
+    required String rawFilter,
+    required bool includeWebDavCounts,
+  }) async {
+    final countsFuture = Future.wait<int>([
       _songDao.countAll(),
       _songDao.countLocal(),
       _songDao.countRemote(),
     ]);
-    final sources = await _webDavRepo.loadSources();
-    final entries = await Future.wait(
-      sources.map(
-        (s) async => MapEntry<String, int>(s.id, await _songDao.countBySource(s.id)),
-      ),
-    );
-    final webdavCounts = {for (final e in entries) e.key: e.value};
-    var filter = raw;
+    final sourcesFuture = _webDavRepo.loadSources();
+
+    final counts = await countsFuture;
+    final sources = await sourcesFuture;
+
+    Map<String, int> webdavCounts;
+    if (includeWebDavCounts) {
+      final entries = await Future.wait(
+        sources.map(
+          (s) async =>
+              MapEntry<String, int>(s.id, await _songDao.countBySource(s.id)),
+        ),
+      );
+      webdavCounts = {for (final e in entries) e.key: e.value};
+    } else {
+      webdavCounts = _cachedWebDavCounts ?? const {};
+    }
+
+    var filter = rawFilter;
     if (filter.startsWith('webdav:')) {
       final id = filter.substring('webdav:'.length);
       if (!sources.any((s) => s.id == id)) {
@@ -98,6 +139,13 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
       filter = 'all';
     }
     if (!mounted) return;
+
+    _cachedCountAll = counts[0];
+    _cachedCountLocal = counts[1];
+    _cachedCountRemote = counts[2];
+    _cachedWebDavSources = sources;
+    _cachedWebDavCounts = webdavCounts;
+
     _filter.value = filter;
     _countAll.value = counts[0];
     _countLocal.value = counts[1];
@@ -107,6 +155,22 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
     _loading.value = false;
   }
 
+  Future<void> _refreshWebDavCounts() async {
+    final sources = await _webDavRepo.loadSources();
+    final entries = await Future.wait(
+      sources.map(
+        (s) async =>
+            MapEntry<String, int>(s.id, await _songDao.countBySource(s.id)),
+      ),
+    );
+    if (!mounted) return;
+    final webdavCounts = {for (final e in entries) e.key: e.value};
+    _cachedWebDavSources = sources;
+    _cachedWebDavCounts = webdavCounts;
+    _webDavSources.value = sources;
+    _webDavCounts.value = webdavCounts;
+  }
+
   Future<void> _setFilter(String next) async {
     _filter.value = next;
     final prefs = await SharedPreferences.getInstance();
@@ -114,15 +178,9 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
   }
 
   Future<void> _showSourceSheet() async {
-    final sources = await _webDavRepo.loadSources();
-    final entries = await Future.wait(
-      sources.map(
-        (s) async => MapEntry<String, int>(s.id, await _songDao.countBySource(s.id)),
-      ),
-    );
+    await _refreshWebDavCounts();
     if (!mounted) return;
-    _webDavSources.value = sources;
-    _webDavCounts.value = {for (final e in entries) e.key: e.value};
+    final sources = _webDavSources.value;
 
     showModalBottomSheet(
       context: context,
@@ -166,7 +224,9 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 24),
                     title: Text('云端：$label'),
-                    trailing: isSelected ? const Icon(Icons.check_rounded) : null,
+                    trailing: isSelected
+                        ? const Icon(Icons.check_rounded)
+                        : null,
                     onTap: () {
                       _setFilter(value);
                       Navigator.pop(context);
@@ -177,6 +237,31 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _pushLibraryPage(Widget page) async {
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 240),
+        pageBuilder: (context, animation, secondaryAnimation) => ColoredBox(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: page,
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          final offset = Tween<Offset>(
+            begin: const Offset(0.12, 0),
+            end: Offset.zero,
+          ).animate(curved);
+          return SlideTransition(position: offset, child: child);
+        },
+      ),
     );
   }
 
@@ -206,16 +291,16 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
       ),
       body: Watch.builder(
         builder: (context) => RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () => _load(includeWebDavCounts: true),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 160),
             children: [
               Text(
                 '音乐库',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 12),
               _HomeStatsRow(
@@ -238,9 +323,7 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
                           icon: Icons.music_note_rounded,
                           label: '歌曲',
                           onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const SongsPage()),
-                            );
+                            _pushLibraryPage(const SongsPage());
                           },
                         ),
                       ),
@@ -250,9 +333,7 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
                           icon: Icons.people_rounded,
                           label: '艺术家',
                           onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const ArtistsPage()),
-                            );
+                            _pushLibraryPage(const ArtistsPage());
                           },
                         ),
                       ),
@@ -262,9 +343,7 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
                           icon: Icons.album_rounded,
                           label: '专辑',
                           onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const AlbumsPage()),
-                            );
+                            _pushLibraryPage(const AlbumsPage());
                           },
                         ),
                       ),
@@ -274,9 +353,7 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
                           icon: Icons.queue_music_rounded,
                           label: '歌单',
                           onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const PlaylistsPage()),
-                            );
+                            _pushLibraryPage(const PlaylistsPage());
                           },
                         ),
                       ),
@@ -307,8 +384,12 @@ class _HomeStatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF1F2329) : const Color.fromARGB(242, 255, 255, 255);
-    final shadowColor = isDark ? const Color.fromARGB(28, 0, 0, 0) : const Color.fromARGB(15, 0, 0, 0);
+    final bg = isDark
+        ? const Color(0xFF1F2329)
+        : const Color.fromARGB(242, 255, 255, 255);
+    final shadowColor = isDark
+        ? const Color.fromARGB(28, 0, 0, 0)
+        : const Color.fromARGB(15, 0, 0, 0);
 
     return Container(
       decoration: BoxDecoration(
@@ -361,10 +442,7 @@ class _HomeSourceItem {
   final String label;
   final String value;
 
-  const _HomeSourceItem({
-    required this.label,
-    required this.value,
-  });
+  const _HomeSourceItem({required this.label, required this.value});
 }
 
 class _HomeEntryCard extends StatelessWidget {
@@ -381,12 +459,18 @@ class _HomeEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor =
-        isDark ? const Color(0xFF1F2329) : const Color.fromARGB(242, 255, 255, 255);
-    final shadowColor =
-        isDark ? const Color.fromARGB(28, 0, 0, 0) : const Color.fromARGB(15, 0, 0, 0);
-    final iconColor = isDark ? Colors.white70 : const Color.fromARGB(255, 40, 40, 40);
-    final textColor = isDark ? Colors.white : const Color.fromARGB(255, 45, 45, 45);
+    final cardColor = isDark
+        ? const Color(0xFF1F2329)
+        : const Color.fromARGB(242, 255, 255, 255);
+    final shadowColor = isDark
+        ? const Color.fromARGB(28, 0, 0, 0)
+        : const Color.fromARGB(15, 0, 0, 0);
+    final iconColor = isDark
+        ? Colors.white70
+        : const Color.fromARGB(255, 40, 40, 40);
+    final textColor = isDark
+        ? Colors.white
+        : const Color.fromARGB(255, 45, 45, 45);
 
     return Material(
       color: Colors.transparent,

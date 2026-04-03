@@ -22,6 +22,23 @@ class _PlayerPageState extends State<PlayerPage> {
   final PageController _pageController = PageController();
 
   @override
+  void initState() {
+    super.initState();
+    _ensureAutoPlayOnEnter();
+  }
+
+  Future<void> _ensureAutoPlayOnEnter() async {
+    await PlayerPageBehaviorSettings.ensureLoaded();
+    if (!mounted || !PlayerPageBehaviorSettings.autoPlayOnEnter.value) return;
+    if (_player.currentSong.value == null || _player.isPlaying.value) return;
+    try {
+      await _player.play();
+    } catch (e) {
+      debugPrint('PlayerPage auto play on enter failed: $e');
+    }
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
@@ -69,10 +86,7 @@ class _PlayerView extends StatelessWidget {
   final PlayerService player;
   final VoidCallback onTapLyrics;
 
-  const _PlayerView({
-    required this.player,
-    required this.onTapLyrics,
-  });
+  const _PlayerView({required this.player, required this.onTapLyrics});
 
   @override
   Widget build(BuildContext context) {
@@ -81,10 +95,7 @@ class _PlayerView extends StatelessWidget {
         const Spacer(flex: 1),
         _PlayerArtwork(songSignal: player.currentSongSignal),
         const Spacer(flex: 1),
-        PlayerBottomPanel(
-          player: player,
-          onTapLyrics: onTapLyrics,
-        ),
+        PlayerBottomPanel(player: player, onTapLyrics: onTapLyrics),
       ],
     );
   }
@@ -167,10 +178,7 @@ class _ArtworkShadowContainer extends StatelessWidget {
   final BorderRadius border;
   final Widget child;
 
-  const _ArtworkShadowContainer({
-    required this.border,
-    required this.child,
-  });
+  const _ArtworkShadowContainer({required this.border, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -185,10 +193,7 @@ class _ArtworkShadowContainer extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: border,
-        child: child,
-      ),
+      child: ClipRRect(borderRadius: border, child: child),
     );
   }
 }
@@ -197,10 +202,7 @@ class _ArtworkPlaceholder extends StatelessWidget {
   final BorderRadius border;
   final String label;
 
-  const _ArtworkPlaceholder({
-    required this.border,
-    required this.label,
-  });
+  const _ArtworkPlaceholder({required this.border, required this.label});
 
   @override
   Widget build(BuildContext context) {

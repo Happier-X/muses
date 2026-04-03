@@ -8,12 +8,11 @@ class AppThemeSettings {
   static const String _prefsDynamicColor = 'setting_dynamic_color_enabled';
   static const String _prefsThemeSeedColor = 'setting_theme_seed_color';
 
-  static final ValueNotifier<ThemeMode> themeMode =
-      ValueNotifier(ThemeMode.system);
-  static final ValueNotifier<bool> dynamicColorEnabled =
-      ValueNotifier(false);
-  static final ValueNotifier<Color?> themeSeedColor =
-      ValueNotifier(null);
+  static final ValueNotifier<ThemeMode> themeMode = ValueNotifier(
+    ThemeMode.system,
+  );
+  static final ValueNotifier<bool> dynamicColorEnabled = ValueNotifier(false);
+  static final ValueNotifier<Color?> themeSeedColor = ValueNotifier(null);
 
   static bool _loaded = false;
 
@@ -44,8 +43,7 @@ class AppThemeSettings {
     _loaded = true;
     final prefs = await SharedPreferences.getInstance();
     themeMode.value = _modeFromString(prefs.getString(_prefsThemeMode));
-    dynamicColorEnabled.value =
-        prefs.getBool(_prefsDynamicColor) ?? false;
+    dynamicColorEnabled.value = prefs.getBool(_prefsDynamicColor) ?? false;
     final seed = prefs.getInt(_prefsThemeSeedColor);
     themeSeedColor.value = seed == null ? null : Color(seed);
   }
@@ -75,14 +73,15 @@ class AppThemeSettings {
 }
 
 class AppBackgroundSettings {
-  static const String _prefsBackgroundImagePath = 'setting_background_image_path';
+  static const String _prefsBackgroundImagePath =
+      'setting_background_image_path';
   static const String _prefsBackgroundMaskOpacity =
       'setting_background_mask_opacity';
 
-  static final ValueNotifier<String?> backgroundImagePath =
-      ValueNotifier(null);
-  static final ValueNotifier<double> backgroundMaskOpacity =
-      ValueNotifier(0.35);
+  static final ValueNotifier<String?> backgroundImagePath = ValueNotifier(null);
+  static final ValueNotifier<double> backgroundMaskOpacity = ValueNotifier(
+    0.35,
+  );
 
   static bool _loaded = false;
 
@@ -152,8 +151,8 @@ class WebDavPlaybackSettings {
     final prefs = await SharedPreferences.getInstance();
     prefetchEnabled.value = prefs.getBool(_prefsPrefetchEnabled) ?? true;
     segmentedEnabled.value = prefs.getBool(_prefsSegmentedEnabled) ?? true;
-    segmentConcurrency.value =
-        (prefs.getInt(_prefsSegmentConcurrency) ?? 4).clamp(1, 8);
+    segmentConcurrency.value = (prefs.getInt(_prefsSegmentConcurrency) ?? 4)
+        .clamp(1, 8);
   }
 
   static Future<void> setPrefetchEnabled(bool enabled) async {
@@ -176,8 +175,30 @@ class WebDavPlaybackSettings {
   }
 }
 
+class PlayerPageBehaviorSettings {
+  static const String _prefsAutoPlayOnEnter = 'player_auto_play_on_enter';
+
+  static final ValueNotifier<bool> autoPlayOnEnter = ValueNotifier(false);
+
+  static bool _loaded = false;
+
+  static Future<void> ensureLoaded() async {
+    if (_loaded) return;
+    _loaded = true;
+    final prefs = await SharedPreferences.getInstance();
+    autoPlayOnEnter.value = prefs.getBool(_prefsAutoPlayOnEnter) ?? false;
+  }
+
+  static Future<void> setAutoPlayOnEnter(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsAutoPlayOnEnter, enabled);
+    autoPlayOnEnter.value = enabled;
+  }
+}
+
 class PlayerBottomActionSettings {
-  static const String _prefsShowPlaybackMode = 'player_bottom_show_playback_mode';
+  static const String _prefsShowPlaybackMode =
+      'player_bottom_show_playback_mode';
   static const String _prefsShowSleepTimer = 'player_bottom_show_sleep_timer';
   static const String _prefsShowPlaylist = 'player_bottom_show_playlist';
   static const String _prefsShowMore = 'player_bottom_show_more';
@@ -194,8 +215,9 @@ class PlayerBottomActionSettings {
   static final ValueNotifier<bool> showSleepTimer = ValueNotifier(true);
   static final ValueNotifier<bool> showPlaylist = ValueNotifier(true);
   static final ValueNotifier<bool> showMore = ValueNotifier(true);
-  static final ValueNotifier<List<String>> actionOrder =
-      ValueNotifier(_defaultActionOrder);
+  static final ValueNotifier<List<String>> actionOrder = ValueNotifier(
+    _defaultActionOrder,
+  );
 
   static bool _loaded = false;
 
@@ -270,8 +292,8 @@ class AppCacheSettings {
     if (_loaded) return;
     _loaded = true;
     final prefs = await SharedPreferences.getInstance();
-    audioCacheLimitGb.value =
-        (prefs.getInt(_prefsAudioCacheLimitGb) ?? 0).clamp(0, 5);
+    audioCacheLimitGb.value = (prefs.getInt(_prefsAudioCacheLimitGb) ?? 0)
+        .clamp(0, 5);
     _applyCacheSettings();
   }
 

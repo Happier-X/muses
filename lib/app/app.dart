@@ -84,9 +84,33 @@ class NagoMusicApp extends StatelessWidget {
                     Route<dynamic> onGenerateRoute(RouteSettings settings) {
                       final name = settings.name ?? AppRoutes.home;
                       final target = routes[name] ?? routes[AppRoutes.home]!;
-                      return MaterialPageRoute(
-                        builder: target,
+                      return PageRouteBuilder<dynamic>(
                         settings: settings,
+                        transitionDuration: const Duration(milliseconds: 300),
+                        reverseTransitionDuration: const Duration(
+                          milliseconds: 240,
+                        ),
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            ColoredBox(
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                              child: target(context),
+                            ),
+                        transitionsBuilder:
+                            (context, animation, secondaryAnimation, child) {
+                              final curved = CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
+                                reverseCurve: Curves.easeInCubic,
+                              );
+                              final offset = Tween<Offset>(
+                                begin: const Offset(0.12, 0),
+                                end: Offset.zero,
+                              ).animate(curved);
+                              return SlideTransition(
+                                position: offset,
+                                child: child,
+                              );
+                            },
                       );
                     }
 
@@ -112,13 +136,16 @@ class NagoMusicApp extends StatelessWidget {
                         final navColor = theme.colorScheme.surface;
                         final overlay = SystemUiOverlayStyle(
                           statusBarColor: Colors.transparent,
-                          statusBarIconBrightness:
-                              isDark ? Brightness.light : Brightness.dark,
-                          statusBarBrightness:
-                              isDark ? Brightness.dark : Brightness.light,
+                          statusBarIconBrightness: isDark
+                              ? Brightness.light
+                              : Brightness.dark,
+                          statusBarBrightness: isDark
+                              ? Brightness.dark
+                              : Brightness.light,
                           systemNavigationBarColor: navColor,
-                          systemNavigationBarIconBrightness:
-                              isDark ? Brightness.light : Brightness.dark,
+                          systemNavigationBarIconBrightness: isDark
+                              ? Brightness.light
+                              : Brightness.dark,
                           systemNavigationBarDividerColor: navColor,
                         );
                         return AnnotatedRegion<SystemUiOverlayStyle>(

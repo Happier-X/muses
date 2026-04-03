@@ -11,7 +11,6 @@ import 'package:lpinyin/lpinyin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
-
 import '../../app/router/app_router.dart';
 import '../../app/services/artwork_cache_helper.dart';
 import '../../app/services/cache/audio_cache_service.dart';
@@ -38,10 +37,7 @@ class _SourceFilterItem {
   final String label;
   final String value;
 
-  const _SourceFilterItem({
-    required this.label,
-    required this.value,
-  });
+  const _SourceFilterItem({required this.label, required this.value});
 }
 
 class _ArtworkTask {
@@ -76,7 +72,7 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
   static final Map<String, Future<Uint8List?>> _artworkLoading = {};
   static final List<_ArtworkTask> _artworkQueue = [];
   static int _artworkActive = 0;
-  static const int _artworkMaxConcurrent = 12;
+  static const int _artworkMaxConcurrent = 6;
   static const int _artworkCacheMax = 300;
   static const double _itemExtent = 64;
   static const int _pageSize = 80;
@@ -91,6 +87,8 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
   int _currentMaxCount = _pageSize;
   int _visibleBuildToken = 0;
   bool _cacheArtworkEnabled = false;
+  bool _prefetchEnabled = false;
+  Timer? _rebuildDebounceTimer;
   late final _selectedIds = createSignal<Set<String>>(<String>{});
   late final _visibleSongs = createSignal<List<SongEntity>>([]);
   late final _visibleSongsAll = createSignal<List<SongEntity>>([]);
@@ -112,20 +110,37 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
   final LayerLink _scrapeLayerLink = LayerLink();
   final LyricsRepository _lyricsRepo = LyricsRepository();
   final AudioCacheService _audioCache = AudioCacheService.instance;
-  final ValueNotifier<_RemoveProgress> _removeNotifier =
-      ValueNotifier(const _RemoveProgress(processed: 0, total: 0, isRemoving: false));
+  final ValueNotifier<_RemoveProgress> _removeNotifier = ValueNotifier(
+    const _RemoveProgress(processed: 0, total: 0, isRemoving: false),
+  );
   bool _isRemoving = false;
 
   @override
   void initState() {
     super.initState();
-    _initPage();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 120), () {
+        if (!mounted) return;
+        unawaited(_initPage());
+      });
+    });
     _listController.addListener(_handleScroll);
     PlayerService.instance.currentSong.addListener(_handlePlayerSongChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 220), () {
+        if (!mounted) return;
+        _prefetchEnabled = true;
+        final visibleAll = _visibleSongsAll.value;
+        if (visibleAll.isEmpty) return;
+        final end = visibleAll.length - 1;
+        _scheduleRangePrefetch(0, end > 9 ? 9 : end, visibleAll);
+      });
+    });
   }
 
   @override
   void dispose() {
+    _rebuildDebounceTimer?.cancel();
     _removeScrapeOverlay();
     PlayerService.instance.currentSong.removeListener(_handlePlayerSongChanged);
     _listController.removeListener(_handleScroll);
@@ -137,7 +152,7 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
     await _restoreViewPrefs();
     final settings = await _localService.loadSettings();
     _cacheArtworkEnabled = settings.cacheArtwork;
-    await _loadWebDavNames();
+    unawaited(_loadWebDavNames());
     await _loadSongs();
   }
 
@@ -179,8 +194,9 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
   Future<void> _loadSongs() async {
     if (_cachedSongs != null && _cachedSongs!.isNotEmpty) {
       _songs.value = _cachedSongs!;
+      _seedVisibleSongsFast(_cachedSongs!);
       _isLoading.value = false;
-      await _updateVisibleSongs();
+      unawaited(_updateVisibleSongs());
     } else {
       _isLoading.value = true;
     }
@@ -188,9 +204,37 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
     if (!mounted) return;
     _cachedSongs = list;
     _songs.value = list;
-    await _updateVisibleSongs();
-    if (!mounted) return;
-    _isLoading.value = false;
+    if (_visibleSongsAll.value.isEmpty) {
+      _seedVisibleSongsFast(list);
+    }
+    if (_isLoading.value) {
+      _isLoading.value = false;
+    }
+    unawaited(_updateVisibleSongs());
+  }
+
+  void _seedVisibleSongsFast(List<SongEntity> songs) {
+    final sourceFilter = _sourceFilter.value;
+    List<SongEntity> filtered;
+    if (sourceFilter == 'local') {
+      filtered = songs.where((song) => song.sourceId == 'local').toList();
+    } else if (sourceFilter == 'webdav') {
+      filtered = songs.where((song) => song.sourceId != 'local').toList();
+    } else if (sourceFilter.startsWith('webdav:')) {
+      final id = sourceFilter.substring('webdav:'.length);
+      filtered = songs.where((song) => song.sourceId == id).toList();
+    } else {
+      filtered = List<SongEntity>.from(songs);
+    }
+    _visibleSongsAll.value = filtered;
+    if (_currentMaxCount < _pageSize) {
+      _currentMaxCount = _pageSize;
+    }
+    if (_currentMaxCount > filtered.length) {
+      _currentMaxCount = filtered.length;
+    }
+    _visibleSongs.value = filtered.take(_currentMaxCount).toList();
+    _syncCurrentIdWithPlayer(filtered);
   }
 
   Future<void> _updateVisibleSongs() async {
@@ -245,7 +289,11 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
   }
 
   void _rebuildVisibleSongs() {
-    unawaited(_updateVisibleSongs());
+    _rebuildDebounceTimer?.cancel();
+    _rebuildDebounceTimer = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      unawaited(_updateVisibleSongs());
+    });
   }
 
   void _handleScroll() {
@@ -289,7 +337,8 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
     if (idx < 0) return;
 
     final old = current[idx];
-    final same = old.title == updated.title &&
+    final same =
+        old.title == updated.title &&
         old.artist == updated.artist &&
         old.album == updated.album &&
         old.durationMs == updated.durationMs &&
@@ -329,7 +378,6 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
     }
   }
 
-
   void _toggleSelectAll(List<SongEntity> visible) {
     if (visible.isEmpty) return;
     final current = _selectedIds.value;
@@ -349,10 +397,7 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
     final selected = _selectedIds.value;
     if (selected.isEmpty) return;
     final ids = selected.toList(growable: false);
-    final added = await showAddToPlaylistDialog(
-      context,
-      songIds: ids,
-    );
+    final added = await showAddToPlaylistDialog(context, songIds: ids);
     if (!mounted) return;
     if (added == true) {
       _toggleMultiSelect();
@@ -362,10 +407,7 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
   void _togglePlayMode() {
     HapticFeedback.mediumImpact();
     _isSequentialPlay.value = !_isSequentialPlay.value;
-    AppToast.show(
-      context,
-      _isSequentialPlay.value ? '已切换为顺序播放' : '已切换为随机播放',
-    );
+    AppToast.show(context, _isSequentialPlay.value ? '已切换为顺序播放' : '已切换为随机播放');
   }
 
   void _openDrawer() {
@@ -466,17 +508,15 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
                     const SizedBox(height: 8),
                     Text(
                       '待更新 $total，剩余 ${total - done}，已更新 $success',
-                      style: TextStyle(
-                        color: scheme.onPrimary,
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: scheme.onPrimary, fontSize: 13),
                     ),
                     const SizedBox(height: 6),
                     LinearProgressIndicator(
                       value: total > 0 ? done / total : 0,
                       backgroundColor: scheme.onPrimary.withValues(alpha: 0.22),
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(scheme.onPrimary),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        scheme.onPrimary,
+                      ),
                     ),
                   ],
                 ),
@@ -512,28 +552,20 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
   bool _isMeaningfulTitle(String title) {
     final t = title.trim();
     if (t.isEmpty) return false;
-    const bad = {
-      '未知标题',
-      'unknown',
-      'unknown title',
-      'untitled',
-    };
+    const bad = {'未知标题', 'unknown', 'unknown title', 'untitled'};
     return !bad.contains(t.toLowerCase());
   }
 
   bool _isMeaningfulArtist(String artist) {
     final t = artist.trim();
     if (t.isEmpty) return false;
-    const bad = {
-      '未知艺术家',
-      'unknown',
-      'unknown artist',
-    };
+    const bad = {'未知艺术家', 'unknown', 'unknown artist'};
     return !bad.contains(t.toLowerCase());
   }
 
   Future<bool> _shouldSkipTagProbe(SongEntity song) async {
-    final hasBasics = _isMeaningfulTitle(song.title) &&
+    final hasBasics =
+        _isMeaningfulTitle(song.title) &&
         _isMeaningfulArtist(song.artist) &&
         (song.album ?? '').trim().isNotEmpty;
     final hasDuration = (song.durationMs ?? 0) > 0;
@@ -612,7 +644,8 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
       tagsParsed: true,
     );
 
-    final hasChanges = updated.title != song.title ||
+    final hasChanges =
+        updated.title != song.title ||
         updated.artist != song.artist ||
         updated.album != song.album ||
         updated.durationMs != song.durationMs ||
@@ -715,8 +748,7 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
   }
 
   void _drainArtworkQueue() {
-    while (_artworkActive < _artworkMaxConcurrent &&
-        _artworkQueue.isNotEmpty) {
+    while (_artworkActive < _artworkMaxConcurrent && _artworkQueue.isNotEmpty) {
       // Use LIFO strategy
       final task = _artworkQueue.removeLast();
       _artworkActive += 1;
@@ -768,11 +800,9 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
         if (compressed.isNotEmpty) {
           bytes = compressed;
         }
-      } catch (_) {
-      }
+      } catch (_) {}
 
-      if (_cacheArtworkEnabled &&
-          (song.localCoverPath ?? '').trim().isEmpty) {
+      if (_cacheArtworkEnabled && (song.localCoverPath ?? '').trim().isEmpty) {
         final cached = await ArtworkCacheHelper.cacheCompressedArtwork(
           bytes: bytes,
           key: '${song.id}_${song.fileModifiedMs ?? 0}',
@@ -805,12 +835,18 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
     final safeEnd = end >= songs.length ? songs.length - 1 : end;
     if (safeEnd < safeStart) return;
     for (var i = safeStart; i <= safeEnd; i++) {
-      _loadArtwork(songs[i]);
+      final song = songs[i];
+      final hasLocalCover = (song.localCoverPath ?? '').trim().isNotEmpty;
+      if (hasLocalCover || !song.isLocal) continue;
+      _loadArtwork(song);
     }
   }
 
   void _scheduleRangePrefetch(int start, int end, List<SongEntity> songs) {
-    if (songs.isEmpty) return;
+    if (songs.isEmpty || !_prefetchEnabled) return;
+    if (end - start > 9) {
+      end = start + 9;
+    }
     final key =
         '${_sourceFilter.value}|${_sortKey.value}|${_ascending.value}|$start|$end|${songs.length}';
     if (key == _lastPrefetchKey && songs.length == _lastPrefetchCount) return;
@@ -831,12 +867,13 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
           const _SourceFilterItem(label: '本地', value: 'local'),
           const _SourceFilterItem(label: '云端（全部）', value: 'webdav'),
         ];
-        final webdavIds = _songs.value
-            .map((song) => song.sourceId ?? '')
-            .where((id) => id.isNotEmpty && id != 'local')
-            .toSet()
-            .toList()
-          ..sort();
+        final webdavIds =
+            _songs.value
+                .map((song) => song.sourceId ?? '')
+                .where((id) => id.isNotEmpty && id != 'local')
+                .toSet()
+                .toList()
+              ..sort();
 
         return AppSheetPanel(
           title: '切换音源',
@@ -872,8 +909,9 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 24),
                     title: Text('云端：$label'),
-                    trailing:
-                        isSelected ? const Icon(Icons.check_rounded) : null,
+                    trailing: isSelected
+                        ? const Icon(Icons.check_rounded)
+                        : null,
                     onTap: () {
                       _sourceFilter.value = value;
                       _rebuildVisibleSongs();
@@ -897,7 +935,11 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
         return SortSheet(
           options: const [
             SortOption(key: 'title', label: '歌曲名称', icon: Icons.sort_by_alpha),
-            SortOption(key: 'artist', label: '歌手名称', icon: Icons.person_outline),
+            SortOption(
+              key: 'artist',
+              label: '歌手名称',
+              icon: Icons.person_outline,
+            ),
             SortOption(key: 'album', label: '专辑名称', icon: Icons.album_outlined),
             SortOption(key: 'duration', label: '歌曲时长', icon: Icons.schedule),
           ],
@@ -941,8 +983,9 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
     }
     final ids = _selectedIds.value.toList(growable: false);
     if (ids.isEmpty) return;
-    final removedSongs =
-        _songs.value.where((s) => ids.contains(s.id)).toList(growable: false);
+    final removedSongs = _songs.value
+        .where((s) => ids.contains(s.id))
+        .toList(growable: false);
     _isRemoving = true;
     _removeNotifier.value = _RemoveProgress(
       processed: 0,
@@ -963,10 +1006,12 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
       final nextSongs = _songs.value.where((s) => s.id != song.id).toList();
       _songs.value = nextSongs;
       _cachedSongs = nextSongs;
-      _visibleSongs.value =
-          _visibleSongs.value.where((s) => s.id != song.id).toList();
-      _visibleSongsAll.value =
-          _visibleSongsAll.value.where((s) => s.id != song.id).toList();
+      _visibleSongs.value = _visibleSongs.value
+          .where((s) => s.id != song.id)
+          .toList();
+      _visibleSongsAll.value = _visibleSongsAll.value
+          .where((s) => s.id != song.id)
+          .toList();
       final currentId = _currentId.value;
       if (currentId != null && currentId == song.id) {
         _currentId.value = null;
@@ -1144,7 +1189,8 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
                         controller: _listController,
                         itemCount: visibleSongs.length,
                         itemExtent: _itemExtent,
-                        bottomInset: MediaQuery.of(context).padding.bottom +
+                        bottomInset:
+                            MediaQuery.of(context).padding.bottom +
                             (_multiSelect.value ? 160 : 80),
                         indexLabelBuilder: (index) =>
                             _indexLabelForSong(visibleSongs[index]),
@@ -1177,13 +1223,15 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
                                 _selectedIds.value = next;
                               } else {
                                 _currentId.value = song.id;
-                                final queue =
-                                    List<SongEntity>.from(_visibleSongsAll.value);
+                                final queue = List<SongEntity>.from(
+                                  _visibleSongsAll.value,
+                                );
                                 if (!_isSequentialPlay.value) {
                                   queue.shuffle();
                                 }
-                                final startIndex =
-                                    queue.indexWhere((s) => s.id == song.id);
+                                final startIndex = queue.indexWhere(
+                                  (s) => s.id == song.id,
+                                );
                                 _openPlayerWithQueue(
                                   queue,
                                   startIndex == -1 ? 0 : startIndex,
@@ -1230,8 +1278,11 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
                                     onUpdated: (updated) {
                                       if (!mounted) return;
                                       final updatedSongs = _songs.value
-                                          .map((s) =>
-                                              s.id == updated.id ? updated : s)
+                                          .map(
+                                            (s) => s.id == updated.id
+                                                ? updated
+                                                : s,
+                                          )
                                           .toList();
                                       _songs.value = updatedSongs;
                                       _cachedSongs = updatedSongs;
@@ -1258,9 +1309,9 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
                                       unawaited(_updateVisibleSongs());
                                       if (deleted != null) {
                                         Future.microtask(
-                                          () => _cleanupCachesForSongs(
-                                            [deleted!],
-                                          ),
+                                          () => _cleanupCachesForSongs([
+                                            deleted!,
+                                          ]),
                                         );
                                       }
                                     },
@@ -1277,8 +1328,9 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
                                 onPressed: () {
                                   final targetId = _currentId.value;
                                   if (targetId == null) return;
-                                  final index = visibleSongs
-                                      .indexWhere((s) => s.id == targetId);
+                                  final index = visibleSongs.indexWhere(
+                                    (s) => s.id == targetId,
+                                  );
                                   if (index == -1) return;
                                   final offset = index * _itemExtent;
                                   final max =
@@ -1395,12 +1447,17 @@ class _SongArtworkState extends State<_SongArtwork> with SignalsMixin {
               width: widget.size,
               height: widget.size,
               cacheWidth:
-                  (widget.size * MediaQuery.of(context).devicePixelRatio).toInt(),
+                  (widget.size * MediaQuery.of(context).devicePixelRatio)
+                      .toInt(),
               cacheHeight:
-                  (widget.size * MediaQuery.of(context).devicePixelRatio).toInt(),
+                  (widget.size * MediaQuery.of(context).devicePixelRatio)
+                      .toInt(),
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
-                return _ArtworkPlaceholder(song: widget.song, size: widget.size);
+                return _ArtworkPlaceholder(
+                  song: widget.song,
+                  size: widget.size,
+                );
               },
             ),
           );
@@ -1414,9 +1471,11 @@ class _SongArtworkState extends State<_SongArtwork> with SignalsMixin {
               width: widget.size,
               height: widget.size,
               cacheWidth:
-                  (widget.size * MediaQuery.of(context).devicePixelRatio).toInt(),
+                  (widget.size * MediaQuery.of(context).devicePixelRatio)
+                      .toInt(),
               cacheHeight:
-                  (widget.size * MediaQuery.of(context).devicePixelRatio).toInt(),
+                  (widget.size * MediaQuery.of(context).devicePixelRatio)
+                      .toInt(),
               fit: BoxFit.cover,
             ),
           );
@@ -1526,7 +1585,8 @@ List<Map<String, dynamic>> _buildVisibleSongsIsolate(
     return key;
   }
 
-  bool isUnknownTitle(SongEntity s) => s.title.trim().isEmpty || s.title == '未知标题';
+  bool isUnknownTitle(SongEntity s) =>
+      s.title.trim().isEmpty || s.title == '未知标题';
   bool isUnknownArtist(SongEntity s) =>
       s.artist.trim().isEmpty || s.artist == '未知艺术家';
   bool isUnknownAlbum(SongEntity s) {
@@ -1538,20 +1598,23 @@ List<Map<String, dynamic>> _buildVisibleSongsIsolate(
     int result;
     switch (sortKey) {
       case 'artist':
-        result = sortKeyStr(isUnknownArtist(a) ? '' : a.artist)
-            .compareTo(sortKeyStr(isUnknownArtist(b) ? '' : b.artist));
+        result = sortKeyStr(
+          isUnknownArtist(a) ? '' : a.artist,
+        ).compareTo(sortKeyStr(isUnknownArtist(b) ? '' : b.artist));
         break;
       case 'album':
-        result = sortKeyStr(isUnknownAlbum(a) ? '' : (a.album ?? ''))
-            .compareTo(sortKeyStr(isUnknownAlbum(b) ? '' : (b.album ?? '')));
+        result = sortKeyStr(
+          isUnknownAlbum(a) ? '' : (a.album ?? ''),
+        ).compareTo(sortKeyStr(isUnknownAlbum(b) ? '' : (b.album ?? '')));
         break;
       case 'duration':
         result = (a.durationMs ?? 0).compareTo(b.durationMs ?? 0);
         break;
       case 'title':
       default:
-        result = sortKeyStr(isUnknownTitle(a) ? '' : a.title)
-            .compareTo(sortKeyStr(isUnknownTitle(b) ? '' : b.title));
+        result = sortKeyStr(
+          isUnknownTitle(a) ? '' : a.title,
+        ).compareTo(sortKeyStr(isUnknownTitle(b) ? '' : b.title));
     }
     return ascending ? result : -result;
   }
