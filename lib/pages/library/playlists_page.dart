@@ -8,7 +8,9 @@ import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/player_service.dart';
 import '../../app/services/playlists_service.dart';
 import '../../app/state/song_state.dart';
+import '../../app/utils/cache_version_store.dart';
 import '../../app/utils/deferred_page_init_mixin.dart';
+import '../../app/utils/page_cache_store.dart';
 import '../../components/index.dart';
 import '../library/library_detail_pages.dart';
 import '../songs/song_detail_sheet.dart';
@@ -36,10 +38,12 @@ class _PlaylistsPageState extends State<PlaylistsPage>
     with SignalsMixin, DeferredPageInitMixin {
   static const String _prefsSortMode = 'playlists_sort_mode_v1';
   static const String _prefsSortAscending = 'playlists_sort_ascending_v1';
+  static const String _cacheScope = 'playlists_page';
 
   final PlaylistsService _service = PlaylistsService.instance;
   final GlobalKey<AppPageScaffoldState> _scaffoldKey =
       GlobalKey<AppPageScaffoldState>();
+  final PageCacheStore _cacheStore = PageCacheStore.instance;
 
   late final _loading = createSignal(true);
   late final _playlists = createSignal<List<PlaylistEntity>>([]);
@@ -80,8 +84,14 @@ class _PlaylistsPageState extends State<PlaylistsPage>
 
   Future<void> _load() async {
     _loading.value = true;
-    final playlists = await _service.loadAll();
+    final cacheKey =
+        'playlistsv:${CacheVersionStore.instance.getVersion(PlaylistsService.cacheVersionScope)}';
+    final cached = _cacheStore.get<List<PlaylistEntity>>(_cacheScope, cacheKey);
+    final playlists = cached ?? await _service.loadAll();
     if (!mounted) return;
+    if (cached == null) {
+      _cacheStore.set(_cacheScope, cacheKey, playlists);
+    }
     _allPlaylists = playlists;
     _applySortFromBase();
     _loading.value = false;

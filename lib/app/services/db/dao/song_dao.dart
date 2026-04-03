@@ -3,8 +3,10 @@ import 'package:sqflite/sqflite.dart';
 import '../db_constants.dart';
 import '../db_helper.dart';
 import '../../../state/song_state.dart';
+import '../../../utils/cache_version_store.dart';
 
 class SongDao {
+  static const String cacheVersionScope = 'song_library';
   static List<SongEntity>? _cachedAll;
   static Future<List<SongEntity>>? _cachedAllFuture;
 
@@ -40,6 +42,7 @@ class SongDao {
       return added;
     });
     _cachedAll = null;
+    CacheVersionStore.instance.bump(cacheVersionScope);
     return added;
   }
 
@@ -57,8 +60,9 @@ class SongDao {
 
   Future<int> countAll() async {
     final db = await DbHelper.instance.database;
-    final result =
-        await db.rawQuery('SELECT COUNT(*) as total FROM ${DbConstants.tableSongs}');
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as total FROM ${DbConstants.tableSongs}',
+    );
     if (result.isEmpty) return 0;
     final value = result.first['total'];
     if (value is int) return value;
@@ -130,10 +134,7 @@ class SongDao {
       where: 'sourceId = ?',
       whereArgs: [sourceId],
     );
-    return rows
-        .map((row) => row['id'])
-        .whereType<String>()
-        .toSet();
+    return rows.map((row) => row['id']).whereType<String>().toSet();
   }
 
   Future<int> deleteByIds(List<String> ids) async {
@@ -146,6 +147,7 @@ class SongDao {
       whereArgs: ids,
     );
     _cachedAll = null;
+    CacheVersionStore.instance.bump(cacheVersionScope);
     return result;
   }
 
@@ -157,6 +159,7 @@ class SongDao {
       whereArgs: [sourceId],
     );
     _cachedAll = null;
+    CacheVersionStore.instance.bump(cacheVersionScope);
     return result;
   }
 }

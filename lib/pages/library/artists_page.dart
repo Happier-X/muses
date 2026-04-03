@@ -8,6 +8,7 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 import '../../app/services/block_list_service.dart';
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/state/song_state.dart';
+import '../../app/utils/cache_version_store.dart';
 import '../../app/utils/deferred_page_init_mixin.dart';
 import '../../app/utils/page_cache_store.dart';
 import '../../components/common/artwork_widget.dart';
@@ -107,8 +108,11 @@ class _ArtistsPageState extends State<ArtistsPage>
     _loading.value = true;
     final songs = await _songDao.fetchAllCached();
     final blockedSorted = _blockedArtists.value.toList()..sort();
+    final songVersion = CacheVersionStore.instance.getVersion(
+      SongDao.cacheVersionScope,
+    );
     final cacheKey =
-        '${identityHashCode(songs)}|${_sortKey.value}|${_ascending.value ? 1 : 0}|${_filterUnknown.value ? 1 : 0}|${blockedSorted.join(',')}';
+        'songv:$songVersion|${_sortKey.value}|${_ascending.value ? 1 : 0}|${_filterUnknown.value ? 1 : 0}|${blockedSorted.join(',')}';
     final cached = _cacheStore.get<List<_ArtistGroup>>(_cacheScope, cacheKey);
 
     if (cached != null) {

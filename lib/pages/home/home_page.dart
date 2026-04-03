@@ -5,6 +5,7 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
+import '../../app/utils/cache_version_store.dart';
 import '../../app/utils/page_cache_store.dart';
 import '../../components/index.dart';
 import '../library/albums_page.dart';
@@ -78,8 +79,10 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
   Future<void> _load({bool includeWebDavCounts = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_prefsHomeFilter) ?? 'all';
+    final cacheKey =
+        'songv:${CacheVersionStore.instance.getVersion(SongDao.cacheVersionScope)}';
 
-    final cached = _cacheStore.get<_HomeCountsCache>(_cacheScope, 'main');
+    final cached = _cacheStore.get<_HomeCountsCache>(_cacheScope, cacheKey);
     if (cached != null) {
       _countAll.value = cached.countAll;
       _countLocal.value = cached.countLocal;
@@ -90,12 +93,14 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
     }
 
     await _refreshData(
+      cacheKey: cacheKey,
       rawFilter: raw,
       includeWebDavCounts: includeWebDavCounts,
     );
   }
 
   Future<void> _refreshData({
+    required String cacheKey,
     required String rawFilter,
     required bool includeWebDavCounts,
   }) async {
@@ -121,7 +126,7 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
     } else {
       webdavCounts =
           _cacheStore
-              .get<_HomeCountsCache>(_cacheScope, 'main')
+              .get<_HomeCountsCache>(_cacheScope, cacheKey)
               ?.webDavCounts ??
           const {};
     }
@@ -139,7 +144,7 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
 
     _cacheStore.set(
       _cacheScope,
-      'main',
+      cacheKey,
       _HomeCountsCache(
         countAll: counts[0],
         countLocal: counts[1],
@@ -168,11 +173,13 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
     );
     if (!mounted) return;
     final webdavCounts = {for (final e in entries) e.key: e.value};
-    final previous = _cacheStore.get<_HomeCountsCache>(_cacheScope, 'main');
+    final cacheKey =
+        'songv:${CacheVersionStore.instance.getVersion(SongDao.cacheVersionScope)}';
+    final previous = _cacheStore.get<_HomeCountsCache>(_cacheScope, cacheKey);
     if (previous != null) {
       _cacheStore.set(
         _cacheScope,
-        'main',
+        cacheKey,
         previous.copyWith(webDavSources: sources, webDavCounts: webdavCounts),
       );
     }

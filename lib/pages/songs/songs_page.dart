@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:lpinyin/lpinyin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
@@ -27,6 +25,9 @@ import '../../components/index.dart';
 import '../library/library_detail_pages.dart';
 import '../library/playlists_page.dart';
 import 'song_detail_sheet.dart';
+import 'songs_artwork_coordinator.dart';
+import 'songs_selection_controller.dart';
+import 'songs_visible_controller.dart';
 
 class SongsPage extends StatefulWidget {
   const SongsPage({super.key});
@@ -40,13 +41,6 @@ class _SourceFilterItem {
   final String value;
 
   const _SourceFilterItem({required this.label, required this.value});
-}
-
-class _ArtworkTask {
-  final SongEntity song;
-  final Completer<Uint8List?> completer;
-
-  _ArtworkTask(this.song, this.completer);
 }
 
 class _RemoveProgress {
@@ -69,13 +63,6 @@ class _SongsPageState extends State<SongsPage>
   static const String _cacheScopeSongs = 'songs_all';
   static const String _cacheScopeVisible = 'songs_visible';
   static List<SongEntity>? _cachedSongs;
-  static final LinkedHashMap<String, Uint8List> _artworkCache =
-      LinkedHashMap<String, Uint8List>();
-  static final Map<String, Future<Uint8List?>> _artworkLoading = {};
-  static final List<_ArtworkTask> _artworkQueue = [];
-  static int _artworkActive = 0;
-  static const int _artworkMaxConcurrent = 6;
-  static const int _artworkCacheMax = 300;
   static const double _itemExtent = 64;
   static const int _pageSize = 80;
   final ScrollController _listController = ScrollController();
@@ -86,8 +73,14 @@ class _SongsPageState extends State<SongsPage>
   final WebDavSourceRepository _webDavRepo = WebDavSourceRepository.instance;
   final ArtworkService _artworkService = ArtworkService.instance;
   final PageCacheStore _cacheStore = PageCacheStore.instance;
-  String _lastPrefetchKey = '';
-  int _lastPrefetchCount = -1;
+  final SongsVisibleController _visibleController = SongsVisibleController();
+  final SongsSelectionController _selectionController =
+      SongsSelectionController();
+  late final SongsArtworkCoordinator _artworkCoordinator =
+      SongsArtworkCoordinator(
+        artworkService: _artworkService,
+        songDao: _songDao,
+      );
   int _currentMaxCount = _pageSize;
   int _visibleBuildToken = 0;
   bool _cacheArtworkEnabled = false;
@@ -219,27 +212,22 @@ class _SongsPageState extends State<SongsPage>
   }
 
   void _seedVisibleSongsFast(List<SongEntity> songs) {
-    final sourceFilter = _sourceFilter.value;
-    List<SongEntity> filtered;
-    if (sourceFilter == 'local') {
-      filtered = songs.where((song) => song.sourceId == 'local').toList();
-    } else if (sourceFilter == 'webdav') {
-      filtered = songs.where((song) => song.sourceId != 'local').toList();
-    } else if (sourceFilter.startsWith('webdav:')) {
-      final id = sourceFilter.substring('webdav:'.length);
-      filtered = songs.where((song) => song.sourceId == id).toList();
-    } else {
-      filtered = List<SongEntity>.from(songs);
-    }
-    _visibleSongsAll.value = filtered;
+    final result = _visibleController.seedVisibleSongsFast(
+      songs: songs,
+      sourceFilter: _sourceFilter.value,
+      currentMaxCount: _currentMaxCount < _pageSize
+          ? _pageSize
+          : _currentMaxCount,
+    );
+    _visibleSongsAll.value = result.allVisible;
     if (_currentMaxCount < _pageSize) {
       _currentMaxCount = _pageSize;
     }
-    if (_currentMaxCount > filtered.length) {
-      _currentMaxCount = filtered.length;
+    if (_currentMaxCount > result.allVisible.length) {
+      _currentMaxCount = result.allVisible.length;
     }
-    _visibleSongs.value = filtered.take(_currentMaxCount).toList();
-    _syncCurrentIdWithPlayer(filtered);
+    _visibleSongs.value = result.displayVisible;
+    _syncCurrentIdWithPlayer(result.allVisible);
   }
 
   Future<void> _updateVisibleSongs() async {
@@ -247,50 +235,34 @@ class _SongsPageState extends State<SongsPage>
     final sourceFilter = _sourceFilter.value;
     final sortKey = _sortKey.value;
     final ascending = _ascending.value;
-    final cacheKey =
-        '${identityHashCode(songs)}|$sourceFilter|$sortKey|${ascending ? 1 : 0}';
-    final cached = _cacheStore.get<List<SongEntity>>(
-      _cacheScopeVisible,
-      cacheKey,
-    );
-    if (cached != null) {
-      _visibleSongsAll.value = cached;
-      if (_currentMaxCount < _pageSize) {
-        _currentMaxCount = _pageSize;
-      }
-      if (_currentMaxCount > cached.length) {
-        _currentMaxCount = cached.length;
-      }
-      _visibleSongs.value = cached.take(_currentMaxCount).toList();
-      final prefetchEnd = _currentMaxCount - 1;
-      if (prefetchEnd >= 0) {
-        _scheduleRangePrefetch(0, prefetchEnd > 29 ? 29 : prefetchEnd, cached);
-      }
-      _syncCurrentIdWithPlayer(cached);
-      return;
-    }
     final token = ++_visibleBuildToken;
-    final visible = await _buildVisibleSongsAsync(
+    final result = await _visibleController.buildVisibleSongs(
       songs: songs,
       sourceFilter: sourceFilter,
       sortKey: sortKey,
       ascending: ascending,
+      currentMaxCount: _currentMaxCount < _pageSize
+          ? _pageSize
+          : _currentMaxCount,
     );
     if (!mounted || token != _visibleBuildToken) return;
-    _cacheStore.set(_cacheScopeVisible, cacheKey, visible);
-    _visibleSongsAll.value = visible;
+    _visibleSongsAll.value = result.allVisible;
     if (_currentMaxCount < _pageSize) {
       _currentMaxCount = _pageSize;
     }
-    if (_currentMaxCount > visible.length) {
-      _currentMaxCount = visible.length;
+    if (_currentMaxCount > result.allVisible.length) {
+      _currentMaxCount = result.allVisible.length;
     }
-    _visibleSongs.value = visible.take(_currentMaxCount).toList();
+    _visibleSongs.value = result.displayVisible;
     final prefetchEnd = _currentMaxCount - 1;
     if (prefetchEnd >= 0) {
-      _scheduleRangePrefetch(0, prefetchEnd > 29 ? 29 : prefetchEnd, visible);
+      _scheduleRangePrefetch(
+        0,
+        prefetchEnd > 29 ? 29 : prefetchEnd,
+        result.allVisible,
+      );
     }
-    _syncCurrentIdWithPlayer(visible);
+    _syncCurrentIdWithPlayer(result.allVisible);
   }
 
   void _rebuildVisibleSongs() {
@@ -352,9 +324,7 @@ class _SongsPageState extends State<SongsPage>
     if (same) return;
 
     if (old.localCoverPath != updated.localCoverPath) {
-      _artworkCache.remove(updated.id);
-      _artworkLoading.remove(updated.id);
-      _artworkService.clearByUri(updated.uri);
+      _artworkCoordinator.clearSong(updated.id, uri: updated.uri);
     }
 
     final next = List<SongEntity>.from(current);
@@ -385,18 +355,17 @@ class _SongsPageState extends State<SongsPage>
   }
 
   void _toggleSelectAll(List<SongEntity> visible) {
-    if (visible.isEmpty) return;
-    final current = _selectedIds.value;
-    if (current.length == visible.length) {
-      _selectedIds.value = <String>{};
-    } else {
-      _selectedIds.value = visible.map((e) => e.id).toSet();
-    }
+    _selectedIds.value = _selectionController.toggleSelectAll(
+      _selectedIds.value,
+      visible,
+    );
   }
 
   void _toggleMultiSelect() {
-    _multiSelect.value = !_multiSelect.value;
-    _selectedIds.value = <String>{};
+    _multiSelect.value = _selectionController.toggleMultiSelect(
+      _multiSelect.value,
+    );
+    _selectedIds.value = _selectionController.clearSelection();
   }
 
   Future<void> _openAddToPlaylistSheet() async {
@@ -738,117 +707,25 @@ class _SongsPageState extends State<SongsPage>
   }
 
   Future<Uint8List?> _loadArtwork(SongEntity song) {
-    final id = song.id;
-    final cached = _artworkCache[id];
-    if (cached != null) {
-      _rememberArtwork(id, cached);
-      return Future.value(cached);
-    }
-    final inflight = _artworkLoading[id];
-    if (inflight != null) return inflight;
-    final completer = Completer<Uint8List?>();
-    _artworkLoading[id] = completer.future;
-    _artworkQueue.add(_ArtworkTask(song, completer));
-    _drainArtworkQueue();
-    return completer.future.whenComplete(() => _artworkLoading.remove(id));
-  }
-
-  void _drainArtworkQueue() {
-    while (_artworkActive < _artworkMaxConcurrent && _artworkQueue.isNotEmpty) {
-      // Use LIFO strategy
-      final task = _artworkQueue.removeLast();
-      _artworkActive += 1;
-      _loadArtworkInternal(task.song)
-          .then((bytes) {
-            if (!task.completer.isCompleted) {
-              task.completer.complete(bytes);
-            }
-          })
-          .catchError((_) {
-            if (!task.completer.isCompleted) {
-              task.completer.complete(null);
-            }
-          })
-          .whenComplete(() {
-            _artworkActive -= 1;
-            _drainArtworkQueue();
-          });
-    }
-  }
-
-  Future<Uint8List?> _loadArtworkInternal(SongEntity song) async {
-    final cachedPath = song.localCoverPath;
-    if (cachedPath != null && cachedPath.isNotEmpty) {
-      final file = File(cachedPath);
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        if (bytes.isNotEmpty) {
-          _rememberArtwork(song.id, bytes);
-          return bytes;
-        }
-      }
-    }
-    if (!song.isLocal) return null;
-    try {
-      final bytes = await _artworkService.loadArtworkBytes(
-        uri: song.uri,
-        localCoverPath: song.localCoverPath,
-        isLocal: song.isLocal,
-        preferOriginal: false,
-      );
-      if (bytes == null || bytes.isEmpty) return null;
-
-      if (_cacheArtworkEnabled && (song.localCoverPath ?? '').trim().isEmpty) {
-        final cached = await ArtworkCacheHelper.cacheCompressedArtwork(
-          bytes: bytes,
-          key: '${song.id}_${song.fileModifiedMs ?? 0}',
-        );
-        if (cached != null && cached.isNotEmpty) {
-          final updated = song.copyWith(localCoverPath: cached);
-          unawaited(_songDao.upsertSongs([updated]));
-          _applySongUpdate(updated);
-        }
-      }
-      _rememberArtwork(song.id, bytes);
-      return bytes;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  void _rememberArtwork(String id, Uint8List bytes) {
-    _artworkCache.remove(id);
-    _artworkCache[id] = bytes;
-    while (_artworkCache.length > _artworkCacheMax) {
-      final oldestKey = _artworkCache.keys.first;
-      _artworkCache.remove(oldestKey);
-    }
-  }
-
-  void _prefetchArtworkRange(List<SongEntity> songs, int start, int end) {
-    if (songs.isEmpty) return;
-    final safeStart = start < 0 ? 0 : start;
-    final safeEnd = end >= songs.length ? songs.length - 1 : end;
-    if (safeEnd < safeStart) return;
-    for (var i = safeStart; i <= safeEnd; i++) {
-      final song = songs[i];
-      final hasLocalCover = (song.localCoverPath ?? '').trim().isNotEmpty;
-      if (hasLocalCover || !song.isLocal) continue;
-      _loadArtwork(song);
-    }
+    return _artworkCoordinator.loadArtwork(
+      song,
+      cacheArtworkEnabled: _cacheArtworkEnabled,
+      onSongUpdated: _applySongUpdate,
+    );
   }
 
   void _scheduleRangePrefetch(int start, int end, List<SongEntity> songs) {
-    if (songs.isEmpty || !_prefetchEnabled) return;
-    if (end - start > 9) {
-      end = start + 9;
-    }
-    final key =
-        '${_sourceFilter.value}|${_sortKey.value}|${_ascending.value}|$start|$end|${songs.length}';
-    if (key == _lastPrefetchKey && songs.length == _lastPrefetchCount) return;
-    _lastPrefetchKey = key;
-    _lastPrefetchCount = songs.length;
-    Future.microtask(() => _prefetchArtworkRange(songs, start, end));
+    _artworkCoordinator.scheduleRangePrefetch(
+      start,
+      end,
+      songs,
+      enabled: _prefetchEnabled,
+      sourceFilter: _sourceFilter.value,
+      sortKey: _sortKey.value,
+      ascending: _ascending.value,
+      cacheArtworkEnabled: _cacheArtworkEnabled,
+      onSongUpdated: _applySongUpdate,
+    );
   }
 
   Future<void> _showSourceSheet() async {
@@ -1031,7 +908,7 @@ class _SongsPageState extends State<SongsPage>
       isRemoving: false,
     );
     AppToast.show(context, '已移除 $removedCount 首');
-    _selectedIds.value = <String>{};
+    _selectedIds.value = _selectionController.clearSelection();
     _multiSelect.value = false;
     unawaited(_updateVisibleSongs());
   }
@@ -1039,9 +916,7 @@ class _SongsPageState extends State<SongsPage>
   Future<void> _cleanupCachesForSongs(List<SongEntity> songs) async {
     if (songs.isEmpty) return;
     for (final song in songs) {
-      _artworkCache.remove(song.id);
-      _artworkLoading.remove(song.id);
-      _artworkQueue.removeWhere((t) => t.song.id == song.id);
+      _artworkCoordinator.clearSong(song.id, uri: song.uri);
       await _lyricsRepo.removeCachedLrc(song.id);
 
       final coverPath = (song.localCoverPath ?? '').trim();
@@ -1112,7 +987,9 @@ class _SongsPageState extends State<SongsPage>
 
         final visibleSongs = _visibleSongs.value;
         final totalCount = _visibleSongsAll.value.length;
-        final selectedCount = _selectedIds.value.length;
+        final selectedCount = _selectionController.selectedCount(
+          _selectedIds.value,
+        );
         final isAllSelected = totalCount > 0 && selectedCount == totalCount;
 
         return AppPageScaffold(
@@ -1208,13 +1085,8 @@ class _SongsPageState extends State<SongsPage>
                             isHighlighted: isPlaying,
                             onTap: () {
                               if (_multiSelect.value) {
-                                final next = Set<String>.from(selected);
-                                if (next.contains(song.id)) {
-                                  next.remove(song.id);
-                                } else {
-                                  next.add(song.id);
-                                }
-                                _selectedIds.value = next;
+                                _selectedIds.value = _selectionController
+                                    .toggleSong(selected, song.id);
                               } else {
                                 _currentId.value = song.id;
                                 final queue = List<SongEntity>.from(
@@ -1234,13 +1106,8 @@ class _SongsPageState extends State<SongsPage>
                             },
                             onLongPress: () {
                               if (_multiSelect.value) {
-                                final next = Set<String>.from(selected);
-                                if (next.contains(song.id)) {
-                                  next.remove(song.id);
-                                } else {
-                                  next.add(song.id);
-                                }
-                                _selectedIds.value = next;
+                                _selectedIds.value = _selectionController
+                                    .toggleSong(selected, song.id);
                                 return;
                               }
 
@@ -1506,120 +1373,4 @@ class _ArtworkPlaceholder extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<List<SongEntity>> _buildVisibleSongsAsync({
-  required List<SongEntity> songs,
-  required String sourceFilter,
-  required String sortKey,
-  required bool ascending,
-}) async {
-  final payload = <String, dynamic>{
-    'songs': songs.map((e) => e.toMap()).toList(),
-    'sourceFilter': sourceFilter,
-    'sortKey': sortKey,
-    'ascending': ascending,
-  };
-  final result = await compute(_buildVisibleSongsIsolate, payload);
-  return result
-      .map((e) => SongEntity.fromMap((e as Map).cast<String, dynamic>()))
-      .toList();
-}
-
-List<Map<String, dynamic>> _buildVisibleSongsIsolate(
-  Map<String, dynamic> args,
-) {
-  final sourceFilter = (args['sourceFilter'] as String?) ?? 'all';
-  final sortKey = (args['sortKey'] as String?) ?? 'title';
-  final ascending = (args['ascending'] as bool?) ?? true;
-  final rawSongs = (args['songs'] as List).cast<Map>();
-  final songs = rawSongs
-      .map((e) => SongEntity.fromMap(e.cast<String, dynamic>()))
-      .toList();
-
-  List<SongEntity> list;
-  if (sourceFilter == 'local') {
-    list = songs.where((song) => song.sourceId == 'local').toList();
-  } else if (sourceFilter == 'webdav') {
-    list = songs.where((song) => song.sourceId != 'local').toList();
-  } else if (sourceFilter.startsWith('webdav:')) {
-    final id = sourceFilter.substring('webdav:'.length);
-    list = songs.where((song) => song.sourceId == id).toList();
-  } else {
-    list = List<SongEntity>.from(songs);
-  }
-
-  final pinyinCache = <String, String>{};
-  String sortKeyStr(String s) {
-    final trimmed = s.trim();
-    if (trimmed.isEmpty) return '';
-    final cached = pinyinCache[trimmed];
-    if (cached != null) return cached;
-    final p = PinyinHelper.getPinyin(
-      trimmed,
-      separator: '',
-      format: PinyinFormat.WITHOUT_TONE,
-    );
-    final key = (p.isNotEmpty ? p : trimmed).toLowerCase();
-    pinyinCache[trimmed] = key;
-    return key;
-  }
-
-  bool isUnknownTitle(SongEntity s) =>
-      s.title.trim().isEmpty || s.title == '未知标题';
-  bool isUnknownArtist(SongEntity s) =>
-      s.artist.trim().isEmpty || s.artist == '未知艺术家';
-  bool isUnknownAlbum(SongEntity s) {
-    final a = (s.album ?? '').trim();
-    return a.isEmpty || a == '未知专辑';
-  }
-
-  int compare(SongEntity a, SongEntity b) {
-    int result;
-    switch (sortKey) {
-      case 'artist':
-        result = sortKeyStr(
-          isUnknownArtist(a) ? '' : a.artist,
-        ).compareTo(sortKeyStr(isUnknownArtist(b) ? '' : b.artist));
-        break;
-      case 'album':
-        result = sortKeyStr(
-          isUnknownAlbum(a) ? '' : (a.album ?? ''),
-        ).compareTo(sortKeyStr(isUnknownAlbum(b) ? '' : (b.album ?? '')));
-        break;
-      case 'duration':
-        result = (a.durationMs ?? 0).compareTo(b.durationMs ?? 0);
-        break;
-      case 'title':
-      default:
-        result = sortKeyStr(
-          isUnknownTitle(a) ? '' : a.title,
-        ).compareTo(sortKeyStr(isUnknownTitle(b) ? '' : b.title));
-    }
-    return ascending ? result : -result;
-  }
-
-  list.sort(compare);
-
-  if (sortKey == 'artist') {
-    final unknown = list.where(isUnknownArtist).toList();
-    if (unknown.isNotEmpty) {
-      list.removeWhere(isUnknownArtist);
-      list.insertAll(0, unknown);
-    }
-  } else if (sortKey == 'album') {
-    final unknown = list.where(isUnknownAlbum).toList();
-    if (unknown.isNotEmpty) {
-      list.removeWhere(isUnknownAlbum);
-      list.insertAll(0, unknown);
-    }
-  } else if (sortKey == 'title') {
-    final unknown = list.where(isUnknownTitle).toList();
-    if (unknown.isNotEmpty) {
-      list.removeWhere(isUnknownTitle);
-      list.insertAll(0, unknown);
-    }
-  }
-
-  return list.map((e) => e.toMap()).toList();
 }

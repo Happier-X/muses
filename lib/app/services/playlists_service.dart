@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../utils/cache_version_store.dart';
 import 'db/db_constants.dart';
 import 'db/db_helper.dart';
 
@@ -22,17 +23,20 @@ class PlaylistEntity {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'songIds': songIds,
-        'createdAtMs': createdAtMs,
-        'isFavorite': isFavorite,
-      };
+    'id': id,
+    'name': name,
+    'songIds': songIds,
+    'createdAtMs': createdAtMs,
+    'isFavorite': isFavorite,
+  };
 
   factory PlaylistEntity.fromJson(Map<String, dynamic> json) {
     final rawSongIds = json['songIds'];
     final songIds = rawSongIds is List
-        ? rawSongIds.map((e) => e?.toString() ?? '').where((e) => e.isNotEmpty).toList()
+        ? rawSongIds
+              .map((e) => e?.toString() ?? '')
+              .where((e) => e.isNotEmpty)
+              .toList()
         : const <String>[];
     return PlaylistEntity(
       id: (json['id'] ?? '').toString(),
@@ -64,31 +68,44 @@ class PlaylistsService {
   static final PlaylistsService instance = PlaylistsService._internal();
 
   static const String _prefsKey = 'playlists_v1';
+  static const String cacheVersionScope = 'playlists';
   static const String favoritePlaylistId = '__favorite__';
   static const String favoritePlaylistName = '我喜欢';
 
   PlaylistsService._internal();
 
+  void _bumpCacheVersion() {
+    CacheVersionStore.instance.bump(cacheVersionScope);
+  }
+
   Future<List<PlaylistEntity>> loadAll() async {
     final db = await DbHelper.instance.database;
-    var rows =
-        await db.query(DbConstants.tablePlaylists, orderBy: 'sortOrder ASC');
+    var rows = await db.query(
+      DbConstants.tablePlaylists,
+      orderBy: 'sortOrder ASC',
+    );
     if (rows.isEmpty) {
       final migrated = await _migrateFromPrefs(db);
       if (migrated) {
-        rows =
-            await db.query(DbConstants.tablePlaylists, orderBy: 'sortOrder ASC');
+        rows = await db.query(
+          DbConstants.tablePlaylists,
+          orderBy: 'sortOrder ASC',
+        );
       }
     }
     if (rows.isEmpty) {
       await _insertFavorite(db);
-      rows =
-          await db.query(DbConstants.tablePlaylists, orderBy: 'sortOrder ASC');
+      rows = await db.query(
+        DbConstants.tablePlaylists,
+        orderBy: 'sortOrder ASC',
+      );
     }
     final normalized = await _normalizeFavoritesAndOrder(db, rows);
     if (normalized) {
-      rows =
-          await db.query(DbConstants.tablePlaylists, orderBy: 'sortOrder ASC');
+      rows = await db.query(
+        DbConstants.tablePlaylists,
+        orderBy: 'sortOrder ASC',
+      );
     }
     final songRows = await db.query(
       DbConstants.tablePlaylistSongs,
@@ -130,17 +147,14 @@ class PlaylistsService {
     final db = await DbHelper.instance.database;
     await _ensureFavoriteExists(db);
     final maxOrder = await _maxSortOrder(db);
-    await db.insert(
-      DbConstants.tablePlaylists,
-      {
-        'id': playlist.id,
-        'name': playlist.name,
-        'createdAtMs': playlist.createdAtMs,
-        'isFavorite': 0,
-        'sortOrder': maxOrder + 1,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert(DbConstants.tablePlaylists, {
+      'id': playlist.id,
+      'name': playlist.name,
+      'createdAtMs': playlist.createdAtMs,
+      'isFavorite': 0,
+      'sortOrder': maxOrder + 1,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    _bumpCacheVersion();
     return playlist;
   }
 
@@ -154,6 +168,7 @@ class PlaylistsService {
       where: 'id = ?',
       whereArgs: [id],
     );
+    _bumpCacheVersion();
   }
 
   Future<void> deletePlaylist(String id) async {
@@ -172,6 +187,7 @@ class PlaylistsService {
         whereArgs: [id],
       );
     });
+    _bumpCacheVersion();
   }
 
   Future<void> addSongs(String playlistId, List<String> songIds) async {
@@ -186,24 +202,22 @@ class PlaylistsService {
         where: 'playlistId = ?',
         whereArgs: [playlistId],
       );
-      final existing =
-          existingRows.map((e) => (e['songId'] ?? '').toString()).toSet();
+      final existing = existingRows
+          .map((e) => (e['songId'] ?? '').toString())
+          .toSet();
       final maxOrder = await _maxSongOrder(txn, playlistId);
       var nextOrder = maxOrder + 1;
       for (final id in toAdd) {
         if (existing.contains(id)) continue;
         await txn.insert(
           DbConstants.tablePlaylistSongs,
-          {
-            'playlistId': playlistId,
-            'songId': id,
-            'sortOrder': nextOrder,
-          },
+          {'playlistId': playlistId, 'songId': id, 'sortOrder': nextOrder},
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
         nextOrder += 1;
       }
     });
+    _bumpCacheVersion();
   }
 
   Future<void> removeSongs(String playlistId, List<String> songIds) async {
@@ -217,6 +231,7 @@ class PlaylistsService {
       where: 'playlistId = ? AND songId IN ($placeholders)',
       whereArgs: [playlistId, ...toRemove],
     );
+    _bumpCacheVersion();
   }
 
   Future<bool> isSongFavorited(String songId) async {
@@ -259,6 +274,7 @@ class PlaylistsService {
         order += 1;
       }
     });
+    _bumpCacheVersion();
   }
 
   Future<void> movePlaylistToTop(String playlistId) async {
@@ -288,9 +304,13 @@ class PlaylistsService {
         order += 1;
       }
     });
+    _bumpCacheVersion();
   }
 
-  Future<void> reorderSongs(String playlistId, List<String> orderedSongIds) async {
+  Future<void> reorderSongs(
+    String playlistId,
+    List<String> orderedSongIds,
+  ) async {
     if (playlistId.isEmpty) return;
     final ids = orderedSongIds
         .map((e) => e.trim())
@@ -305,8 +325,7 @@ class PlaylistsService {
         whereArgs: [playlistId],
         orderBy: 'sortOrder ASC',
       );
-      final existing =
-          rows.map((e) => (e['songId'] ?? '').toString()).toList();
+      final existing = rows.map((e) => (e['songId'] ?? '').toString()).toList();
       final next = <String>[];
       for (final id in ids) {
         if (!existing.contains(id)) continue;
@@ -328,20 +347,17 @@ class PlaylistsService {
         order += 1;
       }
     });
+    _bumpCacheVersion();
   }
 
   Future<void> _insertFavorite(DatabaseExecutor executor) async {
-    await executor.insert(
-      DbConstants.tablePlaylists,
-      {
-        'id': favoritePlaylistId,
-        'name': favoritePlaylistName,
-        'createdAtMs': 0,
-        'isFavorite': 1,
-        'sortOrder': 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await executor.insert(DbConstants.tablePlaylists, {
+      'id': favoritePlaylistId,
+      'name': favoritePlaylistName,
+      'createdAtMs': 0,
+      'isFavorite': 1,
+      'sortOrder': 0,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future<void> _ensureFavoriteExists(DatabaseExecutor executor) async {
@@ -360,17 +376,13 @@ class PlaylistsService {
       );
       return;
     }
-    await executor.insert(
-      DbConstants.tablePlaylists,
-      {
-        'id': favoritePlaylistId,
-        'name': favoritePlaylistName,
-        'createdAtMs': 0,
-        'isFavorite': 1,
-        'sortOrder': 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await executor.insert(DbConstants.tablePlaylists, {
+      'id': favoritePlaylistId,
+      'name': favoritePlaylistName,
+      'createdAtMs': 0,
+      'isFavorite': 1,
+      'sortOrder': 0,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future<bool> _normalizeFavoritesAndOrder(
@@ -393,11 +405,7 @@ class PlaylistsService {
         if (currentId.isNotEmpty && currentId != favoritePlaylistId) {
           await txn.update(
             DbConstants.tablePlaylists,
-            {
-              'id': favoritePlaylistId,
-              'isFavorite': 1,
-              'sortOrder': 0,
-            },
+            {'id': favoritePlaylistId, 'isFavorite': 1, 'sortOrder': 0},
             where: 'id = ?',
             whereArgs: [currentId],
           );
@@ -448,7 +456,10 @@ class PlaylistsService {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  Future<int> _maxSongOrder(DatabaseExecutor executor, String playlistId) async {
+  Future<int> _maxSongOrder(
+    DatabaseExecutor executor,
+    String playlistId,
+  ) async {
     final rows = await executor.rawQuery(
       'SELECT MAX(sortOrder) as maxOrder FROM ${DbConstants.tablePlaylistSongs} WHERE playlistId = ?',
       [playlistId],
@@ -495,11 +506,7 @@ class PlaylistsService {
             if (songId.trim().isEmpty) continue;
             await txn.insert(
               DbConstants.tablePlaylistSongs,
-              {
-                'playlistId': id,
-                'songId': songId,
-                'sortOrder': songOrder,
-              },
+              {'playlistId': id, 'songId': songId, 'sortOrder': songOrder},
               conflictAlgorithm: ConflictAlgorithm.ignore,
             );
             songOrder += 1;
