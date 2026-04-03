@@ -8,6 +8,7 @@ import '../../app/services/local_music_service.dart';
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/webdav/webdav_music_service.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
+import '../../app/utils/deferred_page_init_mixin.dart';
 import '../../components/index.dart';
 import 'local/local_folder_browser.dart';
 import 'local_source_settings_page.dart';
@@ -51,7 +52,8 @@ class SourcePage extends StatefulWidget {
   State<SourcePage> createState() => _SourcePageState();
 }
 
-class _SourcePageState extends State<SourcePage> with SignalsMixin {
+class _SourcePageState extends State<SourcePage>
+    with SignalsMixin, DeferredPageInitMixin {
   final LocalMusicService _localService = LocalMusicService();
   final WebDavMusicService _webDavService = WebDavMusicService();
   final WebDavSourceRepository _webDavRepo = WebDavSourceRepository.instance;
@@ -88,19 +90,22 @@ class _SourcePageState extends State<SourcePage> with SignalsMixin {
     ];
   });
 
-  late final _localSources =
-      computed<List<SourceItem>>(() => _sources.value
-          .where((s) => s.type == SourceType.local)
-          .toList());
-  late final _webDavSourceItems =
-      computed<List<SourceItem>>(() => _sources.value
-          .where((s) => s.type == SourceType.webdav)
-          .toList());
+  late final _localSources = computed<List<SourceItem>>(
+    () => _sources.value.where((s) => s.type == SourceType.local).toList(),
+  );
+  late final _webDavSourceItems = computed<List<SourceItem>>(
+    () => _sources.value.where((s) => s.type == SourceType.webdav).toList(),
+  );
 
   @override
   void initState() {
     super.initState();
-    _load();
+    scheduleDeferredInit();
+  }
+
+  @override
+  Future<void> runDeferredInit() async {
+    await _load();
   }
 
   @override
@@ -126,7 +131,8 @@ class _SourcePageState extends State<SourcePage> with SignalsMixin {
     final sources = await _webDavRepo.loadSources();
     final entries = await Future.wait(
       sources.map(
-        (s) async => MapEntry<String, int>(s.id, await _songDao.countBySource(s.id)),
+        (s) async =>
+            MapEntry<String, int>(s.id, await _songDao.countBySource(s.id)),
       ),
     );
     final counts = {for (final e in entries) e.key: e.value};
@@ -139,7 +145,12 @@ class _SourcePageState extends State<SourcePage> with SignalsMixin {
     return _scanNotifiers.putIfAbsent(
       source.id,
       () => ValueNotifier<_ScanProgress>(
-        const _ScanProgress(processed: 0, added: 0, total: 0, isScanning: false),
+        const _ScanProgress(
+          processed: 0,
+          added: 0,
+          total: 0,
+          isScanning: false,
+        ),
       ),
     );
   }
@@ -193,8 +204,12 @@ class _SourcePageState extends State<SourcePage> with SignalsMixin {
     _scanRunning.add(source.id);
     _scanCancelSignals[source.id] = false;
     final notifier = _notifierFor(source);
-    notifier.value =
-        const _ScanProgress(processed: 0, added: 0, total: 0, isScanning: true);
+    notifier.value = const _ScanProgress(
+      processed: 0,
+      added: 0,
+      total: 0,
+      isScanning: true,
+    );
     _showScanDialog(source);
 
     final settings = await _localService.loadSettings();
@@ -269,8 +284,12 @@ class _SourcePageState extends State<SourcePage> with SignalsMixin {
     _scanRunning.add(sourceItem.id);
     _scanCancelSignals[sourceItem.id] = false;
     final notifier = _notifierFor(sourceItem);
-    notifier.value =
-        const _ScanProgress(processed: 0, added: 0, total: 0, isScanning: true);
+    notifier.value = const _ScanProgress(
+      processed: 0,
+      added: 0,
+      total: 0,
+      isScanning: true,
+    );
     _showScanDialog(sourceItem);
 
     final result = await _webDavService.scan(
@@ -347,9 +366,7 @@ class _SourcePageState extends State<SourcePage> with SignalsMixin {
 
     final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (_) => WebDavEditPage(source: raw),
-      ),
+      MaterialPageRoute(builder: (_) => WebDavEditPage(source: raw)),
     );
     if (!mounted) return;
     if (changed == true) {
@@ -389,10 +406,8 @@ class _SourcePageState extends State<SourcePage> with SignalsMixin {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => WebDavFolderBrowser(
-            sourceId: source.id,
-            sourceName: source.name,
-          ),
+          builder: (_) =>
+              WebDavFolderBrowser(sourceId: source.id, sourceName: source.name),
         ),
       );
     }
@@ -413,10 +428,7 @@ class _SourcePageState extends State<SourcePage> with SignalsMixin {
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _openWebDavAdd,
-          ),
+          IconButton(icon: const Icon(Icons.add), onPressed: _openWebDavAdd),
         ],
         backgroundColor: Colors.transparent,
         elevation: 0,

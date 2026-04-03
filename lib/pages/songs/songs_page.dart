@@ -2,8 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
-import 'package:audio_metadata_reader/audio_metadata_reader.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +12,7 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
 import '../../app/router/app_router.dart';
 import '../../app/services/artwork_cache_helper.dart';
+import '../../app/services/artwork_service.dart';
 import '../../app/services/cache/audio_cache_service.dart';
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/lyrics/lyrics_repository.dart';
@@ -21,6 +21,8 @@ import '../../app/services/metadata/tag_probe_service.dart';
 import '../../app/services/player_service.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
 import '../../app/state/song_state.dart';
+import '../../app/utils/deferred_page_init_mixin.dart';
+import '../../app/utils/page_cache_store.dart';
 import '../../components/index.dart';
 import '../library/library_detail_pages.dart';
 import '../library/playlists_page.dart';
@@ -59,14 +61,14 @@ class _RemoveProgress {
   });
 }
 
-class _SongsPageState extends State<SongsPage> with SignalsMixin {
+class _SongsPageState extends State<SongsPage>
+    with SignalsMixin, DeferredPageInitMixin {
   static const String _prefsSourceFilter = 'songs_source_filter';
   static const String _prefsSortKey = 'songs_sort_key';
   static const String _prefsSortAsc = 'songs_sort_asc';
+  static const String _cacheScopeSongs = 'songs_all';
+  static const String _cacheScopeVisible = 'songs_visible';
   static List<SongEntity>? _cachedSongs;
-  static List<SongEntity>? _cachedVisibleAll;
-  static List<SongEntity>? _cachedVisibleSongsRef;
-  static String? _cachedVisibleKey;
   static final LinkedHashMap<String, Uint8List> _artworkCache =
       LinkedHashMap<String, Uint8List>();
   static final Map<String, Future<Uint8List?>> _artworkLoading = {};
@@ -82,6 +84,8 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
   final SongDao _songDao = SongDao();
   final LocalMusicService _localService = LocalMusicService();
   final WebDavSourceRepository _webDavRepo = WebDavSourceRepository.instance;
+  final ArtworkService _artworkService = ArtworkService.instance;
+  final PageCacheStore _cacheStore = PageCacheStore.instance;
   String _lastPrefetchKey = '';
   int _lastPrefetchCount = -1;
   int _currentMaxCount = _pageSize;
@@ -118,12 +122,7 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future<void>.delayed(const Duration(milliseconds: 120), () {
-        if (!mounted) return;
-        unawaited(_initPage());
-      });
-    });
+    scheduleDeferredInit();
     _listController.addListener(_handleScroll);
     PlayerService.instance.currentSong.addListener(_handlePlayerSongChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -136,6 +135,11 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
         _scheduleRangePrefetch(0, end > 9 ? 9 : end, visibleAll);
       });
     });
+  }
+
+  @override
+  Future<void> runDeferredInit() async {
+    await _initPage();
   }
 
   @override
@@ -203,6 +207,7 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
     final list = await _songDao.fetchAllCached();
     if (!mounted) return;
     _cachedSongs = list;
+    _cacheStore.set(_cacheScopeSongs, 'main', list);
     _songs.value = list;
     if (_visibleSongsAll.value.isEmpty) {
       _seedVisibleSongsFast(list);
@@ -242,11 +247,13 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
     final sourceFilter = _sourceFilter.value;
     final sortKey = _sortKey.value;
     final ascending = _ascending.value;
-    final cacheKey = '$sourceFilter|$sortKey|${ascending ? 1 : 0}';
-    final cached = _cachedVisibleAll;
-    if (cached != null &&
-        identical(_cachedVisibleSongsRef, songs) &&
-        _cachedVisibleKey == cacheKey) {
+    final cacheKey =
+        '${identityHashCode(songs)}|$sourceFilter|$sortKey|${ascending ? 1 : 0}';
+    final cached = _cacheStore.get<List<SongEntity>>(
+      _cacheScopeVisible,
+      cacheKey,
+    );
+    if (cached != null) {
       _visibleSongsAll.value = cached;
       if (_currentMaxCount < _pageSize) {
         _currentMaxCount = _pageSize;
@@ -270,9 +277,7 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
       ascending: ascending,
     );
     if (!mounted || token != _visibleBuildToken) return;
-    _cachedVisibleAll = visible;
-    _cachedVisibleSongsRef = songs;
-    _cachedVisibleKey = cacheKey;
+    _cacheStore.set(_cacheScopeVisible, cacheKey, visible);
     _visibleSongsAll.value = visible;
     if (_currentMaxCount < _pageSize) {
       _currentMaxCount = _pageSize;
@@ -349,6 +354,7 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
     if (old.localCoverPath != updated.localCoverPath) {
       _artworkCache.remove(updated.id);
       _artworkLoading.remove(updated.id);
+      _artworkService.clearByUri(updated.uri);
     }
 
     final next = List<SongEntity>.from(current);
@@ -783,24 +789,14 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
       }
     }
     if (!song.isLocal) return null;
-    final uri = song.uri;
-    if (uri == null || uri.isEmpty) return null;
     try {
-      final original = await _readArtworkBytes(uri);
-      if (original == null || original.isEmpty) return null;
-      var bytes = original;
-
-      try {
-        final compressed = await FlutterImageCompress.compressWithList(
-          bytes,
-          minWidth: 144,
-          minHeight: 144,
-          quality: 80,
-        );
-        if (compressed.isNotEmpty) {
-          bytes = compressed;
-        }
-      } catch (_) {}
+      final bytes = await _artworkService.loadArtworkBytes(
+        uri: song.uri,
+        localCoverPath: song.localCoverPath,
+        isLocal: song.isLocal,
+        preferOriginal: false,
+      );
+      if (bytes == null || bytes.isEmpty) return null;
 
       if (_cacheArtworkEnabled && (song.localCoverPath ?? '').trim().isEmpty) {
         final cached = await ArtworkCacheHelper.cacheCompressedArtwork(
@@ -1027,9 +1023,7 @@ class _SongsPageState extends State<SongsPage> with SignalsMixin {
       );
     }
     if (!mounted) return;
-    _cachedVisibleAll = null;
-    _cachedVisibleSongsRef = null;
-    _cachedVisibleKey = null;
+    _cacheStore.clearScope(_cacheScopeVisible);
     _isRemoving = false;
     _removeNotifier.value = _RemoveProgress(
       processed: processed,
@@ -1511,20 +1505,6 @@ class _ArtworkPlaceholder extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-Future<Uint8List?> _readArtworkBytes(String uri) async {
-  try {
-    final file = File(uri);
-    if (!await file.exists()) return null;
-    final metadata = readMetadata(file, getImage: true);
-    if (metadata.pictures.isEmpty) return null;
-    final bytes = metadata.pictures.first.bytes;
-    if (bytes.isEmpty) return null;
-    return bytes;
-  } catch (_) {
-    return null;
   }
 }
 

@@ -8,6 +8,8 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 import '../../app/services/block_list_service.dart';
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/state/song_state.dart';
+import '../../app/utils/deferred_page_init_mixin.dart';
+import '../../app/utils/page_cache_store.dart';
 import '../../components/common/artwork_widget.dart';
 import '../../components/common/blocked_management_sheet.dart';
 import '../../components/index.dart';
@@ -34,21 +36,21 @@ class _ArtistGroup {
   });
 }
 
-class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
+class _ArtistsPageState extends State<ArtistsPage>
+    with SignalsMixin, DeferredPageInitMixin {
   static const double _itemExtent = 64;
   static const String _prefsSortKey = 'artists_sort_key_v1';
   static const String _prefsSortAscending = 'artists_sort_ascending_v1';
   static const String _prefsFilterUnknown = 'artists_filter_unknown_v1';
   static const String _prefsShowBlockedEntry = 'artists_show_blocked_entry_v1';
   static const String _prefsBlockedArtists = 'blocked_artists_v1';
-  static List<SongEntity>? _cachedSongsRef;
-  static final Map<String, List<_ArtistGroup>> _groupCache =
-      <String, List<_ArtistGroup>>{};
+  static const String _cacheScope = 'artists_groups';
 
   final SongDao _songDao = SongDao();
   final ScrollController _controller = ScrollController();
   final GlobalKey<AppPageScaffoldState> _scaffoldKey =
       GlobalKey<AppPageScaffoldState>();
+  final PageCacheStore _cacheStore = PageCacheStore.instance;
 
   late final _loading = createSignal(true);
   late final _groups = createSignal<List<_ArtistGroup>>([]);
@@ -61,12 +63,12 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future<void>.delayed(const Duration(milliseconds: 120), () {
-        if (!mounted) return;
-        unawaited(_init());
-      });
-    });
+    scheduleDeferredInit();
+  }
+
+  @override
+  Future<void> runDeferredInit() async {
+    await _init();
   }
 
   Future<void> _init() async {
@@ -106,12 +108,11 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
     final songs = await _songDao.fetchAllCached();
     final blockedSorted = _blockedArtists.value.toList()..sort();
     final cacheKey =
-        '${_sortKey.value}|${_ascending.value ? 1 : 0}|${_filterUnknown.value ? 1 : 0}|${blockedSorted.join(',')}';
-    final canUseCache =
-        identical(_cachedSongsRef, songs) && _groupCache.containsKey(cacheKey);
+        '${identityHashCode(songs)}|${_sortKey.value}|${_ascending.value ? 1 : 0}|${_filterUnknown.value ? 1 : 0}|${blockedSorted.join(',')}';
+    final cached = _cacheStore.get<List<_ArtistGroup>>(_cacheScope, cacheKey);
 
-    if (canUseCache) {
-      _groups.value = _groupCache[cacheKey]!
+    if (cached != null) {
+      _groups.value = cached
           .map(
             (g) => _ArtistGroup(
               name: g.name,
@@ -146,11 +147,7 @@ class _ArtistsPageState extends State<ArtistsPage> with SignalsMixin {
           ),
         )
         .toList();
-    _cachedSongsRef = songs;
-    _groupCache[cacheKey] = mapped;
-    if (_groupCache.length > 8) {
-      _groupCache.remove(_groupCache.keys.first);
-    }
+    _cacheStore.set(_cacheScope, cacheKey, mapped);
     _groups.value = mapped;
     _loading.value = false;
   }

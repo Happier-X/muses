@@ -8,6 +8,7 @@ import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/player_service.dart';
 import '../../app/services/playlists_service.dart';
 import '../../app/state/song_state.dart';
+import '../../app/utils/deferred_page_init_mixin.dart';
 import '../../components/index.dart';
 import '../library/library_detail_pages.dart';
 import '../songs/song_detail_sheet.dart';
@@ -31,7 +32,8 @@ class _RemoveProgress {
   });
 }
 
-class _PlaylistsPageState extends State<PlaylistsPage> with SignalsMixin {
+class _PlaylistsPageState extends State<PlaylistsPage>
+    with SignalsMixin, DeferredPageInitMixin {
   static const String _prefsSortMode = 'playlists_sort_mode_v1';
   static const String _prefsSortAscending = 'playlists_sort_ascending_v1';
 
@@ -48,7 +50,12 @@ class _PlaylistsPageState extends State<PlaylistsPage> with SignalsMixin {
   @override
   void initState() {
     super.initState();
-    _init();
+    scheduleDeferredInit();
+  }
+
+  @override
+  Future<void> runDeferredInit() async {
+    await _init();
   }
 
   Future<void> _init() async {
@@ -189,7 +196,10 @@ class _PlaylistsPageState extends State<PlaylistsPage> with SignalsMixin {
               ),
               if (!playlist.isFavorite)
                 AppListTile(
-                  leading: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                  leading: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.red,
+                  ),
                   title: '删除',
                   titleColor: Colors.red,
                   onTap: () {
@@ -251,10 +261,26 @@ class _PlaylistsPageState extends State<PlaylistsPage> with SignalsMixin {
         return SortSheet(
           title: '歌单排序',
           options: const [
-            SortOption(key: 'custom', label: '自定义拖拽', icon: Icons.drag_handle_rounded),
-            SortOption(key: 'recent', label: '创建时间', icon: Icons.schedule_rounded),
-            SortOption(key: 'name', label: '名称', icon: Icons.sort_by_alpha_rounded),
-            SortOption(key: 'count', label: '歌曲数量', icon: Icons.queue_music_rounded),
+            SortOption(
+              key: 'custom',
+              label: '自定义拖拽',
+              icon: Icons.drag_handle_rounded,
+            ),
+            SortOption(
+              key: 'recent',
+              label: '创建时间',
+              icon: Icons.schedule_rounded,
+            ),
+            SortOption(
+              key: 'name',
+              label: '名称',
+              icon: Icons.sort_by_alpha_rounded,
+            ),
+            SortOption(
+              key: 'count',
+              label: '歌曲数量',
+              icon: Icons.queue_music_rounded,
+            ),
           ],
           currentKey: _sortMode.value,
           ascending: _ascending.value,
@@ -305,59 +331,57 @@ class _PlaylistsPageState extends State<PlaylistsPage> with SignalsMixin {
           child: _loading.value
               ? const Center(child: CircularProgressIndicator())
               : _playlists.value.isEmpty
-                  ? const Center(child: Text('暂无歌单'))
-                      : ReorderableListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 160),
-                          itemCount: _playlists.value.length,
-                          buildDefaultDragHandles: false,
-                          onReorder: _reorderPlaylists,
-                          itemBuilder: (context, index) {
-                            final p = _playlists.value[index];
-                            final isFavorite = p.isFavorite;
-                            final canReorder =
-                                _sortMode.value == 'custom' && !isFavorite;
-                            return Column(
-                              key: ValueKey(p.id),
-                              children: [
-                                ListTile(
-                                  leading: Icon(
-                                    isFavorite
-                                        ? Icons.favorite
-                                        : Icons.queue_music_rounded,
-                                    color: isFavorite ? Colors.red : null,
-                                  ),
-                                  title: Text(
-                                    p.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text('${p.songIds.length} 首歌曲'),
-                                  trailing: canReorder
-                                      ? ReorderableDragStartListener(
-                                          index: index,
-                                          child: const Icon(
-                                            Icons.drag_handle_rounded,
-                                          ),
-                                        )
-                                      : null,
-                                  onTap: () async {
-                                    await Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            PlaylistDetailPage(playlistId: p.id),
-                                      ),
-                                    );
-                                    if (!mounted) return;
-                                    await _load();
-                                  },
-                                  onLongPress: () => _showPlaylistSheet(p),
-                                ),
-                                if (index != _playlists.value.length - 1)
-                                  const Divider(height: 1),
-                              ],
+              ? const Center(child: Text('暂无歌单'))
+              : ReorderableListView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 160),
+                  itemCount: _playlists.value.length,
+                  buildDefaultDragHandles: false,
+                  onReorder: _reorderPlaylists,
+                  itemBuilder: (context, index) {
+                    final p = _playlists.value[index];
+                    final isFavorite = p.isFavorite;
+                    final canReorder =
+                        _sortMode.value == 'custom' && !isFavorite;
+                    return Column(
+                      key: ValueKey(p.id),
+                      children: [
+                        ListTile(
+                          leading: Icon(
+                            isFavorite
+                                ? Icons.favorite
+                                : Icons.queue_music_rounded,
+                            color: isFavorite ? Colors.red : null,
+                          ),
+                          title: Text(
+                            p.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text('${p.songIds.length} 首歌曲'),
+                          trailing: canReorder
+                              ? ReorderableDragStartListener(
+                                  index: index,
+                                  child: const Icon(Icons.drag_handle_rounded),
+                                )
+                              : null,
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    PlaylistDetailPage(playlistId: p.id),
+                              ),
                             );
+                            if (!mounted) return;
+                            await _load();
                           },
+                          onLongPress: () => _showPlaylistSheet(p),
                         ),
+                        if (index != _playlists.value.length - 1)
+                          const Divider(height: 1),
+                      ],
+                    );
+                  },
+                ),
         ),
       ),
     );
@@ -367,16 +391,14 @@ class _PlaylistsPageState extends State<PlaylistsPage> with SignalsMixin {
 class PlaylistDetailPage extends StatefulWidget {
   final String playlistId;
 
-  const PlaylistDetailPage({
-    super.key,
-    required this.playlistId,
-  });
+  const PlaylistDetailPage({super.key, required this.playlistId});
 
   @override
   State<PlaylistDetailPage> createState() => _PlaylistDetailPageState();
 }
 
-class _PlaylistDetailPageState extends State<PlaylistDetailPage> with SignalsMixin {
+class _PlaylistDetailPageState extends State<PlaylistDetailPage>
+    with SignalsMixin {
   final PlaylistsService _service = PlaylistsService.instance;
   final SongDao _songDao = SongDao();
 
@@ -390,8 +412,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> with SignalsMix
   late final _selectedIds = createSignal<Set<String>>({});
   late final _sortKey = createSignal('default');
   late final _sortAscending = createSignal(true);
-  final ValueNotifier<_RemoveProgress> _removeNotifier =
-      ValueNotifier(const _RemoveProgress(processed: 0, total: 0, isRemoving: false));
+  final ValueNotifier<_RemoveProgress> _removeNotifier = ValueNotifier(
+    const _RemoveProgress(processed: 0, total: 0, isRemoving: false),
+  );
   bool _isRemoving = false;
 
   @override
@@ -519,10 +542,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> with SignalsMix
 
   void _togglePlayMode() {
     _isSequentialPlay.value = !_isSequentialPlay.value;
-    AppToast.show(
-      context,
-      _isSequentialPlay.value ? '已切换为顺序播放' : '已切换为随机播放',
-    );
+    AppToast.show(context, _isSequentialPlay.value ? '已切换为顺序播放' : '已切换为随机播放');
   }
 
   Future<void> _removeSong(SongEntity song) async {
@@ -541,8 +561,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> with SignalsMix
     }
     final playlist = _playlist.value;
     if (playlist == null) return;
-    final songsToRemove =
-        _songs.value.where((s) => ids.contains(s.id)).toList();
+    final songsToRemove = _songs.value
+        .where((s) => ids.contains(s.id))
+        .toList();
     _isRemoving = true;
     _removeNotifier.value = _RemoveProgress(
       processed: 0,
@@ -556,9 +577,11 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> with SignalsMix
       await _service.removeSongs(playlist.id, [song.id]);
       if (!mounted) break;
       _songs.value = _songs.value.where((s) => s.id != song.id).toList();
-      _originalSongs.value =
-          _originalSongs.value.where((s) => s.id != song.id).toList();
-      _selectedIds.value = Set<String>.from(_selectedIds.value)..remove(song.id);
+      _originalSongs.value = _originalSongs.value
+          .where((s) => s.id != song.id)
+          .toList();
+      _selectedIds.value = Set<String>.from(_selectedIds.value)
+        ..remove(song.id);
       processed += 1;
       _removeNotifier.value = _RemoveProgress(
         processed: processed,
@@ -620,7 +643,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> with SignalsMix
         ),
       );
     }
-    final letter = song.title.trim().isEmpty ? '?' : song.title.trim().substring(0, 1);
+    final letter = song.title.trim().isEmpty
+        ? '?'
+        : song.title.trim().substring(0, 1);
     return Container(
       width: 48,
       height: 48,
@@ -668,176 +693,176 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> with SignalsMix
       body: Watch.builder(
         builder: (context) {
           final playlist = _playlist.value;
-          final canReorder =
-              _multiSelect.value && _sortKey.value == 'default';
+          final canReorder = _multiSelect.value && _sortKey.value == 'default';
           final totalCount = _songs.value.length;
           final selectedCount = _selectedIds.value.length;
           final isAllSelected = totalCount > 0 && selectedCount == totalCount;
           final bottomInset =
-              MediaQuery.of(context).padding.bottom + (_multiSelect.value ? 160 : 80);
+              MediaQuery.of(context).padding.bottom +
+              (_multiSelect.value ? 160 : 80);
           return _loading.value
               ? const Center(child: CircularProgressIndicator())
               : playlist == null
-                  ? const Center(child: Text('歌单不存在'))
-                  : _songs.value.isEmpty
-                      ? const Center(child: Text('歌单为空'))
-                      : Column(
-                          children: [
-                            MediaListHeader(
-                              multiSelect: _multiSelect.value,
-                              isAllSelected: isAllSelected,
-                              selectedCount: selectedCount,
-                              totalCount: totalCount,
-                              isSequentialPlay: _isSequentialPlay.value,
-                              onToggleSelectAll: _toggleSelectAll,
-                              onPlay: () async {
-                                if (_songs.value.isEmpty) return;
-                                final queue = List<SongEntity>.from(_songs.value);
-                                if (!_isSequentialPlay.value) {
-                                  queue.shuffle();
+              ? const Center(child: Text('歌单不存在'))
+              : _songs.value.isEmpty
+              ? const Center(child: Text('歌单为空'))
+              : Column(
+                  children: [
+                    MediaListHeader(
+                      multiSelect: _multiSelect.value,
+                      isAllSelected: isAllSelected,
+                      selectedCount: selectedCount,
+                      totalCount: totalCount,
+                      isSequentialPlay: _isSequentialPlay.value,
+                      onToggleSelectAll: _toggleSelectAll,
+                      onPlay: () async {
+                        if (_songs.value.isEmpty) return;
+                        final queue = List<SongEntity>.from(_songs.value);
+                        if (!_isSequentialPlay.value) {
+                          queue.shuffle();
+                        }
+                        await player.playQueue(queue, 0);
+                      },
+                      onTogglePlayMode: _togglePlayMode,
+                      onSort: _showSortSheet,
+                      onToggleMultiSelect: _toggleMultiSelect,
+                    ),
+                    Expanded(
+                      child: canReorder
+                          ? ReorderableListView.builder(
+                              padding: EdgeInsets.only(bottom: bottomInset),
+                              buildDefaultDragHandles: false,
+                              itemCount: _songs.value.length,
+                              onReorder: (oldIndex, newIndex) async {
+                                if (oldIndex < newIndex) {
+                                  newIndex -= 1;
                                 }
-                                await player.playQueue(queue, 0);
+                                final current = _songs.value.toList();
+                                final item = current.removeAt(oldIndex);
+                                current.insert(newIndex, item);
+                                _songs.value = current;
+                                _originalSongs.value = List<SongEntity>.from(
+                                  current,
+                                );
+                                final playlist = _playlist.value;
+                                if (playlist == null) return;
+                                await _service.reorderSongs(
+                                  playlist.id,
+                                  _songs.value.map((e) => e.id).toList(),
+                                );
                               },
-                              onTogglePlayMode: _togglePlayMode,
-                              onSort: _showSortSheet,
-                              onToggleMultiSelect: _toggleMultiSelect,
+                              itemBuilder: (context, index) {
+                                final song = _songs.value[index];
+                                return KeyedSubtree(
+                                  key: ValueKey(song.id),
+                                  child: _buildSongTile(
+                                    context,
+                                    player: player,
+                                    song: song,
+                                    index: index,
+                                    canReorder: canReorder,
+                                  ),
+                                );
+                              },
+                            )
+                          : ListView.builder(
+                              padding: EdgeInsets.only(bottom: bottomInset),
+                              itemCount: _songs.value.length,
+                              itemBuilder: (context, index) {
+                                final song = _songs.value[index];
+                                return _buildSongTile(
+                                  context,
+                                  player: player,
+                                  song: song,
+                                  index: index,
+                                  canReorder: canReorder,
+                                );
+                              },
                             ),
-                            Expanded(
-                              child: canReorder
-                                  ? ReorderableListView.builder(
-                                      padding:
-                                          EdgeInsets.only(bottom: bottomInset),
-                                      buildDefaultDragHandles: false,
-                                      itemCount: _songs.value.length,
-                                      onReorder: (oldIndex, newIndex) async {
-                                        if (oldIndex < newIndex) {
-                                          newIndex -= 1;
-                                        }
-                                        final current = _songs.value.toList();
-                                        final item = current.removeAt(oldIndex);
-                                        current.insert(newIndex, item);
-                                        _songs.value = current;
-                                        _originalSongs.value =
-                                            List<SongEntity>.from(current);
-                                        final playlist = _playlist.value;
-                                        if (playlist == null) return;
-                                        await _service.reorderSongs(
-                                          playlist.id,
-                                          _songs.value.map((e) => e.id).toList(),
-                                        );
-                                      },
-                                      itemBuilder: (context, index) {
-                                        final song = _songs.value[index];
-                                        return KeyedSubtree(
-                                          key: ValueKey(song.id),
-                                          child: _buildSongTile(
-                                            context,
-                                            player: player,
-                                            song: song,
-                                            index: index,
-                                            canReorder: canReorder,
+                    ),
+                    if (_multiSelect.value)
+                      MultiSelectBottomBar(
+                        actions: [
+                          MultiSelectAction(
+                            icon: Icons.queue_play_next,
+                            label: '下一首播放',
+                            onTap: _selectedIds.value.isEmpty
+                                ? null
+                                : () async {
+                                    final selected = _songs.value
+                                        .where(
+                                          (s) =>
+                                              _selectedIds.value.contains(s.id),
+                                        )
+                                        .toList();
+                                    await player.insertNext(selected);
+                                    if (!context.mounted) return;
+                                    AppToast.show(
+                                      context,
+                                      '已将 ${_selectedIds.value.length} 首歌曲加入下一首播放',
+                                    );
+                                    _toggleMultiSelect();
+                                  },
+                          ),
+                          MultiSelectAction(
+                            icon: Icons.playlist_add,
+                            label: '添加到歌单',
+                            onTap: _selectedIds.value.isEmpty
+                                ? null
+                                : () async {
+                                    final ids = _selectedIds.value.toList();
+                                    final added = await showAddToPlaylistDialog(
+                                      context,
+                                      songIds: ids,
+                                    );
+                                    if (!mounted) return;
+                                    if (added) _toggleMultiSelect();
+                                  },
+                          ),
+                          MultiSelectAction(
+                            icon: Icons.delete_outline,
+                            label: '移出',
+                            isDestructive: true,
+                            onTap: _selectedIds.value.isEmpty
+                                ? null
+                                : () async {
+                                    final confirmed = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) {
+                                        return AlertDialog(
+                                          title: const Text('移出选中歌曲'),
+                                          content: Text(
+                                            '确定要从歌单中移出这 ${_selectedIds.value.length} 首歌曲吗？',
                                           ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.of(ctx).pop(false),
+                                              child: const Text('取消'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.of(ctx).pop(true),
+                                              style: TextButton.styleFrom(
+                                                foregroundColor: Colors.red,
+                                              ),
+                                              child: const Text('移出'),
+                                            ),
+                                          ],
                                         );
                                       },
-                                    )
-                                  : ListView.builder(
-                                      padding:
-                                          EdgeInsets.only(bottom: bottomInset),
-                                      itemCount: _songs.value.length,
-                                      itemBuilder: (context, index) {
-                                        final song = _songs.value[index];
-                                        return _buildSongTile(
-                                          context,
-                                          player: player,
-                                          song: song,
-                                          index: index,
-                                          canReorder: canReorder,
-                                        );
-                                      },
-                                    ),
-                            ),
-                            if (_multiSelect.value)
-                              MultiSelectBottomBar(
-                                actions: [
-                                  MultiSelectAction(
-                                    icon: Icons.queue_play_next,
-                                    label: '下一首播放',
-                                    onTap: _selectedIds.value.isEmpty
-                                        ? null
-                                        : () async {
-                                            final selected = _songs.value
-                                                .where((s) => _selectedIds.value.contains(s.id))
-                                                .toList();
-                                            await player.insertNext(selected);
-                                            if (!context.mounted) return;
-                                            AppToast.show(
-                                              context,
-                                              '已将 ${_selectedIds.value.length} 首歌曲加入下一首播放',
-                                            );
-                                            _toggleMultiSelect();
-                                          },
-                                  ),
-                                  MultiSelectAction(
-                                    icon: Icons.playlist_add,
-                                    label: '添加到歌单',
-                                    onTap: _selectedIds.value.isEmpty
-                                        ? null
-                                        : () async {
-                                            final ids = _selectedIds.value.toList();
-                                            final added =
-                                                await showAddToPlaylistDialog(
-                                              context,
-                                              songIds: ids,
-                                            );
-                                            if (!mounted) return;
-                                            if (added) _toggleMultiSelect();
-                                          },
-                                  ),
-                                  MultiSelectAction(
-                                    icon: Icons.delete_outline,
-                                    label: '移出',
-                                    isDestructive: true,
-                                    onTap: _selectedIds.value.isEmpty
-                                        ? null
-                                        : () async {
-                                            final confirmed =
-                                                await showDialog<bool>(
-                                              context: context,
-                                              builder: (ctx) {
-                                                return AlertDialog(
-                                                  title: const Text('移出选中歌曲'),
-                                                  content: Text(
-                                                    '确定要从歌单中移出这 ${_selectedIds.value.length} 首歌曲吗？',
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.of(ctx).pop(false),
-                                                      child: const Text('取消'),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.of(ctx).pop(true),
-                                                      style: TextButton.styleFrom(
-                                                        foregroundColor: Colors.red,
-                                                      ),
-                                                      child: const Text('移出'),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            );
-                                            if (confirmed != true) return;
-                                            final ids = _selectedIds.value.toList();
-                                            await _removeSongsByIds(ids);
-                                            if (!mounted) return;
-                                            _toggleMultiSelect();
-                                          },
-                                  ),
-                                ],
-                              ),
-                          ],
-                        );
+                                    );
+                                    if (confirmed != true) return;
+                                    final ids = _selectedIds.value.toList();
+                                    await _removeSongsByIds(ids);
+                                    if (!mounted) return;
+                                    _toggleMultiSelect();
+                                  },
+                          ),
+                        ],
+                      ),
+                  ],
+                );
         },
       ),
     );
@@ -857,11 +882,14 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> with SignalsMix
         final isDark = theme.brightness == Brightness.dark;
         final isCurrent = current?.id == song.id;
         final isSelected = _selectedIds.value.contains(song.id);
-        final titleColor =
-            isCurrent ? theme.colorScheme.primary : theme.colorScheme.onSurface;
+        final titleColor = isCurrent
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onSurface;
         final subtitleColor = isCurrent
             ? theme.colorScheme.primary
-            : (isDark ? Colors.white70 : const Color.fromARGB(255, 100, 100, 100));
+            : (isDark
+                  ? Colors.white70
+                  : const Color.fromARGB(255, 100, 100, 100));
 
         final tile = AppListTile(
           leading: SizedBox(
@@ -982,10 +1010,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> with SignalsMix
 class PlaylistPickerSheet extends StatefulWidget {
   final List<String> songIds;
 
-  const PlaylistPickerSheet({
-    super.key,
-    required this.songIds,
-  });
+  const PlaylistPickerSheet({super.key, required this.songIds});
 
   @override
   State<PlaylistPickerSheet> createState() => _PlaylistPickerSheetState();
@@ -1125,10 +1150,7 @@ Future<bool> showAddToPlaylistDialog(
           constraints: const BoxConstraints(maxHeight: 300),
           child: playlists.isEmpty
               ? const Center(
-                  child: Text(
-                    '暂无歌单',
-                    style: TextStyle(color: Colors.grey),
-                  ),
+                  child: Text('暂无歌单', style: TextStyle(color: Colors.grey)),
                 )
               : ListView.builder(
                   shrinkWrap: true,
@@ -1142,10 +1164,9 @@ Future<bool> showAddToPlaylistDialog(
                             : Icons.queue_music,
                         color: playlist.isFavorite
                             ? Colors.red
-                            : Theme.of(context)
-                                .iconTheme
-                                .color
-                                ?.withValues(alpha: 0.7),
+                            : Theme.of(
+                                context,
+                              ).iconTheme.color?.withValues(alpha: 0.7),
                       ),
                       title: playlist.name,
                       subtitle: '${playlist.songIds.length} 首',
@@ -1285,7 +1306,10 @@ class _PlaylistNameDialogState extends State<_PlaylistNameDialog> {
                     onPressed: () => Navigator.of(context).pop(false),
                     child: const Text(
                       '取消',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
@@ -1306,7 +1330,10 @@ class _PlaylistNameDialogState extends State<_PlaylistNameDialog> {
                     onPressed: _submitAndClose,
                     child: Text(
                       widget.confirmText,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),

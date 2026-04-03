@@ -5,6 +5,7 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
+import '../../app/utils/page_cache_store.dart';
 import '../../components/index.dart';
 import '../library/albums_page.dart';
 import '../library/artists_page.dart';
@@ -20,16 +21,13 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with SignalsMixin {
   static const String _prefsHomeFilter = 'home_filter';
-  static int? _cachedCountAll;
-  static int? _cachedCountLocal;
-  static int? _cachedCountRemote;
-  static List<WebDavSource>? _cachedWebDavSources;
-  static Map<String, int>? _cachedWebDavCounts;
+  static const String _cacheScope = 'home_counts';
 
   final GlobalKey<AppPageScaffoldState> _scaffoldKey =
       GlobalKey<AppPageScaffoldState>();
   final SongDao _songDao = SongDao();
   final WebDavSourceRepository _webDavRepo = WebDavSourceRepository.instance;
+  final PageCacheStore _cacheStore = PageCacheStore.instance;
 
   late final _filter = createSignal('all');
   late final _loading = createSignal(true);
@@ -81,18 +79,13 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_prefsHomeFilter) ?? 'all';
 
-    final cachedAll = _cachedCountAll;
-    final cachedLocal = _cachedCountLocal;
-    final cachedRemote = _cachedCountRemote;
-    final cachedSources = _cachedWebDavSources;
-    if (cachedAll != null && cachedLocal != null && cachedRemote != null) {
-      _countAll.value = cachedAll;
-      _countLocal.value = cachedLocal;
-      _countRemote.value = cachedRemote;
-      if (cachedSources != null) {
-        _webDavSources.value = cachedSources;
-      }
-      _webDavCounts.value = _cachedWebDavCounts ?? const {};
+    final cached = _cacheStore.get<_HomeCountsCache>(_cacheScope, 'main');
+    if (cached != null) {
+      _countAll.value = cached.countAll;
+      _countLocal.value = cached.countLocal;
+      _countRemote.value = cached.countRemote;
+      _webDavSources.value = cached.webDavSources;
+      _webDavCounts.value = cached.webDavCounts;
       _loading.value = false;
     }
 
@@ -126,7 +119,11 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
       );
       webdavCounts = {for (final e in entries) e.key: e.value};
     } else {
-      webdavCounts = _cachedWebDavCounts ?? const {};
+      webdavCounts =
+          _cacheStore
+              .get<_HomeCountsCache>(_cacheScope, 'main')
+              ?.webDavCounts ??
+          const {};
     }
 
     var filter = rawFilter;
@@ -140,11 +137,17 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
     }
     if (!mounted) return;
 
-    _cachedCountAll = counts[0];
-    _cachedCountLocal = counts[1];
-    _cachedCountRemote = counts[2];
-    _cachedWebDavSources = sources;
-    _cachedWebDavCounts = webdavCounts;
+    _cacheStore.set(
+      _cacheScope,
+      'main',
+      _HomeCountsCache(
+        countAll: counts[0],
+        countLocal: counts[1],
+        countRemote: counts[2],
+        webDavSources: sources,
+        webDavCounts: webdavCounts,
+      ),
+    );
 
     _filter.value = filter;
     _countAll.value = counts[0];
@@ -165,8 +168,14 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
     );
     if (!mounted) return;
     final webdavCounts = {for (final e in entries) e.key: e.value};
-    _cachedWebDavSources = sources;
-    _cachedWebDavCounts = webdavCounts;
+    final previous = _cacheStore.get<_HomeCountsCache>(_cacheScope, 'main');
+    if (previous != null) {
+      _cacheStore.set(
+        _cacheScope,
+        'main',
+        previous.copyWith(webDavSources: sources, webDavCounts: webdavCounts),
+      );
+    }
     _webDavSources.value = sources;
     _webDavCounts.value = webdavCounts;
   }
@@ -365,6 +374,38 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HomeCountsCache {
+  final int countAll;
+  final int countLocal;
+  final int countRemote;
+  final List<WebDavSource> webDavSources;
+  final Map<String, int> webDavCounts;
+
+  const _HomeCountsCache({
+    required this.countAll,
+    required this.countLocal,
+    required this.countRemote,
+    required this.webDavSources,
+    required this.webDavCounts,
+  });
+
+  _HomeCountsCache copyWith({
+    int? countAll,
+    int? countLocal,
+    int? countRemote,
+    List<WebDavSource>? webDavSources,
+    Map<String, int>? webDavCounts,
+  }) {
+    return _HomeCountsCache(
+      countAll: countAll ?? this.countAll,
+      countLocal: countLocal ?? this.countLocal,
+      countRemote: countRemote ?? this.countRemote,
+      webDavSources: webDavSources ?? this.webDavSources,
+      webDavCounts: webDavCounts ?? this.webDavCounts,
     );
   }
 }
