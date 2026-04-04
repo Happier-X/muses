@@ -2,6 +2,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../components/layout/tablet_layout_host.dart';
+import 'router/app_page_route.dart';
 import 'router/app_router.dart';
 import 'state/settings_state.dart';
 import 'theme/app_styles.dart';
@@ -84,33 +85,9 @@ class NagoMusicApp extends StatelessWidget {
                     Route<dynamic> onGenerateRoute(RouteSettings settings) {
                       final name = settings.name ?? AppRoutes.home;
                       final target = routes[name] ?? routes[AppRoutes.home]!;
-                      return PageRouteBuilder<dynamic>(
+                      return buildAppPageRoute<dynamic>(
+                        target,
                         settings: settings,
-                        transitionDuration: const Duration(milliseconds: 300),
-                        reverseTransitionDuration: const Duration(
-                          milliseconds: 240,
-                        ),
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            ColoredBox(
-                              color: Theme.of(context).scaffoldBackgroundColor,
-                              child: target(context),
-                            ),
-                        transitionsBuilder:
-                            (context, animation, secondaryAnimation, child) {
-                              final curved = CurvedAnimation(
-                                parent: animation,
-                                curve: Curves.easeOutCubic,
-                                reverseCurve: Curves.easeInCubic,
-                              );
-                              final offset = Tween<Offset>(
-                                begin: const Offset(0.12, 0),
-                                end: Offset.zero,
-                              ).animate(curved);
-                              return SlideTransition(
-                                position: offset,
-                                child: child,
-                              );
-                            },
                       );
                     }
 

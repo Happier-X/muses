@@ -18,6 +18,7 @@ import '../../app/services/local_music_service.dart';
 import '../../app/services/metadata/tag_probe_service.dart';
 import '../../app/services/player_service.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
+import '../../app/router/app_page_route.dart';
 import '../../app/state/song_state.dart';
 import '../../app/utils/deferred_page_init_mixin.dart';
 import '../../app/utils/page_cache_store.dart';
@@ -1120,8 +1121,8 @@ class _SongsPageState extends State<SongsPage>
                                     song: song,
                                     onOpenArtist: (artistName) {
                                       Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => ArtistDetailPage(
+                                        buildAppPageRoute(
+                                          (_) => ArtistDetailPage(
                                             artistName: artistName,
                                           ),
                                         ),
@@ -1129,8 +1130,8 @@ class _SongsPageState extends State<SongsPage>
                                     },
                                     onOpenAlbum: (albumName) {
                                       Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => AlbumDetailPage(
+                                        buildAppPageRoute(
+                                          (_) => AlbumDetailPage(
                                             albumName: albumName,
                                           ),
                                         ),

@@ -6,6 +6,7 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
 import '../../app/services/local_music_service.dart';
 import '../../app/services/db/dao/song_dao.dart';
+import '../../app/router/app_page_route.dart';
 import '../../app/services/webdav/webdav_music_service.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
 import '../../app/utils/deferred_page_init_mixin.dart';
@@ -347,7 +348,7 @@ class _SourcePageState extends State<SourcePage>
   void _openLocalSetting() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const LocalSourceSettingsPage()),
+      buildAppPageRoute((_) => const LocalSourceSettingsPage()),
     ).then((_) => _loadLocalCount());
   }
 
@@ -366,7 +367,7 @@ class _SourcePageState extends State<SourcePage>
 
     final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => WebDavEditPage(source: raw)),
+      buildAppPageRoute((_) => WebDavEditPage(source: raw)),
     );
     if (!mounted) return;
     if (changed == true) {
@@ -386,9 +387,7 @@ class _SourcePageState extends State<SourcePage>
 
     final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (_) => WebDavEditPage(source: draft, isAdd: true),
-      ),
+      buildAppPageRoute((_) => WebDavEditPage(source: draft, isAdd: true)),
     );
     if (!mounted) return;
     if (changed == true) {
@@ -400,13 +399,13 @@ class _SourcePageState extends State<SourcePage>
     if (source.type == SourceType.local) {
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const LocalFolderBrowser()),
+        buildAppPageRoute((_) => const LocalFolderBrowser()),
       );
     } else {
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) =>
+        buildAppPageRoute(
+          (_) =>
               WebDavFolderBrowser(sourceId: source.id, sourceName: source.name),
         ),
       );

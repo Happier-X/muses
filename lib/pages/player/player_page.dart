@@ -22,23 +22,6 @@ class _PlayerPageState extends State<PlayerPage> {
   final PageController _pageController = PageController();
 
   @override
-  void initState() {
-    super.initState();
-    _ensureAutoPlayOnEnter();
-  }
-
-  Future<void> _ensureAutoPlayOnEnter() async {
-    await PlayerPageBehaviorSettings.ensureLoaded();
-    if (!mounted || !PlayerPageBehaviorSettings.autoPlayOnEnter.value) return;
-    if (_player.currentSong.value == null || _player.isPlaying.value) return;
-    try {
-      await _player.play();
-    } catch (e) {
-      debugPrint('PlayerPage auto play on enter failed: $e');
-    }
-  }
-
-  @override
   void dispose() {
     _pageController.dispose();
     super.dispose();

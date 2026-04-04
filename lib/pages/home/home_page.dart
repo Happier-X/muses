@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signals/signals.dart';
 import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
+import '../../app/state/settings_state.dart';
 import '../../app/services/db/dao/song_dao.dart';
+import '../../app/router/app_page_route.dart';
+import '../../app/services/player_service.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
 import '../../app/utils/cache_version_store.dart';
 import '../../app/utils/page_cache_store.dart';
@@ -27,8 +32,10 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
   final GlobalKey<AppPageScaffoldState> _scaffoldKey =
       GlobalKey<AppPageScaffoldState>();
   final SongDao _songDao = SongDao();
+  final PlayerService _player = PlayerService.instance;
   final WebDavSourceRepository _webDavRepo = WebDavSourceRepository.instance;
   final PageCacheStore _cacheStore = PageCacheStore.instance;
+  bool _autoPlayTried = false;
 
   late final _filter = createSignal('all');
   late final _loading = createSignal(true);
@@ -73,7 +80,23 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
   @override
   void initState() {
     super.initState();
+    unawaited(_tryAutoPlayOnAppLaunch());
     _load();
+  }
+
+  Future<void> _tryAutoPlayOnAppLaunch() async {
+    if (_autoPlayTried) return;
+    _autoPlayTried = true;
+    await AppLaunchPlaybackSettings.ensureLoaded();
+    if (!mounted || !AppLaunchPlaybackSettings.autoPlayOnAppLaunch.value) {
+      return;
+    }
+    if (_player.currentSong.value == null || _player.isPlaying.value) return;
+    try {
+      await _player.play();
+    } catch (e) {
+      debugPrint('App auto play on launch failed: $e');
+    }
   }
 
   Future<void> _load({bool includeWebDavCounts = false}) async {
@@ -257,28 +280,7 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
   }
 
   Future<void> _pushLibraryPage(Widget page) async {
-    await Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 300),
-        reverseTransitionDuration: const Duration(milliseconds: 240),
-        pageBuilder: (context, animation, secondaryAnimation) => ColoredBox(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          child: page,
-        ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
-          );
-          final offset = Tween<Offset>(
-            begin: const Offset(0.12, 0),
-            end: Offset.zero,
-          ).animate(curved);
-          return SlideTransition(position: offset, child: child);
-        },
-      ),
-    );
+    await Navigator.of(context).push(buildAppPageRoute<void>((_) => page));
   }
 
   @override

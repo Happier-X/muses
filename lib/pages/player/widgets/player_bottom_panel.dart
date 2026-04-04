@@ -5,6 +5,7 @@ import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
+import '../../../app/router/app_page_route.dart';
 import '../../../app/services/lyrics/lyrics_service.dart';
 import '../../../app/services/player_service.dart';
 import '../../../app/state/settings_state.dart';
@@ -103,13 +104,13 @@ class _MiniLyricsPreviewState extends State<_MiniLyricsPreview>
         final textAlign = alignment == 'left'
             ? TextAlign.left
             : alignment == 'right'
-                ? TextAlign.right
-                : TextAlign.center;
+            ? TextAlign.right
+            : TextAlign.center;
         final crossAlign = alignment == 'left'
             ? CrossAxisAlignment.start
             : alignment == 'right'
-                ? CrossAxisAlignment.end
-                : CrossAxisAlignment.center;
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.center;
 
         return Column(
           children: [
@@ -145,8 +146,9 @@ class _MiniLyricsPreviewState extends State<_MiniLyricsPreview>
                               '纯音乐或未匹配到歌词',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: scheme.onSurfaceVariant
-                                    .withValues(alpha: 0.6),
+                                color: scheme.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
                               ),
                               textAlign: TextAlign.center,
                               maxLines: 1,
@@ -156,8 +158,9 @@ class _MiniLyricsPreviewState extends State<_MiniLyricsPreview>
                         );
                       }
 
-                      final base =
-                          (active >= 0 && active < lines.length) ? active : 0;
+                      final base = (active >= 0 && active < lines.length)
+                          ? active
+                          : 0;
                       String lineAt(int i) {
                         if (i < 0) return '';
                         if (i >= lines.length) return '';
@@ -185,8 +188,9 @@ class _MiniLyricsPreviewState extends State<_MiniLyricsPreview>
                           Text(
                             prev.isEmpty ? ' ' : prev,
                             style: TextStyle(
-                              color: scheme.onSurfaceVariant
-                                  .withValues(alpha: 0.55),
+                              color: scheme.onSurfaceVariant.withValues(
+                                alpha: 0.55,
+                              ),
                               fontSize: 14,
                             ),
                             textAlign: textAlign,
@@ -210,8 +214,9 @@ class _MiniLyricsPreviewState extends State<_MiniLyricsPreview>
                             Text(
                               currTrans,
                               style: TextStyle(
-                                color: scheme.onSurfaceVariant
-                                    .withValues(alpha: 0.55),
+                                color: scheme.onSurfaceVariant.withValues(
+                                  alpha: 0.55,
+                                ),
                                 fontSize: 12,
                               ),
                               textAlign: textAlign,
@@ -223,8 +228,9 @@ class _MiniLyricsPreviewState extends State<_MiniLyricsPreview>
                           Text(
                             next.isEmpty ? ' ' : next,
                             style: TextStyle(
-                              color: scheme.onSurfaceVariant
-                                  .withValues(alpha: 0.55),
+                              color: scheme.onSurfaceVariant.withValues(
+                                alpha: 0.55,
+                              ),
                               fontSize: 14,
                             ),
                             textAlign: textAlign,
@@ -275,8 +281,7 @@ class _PlayerSeekBarState extends State<_PlayerSeekBar> with SignalsMixin {
         final scheme = Theme.of(context).colorScheme;
         final totalMs = duration?.inMilliseconds ?? 0;
         final max = totalMs <= 0 ? 1.0 : totalMs.toDouble();
-        final currentMs =
-            position.inMilliseconds.clamp(0, max.toInt()).toInt();
+        final currentMs = position.inMilliseconds.clamp(0, max.toInt()).toInt();
         final sliderValue = _dragValue.value ?? currentMs.toDouble();
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -285,12 +290,16 @@ class _PlayerSeekBarState extends State<_PlayerSeekBar> with SignalsMixin {
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   trackHeight: 2,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                  overlayShape:
-                      const RoundSliderOverlayShape(overlayRadius: 12),
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 6,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 12,
+                  ),
                   activeTrackColor: scheme.onSurface,
-                  inactiveTrackColor:
-                      scheme.onSurfaceVariant.withValues(alpha: 0.25),
+                  inactiveTrackColor: scheme.onSurfaceVariant.withValues(
+                    alpha: 0.25,
+                  ),
                   thumbColor: scheme.onSurface,
                 ),
                 child: Slider(
@@ -526,16 +535,12 @@ class _BottomActions extends StatelessWidget {
         song: song,
         onOpenArtist: (artistName) {
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ArtistDetailPage(artistName: artistName),
-            ),
+            buildAppPageRoute((_) => ArtistDetailPage(artistName: artistName)),
           );
         },
         onOpenAlbum: (albumName) {
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => AlbumDetailPage(albumName: albumName),
-            ),
+            buildAppPageRoute((_) => AlbumDetailPage(albumName: albumName)),
           );
         },
       ),
@@ -655,7 +660,8 @@ class _SleepTimerSheetState extends State<_SleepTimerSheet> with SignalsMixin {
 
   @override
   Widget build(BuildContext context) {
-    final preferLightBackground = Theme.of(context).brightness == Brightness.light;
+    final preferLightBackground =
+        Theme.of(context).brightness == Brightness.light;
     final useDarkText = preferLightBackground;
     final textColor = _primaryTextColor(useDarkText);
     final secondaryTextColor = _secondaryTextColor(useDarkText, 0.7);
@@ -703,9 +709,7 @@ class _SleepTimerSheetState extends State<_SleepTimerSheet> with SignalsMixin {
                           Expanded(
                             child: Text(
                               '播完整首歌后关闭',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
+                              style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(color: textColor),
                             ),
                           ),
@@ -823,8 +827,10 @@ class _PlaylistSheetState extends State<_PlaylistSheet> {
     super.initState();
     _lastIndex = widget.player.currentIndexSignal.value;
     _controller = ScrollController(
-      initialScrollOffset:
-          _calcOffset(_lastIndex, widget.player.queueSignal.value.length),
+      initialScrollOffset: _calcOffset(
+        _lastIndex,
+        widget.player.queueSignal.value.length,
+      ),
     );
   }
 
@@ -837,7 +843,8 @@ class _PlaylistSheetState extends State<_PlaylistSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final preferLightBackground = Theme.of(context).brightness == Brightness.light;
+    final preferLightBackground =
+        Theme.of(context).brightness == Brightness.light;
     final useDarkText = preferLightBackground;
     final textColor = _primaryTextColor(useDarkText);
     final secondaryTextColor = _secondaryTextColor(useDarkText, 0.7);
@@ -894,13 +901,16 @@ class _PlaylistSheetState extends State<_PlaylistSheet> {
                           return AnimatedBuilder(
                             animation: animation,
                             builder: (context, child) {
-                              final animValue =
-                                  Curves.easeInOut.transform(animation.value);
+                              final animValue = Curves.easeInOut.transform(
+                                animation.value,
+                              );
                               final elevation = ui.lerpDouble(0, 6, animValue)!;
                               return Material(
                                 elevation: elevation,
                                 color: Colors.transparent,
-                                shadowColor: Colors.black.withValues(alpha: 0.3),
+                                shadowColor: Colors.black.withValues(
+                                  alpha: 0.3,
+                                ),
                                 child: child,
                               );
                             },
@@ -914,9 +924,12 @@ class _PlaylistSheetState extends State<_PlaylistSheet> {
                         itemBuilder: (context, index) {
                           final song = queue[index];
                           final isCurrent = index == currentIndex;
-                          final titleColor = isCurrent ? scheme.primary : textColor;
-                          final artistColor =
-                              secondaryTextColor.withValues(alpha: 0.85);
+                          final titleColor = isCurrent
+                              ? scheme.primary
+                              : textColor;
+                          final artistColor = secondaryTextColor.withValues(
+                            alpha: 0.85,
+                          );
                           return RepaintBoundary(
                             key: ValueKey(song.id),
                             child: AppListTile(

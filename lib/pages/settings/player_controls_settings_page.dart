@@ -17,7 +17,7 @@ class _PlayerControlsSettingsPageState
   void initState() {
     super.initState();
     PlayerBottomActionSettings.ensureLoaded();
-    PlayerPageBehaviorSettings.ensureLoaded();
+    AppLaunchPlaybackSettings.ensureLoaded();
   }
 
   _BottomActionConfig _actionConfigByKey(String key) {
@@ -74,15 +74,15 @@ class _PlayerControlsSettingsPageState
             title: '播放行为',
             children: [
               ValueListenableBuilder<bool>(
-                valueListenable: PlayerPageBehaviorSettings.autoPlayOnEnter,
+                valueListenable: AppLaunchPlaybackSettings.autoPlayOnAppLaunch,
                 builder: (context, enabled, _) {
                   return AppSettingTile(
-                    title: '进入播放器自动播放',
-                    subtitle: '进入播放器页面时自动开始播放当前歌曲',
+                    title: '进入应用自动播放',
+                    subtitle: '打开应用后自动开始播放当前歌曲',
                     trailing: Switch.adaptive(
                       value: enabled,
                       onChanged: (value) {
-                        PlayerPageBehaviorSettings.setAutoPlayOnEnter(value);
+                        AppLaunchPlaybackSettings.setAutoPlayOnAppLaunch(value);
                       },
                     ),
                   );

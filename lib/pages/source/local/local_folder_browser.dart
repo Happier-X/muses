@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:signals/signals_flutter.dart';
 
+import '../../../app/router/app_page_route.dart';
 import '../../../app/services/block_list_service.dart';
 import '../../../app/services/db/dao/song_dao.dart';
 import '../../../components/common/blocked_management_sheet.dart';
@@ -17,7 +18,8 @@ class LocalFolderBrowser extends StatefulWidget {
   State<LocalFolderBrowser> createState() => _LocalFolderBrowserState();
 }
 
-class _LocalFolderBrowserState extends State<LocalFolderBrowser> with SignalsMixin {
+class _LocalFolderBrowserState extends State<LocalFolderBrowser>
+    with SignalsMixin {
   final SongDao _songDao = SongDao();
   late final _folders = createSignal<List<FolderInfo>>([]);
   late final _isLoading = createSignal(true);
@@ -33,13 +35,13 @@ class _LocalFolderBrowserState extends State<LocalFolderBrowser> with SignalsMix
     _isLoading.value = true;
     final songs = await _songDao.fetchAll(sourceId: 'local');
     final blocked = await BlockListService.instance.load('blocked_folders');
-    
+
     if (mounted) {
       _blockedFolders.value = blocked;
     }
-    
+
     final Map<String, int> folderCounts = {};
-    
+
     for (final song in songs) {
       if (song.uri == null) continue;
       final dir = p.dirname(song.uri!).replaceAll('\\', '/');
@@ -50,11 +52,7 @@ class _LocalFolderBrowserState extends State<LocalFolderBrowser> with SignalsMix
     final List<FolderInfo> list = folderCounts.entries.map((e) {
       final path = e.key;
       final name = p.basename(path);
-      return FolderInfo(
-        id: path,
-        name: name,
-        count: e.value,
-      );
+      return FolderInfo(id: path, name: name, count: e.value);
     }).toList();
 
     // Sort by name
@@ -81,7 +79,7 @@ class _LocalFolderBrowserState extends State<LocalFolderBrowser> with SignalsMix
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const LocalSourceSettingsPage()),
+                buildAppPageRoute((_) => const LocalSourceSettingsPage()),
               ).then((_) => _loadFolders());
             },
           ),
@@ -131,7 +129,10 @@ class _LocalFolderBrowserState extends State<LocalFolderBrowser> with SignalsMix
                               title: '已屏蔽文件夹',
                               items: blocked.toList(),
                               onUnblock: (item) async {
-                                await BlockListService.instance.remove('blocked_folders', item);
+                                await BlockListService.instance.remove(
+                                  'blocked_folders',
+                                  item,
+                                );
                                 if (context.mounted) {
                                   Navigator.pop(context);
                                   _loadFolders();
@@ -143,7 +144,10 @@ class _LocalFolderBrowserState extends State<LocalFolderBrowser> with SignalsMix
                         child: Row(
                           children: [
                             const SizedBox(width: 16),
-                            Icon(Icons.folder_off, color: theme.colorScheme.error),
+                            Icon(
+                              Icons.folder_off,
+                              color: theme.colorScheme.error,
+                            ),
                             const SizedBox(width: 12),
                             const Expanded(child: Text('已屏蔽的文件夹')),
                             Text('${blocked.length} 个'),
@@ -157,7 +161,7 @@ class _LocalFolderBrowserState extends State<LocalFolderBrowser> with SignalsMix
                   ),
                 );
               }
-              
+
               final folder = folders[index - headerCount];
               return SourceTile(
                 icon: Icons.folder,
@@ -175,16 +179,25 @@ class _LocalFolderBrowserState extends State<LocalFolderBrowser> with SignalsMix
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             ListTile(
-                              leading: const Icon(Icons.folder_off, color: Colors.red),
+                              leading: const Icon(
+                                Icons.folder_off,
+                                color: Colors.red,
+                              ),
                               title: const Text('屏蔽此文件夹'),
                               titleTextStyle: TextStyle(
                                 color: Theme.of(sheetContext).colorScheme.error,
                               ),
                               onTap: () async {
                                 Navigator.pop(sheetContext);
-                                await BlockListService.instance.add('blocked_folders', folder.id);
+                                await BlockListService.instance.add(
+                                  'blocked_folders',
+                                  folder.id,
+                                );
                                 if (!pageContext.mounted) return;
-                                AppToast.show(pageContext, '已屏蔽: ${folder.name}');
+                                AppToast.show(
+                                  pageContext,
+                                  '已屏蔽: ${folder.name}',
+                                );
                                 _loadFolders();
                               },
                             ),
@@ -198,8 +211,8 @@ class _LocalFolderBrowserState extends State<LocalFolderBrowser> with SignalsMix
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => FolderSongsPage(
+                    buildAppPageRoute(
+                      (_) => FolderSongsPage(
                         title: folder.name,
                         sourceId: 'local',
                         folderPath: folder.id,

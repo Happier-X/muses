@@ -7,6 +7,7 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/player_service.dart';
 import '../../app/services/playlists_service.dart';
+import '../../app/router/app_page_route.dart';
 import '../../app/state/song_state.dart';
 import '../../app/utils/cache_version_store.dart';
 import '../../app/utils/deferred_page_init_mixin.dart';
@@ -376,9 +377,8 @@ class _PlaylistsPageState extends State<PlaylistsPage>
                               : null,
                           onTap: () async {
                             await Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    PlaylistDetailPage(playlistId: p.id),
+                              buildAppPageRoute(
+                                (_) => PlaylistDetailPage(playlistId: p.id),
                               ),
                             );
                             if (!mounted) return;
@@ -954,15 +954,15 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
                 onDeleted: (_) => _load(),
                 onOpenArtist: (artistName) {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ArtistDetailPage(artistName: artistName),
+                    buildAppPageRoute(
+                      (_) => ArtistDetailPage(artistName: artistName),
                     ),
                   );
                 },
                 onOpenAlbum: (albumName) {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => AlbumDetailPage(albumName: albumName),
+                    buildAppPageRoute(
+                      (_) => AlbumDetailPage(albumName: albumName),
                     ),
                   );
                 },

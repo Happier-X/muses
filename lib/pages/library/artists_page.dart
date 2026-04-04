@@ -7,6 +7,7 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
 import '../../app/services/block_list_service.dart';
 import '../../app/services/db/dao/song_dao.dart';
+import '../../app/router/app_page_route.dart';
 import '../../app/state/song_state.dart';
 import '../../app/utils/cache_version_store.dart';
 import '../../app/utils/deferred_page_init_mixin.dart';
@@ -381,8 +382,8 @@ class _ArtistsPageState extends State<ArtistsPage>
                   isHighlighted: false,
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ArtistDetailPage(artistName: g.name),
+                      buildAppPageRoute(
+                        (_) => ArtistDetailPage(artistName: g.name),
                       ),
                     );
                   },

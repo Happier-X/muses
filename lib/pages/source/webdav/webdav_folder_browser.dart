@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:signals/signals_flutter.dart';
 
+import '../../../app/router/app_page_route.dart';
 import '../../../app/services/block_list_service.dart';
 import '../../../app/services/db/dao/song_dao.dart';
 import '../../../app/services/webdav/webdav_source_repository.dart';
@@ -25,10 +26,11 @@ class WebDavFolderBrowser extends StatefulWidget {
   State<WebDavFolderBrowser> createState() => _WebDavFolderBrowserState();
 }
 
-class _WebDavFolderBrowserState extends State<WebDavFolderBrowser> with SignalsMixin {
+class _WebDavFolderBrowserState extends State<WebDavFolderBrowser>
+    with SignalsMixin {
   final SongDao _songDao = SongDao();
   final WebDavSourceRepository _repo = WebDavSourceRepository.instance;
-  
+
   late final _folders = createSignal<List<FolderInfo>>([]);
   late final _isLoading = createSignal(true);
   late final _blockedFolders = createSignal<Set<String>>({});
@@ -44,26 +46,26 @@ class _WebDavFolderBrowserState extends State<WebDavFolderBrowser> with SignalsM
     final songs = await _songDao.fetchAll(sourceId: widget.sourceId);
     final blockedKey = 'blocked_folders_${widget.sourceId}';
     final blocked = await BlockListService.instance.load(blockedKey);
-    
+
     if (mounted) {
       _blockedFolders.value = blocked;
     }
-    
+
     final Map<String, int> folderCounts = {};
-    
+
     for (final song in songs) {
       if (song.uri == null) continue;
       // WebDAV paths might be URLs or absolute paths.
       // We group by parent directory.
       var dir = p.dirname(song.uri!).replaceAll('\\', '/');
-      
+
       // Basic normalization to avoid trailing slashes if any (dirname usually handles it)
       if (dir.endsWith('/') && dir.length > 1) {
         dir = dir.substring(0, dir.length - 1);
       }
 
       if (blocked.contains(dir)) continue;
-      
+
       folderCounts[dir] = (folderCounts[dir] ?? 0) + 1;
     }
 
@@ -73,17 +75,13 @@ class _WebDavFolderBrowserState extends State<WebDavFolderBrowser> with SignalsM
       var name = p.basename(path);
       if (name.isEmpty) name = path;
       if (name.isEmpty) name = '/';
-      
+
       // If it looks like a URL, we might want to decode it
       try {
         name = Uri.decodeComponent(name);
       } catch (_) {}
 
-      return FolderInfo(
-        id: path,
-        name: name,
-        count: e.value,
-      );
+      return FolderInfo(id: path, name: name, count: e.value);
     }).toList();
 
     // Sort by name
@@ -100,12 +98,10 @@ class _WebDavFolderBrowserState extends State<WebDavFolderBrowser> with SignalsM
     try {
       final source = sources.firstWhere((s) => s.id == widget.sourceId);
       if (!mounted) return;
-      
+
       final changed = await Navigator.push<bool>(
         context,
-        MaterialPageRoute(
-          builder: (_) => WebDavEditPage(source: source),
-        ),
+        buildAppPageRoute((_) => WebDavEditPage(source: source)),
       );
       if (!mounted) return;
       if (changed == true) {
@@ -177,8 +173,12 @@ class _WebDavFolderBrowserState extends State<WebDavFolderBrowser> with SignalsM
                               title: '已屏蔽文件夹',
                               items: blocked.toList(),
                               onUnblock: (item) async {
-                                final blockedKey = 'blocked_folders_${widget.sourceId}';
-                                await BlockListService.instance.remove(blockedKey, item);
+                                final blockedKey =
+                                    'blocked_folders_${widget.sourceId}';
+                                await BlockListService.instance.remove(
+                                  blockedKey,
+                                  item,
+                                );
                                 if (context.mounted) {
                                   Navigator.pop(context);
                                   _loadFolders();
@@ -190,7 +190,10 @@ class _WebDavFolderBrowserState extends State<WebDavFolderBrowser> with SignalsM
                         child: Row(
                           children: [
                             const SizedBox(width: 16),
-                            Icon(Icons.folder_off, color: theme.colorScheme.error),
+                            Icon(
+                              Icons.folder_off,
+                              color: theme.colorScheme.error,
+                            ),
                             const SizedBox(width: 12),
                             const Expanded(child: Text('已屏蔽的文件夹')),
                             Text('${blocked.length} 个'),
@@ -222,17 +225,27 @@ class _WebDavFolderBrowserState extends State<WebDavFolderBrowser> with SignalsM
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             ListTile(
-                              leading: const Icon(Icons.folder_off, color: Colors.red),
+                              leading: const Icon(
+                                Icons.folder_off,
+                                color: Colors.red,
+                              ),
                               title: const Text('屏蔽此文件夹'),
                               titleTextStyle: TextStyle(
                                 color: Theme.of(sheetContext).colorScheme.error,
                               ),
                               onTap: () async {
                                 Navigator.pop(sheetContext);
-                                final blockedKey = 'blocked_folders_${widget.sourceId}';
-                                await BlockListService.instance.add(blockedKey, folder.id);
+                                final blockedKey =
+                                    'blocked_folders_${widget.sourceId}';
+                                await BlockListService.instance.add(
+                                  blockedKey,
+                                  folder.id,
+                                );
                                 if (!pageContext.mounted) return;
-                                AppToast.show(pageContext, '已屏蔽: ${folder.name}');
+                                AppToast.show(
+                                  pageContext,
+                                  '已屏蔽: ${folder.name}',
+                                );
                                 _loadFolders();
                               },
                             ),
@@ -246,8 +259,8 @@ class _WebDavFolderBrowserState extends State<WebDavFolderBrowser> with SignalsM
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => FolderSongsPage(
+                    buildAppPageRoute(
+                      (_) => FolderSongsPage(
                         title: folder.name,
                         sourceId: widget.sourceId,
                         folderPath: folder.id,

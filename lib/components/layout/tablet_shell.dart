@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../app/router/app_page_route.dart';
 import '../../app/router/app_router.dart';
 import 'side_menu.dart';
 
@@ -46,10 +47,7 @@ class TabletShellState extends State<TabletShell> {
       children: [
         SizedBox(
           width: drawerWidth,
-          child: SideMenu(
-            onNavigate: navigate,
-            onPush: push,
-          ),
+          child: SideMenu(onNavigate: navigate, onPush: push),
         ),
         Expanded(
           child: Navigator(
@@ -58,10 +56,7 @@ class TabletShellState extends State<TabletShell> {
             onGenerateRoute: (settings) {
               final builder = widget.routes[settings.name];
               final target = builder ?? widget.routes[AppRoutes.home]!;
-              return MaterialPageRoute(
-                builder: target,
-                settings: settings,
-              );
+              return buildAppPageRoute(target, settings: settings);
             },
           ),
         ),

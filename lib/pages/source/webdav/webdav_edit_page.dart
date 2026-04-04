@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/router/app_page_route.dart';
 import '../../../app/services/db/dao/song_dao.dart';
 import '../../../app/services/webdav/webdav_music_service.dart';
 import '../../../app/services/webdav/webdav_source_repository.dart';
@@ -10,11 +11,7 @@ class WebDavEditPage extends StatefulWidget {
   final WebDavSource source;
   final bool isAdd;
 
-  const WebDavEditPage({
-    super.key,
-    required this.source,
-    this.isAdd = false,
-  });
+  const WebDavEditPage({super.key, required this.source, this.isAdd = false});
 
   @override
   State<WebDavEditPage> createState() => _WebDavEditPageState();
@@ -92,8 +89,8 @@ class _WebDavEditPageState extends State<WebDavEditPage> {
 
     final selected = await Navigator.push<List<String>>(
       context,
-      MaterialPageRoute(
-        builder: (_) => WebDavFolderPickerPage(
+      buildAppPageRoute(
+        (_) => WebDavFolderPickerPage(
           source: _draftSource(),
           initialPath: _normalizePath(_source.path),
           initialSelected: _source.includeFolders,
@@ -182,7 +179,8 @@ class _WebDavEditPageState extends State<WebDavEditPage> {
       context: context,
       builder: (_) => AppDialog(
         title: '删除 WebDAV',
-        contentText: '确认删除 ${_source.name.trim().isNotEmpty ? _source.name.trim() : 'WebDAV'} 吗？',
+        contentText:
+            '确认删除 ${_source.name.trim().isNotEmpty ? _source.name.trim() : 'WebDAV'} 吗？',
         confirmText: '删除',
         isDestructive: true,
         onConfirm: () {},
@@ -243,8 +241,12 @@ class _WebDavEditPageState extends State<WebDavEditPage> {
                 enabled: !_saving,
                 obscureText: !_showPassword,
                 suffix: IconButton(
-                  icon: Icon(_showPassword ? Icons.visibility : Icons.visibility_off),
-                  onPressed: _saving ? null : () => setState(() => _showPassword = !_showPassword),
+                  icon: Icon(
+                    _showPassword ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() => _showPassword = !_showPassword),
                 ),
               ),
               AppSettingSwitchTile(
@@ -254,8 +256,8 @@ class _WebDavEditPageState extends State<WebDavEditPage> {
                 onChanged: _saving
                     ? null
                     : (v) => setState(() {
-                          _source = _source.copyWith(scrapeTagsOnScan: v);
-                        }),
+                        _source = _source.copyWith(scrapeTagsOnScan: v);
+                      }),
               ),
             ],
           ),
@@ -347,4 +349,3 @@ class _TextFieldTile extends StatelessWidget {
     );
   }
 }
-

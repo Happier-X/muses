@@ -64,6 +64,10 @@ class _TabletLayoutHostState extends State<TabletLayoutHost>
         final scale = 1 - (0.02 * t);
         final contentWidth = (width - pageOffset).clamp(0.0, width);
         final bottomInset = MediaQuery.paddingOf(context).bottom;
+        final pageRadius = 24.0 * t;
+        final pageShadow = Theme.of(context).brightness == Brightness.dark
+            ? Colors.black.withValues(alpha: 0.28 * t)
+            : Colors.black.withValues(alpha: 0.08 * t);
 
         final canPopRoot =
             !(widget.navigatorKey.currentState?.canPop() ?? false);
@@ -86,10 +90,25 @@ class _TabletLayoutHostState extends State<TabletLayoutHost>
                         alignment: Alignment.centerLeft,
                         child: SizedBox(
                           width: contentWidth,
-                          child: Transform.scale(
-                            scale: scale,
-                            alignment: Alignment.centerLeft,
-                            child: child,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(pageRadius),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: pageShadow,
+                                  blurRadius: 28 * t,
+                                  offset: Offset(0, 10 * t),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(pageRadius),
+                              child: Transform.scale(
+                                scale: scale,
+                                alignment: Alignment.centerLeft,
+                                child: child,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -131,8 +150,10 @@ class _TabletLayoutHostState extends State<TabletLayoutHost>
   }
 
   void _handleNavigate(String route) {
-    widget.navigatorKey.currentState
-        ?.pushNamedAndRemoveUntil(route, (route) => false);
+    widget.navigatorKey.currentState?.pushNamedAndRemoveUntil(
+      route,
+      (route) => false,
+    );
   }
 
   void _handlePush(String route) {

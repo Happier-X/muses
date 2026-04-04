@@ -175,10 +175,11 @@ class WebDavPlaybackSettings {
   }
 }
 
-class PlayerPageBehaviorSettings {
-  static const String _prefsAutoPlayOnEnter = 'player_auto_play_on_enter';
+class AppLaunchPlaybackSettings {
+  static const String _prefsAutoPlayOnAppLaunch =
+      'player_auto_play_on_app_launch';
 
-  static final ValueNotifier<bool> autoPlayOnEnter = ValueNotifier(false);
+  static final ValueNotifier<bool> autoPlayOnAppLaunch = ValueNotifier(false);
 
   static bool _loaded = false;
 
@@ -186,13 +187,14 @@ class PlayerPageBehaviorSettings {
     if (_loaded) return;
     _loaded = true;
     final prefs = await SharedPreferences.getInstance();
-    autoPlayOnEnter.value = prefs.getBool(_prefsAutoPlayOnEnter) ?? false;
+    autoPlayOnAppLaunch.value =
+        prefs.getBool(_prefsAutoPlayOnAppLaunch) ?? false;
   }
 
-  static Future<void> setAutoPlayOnEnter(bool enabled) async {
+  static Future<void> setAutoPlayOnAppLaunch(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefsAutoPlayOnEnter, enabled);
-    autoPlayOnEnter.value = enabled;
+    await prefs.setBool(_prefsAutoPlayOnAppLaunch, enabled);
+    autoPlayOnAppLaunch.value = enabled;
   }
 }
 
