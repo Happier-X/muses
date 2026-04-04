@@ -15,6 +15,7 @@ import '../../app/services/playlists_service.dart';
 import '../../app/services/metadata/tag_probe_service.dart';
 import '../../app/services/metadata/tag_probe_result.dart';
 import '../../app/services/player_service.dart';
+import '../../app/services/song_download_service.dart';
 import '../../app/state/song_state.dart';
 import '../../components/common/app_list_tile.dart';
 import '../../components/common/sheet_panels.dart';
@@ -76,6 +77,7 @@ class _SongDetailSheetState extends State<SongDetailSheet> {
   final PlaylistsService _playlists = PlaylistsService.instance;
   bool _isFavorite = false;
   bool _loadingFavorite = true;
+  bool _downloading = false;
   String _favoriteName = PlaylistsService.favoritePlaylistName;
 
   @override
@@ -110,21 +112,37 @@ class _SongDetailSheetState extends State<SongDetailSheet> {
     if (_loadingFavorite) return;
     final songId = widget.song.id;
     if (_isFavorite) {
-      await _playlists.removeSongs(
-        PlaylistsService.favoritePlaylistId,
-        [songId],
-      );
+      await _playlists.removeSongs(PlaylistsService.favoritePlaylistId, [
+        songId,
+      ]);
       if (!mounted) return;
       setState(() => _isFavorite = false);
       AppToast.show(context, '已从$_favoriteName移出');
     } else {
-      await _playlists.addSongs(
-        PlaylistsService.favoritePlaylistId,
-        [songId],
-      );
+      await _playlists.addSongs(PlaylistsService.favoritePlaylistId, [songId]);
       if (!mounted) return;
       setState(() => _isFavorite = true);
       AppToast.show(context, '已添加到$_favoriteName');
+    }
+  }
+
+  Future<void> _downloadToSystemFolder() async {
+    if (_downloading) return;
+    setState(() => _downloading = true);
+    try {
+      final result = await SongDownloadService.instance.saveToLocal(
+        widget.song,
+      );
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        result.message,
+        type: result.success ? ToastType.success : ToastType.error,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _downloading = false);
+      }
     }
   }
 
@@ -133,8 +151,9 @@ class _SongDetailSheetState extends State<SongDetailSheet> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cardColor = theme.scaffoldBackgroundColor;
-    final secondaryTextColor =
-        isDark ? Colors.white70 : const Color.fromARGB(255, 100, 100, 100);
+    final secondaryTextColor = isDark
+        ? Colors.white70
+        : const Color.fromARGB(255, 100, 100, 100);
     final song = widget.song;
     final album = (song.album ?? '').trim();
     final rawArtist = song.artist.trim();
@@ -237,13 +256,15 @@ class _SongDetailSheetState extends State<SongDetailSheet> {
               leading: const Icon(Icons.add_to_photos_outlined),
               title: '添加到歌单',
               onTap: () async {
-                await showAddToPlaylistDialog(
-                  context,
-                  songIds: [song.id],
-                );
+                await showAddToPlaylistDialog(context, songIds: [song.id]);
                 if (!context.mounted) return;
                 Navigator.of(context).pop();
               },
+            ),
+            AppListTile(
+              leading: const Icon(Icons.download_rounded),
+              title: _downloading ? '保存中...' : '保存到本地',
+              onTap: _downloading ? null : _downloadToSystemFolder,
             ),
             AppListTile(
               leading: const Icon(Icons.person),
@@ -261,7 +282,7 @@ class _SongDetailSheetState extends State<SongDetailSheet> {
                 onTap: () {
                   final nav = Navigator.of(context);
                   nav.pop();
-                widget.onOpenAlbum?.call(album);
+                  widget.onOpenAlbum?.call(album);
                 },
               ),
             AppListTile(
@@ -313,7 +334,9 @@ class _SongDetailSheetState extends State<SongDetailSheet> {
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(context, true),
-                          style: TextButton.styleFrom(foregroundColor: Colors.red),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
                           child: const Text('移除'),
                         ),
                       ],
@@ -327,7 +350,9 @@ class _SongDetailSheetState extends State<SongDetailSheet> {
                   await PlayerService.instance.removeSongsById([song.id]);
                   if (!context.mounted) return;
                   if (coverPath.isNotEmpty) {
-                    await ArtworkCacheHelper.removeCachedArtworkByPath(coverPath);
+                    await ArtworkCacheHelper.removeCachedArtworkByPath(
+                      coverPath,
+                    );
                   }
                   await ArtworkCacheHelper.removeCachedArtwork(key: song.id);
                   await LyricsRepository().removeCachedLrc(song.id);
@@ -394,10 +419,7 @@ class _MarqueeText extends StatefulWidget {
   final String text;
   final TextStyle? style;
 
-  const _MarqueeText(
-    this.text, {
-    this.style,
-  });
+  const _MarqueeText(this.text, {this.style});
 
   @override
   State<_MarqueeText> createState() => _MarqueeTextState();
@@ -527,8 +549,10 @@ class SongInfoSheet extends StatelessWidget {
     final id = (song.sourceId ?? '').trim();
     if (id.isEmpty) return '-';
     final sources = await WebDavSourceRepository.instance.loadSources();
-    final matched =
-        sources.cast<WebDavSource?>().firstWhere((s) => s?.id == id, orElse: () => null);
+    final matched = sources.cast<WebDavSource?>().firstWhere(
+      (s) => s?.id == id,
+      orElse: () => null,
+    );
     final name = (matched?.name ?? '').trim();
     return name.isNotEmpty ? name : id;
   }
@@ -548,17 +572,9 @@ class SongInfoSheet extends StatelessWidget {
           children: [
             SizedBox(
               width: 90,
-              child: Text(
-                k,
-                style: TextStyle(color: secondary, fontSize: 12),
-              ),
+              child: Text(k, style: TextStyle(color: secondary, fontSize: 12)),
             ),
-            Expanded(
-              child: Text(
-                v,
-                style: const TextStyle(fontSize: 13),
-              ),
-            ),
+            Expanded(child: Text(v, style: const TextStyle(fontSize: 13))),
           ],
         ),
       );
@@ -603,8 +619,7 @@ class SongScrapeSheet extends StatefulWidget {
   State<SongScrapeSheet> createState() => _SongScrapeSheetState();
 }
 
-class _SongScrapeSheetState extends State<SongScrapeSheet>
-    with SignalsMixin {
+class _SongScrapeSheetState extends State<SongScrapeSheet> with SignalsMixin {
   final SongDao _dao = SongDao();
   final LyricsRepository _lyrics = LyricsRepository();
   late final _working = createSignal(false);
@@ -697,18 +712,18 @@ class _SongScrapeSheetState extends State<SongScrapeSheet>
               includeArtwork: true,
             )
           : (_force.value
-              ? await TagProbeService.instance.probeSong(
-                  uri: uri,
-                  isLocal: false,
-                  headers: _headers(),
-                  includeArtwork: true,
-                )
-              : await TagProbeService.instance.probeSongDedup(
-                  uri: uri,
-                  isLocal: false,
-                  headers: _headers(),
-                  includeArtwork: true,
-                ));
+                ? await TagProbeService.instance.probeSong(
+                    uri: uri,
+                    isLocal: false,
+                    headers: _headers(),
+                    includeArtwork: true,
+                  )
+                : await TagProbeService.instance.probeSongDedup(
+                    uri: uri,
+                    isLocal: false,
+                    headers: _headers(),
+                    includeArtwork: true,
+                  ));
       if (result == null) {
         if (!mounted) return;
         _lastResult.value = null;
@@ -798,7 +813,10 @@ class _SongScrapeSheetState extends State<SongScrapeSheet>
 
             Widget statusRow(String k, String v) {
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
                 child: Row(
                   children: [
                     SizedBox(
@@ -899,7 +917,9 @@ class _SongScrapeSheetState extends State<SongScrapeSheet>
                                 ? const SizedBox(
                                     width: 18,
                                     height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : Text(
                                     _isLocal
@@ -919,9 +939,7 @@ class _SongScrapeSheetState extends State<SongScrapeSheet>
                         title: const Text('强制刮削'),
                         subtitle: const Text('忽略缓存，重新读取内置标签'),
                         value: _force.value,
-                        onChanged: isWorking
-                            ? null
-                            : (v) => _force.value = v,
+                        onChanged: isWorking ? null : (v) => _force.value = v,
                       ),
                     ),
                 ],
@@ -933,4 +951,3 @@ class _SongScrapeSheetState extends State<SongScrapeSheet>
     );
   }
 }
-

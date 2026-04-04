@@ -323,6 +323,80 @@ class AppCacheSettings {
   }
 }
 
+class SongDownloadSettings {
+  static const String _prefsCustomDirectory = 'song_download_custom_directory';
+  static const String _prefsUseCustomDirectory =
+      'song_download_use_custom_directory';
+
+  static final ValueNotifier<String?> customDirectoryPath = ValueNotifier(null);
+  static final ValueNotifier<bool> useCustomDirectory = ValueNotifier(false);
+
+  static bool _loaded = false;
+
+  static Future<void> ensureLoaded() async {
+    if (_loaded) return;
+    _loaded = true;
+    final prefs = await SharedPreferences.getInstance();
+    customDirectoryPath.value = prefs.getString(_prefsCustomDirectory);
+    useCustomDirectory.value = prefs.getBool(_prefsUseCustomDirectory) ?? false;
+  }
+
+  static Future<void> setCustomDirectoryPath(String? path) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (path == null || path.trim().isEmpty) {
+      await prefs.remove(_prefsCustomDirectory);
+      customDirectoryPath.value = null;
+      return;
+    }
+    await prefs.setString(_prefsCustomDirectory, path);
+    customDirectoryPath.value = path;
+  }
+
+  static Future<void> setUseCustomDirectory(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsUseCustomDirectory, enabled);
+    useCustomDirectory.value = enabled;
+  }
+}
+
+class LibraryRefreshSettings {
+  static const String _prefsAutoRefreshLocalOnLaunch =
+      'library_auto_refresh_local_on_launch';
+  static const String _prefsAutoRefreshCloudOnLaunch =
+      'library_auto_refresh_cloud_on_launch';
+
+  static final ValueNotifier<bool> autoRefreshLocalOnLaunch = ValueNotifier(
+    false,
+  );
+  static final ValueNotifier<bool> autoRefreshCloudOnLaunch = ValueNotifier(
+    false,
+  );
+
+  static bool _loaded = false;
+
+  static Future<void> ensureLoaded() async {
+    if (_loaded) return;
+    _loaded = true;
+    final prefs = await SharedPreferences.getInstance();
+    autoRefreshLocalOnLaunch.value =
+        prefs.getBool(_prefsAutoRefreshLocalOnLaunch) ?? false;
+    autoRefreshCloudOnLaunch.value =
+        prefs.getBool(_prefsAutoRefreshCloudOnLaunch) ?? false;
+  }
+
+  static Future<void> setAutoRefreshLocalOnLaunch(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsAutoRefreshLocalOnLaunch, enabled);
+    autoRefreshLocalOnLaunch.value = enabled;
+  }
+
+  static Future<void> setAutoRefreshCloudOnLaunch(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsAutoRefreshCloudOnLaunch, enabled);
+    autoRefreshCloudOnLaunch.value = enabled;
+  }
+}
+
 class MediaNotificationSettings {
   static const String _prefsShowLyrics = 'notification_show_lyrics';
   static const String _prefsShowCloseAction = 'notification_show_close_action';

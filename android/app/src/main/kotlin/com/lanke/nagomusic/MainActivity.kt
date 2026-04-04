@@ -1,10 +1,13 @@
 package com.lanke.nagomusic
 
+import android.content.ContentValues
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.os.Environment
 import android.os.Build
+import android.provider.MediaStore
 import androidx.core.app.NotificationCompat
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -18,6 +21,7 @@ import io.github.proify.lyricon.provider.LyriconProvider
 class MainActivity : AudioServiceActivity() {
     private val channelName = "com.lanke.nagomusic/meizu_lyrics"
     private val lyriconChannelName = "com.lanke.nagomusic/lyricon"
+    private val downloadsChannelName = "com.lanke.nagomusic/downloads"
     private val notificationId = 10010
     private val notificationChannelId = "meizu_lyric_channel"
     private var flagShowTicker: Int? = null
@@ -82,6 +86,136 @@ class MainActivity : AudioServiceActivity() {
                 else -> result.notImplemented()
             }
         }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            downloadsChannelName
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getAndroidSdkInt" -> {
+                    result.success(Build.VERSION.SDK_INT)
+                }
+                "saveToDownloads" -> {
+                    val sourcePath = call.argument<String>("sourcePath")
+                    val fileName = call.argument<String>("fileName")
+                    val mimeType = call.argument<String>("mimeType") ?: "audio/mpeg"
+                    val subdirectory = call.argument<String>("subdirectory") ?: "NagoMusic"
+                    if (sourcePath.isNullOrBlank() || fileName.isNullOrBlank()) {
+                        result.error("invalid_args", "缺少文件信息", null)
+                    } else {
+                        try {
+                            val savedPath = saveToDownloads(
+                                sourcePath = sourcePath,
+                                fileName = fileName,
+                                mimeType = mimeType,
+                                subdirectory = subdirectory
+                            )
+                            result.success(savedPath)
+                        } catch (t: Throwable) {
+                            result.error("save_failed", t.message ?: "保存失败", null)
+                        }
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun saveToDownloads(
+        sourcePath: String,
+        fileName: String,
+        mimeType: String,
+        subdirectory: String
+    ): String {
+        val sourceFile = java.io.File(sourcePath)
+        require(sourceFile.exists()) { "源文件不存在" }
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            saveToDownloadsWithMediaStore(sourceFile, fileName, mimeType, subdirectory)
+        } else {
+            saveToDownloadsLegacy(sourceFile, fileName, subdirectory)
+        }
+    }
+
+    private fun saveToDownloadsWithMediaStore(
+        sourceFile: java.io.File,
+        fileName: String,
+        mimeType: String,
+        subdirectory: String
+    ): String {
+        val resolver = applicationContext.contentResolver
+        val relativePath = Environment.DIRECTORY_DOWNLOADS + "/" + subdirectory
+        val actualName = nextAvailableDisplayName(fileName, relativePath)
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, actualName)
+            put(MediaStore.Downloads.MIME_TYPE, mimeType)
+            put(MediaStore.Downloads.RELATIVE_PATH, relativePath)
+            put(MediaStore.Downloads.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: error("无法创建下载文件")
+
+        resolver.openOutputStream(uri)?.use { output ->
+            sourceFile.inputStream().use { input ->
+                input.copyTo(output)
+            }
+        } ?: error("无法写入下载文件")
+
+        values.clear()
+        values.put(MediaStore.Downloads.IS_PENDING, 0)
+        resolver.update(uri, values, null, null)
+        return uri.toString()
+    }
+
+    private fun saveToDownloadsLegacy(
+        sourceFile: java.io.File,
+        fileName: String,
+        subdirectory: String
+    ): String {
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        )
+        val targetDir = java.io.File(downloadsDir, subdirectory)
+        if (!targetDir.exists()) {
+            targetDir.mkdirs()
+        }
+        val targetFile = nextAvailableFile(targetDir, fileName)
+        sourceFile.copyTo(targetFile, overwrite = false)
+        return targetFile.absolutePath
+    }
+
+    private fun nextAvailableDisplayName(fileName: String, relativePath: String): String {
+        val resolver = applicationContext.contentResolver
+        val dot = fileName.lastIndexOf('.')
+        val base = if (dot > 0) fileName.substring(0, dot) else fileName
+        val ext = if (dot > 0) fileName.substring(dot) else ""
+        var candidate = fileName
+        var index = 1
+        while (true) {
+            val cursor = resolver.query(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Downloads._ID),
+                "${MediaStore.Downloads.RELATIVE_PATH}=? AND ${MediaStore.Downloads.DISPLAY_NAME}=?",
+                arrayOf("$relativePath/", candidate),
+                null
+            )
+            val exists = cursor?.use { it.moveToFirst() } == true
+            if (!exists) return candidate
+            candidate = "$base ($index)$ext"
+            index += 1
+        }
+    }
+
+    private fun nextAvailableFile(dir: java.io.File, fileName: String): java.io.File {
+        val dot = fileName.lastIndexOf('.')
+        val base = if (dot > 0) fileName.substring(0, dot) else fileName
+        val ext = if (dot > 0) fileName.substring(dot) else ""
+        var candidate = java.io.File(dir, fileName)
+        var index = 1
+        while (candidate.exists()) {
+            candidate = java.io.File(dir, "$base ($index)$ext")
+            index += 1
+        }
+        return candidate
     }
 
     private fun setLyriconEnabled(enabled: Boolean) {

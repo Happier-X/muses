@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -15,7 +16,8 @@ class CacheSettingsPage extends StatefulWidget {
   State<CacheSettingsPage> createState() => _CacheSettingsPageState();
 }
 
-class _CacheSettingsPageState extends State<CacheSettingsPage> with SignalsMixin {
+class _CacheSettingsPageState extends State<CacheSettingsPage>
+    with SignalsMixin {
   late final _audioCacheSize = createSignal(0);
   late final _artworkCacheSize = createSignal(0);
   late final _lyricsCacheSize = createSignal(0);
@@ -25,7 +27,25 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> with SignalsMixin
   void initState() {
     super.initState();
     AppCacheSettings.ensureLoaded();
+    SongDownloadSettings.ensureLoaded();
+    LibraryRefreshSettings.ensureLoaded();
     _loadCacheSizes();
+  }
+
+  Future<void> _pickDownloadDirectory() async {
+    final path = await FilePicker.platform.getDirectoryPath();
+    if (path == null || path.trim().isEmpty) return;
+    await SongDownloadSettings.setCustomDirectoryPath(path);
+    await SongDownloadSettings.setUseCustomDirectory(true);
+    if (!mounted) return;
+    AppToast.show(context, '已设置下载目录');
+  }
+
+  Future<void> _clearDownloadDirectory() async {
+    await SongDownloadSettings.setUseCustomDirectory(false);
+    await SongDownloadSettings.setCustomDirectoryPath(null);
+    if (!mounted) return;
+    AppToast.show(context, '已恢复为系统下载目录');
   }
 
   Future<void> _loadCacheSizes() async {
@@ -242,6 +262,94 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> with SignalsMixin
                   subtitle: '清除音频、封面与歌词缓存',
                   trailing: const Icon(Icons.delete_forever_outlined),
                   onTap: _loading.value ? null : _clearAllCaches,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            AppSettingSection(
+              title: '下载设置',
+              children: [
+                ValueListenableBuilder<bool>(
+                  valueListenable: SongDownloadSettings.useCustomDirectory,
+                  builder: (context, enabled, _) {
+                    return AppSettingSwitchTile(
+                      title: '使用自定义下载目录',
+                      subtitle: enabled
+                          ? '保存到你设置的文件夹'
+                          : '默认保存到 Download/NagoMusic',
+                      value: enabled,
+                      onChanged: (value) async {
+                        if (value &&
+                            (SongDownloadSettings.customDirectoryPath.value ??
+                                    '')
+                                .trim()
+                                .isEmpty) {
+                          await _pickDownloadDirectory();
+                          return;
+                        }
+                        await SongDownloadSettings.setUseCustomDirectory(value);
+                      },
+                    );
+                  },
+                ),
+                ValueListenableBuilder<String?>(
+                  valueListenable: SongDownloadSettings.customDirectoryPath,
+                  builder: (context, pathValue, _) {
+                    final subtitle =
+                        (pathValue == null || pathValue.trim().isEmpty)
+                        ? '未设置，当前使用 Download/NagoMusic'
+                        : pathValue;
+                    return AppSettingTile(
+                      title: '下载路径',
+                      subtitle: subtitle,
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _pickDownloadDirectory,
+                    );
+                  },
+                ),
+                AppSettingTile(
+                  title: '恢复默认下载路径',
+                  subtitle: '切回系统 Download/NagoMusic 目录',
+                  trailing: const Icon(Icons.refresh_rounded),
+                  onTap: _clearDownloadDirectory,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            AppSettingSection(
+              title: '启动刷新',
+              children: [
+                ValueListenableBuilder<bool>(
+                  valueListenable:
+                      LibraryRefreshSettings.autoRefreshLocalOnLaunch,
+                  builder: (context, enabled, _) {
+                    return AppSettingSwitchTile(
+                      title: '启动时刷新本地音源',
+                      subtitle: '进入应用后自动检查本地是否有新增歌曲',
+                      value: enabled,
+                      onChanged: (value) {
+                        LibraryRefreshSettings.setAutoRefreshLocalOnLaunch(
+                          value,
+                        );
+                      },
+                    );
+                  },
+                ),
+                ValueListenableBuilder<bool>(
+                  valueListenable:
+                      LibraryRefreshSettings.autoRefreshCloudOnLaunch,
+                  builder: (context, enabled, _) {
+                    return AppSettingSwitchTile(
+                      title: '启动时刷新云端音源',
+                      subtitle: '进入应用后自动检查 WebDAV 是否有新增歌曲',
+                      value: enabled,
+                      onChanged: (value) {
+                        LibraryRefreshSettings.setAutoRefreshCloudOnLaunch(
+                          value,
+                        );
+                      },
+                    );
+                  },
                 ),
               ],
             ),

@@ -8,6 +8,7 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 import '../../app/state/settings_state.dart';
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/router/app_page_route.dart';
+import '../../app/services/library_refresh_service.dart';
 import '../../app/services/player_service.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
 import '../../app/utils/cache_version_store.dart';
@@ -33,9 +34,12 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
       GlobalKey<AppPageScaffoldState>();
   final SongDao _songDao = SongDao();
   final PlayerService _player = PlayerService.instance;
+  final LibraryRefreshService _libraryRefreshService =
+      LibraryRefreshService.instance;
   final WebDavSourceRepository _webDavRepo = WebDavSourceRepository.instance;
   final PageCacheStore _cacheStore = PageCacheStore.instance;
   bool _autoPlayTried = false;
+  bool _libraryRefreshTried = false;
 
   late final _filter = createSignal('all');
   late final _loading = createSignal(true);
@@ -81,6 +85,7 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
   void initState() {
     super.initState();
     unawaited(_tryAutoPlayOnAppLaunch());
+    unawaited(_tryRefreshLibraryOnLaunch());
     _load();
   }
 
@@ -103,6 +108,31 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
     } catch (e) {
       debugPrint('App auto play on launch failed: $e');
     }
+  }
+
+  Future<void> _tryRefreshLibraryOnLaunch() async {
+    if (_libraryRefreshTried) return;
+    _libraryRefreshTried = true;
+
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+
+    final result = await _libraryRefreshService.refreshOnLaunch();
+    if (!mounted || result == null) return;
+    if (!result.hasChanges) return;
+
+    await _load(includeWebDavCounts: true);
+    if (!mounted) return;
+
+    final parts = <String>[];
+    if (result.localAdded > 0) {
+      parts.add('本地 ${result.localAdded} 首');
+    }
+    if (result.cloudAdded > 0) {
+      parts.add('云端 ${result.cloudAdded} 首');
+    }
+    final detail = parts.join('，');
+    AppToast.show(context, '已自动刷新音源，新增 $detail', type: ToastType.success);
   }
 
   Future<void> _load({bool includeWebDavCounts = false}) async {
