@@ -41,7 +41,8 @@ class PlayerService with WidgetsBindingObserver {
   ValueNotifier<SongEntity?> get currentSong => _state.currentSong;
   ValueNotifier<PlaybackSnapshot> get snapshot => _state.snapshot;
   ValueNotifier<PlaybackMode> get playbackMode => _state.playbackMode;
-  ValueNotifier<String?> get sleepTimerDisplayText => _state.sleepTimerDisplayText;
+  ValueNotifier<String?> get sleepTimerDisplayText =>
+      _state.sleepTimerDisplayText;
   ValueNotifier<bool> get sleepUntilSongEnd => _state.sleepUntilSongEnd;
 
   Signal<Duration> get positionSignal => _state.positionSignal;
@@ -53,7 +54,8 @@ class PlayerService with WidgetsBindingObserver {
   Signal<SongEntity?> get currentSongSignal => _state.currentSongSignal;
   Signal<PlaybackSnapshot> get snapshotSignal => _state.snapshotSignal;
   Signal<PlaybackMode> get playbackModeSignal => _state.playbackModeSignal;
-  Signal<String?> get sleepTimerDisplayTextSignal => _state.sleepTimerDisplayTextSignal;
+  Signal<String?> get sleepTimerDisplayTextSignal =>
+      _state.sleepTimerDisplayTextSignal;
   Signal<bool> get sleepUntilSongEndSignal => _state.sleepUntilSongEndSignal;
 
   StreamSubscription<Duration>? _positionSub;
@@ -90,7 +92,8 @@ class PlayerService with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       // Force save when app goes to background or is killed
       _persistPlaybackState();
       _statsService.flush();
@@ -105,9 +108,7 @@ class PlayerService with WidgetsBindingObserver {
         final cached = cachedList.first;
         if (cached.localCoverPath != null &&
             cached.localCoverPath != song.localCoverPath) {
-          final updated = song.copyWith(
-            localCoverPath: cached.localCoverPath,
-          );
+          final updated = song.copyWith(localCoverPath: cached.localCoverPath);
           currentSong.value = updated;
           _emitSnapshot();
         }
@@ -122,6 +123,7 @@ class PlayerService with WidgetsBindingObserver {
     _persistTimer?.cancel();
     await WebDavPlaybackSettings.ensureLoaded();
     await AppCacheSettings.ensureLoaded();
+    await AppLaunchPlaybackSettings.ensureLoaded();
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
     await _player.setLoopMode(LoopMode.all);
@@ -164,8 +166,9 @@ class PlayerService with WidgetsBindingObserver {
     });
     _loopModeSub = _player.loopModeStream.listen((loopMode) {
       if (playbackMode.value == PlaybackMode.shuffle) return;
-      playbackMode.value =
-          loopMode == LoopMode.one ? PlaybackMode.single : PlaybackMode.loop;
+      playbackMode.value = loopMode == LoopMode.one
+          ? PlaybackMode.single
+          : PlaybackMode.loop;
       _schedulePersistPlaybackState();
     });
     _shuffleSub = _player.shuffleModeEnabledStream.listen((enabled) {
@@ -173,8 +176,9 @@ class PlayerService with WidgetsBindingObserver {
         playbackMode.value = PlaybackMode.shuffle;
       } else {
         final loopMode = _player.loopMode;
-        playbackMode.value =
-            loopMode == LoopMode.one ? PlaybackMode.single : PlaybackMode.loop;
+        playbackMode.value = loopMode == LoopMode.one
+            ? PlaybackMode.single
+            : PlaybackMode.loop;
       }
       _schedulePersistPlaybackState();
     });
@@ -187,8 +191,9 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> playQueue(List<SongEntity> songs, int startIndex) async {
-    final playable =
-        songs.where((s) => (s.uri ?? '').trim().isNotEmpty).toList();
+    final playable = songs
+        .where((s) => (s.uri ?? '').trim().isNotEmpty)
+        .toList();
     if (playable.isEmpty) return;
     final targetId = startIndex >= 0 && startIndex < songs.length
         ? songs[startIndex].id
@@ -211,17 +216,15 @@ class PlayerService with WidgetsBindingObserver {
     Future<bool> setSourcesOnce() async {
       try {
         final sources = await buildSources();
-        await _player.setAudioSources(
-          sources,
-          initialIndex: actualIndex,
-        );
+        await _player.setAudioSources(sources, initialIndex: actualIndex);
         return true;
       } catch (e) {
         if (kDebugMode) {
           debugPrint('PlayerService.playQueue setAudioSources failed: $e');
         }
         final msg = e.toString();
-        final shouldRetry = msg.contains('404') ||
+        final shouldRetry =
+            msg.contains('404') ||
             msg.contains('InvalidResponseCodeException') ||
             msg.contains('Source error');
         if (!shouldRetry) return false;
@@ -243,10 +246,7 @@ class PlayerService with WidgetsBindingObserver {
 
         try {
           final sources = await buildSources();
-          await _player.setAudioSources(
-            sources,
-            initialIndex: actualIndex,
-          );
+          await _player.setAudioSources(sources, initialIndex: actualIndex);
           return true;
         } catch (e2) {
           if (kDebugMode) {
@@ -338,7 +338,9 @@ class PlayerService with WidgetsBindingObserver {
     final oldQueue = queue.value;
 
     if (current != null && toRemove.contains(current.id)) {
-      final remaining = oldQueue.where((s) => !toRemove.contains(s.id)).toList();
+      final remaining = oldQueue
+          .where((s) => !toRemove.contains(s.id))
+          .toList();
       if (remaining.isEmpty) {
         await stopAndClear();
         return;
@@ -407,7 +409,9 @@ class PlayerService with WidgetsBindingObserver {
     required bool play,
     Duration? initialPosition,
   }) async {
-    final playable = songs.where((s) => (s.uri ?? '').trim().isNotEmpty).toList();
+    final playable = songs
+        .where((s) => (s.uri ?? '').trim().isNotEmpty)
+        .toList();
     if (playable.isEmpty) {
       await stopAndClear();
       return;
@@ -425,10 +429,7 @@ class PlayerService with WidgetsBindingObserver {
     await _proxy.resetSources();
     final sources = await Future.wait(playable.map(_sourceForSong));
     try {
-      await _player.setAudioSources(
-        sources,
-        initialIndex: actualIndex,
-      );
+      await _player.setAudioSources(sources, initialIndex: actualIndex);
     } catch (e) {
       await stopAndClear();
       if (kDebugMode) {
@@ -528,12 +529,7 @@ class PlayerService with WidgetsBindingObserver {
 
     final wasPlaying = isPlaying.value;
     final pos = position.value;
-    await _reloadQueue(
-      nextQueue,
-      idx,
-      play: wasPlaying,
-      initialPosition: pos,
-    );
+    await _reloadQueue(nextQueue, idx, play: wasPlaying, initialPosition: pos);
 
     if (playbackMode.value == PlaybackMode.shuffle) {
       await _player.setShuffleModeEnabled(true);
@@ -541,8 +537,9 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> insertNext(List<SongEntity> songs) async {
-    final toInsert =
-        songs.where((s) => (s.uri ?? '').trim().isNotEmpty).toList();
+    final toInsert = songs
+        .where((s) => (s.uri ?? '').trim().isNotEmpty)
+        .toList();
     if (toInsert.isEmpty) return;
 
     final oldQueue = queue.value;
@@ -559,12 +556,7 @@ class PlayerService with WidgetsBindingObserver {
 
     final wasPlaying = isPlaying.value;
     final pos = position.value;
-    await _reloadQueue(
-      nextQueue,
-      idx,
-      play: wasPlaying,
-      initialPosition: pos,
-    );
+    await _reloadQueue(nextQueue, idx, play: wasPlaying, initialPosition: pos);
 
     if (playbackMode.value == PlaybackMode.shuffle) {
       await _player.setShuffleModeEnabled(true);
@@ -588,7 +580,9 @@ class PlayerService with WidgetsBindingObserver {
       return;
     }
     await _player.setShuffleModeEnabled(false);
-    await _player.setLoopMode(next == PlaybackMode.single ? LoopMode.one : LoopMode.all);
+    await _player.setLoopMode(
+      next == PlaybackMode.single ? LoopMode.one : LoopMode.all,
+    );
     _schedulePersistPlaybackState();
   }
 
@@ -659,7 +653,8 @@ class PlayerService with WidgetsBindingObserver {
     final totalMinutes = remaining.inMinutes;
     final hours = totalMinutes ~/ 60;
     final minutes = totalMinutes % 60;
-    sleepTimerDisplayText.value = '$hours:${minutes.toString().padLeft(2, '0')}';
+    sleepTimerDisplayText.value =
+        '$hours:${minutes.toString().padLeft(2, '0')}';
   }
 
   Future<void> clearQueue() async {
@@ -714,18 +709,19 @@ class PlayerService with WidgetsBindingObserver {
       _applySnapshot();
       return;
     }
-    
+
     final now = DateTime.now();
     final last = _lastSnapshotEmit;
-    
+
     // If enough time has passed, emit immediately
-    if (last == null || now.difference(last) >= const Duration(milliseconds: 250)) {
+    if (last == null ||
+        now.difference(last) >= const Duration(milliseconds: 250)) {
       _snapshotTimer?.cancel();
       _snapshotTimer = null;
       _applySnapshot();
       return;
     }
-    
+
     // If a timer is already scheduled, do nothing (it will fire at the correct time)
     if (_snapshotTimer != null && _snapshotTimer!.isActive) {
       return;
@@ -775,6 +771,8 @@ class PlayerService with WidgetsBindingObserver {
     final savedPositionMs = prefs.getInt(_prefsPositionKey) ?? 0;
     final savedMode = prefs.getString(_prefsModeKey);
     final savedSongId = prefs.getString(_prefsSongIdKey);
+    final shouldAutoPlayOnLaunch =
+        AppLaunchPlaybackSettings.autoPlayOnAppLaunch.value;
     final mode = _playbackModeFromString(savedMode) ?? PlaybackMode.loop;
     var actualIndex = savedIndex;
     if (savedSongId != null && savedSongId.isNotEmpty) {
@@ -797,22 +795,23 @@ class PlayerService with WidgetsBindingObserver {
     try {
       await _proxy.resetSources();
       // Load audio sources in parallel, but handle errors gracefully
-      final sources = await Future.wait(restoredQueue.map((s) async {
-        try {
-          return await _sourceForSong(s);
-        } catch (e) {
-          if (kDebugMode) debugPrint('Error restoring source for ${s.title}: $e');
-          // Return a placeholder or silent source if loading fails? 
-          // For now, let's try to load it anyway or use file source if local
-          if (s.isLocal) return AudioSource.file(s.uri ?? '');
-          return AudioSource.uri(Uri.parse(s.uri ?? ''));
-        }
-      }));
-      
-      await _player.setAudioSources(
-        sources,
-        initialIndex: actualIndex,
+      final sources = await Future.wait(
+        restoredQueue.map((s) async {
+          try {
+            return await _sourceForSong(s);
+          } catch (e) {
+            if (kDebugMode) {
+              debugPrint('Error restoring source for ${s.title}: $e');
+            }
+            // Return a placeholder or silent source if loading fails?
+            // For now, let's try to load it anyway or use file source if local
+            if (s.isLocal) return AudioSource.file(s.uri ?? '');
+            return AudioSource.uri(Uri.parse(s.uri ?? ''));
+          }
+        }),
       );
+
+      await _player.setAudioSources(sources, initialIndex: actualIndex);
     } catch (e) {
       if (kDebugMode) debugPrint('Error restoring playback state: $e');
       // Do not clear queue here, as we want to keep the UI state
@@ -829,7 +828,17 @@ class PlayerService with WidgetsBindingObserver {
       } catch (_) {}
     }
 
-    // Always pause on restore, do not auto-play
+    if (shouldAutoPlayOnLaunch) {
+      try {
+        await _player.play();
+        return;
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('Auto play on app launch failed: $e');
+        }
+      }
+    }
+
     try {
       await _player.pause();
     } catch (_) {}
@@ -856,12 +865,14 @@ class PlayerService with WidgetsBindingObserver {
       return;
     }
     await _player.setShuffleModeEnabled(false);
-    await _player.setLoopMode(mode == PlaybackMode.single ? LoopMode.one : LoopMode.all);
+    await _player.setLoopMode(
+      mode == PlaybackMode.single ? LoopMode.one : LoopMode.all,
+    );
   }
 
   void _schedulePersistPlaybackState() {
     if (_restoringState) return;
-    
+
     _persistTimer?.cancel();
 
     // If playing, we need to save periodically to avoid data loss on crash/kill
@@ -873,10 +884,16 @@ class PlayerService with WidgetsBindingObserver {
         return;
       }
       // Otherwise standard debounce
-      _persistTimer = Timer(const Duration(milliseconds: 1500), _persistPlaybackState);
+      _persistTimer = Timer(
+        const Duration(milliseconds: 1500),
+        _persistPlaybackState,
+      );
     } else {
       // If paused/stopped, save quickly (500ms) to capture state before potential app kill
-      _persistTimer = Timer(const Duration(milliseconds: 500), _persistPlaybackState);
+      _persistTimer = Timer(
+        const Duration(milliseconds: 500),
+        _persistPlaybackState,
+      );
     }
   }
 
@@ -939,7 +956,8 @@ class PlayerService with WidgetsBindingObserver {
     if (!shouldProbe) return;
 
     final headers = _headersFromSong(song);
-    final key = '${song.id}:${hasCover ? 1 : 0}:${hasDuration ? 1 : 0}:${song.tagsParsed ? 1 : 0}';
+    final key =
+        '${song.id}:${hasCover ? 1 : 0}:${hasDuration ? 1 : 0}:${song.tagsParsed ? 1 : 0}';
     if (_probeInflight.containsKey(key)) return;
 
     final future = _probeAndPersist(song, uri: uri, headers: headers);
@@ -953,10 +971,7 @@ class PlayerService with WidgetsBindingObserver {
     final prev = _durationPersistedMs[song.id] ?? 0;
     if (prev == durationMs) return;
     _durationPersistedMs[song.id] = durationMs;
-    _persistSongUpdate(
-      song,
-      durationMs: durationMs,
-    );
+    _persistSongUpdate(song, durationMs: durationMs);
   }
 
   Future<void> _persistSongUpdate(
@@ -1023,7 +1038,9 @@ class PlayerService with WidgetsBindingObserver {
 
     String? coverPath = song.localCoverPath;
     final artwork = result.artwork;
-    if ((coverPath ?? '').trim().isEmpty && artwork != null && artwork.isNotEmpty) {
+    if ((coverPath ?? '').trim().isEmpty &&
+        artwork != null &&
+        artwork.isNotEmpty) {
       final cached = await ArtworkCacheHelper.cacheCompressedArtwork(
         bytes: artwork,
         key: song.id,
@@ -1038,10 +1055,15 @@ class PlayerService with WidgetsBindingObserver {
       await _lyricsRepo.saveLrcToCache(song.id, lyrics, overwrite: false);
     }
 
-    final title = (result.title ?? '').trim().isNotEmpty ? result.title!.trim() : null;
-    final artist =
-        (result.artist ?? '').trim().isNotEmpty ? result.artist!.trim() : null;
-    final album = (result.album ?? '').trim().isNotEmpty ? result.album!.trim() : null;
+    final title = (result.title ?? '').trim().isNotEmpty
+        ? result.title!.trim()
+        : null;
+    final artist = (result.artist ?? '').trim().isNotEmpty
+        ? result.artist!.trim()
+        : null;
+    final album = (result.album ?? '').trim().isNotEmpty
+        ? result.album!.trim()
+        : null;
     await _persistSongUpdate(
       song,
       title: title,
@@ -1084,13 +1106,13 @@ class PlayerService with WidgetsBindingObserver {
     if (song.isLocal || !rawUri.startsWith('http')) {
       return AudioSource.file(rawUri);
     }
-    
+
     // Resolve URI using safe logic (handles double encoding)
     final remoteUri = _getSafeUri(rawUri);
     // If we couldn't parse it even with fallback, use rawUri for registration
     final finalRemoteUri = remoteUri ?? Uri.parse(rawUri);
     final uriStr = finalRemoteUri.toString();
-    
+
     final headers = _headersFromSong(song);
     final cached = await _audioCache.getCompleteCachedFile(
       uri: uriStr,
@@ -1117,7 +1139,6 @@ class PlayerService with WidgetsBindingObserver {
     );
     return AudioSource.uri(local);
   }
-
 
   Future<void> dispose() async {
     WidgetsBinding.instance.removeObserver(this);

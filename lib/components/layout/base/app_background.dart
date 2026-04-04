@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
@@ -8,10 +9,7 @@ import '../../../app/state/settings_state.dart';
 class AppBackground extends StatefulWidget {
   final Widget child;
 
-  const AppBackground({
-    super.key,
-    required this.child,
-  });
+  const AppBackground({super.key, required this.child});
 
   @override
   State<AppBackground> createState() => _AppBackgroundState();
@@ -26,73 +24,55 @@ class _AppBackgroundState extends State<AppBackground> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final background = isDark
-        ? const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF1C1F24),
-              Color(0xFF22262C),
-              Color(0xFF1B1D22),
-            ],
-          )
-        : const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF6F7FB),
-              Color(0xFFF7F3E8),
-              Color(0xFFF1F7F4),
-            ],
-          );
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     return AnimatedBuilder(
       animation: Listenable.merge([
         AppBackgroundSettings.backgroundImagePath,
         AppBackgroundSettings.backgroundMaskOpacity,
+        AppBackgroundSettings.pageGlowEnabled,
       ]),
       builder: (context, _) {
         final path = AppBackgroundSettings.backgroundImagePath.value;
-        final maskOpacity =
-            AppBackgroundSettings.backgroundMaskOpacity.value;
+        final maskOpacity = AppBackgroundSettings.backgroundMaskOpacity.value;
+        final glowEnabled = AppBackgroundSettings.pageGlowEnabled.value;
         final imagePath = path;
-        final hasImage = imagePath != null &&
+        final hasImage =
+            imagePath != null &&
             imagePath.isNotEmpty &&
             File(imagePath).existsSync();
-        final maskColor = Theme.of(context)
-            .colorScheme
-            .surface
-            .withValues(alpha: maskOpacity);
+        final baseColor = colorScheme.surface;
+        final maskColor = colorScheme.surface.withValues(alpha: maskOpacity);
         return Container(
-          decoration: BoxDecoration(gradient: background),
+          color: baseColor,
           child: Stack(
             children: [
               if (hasImage)
                 Positioned.fill(
-                  child: Image.file(
-                    File(imagePath),
-                    fit: BoxFit.cover,
-                  ),
+                  child: Image.file(File(imagePath), fit: BoxFit.cover),
                 ),
-              if (!hasImage && !isDark)
+              if (glowEnabled) ...[
                 _glow(
                   alignment: Alignment.topRight,
-                  size: 260,
-                  colors: const [
-                    Color(0x66FDE2A7),
-                    Color(0x00FDE2A7),
-                  ],
+                  size: 320,
+                  colors: _glowColors(
+                    colorScheme,
+                    isDark: isDark,
+                    primary: false,
+                  ),
                 ),
-              if (!hasImage && !isDark)
                 _glow(
                   alignment: Alignment.bottomLeft,
-                  size: 240,
-                  colors: const [
-                    Color(0x66CBE8FF),
-                    Color(0x00CBE8FF),
-                  ],
+                  size: 300,
+                  colors: _glowColors(
+                    colorScheme,
+                    isDark: isDark,
+                    primary: true,
+                  ),
                 ),
+              ],
               if (hasImage && maskOpacity > 0)
                 Positioned.fill(
                   child: BackdropFilter(
@@ -108,6 +88,24 @@ class _AppBackgroundState extends State<AppBackground> {
     );
   }
 
+  List<Color> _glowColors(
+    ColorScheme colorScheme, {
+    required bool isDark,
+    required bool primary,
+  }) {
+    if (isDark) {
+      final seed = primary
+          ? colorScheme.primary.withValues(alpha: 0.22)
+          : colorScheme.tertiary.withValues(alpha: 0.16);
+      return [seed, seed.withValues(alpha: 0.0)];
+    }
+
+    final lightPrimary = primary
+        ? const Color(0x66CBE8FF)
+        : const Color(0x66FDE2A7);
+    return [lightPrimary, lightPrimary.withValues(alpha: 0.0)];
+  }
+
   Widget _glow({
     required Alignment alignment,
     required double size,
@@ -120,7 +118,12 @@ class _AppBackgroundState extends State<AppBackground> {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(colors: colors),
+          gradient: RadialGradient(
+            radius: 0.72,
+            colors: colors,
+            stops: const [0.0, 1.0],
+            transform: const GradientRotation(math.pi / 8),
+          ),
         ),
       ),
     );

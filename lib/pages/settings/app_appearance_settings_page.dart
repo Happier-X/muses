@@ -45,12 +45,15 @@ class _AppAppearanceSettingsPageState extends State<AppAppearanceSettingsPage> {
     final borderColor = selected
         ? scheme.primary
         : (isDark ? Colors.white12 : Colors.black12);
-    final iconColor =
-        selected ? scheme.primary : (isDark ? Colors.white70 : Colors.black54);
-    final textColor =
-        selected ? scheme.primary : (isDark ? Colors.white70 : Colors.black87);
-    final background =
-        selected ? scheme.primary.withAlpha(31) : Colors.transparent;
+    final iconColor = selected
+        ? scheme.primary
+        : (isDark ? Colors.white70 : Colors.black54);
+    final textColor = selected
+        ? scheme.primary
+        : (isDark ? Colors.white70 : Colors.black87);
+    final background = selected
+        ? scheme.primary.withAlpha(31)
+        : Colors.transparent;
     return Expanded(
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -67,10 +70,7 @@ class _AppAppearanceSettingsPageState extends State<AppAppearanceSettingsPage> {
             children: [
               Icon(icon, color: iconColor, size: 22),
               const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, color: textColor),
-              ),
+              Text(label, style: TextStyle(fontSize: 12, color: textColor)),
             ],
           ),
         ),
@@ -283,30 +283,30 @@ class _AppAppearanceSettingsPageState extends State<AppAppearanceSettingsPage> {
                                   ],
                                   _presetColorItem(
                                     selected: false,
-                                    onTap: () => _showThemeColorPickerDialog(
-                                      context,
-                                    ),
+                                    onTap: () =>
+                                        _showThemeColorPickerDialog(context),
                                     child: Icon(
                                       Icons.palette_outlined,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   for (final color in colors) ...[
                                     _presetColorItem(
-                                      selected: seedColor?.toARGB32() ==
+                                      selected:
+                                          seedColor?.toARGB32() ==
                                           color.toARGB32(),
                                       onTap: () =>
                                           AppThemeSettings.setDynamicColorEnabled(
-                                        false,
-                                      ).then(
-                                        (_) =>
-                                            AppThemeSettings.setThemeSeedColor(
-                                          color,
-                                        ),
-                                      ),
+                                            false,
+                                          ).then(
+                                            (_) =>
+                                                AppThemeSettings.setThemeSeedColor(
+                                                  color,
+                                                ),
+                                          ),
                                       child: Container(
                                         width: 24,
                                         height: 24,
@@ -322,17 +322,18 @@ class _AppAppearanceSettingsPageState extends State<AppAppearanceSettingsPage> {
                                     selected: seedColor == null,
                                     onTap: () =>
                                         AppThemeSettings.setDynamicColorEnabled(
-                                      false,
-                                    ).then(
-                                      (_) => AppThemeSettings.setThemeSeedColor(
-                                        null,
-                                      ),
-                                    ),
+                                          false,
+                                        ).then(
+                                          (_) =>
+                                              AppThemeSettings.setThemeSeedColor(
+                                                null,
+                                              ),
+                                        ),
                                     child: Icon(
                                       Icons.refresh_rounded,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ],
@@ -381,6 +382,19 @@ class _AppAppearanceSettingsPageState extends State<AppAppearanceSettingsPage> {
                     subtitle: name,
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => _showBackgroundImageSheet(context),
+                  );
+                },
+              ),
+              ValueListenableBuilder<bool>(
+                valueListenable: AppBackgroundSettings.pageGlowEnabled,
+                builder: (context, enabled, _) {
+                  return AppSettingSwitchTile(
+                    title: '页面流光',
+                    subtitle: enabled ? '已为页面添加柔和流光效果' : '关闭后页面仅使用主题背景',
+                    value: enabled,
+                    onChanged: (value) {
+                      AppBackgroundSettings.setPageGlowEnabled(value);
+                    },
                   );
                 },
               ),
@@ -459,10 +473,7 @@ class _ThemeColorPickerDialogState extends State<_ThemeColorPickerDialog> {
             children: [
               Row(
                 children: [
-                  Text(
-                    '调色板',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  Text('调色板', style: Theme.of(context).textTheme.titleMedium),
                   const Spacer(),
                   Container(
                     width: 28,
@@ -490,9 +501,7 @@ class _ThemeColorPickerDialogState extends State<_ThemeColorPickerDialog> {
                           width: size,
                           height: size,
                           child: CustomPaint(
-                            painter: _SaturationValuePainter(
-                              hue: _hsv.hue,
-                            ),
+                            painter: _SaturationValuePainter(hue: _hsv.hue),
                           ),
                         ),
                         Positioned(
@@ -588,10 +597,7 @@ class _RainbowHueSlider extends StatefulWidget {
   final double value;
   final ValueChanged<double> onChanged;
 
-  const _RainbowHueSlider({
-    required this.value,
-    required this.onChanged,
-  });
+  const _RainbowHueSlider({required this.value, required this.onChanged});
 
   @override
   State<_RainbowHueSlider> createState() => _RainbowHueSliderState();
@@ -642,12 +648,8 @@ class _RainbowHueSliderState extends State<_RainbowHueSlider> {
                     height: 20,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: HSVColor.fromAHSV(1, displayValue, 1, 1)
-                          .toColor(),
-                      border: Border.all(
-                        color: scheme.onSurface,
-                        width: 2,
-                      ),
+                      color: HSVColor.fromAHSV(1, displayValue, 1, 1).toColor(),
+                      border: Border.all(color: scheme.onSurface, width: 2),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.2),
