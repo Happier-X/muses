@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,13 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
 import '../../app/router/app_router.dart';
-import '../../app/services/artwork_cache_helper.dart';
 import '../../app/services/artwork_service.dart';
-import '../../app/services/cache/audio_cache_service.dart';
 import '../../app/services/db/dao/song_dao.dart';
-import '../../app/services/lyrics/lyrics_repository.dart';
 import '../../app/services/local_music_service.dart';
-import '../../app/services/metadata/tag_probe_service.dart';
 import '../../app/services/player_service.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
 import '../../app/router/app_page_route.dart';
@@ -26,6 +21,7 @@ import '../../components/index.dart';
 import '../library/library_detail_pages.dart';
 import '../library/playlists_page.dart';
 import 'song_detail_sheet.dart';
+import 'songs_actions_controller.dart';
 import 'songs_artwork_coordinator.dart';
 import 'songs_selection_controller.dart';
 import 'songs_visible_controller.dart';
@@ -77,6 +73,7 @@ class _SongsPageState extends State<SongsPage>
   final SongsVisibleController _visibleController = SongsVisibleController();
   final SongsSelectionController _selectionController =
       SongsSelectionController();
+  final SongsActionsController _actionsController = SongsActionsController();
   late final SongsArtworkCoordinator _artworkCoordinator =
       SongsArtworkCoordinator(
         artworkService: _artworkService,
@@ -106,8 +103,6 @@ class _SongsPageState extends State<SongsPage>
   late final _scrapeSuccess = createSignal(0);
   OverlayEntry? _scrapeOverlay;
   final LayerLink _scrapeLayerLink = LayerLink();
-  final LyricsRepository _lyricsRepo = LyricsRepository();
-  final AudioCacheService _audioCache = AudioCacheService.instance;
   final ValueNotifier<_RemoveProgress> _removeNotifier = ValueNotifier(
     const _RemoveProgress(processed: 0, total: 0, isRemoving: false),
   );
@@ -370,12 +365,13 @@ class _SongsPageState extends State<SongsPage>
   }
 
   Future<void> _openAddToPlaylistSheet() async {
-    final selected = _selectedIds.value;
-    if (selected.isEmpty) return;
-    final ids = selected.toList(growable: false);
-    final added = await showAddToPlaylistDialog(context, songIds: ids);
+    final added = await _actionsController.addSelectedToPlaylist(
+      selectedIds: _selectedIds.value,
+      openDialog: (songIds) =>
+          showAddToPlaylistDialog(context, songIds: songIds),
+    );
     if (!mounted) return;
-    if (added == true) {
+    if (added) {
       _toggleMultiSelect();
     }
   }
@@ -509,132 +505,6 @@ class _SongsPageState extends State<SongsPage>
     _scrapeOverlay?.markNeedsBuild();
   }
 
-  Map<String, String> _headersFromSong(SongEntity song) {
-    final raw = (song.headersJson ?? '').trim();
-    if (raw.isEmpty) return const {};
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map) {
-        return decoded.map(
-          (key, value) => MapEntry(key.toString(), value.toString()),
-        );
-      }
-      return const {};
-    } catch (_) {
-      return const {};
-    }
-  }
-
-  bool _isMeaningfulTitle(String title) {
-    final t = title.trim();
-    if (t.isEmpty) return false;
-    const bad = {'未知标题', 'unknown', 'unknown title', 'untitled'};
-    return !bad.contains(t.toLowerCase());
-  }
-
-  bool _isMeaningfulArtist(String artist) {
-    final t = artist.trim();
-    if (t.isEmpty) return false;
-    const bad = {'未知艺术家', 'unknown', 'unknown artist'};
-    return !bad.contains(t.toLowerCase());
-  }
-
-  Future<bool> _shouldSkipTagProbe(SongEntity song) async {
-    final hasBasics =
-        _isMeaningfulTitle(song.title) &&
-        _isMeaningfulArtist(song.artist) &&
-        (song.album ?? '').trim().isNotEmpty;
-    final hasDuration = (song.durationMs ?? 0) > 0;
-    final hasCover = (song.localCoverPath ?? '').trim().isNotEmpty;
-    final hasLyrics = await _lyricsRepo.hasCachedLrc(song.id);
-    final hasExtras = hasCover || hasLyrics || hasDuration;
-    return song.tagsParsed && hasBasics && hasExtras;
-  }
-
-  Future<SongEntity?> _scrapeOneSong(SongEntity song) async {
-    final uri = (song.uri ?? '').trim();
-    if (uri.isEmpty) return null;
-    final headers = song.isLocal ? null : _headersFromSong(song);
-    final result = song.isLocal
-        ? await TagProbeService.instance.probeSong(
-            uri: uri,
-            isLocal: true,
-            includeArtwork: true,
-          )
-        : await TagProbeService.instance.probeSongDedup(
-            uri: uri,
-            isLocal: false,
-            headers: headers,
-            includeArtwork: true,
-          );
-    if (result == null) return null;
-
-    String? coverPath = song.localCoverPath;
-    final artwork = result.artwork;
-    if (artwork != null && artwork.isNotEmpty) {
-      final cached = await ArtworkCacheHelper.cacheCompressedArtwork(
-        bytes: artwork,
-        key: song.id,
-      );
-      if (cached != null && cached.isNotEmpty) {
-        coverPath = cached;
-      }
-    }
-
-    final lyrics = (result.lyrics ?? '').trim();
-    if (lyrics.isNotEmpty) {
-      await _lyricsRepo.saveLrcToCache(song.id, lyrics, overwrite: false);
-    }
-
-    final nextTitle = (result.title ?? '').trim().isNotEmpty
-        ? result.title!.trim()
-        : song.title;
-    final nextArtist = (result.artist ?? '').trim().isNotEmpty
-        ? result.artist!.trim()
-        : song.artist;
-    final nextAlbum = (result.album ?? '').trim().isNotEmpty
-        ? result.album!.trim()
-        : song.album;
-    final nextDuration = result.durationMs ?? song.durationMs;
-    final nextBitrate = result.bitrate ?? song.bitrate;
-    final nextSampleRate = result.sampleRate ?? song.sampleRate;
-    final nextFileSize = result.fileSize ?? song.fileSize;
-    final nextFormat = result.format ?? song.format;
-
-    final updated = SongEntity(
-      id: song.id,
-      title: nextTitle,
-      artist: nextArtist,
-      album: nextAlbum,
-      uri: song.uri,
-      isLocal: song.isLocal,
-      headersJson: song.headersJson,
-      durationMs: nextDuration,
-      bitrate: nextBitrate,
-      sampleRate: nextSampleRate,
-      fileSize: nextFileSize,
-      format: nextFormat,
-      sourceId: song.sourceId,
-      fileModifiedMs: song.fileModifiedMs,
-      localCoverPath: coverPath,
-      tagsParsed: true,
-    );
-
-    final hasChanges =
-        updated.title != song.title ||
-        updated.artist != song.artist ||
-        updated.album != song.album ||
-        updated.durationMs != song.durationMs ||
-        updated.bitrate != song.bitrate ||
-        updated.sampleRate != song.sampleRate ||
-        updated.fileSize != song.fileSize ||
-        updated.format != song.format ||
-        updated.localCoverPath != song.localCoverPath ||
-        updated.tagsParsed != song.tagsParsed;
-    if (!hasChanges) return updated;
-    return updated;
-  }
-
   Future<void> _openBatchScrape() async {
     if (_isScraping.value) {
       _showScrapeOverlay();
@@ -651,12 +521,7 @@ class _SongsPageState extends State<SongsPage>
       return;
     }
 
-    final toScrape = <SongEntity>[];
-    for (final song in candidates) {
-      if (!mounted) return;
-      final skip = await _shouldSkipTagProbe(song);
-      if (!skip) toScrape.add(song);
-    }
+    final toScrape = await _actionsController.collectSongsToScrape(candidates);
     if (toScrape.isEmpty) {
       if (!mounted) return;
       AppToast.show(context, '无需刮削');
@@ -670,34 +535,20 @@ class _SongsPageState extends State<SongsPage>
     _scrapeSuccess.value = 0;
     _showScrapeOverlay();
 
-    var nextIndex = 0;
-    final workerCount = toScrape.length < 4 ? toScrape.length : 4;
-
-    Future<void> worker() async {
-      while (true) {
-        final idx = nextIndex;
-        if (idx >= toScrape.length) return;
-        nextIndex++;
-        final song = toScrape[idx];
-        SongEntity? updated;
-        try {
-          updated = await _scrapeOneSong(song);
-        } catch (_) {
-          updated = null;
-        }
+    await _actionsController.scrapeSongs(
+      songs: toScrape,
+      onSongUpdated: (updated) async {
         if (!mounted) return;
-        if (updated != null) {
-          await _songDao.upsertSongs([updated]);
-          _applySongUpdate(updated);
-          _scrapeSuccess.value = _scrapeSuccess.value + 1;
-        }
-        _scrapeDone.value = _scrapeDone.value + 1;
+        _applySongUpdate(updated);
+      },
+      onProgress: (done, success, total) async {
+        if (!mounted) return;
+        _scrapeDone.value = done;
+        _scrapeSuccess.value = success;
+        _scrapeTotal.value = total;
         _updateScrapeOverlay();
-      }
-    }
-
-    final workers = List.generate(workerCount, (_) => worker());
-    await Future.wait(workers);
+      },
+    );
 
     if (!mounted) return;
     _isScraping.value = false;
@@ -868,38 +719,41 @@ class _SongsPageState extends State<SongsPage>
     );
     _showRemoveDialog();
     var processed = 0;
-    var removedCount = 0;
-    for (final song in removedSongs) {
-      if (!mounted) break;
-      removedCount += await _songDao.deleteByIds([song.id]);
-      if (!mounted) break;
-      await PlayerService.instance.removeSongsById([song.id]);
-      if (!mounted) break;
-      await _cleanupCachesForSongs([song]);
-      if (!mounted) break;
-      final nextSongs = _songs.value.where((s) => s.id != song.id).toList();
-      _songs.value = nextSongs;
-      _cachedSongs = nextSongs;
-      _visibleSongs.value = _visibleSongs.value
-          .where((s) => s.id != song.id)
-          .toList();
-      _visibleSongsAll.value = _visibleSongsAll.value
-          .where((s) => s.id != song.id)
-          .toList();
-      final currentId = _currentId.value;
-      if (currentId != null && currentId == song.id) {
-        _currentId.value = null;
-      }
-      final nextSelected = Set<String>.from(_selectedIds.value)
-        ..remove(song.id);
-      _selectedIds.value = nextSelected;
-      processed += 1;
-      _removeNotifier.value = _RemoveProgress(
-        processed: processed,
-        total: removedSongs.length,
-        isRemoving: true,
-      );
-    }
+    final removedCount = await _actionsController.removeSongs(
+      songsToRemove: removedSongs,
+      clearArtwork: (song) =>
+          _artworkCoordinator.clearSong(song.id, uri: song.uri),
+      onSongsRemoved: (removedBatch) async {
+        if (!mounted) return;
+        final removedIds = removedBatch.map((e) => e.id).toSet();
+        final nextSongs = _songs.value
+            .where((s) => !removedIds.contains(s.id))
+            .toList();
+        _songs.value = nextSongs;
+        _cachedSongs = nextSongs;
+        _visibleSongs.value = _visibleSongs.value
+            .where((s) => !removedIds.contains(s.id))
+            .toList();
+        _visibleSongsAll.value = _visibleSongsAll.value
+            .where((s) => !removedIds.contains(s.id))
+            .toList();
+        if (removedIds.contains(_currentId.value)) {
+          _currentId.value = null;
+        }
+        final nextSelected = Set<String>.from(_selectedIds.value)
+          ..removeAll(removedIds);
+        _selectedIds.value = nextSelected;
+      },
+      onProgress: (nextProcessed, total) async {
+        if (!mounted) return;
+        processed = nextProcessed;
+        _removeNotifier.value = _RemoveProgress(
+          processed: nextProcessed,
+          total: total,
+          isRemoving: true,
+        );
+      },
+    );
     if (!mounted) return;
     _cacheStore.clearScope(_cacheScopeVisible);
     _isRemoving = false;
@@ -912,32 +766,6 @@ class _SongsPageState extends State<SongsPage>
     _selectedIds.value = _selectionController.clearSelection();
     _multiSelect.value = false;
     unawaited(_updateVisibleSongs());
-  }
-
-  Future<void> _cleanupCachesForSongs(List<SongEntity> songs) async {
-    if (songs.isEmpty) return;
-    for (final song in songs) {
-      _artworkCoordinator.clearSong(song.id, uri: song.uri);
-      await _lyricsRepo.removeCachedLrc(song.id);
-
-      final coverPath = (song.localCoverPath ?? '').trim();
-      if (coverPath.isNotEmpty) {
-        await ArtworkCacheHelper.removeCachedArtworkByPath(coverPath);
-      }
-      await ArtworkCacheHelper.removeCachedArtwork(key: song.id);
-
-      final uri = (song.uri ?? '').trim();
-      if (song.isLocal || uri.isEmpty || !uri.startsWith('http')) continue;
-      final headers = _headersFromSong(song);
-      await _audioCache.removeCachedFiles(
-        uri: uri,
-        headers: headers.isEmpty ? null : headers,
-      );
-      await TagProbeService.instance.removeRemoteProbeCache(
-        uri: uri,
-        headers: headers.isEmpty ? null : headers,
-      );
-    }
   }
 
   @override
@@ -1171,9 +999,17 @@ class _SongsPageState extends State<SongsPage>
                                       unawaited(_updateVisibleSongs());
                                       if (deleted != null) {
                                         Future.microtask(
-                                          () => _cleanupCachesForSongs([
-                                            deleted!,
-                                          ]),
+                                          () => _actionsController.removeSongs(
+                                            songsToRemove: [deleted!],
+                                            clearArtwork: (song) =>
+                                                _artworkCoordinator.clearSong(
+                                                  song.id,
+                                                  uri: song.uri,
+                                                ),
+                                            onSongsRemoved: (removed) async {},
+                                            onProgress:
+                                                (processed, total) async {},
+                                          ),
                                         );
                                       }
                                     },

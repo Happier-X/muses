@@ -37,7 +37,10 @@ class TagProbeService {
     if (!(parsed.isScheme('http') || parsed.isScheme('https'))) return;
 
     try {
-      await _audioCache.removeCachedFiles(uri: parsed.toString(), headers: headers);
+      await _audioCache.removeCachedFiles(
+        uri: parsed.toString(),
+        headers: headers,
+      );
     } catch (_) {}
     try {
       await removeRemoteProbeCache(uri: parsed.toString(), headers: headers);
@@ -69,13 +72,16 @@ class TagProbeService {
     try {
       final support = await getApplicationSupportDirectory();
       final cacheDir = Directory(p.join(support.path, 'tag_probe_cache'));
-      final ext =
-          p.extension(parsed.path).isNotEmpty ? p.extension(parsed.path) : '.mp3';
+      final ext = p.extension(parsed.path).isNotEmpty
+          ? p.extension(parsed.path)
+          : '.mp3';
       final headerKey = _headersKey(headers);
       final name = _hashKey('remote:${parsed.toString()}:$headerKey');
       final base = File(p.join(cacheDir.path, '$name${ext.toLowerCase()}'));
       final basePart = File('${base.path}.part');
-      final tail = File(p.join(cacheDir.path, '${name}_tail${ext.toLowerCase()}'));
+      final tail = File(
+        p.join(cacheDir.path, '${name}_tail${ext.toLowerCase()}'),
+      );
       final tailPart = File('${tail.path}.part');
       final files = <File>[base, basePart, tail, tailPart];
       for (final f in files) {
@@ -95,7 +101,8 @@ class TagProbeService {
     bool includeArtwork = false,
   }) {
     final headerKey = _headersKey(headers);
-    final key = '${isLocal ? 'local' : 'remote'}:$uri:$includeArtwork:$headerKey';
+    final key =
+        '${isLocal ? 'local' : 'remote'}:$uri:$includeArtwork:$headerKey';
     final exist = _inflight[key];
     if (exist != null) return exist;
     final f = probeSong(
@@ -141,7 +148,10 @@ class TagProbeService {
       }
       final tmp = await _existingAudioCacheTempFile(parsed, headers: headers);
       if (tmp != null) {
-        final parsedTmp = await _probeFromFile(tmp, includeArtwork: includeArtwork);
+        final parsedTmp = await _probeFromFile(
+          tmp,
+          includeArtwork: includeArtwork,
+        );
         if (parsedTmp != null) {
           if (!includeArtwork) return parsedTmp;
           if ((parsedTmp.artwork?.isNotEmpty ?? false)) return parsedTmp;
@@ -158,23 +168,30 @@ class TagProbeService {
     return null;
   }
 
+  Future<TagProbeResult?> probeLocalBasicTags({required String uri}) async {
+    final u = uri.trim();
+    if (u.isEmpty) return null;
+    final file = File(u);
+    if (!await file.exists()) return null;
+    return _probeFromFile(file, includeArtwork: false, includeLyrics: false);
+  }
+
   Future<TagProbeResult?> _probeRemoteIncremental(
     Uri uri, {
     Map<String, String>? headers,
     required bool includeArtwork,
   }) async {
-    const steps = <int>[
-      2 * 1024 * 1024,
-      4 * 1024 * 1024,
-      8 * 1024 * 1024,
-    ];
+    const steps = <int>[2 * 1024 * 1024, 4 * 1024 * 1024, 8 * 1024 * 1024];
 
     final totalBytes = await _remoteTotalBytes(uri, headers: headers);
     TagProbeResult? best;
 
     final cached = await _existingRemoteCacheFile(uri, headers: headers);
     if (cached != null) {
-      final parsed = await _probeFromFile(cached, includeArtwork: includeArtwork);
+      final parsed = await _probeFromFile(
+        cached,
+        includeArtwork: includeArtwork,
+      );
       if (parsed != null) {
         final normalized = await _normalizeRemoteResult(
           uri: uri,
@@ -232,7 +249,7 @@ class TagProbeService {
         best = best ?? normalized;
       }
     }
-    
+
     // Check special handlers for fallback (e.g. OGG full download)
     for (final handler in _probeHandlers) {
       if (handler.canHandle(uri.path)) {
@@ -244,11 +261,8 @@ class TagProbeService {
           currentBest: best,
           audioCache: _audioCache,
           prober: _probeFromFile,
-          downloadPartial: (maxBytes) => _downloadPartialCached(
-            uri,
-            headers: headers,
-            maxBytes: maxBytes,
-          ),
+          downloadPartial: (maxBytes) =>
+              _downloadPartialCached(uri, headers: headers, maxBytes: maxBytes),
         );
         if (res != null) return res;
       }
@@ -257,10 +271,7 @@ class TagProbeService {
     return best;
   }
 
-  Future<int?> _remoteTotalBytes(
-    Uri uri, {
-    Map<String, String>? headers,
-  }) {
+  Future<int?> _remoteTotalBytes(Uri uri, {Map<String, String>? headers}) {
     final key = '${uri.toString()}:${_headersKey(headers)}';
     final cached = _remoteTotalCache[key];
     if (cached != null && cached > 0) return Future.value(cached);
@@ -290,8 +301,9 @@ class TagProbeService {
     int? fromHeaders(Headers h) {
       final contentRange = h.value('content-range');
       if (contentRange != null && contentRange.isNotEmpty) {
-        final match =
-            RegExp(r'bytes\s+\d+-\d+/(\d+|\*)').firstMatch(contentRange);
+        final match = RegExp(
+          r'bytes\s+\d+-\d+/(\d+|\*)',
+        ).firstMatch(contentRange);
         final total = match?.group(1);
         if (total != null && total != '*') {
           return int.tryParse(total);
@@ -310,10 +322,7 @@ class TagProbeService {
         uri,
         options: Options(
           method: 'HEAD',
-          headers: {
-            ...?headers,
-            'Accept-Encoding': 'identity',
-          },
+          headers: {...?headers, 'Accept-Encoding': 'identity'},
         ),
       );
       final status = res.statusCode ?? 0;
@@ -414,6 +423,7 @@ class TagProbeService {
   Future<TagProbeResult?> _probeFromFile(
     File file, {
     required bool includeArtwork,
+    bool includeLyrics = true,
   }) async {
     try {
       final stat = await file.stat();
@@ -425,11 +435,11 @@ class TagProbeService {
         if (bytes.isNotEmpty) artwork = bytes;
       }
 
-      final lyrics = _normalizeLyrics(meta.lyrics);
+      final lyrics = includeLyrics ? _normalizeLyrics(meta.lyrics) : null;
       var ext = p.extension(file.path).replaceAll('.', '').toUpperCase();
       // Handle .0gg typo or variation as OGG
       if (ext == '0GG') ext = 'OGG';
-      
+
       final format = ext.isNotEmpty ? ext : null;
 
       return TagProbeResult(
@@ -512,8 +522,7 @@ class TagProbeService {
     if (s.isEmpty) return s;
     final sb = StringBuffer();
 
-    bool isWs(int cu) =>
-        cu == 0x20 || cu == 0x09 || cu == 0x0A || cu == 0x0D;
+    bool isWs(int cu) => cu == 0x20 || cu == 0x09 || cu == 0x0A || cu == 0x0D;
     bool isHex(int cu) =>
         (cu >= 0x30 && cu <= 0x39) ||
         (cu >= 0x41 && cu <= 0x46) ||
@@ -605,12 +614,15 @@ class TagProbeService {
     try {
       final support = await getApplicationSupportDirectory();
       final cacheDir = Directory(p.join(support.path, 'tag_probe_cache'));
-      final ext =
-          p.extension(uri.path).isNotEmpty ? p.extension(uri.path) : '.mp3';
+      final ext = p.extension(uri.path).isNotEmpty
+          ? p.extension(uri.path)
+          : '.mp3';
       final headerKey = _headersKey(headers);
       final name = _hashKey('remote:${uri.toString()}:$headerKey');
       final suffix = tail ? '_tail' : '';
-      final out = File(p.join(cacheDir.path, '$name$suffix${ext.toLowerCase()}'));
+      final out = File(
+        p.join(cacheDir.path, '$name$suffix${ext.toLowerCase()}'),
+      );
       if (!await out.exists()) return null;
       final size = await out.length();
       if (size <= 0) return null;
@@ -627,8 +639,9 @@ class TagProbeService {
     try {
       final support = await getApplicationSupportDirectory();
       final cacheDir = Directory(p.join(support.path, 'audio_cache'));
-      final ext =
-          p.extension(uri.path).isNotEmpty ? p.extension(uri.path) : '.mp3';
+      final ext = p.extension(uri.path).isNotEmpty
+          ? p.extension(uri.path)
+          : '.mp3';
       final headerKey = _headersKey(headers);
       final name = _hashKey('audio:${uri.toString()}:$headerKey');
       final complete = File(p.join(cacheDir.path, '$name${ext.toLowerCase()}'));
@@ -682,8 +695,9 @@ class TagProbeService {
         await cacheDir.create(recursive: true);
       }
 
-      final ext =
-          p.extension(uri.path).isNotEmpty ? p.extension(uri.path) : '.mp3';
+      final ext = p.extension(uri.path).isNotEmpty
+          ? p.extension(uri.path)
+          : '.mp3';
       final headerKey = _headersKey(headers);
       final name = _hashKey('remote:${uri.toString()}:$headerKey');
       final out = File(p.join(cacheDir.path, '$name${ext.toLowerCase()}'));
@@ -826,7 +840,11 @@ class TagProbeService {
     final key = 'remote_tail:${uri.toString()}:$headerKey:$maxBytes';
     final inflight = _remoteTailInflight[key];
     if (inflight != null) return inflight;
-    final f = _downloadTailCachedInner(uri, headers: headers, maxBytes: maxBytes);
+    final f = _downloadTailCachedInner(
+      uri,
+      headers: headers,
+      maxBytes: maxBytes,
+    );
     _remoteTailInflight[key] = f;
     f.whenComplete(() => _remoteTailInflight.remove(key));
     return f;
@@ -838,7 +856,11 @@ class TagProbeService {
     required int maxBytes,
   }) async {
     try {
-      final existing = await _existingRemoteCacheFile(uri, headers: headers, tail: true);
+      final existing = await _existingRemoteCacheFile(
+        uri,
+        headers: headers,
+        tail: true,
+      );
       if (existing != null) return existing;
 
       final support = await getApplicationSupportDirectory();
@@ -847,11 +869,14 @@ class TagProbeService {
         await cacheDir.create(recursive: true);
       }
 
-      final ext =
-          p.extension(uri.path).isNotEmpty ? p.extension(uri.path) : '.mp3';
+      final ext = p.extension(uri.path).isNotEmpty
+          ? p.extension(uri.path)
+          : '.mp3';
       final headerKey = _headersKey(headers);
       final name = _hashKey('remote:${uri.toString()}:$headerKey');
-      final out = File(p.join(cacheDir.path, '${name}_tail${ext.toLowerCase()}'));
+      final out = File(
+        p.join(cacheDir.path, '${name}_tail${ext.toLowerCase()}'),
+      );
       final tmp = File('${out.path}.part');
 
       final dio = Dio(

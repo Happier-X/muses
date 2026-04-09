@@ -946,14 +946,24 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   void _maybeProbeSong(SongEntity song) {
-    if (song.isLocal) return;
-    final uri = (song.uri ?? '').trim();
-    if (!uri.startsWith('http')) return;
-
     final hasCover = (song.localCoverPath ?? '').trim().isNotEmpty;
     final hasDuration = (song.durationMs ?? 0) > 0;
+    final uri = (song.uri ?? '').trim();
     final shouldProbe = !song.tagsParsed || !hasCover || !hasDuration;
     if (!shouldProbe) return;
+
+    if (song.isLocal) {
+      if (uri.isEmpty) return;
+      final key =
+          'local:${song.id}:${hasCover ? 1 : 0}:${hasDuration ? 1 : 0}:${song.tagsParsed ? 1 : 0}';
+      if (_probeInflight.containsKey(key)) return;
+      final future = _probeLocalAndPersist(song, uri: uri);
+      _probeInflight[key] = future;
+      future.whenComplete(() => _probeInflight.remove(key));
+      return;
+    }
+
+    if (!uri.startsWith('http')) return;
 
     final headers = _headersFromSong(song);
     final key =
@@ -1032,6 +1042,60 @@ class PlayerService with WidgetsBindingObserver {
       uri: uri,
       isLocal: false,
       headers: headers,
+      includeArtwork: true,
+    );
+    if (result == null) return;
+
+    String? coverPath = song.localCoverPath;
+    final artwork = result.artwork;
+    if ((coverPath ?? '').trim().isEmpty &&
+        artwork != null &&
+        artwork.isNotEmpty) {
+      final cached = await ArtworkCacheHelper.cacheCompressedArtwork(
+        bytes: artwork,
+        key: song.id,
+      );
+      if (cached != null && cached.isNotEmpty) {
+        coverPath = cached;
+      }
+    }
+
+    final lyrics = (result.lyrics ?? '').trim();
+    if (lyrics.isNotEmpty) {
+      await _lyricsRepo.saveLrcToCache(song.id, lyrics, overwrite: false);
+    }
+
+    final title = (result.title ?? '').trim().isNotEmpty
+        ? result.title!.trim()
+        : null;
+    final artist = (result.artist ?? '').trim().isNotEmpty
+        ? result.artist!.trim()
+        : null;
+    final album = (result.album ?? '').trim().isNotEmpty
+        ? result.album!.trim()
+        : null;
+    await _persistSongUpdate(
+      song,
+      title: title,
+      artist: artist,
+      album: album,
+      durationMs: result.durationMs,
+      bitrate: result.bitrate,
+      sampleRate: result.sampleRate,
+      fileSize: result.fileSize,
+      format: result.format,
+      localCoverPath: coverPath,
+      tagsParsed: true,
+    );
+  }
+
+  Future<void> _probeLocalAndPersist(
+    SongEntity song, {
+    required String uri,
+  }) async {
+    final result = await TagProbeService.instance.probeSongDedup(
+      uri: uri,
+      isLocal: true,
       includeArtwork: true,
     );
     if (result == null) return;

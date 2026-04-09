@@ -86,8 +86,7 @@ class LocalSourceSettings {
           (json['includePaths'] as List<dynamic>?)?.cast<String>() ?? [],
       lastScanCount: json['lastScanCount'] as int? ?? 0,
       cacheArtwork: json['cacheArtwork'] as bool? ?? false,
-      localMetadataConcurrency:
-          json['localMetadataConcurrency'] as int? ?? 6,
+      localMetadataConcurrency: json['localMetadataConcurrency'] as int? ?? 6,
     );
   }
 }
@@ -108,10 +107,7 @@ class LocalScanResult {
   final int processed;
   final int added;
 
-  const LocalScanResult({
-    required this.processed,
-    required this.added,
-  });
+  const LocalScanResult({required this.processed, required this.added});
 }
 
 class _LocalScanCandidate {
@@ -177,9 +173,7 @@ class LocalMusicService {
     }
 
     final filterOption = FilterOptionGroup(
-      orders: [
-        const OrderOption(type: OrderOptionType.updateDate, asc: false),
-      ],
+      orders: [const OrderOption(type: OrderOptionType.updateDate, asc: false)],
     );
     if (minDurationMs != null && minDurationMs > 0) {
       filterOption.setOption(
@@ -207,6 +201,8 @@ class LocalMusicService {
     var added = 0;
     final scannedSongs = <SongEntity>[];
     final existingIds = await _songDao.fetchIdsBySource('local');
+    final existingSongs = await _songDao.fetchAll(sourceId: 'local');
+    final existingById = {for (final song in existingSongs) song.id: song};
     final seenPaths = <String>{};
     final candidates = <_LocalScanCandidate>[];
     final customFiles = await _collectCustomFiles(
@@ -217,8 +213,7 @@ class LocalMusicService {
 
     List<AssetPathEntity> selectedAlbums = [];
     final includeSet = settings.includeAlbumIds.toSet();
-    final needAlbumScan =
-        settings.useSystemLibrary || includeSet.isNotEmpty;
+    final needAlbumScan = settings.useSystemLibrary || includeSet.isNotEmpty;
     if (needAlbumScan) {
       final PermissionState ps = await PhotoManager.requestPermissionExtend(
         requestOption: const PermissionRequestOption(
@@ -311,45 +306,51 @@ class LocalMusicService {
           processed += 1;
           if (processed % 20 == 0) {
             onProgress(
-              LocalScanProgress(processed: processed, added: added, total: total),
+              LocalScanProgress(
+                processed: processed,
+                added: added,
+                total: total,
+              ),
             );
           }
           continue;
         }
         final stat = await file.stat();
-        final tagInfo = await _tagProbe.probeSongDedup(
+        final modifiedMs = stat.modified.millisecondsSinceEpoch;
+        final existing = existingById[candidate.path];
+        final unchanged =
+            existing != null && existing.fileModifiedMs == modifiedMs;
+
+        if (unchanged) {
+          scannedSongs.add(existing);
+          processed += 1;
+          if (processed % 10 == 0) {
+            onProgress(
+              LocalScanProgress(
+                processed: processed,
+                added: added,
+                total: total,
+              ),
+            );
+          }
+          continue;
+        }
+
+        final tagInfo = await _tagProbe.probeLocalBasicTags(
           uri: candidate.path,
-          isLocal: true,
-          includeArtwork: settings.cacheArtwork,
         );
-        final title = _firstNonEmpty(
+        final title =
+            _firstNonEmpty(
               tagInfo?.title,
               candidate.titleHint,
               p.basenameWithoutExtension(candidate.path),
             ) ??
             '未知标题';
-        final artist =
-            _firstNonEmpty(tagInfo?.artist, '未知艺术家') ?? '未知艺术家';
-        final albumName = _firstNonEmpty(
-              tagInfo?.album,
-              '未知专辑',
-            ) ??
+        final artist = _firstNonEmpty(tagInfo?.artist, '未知艺术家') ?? '未知艺术家';
+        final albumName =
+            _firstNonEmpty(tagInfo?.album, candidate.albumHint, '未知专辑') ??
             '未知专辑';
         final durationMs = tagInfo?.durationMs ?? candidate.durationMs;
-        final coverPath = await _cacheArtwork(
-          file: file,
-          fileModifiedMs: stat.modified.millisecondsSinceEpoch,
-          artwork: tagInfo?.artwork,
-          enabled: settings.cacheArtwork,
-        );
-        final embeddedLyrics = tagInfo?.lyrics;
-        if (embeddedLyrics != null && embeddedLyrics.trim().isNotEmpty) {
-          await _lyricsRepo.saveLrcToCache(
-            candidate.path,
-            embeddedLyrics,
-            overwrite: true,
-          );
-        }
         scannedSongs.add(
           SongEntity(
             id: candidate.path,
@@ -358,14 +359,16 @@ class LocalMusicService {
             album: albumName.isNotEmpty ? albumName : null,
             uri: candidate.path,
             isLocal: true,
-            durationMs: durationMs != null && durationMs > 0 ? durationMs : null,
-            bitrate: tagInfo?.bitrate,
-            sampleRate: tagInfo?.sampleRate,
+            durationMs: durationMs != null && durationMs > 0
+                ? durationMs
+                : null,
+            bitrate: existing?.bitrate,
+            sampleRate: existing?.sampleRate,
             fileSize: tagInfo?.fileSize ?? stat.size,
             format: tagInfo?.format,
             sourceId: 'local',
-            fileModifiedMs: stat.modified.millisecondsSinceEpoch,
-            localCoverPath: coverPath,
+            fileModifiedMs: modifiedMs,
+            localCoverPath: existing?.localCoverPath,
             tagsParsed: tagInfo != null,
           ),
         );
@@ -373,7 +376,7 @@ class LocalMusicService {
         if (!existingIds.contains(candidate.path)) {
           added += 1;
         }
-        if (processed % 20 == 0) {
+        if (processed % 10 == 0) {
           onProgress(
             LocalScanProgress(processed: processed, added: added, total: total),
           );
@@ -437,8 +440,10 @@ class LocalMusicService {
       if (isCancelled()) break;
       final dir = Directory(path);
       if (!await dir.exists()) continue;
-      await for (final entity
-          in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (isCancelled()) break;
         if (entity is File) {
           final ext = p.extension(entity.path).toLowerCase();
