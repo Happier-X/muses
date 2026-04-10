@@ -173,6 +173,7 @@ class SongsActionsController {
       sourceId: song.sourceId,
       fileModifiedMs: song.fileModifiedMs,
       localCoverPath: coverPath,
+      localAssetId: song.localAssetId,
       tagsParsed: true,
     );
 

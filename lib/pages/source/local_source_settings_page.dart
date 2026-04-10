@@ -16,8 +16,9 @@ class LocalSourceSettingsPage extends StatefulWidget {
 
 class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
   final LocalMusicService _service = LocalMusicService();
-  final ValueNotifier<LocalScanProgress> _scanNotifier =
-      ValueNotifier(const LocalScanProgress(processed: 0, added: 0, total: 0));
+  final ValueNotifier<LocalScanProgress> _scanNotifier = ValueNotifier(
+    const LocalScanProgress(processed: 0, added: 0, total: 0),
+  );
 
   bool _loading = true;
   bool _isScanning = false;
@@ -42,12 +43,14 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final settings = await _service.loadSettings();
-    
+
     List<AssetPathEntity> albums = [];
     Map<String, int> counts = {};
 
     if (!settings.useSystemLibrary) {
-      albums = await _service.loadAudioAlbums(minDurationMs: settings.minDurationMs);
+      albums = await _service.loadAudioAlbums(
+        minDurationMs: settings.minDurationMs,
+      );
       for (final album in albums) {
         counts[album.id] = await album.assetCountAsync;
       }
@@ -81,8 +84,9 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
       return;
     }
 
-    final albums =
-        await _service.loadAudioAlbums(minDurationMs: _settings.minDurationMs);
+    final albums = await _service.loadAudioAlbums(
+      minDurationMs: _settings.minDurationMs,
+    );
     final counts = <String, int>{};
     for (final album in albums) {
       counts[album.id] = await album.assetCountAsync;
@@ -102,6 +106,10 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
 
   void _toggleCacheArtwork(bool value) {
     _saveSettings(_settings.copyWith(cacheArtwork: value));
+  }
+
+  void _toggleReadFullTagsOnScan(bool value) {
+    _saveSettings(_settings.copyWith(readFullTagsOnScan: value));
   }
 
   void _toggleAlbum(String albumId) {
@@ -140,9 +148,7 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
 
   Future<void> _updateMetadataConcurrency(double value) async {
     final next = value.round().clamp(1, 12);
-    await _saveSettings(
-      _settings.copyWith(localMetadataConcurrency: next),
-    );
+    await _saveSettings(_settings.copyWith(localMetadataConcurrency: next));
   }
 
   void _showScanDialog() {
@@ -184,8 +190,11 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
       _isScanning = true;
       _cancelScan = false;
     });
-    _scanNotifier.value =
-        const LocalScanProgress(processed: 0, added: 0, total: 0);
+    _scanNotifier.value = const LocalScanProgress(
+      processed: 0,
+      added: 0,
+      total: 0,
+    );
     _showScanDialog();
     final result = await _service.scan(
       settings: _settings,
@@ -220,9 +229,7 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final minSeconds = (_settings.minDurationMs / 1000).clamp(0.0, 180.0);
@@ -290,6 +297,14 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
                 value: _settings.cacheArtwork,
                 onChanged: _toggleCacheArtwork,
               ),
+              AppSettingSwitchTile(
+                title: '完整标签读入',
+                subtitle: _settings.readFullTagsOnScan
+                    ? '扫描时读取更完整的标签、歌词和封面，速度较慢'
+                    : '扫描时只读取歌曲名、歌手、专辑等基础信息，速度更快',
+                value: _settings.readFullTagsOnScan,
+                onChanged: _toggleReadFullTagsOnScan,
+              ),
               AppSettingSlider(
                 title: '标签并发',
                 description: '并发越高扫描越快，但更耗资源',
@@ -346,29 +361,24 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
             AppSettingSection(
               title: '系统音频文件夹',
               children: _albums.isEmpty
-                  ? [
-                      const AppSettingTile(title: '未发现本地音频文件夹'),
-                    ]
+                  ? [const AppSettingTile(title: '未发现本地音频文件夹')]
                   : _albums
-                      .map(
-                        (album) => AppSettingCheckboxTile(
-                          title: album.name,
-                          subtitle: '${_albumCounts[album.id] ?? 0} 首',
-                          value: includeSet.contains(album.id),
-                          onChanged: (_) => _toggleAlbum(album.id),
-                        ),
-                      )
-                      .toList(),
+                        .map(
+                          (album) => AppSettingCheckboxTile(
+                            title: album.name,
+                            subtitle: '${_albumCounts[album.id] ?? 0} 首',
+                            value: includeSet.contains(album.id),
+                            onChanged: (_) => _toggleAlbum(album.id),
+                          ),
+                        )
+                        .toList(),
             ),
           ],
           if (_settings.useSystemLibrary)
             AppSettingSection(
               title: '扫描范围',
               children: const [
-                AppSettingTile(
-                  title: '系统媒体库',
-                  subtitle: '将自动扫描所有音频文件夹',
-                ),
+                AppSettingTile(title: '系统媒体库', subtitle: '将自动扫描所有音频文件夹'),
               ],
             ),
         ],

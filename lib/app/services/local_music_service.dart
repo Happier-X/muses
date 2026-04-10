@@ -19,6 +19,7 @@ class LocalSourceSettings {
   final List<String> includePaths;
   final int lastScanCount;
   final bool cacheArtwork;
+  final bool readFullTagsOnScan;
   final int localMetadataConcurrency;
 
   const LocalSourceSettings({
@@ -28,6 +29,7 @@ class LocalSourceSettings {
     required this.includePaths,
     required this.lastScanCount,
     required this.cacheArtwork,
+    required this.readFullTagsOnScan,
     required this.localMetadataConcurrency,
   });
 
@@ -39,6 +41,7 @@ class LocalSourceSettings {
       includePaths: [],
       lastScanCount: 0,
       cacheArtwork: false,
+      readFullTagsOnScan: false,
       localMetadataConcurrency: 6,
     );
   }
@@ -50,6 +53,7 @@ class LocalSourceSettings {
     List<String>? includePaths,
     int? lastScanCount,
     bool? cacheArtwork,
+    bool? readFullTagsOnScan,
     int? localMetadataConcurrency,
   }) {
     return LocalSourceSettings(
@@ -59,6 +63,7 @@ class LocalSourceSettings {
       includePaths: includePaths ?? this.includePaths,
       lastScanCount: lastScanCount ?? this.lastScanCount,
       cacheArtwork: cacheArtwork ?? this.cacheArtwork,
+      readFullTagsOnScan: readFullTagsOnScan ?? this.readFullTagsOnScan,
       localMetadataConcurrency:
           localMetadataConcurrency ?? this.localMetadataConcurrency,
     );
@@ -72,6 +77,7 @@ class LocalSourceSettings {
       'includePaths': includePaths,
       'lastScanCount': lastScanCount,
       'cacheArtwork': cacheArtwork,
+      'readFullTagsOnScan': readFullTagsOnScan,
       'localMetadataConcurrency': localMetadataConcurrency,
     };
   }
@@ -86,6 +92,7 @@ class LocalSourceSettings {
           (json['includePaths'] as List<dynamic>?)?.cast<String>() ?? [],
       lastScanCount: json['lastScanCount'] as int? ?? 0,
       cacheArtwork: json['cacheArtwork'] as bool? ?? false,
+      readFullTagsOnScan: json['readFullTagsOnScan'] as bool? ?? false,
       localMetadataConcurrency: json['localMetadataConcurrency'] as int? ?? 6,
     );
   }
@@ -112,12 +119,14 @@ class LocalScanResult {
 
 class _LocalScanCandidate {
   final String path;
+  final String? assetId;
   final int? durationMs;
   final String? titleHint;
   final String? albumHint;
 
   const _LocalScanCandidate({
     required this.path,
+    required this.assetId,
     required this.durationMs,
     required this.titleHint,
     required this.albumHint,
@@ -261,6 +270,7 @@ class LocalMusicService {
           candidates.add(
             _LocalScanCandidate(
               path: file.path,
+              assetId: entity.id,
               durationMs: (entity.duration * 1000).round(),
               titleHint: entity.title,
               albumHint: album.name,
@@ -279,6 +289,7 @@ class LocalMusicService {
       candidates.add(
         _LocalScanCandidate(
           path: file.path,
+          assetId: null,
           durationMs: null,
           titleHint: null,
           albumHint: null,
@@ -336,9 +347,13 @@ class LocalMusicService {
           continue;
         }
 
-        final tagInfo = await _tagProbe.probeLocalBasicTags(
-          uri: candidate.path,
-        );
+        final tagInfo = settings.readFullTagsOnScan
+            ? await _tagProbe.probeSongDedup(
+                uri: candidate.path,
+                isLocal: true,
+                includeArtwork: settings.cacheArtwork,
+              )
+            : await _tagProbe.probeLocalBasicTags(uri: candidate.path);
         final title =
             _firstNonEmpty(
               tagInfo?.title,
@@ -351,6 +366,24 @@ class LocalMusicService {
             _firstNonEmpty(tagInfo?.album, candidate.albumHint, '未知专辑') ??
             '未知专辑';
         final durationMs = tagInfo?.durationMs ?? candidate.durationMs;
+        final coverPath = settings.readFullTagsOnScan
+            ? await _cacheArtwork(
+                file: file,
+                fileModifiedMs: modifiedMs,
+                artwork: tagInfo?.artwork,
+                enabled: settings.cacheArtwork,
+              )
+            : existing?.localCoverPath;
+        if (settings.readFullTagsOnScan) {
+          final embeddedLyrics = tagInfo?.lyrics;
+          if (embeddedLyrics != null && embeddedLyrics.trim().isNotEmpty) {
+            await _lyricsRepo.saveLrcToCache(
+              candidate.path,
+              embeddedLyrics,
+              overwrite: true,
+            );
+          }
+        }
         scannedSongs.add(
           SongEntity(
             id: candidate.path,
@@ -362,13 +395,18 @@ class LocalMusicService {
             durationMs: durationMs != null && durationMs > 0
                 ? durationMs
                 : null,
-            bitrate: existing?.bitrate,
-            sampleRate: existing?.sampleRate,
+            bitrate: settings.readFullTagsOnScan
+                ? tagInfo?.bitrate
+                : existing?.bitrate,
+            sampleRate: settings.readFullTagsOnScan
+                ? tagInfo?.sampleRate
+                : existing?.sampleRate,
             fileSize: tagInfo?.fileSize ?? stat.size,
             format: tagInfo?.format,
             sourceId: 'local',
             fileModifiedMs: modifiedMs,
-            localCoverPath: existing?.localCoverPath,
+            localCoverPath: coverPath,
+            localAssetId: candidate.assetId,
             tagsParsed: tagInfo != null,
           ),
         );

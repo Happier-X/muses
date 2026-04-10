@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:photo_manager/photo_manager.dart';
 
 class ArtworkService {
   ArtworkService._();
@@ -24,6 +25,7 @@ class ArtworkService {
   Future<Uint8List?> loadArtworkBytes({
     required String? uri,
     required String? localCoverPath,
+    required String? localAssetId,
     required bool isLocal,
     required bool preferOriginal,
   }) async {
@@ -37,9 +39,13 @@ class ArtworkService {
 
     if (!isLocal) return null;
     final trimmedUri = (uri ?? '').trim();
+    final trimmedAssetId = (localAssetId ?? '').trim();
     if (trimmedUri.isEmpty) return null;
 
-    final cacheKey = preferOriginal ? '$trimmedUri|original' : trimmedUri;
+    final cacheBase = trimmedAssetId.isNotEmpty
+        ? 'asset:$trimmedAssetId'
+        : trimmedUri;
+    final cacheKey = preferOriginal ? '$cacheBase|original' : cacheBase;
     if (_bytesCache.containsKey(cacheKey)) {
       final cached = _bytesCache.remove(cacheKey);
       _bytesCache[cacheKey] = cached;
@@ -52,7 +58,13 @@ class ArtworkService {
     final completer = Completer<Uint8List?>();
     _loadingFutures[cacheKey] = completer.future;
     _queue.add(
-      _ArtworkRequest(trimmedUri, cacheKey, preferOriginal, completer),
+      _ArtworkRequest(
+        trimmedUri,
+        trimmedAssetId,
+        cacheKey,
+        preferOriginal,
+        completer,
+      ),
     );
     _drainQueue();
 
@@ -80,7 +92,11 @@ class ArtworkService {
     while (_active < _maxConcurrent && _queue.isNotEmpty) {
       final task = _queue.removeLast();
       _active += 1;
-      _readArtworkBytes(task.uri, preferOriginal: task.preferOriginal)
+      _readArtworkBytes(
+            task.uri,
+            assetId: task.assetId,
+            preferOriginal: task.preferOriginal,
+          )
           .then((bytes) {
             _remember(task.cacheKey, bytes);
             if (!task.completer.isCompleted) {
@@ -102,9 +118,22 @@ class ArtworkService {
 
   static Future<Uint8List?> _readArtworkBytes(
     String uri, {
+    required String assetId,
     required bool preferOriginal,
   }) async {
     try {
+      if (assetId.isNotEmpty && !preferOriginal) {
+        final entity = await AssetEntity.fromId(assetId);
+        if (entity != null) {
+          final thumb = await entity.thumbnailDataWithSize(
+            const ThumbnailSize(320, 320),
+          );
+          if (thumb != null && thumb.isNotEmpty) {
+            return thumb;
+          }
+        }
+      }
+
       final file = File(uri);
       if (!await file.exists()) return null;
       final metadata = readMetadata(file, getImage: true);
@@ -134,9 +163,16 @@ class ArtworkService {
 
 class _ArtworkRequest {
   final String uri;
+  final String assetId;
   final String cacheKey;
   final bool preferOriginal;
   final Completer<Uint8List?> completer;
 
-  _ArtworkRequest(this.uri, this.cacheKey, this.preferOriginal, this.completer);
+  _ArtworkRequest(
+    this.uri,
+    this.assetId,
+    this.cacheKey,
+    this.preferOriginal,
+    this.completer,
+  );
 }

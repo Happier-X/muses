@@ -681,6 +681,7 @@ class _SongScrapeSheetState extends State<SongScrapeSheet> with SignalsMixin {
       sourceId: _song.sourceId,
       fileModifiedMs: _song.fileModifiedMs,
       localCoverPath: null,
+      localAssetId: _song.localAssetId,
       tagsParsed: false,
     );
     await _dao.upsertSongs([cleared]);
@@ -775,6 +776,7 @@ class _SongScrapeSheetState extends State<SongScrapeSheet> with SignalsMixin {
         sourceId: _song.sourceId,
         fileModifiedMs: _song.fileModifiedMs,
         localCoverPath: coverPath,
+        localAssetId: _song.localAssetId,
         tagsParsed: true,
       );
       await _dao.upsertSongs([updated]);

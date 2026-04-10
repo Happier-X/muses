@@ -14,6 +14,7 @@ class SongEntity {
   final String? sourceId;
   final int? fileModifiedMs;
   final String? localCoverPath;
+  final String? localAssetId;
   final bool tagsParsed;
 
   const SongEntity({
@@ -32,6 +33,7 @@ class SongEntity {
     this.sourceId,
     this.fileModifiedMs,
     this.localCoverPath,
+    this.localAssetId,
     this.tagsParsed = false,
   });
 
@@ -52,6 +54,7 @@ class SongEntity {
       'sourceId': sourceId,
       'fileModifiedMs': fileModifiedMs,
       'localCoverPath': localCoverPath,
+      'localAssetId': localAssetId,
       'tagsParsed': tagsParsed ? 1 : 0,
     };
   }
@@ -78,6 +81,7 @@ class SongEntity {
       sourceId: map['sourceId']?.toString(),
       fileModifiedMs: parseInt(map['fileModifiedMs']),
       localCoverPath: map['localCoverPath']?.toString(),
+      localAssetId: map['localAssetId']?.toString(),
       tagsParsed: map['tagsParsed'] == true || map['tagsParsed'] == 1,
     );
   }
@@ -98,6 +102,7 @@ class SongEntity {
     String? sourceId,
     int? fileModifiedMs,
     String? localCoverPath,
+    String? localAssetId,
     bool? tagsParsed,
   }) {
     return SongEntity(
@@ -116,6 +121,7 @@ class SongEntity {
       sourceId: sourceId ?? this.sourceId,
       fileModifiedMs: fileModifiedMs ?? this.fileModifiedMs,
       localCoverPath: localCoverPath ?? this.localCoverPath,
+      localAssetId: localAssetId ?? this.localAssetId,
       tagsParsed: tagsParsed ?? this.tagsParsed,
     );
   }

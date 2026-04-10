@@ -165,6 +165,7 @@ class SongsArtworkCoordinator {
       final bytes = await _artworkService.loadArtworkBytes(
         uri: song.uri,
         localCoverPath: song.localCoverPath,
+        localAssetId: song.localAssetId,
         isLocal: song.isLocal,
         preferOriginal: false,
       );

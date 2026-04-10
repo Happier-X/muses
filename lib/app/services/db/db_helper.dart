@@ -42,6 +42,7 @@ CREATE TABLE ${DbConstants.tableSongs} (
   sourceId TEXT,
   fileModifiedMs INTEGER,
   localCoverPath TEXT,
+  localAssetId TEXT,
   tagsParsed INTEGER
 )
 ''');
@@ -190,6 +191,11 @@ CREATE TABLE IF NOT EXISTS ${DbConstants.tableSongStats} (
 ''');
           await db.execute(
             'CREATE INDEX IF NOT EXISTS idx_song_stats_playcount ON ${DbConstants.tableSongStats}(playCount)',
+          );
+        }
+        if (oldVersion < 8) {
+          await db.execute(
+            'ALTER TABLE ${DbConstants.tableSongs} ADD COLUMN localAssetId TEXT',
           );
         }
       },

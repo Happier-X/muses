@@ -85,6 +85,8 @@ class PlayerService with WidgetsBindingObserver {
   static const String _prefsWasPlayingKey = 'playback_was_playing_v1';
   static const String _prefsSongIdKey = 'playback_song_id_v1';
 
+  bool get hasLoadedAudioSource => _player.audioSource != null;
+
   PlayerService._internal() {
     WidgetsBinding.instance.addObserver(this);
     _init();
@@ -786,7 +788,7 @@ class PlayerService with WidgetsBindingObserver {
       actualIndex = restoredQueue.length - 1;
     }
 
-    // Restore UI state immediately
+    // Restore optimistic UI state first, but roll back if sources fail to load.
     queue.value = restoredQueue;
     currentIndex.value = actualIndex;
     currentSong.value = restoredQueue[actualIndex];
@@ -814,8 +816,14 @@ class PlayerService with WidgetsBindingObserver {
       await _player.setAudioSources(sources, initialIndex: actualIndex);
     } catch (e) {
       if (kDebugMode) debugPrint('Error restoring playback state: $e');
-      // Do not clear queue here, as we want to keep the UI state
-      // user can try to play again
+      queue.value = const [];
+      currentIndex.value = -1;
+      currentSong.value = null;
+      isPlaying.value = false;
+      position.value = Duration.zero;
+      duration.value = null;
+      bufferedPosition.value = Duration.zero;
+      _emitSnapshot(force: true);
       return;
     }
 
@@ -1013,6 +1021,7 @@ class PlayerService with WidgetsBindingObserver {
       sourceId: song.sourceId,
       fileModifiedMs: song.fileModifiedMs,
       localCoverPath: localCoverPath ?? song.localCoverPath,
+      localAssetId: song.localAssetId,
       tagsParsed: tagsParsed ?? song.tagsParsed,
     );
 

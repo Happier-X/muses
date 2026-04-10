@@ -65,7 +65,9 @@ class WebDavMusicService {
         debug: kDebugMode,
       );
       client.setHeaders(headers);
-      final searchPath = _normalizeWebDavPath(source.path.trim().isEmpty ? '/' : source.path);
+      final searchPath = _normalizeWebDavPath(
+        source.path.trim().isEmpty ? '/' : source.path,
+      );
       await client.readDir(searchPath);
       return true;
     } catch (_) {
@@ -86,17 +88,21 @@ class WebDavMusicService {
       headers: headers,
     );
 
-    final dirs = entries
-        .where((e) => (e.isDir ?? false) == true)
-        .map((e) {
-          final rawPath = (e.path ?? '').toString();
-          final normalized = _normalizeWebDavPath(rawPath);
-          final name = p.basename(normalized);
-          return WebDavDirectory(name: name.isEmpty ? normalized : name, path: normalized);
-        })
-        .where((d) => d.path.trim().isNotEmpty)
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    final dirs =
+        entries
+            .where((e) => (e.isDir ?? false) == true)
+            .map((e) {
+              final rawPath = (e.path ?? '').toString();
+              final normalized = _normalizeWebDavPath(rawPath);
+              final name = p.basename(normalized);
+              return WebDavDirectory(
+                name: name.isEmpty ? normalized : name,
+                path: normalized,
+              );
+            })
+            .where((d) => d.path.trim().isNotEmpty)
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
     return dirs;
   }
 
@@ -113,7 +119,9 @@ class WebDavMusicService {
     final pathsToScan = source.includeFolders.isNotEmpty
         ? source.includeFolders
         : [(source.path.trim().isEmpty ? '/' : source.path.trim())];
-    final exclude = source.excludeFolders.map((e) => _normalizeWebDavPath(e)).toList();
+    final exclude = source.excludeFolders
+        .map((e) => _normalizeWebDavPath(e))
+        .toList();
     final visited = <String>{};
     final headers = _repo.buildHeaders(source);
     final seenFiles = <String>{};
@@ -142,24 +150,24 @@ class WebDavMusicService {
           seenFiles.add(key);
 
           discovered += 1;
-          
+
           // Decode the URI for display/storage if possible
           var displayUri = href;
           // Iteratively decode to handle double/triple encoding (e.g. %2520 -> %20 -> space)
           // We want the stored URI to be human-readable (no percent encoding)
           for (var i = 0; i < 4; i++) {
-             try {
-                final decoded = Uri.decodeFull(displayUri);
-                if (decoded == displayUri) break;
-                displayUri = decoded;
-             } catch (_) {
-                break;
-             }
+            try {
+              final decoded = Uri.decodeFull(displayUri);
+              if (decoded == displayUri) break;
+              displayUri = decoded;
+            } catch (_) {
+              break;
+            }
           }
 
           final title = _webDavNameFromHref(displayUri);
           final album = _webDavAlbumFromHref(displayUri);
-          
+
           collected.add(
             SongEntity(
               id: href, // Keep original href as ID for stability
@@ -173,7 +181,9 @@ class WebDavMusicService {
               tagsParsed: false,
             ),
           );
-          onProgress(WebDavScanProgress(processed: discovered, added: 0, total: 0));
+          onProgress(
+            WebDavScanProgress(processed: discovered, added: 0, total: 0),
+          );
         },
       );
     }
@@ -195,12 +205,14 @@ class WebDavMusicService {
             onProgress: (_) {},
           )
         : collected
-            .map((s) => _mergeWithExisting(
+              .map(
+                (s) => _mergeWithExisting(
                   base: s,
                   meta: null,
                   existing: existingMap[s.id],
-                ))
-            .toList();
+                ),
+              )
+              .toList();
 
     if (isCancelled()) {
       return WebDavScanResult(processed: discovered, added: 0);
@@ -208,7 +220,13 @@ class WebDavMusicService {
 
     await _songDao.deleteBySource(source.id);
     final added = await _songDao.upsertSongs(enriched);
-    onProgress(WebDavScanProgress(processed: discovered, added: added, total: discovered));
+    onProgress(
+      WebDavScanProgress(
+        processed: discovered,
+        added: added,
+        total: discovered,
+      ),
+    );
     return WebDavScanResult(processed: discovered, added: added);
   }
 
@@ -321,7 +339,9 @@ class WebDavMusicService {
           );
         } catch (_) {}
         final existing = existingMap[song.id];
-        results.add(_mergeWithExisting(base: song, meta: meta, existing: existing));
+        results.add(
+          _mergeWithExisting(base: song, meta: meta, existing: existing),
+        );
         done += 1;
         onProgress(done);
       }
@@ -351,16 +371,40 @@ class WebDavMusicService {
     }
 
     final title = pickText(meta?.title, pickText(existing?.title, base.title));
-    final artist = pickText(meta?.artist, pickText(existing?.artist, base.artist));
-    final album = pickText(meta?.album, pickText(existing?.album, base.album ?? ''));
+    final artist = pickText(
+      meta?.artist,
+      pickText(existing?.artist, base.artist),
+    );
+    final album = pickText(
+      meta?.album,
+      pickText(existing?.album, base.album ?? ''),
+    );
     final mergedAlbum = album.isEmpty ? null : album;
-    final durationMs = pickInt(meta?.durationMs, pickInt(existing?.durationMs, base.durationMs));
-    final bitrate = pickInt(meta?.bitrate, pickInt(existing?.bitrate, base.bitrate));
-    final sampleRate = pickInt(meta?.sampleRate, pickInt(existing?.sampleRate, base.sampleRate));
-    final fileSize = pickInt(meta?.fileSize, pickInt(existing?.fileSize, base.fileSize));
-    final format = pickText(meta?.format, pickText(existing?.format, base.format ?? ''));
+    final durationMs = pickInt(
+      meta?.durationMs,
+      pickInt(existing?.durationMs, base.durationMs),
+    );
+    final bitrate = pickInt(
+      meta?.bitrate,
+      pickInt(existing?.bitrate, base.bitrate),
+    );
+    final sampleRate = pickInt(
+      meta?.sampleRate,
+      pickInt(existing?.sampleRate, base.sampleRate),
+    );
+    final fileSize = pickInt(
+      meta?.fileSize,
+      pickInt(existing?.fileSize, base.fileSize),
+    );
+    final format = pickText(
+      meta?.format,
+      pickText(existing?.format, base.format ?? ''),
+    );
     final mergedFormat = format.isEmpty ? null : format;
-    final coverPath = pickText(existing?.localCoverPath, base.localCoverPath ?? '');
+    final coverPath = pickText(
+      existing?.localCoverPath,
+      base.localCoverPath ?? '',
+    );
     final mergedCoverPath = coverPath.isEmpty ? null : coverPath;
     final tagsParsed = (meta != null) || (existing?.tagsParsed ?? false);
     return SongEntity(
@@ -379,6 +423,7 @@ class WebDavMusicService {
       sourceId: base.sourceId,
       fileModifiedMs: base.fileModifiedMs,
       localCoverPath: mergedCoverPath,
+      localAssetId: base.localAssetId,
       tagsParsed: tagsParsed,
     );
   }
@@ -418,8 +463,7 @@ class WebDavMusicService {
     if (s.isEmpty) return s;
     final sb = StringBuffer();
 
-    bool isWs(int cu) =>
-        cu == 0x20 || cu == 0x09 || cu == 0x0A || cu == 0x0D;
+    bool isWs(int cu) => cu == 0x20 || cu == 0x09 || cu == 0x0A || cu == 0x0D;
     bool isHex(int cu) =>
         (cu >= 0x30 && cu <= 0x39) ||
         (cu >= 0x41 && cu <= 0x46) ||
@@ -497,8 +541,9 @@ class WebDavMusicService {
       }
       final basePath = baseUri.path;
       if (basePath.isNotEmpty && basePath != '/') {
-        final normalizedBase =
-            basePath.endsWith('/') ? basePath.substring(0, basePath.length - 1) : basePath;
+        final normalizedBase = basePath.endsWith('/')
+            ? basePath.substring(0, basePath.length - 1)
+            : basePath;
         if (!path.startsWith(normalizedBase)) {
           path = '$normalizedBase$path';
         }

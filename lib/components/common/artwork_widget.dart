@@ -57,6 +57,7 @@ class _ArtworkWidgetState extends State<ArtworkWidget> with SignalsMixin {
     final bytes = await _artworkService.loadArtworkBytes(
       uri: widget.song.uri,
       localCoverPath: widget.song.localCoverPath,
+      localAssetId: widget.song.localAssetId,
       isLocal: widget.song.isLocal,
       preferOriginal: widget.preferOriginal,
     );

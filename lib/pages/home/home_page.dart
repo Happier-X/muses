@@ -102,7 +102,16 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
       if (!mounted) return;
       attempts += 1;
     }
-    if (_player.currentSong.value == null || _player.isPlaying.value) return;
+    while (!_player.hasLoadedAudioSource && attempts < 16) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      if (!mounted) return;
+      attempts += 1;
+    }
+    if (_player.currentSong.value == null ||
+        _player.isPlaying.value ||
+        !_player.hasLoadedAudioSource) {
+      return;
+    }
     try {
       await _player.play();
     } catch (e) {
