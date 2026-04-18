@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_styles.dart';
+
 class SourceSectionCard extends StatelessWidget {
   final String title;
   final List<Widget> children;
@@ -13,13 +15,12 @@ class SourceSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (children.isEmpty) return const SizedBox.shrink();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final titleColor = isDark ? Colors.white70 : Colors.black87;
-    final cardColor =
-        Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
-    final shadowColor = isDark
-        ? const Color.fromARGB(28, 0, 0, 0)
-        : const Color.fromARGB(15, 0, 0, 0);
+    final cardColor = theme.appPanelElevatedColor;
+    final shadowColor = theme.appPanelShadowColor;
+    final borderColor = theme.appPanelBorderColor;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,17 +40,16 @@ class SourceSectionCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: cardColor,
             borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: borderColor),
             boxShadow: [
               BoxShadow(
                 color: shadowColor,
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: Column(
-            children: _withDividers(children),
-          ),
+          child: Column(children: _withDividers(children)),
         ),
       ],
     );

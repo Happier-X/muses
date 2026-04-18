@@ -59,16 +59,25 @@ extension AppThemeSurfaceX on ThemeData {
         ? colorScheme.surfaceContainerHigh
         : colorScheme.surfaceContainerLow;
     if (!hasAmbientBackground) return base;
-    final tint = brightness == Brightness.dark
-        ? colorScheme.primary.withValues(alpha: 0.18)
-        : colorScheme.primary.withValues(alpha: 0.08);
-    return Color.alphaBlend(
-      tint,
-      base,
-    ).withValues(alpha: brightness == Brightness.dark ? 0.84 : 0.76);
+    final overlay = brightness == Brightness.dark
+        ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.92)
+        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.98);
+    return Color.alphaBlend(overlay, colorScheme.surface);
   }
 
   Color get appPanelShadowColor => brightness == Brightness.dark
       ? Colors.black.withValues(alpha: 0.22)
       : Colors.black.withValues(alpha: 0.08);
+
+  Color get appPanelBorderColor => brightness == Brightness.dark
+      ? colorScheme.outline.withValues(alpha: 0.36)
+      : colorScheme.outline.withValues(alpha: 0.22);
+
+  Color get appPanelElevatedColor {
+    final base = appPanelColor;
+    final overlay = brightness == Brightness.dark
+        ? Colors.white.withValues(alpha: 0.05)
+        : Colors.white.withValues(alpha: 0.16);
+    return Color.alphaBlend(overlay, base);
+  }
 }

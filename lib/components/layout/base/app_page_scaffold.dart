@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/state/settings_state.dart';
+import 'app_background.dart';
 import '../../player/mini_player/mini_player_bar.dart';
 import '../modern_navigation_bar.dart';
 
@@ -14,7 +15,9 @@ class AppPageScaffold extends StatefulWidget {
     double minPadding = 24,
   }) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final miniPlayerPadding = showMiniPlayer ? MiniPlayerBar.estimatedHeight : 0.0;
+    final miniPlayerPadding = showMiniPlayer
+        ? MiniPlayerBar.estimatedHeight
+        : 0.0;
     final bottomNavPadding = hasBottomNav ? modernNavHeight : 0.0;
     return bottomInset + miniPlayerPadding + bottomNavPadding + minPadding;
   }
@@ -121,15 +124,15 @@ class AppPageScaffoldState extends State<AppPageScaffold>
         ? miniPlayerBottom - keyboardInset
         : miniPlayerBottom;
 
-    final drawerWidth =
-        (MediaQuery.sizeOf(context).width * 0.62).clamp(220.0, 300.0);
+    final drawerWidth = (MediaQuery.sizeOf(context).width * 0.62).clamp(
+      220.0,
+      300.0,
+    );
 
     return ValueListenableBuilder<bool>(
       valueListenable: AppLayoutSettings.tabletMode,
       builder: (context, tabletMode, _) {
-        Widget buildBody({
-          required bool includeMiniPlayer,
-        }) {
+        Widget buildBody({required bool includeMiniPlayer}) {
           return Stack(
             clipBehavior: Clip.none,
             children: [
@@ -151,15 +154,10 @@ class AppPageScaffoldState extends State<AppPageScaffold>
           extendBodyBehindAppBar: widget.extendBodyBehindAppBar,
           backgroundColor: Colors.transparent,
           appBar: widget.appBar,
-          body: buildBody(
-            includeMiniPlayer: !tabletMode,
-          ),
+          body: buildBody(includeMiniPlayer: !tabletMode),
           bottomNavigationBar: bottomBar == null
               ? null
-              : Material(
-                  type: MaterialType.transparency,
-                  child: bottomBar,
-                ),
+              : Material(type: MaterialType.transparency, child: bottomBar),
         );
 
         if (tabletMode || !_hasDrawer) {
@@ -172,112 +170,110 @@ class AppPageScaffoldState extends State<AppPageScaffold>
             extendBodyBehindAppBar: widget.extendBodyBehindAppBar,
             backgroundColor: Colors.transparent,
             appBar: widget.appBar,
-            body: buildBody(
-              includeMiniPlayer: false,
-            ),
+            body: buildBody(includeMiniPlayer: false),
             bottomNavigationBar: bottomBar == null
                 ? null
-                : Material(
-                    type: MaterialType.transparency,
-                    child: bottomBar,
-                  ),
+                : Material(type: MaterialType.transparency, child: bottomBar),
           );
         }
-        final stack = Stack(
-          children: [
-            AnimatedBuilder(
-              animation: _drawerController,
-              builder: (context, child) {
-                final value = _drawerController.value;
-                return Transform.translate(
-                  offset: Offset(-drawerWidth + drawerWidth * value, 0),
-                  child: child,
-                );
-              },
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: SizedBox(
-                  width: drawerWidth,
-                  child: widget.drawer,
+        final stack = AppBackground(
+          child: Stack(
+            children: [
+              AnimatedBuilder(
+                animation: _drawerController,
+                builder: (context, child) {
+                  final value = _drawerController.value;
+                  return Transform.translate(
+                    offset: Offset(-drawerWidth + drawerWidth * value, 0),
+                    child: child,
+                  );
+                },
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(width: drawerWidth, child: widget.drawer),
                 ),
               ),
-            ),
-            AnimatedBuilder(
-              animation: _drawerController,
-              builder: (context, child) {
-                final value = _drawerController.value;
-                return GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onHorizontalDragStart: (_) {
-                    _draggingDrawer = true;
-                  },
-                  onHorizontalDragUpdate: (details) {
-                    if (!_draggingDrawer) return;
-                    final delta = details.primaryDelta ?? 0;
-                    if (delta == 0) return;
-                    if (_drawerController.value == 0 && delta < 0) return;
-                    if (_drawerController.value == 1 && delta > 0) return;
-                    final next =
-                        (_drawerController.value + delta / drawerWidth).clamp(0.0, 1.0);
-                    _drawerController.value = next;
-                  },
-                  onHorizontalDragEnd: (_) {
-                    if (!_draggingDrawer) return;
-                    _draggingDrawer = false;
-                    if (_drawerController.value < 0.5) {
-                      closeDrawer();
-                    } else {
-                      openDrawer();
-                    }
-                  },
-                  child: Transform.translate(
-                    offset: Offset(drawerWidth * value, 0),
-                    child: child,
-                  ),
-                );
-              },
-              child: page,
-            ),
-            if (miniPlayer != null)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: effectiveMiniPlayerBottom,
-                child: miniPlayer,
-              ),
-            AnimatedBuilder(
-              animation: _drawerController,
-              builder: (context, child) {
-                if (_drawerController.value == 0) {
-                  return const SizedBox.shrink();
-                }
-                return Positioned(
-                  left: drawerWidth,
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: GestureDetector(
-                    onTap: closeDrawer,
+              AnimatedBuilder(
+                animation: _drawerController,
+                builder: (context, child) {
+                  final value = _drawerController.value;
+                  return GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragStart: (_) {
+                      _draggingDrawer = true;
+                    },
                     onHorizontalDragUpdate: (details) {
+                      if (!_draggingDrawer) return;
                       final delta = details.primaryDelta ?? 0;
                       if (delta == 0) return;
+                      if (_drawerController.value == 0 && delta < 0) return;
+                      if (_drawerController.value == 1 && delta > 0) return;
                       final next =
-                          (_drawerController.value + delta / drawerWidth).clamp(0.0, 1.0);
+                          (_drawerController.value + delta / drawerWidth).clamp(
+                            0.0,
+                            1.0,
+                          );
                       _drawerController.value = next;
                     },
-                    onHorizontalDragEnd: (details) {
+                    onHorizontalDragEnd: (_) {
+                      if (!_draggingDrawer) return;
+                      _draggingDrawer = false;
                       if (_drawerController.value < 0.5) {
                         closeDrawer();
                       } else {
                         openDrawer();
                       }
                     },
-                    child: Container(color: Colors.transparent),
-                  ),
-                );
-              },
-            ),
-          ],
+                    child: Transform.translate(
+                      offset: Offset(drawerWidth * value, 0),
+                      child: child,
+                    ),
+                  );
+                },
+                child: page,
+              ),
+              if (miniPlayer != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: effectiveMiniPlayerBottom,
+                  child: miniPlayer,
+                ),
+              AnimatedBuilder(
+                animation: _drawerController,
+                builder: (context, child) {
+                  if (_drawerController.value == 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned(
+                    left: drawerWidth,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: GestureDetector(
+                      onTap: closeDrawer,
+                      onHorizontalDragUpdate: (details) {
+                        final delta = details.primaryDelta ?? 0;
+                        if (delta == 0) return;
+                        final next =
+                            (_drawerController.value + delta / drawerWidth)
+                                .clamp(0.0, 1.0);
+                        _drawerController.value = next;
+                      },
+                      onHorizontalDragEnd: (details) {
+                        if (_drawerController.value < 0.5) {
+                          closeDrawer();
+                        } else {
+                          openDrawer();
+                        }
+                      },
+                      child: Container(color: Colors.transparent),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         );
         return stack;
       },

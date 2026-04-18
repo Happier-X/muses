@@ -47,7 +47,6 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
       LibraryRefreshService.instance;
   final WebDavSourceRepository _webDavRepo = WebDavSourceRepository.instance;
   final PageCacheStore _cacheStore = PageCacheStore.instance;
-  bool _autoPlayTried = false;
   bool _libraryRefreshTried = false;
 
   late final _filter = createSignal('all');
@@ -102,9 +101,11 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
   }
 
   Future<void> _tryAutoPlayOnAppLaunch() async {
-    if (_autoPlayTried) return;
-    _autoPlayTried = true;
     await AppLaunchPlaybackSettings.ensureLoaded();
+    if (AppLaunchPlaybackSettings.hasHandledAutoPlayThisSession) {
+      return;
+    }
+    AppLaunchPlaybackSettings.hasHandledAutoPlayThisSession = true;
     if (!mounted || !AppLaunchPlaybackSettings.autoPlayOnAppLaunch.value) {
       return;
     }

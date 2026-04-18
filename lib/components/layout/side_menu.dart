@@ -15,10 +15,10 @@ class SideMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final baseColor = theme.appPanelColor;
+    final baseColor = colorScheme.surface;
     final overlayColor = theme.brightness == Brightness.dark
-        ? colorScheme.surfaceTint.withValues(alpha: 0.05)
-        : colorScheme.primary.withValues(alpha: 0.06);
+        ? Colors.black.withValues(alpha: 0.06)
+        : Colors.white.withValues(alpha: 0.04);
     final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.22);
 
     return Material(
@@ -26,15 +26,11 @@ class SideMenu extends StatelessWidget {
       child: SafeArea(
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.alphaBlend(overlayColor, baseColor),
-                baseColor.withValues(
-                  alpha: theme.hasAmbientBackground ? 0.78 : 0.96,
-                ),
-              ],
+            color: Color.alphaBlend(
+              overlayColor,
+              baseColor.withValues(
+                alpha: theme.hasAmbientBackground ? 0.14 : 0.92,
+              ),
             ),
             border: Border(right: BorderSide(color: borderColor)),
           ),

@@ -6,6 +6,7 @@ import '../../app/services/player_service.dart';
 import '../../app/services/playlists_service.dart';
 import '../../app/services/stats_service.dart';
 import '../../app/state/song_state.dart';
+import '../../app/theme/app_styles.dart';
 import '../../components/common/app_list_tile.dart';
 import '../../components/common/artwork_widget.dart';
 import '../../components/layout/base/app_page_scaffold.dart';
@@ -151,13 +152,20 @@ class _RecentPlaybackPageState extends State<RecentPlaybackPage> {
   }
 
   Widget _buildTabBar(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+        color: theme.appPanelElevatedColor,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.appPanelBorderColor),
+        boxShadow: [
+          BoxShadow(
+            color: theme.appPanelShadowColor,
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -205,111 +213,142 @@ class _RecentPlaybackPageState extends State<RecentPlaybackPage> {
   }
 
   Widget _buildList(BuildContext context) {
+    final theme = Theme.of(context);
     switch (_tab) {
       case RecentPlaybackTab.songs:
         if (_songs.isEmpty) return const Center(child: Text('暂无最近播放歌曲'));
         final queue = _songs.map((e) => e.song).toList();
-        return Column(
-          children: _songs.map((row) {
-            final subtitle = [
-              row.song.artist.trim(),
-              (row.song.album ?? '').trim().isEmpty
-                  ? '未知专辑'
-                  : row.song.album!.trim(),
-              '播放 ${row.stat.playCount} 次',
-            ].join(' · ');
-            return AppListTile(
-              leading: ArtworkWidget(
-                song: row.song,
-                size: 46,
-                borderRadius: 10,
-                placeholder: _RecentArtworkPlaceholder(
-                  label: row.song.title.isEmpty ? '?' : row.song.title[0],
+        return _RecentPanel(
+          child: Column(
+            children: _songs.map((row) {
+              final subtitle = [
+                row.song.artist.trim(),
+                (row.song.album ?? '').trim().isEmpty
+                    ? '未知专辑'
+                    : row.song.album!.trim(),
+                '播放 ${row.stat.playCount} 次',
+              ].join(' · ');
+              return AppListTile(
+                leading: ArtworkWidget(
+                  song: row.song,
+                  size: 46,
+                  borderRadius: 10,
+                  placeholder: _RecentArtworkPlaceholder(
+                    label: row.song.title.isEmpty ? '?' : row.song.title[0],
+                  ),
                 ),
-              ),
-              title: row.song.title,
-              subtitle: subtitle,
-              contentPadding: const EdgeInsets.only(left: 8, right: 6),
-              onTap: () async {
-                final index = queue.indexWhere(
-                  (song) => song.id == row.song.id,
-                );
-                if (index < 0) return;
-                await _player.playQueue(queue, index);
-              },
-            );
-          }).toList(),
+                title: row.song.title,
+                subtitle: subtitle,
+                contentPadding: const EdgeInsets.only(left: 8, right: 6),
+                onTap: () async {
+                  final index = queue.indexWhere(
+                    (song) => song.id == row.song.id,
+                  );
+                  if (index < 0) return;
+                  await _player.playQueue(queue, index);
+                },
+              );
+            }).toList(),
+          ),
         );
       case RecentPlaybackTab.albums:
         if (_albums.isEmpty) return const Center(child: Text('暂无最近播放专辑'));
-        return Column(
-          children: _albums.map((row) {
-            final artist = row.representative.artist.trim().isEmpty
-                ? '未知艺术家'
-                : row.representative.artist.trim();
-            return AppListTile(
-              leading: ArtworkWidget(
-                song: row.representative,
-                size: 46,
-                borderRadius: 10,
-                placeholder: _RecentArtworkPlaceholder(
-                  label: row.stat.albumName.isEmpty
-                      ? '?'
-                      : row.stat.albumName[0],
-                ),
-              ),
-              title: row.stat.albumName,
-              subtitle: '$artist · 播放 ${row.stat.playCount} 次',
-              contentPadding: const EdgeInsets.only(left: 8, right: 6),
-              onTap: () {
-                Navigator.of(context).push(
-                  buildAppPageRoute(
-                    (_) => AlbumDetailPage(albumName: row.stat.albumName),
+        return _RecentPanel(
+          child: Column(
+            children: _albums.map((row) {
+              final artist = row.representative.artist.trim().isEmpty
+                  ? '未知艺术家'
+                  : row.representative.artist.trim();
+              return AppListTile(
+                leading: ArtworkWidget(
+                  song: row.representative,
+                  size: 46,
+                  borderRadius: 10,
+                  placeholder: _RecentArtworkPlaceholder(
+                    label: row.stat.albumName.isEmpty
+                        ? '?'
+                        : row.stat.albumName[0],
                   ),
-                );
-              },
-            );
-          }).toList(),
+                ),
+                title: row.stat.albumName,
+                subtitle: '$artist · 播放 ${row.stat.playCount} 次',
+                contentPadding: const EdgeInsets.only(left: 8, right: 6),
+                onTap: () {
+                  Navigator.of(context).push(
+                    buildAppPageRoute(
+                      (_) => AlbumDetailPage(albumName: row.stat.albumName),
+                    ),
+                  );
+                },
+              );
+            }).toList(),
+          ),
         );
       case RecentPlaybackTab.playlists:
         if (_playlists.isEmpty) return const Center(child: Text('暂无最近播放歌单'));
-        return Column(
-          children: _playlists.map((row) {
-            final subtitle = row.playlist.isFavorite
-                ? '我喜欢 · ${row.playlist.songIds.length} 首 · 播放 ${row.stat.playCount} 次'
-                : '${row.playlist.songIds.length} 首 · 播放 ${row.stat.playCount} 次';
-            return AppListTile(
-              leading: Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.12),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  row.playlist.isFavorite
-                      ? Icons.favorite_rounded
-                      : Icons.queue_music_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              title: row.playlist.name,
-              subtitle: subtitle,
-              contentPadding: const EdgeInsets.only(left: 8, right: 6),
-              onTap: () {
-                Navigator.of(context).push(
-                  buildAppPageRoute(
-                    (_) => PlaylistDetailPage(playlistId: row.playlist.id),
+        return _RecentPanel(
+          child: Column(
+            children: _playlists.map((row) {
+              final subtitle = row.playlist.isFavorite
+                  ? '我喜欢 · ${row.playlist.songIds.length} 首 · 播放 ${row.stat.playCount} 次'
+                  : '${row.playlist.songIds.length} 首 · 播放 ${row.stat.playCount} 次';
+              return AppListTile(
+                leading: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
                   ),
-                );
-              },
-            );
-          }).toList(),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    row.playlist.isFavorite
+                        ? Icons.favorite_rounded
+                        : Icons.queue_music_rounded,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                title: row.playlist.name,
+                subtitle: subtitle,
+                contentPadding: const EdgeInsets.only(left: 8, right: 6),
+                onTap: () {
+                  Navigator.of(context).push(
+                    buildAppPageRoute(
+                      (_) => PlaylistDetailPage(playlistId: row.playlist.id),
+                    ),
+                  );
+                },
+              );
+            }).toList(),
+          ),
         );
     }
+  }
+}
+
+class _RecentPanel extends StatelessWidget {
+  final Widget child;
+
+  const _RecentPanel({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.appPanelElevatedColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.appPanelBorderColor),
+        boxShadow: [
+          BoxShadow(
+            color: theme.appPanelShadowColor,
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
   }
 }
 

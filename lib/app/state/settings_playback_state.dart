@@ -47,6 +47,7 @@ class AppLaunchPlaybackSettings {
       'player_auto_play_on_app_launch';
 
   static final ValueNotifier<bool> autoPlayOnAppLaunch = ValueNotifier(false);
+  static bool hasHandledAutoPlayThisSession = false;
 
   static bool _loaded = false;
 
