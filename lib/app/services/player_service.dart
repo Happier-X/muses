@@ -31,6 +31,7 @@ class PlayerService with WidgetsBindingObserver {
   final SongDao _songDao = SongDao();
   final LyricsRepository _lyricsRepo = LyricsRepository();
   final StatsService _statsService = StatsService.instance;
+  AudioSession? _audioSession;
 
   ValueNotifier<Duration> get position => _state.position;
   ValueNotifier<Duration?> get duration => _state.duration;
@@ -127,6 +128,7 @@ class PlayerService with WidgetsBindingObserver {
     await AppCacheSettings.ensureLoaded();
     await AppLaunchPlaybackSettings.ensureLoaded();
     final session = await AudioSession.instance;
+    _audioSession = session;
     await session.configure(const AudioSessionConfiguration.music());
     await _player.setLoopMode(LoopMode.all);
     playbackMode.value = PlaybackMode.loop;
@@ -394,6 +396,7 @@ class PlayerService with WidgetsBindingObserver {
     try {
       await _player.stop();
     } catch (_) {}
+    await _setAudioSessionActive(false);
     isPlaying.value = false;
     position.value = Duration.zero;
     duration.value = null;
@@ -449,7 +452,7 @@ class PlayerService with WidgetsBindingObserver {
 
     if (play) {
       try {
-        await _player.play();
+        await _startPlayback();
       } catch (e) {
         await stopAndClear();
         if (kDebugMode) {
@@ -458,25 +461,25 @@ class PlayerService with WidgetsBindingObserver {
       }
     } else {
       try {
-        await _player.pause();
+        await _pausePlayback();
       } catch (_) {}
     }
   }
 
   Future<void> togglePlayPause() async {
     if (_player.playing) {
-      await _player.pause();
+      await _pausePlayback();
     } else {
-      await _player.play();
+      await _startPlayback();
     }
   }
 
   Future<void> play() async {
-    await _player.play();
+    await _startPlayback();
   }
 
   Future<void> pause() async {
-    await _player.pause();
+    await _pausePlayback();
   }
 
   Future<void> next() async {
@@ -634,7 +637,7 @@ class PlayerService with WidgetsBindingObserver {
       final remaining = end.difference(DateTime.now());
       if (remaining <= Duration.zero) {
         cancelSleepTimer();
-        await _player.pause();
+        await _pausePlayback();
         return;
       }
       _updateSleepTimerText();
@@ -838,7 +841,7 @@ class PlayerService with WidgetsBindingObserver {
 
     if (shouldAutoPlayOnLaunch) {
       try {
-        await _player.play();
+        await _startPlayback();
         return;
       } catch (e) {
         if (kDebugMode) {
@@ -848,8 +851,34 @@ class PlayerService with WidgetsBindingObserver {
     }
 
     try {
-      await _player.pause();
+      await _pausePlayback();
     } catch (_) {}
+  }
+
+  Future<void> _startPlayback() async {
+    final active = await _setAudioSessionActive(true);
+    if (!active) {
+      throw Exception('Failed to activate audio session');
+    }
+    await _player.play();
+  }
+
+  Future<void> _pausePlayback() async {
+    await _player.pause();
+    await _setAudioSessionActive(false);
+  }
+
+  Future<bool> _setAudioSessionActive(bool active) async {
+    final session = _audioSession ?? await AudioSession.instance;
+    _audioSession = session;
+    try {
+      return await session.setActive(active);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('PlayerService audio session setActive($active) failed: $e');
+      }
+      return !active;
+    }
   }
 
   PlaybackMode? _playbackModeFromString(String? value) {
@@ -1223,6 +1252,7 @@ class PlayerService with WidgetsBindingObserver {
     await _indexSub?.cancel();
     await _loopModeSub?.cancel();
     await _shuffleSub?.cancel();
+    await _setAudioSessionActive(false);
     await _player.dispose();
   }
 }
