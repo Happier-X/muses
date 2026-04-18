@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/router/app_router.dart';
+import '../../app/theme/app_styles.dart';
 import 'base/app_page_scaffold.dart';
 
 class SideMenu extends StatelessWidget {
@@ -14,12 +15,10 @@ class SideMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final baseColor = theme.brightness == Brightness.dark
-        ? colorScheme.surfaceContainerHigh
-        : colorScheme.surfaceContainerLow;
+    final baseColor = theme.appPanelColor;
     final overlayColor = theme.brightness == Brightness.dark
         ? colorScheme.surfaceTint.withValues(alpha: 0.05)
-        : Colors.white.withValues(alpha: 0.22);
+        : colorScheme.primary.withValues(alpha: 0.06);
     final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.22);
 
     return Material(
@@ -32,7 +31,9 @@ class SideMenu extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [
                 Color.alphaBlend(overlayColor, baseColor),
-                baseColor.withValues(alpha: 0.96),
+                baseColor.withValues(
+                  alpha: theme.hasAmbientBackground ? 0.78 : 0.96,
+                ),
               ],
             ),
             border: Border(right: BorderSide(color: borderColor)),

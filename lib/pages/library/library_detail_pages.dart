@@ -8,6 +8,7 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 import '../../app/router/app_page_route.dart';
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/player_service.dart';
+import '../../app/services/stats_service.dart';
 import '../../app/state/song_state.dart';
 import '../../components/index.dart';
 import '../../components/common/artwork_widget.dart';
@@ -467,6 +468,7 @@ class AlbumDetailPage extends StatefulWidget {
 
 class _AlbumDetailPageState extends State<AlbumDetailPage> with SignalsMixin {
   final SongDao _songDao = SongDao();
+  final StatsService _statsService = StatsService.instance;
 
   late final _loading = createSignal(true);
   late final _songs = createSignal<List<SongEntity>>([]);
@@ -650,6 +652,9 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> with SignalsMixin {
                       onPressed: songs.isEmpty
                           ? null
                           : () async {
+                              await _statsService.recordAlbumPlay(
+                                widget.albumName,
+                              );
                               await player.playQueue(songs, 0);
                             },
                     ),
@@ -709,6 +714,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> with SignalsMixin {
                         right: 16,
                       ),
                       onTap: () async {
+                        await _statsService.recordAlbumPlay(widget.albumName);
                         await player.playQueue(songs, index);
                       },
                       onLongPress: () {

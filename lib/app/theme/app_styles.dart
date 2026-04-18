@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../state/settings_background_state.dart';
+
 class AppScrollBehavior extends MaterialScrollBehavior {
   const AppScrollBehavior();
 
@@ -39,11 +41,34 @@ class CoverPageTransitionsBuilder extends PageTransitionsBuilder {
         parent: secondaryAnimation,
         curve: const Interval(0, 0.2),
       );
-      return FadeTransition(
-        opacity: ReverseAnimation(fadeOut),
-        child: content,
-      );
+      return FadeTransition(opacity: ReverseAnimation(fadeOut), child: content);
     }
     return content;
   }
+}
+
+extension AppThemeSurfaceX on ThemeData {
+  bool get hasAmbientBackground {
+    final backgroundPath = AppBackgroundSettings.backgroundImagePath.value;
+    return AppBackgroundSettings.pageGlowEnabled.value ||
+        (backgroundPath != null && backgroundPath.trim().isNotEmpty);
+  }
+
+  Color get appPanelColor {
+    final base = brightness == Brightness.dark
+        ? colorScheme.surfaceContainerHigh
+        : colorScheme.surfaceContainerLow;
+    if (!hasAmbientBackground) return base;
+    final tint = brightness == Brightness.dark
+        ? colorScheme.primary.withValues(alpha: 0.18)
+        : colorScheme.primary.withValues(alpha: 0.08);
+    return Color.alphaBlend(
+      tint,
+      base,
+    ).withValues(alpha: brightness == Brightness.dark ? 0.84 : 0.76);
+  }
+
+  Color get appPanelShadowColor => brightness == Brightness.dark
+      ? Colors.black.withValues(alpha: 0.22)
+      : Colors.black.withValues(alpha: 0.08);
 }

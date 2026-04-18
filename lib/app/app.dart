@@ -16,13 +16,30 @@ class NagoMusicApp extends StatelessWidget {
   const NagoMusicApp({super.key});
 
   ThemeData _applyDynamic(ThemeData base, ColorScheme? scheme) {
-    if (scheme == null) return base;
+    final appliedScheme = scheme ?? base.colorScheme;
+    final panelColor = base.brightness == Brightness.dark
+        ? appliedScheme.surfaceContainerHigh
+        : appliedScheme.surfaceContainerLow;
     return base.copyWith(
-      colorScheme: scheme,
-      primaryColor: scheme.primary,
+      colorScheme: appliedScheme,
+      primaryColor: appliedScheme.primary,
+      scaffoldBackgroundColor: appliedScheme.surface,
+      cardColor: panelColor,
+      cardTheme: base.cardTheme.copyWith(
+        color: panelColor,
+        shadowColor: Colors.black.withValues(
+          alpha: base.brightness == Brightness.dark ? 0.2 : 0.08,
+        ),
+      ),
+      dialogTheme: base.dialogTheme.copyWith(backgroundColor: panelColor),
+      bottomSheetTheme: base.bottomSheetTheme.copyWith(
+        backgroundColor: panelColor,
+        modalBackgroundColor: panelColor,
+      ),
       appBarTheme: base.appBarTheme.copyWith(
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
+        backgroundColor: Colors.transparent,
+        foregroundColor: appliedScheme.onSurface,
+        surfaceTintColor: Colors.transparent,
       ),
     );
   }

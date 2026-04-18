@@ -102,6 +102,26 @@ CREATE TABLE ${DbConstants.tableSongStats} (
         await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_song_stats_playcount ON ${DbConstants.tableSongStats}(playCount)',
         );
+        await db.execute('''
+CREATE TABLE ${DbConstants.tableAlbumStats} (
+  albumName TEXT PRIMARY KEY,
+  playCount INTEGER NOT NULL,
+  lastPlayedMs INTEGER NOT NULL
+)
+''');
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_album_stats_playcount ON ${DbConstants.tableAlbumStats}(playCount)',
+        );
+        await db.execute('''
+CREATE TABLE ${DbConstants.tablePlaylistStats} (
+  playlistId TEXT PRIMARY KEY,
+  playCount INTEGER NOT NULL,
+  lastPlayedMs INTEGER NOT NULL
+)
+''');
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_playlist_stats_playcount ON ${DbConstants.tablePlaylistStats}(playCount)',
+        );
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -196,6 +216,28 @@ CREATE TABLE IF NOT EXISTS ${DbConstants.tableSongStats} (
         if (oldVersion < 8) {
           await db.execute(
             'ALTER TABLE ${DbConstants.tableSongs} ADD COLUMN localAssetId TEXT',
+          );
+        }
+        if (oldVersion < 9) {
+          await db.execute('''
+CREATE TABLE IF NOT EXISTS ${DbConstants.tableAlbumStats} (
+  albumName TEXT PRIMARY KEY,
+  playCount INTEGER NOT NULL,
+  lastPlayedMs INTEGER NOT NULL
+)
+''');
+          await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_album_stats_playcount ON ${DbConstants.tableAlbumStats}(playCount)',
+          );
+          await db.execute('''
+CREATE TABLE IF NOT EXISTS ${DbConstants.tablePlaylistStats} (
+  playlistId TEXT PRIMARY KEY,
+  playCount INTEGER NOT NULL,
+  lastPlayedMs INTEGER NOT NULL
+)
+''');
+          await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_playlist_stats_playcount ON ${DbConstants.tablePlaylistStats}(playCount)',
           );
         }
       },

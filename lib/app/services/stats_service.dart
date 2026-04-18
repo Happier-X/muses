@@ -30,14 +30,35 @@ class SongListeningStat {
   });
 }
 
+class AlbumPlaybackStat {
+  final String albumName;
+  final int playCount;
+  final int lastPlayedMs;
+
+  const AlbumPlaybackStat({
+    required this.albumName,
+    required this.playCount,
+    required this.lastPlayedMs,
+  });
+}
+
+class PlaylistPlaybackStat {
+  final String playlistId;
+  final int playCount;
+  final int lastPlayedMs;
+
+  const PlaylistPlaybackStat({
+    required this.playlistId,
+    required this.playCount,
+    required this.lastPlayedMs,
+  });
+}
+
 class StatsTotals {
   final int listenMs;
   final int playCount;
 
-  const StatsTotals({
-    required this.listenMs,
-    required this.playCount,
-  });
+  const StatsTotals({required this.listenMs, required this.playCount});
 }
 
 class StatsService {
@@ -137,6 +158,84 @@ class StatsService {
         .toList();
   }
 
+  Future<List<SongListeningStat>> fetchRecentSongs({int limit = 20}) async {
+    final db = await DbHelper.instance.database;
+    final rows = await db.query(
+      DbConstants.tableSongStats,
+      orderBy: 'lastPlayedMs DESC, playCount DESC, listenMs DESC',
+      limit: limit,
+    );
+    return rows
+        .map(
+          (row) => SongListeningStat(
+            songId: row['songId'].toString(),
+            listenMs: _parseInt(row['listenMs']),
+            playCount: _parseInt(row['playCount']),
+            lastPlayedMs: _parseInt(row['lastPlayedMs']),
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<AlbumPlaybackStat>> fetchRecentAlbums({int limit = 20}) async {
+    final db = await DbHelper.instance.database;
+    final rows = await db.query(
+      DbConstants.tableAlbumStats,
+      orderBy: 'lastPlayedMs DESC, playCount DESC',
+      limit: limit,
+    );
+    return rows
+        .map(
+          (row) => AlbumPlaybackStat(
+            albumName: row['albumName'].toString(),
+            playCount: _parseInt(row['playCount']),
+            lastPlayedMs: _parseInt(row['lastPlayedMs']),
+          ),
+        )
+        .where((row) => row.albumName.trim().isNotEmpty)
+        .toList();
+  }
+
+  Future<List<PlaylistPlaybackStat>> fetchRecentPlaylists({
+    int limit = 20,
+  }) async {
+    final db = await DbHelper.instance.database;
+    final rows = await db.query(
+      DbConstants.tablePlaylistStats,
+      orderBy: 'lastPlayedMs DESC, playCount DESC',
+      limit: limit,
+    );
+    return rows
+        .map(
+          (row) => PlaylistPlaybackStat(
+            playlistId: row['playlistId'].toString(),
+            playCount: _parseInt(row['playCount']),
+            lastPlayedMs: _parseInt(row['lastPlayedMs']),
+          ),
+        )
+        .where((row) => row.playlistId.trim().isNotEmpty)
+        .toList();
+  }
+
+  Future<void> recordAlbumPlay(String albumName) async {
+    final normalized = albumName.trim().isEmpty ? '未知专辑' : albumName.trim();
+    await _recordEntityPlay(
+      table: DbConstants.tableAlbumStats,
+      idColumn: 'albumName',
+      idValue: normalized,
+    );
+  }
+
+  Future<void> recordPlaylistPlay(String playlistId) async {
+    final normalized = playlistId.trim();
+    if (normalized.isEmpty) return;
+    await _recordEntityPlay(
+      table: DbConstants.tablePlaylistStats,
+      idColumn: 'playlistId',
+      idValue: normalized,
+    );
+  }
+
   Future<StatsTotals> fetchTotalStats() async {
     final db = await DbHelper.instance.database;
     final rows = await db.rawQuery(
@@ -199,19 +298,15 @@ class StatsService {
             limit: 1,
           );
           if (rows.isEmpty) {
-            await txn.insert(
-              DbConstants.tableSongStats,
-              {
-                'songId': songId,
-                'listenMs': songListenMs,
-                'playCount': songPlayCount,
-                'lastPlayedMs': nowMs,
-              },
-            );
+            await txn.insert(DbConstants.tableSongStats, {
+              'songId': songId,
+              'listenMs': songListenMs,
+              'playCount': songPlayCount,
+              'lastPlayedMs': nowMs,
+            });
           } else {
             final current = rows.first;
-            final nextListenMs =
-                _parseInt(current['listenMs']) + songListenMs;
+            final nextListenMs = _parseInt(current['listenMs']) + songListenMs;
             final nextPlayCount =
                 _parseInt(current['playCount']) + songPlayCount;
             await txn.update(
@@ -235,26 +330,19 @@ class StatsService {
             limit: 1,
           );
           if (rows.isEmpty) {
-            await txn.insert(
-              DbConstants.tableListeningDays,
-              {
-                'dayKey': dayKey,
-                'listenMs': dayListenMs,
-                'playCount': dayPlayCount,
-              },
-            );
+            await txn.insert(DbConstants.tableListeningDays, {
+              'dayKey': dayKey,
+              'listenMs': dayListenMs,
+              'playCount': dayPlayCount,
+            });
           } else {
             final current = rows.first;
-            final nextListenMs =
-                _parseInt(current['listenMs']) + dayListenMs;
+            final nextListenMs = _parseInt(current['listenMs']) + dayListenMs;
             final nextPlayCount =
                 _parseInt(current['playCount']) + dayPlayCount;
             await txn.update(
               DbConstants.tableListeningDays,
-              {
-                'listenMs': nextListenMs,
-                'playCount': nextPlayCount,
-              },
+              {'listenMs': nextListenMs, 'playCount': nextPlayCount},
               where: 'dayKey = ?',
               whereArgs: [dayKey],
             );
@@ -268,5 +356,40 @@ class StatsService {
     } finally {
       _flushRunning = false;
     }
+  }
+
+  Future<void> _recordEntityPlay({
+    required String table,
+    required String idColumn,
+    required String idValue,
+  }) async {
+    final db = await DbHelper.instance.database;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        table,
+        columns: ['playCount'],
+        where: '$idColumn = ?',
+        whereArgs: [idValue],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        await txn.insert(table, {
+          idColumn: idValue,
+          'playCount': 1,
+          'lastPlayedMs': nowMs,
+        });
+        return;
+      }
+      await txn.update(
+        table,
+        {
+          'playCount': _parseInt(rows.first['playCount']) + 1,
+          'lastPlayedMs': nowMs,
+        },
+        where: '$idColumn = ?',
+        whereArgs: [idValue],
+      );
+    });
   }
 }

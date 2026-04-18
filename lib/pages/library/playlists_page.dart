@@ -7,6 +7,7 @@ import 'package:signals_flutter/signals_flutter.dart' hide computed;
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/player_service.dart';
 import '../../app/services/playlists_service.dart';
+import '../../app/services/stats_service.dart';
 import '../../app/router/app_page_route.dart';
 import '../../app/state/song_state.dart';
 import '../../app/utils/cache_version_store.dart';
@@ -411,6 +412,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     with SignalsMixin {
   final PlaylistsService _service = PlaylistsService.instance;
   final SongDao _songDao = SongDao();
+  final StatsService _statsService = StatsService.instance;
 
   late final _loading = createSignal(true);
   late final _playlist = createSignal<PlaylistEntity?>(null);
@@ -731,6 +733,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
                         if (!_isSequentialPlay.value) {
                           queue.shuffle();
                         }
+                        await _statsService.recordPlaylistPlay(
+                          widget.playlistId,
+                        );
                         await player.playQueue(queue, 0);
                       },
                       onTogglePlayMode: _togglePlayMode,
@@ -941,6 +946,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
               _selectedIds.value = next;
               return;
             }
+            await _statsService.recordPlaylistPlay(widget.playlistId);
             await player.playQueue(_songs.value, index);
           },
           onLongPress: () {

@@ -10,13 +10,20 @@ import '../../app/services/db/dao/song_dao.dart';
 import '../../app/router/app_page_route.dart';
 import '../../app/services/library_refresh_service.dart';
 import '../../app/services/player_service.dart';
+import '../../app/services/playlists_service.dart';
+import '../../app/services/stats_service.dart';
+import '../../app/state/song_state.dart';
+import '../../app/theme/app_styles.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
 import '../../app/utils/cache_version_store.dart';
 import '../../app/utils/page_cache_store.dart';
+import '../../components/common/artwork_widget.dart';
 import '../../components/index.dart';
 import '../library/albums_page.dart';
 import '../library/artists_page.dart';
+import '../library/library_detail_pages.dart';
 import '../library/playlists_page.dart';
+import 'recent_playback_page.dart';
 import '../songs/songs_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -34,6 +41,8 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
       GlobalKey<AppPageScaffoldState>();
   final SongDao _songDao = SongDao();
   final PlayerService _player = PlayerService.instance;
+  final PlaylistsService _playlistsService = PlaylistsService.instance;
+  final StatsService _statsService = StatsService.instance;
   final LibraryRefreshService _libraryRefreshService =
       LibraryRefreshService.instance;
   final WebDavSourceRepository _webDavRepo = WebDavSourceRepository.instance;
@@ -48,6 +57,9 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
   late final _countRemote = createSignal(0);
   late final _webDavSources = createSignal<List<WebDavSource>>([]);
   late final _webDavCounts = createSignal<Map<String, int>>({});
+  late final _recentSongs = createSignal<List<SongEntity>>([]);
+  late final _recentAlbums = createSignal<List<_RecentAlbumItem>>([]);
+  late final _recentPlaylists = createSignal<List<PlaylistEntity>>([]);
 
   late final _webDavNameMap = computed<Map<String, String>>(() {
     final map = <String, String>{};
@@ -178,9 +190,14 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
       _songDao.countRemote(),
     ]);
     final sourcesFuture = _webDavRepo.loadSources();
+    final recentSongsFuture = _loadRecentSongs();
+    final recentPlaylistsFuture = _loadRecentPlaylists();
 
     final counts = await countsFuture;
     final sources = await sourcesFuture;
+    final recentSongs = await recentSongsFuture;
+    final recentPlaylists = await recentPlaylistsFuture;
+    final recentAlbums = _buildRecentAlbums(recentSongs);
 
     Map<String, int> webdavCounts;
     if (includeWebDavCounts) {
@@ -228,7 +245,42 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
     _countRemote.value = counts[2];
     _webDavSources.value = sources;
     _webDavCounts.value = webdavCounts;
+    _recentSongs.value = recentSongs;
+    _recentPlaylists.value = recentPlaylists;
+    _recentAlbums.value = recentAlbums;
     _loading.value = false;
+  }
+
+  Future<List<SongEntity>> _loadRecentSongs() async {
+    final recentStats = await _statsService.fetchRecentSongs(limit: 12);
+    final ids = recentStats
+        .map((e) => e.songId)
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (ids.isEmpty) return const [];
+    final songs = await _songDao.fetchByIds(ids);
+    return songs.take(6).toList();
+  }
+
+  Future<List<PlaylistEntity>> _loadRecentPlaylists() async {
+    final playlists = await _playlistsService.loadAll();
+    final sorted = playlists.toList()
+      ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
+    return sorted.take(6).toList();
+  }
+
+  List<_RecentAlbumItem> _buildRecentAlbums(List<SongEntity> songs) {
+    final items = <_RecentAlbumItem>[];
+    final seen = <String>{};
+    for (final song in songs) {
+      final albumName = (song.album ?? '').trim().isEmpty
+          ? '未知专辑'
+          : song.album!.trim();
+      if (!seen.add(albumName)) continue;
+      items.add(_RecentAlbumItem(name: albumName, representative: song));
+      if (items.length >= 6) break;
+    }
+    return items;
   }
 
   Future<void> _refreshWebDavCounts() async {
@@ -424,6 +476,65 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
                   );
                 },
               ),
+              const SizedBox(height: 24),
+              _HomeSectionCard(
+                title: '最近歌曲',
+                actionLabel: '查看更多',
+                onTapAction: () {
+                  _pushLibraryPage(
+                    const RecentPlaybackPage(
+                      initialTab: RecentPlaybackTab.songs,
+                    ),
+                  );
+                },
+                child: _HomeRecentSongsList(
+                  songs: _recentSongs.value,
+                  onTapSong: (song) async {
+                    final queue = _recentSongs.value;
+                    final index = queue.indexWhere((e) => e.id == song.id);
+                    if (index < 0) return;
+                    await _player.playQueue(queue, index);
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              _HomeSectionCard(
+                title: '最近歌单',
+                actionLabel: '查看更多',
+                onTapAction: () {
+                  _pushLibraryPage(
+                    const RecentPlaybackPage(
+                      initialTab: RecentPlaybackTab.playlists,
+                    ),
+                  );
+                },
+                child: _HomeRecentPlaylistsList(
+                  playlists: _recentPlaylists.value,
+                  onTapPlaylist: (playlist) {
+                    _pushLibraryPage(
+                      PlaylistDetailPage(playlistId: playlist.id),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              _HomeSectionCard(
+                title: '最近专辑',
+                actionLabel: '查看更多',
+                onTapAction: () {
+                  _pushLibraryPage(
+                    const RecentPlaybackPage(
+                      initialTab: RecentPlaybackTab.albums,
+                    ),
+                  );
+                },
+                child: _HomeRecentAlbumsList(
+                  albums: _recentAlbums.value,
+                  onTapAlbum: (album) {
+                    _pushLibraryPage(AlbumDetailPage(albumName: album.name));
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -464,6 +575,13 @@ class _HomeCountsCache {
   }
 }
 
+class _RecentAlbumItem {
+  final String name;
+  final SongEntity representative;
+
+  const _RecentAlbumItem({required this.name, required this.representative});
+}
+
 class _HomeStatsRow extends StatelessWidget {
   final bool loading;
   final String filterLabel;
@@ -478,13 +596,8 @@ class _HomeStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark
-        ? const Color(0xFF1F2329)
-        : const Color.fromARGB(242, 255, 255, 255);
-    final shadowColor = isDark
-        ? const Color.fromARGB(28, 0, 0, 0)
-        : const Color.fromARGB(15, 0, 0, 0);
+    final bg = theme.appPanelColor;
+    final shadowColor = theme.appPanelShadowColor;
 
     return Container(
       decoration: BoxDecoration(
@@ -553,13 +666,10 @@ class _HomeEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark
-        ? const Color(0xFF1F2329)
-        : const Color.fromARGB(242, 255, 255, 255);
-    final shadowColor = isDark
-        ? const Color.fromARGB(28, 0, 0, 0)
-        : const Color.fromARGB(15, 0, 0, 0);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardColor = theme.appPanelColor;
+    final shadowColor = theme.appPanelShadowColor;
     final iconColor = isDark
         ? Colors.white70
         : const Color.fromARGB(255, 40, 40, 40);
@@ -602,6 +712,250 @@ class _HomeEntryCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeSectionCard extends StatelessWidget {
+  final String title;
+  final String actionLabel;
+  final VoidCallback onTapAction;
+  final Widget child;
+
+  const _HomeSectionCard({
+    required this.title,
+    required this.actionLabel,
+    required this.onTapAction,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cardColor = theme.appPanelColor;
+    final shadowColor = theme.appPanelShadowColor;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: shadowColor,
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: onTapAction,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        actionLabel,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeRecentSongsList extends StatelessWidget {
+  final List<SongEntity> songs;
+  final ValueChanged<SongEntity> onTapSong;
+
+  const _HomeRecentSongsList({required this.songs, required this.onTapSong});
+
+  @override
+  Widget build(BuildContext context) {
+    if (songs.isEmpty) {
+      return _HomeEmptyState(text: '还没有最近播放记录');
+    }
+    return Column(
+      children: songs.map((song) {
+        final subtitle = [
+          song.artist.trim(),
+          (song.album ?? '').trim(),
+        ].where((e) => e.isNotEmpty).join(' · ');
+        return AppListTile(
+          leading: ArtworkWidget(
+            song: song,
+            size: 44,
+            borderRadius: 10,
+            placeholder: _ArtworkPlaceholder(
+              label: song.title.isEmpty ? '?' : song.title.substring(0, 1),
+            ),
+          ),
+          title: song.title,
+          subtitle: subtitle.isEmpty ? '未知信息' : subtitle,
+          onTap: () => onTapSong(song),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _HomeRecentPlaylistsList extends StatelessWidget {
+  final List<PlaylistEntity> playlists;
+  final ValueChanged<PlaylistEntity> onTapPlaylist;
+
+  const _HomeRecentPlaylistsList({
+    required this.playlists,
+    required this.onTapPlaylist,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (playlists.isEmpty) {
+      return _HomeEmptyState(text: '还没有可展示的最近歌单');
+    }
+    return Column(
+      children: playlists.map((playlist) {
+        final subtitle = playlist.isFavorite
+            ? '我喜欢 · ${playlist.songIds.length} 首'
+            : '${playlist.songIds.length} 首';
+        return AppListTile(
+          leading: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.12),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              playlist.isFavorite
+                  ? Icons.favorite_rounded
+                  : Icons.queue_music_rounded,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          title: playlist.name,
+          subtitle: subtitle,
+          onTap: () => onTapPlaylist(playlist),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _HomeRecentAlbumsList extends StatelessWidget {
+  final List<_RecentAlbumItem> albums;
+  final ValueChanged<_RecentAlbumItem> onTapAlbum;
+
+  const _HomeRecentAlbumsList({required this.albums, required this.onTapAlbum});
+
+  @override
+  Widget build(BuildContext context) {
+    if (albums.isEmpty) {
+      return _HomeEmptyState(text: '还没有最近播放过的专辑');
+    }
+    return Column(
+      children: albums.map((album) {
+        final artist = album.representative.artist.trim();
+        return AppListTile(
+          leading: ArtworkWidget(
+            song: album.representative,
+            size: 44,
+            borderRadius: 10,
+            placeholder: _ArtworkPlaceholder(
+              label: album.name.isEmpty ? '?' : album.name.substring(0, 1),
+            ),
+          ),
+          title: album.name,
+          subtitle: artist.isEmpty ? '未知艺术家' : artist,
+          onTap: () => onTapAlbum(album),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _HomeEmptyState extends StatelessWidget {
+  final String text;
+
+  const _HomeEmptyState({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.62),
+        ),
+      ),
+    );
+  }
+}
+
+class _ArtworkPlaceholder extends StatelessWidget {
+  final String label;
+
+  const _ArtworkPlaceholder({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label.substring(0, 1).toUpperCase(),
+        style: TextStyle(
+          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

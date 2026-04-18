@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
+
 import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/lyrics/lyrics_repository.dart';
 import '../../app/services/player_service.dart';
 import '../../app/state/song_state.dart';
+import '../../app/theme/app_styles.dart';
 import '../../components/common/artwork_widget.dart';
 import '../../components/index.dart';
 import '../songs/song_detail_sheet.dart';
 
-enum SearchCategory {
-  all,
-  song,
-  album,
-  artist,
-  lyric,
-}
+enum SearchCategory { all, song, album, artist, lyric }
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -105,7 +101,9 @@ class _SearchPageState extends State<SearchPage> {
     setState(() {
       _searchingLyrics = true;
     });
-    final base = _category == SearchCategory.all ? _filterSimple(q) : <SongEntity>[];
+    final base = _category == SearchCategory.all
+        ? _filterSimple(q)
+        : <SongEntity>[];
     final baseIds = base.map((e) => e.id).toSet();
     final lyricMatches = <SongEntity>[];
     for (final song in _allSongs) {
@@ -119,7 +117,9 @@ class _SearchPageState extends State<SearchPage> {
     }
     if (!mounted || token != _searchToken) return;
     setState(() {
-      _results = _category == SearchCategory.all ? [...base, ...lyricMatches] : lyricMatches;
+      _results = _category == SearchCategory.all
+          ? [...base, ...lyricMatches]
+          : lyricMatches;
       _searchingLyrics = false;
     });
   }
@@ -129,11 +129,11 @@ class _SearchPageState extends State<SearchPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final selectedColor = theme.colorScheme.primary;
-    final selectedTextColor = Colors.white;
-    final unselectedBg =
-        isDark ? const Color(0xFF1F2329) : const Color.fromARGB(230, 255, 255, 255);
-    final unselectedText =
-        isDark ? Colors.white70 : const Color.fromARGB(255, 80, 80, 80);
+    final selectedTextColor = theme.colorScheme.onPrimary;
+    final unselectedBg = theme.appPanelColor;
+    final unselectedText = isDark
+        ? Colors.white70
+        : const Color.fromARGB(255, 80, 80, 80);
 
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -186,8 +186,10 @@ class _SearchPageState extends State<SearchPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: TextField(
                       controller: _controller,
                       autofocus: false,
@@ -214,9 +216,7 @@ class _SearchPageState extends State<SearchPage> {
                                 },
                               ),
                         filled: true,
-                        fillColor: isDark
-                            ? const Color(0xFF1F2329)
-                            : const Color.fromARGB(242, 255, 255, 255),
+                        fillColor: theme.appPanelColor,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 10,
@@ -230,7 +230,10 @@ class _SearchPageState extends State<SearchPage> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
@@ -252,8 +255,8 @@ class _SearchPageState extends State<SearchPage> {
                               _query.trim().isEmpty
                                   ? '请输入关键字进行搜索'
                                   : _searchingLyrics
-                                      ? '正在搜索歌词...'
-                                      : '没有匹配的结果',
+                                  ? '正在搜索歌词...'
+                                  : '没有匹配的结果',
                               style: TextStyle(
                                 color: isDark
                                     ? Colors.white70
