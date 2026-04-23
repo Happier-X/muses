@@ -423,6 +423,7 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
                 loading: _loading.value,
                 filterLabel: _filterTitle.value,
                 songCount: _filterCount.value,
+                onTap: _showSourceSheet,
               ),
               const SizedBox(height: 14),
               LayoutBuilder(
@@ -587,11 +588,13 @@ class _HomeStatsRow extends StatelessWidget {
   final bool loading;
   final String filterLabel;
   final int songCount;
+  final VoidCallback? onTap;
 
   const _HomeStatsRow({
     required this.loading,
     required this.filterLabel,
     required this.songCount,
+    this.onTap,
   });
 
   @override
@@ -600,48 +603,72 @@ class _HomeStatsRow extends StatelessWidget {
     final bg = theme.appPanelColor;
     final shadowColor = theme.appPanelShadowColor;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: shadowColor,
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: shadowColor,
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Icon(Icons.library_music_rounded, color: theme.colorScheme.primary),
-          const SizedBox(width: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.library_music_rounded, 
+              color: theme.colorScheme.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Text(
               filterLabel,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
           if (loading)
             Text(
               '--',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface.withAlpha(204),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             )
           else
             Text(
               '$songCount 首',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface.withAlpha(204),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
+          const SizedBox(width: 4),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 20,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+          ),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -672,8 +699,8 @@ class _HomeEntryCard extends StatelessWidget {
     final cardColor = theme.appPanelColor;
     final shadowColor = theme.appPanelShadowColor;
     final iconColor = isDark
-        ? Colors.white70
-        : const Color.fromARGB(255, 40, 40, 40);
+        ? theme.colorScheme.primary.withValues(alpha: 0.9)
+        : theme.colorScheme.primary;
     final textColor = isDark
         ? Colors.white
         : const Color.fromARGB(255, 45, 45, 45);
@@ -681,34 +708,40 @@ class _HomeEntryCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Container(
-          height: 88,
+          height: 96,
           decoration: BoxDecoration(
             color: cardColor,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
                 color: shadowColor,
-                blurRadius: 14,
-                offset: const Offset(0, 6),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, size: 28, color: iconColor),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
-                  ),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 22, color: iconColor),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
                 ),
               ),
             ],
@@ -741,16 +774,16 @@ class _HomeSectionCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: shadowColor,
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -820,12 +853,24 @@ class _HomeRecentSongsList extends StatelessWidget {
           (song.album ?? '').trim(),
         ].where((e) => e.isNotEmpty).join(' · ');
         return AppListTile(
-          leading: ArtworkWidget(
-            song: song,
-            size: 44,
-            borderRadius: 10,
-            placeholder: _ArtworkPlaceholder(
-              label: song.title.isEmpty ? '?' : song.title.substring(0, 1),
+          leading: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ArtworkWidget(
+              song: song,
+              size: 44,
+              borderRadius: 10,
+              placeholder: _ArtworkPlaceholder(
+                label: song.title.isEmpty ? '?' : song.title.substring(0, 1),
+              ),
             ),
           ),
           title: song.title,
@@ -865,6 +910,13 @@ class _HomeRecentPlaylistsList extends StatelessWidget {
               color: Theme.of(
                 context,
               ).colorScheme.primary.withValues(alpha: 0.12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             alignment: Alignment.center,
             child: Icon(
@@ -898,12 +950,24 @@ class _HomeRecentAlbumsList extends StatelessWidget {
       children: albums.map((album) {
         final artist = album.representative.artist.trim();
         return AppListTile(
-          leading: ArtworkWidget(
-            song: album.representative,
-            size: 44,
-            borderRadius: 10,
-            placeholder: _ArtworkPlaceholder(
-              label: album.name.isEmpty ? '?' : album.name.substring(0, 1),
+          leading: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ArtworkWidget(
+              song: album.representative,
+              size: 44,
+              borderRadius: 10,
+              placeholder: _ArtworkPlaceholder(
+                label: album.name.isEmpty ? '?' : album.name.substring(0, 1),
+              ),
             ),
           ),
           title: album.name,
@@ -950,6 +1014,13 @@ class _ArtworkPlaceholder extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       alignment: Alignment.center,
       child: Text(

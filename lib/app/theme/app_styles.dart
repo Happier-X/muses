@@ -55,29 +55,47 @@ extension AppThemeSurfaceX on ThemeData {
   }
 
   Color get appPanelColor {
-    final base = brightness == Brightness.dark
-        ? colorScheme.surfaceContainerHigh
-        : colorScheme.surfaceContainerLow;
+    final isDark = brightness == Brightness.dark;
+    final base = isDark
+        ? Color.alphaBlend(
+            colorScheme.primary.withValues(alpha: 0.08),
+            colorScheme.surfaceContainerHigh,
+          )
+        : Color.alphaBlend(
+            colorScheme.primary.withValues(alpha: 0.12),
+            Colors.white,
+          );
     if (!hasAmbientBackground) return base;
-    final overlay = brightness == Brightness.dark
-        ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.92)
-        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.98);
-    return Color.alphaBlend(overlay, colorScheme.surface);
+    
+    final overlayColor = isDark
+        ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.65)
+        : Colors.white.withValues(alpha: 0.70);
+        
+    return Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.06), 
+      overlayColor,
+    );
   }
 
-  Color get appPanelShadowColor => brightness == Brightness.dark
-      ? Colors.black.withValues(alpha: 0.22)
-      : Colors.black.withValues(alpha: 0.08);
+  Color get appPanelShadowColor {
+    final isDark = brightness == Brightness.dark;
+    return isDark
+        ? Colors.black.withValues(alpha: 0.35)
+        : colorScheme.primary.withValues(alpha: 0.16);
+  }
 
-  Color get appPanelBorderColor => brightness == Brightness.dark
-      ? colorScheme.outline.withValues(alpha: 0.36)
-      : colorScheme.outline.withValues(alpha: 0.22);
+  Color get appPanelBorderColor {
+    final isDark = brightness == Brightness.dark;
+    return isDark
+        ? colorScheme.outline.withValues(alpha: 0.36)
+        : colorScheme.primary.withValues(alpha: 0.12);
+  }
 
   Color get appPanelElevatedColor {
     final base = appPanelColor;
     final overlay = brightness == Brightness.dark
         ? Colors.white.withValues(alpha: 0.05)
-        : Colors.white.withValues(alpha: 0.16);
+        : Colors.white.withValues(alpha: 0.25);
     return Color.alphaBlend(overlay, base);
   }
 }

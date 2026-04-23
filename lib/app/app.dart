@@ -17,19 +17,41 @@ class NagoMusicApp extends StatelessWidget {
 
   ThemeData _applyDynamic(ThemeData base, ColorScheme? scheme) {
     final appliedScheme = scheme ?? base.colorScheme;
-    final panelColor = base.brightness == Brightness.dark
-        ? appliedScheme.surfaceContainerHigh
-        : appliedScheme.surfaceContainerLow;
+    final isDark = base.brightness == Brightness.dark;
+    
+    final scaffoldBg = isDark
+        ? Color.alphaBlend(
+            appliedScheme.primary.withValues(alpha: 0.04),
+            appliedScheme.surface,
+          )
+        : Color.alphaBlend(
+            appliedScheme.primary.withValues(alpha: 0.06),
+            appliedScheme.surface,
+          );
+
+    final panelColor = isDark
+        ? Color.alphaBlend(
+            appliedScheme.primary.withValues(alpha: 0.08),
+            appliedScheme.surfaceContainerHigh,
+          )
+        : Color.alphaBlend(
+            appliedScheme.primary.withValues(alpha: 0.12),
+            Colors.white,
+          );
+
+    final shadowColor = isDark
+        ? Colors.black.withValues(alpha: 0.35)
+        : appliedScheme.primary.withValues(alpha: 0.16);
+
     return base.copyWith(
       colorScheme: appliedScheme,
       primaryColor: appliedScheme.primary,
-      scaffoldBackgroundColor: appliedScheme.surface,
+      scaffoldBackgroundColor: scaffoldBg,
       cardColor: panelColor,
       cardTheme: base.cardTheme.copyWith(
         color: panelColor,
-        shadowColor: Colors.black.withValues(
-          alpha: base.brightness == Brightness.dark ? 0.2 : 0.08,
-        ),
+        shadowColor: shadowColor,
+        elevation: 0,
       ),
       dialogTheme: base.dialogTheme.copyWith(backgroundColor: panelColor),
       bottomSheetTheme: base.bottomSheetTheme.copyWith(

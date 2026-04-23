@@ -56,8 +56,8 @@ class _AppBackgroundState extends State<AppBackground>
             imagePath != null &&
             imagePath.isNotEmpty &&
             File(imagePath).existsSync();
-        final baseColor = colorScheme.surface;
-        final maskColor = colorScheme.surface.withValues(alpha: maskOpacity);
+        final baseColor = theme.scaffoldBackgroundColor;
+        final maskColor = theme.scaffoldBackgroundColor.withValues(alpha: maskOpacity);
         return Container(
           color: baseColor,
           child: Stack(

@@ -45,13 +45,19 @@ class SideMenu extends StatelessWidget {
                       width: 50,
                       height: 50,
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: Icon(
-                        Icons.music_note_rounded,
-                        color: colorScheme.onPrimaryContainer,
-                        size: 28,
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.asset(
+                        '开发文档/NagoAPP图标.png',
+                        fit: BoxFit.cover,
                       ),
                     ),
                     const SizedBox(width: 16),

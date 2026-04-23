@@ -1,15 +1,17 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../../app/services/player_service.dart';
 import '../../../app/router/app_router.dart';
 import '../../../app/state/settings_state.dart';
 import '../../../app/state/song_state.dart';
+import '../../../app/theme/app_styles.dart';
 import '../../common/artwork_widget.dart';
 import '../../../pages/player/player_page.dart';
 import '../../../pages/player/widgets/player_bottom_panel.dart';
 
 class MiniPlayerBar extends StatelessWidget {
-  static const double estimatedHeight = 72.0;
+  static const double estimatedHeight = 76.0;
 
   final PlayerService player;
   final VoidCallback? onOpenPlayer;
@@ -26,9 +28,9 @@ class MiniPlayerBar extends StatelessWidget {
     PlayerService? player,
     this.onOpenPlayer,
     this.onOpenQueue,
-    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     this.artworkSize = 48,
-    this.borderRadius = 16,
+    this.borderRadius = 24,
     this.boxShadow,
     this.enableSwipe = true,
     this.trailing,
@@ -41,7 +43,8 @@ class MiniPlayerBar extends StatelessWidget {
       builder: (context, snapshot, child) {
         final song = snapshot.song;
         final hasSong = song != null;
-        final scheme = Theme.of(context).colorScheme;
+        final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
         final openPlayer = onOpenPlayer ??
             () {
               final isTabletLayout = AppLayoutSettings.tabletMode.value;
@@ -54,53 +57,96 @@ class MiniPlayerBar extends StatelessWidget {
         final openQueue =
             onOpenQueue ?? () => showPlayerPlaylistSheet(context, player);
 
-        final bgColor = scheme.surface.withAlpha(242);
-        final borderColor = scheme.outlineVariant.withAlpha(120);
-        final material = Material(
-          color: bgColor,
-          elevation: boxShadow == null ? 8 : 0,
-          shadowColor: Colors.black.withAlpha(38),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
-            side: BorderSide(color: borderColor, width: 1),
+        final isDark = theme.brightness == Brightness.dark;
+        final bgColor = isDark
+            ? scheme.surfaceContainerHigh.withValues(alpha: 0.75)
+            : Color.alphaBlend(
+                scheme.primary.withValues(alpha: 0.04),
+                Colors.white.withValues(alpha: 0.85),
+              );
+        
+        final border = Border.all(
+          color: isDark 
+              ? Colors.white.withValues(alpha: 0.08) 
+              : scheme.primary.withValues(alpha: 0.1),
+          width: 1,
+        );
+
+        final defaultShadow = [
+          BoxShadow(
+            color: theme.appPanelShadowColor,
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: openPlayer,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              child: Row(
-                children: [
-                  MiniPlayerArtwork(
-                    song: song,
-                    size: artworkSize,
-                    borderRadius: 4,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: MiniPlayerInfo(
-                      song: song,
-                      enableSwipe: enableSwipe,
-                      player: player,
-                      onOpenPlayer: openPlayer,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  MiniPlayerPlayButton(
-                    player: player,
-                    size: 32,
-                    enabled: hasSong,
-                  ),
-                  const SizedBox(width: 10),
-                  trailing ??
-                      MiniPlayerQueueButton(
-                        onPressed: hasSong ? openQueue : null,
-                        color: scheme.onSurface,
+        ];
+
+        final content = Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: border,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(borderRadius),
+              onTap: openPlayer,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                ],
+                      child: MiniPlayerArtwork(
+                        song: song,
+                        size: artworkSize,
+                        borderRadius: 10,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: MiniPlayerInfo(
+                        song: song,
+                        enableSwipe: enableSwipe,
+                        player: player,
+                        onOpenPlayer: openPlayer,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: scheme.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: MiniPlayerPlayButton(
+                        player: player,
+                        size: 32,
+                        enabled: hasSong,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    trailing ??
+                        MiniPlayerQueueButton(
+                          onPressed: hasSong ? openQueue : null,
+                          color: scheme.onSurface,
+                        ),
+                    const SizedBox(width: 4),
+                  ],
+                ),
               ),
             ),
           ),
@@ -108,15 +154,19 @@ class MiniPlayerBar extends StatelessWidget {
 
         return Padding(
           padding: padding,
-          child: boxShadow == null
-              ? material
-              : Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(borderRadius),
-                    boxShadow: boxShadow,
-                  ),
-                  child: material,
-                ),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(borderRadius),
+              boxShadow: boxShadow ?? defaultShadow,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(borderRadius),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: content,
+              ),
+            ),
+          ),
         );
       },
     );
