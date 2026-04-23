@@ -56,7 +56,8 @@ class MediaNotificationService {
   }
 }
 
-class _NagoAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
+class _NagoAudioHandler extends BaseAudioHandler
+    with QueueHandler, SeekHandler {
   final PlayerService player;
   static const String _actionCloseApp = 'close_app';
   static const String _actionFavorite = 'favorite';
@@ -85,12 +86,14 @@ class _NagoAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
 
   MediaItem _itemFromSong(SongEntity song) {
     final art = (song.localCoverPath ?? '').trim();
-    final lyricLine =
-        MediaNotificationSettings.showLyrics.value ? _currentLyricLine : null;
+    final lyricLine = MediaNotificationSettings.showLyrics.value
+        ? _currentLyricLine
+        : null;
     final titleText = song.title.trim();
     final artistText = song.artist.trim();
-    final songAndArtist =
-        artistText.isEmpty ? titleText : '$titleText · $artistText';
+    final songAndArtist = artistText.isEmpty
+        ? titleText
+        : '$titleText · $artistText';
     final lyricOnTop = MediaNotificationSettings.lyricOnTop.value;
     if (lyricOnTop && lyricLine != null) {
       return MediaItem(
@@ -130,7 +133,11 @@ class _NagoAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
     final favoriteIcon = _isFavorite
         ? 'drawable/audio_service_favorite_on'
         : 'drawable/audio_service_favorite';
-    final controls = <MediaControl>[];
+    final controls = <MediaControl>[
+      MediaControl.skipToPrevious,
+      playing ? MediaControl.pause : MediaControl.play,
+      MediaControl.skipToNext,
+    ];
     if (showClose) {
       controls.add(
         MediaControl.custom(
@@ -149,18 +156,13 @@ class _NagoAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
         ),
       );
     }
-    final prevIndex = controls.length;
-    controls.add(MediaControl.skipToPrevious);
-    final playIndex = controls.length;
-    controls.add(playing ? MediaControl.pause : MediaControl.play);
-    final nextIndex = controls.length;
-    controls.add(MediaControl.skipToNext);
-    final processing =
-        snap.queue.isEmpty ? AudioProcessingState.idle : AudioProcessingState.ready;
+    final processing = snap.queue.isEmpty
+        ? AudioProcessingState.idle
+        : AudioProcessingState.ready;
     return PlaybackState(
       controls: controls,
       systemActions: const {MediaAction.seek},
-      androidCompactActionIndices: [prevIndex, playIndex, nextIndex],
+      androidCompactActionIndices: const [0, 1, 2],
       processingState: processing,
       playing: playing,
       updatePosition: snap.position,
