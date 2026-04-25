@@ -1,0 +1,50 @@
+<resources>
+    <string name="app_name">Muses</string>
+
+    <!-- Navigation -->
+    <string name="tab_local">Local Music</string>
+    <string name="tab_webdav">WebDAV</string>
+
+    <!-- Library -->
+    <string name="local_music_empty">No music files found on your device</string>
+    <string name="local_music_loading">Scanning music library…</string>
+    <string name="local_music_permission_denied">Storage permission required to access music files</string>
+    <string name="local_music_error">Failed to load music library</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="track_artist_separator">%1$s — %2$s</string>
+    <string name="unknown_title">Unknown Title</string>
+    <string name="unknown_artist">Unknown Artist</string>
+    <string name="unknown_album">Unknown Album</string>
+
+    <!-- WebDAV -->
+    <string name="webdav_server_url">Server URL</string>
+    <string name="webdav_username">Username</string>
+    <string name="webdav_password">Password</string>
+    <string name="webdav_connect">Connect</string>
+    <string name="webdav_disconnect">Disconnect</string>
+    <string name="webdav_connected">Connected to %1$s</string>
+    <string name="webdav_loading">Loading directory…</string>
+    <string name="webdav_empty">This directory is empty</string>
+    <string name="webdav_error">Failed to connect: %1$s</string>
+    <string name="webdav_url_hint">https://example.com/webdav</string>
+    <string name="webdav_configure_prompt">Configure a WebDAV server to browse and play music</string>
+    <string name="webdav_directory">Directory</string>
+    <string name="webdav_parent_dir">Parent directory</string>
+
+    <!-- Player -->
+    <string name="player_no_track">Select a track to play</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="skip_next">Next</string>
+    <string name="skip_previous">Previous</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">Music Playback</string>
+
+    <!-- Validation -->
+    <string name="url_cannot_be_empty">URL cannot be empty</string>
+    <string name="url_must_be_http">URL must start with http:// or https://</string>
+
+    <!-- WebDAV item types -->
+    <string name="webdav_item_directory">Directory</string>
+</resources>

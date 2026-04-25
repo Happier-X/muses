@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Muses</string>
+
+    <!-- Navigation -->
+    <string name="tab_local">本地音乐</string>
+    <string name="tab_webdav">WebDAV</string>
+
+    <!-- Library -->
+    <string name="local_music_empty">设备上未找到音乐文件</string>
+    <string name="local_music_loading">正在扫描音乐库…</string>
+    <string name="local_music_permission_denied">需要存储权限才能访问音乐文件</string>
+    <string name="local_music_error">加载音乐库失败</string>
+    <string name="grant_permission">授予权限</string>
+    <string name="track_artist_separator">%1$s — %2$s</string>
+    <string name="unknown_title">未知标题</string>
+    <string name="unknown_artist">未知艺术家</string>
+    <string name="unknown_album">未知专辑</string>
+
+    <!-- WebDAV -->
+    <string name="webdav_server_url">服务器地址</string>
+    <string name="webdav_username">用户名</string>
+    <string name="webdav_password">密码</string>
+    <string name="webdav_connect">连接</string>
+    <string name="webdav_disconnect">断开</string>
+    <string name="webdav_connected">已连接到 %1$s</string>
+    <string name="webdav_loading">正在加载目录…</string>
+    <string name="webdav_empty">此目录为空</string>
+    <string name="webdav_error">连接失败：%1$s</string>
+    <string name="webdav_url_hint">https://example.com/webdav</string>
+    <string name="webdav_configure_prompt">配置 WebDAV 服务器以浏览和播放音乐</string>
+    <string name="webdav_directory">目录</string>
+    <string name="webdav_parent_dir">上级目录</string>
+
+    <!-- Player -->
+    <string name="player_no_track">选择一首歌曲开始播放</string>
+    <string name="play">播放</string>
+    <string name="pause">暂停</string>
+    <string name="skip_next">下一首</string>
+    <string name="skip_previous">上一首</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">音乐播放</string>
+
+    <!-- Validation -->
+    <string name="url_cannot_be_empty">地址不能为空</string>
+    <string name="url_must_be_http">地址必须以 http:// 或 https:// 开头</string>
+
+    <!-- WebDAV item types -->
+    <string name="webdav_item_directory">目录</string>
+</resources>
