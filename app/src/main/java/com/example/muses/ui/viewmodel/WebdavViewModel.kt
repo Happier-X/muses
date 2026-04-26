@@ -9,29 +9,34 @@ import com.example.muses.data.model.WebdavConfig
 import com.example.muses.data.repository.WebdavConfigManager
 import com.example.muses.data.repository.WebdavItem
 import com.example.muses.data.repository.WebdavRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed interface WebdavUiState {
-    /** Not yet configured — show config form. */
     data object NotConfigured : WebdavUiState
-    /** Connecting to server. */
     data object Connecting : WebdavUiState
-    /** Connected and browsing. */
     data class Browsing(
         val config: WebdavConfig,
         val currentPath: String,
         val items: List<WebdavItem>
     ) : WebdavUiState
-    /** Directory is empty. */
     data class EmptyDirectory(
         val config: WebdavConfig,
         val currentPath: String
     ) : WebdavUiState
-    /** An error occurred. */
+    data class AddingDirectory(
+        val config: WebdavConfig,
+        val currentPath: String,
+        val items: List<WebdavItem>,
+        val targetPath: String
+    ) : WebdavUiState
     data class Error(
         val message: String,
         val config: WebdavConfig? = null
@@ -49,8 +54,13 @@ class WebdavViewModel(application: Application) : AndroidViewModel(application) 
     private val _uiState = MutableStateFlow<WebdavUiState>(WebdavUiState.NotConfigured)
     val uiState: StateFlow<WebdavUiState> = _uiState.asStateFlow()
 
+    private val _addedTracks = MutableSharedFlow<List<AudioTrack>>()
+    val addedTracks: SharedFlow<List<AudioTrack>> = _addedTracks.asSharedFlow()
+
+    val lastConfig: WebdavConfig?
+        get() = WebdavConfigManager.load(getApplication())
+
     init {
-        // Load saved config if available
         val savedConfig = WebdavConfigManager.load(getApplication())
         if (savedConfig != null && savedConfig.isValid()) {
             connectAndBrowse(savedConfig)
@@ -79,9 +89,14 @@ class WebdavViewModel(application: Application) : AndroidViewModel(application) 
 
     fun goToParent() {
         val state = _uiState.value
-        if (state !is WebdavUiState.Browsing) return
-        val parent = repository.parentPath(state.currentPath)
-        browsePath(parent)
+        val config = when (state) {
+            is WebdavUiState.Browsing -> state.config to state.currentPath
+            is WebdavUiState.EmptyDirectory -> state.config to state.currentPath
+            else -> return
+        }
+        val (currentConfig, currentPath) = config
+        val parent = repository.parentPath(currentPath)
+        loadDirectory(currentConfig, parent)
     }
 
     fun toAudioTrack(item: WebdavItem): AudioTrack? {
@@ -90,8 +105,51 @@ class WebdavViewModel(application: Application) : AndroidViewModel(application) 
         return repository.toAudioTrack(item, config)
     }
 
+    fun addDirectory(path: String, recursive: Boolean) {
+        val state = _uiState.value
+        val browsingState = when (state) {
+            is WebdavUiState.Browsing -> state
+            is WebdavUiState.EmptyDirectory -> WebdavUiState.Browsing(state.config, state.currentPath, emptyList())
+            else -> return
+        }
+        _uiState.value = WebdavUiState.AddingDirectory(
+            config = browsingState.config,
+            currentPath = browsingState.currentPath,
+            items = browsingState.items,
+            targetPath = path
+        )
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                repository.listAudioFiles(browsingState.config, path, recursive)
+            }
+            result.fold(
+                onSuccess = { items ->
+                    val tracks = items.mapNotNull { item ->
+                        repository.toAudioTrack(item, browsingState.config)
+                    }
+                    Log.i(TAG, "Found ${tracks.size} tracks from $path (recursive=$recursive)")
+                    if (tracks.isNotEmpty()) {
+                        _addedTracks.emit(tracks)
+                    }
+                    _uiState.value = WebdavUiState.Browsing(
+                        config = browsingState.config,
+                        currentPath = browsingState.currentPath,
+                        items = browsingState.items
+                    )
+                },
+                onFailure = { error ->
+                    Log.e(TAG, "Failed to add directory $path", error)
+                    _uiState.value = WebdavUiState.Browsing(
+                        config = browsingState.config,
+                        currentPath = browsingState.currentPath,
+                        items = browsingState.items
+                    )
+                }
+            )
+        }
+    }
+
     fun disconnect() {
-        WebdavConfigManager.clear(getApplication())
         _uiState.value = WebdavUiState.NotConfigured
     }
 
@@ -102,7 +160,10 @@ class WebdavViewModel(application: Application) : AndroidViewModel(application) 
     private fun loadDirectory(config: WebdavConfig, path: String) {
         _uiState.value = WebdavUiState.Connecting
         viewModelScope.launch {
-            repository.listDirectory(config, path).fold(
+            val result = withContext(Dispatchers.IO) {
+                repository.listDirectory(config, path)
+            }
+            result.fold(
                 onSuccess = { items ->
                     _uiState.value = if (items.isEmpty()) {
                         WebdavUiState.EmptyDirectory(config, path)

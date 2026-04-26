@@ -5,6 +5,8 @@ import android.util.Log
 import com.example.muses.data.model.AudioTrack
 import com.example.muses.data.model.TrackSource
 import com.example.muses.data.model.WebdavConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -92,6 +94,47 @@ class WebdavRepository {
         }
     }
 
+    suspend fun listAudioFiles(
+        config: WebdavConfig,
+        path: String,
+        recursive: Boolean
+    ): Result<List<WebdavItem>> = withContext(Dispatchers.IO) {
+        try {
+            val audioFiles = mutableListOf<WebdavItem>()
+            collectAudioFiles(config, path, recursive, audioFiles)
+            Result.success(audioFiles)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to list audio files in $path", e)
+            Result.failure(e)
+        }
+    }
+
+    private fun collectAudioFiles(
+        config: WebdavConfig,
+        path: String,
+        recursive: Boolean,
+        result: MutableList<WebdavItem>
+    ) {
+        val dirResult = listDirectory(config, path)
+        dirResult.fold(
+            onSuccess = { items ->
+                Log.d(TAG, "collectAudioFiles: $path has ${items.size} items")
+                for (item in items) {
+                    if (item.isAudioFile) {
+                        Log.d(TAG, "  audio: ${item.displayName} (ct=${item.contentType})")
+                        result.add(item)
+                    } else if (recursive && item.isCollection) {
+                        Log.d(TAG, "  subdir: ${item.displayName}")
+                        collectAudioFiles(config, item.href, true, result)
+                    }
+                }
+            },
+            onFailure = { e ->
+                Log.w(TAG, "Skipping directory $path: ${e.message}")
+            }
+        )
+    }
+
     /**
      * Converts a [WebdavItem] to an [AudioTrack] for playback.
      */
@@ -130,11 +173,19 @@ class WebdavRepository {
         return base + cleanPath
     }
 
+    private fun localName(name: String): String {
+        val i = name.indexOf(':')
+        return if (i >= 0) name.substring(i + 1) else name
+    }
+
     // --- XML Parsing ---
 
     /**
      * Parses a WebDAV PROPFIND multistatus XML response.
      * Uses non-namespace-aware XmlPullParser for simplicity.
+     * Handles both prefixed (D:href) and unprefixed (href) tag names.
+     * Tracks current element via START_TAG/END_TAG since parser.name
+     * is unreliable during TEXT events.
      */
     private fun parsePropfindResponse(xml: String, baseUrl: String): List<WebdavItem> {
         val items = mutableListOf<WebdavItem>()
@@ -145,50 +196,56 @@ class WebdavRepository {
             val parser = factory.newPullParser()
             parser.setInput(StringReader(xml))
 
-            var eventType = parser.eventType
             var currentHref: String? = null
             var currentDisplayName: String? = null
             var currentContentType: String? = null
             var currentContentLength = 0L
             var currentIsCollection = false
             var inProp = false
+            var currentElement: String? = null
+            var textBuffer = StringBuilder()
 
+            var eventType = parser.eventType
             while (eventType != XmlPullParser.END_DOCUMENT) {
                 when (eventType) {
                     XmlPullParser.START_TAG -> {
-                        when (parser.name) {
+                        currentElement = localName(parser.name)
+                        textBuffer = StringBuilder()
+                        when (currentElement) {
                             "prop" -> inProp = true
+                            "collection" -> {
+                                if (inProp) currentIsCollection = true
+                            }
                         }
                     }
                     XmlPullParser.TEXT -> {
-                        when (parser.name) {
+                        textBuffer.append(parser.text ?: "")
+                    }
+                    XmlPullParser.END_TAG -> {
+                        val element = localName(parser.name)
+                        val text = textBuffer.toString().trim()
+                        when (element) {
                             "href" -> {
-                                val text = parser.text?.trim() ?: ""
-                                currentHref = decodeHref(text, baseUrl)
+                                if (text.isNotEmpty()) {
+                                    currentHref = decodeHref(text, baseUrl)
+                                }
                             }
                             "displayname" -> {
                                 if (inProp) {
-                                    currentDisplayName = parser.text?.trim()?.ifBlank { null }
+                                    currentDisplayName = text.ifBlank { null }
                                 }
                             }
                             "getcontenttype" -> {
                                 if (inProp) {
-                                    currentContentType = parser.text?.trim()?.ifBlank { null }
+                                    currentContentType = text.ifBlank { null }
                                 }
                             }
                             "getcontentlength" -> {
                                 if (inProp) {
-                                    currentContentLength = parser.text?.trim()?.toLongOrNull() ?: 0L
+                                    currentContentLength = text.toLongOrNull() ?: 0L
                                 }
                             }
-                        }
-                    }
-                    XmlPullParser.END_TAG -> {
-                        when (parser.name) {
                             "prop" -> inProp = false
-                            "collection" -> {
-                                if (inProp) currentIsCollection = true
-                            }
                             "response" -> {
                                 val href = currentHref
                                 if (href != null) {
@@ -204,7 +261,6 @@ class WebdavRepository {
                                         )
                                     )
                                 }
-                                // Reset for next response
                                 currentHref = null
                                 currentDisplayName = null
                                 currentContentType = null
@@ -212,6 +268,7 @@ class WebdavRepository {
                                 currentIsCollection = false
                             }
                         }
+                        currentElement = null
                     }
                 }
                 eventType = parser.next()
@@ -224,6 +281,8 @@ class WebdavRepository {
 
         return items
     }
+
+    // --- XML Parsing ---
 
     /**
      * Decodes URL-encoded href values returned by WebDAV servers.
@@ -273,8 +332,19 @@ data class WebdavItem(
     val contentLength: Long,
     val isCollection: Boolean
 ) {
+    private val AUDIO_EXTENSIONS = setOf(
+        "mp3", "flac", "wav", "ogg", "opus", "aac", "m4a", "wma",
+        "alac", "ape", "aiff", "m3u", "m3u8"
+    )
+
     val isAudioFile: Boolean
-        get() = !isCollection && contentType?.let { ct ->
-            ct.startsWith("audio/") || ct == "application/octet-stream"
-        } ?: false
+        get() {
+            if (isCollection) return false
+            if (contentType != null && contentType.startsWith("audio/")) return true
+            val ext = displayName.substringAfterLast('.').lowercase()
+            if (contentType == "application/octet-stream" || contentType == null) {
+                return ext in AUDIO_EXTENSIONS
+            }
+            return false
+        }
 }

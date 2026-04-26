@@ -122,7 +122,8 @@ fun MainContent() {
                         onTrackClick = { track -> playTrack(track, playerViewModel) }
                     )
                     1 -> WebdavScreen(
-                        onTrackClick = { track -> playTrack(track, playerViewModel) }
+                        onTrackClick = { track -> playTrack(track, playerViewModel) },
+                        onTracksAdded = { tracks -> playTracks(tracks, playerViewModel) }
                     )
                 }
             }
@@ -151,6 +152,21 @@ private fun playTrack(track: AudioTrack, playerViewModel: PlayerViewModel) {
         .build()
 
     playerViewModel.playTrack(mediaItem)
+}
+
+private fun playTracks(tracks: List<AudioTrack>, playerViewModel: PlayerViewModel) {
+    if (tracks.isEmpty()) return
+    val mediaItems = tracks.map { track ->
+        val metadataBuilder = MediaMetadata.Builder().setTitle(track.title)
+        if (track.artist.isNotBlank()) metadataBuilder.setArtist(track.artist)
+        if (track.album.isNotBlank()) metadataBuilder.setAlbumTitle(track.album)
+        MediaItem.Builder()
+            .setMediaId(track.id)
+            .setUri(track.uri)
+            .setMediaMetadata(metadataBuilder.build())
+            .build()
+    }
+    playerViewModel.playTracks(mediaItems)
 }
 
 @Preview(showBackground = true, showSystemUi = true)

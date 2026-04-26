@@ -46,6 +46,15 @@
     <string name="url_cannot_be_empty">地址不能为空</string>
     <string name="url_must_be_http">地址必须以 http:// 或 https:// 开头</string>
 
+    <string name="webdav_change_settings">修改设置</string>
+    <string name="webdav_show_password">显示密码</string>
+    <string name="webdav_hide_password">隐藏密码</string>
+
     <!-- WebDAV item types -->
     <string name="webdav_item_directory">目录</string>
+    <string name="webdav_add_directory">添加目录</string>
+    <string name="webdav_add_directory_desc">将\"%1$s\"中的音乐添加到播放列表</string>
+    <string name="webdav_add_recursive">包含子文件夹</string>
+    <string name="webdav_add_flat">仅此文件夹</string>
+    <string name="webdav_adding_directory">正在扫描 %1$s 中的音乐…</string>
 </resources>

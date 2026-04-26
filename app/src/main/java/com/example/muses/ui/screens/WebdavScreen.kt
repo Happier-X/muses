@@ -19,10 +19,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.SubdirectoryArrowRight
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +53,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -66,9 +72,34 @@ import com.example.muses.ui.viewmodel.WebdavViewModel
 fun WebdavScreen(
     modifier: Modifier = Modifier,
     viewModel: WebdavViewModel = viewModel(),
-    onTrackClick: (AudioTrack) -> Unit = {}
+    onTrackClick: (AudioTrack) -> Unit = {},
+    onTracksAdded: (List<AudioTrack>) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var addDirTarget by remember { mutableStateOf<WebdavItem?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.addedTracks.collect { tracks ->
+            if (tracks.isNotEmpty()) {
+                onTracksAdded(tracks)
+            }
+        }
+    }
+
+    if (addDirTarget != null) {
+        AddDirectoryDialog(
+            directoryName = addDirTarget!!.displayName,
+            onDismiss = { addDirTarget = null },
+            onAddRecursive = {
+                viewModel.addDirectory(addDirTarget!!.href, recursive = true)
+                addDirTarget = null
+            },
+            onAddFlat = {
+                viewModel.addDirectory(addDirTarget!!.href, recursive = false)
+                addDirTarget = null
+            }
+        )
+    }
 
     Scaffold(
         modifier = modifier,
@@ -94,6 +125,7 @@ fun WebdavScreen(
         when (val state = uiState) {
             is WebdavUiState.NotConfigured -> {
                 ConfigFormContent(
+                    initialConfig = viewModel.lastConfig,
                     onConnect = { config -> viewModel.connect(config) },
                     modifier = Modifier.fillMaxSize().padding(innerPadding)
                 )
@@ -116,6 +148,11 @@ fun WebdavScreen(
                             }
                         }
                     },
+                    onDirectoryLongClick = { item ->
+                        if (item.isCollection) {
+                            addDirTarget = item
+                        }
+                    },
                     onGoToParent = { viewModel.goToParent() },
                     modifier = Modifier.fillMaxSize().padding(innerPadding)
                 )
@@ -130,6 +167,12 @@ fun WebdavScreen(
                     modifier = Modifier.fillMaxSize().padding(innerPadding)
                 )
             }
+            is WebdavUiState.AddingDirectory -> {
+                AddingDirectoryContent(
+                    path = state.targetPath,
+                    modifier = Modifier.fillMaxSize().padding(innerPadding)
+                )
+            }
             is WebdavUiState.Error -> {
                 ErrorContent(
                     message = state.message,
@@ -141,6 +184,7 @@ fun WebdavScreen(
                             viewModel.disconnect()
                         }
                     },
+                    onChangeSettings = { viewModel.disconnect() },
                     modifier = Modifier.fillMaxSize().padding(innerPadding)
                 )
             }
@@ -150,12 +194,14 @@ fun WebdavScreen(
 
 @Composable
 private fun ConfigFormContent(
+    initialConfig: WebdavConfig?,
     onConnect: (WebdavConfig) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var serverUrl by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var serverUrl by remember { mutableStateOf(initialConfig?.serverUrl ?: "") }
+    var username by remember { mutableStateOf(initialConfig?.username ?: "") }
+    var password by remember { mutableStateOf(initialConfig?.password ?: "") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var urlError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
@@ -206,7 +252,15 @@ private fun ConfigFormContent(
             value = password,
             onValueChange = { password = it },
             label = { Text(stringResource(R.string.webdav_password)) },
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = if (passwordVisible) stringResource(R.string.webdav_hide_password) else stringResource(R.string.webdav_show_password)
+                    )
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(
@@ -264,7 +318,8 @@ private fun DirectoryContent(
     items: List<WebdavItem>,
     onItemClick: (WebdavItem) -> Unit,
     onGoToParent: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onDirectoryLongClick: (WebdavItem) -> Unit = {}
 ) {
     Column(modifier = modifier) {
         // Connection status bar
@@ -312,7 +367,8 @@ private fun DirectoryContent(
                 items(items = items, key = { it.href }) { item ->
                     WebdavListItem(
                         item = item,
-                        onClick = { onItemClick(item) }
+                        onClick = { onItemClick(item) },
+                        onAddClick = if (item.isCollection) {{ onDirectoryLongClick(item) }} else null
                     )
                 }
             }
@@ -363,7 +419,8 @@ private fun ParentDirItem(
 fun WebdavListItem(
     item: WebdavItem,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    onAddClick: (() -> Unit)? = null
 ) {
     ListItem(
         headlineContent = {
@@ -394,6 +451,16 @@ fun WebdavListItem(
                 modifier = Modifier.size(40.dp)
             )
         },
+        trailingContent = if (onAddClick != null) {
+            {
+                IconButton(onClick = onAddClick) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = stringResource(R.string.webdav_add_directory)
+                    )
+                }
+            }
+        } else null,
         modifier = modifier.clickable(onClick = onClick)
     )
 }
@@ -402,6 +469,7 @@ fun WebdavListItem(
 private fun ErrorContent(
     message: String,
     onRetry: () -> Unit,
+    onChangeSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -416,10 +484,63 @@ private fun ErrorContent(
             modifier = Modifier.padding(16.dp)
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onRetry) {
+            Button(onClick = onRetry) {
                 Text(stringResource(R.string.webdav_connect))
             }
+            OutlinedButton(onClick = onChangeSettings) {
+                Text(stringResource(R.string.webdav_change_settings))
+            }
         }
+    }
+}
+
+@Composable
+private fun AddDirectoryDialog(
+    directoryName: String,
+    onDismiss: () -> Unit,
+    onAddRecursive: () -> Unit,
+    onAddFlat: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.webdav_add_directory)) },
+        text = {
+            Text(stringResource(R.string.webdav_add_directory_desc, directoryName))
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onAddFlat) {
+                    Text(stringResource(R.string.webdav_add_flat))
+                }
+                Button(onClick = onAddRecursive) {
+                    Text(stringResource(R.string.webdav_add_recursive))
+                }
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun AddingDirectoryContent(
+    path: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator()
+        Text(
+            text = stringResource(R.string.webdav_adding_directory, path),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 16.dp)
+        )
     }
 }
 

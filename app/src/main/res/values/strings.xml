@@ -45,6 +45,15 @@
     <string name="url_cannot_be_empty">URL cannot be empty</string>
     <string name="url_must_be_http">URL must start with http:// or https://</string>
 
+    <string name="webdav_change_settings">Change Settings</string>
+    <string name="webdav_show_password">Show password</string>
+    <string name="webdav_hide_password">Hide password</string>
+
     <!-- WebDAV item types -->
     <string name="webdav_item_directory">Directory</string>
+    <string name="webdav_add_directory">Add directory</string>
+    <string name="webdav_add_directory_desc">Add music from \"%1$s\" to the playlist</string>
+    <string name="webdav_add_recursive">Include subfolders</string>
+    <string name="webdav_add_flat">This folder only</string>
+    <string name="webdav_adding_directory">Scanning for music in %1$s…</string>
 </resources>

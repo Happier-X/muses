@@ -95,6 +95,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         controller.playWhenReady = true
     }
 
+    fun playTracks(mediaItems: List<MediaItem>) {
+        val controller = mediaController ?: run {
+            Log.w(TAG, "MediaController not ready, retrying connection")
+            connectToService()
+            return
+        }
+        _state.update { it.copy(errorMessage = null) }
+        controller.setMediaItems(mediaItems)
+        controller.prepare()
+        controller.playWhenReady = true
+    }
+
     fun play() {
         mediaController?.play()
     }
