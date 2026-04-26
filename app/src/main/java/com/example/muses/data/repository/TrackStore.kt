@@ -48,6 +48,9 @@ object TrackStore {
             put("durationMs", track.durationMs)
             put("source", track.source.name)
             put("sizeBytes", track.sizeBytes)
+            put("playCount", track.playCount)
+            put("lastPlayedAt", track.lastPlayedAt)
+            track.albumArtUri?.let { put("albumArtUri", it.toString()) }
         }
     }
 
@@ -61,7 +64,10 @@ object TrackStore {
                 album = json.optString("album", ""),
                 durationMs = json.optLong("durationMs", 0L),
                 source = TrackSource.valueOf(json.getString("source")),
-                sizeBytes = json.optLong("sizeBytes", 0L)
+                sizeBytes = json.optLong("sizeBytes", 0L),
+                playCount = json.optInt("playCount", 0),
+                lastPlayedAt = json.optLong("lastPlayedAt", 0L),
+                albumArtUri = json.optString("albumArtUri", null)?.let { android.net.Uri.parse(it) }
             )
         } catch (_: Exception) {
             null

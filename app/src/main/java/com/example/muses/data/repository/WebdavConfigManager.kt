@@ -57,6 +57,14 @@ object WebdavConfigManager {
             .apply()
     }
 
+    fun removeWebdavDir(context: Context, path: String) {
+        val dirs = loadWebdavDirs(context).toMutableSet()
+        dirs.remove(path)
+        getPrefs(context).edit()
+            .putStringSet(KEY_WEBDAV_DIRS, dirs)
+            .apply()
+    }
+
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }

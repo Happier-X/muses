@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Entry point — lists all available spec guides"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Verify code follows module layout and naming conventions"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Check for immutable data classes, coroutine patterns, null safety, forbidden patterns"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Verify errors are returned as Result<T> or logged, not silently swallowed"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Check TAG usage and that no credentials are logged"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Verify new persisted fields use defaults and opt* deserialization for backward compat"}

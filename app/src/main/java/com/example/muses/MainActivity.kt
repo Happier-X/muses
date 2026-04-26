@@ -74,6 +74,10 @@ fun MainContent() {
     val playerViewModel: PlayerViewModel = viewModel()
     val songsViewModel: SongsViewModel = viewModel()
     val webdavViewModel: WebdavViewModel = viewModel()
+
+    playerViewModel.onMetadataEnriched = { track ->
+        songsViewModel.updateTrack(track)
+    }
     var selectedItem by remember { mutableIntStateOf(0) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -140,6 +144,9 @@ fun MainContent() {
                         onTrackClick = { track -> playTrack(track, playerViewModel) },
                         onTracksAdded = { tracks ->
                             songsViewModel.addTracks(tracks)
+                        },
+                        onTracksRemoved = { trackIds ->
+                            songsViewModel.removeTracks(trackIds)
                         },
                         onFolderSelected = { uri -> songsViewModel.addFolderFromTreeUri(uri) },
                         addedDirectoryPaths = addedDirPaths,

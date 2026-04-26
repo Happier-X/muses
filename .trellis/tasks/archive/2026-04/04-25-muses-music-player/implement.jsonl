@@ -1,8 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "Android development overview"}
-{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Project layout conventions"}
-{"file": ".trellis/spec/backend/compose-conventions.md", "reason": "Compose patterns, state, theming"}
-{"file": ".trellis/spec/backend/error-handling.md", "reason": "Error handling patterns"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Code quality standards"}
-{"file": ".trellis/tasks/04-25-muses-music-player/research/audio-playback-library.md", "reason": "Media3 ExoPlayer research"}
-{"file": ".trellis/tasks/04-25-muses-music-player/research/webdav-client.md", "reason": "WebDAV client research"}
-{"file": ".trellis/tasks/04-25-muses-music-player/research/local-music-access.md", "reason": "Local music access research"}

@@ -61,6 +61,9 @@
     <!-- Songs -->
     <string name="songs_empty">No songs yet</string>
     <string name="songs_empty_hint">Add music from the \"Add Music\" section</string>
+    <string name="songs_count">%1$d songs</string>
+    <string name="songs_sort">Sort</string>
+    <string name="song_more">More options</string>
 
     <!-- Add Music -->
     <string name="add_music_local_prompt">Select a folder from your device</string>
@@ -75,4 +78,7 @@
     <string name="webdav_add_flat">This folder only</string>
     <string name="webdav_adding_directory">Scanning for music in %1$s…</string>
     <string name="webdav_already_added">Folder added</string>
+    <string name="webdav_cancel">Cancel</string>
+    <string name="webdav_remove_directory">Remove directory</string>
+    <string name="webdav_remove_directory_desc">Remove \"%1$s\" and its songs from your library</string>
 </resources>

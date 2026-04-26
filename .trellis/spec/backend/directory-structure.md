@@ -1,104 +1,85 @@
 # Directory Structure
 
-> How Android code is organized in this project.
+> How Kotlin/Android code is organized in this project.
 
 ---
 
-## Project Layout
+## Overview
+
+This is a native Android music player app using Kotlin + Jetpack Compose.
+Architecture is MVVM with a clean separation between UI, ViewModels, and data layer.
+No traditional "backend server" — persistence and data fetching happen on-device.
+
+---
+
+## Directory Layout
 
 ```
-muses/                           # Root project
-├── app/                         # Main application module
-│   ├── build.gradle.kts         # Module build config
-│   ├── proguard-rules.pro       # ProGuard rules
-│   └── src/
-│       ├── main/
-│       │   ├── AndroidManifest.xml
-│       │   ├── java/com/example/muses/
-│       │   │   ├── MainActivity.kt              # Single Activity + bottom nav
-│       │   │   ├── ui/
-│       │   │   │   ├── theme/                   # Material3 theme (Color, Type, Theme)
-│       │   │   │   ├── screens/                 # Full-screen composables
-│       │   │   │   │   ├── LibraryScreen.kt     # Local music browser
-│       │   │   │   │   ├── WebdavScreen.kt      # WebDAV config + directory browser
-│       │   │   │   │   └── PlayerBar.kt         # Persistent bottom playback bar
-│       │   │   │   ├── viewmodel/               # ViewModels
-│       │   │   │   │   ├── LibraryViewModel.kt
-│       │   │   │   │   ├── WebdavViewModel.kt
-│       │   │   │   │   └── PlayerViewModel.kt
-│       │   │   │   └── util/                    # Shared UI utilities
-│       │   │   │       └── Formatters.kt
-│       │   │   ├── data/
-│       │   │   │   ├── model/                   # Domain models
-│       │   │   │   │   ├── AudioTrack.kt        # Track with source (LOCAL/WEBDAV)
-│       │   │   │   │   └── WebdavConfig.kt      # WebDAV server config
-│       │   │   │   └── repository/              # Data access
-│       │   │   │       ├── LocalMusicRepository.kt    # MediaStore queries
-│       │   │   │       ├── WebdavRepository.kt        # WebDAV PROPFIND
-│       │   │   │       └── WebdavConfigManager.kt     # Config persistence
-│       │   │   └── playback/
-│       │   │       └── MusicService.kt          # MediaLibraryService + ExoPlayer
-│       │   └── res/                             # Resources
-│       ├── test/                                # Unit tests
-│       └── androidTest/                         # Instrumented tests
-├── gradle/
-│   └── libs.versions.toml                       # Version catalog
-├── build.gradle.kts                             # Top-level build
-├── settings.gradle.kts                          # Project settings
-└── gradle.properties                            # Gradle config
+app/src/main/java/com/example/muses/
+├── data/
+│   ├── model/          # Immutable data classes (AudioTrack, WebdavConfig, WebdavItem)
+│   └── repository/     # Data access (WebdavRepository, LocalMusicRepository, TrackStore, MetadataExtractor)
+├── playback/           # MusicService (ExoPlayer + MediaSession background service)
+└── ui/
+    ├── screens/        # Jetpack Compose screen composables
+    ├── viewmodel/      # AndroidViewModel classes (PlayerViewModel, SongsViewModel, etc.)
+    ├── theme/          # Compose theme (Color, Type, Theme)
+    └── util/           # Utility functions (Formatters)
 ```
 
 ---
 
-## Package Organization
+## Module Organization
 
-| Package | Purpose | Key files |
-|---------|---------|-----------|
-| `ui/theme/` | Material3 theme, colors, typography | Color.kt, Type.kt, Theme.kt |
-| `ui/screens/` | One composable per screen/bar | LibraryScreen, WebdavScreen, PlayerBar |
-| `ui/viewmodel/` | ViewModels with sealed UI states | One ViewModel per screen |
-| `ui/util/` | Shared UI helpers | Formatters (duration, etc.) |
-| `data/model/` | Immutable data classes | AudioTrack, WebdavConfig |
-| `data/repository/` | Data access layer | LocalMusicRepository, WebdavRepository, WebdavConfigManager |
-| `playback/` | Media3 playback service | MusicService (MediaLibraryService) |
+### `data/model/`
+Holds pure data classes. All should carry `@Immutable` (Compose annotation).
+Examples: `AudioTrack`, `WebdavConfig`, `WebdavItem`
 
----
+### `data/repository/`
+Data access layer. Repositories are classes or objects that own data operations.
+`TrackStore` is an `object` (singleton) for SharedPreferences persistence.
+`MetadataExtractor` is an `object` for audio metadata extraction.
 
-## Architecture Pattern
+### `playback/`
+Contains `MusicService` — a `MediaLibraryService` subclass that owns the `ExoPlayer` instance and `MediaLibrarySession`. Runs as an Android foreground service.
 
-```
-Compose UI (screens/)  ←──→  ViewModel (viewmodel/)  ←──→  Repository (data/repository/)
-       │                            │                              │
-  StateFlow observe          StateFlow emit              MediaStore / WebDAV / Prefs
-  collectAsState()           viewModelScope.launch
-```
+### `ui/viewmodel/`
+`AndroidViewModel` subclasses that hold UI state and communicate with repositories or `MusicService` via `MediaController`.
 
-- **Screens**: Composable functions, observe ViewModel state via `collectAsStateWithLifecycle()`
-- **ViewModels**: Hold `StateFlow<SealedUiState>`, expose action functions, use `viewModelScope`
-- **Repositories**: Suspend functions for data access, no Android framework dependencies
-- **playback/**: `MusicService` extends `MediaLibraryService`, holds `ExoPlayer` instance
+### `ui/screens/`
+Stateless or lightly stateful Compose `@Composable` functions. Receive state as parameters; emit events upward via callbacks.
+
+### `ui/theme/`
+Standard Jetpack Compose Material3 theme files.
 
 ---
 
 ## Naming Conventions
 
-- **Files**: PascalCase (`MainActivity.kt`, `PlayerScreen.kt`)
-- **Composable functions**: PascalCase, noun/noun phrase (`PlayerScreen`, `MusicListItem`)
-- **Composable with Screen suffix**: Full-screen content (`LibraryScreen`)
-- **Non-composable functions**: camelCase (`formatDuration`, `loadPlaylist`)
-- **ViewModels**: `<Screen>ViewModel` (`LibraryViewModel`)
-- **Repositories**: `<DataSource>Repository` (`LocalMusicRepository`)
-- **Data classes**: Noun, `@Immutable` (`AudioTrack`, `WebdavConfig`)
+| What | Convention | Example |
+|------|-----------|---------|
+| Kotlin files | PascalCase | `PlayerViewModel.kt` |
+| Data classes | PascalCase noun | `AudioTrack.kt`, `WebdavItem.kt` |
+| ViewModel classes | PascalCase ending in `ViewModel` | `SongsViewModel.kt` |
+| Repository objects | PascalCase ending in `Repository` or `Manager` | `WebdavRepository.kt`, `TrackStore.kt` |
+| Screen composables | PascalCase ending in `Screen` | `SongsScreen.kt`, `PlayerBar.kt` |
+| Package names | lowercase | `com.example.muses.data.repository` |
 
 ---
 
-## Dependency Management
+## Adding New Features
 
-All dependencies live in `gradle/libs.versions.toml`. Module `build.gradle.kts` references via `libs.*` accessors:
+1. Add data models to `data/model/`
+2. Add repository logic to `data/repository/`
+3. Add `AndroidViewModel` to `ui/viewmodel/`
+4. Add UI to `ui/screens/`
+5. Connect ViewModel → Repository or ViewModel → MusicService (via `MediaController`)
 
-```kotlin
-implementation(libs.media3.exoplayer)
-implementation(platform(libs.androidx.compose.bom))
-```
+---
 
-**Rule**: Never hardcode version strings in `build.gradle.kts`. Go through version catalog.
+## Examples
+
+- `AudioTrack` model: `app/src/main/java/com/example/muses/data/model/AudioTrack.kt`
+- Repository pattern: `app/src/main/java/com/example/muses/data/repository/WebdavRepository.kt`
+- ExoPlayer service: `app/src/main/java/com/example/muses/playback/MusicService.kt`
+- ViewModel: `app/src/main/java/com/example/muses/ui/viewmodel/PlayerViewModel.kt`

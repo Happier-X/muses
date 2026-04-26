@@ -1,16 +1,12 @@
-# Android Development Guidelines
+# Backend Development Guidelines
 
-> Best practices for Android development with Kotlin and Jetpack Compose.
+> Best practices for backend development in this project.
 
 ---
 
 ## Overview
 
-This project is a **native Android application** built with:
-- **Kotlin** (2.2.10)
-- **Jetpack Compose** (BOM 2026.02.01) with **Material3**
-- **Gradle** (AGP 9.2.0) with version catalog (`gradle/libs.versions.toml`)
-- **Min SDK**: 24, **Target SDK**: 36
+This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
 
 ---
 
@@ -18,10 +14,11 @@ This project is a **native Android application** built with:
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module and package organization | Filled |
-| [Compose Conventions](./compose-conventions.md) | Composable patterns, state, theming | Filled |
-| [Error Handling](./error-handling.md) | Kotlin error types, sealed results, UI states | Filled |
-| [Quality Guidelines](./quality-guidelines.md) | Lint, testing, forbidden patterns | Filled |
+| [Directory Structure](./directory-structure.md) | Module organization and file layout | Filled |
+| [Database Guidelines](./database-guidelines.md) | SharedPreferences + JSON persistence | Filled |
+| [Error Handling](./error-handling.md) | Result<T>, try-catch, listener callbacks | Filled |
+| [Quality Guidelines](./quality-guidelines.md) | Immutable data, coroutines, null safety | Filled |
+| [Logging Guidelines](./logging-guidelines.md) | Log levels, TAG convention, android.util.Log | Filled |
 
 ---
 
@@ -29,11 +26,13 @@ This project is a **native Android application** built with:
 
 For each guideline file:
 
-1. Document the project's **actual conventions** (not ideals)
-2. Include **code examples** from the codebase (`app/src/`)
+1. Document your project's **actual conventions** (not ideals)
+2. Include **code examples** from your codebase
 3. List **forbidden patterns** and why
-4. Add **common mistakes** to avoid
+4. Add **common mistakes** your team has made
+
+The goal is to help AI assistants and new team members understand how YOUR project works.
 
 ---
 
-**Language**: All documentation should be written in **English**. Code comments may be in Chinese.
+**Language**: All documentation should be written in **English**.

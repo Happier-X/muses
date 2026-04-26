@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Entry point — lists all available spec guides"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Module layout, naming conventions, file organization"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Immutable data classes, coroutine patterns, MediaController null safety"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Result<T> patterns, try-catch conventions, listener error handling"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Log levels, TAG convention, what to log / not log"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SharedPreferences + JSON persistence patterns, schema evolution"}

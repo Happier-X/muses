@@ -62,6 +62,9 @@
     <!-- Songs -->
     <string name="songs_empty">还没有歌曲</string>
     <string name="songs_empty_hint">从「添加音乐」中添加歌曲</string>
+    <string name="songs_count">%1$d 首歌曲</string>
+    <string name="songs_sort">排序</string>
+    <string name="song_more">更多选项</string>
 
     <!-- Add Music -->
     <string name="add_music_local_prompt">从设备中选择文件夹</string>
@@ -76,4 +79,7 @@
     <string name="webdav_add_flat">仅此文件夹</string>
     <string name="webdav_adding_directory">正在扫描 %1$s 中的音乐…</string>
     <string name="webdav_already_added">已添加文件夹</string>
+    <string name="webdav_cancel">取消</string>
+    <string name="webdav_remove_directory">移除目录</string>
+    <string name="webdav_remove_directory_desc">将\"%1$s\"及其歌曲从曲库中移除</string>
 </resources>

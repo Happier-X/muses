@@ -1,137 +1,131 @@
 # Error Handling
 
-> How errors are handled in this Android/Kotlin project.
+> How errors are caught, logged, and propagated in this project.
 
 ---
 
-## Core Patterns
+## Overview
 
-### Sealed Class Results
-
-Use Kotlin `sealed class`/`sealed interface` for result types instead of throwing exceptions for expected failures:
-
-```kotlin
-sealed class Result<out T> {
-    data class Success<T>(val data: T) : Result<T>()
-    data class Error(val message: String, val cause: Throwable? = null) : Result<Nothing>()
-}
-```
-
-Or use the standard `kotlin.Result<T>` with `.getOrNull()` and `.exceptionOrNull()`.
-
-### UI Error State
-
-Each screen's UI state should include an error variant:
-
-```kotlin
-sealed interface PlayerUiState {
-    data object Loading : PlayerUiState
-    data class Ready(val track: Track, val isPlaying: Boolean) : PlayerUiState
-    data class Error(val message: String) : PlayerUiState
-}
-```
-
-The composable renders each state explicitly:
-
-```kotlin
-when (val state = uiState) {
-    is PlayerUiState.Loading -> CircularProgressIndicator()
-    is PlayerUiState.Ready -> PlayerContent(state.track, state.isPlaying)
-    is PlayerUiState.Error -> ErrorBanner(state.message, onRetry = { viewModel.retry() })
-}
-```
+This project uses two error handling patterns depending on context:
+1. **`Result<T>` return type** — for repository/network operations that callers handle explicitly
+2. **`try-catch` with silent fallback** — for non-critical operations where a default is acceptable
+3. **`Log.e/w` + no exception re-throw** — for listener callbacks and event handlers where crashing is inappropriate
 
 ---
 
-## Exception Handling
+## Repository Layer: `Result<T>`
 
-### In Coroutines
-
-Use `try/catch` inside `viewModelScope.launch` for async operations:
+Repository functions that perform I/O return `Result<List<T>>` or similar.
+Callers use `.fold()`, `.getOrNull()`, or `.getOrDefault()`.
 
 ```kotlin
-viewModelScope.launch {
-    try {
-        val tracks = repository.loadTracks()
-        _uiState.value = PlayerUiState.Ready(tracks.first(), false)
+// WebdavRepository.kt
+fun listDirectory(config: WebdavConfig, path: String): Result<List<WebdavItem>> {
+    return try {
+        // ... network call ...
+        Result.success(items)
     } catch (e: IOException) {
-        _uiState.value = PlayerUiState.Error("Network error: ${e.message}")
+        Log.e(TAG, "Network error for $path", e)
+        Result.failure(e)
     } catch (e: Exception) {
-        _uiState.value = PlayerUiState.Error("Unexpected error")
-        Log.e(TAG, "Failed to load tracks", e)
+        Log.e(TAG, "Unexpected error for $path", e)
+        Result.failure(e)
     }
 }
 ```
 
-### In Composable (LaunchedEffect)
-
+Callers handle gracefully:
 ```kotlin
-LaunchedEffect(key) {
-    try {
-        val result = someAsyncOperation()
-        // handle success
-    } catch (e: Exception) {
-        // handle error
-    }
-}
-```
-
----
-
-## Logging
-
-Use `android.util.Log` for Android logging:
-
-| Level | When to use |
-|-------|-------------|
-| `Log.e(TAG, msg, throwable)` | Unexpected errors, crashes |
-| `Log.w(TAG, msg)` | Recoverable issues, degraded functionality |
-| `Log.i(TAG, msg)` | Important lifecycle events (playback start/stop, network requests) |
-| `Log.d(TAG, msg)` | Debug-only detail; strip in release builds |
-
-Define a `TAG` constant per class:
-```kotlin
-companion object {
-    private const val TAG = "PlayerViewModel"
-}
-```
-
----
-
-## Input Validation
-
-Validate user input early, at the ViewModel or composable level. Show errors inline, not as toasts:
-
-```kotlin
-// In composable
-var serverUrl by remember { mutableStateOf("") }
-var urlError by remember { mutableStateOf<String?>(null) }
-// ...
-OutlinedTextField(
-    value = serverUrl,
-    isError = urlError != null,
-    supportingText = urlError?.let { { Text(it) } },
-    onValueChange = {
-        serverUrl = it
-        urlError = if (it.isBlank()) "URL cannot be empty" else null
-    }
+val result = webdavRepo.listDirectory(config, path)
+result.fold(
+    onSuccess = { items -> /* update UI */ },
+    onFailure = { e -> Log.w(TAG, "Skipping directory $path: ${e.message}") }
 )
 ```
+
+Key files:
+- `app/src/main/java/com/example/muses/data/repository/WebdavRepository.kt`
+- `app/src/main/java/com/example/muses/data/repository/MetadataExtractor.kt`
+
+---
+
+## Non-Critical Operations: Silent Suppression
+
+Operations that can't affect core functionality use `try-catch` with a default/fallback value.
+No exception is ever propagated to the caller.
+
+```kotlin
+// MetadataExtractor.kt — metadata extraction failure is non-critical
+fun extractFromUri(context: Context, uri: Uri): Metadata? {
+    val retriever = MediaMetadataRetriever()
+    return try {
+        retriever.setDataSource(context, uri)
+        readMetadata(retriever)
+    } catch (e: Exception) {
+        Log.w(TAG, "Failed to extract metadata from $uri", e)
+        null  // Caller uses a default title/empty metadata instead
+    } finally {
+        try { retriever.release() } catch (_: Exception) {}
+    }
+}
+```
+
+---
+
+## Coroutine Scope: `suspend` with Exception Logging
+
+Suspend functions that run in `viewModelScope` catch exceptions and return safe defaults or log and re-throw.
+
+```kotlin
+suspend fun listAudioFiles(config: WebdavConfig, path: String, recursive: Boolean): Result<List<WebdavItem>> =
+    withContext(Dispatchers.IO) {
+        try {
+            val audioFiles = mutableListOf<WebdavItem>()
+            collectAudioFiles(config, path, recursive, audioFiles)
+            Result.success(audioFiles)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to list audio files in $path", e)
+            Result.failure(e)
+        }
+    }
+```
+
+---
+
+## Listener Callbacks: Never Throw
+
+Player listener callbacks (`Player.Listener` overrides) never re-throw. They log and update state safely.
+
+```kotlin
+// PlayerViewModel.kt — PlayerListener
+override fun onPlayerError(error: PlaybackException) {
+    Log.e(TAG, "Playback error: ${error.message}", error)
+    _state.update {
+        it.copy(errorMessage = error.message ?: "Playback error", isPlaying = false)
+    }
+}
+```
+
+### Persistence in Listener Callbacks
+
+When a listener callback triggers a persistence update (e.g. play count in `onMediaItemTransition`), the write must be dispatched to `Dispatchers.IO` — listener callbacks run on the main thread.
+
+```kotlin
+override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+    syncState()
+    mediaItem?.mediaId?.let { trackId ->
+        updatePlayMetadata(trackId)  // launches viewModelScope on IO internally
+    }
+}
+```
+
+**Gotcha**: Do not call `TrackStore.saveTracks()` synchronously inside a `Player.Listener` override — it performs disk I/O and will block the main thread.
 
 ---
 
 ## Forbidden Patterns
 
-- **Do not** use `try { } catch (e: Exception) { }` (empty catch block) — always at least log
-- **Do not** throw exceptions in composable functions — composables should be side-effect-free
-- **Do not** show raw exception messages to users — always map to user-friendly strings
-- **Do not** catch `Throwable` (catches JVM errors like `OutOfMemoryError`)
-- **Do not** suppress exceptions silently in coroutines — use `CoroutineExceptionHandler` or let them propagate to the UI state
-
----
-
-## Common Mistakes
-
-- Showing `Toast` for errors that should be persistent (use a banner or error state instead)
-- Catching exceptions too broadly (catch `IOException` vs `Exception` specifically)
-- Not handling empty/null states separately from error states ("no results" vs "failed to load")
+- Do **not** `throw` from `Player.Listener` overrides — causes crashes in ExoPlayer's thread
+- Do **not** silently swallow `IOException` in network-heavy code — callers need to know if a request failed
+- Do **not** use `e.printStackTrace()` — use `Log.e(TAG, msg, e)` instead
+- Do **not** return `null` from functions that also return `Result.failure()` — pick one pattern per function

@@ -48,6 +48,7 @@ fun AddMusicScreen(
     requestPermission: () -> Unit = {},
     onTrackClick: (AudioTrack) -> Unit = {},
     onTracksAdded: (List<AudioTrack>) -> Unit = {},
+    onTracksRemoved: (List<String>) -> Unit = {},
     onFolderSelected: (Uri) -> Unit = {},
     addedDirectoryPaths: Set<String> = emptySet(),
     webdavViewModel: WebdavViewModel,
@@ -103,6 +104,7 @@ fun AddMusicScreen(
                     viewModel = webdavViewModel,
                     onTrackClick = onTrackClick,
                     onTracksAdded = onTracksAdded,
+                    onTracksRemoved = onTracksRemoved,
                     addedDirectoryPaths = addedDirectoryPaths
                 )
             }

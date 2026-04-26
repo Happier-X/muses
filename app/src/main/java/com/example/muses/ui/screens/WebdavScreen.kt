@@ -69,7 +69,8 @@ fun WebdavScreen(
     viewModel: WebdavViewModel,
     addedDirectoryPaths: Set<String> = emptySet(),
     onTrackClick: (AudioTrack) -> Unit = {},
-    onTracksAdded: (List<AudioTrack>) -> Unit = {}
+    onTracksAdded: (List<AudioTrack>) -> Unit = {},
+    onTracksRemoved: (List<String>) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var addDirTarget by remember { mutableStateOf<WebdavItem?>(null) }
@@ -78,6 +79,14 @@ fun WebdavScreen(
         viewModel.addedTracks.collect { tracks ->
             if (tracks.isNotEmpty()) {
                 onTracksAdded(tracks)
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.removedTrackIds.collect { trackIds ->
+            if (trackIds.isNotEmpty()) {
+                onTracksRemoved(trackIds)
             }
         }
     }
@@ -147,6 +156,7 @@ private fun WebdavContent(
                         onAddDirTarget(item)
                     }
                 },
+                onRemoveDir = { path -> viewModel.removeDirectory(path) },
                 onGoToParent = { viewModel.goToParent() },
                 addedDirectoryPaths = addedDirectoryPaths,
                 modifier = modifier
@@ -165,6 +175,7 @@ private fun WebdavContent(
         is WebdavUiState.AddingDirectory -> {
             AddingDirectoryContent(
                 path = state.targetPath,
+                onCancel = { viewModel.cancelAddDirectory() },
                 modifier = modifier
             )
         }
@@ -314,6 +325,7 @@ private fun DirectoryContent(
     onGoToParent: () -> Unit,
     modifier: Modifier = Modifier,
     onDirectoryLongClick: (WebdavItem) -> Unit = {},
+    onRemoveDir: (String) -> Unit = {},
     addedDirectoryPaths: Set<String> = emptySet()
 ) {
     Column(modifier = modifier) {
@@ -360,11 +372,13 @@ private fun DirectoryContent(
                 }
 
 items(items = items, key = { it.href }) { item ->
+                    val isDirAdded = item.isCollection && item.href in addedDirectoryPaths
                     WebdavListItem(
                         item = item,
                         onClick = { onItemClick(item) },
-                        onAddClick = if (item.isCollection){{ onDirectoryLongClick(item) }} else null,
-                        isAdded = item.isCollection && item.href in addedDirectoryPaths
+                        onAddClick = if (item.isCollection) {{ onDirectoryLongClick(item) }} else null,
+                        onRemoveClick = if (isDirAdded) {{ onRemoveDir(item.href) }} else null,
+                        isAdded = isDirAdded
                     )
                 }
             }
@@ -417,6 +431,7 @@ fun WebdavListItem(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
     onAddClick: (() -> Unit)? = null,
+    onRemoveClick: (() -> Unit)? = null,
     isAdded: Boolean = false
 ) {
     ListItem(
@@ -449,7 +464,29 @@ fun WebdavListItem(
             )
         },
         trailingContent = when {
-            isAdded -> {
+            item.isCollection && isAdded && onRemoveClick != null -> {
+                {
+                    IconButton(onClick = onRemoveClick) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = stringResource(R.string.webdav_already_added),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+            item.isCollection && onAddClick != null -> {
+                {
+                    IconButton(onClick = onAddClick) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.webdav_add_directory)
+                        )
+                    }
+                }
+            }
+            !item.isCollection && isAdded -> {
                 {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
@@ -538,6 +575,7 @@ private fun AddDirectoryDialog(
 @Composable
 private fun AddingDirectoryContent(
     path: String,
+    onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -551,6 +589,10 @@ private fun AddingDirectoryContent(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 16.dp)
         )
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedButton(onClick = onCancel) {
+            Text(stringResource(R.string.webdav_cancel))
+        }
     }
 }
 

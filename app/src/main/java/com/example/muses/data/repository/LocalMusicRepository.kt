@@ -10,7 +10,10 @@ import com.example.muses.data.model.AudioTrack
 import com.example.muses.data.model.TrackSource
 import java.io.File
 
-class LocalMusicRepository(private val contentResolver: ContentResolver) {
+class LocalMusicRepository(
+    private val contentResolver: ContentResolver,
+    private val context: Context? = null
+) {
 
     companion object {
         private const val TAG = "LocalMusicRepo"
