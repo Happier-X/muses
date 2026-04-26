@@ -38,3 +38,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: 增加随机播放和列表循环功能
+
+**Date**: 2026-04-26
+**Task**: 增加随机播放和列表循环功能
+**Branch**: `main`
+
+### Summary
+
+PlayerState 新增 shuffleModeEnabled/repeatMode 字段，PlayerViewModel 新增切换方法，PlayerBar 底部栏左右两侧新增随机/循环图标按钮，ExoPlayer 的 shuffleModeEnabled 和 repeatMode 直接驱动功能。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0c01081` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
