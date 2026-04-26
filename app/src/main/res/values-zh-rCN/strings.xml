@@ -75,4 +75,5 @@
     <string name="webdav_add_recursive">包含子文件夹</string>
     <string name="webdav_add_flat">仅此文件夹</string>
     <string name="webdav_adding_directory">正在扫描 %1$s 中的音乐…</string>
+    <string name="webdav_already_added">已添加文件夹</string>
 </resources>

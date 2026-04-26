@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.SubdirectoryArrowRight
@@ -65,7 +66,8 @@ import com.example.muses.ui.viewmodel.WebdavViewModel
 @Composable
 fun WebdavScreen(
     modifier: Modifier = Modifier,
-    viewModel: WebdavViewModel = viewModel(),
+    viewModel: WebdavViewModel,
+    addedDirectoryPaths: Set<String> = emptySet(),
     onTrackClick: (AudioTrack) -> Unit = {},
     onTracksAdded: (List<AudioTrack>) -> Unit = {}
 ) {
@@ -100,7 +102,8 @@ fun WebdavScreen(
         uiState = uiState,
         viewModel = viewModel,
         onTrackClick = onTrackClick,
-        onAddDirTarget = { addDirTarget = it }
+        onAddDirTarget = { addDirTarget = it },
+        addedDirectoryPaths = addedDirectoryPaths
     )
 }
 
@@ -110,7 +113,8 @@ private fun WebdavContent(
     uiState: WebdavUiState,
     viewModel: WebdavViewModel,
     onTrackClick: (AudioTrack) -> Unit,
-    onAddDirTarget: (WebdavItem) -> Unit
+    onAddDirTarget: (WebdavItem) -> Unit,
+    addedDirectoryPaths: Set<String> = emptySet()
 ) {
     when (val state = uiState) {
         is WebdavUiState.NotConfigured -> {
@@ -144,6 +148,7 @@ private fun WebdavContent(
                     }
                 },
                 onGoToParent = { viewModel.goToParent() },
+                addedDirectoryPaths = addedDirectoryPaths,
                 modifier = modifier
             )
         }
@@ -308,7 +313,8 @@ private fun DirectoryContent(
     onItemClick: (WebdavItem) -> Unit,
     onGoToParent: () -> Unit,
     modifier: Modifier = Modifier,
-    onDirectoryLongClick: (WebdavItem) -> Unit = {}
+    onDirectoryLongClick: (WebdavItem) -> Unit = {},
+    addedDirectoryPaths: Set<String> = emptySet()
 ) {
     Column(modifier = modifier) {
         // Connection status bar
@@ -353,11 +359,12 @@ private fun DirectoryContent(
                     }
                 }
 
-                items(items = items, key = { it.href }) { item ->
+items(items = items, key = { it.href }) { item ->
                     WebdavListItem(
                         item = item,
                         onClick = { onItemClick(item) },
-                        onAddClick = if (item.isCollection) {{ onDirectoryLongClick(item) }} else null
+                        onAddClick = if (item.isCollection){{ onDirectoryLongClick(item) }} else null,
+                        isAdded = item.isCollection && item.href in addedDirectoryPaths
                     )
                 }
             }
@@ -409,7 +416,8 @@ fun WebdavListItem(
     item: WebdavItem,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
-    onAddClick: (() -> Unit)? = null
+    onAddClick: (() -> Unit)? = null,
+    isAdded: Boolean = false
 ) {
     ListItem(
         headlineContent = {
@@ -440,16 +448,29 @@ fun WebdavListItem(
                 modifier = Modifier.size(40.dp)
             )
         },
-        trailingContent = if (onAddClick != null) {
-            {
-                IconButton(onClick = onAddClick) {
+        trailingContent = when {
+            isAdded -> {
+                {
                     Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = stringResource(R.string.webdav_add_directory)
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = stringResource(R.string.webdav_already_added),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
-        } else null,
+            onAddClick != null -> {
+                {
+                    IconButton(onClick = onAddClick) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.webdav_add_directory)
+                        )
+                    }
+                }
+            }
+            else -> null
+        },
         modifier = modifier.clickable(onClick = onClick)
     )
 }
@@ -530,14 +551,6 @@ private fun AddingDirectoryContent(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 16.dp)
         )
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun WebdavScreenPreview() {
-    MusesTheme {
-        WebdavScreen()
     }
 }
 

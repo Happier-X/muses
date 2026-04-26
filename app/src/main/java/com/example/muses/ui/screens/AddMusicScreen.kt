@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.example.muses.R
 import com.example.muses.data.model.AudioTrack
 import com.example.muses.ui.theme.MusesTheme
+import com.example.muses.ui.viewmodel.WebdavViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +49,8 @@ fun AddMusicScreen(
     onTrackClick: (AudioTrack) -> Unit = {},
     onTracksAdded: (List<AudioTrack>) -> Unit = {},
     onFolderSelected: (Uri) -> Unit = {},
+    addedDirectoryPaths: Set<String> = emptySet(),
+    webdavViewModel: WebdavViewModel,
     navigationIcon: @Composable () -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -97,8 +100,10 @@ fun AddMusicScreen(
                     onPickFolder = { folderPickerLauncher.launch(null) }
                 )
                 1 -> WebdavScreen(
+                    viewModel = webdavViewModel,
                     onTrackClick = onTrackClick,
-                    onTracksAdded = onTracksAdded
+                    onTracksAdded = onTracksAdded,
+                    addedDirectoryPaths = addedDirectoryPaths
                 )
             }
         }
@@ -141,13 +146,5 @@ private fun LocalFolderTab(
         ) {
             Text(stringResource(R.string.add_music_pick_folder))
         }
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun AddMusicScreenPreview() {
-    MusesTheme {
-        AddMusicScreen()
     }
 }

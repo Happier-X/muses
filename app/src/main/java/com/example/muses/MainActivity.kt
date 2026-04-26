@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -53,6 +54,7 @@ import com.example.muses.ui.screens.SongsScreen
 import com.example.muses.ui.theme.MusesTheme
 import com.example.muses.ui.viewmodel.PlayerViewModel
 import com.example.muses.ui.viewmodel.SongsViewModel
+import com.example.muses.ui.viewmodel.WebdavViewModel
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -71,9 +73,11 @@ class MainActivity : ComponentActivity() {
 fun MainContent() {
     val playerViewModel: PlayerViewModel = viewModel()
     val songsViewModel: SongsViewModel = viewModel()
+    val webdavViewModel: WebdavViewModel = viewModel()
     var selectedItem by remember { mutableIntStateOf(0) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val addedDirPaths by webdavViewModel.addedDirectoryPaths.collectAsStateWithLifecycle()
 
     val menuIcon: @Composable () -> Unit = {
         IconButton(onClick = { scope.launch { drawerState.open() } }) {
@@ -138,6 +142,8 @@ fun MainContent() {
                             songsViewModel.addTracks(tracks)
                         },
                         onFolderSelected = { uri -> songsViewModel.addFolderFromTreeUri(uri) },
+                        addedDirectoryPaths = addedDirPaths,
+                        webdavViewModel = webdavViewModel,
                         navigationIcon = menuIcon
                     )
                     else -> PlaceholderScreen(navigationIcon = menuIcon)

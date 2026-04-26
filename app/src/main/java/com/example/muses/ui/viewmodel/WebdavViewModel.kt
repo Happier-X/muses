@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -56,6 +57,11 @@ class WebdavViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _addedTracks = MutableSharedFlow<List<AudioTrack>>()
     val addedTracks: SharedFlow<List<AudioTrack>> = _addedTracks.asSharedFlow()
+
+    private val _addedDirectoryPaths = MutableStateFlow<Set<String>>(
+        WebdavConfigManager.loadWebdavDirs(getApplication())
+    )
+    val addedDirectoryPaths: StateFlow<Set<String>> = _addedDirectoryPaths.asStateFlow()
 
     val lastConfig: WebdavConfig?
         get() = WebdavConfigManager.load(getApplication())
@@ -130,6 +136,8 @@ class WebdavViewModel(application: Application) : AndroidViewModel(application) 
                     Log.i(TAG, "Found ${tracks.size} tracks from $path (recursive=$recursive)")
                     if (tracks.isNotEmpty()) {
                         _addedTracks.emit(tracks)
+                        WebdavConfigManager.addWebdavDir(getApplication(), path)
+                        _addedDirectoryPaths.update { it + path }
                     }
                     _uiState.value = WebdavUiState.Browsing(
                         config = browsingState.config,

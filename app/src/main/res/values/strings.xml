@@ -74,4 +74,5 @@
     <string name="webdav_add_recursive">Include subfolders</string>
     <string name="webdav_add_flat">This folder only</string>
     <string name="webdav_adding_directory">Scanning for music in %1$s…</string>
+    <string name="webdav_already_added">Folder added</string>
 </resources>

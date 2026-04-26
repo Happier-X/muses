@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.muses.data.model.AudioTrack
 import com.example.muses.data.repository.LocalMusicRepository
+import com.example.muses.data.repository.TrackStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +36,15 @@ class SongsViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<SongsUiState> = _uiState.asStateFlow()
 
     private val _tracks = MutableStateFlow<List<AudioTrack>>(emptyList())
+    val tracks: StateFlow<List<AudioTrack>> = _tracks.asStateFlow()
+
+    init {
+        val saved = TrackStore.loadTracks(application)
+        if (saved.isNotEmpty()) {
+            _tracks.value = saved
+            _uiState.value = SongsUiState.Ready(saved)
+        }
+    }
 
     fun addTracks(tracks: List<AudioTrack>) {
         val existingIds = _tracks.value.map { it.id }.toSet()
@@ -42,6 +52,7 @@ class SongsViewModel(application: Application) : AndroidViewModel(application) {
         if (newTracks.isNotEmpty()) {
             _tracks.update { it + newTracks }
             _uiState.value = SongsUiState.Ready(_tracks.value)
+            TrackStore.saveTracks(getApplication(), _tracks.value)
         }
     }
 

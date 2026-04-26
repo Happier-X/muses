@@ -14,6 +14,7 @@ object WebdavConfigManager {
     private const val KEY_URL = "server_url"
     private const val KEY_USERNAME = "username"
     private const val KEY_PASSWORD = "password"
+    private const val KEY_WEBDAV_DIRS = "webdav_dirs"
 
     fun save(context: Context, config: WebdavConfig) {
         getPrefs(context).edit()
@@ -42,6 +43,18 @@ object WebdavConfigManager {
 
     fun clear(context: Context) {
         getPrefs(context).edit().clear().apply()
+    }
+
+    fun loadWebdavDirs(context: Context): Set<String> {
+        return getPrefs(context).getStringSet(KEY_WEBDAV_DIRS, emptySet()) ?: emptySet()
+    }
+
+    fun addWebdavDir(context: Context, path: String) {
+        val dirs = loadWebdavDirs(context).toMutableSet()
+        dirs.add(path)
+        getPrefs(context).edit()
+            .putStringSet(KEY_WEBDAV_DIRS, dirs)
+            .apply()
     }
 
     private fun getPrefs(context: Context): SharedPreferences {
