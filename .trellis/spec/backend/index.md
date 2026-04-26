@@ -19,6 +19,7 @@ This directory contains guidelines for backend development. Fill in each file wi
 | [Error Handling](./error-handling.md) | Result<T>, try-catch, listener callbacks | Filled |
 | [Quality Guidelines](./quality-guidelines.md) | Immutable data, coroutines, null safety | Filled |
 | [Logging Guidelines](./logging-guidelines.md) | Log levels, TAG convention, android.util.Log | Filled |
+| [Playback Architecture](./playback-architecture.md) | ExoPlayer queue, playlist, shuffle/repeat, PlayerState contract | Filled |
 
 ---
 
