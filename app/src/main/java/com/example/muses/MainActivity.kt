@@ -53,6 +53,7 @@ import com.example.muses.ui.screens.PlayerBar
 import com.example.muses.ui.screens.SongsScreen
 import com.example.muses.ui.theme.MusesTheme
 import com.example.muses.ui.viewmodel.PlayerViewModel
+import com.example.muses.ui.viewmodel.SongsUiState
 import com.example.muses.ui.viewmodel.SongsViewModel
 import com.example.muses.ui.viewmodel.WebdavViewModel
 import kotlinx.coroutines.launch
@@ -137,11 +138,18 @@ fun MainContent() {
                 when (selectedItem) {
                     0 -> SongsScreen(
                         viewModel = songsViewModel,
-                        onTrackClick = { track -> playTrack(track, playerViewModel) },
+                        onTrackClick = { track ->
+                            val tracks = (songsViewModel.uiState.value as? SongsUiState.Ready)?.tracks ?: return@SongsScreen
+                            val index = tracks.indexOfFirst { it.id == track.id }.takeIf { it >= 0 } ?: 0
+                            playerViewModel.setPlaylist(tracks, index)
+                        },
                         navigationIcon = menuIcon
                     )
                     4 -> AddMusicScreen(
-                        onTrackClick = { track -> playTrack(track, playerViewModel) },
+                        onTrackClick = { track, tracks ->
+                            val index = tracks.indexOfFirst { it.id == track.id }.takeIf { it >= 0 } ?: 0
+                            playerViewModel.setPlaylist(tracks, index)
+                        },
                         onTracksAdded = { tracks ->
                             songsViewModel.addTracks(tracks)
                         },

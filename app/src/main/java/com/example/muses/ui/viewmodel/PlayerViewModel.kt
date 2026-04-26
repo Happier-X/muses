@@ -57,6 +57,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var positionJob: Job? = null
 
+    /** 当前播放列表快照，用于构建 ExoPlayer 队列以支持自动切歌 */
+    private var currentPlaylist: List<AudioTrack> = emptyList()
+
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
@@ -115,6 +118,33 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         _state.update { it.copy(errorMessage = null) }
         controller.setMediaItems(mediaItems)
+        controller.prepare()
+        controller.playWhenReady = true
+    }
+
+    /**
+     * 设置播放列表并从指定曲目开始播放。
+     * 将所有曲目加入 ExoPlayer 队列，实现自动切歌功能。
+     */
+    fun setPlaylist(tracks: List<AudioTrack>, startIndex: Int) {
+        val controller = mediaController ?: run {
+            Log.w(TAG, "MediaController not ready, retrying connection")
+            connectToService()
+            return
+        }
+        _state.update { it.copy(errorMessage = null) }
+        currentPlaylist = tracks
+        val mediaItems = tracks.map { track ->
+            val metadataBuilder = MediaMetadata.Builder().setTitle(track.title)
+            if (track.artist.isNotBlank()) metadataBuilder.setArtist(track.artist)
+            if (track.album.isNotBlank()) metadataBuilder.setAlbumTitle(track.album)
+            MediaItem.Builder()
+                .setMediaId(track.id)
+                .setUri(track.uri)
+                .setMediaMetadata(metadataBuilder.build())
+                .build()
+        }
+        controller.setMediaItems(mediaItems, startIndex, 0L)
         controller.prepare()
         controller.playWhenReady = true
     }

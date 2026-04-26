@@ -68,7 +68,7 @@ fun WebdavScreen(
     modifier: Modifier = Modifier,
     viewModel: WebdavViewModel,
     addedDirectoryPaths: Set<String> = emptySet(),
-    onTrackClick: (AudioTrack) -> Unit = {},
+    onTrackClick: (AudioTrack, List<AudioTrack>) -> Unit = { _, _ -> },
     onTracksAdded: (List<AudioTrack>) -> Unit = {},
     onTracksRemoved: (List<String>) -> Unit = {}
 ) {
@@ -121,7 +121,7 @@ private fun WebdavContent(
     modifier: Modifier = Modifier,
     uiState: WebdavUiState,
     viewModel: WebdavViewModel,
-    onTrackClick: (AudioTrack) -> Unit,
+    onTrackClick: (AudioTrack, List<AudioTrack>) -> Unit,
     onAddDirTarget: (WebdavItem) -> Unit,
     addedDirectoryPaths: Set<String> = emptySet()
 ) {
@@ -137,6 +137,8 @@ private fun WebdavContent(
             ConnectingContent(modifier = modifier)
         }
         is WebdavUiState.Browsing -> {
+            val audioItems = state.items.filter { !it.isCollection }
+            val audioTracks = audioItems.mapNotNull { viewModel.toAudioTrack(it) }
             DirectoryContent(
                 config = state.config,
                 currentPath = state.currentPath,
@@ -147,7 +149,7 @@ private fun WebdavContent(
                     } else {
                         val audioTrack = viewModel.toAudioTrack(item)
                         if (audioTrack != null) {
-                            onTrackClick(audioTrack)
+                            onTrackClick(audioTrack, audioTracks)
                         }
                     }
                 },

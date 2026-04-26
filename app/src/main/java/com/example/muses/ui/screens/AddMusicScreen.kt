@@ -46,7 +46,7 @@ fun AddMusicScreen(
     modifier: Modifier = Modifier,
     hasPermission: Boolean = true,
     requestPermission: () -> Unit = {},
-    onTrackClick: (AudioTrack) -> Unit = {},
+    onTrackClick: (AudioTrack, List<AudioTrack>) -> Unit = { _, _ -> },
     onTracksAdded: (List<AudioTrack>) -> Unit = {},
     onTracksRemoved: (List<String>) -> Unit = {},
     onFolderSelected: (Uri) -> Unit = {},
