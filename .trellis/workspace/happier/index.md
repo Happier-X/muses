@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 1
-- **Last Active**: 2026-04-25
+- **Total Sessions**: 2
+- **Last Active**: 2026-04-26
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~40 | Active |
+| `journal-1.md` | ~73 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 2 | 2026-04-26 | 重构导航与音乐管理流程 | `a6bc2b8` | `main` |
 | 1 | 2026-04-25 | Muses 音乐播放器 MVP 开发 | `1b0a2a4` | `main` |
 <!-- @@@/auto:session-history -->
 

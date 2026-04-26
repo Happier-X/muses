@@ -38,3 +38,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: 重构导航与音乐管理流程
+
+**Date**: 2026-04-26
+**Task**: 重构导航与音乐管理流程
+**Branch**: `main`
+
+### Summary
+
+底部标签导航改为左侧抽屉菜单；歌曲页面统一展示所有音乐；本地音乐改为SAF文件夹选择器手动添加；WebDAV添加后仅加入列表不自动播放；新增SongsViewModel/AddMusicScreen/SongsScreen
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a6bc2b8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
