@@ -71,3 +71,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Persist WebDAV tracks & show added folder indicator
+
+**Date**: 2026-04-26
+**Task**: Persist WebDAV tracks & show added folder indicator
+**Branch**: `main`
+
+### Summary
+
+Add TrackStore for persisting songs via SharedPreferences/JSON. SongsViewModel loads saved tracks on init and saves on add. WebdavConfigManager stores added directory paths. WebdavViewModel exposes addedDirectoryPaths. WebdavScreen shows checkmark on folders that have been added. Songs survive app restart.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f2dd985` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
