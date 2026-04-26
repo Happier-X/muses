@@ -14,7 +14,6 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.example.muses.playback.MusicService
 import com.example.muses.data.model.AudioTrack
-import com.example.muses.data.model.TrackSource
 import com.example.muses.data.repository.MetadataExtractor
 import com.example.muses.data.repository.TrackStore
 import com.example.muses.data.repository.WebdavConfigManager
@@ -40,7 +39,9 @@ data class PlayerState(
     val durationMs: Long = 0L,
     val isReady: Boolean = false,
     val hasTrack: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val shuffleModeEnabled: Boolean = false,
+    val repeatMode: Int = Player.REPEAT_MODE_OFF
 )
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
@@ -178,6 +179,22 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         mediaController?.seekTo(positionMs)
     }
 
+    fun toggleShuffle() {
+        mediaController?.let { controller ->
+            controller.shuffleModeEnabled = !controller.shuffleModeEnabled
+        }
+    }
+
+    fun cycleRepeatMode() {
+        mediaController?.let { controller ->
+            controller.repeatMode = when (controller.repeatMode) {
+                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_OFF
+                else -> Player.REPEAT_MODE_OFF
+            }
+        }
+    }
+
     private fun startPositionPolling() {
         positionJob?.cancel()
         positionJob = viewModelScope.launch {
@@ -210,7 +227,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 isReady = isReady,
                 hasTrack = controller.mediaItemCount > 0,
                 durationMs = if (isReady && controller.duration > 0) controller.duration else it.durationMs,
-                positionMs = if (isReady) controller.currentPosition else it.positionMs
+                positionMs = if (isReady) controller.currentPosition else it.positionMs,
+                shuffleModeEnabled = controller.shuffleModeEnabled,
+                repeatMode = controller.repeatMode
             )
         }
     }
@@ -349,6 +368,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             syncState()
+        }
+
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+            _state.update { it.copy(shuffleModeEnabled = shuffleModeEnabled) }
+        }
+
+        override fun onRepeatModeChanged(repeatMode: Int) {
+            _state.update { it.copy(repeatMode = repeatMode) }
         }
 
         override fun onPlayerError(error: PlaybackException) {

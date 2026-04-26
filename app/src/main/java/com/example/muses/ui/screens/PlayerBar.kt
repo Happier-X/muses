@@ -17,6 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
@@ -38,6 +40,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.Player
 import com.example.muses.R
 import com.example.muses.ui.theme.MusesTheme
 import com.example.muses.ui.util.formatDurationMs
@@ -158,6 +161,22 @@ fun PlayerBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
+                        onClick = { viewModel.toggleShuffle() },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shuffle,
+                            contentDescription = stringResource(R.string.shuffle),
+                            modifier = Modifier.size(20.dp),
+                            tint = if (state.shuffleModeEnabled) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                    }
+
+                    IconButton(
                         onClick = { viewModel.skipToPrevious() },
                         modifier = Modifier.size(40.dp)
                     ) {
@@ -187,6 +206,22 @@ fun PlayerBar(
                             imageVector = Icons.Default.SkipNext,
                             contentDescription = stringResource(R.string.skip_next),
                             modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.cycleRepeatMode() },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Repeat,
+                            contentDescription = stringResource(R.string.repeat),
+                            modifier = Modifier.size(20.dp),
+                            tint = if (state.repeatMode != Player.REPEAT_MODE_OFF) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
                     }
                 }
