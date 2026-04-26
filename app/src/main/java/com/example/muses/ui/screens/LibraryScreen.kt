@@ -14,15 +14,11 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,7 +38,6 @@ import com.example.muses.ui.util.formatDurationMs
 import com.example.muses.ui.viewmodel.LibraryUiState
 import com.example.muses.ui.viewmodel.LibraryViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     modifier: Modifier = Modifier,
@@ -59,60 +54,57 @@ fun LibraryScreen(
         }
     }
 
-    Scaffold(
+    LibraryContent(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.tab_local)) },
-                actions = {
-                    if (hasPermission) {
-                        IconButton(onClick = { viewModel.refresh() }) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = stringResource(R.string.tab_local)
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+        uiState = uiState,
+        hasPermission = hasPermission,
+        requestPermission = requestPermission,
+        viewModel = viewModel,
+        onTrackClick = onTrackClick
+    )
+}
+
+@Composable
+fun LibraryContent(
+    modifier: Modifier = Modifier,
+    uiState: LibraryUiState,
+    hasPermission: Boolean,
+    requestPermission: () -> Unit,
+    viewModel: LibraryViewModel,
+    onTrackClick: (AudioTrack) -> Unit
+) {
+    when (val state = uiState) {
+        is LibraryUiState.NeedsPermission -> {
+            PermissionRequestContent(
+                modifier = modifier,
+                onRequestPermission = requestPermission
             )
         }
-    ) { innerPadding ->
-        when (val state = uiState) {
-            is LibraryUiState.NeedsPermission -> {
+        is LibraryUiState.Loading -> {
+            LoadingContent(modifier = modifier)
+        }
+        is LibraryUiState.Empty -> {
+            EmptyContent(modifier = modifier)
+        }
+        is LibraryUiState.Ready -> {
+            TrackListContent(
+                tracks = state.tracks,
+                modifier = modifier,
+                onTrackClick = onTrackClick
+            )
+        }
+        is LibraryUiState.Error -> {
+            if (!hasPermission) {
                 PermissionRequestContent(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    modifier = modifier,
                     onRequestPermission = requestPermission
                 )
-            }
-            is LibraryUiState.Loading -> {
-                LoadingContent(modifier = Modifier.fillMaxSize().padding(innerPadding))
-            }
-            is LibraryUiState.Empty -> {
-                EmptyContent(modifier = Modifier.fillMaxSize().padding(innerPadding))
-            }
-            is LibraryUiState.Ready -> {
-                TrackListContent(
-                    tracks = state.tracks,
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    onTrackClick = onTrackClick
+            } else {
+                ErrorContent(
+                    message = state.message,
+                    modifier = modifier,
+                    onRetry = { viewModel.loadTracks() }
                 )
-            }
-            is LibraryUiState.Error -> {
-                if (!hasPermission) {
-                    PermissionRequestContent(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
-                        onRequestPermission = requestPermission
-                    )
-                } else {
-                    ErrorContent(
-                        message = state.message,
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
-                        onRetry = { viewModel.loadTracks() }
-                    )
-                }
             }
         }
     }

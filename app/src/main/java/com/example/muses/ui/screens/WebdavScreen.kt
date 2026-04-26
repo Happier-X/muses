@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.SubdirectoryArrowRight
 import androidx.compose.material.icons.filled.Visibility
@@ -29,17 +28,13 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,7 +62,6 @@ import com.example.muses.ui.theme.MusesTheme
 import com.example.muses.ui.viewmodel.WebdavUiState
 import com.example.muses.ui.viewmodel.WebdavViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WebdavScreen(
     modifier: Modifier = Modifier,
@@ -101,93 +95,88 @@ fun WebdavScreen(
         )
     }
 
-    Scaffold(
+    WebdavContent(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.tab_webdav)) },
-                actions = {
-                    if (uiState is WebdavUiState.Browsing || uiState is WebdavUiState.EmptyDirectory) {
-                        IconButton(onClick = { viewModel.disconnect() }) {
-                            Icon(
-                                imageVector = Icons.Default.LinkOff,
-                                contentDescription = stringResource(R.string.webdav_disconnect)
-                            )
+        uiState = uiState,
+        viewModel = viewModel,
+        onTrackClick = onTrackClick,
+        onAddDirTarget = { addDirTarget = it }
+    )
+}
+
+@Composable
+private fun WebdavContent(
+    modifier: Modifier = Modifier,
+    uiState: WebdavUiState,
+    viewModel: WebdavViewModel,
+    onTrackClick: (AudioTrack) -> Unit,
+    onAddDirTarget: (WebdavItem) -> Unit
+) {
+    when (val state = uiState) {
+        is WebdavUiState.NotConfigured -> {
+            ConfigFormContent(
+                initialConfig = viewModel.lastConfig,
+                onConnect = { config -> viewModel.connect(config) },
+                modifier = modifier
+            )
+        }
+        is WebdavUiState.Connecting -> {
+            ConnectingContent(modifier = modifier)
+        }
+        is WebdavUiState.Browsing -> {
+            DirectoryContent(
+                config = state.config,
+                currentPath = state.currentPath,
+                items = state.items,
+                onItemClick = { item ->
+                    if (item.isCollection) {
+                        viewModel.browsePath(item.href)
+                    } else {
+                        val audioTrack = viewModel.toAudioTrack(item)
+                        if (audioTrack != null) {
+                            onTrackClick(audioTrack)
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                onDirectoryLongClick = { item ->
+                    if (item.isCollection) {
+                        onAddDirTarget(item)
+                    }
+                },
+                onGoToParent = { viewModel.goToParent() },
+                modifier = modifier
             )
         }
-    ) { innerPadding ->
-        when (val state = uiState) {
-            is WebdavUiState.NotConfigured -> {
-                ConfigFormContent(
-                    initialConfig = viewModel.lastConfig,
-                    onConnect = { config -> viewModel.connect(config) },
-                    modifier = Modifier.fillMaxSize().padding(innerPadding)
-                )
-            }
-            is WebdavUiState.Connecting -> {
-                ConnectingContent(modifier = Modifier.fillMaxSize().padding(innerPadding))
-            }
-            is WebdavUiState.Browsing -> {
-                DirectoryContent(
-                    config = state.config,
-                    currentPath = state.currentPath,
-                    items = state.items,
-                    onItemClick = { item ->
-                        if (item.isCollection) {
-                            viewModel.browsePath(item.href)
-                        } else {
-                            val audioTrack = viewModel.toAudioTrack(item)
-                            if (audioTrack != null) {
-                                onTrackClick(audioTrack)
-                            }
-                        }
-                    },
-                    onDirectoryLongClick = { item ->
-                        if (item.isCollection) {
-                            addDirTarget = item
-                        }
-                    },
-                    onGoToParent = { viewModel.goToParent() },
-                    modifier = Modifier.fillMaxSize().padding(innerPadding)
-                )
-            }
-            is WebdavUiState.EmptyDirectory -> {
-                DirectoryContent(
-                    config = state.config,
-                    currentPath = state.currentPath,
-                    items = emptyList(),
-                    onItemClick = {},
-                    onGoToParent = { viewModel.goToParent() },
-                    modifier = Modifier.fillMaxSize().padding(innerPadding)
-                )
-            }
-            is WebdavUiState.AddingDirectory -> {
-                AddingDirectoryContent(
-                    path = state.targetPath,
-                    modifier = Modifier.fillMaxSize().padding(innerPadding)
-                )
-            }
-            is WebdavUiState.Error -> {
-                ErrorContent(
-                    message = state.message,
-                    onRetry = {
-                        val config = state.config
-                        if (config != null) {
-                            viewModel.connect(config)
-                        } else {
-                            viewModel.disconnect()
-                        }
-                    },
-                    onChangeSettings = { viewModel.disconnect() },
-                    modifier = Modifier.fillMaxSize().padding(innerPadding)
-                )
-            }
+        is WebdavUiState.EmptyDirectory -> {
+            DirectoryContent(
+                config = state.config,
+                currentPath = state.currentPath,
+                items = emptyList(),
+                onItemClick = {},
+                onGoToParent = { viewModel.goToParent() },
+                modifier = modifier
+            )
+        }
+        is WebdavUiState.AddingDirectory -> {
+            AddingDirectoryContent(
+                path = state.targetPath,
+                modifier = modifier
+            )
+        }
+        is WebdavUiState.Error -> {
+            ErrorContent(
+                message = state.message,
+                onRetry = {
+                    val config = state.config
+                    if (config != null) {
+                        viewModel.connect(config)
+                    } else {
+                        viewModel.disconnect()
+                    }
+                },
+                onChangeSettings = { viewModel.disconnect() },
+                modifier = modifier
+            )
         }
     }
 }

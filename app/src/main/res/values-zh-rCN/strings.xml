@@ -5,6 +5,15 @@
     <!-- Navigation -->
     <string name="tab_local">本地音乐</string>
     <string name="tab_webdav">WebDAV</string>
+    <string name="menu_open">打开菜单</string>
+    <string name="nav_songs">歌曲</string>
+    <string name="nav_albums">专辑</string>
+    <string name="nav_artists">艺术家</string>
+    <string name="nav_playlists">歌单</string>
+    <string name="nav_add_music">添加音乐</string>
+    <string name="nav_settings">设置</string>
+    <string name="add_music_local">本地</string>
+    <string name="add_music_webdav">WebDAV</string>
 
     <!-- Library -->
     <string name="local_music_empty">设备上未找到音乐文件</string>
@@ -49,6 +58,15 @@
     <string name="webdav_change_settings">修改设置</string>
     <string name="webdav_show_password">显示密码</string>
     <string name="webdav_hide_password">隐藏密码</string>
+
+    <!-- Songs -->
+    <string name="songs_empty">还没有歌曲</string>
+    <string name="songs_empty_hint">从「添加音乐」中添加歌曲</string>
+
+    <!-- Add Music -->
+    <string name="add_music_local_prompt">从设备中选择文件夹</string>
+    <string name="add_music_local_hint">所选文件夹及其子文件夹中的音频文件将被添加到曲库</string>
+    <string name="add_music_pick_folder">选择文件夹</string>
 
     <!-- WebDAV item types -->
     <string name="webdav_item_directory">目录</string>

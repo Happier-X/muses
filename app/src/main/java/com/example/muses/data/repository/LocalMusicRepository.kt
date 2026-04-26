@@ -1,24 +1,24 @@
 package com.example.muses.data.repository
 
 import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
+import android.provider.DocumentsContract
 import android.util.Log
 import com.example.muses.data.model.AudioTrack
 import com.example.muses.data.model.TrackSource
+import java.io.File
 
-/**
- * Queries the device MediaStore for local audio files.
- */
 class LocalMusicRepository(private val contentResolver: ContentResolver) {
 
     companion object {
         private const val TAG = "LocalMusicRepo"
+        private val AUDIO_EXTENSIONS = setOf(
+            "mp3", "flac", "wav", "ogg", "m4a", "aac", "wma", "opus", "3gp", "mid", "midi"
+        )
     }
 
-    /**
-     * Returns all audio tracks from MediaStore, sorted by title.
-     */
     fun loadTracks(): Result<List<AudioTrack>> {
         return try {
             val tracks = mutableListOf<AudioTrack>()
@@ -89,5 +89,78 @@ class LocalMusicRepository(private val contentResolver: ContentResolver) {
             Log.e(TAG, "Failed to load tracks", e)
             Result.failure(e)
         }
+    }
+
+    fun loadTracksFromTreeUri(treeUri: Uri): Result<List<AudioTrack>> {
+        return try {
+            val tracks = mutableListOf<AudioTrack>()
+            traverseTreeUri(treeUri, tracks)
+            Log.i(TAG, "Loaded ${tracks.size} tracks from tree URI")
+            Result.success(tracks)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load tracks from tree URI", e)
+            Result.failure(e)
+        }
+    }
+
+    private fun traverseTreeUri(treeUri: Uri, tracks: MutableList<AudioTrack>) {
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+            treeUri,
+            DocumentsContract.getTreeDocumentId(treeUri)
+        )
+
+        contentResolver.query(
+            childrenUri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_SIZE
+            ),
+            null,
+            null,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME
+        )?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+            val sizeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_SIZE)
+
+            while (cursor.moveToNext()) {
+                val docId = cursor.getString(idCol)
+                val name = cursor.getString(nameCol) ?: continue
+                val mimeType = cursor.getString(mimeCol) ?: ""
+                val size = cursor.getLong(sizeCol)
+
+                if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    val subTreeUri = DocumentsContract.buildTreeDocumentUri(
+                        treeUri.authority,
+                        docId
+                    )
+                    traverseTreeUri(subTreeUri, tracks)
+                } else if (isAudioFile(name)) {
+                    val docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+                    val trackId = "local_$docId"
+                    val title = name.substringBeforeLast('.')
+                    tracks.add(
+                        AudioTrack(
+                            id = trackId,
+                            uri = docUri,
+                            title = title,
+                            artist = "",
+                            album = "",
+                            durationMs = 0L,
+                            sizeBytes = size,
+                            source = TrackSource.LOCAL
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private fun isAudioFile(name: String): Boolean {
+        val ext = name.substringAfterLast('.', "").lowercase()
+        return ext in AUDIO_EXTENSIONS
     }
 }

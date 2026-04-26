@@ -1,47 +1,59 @@
 package com.example.muses
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.core.content.ContextCompat
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.example.muses.data.model.AudioTrack
-import com.example.muses.ui.screens.LibraryScreen
+import com.example.muses.ui.screens.AddMusicScreen
 import com.example.muses.ui.screens.PlayerBar
-import com.example.muses.ui.screens.WebdavScreen
+import com.example.muses.ui.screens.SongsScreen
 import com.example.muses.ui.theme.MusesTheme
 import com.example.muses.ui.viewmodel.PlayerViewModel
+import com.example.muses.ui.viewmodel.SongsViewModel
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,82 +67,84 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainContent() {
     val playerViewModel: PlayerViewModel = viewModel()
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val context = LocalContext.current
+    val songsViewModel: SongsViewModel = viewModel()
+    var selectedItem by remember { mutableIntStateOf(0) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    // Determine which permission to request based on API level
-    val permissionToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_AUDIO
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
+    val menuIcon: @Composable () -> Unit = {
+        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+            Icon(
+                imageVector = Icons.Default.Menu,
+                contentDescription = stringResource(R.string.menu_open)
+            )
+        }
     }
 
-    // Check initial permission state
-    var hasPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, permissionToRequest)
-                    == PackageManager.PERMISSION_GRANTED
-        )
-    }
-
-    // Permission launcher
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasPermission = isGranted
-    }
-
-    val tabs: List<Pair<Int, androidx.compose.ui.graphics.vector.ImageVector>> = listOf(
-        R.string.tab_local to Icons.Default.LibraryMusic,
-        R.string.tab_webdav to Icons.Default.Cloud
+    data class DrawerItem(
+        val labelRes: Int,
+        val icon: androidx.compose.ui.graphics.vector.ImageVector
     )
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            NavigationBar {
-                tabs.forEachIndexed { index: Int, (labelRes: Int, icon: androidx.compose.ui.graphics.vector.ImageVector) ->
-                    NavigationBarItem(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        icon = {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = stringResource(labelRes)
-                            )
+    val drawerItems = listOf(
+        DrawerItem(R.string.nav_songs, Icons.Default.MusicNote),
+        DrawerItem(R.string.nav_albums, Icons.Default.Album),
+        DrawerItem(R.string.nav_artists, Icons.Outlined.Person),
+        DrawerItem(R.string.nav_playlists, Icons.AutoMirrored.Filled.PlaylistPlay),
+        DrawerItem(R.string.nav_add_music, Icons.Default.Add),
+        DrawerItem(R.string.nav_settings, Icons.Default.Settings)
+    )
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(modifier = Modifier.width(240.dp)) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp)
+                )
+                Spacer(Modifier.height(4.dp))
+                drawerItems.forEachIndexed { index, item ->
+                    NavigationDrawerItem(
+                        label = { Text(stringResource(item.labelRes)) },
+                        icon = { Icon(item.icon, contentDescription = stringResource(item.labelRes)) },
+                        selected = selectedItem == index,
+                        onClick = {
+                            selectedItem = index
+                            scope.launch { drawerState.close() }
                         },
-                        label = { Text(stringResource(labelRes)) }
+                        modifier = Modifier.padding(horizontal = 12.dp)
                     )
                 }
             }
         }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f)) {
-                when (selectedTab) {
-                    0 -> LibraryScreen(
-                        hasPermission = hasPermission,
-                        requestPermission = { permissionLauncher.launch(permissionToRequest) },
-                        onTrackClick = { track -> playTrack(track, playerViewModel) }
-                    )
-                    1 -> WebdavScreen(
+                when (selectedItem) {
+                    0 -> SongsScreen(
+                        viewModel = songsViewModel,
                         onTrackClick = { track -> playTrack(track, playerViewModel) },
-                        onTracksAdded = { tracks -> playTracks(tracks, playerViewModel) }
+                        navigationIcon = menuIcon
                     )
+                    4 -> AddMusicScreen(
+                        onTrackClick = { track -> playTrack(track, playerViewModel) },
+                        onTracksAdded = { tracks ->
+                            songsViewModel.addTracks(tracks)
+                        },
+                        onFolderSelected = { uri -> songsViewModel.addFolderFromTreeUri(uri) },
+                        navigationIcon = menuIcon
+                    )
+                    else -> PlaceholderScreen(navigationIcon = menuIcon)
                 }
             }
 
-            PlayerBar(
-                viewModel = playerViewModel
-            )
+            PlayerBar(viewModel = playerViewModel)
         }
     }
 }
@@ -167,6 +181,32 @@ private fun playTracks(tracks: List<AudioTrack>, playerViewModel: PlayerViewMode
             .build()
     }
     playerViewModel.playTracks(mediaItems)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlaceholderScreen(navigationIcon: @Composable () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Muses") },
+                navigationIcon = navigationIcon
+            )
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Coming soon",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Preview(showBackground = true, showSystemUi = true)
