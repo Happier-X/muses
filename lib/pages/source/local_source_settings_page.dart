@@ -23,6 +23,7 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
   bool _loading = true;
   bool _isScanning = false;
   bool _cancelScan = false;
+  bool _scanDialogVisible = false;
   int _localCount = 0;
   LocalSourceSettings _settings = LocalSourceSettings.defaults();
   List<AssetPathEntity> _albums = [];
@@ -30,6 +31,7 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
 
   @override
   void dispose() {
+    _scanDialogVisible = false;
     _scanNotifier.dispose();
     super.dispose();
   }
@@ -152,9 +154,12 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
   }
 
   void _showScanDialog() {
+    if (_scanDialogVisible) return;
+    _scanDialogVisible = true;
     showDialog(
       context: context,
-      barrierDismissible: true,
+      useRootNavigator: false,
+      barrierDismissible: false,
       builder: (ctx) {
         return ValueListenableBuilder<LocalScanProgress>(
           valueListenable: _scanNotifier,
@@ -166,16 +171,23 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
               isScanning: _isScanning,
               onCancel: () {
                 _cancelScan = true;
-                if (ctx.mounted) {
-                  Navigator.pop(ctx);
-                }
+                _closeScanDialog(ctx);
               },
-              onHide: () {},
+              onHide: () => _closeScanDialog(ctx),
             );
           },
         );
       },
-    );
+    ).whenComplete(() {
+      _scanDialogVisible = false;
+    });
+  }
+
+  void _closeScanDialog(BuildContext dialogContext) {
+    if (!_scanDialogVisible) return;
+    if (dialogContext.mounted) {
+      Navigator.of(dialogContext, rootNavigator: false).maybePop();
+    }
   }
 
   Future<void> _startScan() async {
@@ -235,6 +247,7 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
     final minSeconds = (_settings.minDurationMs / 1000).clamp(0.0, 180.0);
     final includeSet = _settings.includeAlbumIds.toSet();
     final includePaths = _settings.includePaths;
+    final bottomPadding = AppPageScaffold.scrollableBottomPadding(context);
 
     return AppPageScaffold(
       extendBodyBehindAppBar: true,
@@ -244,7 +257,7 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
         elevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPadding),
         children: [
           AppSettingSection(
             title: '扫描操作',

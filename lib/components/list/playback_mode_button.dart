@@ -4,6 +4,7 @@ class PlaybackModeButton extends StatelessWidget {
   final bool isSequential;
   final int count;
   final VoidCallback onPlay;
+  final VoidCallback? onDoubleTap;
   final VoidCallback onToggleMode;
 
   const PlaybackModeButton({
@@ -11,6 +12,7 @@ class PlaybackModeButton extends StatelessWidget {
     required this.isSequential,
     required this.count,
     required this.onPlay,
+    this.onDoubleTap,
     required this.onToggleMode,
   });
 
@@ -18,6 +20,7 @@ class PlaybackModeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onPlay,
+      onDoubleTap: onDoubleTap,
       onLongPress: onToggleMode,
       borderRadius: BorderRadius.circular(20),
       child: Row(

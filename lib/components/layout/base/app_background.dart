@@ -15,24 +15,11 @@ class AppBackground extends StatefulWidget {
   State<AppBackground> createState() => _AppBackgroundState();
 }
 
-class _AppBackgroundState extends State<AppBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _glowController;
-
+class _AppBackgroundState extends State<AppBackground> {
   @override
   void initState() {
     super.initState();
     AppBackgroundSettings.ensureLoaded();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 20),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _glowController.dispose();
-    super.dispose();
   }
 
   @override
@@ -57,7 +44,9 @@ class _AppBackgroundState extends State<AppBackground>
             imagePath.isNotEmpty &&
             File(imagePath).existsSync();
         final baseColor = theme.scaffoldBackgroundColor;
-        final maskColor = theme.scaffoldBackgroundColor.withValues(alpha: maskOpacity);
+        final maskColor = theme.scaffoldBackgroundColor.withValues(
+          alpha: maskOpacity,
+        );
         return Container(
           color: baseColor,
           child: Stack(
@@ -69,71 +58,50 @@ class _AppBackgroundState extends State<AppBackground>
               if (glowEnabled) ...[
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: AnimatedBuilder(
-                      animation: _glowController,
-                      builder: (context, _) {
-                        final t = _glowController.value;
-                        return Stack(
-                          children: [
-                            _glow(
-                              alignment: Alignment(
-                                0.82 + 0.14 * math.sin(t * math.pi * 2),
-                                -0.92 + 0.26 * math.cos(t * math.pi * 2),
-                              ),
-                              size: 380,
-                              scaleX: 1.18,
-                              scaleY: 0.92,
-                              blurSigma: 46,
-                              colors: _glowColors(
-                                colorScheme,
-                                isDark: isDark,
-                                primary: false,
-                                strength: 1.0,
-                              ),
+                    child: RepaintBoundary(
+                      child: Stack(
+                        children: [
+                          _glow(
+                            alignment: const Alignment(0.88, -0.92),
+                            size: 320,
+                            scaleX: 1.12,
+                            scaleY: 0.94,
+                            blurSigma: 28,
+                            colors: _glowColors(
+                              colorScheme,
+                              isDark: isDark,
+                              primary: false,
+                              strength: 0.88,
                             ),
-                            _glow(
-                              alignment: Alignment(
-                                -0.88 + 0.20 * math.cos(t * math.pi * 2),
-                                0.84 + 0.18 * math.sin(t * math.pi * 2),
-                              ),
-                              size: 340,
-                              scaleX: 0.96,
-                              scaleY: 1.12,
-                              blurSigma: 40,
-                              colors: _glowColors(
-                                colorScheme,
-                                isDark: isDark,
-                                primary: true,
-                                strength: 1.0,
-                              ),
+                          ),
+                          _glow(
+                            alignment: const Alignment(-0.86, 0.82),
+                            size: 290,
+                            scaleX: 0.98,
+                            scaleY: 1.08,
+                            blurSigma: 24,
+                            colors: _glowColors(
+                              colorScheme,
+                              isDark: isDark,
+                              primary: true,
+                              strength: 0.82,
                             ),
-                            _glow(
-                              alignment: Alignment(
-                                -0.10 + 0.36 * math.sin(t * math.pi * 2),
-                                -0.18 + 0.24 * math.cos(t * math.pi * 2),
-                              ),
-                              size: 300,
-                              scaleX: 1.35,
-                              scaleY: 0.78,
-                              blurSigma: 50,
-                              colors: _glowColors(
-                                colorScheme,
-                                isDark: isDark,
-                                primary: true,
-                                strength: 0.58,
-                              ),
+                          ),
+                          _glow(
+                            alignment: const Alignment(0.12, -0.08),
+                            size: 240,
+                            scaleX: 1.22,
+                            scaleY: 0.82,
+                            blurSigma: 30,
+                            colors: _glowColors(
+                              colorScheme,
+                              isDark: isDark,
+                              primary: true,
+                              strength: 0.42,
                             ),
-                            _sweepGlow(
-                              color: isDark
-                                  ? colorScheme.primary.withValues(alpha: 0.08)
-                                  : colorScheme.primary.withValues(alpha: 0.06),
-                              angle: -0.42 + 0.28 * math.sin(t * math.pi * 2),
-                              dx: -18 + 36 * math.sin(t * math.pi * 2),
-                              dy: -14 + 28 * math.cos(t * math.pi * 2),
-                            ),
-                          ],
-                        );
-                      },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -209,41 +177,6 @@ class _AppBackgroundState extends State<AppBackground>
                 colors: colors,
                 stops: const [0.0, 0.55, 1.0],
                 transform: const GradientRotation(math.pi / 8),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _sweepGlow({
-    required Color color,
-    required double angle,
-    required double dx,
-    required double dy,
-  }) {
-    return Transform.translate(
-      offset: Offset(dx, dy),
-      child: Transform.rotate(
-        angle: angle,
-        child: Center(
-          child: ImageFiltered(
-            imageFilter: ui.ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-            child: Container(
-              width: 220,
-              height: 680,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    color.withValues(alpha: 0.0),
-                    color,
-                    color.withValues(alpha: 0.0),
-                  ],
-                  stops: const [0.0, 0.48, 1.0],
-                ),
               ),
             ),
           ),

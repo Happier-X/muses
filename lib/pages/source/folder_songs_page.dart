@@ -7,7 +7,6 @@ import '../../app/services/db/dao/song_dao.dart';
 import '../../app/services/lyrics/lyrics_repository.dart';
 import '../../app/services/player_service.dart';
 import '../../app/state/song_state.dart';
-import '../../components/common/artwork_widget.dart';
 import '../../components/index.dart';
 import '../library/playlists_page.dart';
 import '../songs/song_detail_sheet.dart';
@@ -46,10 +45,11 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
   final SongDao _songDao = SongDao();
   final ScrollController _scrollController = ScrollController();
   final LyricsRepository _lyricsRepo = LyricsRepository();
-  final ValueNotifier<_RemoveProgress> _removeNotifier =
-      ValueNotifier(const _RemoveProgress(processed: 0, total: 0, isRemoving: false));
+  final ValueNotifier<_RemoveProgress> _removeNotifier = ValueNotifier(
+    const _RemoveProgress(processed: 0, total: 0, isRemoving: false),
+  );
   bool _isRemoving = false;
-  
+
   late final _songs = createSignal<List<SongEntity>>([]);
   late final _isLoading = createSignal(true);
   late final _currentSongId = createSignal<String?>(null);
@@ -63,7 +63,7 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
   void initState() {
     super.initState();
     _loadSongs();
-    
+
     // Listen to current song changes to highlight playing track
     final currentSong = PlayerService.instance.currentSong;
     _currentSongId.value = currentSong.value?.id;
@@ -92,7 +92,8 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
 
   List<SongEntity> _sortedSongs(List<SongEntity> input) {
     final list = List<SongEntity>.from(input);
-    int cmpText(String a, String b) => a.toLowerCase().compareTo(b.toLowerCase());
+    int cmpText(String a, String b) =>
+        a.toLowerCase().compareTo(b.toLowerCase());
     int compare(SongEntity a, SongEntity b) {
       switch (_sortKey.value) {
         case 'artist':
@@ -119,7 +120,11 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
         return SortSheet(
           options: const [
             SortOption(key: 'title', label: '歌曲名称', icon: Icons.sort_by_alpha),
-            SortOption(key: 'artist', label: '歌手名称', icon: Icons.person_outline),
+            SortOption(
+              key: 'artist',
+              label: '歌手名称',
+              icon: Icons.person_outline,
+            ),
             SortOption(key: 'album', label: '专辑名称', icon: Icons.album_outlined),
             SortOption(key: 'duration', label: '歌曲时长', icon: Icons.schedule),
           ],
@@ -196,10 +201,7 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
   Future<void> _openAddToPlaylistSheet() async {
     final ids = _selectedIds.value.toList(growable: false);
     if (ids.isEmpty) return;
-    final added = await showAddToPlaylistDialog(
-      context,
-      songIds: ids,
-    );
+    final added = await showAddToPlaylistDialog(context, songIds: ids);
     if (!mounted) return;
     if (added) {
       _toggleMultiSelect();
@@ -213,8 +215,9 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
     }
     final ids = _selectedIds.value.toList(growable: false);
     if (ids.isEmpty) return;
-    final removedSongs =
-        _songs.value.where((s) => ids.contains(s.id)).toList(growable: false);
+    final removedSongs = _songs.value
+        .where((s) => ids.contains(s.id))
+        .toList(growable: false);
     _isRemoving = true;
     _removeNotifier.value = _RemoveProgress(
       processed: 0,
@@ -237,7 +240,8 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
       if (currentId != null && currentId == song.id) {
         _currentSongId.value = null;
       }
-      _selectedIds.value = Set<String>.from(_selectedIds.value)..remove(song.id);
+      _selectedIds.value = Set<String>.from(_selectedIds.value)
+        ..remove(song.id);
       processed += 1;
       _removeNotifier.value = _RemoveProgress(
         processed: processed,
@@ -299,7 +303,8 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
           final currentId = _currentSongId.value;
           final selected = _selectedIds.value;
           final selectedCount = selected.length;
-          final isAllSelected = songs.isNotEmpty && selectedCount == songs.length;
+          final isAllSelected =
+              songs.isNotEmpty && selectedCount == songs.length;
 
           if (songs.isEmpty) {
             return const Center(child: Text('此文件夹没有歌曲'));
@@ -322,6 +327,7 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
                   }
                   PlayerService.instance.playQueue(queue, 0);
                 },
+                onConfigurePlay: () {},
                 onTogglePlayMode: _togglePlayMode,
                 onSort: _showSortSheet,
                 onToggleMultiSelect: _toggleMultiSelect,
@@ -331,7 +337,8 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
                   controller: _scrollController,
                   itemCount: songs.length,
                   itemExtent: _itemExtent,
-                  bottomInset: MediaQuery.of(context).padding.bottom +
+                  bottomInset:
+                      MediaQuery.of(context).padding.bottom +
                       (_multiSelect.value ? 160 : 80),
                   itemBuilder: (context, index) {
                     final song = songs[index];
@@ -400,7 +407,9 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
                     MultiSelectAction(
                       icon: Icons.playlist_add,
                       label: '收藏到歌单',
-                      onTap: selectedCount == 0 ? null : _openAddToPlaylistSheet,
+                      onTap: selectedCount == 0
+                          ? null
+                          : _openAddToPlaylistSheet,
                     ),
                     MultiSelectAction(
                       icon: Icons.delete_outline,

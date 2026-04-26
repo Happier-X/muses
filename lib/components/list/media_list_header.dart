@@ -13,6 +13,7 @@ class MediaListHeader extends StatelessWidget {
   final bool isSequentialPlay;
   final VoidCallback onToggleSelectAll;
   final VoidCallback onPlay;
+  final VoidCallback onConfigurePlay;
   final VoidCallback onTogglePlayMode;
   final VoidCallback onSort;
   final VoidCallback onToggleMultiSelect;
@@ -26,6 +27,7 @@ class MediaListHeader extends StatelessWidget {
     required this.isSequentialPlay,
     required this.onToggleSelectAll,
     required this.onPlay,
+    required this.onConfigurePlay,
     required this.onTogglePlayMode,
     required this.onSort,
     required this.onToggleMultiSelect,
@@ -48,6 +50,7 @@ class MediaListHeader extends StatelessWidget {
                   isSequential: isSequentialPlay,
                   count: totalCount,
                   onPlay: onPlay,
+                  onDoubleTap: onConfigurePlay,
                   onToggleMode: onTogglePlayMode,
                 ),
           const Spacer(),

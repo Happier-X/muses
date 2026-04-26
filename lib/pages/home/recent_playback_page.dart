@@ -9,6 +9,7 @@ import '../../app/state/song_state.dart';
 import '../../app/theme/app_styles.dart';
 import '../../components/common/app_list_tile.dart';
 import '../../components/common/artwork_widget.dart';
+import '../../components/common/glass_panel.dart';
 import '../../components/layout/base/app_page_scaffold.dart';
 import '../../components/layout/base/app_top_bar.dart';
 import '../library/library_detail_pages.dart';
@@ -152,21 +153,10 @@ class _RecentPlaybackPageState extends State<RecentPlaybackPage> {
   }
 
   Widget _buildTabBar(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
+    return GlassPanel(
+      borderRadius: BorderRadius.circular(16),
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: theme.appPanelElevatedColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.appPanelBorderColor),
-        boxShadow: [
-          BoxShadow(
-            color: theme.appPanelShadowColor,
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+      color: Theme.of(context).appPanelElevatedColor,
       child: Row(
         children: [
           _tabButton(context, label: '歌曲', tab: RecentPlaybackTab.songs),
@@ -333,20 +323,9 @@ class _RecentPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.appPanelElevatedColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.appPanelBorderColor),
-        boxShadow: [
-          BoxShadow(
-            color: theme.appPanelShadowColor,
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return GlassPanel(
+      borderRadius: BorderRadius.circular(20),
+      color: Theme.of(context).appPanelElevatedColor,
       child: child,
     );
   }

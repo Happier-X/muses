@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signals_flutter/signals_flutter.dart' hide computed;
 
 import '../../../app/router/app_page_route.dart';
+import '../../../app/router/app_router.dart';
 import '../../../app/services/lyrics/lyrics_service.dart';
 import '../../../app/services/player_service.dart';
 import '../../../app/state/settings_state.dart';
@@ -29,6 +30,8 @@ class PlayerBottomPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     PlayerBottomActionSettings.ensureLoaded();
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final bottomSpacing = bottomInset > 20 ? bottomInset + 16.0 : 30.0;
     return Column(
       children: [
         _MiniLyricsPreview(onTap: onTapLyrics),
@@ -37,7 +40,7 @@ class PlayerBottomPanel extends StatelessWidget {
         _PlayerControls(player: player),
         const SizedBox(height: 30),
         _BottomActions(player: player),
-        const SizedBox(height: 30),
+        SizedBox(height: bottomSpacing),
       ],
     );
   }
@@ -357,8 +360,8 @@ class _PlayerControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final titleColor = scheme.onSurface;
-    final iconColor = scheme.onSurfaceVariant.withValues(alpha: 0.85);
+    final iconColor = scheme.primary.withValues(alpha: 0.86);
+    final buttonBg = scheme.primaryContainer.withValues(alpha: 0.92);
     return Watch.builder(
       builder: (context) {
         final playing = player.isPlayingSignal.value;
@@ -374,13 +377,13 @@ class _PlayerControls extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: scheme.onSurfaceVariant.withValues(alpha: 0.15),
+                color: buttonBg,
               ),
               child: IconButton(
                 iconSize: 64,
                 icon: Icon(
                   playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: titleColor,
+                  color: scheme.onPrimaryContainer,
                 ),
                 onPressed: player.togglePlayPause,
               ),
@@ -533,6 +536,9 @@ class _BottomActions extends StatelessWidget {
       isScrollControlled: true,
       builder: (_) => SongDetailSheet(
         song: song,
+        onOpenPlayerAppearanceSettings: () {
+          Navigator.of(context).pushNamed(AppRoutes.playerAppearanceSettings);
+        },
         onOpenArtist: (artistName) {
           Navigator.of(context).push(
             buildAppPageRoute((_) => ArtistDetailPage(artistName: artistName)),
@@ -601,9 +607,17 @@ class _PlayerSheetView extends StatelessWidget {
               child: PlayerBackground(songSignal: player.currentSongSignal),
             ),
             RepaintBoundary(
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Container(color: maskColor),
+              child: ValueListenableBuilder<double>(
+                valueListenable: AppBackgroundSettings.panelBlurStrength,
+                builder: (context, blurStrength, _) {
+                  return BackdropFilter(
+                    filter: ui.ImageFilter.blur(
+                      sigmaX: blurStrength,
+                      sigmaY: blurStrength,
+                    ),
+                    child: Container(color: maskColor),
+                  );
+                },
               ),
             ),
             Column(

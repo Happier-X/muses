@@ -5,6 +5,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Environment
 import android.os.Build
 import android.provider.MediaStore
@@ -22,6 +24,7 @@ class MainActivity : AudioServiceActivity() {
     private val channelName = "com.lanke.nagomusic/meizu_lyrics"
     private val lyriconChannelName = "com.lanke.nagomusic/lyricon"
     private val downloadsChannelName = "com.lanke.nagomusic/downloads"
+    private val artworkChannelName = "com.lanke.nagomusic/native_artwork"
     private val notificationId = 10010
     private val notificationChannelId = "meizu_lyric_channel"
     private var flagShowTicker: Int? = null
@@ -118,6 +121,71 @@ class MainActivity : AudioServiceActivity() {
                 else -> result.notImplemented()
             }
         }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            artworkChannelName
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "loadAudioThumbnail" -> {
+                    val path = call.argument<String>("path")
+                    val size = call.argument<Int>("size") ?: 320
+                    if (path.isNullOrBlank()) {
+                        result.success(null)
+                    } else {
+                        try {
+                            result.success(loadAudioThumbnail(path, size))
+                        } catch (t: Throwable) {
+                            result.error("thumbnail_failed", t.message ?: "读取缩略图失败", null)
+                        }
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun loadAudioThumbnail(path: String, size: Int): ByteArray? {
+        val uri = findAudioUri(path) ?: return null
+        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            applicationContext.contentResolver.loadThumbnail(uri, android.util.Size(size, size), null)
+        } else {
+            MediaStore.Images.Thumbnails.getThumbnail(
+                applicationContext.contentResolver,
+                uri.lastPathSegment?.toLongOrNull() ?: return null,
+                MediaStore.Images.Thumbnails.MINI_KIND,
+                null
+            )
+        } ?: return null
+        return java.io.ByteArrayOutputStream().use { output ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 86, output)
+            bitmap.recycle()
+            output.toByteArray()
+        }
+    }
+
+    private fun findAudioUri(path: String): Uri? {
+        val normalizedPath = java.io.File(path).absolutePath
+        val projection = arrayOf(MediaStore.Audio.Media._ID)
+        val selection = "${MediaStore.Audio.Media.DATA}=?"
+        val selectionArgs = arrayOf(normalizedPath)
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        }
+        applicationContext.contentResolver.query(
+            collection,
+            projection,
+            selection,
+            selectionArgs,
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val id = cursor.getLong(0)
+                return Uri.withAppendedPath(collection, id.toString())
+            }
+        }
+        return null
     }
 
     private fun saveToDownloads(

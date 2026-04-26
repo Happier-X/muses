@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'glass_panel.dart';
 import 'labeled_slider.dart';
 
 class AppSettingSection extends StatelessWidget {
@@ -34,17 +35,16 @@ class AppSettingSection extends StatelessWidget {
         if (title != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              title!,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            child: Text(title!, style: Theme.of(context).textTheme.titleMedium),
           ),
-        Card(
-          margin: margin ?? EdgeInsets.zero,
+        GlassPanel(
+          borderRadius: BorderRadius.circular(16),
+          blurSigma: 0.8,
           child: Padding(
-            padding: padding ?? EdgeInsets.zero,
-            child: Column(
-              children: content,
+            padding: margin ?? EdgeInsets.zero,
+            child: Padding(
+              padding: padding ?? EdgeInsets.zero,
+              child: Column(children: content),
             ),
           ),
         ),
@@ -102,10 +102,7 @@ class AppSettingSwitchTile extends StatelessWidget {
     return AppSettingTile(
       title: title,
       subtitle: subtitle,
-      trailing: Switch.adaptive(
-        value: value,
-        onChanged: onChanged,
-      ),
+      trailing: Switch.adaptive(value: value, onChanged: onChanged),
       onTap: onChanged == null ? null : () => onChanged!(!value),
     );
   }

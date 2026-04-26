@@ -738,6 +738,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
                         );
                         await player.playQueue(queue, 0);
                       },
+                      onConfigurePlay: () {},
                       onTogglePlayMode: _togglePlayMode,
                       onSort: _showSortSheet,
                       onToggleMultiSelect: _toggleMultiSelect,

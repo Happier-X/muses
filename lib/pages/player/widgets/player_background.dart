@@ -13,10 +13,12 @@ class PlayerBackgroundSettings {
   static const String _prefsSaturation = 'gradient_saturation';
   static const String _prefsHueShift = 'gradient_hue_shift';
 
-  static final ValueNotifier<ThemeMode> playbackThemeMode =
-      ValueNotifier(ThemeMode.system);
-  static final ValueNotifier<bool> dynamicGradientEnabled =
-      ValueNotifier(false);
+  static final ValueNotifier<ThemeMode> playbackThemeMode = ValueNotifier(
+    ThemeMode.system,
+  );
+  static final ValueNotifier<bool> dynamicGradientEnabled = ValueNotifier(
+    false,
+  );
   static final ValueNotifier<double> saturation = ValueNotifier(1.0);
   static final ValueNotifier<double> hueShift = ValueNotifier(0.0);
 
@@ -48,8 +50,9 @@ class PlayerBackgroundSettings {
     if (_loaded) return;
     _loaded = true;
     final prefs = await SharedPreferences.getInstance();
-    playbackThemeMode.value =
-        _modeFromString(prefs.getString(_prefsPlaybackThemeMode));
+    playbackThemeMode.value = _modeFromString(
+      prefs.getString(_prefsPlaybackThemeMode),
+    );
     dynamicGradientEnabled.value =
         prefs.getBool(_prefsDynamicGradientEnabled) ?? false;
     saturation.value = prefs.getDouble(_prefsSaturation) ?? 1.0;
@@ -110,7 +113,6 @@ class _PlayerBackgroundState extends State<PlayerBackground> {
       builder: (context) {
         final song = widget.songSignal.value;
         final coverPath = song?.localCoverPath;
-        final hasCover = coverPath != null && coverPath.isNotEmpty;
         _handleCoverChange(coverPath);
         return AnimatedBuilder(
           animation: Listenable.merge([
@@ -137,30 +139,8 @@ class _PlayerBackgroundState extends State<PlayerBackground> {
                 hueShift: hueShift,
               );
             }
-            final overlayColor = surface.withValues(
-              alpha: preferLight ? 0.72 : 0.8,
-            );
-            return Stack(
-              children: [
-                if (hasCover)
-                  Positioned.fill(
-                    child: Image.file(
-                      File(coverPath),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stack) {
-                        return _FallbackBackground(color: surface);
-                      },
-                    ),
-                  )
-                else
-                  _FallbackBackground(color: surface),
-                Positioned.fill(
-                  child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                    child: Container(color: overlayColor),
-                  ),
-                ),
-              ],
+            return _FallbackBackground(
+              color: Color.lerp(surface, baseColor, 0.58) ?? surface,
             );
           },
         );
@@ -185,7 +165,8 @@ class _PlayerBackgroundState extends State<PlayerBackground> {
       setState(() => _dominantColor = cached);
       return;
     }
-    final future = _dominantInflight[coverPath] ??
+    final future =
+        _dominantInflight[coverPath] ??
         (_dominantInflight[coverPath] = _computeDominantColor(coverPath));
     final color = await future;
     _dominantInflight.remove(coverPath);
@@ -208,8 +189,7 @@ class _PlayerBackgroundState extends State<PlayerBackground> {
       );
       final frame = await codec.getNextFrame();
       final image = frame.image;
-      final data =
-          await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
       if (data == null) return null;
       final list = data.buffer.asUint8List();
       int r = 0;
@@ -261,11 +241,7 @@ Color _adjustBackground(Color color, bool preferLightBackground) {
 }
 
 Color _tintSurface(Color surface, bool preferLight) {
-  return Color.lerp(
-    surface,
-    preferLight ? Colors.white : Colors.black,
-    0.18,
-  )!;
+  return Color.lerp(surface, preferLight ? Colors.white : Colors.black, 0.18)!;
 }
 
 class _FallbackBackground extends StatelessWidget {
@@ -281,9 +257,15 @@ class _FallbackBackground extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            color.withValues(alpha: 0.9),
-            color.withValues(alpha: 0.75),
-            color.withValues(alpha: 0.85),
+            color,
+            Color.lerp(
+                  color,
+                  Theme.of(context).colorScheme.surfaceContainer,
+                  0.18,
+                ) ??
+                color,
+            Color.lerp(color, Theme.of(context).colorScheme.surface, 0.08) ??
+                color,
           ],
         ),
       ),
@@ -331,10 +313,8 @@ class _DynamicGradientBackgroundState extends State<_DynamicGradientBackground>
     final s = (hsl.saturation * widget.saturation).clamp(0.0, 1.0);
     final adjustedBase = hsl.withSaturation(s);
     final shift = widget.hueShift;
-    final c1 =
-        adjustedBase.withHue((adjustedBase.hue + shift) % 360).toColor();
-    final c2 =
-        adjustedBase.withHue((adjustedBase.hue - shift) % 360).toColor();
+    final c1 = adjustedBase.withHue((adjustedBase.hue + shift) % 360).toColor();
+    final c2 = adjustedBase.withHue((adjustedBase.hue - shift) % 360).toColor();
     return [adjustedBase.toColor(), c1, c2, adjustedBase.toColor()];
   }
 

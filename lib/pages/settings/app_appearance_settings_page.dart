@@ -377,11 +377,77 @@ class _AppAppearanceSettingsPageState extends State<AppAppearanceSettingsPage> {
                   final name = pathValue == null || pathValue.isEmpty
                       ? '未设置'
                       : path.basename(pathValue);
-                  return AppSettingTile(
-                    title: '自定义背景',
-                    subtitle: name,
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => _showBackgroundImageSheet(context),
+                  final hasImage =
+                      pathValue != null && pathValue.trim().isNotEmpty;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppSettingTile(
+                        title: '自定义背景',
+                        subtitle: name,
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => _showBackgroundImageSheet(context),
+                      ),
+                      if (hasImage)
+                        ValueListenableBuilder<double>(
+                          valueListenable:
+                              AppBackgroundSettings.backgroundMaskOpacity,
+                          builder: (context, value, _) {
+                            return AppSettingSlider(
+                              title: '图片透明度',
+                              value: (value * 100).clamp(0, 100),
+                              min: 0,
+                              max: 100,
+                              divisions: 100,
+                              valueText: '${(value * 100).round()}%',
+                              onChanged: (next) {
+                                AppBackgroundSettings.setBackgroundMaskOpacity(
+                                  next / 100,
+                                );
+                              },
+                            );
+                          },
+                        ),
+                    ],
+                  );
+                },
+              ),
+              ValueListenableBuilder<double>(
+                valueListenable: AppBackgroundSettings.panelOpacity,
+                builder: (context, value, _) {
+                  return ValueListenableBuilder<double>(
+                    valueListenable: AppBackgroundSettings.panelBlurStrength,
+                    builder: (context, blurValue, _) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppSettingSlider(
+                            title: '面板透明度',
+                            description: '调节卡片、列表面板等半透明程度',
+                            value: (value * 100).clamp(0, 100),
+                            min: 0,
+                            max: 100,
+                            divisions: 100,
+                            valueText: '${(value * 100).round()}%',
+                            onChanged: (next) {
+                              AppBackgroundSettings.setPanelOpacity(next / 100);
+                            },
+                          ),
+                          AppSettingSlider(
+                            title: '面板模糊强度',
+                            description: '调节玻璃面板的背景模糊程度',
+                            value: blurValue,
+                            min: 0,
+                            max: 30,
+                            divisions: 30,
+                            valueText: blurValue.toStringAsFixed(0),
+                            onChanged: (next) {
+                              AppBackgroundSettings.setPanelBlurStrength(next);
+                            },
+                          ),
+                        ],
+                      );
+                    },
                   );
                 },
               ),
@@ -394,24 +460,6 @@ class _AppAppearanceSettingsPageState extends State<AppAppearanceSettingsPage> {
                     value: enabled,
                     onChanged: (value) {
                       AppBackgroundSettings.setPageGlowEnabled(value);
-                    },
-                  );
-                },
-              ),
-              ValueListenableBuilder<double>(
-                valueListenable: AppBackgroundSettings.backgroundMaskOpacity,
-                builder: (context, value, _) {
-                  return AppSettingSlider(
-                    title: '图片透明度',
-                    value: (value * 100).clamp(0, 100),
-                    min: 0,
-                    max: 100,
-                    divisions: 100,
-                    valueText: '${(value * 100).round()}%',
-                    onChanged: (next) {
-                      AppBackgroundSettings.setBackgroundMaskOpacity(
-                        next / 100,
-                      );
                     },
                   );
                 },

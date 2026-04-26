@@ -11,7 +11,6 @@ import '../../app/services/player_service.dart';
 import '../../app/services/stats_service.dart';
 import '../../app/state/song_state.dart';
 import '../../components/index.dart';
-import '../../components/common/artwork_widget.dart';
 import '../songs/song_detail_sheet.dart';
 
 List<String> splitArtists(String raw) {

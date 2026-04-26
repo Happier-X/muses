@@ -17,49 +17,167 @@ class PlayerPage extends StatefulWidget {
   State<PlayerPage> createState() => _PlayerPageState();
 }
 
-class _PlayerPageState extends State<PlayerPage> {
+class _PlayerPageState extends State<PlayerPage>
+    with SingleTickerProviderStateMixin {
   final PlayerService _player = PlayerService.instance;
   final PageController _pageController = PageController();
+  late final AnimationController _dismissController;
+  double _dismissDragOffset = 0;
+  double? _dismissDragStartY;
+
+  @override
+  void initState() {
+    super.initState();
+    _dismissController =
+        AnimationController.unbounded(
+          vsync: this,
+          duration: const Duration(milliseconds: 220),
+        )..addListener(() {
+          if (!mounted) return;
+          setState(() {
+            _dismissDragOffset = _dismissController.value;
+          });
+        });
+  }
+
+  void _handleDismissDragStart(DragStartDetails details) {
+    _dismissController.stop();
+    _dismissDragStartY = details.globalPosition.dy;
+  }
+
+  void _handleDismissDragUpdate(DragUpdateDetails details) {
+    final startY = _dismissDragStartY;
+    if (startY == null) return;
+    final offset = details.globalPosition.dy - startY;
+    if (offset <= 0) return;
+    final maxOffset = MediaQuery.sizeOf(context).height;
+    setState(() {
+      _dismissDragOffset = offset.clamp(0, maxOffset);
+    });
+    _dismissController.value = _dismissDragOffset;
+  }
+
+  void _handleDismissDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final shouldDismiss = _dismissDragOffset > 72 || velocity > 700;
+    final startOffset = _dismissDragOffset;
+    _dismissDragStartY = null;
+    if (shouldDismiss) {
+      final screenHeight = MediaQuery.sizeOf(context).height;
+      final remaining = (screenHeight - startOffset).clamp(120.0, screenHeight);
+      _dismissController.duration = Duration(
+        milliseconds: velocity > 0
+            ? (remaining / velocity * 1000).clamp(120, 240).round()
+            : 180,
+      );
+      _dismissController.value = startOffset;
+      _dismissController
+          .animateTo(screenHeight, curve: Curves.easeOutCubic)
+          .whenComplete(() {
+            if (!mounted) return;
+            _closePlayer();
+          });
+      return;
+    }
+    _dismissController.duration = const Duration(milliseconds: 220);
+    _dismissController.value = startOffset;
+    _dismissController.animateBack(0, curve: Curves.easeOutCubic);
+  }
+
+  void _handleDismissDragCancel() {
+    if (_dismissDragOffset == 0) return;
+    _dismissDragStartY = null;
+    _dismissController.duration = const Duration(milliseconds: 220);
+    _dismissController.value = _dismissDragOffset;
+    _dismissController.animateBack(0, curve: Curves.easeOutCubic);
+  }
+
+  void _closePlayer() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    if (rootNavigator.canPop()) {
+      rootNavigator.pop();
+    }
+  }
 
   @override
   void dispose() {
+    _dismissController.dispose();
     _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          RepaintBoundary(
-            child: PlayerBackground(songSignal: _player.currentSongSignal),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                PlayerHeader(songSignal: _player.currentSongSignal),
-                Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    children: [
-                      _PlayerView(
-                        player: _player,
-                        onTapLyrics: () => _pageController.animateToPage(
-                          1,
-                          duration: const Duration(milliseconds: 280),
-                          curve: Curves.easeOut,
-                        ),
-                      ),
-                      const PlayerLyricsView(),
-                    ],
+    final dismissProgress = (_dismissDragOffset / 120).clamp(0.0, 1.0);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _closePlayer();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
+        body: Transform.translate(
+          offset: Offset(0, _dismissDragOffset),
+          child: Opacity(
+            opacity: 1 - dismissProgress * 0.08,
+            child: ClipRRect(
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(dismissProgress * 24),
+              ),
+              child: Stack(
+                children: [
+                  RepaintBoundary(
+                    child: PlayerBackground(
+                      songSignal: _player.currentSongSignal,
+                    ),
                   ),
-                ),
-              ],
+                  SafeArea(
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onVerticalDragStart: _handleDismissDragStart,
+                          onVerticalDragUpdate: _handleDismissDragUpdate,
+                          onVerticalDragEnd: _handleDismissDragEnd,
+                          onVerticalDragCancel: _handleDismissDragCancel,
+                          child: PlayerHeader(
+                            songSignal: _player.currentSongSignal,
+                          ),
+                        ),
+                        Expanded(
+                          child: PageView(
+                            controller: _pageController,
+                            children: [
+                              _PlayerView(
+                                player: _player,
+                                onTapLyrics: () =>
+                                    _pageController.animateToPage(
+                                      1,
+                                      duration: const Duration(
+                                        milliseconds: 280,
+                                      ),
+                                      curve: Curves.easeOut,
+                                    ),
+                              ),
+                              const PlayerLyricsView(),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -139,6 +257,7 @@ class _PlayerArtwork extends StatelessWidget {
                           size: boxSize,
                           borderRadius: 12,
                           preferOriginal: true,
+                          keepPreviousUntilLoaded: true,
                           placeholder: _ArtworkPlaceholder(
                             border: border,
                             label: song.title,

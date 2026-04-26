@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
-import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 
 import '../../app/services/artwork_cache_helper.dart';
 import '../../app/services/artwork_service.dart';
@@ -9,7 +10,8 @@ import '../../app/services/db/dao/song_dao.dart';
 import '../../app/state/song_state.dart';
 
 class SongsArtworkCoordinator {
-  static const int _artworkMaxConcurrent = 6;
+  static const bool _debugArtwork = false;
+  static const int _artworkMaxConcurrent = 3;
   static const int _artworkCacheMax = 300;
 
   static final LinkedHashMap<String, Uint8List> _artworkCache =
@@ -41,6 +43,11 @@ class SongsArtworkCoordinator {
     required bool cacheArtworkEnabled,
     required void Function(SongEntity updatedSong) onSongUpdated,
   }) {
+    if (kDebugMode && _debugArtwork) {
+      debugPrint(
+        '[SongsArtwork] enqueue id=${song.id} asset=${song.localAssetId} cover=${song.localCoverPath} local=${song.isLocal}',
+      );
+    }
     final id = song.id;
     final cached = _artworkCache[id];
     if (cached != null) {
@@ -72,21 +79,25 @@ class SongsArtworkCoordinator {
     required String sortKey,
     required bool ascending,
     required bool cacheArtworkEnabled,
+    bool prunePendingOutsideRange = false,
     required void Function(SongEntity updatedSong) onSongUpdated,
   }) {
     if (songs.isEmpty || !enabled) return;
-    if (end - start > 9) {
-      end = start + 9;
-    }
+    final safeStart = start < 0 ? 0 : start;
+    final safeEnd = end >= songs.length ? songs.length - 1 : end;
+    if (safeEnd < safeStart) return;
     final key = '$sourceFilter|$sortKey|$ascending|$start|$end|${songs.length}';
     if (key == _lastPrefetchKey && songs.length == _lastPrefetchCount) return;
     _lastPrefetchKey = key;
     _lastPrefetchCount = songs.length;
+    if (prunePendingOutsideRange) {
+      _prunePendingOutsideRange(songs, safeStart, safeEnd);
+    }
     Future.microtask(
       () => _prefetchArtworkRange(
         songs,
-        start,
-        end,
+        safeStart,
+        safeEnd,
         cacheArtworkEnabled: cacheArtworkEnabled,
         onSongUpdated: onSongUpdated,
       ),
@@ -104,7 +115,7 @@ class SongsArtworkCoordinator {
     final safeStart = start < 0 ? 0 : start;
     final safeEnd = end >= songs.length ? songs.length - 1 : end;
     if (safeEnd < safeStart) return;
-    for (var i = safeStart; i <= safeEnd; i++) {
+    for (var i = safeEnd; i >= safeStart; i--) {
       final song = songs[i];
       final hasLocalCover = (song.localCoverPath ?? '').trim().isNotEmpty;
       if (hasLocalCover || !song.isLocal) continue;
@@ -116,6 +127,25 @@ class SongsArtworkCoordinator {
         ),
       );
     }
+  }
+
+  void _prunePendingOutsideRange(
+    List<SongEntity> songs,
+    int safeStart,
+    int safeEnd,
+  ) {
+    final retainedIds = <String>{};
+    for (var i = safeStart; i <= safeEnd; i++) {
+      retainedIds.add(songs[i].id);
+    }
+    _artworkQueue.removeWhere((task) {
+      if (retainedIds.contains(task.song.id)) return false;
+      _artworkLoading.remove(task.song.id);
+      if (!task.completer.isCompleted) {
+        task.completer.complete(null);
+      }
+      return true;
+    });
   }
 
   void _drainArtworkQueue() {
@@ -155,6 +185,11 @@ class SongsArtworkCoordinator {
       if (await file.exists()) {
         final bytes = await file.readAsBytes();
         if (bytes.isNotEmpty) {
+          if (kDebugMode && _debugArtwork) {
+            debugPrint(
+              '[SongsArtwork] file hit id=${song.id} cover=$cachedPath bytes=${bytes.length}',
+            );
+          }
           _rememberArtwork(song.id, bytes);
           return bytes;
         }
@@ -162,29 +197,72 @@ class SongsArtworkCoordinator {
     }
     if (!song.isLocal) return null;
     try {
+      final resolvedAssetId = (song.localAssetId ?? '').trim();
+      if (kDebugMode && _debugArtwork) {
+        debugPrint(
+          '[SongsArtwork] resolved id=${song.id} asset=$resolvedAssetId uri=${song.uri}',
+        );
+      }
       final bytes = await _artworkService.loadArtworkBytes(
         uri: song.uri,
         localCoverPath: song.localCoverPath,
-        localAssetId: song.localAssetId,
+        localAssetId: resolvedAssetId,
         isLocal: song.isLocal,
         preferOriginal: false,
       );
-      if (bytes == null || bytes.isEmpty) return null;
+      if (bytes == null || bytes.isEmpty) {
+        if (kDebugMode && _debugArtwork) {
+          debugPrint(
+            '[SongsArtwork] empty bytes id=${song.id} asset=$resolvedAssetId uri=${song.uri}',
+          );
+        }
+        return null;
+      }
 
-      if (cacheArtworkEnabled && (song.localCoverPath ?? '').trim().isEmpty) {
+      String? cachedPath = song.localCoverPath;
+      if ((song.localCoverPath ?? '').trim().isEmpty) {
         final cached = await ArtworkCacheHelper.cacheCompressedArtwork(
           bytes: bytes,
           key: '${song.id}_${song.fileModifiedMs ?? 0}',
         );
         if (cached != null && cached.isNotEmpty) {
-          final updated = song.copyWith(localCoverPath: cached);
-          unawaited(_songDao.upsertSongs([updated]));
-          onSongUpdated(updated);
+          cachedPath = cached;
+          if (kDebugMode && _debugArtwork) {
+            debugPrint(
+              '[SongsArtwork] cached id=${song.id} path=$cached bytes=${bytes.length}',
+            );
+          }
+        } else if (kDebugMode && _debugArtwork) {
+          debugPrint('[SongsArtwork] cache failed id=${song.id}');
         }
+      }
+      final shouldUpdateAssetId =
+          resolvedAssetId.isNotEmpty &&
+          resolvedAssetId != (song.localAssetId ?? '').trim();
+      final shouldUpdateCover =
+          (cachedPath ?? '').trim().isNotEmpty &&
+          (cachedPath ?? '').trim() != (song.localCoverPath ?? '').trim();
+      if (shouldUpdateAssetId || shouldUpdateCover) {
+        final updated = song.copyWith(
+          localAssetId: shouldUpdateAssetId
+              ? resolvedAssetId
+              : song.localAssetId,
+          localCoverPath: shouldUpdateCover ? cachedPath : song.localCoverPath,
+        );
+        if (kDebugMode && _debugArtwork) {
+          debugPrint(
+            '[SongsArtwork] persist id=${song.id} asset=${updated.localAssetId} cover=${updated.localCoverPath}',
+          );
+        }
+        unawaited(_songDao.upsertSongs([updated]));
+        onSongUpdated(updated);
       }
       _rememberArtwork(song.id, bytes);
       return bytes;
     } catch (_) {
+      if (kDebugMode && _debugArtwork) {
+        debugPrint('[SongsArtwork] load failed id=${song.id} uri=${song.uri}');
+      }
       return null;
     }
   }

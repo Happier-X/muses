@@ -64,6 +64,7 @@ class _SourcePageState extends State<SourcePage>
   final Map<String, ValueNotifier<_ScanProgress>> _scanNotifiers = {};
   final Set<String> _scanRunning = {};
   final Map<String, bool> _scanCancelSignals = {};
+  final Set<String> _scanDialogsVisible = {};
 
   late final _localSongCount = createSignal(0);
   late final _webDavConfigs = createSignal<List<WebDavSource>>([]);
@@ -111,6 +112,7 @@ class _SourcePageState extends State<SourcePage>
 
   @override
   void dispose() {
+    _scanDialogsVisible.clear();
     for (final notifier in _scanNotifiers.values) {
       notifier.dispose();
     }
@@ -161,10 +163,13 @@ class _SourcePageState extends State<SourcePage>
   }
 
   void _showScanDialog(SourceItem source) {
+    if (_scanDialogsVisible.contains(source.id)) return;
+    _scanDialogsVisible.add(source.id);
     final notifier = _notifierFor(source);
     showDialog(
       context: context,
-      barrierDismissible: true,
+      useRootNavigator: false,
+      barrierDismissible: false,
       builder: (ctx) {
         return ValueListenableBuilder<_ScanProgress>(
           valueListenable: notifier,
@@ -176,16 +181,23 @@ class _SourcePageState extends State<SourcePage>
               isScanning: progress.isScanning,
               onCancel: () {
                 _cancelScan(source);
-                if (ctx.mounted) {
-                  Navigator.pop(ctx);
-                }
+                _closeScanDialog(source, ctx);
               },
-              onHide: () {},
+              onHide: () => _closeScanDialog(source, ctx),
             );
           },
         );
       },
-    );
+    ).whenComplete(() {
+      _scanDialogsVisible.remove(source.id);
+    });
+  }
+
+  void _closeScanDialog(SourceItem source, BuildContext dialogContext) {
+    if (!_scanDialogsVisible.contains(source.id)) return;
+    if (dialogContext.mounted) {
+      Navigator.of(dialogContext, rootNavigator: false).maybePop();
+    }
   }
 
   void _startScan(SourceItem source) {

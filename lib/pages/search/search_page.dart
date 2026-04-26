@@ -5,7 +5,6 @@ import '../../app/services/lyrics/lyrics_repository.dart';
 import '../../app/services/player_service.dart';
 import '../../app/state/song_state.dart';
 import '../../app/theme/app_styles.dart';
-import '../../components/common/artwork_widget.dart';
 import '../../components/index.dart';
 import '../songs/song_detail_sheet.dart';
 

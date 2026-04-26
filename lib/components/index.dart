@@ -1,5 +1,7 @@
 export 'common/alphabet_indexer.dart';
 export 'common/app_list_tile.dart';
+export 'common/artwork_widget.dart';
+export 'common/glass_panel.dart';
 export 'common/labeled_slider.dart';
 export 'common/setting_widgets.dart';
 export 'list/media_list_header.dart';

@@ -1,17 +1,20 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:photo_manager/photo_manager.dart';
+
+import 'native_audio_thumbnail_service.dart';
 
 class ArtworkService {
   ArtworkService._();
 
   static final ArtworkService instance = ArtworkService._();
 
+  static const bool _debugArtwork = false;
   static const int _maxCache = 100;
   static const int _maxConcurrent = 6;
 
@@ -19,8 +22,39 @@ class ArtworkService {
       LinkedHashMap<String, Uint8List?>();
   final Map<String, Future<Uint8List?>> _loadingFutures =
       <String, Future<Uint8List?>>{};
+  final Map<String, String?> _assetIdCache = <String, String?>{};
+  final Map<String, Future<String?>> _assetIdFutures =
+      <String, Future<String?>>{};
   final List<_ArtworkRequest> _queue = <_ArtworkRequest>[];
   int _active = 0;
+
+  String _normalizePath(String path) => path.replaceAll('\\', '/').trim();
+
+  Future<String?> resolveLocalAssetId(String? uri) async {
+    final trimmedUri = _normalizePath(uri ?? '');
+    if (trimmedUri.isEmpty) return null;
+    if (_assetIdCache.containsKey(trimmedUri)) {
+      if (kDebugMode && _debugArtwork) {
+        debugPrint(
+          '[ArtworkService] resolveLocalAssetId cache uri=$trimmedUri asset=${_assetIdCache[trimmedUri]}',
+        );
+      }
+      return _assetIdCache[trimmedUri];
+    }
+    final inflight = _assetIdFutures[trimmedUri];
+    if (inflight != null) return inflight;
+    final future = _resolveLocalAssetIdInternal(trimmedUri);
+    _assetIdFutures[trimmedUri] = future;
+    final resolved = await future;
+    _assetIdFutures.remove(trimmedUri);
+    _assetIdCache[trimmedUri] = resolved;
+    if (kDebugMode && _debugArtwork) {
+      debugPrint(
+        '[ArtworkService] resolveLocalAssetId result uri=$trimmedUri asset=$resolved',
+      );
+    }
+    return resolved;
+  }
 
   Future<Uint8List?> loadArtworkBytes({
     required String? uri,
@@ -33,14 +67,25 @@ class ArtworkService {
     if (!preferOriginal && trimmedCover.isNotEmpty) {
       final file = File(trimmedCover);
       if (await file.exists()) {
+        if (kDebugMode && _debugArtwork) {
+          debugPrint(
+            '[ArtworkService] loadArtworkBytes local cache exists uri=${uri ?? ''} cover=$trimmedCover',
+          );
+        }
         return null;
       }
     }
 
     if (!isLocal) return null;
     final trimmedUri = (uri ?? '').trim();
-    final trimmedAssetId = (localAssetId ?? '').trim();
+    var trimmedAssetId = (localAssetId ?? '').trim();
     if (trimmedUri.isEmpty) return null;
+
+    if (kDebugMode && _debugArtwork) {
+      debugPrint(
+        '[ArtworkService] loadArtworkBytes request uri=$trimmedUri asset=$trimmedAssetId preferOriginal=$preferOriginal isLocal=$isLocal',
+      );
+    }
 
     final cacheBase = trimmedAssetId.isNotEmpty
         ? 'asset:$trimmedAssetId'
@@ -49,6 +94,9 @@ class ArtworkService {
     if (_bytesCache.containsKey(cacheKey)) {
       final cached = _bytesCache.remove(cacheKey);
       _bytesCache[cacheKey] = cached;
+      if (kDebugMode && _debugArtwork) {
+        debugPrint('[ArtworkService] loadArtworkBytes memory key=$cacheKey');
+      }
       return cached;
     }
 
@@ -71,6 +119,55 @@ class ArtworkService {
     return completer.future.whenComplete(() {
       _loadingFutures.remove(cacheKey);
     });
+  }
+
+  Future<String?> _resolveLocalAssetIdInternal(String normalizedUri) async {
+    try {
+      final ps = await PhotoManager.requestPermissionExtend(
+        requestOption: const PermissionRequestOption(
+          androidPermission: AndroidPermission(
+            type: RequestType.audio,
+            mediaLocation: false,
+          ),
+        ),
+      );
+      if (!ps.isAuth) return null;
+
+      final albums = await PhotoManager.getAssetPathList(
+        type: RequestType.audio,
+      );
+      final seenIds = <String>{};
+      const pageSize = 200;
+      for (final album in albums) {
+        final count = await album.assetCountAsync;
+        var start = 0;
+        while (start < count) {
+          final end = (start + pageSize).clamp(0, count);
+          final entities = await album.getAssetListRange(
+            start: start,
+            end: end,
+          );
+          if (entities.isEmpty) break;
+          for (final entity in entities) {
+            if (!seenIds.add(entity.id)) continue;
+            final file = await entity.file;
+            if (file == null) continue;
+            if (_normalizePath(file.path) == normalizedUri) {
+              if (kDebugMode && _debugArtwork) {
+                debugPrint(
+                  '[ArtworkService] resolveLocalAssetId matched uri=$normalizedUri asset=${entity.id}',
+                );
+              }
+              return entity.id;
+            }
+          }
+          start = end;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   void clearByUri(String? uri) {
@@ -122,6 +219,19 @@ class ArtworkService {
     required bool preferOriginal,
   }) async {
     try {
+      if (!preferOriginal) {
+        final nativeThumb = await NativeAudioThumbnailService.instance
+            .loadThumbnail(uri, size: 320);
+        if (nativeThumb != null && nativeThumb.isNotEmpty) {
+          if (kDebugMode && _debugArtwork) {
+            debugPrint(
+              '[ArtworkService] native platform thumb uri=$uri bytes=${nativeThumb.length}',
+            );
+          }
+          return nativeThumb;
+        }
+      }
+
       if (assetId.isNotEmpty && !preferOriginal) {
         final entity = await AssetEntity.fromId(assetId);
         if (entity != null) {
@@ -129,8 +239,20 @@ class ArtworkService {
             const ThumbnailSize(320, 320),
           );
           if (thumb != null && thumb.isNotEmpty) {
+            if (kDebugMode && _debugArtwork) {
+              debugPrint(
+                '[ArtworkService] native thumb uri=$uri asset=$assetId bytes=${thumb.length}',
+              );
+            }
             return thumb;
           }
+          if (kDebugMode && _debugArtwork) {
+            debugPrint(
+              '[ArtworkService] native thumb empty uri=$uri asset=$assetId',
+            );
+          }
+        } else if (kDebugMode && _debugArtwork) {
+          debugPrint('[ArtworkService] asset missing uri=$uri asset=$assetId');
         }
       }
 
@@ -140,6 +262,11 @@ class ArtworkService {
       if (metadata.pictures.isEmpty) return null;
       final original = metadata.pictures.first.bytes;
       if (original.isEmpty) return null;
+      if (kDebugMode && _debugArtwork) {
+        debugPrint(
+          '[ArtworkService] embedded art uri=$uri bytes=${original.length} preferOriginal=$preferOriginal',
+        );
+      }
       if (preferOriginal) {
         return original;
       }
@@ -156,6 +283,11 @@ class ArtworkService {
       } catch (_) {}
       return original;
     } catch (_) {
+      if (kDebugMode && _debugArtwork) {
+        debugPrint(
+          '[ArtworkService] read artwork failed uri=$uri asset=$assetId',
+        );
+      }
       return null;
     }
   }

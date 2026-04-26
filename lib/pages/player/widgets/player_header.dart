@@ -44,10 +44,7 @@ class PlayerHeader extends StatelessWidget {
                       artist,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: subtitleColor,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(color: subtitleColor, fontSize: 16),
                     ),
                   ],
                 ),

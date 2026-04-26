@@ -333,7 +333,30 @@ class LocalMusicService {
             existing != null && existing.fileModifiedMs == modifiedMs;
 
         if (unchanged) {
-          scannedSongs.add(existing);
+          final trimmedAssetId = (candidate.assetId ?? '').trim();
+          final existingAssetId = (existing.localAssetId ?? '').trim();
+          final existingCoverPath = (existing.localCoverPath ?? '').trim();
+          String? nextCoverPath = existing.localCoverPath;
+          if (existingCoverPath.isEmpty && trimmedAssetId.isNotEmpty) {
+            nextCoverPath = await _cacheAssetThumbnail(
+              assetId: trimmedAssetId,
+              fileModifiedMs: modifiedMs,
+            );
+          }
+          final nextSong =
+              (trimmedAssetId.isNotEmpty &&
+                      trimmedAssetId != existingAssetId) ||
+                  ((nextCoverPath ?? '').trim() != existingCoverPath)
+              ? existing.copyWith(
+                  localAssetId: trimmedAssetId.isNotEmpty
+                      ? trimmedAssetId
+                      : existing.localAssetId,
+                  localCoverPath: (nextCoverPath ?? '').trim().isNotEmpty
+                      ? nextCoverPath
+                      : existing.localCoverPath,
+                )
+              : existing;
+          scannedSongs.add(nextSong);
           processed += 1;
           if (processed % 10 == 0) {
             onProgress(
@@ -366,14 +389,14 @@ class LocalMusicService {
             _firstNonEmpty(tagInfo?.album, candidate.albumHint, '未知专辑') ??
             '未知专辑';
         final durationMs = tagInfo?.durationMs ?? candidate.durationMs;
-        final coverPath = settings.readFullTagsOnScan
-            ? await _cacheArtwork(
-                file: file,
-                fileModifiedMs: modifiedMs,
-                artwork: tagInfo?.artwork,
-                enabled: settings.cacheArtwork,
-              )
-            : existing?.localCoverPath;
+        final coverPath = await _resolveCoverPath(
+          file: file,
+          fileModifiedMs: modifiedMs,
+          assetId: candidate.assetId,
+          artwork: settings.readFullTagsOnScan ? tagInfo?.artwork : null,
+          existingCoverPath: existing?.localCoverPath,
+          cacheArtworkEnabled: settings.cacheArtwork,
+        );
         if (settings.readFullTagsOnScan) {
           final embeddedLyrics = tagInfo?.lyrics;
           if (embeddedLyrics != null && embeddedLyrics.trim().isNotEmpty) {
@@ -447,6 +470,63 @@ class LocalMusicService {
       bytes: artwork,
       key: '${file.path}_$fileModifiedMs',
     );
+  }
+
+  Future<String?> _resolveCoverPath({
+    required File file,
+    required int fileModifiedMs,
+    required String? assetId,
+    required Uint8List? artwork,
+    required String? existingCoverPath,
+    required bool cacheArtworkEnabled,
+  }) async {
+    final existingPath = (existingCoverPath ?? '').trim();
+    if (existingPath.isNotEmpty) {
+      final existingFile = File(existingPath);
+      if (await existingFile.exists()) {
+        return existingPath;
+      }
+    }
+
+    final trimmedAssetId = (assetId ?? '').trim();
+    if (trimmedAssetId.isNotEmpty) {
+      final cached = await _cacheAssetThumbnail(
+        assetId: trimmedAssetId,
+        fileModifiedMs: fileModifiedMs,
+      );
+      if (cached != null && cached.isNotEmpty) {
+        return cached;
+      }
+    }
+
+    return _cacheArtwork(
+      file: file,
+      fileModifiedMs: fileModifiedMs,
+      artwork: artwork,
+      enabled: cacheArtworkEnabled,
+    );
+  }
+
+  Future<String?> _cacheAssetThumbnail({
+    required String assetId,
+    required int fileModifiedMs,
+  }) async {
+    try {
+      final entity = await AssetEntity.fromId(assetId);
+      if (entity == null) return null;
+      final bytes = await entity.thumbnailDataWithSize(
+        const ThumbnailSize(320, 320),
+      );
+      if (bytes == null || bytes.isEmpty) return null;
+      return ArtworkCacheHelper.cacheCompressedArtwork(
+        bytes: bytes,
+        key: 'asset:$assetId:$fileModifiedMs',
+        quality: 86,
+        minSize: 320,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   String? _firstNonEmpty(String? a, [String? b, String? c]) {

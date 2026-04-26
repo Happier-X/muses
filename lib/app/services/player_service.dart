@@ -14,6 +14,7 @@ import 'artwork_cache_helper.dart';
 import 'audio_proxy_server.dart';
 import 'cache/audio_cache_service.dart';
 import 'metadata/tag_probe_service.dart';
+import 'media_notification_service.dart';
 import 'stats_service.dart';
 import '../state/settings_state.dart';
 import '../state/song_state.dart';
@@ -88,6 +89,11 @@ class PlayerService with WidgetsBindingObserver {
 
   bool get hasLoadedAudioSource => _player.audioSource != null;
 
+  void _debugLog(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[PlayerService] $message');
+  }
+
   PlayerService._internal() {
     WidgetsBinding.instance.addObserver(this);
     _init();
@@ -124,6 +130,7 @@ class PlayerService with WidgetsBindingObserver {
   Future<void> _init() async {
     _restoringState = true;
     _persistTimer?.cancel();
+    _debugLog('init start');
     await WebDavPlaybackSettings.ensureLoaded();
     await AppCacheSettings.ensureLoaded();
     await AppLaunchPlaybackSettings.ensureLoaded();
@@ -192,6 +199,7 @@ class PlayerService with WidgetsBindingObserver {
       _restoringState = false;
     }
     _emitSnapshot(force: true);
+    _debugLog('init completed');
   }
 
   Future<void> playQueue(List<SongEntity> songs, int startIndex) async {
@@ -206,6 +214,9 @@ class PlayerService with WidgetsBindingObserver {
         ? 0
         : playable.indexWhere((s) => s.id == targetId);
     if (actualIndex < 0) actualIndex = 0;
+    _debugLog(
+      'playQueue size=${playable.length} startIndex=$startIndex actualIndex=$actualIndex song=${playable[actualIndex].title}',
+    );
     queue.value = playable;
     currentIndex.value = actualIndex;
     currentSong.value = playable[actualIndex];
@@ -314,6 +325,7 @@ class PlayerService with WidgetsBindingObserver {
     final song = list[nextIndex];
     final raw = (song.uri ?? '').trim();
     if (song.isLocal || !raw.startsWith('http')) return;
+    _debugLog('prefetch upcoming index=$nextIndex song=${song.title}');
     final headers = _headersFromSong(song);
     final cached = await _audioCache.getCompleteCachedFile(
       uri: raw,
@@ -393,6 +405,7 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> stopAndClear() async {
+    _debugLog('stopAndClear');
     try {
       await _player.stop();
     } catch (_) {}
@@ -771,6 +784,7 @@ class PlayerService with WidgetsBindingObserver {
       return;
     }
     if (restoredQueue.isEmpty) return;
+    _debugLog('restorePlaybackState queue=${restoredQueue.length}');
 
     final savedIndex = prefs.getInt(_prefsIndexKey) ?? 0;
     final savedPositionMs = prefs.getInt(_prefsPositionKey) ?? 0;
@@ -841,6 +855,7 @@ class PlayerService with WidgetsBindingObserver {
 
     if (shouldAutoPlayOnLaunch) {
       try {
+        _debugLog('restorePlaybackState autoPlay');
         await _startPlayback();
         return;
       } catch (e) {
@@ -856,6 +871,8 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> _startPlayback() async {
+    _debugLog('startPlayback song=${currentSong.value?.title ?? 'none'}');
+    await MediaNotificationService.init(force: true);
     final active = await _setAudioSessionActive(true);
     if (!active) {
       throw Exception('Failed to activate audio session');
@@ -864,6 +881,7 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> _pausePlayback() async {
+    _debugLog('pausePlayback song=${currentSong.value?.title ?? 'none'}');
     await _player.pause();
     await _setAudioSessionActive(false);
   }
@@ -872,6 +890,7 @@ class PlayerService with WidgetsBindingObserver {
     final session = _audioSession ?? await AudioSession.instance;
     _audioSession = session;
     try {
+      _debugLog('audioSession setActive($active)');
       return await session.setActive(active);
     } catch (e) {
       if (kDebugMode) {

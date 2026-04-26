@@ -1,13 +1,14 @@
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../services/lyrics/lyrics_service.dart';
 import '../services/playlists_service.dart';
 import '../state/song_state.dart';
 import '../state/settings_state.dart';
+import 'android_platform_service.dart';
 import 'player_service.dart';
 
 class MediaNotificationService {
@@ -36,9 +37,11 @@ class MediaNotificationService {
       return;
     }
     _initStarted = true;
+    _debugLog('init start force=$force');
     if (Platform.isAndroid) {
       final status = await Permission.notification.status;
       if (!status.isGranted) {
+        _debugLog('requesting Android notification permission');
         await Permission.notification.request();
       }
     }
@@ -52,7 +55,13 @@ class MediaNotificationService {
         androidShowNotificationBadge: false,
       ),
     );
+    _debugLog('init completed');
     _initStarted = false;
+  }
+
+  static void _debugLog(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[MediaNotification] $message');
   }
 }
 
@@ -64,6 +73,10 @@ class _NagoAudioHandler extends BaseAudioHandler
   String? _currentLyricLine;
   String? _lastSongId;
   bool _isFavorite = false;
+  String? _lastQueueKey;
+  String? _lastMediaItemKey;
+  String? _lastPlaybackStateKey;
+  bool _supportsCustomActions = true;
 
   _NagoAudioHandler(this.player) {
     player.snapshot.addListener(_syncFromPlayer);
@@ -81,7 +94,21 @@ class _NagoAudioHandler extends BaseAudioHandler
       _onNotificationSettingsChanged,
     );
     _currentLyricLine = LyricsService.instance.currentLineText.value;
+    _loadPlatformCapabilities();
     _syncFromPlayer();
+  }
+
+  Future<void> _loadPlatformCapabilities() async {
+    _supportsCustomActions = await AndroidPlatformService.instance
+        .supportsNotificationCustomActions();
+    _debugLog('supports custom actions=$_supportsCustomActions');
+    _lastPlaybackStateKey = null;
+    _syncPlaybackState(player.snapshot.value);
+  }
+
+  void _debugLog(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[MediaNotification] $message');
   }
 
   MediaItem _itemFromSong(SongEntity song) {
@@ -128,8 +155,12 @@ class _NagoAudioHandler extends BaseAudioHandler
 
   PlaybackState _stateFromSnap(PlaybackSnapshot snap) {
     final playing = snap.isPlaying;
-    final showClose = MediaNotificationSettings.showCloseAction.value;
-    final showFavorite = MediaNotificationSettings.showFavoriteAction.value;
+    final showClose =
+        _supportsCustomActions &&
+        MediaNotificationSettings.showCloseAction.value;
+    final showFavorite =
+        _supportsCustomActions &&
+        MediaNotificationSettings.showFavoriteAction.value;
     final favoriteIcon = _isFavorite
         ? 'drawable/audio_service_favorite_on'
         : 'drawable/audio_service_favorite';
@@ -175,20 +206,62 @@ class _NagoAudioHandler extends BaseAudioHandler
   void _syncFromPlayer() {
     final snap = player.snapshot.value;
     final songId = snap.song?.id;
+    final songChanged = songId != _lastSongId;
     if (songId != _lastSongId) {
       _lastSongId = songId;
       _currentLyricLine = null;
+      _debugLog('song changed to ${snap.song?.title ?? 'none'}');
     }
-    final items = snap.queue.map(_itemFromSong).toList();
-    queue.add(items);
+    _syncQueue(snap);
     _syncMediaItem();
-    playbackState.add(_stateFromSnap(snap));
-    _refreshFavoriteState();
+    _syncPlaybackState(snap);
+    if (songChanged) {
+      _refreshFavoriteState();
+    }
+  }
+
+  void _syncQueue(PlaybackSnapshot snap) {
+    final queueKey = snap.queue.map((song) => song.id).join('|');
+    if (queueKey == _lastQueueKey) return;
+    _lastQueueKey = queueKey;
+    queue.add(snap.queue.map(_itemFromSong).toList());
   }
 
   void _syncMediaItem() {
     final current = player.snapshot.value.song;
-    mediaItem.add(current != null ? _itemFromSong(current) : null);
+    final item = current != null ? _itemFromSong(current) : null;
+    final itemKey = item == null
+        ? 'none'
+        : [
+            item.id,
+            item.title,
+            item.artist ?? '',
+            item.displayTitle ?? '',
+            item.displaySubtitle ?? '',
+            item.artUri?.toString() ?? '',
+          ].join('|');
+    if (itemKey == _lastMediaItemKey) return;
+    _lastMediaItemKey = itemKey;
+    mediaItem.add(item);
+  }
+
+  void _syncPlaybackState(PlaybackSnapshot snap) {
+    final next = _stateFromSnap(snap);
+    final stateKey = [
+      snap.song?.id ?? '',
+      snap.index,
+      snap.isPlaying,
+      next.processingState.name,
+      _isFavorite,
+      MediaNotificationSettings.showLyrics.value,
+      MediaNotificationSettings.lyricOnTop.value,
+      MediaNotificationSettings.showCloseAction.value,
+      MediaNotificationSettings.showFavoriteAction.value,
+      _supportsCustomActions,
+    ].join('|');
+    if (stateKey == _lastPlaybackStateKey) return;
+    _lastPlaybackStateKey = stateKey;
+    playbackState.add(next);
   }
 
   void _onLyricLineChanged() {
@@ -221,32 +294,37 @@ class _NagoAudioHandler extends BaseAudioHandler
   void _updateFavorite(bool value) {
     if (_isFavorite == value) return;
     _isFavorite = value;
+    _debugLog('favorite state changed: $_isFavorite');
     playbackState.add(_stateFromSnap(player.snapshot.value));
   }
 
   @override
-  Future<void> play() => player.play();
+  Future<void> skipToNext() {
+    _debugLog('skipToNext action');
+    return player.next();
+  }
 
   @override
-  Future<void> pause() => player.pause();
+  Future<void> skipToPrevious() {
+    _debugLog('skipToPrevious action');
+    return player.previous();
+  }
 
   @override
-  Future<void> stop() => player.stopAndClear();
+  Future<void> seek(Duration position) {
+    _debugLog('seek action ${position.inMilliseconds}ms');
+    return player.seek(position);
+  }
 
   @override
-  Future<void> skipToNext() => player.next();
-
-  @override
-  Future<void> skipToPrevious() => player.previous();
-
-  @override
-  Future<void> seek(Duration position) => player.seek(position);
-
-  @override
-  Future<void> skipToQueueItem(int index) => player.skipToIndex(index);
+  Future<void> skipToQueueItem(int index) {
+    _debugLog('skipToQueueItem action index=$index');
+    return player.skipToIndex(index);
+  }
 
   @override
   Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
+    _debugLog('customAction name=$name');
     if (name != _actionCloseApp) {
       if (name != _actionFavorite) {
         return super.customAction(name, extras);
@@ -254,12 +332,14 @@ class _NagoAudioHandler extends BaseAudioHandler
       final song = player.snapshot.value.song;
       if (song == null) return;
       if (_isFavorite) {
+        _debugLog('favorite remove action song=${song.title}');
         await PlaylistsService.instance.removeSongs(
           PlaylistsService.favoritePlaylistId,
           [song.id],
         );
         _updateFavorite(false);
       } else {
+        _debugLog('favorite add action song=${song.title}');
         await PlaylistsService.instance.addSongs(
           PlaylistsService.favoritePlaylistId,
           [song.id],
@@ -268,9 +348,25 @@ class _NagoAudioHandler extends BaseAudioHandler
       }
       return;
     }
-    await player.pause();
-    try {
-      SystemNavigator.pop();
-    } catch (_) {}
+    _debugLog('close action');
+    await stop();
+  }
+
+  @override
+  Future<void> play() {
+    _debugLog('play action');
+    return player.play();
+  }
+
+  @override
+  Future<void> pause() {
+    _debugLog('pause action');
+    return player.pause();
+  }
+
+  @override
+  Future<void> stop() {
+    _debugLog('stop action');
+    return player.stopAndClear();
   }
 }

@@ -13,6 +13,7 @@ class ArtworkWidget extends StatefulWidget {
   final double borderRadius;
   final Widget? placeholder;
   final bool preferOriginal;
+  final bool keepPreviousUntilLoaded;
 
   const ArtworkWidget({
     super.key,
@@ -21,6 +22,7 @@ class ArtworkWidget extends StatefulWidget {
     required this.borderRadius,
     this.placeholder,
     this.preferOriginal = false,
+    this.keepPreviousUntilLoaded = false,
   });
 
   @override
@@ -45,8 +47,11 @@ class _ArtworkWidgetState extends State<ArtworkWidget> with SignalsMixin {
     if (oldWidget.song.id != widget.song.id ||
         oldWidget.song.localCoverPath != widget.song.localCoverPath ||
         oldWidget.song.uri != widget.song.uri ||
-        oldWidget.preferOriginal != widget.preferOriginal) {
-      _bytes.value = null;
+        oldWidget.preferOriginal != widget.preferOriginal ||
+        oldWidget.keepPreviousUntilLoaded != widget.keepPreviousUntilLoaded) {
+      if (!widget.keepPreviousUntilLoaded) {
+        _bytes.value = null;
+      }
       _loading.value = false;
       _tryLoad();
     }
@@ -64,6 +69,8 @@ class _ArtworkWidgetState extends State<ArtworkWidget> with SignalsMixin {
     if (!mounted) return;
     if (bytes != null && bytes.isNotEmpty) {
       _bytes.value = bytes;
+    } else if (!widget.keepPreviousUntilLoaded) {
+      _bytes.value = null;
     }
     _loading.value = false;
   }

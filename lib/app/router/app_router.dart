@@ -14,6 +14,7 @@ import '../../pages/settings/player_appearance_settings_page.dart';
 import '../../pages/settings/cache_settings_page.dart';
 import '../../pages/settings/listening_stats_page.dart';
 import '../../pages/settings/settings_page.dart';
+import '../../pages/settings/version_info_page.dart';
 import '../../pages/library/albums_page.dart';
 import '../../pages/library/artists_page.dart';
 import '../../pages/library/playlists_page.dart';
@@ -34,6 +35,7 @@ class AppRoutes {
   static const playerAppearanceSettings = '/settings/player-appearance';
   static const cacheSettings = '/settings/cache';
   static const listeningStats = '/settings/listening-stats';
+  static const versionInfo = '/settings/version-info';
   static const artists = '/artists';
   static const albums = '/albums';
   static const playlists = '/playlists';
@@ -44,26 +46,25 @@ class AppRouter {
   static String get initialRoute => AppRoutes.home;
 
   static Map<String, WidgetBuilder> get routes => {
-        AppRoutes.home: (_) => const HomePage(),
-        AppRoutes.source: (_) => const SourcePage(),
-        AppRoutes.songs: (_) => const SongsPage(),
-        AppRoutes.player: (_) => const PlayerPage(),
-        AppRoutes.lyrics: (_) => LyricPage(),
-        AppRoutes.settings: (_) => const SettingsPage(),
-        AppRoutes.appAppearanceSettings: (_) =>
-            const AppAppearanceSettingsPage(),
-        AppRoutes.gradientSettings: (_) => const GradientSettingsPage(),
-        AppRoutes.lyricsSettings: (_) => const LyricsSettingsPage(),
-        AppRoutes.notificationSettings: (_) => const NotificationSettingsPage(),
-        AppRoutes.playerControlsSettings: (_) =>
-            const PlayerControlsSettingsPage(),
-        AppRoutes.playerAppearanceSettings: (_) =>
-            const PlayerAppearanceSettingsPage(),
-        AppRoutes.cacheSettings: (_) => const CacheSettingsPage(),
-        AppRoutes.listeningStats: (_) => const ListeningStatsPage(),
-        AppRoutes.artists: (_) => const ArtistsPage(),
-        AppRoutes.albums: (_) => const AlbumsPage(),
-        AppRoutes.playlists: (_) => const PlaylistsPage(),
-        AppRoutes.search: (_) => const SearchPage(),
-      };
+    AppRoutes.home: (_) => const HomePage(),
+    AppRoutes.source: (_) => const SourcePage(),
+    AppRoutes.songs: (_) => const SongsPage(),
+    AppRoutes.player: (_) => const PlayerPage(),
+    AppRoutes.lyrics: (_) => LyricPage(),
+    AppRoutes.settings: (_) => const SettingsPage(),
+    AppRoutes.appAppearanceSettings: (_) => const AppAppearanceSettingsPage(),
+    AppRoutes.gradientSettings: (_) => const GradientSettingsPage(),
+    AppRoutes.lyricsSettings: (_) => const LyricsSettingsPage(),
+    AppRoutes.notificationSettings: (_) => const NotificationSettingsPage(),
+    AppRoutes.playerControlsSettings: (_) => const PlayerControlsSettingsPage(),
+    AppRoutes.playerAppearanceSettings: (_) =>
+        const PlayerAppearanceSettingsPage(),
+    AppRoutes.cacheSettings: (_) => const CacheSettingsPage(),
+    AppRoutes.listeningStats: (_) => const ListeningStatsPage(),
+    AppRoutes.versionInfo: (_) => const VersionInfoPage(),
+    AppRoutes.artists: (_) => const ArtistsPage(),
+    AppRoutes.albums: (_) => const AlbumsPage(),
+    AppRoutes.playlists: (_) => const PlaylistsPage(),
+    AppRoutes.search: (_) => const SearchPage(),
+  };
 }

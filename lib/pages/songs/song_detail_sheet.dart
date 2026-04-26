@@ -28,6 +28,7 @@ class SongDetailSheet extends StatefulWidget {
   final ValueChanged<String>? onDeleted;
   final ValueChanged<String>? onOpenArtist;
   final ValueChanged<String>? onOpenAlbum;
+  final VoidCallback? onOpenPlayerAppearanceSettings;
 
   const SongDetailSheet({
     super.key,
@@ -36,6 +37,7 @@ class SongDetailSheet extends StatefulWidget {
     this.onDeleted,
     this.onOpenArtist,
     this.onOpenAlbum,
+    this.onOpenPlayerAppearanceSettings,
   });
 
   static List<String> splitArtists(String raw) {
@@ -266,6 +268,16 @@ class _SongDetailSheetState extends State<SongDetailSheet> {
               title: _downloading ? '保存中...' : '保存到本地',
               onTap: _downloading ? null : _downloadToSystemFolder,
             ),
+            if (widget.onOpenPlayerAppearanceSettings != null)
+              AppListTile(
+                leading: const Icon(Icons.tune_rounded),
+                title: '播放器界面设置',
+                onTap: () {
+                  final nav = Navigator.of(context);
+                  nav.pop();
+                  widget.onOpenPlayerAppearanceSettings?.call();
+                },
+              ),
             AppListTile(
               leading: const Icon(Icons.person),
               title: '艺术家：$primaryArtist',

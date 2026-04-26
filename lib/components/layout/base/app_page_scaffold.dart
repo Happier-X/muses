@@ -161,7 +161,7 @@ class AppPageScaffoldState extends State<AppPageScaffold>
         );
 
         if (tabletMode || !_hasDrawer) {
-          return page;
+          return AppBackground(child: page);
         }
         if (miniPlayer != null) {
           page = Scaffold(

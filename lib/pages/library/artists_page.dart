@@ -12,7 +12,6 @@ import '../../app/state/song_state.dart';
 import '../../app/utils/cache_version_store.dart';
 import '../../app/utils/deferred_page_init_mixin.dart';
 import '../../app/utils/page_cache_store.dart';
-import '../../components/common/artwork_widget.dart';
 import '../../components/common/blocked_management_sheet.dart';
 import '../../components/index.dart';
 import 'library_detail_pages.dart';

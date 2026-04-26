@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_styles.dart';
+import '../common/glass_panel.dart';
 
 class SourceSectionCard extends StatelessWidget {
   final String title;
@@ -36,19 +37,18 @@ class SourceSectionCard extends StatelessWidget {
             ),
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: borderColor),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
+        GlassPanel(
+          borderRadius: BorderRadius.circular(22),
+          color: cardColor,
+          borderColor: borderColor,
+          shadowColor: shadowColor,
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
           child: Column(children: _withDividers(children)),
         ),
       ],

@@ -85,28 +85,22 @@ class _SettingsPageState extends State<SettingsPage> {
                 title: '歌词设置',
                 subtitle: '状态栏歌词与显示偏好',
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  AppRoutes.lyricsSettings,
-                ),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.lyricsSettings),
               ),
               AppSettingTile(
                 title: '听歌统计',
                 subtitle: '日历与播放数据概览',
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  AppRoutes.listeningStats,
-                ),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.listeningStats),
               ),
               AppSettingTile(
                 title: '缓存设置',
                 subtitle: '管理音频缓存与存储空间',
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  AppRoutes.cacheSettings,
-                ),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.cacheSettings),
               ),
             ],
           ),
@@ -152,8 +146,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 builder: (context, enabled, _) {
                   if (!enabled) return const SizedBox.shrink();
                   return ValueListenableBuilder<int>(
-                    valueListenable:
-                        WebDavPlaybackSettings.segmentConcurrency,
+                    valueListenable: WebDavPlaybackSettings.segmentConcurrency,
                     builder: (context, count, _) {
                       return AppSettingSlider(
                         title: '分段并发数',
@@ -181,8 +174,10 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               AppSettingTile(
                 title: '版本信息',
-                subtitle: 'NagoMusic',
-                trailing: const Icon(Icons.info_outline_rounded),
+                subtitle: '版本号、检查更新与调试日志',
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.versionInfo),
               ),
             ],
           ),

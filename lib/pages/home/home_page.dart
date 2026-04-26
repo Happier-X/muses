@@ -13,11 +13,9 @@ import '../../app/services/player_service.dart';
 import '../../app/services/playlists_service.dart';
 import '../../app/services/stats_service.dart';
 import '../../app/state/song_state.dart';
-import '../../app/theme/app_styles.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
 import '../../app/utils/cache_version_store.dart';
 import '../../app/utils/page_cache_store.dart';
-import '../../components/common/artwork_widget.dart';
 import '../../components/index.dart';
 import '../library/albums_page.dart';
 import '../library/artists_page.dart';
@@ -600,29 +598,13 @@ class _HomeStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bg = theme.appPanelColor;
-    final shadowColor = theme.appPanelShadowColor;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Row(
-            children: [
+    return GlassPanel(
+      borderRadius: BorderRadius.circular(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      onTap: onTap,
+      child: Row(
+        children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -630,7 +612,7 @@ class _HomeStatsRow extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.library_music_rounded, 
+              Icons.library_music_rounded,
               color: theme.colorScheme.primary,
               size: 20,
             ),
@@ -668,8 +650,6 @@ class _HomeStatsRow extends StatelessWidget {
           ),
         ],
       ),
-        ),
-      ),
     );
   }
 }
@@ -696,8 +676,6 @@ class _HomeEntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final cardColor = theme.appPanelColor;
-    final shadowColor = theme.appPanelShadowColor;
     final iconColor = isDark
         ? theme.colorScheme.primary.withValues(alpha: 0.9)
         : theme.colorScheme.primary;
@@ -705,48 +683,32 @@ class _HomeEntryCard extends StatelessWidget {
         ? Colors.white
         : const Color.fromARGB(255, 45, 45, 45);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          height: 96,
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
+    return GlassPanel(
+      height: 96,
+      borderRadius: BorderRadius.circular(20),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 22, color: iconColor),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 22, color: iconColor),
-              ),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
-                ),
-              ),
-            ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -767,22 +729,8 @@ class _HomeSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cardColor = theme.appPanelColor;
-    final shadowColor = theme.appPanelShadowColor;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: shadowColor,
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return GlassPanel(
+      borderRadius: BorderRadius.circular(20),
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

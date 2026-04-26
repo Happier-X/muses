@@ -18,7 +18,7 @@ class NagoMusicApp extends StatelessWidget {
   ThemeData _applyDynamic(ThemeData base, ColorScheme? scheme) {
     final appliedScheme = scheme ?? base.colorScheme;
     final isDark = base.brightness == Brightness.dark;
-    
+
     final scaffoldBg = isDark
         ? Color.alphaBlend(
             appliedScheme.primary.withValues(alpha: 0.04),
@@ -147,26 +147,41 @@ class NagoMusicApp extends StatelessWidget {
                       ),
                       onGenerateRoute: onGenerateRoute,
                       builder: (context, child) {
-                        final theme = Theme.of(context);
-                        final isDark = theme.brightness == Brightness.dark;
-                        final navColor = theme.colorScheme.surface;
-                        final overlay = SystemUiOverlayStyle(
-                          statusBarColor: Colors.transparent,
-                          statusBarIconBrightness: isDark
-                              ? Brightness.light
-                              : Brightness.dark,
-                          statusBarBrightness: isDark
-                              ? Brightness.dark
-                              : Brightness.light,
-                          systemNavigationBarColor: navColor,
-                          systemNavigationBarIconBrightness: isDark
-                              ? Brightness.light
-                              : Brightness.dark,
-                          systemNavigationBarDividerColor: navColor,
-                        );
-                        return AnnotatedRegion<SystemUiOverlayStyle>(
-                          value: overlay,
-                          child: child ?? const SizedBox.shrink(),
+                        return ValueListenableBuilder<double>(
+                          valueListenable: AppBackgroundSettings.panelOpacity,
+                          builder: (context, panelOpacity, _) {
+                            return ValueListenableBuilder<double>(
+                              valueListenable:
+                                  AppBackgroundSettings.panelBlurStrength,
+                              builder:
+                                  (context, panelBlurStrength, unusedChild) {
+                                    final theme = Theme.of(context);
+                                    final isDark =
+                                        theme.brightness == Brightness.dark;
+                                    final navColor = theme.colorScheme.surface;
+                                    final overlay = SystemUiOverlayStyle(
+                                      statusBarColor: Colors.transparent,
+                                      statusBarIconBrightness: isDark
+                                          ? Brightness.light
+                                          : Brightness.dark,
+                                      statusBarBrightness: isDark
+                                          ? Brightness.dark
+                                          : Brightness.light,
+                                      systemNavigationBarColor: navColor,
+                                      systemNavigationBarIconBrightness: isDark
+                                          ? Brightness.light
+                                          : Brightness.dark,
+                                      systemNavigationBarDividerColor: navColor,
+                                    );
+                                    return AnnotatedRegion<
+                                      SystemUiOverlayStyle
+                                    >(
+                                      value: overlay,
+                                      child: child ?? const SizedBox.shrink(),
+                                    );
+                                  },
+                            );
+                          },
                         );
                       },
                     );

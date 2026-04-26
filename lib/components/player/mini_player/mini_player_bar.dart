@@ -45,7 +45,8 @@ class MiniPlayerBar extends StatelessWidget {
         final hasSong = song != null;
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
-        final openPlayer = onOpenPlayer ??
+        final openPlayer =
+            onOpenPlayer ??
             () {
               final isTabletLayout = AppLayoutSettings.tabletMode.value;
               final navigator = Navigator.of(
@@ -64,10 +65,10 @@ class MiniPlayerBar extends StatelessWidget {
                 scheme.primary.withValues(alpha: 0.04),
                 Colors.white.withValues(alpha: 0.85),
               );
-        
+
         final border = Border.all(
-          color: isDark 
-              ? Colors.white.withValues(alpha: 0.08) 
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
               : scheme.primary.withValues(alpha: 0.1),
           width: 1,
         );
@@ -161,9 +162,17 @@ class MiniPlayerBar extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(borderRadius),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: content,
+              child: ValueListenableBuilder<double>(
+                valueListenable: AppBackgroundSettings.panelBlurStrength,
+                builder: (context, blurStrength, _) {
+                  return BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: blurStrength,
+                      sigmaY: blurStrength,
+                    ),
+                    child: content,
+                  );
+                },
               ),
             ),
           ),
@@ -175,7 +184,10 @@ class MiniPlayerBar extends StatelessWidget {
   Route _playerRoute() {
     return PageRouteBuilder(
       settings: const RouteSettings(name: AppRoutes.player),
-      pageBuilder: (context, animation, secondaryAnimation) => const PlayerPage(),
+      opaque: false,
+      barrierColor: Colors.transparent,
+      pageBuilder: (context, animation, secondaryAnimation) =>
+          const PlayerPage(),
       transitionDuration: const Duration(milliseconds: 280),
       reverseTransitionDuration: const Duration(milliseconds: 220),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -184,9 +196,10 @@ class MiniPlayerBar extends StatelessWidget {
           curve: Curves.easeOutCubic,
           reverseCurve: Curves.easeOutCubic,
         );
-        final offset =
-            Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-                .animate(curved);
+        final offset = Tween<Offset>(
+          begin: const Offset(0, 1),
+          end: Offset.zero,
+        ).animate(curved);
         return SlideTransition(position: offset, child: child);
       },
     );
@@ -250,10 +263,7 @@ class _ArtworkFallback extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       child: Center(
-        child: Icon(
-          Icons.music_note,
-          color: scheme.onSurfaceVariant,
-        ),
+        child: Icon(Icons.music_note, color: scheme.onSurfaceVariant),
       ),
     );
   }
@@ -290,10 +300,7 @@ class _InfoContent extends StatelessWidget {
   final SongEntity? song;
   final VoidCallback onOpenPlayer;
 
-  const _InfoContent({
-    required this.song,
-    required this.onOpenPlayer,
-  });
+  const _InfoContent({required this.song, required this.onOpenPlayer});
 
   @override
   Widget build(BuildContext context) {
@@ -303,10 +310,7 @@ class _InfoContent extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: Text(
           '未选择歌曲',
-          style: TextStyle(
-            color: scheme.onSurfaceVariant,
-            fontSize: 14,
-          ),
+          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -327,10 +331,7 @@ class _InfoContent extends StatelessWidget {
           song!.artist,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: scheme.onSurfaceVariant,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
         ),
       ],
     );
@@ -362,20 +363,21 @@ class _SwipeableInfoState extends State<_SwipeableInfo>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-    )..addStatusListener((status) {
-        if (status == AnimationStatus.completed ||
-            status == AnimationStatus.dismissed) {
-          final cb = _animationCompleted;
-          _animationCompleted = null;
-          _animation = null;
-          if (cb != null) {
-            cb();
+    _controller =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 220),
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed ||
+              status == AnimationStatus.dismissed) {
+            final cb = _animationCompleted;
+            _animationCompleted = null;
+            _animation = null;
+            if (cb != null) {
+              cb();
+            }
           }
-        }
-      });
+        });
   }
 
   @override
@@ -395,12 +397,7 @@ class _SwipeableInfoState extends State<_SwipeableInfo>
     _animation = Tween<double>(
       begin: begin,
       end: end,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: curve,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: curve));
     _animationCompleted = onCompleted;
     _controller.forward(from: 0);
   }
@@ -459,7 +456,9 @@ class _SwipeableInfoState extends State<_SwipeableInfo>
           child: AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
-              final value = _animation != null ? _animation!.value : _dragOffsetX;
+              final value = _animation != null
+                  ? _animation!.value
+                  : _dragOffsetX;
               return Transform.translate(
                 offset: Offset(value, 0),
                 child: child,
@@ -549,11 +548,7 @@ class MiniPlayerQueueButton extends StatelessWidget {
       width: 40,
       height: 40,
       child: IconButton(
-        icon: Icon(
-          Icons.format_list_bulleted,
-          color: color,
-          size: 30,
-        ),
+        icon: Icon(Icons.format_list_bulleted, color: color, size: 30),
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(),
         onPressed: onPressed,

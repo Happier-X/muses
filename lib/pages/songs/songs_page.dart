@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signals_flutter/signals_flutter.dart' hide computed;
@@ -57,6 +56,7 @@ class _SongsPageState extends State<SongsPage>
   static const String _prefsSourceFilter = 'songs_source_filter';
   static const String _prefsSortKey = 'songs_sort_key';
   static const String _prefsSortAsc = 'songs_sort_asc';
+  static const String _prefsRandomPlayCount = 'songs_random_play_count';
   static const String _cacheScopeSongs = 'songs_all';
   static const String _cacheScopeVisible = 'songs_visible';
   static List<SongEntity>? _cachedSongs;
@@ -84,11 +84,13 @@ class _SongsPageState extends State<SongsPage>
   bool _cacheArtworkEnabled = false;
   bool _prefetchEnabled = false;
   Timer? _rebuildDebounceTimer;
+  Timer? _artworkIdlePrefetchTimer;
   late final _selectedIds = createSignal<Set<String>>(<String>{});
   late final _visibleSongs = createSignal<List<SongEntity>>([]);
   late final _visibleSongsAll = createSignal<List<SongEntity>>([]);
   late final _multiSelect = createSignal(false);
   late final _isSequentialPlay = createSignal(false);
+  late final _randomPlayCount = createSignal(30);
   late final _sortKey = createSignal('title');
   late final _ascending = createSignal(true);
   late final _currentId = createSignal<String?>(null);
@@ -134,6 +136,7 @@ class _SongsPageState extends State<SongsPage>
   @override
   void dispose() {
     _rebuildDebounceTimer?.cancel();
+    _artworkIdlePrefetchTimer?.cancel();
     _removeScrapeOverlay();
     PlayerService.instance.currentSong.removeListener(_handlePlayerSongChanged);
     _listController.removeListener(_handleScroll);
@@ -174,6 +177,10 @@ class _SongsPageState extends State<SongsPage>
     }
     if (sortAsc != null) {
       _ascending.value = sortAsc;
+    }
+    final randomCount = prefs.getInt(_prefsRandomPlayCount);
+    if (randomCount != null && randomCount > 0) {
+      _randomPlayCount.value = randomCount;
     }
   }
 
@@ -280,7 +287,13 @@ class _SongsPageState extends State<SongsPage>
       _currentMaxCount = next > visibleAll.length ? visibleAll.length : next;
       _visibleSongs.value = visibleAll.take(_currentMaxCount).toList();
     }
-    _scheduleRangePrefetch(index - 6, index + 24, visibleAll);
+    _scheduleRangePrefetch(
+      index - 4,
+      index + 14,
+      visibleAll,
+      prunePendingOutsideRange: true,
+    );
+    _scheduleIdleArtworkPrefetch(index, visibleAll);
   }
 
   void _handlePlayerSongChanged() {
@@ -380,6 +393,92 @@ class _SongsPageState extends State<SongsPage>
     HapticFeedback.mediumImpact();
     _isSequentialPlay.value = !_isSequentialPlay.value;
     AppToast.show(context, _isSequentialPlay.value ? '已切换为顺序播放' : '已切换为随机播放');
+  }
+
+  List<SongEntity> _buildPlayQueue(
+    List<SongEntity> source, {
+    String? targetSongId,
+  }) {
+    final queue = List<SongEntity>.from(source);
+    if (_isSequentialPlay.value) {
+      return queue;
+    }
+    queue.shuffle();
+    final maxCount = _randomPlayCount.value.clamp(1, queue.length);
+    final limited = queue.take(maxCount).toList();
+    if (targetSongId == null || targetSongId.isEmpty) {
+      return limited;
+    }
+    final existingIndex = limited.indexWhere((song) => song.id == targetSongId);
+    if (existingIndex >= 0) {
+      return limited;
+    }
+    final original = source.where((song) => song.id == targetSongId).toList();
+    if (original.isEmpty) {
+      return limited;
+    }
+    if (limited.isEmpty) {
+      return [original.first];
+    }
+    return [original.first, ...limited.take(maxCount - 1)];
+  }
+
+  Future<void> _showRandomPlaySettings() async {
+    if (_visibleSongsAll.value.isEmpty) return;
+    var tempCount = _randomPlayCount.value.toDouble();
+    final maxCount = _visibleSongsAll.value.length.clamp(1, 200);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AppSheetPanel(
+              title: '随机播放设置',
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LabeledSlider(
+                      title: '播放数量',
+                      value: tempCount.clamp(1, maxCount).toDouble(),
+                      min: 1,
+                      max: maxCount.toDouble(),
+                      divisions: maxCount > 1 ? maxCount - 1 : 1,
+                      valueText: '${tempCount.round()} 首',
+                      description: '点击按钮直接按当前数量随机播放',
+                      onChanged: (value) {
+                        setModalState(() {
+                          tempCount = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () async {
+                          final navigator = Navigator.of(sheetContext);
+                          final prefs = await SharedPreferences.getInstance();
+                          final next = tempCount.round().clamp(1, maxCount);
+                          await prefs.setInt(_prefsRandomPlayCount, next);
+                          _randomPlayCount.value = next;
+                          if (!mounted) return;
+                          navigator.pop();
+                          AppToast.show(this.context, '随机播放数量已设为 $next 首');
+                        },
+                        child: const Text('保存'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _openDrawer() {
@@ -558,15 +657,12 @@ class _SongsPageState extends State<SongsPage>
     if (mounted) _removeScrapeOverlay();
   }
 
-  Future<Uint8List?> _loadArtwork(SongEntity song) {
-    return _artworkCoordinator.loadArtwork(
-      song,
-      cacheArtworkEnabled: _cacheArtworkEnabled,
-      onSongUpdated: _applySongUpdate,
-    );
-  }
-
-  void _scheduleRangePrefetch(int start, int end, List<SongEntity> songs) {
+  void _scheduleRangePrefetch(
+    int start,
+    int end,
+    List<SongEntity> songs, {
+    bool prunePendingOutsideRange = false,
+  }) {
     _artworkCoordinator.scheduleRangePrefetch(
       start,
       end,
@@ -576,8 +672,17 @@ class _SongsPageState extends State<SongsPage>
       sortKey: _sortKey.value,
       ascending: _ascending.value,
       cacheArtworkEnabled: _cacheArtworkEnabled,
+      prunePendingOutsideRange: prunePendingOutsideRange,
       onSongUpdated: _applySongUpdate,
     );
+  }
+
+  void _scheduleIdleArtworkPrefetch(int index, List<SongEntity> songs) {
+    _artworkIdlePrefetchTimer?.cancel();
+    _artworkIdlePrefetchTimer = Timer(const Duration(milliseconds: 650), () {
+      if (!mounted) return;
+      _scheduleRangePrefetch(index - 10, index + 50, songs);
+    });
   }
 
   Future<void> _showSourceSheet() async {
@@ -872,12 +977,10 @@ class _SongsPageState extends State<SongsPage>
                     _toggleSelectAll(_visibleSongsAll.value),
                 onPlay: () {
                   if (_visibleSongsAll.value.isEmpty) return;
-                  final queue = List<SongEntity>.from(_visibleSongsAll.value);
-                  if (!_isSequentialPlay.value) {
-                    queue.shuffle();
-                  }
+                  final queue = _buildPlayQueue(_visibleSongsAll.value);
                   _openPlayerWithQueue(queue, 0);
                 },
+                onConfigurePlay: _showRandomPlaySettings,
                 onTogglePlayMode: _togglePlayMode,
                 onSort: _showSortSheet,
                 onToggleMultiSelect: _toggleMultiSelect,
@@ -918,12 +1021,10 @@ class _SongsPageState extends State<SongsPage>
                                     .toggleSong(selected, song.id);
                               } else {
                                 _currentId.value = song.id;
-                                final queue = List<SongEntity>.from(
+                                final queue = _buildPlayQueue(
                                   _visibleSongsAll.value,
+                                  targetSongId: song.id,
                                 );
-                                if (!_isSequentialPlay.value) {
-                                  queue.shuffle();
-                                }
                                 final startIndex = queue.indexWhere(
                                   (s) => s.id == song.id,
                                 );
@@ -1080,6 +1181,14 @@ class _SongsPageState extends State<SongsPage>
       },
     );
   }
+
+  Future<Uint8List?> _loadArtwork(SongEntity song) {
+    return _artworkCoordinator.loadArtwork(
+      song,
+      cacheArtworkEnabled: _cacheArtworkEnabled,
+      onSongUpdated: _applySongUpdate,
+    );
+  }
 }
 
 class _SongArtwork extends StatefulWidget {
@@ -1152,10 +1261,7 @@ class _SongArtworkState extends State<_SongArtwork> with SignalsMixin {
                       .toInt(),
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
-                return _ArtworkPlaceholder(
-                  song: widget.song,
-                  size: widget.size,
-                );
+                return _SongArtworkPlaceholder(song: widget.song);
               },
             ),
           );
@@ -1178,24 +1284,23 @@ class _SongArtworkState extends State<_SongArtwork> with SignalsMixin {
             ),
           );
         }
-        return _ArtworkPlaceholder(song: widget.song, size: widget.size);
+        return _SongArtworkPlaceholder(song: widget.song);
       },
     );
   }
 }
 
-class _ArtworkPlaceholder extends StatelessWidget {
+class _SongArtworkPlaceholder extends StatelessWidget {
   final SongEntity song;
-  final double size;
 
-  const _ArtworkPlaceholder({required this.song, required this.size});
+  const _SongArtworkPlaceholder({required this.song});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      width: size,
-      height: size,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
         color: theme.colorScheme.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),

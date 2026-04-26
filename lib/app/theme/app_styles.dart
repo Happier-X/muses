@@ -56,6 +56,8 @@ extension AppThemeSurfaceX on ThemeData {
 
   Color get appPanelColor {
     final isDark = brightness == Brightness.dark;
+    final panelOpacity = AppBackgroundSettings.panelOpacity.value;
+    if (panelOpacity <= 0) return Colors.transparent;
     final base = isDark
         ? Color.alphaBlend(
             colorScheme.primary.withValues(alpha: 0.08),
@@ -65,14 +67,16 @@ extension AppThemeSurfaceX on ThemeData {
             colorScheme.primary.withValues(alpha: 0.12),
             Colors.white,
           );
-    if (!hasAmbientBackground) return base;
-    
+    if (!hasAmbientBackground) {
+      return base.withValues(alpha: panelOpacity);
+    }
+
     final overlayColor = isDark
-        ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.65)
-        : Colors.white.withValues(alpha: 0.70);
-        
+        ? colorScheme.surfaceContainerHighest.withValues(alpha: panelOpacity)
+        : Colors.white.withValues(alpha: panelOpacity);
+
     return Color.alphaBlend(
-      colorScheme.primary.withValues(alpha: 0.06), 
+      colorScheme.primary.withValues(alpha: 0.06),
       overlayColor,
     );
   }
@@ -93,6 +97,7 @@ extension AppThemeSurfaceX on ThemeData {
 
   Color get appPanelElevatedColor {
     final base = appPanelColor;
+    if (base.a <= 0) return Colors.transparent;
     final overlay = brightness == Brightness.dark
         ? Colors.white.withValues(alpha: 0.05)
         : Colors.white.withValues(alpha: 0.25);
