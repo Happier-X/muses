@@ -23,6 +23,7 @@ import '../state/player_state.dart';
 
 class PlayerService with WidgetsBindingObserver {
   static final PlayerService instance = PlayerService._internal();
+  static const Duration _resolvedSourceTtl = Duration(minutes: 10);
 
   final _state = AppPlayerState.instance;
 
@@ -73,6 +74,8 @@ class PlayerService with WidgetsBindingObserver {
   DateTime? _sleepEndAt;
   final Map<String, Future<void>> _probeInflight = {};
   final Map<String, int> _durationPersistedMs = {};
+  final Map<String, _ResolvedRemoteSource> _resolvedRemoteSources = {};
+  final Map<String, Future<Uri>> _sourceResolveInflight = {};
   bool _restoringState = false;
   bool _isSeeking = false;
   int _seekSeq = 0;
@@ -121,6 +124,10 @@ class PlayerService with WidgetsBindingObserver {
             cached.localCoverPath != song.localCoverPath) {
           final updated = song.copyWith(localCoverPath: cached.localCoverPath);
           currentSong.value = updated;
+          _warmupPlaybackSources(
+            updated,
+            nextSong: _nextSongForIndex(queue.value, currentIndex.value),
+          );
           _emitSnapshot();
         }
       }
@@ -190,6 +197,7 @@ class PlayerService with WidgetsBindingObserver {
         _maybeProbeSong(song);
         _scheduleDeferredProbe(song);
         _hydrateAndSetCurrentSong(song);
+        _warmupPlaybackSources(song, nextSong: _nextSongForIndex(list, idx));
       } else {
         position.value = Duration.zero;
         bufferedPosition.value = Duration.zero;
@@ -239,24 +247,12 @@ class PlayerService with WidgetsBindingObserver {
     _debugLog(
       'playQueue size=${playable.length} startIndex=$startIndex actualIndex=$actualIndex song=${playable[actualIndex].title}',
     );
-    queue.value = playable;
-    currentIndex.value = actualIndex;
-    currentSong.value = playable[actualIndex];
-    _maybeProbeSong(playable[actualIndex]);
-    _hydrateAndSetCurrentSong(playable[actualIndex]);
-    _emitSnapshot(force: true);
-    Future<List<AudioSource>> buildSources() async {
-      return Future.wait(playable.map(_sourceForSong));
-    }
+    _applyLogicalQueue(playable, actualIndex);
 
     Future<bool> setSourcesOnce() async {
       try {
-        final sources = await buildSources();
-        await _player.setAudioSources(
-          sources,
-          initialIndex: actualIndex,
-          preload: false,
-        );
+        final sourceQueue = await _buildPlaybackSourceQueue(playable);
+        await _loadPlaybackSourceQueue(sourceQueue, initialIndex: actualIndex);
         return true;
       } catch (e) {
         if (kDebugMode) {
@@ -285,11 +281,13 @@ class PlayerService with WidgetsBindingObserver {
         }
 
         try {
-          final sources = await buildSources();
-          await _player.setAudioSources(
-            sources,
+          final sourceQueue = await _buildPlaybackSourceQueue(
+            playable,
+            forceRefreshSongId: current.id,
+          );
+          await _loadPlaybackSourceQueue(
+            sourceQueue,
             initialIndex: actualIndex,
-            preload: false,
           );
           return true;
         } catch (e2) {
@@ -467,19 +465,11 @@ class PlayerService with WidgetsBindingObserver {
     if (actualIndex < 0) actualIndex = 0;
     if (actualIndex >= playable.length) actualIndex = playable.length - 1;
 
-    queue.value = playable;
-    currentIndex.value = actualIndex;
-    currentSong.value = playable[actualIndex];
-    _maybeProbeSong(playable[actualIndex]);
-    _emitSnapshot(force: true);
+    _applyLogicalQueue(playable, actualIndex);
 
-    final sources = await Future.wait(playable.map(_sourceForSong));
+    final sourceQueue = await _buildPlaybackSourceQueue(playable);
     try {
-      await _player.setAudioSources(
-        sources,
-        initialIndex: actualIndex,
-        preload: false,
-      );
+      await _loadPlaybackSourceQueue(sourceQueue, initialIndex: actualIndex);
     } catch (e) {
       await stopAndClear();
       if (kDebugMode) {
@@ -542,17 +532,29 @@ class PlayerService with WidgetsBindingObserver {
         uri: rawUri,
         headers: headers,
       );
+      _invalidateResolvedSource(failedSong);
+      await _resolvePlayableUri(failedSong, forceRefresh: true);
 
       final wasPlaying = isPlaying.value;
       final seekPos = failedIndex == currentIndex.value
           ? position.value
           : Duration.zero;
-      await _reloadQueue(
+      final sourceQueue = await _buildPlaybackSourceQueue(
         list,
-        failedIndex,
-        play: wasPlaying,
-        initialPosition: seekPos,
+        forceRefreshSongId: failedSong.id,
       );
+      _applyLogicalQueue(list, failedIndex);
+      await _loadPlaybackSourceQueue(sourceQueue, initialIndex: failedIndex);
+      if (seekPos > Duration.zero) {
+        try {
+          await _player.seek(seekPos);
+        } catch (_) {}
+      }
+      if (wasPlaying) {
+        await _startPlayback();
+      } else {
+        await _pausePlayback();
+      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('PlayerService current source recovery failed: $e');
@@ -896,35 +898,11 @@ class PlayerService with WidgetsBindingObserver {
       actualIndex = restoredQueue.length - 1;
     }
 
-    // Restore optimistic UI state first, but roll back if sources fail to load.
-    queue.value = restoredQueue;
-    currentIndex.value = actualIndex;
-    currentSong.value = restoredQueue[actualIndex];
-    _emitSnapshot(force: true);
+    _applyLogicalQueue(restoredQueue, actualIndex);
 
     try {
-      // Load audio sources in parallel, but handle errors gracefully
-      final sources = await Future.wait(
-        restoredQueue.map((s) async {
-          try {
-            return await _sourceForSong(s);
-          } catch (e) {
-            if (kDebugMode) {
-              debugPrint('Error restoring source for ${s.title}: $e');
-            }
-            // Return a placeholder or silent source if loading fails?
-            // For now, let's try to load it anyway or use file source if local
-            if (s.isLocal) return AudioSource.file(s.uri ?? '');
-            return AudioSource.uri(Uri.parse(s.uri ?? ''));
-          }
-        }),
-      );
-
-      await _player.setAudioSources(
-        sources,
-        initialIndex: actualIndex,
-        preload: false,
-      );
+      final sourceQueue = await _buildPlaybackSourceQueue(restoredQueue);
+      await _loadPlaybackSourceQueue(sourceQueue, initialIndex: actualIndex);
     } catch (e) {
       if (kDebugMode) debugPrint('Error restoring playback state: $e');
       queue.value = const [];
@@ -1095,6 +1073,141 @@ class PlayerService with WidgetsBindingObserver {
     }
   }
 
+  SongEntity? _nextSongForIndex(List<SongEntity> list, int index) {
+    final nextIndex = index + 1;
+    if (nextIndex < 0 || nextIndex >= list.length) return null;
+    return list[nextIndex];
+  }
+
+  void _warmupPlaybackSources(SongEntity current, {SongEntity? nextSong}) {
+    unawaited(_warmupSource(current));
+    if (nextSong != null) {
+      unawaited(_warmupSource(nextSong));
+    }
+  }
+
+  Future<void> _warmupSource(SongEntity song) async {
+    final rawUri = (song.uri ?? '').trim();
+    if (song.isLocal || !rawUri.startsWith('http')) return;
+    try {
+      await _resolvePlayableUri(song);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('PlayerService warmup source failed for ${song.title}: $e');
+      }
+    }
+  }
+
+  void _invalidateResolvedSource(SongEntity song) {
+    _resolvedRemoteSources.remove(song.id);
+    _sourceResolveInflight.remove(song.id);
+  }
+
+  void _applyLogicalQueue(List<SongEntity> songs, int currentQueueIndex) {
+    queue.value = songs;
+    currentIndex.value = currentQueueIndex;
+    currentSong.value = songs[currentQueueIndex];
+    _maybeProbeSong(songs[currentQueueIndex]);
+    _hydrateAndSetCurrentSong(songs[currentQueueIndex]);
+    _emitSnapshot(force: true);
+  }
+
+  Future<_PlaybackSourceQueue> _buildPlaybackSourceQueue(
+    List<SongEntity> songs, {
+    String? forceRefreshSongId,
+  }) async {
+    final sources = <AudioSource>[];
+    for (final song in songs) {
+      sources.add(
+        await _sourceForSong(
+          song,
+          forceRefresh:
+              forceRefreshSongId != null && song.id == forceRefreshSongId,
+        ),
+      );
+    }
+    return _PlaybackSourceQueue(
+      songs: List<SongEntity>.from(songs),
+      sources: sources,
+    );
+  }
+
+  Future<void> _loadPlaybackSourceQueue(
+    _PlaybackSourceQueue sourceQueue, {
+    required int initialIndex,
+  }) async {
+    await _player.setAudioSources(
+      sourceQueue.sources,
+      initialIndex: initialIndex,
+      preload: false,
+    );
+  }
+
+  String _headersFingerprint(Map<String, String>? headers) {
+    if (headers == null || headers.isEmpty) return '';
+    final pairs = headers.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return pairs.map((e) => '${e.key}=${e.value}').join('&');
+  }
+
+  Future<Uri> _resolvePlayableUri(
+    SongEntity song, {
+    bool forceRefresh = false,
+  }) async {
+    final rawUri = (song.uri ?? '').trim();
+    if (song.isLocal || !rawUri.startsWith('http')) {
+      return Uri.file(rawUri);
+    }
+
+    final headers = _headersFromSong(song);
+    final headersKey = _headersFingerprint(headers);
+    if (forceRefresh) {
+      _invalidateResolvedSource(song);
+    }
+
+    final cached = _resolvedRemoteSources[song.id];
+    if (cached != null &&
+        cached.rawUri == rawUri &&
+        cached.headersFingerprint == headersKey &&
+        !cached.isExpired) {
+      return cached.proxyUri;
+    }
+
+    final inflight = _sourceResolveInflight[song.id];
+    if (inflight != null) return inflight;
+
+    final future = () async {
+      final remoteUri = _getSafeUri(rawUri);
+      final finalRemoteUri = remoteUri ?? Uri.parse(rawUri);
+      final uriStr = finalRemoteUri.toString();
+      final cacheFile = await _audioCache.getCacheFile(
+        uri: uriStr,
+        headers: headers,
+      );
+      final proxyUri = await _proxy.registerSource(
+        uri: finalRemoteUri,
+        headers: {
+          ...?headers,
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+        },
+        cacheFile: cacheFile,
+      );
+      _resolvedRemoteSources[song.id] = _ResolvedRemoteSource(
+        rawUri: rawUri,
+        headersFingerprint: headersKey,
+        proxyUri: proxyUri,
+        resolvedAt: DateTime.now(),
+      );
+      return proxyUri;
+    }();
+
+    _sourceResolveInflight[song.id] = future;
+    future.whenComplete(() => _sourceResolveInflight.remove(song.id));
+    return future;
+  }
+
   void _maybeProbeSong(SongEntity song) {
     unawaited(_maybeProbeSongAsync(song));
   }
@@ -1197,6 +1310,10 @@ class PlayerService with WidgetsBindingObserver {
     final current = currentSong.value;
     if (current != null && current.id == song.id) {
       currentSong.value = next;
+      _warmupPlaybackSources(
+        next,
+        nextSong: _nextSongForIndex(queue.value, currentIndex.value),
+      );
       _emitSnapshot(force: true);
     }
   }
@@ -1333,42 +1450,16 @@ class PlayerService with WidgetsBindingObserver {
     }
   }
 
-  Future<AudioSource> _sourceForSong(SongEntity song) async {
+  Future<AudioSource> _sourceForSong(
+    SongEntity song, {
+    bool forceRefresh = false,
+  }) async {
     final rawUri = (song.uri ?? '').trim();
     if (song.isLocal || !rawUri.startsWith('http')) {
       return AudioSource.file(rawUri);
     }
 
-    // Resolve URI using safe logic (handles double encoding)
-    final remoteUri = _getSafeUri(rawUri);
-    // If we couldn't parse it even with fallback, use rawUri for registration
-    final finalRemoteUri = remoteUri ?? Uri.parse(rawUri);
-    final uriStr = finalRemoteUri.toString();
-
-    final headers = _headersFromSong(song);
-    final cached = await _audioCache.getCompleteCachedFile(
-      uri: uriStr,
-      headers: headers,
-    );
-    if (cached != null) {
-      return AudioSource.file(cached.path);
-    }
-
-    final cacheFile = await _audioCache.getCacheFile(
-      uri: uriStr,
-      headers: headers,
-    );
-
-    final local = await _proxy.registerSource(
-      uri: finalRemoteUri,
-      headers: {
-        ...?headers,
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': '*/*',
-      },
-      cacheFile: cacheFile,
-    );
+    final local = await _resolvePlayableUri(song, forceRefresh: forceRefresh);
     return AudioSource.uri(local);
   }
 
@@ -1386,4 +1477,28 @@ class PlayerService with WidgetsBindingObserver {
     await _setAudioSessionActive(false);
     await _player.dispose();
   }
+}
+
+class _ResolvedRemoteSource {
+  final String rawUri;
+  final String headersFingerprint;
+  final Uri proxyUri;
+  final DateTime resolvedAt;
+
+  const _ResolvedRemoteSource({
+    required this.rawUri,
+    required this.headersFingerprint,
+    required this.proxyUri,
+    required this.resolvedAt,
+  });
+
+  bool get isExpired =>
+      DateTime.now().difference(resolvedAt) > PlayerService._resolvedSourceTtl;
+}
+
+class _PlaybackSourceQueue {
+  final List<SongEntity> songs;
+  final List<AudioSource> sources;
+
+  const _PlaybackSourceQueue({required this.songs, required this.sources});
 }
