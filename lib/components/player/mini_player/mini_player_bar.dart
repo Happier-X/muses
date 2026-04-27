@@ -533,9 +533,10 @@ class _MiniPlayerSubtitleText extends StatelessWidget {
       builder: (context, constraints) {
         final painter = TextPainter(
           text: TextSpan(text: text, style: style),
+          textAlign: TextAlign.left,
           maxLines: 1,
           textDirection: Directionality.of(context),
-        )..layout(minWidth: 0, maxWidth: double.infinity);
+        )..layout(minWidth: 0);
 
         final overflow = painter.width - constraints.maxWidth;
         if (overflow <= 6) {
@@ -550,19 +551,22 @@ class _MiniPlayerSubtitleText extends StatelessWidget {
         return ValueListenableBuilder<PlaybackSnapshot>(
           valueListenable: player.snapshot,
           builder: (context, snapshot, _) {
-            final totalMs = snapshot.duration?.inMilliseconds ?? 0;
-            final progress = totalMs <= 0
-                ? 0.0
-                : (snapshot.position.inMilliseconds / totalMs).clamp(0.0, 1.0);
+            final progress = _lineProgress(snapshot);
             final maxOffset = overflow + 24;
             return ClipRect(
               child: SizedBox(
                 height: (style.fontSize ?? 12) * 1.35,
                 child: Transform.translate(
                   offset: Offset(-maxOffset * progress, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(text, maxLines: 1, style: style),
+                  child: SizedBox(
+                    width: painter.width,
+                    child: Text(
+                      text,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.visible,
+                      style: style,
+                    ),
                   ),
                 ),
               ),
@@ -571,6 +575,30 @@ class _MiniPlayerSubtitleText extends StatelessWidget {
         );
       },
     );
+  }
+
+  double _lineProgress(PlaybackSnapshot snapshot) {
+    final model = LyricsService.instance.controller.lyricNotifier.value;
+    final index = LyricsService.instance.controller.activeIndexNotifiter.value;
+    if (model == null || index < 0 || index >= model.lines.length) {
+      final totalMs = snapshot.duration?.inMilliseconds ?? 0;
+      if (totalMs <= 0) return 0;
+      return (snapshot.position.inMilliseconds / totalMs).clamp(0.0, 1.0);
+    }
+
+    final line = model.lines[index];
+    final startMs = line.start.inMilliseconds;
+    final nextStartMs = index + 1 < model.lines.length
+        ? model.lines[index + 1].start.inMilliseconds
+        : snapshot.duration?.inMilliseconds ??
+              line.end?.inMilliseconds ??
+              startMs;
+    final endMs = (line.end?.inMilliseconds ?? nextStartMs).clamp(
+      startMs + 1,
+      1 << 30,
+    );
+    final currentMs = snapshot.position.inMilliseconds.clamp(startMs, endMs);
+    return ((currentMs - startMs) / (endMs - startMs)).clamp(0.0, 1.0);
   }
 }
 
