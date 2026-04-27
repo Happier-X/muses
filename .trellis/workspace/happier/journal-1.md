@@ -71,3 +71,36 @@ PlayerState 新增 shuffleModeEnabled/repeatMode 字段，PlayerViewModel 新增
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: 简化底部播放栏并新增播放队列弹窗
+
+**Date**: 2026-04-27
+**Task**: 简化底部播放栏并新增播放队列弹窗
+**Branch**: `main`
+
+### Summary
+
+PlayerBar右侧按钮从5个精简为播放+队列两个，新增QueueSheet底部弹窗展示播放队列，PlayerViewModel扩展queue/currentIndex状态和seekToQueueItem方法
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1495a10` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
