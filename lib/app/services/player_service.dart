@@ -513,13 +513,19 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> next() async {
+    final wasPlaying = _player.playing;
     await _player.seekToNext();
-    await _startPlayback();
+    if (!wasPlaying) {
+      await _startPlayback();
+    }
   }
 
   Future<void> previous() async {
+    final wasPlaying = _player.playing;
     await _player.seekToPrevious();
-    await _startPlayback();
+    if (!wasPlaying) {
+      await _startPlayback();
+    }
   }
 
   Future<void> seek(Duration position) async {

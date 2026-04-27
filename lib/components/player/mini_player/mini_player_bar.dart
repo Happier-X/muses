@@ -1,6 +1,8 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
+import '../../../app/services/lyrics/lyrics_service.dart';
 import '../../../app/services/player_service.dart';
 import '../../../app/router/app_router.dart';
 import '../../../app/state/settings_state.dart';
@@ -285,8 +287,13 @@ class MiniPlayerInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    MiniPlayerInfoSettings.ensureLoaded();
     if (!enableSwipe) {
-      return _InfoContent(song: song, onOpenPlayer: onOpenPlayer);
+      return _InfoContent(
+        song: song,
+        player: player,
+        onOpenPlayer: onOpenPlayer,
+      );
     }
     return _SwipeableInfo(
       song: song,
@@ -298,9 +305,14 @@ class MiniPlayerInfo extends StatelessWidget {
 
 class _InfoContent extends StatelessWidget {
   final SongEntity? song;
+  final PlayerService player;
   final VoidCallback onOpenPlayer;
 
-  const _InfoContent({required this.song, required this.onOpenPlayer});
+  const _InfoContent({
+    required this.song,
+    required this.player,
+    required this.onOpenPlayer,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -327,11 +339,28 @@ class _InfoContent extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 2),
-        Text(
-          song!.artist,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+        ValueListenableBuilder<bool>(
+          valueListenable: MiniPlayerInfoSettings.showLyricsInSubtitle,
+          builder: (context, showLyrics, _) {
+            return ValueListenableBuilder<String?>(
+              valueListenable: LyricsService.instance.currentLineText,
+              builder: (context, currentLyric, _) {
+                final lyric = currentLyric?.trim() ?? '';
+                final subtitle = showLyrics && lyric.isNotEmpty
+                    ? lyric
+                    : song!.artist;
+                return _MiniPlayerSubtitleText(
+                  text: subtitle,
+                  useProgressMarquee: showLyrics && lyric.isNotEmpty,
+                  player: player,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                );
+              },
+            );
+          },
         ),
       ],
     );
@@ -466,11 +495,81 @@ class _SwipeableInfoState extends State<_SwipeableInfo>
             },
             child: _InfoContent(
               song: widget.song,
+              player: widget.player,
               onOpenPlayer: widget.onOpenPlayer,
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MiniPlayerSubtitleText extends StatelessWidget {
+  final String text;
+  final bool useProgressMarquee;
+  final PlayerService player;
+  final TextStyle style;
+
+  const _MiniPlayerSubtitleText({
+    required this.text,
+    required this.useProgressMarquee,
+    required this.player,
+    required this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!useProgressMarquee || text.trim().isEmpty) {
+      return Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          maxLines: 1,
+          textDirection: Directionality.of(context),
+        )..layout(minWidth: 0, maxWidth: double.infinity);
+
+        final overflow = painter.width - constraints.maxWidth;
+        if (overflow <= 6) {
+          return Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          );
+        }
+
+        return ValueListenableBuilder<PlaybackSnapshot>(
+          valueListenable: player.snapshot,
+          builder: (context, snapshot, _) {
+            final totalMs = snapshot.duration?.inMilliseconds ?? 0;
+            final progress = totalMs <= 0
+                ? 0.0
+                : (snapshot.position.inMilliseconds / totalMs).clamp(0.0, 1.0);
+            final maxOffset = overflow + 24;
+            return ClipRect(
+              child: SizedBox(
+                height: (style.fontSize ?? 12) * 1.35,
+                child: Transform.translate(
+                  offset: Offset(-maxOffset * progress, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(text, maxLines: 1, style: style),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

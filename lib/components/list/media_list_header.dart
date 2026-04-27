@@ -62,7 +62,7 @@ class MediaListHeader extends StatelessWidget {
       ],
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 2, 4, 2),
+      padding: const EdgeInsets.fromLTRB(16, 0, 4, 0),
       child: Row(
         children: [
           Expanded(child: leading),

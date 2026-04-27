@@ -18,6 +18,7 @@ class _PlayerControlsSettingsPageState
     super.initState();
     PlayerBottomActionSettings.ensureLoaded();
     AppLaunchPlaybackSettings.ensureLoaded();
+    MiniPlayerInfoSettings.ensureLoaded();
   }
 
   _BottomActionConfig _actionConfigByKey(String key) {
@@ -83,6 +84,21 @@ class _PlayerControlsSettingsPageState
                       value: enabled,
                       onChanged: (value) {
                         AppLaunchPlaybackSettings.setAutoPlayOnAppLaunch(value);
+                      },
+                    ),
+                  );
+                },
+              ),
+              ValueListenableBuilder<bool>(
+                valueListenable: MiniPlayerInfoSettings.showLyricsInSubtitle,
+                builder: (context, enabled, _) {
+                  return AppSettingTile(
+                    title: '播放器控件显示歌词',
+                    subtitle: '开启后用当前歌词替代歌手名，长歌词会随播放自动滚动',
+                    trailing: Switch.adaptive(
+                      value: enabled,
+                      onChanged: (value) {
+                        MiniPlayerInfoSettings.setShowLyricsInSubtitle(value);
                       },
                     ),
                   );

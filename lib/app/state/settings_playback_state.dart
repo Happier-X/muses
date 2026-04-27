@@ -151,3 +151,26 @@ class PlayerBottomActionSettings {
     showMore.value = enabled;
   }
 }
+
+class MiniPlayerInfoSettings {
+  static const String _prefsShowLyricsInSubtitle =
+      'mini_player_show_lyrics_in_subtitle';
+
+  static final ValueNotifier<bool> showLyricsInSubtitle = ValueNotifier(false);
+
+  static bool _loaded = false;
+
+  static Future<void> ensureLoaded() async {
+    if (_loaded) return;
+    _loaded = true;
+    final prefs = await SharedPreferences.getInstance();
+    showLyricsInSubtitle.value =
+        prefs.getBool(_prefsShowLyricsInSubtitle) ?? false;
+  }
+
+  static Future<void> setShowLyricsInSubtitle(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsShowLyricsInSubtitle, enabled);
+    showLyricsInSubtitle.value = enabled;
+  }
+}

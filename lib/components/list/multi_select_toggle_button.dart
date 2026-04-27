@@ -13,6 +13,9 @@ class MultiSelectToggleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.all(6),
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       icon: Icon(enabled ? Icons.checklist : Icons.checklist_rtl),
       onPressed: onTap,
     );
