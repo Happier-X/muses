@@ -13,6 +13,7 @@ import '../../app/services/local_music_service.dart';
 import '../../app/services/player_service.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
 import '../../app/router/app_page_route.dart';
+import '../../app/state/settings_state.dart';
 import '../../app/state/song_state.dart';
 import '../../app/utils/deferred_page_init_mixin.dart';
 import '../../app/utils/page_cache_store.dart';
@@ -57,6 +58,7 @@ class _SongsPageState extends State<SongsPage>
   static const String _prefsSortKey = 'songs_sort_key';
   static const String _prefsSortAsc = 'songs_sort_asc';
   static const String _prefsRandomPlayCount = 'songs_random_play_count';
+  static const String _prefsSequentialPlayCount = 'songs_sequential_play_count';
   static const String _cacheScopeSongs = 'songs_all';
   static const String _cacheScopeVisible = 'songs_visible';
   static List<SongEntity>? _cachedSongs;
@@ -91,6 +93,7 @@ class _SongsPageState extends State<SongsPage>
   late final _multiSelect = createSignal(false);
   late final _isSequentialPlay = createSignal(false);
   late final _randomPlayCount = createSignal(30);
+  late final _sequentialPlayCount = createSignal(30);
   late final _sortKey = createSignal('title');
   late final _ascending = createSignal(true);
   late final _currentId = createSignal<String?>(null);
@@ -181,6 +184,10 @@ class _SongsPageState extends State<SongsPage>
     final randomCount = prefs.getInt(_prefsRandomPlayCount);
     if (randomCount != null && randomCount > 0) {
       _randomPlayCount.value = randomCount;
+    }
+    final sequentialCount = prefs.getInt(_prefsSequentialPlayCount);
+    if (sequentialCount != null && sequentialCount > 0) {
+      _sequentialPlayCount.value = sequentialCount;
     }
   }
 
@@ -395,13 +402,29 @@ class _SongsPageState extends State<SongsPage>
     AppToast.show(context, _isSequentialPlay.value ? '已切换为顺序播放' : '已切换为随机播放');
   }
 
+  int _playCountForMode(int totalCount) {
+    if (totalCount <= 0) return 0;
+    final configured = _isSequentialPlay.value
+        ? _sequentialPlayCount.value
+        : _randomPlayCount.value;
+    return configured.clamp(1, totalCount);
+  }
+
   List<SongEntity> _buildPlayQueue(
     List<SongEntity> source, {
     String? targetSongId,
   }) {
     final queue = List<SongEntity>.from(source);
     if (_isSequentialPlay.value) {
-      return queue;
+      final maxCount = _sequentialPlayCount.value.clamp(1, queue.length);
+      if (targetSongId == null || targetSongId.isEmpty) {
+        return queue.take(maxCount).toList();
+      }
+      final startIndex = queue.indexWhere((song) => song.id == targetSongId);
+      if (startIndex < 0) {
+        return queue.take(maxCount).toList();
+      }
+      return queue.skip(startIndex).take(maxCount).toList();
     }
     queue.shuffle();
     final maxCount = _randomPlayCount.value.clamp(1, queue.length);
@@ -423,9 +446,15 @@ class _SongsPageState extends State<SongsPage>
     return [original.first, ...limited.take(maxCount - 1)];
   }
 
-  Future<void> _showRandomPlaySettings() async {
+  Future<void> _showPlayCountSettings({
+    required String title,
+    required String description,
+    required int initialCount,
+    required String successMessage,
+    required Future<void> Function(int next) onSave,
+  }) async {
     if (_visibleSongsAll.value.isEmpty) return;
-    var tempCount = _randomPlayCount.value.toDouble();
+    var tempCount = initialCount.toDouble();
     final maxCount = _visibleSongsAll.value.length.clamp(1, 200);
     await showModalBottomSheet<void>(
       context: context,
@@ -434,7 +463,7 @@ class _SongsPageState extends State<SongsPage>
         return StatefulBuilder(
           builder: (context, setModalState) {
             return AppSheetPanel(
-              title: '随机播放设置',
+              title: title,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 child: Column(
@@ -447,7 +476,7 @@ class _SongsPageState extends State<SongsPage>
                       max: maxCount.toDouble(),
                       divisions: maxCount > 1 ? maxCount - 1 : 1,
                       valueText: '${tempCount.round()} 首',
-                      description: '点击按钮直接按当前数量随机播放',
+                      description: description,
                       onChanged: (value) {
                         setModalState(() {
                           tempCount = value;
@@ -460,13 +489,14 @@ class _SongsPageState extends State<SongsPage>
                       child: FilledButton(
                         onPressed: () async {
                           final navigator = Navigator.of(sheetContext);
-                          final prefs = await SharedPreferences.getInstance();
                           final next = tempCount.round().clamp(1, maxCount);
-                          await prefs.setInt(_prefsRandomPlayCount, next);
-                          _randomPlayCount.value = next;
+                          await onSave(next);
                           if (!mounted) return;
                           navigator.pop();
-                          AppToast.show(this.context, '随机播放数量已设为 $next 首');
+                          AppToast.show(
+                            this.context,
+                            '$successMessage $next 首',
+                          );
                         },
                         child: const Text('保存'),
                       ),
@@ -479,6 +509,41 @@ class _SongsPageState extends State<SongsPage>
         );
       },
     );
+  }
+
+  Future<void> _showRandomPlaySettings() {
+    return _showPlayCountSettings(
+      title: '随机播放设置',
+      description: '点击按钮直接按当前数量随机播放',
+      initialCount: _randomPlayCount.value,
+      successMessage: '随机播放数量已设为',
+      onSave: (next) async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(_prefsRandomPlayCount, next);
+        _randomPlayCount.value = next;
+      },
+    );
+  }
+
+  Future<void> _showSequentialPlaySettings() {
+    return _showPlayCountSettings(
+      title: '顺序播放设置',
+      description: '点击按钮直接按当前数量顺序播放',
+      initialCount: _sequentialPlayCount.value,
+      successMessage: '顺序播放数量已设为',
+      onSave: (next) async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(_prefsSequentialPlayCount, next);
+        _sequentialPlayCount.value = next;
+      },
+    );
+  }
+
+  Future<void> _showCurrentPlaySettings() {
+    if (_isSequentialPlay.value) {
+      return _showSequentialPlaySettings();
+    }
+    return _showRandomPlaySettings();
   }
 
   void _openDrawer() {
@@ -877,6 +942,9 @@ class _SongsPageState extends State<SongsPage>
   Widget build(BuildContext context) {
     return Watch.builder(
       builder: (context) {
+        final isTabletLandscape =
+            AppLayoutSettings.tabletMode.value &&
+            MediaQuery.orientationOf(context) == Orientation.landscape;
         if (_isLoading.value) {
           return AppPageScaffold(
             key: _scaffoldKey,
@@ -884,6 +952,7 @@ class _SongsPageState extends State<SongsPage>
             showMiniPlayer: !_multiSelect.value,
             appBar: AppTopBar(
               title: '歌曲',
+              centerTitle: !isTabletLandscape,
               leading: IconButton(
                 icon: const Icon(Icons.menu_rounded),
                 onPressed: _openDrawer,
@@ -932,6 +1001,7 @@ class _SongsPageState extends State<SongsPage>
           showMiniPlayer: !_multiSelect.value,
           appBar: AppTopBar(
             title: '歌曲',
+            centerTitle: !isTabletLandscape,
             leading: IconButton(
               icon: const Icon(Icons.menu_rounded),
               onPressed: _openDrawer,
@@ -972,6 +1042,7 @@ class _SongsPageState extends State<SongsPage>
                 isAllSelected: isAllSelected,
                 selectedCount: selectedCount,
                 totalCount: totalCount,
+                playbackCount: _playCountForMode(totalCount),
                 isSequentialPlay: _isSequentialPlay.value,
                 onToggleSelectAll: () =>
                     _toggleSelectAll(_visibleSongsAll.value),
@@ -980,7 +1051,7 @@ class _SongsPageState extends State<SongsPage>
                   final queue = _buildPlayQueue(_visibleSongsAll.value);
                   _openPlayerWithQueue(queue, 0);
                 },
-                onConfigurePlay: _showRandomPlaySettings,
+                onConfigurePlay: _showCurrentPlaySettings,
                 onTogglePlayMode: _togglePlayMode,
                 onSort: _showSortSheet,
                 onToggleMultiSelect: _toggleMultiSelect,

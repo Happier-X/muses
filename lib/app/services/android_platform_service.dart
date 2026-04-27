@@ -30,6 +30,9 @@ class AndroidPlatformService {
     if (!Platform.isAndroid) return true;
     final sdk = await sdkInt();
     if (sdk == 0) return false;
-    return sdk > 29;
+    // Media-style notification custom actions are supported on old Android
+    // versions too. Low-version devices may show fewer actions depending on
+    // the system UI/OEM skin, but the feature itself is available.
+    return sdk >= 21;
   }
 }

@@ -725,6 +725,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
                       isAllSelected: isAllSelected,
                       selectedCount: selectedCount,
                       totalCount: totalCount,
+                      playbackCount: totalCount,
                       isSequentialPlay: _isSequentialPlay.value,
                       onToggleSelectAll: _toggleSelectAll,
                       onPlay: () async {

@@ -10,6 +10,7 @@ class MediaListHeader extends StatelessWidget {
   final bool isAllSelected;
   final int selectedCount;
   final int totalCount;
+  final int playbackCount;
   final bool isSequentialPlay;
   final VoidCallback onToggleSelectAll;
   final VoidCallback onPlay;
@@ -24,6 +25,7 @@ class MediaListHeader extends StatelessWidget {
     required this.isAllSelected,
     required this.selectedCount,
     required this.totalCount,
+    required this.playbackCount,
     required this.isSequentialPlay,
     required this.onToggleSelectAll,
     required this.onPlay,
@@ -35,31 +37,47 @@ class MediaListHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final leading = multiSelect
+        ? SelectAllButton(
+            isAllSelected: isAllSelected,
+            selectedCount: selectedCount,
+            totalCount: totalCount,
+            onTap: onToggleSelectAll,
+          )
+        : PlaybackModeButton(
+            isSequential: isSequentialPlay,
+            count: playbackCount,
+            onPlay: onPlay,
+            onDoubleTap: onConfigurePlay,
+            onToggleMode: onTogglePlayMode,
+          );
+    final trailing = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SortActionButton(onTap: onSort),
+        MultiSelectToggleButton(
+          enabled: multiSelect,
+          onTap: onToggleMultiSelect,
+        ),
+      ],
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 2, 4, 2),
-      child: Row(
-        children: [
-          multiSelect
-              ? SelectAllButton(
-                  isAllSelected: isAllSelected,
-                  selectedCount: selectedCount,
-                  totalCount: totalCount,
-                  onTap: onToggleSelectAll,
-                )
-              : PlaybackModeButton(
-                  isSequential: isSequentialPlay,
-                  count: totalCount,
-                  onPlay: onPlay,
-                  onDoubleTap: onConfigurePlay,
-                  onToggleMode: onTogglePlayMode,
-                ),
-          const Spacer(),
-          SortActionButton(onTap: onSort),
-          MultiSelectToggleButton(
-            enabled: multiSelect,
-            onTap: onToggleMultiSelect,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 520;
+          if (!compact) {
+            return Row(children: [leading, const Spacer(), trailing]);
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              leading,
+              const SizedBox(height: 4),
+              Align(alignment: Alignment.centerRight, child: trailing),
+            ],
+          );
+        },
       ),
     );
   }

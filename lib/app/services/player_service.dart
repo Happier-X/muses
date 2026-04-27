@@ -170,8 +170,19 @@ class PlayerService with WidgetsBindingObserver {
       if (idx >= 0 && idx < list.length) {
         final song = list[idx];
         currentSong.value = song;
+        // Reset progress-related state immediately on track switch so the UI
+        // and media notification don't keep rendering the previous track.
+        position.value = Duration.zero;
+        bufferedPosition.value = Duration.zero;
+        duration.value = song.durationMs != null
+            ? Duration(milliseconds: song.durationMs!)
+            : null;
         _maybeProbeSong(song);
         _hydrateAndSetCurrentSong(song);
+      } else {
+        position.value = Duration.zero;
+        bufferedPosition.value = Duration.zero;
+        duration.value = null;
       }
       _emitSnapshot(force: true);
     });
@@ -497,10 +508,12 @@ class PlayerService with WidgetsBindingObserver {
 
   Future<void> next() async {
     await _player.seekToNext();
+    await _startPlayback();
   }
 
   Future<void> previous() async {
     await _player.seekToPrevious();
+    await _startPlayback();
   }
 
   Future<void> seek(Duration position) async {

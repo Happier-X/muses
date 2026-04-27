@@ -191,13 +191,60 @@ class _PlayerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Spacer(flex: 1),
-        _PlayerArtwork(songSignal: player.currentSongSignal),
-        const Spacer(flex: 1),
-        PlayerBottomPanel(player: player, onTapLyrics: onTapLyrics),
-      ],
+    return ValueListenableBuilder<bool>(
+      valueListenable: AppLayoutSettings.tabletMode,
+      builder: (context, tabletMode, _) {
+        final mq = MediaQuery.of(context);
+        final isTabletLandscape =
+            tabletMode &&
+            mq.orientation == Orientation.landscape &&
+            mq.size.width >= 900;
+        if (!isTabletLandscape) {
+          return Column(
+            children: [
+              const Spacer(flex: 1),
+              _PlayerArtwork(songSignal: player.currentSongSignal),
+              const Spacer(flex: 1),
+              PlayerBottomPanel(player: player, onTapLyrics: onTapLyrics),
+            ],
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Center(
+                  child: _PlayerArtwork(songSignal: player.currentSongSignal),
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                flex: 6,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: EdgeInsets.zero,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Center(
+                          child: PlayerBottomPanel(
+                            player: player,
+                            onTapLyrics: onTapLyrics,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -284,19 +331,7 @@ class _ArtworkShadowContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: border,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(borderRadius: border, child: child),
-    );
+    return ClipRRect(borderRadius: border, child: child);
   }
 }
 

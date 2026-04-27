@@ -17,6 +17,12 @@ class TagProbeService {
   static final TagProbeService instance = TagProbeService._internal();
   TagProbeService._internal();
 
+  static const Map<String, String> _defaultRemoteHeaders = {
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Accept': '*/*',
+  };
+
   final AudioCacheService _audioCache = AudioCacheService.instance;
   final List<ProbeHandler> _probeHandlers = [ProgressiveHeadHandler()];
 
@@ -25,6 +31,19 @@ class TagProbeService {
   static final Map<String, Future<File?>> _remoteTailInflight = {};
   static final Map<String, Future<int?>> _remoteTotalInflight = {};
   static final Map<String, int?> _remoteTotalCache = {};
+
+  Map<String, String>? _effectiveHeaders(Map<String, String>? headers) {
+    if (headers == null || headers.isEmpty) {
+      return Map<String, String>.from(_defaultRemoteHeaders);
+    }
+    return {
+      ...headers,
+      if (!headers.containsKey('User-Agent'))
+        'User-Agent': _defaultRemoteHeaders['User-Agent']!,
+      if (!headers.containsKey('Accept'))
+        'Accept': _defaultRemoteHeaders['Accept']!,
+    };
+  }
 
   Future<void> clearRemoteCaches({
     required String uri,
@@ -100,7 +119,8 @@ class TagProbeService {
     Map<String, String>? headers,
     bool includeArtwork = false,
   }) {
-    final headerKey = _headersKey(headers);
+    final effectiveHeaders = isLocal ? headers : _effectiveHeaders(headers);
+    final headerKey = _headersKey(effectiveHeaders);
     final key =
         '${isLocal ? 'local' : 'remote'}:$uri:$includeArtwork:$headerKey';
     final exist = _inflight[key];
@@ -108,7 +128,7 @@ class TagProbeService {
     final f = probeSong(
       uri: uri,
       isLocal: isLocal,
-      headers: headers,
+      headers: effectiveHeaders,
       includeArtwork: includeArtwork,
     );
     _inflight[key] = f;

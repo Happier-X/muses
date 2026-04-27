@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:webdav_client/webdav_client.dart' as webdav;
 
 import '../../state/song_state.dart';
+import '../artwork_cache_helper.dart';
+import '../debug_log_service.dart';
 import '../db/dao/song_dao.dart';
 import '../metadata/tag_probe_service.dart';
 import '../metadata/tag_probe_result.dart';
@@ -42,6 +44,7 @@ class WebDavMusicService {
   final SongDao _songDao = SongDao();
   final TagProbeService _tagProbe = TagProbeService.instance;
   final WebDavSourceRepository _repo = WebDavSourceRepository.instance;
+  final DebugLogService _debugLogs = DebugLogService.instance;
 
   static const _audioExts = {
     '.mp3',
@@ -115,6 +118,7 @@ class WebDavMusicService {
     if (endpoint.isEmpty) {
       return const WebDavScanResult(processed: 0, added: 0);
     }
+    await _debugLogs.ensureLoaded();
 
     final pathsToScan = source.includeFolders.isNotEmpty
         ? source.includeFolders
@@ -194,6 +198,7 @@ class WebDavMusicService {
 
     final existingList = await _songDao.fetchAll(sourceId: source.id);
     final existingMap = {for (final s in existingList) s.id: s};
+    final existingIds = existingMap.keys.toSet();
 
     final bool shouldScrape = source.scrapeTagsOnScan;
     final enriched = shouldScrape
@@ -218,8 +223,11 @@ class WebDavMusicService {
       return WebDavScanResult(processed: discovered, added: 0);
     }
 
+    final added = enriched
+        .where((song) => !existingIds.contains(song.id))
+        .length;
     await _songDao.deleteBySource(source.id);
-    final added = await _songDao.upsertSongs(enriched);
+    await _songDao.upsertSongs(enriched);
     onProgress(
       WebDavScanProgress(
         processed: discovered,
@@ -330,17 +338,69 @@ class WebDavMusicService {
         if (isCancelled()) break;
         final song = queue.removeFirst();
         TagProbeResult? meta;
+        String? coverPath;
         try {
           meta = await _tagProbe.probeSongDedup(
             uri: song.uri ?? '',
             isLocal: false,
             headers: headers,
-            includeArtwork: false,
+            includeArtwork: true,
           );
-        } catch (_) {}
+          final artwork = meta?.artwork;
+          final existingCoverPath = (existingMap[song.id]?.localCoverPath ?? '')
+              .trim();
+          if (existingCoverPath.isNotEmpty) {
+            coverPath = existingCoverPath;
+          } else if (artwork != null && artwork.isNotEmpty) {
+            coverPath = await ArtworkCacheHelper.cacheCompressedArtwork(
+              bytes: artwork,
+              key: song.id,
+            );
+          }
+          if (meta == null) {
+            _logScanIssue(
+              source: song.sourceId ?? 'unknown',
+              uri: song.uri ?? song.id,
+              reason: 'probe returned null',
+              song: song,
+              existing: existingMap[song.id],
+              meta: meta,
+              coverPath: coverPath,
+            );
+          } else if ((meta.title ?? '').trim().isEmpty &&
+              (meta.artist ?? '').trim().isEmpty &&
+              (meta.album ?? '').trim().isEmpty &&
+              (meta.durationMs ?? 0) <= 0 &&
+              (coverPath ?? '').trim().isEmpty) {
+            _logScanIssue(
+              source: song.sourceId ?? 'unknown',
+              uri: song.uri ?? song.id,
+              reason: 'probe returned empty metadata',
+              song: song,
+              existing: existingMap[song.id],
+              meta: meta,
+              coverPath: coverPath,
+            );
+          }
+        } catch (e) {
+          _logScanIssue(
+            source: song.sourceId ?? 'unknown',
+            uri: song.uri ?? song.id,
+            reason: 'probe threw $e',
+            song: song,
+            existing: existingMap[song.id],
+            meta: meta,
+            coverPath: coverPath,
+          );
+        }
         final existing = existingMap[song.id];
         results.add(
-          _mergeWithExisting(base: song, meta: meta, existing: existing),
+          _mergeWithExisting(
+            base: song,
+            meta: meta,
+            existing: existing,
+            resolvedCoverPath: coverPath,
+          ),
         );
         done += 1;
         onProgress(done);
@@ -357,6 +417,7 @@ class WebDavMusicService {
     required SongEntity base,
     required TagProbeResult? meta,
     required SongEntity? existing,
+    String? resolvedCoverPath,
   }) {
     String pickText(String? v, String fallback) {
       final t = (v ?? '').trim();
@@ -402,8 +463,8 @@ class WebDavMusicService {
     );
     final mergedFormat = format.isEmpty ? null : format;
     final coverPath = pickText(
-      existing?.localCoverPath,
-      base.localCoverPath ?? '',
+      resolvedCoverPath,
+      pickText(existing?.localCoverPath, base.localCoverPath ?? ''),
     );
     final mergedCoverPath = coverPath.isEmpty ? null : coverPath;
     final tagsParsed = (meta != null) || (existing?.tagsParsed ?? false);
@@ -425,6 +486,35 @@ class WebDavMusicService {
       localCoverPath: mergedCoverPath,
       localAssetId: base.localAssetId,
       tagsParsed: tagsParsed,
+    );
+  }
+
+  void _logScanIssue({
+    required String source,
+    required String uri,
+    required String reason,
+    required SongEntity song,
+    required SongEntity? existing,
+    required TagProbeResult? meta,
+    required String? coverPath,
+  }) {
+    final shortUri = uri.length > 180 ? '${uri.substring(0, 180)}...' : uri;
+    String host = '-';
+    try {
+      final parsed = Uri.tryParse(uri);
+      host = (parsed?.host ?? '').trim().isEmpty ? '-' : parsed!.host;
+    } catch (_) {}
+    final ext = p.extension(uri).toLowerCase();
+    final hasTitle = (meta?.title ?? '').trim().isNotEmpty ? 1 : 0;
+    final hasArtist = (meta?.artist ?? '').trim().isNotEmpty ? 1 : 0;
+    final hasAlbum = (meta?.album ?? '').trim().isNotEmpty ? 1 : 0;
+    final hasDuration = (meta?.durationMs ?? 0) > 0 ? 1 : 0;
+    final hasArtwork = (meta?.artwork?.isNotEmpty ?? false) ? 1 : 0;
+    final hasCoverPath = ((coverPath ?? '').trim().isNotEmpty) ? 1 : 0;
+    final hadExistingCover =
+        ((existing?.localCoverPath ?? '').trim().isNotEmpty) ? 1 : 0;
+    _debugLogs.add(
+      '[WebDavScan][$source] $reason | host=$host ext=$ext parsed=${song.tagsParsed ? 1 : 0} title=$hasTitle artist=$hasArtist album=$hasAlbum duration=$hasDuration artwork=$hasArtwork cachedCover=$hasCoverPath existingCover=$hadExistingCover :: $shortUri',
     );
   }
 

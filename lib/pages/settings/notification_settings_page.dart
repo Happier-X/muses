@@ -78,7 +78,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     title: '显示关闭按钮',
                     subtitle: _supportsCustomActions
                         ? '在通知上展示关闭应用按钮'
-                        : '当前 Android 版本不支持稳定的自定义通知按钮，已自动屏蔽',
+                        : '当前设备暂不可用自定义通知按钮',
                     value: _supportsCustomActions && enabled,
                     onChanged: _supportsCustomActions
                         ? (value) {
@@ -95,7 +95,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     title: '显示收藏按钮',
                     subtitle: _supportsCustomActions
                         ? '在通知上展示收藏/取消收藏'
-                        : '当前 Android 版本不支持稳定的自定义通知按钮，已自动屏蔽',
+                        : '当前设备暂不可用自定义通知按钮',
                     value: _supportsCustomActions && enabled,
                     onChanged: _supportsCustomActions
                         ? (value) {

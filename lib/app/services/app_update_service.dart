@@ -20,9 +20,9 @@ class AppUpdateService {
   static final AppUpdateService instance = AppUpdateService._();
 
   static const String releasePageUrl =
-      'https://github.com/lankexin/nagomusic/releases/latest';
+      'https://github.com/Keduoli03/NagoMusic/releases/latest';
   static const String latestReleaseApiUrl =
-      'https://api.github.com/repos/lankexin/nagomusic/releases/latest';
+      'https://api.github.com/repos/Keduoli03/NagoMusic/releases/latest';
 
   final Dio _dio = Dio(
     BaseOptions(

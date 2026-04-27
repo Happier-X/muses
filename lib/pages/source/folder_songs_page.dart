@@ -317,6 +317,7 @@ class _FolderSongsPageState extends State<FolderSongsPage> with SignalsMixin {
                 isAllSelected: isAllSelected,
                 selectedCount: selectedCount,
                 totalCount: songs.length,
+                playbackCount: songs.length,
                 isSequentialPlay: _isSequentialPlay.value,
                 onToggleSelectAll: () => _toggleSelectAll(songs),
                 onPlay: () {
