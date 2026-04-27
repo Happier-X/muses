@@ -41,7 +41,9 @@ data class PlayerState(
     val hasTrack: Boolean = false,
     val errorMessage: String? = null,
     val shuffleModeEnabled: Boolean = false,
-    val repeatMode: Int = Player.REPEAT_MODE_OFF
+    val repeatMode: Int = Player.REPEAT_MODE_OFF,
+    val queue: List<AudioTrack> = emptyList(),
+    val currentIndex: Int = -1
 )
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
@@ -135,6 +137,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         _state.update { it.copy(errorMessage = null) }
         currentPlaylist = tracks
+        _state.update { it.copy(queue = tracks, currentIndex = startIndex) }
         val mediaItems = tracks.map { track ->
             val metadataBuilder = MediaMetadata.Builder().setTitle(track.title)
             if (track.artist.isNotBlank()) metadataBuilder.setArtist(track.artist)
@@ -177,6 +180,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun seekTo(positionMs: Long) {
         mediaController?.seekTo(positionMs)
+    }
+
+    fun seekToQueueItem(index: Int) {
+        mediaController?.seekToDefaultPosition(index)
     }
 
     fun toggleShuffle() {
@@ -229,7 +236,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 durationMs = if (isReady && controller.duration > 0) controller.duration else it.durationMs,
                 positionMs = if (isReady) controller.currentPosition else it.positionMs,
                 shuffleModeEnabled = controller.shuffleModeEnabled,
-                repeatMode = controller.repeatMode
+                repeatMode = controller.repeatMode,
+                currentIndex = controller.currentMediaItemIndex
             )
         }
     }

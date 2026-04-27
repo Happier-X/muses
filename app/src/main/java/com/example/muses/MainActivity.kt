@@ -38,6 +38,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -50,6 +51,7 @@ import androidx.media3.common.MediaMetadata
 import com.example.muses.data.model.AudioTrack
 import com.example.muses.ui.screens.AddMusicScreen
 import com.example.muses.ui.screens.PlayerBar
+import com.example.muses.ui.screens.QueueSheet
 import com.example.muses.ui.screens.SongsScreen
 import com.example.muses.ui.theme.MusesTheme
 import com.example.muses.ui.viewmodel.PlayerViewModel
@@ -80,6 +82,7 @@ fun MainContent() {
         songsViewModel.updateTrack(track)
     }
     var selectedItem by remember { mutableIntStateOf(0) }
+    var showQueue by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val addedDirPaths by webdavViewModel.addedDirectoryPaths.collectAsStateWithLifecycle()
@@ -165,7 +168,14 @@ fun MainContent() {
                 }
             }
 
-            PlayerBar(viewModel = playerViewModel)
+            PlayerBar(viewModel = playerViewModel, onQueueClick = { showQueue = true })
+        }
+
+        if (showQueue) {
+            QueueSheet(
+                onDismiss = { showQueue = false },
+                onTrackClick = { index -> playerViewModel.seekToQueueItem(index) }
+            )
         }
     }
 }
