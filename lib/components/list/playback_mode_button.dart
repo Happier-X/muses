@@ -23,12 +23,20 @@ class PlaybackModeButton extends StatelessWidget {
       onDoubleTap: onDoubleTap,
       onLongPress: onToggleMode,
       borderRadius: BorderRadius.circular(20),
-      child: Row(
-        children: [
-          Icon(isSequential ? Icons.playlist_play : Icons.shuffle, size: 20),
-          const SizedBox(width: 4),
-          Text('${isSequential ? '顺序播放' : '随机播放'} ($count)'),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(isSequential ? Icons.playlist_play : Icons.shuffle, size: 20),
+            const SizedBox(width: 4),
+            Text(
+              '${isSequential ? '顺序播放' : '随机播放'} ($count)',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }

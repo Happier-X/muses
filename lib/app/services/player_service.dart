@@ -169,14 +169,19 @@ class PlayerService with WidgetsBindingObserver {
       final list = queue.value;
       if (idx >= 0 && idx < list.length) {
         final song = list[idx];
+        final previousSongId = currentSong.value?.id;
+        final songChanged = previousSongId != song.id;
         currentSong.value = song;
-        // Reset progress-related state immediately on track switch so the UI
-        // and media notification don't keep rendering the previous track.
-        position.value = Duration.zero;
-        bufferedPosition.value = Duration.zero;
-        duration.value = song.durationMs != null
-            ? Duration(milliseconds: song.durationMs!)
-            : null;
+        if (songChanged) {
+          // Reset progress-related state only when the actual track changes.
+          // Some seek operations may cause the player to re-emit the same
+          // index, and forcing zero there makes the slider jump backward first.
+          position.value = Duration.zero;
+          bufferedPosition.value = Duration.zero;
+          duration.value = song.durationMs != null
+              ? Duration(milliseconds: song.durationMs!)
+              : null;
+        }
         _maybeProbeSong(song);
         _scheduleDeferredProbe(song);
         _hydrateAndSetCurrentSong(song);

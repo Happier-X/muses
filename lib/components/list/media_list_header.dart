@@ -65,9 +65,15 @@ class MediaListHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 2, 4, 2),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 520;
+          final compact = constraints.maxWidth < 460;
           if (!compact) {
-            return Row(children: [leading, const Spacer(), trailing]);
+            return Row(
+              children: [
+                Flexible(child: leading),
+                const SizedBox(width: 12),
+                trailing,
+              ],
+            );
           }
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
