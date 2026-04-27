@@ -65,6 +65,7 @@ class PlayerService with WidgetsBindingObserver {
   StreamSubscription<Duration>? _bufferSub;
   StreamSubscription<PlayerState>? _stateSub;
   StreamSubscription<int?>? _indexSub;
+  StreamSubscription<PlayerException>? _errorSub;
   StreamSubscription<LoopMode>? _loopModeSub;
   StreamSubscription<bool>? _shuffleSub;
   Timer? _sleepTimer;
@@ -79,6 +80,7 @@ class PlayerService with WidgetsBindingObserver {
   DateTime? _lastSnapshotEmit;
   Timer? _snapshotTimer;
   int _prefetchTriggeredIndex = -1;
+  bool _recoveringCurrentSource = false;
 
   static const String _prefsQueueKey = 'playback_queue_v1';
   static const String _prefsIndexKey = 'playback_index_v1';
@@ -162,6 +164,9 @@ class PlayerService with WidgetsBindingObserver {
       isPlaying.value = state.playing;
       _emitSnapshot(force: true);
     });
+    _errorSub = _player.errorStream.listen((error) {
+      unawaited(_handlePlayerError(error));
+    });
     _indexSub = _player.currentIndexStream.listen((idx) {
       if (idx == null) return;
       currentIndex.value = idx;
@@ -241,14 +246,17 @@ class PlayerService with WidgetsBindingObserver {
     _hydrateAndSetCurrentSong(playable[actualIndex]);
     _emitSnapshot(force: true);
     Future<List<AudioSource>> buildSources() async {
-      await _proxy.resetSources();
       return Future.wait(playable.map(_sourceForSong));
     }
 
     Future<bool> setSourcesOnce() async {
       try {
         final sources = await buildSources();
-        await _player.setAudioSources(sources, initialIndex: actualIndex);
+        await _player.setAudioSources(
+          sources,
+          initialIndex: actualIndex,
+          preload: false,
+        );
         return true;
       } catch (e) {
         if (kDebugMode) {
@@ -278,7 +286,11 @@ class PlayerService with WidgetsBindingObserver {
 
         try {
           final sources = await buildSources();
-          await _player.setAudioSources(sources, initialIndex: actualIndex);
+          await _player.setAudioSources(
+            sources,
+            initialIndex: actualIndex,
+            preload: false,
+          );
           return true;
         } catch (e2) {
           if (kDebugMode) {
@@ -461,10 +473,13 @@ class PlayerService with WidgetsBindingObserver {
     _maybeProbeSong(playable[actualIndex]);
     _emitSnapshot(force: true);
 
-    await _proxy.resetSources();
     final sources = await Future.wait(playable.map(_sourceForSong));
     try {
-      await _player.setAudioSources(sources, initialIndex: actualIndex);
+      await _player.setAudioSources(
+        sources,
+        initialIndex: actualIndex,
+        preload: false,
+      );
     } catch (e) {
       await stopAndClear();
       if (kDebugMode) {
@@ -493,6 +508,57 @@ class PlayerService with WidgetsBindingObserver {
       try {
         await _pausePlayback();
       } catch (_) {}
+    }
+  }
+
+  Future<void> _handlePlayerError(PlayerException error) async {
+    if (_recoveringCurrentSource) return;
+    final failedIndex = error.index;
+    final list = queue.value;
+    if (failedIndex == null || failedIndex < 0 || failedIndex >= list.length) {
+      if (kDebugMode) {
+        debugPrint('PlayerService player error without valid index: $error');
+      }
+      return;
+    }
+
+    final failedSong = list[failedIndex];
+    final rawUri = (failedSong.uri ?? '').trim();
+    if (failedSong.isLocal || !rawUri.startsWith('http')) {
+      if (kDebugMode) {
+        debugPrint('PlayerService player error on non-remote source: $error');
+      }
+      return;
+    }
+
+    _recoveringCurrentSource = true;
+    try {
+      final headers = _headersFromSong(failedSong);
+      _debugLog(
+        'recover current source index=$failedIndex song=${failedSong.title} error=${error.message}',
+      );
+      await _audioCache.removeCachedFiles(uri: rawUri, headers: headers);
+      await TagProbeService.instance.removeRemoteProbeCache(
+        uri: rawUri,
+        headers: headers,
+      );
+
+      final wasPlaying = isPlaying.value;
+      final seekPos = failedIndex == currentIndex.value
+          ? position.value
+          : Duration.zero;
+      await _reloadQueue(
+        list,
+        failedIndex,
+        play: wasPlaying,
+        initialPosition: seekPos,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('PlayerService current source recovery failed: $e');
+      }
+    } finally {
+      _recoveringCurrentSource = false;
     }
   }
 
@@ -837,7 +903,6 @@ class PlayerService with WidgetsBindingObserver {
     _emitSnapshot(force: true);
 
     try {
-      await _proxy.resetSources();
       // Load audio sources in parallel, but handle errors gracefully
       final sources = await Future.wait(
         restoredQueue.map((s) async {
@@ -855,7 +920,11 @@ class PlayerService with WidgetsBindingObserver {
         }),
       );
 
-      await _player.setAudioSources(sources, initialIndex: actualIndex);
+      await _player.setAudioSources(
+        sources,
+        initialIndex: actualIndex,
+        preload: false,
+      );
     } catch (e) {
       if (kDebugMode) debugPrint('Error restoring playback state: $e');
       queue.value = const [];
@@ -1311,6 +1380,7 @@ class PlayerService with WidgetsBindingObserver {
     await _bufferSub?.cancel();
     await _stateSub?.cancel();
     await _indexSub?.cancel();
+    await _errorSub?.cancel();
     await _loopModeSub?.cancel();
     await _shuffleSub?.cancel();
     await _setAudioSessionActive(false);
