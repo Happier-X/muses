@@ -178,6 +178,7 @@ class PlayerService with WidgetsBindingObserver {
             ? Duration(milliseconds: song.durationMs!)
             : null;
         _maybeProbeSong(song);
+        _scheduleDeferredProbe(song);
         _hydrateAndSetCurrentSong(song);
       } else {
         position.value = Duration.zero;
@@ -1015,10 +1016,16 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   void _maybeProbeSong(SongEntity song) {
+    unawaited(_maybeProbeSongAsync(song));
+  }
+
+  Future<void> _maybeProbeSongAsync(SongEntity song) async {
     final hasCover = (song.localCoverPath ?? '').trim().isNotEmpty;
     final hasDuration = (song.durationMs ?? 0) > 0;
+    final hasLyrics = await _lyricsRepo.hasCachedLrc(song.id);
     final uri = (song.uri ?? '').trim();
-    final shouldProbe = !song.tagsParsed || !hasCover || !hasDuration;
+    final shouldProbe =
+        !song.tagsParsed || !hasCover || !hasDuration || !hasLyrics;
     if (!shouldProbe) return;
 
     if (song.isLocal) {
@@ -1042,6 +1049,17 @@ class PlayerService with WidgetsBindingObserver {
     final future = _probeAndPersist(song, uri: uri, headers: headers);
     _probeInflight[key] = future;
     future.whenComplete(() => _probeInflight.remove(key));
+  }
+
+  void _scheduleDeferredProbe(SongEntity song) {
+    unawaited(_deferredProbe(song));
+  }
+
+  Future<void> _deferredProbe(SongEntity song) async {
+    await Future<void>.delayed(const Duration(seconds: 2));
+    final current = currentSong.value;
+    if (current == null || current.id != song.id) return;
+    _maybeProbeSong(current);
   }
 
   void _maybePersistPlaybackDuration(SongEntity song, int durationMs) {
