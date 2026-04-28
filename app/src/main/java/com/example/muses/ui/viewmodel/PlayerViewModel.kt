@@ -192,12 +192,24 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * 循环播放模式：顺序 → 随机 → 顺序
+     */
+    fun cyclePlayMode() {
+        mediaController?.let { controller ->
+            val currentShuffle = controller.shuffleModeEnabled
+            controller.shuffleModeEnabled = !currentShuffle
+        }
+    }
+
+    /**
+     * 循环模式：列表循环 ↔ 单曲循环
+     */
     fun cycleRepeatMode() {
         mediaController?.let { controller ->
             controller.repeatMode = when (controller.repeatMode) {
-                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_OFF
-                else -> Player.REPEAT_MODE_OFF
+                Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ALL
+                else -> Player.REPEAT_MODE_ONE
             }
         }
     }

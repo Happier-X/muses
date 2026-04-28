@@ -19,14 +19,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -198,19 +199,25 @@ fun NowPlayingScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Shuffle
+                // Play mode toggle: 顺序 ↔ 随机
+                val playModeIcon = if (state.shuffleModeEnabled) {
+                    Icons.Default.Shuffle
+                } else {
+                    Icons.Default.List
+                }
+                val playModeTint = if (state.shuffleModeEnabled) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
                 IconButton(
-                    onClick = { viewModel.toggleShuffle() },
+                    onClick = { viewModel.cyclePlayMode() },
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Shuffle,
-                        contentDescription = stringResource(R.string.shuffle),
-                        tint = if (state.shuffleModeEnabled) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        imageVector = playModeIcon,
+                        contentDescription = stringResource(R.string.play_mode),
+                        tint = playModeTint,
                         modifier = Modifier.size(26.dp)
                     )
                 }
@@ -257,23 +264,20 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // Repeat
+                // Repeat mode: 列表循环 ↔ 单曲循环
+                val repeatIcon = if (state.repeatMode == Player.REPEAT_MODE_ONE) {
+                    Icons.Default.RepeatOne
+                } else {
+                    Icons.Outlined.Repeat
+                }
                 IconButton(
                     onClick = { viewModel.cycleRepeatMode() },
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        imageVector = if (state.repeatMode == Player.REPEAT_MODE_ONE) {
-                            Icons.Default.RepeatOne
-                        } else {
-                            Icons.Default.Repeat
-                        },
+                        imageVector = repeatIcon,
                         contentDescription = stringResource(R.string.repeat),
-                        tint = if (state.repeatMode != Player.REPEAT_MODE_OFF) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(26.dp)
                     )
                 }
