@@ -5,7 +5,12 @@
       "Bash(cmd /c \"gradlew.bat compileDebugKotlin 2>&1\")",
       "PowerShell(.\\\\gradlew.bat compileDebugKotlin 2>&1 | Select-Object -Last 40)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(python3 *)",
+      "Bash(./gradlew compileDebugKotlin)",
+      "Bash(curl -s \"https://jitpack.io/com/github/mpatric/mp3agic\")",
+      "Bash(curl -s \"https://search.maven.org/solrsearch/select?q=g:com.mpatric+AND+a:mp3agic&rows=5&wt=json\")",
+      "Bash(python *)"
     ]
   }
 }

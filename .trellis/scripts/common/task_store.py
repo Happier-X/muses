@@ -36,9 +36,7 @@ from .paths import (
     DIR_TASKS,
     DIR_WORKFLOW,
     FILE_TASK_JSON,
-    clear_current_task,
     generate_task_date_prefix,
-    get_current_task,
     get_developer,
     get_repo_root,
     get_tasks_dir,
@@ -99,6 +97,7 @@ _SUBAGENT_CONFIG_DIRS: tuple[str, ...] = (
     ".codebuddy",
     ".factory",   # Factory Droid
     ".github/copilot",
+    ".pi",        # Pi Agent
 )
 
 _SEED_EXAMPLE = (
@@ -299,8 +298,8 @@ def cmd_archive(args: argparse.Namespace) -> int:
 
     tasks_dir = get_tasks_dir(repo_root)
 
-    # Find task directory
-    task_dir = find_task_by_name(task_name, tasks_dir)
+    # Resolve task directory (supports task name, relative path, or absolute path)
+    task_dir = resolve_task_dir(task_name, repo_root)
 
     if not task_dir or not task_dir.is_dir():
         print(colored(f"Error: Task not found: {task_name}", Colors.RED), file=sys.stderr)
@@ -353,10 +352,9 @@ def cmd_archive(args: argparse.Namespace) -> int:
                                 child_data["parent"] = None
                                 write_json(child_json, child_data)
 
-    # Clear if current task
-    current = get_current_task(repo_root)
-    if current and dir_name in current:
-        clear_current_task(repo_root)
+    # Clear any session that still points at this task before the path moves.
+    from .active_task import clear_task_from_sessions
+    clear_task_from_sessions(str(task_dir), repo_root)
 
     # Archive
     result = archive_task_complete(task_dir, repo_root)
