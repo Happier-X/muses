@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 4
+- **Total Sessions**: 5
 - **Last Active**: 2026-04-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~139 | Active |
+| `journal-1.md` | ~172 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 5 | 2026-04-28 | 新增沉浸式全屏播放页面 | `d99c880` | `main` |
 | 4 | 2026-04-28 | 修复PlayerBar和QueueSheet编译警告 | `cc1b878` | `main` |
 | 3 | 2026-04-27 | 简化底部播放栏并新增播放队列弹窗 | `1495a10` | `main` |
 | 2 | 2026-04-26 | 增加随机播放和列表循环功能 | `0c01081` | `main` |

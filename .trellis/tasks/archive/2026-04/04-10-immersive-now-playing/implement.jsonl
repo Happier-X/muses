@@ -1,0 +1,3 @@
+{"file": "app/src/main/java/com/example/muses/ui/screens/NowPlayingScreen.kt", "type": "implement", "reason": "New Now Playing full-screen composable with album art, controls, and seek slider"}
+{"file": "app/src/main/java/com/example/muses/MainActivity.kt", "type": "implement", "reason": "Added showNowPlaying state, click overlay on PlayerBar, AnimatedVisibility wrapper for NowPlayingScreen"}
+{"file": "app/src/main/res/values/strings.xml", "type": "implement", "reason": "Added dismiss, next, previous string resources"}
