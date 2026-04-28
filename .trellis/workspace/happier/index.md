@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
+- **Total Sessions**: 7
 - **Last Active**: 2026-04-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~206 | Active |
+| `journal-1.md` | ~239 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-04-28 | 歌词显示功能 | `83dccd3` | `main` |
 | 6 | 2026-04-28 | 优化播放控制与响应速度 | `2d6911a`, `bd28ff5` | `main` |
 | 5 | 2026-04-28 | 新增沉浸式全屏播放页面 | `d99c880` | `main` |
 | 4 | 2026-04-28 | 修复PlayerBar和QueueSheet编译警告 | `cc1b878` | `main` |
