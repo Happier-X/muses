@@ -40,6 +40,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.muses.R
 import com.example.muses.data.model.AudioTrack
 import com.example.muses.ui.util.rememberAlbumArt
+import com.example.muses.ui.viewmodel.PlayerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

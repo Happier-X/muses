@@ -14,10 +14,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -173,7 +173,7 @@ fun PlayerBar(
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.QueueMusic,
+                            imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                             contentDescription = stringResource(R.string.queue),
                             modifier = Modifier.size(24.dp)
                         )
