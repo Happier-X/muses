@@ -23,7 +23,9 @@ object MetadataExtractor {
         val artist: String? = null,
         val album: String? = null,
         val durationMs: Long? = null,
-        val albumArtUri: Uri? = null
+        val albumArtUri: Uri? = null,
+        val lyrics: String? = null,  // LRC format lyrics (from ID3 USLT or external .lrc file)
+        val lyricsUri: Uri? = null   // URI to external .lrc file if found
     )
 
     fun extractFromUri(context: Context, uri: Uri): Metadata? {
@@ -94,14 +96,28 @@ object MetadataExtractor {
 
     private fun readMetadata(retriever: MediaMetadataRetriever, context: Context, key: String): Metadata {
         val albumArtUri = saveAlbumArt(context, retriever, key)
+        val lyrics = extractEmbeddedLyrics(retriever)
         return Metadata(
             title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE),
             artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST),
             album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM),
             durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull(),
-            albumArtUri = albumArtUri
+            albumArtUri = albumArtUri,
+            lyrics = lyrics
         )
+    }
+
+    /**
+     * Extract embedded lyrics from ID3 USLT frame.
+     * Note: MediaMetadataRetriever doesn't directly support USLT, so we return null here.
+     * For full ID3 support, a library like mp3agic or jaudiotagger would be needed.
+     */
+    private fun extractEmbeddedLyrics(retriever: MediaMetadataRetriever): String? {
+        // MediaMetadataRetriever doesn't support USLT frame extraction
+        // Would need a proper ID3 library for this
+        // For now, return null - ID3 lyrics extraction to be implemented separately
+        return null
     }
 
     private fun saveAlbumArt(context: Context, retriever: MediaMetadataRetriever, key: String): Uri? {

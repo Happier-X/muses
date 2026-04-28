@@ -39,7 +39,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.muses.R
 import com.example.muses.ui.theme.MusesTheme
-import com.example.muses.ui.util.formatDurationMs
 import com.example.muses.ui.util.rememberAlbumArt
 import com.example.muses.ui.viewmodel.PlayerViewModel
 
@@ -135,21 +134,23 @@ fun PlayerBar(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (!currentArtist.isNullOrBlank()) {
+                    // Show current lyric if available, otherwise show artist
+                    val displayText = if (state.hasLyrics && !state.currentLyric.isNullOrBlank()) {
+                        state.currentLyric
+                    } else if (!currentArtist.isNullOrBlank()) {
+                        currentArtist
+                    } else {
+                        null
+                    }
+                    if (!displayText.isNullOrBlank()) {
                         Text(
-                            text = currentArtist,
+                            text = displayText,
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    // Time row
-                    Text(
-                        text = "${formatDurationMs(state.positionMs)} / ${formatDurationMs(state.durationMs)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
 
                 // Playback controls

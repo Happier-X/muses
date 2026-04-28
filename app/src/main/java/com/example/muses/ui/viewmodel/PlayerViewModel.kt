@@ -17,6 +17,8 @@ import com.example.muses.data.model.AudioTrack
 import com.example.muses.data.repository.MetadataExtractor
 import com.example.muses.data.repository.TrackStore
 import com.example.muses.data.repository.WebdavConfigManager
+import com.example.muses.data.repository.LyricLoader
+import com.example.muses.ui.util.ParsedLyrics
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -43,7 +45,10 @@ data class PlayerState(
     val shuffleModeEnabled: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val queue: List<AudioTrack> = emptyList(),
-    val currentIndex: Int = -1
+    val currentIndex: Int = -1,
+    // Lyrics state
+    val currentLyric: String? = null,  // Current lyric line to display
+    val hasLyrics: Boolean = false     // Whether lyrics are available for current track
 )
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
@@ -62,6 +67,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     /** 当前播放列表快照，用于构建 ExoPlayer 队列以支持自动切歌 */
     private var currentPlaylist: List<AudioTrack> = emptyList()
+
+    /** 当前曲目的歌词 */
+    private var currentLyrics: ParsedLyrics? = null
+
+    /** 防止重复加载歌词 */
+    private var loadingLyricsForTrackId: String? = null
 
     /** 待播放请求（在 MediaController 连接前暂存） */
     private var pendingMediaItem: MediaItem? = null
@@ -269,8 +280,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     val pos = controller.currentPosition
                     val dur = controller.duration
                     if (pos >= 0 && dur > 0) {
+                        // Update current lyric based on position
+                        val currentLyric = currentLyrics?.getCurrentLine(pos)
                         _state.update {
-                            it.copy(positionMs = pos, durationMs = dur)
+                            it.copy(
+                                positionMs = pos,
+                                durationMs = dur,
+                                currentLyric = currentLyric
+                            )
                         }
                     }
                 }
@@ -382,6 +399,58 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Load lyrics for the current track.
+     * Priority: external LRC file > embedded ID3 lyrics
+     */
+    private fun loadLyricsForTrack(track: AudioTrack) {
+        // Prevent duplicate loading
+        if (loadingLyricsForTrackId == track.id) {
+            Log.d(TAG, "Already loading lyrics for ${track.title}, skipping")
+            return
+        }
+        loadingLyricsForTrackId = track.id
+
+        Log.d(TAG, "loadLyricsForTrack START: ${track.title}")
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val context = getApplication<Application>()
+                val isWebdav = track.source == com.example.muses.data.model.TrackSource.WEBDAV
+                val authHeader = if (isWebdav) {
+                    WebdavConfigManager.getBasicAuthHeader(context)
+                } else null
+
+                Log.d(TAG, "Loading lyrics for track: ${track.title}, uri=${track.uri}, isWebdav=$isWebdav")
+
+                // Try to load lyrics
+                val lyrics = LyricLoader.loadForAudio(context, track.uri, isWebdav, authHeader)
+                Log.d(TAG, "LyricLoader returned: lyrics=$lyrics, lines=${lyrics?.lines?.size}")
+
+                // Switch to main thread to update state
+                withContext(Dispatchers.Main) {
+                    if (lyrics != null && lyrics.lines.isNotEmpty()) {
+                        currentLyrics = lyrics
+                        // Set initial lyric line
+                        val initialLyric = lyrics.getCurrentLine(0)
+                        _state.update { it.copy(hasLyrics = true, currentLyric = initialLyric) }
+                        Log.d(TAG, "Loaded lyrics for ${track.title}: ${lyrics.lines.size} lines, initial: $initialLyric")
+                    } else {
+                        // No lyrics found or empty
+                        currentLyrics = null
+                        _state.update { it.copy(hasLyrics = false, currentLyric = null) }
+                        Log.d(TAG, "No lyrics found for ${track.title} (lyrics=$lyrics, lines=${lyrics?.lines?.size})")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading lyrics for ${track.title}", e)
+                withContext(Dispatchers.Main) {
+                    currentLyrics = null
+                    _state.update { it.copy(hasLyrics = false, currentLyric = null) }
+                }
+            }
+        }
+    }
+
     override fun onCleared() {
         positionJob?.cancel()
         controllerFuture?.let {
@@ -403,18 +472,28 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            Log.d(TAG, "=== onMediaItemTransition START ===")
+            Log.d(TAG, "onMediaItemTransition: mediaId=${mediaItem?.mediaId}, reason=$reason")
             syncState()
-            Log.d(TAG, "onMediaItemTransition: mediaId=${mediaItem?.mediaId}, enrichedIds=$enrichedIds")
             mediaItem?.mediaId?.let { trackId ->
                 updatePlayMetadata(trackId)
                 // 检查是否需要提取元数据
                 val trackFromQueue = currentPlaylist.getOrNull(mediaController?.currentMediaItemIndex ?: 0)
+                Log.d(TAG, "trackFromQueue: $trackFromQueue")
                 val needsEnrichment = trackId !in enrichedIds && trackFromQueue?.albumArtUri == null
                 if (needsEnrichment) {
                     enrichedIds.add(trackId)
                     enrichTrackMetadata(trackId, mediaItem)
                 }
+                // Load lyrics for the current track
+                if (trackFromQueue != null) {
+                    Log.d(TAG, "Calling loadLyricsForTrack for: ${trackFromQueue.title}")
+                    loadLyricsForTrack(trackFromQueue)
+                } else {
+                    Log.w(TAG, "trackFromQueue is null, cannot load lyrics")
+                }
             }
+            Log.d(TAG, "=== onMediaItemTransition END ===")
         }
 
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {

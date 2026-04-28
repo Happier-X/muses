@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(py *)",
+      "Bash(cmd /c \"gradlew.bat compileDebugKotlin 2>&1\")",
+      "PowerShell(.\\\\gradlew.bat compileDebugKotlin 2>&1 | Select-Object -Last 40)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
