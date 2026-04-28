@@ -52,6 +52,10 @@
     <string name="queue_empty">No tracks in queue</string>
     <string name="queue_now_playing">Now playing</string>
 
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
+    <string name="dismiss">Dismiss</string>
+
     <!-- Notification -->
     <string name="notification_channel_name">Music Playback</string>
 
