@@ -63,6 +63,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     /** 当前播放列表快照，用于构建 ExoPlayer 队列以支持自动切歌 */
     private var currentPlaylist: List<AudioTrack> = emptyList()
 
+    /** 待播放请求（在 MediaController 连接前暂存） */
+    private var pendingMediaItem: MediaItem? = null
+    private var pendingMediaItems: List<MediaItem>? = null
+    private var pendingPlaylist: List<AudioTrack>? = null
+    private var pendingPlaylistIndex: Int = 0
+
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
@@ -91,6 +97,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                             controller.addListener(PlayerListener())
                             startPositionPolling()
                             syncState()
+                            // 处理连接前的待播放请求
+                            handlePendingPlayback(controller)
                             Log.i(TAG, "Connected to MusicService")
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to get MediaController", e)
@@ -102,8 +110,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun playTrack(mediaItem: MediaItem) {
-        val controller = mediaController ?: run {
-            Log.w(TAG, "MediaController not ready, retrying connection")
+        val controller = mediaController
+        if (controller == null) {
+            // 等待连接后再播放
+            pendingMediaItem = mediaItem
+            Log.w(TAG, "MediaController not ready, queuing media item for playback")
             connectToService()
             return
         }
@@ -113,9 +124,30 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         controller.playWhenReady = true
     }
 
+    private fun handlePendingPlayback(controller: MediaController) {
+        pendingPlaylist?.let { tracks ->
+            val startIndex = pendingPlaylistIndex
+            pendingPlaylist = null
+            pendingPlaylistIndex = 0
+            setPlaylist(tracks, startIndex)
+            return
+        }
+        pendingMediaItems?.let { items ->
+            pendingMediaItems = null
+            playTracks(items)
+            return
+        }
+        pendingMediaItem?.let { item ->
+            pendingMediaItem = null
+            playTrack(item)
+        }
+    }
+
     fun playTracks(mediaItems: List<MediaItem>) {
-        val controller = mediaController ?: run {
-            Log.w(TAG, "MediaController not ready, retrying connection")
+        val controller = mediaController
+        if (controller == null) {
+            pendingMediaItems = mediaItems
+            Log.w(TAG, "MediaController not ready, queuing media items for playback")
             connectToService()
             return
         }
@@ -130,14 +162,28 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
      * 将所有曲目加入 ExoPlayer 队列，实现自动切歌功能。
      */
     fun setPlaylist(tracks: List<AudioTrack>, startIndex: Int) {
-        val controller = mediaController ?: run {
-            Log.w(TAG, "MediaController not ready, retrying connection")
+        val controller = mediaController
+        if (controller == null) {
+            pendingPlaylist = tracks
+            pendingPlaylistIndex = startIndex
+            Log.w(TAG, "MediaController not ready, queuing playlist for playback")
             connectToService()
             return
         }
         _state.update { it.copy(errorMessage = null) }
         currentPlaylist = tracks
-        _state.update { it.copy(queue = tracks, currentIndex = startIndex) }
+        // 立即更新 UI 显示当前曲目的元数据
+        val startTrack = tracks.getOrNull(startIndex)
+        _state.update {
+            it.copy(
+                queue = tracks,
+                currentIndex = startIndex,
+                title = startTrack?.title,
+                artist = startTrack?.artist?.takeIf { a -> a.isNotBlank() },
+                albumArtUri = startTrack?.albumArtUri,
+                hasTrack = true
+            )
+        }
         val mediaItems = tracks.map { track ->
             val metadataBuilder = MediaMetadata.Builder().setTitle(track.title)
             if (track.artist.isNotBlank()) metadataBuilder.setArtist(track.artist)
@@ -236,20 +282,29 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun syncState() {
         val controller = mediaController ?: return
         val isReady = controller.playbackState == Player.STATE_READY
+        val currentIndex = controller.currentMediaItemIndex
         val currentItem = if (controller.mediaItemCount > 0) controller.currentMediaItem else null
+
+        // 优先从 queue 中获取已知的元数据（包括封面）
+        val trackFromQueue = currentPlaylist.getOrNull(currentIndex)
+        val title = trackFromQueue?.title ?: currentItem?.mediaMetadata?.title?.toString()
+        val artist = trackFromQueue?.artist?.takeIf { it.isNotBlank() }
+            ?: currentItem?.mediaMetadata?.artist?.toString()
+        val albumArtUri = trackFromQueue?.albumArtUri ?: state.value.albumArtUri
 
         _state.update {
             it.copy(
                 isPlaying = controller.isPlaying,
-                title = currentItem?.mediaMetadata?.title?.toString(),
-                artist = currentItem?.mediaMetadata?.artist?.toString(),
+                title = title,
+                artist = artist,
+                albumArtUri = albumArtUri,
                 isReady = isReady,
                 hasTrack = controller.mediaItemCount > 0,
                 durationMs = if (isReady && controller.duration > 0) controller.duration else it.durationMs,
                 positionMs = if (isReady) controller.currentPosition else it.positionMs,
                 shuffleModeEnabled = controller.shuffleModeEnabled,
                 repeatMode = controller.repeatMode,
-                currentIndex = controller.currentMediaItemIndex
+                currentIndex = currentIndex
             )
         }
     }
@@ -352,7 +407,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             Log.d(TAG, "onMediaItemTransition: mediaId=${mediaItem?.mediaId}, enrichedIds=$enrichedIds")
             mediaItem?.mediaId?.let { trackId ->
                 updatePlayMetadata(trackId)
-                if (trackId !in enrichedIds) {
+                // 检查是否需要提取元数据
+                val trackFromQueue = currentPlaylist.getOrNull(mediaController?.currentMediaItemIndex ?: 0)
+                val needsEnrichment = trackId !in enrichedIds && trackFromQueue?.albumArtUri == null
+                if (needsEnrichment) {
                     enrichedIds.add(trackId)
                     enrichTrackMetadata(trackId, mediaItem)
                 }
