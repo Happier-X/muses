@@ -45,7 +45,7 @@ fun rememberAlbumArt(
 
     // Use a state object as key so we can update it from the coroutine.
     // Initial value is null (placeholder while loading).
-    val bitmapState = remember { mutableStateOf<Bitmap?>(null) }
+    val bitmapState = remember(albumArtUri) { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(albumArtUri) {
         if (albumArtUri == null) {

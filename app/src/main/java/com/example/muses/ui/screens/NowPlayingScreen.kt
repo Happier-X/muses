@@ -2,6 +2,7 @@ package com.example.muses.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,12 +15,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -46,7 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,40 +69,47 @@ fun NowPlayingScreen(
     viewModel: PlayerViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val density = LocalDensity.current
 
     var isSeeking by remember { mutableStateOf(false) }
     var seekTarget by remember { mutableFloatStateOf(0f) }
+    var accumulatedDrag by remember { mutableFloatStateOf(0f) }
+    val dismissThreshold = with(density) { 80.dp.toPx() }
+
     val displayPosition = if (isSeeking) seekTarget else state.positionMs.toFloat()
     val displayDuration = if (state.durationMs > 0) state.durationMs.toFloat() else 1f
 
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragStart = { accumulatedDrag = 0f },
+                    onDragEnd = {
+                        // 拖拽结束时检查是否超过阈值
+                        if (accumulatedDrag > dismissThreshold) {
+                            onDismiss()
+                        }
+                        accumulatedDrag = 0f
+                    },
+                    onDragCancel = { accumulatedDrag = 0f },
+                    onVerticalDrag = { _, dragAmount ->
+                        accumulatedDrag += dragAmount
+                    }
+                )
+            },
         color = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top bar: dismiss button
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.Start
-            ) {
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = stringResource(R.string.dismiss),
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            // 顶部占位区域（下滑手势区域）
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Album art
             Box(
@@ -199,11 +209,11 @@ fun NowPlayingScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Play mode toggle: 顺序 ↔ 随机
+                // Play mode toggle
                 val playModeIcon = if (state.shuffleModeEnabled) {
                     Icons.Default.Shuffle
                 } else {
-                    Icons.Default.List
+                    Icons.AutoMirrored.Filled.List
                 }
                 val playModeTint = if (state.shuffleModeEnabled) {
                     MaterialTheme.colorScheme.primary
@@ -264,7 +274,7 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // Repeat mode: 列表循环 ↔ 单曲循环
+                // Repeat mode
                 val repeatIcon = if (state.repeatMode == Player.REPEAT_MODE_ONE) {
                     Icons.Default.RepeatOne
                 } else {
@@ -284,6 +294,7 @@ fun NowPlayingScreen(
             }
 
             Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

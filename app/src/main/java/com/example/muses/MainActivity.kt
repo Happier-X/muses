@@ -1,16 +1,15 @@
 package com.example.muses
 
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -145,11 +144,10 @@ fun MainContent() {
             }
         }
     ) {
+        // 主布局：Column 包含内容 + PlayerBar
         Column(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.BottomCenter
-            ) {
+            // 内容区域（可滚动）
+            Box(modifier = Modifier.weight(1f)) {
                 when (selectedItem) {
                     0 -> SongsScreen(
                         viewModel = songsViewModel,
@@ -178,42 +176,35 @@ fun MainContent() {
                     )
                     else -> PlaceholderScreen(navigationIcon = menuIcon)
                 }
-
-                // Transparent click overlay on PlayerBar to open NowPlaying screen
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { showNowPlaying = true }
-                ) {
-                    PlayerBar(
-                        viewModel = playerViewModel,
-                        onQueueClick = { showQueue = true }
-                    )
-                }
             }
 
-            // Now Playing full-screen overlay
-            AnimatedVisibility(
-                visible = showNowPlaying,
-                enter = slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = tween(durationMillis = 300)
-                ),
-                exit = slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(durationMillis = 300)
-                )
-            ) {
-                NowPlayingScreen(
-                    onDismiss = { showNowPlaying = false },
-                    viewModel = playerViewModel
-                )
-            }
+            // PlayerBar（固定底部）
+            PlayerBar(
+                viewModel = playerViewModel,
+                onQueueClick = { showQueue = true },
+                onClick = { showNowPlaying = true }
+            )
         }
 
+        // Now Playing 全屏页面
+        AnimatedVisibility(
+            visible = showNowPlaying,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(durationMillis = 350)
+            ) + fadeIn(animationSpec = tween(durationMillis = 200)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(durationMillis = 300)
+            ) + fadeOut(animationSpec = tween(durationMillis = 200))
+        ) {
+            NowPlayingScreen(
+                onDismiss = { showNowPlaying = false },
+                viewModel = playerViewModel
+            )
+        }
+
+        // 队列 sheet
         if (showQueue) {
             QueueSheet(
                 onDismiss = { showQueue = false },

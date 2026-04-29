@@ -10,7 +10,9 @@
       "Bash(./gradlew compileDebugKotlin)",
       "Bash(curl -s \"https://jitpack.io/com/github/mpatric/mp3agic\")",
       "Bash(curl -s \"https://search.maven.org/solrsearch/select?q=g:com.mpatric+AND+a:mp3agic&rows=5&wt=json\")",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(mcp__exa__web_search_exa \"Jetpack Compose avoid recomposition state change key derivedStateOf best practices\")",
+      "Bash(mcp__exa__get_code_context_exa \"Compose key derivedStateOf state hoisting avoid recomposition\")"
     ]
   }
 }

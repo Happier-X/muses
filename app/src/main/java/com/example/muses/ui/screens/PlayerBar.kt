@@ -2,6 +2,8 @@ package com.example.muses.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +28,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,7 +53,8 @@ import com.example.muses.ui.viewmodel.PlayerViewModel
 fun PlayerBar(
     modifier: Modifier = Modifier,
     viewModel: PlayerViewModel = viewModel(),
-    onQueueClick: () -> Unit = {}
+    onQueueClick: () -> Unit = {},
+    onClick: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -61,7 +65,12 @@ fun PlayerBar(
     val currentIsPlaying = state.isPlaying
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onClick() },
         tonalElevation = 3.dp,
         shadowElevation = 8.dp
     ) {
