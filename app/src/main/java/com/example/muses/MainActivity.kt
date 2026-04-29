@@ -10,9 +10,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,27 +30,24 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -65,7 +66,6 @@ import com.example.muses.ui.viewmodel.PlayerViewModel
 import com.example.muses.ui.viewmodel.SongsUiState
 import com.example.muses.ui.viewmodel.SongsViewModel
 import com.example.muses.ui.viewmodel.WebdavViewModel
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,15 +88,27 @@ fun MainContent() {
     playerViewModel.onMetadataEnriched = { track ->
         songsViewModel.updateTrack(track)
     }
-    var selectedItem by remember { mutableIntStateOf(0) }
-    var showQueue by remember { mutableStateOf(false) }
-    var showNowPlaying by remember { mutableStateOf(false) }
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
-    val addedDirPaths by webdavViewModel.addedDirectoryPaths.collectAsStateWithLifecycle()
+    data class UiState(
+        val selectedItem: Int = 0,
+        val showQueue: Boolean = false,
+        val showNowPlaying: Boolean = false,
+        val drawerOpen: Boolean = false
+    )
+    val uiStateState = remember { mutableStateOf(UiState()) }
+    val ui = uiStateState.value
+
+    val addedDirPathsState = webdavViewModel.addedDirectoryPaths.collectAsStateWithLifecycle(initialValue = emptySet())
+    val halfWidthPx = with(LocalDensity.current) {
+        (LocalConfiguration.current.screenWidthDp / 2).dp.toPx()
+    }
+
+    fun setSelectedItem(v: Int) { uiStateState.value = uiStateState.value.copy(selectedItem = v) }
+    fun setShowQueue(v: Boolean) { uiStateState.value = uiStateState.value.copy(showQueue = v) }
+    fun setShowNowPlaying(v: Boolean) { uiStateState.value = uiStateState.value.copy(showNowPlaying = v) }
+    fun setDrawerOpen(v: Boolean) { uiStateState.value = uiStateState.value.copy(drawerOpen = v) }
 
     val menuIcon: @Composable () -> Unit = {
-        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+        IconButton(onClick = { setDrawerOpen(!ui.drawerOpen) }) {
             Icon(
                 imageVector = Icons.Default.Menu,
                 contentDescription = stringResource(R.string.menu_open)
@@ -118,77 +130,110 @@ fun MainContent() {
         DrawerItem(R.string.nav_settings, Icons.Default.Settings)
     )
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(modifier = Modifier.width(240.dp)) {
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp)
-                )
-                Spacer(Modifier.height(4.dp))
-                drawerItems.forEachIndexed { index, item ->
-                    NavigationDrawerItem(
-                        label = { Text(stringResource(item.labelRes)) },
-                        icon = { Icon(item.icon, contentDescription = stringResource(item.labelRes)) },
-                        selected = selectedItem == index,
-                        onClick = {
-                            selectedItem = index
-                            scope.launch { drawerState.close() }
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp)
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 半透明遮罩（底层，点击关闭）
+        if (ui.drawerOpen) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth()
+                    .clickable { setDrawerOpen(false) }
+                    .background(Color.Black.copy(alpha = 0.3f))
+            )
+        }
+
+        // 抽屉（底层左侧，屏幕一半宽）
+        val drawerDp = with(LocalDensity.current) { halfWidthPx.toDp() }
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(drawerDp)
+        ) {
+            if (ui.drawerOpen) {
+                ModalDrawerSheet(
+                    modifier = Modifier.width(drawerDp),
+                    drawerShape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
+                ) {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp)
                     )
+                    Spacer(Modifier.height(4.dp))
+                    drawerItems.forEachIndexed { index, item ->
+                        NavigationDrawerItem(
+                            label = { Text(stringResource(item.labelRes)) },
+                            icon = { Icon(item.icon, contentDescription = stringResource(item.labelRes)) },
+                            selected = ui.selectedItem == index,
+                            onClick = {
+                                setSelectedItem(index)
+                                setDrawerOpen(false)
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+                    }
                 }
             }
         }
-    ) {
-        // 主布局：Column 包含内容 + PlayerBar
+
+        // 内容区（顶层，抽屉打开时视觉右推）
         Column(modifier = Modifier.fillMaxSize()) {
-            // 内容区域（可滚动）
-            Box(modifier = Modifier.weight(1f)) {
-                when (selectedItem) {
-                    0 -> SongsScreen(
-                        viewModel = songsViewModel,
-                        onTrackClick = { track ->
-                            val tracks = (songsViewModel.uiState.value as? SongsUiState.Ready)?.tracks ?: return@SongsScreen
-                            val index = tracks.indexOfFirst { it.id == track.id }.takeIf { it >= 0 } ?: 0
-                            playerViewModel.setPlaylist(tracks, index)
-                        },
-                        navigationIcon = menuIcon
-                    )
-                    4 -> AddMusicScreen(
-                        onTrackClick = { track, tracks ->
-                            val index = tracks.indexOfFirst { it.id == track.id }.takeIf { it >= 0 } ?: 0
-                            playerViewModel.setPlaylist(tracks, index)
-                        },
-                        onTracksAdded = { tracks ->
-                            songsViewModel.addTracks(tracks)
-                        },
-                        onTracksRemoved = { trackIds ->
-                            songsViewModel.removeTracks(trackIds)
-                        },
-                        onFolderSelected = { uri -> songsViewModel.addFolderFromTreeUri(uri) },
-                        addedDirectoryPaths = addedDirPaths,
-                        webdavViewModel = webdavViewModel,
-                        navigationIcon = menuIcon
-                    )
-                    else -> PlaceholderScreen(navigationIcon = menuIcon)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .graphicsLayer {
+                            translationX = if (ui.drawerOpen) halfWidthPx else 0f
+                        }
+                ) {
+                    when (ui.selectedItem) {
+                        0 -> SongsScreen(
+                            viewModel = songsViewModel,
+                            onTrackClick = { track ->
+                                val tracks = (songsViewModel.uiState.value as? SongsUiState.Ready)?.tracks ?: return@SongsScreen
+                                val index = tracks.indexOfFirst { it.id == track.id }.takeIf { it >= 0 } ?: 0
+                                playerViewModel.setPlaylist(tracks, index)
+                            },
+                            navigationIcon = menuIcon
+                        )
+                        4 -> AddMusicScreen(
+                            onTrackClick = { track, tracks ->
+                                val index = tracks.indexOfFirst { it.id == track.id }.takeIf { it >= 0 } ?: 0
+                                playerViewModel.setPlaylist(tracks, index)
+                            },
+                            onTracksAdded = { tracks ->
+                                songsViewModel.addTracks(tracks)
+                            },
+                            onTracksRemoved = { trackIds ->
+                                songsViewModel.removeTracks(trackIds)
+                            },
+                            onFolderSelected = { uri -> songsViewModel.addFolderFromTreeUri(uri) },
+                            addedDirectoryPaths = addedDirPathsState.value,
+                            webdavViewModel = webdavViewModel,
+                            navigationIcon = menuIcon
+                        )
+                        else -> PlaceholderScreen(navigationIcon = menuIcon)
+                    }
                 }
             }
 
-            // PlayerBar（固定底部）
+            // PlayerBar（固定底部，始终可见）
             PlayerBar(
                 viewModel = playerViewModel,
-                onQueueClick = { showQueue = true },
-                onClick = { showNowPlaying = true }
+                onQueueClick = { setShowQueue(true) },
+                onClick = { setShowNowPlaying(true) }
             )
         }
 
         // Now Playing 全屏页面
         AnimatedVisibility(
-            visible = showNowPlaying,
+            visible = ui.showNowPlaying,
             enter = slideInVertically(
                 initialOffsetY = { it },
                 animationSpec = tween(durationMillis = 350)
@@ -199,15 +244,15 @@ fun MainContent() {
             ) + fadeOut(animationSpec = tween(durationMillis = 200))
         ) {
             NowPlayingScreen(
-                onDismiss = { showNowPlaying = false },
+                onDismiss = { setShowNowPlaying(false) },
                 viewModel = playerViewModel
             )
         }
 
         // 队列 sheet
-        if (showQueue) {
+        if (ui.showQueue) {
             QueueSheet(
-                onDismiss = { showQueue = false },
+                onDismiss = { setShowQueue(false) },
                 onTrackClick = { index -> playerViewModel.seekToQueueItem(index) }
             )
         }
