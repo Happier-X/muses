@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
+- **Total Sessions**: 10
 - **Last Active**: 2026-04-29
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~305 | Active |
+| `journal-1.md` | ~339 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 10 | 2026-04-29 | 沉浸页歌词展示功能 | `edbdf6a`, `45762a3` | `main` |
 | 9 | 2026-04-29 | Drawer refactor: push instead of overlay | `4beb5e9` | `main` |
 | 8 | 2026-04-29 | 优化沉浸页面交互体验 | `623d962` | `main` |
 | 7 | 2026-04-28 | 歌词显示功能 | `83dccd3` | `main` |
