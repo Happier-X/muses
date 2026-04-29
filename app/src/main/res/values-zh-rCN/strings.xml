@@ -54,6 +54,8 @@
     <string name="queue_empty">播放队列为空</string>
     <string name="queue_now_playing">正在播放</string>
 
+    <string name="no_lyrics">暂无歌词</string>
+
     <!-- Notification -->
     <string name="notification_channel_name">音乐播放</string>
 

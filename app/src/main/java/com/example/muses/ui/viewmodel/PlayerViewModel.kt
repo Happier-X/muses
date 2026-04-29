@@ -48,7 +48,9 @@ data class PlayerState(
     val currentIndex: Int = -1,
     // Lyrics state
     val currentLyric: String? = null,  // Current lyric line to display
-    val hasLyrics: Boolean = false     // Whether lyrics are available for current track
+    val hasLyrics: Boolean = false,    // Whether lyrics are available for current track
+    val lyrics: ParsedLyrics? = null, // Full lyrics data for multi-line display
+    val currentLyricIndex: Int = -1   // Current lyric line index (-1 if none)
 )
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
@@ -282,11 +284,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     if (pos >= 0 && dur > 0) {
                         // Update current lyric based on position
                         val currentLyric = currentLyrics?.getCurrentLine(pos)
+                        val currentIndex = currentLyrics?.findLineIndex(pos) ?: -1
                         _state.update {
                             it.copy(
                                 positionMs = pos,
                                 durationMs = dur,
-                                currentLyric = currentLyric
+                                currentLyric = currentLyric,
+                                currentLyricIndex = currentIndex
                             )
                         }
                     }
@@ -432,12 +436,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         currentLyrics = lyrics
                         // Set initial lyric line
                         val initialLyric = lyrics.getCurrentLine(0)
-                        _state.update { it.copy(hasLyrics = true, currentLyric = initialLyric) }
+                        val initialIndex = lyrics.findLineIndex(0)
+                        _state.update { it.copy(hasLyrics = true, currentLyric = initialLyric, lyrics = lyrics, currentLyricIndex = initialIndex) }
                         Log.d(TAG, "Loaded lyrics for ${track.title}: ${lyrics.lines.size} lines, initial: $initialLyric")
                     } else {
                         // No lyrics found or empty
                         currentLyrics = null
-                        _state.update { it.copy(hasLyrics = false, currentLyric = null) }
+                        _state.update { it.copy(hasLyrics = false, currentLyric = null, lyrics = null, currentLyricIndex = -1) }
                         Log.d(TAG, "No lyrics found for ${track.title} (lyrics=$lyrics, lines=${lyrics?.lines?.size})")
                     }
                 }

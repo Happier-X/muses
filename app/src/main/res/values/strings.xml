@@ -57,6 +57,8 @@
     <string name="previous">Previous</string>
     <string name="dismiss">Dismiss</string>
 
+    <string name="no_lyrics">暂无歌词</string>
+
     <!-- Notification -->
     <string name="notification_channel_name">Music Playback</string>
 

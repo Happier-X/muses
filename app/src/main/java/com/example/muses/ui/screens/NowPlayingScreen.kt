@@ -1,20 +1,22 @@
 package com.example.muses.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,8 +64,12 @@ import com.example.muses.R
 import com.example.muses.ui.util.formatDurationMs
 import com.example.muses.ui.util.rememberAlbumArt
 import com.example.muses.ui.viewmodel.PlayerViewModel
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+private const val PAGE_ALBUM = 0
+private const val PAGE_LYRICS = 1
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingScreen(
     onDismiss: () -> Unit,
@@ -70,11 +77,16 @@ fun NowPlayingScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+
+    val pagerState = rememberPagerState(pageCount = { 2 })
 
     var isSeeking by remember { mutableStateOf(false) }
     var seekTarget by remember { mutableFloatStateOf(0f) }
     var accumulatedDrag by remember { mutableFloatStateOf(0f) }
+    var horizontalDragAccumulated by remember { mutableFloatStateOf(0f) }
     val dismissThreshold = with(density) { 80.dp.toPx() }
+    val swipePageThreshold = with(density) { 30.dp.toPx() }
 
     val displayPosition = if (isSeeking) seekTarget else state.positionMs.toFloat()
     val displayDuration = if (state.durationMs > 0) state.durationMs.toFloat() else 1f
@@ -83,218 +95,282 @@ fun NowPlayingScreen(
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragStart = { accumulatedDrag = 0f },
+                detectDragGestures(
+                    onDragStart = {
+                        accumulatedDrag = 0f
+                        horizontalDragAccumulated = 0f
+                    },
                     onDragEnd = {
-                        // 拖拽结束时检查是否超过阈值
+                        // Check if horizontal swipe should change page
+                        if (kotlin.math.abs(horizontalDragAccumulated) > swipePageThreshold) {
+                            val targetPage = if (horizontalDragAccumulated < 0) {
+                                // Dragged left → go to next page (lyrics)
+                                (pagerState.currentPage + 1).coerceAtMost(pagerState.pageCount - 1)
+                            } else {
+                                // Dragged right → go to previous page (album)
+                                (pagerState.currentPage - 1).coerceAtLeast(0)
+                            }
+                            scope.launch {
+                                pagerState.animateScrollToPage(targetPage)
+                            }
+                        }
+                        // Check vertical dismiss
                         if (accumulatedDrag > dismissThreshold) {
                             onDismiss()
                         }
                         accumulatedDrag = 0f
+                        horizontalDragAccumulated = 0f
                     },
-                    onDragCancel = { accumulatedDrag = 0f },
-                    onVerticalDrag = { _, dragAmount ->
-                        accumulatedDrag += dragAmount
+                    onDragCancel = {
+                        accumulatedDrag = 0f
+                        horizontalDragAccumulated = 0f
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        accumulatedDrag += dragAmount.y
+                        horizontalDragAccumulated += dragAmount.x
                     }
                 )
             },
         color = MaterialTheme.colorScheme.surface
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // 顶部占位区域（下滑手势区域）
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Album art
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                val bitmap = rememberAlbumArt(state.albumArtUri, targetSizePx = 600)
-                if (bitmap != null) {
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = null,
-                        modifier = Modifier.size(96.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Track info
-            Text(
-                text = state.title ?: stringResource(R.string.player_no_track),
-                style = MaterialTheme.typography.headlineSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = state.artist ?: stringResource(R.string.unknown_artist),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // Progress slider
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Slider(
-                    value = displayPosition,
-                    onValueChange = { value ->
-                        if (!isSeeking) isSeeking = true
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            when (page) {
+                PAGE_ALBUM -> AlbumPage(
+                    state = state,
+                    isSeeking = isSeeking,
+                    seekTarget = seekTarget,
+                    displayPosition = displayPosition,
+                    displayDuration = displayDuration,
+                    onSeekStart = { value ->
+                        isSeeking = true
                         seekTarget = value
                     },
-                    onValueChangeFinished = {
+                    onSeek = { value -> seekTarget = value },
+                    onSeekFinished = {
                         viewModel.seekTo(seekTarget.toLong())
                         isSeeking = false
                     },
-                    valueRange = 0f..displayDuration,
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    onPlayPause = { viewModel.togglePlayPause() },
+                    onSkipPrevious = { viewModel.skipToPrevious() },
+                    onSkipNext = { viewModel.skipToNext() },
+                    onCyclePlayMode = { viewModel.cyclePlayMode() },
+                    onCycleRepeatMode = { viewModel.cycleRepeatMode() }
                 )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = formatDurationMs(displayPosition.toLong()),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = formatDurationMs(state.durationMs),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                PAGE_LYRICS -> LyricsPage(viewModel = viewModel)
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(24.dp))
+@Composable
+private fun AlbumPage(
+    state: com.example.muses.ui.viewmodel.PlayerState,
+    isSeeking: Boolean,
+    seekTarget: Float,
+    displayPosition: Float,
+    displayDuration: Float,
+    onSeekStart: (Float) -> Unit,
+    onSeek: (Float) -> Unit,
+    onSeekFinished: () -> Unit,
+    onPlayPause: () -> Unit,
+    onSkipPrevious: () -> Unit,
+    onSkipNext: () -> Unit,
+    onCyclePlayMode: () -> Unit,
+    onCycleRepeatMode: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .padding(horizontal = 24.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(24.dp))
 
-            // Playback controls
+        // Album art
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            val bitmap = rememberAlbumArt(state.albumArtUri, targetSizePx = 600)
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.size(96.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Track info
+        Text(
+            text = state.title ?: stringResource(R.string.player_no_track),
+            style = MaterialTheme.typography.headlineSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = state.artist ?: stringResource(R.string.unknown_artist),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // Progress slider
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Slider(
+                value = displayPosition,
+                onValueChange = { value ->
+                    if (!isSeeking) onSeekStart(value)
+                    onSeek(value)
+                },
+                onValueChangeFinished = onSeekFinished,
+                valueRange = 0f..displayDuration,
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Play mode toggle
-                val playModeIcon = if (state.shuffleModeEnabled) {
-                    Icons.Default.Shuffle
-                } else {
-                    Icons.AutoMirrored.Filled.List
-                }
-                val playModeTint = if (state.shuffleModeEnabled) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
-                IconButton(
-                    onClick = { viewModel.cyclePlayMode() },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = playModeIcon,
-                        contentDescription = stringResource(R.string.play_mode),
-                        tint = playModeTint,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
+                Text(
+                    text = formatDurationMs(displayPosition.toLong()),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = formatDurationMs(state.durationMs),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
 
-                // Skip previous
-                IconButton(
-                    onClick = { viewModel.skipToPrevious() },
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SkipPrevious,
-                        contentDescription = stringResource(R.string.previous),
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
+        Spacer(modifier = Modifier.height(24.dp))
 
-                // Play/Pause
-                IconButton(
-                    onClick = { viewModel.togglePlayPause() },
-                    modifier = Modifier
-                        .size(72.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = CircleShape
-                        )
-                ) {
-                    Icon(
-                        imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (state.isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(40.dp)
-                    )
-                }
-
-                // Skip next
-                IconButton(
-                    onClick = { viewModel.skipToNext() },
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SkipNext,
-                        contentDescription = stringResource(R.string.next),
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-
-                // Repeat mode
-                val repeatIcon = if (state.repeatMode == Player.REPEAT_MODE_ONE) {
-                    Icons.Default.RepeatOne
-                } else {
-                    Icons.Outlined.Repeat
-                }
-                IconButton(
-                    onClick = { viewModel.cycleRepeatMode() },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = repeatIcon,
-                        contentDescription = stringResource(R.string.repeat),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
+        // Playback controls
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Play mode toggle
+            val playModeIcon = if (state.shuffleModeEnabled) {
+                Icons.Default.Shuffle
+            } else {
+                Icons.AutoMirrored.Filled.List
+            }
+            val playModeTint = if (state.shuffleModeEnabled) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+            IconButton(
+                onClick = onCyclePlayMode,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = playModeIcon,
+                    contentDescription = stringResource(R.string.play_mode),
+                    tint = playModeTint,
+                    modifier = Modifier.size(26.dp)
+                )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-            Spacer(modifier = Modifier.height(32.dp))
+            // Skip previous
+            IconButton(
+                onClick = onSkipPrevious,
+                modifier = Modifier.size(56.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SkipPrevious,
+                    contentDescription = stringResource(R.string.previous),
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+
+            // Play/Pause
+            IconButton(
+                onClick = onPlayPause,
+                modifier = Modifier
+                    .size(72.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = CircleShape
+                    )
+            ) {
+                Icon(
+                    imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (state.isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+
+            // Skip next
+            IconButton(
+                onClick = onSkipNext,
+                modifier = Modifier.size(56.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SkipNext,
+                    contentDescription = stringResource(R.string.next),
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+
+            // Repeat mode
+            val repeatIcon = if (state.repeatMode == Player.REPEAT_MODE_ONE) {
+                Icons.Default.RepeatOne
+            } else {
+                Icons.Outlined.Repeat
+            }
+            IconButton(
+                onClick = onCycleRepeatMode,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = repeatIcon,
+                    contentDescription = stringResource(R.string.repeat),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
         }
+
+        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
