@@ -28,6 +28,9 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
   static const String _prefsDragLyrics = 'lyrics_view_drag_lyrics';
   static const String _prefsDragSeek = 'lyrics_view_drag_seek';
   static const String _prefsForceKaraoke = 'lyrics_view_force_karaoke';
+  static const String _prefsInactiveColor = 'lyrics_view_inactive_color';
+  static const String _prefsActiveColor = 'lyrics_view_active_color';
+  static const String _prefsHighlightColor = 'lyrics_view_highlight_color';
   static const String _prefsMiniEnabled = 'mini_lyrics_enabled';
   static const String _prefsMiniAlignment = 'mini_lyrics_alignment';
 
@@ -41,6 +44,9 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
   late final _activeFontSize = createSignal(20.0);
   late final _lineGap = createSignal(14.0);
   late final _alignment = createSignal('center');
+  late final _inactiveColorValue = createSignal<int?>(null);
+  late final _activeColorValue = createSignal<int?>(null);
+  late final _highlightColorValue = createSignal<int?>(null);
   late final _selectionCentered = createSignal(false);
   VoidCallback? _unregisterResumeSelectedLine;
   VoidCallback? _unregisterStopSelection;
@@ -53,15 +59,20 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
     final controller = LyricsService.instance.controller;
     controller.selectedIndexNotifier.addListener(_onSelectionIndexChange);
     controller.isSelectingNotifier.addListener(_onSelectingChange);
-    _unregisterResumeSelectedLine =
-        controller.registerEvent(LyricEvent.resumeSelectedLine, (_) {
-      if (!mounted) return;
-      _selectionCentered.value = true;
-    });
-    _unregisterStopSelection = controller.registerEvent(LyricEvent.stopSelection, (_) {
-      if (!mounted) return;
-      _selectionCentered.value = false;
-    });
+    _unregisterResumeSelectedLine = controller.registerEvent(
+      LyricEvent.resumeSelectedLine,
+      (_) {
+        if (!mounted) return;
+        _selectionCentered.value = true;
+      },
+    );
+    _unregisterStopSelection = controller.registerEvent(
+      LyricEvent.stopSelection,
+      (_) {
+        if (!mounted) return;
+        _selectionCentered.value = false;
+      },
+    );
   }
 
   @override
@@ -89,17 +100,18 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
     if (!mounted) return;
     _showTranslation.value = prefs.getBool(_prefsShowTranslation) ?? true;
     final legacyDrag = prefs.getBool(_prefsDragToSeek);
-    _dragLyrics.value =
-        prefs.getBool(_prefsDragLyrics) ?? legacyDrag ?? true;
+    _dragLyrics.value = prefs.getBool(_prefsDragLyrics) ?? legacyDrag ?? true;
     _dragSeek.value = prefs.getBool(_prefsDragSeek) ?? legacyDrag ?? true;
     _forceKaraoke.value = prefs.getBool(_prefsForceKaraoke) ?? false;
     _miniEnabled.value = prefs.getBool(_prefsMiniEnabled) ?? true;
-    _miniAlignment.value =
-        prefs.getString(_prefsMiniAlignment) ?? 'center';
+    _miniAlignment.value = prefs.getString(_prefsMiniAlignment) ?? 'center';
     _fontSize.value = prefs.getDouble(_prefsFontSize) ?? 16;
     _activeFontSize.value = prefs.getDouble(_prefsActiveFontSize) ?? 20;
     _lineGap.value = prefs.getDouble(_prefsLineGap) ?? 14;
     _alignment.value = prefs.getString(_prefsAlignment) ?? 'center';
+    _inactiveColorValue.value = prefs.getInt(_prefsInactiveColor);
+    _activeColorValue.value = prefs.getInt(_prefsActiveColor);
+    _highlightColorValue.value = prefs.getInt(_prefsHighlightColor);
   }
 
   Future<void> _setPrefBool(String key, bool value) async {
@@ -118,6 +130,33 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);
     LyricsService.instance.notifyViewSettingsChanged();
+  }
+
+  Future<void> _setPrefColor(String key, Color? color) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (color == null) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setInt(key, color.toARGB32());
+    }
+    LyricsService.instance.notifyViewSettingsChanged();
+  }
+
+  Future<void> _openColorPicker({
+    required String title,
+    required Color initialColor,
+    required ValueChanged<Color?> onSelected,
+  }) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return _LyricsColorPickerDialog(
+          title: title,
+          initialColor: initialColor,
+          onSelected: onSelected,
+        );
+      },
+    );
   }
 
   TextAlign _lineTextAlign() {
@@ -168,6 +207,9 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                 final forceKaraoke = _forceKaraoke.value;
                 final miniEnabled = _miniEnabled.value;
                 final miniAlignment = _miniAlignment.value;
+                final inactiveColorValue = _inactiveColorValue.value;
+                final activeColorValue = _activeColorValue.value;
+                final highlightColorValue = _highlightColorValue.value;
                 return AppSheetPanel(
                   title: '歌词设置',
                   expand: true,
@@ -191,7 +233,12 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                               onChanged: (v) => _fontSize.value = v,
                               onChangeEnd: (v) =>
                                   _setPrefDouble(_prefsFontSize, v),
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                12,
+                                16,
+                                12,
+                              ),
                             ),
                             LabeledSlider(
                               title: '播放字号',
@@ -203,7 +250,12 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                               onChanged: (v) => _activeFontSize.value = v,
                               onChangeEnd: (v) =>
                                   _setPrefDouble(_prefsActiveFontSize, v),
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                12,
+                                16,
+                                12,
+                              ),
                             ),
                             LabeledSlider(
                               title: '行距',
@@ -213,8 +265,14 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                               divisions: 12,
                               valueText: lineGap.toStringAsFixed(0),
                               onChanged: (v) => _lineGap.value = v,
-                              onChangeEnd: (v) => _setPrefDouble(_prefsLineGap, v),
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                              onChangeEnd: (v) =>
+                                  _setPrefDouble(_prefsLineGap, v),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                12,
+                                16,
+                                12,
+                              ),
                             ),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -247,6 +305,85 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                                   showSelectedIcon: false,
                                 ),
                               ),
+                            ),
+                            _LyricsColorSettingTile(
+                              title: '普通歌词颜色',
+                              color: inactiveColorValue == null
+                                  ? null
+                                  : Color(inactiveColorValue),
+                              onTap: () {
+                                final fallback = _defaultInactiveColor(context);
+                                _openColorPicker(
+                                  title: '普通歌词颜色',
+                                  initialColor: inactiveColorValue == null
+                                      ? fallback
+                                      : Color(inactiveColorValue),
+                                  onSelected: (color) {
+                                    _inactiveColorValue.value = color
+                                        ?.toARGB32();
+                                    _setPrefColor(_prefsInactiveColor, color);
+                                  },
+                                );
+                              },
+                              onReset: inactiveColorValue == null
+                                  ? null
+                                  : () {
+                                      _inactiveColorValue.value = null;
+                                      _setPrefColor(_prefsInactiveColor, null);
+                                    },
+                            ),
+                            _LyricsColorSettingTile(
+                              title: '当前歌词颜色',
+                              color: activeColorValue == null
+                                  ? null
+                                  : Color(activeColorValue),
+                              onTap: () {
+                                final fallback = _defaultActiveColor(context);
+                                _openColorPicker(
+                                  title: '当前歌词颜色',
+                                  initialColor: activeColorValue == null
+                                      ? fallback
+                                      : Color(activeColorValue),
+                                  onSelected: (color) {
+                                    _activeColorValue.value = color?.toARGB32();
+                                    _setPrefColor(_prefsActiveColor, color);
+                                  },
+                                );
+                              },
+                              onReset: activeColorValue == null
+                                  ? null
+                                  : () {
+                                      _activeColorValue.value = null;
+                                      _setPrefColor(_prefsActiveColor, null);
+                                    },
+                            ),
+                            _LyricsColorSettingTile(
+                              title: '逐字高亮颜色',
+                              color: highlightColorValue == null
+                                  ? null
+                                  : Color(highlightColorValue),
+                              onTap: () {
+                                final fallback = _defaultHighlightColor(
+                                  context,
+                                );
+                                _openColorPicker(
+                                  title: '逐字高亮颜色',
+                                  initialColor: highlightColorValue == null
+                                      ? fallback
+                                      : Color(highlightColorValue),
+                                  onSelected: (color) {
+                                    _highlightColorValue.value = color
+                                        ?.toARGB32();
+                                    _setPrefColor(_prefsHighlightColor, color);
+                                  },
+                                );
+                              },
+                              onReset: highlightColorValue == null
+                                  ? null
+                                  : () {
+                                      _highlightColorValue.value = null;
+                                      _setPrefColor(_prefsHighlightColor, null);
+                                    },
                             ),
                           ],
                         ),
@@ -300,8 +437,12 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                             ),
                             if (miniEnabled)
                               Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  4,
+                                  16,
+                                  12,
+                                ),
                                 child: SizedBox(
                                   width: double.infinity,
                                   child: SegmentedButton<String>(
@@ -380,9 +521,8 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
             lyrics.controller.cancelOnTapLineCallback();
           }
         }
-        final hasTranslation = model?.lines.any(
-              (l) => (l.translation ?? '').trim().isNotEmpty,
-            ) ??
+        final hasTranslation =
+            model?.lines.any((l) => (l.translation ?? '').trim().isNotEmpty) ??
             false;
 
         return Stack(
@@ -396,7 +536,8 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                     lyrics: lyrics,
                     child: () {
                       final hasLines = model?.lines.isNotEmpty ?? false;
-                      if (snap.status == LyricsLoadStatus.loading && !hasLines) {
+                      if (snap.status == LyricsLoadStatus.loading &&
+                          !hasLines) {
                         return const SizedBox.shrink();
                       }
                       if (!hasLines) {
@@ -423,16 +564,26 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                           ),
                         );
                       }
-                      final hasKaraokeWords = model!.lines
-                          .any((l) => (l.words?.isNotEmpty ?? false));
+                      final hasKaraokeWords = model!.lines.any(
+                        (l) => (l.words?.isNotEmpty ?? false),
+                      );
                       final karaokeMode = forceKaraoke || hasKaraokeWords;
+                      final inactiveColor = _customColorOrDefault(
+                        _inactiveColorValue.value,
+                        _defaultInactiveColor(context),
+                      );
+                      final activeColor = _customColorOrDefault(
+                        _activeColorValue.value,
+                        _defaultActiveColor(context),
+                      );
+                      final highlightColor = _customColorOrDefault(
+                        _highlightColorValue.value,
+                        _defaultHighlightColor(context),
+                      );
                       final isLight = theme.brightness == Brightness.light;
-                      final inactiveColor = isLight
-                          ? const Color(0xFF8C8C8C)
-                          : onSurface.withValues(alpha: 0.45);
-                      final activeColor = isLight ? Colors.black : onSurface;
-                      final highlightColor = isLight ? Colors.black : onSurface;
-                      final karaokeBaseColor = inactiveColor;
+                      final karaokeBaseColor = isLight
+                          ? inactiveColor
+                          : onSurface.withValues(alpha: 0.85);
 
                       final translationStyle = showTranslation
                           ? TextStyle(
@@ -478,10 +629,12 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                         activeAlignment: MainAxisAlignment.center,
                         scrollDuration: const Duration(milliseconds: 160),
                         selectedColor: activeColor,
-                        selectedTranslationColor:
-                            onSurface.withValues(alpha: 0.9),
-                        selectionAutoResumeDuration:
-                            const Duration(milliseconds: 200),
+                        selectedTranslationColor: onSurface.withValues(
+                          alpha: 0.9,
+                        ),
+                        selectionAutoResumeDuration: const Duration(
+                          milliseconds: 200,
+                        ),
                         activeAutoResumeDuration: isPlaying
                             ? const Duration(seconds: 3)
                             : const Duration(days: 365),
@@ -509,8 +662,9 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                             Align(
                               alignment: Alignment.center,
                               child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                                 child: SizedBox(
                                   height: 44,
                                   child: () {
@@ -539,7 +693,8 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
                                             color: centered
                                                 ? Colors.transparent
                                                 : onSurface.withValues(
-                                                    alpha: 0.25),
+                                                    alpha: 0.25,
+                                                  ),
                                           ),
                                         ),
                                         if (showDetails)
@@ -596,5 +751,355 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> with SignalsMixin {
       },
     );
   }
+
+  Color _customColorOrDefault(int? value, Color fallback) {
+    return value == null ? fallback : Color(value);
+  }
+
+  Color _defaultInactiveColor(BuildContext context) {
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+    return theme.brightness == Brightness.light
+        ? const Color(0xFF8C8C8C)
+        : onSurface.withValues(alpha: 0.45);
+  }
+
+  Color _defaultActiveColor(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.brightness == Brightness.light
+        ? Colors.black
+        : theme.colorScheme.onSurface;
+  }
+
+  Color _defaultHighlightColor(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.brightness == Brightness.light
+        ? Colors.black
+        : theme.colorScheme.primaryFixedDim;
+  }
 }
 
+class _LyricsColorSettingTile extends StatelessWidget {
+  final String title;
+  final Color? color;
+  final VoidCallback onTap;
+  final VoidCallback? onReset;
+
+  const _LyricsColorSettingTile({
+    required this.title,
+    required this.color,
+    required this.onTap,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      title: Text(title),
+      subtitle: Text(color == null ? '跟随默认样式' : '自定义颜色'),
+      onTap: onTap,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color ?? scheme.surfaceContainerHighest,
+              shape: BoxShape.circle,
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+            child: color == null
+                ? Icon(
+                    Icons.auto_awesome,
+                    size: 14,
+                    color: scheme.onSurfaceVariant,
+                  )
+                : null,
+          ),
+          if (onReset != null) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: '恢复默认',
+              onPressed: onReset,
+              icon: const Icon(Icons.restart_alt_rounded),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LyricsColorPickerDialog extends StatefulWidget {
+  final String title;
+  final Color initialColor;
+  final ValueChanged<Color?> onSelected;
+
+  const _LyricsColorPickerDialog({
+    required this.title,
+    required this.initialColor,
+    required this.onSelected,
+  });
+
+  @override
+  State<_LyricsColorPickerDialog> createState() =>
+      _LyricsColorPickerDialogState();
+}
+
+class _LyricsColorPickerDialogState extends State<_LyricsColorPickerDialog> {
+  late HSVColor _hsv;
+
+  @override
+  void initState() {
+    super.initState();
+    _hsv = HSVColor.fromColor(widget.initialColor);
+  }
+
+  void _updateSaturationValue(Offset localPosition, double size) {
+    final dx = localPosition.dx.clamp(0.0, size);
+    final dy = localPosition.dy.clamp(0.0, size);
+    setState(() {
+      _hsv = _hsv
+          .withSaturation((dx / size).clamp(0.0, 1.0))
+          .withValue((1 - dy / size).clamp(0.0, 1.0));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final preview = _hsv.toColor();
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    widget.title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: preview,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: scheme.outlineVariant),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final size = constraints.maxWidth;
+                  return GestureDetector(
+                    onPanDown: (details) =>
+                        _updateSaturationValue(details.localPosition, size),
+                    onPanUpdate: (details) =>
+                        _updateSaturationValue(details.localPosition, size),
+                    child: Stack(
+                      children: [
+                        SizedBox(
+                          width: size,
+                          height: size,
+                          child: CustomPaint(
+                            painter: _LyricsSaturationValuePainter(
+                              hue: _hsv.hue,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: _hsv.saturation * size - 10,
+                          top: (1 - _hsv.value) * size - 10,
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: scheme.onSurface,
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _LyricsHueSlider(
+                value: _hsv.hue,
+                onChanged: (value) {
+                  setState(() {
+                    _hsv = _hsv.withHue(value);
+                  });
+                },
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      widget.onSelected(null);
+                      Navigator.pop(context);
+                    },
+                    child: const Text('默认'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      widget.onSelected(preview);
+                      Navigator.pop(context);
+                    },
+                    child: const Text('确定'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LyricsSaturationValuePainter extends CustomPainter {
+  final double hue;
+
+  _LyricsSaturationValuePainter({required this.hue});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final baseColor = HSVColor.fromAHSV(1, hue, 1, 1).toColor();
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          colors: [Colors.white, baseColor],
+        ).createShader(rect),
+    );
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.transparent, Colors.black],
+        ).createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _LyricsSaturationValuePainter oldDelegate) {
+    return oldDelegate.hue != hue;
+  }
+}
+
+class _LyricsHueSlider extends StatefulWidget {
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  const _LyricsHueSlider({required this.value, required this.onChanged});
+
+  @override
+  State<_LyricsHueSlider> createState() => _LyricsHueSliderState();
+}
+
+class _LyricsHueSliderState extends State<_LyricsHueSlider> {
+  double? _dragValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final displayValue = _dragValue ?? widget.value;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanDown: (details) => _updateValue(details.localPosition.dx, width),
+          onPanUpdate: (details) =>
+              _updateValue(details.localPosition.dx, width),
+          onPanEnd: (_) => setState(() => _dragValue = null),
+          child: SizedBox(
+            height: 28,
+            child: Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                Container(
+                  height: 12,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFFFF0000),
+                        Color(0xFFFFFF00),
+                        Color(0xFF00FF00),
+                        Color(0xFF00FFFF),
+                        Color(0xFF0000FF),
+                        Color(0xFFFF00FF),
+                        Color(0xFFFF0000),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: (displayValue / 360 * width) - 10,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: HSVColor.fromAHSV(1, displayValue, 1, 1).toColor(),
+                      border: Border.all(color: scheme.onSurface, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _updateValue(double dx, double width) {
+    final clamped = dx.clamp(0.0, width);
+    final next = (clamped / width * 360).clamp(0.0, 360.0);
+    setState(() {
+      _dragValue = next;
+    });
+    widget.onChanged(next);
+  }
+}

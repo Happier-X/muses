@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/state/settings_state.dart';
 import 'base/app_background.dart';
@@ -69,15 +70,16 @@ class _TabletLayoutHostState extends State<TabletLayoutHost>
             ? Colors.black.withValues(alpha: 0.28 * t)
             : Colors.black.withValues(alpha: 0.08 * t);
 
-        final canPopRoot =
-            !(widget.navigatorKey.currentState?.canPop() ?? false);
         return PopScope(
-          canPop: canPopRoot,
+          canPop: false,
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
-            if (!canPopRoot) {
-              widget.navigatorKey.currentState?.pop();
+            final navigator = widget.navigatorKey.currentState;
+            if (navigator?.canPop() ?? false) {
+              navigator?.pop();
+              return;
             }
+            SystemNavigator.pop();
           },
           child: AppBackground(
             child: Stack(

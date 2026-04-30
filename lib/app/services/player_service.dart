@@ -24,6 +24,8 @@ import '../state/player_state.dart';
 class PlayerService with WidgetsBindingObserver {
   static final PlayerService instance = PlayerService._internal();
   static const Duration _resolvedSourceTtl = Duration(minutes: 10);
+  static const Duration _playingPersistInterval = Duration(seconds: 5);
+  static const Duration _idlePersistDelay = Duration(milliseconds: 500);
 
   final _state = AppPlayerState.instance;
 
@@ -78,6 +80,7 @@ class PlayerService with WidgetsBindingObserver {
   final Map<String, Future<Uri>> _sourceResolveInflight = {};
   bool _restoringState = false;
   bool _isSeeking = false;
+  bool _suppressNextPersist = false;
   int _seekSeq = 0;
   DateTime _lastPersistTime = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime? _lastSnapshotEmit;
@@ -168,8 +171,12 @@ class PlayerService with WidgetsBindingObserver {
       _emitSnapshot(force: true);
     });
     _stateSub = _player.playerStateStream.listen((state) {
+      final wasPlaying = isPlaying.value;
       isPlaying.value = state.playing;
       _emitSnapshot(force: true);
+      if (wasPlaying && !state.playing) {
+        _schedulePersistPlaybackState(immediate: true);
+      }
     });
     _errorSub = _player.errorStream.listen((error) {
       unawaited(_handlePlayerError(error));
@@ -185,6 +192,7 @@ class PlayerService with WidgetsBindingObserver {
         final songChanged = previousSongId != song.id;
         currentSong.value = song;
         if (songChanged) {
+          _suppressNextPersist = true;
           // Reset progress-related state only when the actual track changes.
           // Some seek operations may cause the player to re-emit the same
           // index, and forcing zero there makes the slider jump backward first.
@@ -614,6 +622,7 @@ class PlayerService with WidgetsBindingObserver {
         // Force one last update from the player to ensure sync
         this.position.value = _player.position;
         _emitSnapshot(force: true);
+        _schedulePersistPlaybackState(immediate: true);
       }
     }
   }
@@ -921,7 +930,10 @@ class PlayerService with WidgetsBindingObserver {
 
     if (savedPositionMs > 0) {
       try {
-        await _player.seek(Duration(milliseconds: savedPositionMs));
+        final savedPosition = Duration(milliseconds: savedPositionMs);
+        position.value = savedPosition;
+        _emitSnapshot(force: true);
+        await _player.seek(savedPosition);
       } catch (_) {}
     }
 
@@ -998,31 +1010,44 @@ class PlayerService with WidgetsBindingObserver {
     );
   }
 
-  void _schedulePersistPlaybackState() {
+  void _schedulePersistPlaybackState({bool immediate = false}) {
     if (_restoringState) return;
 
-    _persistTimer?.cancel();
+    if (_suppressNextPersist) {
+      _suppressNextPersist = false;
+      return;
+    }
 
-    // If playing, we need to save periodically to avoid data loss on crash/kill
+    if (immediate) {
+      _persistTimer?.cancel();
+      _persistTimer = null;
+      unawaited(_persistPlaybackState());
+      return;
+    }
+
     if (isPlaying.value) {
       final now = DateTime.now();
-      // If > 5s since last save, force save immediately
-      if (now.difference(_lastPersistTime) > const Duration(seconds: 5)) {
-        _persistPlaybackState();
+      final elapsed = now.difference(_lastPersistTime);
+      if (elapsed >= _playingPersistInterval) {
+        _persistTimer?.cancel();
+        _persistTimer = null;
+        unawaited(_persistPlaybackState());
         return;
       }
-      // Otherwise standard debounce
-      _persistTimer = Timer(
-        const Duration(milliseconds: 1500),
-        _persistPlaybackState,
-      );
-    } else {
-      // If paused/stopped, save quickly (500ms) to capture state before potential app kill
-      _persistTimer = Timer(
-        const Duration(milliseconds: 500),
-        _persistPlaybackState,
-      );
+
+      if (_persistTimer != null && _persistTimer!.isActive) return;
+      _persistTimer = Timer(_playingPersistInterval - elapsed, () {
+        _persistTimer = null;
+        unawaited(_persistPlaybackState());
+      });
+      return;
     }
+
+    _persistTimer?.cancel();
+    _persistTimer = Timer(_idlePersistDelay, () {
+      _persistTimer = null;
+      unawaited(_persistPlaybackState());
+    });
   }
 
   Future<void> _persistPlaybackState() async {
