@@ -412,42 +412,68 @@ class _AppAppearanceSettingsPageState extends State<AppAppearanceSettingsPage> {
                   );
                 },
               ),
-              ValueListenableBuilder<double>(
-                valueListenable: AppBackgroundSettings.panelOpacity,
-                builder: (context, value, _) {
-                  return ValueListenableBuilder<double>(
-                    valueListenable: AppBackgroundSettings.panelBlurStrength,
-                    builder: (context, blurValue, _) {
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AppSettingSlider(
-                            title: '面板透明度',
-                            description: '调节卡片、列表面板等半透明程度',
-                            value: (value * 100).clamp(0, 100),
-                            min: 0,
-                            max: 100,
-                            divisions: 100,
-                            valueText: '${(value * 100).round()}%',
-                            onChanged: (next) {
-                              AppBackgroundSettings.setPanelOpacity(next / 100);
-                            },
-                          ),
-                          AppSettingSlider(
-                            title: '面板模糊强度',
-                            description: '调节玻璃面板的背景模糊程度',
-                            value: blurValue,
-                            min: 0,
-                            max: 30,
-                            divisions: 30,
-                            valueText: blurValue.toStringAsFixed(0),
-                            onChanged: (next) {
-                              AppBackgroundSettings.setPanelBlurStrength(next);
-                            },
-                          ),
-                        ],
-                      );
-                    },
+              ValueListenableBuilder<bool>(
+                valueListenable: AppBackgroundSettings.glassEffectEnabled,
+                builder: (context, glassEnabled, _) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppSettingSwitchTile(
+                        title: '毛玻璃质感',
+                        subtitle: glassEnabled
+                            ? '面板和播放器控件启用背景模糊'
+                            : '关闭后使用普通实体面板',
+                        value: glassEnabled,
+                        onChanged: (value) {
+                          AppBackgroundSettings.setGlassEffectEnabled(value);
+                        },
+                      ),
+                      if (glassEnabled)
+                        ValueListenableBuilder<double>(
+                          valueListenable: AppBackgroundSettings.panelOpacity,
+                          builder: (context, value, _) {
+                            return ValueListenableBuilder<double>(
+                              valueListenable:
+                                  AppBackgroundSettings.panelBlurStrength,
+                              builder: (context, blurValue, _) {
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    AppSettingSlider(
+                                      title: '面板透明度',
+                                      description: '调节卡片、列表面板等半透明程度',
+                                      value: (value * 100).clamp(0, 100),
+                                      min: 0,
+                                      max: 100,
+                                      divisions: 100,
+                                      valueText: '${(value * 100).round()}%',
+                                      onChanged: (next) {
+                                        AppBackgroundSettings.setPanelOpacity(
+                                          next / 100,
+                                        );
+                                      },
+                                    ),
+                                    AppSettingSlider(
+                                      title: '面板模糊强度',
+                                      description: '调节玻璃面板的背景模糊程度',
+                                      value: blurValue,
+                                      min: 0,
+                                      max: 30,
+                                      divisions: 30,
+                                      valueText: blurValue.toStringAsFixed(0),
+                                      onChanged: (next) {
+                                        AppBackgroundSettings.setPanelBlurStrength(
+                                          next,
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        ),
+                    ],
                   );
                 },
               ),

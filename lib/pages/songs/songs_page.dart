@@ -92,8 +92,8 @@ class _SongsPageState extends State<SongsPage>
   late final _visibleSongsAll = createSignal<List<SongEntity>>([]);
   late final _multiSelect = createSignal(false);
   late final _isSequentialPlay = createSignal(false);
-  late final _randomPlayCount = createSignal(30);
-  late final _sequentialPlayCount = createSignal(30);
+  late final _randomPlayCount = createSignal<int?>(null);
+  late final _sequentialPlayCount = createSignal<int?>(null);
   late final _sortKey = createSignal('title');
   late final _ascending = createSignal(true);
   late final _currentId = createSignal<String?>(null);
@@ -407,7 +407,12 @@ class _SongsPageState extends State<SongsPage>
     final configured = _isSequentialPlay.value
         ? _sequentialPlayCount.value
         : _randomPlayCount.value;
-    return configured.clamp(1, totalCount);
+    return configured == null ? totalCount : configured.clamp(1, totalCount);
+  }
+
+  int _configuredOrAllCount(int? configured, int totalCount) {
+    if (totalCount <= 0) return 0;
+    return configured == null ? totalCount : configured.clamp(1, totalCount);
   }
 
   List<SongEntity> _buildPlayQueue(
@@ -416,7 +421,10 @@ class _SongsPageState extends State<SongsPage>
   }) {
     final queue = List<SongEntity>.from(source);
     if (_isSequentialPlay.value) {
-      final maxCount = _sequentialPlayCount.value.clamp(1, queue.length);
+      final maxCount = _configuredOrAllCount(
+        _sequentialPlayCount.value,
+        queue.length,
+      );
       if (targetSongId == null || targetSongId.isEmpty) {
         return queue.take(maxCount).toList();
       }
@@ -427,7 +435,10 @@ class _SongsPageState extends State<SongsPage>
       return queue.skip(startIndex).take(maxCount).toList();
     }
     queue.shuffle();
-    final maxCount = _randomPlayCount.value.clamp(1, queue.length);
+    final maxCount = _configuredOrAllCount(
+      _randomPlayCount.value,
+      queue.length,
+    );
     final limited = queue.take(maxCount).toList();
     if (targetSongId == null || targetSongId.isEmpty) {
       return limited;
@@ -449,13 +460,13 @@ class _SongsPageState extends State<SongsPage>
   Future<void> _showPlayCountSettings({
     required String title,
     required String description,
-    required int initialCount,
+    required int? initialCount,
     required String successMessage,
     required Future<void> Function(int next) onSave,
   }) async {
     if (_visibleSongsAll.value.isEmpty) return;
-    var tempCount = initialCount.toDouble();
     final maxCount = _visibleSongsAll.value.length.clamp(1, 200);
+    var tempCount = _configuredOrAllCount(initialCount, maxCount).toDouble();
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -514,7 +525,7 @@ class _SongsPageState extends State<SongsPage>
   Future<void> _showRandomPlaySettings() {
     return _showPlayCountSettings(
       title: '随机播放设置',
-      description: '点击按钮直接按当前数量随机播放',
+      description: '未设置时默认随机播放全部歌曲',
       initialCount: _randomPlayCount.value,
       successMessage: '随机播放数量已设为',
       onSave: (next) async {
@@ -528,7 +539,7 @@ class _SongsPageState extends State<SongsPage>
   Future<void> _showSequentialPlaySettings() {
     return _showPlayCountSettings(
       title: '顺序播放设置',
-      description: '点击按钮直接按当前数量顺序播放',
+      description: '未设置时默认顺序播放全部歌曲',
       initialCount: _sequentialPlayCount.value,
       successMessage: '顺序播放数量已设为',
       onSave: (next) async {

@@ -53,29 +53,30 @@ class GlassPanel extends StatelessWidget {
           ),
         ];
 
-    return ValueListenableBuilder<double>(
-      valueListenable: AppBackgroundSettings.panelBlurStrength,
-      builder: (context, panelBlurStrength, _) {
-        final sigma = panelBlurStrength * blurSigma;
-        final isInvisible = resolvedColor.a <= 0 && sigma <= 0;
-        final panel = Container(
-          height: height,
-          decoration: BoxDecoration(
-            color: resolvedColor,
-            borderRadius: _resolvedBorderRadius,
-            border: isInvisible ? null : Border.all(color: resolvedBorderColor),
-            boxShadow: isInvisible ? null : resolvedShadow,
-          ),
-          child: padding == null
-              ? child
-              : Padding(padding: padding!, child: child),
-        );
+    return ValueListenableBuilder<bool>(
+      valueListenable: AppBackgroundSettings.glassEffectEnabled,
+      builder: (context, glassEnabled, _) {
+        return ValueListenableBuilder<double>(
+          valueListenable: AppBackgroundSettings.panelBlurStrength,
+          builder: (context, panelBlurStrength, _) {
+            final sigma = glassEnabled ? panelBlurStrength * blurSigma : 0.0;
+            final isInvisible = resolvedColor.a <= 0 && sigma <= 0;
+            final panel = Container(
+              height: height,
+              decoration: BoxDecoration(
+                color: resolvedColor,
+                borderRadius: _resolvedBorderRadius,
+                border: isInvisible
+                    ? null
+                    : Border.all(color: resolvedBorderColor),
+                boxShadow: isInvisible ? null : resolvedShadow,
+              ),
+              child: padding == null
+                  ? child
+                  : Padding(padding: padding!, child: child),
+            );
 
-        return ClipRRect(
-          borderRadius: _resolvedBorderRadius,
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-            child: Material(
+            final material = Material(
               color: Colors.transparent,
               child: onTap == null
                   ? panel
@@ -84,8 +85,18 @@ class GlassPanel extends StatelessWidget {
                       onTap: onTap,
                       child: panel,
                     ),
-            ),
-          ),
+            );
+
+            return ClipRRect(
+              borderRadius: _resolvedBorderRadius,
+              child: glassEnabled && sigma > 0
+                  ? BackdropFilter(
+                      filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+                      child: material,
+                    )
+                  : material,
+            );
+          },
         );
       },
     );

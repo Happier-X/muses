@@ -164,15 +164,21 @@ class MiniPlayerBar extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(borderRadius),
-              child: ValueListenableBuilder<double>(
-                valueListenable: AppBackgroundSettings.panelBlurStrength,
-                builder: (context, blurStrength, _) {
-                  return BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: blurStrength,
-                      sigmaY: blurStrength,
-                    ),
-                    child: content,
+              child: ValueListenableBuilder<bool>(
+                valueListenable: AppBackgroundSettings.glassEffectEnabled,
+                builder: (context, glassEnabled, _) {
+                  return ValueListenableBuilder<double>(
+                    valueListenable: AppBackgroundSettings.panelBlurStrength,
+                    builder: (context, blurStrength, _) {
+                      if (!glassEnabled || blurStrength <= 0) return content;
+                      return BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: blurStrength,
+                          sigmaY: blurStrength,
+                        ),
+                        child: content,
+                      );
+                    },
                   );
                 },
               ),

@@ -424,57 +424,29 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
                 onTap: _showSourceSheet,
               ),
               const SizedBox(height: 14),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.maxWidth;
-                  final itemWidth = (width - 16) / 2;
-                  return Wrap(
-                    spacing: 16,
-                    runSpacing: 12,
-                    children: [
-                      SizedBox(
-                        width: itemWidth,
-                        child: _HomeEntryCard(
-                          icon: Icons.music_note_rounded,
-                          label: '歌曲',
-                          onTap: () {
-                            _pushLibraryPage(const SongsPage());
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: itemWidth,
-                        child: _HomeEntryCard(
-                          icon: Icons.people_rounded,
-                          label: '艺术家',
-                          onTap: () {
-                            _pushLibraryPage(const ArtistsPage());
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: itemWidth,
-                        child: _HomeEntryCard(
-                          icon: Icons.album_rounded,
-                          label: '专辑',
-                          onTap: () {
-                            _pushLibraryPage(const AlbumsPage());
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: itemWidth,
-                        child: _HomeEntryCard(
-                          icon: Icons.queue_music_rounded,
-                          label: '歌单',
-                          onTap: () {
-                            _pushLibraryPage(const PlaylistsPage());
-                          },
-                        ),
-                      ),
-                    ],
-                  );
-                },
+              _HomeEntryRow(
+                entries: [
+                  _HomeEntryData(
+                    icon: Icons.music_note_rounded,
+                    label: '歌曲',
+                    onTap: () => _pushLibraryPage(const SongsPage()),
+                  ),
+                  _HomeEntryData(
+                    icon: Icons.people_rounded,
+                    label: '艺术家',
+                    onTap: () => _pushLibraryPage(const ArtistsPage()),
+                  ),
+                  _HomeEntryData(
+                    icon: Icons.album_rounded,
+                    label: '专辑',
+                    onTap: () => _pushLibraryPage(const AlbumsPage()),
+                  ),
+                  _HomeEntryData(
+                    icon: Icons.queue_music_rounded,
+                    label: '歌单',
+                    onTap: () => _pushLibraryPage(const PlaylistsPage()),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
               _HomeSectionCard(
@@ -661,12 +633,51 @@ class _HomeSourceItem {
   const _HomeSourceItem({required this.label, required this.value});
 }
 
-class _HomeEntryCard extends StatelessWidget {
+class _HomeEntryData {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
 
-  const _HomeEntryCard({
+  const _HomeEntryData({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+}
+
+class _HomeEntryRow extends StatelessWidget {
+  final List<_HomeEntryData> entries;
+
+  const _HomeEntryRow({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      borderRadius: BorderRadius.circular(20),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: Row(
+        children: entries
+            .map(
+              (entry) => Expanded(
+                child: _HomeEntryButton(
+                  icon: entry.icon,
+                  label: entry.label,
+                  onTap: entry.onTap,
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _HomeEntryButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _HomeEntryButton({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -683,32 +694,36 @@ class _HomeEntryCard extends StatelessWidget {
         ? Colors.white
         : const Color.fromARGB(255, 45, 45, 45);
 
-    return GlassPanel(
-      height: 96,
-      borderRadius: BorderRadius.circular(20),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 20, color: iconColor),
             ),
-            child: Icon(icon, size: 22, color: iconColor),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: textColor,
+            const SizedBox(height: 6),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: textColor,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

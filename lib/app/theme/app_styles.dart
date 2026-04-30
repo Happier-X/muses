@@ -56,7 +56,10 @@ extension AppThemeSurfaceX on ThemeData {
 
   Color get appPanelColor {
     final isDark = brightness == Brightness.dark;
-    final panelOpacity = AppBackgroundSettings.panelOpacity.value;
+    final glassEnabled = AppBackgroundSettings.glassEffectEnabled.value;
+    final panelOpacity = glassEnabled
+        ? AppBackgroundSettings.panelOpacity.value
+        : 1.0;
     if (panelOpacity <= 0) return Colors.transparent;
     final base = isDark
         ? Color.alphaBlend(
@@ -67,7 +70,7 @@ extension AppThemeSurfaceX on ThemeData {
             colorScheme.primary.withValues(alpha: 0.12),
             Colors.white,
           );
-    if (!hasAmbientBackground) {
+    if (!glassEnabled || !hasAmbientBackground) {
       return base.withValues(alpha: panelOpacity);
     }
 
