@@ -73,6 +73,7 @@ class PlayerService with WidgetsBindingObserver {
   StreamSubscription<bool>? _shuffleSub;
   Timer? _sleepTimer;
   Timer? _persistTimer;
+  Duration? _restoredPosition;
   DateTime? _sleepEndAt;
   final Map<String, Future<void>> _probeInflight = {};
   final Map<String, int> _durationPersistedMs = {};
@@ -193,10 +194,9 @@ class PlayerService with WidgetsBindingObserver {
         final songChanged = previousSongId != song.id;
         currentSong.value = song;
         if (songChanged) {
-          // Reset progress-related state only when the actual track changes.
-          // Some seek operations may cause the player to re-emit the same
-          // index, and forcing zero there makes the slider jump backward first.
-          position.value = Duration.zero;
+          // Keep the restored seek visible while just_audio finishes loading.
+          final restoredPosition = _restoredPosition;
+          position.value = restoredPosition ?? Duration.zero;
           bufferedPosition.value = Duration.zero;
           duration.value = song.durationMs != null
               ? Duration(milliseconds: song.durationMs!)
@@ -931,6 +931,7 @@ class PlayerService with WidgetsBindingObserver {
     if (savedPositionMs > 0) {
       try {
         final savedPosition = Duration(milliseconds: savedPositionMs);
+        _restoredPosition = savedPosition;
         position.value = savedPosition;
         _emitSnapshot(force: true);
         await _player.seek(savedPosition);
@@ -956,6 +957,7 @@ class PlayerService with WidgetsBindingObserver {
 
   Future<void> _startPlayback() async {
     _debugLog('startPlayback song=${currentSong.value?.title ?? 'none'}');
+    _restoredPosition = null;
     await MediaNotificationService.init(force: true);
     final active = await _setAudioSessionActive(true);
     if (!active) {
@@ -967,8 +969,9 @@ class PlayerService with WidgetsBindingObserver {
   Future<void> _pausePlayback() async {
     _debugLog('pausePlayback song=${currentSong.value?.title ?? 'none'}');
     await _player.pause();
-    _syncPositionFromPlayer();
+    _syncPositionFromPlayer(allowZeroOverride: _restoredPosition == null);
     await _persistPlaybackStateNow();
+    _restoredPosition = null;
     await _setAudioSessionActive(false);
   }
 
@@ -1047,10 +1050,15 @@ class PlayerService with WidgetsBindingObserver {
     });
   }
 
-  void _syncPositionFromPlayer() {
+  void _syncPositionFromPlayer({bool allowZeroOverride = true}) {
     if (_isSeeking) return;
     final playerPosition = _player.position;
     if (playerPosition < Duration.zero) return;
+    if (!allowZeroOverride &&
+        playerPosition == Duration.zero &&
+        position.value > Duration.zero) {
+      return;
+    }
     position.value = playerPosition;
   }
 

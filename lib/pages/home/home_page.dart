@@ -171,10 +171,11 @@ class _HomePageState extends State<HomePage> with SignalsMixin {
       _loading.value = false;
     }
 
+    final needsWebDavCounts = includeWebDavCounts || raw.startsWith('webdav:');
     await _refreshData(
       cacheKey: cacheKey,
       rawFilter: raw,
-      includeWebDavCounts: includeWebDavCounts,
+      includeWebDavCounts: needsWebDavCounts,
     );
   }
 
