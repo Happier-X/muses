@@ -138,39 +138,41 @@ class _PlayerPageState extends State<PlayerPage>
                       songSignal: _player.currentSongSignal,
                     ),
                   ),
-                  SafeArea(
-                    child: Column(
-                      children: [
-                        GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onVerticalDragStart: _handleDismissDragStart,
-                          onVerticalDragUpdate: _handleDismissDragUpdate,
-                          onVerticalDragEnd: _handleDismissDragEnd,
-                          onVerticalDragCancel: _handleDismissDragCancel,
-                          child: PlayerHeader(
-                            songSignal: _player.currentSongSignal,
+                  PlayerTheme(
+                    child: SafeArea(
+                      child: Column(
+                        children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onVerticalDragStart: _handleDismissDragStart,
+                            onVerticalDragUpdate: _handleDismissDragUpdate,
+                            onVerticalDragEnd: _handleDismissDragEnd,
+                            onVerticalDragCancel: _handleDismissDragCancel,
+                            child: PlayerHeader(
+                              songSignal: _player.currentSongSignal,
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: PageView(
-                            controller: _pageController,
-                            children: [
-                              _PlayerView(
-                                player: _player,
-                                onTapLyrics: () =>
-                                    _pageController.animateToPage(
-                                      1,
-                                      duration: const Duration(
-                                        milliseconds: 280,
+                          Expanded(
+                            child: PageView(
+                              controller: _pageController,
+                              children: [
+                                _PlayerView(
+                                  player: _player,
+                                  onTapLyrics: () =>
+                                      _pageController.animateToPage(
+                                        1,
+                                        duration: const Duration(
+                                          milliseconds: 280,
+                                        ),
+                                        curve: Curves.easeOut,
                                       ),
-                                      curve: Curves.easeOut,
-                                    ),
-                              ),
-                              const PlayerLyricsView(),
-                            ],
+                                ),
+                                const PlayerLyricsView(),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ],

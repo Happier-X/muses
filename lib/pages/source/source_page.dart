@@ -9,7 +9,6 @@ import '../../app/services/db/dao/song_dao.dart';
 import '../../app/router/app_page_route.dart';
 import '../../app/services/webdav/webdav_music_service.dart';
 import '../../app/services/webdav/webdav_source_repository.dart';
-import '../../app/utils/deferred_page_init_mixin.dart';
 import '../../components/index.dart';
 import 'local/local_folder_browser.dart';
 import 'local_source_settings_page.dart';
@@ -53,8 +52,7 @@ class SourcePage extends StatefulWidget {
   State<SourcePage> createState() => _SourcePageState();
 }
 
-class _SourcePageState extends State<SourcePage>
-    with SignalsMixin, DeferredPageInitMixin {
+class _SourcePageState extends State<SourcePage> with SignalsMixin {
   final LocalMusicService _localService = LocalMusicService();
   final WebDavMusicService _webDavService = WebDavMusicService();
   final WebDavSourceRepository _webDavRepo = WebDavSourceRepository.instance;
@@ -102,12 +100,7 @@ class _SourcePageState extends State<SourcePage>
   @override
   void initState() {
     super.initState();
-    scheduleDeferredInit();
-  }
-
-  @override
-  Future<void> runDeferredInit() async {
-    await _load();
+    unawaited(_load());
   }
 
   @override

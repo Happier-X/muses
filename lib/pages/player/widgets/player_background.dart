@@ -93,6 +93,43 @@ class PlayerBackground extends StatefulWidget {
   State<PlayerBackground> createState() => _PlayerBackgroundState();
 }
 
+class PlayerTheme extends StatelessWidget {
+  final Widget child;
+
+  const PlayerTheme({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: PlayerBackgroundSettings.playbackThemeMode,
+      builder: (context, _) {
+        final mode = PlayerBackgroundSettings.playbackThemeMode.value;
+        final brightness = playerBrightnessForMode(context, mode);
+        final base = Theme.of(context);
+        if (base.brightness == brightness) {
+          return child;
+        }
+        final scheme = ColorScheme.fromSeed(
+          seedColor: base.colorScheme.primary,
+          brightness: brightness,
+        );
+        return Theme(
+          data: base.copyWith(
+            brightness: brightness,
+            colorScheme: scheme,
+            iconTheme: base.iconTheme.copyWith(color: scheme.onSurface),
+            textTheme: base.textTheme.apply(
+              bodyColor: scheme.onSurface,
+              displayColor: scheme.onSurface,
+            ),
+          ),
+          child: child,
+        );
+      },
+    );
+  }
+}
+
 class _PlayerBackgroundState extends State<PlayerBackground> {
   static final Map<String, Color> _dominantCache = {};
   static final Map<String, Future<Color?>> _dominantInflight = {};
@@ -213,10 +250,14 @@ class _PlayerBackgroundState extends State<PlayerBackground> {
 }
 
 bool _preferLightBackground(BuildContext context, ThemeMode mode) {
+  return playerBrightnessForMode(context, mode) == Brightness.light;
+}
+
+Brightness playerBrightnessForMode(BuildContext context, ThemeMode mode) {
   if (mode == ThemeMode.system) {
-    return Theme.of(context).brightness == Brightness.light;
+    return Theme.of(context).brightness;
   }
-  return mode == ThemeMode.light;
+  return mode == ThemeMode.light ? Brightness.light : Brightness.dark;
 }
 
 Color _adjustBackground(Color color, bool preferLightBackground) {

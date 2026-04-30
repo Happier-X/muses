@@ -17,14 +17,14 @@ class LyricPage extends StatelessWidget {
       body: Stack(
         children: [
           PlayerBackground(songSignal: _player.currentSongSignal),
-          SafeArea(
-            child: Column(
-              children: [
-                PlayerTopBar(onBack: () => Navigator.pop(context)),
-                Expanded(
-                  child: const PlayerLyricsView(),
-                ),
-              ],
+          PlayerTheme(
+            child: SafeArea(
+              child: Column(
+                children: [
+                  PlayerTopBar(onBack: () => Navigator.pop(context)),
+                  Expanded(child: const PlayerLyricsView()),
+                ],
+              ),
             ),
           ),
         ],
