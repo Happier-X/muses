@@ -82,6 +82,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
               AppSettingTile(
+                title: '权限管理',
+                subtitle: '查看通知、音频与后台播放权限',
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.permissionSettings),
+              ),
+              AppSettingTile(
                 title: '歌词设置',
                 subtitle: '状态栏歌词与显示偏好',
                 trailing: const Icon(Icons.chevron_right_rounded),

@@ -71,8 +71,11 @@ class PlayerService with WidgetsBindingObserver {
   StreamSubscription<PlayerException>? _errorSub;
   StreamSubscription<LoopMode>? _loopModeSub;
   StreamSubscription<bool>? _shuffleSub;
+  StreamSubscription<AudioInterruptionEvent>? _interruptionSub;
+  StreamSubscription<void>? _becomingNoisySub;
   Timer? _sleepTimer;
   Timer? _persistTimer;
+  Timer? _backgroundAudioKeepAliveTimer;
   _PlaybackRestoreState? _restoreSession;
   Future<void>? _restorePrepareFuture;
   DateTime? _sleepEndAt;
@@ -82,6 +85,8 @@ class PlayerService with WidgetsBindingObserver {
   final Map<String, Future<Uri>> _sourceResolveInflight = {};
   bool _restoringState = false;
   bool _isSeeking = false;
+  bool _audioInterrupted = false;
+  bool _wasPlayingBeforeInterruption = false;
   int _seekSeq = 0;
   DateTime _lastPersistTime = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime? _lastSnapshotEmit;
@@ -110,9 +115,24 @@ class PlayerService with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _stopBackgroundAudioKeepAlive();
+      if (isPlaying.value) {
+        unawaited(_ensureAudiblePlayback());
+      }
+      return;
+    }
     if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.hidden) {
+      _syncPositionFromPlayer();
+      _persistPlaybackStateNow();
+      _statsService.flush();
+      if (isPlaying.value) {
+        _startBackgroundAudioKeepAlive();
+      }
+      return;
+    }
+    if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
       _syncPositionFromPlayer();
       _persistPlaybackStateNow();
@@ -152,6 +172,12 @@ class PlayerService with WidgetsBindingObserver {
     final session = await AudioSession.instance;
     _audioSession = session;
     await session.configure(const AudioSessionConfiguration.music());
+    _interruptionSub = session.interruptionEventStream.listen(
+      _handleAudioInterruption,
+    );
+    _becomingNoisySub = session.becomingNoisyEventStream.listen((_) {
+      unawaited(_pausePlayback());
+    });
     await _player.setLoopMode(LoopMode.all);
     playbackMode.value = PlaybackMode.loop;
     _positionSub = _player.positionStream.listen((value) {
@@ -446,6 +472,7 @@ class PlayerService with WidgetsBindingObserver {
   Future<void> stopAndClear() async {
     _debugLog('stopAndClear');
     _clearRestoreSession();
+    _stopBackgroundAudioKeepAlive();
     try {
       await _player.stop();
     } catch (_) {}
@@ -1002,16 +1029,105 @@ class PlayerService with WidgetsBindingObserver {
     await _ensureRestoredPlaybackReady();
     await _player.play();
     _completeRestoreSessionIfReady();
+    _startBackgroundAudioKeepAliveIfNeeded();
   }
 
   Future<void> _pausePlayback() async {
     _debugLog('pausePlayback song=${currentSong.value?.title ?? 'none'}');
+    _stopBackgroundAudioKeepAlive();
     await _player.pause();
     _syncPositionFromPlayer(
       allowZeroOverride: !(_restoreSession?.protectPosition ?? false),
     );
     await _persistPlaybackStateNow();
     await _setAudioSessionActive(false);
+  }
+
+  void _handleAudioInterruption(AudioInterruptionEvent event) {
+    _debugLog(
+      'audio interruption begin=${event.begin} type=${event.type.name}',
+    );
+    if (event.begin) {
+      _audioInterrupted = true;
+      _wasPlayingBeforeInterruption = isPlaying.value;
+      return;
+    }
+    final shouldResume = _audioInterrupted && _wasPlayingBeforeInterruption;
+    _audioInterrupted = false;
+    _wasPlayingBeforeInterruption = false;
+    if (shouldResume) {
+      unawaited(_resumeAfterAudioInterruption());
+    }
+  }
+
+  Future<void> _resumeAfterAudioInterruption() async {
+    try {
+      final active = await _setAudioSessionActive(true);
+      if (!active) return;
+      if (!_player.playing && currentSong.value != null) {
+        await _player.play();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('PlayerService interruption resume failed: $e');
+      }
+    }
+  }
+
+  void _startBackgroundAudioKeepAliveIfNeeded() {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle == AppLifecycleState.paused ||
+        lifecycle == AppLifecycleState.hidden) {
+      _startBackgroundAudioKeepAlive();
+    }
+  }
+
+  void _startBackgroundAudioKeepAlive() {
+    if (_backgroundAudioKeepAliveTimer?.isActive ?? false) return;
+    _backgroundAudioKeepAliveTimer = Timer.periodic(
+      const Duration(seconds: 25),
+      (_) {
+        if (!isPlaying.value) {
+          _stopBackgroundAudioKeepAlive();
+          return;
+        }
+        unawaited(_setAudioSessionActive(true));
+      },
+    );
+  }
+
+  void _stopBackgroundAudioKeepAlive() {
+    _backgroundAudioKeepAliveTimer?.cancel();
+    _backgroundAudioKeepAliveTimer = null;
+  }
+
+  Future<void> _ensureAudiblePlayback() async {
+    if (!isPlaying.value || currentSong.value == null) return;
+    try {
+      await _setAudioSessionActive(true);
+      final processing = _player.processingState;
+      if (processing == ProcessingState.idle) {
+        final list = queue.value;
+        final idx = currentIndex.value;
+        if (list.isNotEmpty && idx >= 0 && idx < list.length) {
+          final pos = position.value;
+          final sourceQueue = await _buildPlaybackSourceQueue(list);
+          await _loadPlaybackSourceQueue(
+            sourceQueue,
+            initialIndex: idx,
+            initialPosition: pos,
+            preload: true,
+          );
+        }
+      }
+      if (!_player.playing) {
+        await _player.play();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('PlayerService ensure audible playback failed: $e');
+      }
+    }
   }
 
   Future<void> _ensureRestoredPlaybackReady() async {
@@ -1628,6 +1744,9 @@ class PlayerService with WidgetsBindingObserver {
     await _errorSub?.cancel();
     await _loopModeSub?.cancel();
     await _shuffleSub?.cancel();
+    await _interruptionSub?.cancel();
+    await _becomingNoisySub?.cancel();
+    _stopBackgroundAudioKeepAlive();
     await _setAudioSessionActive(false);
     await _player.dispose();
   }

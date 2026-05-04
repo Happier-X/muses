@@ -8,6 +8,7 @@ import '../../pages/player/lyrics/lyric_page.dart';
 import '../../pages/settings/gradient_settings_page.dart';
 import '../../pages/settings/lyrics_settings_page.dart';
 import '../../pages/settings/notification_settings_page.dart';
+import '../../pages/settings/permission_settings_page.dart';
 import '../../pages/settings/app_appearance_settings_page.dart';
 import '../../pages/settings/player_controls_settings_page.dart';
 import '../../pages/settings/player_appearance_settings_page.dart';
@@ -31,6 +32,7 @@ class AppRoutes {
   static const gradientSettings = '/settings/gradient';
   static const lyricsSettings = '/settings/lyrics';
   static const notificationSettings = '/settings/notifications';
+  static const permissionSettings = '/settings/permissions';
   static const playerControlsSettings = '/settings/player-controls';
   static const playerAppearanceSettings = '/settings/player-appearance';
   static const cacheSettings = '/settings/cache';
@@ -56,6 +58,7 @@ class AppRouter {
     AppRoutes.gradientSettings: (_) => const GradientSettingsPage(),
     AppRoutes.lyricsSettings: (_) => const LyricsSettingsPage(),
     AppRoutes.notificationSettings: (_) => const NotificationSettingsPage(),
+    AppRoutes.permissionSettings: (_) => const PermissionSettingsPage(),
     AppRoutes.playerControlsSettings: (_) => const PlayerControlsSettingsPage(),
     AppRoutes.playerAppearanceSettings: (_) =>
         const PlayerAppearanceSettingsPage(),
