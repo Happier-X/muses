@@ -167,6 +167,14 @@ class LocalMusicService {
     return _songDao.countBySource('local');
   }
 
+  Future<int> cleanupShortLocalSongs(int minDurationMs) async {
+    if (minDurationMs <= 0) return 0;
+    return _songDao.deleteBySourceAndMaxDuration(
+      sourceId: 'local',
+      maxDurationMs: minDurationMs,
+    );
+  }
+
   Future<List<AssetPathEntity>> loadAudioAlbums({int? minDurationMs}) async {
     final PermissionState ps = await PhotoManager.requestPermissionExtend(
       requestOption: const PermissionRequestOption(
@@ -333,6 +341,21 @@ class LocalMusicService {
             existing != null && existing.fileModifiedMs == modifiedMs;
 
         if (unchanged) {
+          if (settings.minDurationMs > 0 &&
+              existing.durationMs != null &&
+              existing.durationMs! < settings.minDurationMs) {
+            processed += 1;
+            if (processed % 10 == 0) {
+              onProgress(
+                LocalScanProgress(
+                  processed: processed,
+                  added: added,
+                  total: total,
+                ),
+              );
+            }
+            continue;
+          }
           final trimmedAssetId = (candidate.assetId ?? '').trim();
           final existingAssetId = (existing.localAssetId ?? '').trim();
           final existingCoverPath = (existing.localCoverPath ?? '').trim();
@@ -389,6 +412,21 @@ class LocalMusicService {
             _firstNonEmpty(tagInfo?.album, candidate.albumHint, '未知专辑') ??
             '未知专辑';
         final durationMs = tagInfo?.durationMs ?? candidate.durationMs;
+        if (settings.minDurationMs > 0 &&
+            durationMs != null &&
+            durationMs < settings.minDurationMs) {
+          processed += 1;
+          if (processed % 10 == 0) {
+            onProgress(
+              LocalScanProgress(
+                processed: processed,
+                added: added,
+                total: total,
+              ),
+            );
+          }
+          continue;
+        }
         final coverPath = await _resolveCoverPath(
           file: file,
           fileModifiedMs: modifiedMs,

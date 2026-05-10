@@ -151,6 +151,21 @@ class SongDao {
     return result;
   }
 
+  Future<int> deleteBySourceAndMaxDuration({
+    required String sourceId,
+    required int maxDurationMs,
+  }) async {
+    final db = await DbHelper.instance.database;
+    final result = await db.delete(
+      DbConstants.tableSongs,
+      where: 'sourceId = ? AND durationMs IS NOT NULL AND durationMs < ?',
+      whereArgs: [sourceId, maxDurationMs],
+    );
+    _cachedAll = null;
+    CacheVersionStore.instance.bump(cacheVersionScope);
+    return result;
+  }
+
   Future<int> deleteBySource(String sourceId) async {
     final db = await DbHelper.instance.database;
     final result = await db.delete(

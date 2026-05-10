@@ -145,6 +145,13 @@ class _LocalSourceSettingsPageState extends State<LocalSourceSettingsPage> {
   Future<void> _updateMinDuration(double value) async {
     final ms = (value * 1000).round();
     await _saveSettings(_settings.copyWith(minDurationMs: ms));
+    final removed = await _service.cleanupShortLocalSongs(ms);
+    final count = await _service.getLocalSongCount();
+    if (!mounted) return;
+    setState(() => _localCount = count);
+    if (removed > 0) {
+      AppToast.show(context, '已移除 $removed 首短音频', type: ToastType.info);
+    }
     await _reloadAlbums();
   }
 
