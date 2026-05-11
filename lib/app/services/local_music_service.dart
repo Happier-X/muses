@@ -169,10 +169,48 @@ class LocalMusicService {
 
   Future<int> cleanupShortLocalSongs(int minDurationMs) async {
     if (minDurationMs <= 0) return 0;
-    return _songDao.deleteBySourceAndMaxDuration(
+    var removed = await _songDao.deleteBySourceAndMaxDuration(
       sourceId: 'local',
       maxDurationMs: minDurationMs,
     );
+
+    final localSongs = await _songDao.fetchAll(sourceId: 'local');
+    final unknownDurationSongs = localSongs.where((song) {
+      final uri = (song.uri ?? '').trim();
+      return song.durationMs == null && uri.isNotEmpty;
+    }).toList();
+    if (unknownDurationSongs.isEmpty) {
+      return removed;
+    }
+
+    final resolvedSongs = <SongEntity>[];
+    final deleteIds = <String>[];
+
+    for (final song in unknownDurationSongs) {
+      final uri = (song.uri ?? '').trim();
+      if (uri.isEmpty) continue;
+      final file = File(uri);
+      if (!await file.exists()) continue;
+
+      final tagInfo = await _tagProbe.probeLocalBasicTags(uri: uri);
+      final durationMs = tagInfo?.durationMs;
+      if (durationMs == null || durationMs <= 0) {
+        continue;
+      }
+      if (durationMs < minDurationMs) {
+        deleteIds.add(song.id);
+        continue;
+      }
+      resolvedSongs.add(song.copyWith(durationMs: durationMs));
+    }
+
+    if (resolvedSongs.isNotEmpty) {
+      await _songDao.upsertSongs(resolvedSongs);
+    }
+    if (deleteIds.isNotEmpty) {
+      removed += await _songDao.deleteByIds(deleteIds);
+    }
+    return removed;
   }
 
   Future<List<AssetPathEntity>> loadAudioAlbums({int? minDurationMs}) async {

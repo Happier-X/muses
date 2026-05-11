@@ -217,30 +217,34 @@ class _PlayerView extends StatelessWidget {
             children: [
               Expanded(
                 flex: 5,
-                child: Center(
-                  child: _PlayerArtwork(songSignal: player.currentSongSignal),
+                child: Column(
+                  children: [
+                    const Spacer(),
+                    Expanded(
+                      flex: 8,
+                      child: Center(
+                        child: _PlayerArtwork(
+                          songSignal: player.currentSongSignal,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    PlayerHeader(songSignal: player.currentSongSignal),
+                    const Spacer(),
+                  ],
                 ),
               ),
               const SizedBox(width: 24),
               Expanded(
                 flex: 6,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      padding: EdgeInsets.zero,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight,
-                        ),
-                        child: Center(
-                          child: PlayerBottomPanel(
-                            player: player,
-                            onTapLyrics: onTapLyrics,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Container(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surface.withValues(alpha: 0.16),
+                    child: const PlayerLyricsView(),
+                  ),
                 ),
               ),
             ],

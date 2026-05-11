@@ -837,30 +837,46 @@ class _SongsPageState extends State<SongsPage>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) {
-        return SortSheet(
-          options: const [
-            SortOption(key: 'title', label: '歌曲名称', icon: Icons.sort_by_alpha),
-            SortOption(
-              key: 'artist',
-              label: '歌手名称',
-              icon: Icons.person_outline,
-            ),
-            SortOption(key: 'album', label: '专辑名称', icon: Icons.album_outlined),
-            SortOption(key: 'duration', label: '歌曲时长', icon: Icons.schedule),
-          ],
-          currentKey: _sortKey.value,
-          ascending: _ascending.value,
-          onSelectKey: (value) {
-            _sortKey.value = value;
-            _rebuildVisibleSongs();
-            _saveViewPrefs();
-          },
-          onSelectAscending: (value) {
-            _ascending.value = value;
-            _rebuildVisibleSongs();
-            _saveViewPrefs();
-          },
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
+        final tabletOverlayInset = AppLayoutSettings.tabletMode.value
+            ? MiniPlayerBar.estimatedHeight + bottomInset + 16
+            : 0.0;
+        return Padding(
+          padding: EdgeInsets.only(bottom: tabletOverlayInset),
+          child: SortSheet(
+            options: const [
+              SortOption(
+                key: 'title',
+                label: '歌曲名称',
+                icon: Icons.sort_by_alpha,
+              ),
+              SortOption(
+                key: 'artist',
+                label: '歌手名称',
+                icon: Icons.person_outline,
+              ),
+              SortOption(
+                key: 'album',
+                label: '专辑名称',
+                icon: Icons.album_outlined,
+              ),
+              SortOption(key: 'duration', label: '歌曲时长', icon: Icons.schedule),
+            ],
+            currentKey: _sortKey.value,
+            ascending: _ascending.value,
+            onSelectKey: (value) {
+              _sortKey.value = value;
+              _rebuildVisibleSongs();
+              _saveViewPrefs();
+            },
+            onSelectAscending: (value) {
+              _ascending.value = value;
+              _rebuildVisibleSongs();
+              _saveViewPrefs();
+            },
+          ),
         );
       },
     );
@@ -956,6 +972,10 @@ class _SongsPageState extends State<SongsPage>
         final isTabletLandscape =
             AppLayoutSettings.tabletMode.value &&
             MediaQuery.orientationOf(context) == Orientation.landscape;
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
+        final tabletMiniPlayerInset = AppLayoutSettings.tabletMode.value
+            ? MiniPlayerBar.estimatedHeight + bottomInset + 12
+            : 0.0;
         if (_isLoading.value) {
           return AppPageScaffold(
             key: _scaffoldKey,
@@ -1075,7 +1095,8 @@ class _SongsPageState extends State<SongsPage>
                         itemCount: visibleSongs.length,
                         itemExtent: _itemExtent,
                         bottomInset:
-                            MediaQuery.of(context).padding.bottom +
+                            bottomInset +
+                            tabletMiniPlayerInset +
                             (_multiSelect.value ? 160 : 80),
                         indexLabelBuilder: (index) =>
                             _indexLabelForSong(visibleSongs[index]),
@@ -1227,35 +1248,38 @@ class _SongsPageState extends State<SongsPage>
                       ),
               ),
               if (_multiSelect.value)
-                MultiSelectBottomBar(
-                  actions: [
-                    MultiSelectAction(
-                      icon: Icons.queue_play_next,
-                      label: '下一首播放',
-                      onTap: selectedCount == 0
-                          ? null
-                          : () {
-                              AppToast.show(
-                                context,
-                                '已添加 $selectedCount 首到下一首播放',
-                              );
-                              _toggleMultiSelect();
-                            },
-                    ),
-                    MultiSelectAction(
-                      icon: Icons.playlist_add,
-                      label: '收藏到歌单',
-                      onTap: selectedCount == 0
-                          ? null
-                          : _openAddToPlaylistSheet,
-                    ),
-                    MultiSelectAction(
-                      icon: Icons.delete_outline,
-                      label: '移除',
-                      isDestructive: true,
-                      onTap: selectedCount == 0 ? null : _removeSelectedSongs,
-                    ),
-                  ],
+                Padding(
+                  padding: EdgeInsets.only(bottom: tabletMiniPlayerInset),
+                  child: MultiSelectBottomBar(
+                    actions: [
+                      MultiSelectAction(
+                        icon: Icons.queue_play_next,
+                        label: '下一首播放',
+                        onTap: selectedCount == 0
+                            ? null
+                            : () {
+                                AppToast.show(
+                                  context,
+                                  '已添加 $selectedCount 首到下一首播放',
+                                );
+                                _toggleMultiSelect();
+                              },
+                      ),
+                      MultiSelectAction(
+                        icon: Icons.playlist_add,
+                        label: '收藏到歌单',
+                        onTap: selectedCount == 0
+                            ? null
+                            : _openAddToPlaylistSheet,
+                      ),
+                      MultiSelectAction(
+                        icon: Icons.delete_outline,
+                        label: '移除',
+                        isDestructive: true,
+                        onTap: selectedCount == 0 ? null : _removeSelectedSongs,
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
