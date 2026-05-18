@@ -1,4 +1,4 @@
-package com.lanke.nagomusic
+package com.happier.muses
 
 import android.content.ContentValues
 import android.app.Notification
@@ -21,10 +21,10 @@ import io.github.proify.lyricon.provider.LyriconFactory
 import io.github.proify.lyricon.provider.LyriconProvider
 
 class MainActivity : AudioServiceActivity() {
-    private val channelName = "com.lanke.nagomusic/meizu_lyrics"
-    private val lyriconChannelName = "com.lanke.nagomusic/lyricon"
-    private val downloadsChannelName = "com.lanke.nagomusic/downloads"
-    private val artworkChannelName = "com.lanke.nagomusic/native_artwork"
+    private val channelName = "com.happier.muses/meizu_lyrics"
+    private val lyriconChannelName = "com.happier.muses/lyricon"
+    private val downloadsChannelName = "com.happier.muses/downloads"
+    private val artworkChannelName = "com.happier.muses/native_artwork"
     private val notificationId = 10010
     private val notificationChannelId = "meizu_lyric_channel"
     private var flagShowTicker: Int? = null
@@ -101,7 +101,7 @@ class MainActivity : AudioServiceActivity() {
                     val sourcePath = call.argument<String>("sourcePath")
                     val fileName = call.argument<String>("fileName")
                     val mimeType = call.argument<String>("mimeType") ?: "audio/mpeg"
-                    val subdirectory = call.argument<String>("subdirectory") ?: "NagoMusic"
+                    val subdirectory = call.argument<String>("subdirectory") ?: "Muses"
                     if (sourcePath.isNullOrBlank() || fileName.isNullOrBlank()) {
                         result.error("invalid_args", "缺少文件信息", null)
                     } else {
