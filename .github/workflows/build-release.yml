@@ -7,6 +7,8 @@ on:
       - master
     paths:
       - pubspec.yaml
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
