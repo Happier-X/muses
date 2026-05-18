@@ -9,7 +9,7 @@ import java.io.FileInputStream
 import java.util.Properties
 
 android {
-    namespace = "com.lanke.nagomusic"
+    namespace = "com.happier.muses"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -25,7 +25,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.lanke.nagomusic"
+        applicationId = "com.happier.muses"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 27

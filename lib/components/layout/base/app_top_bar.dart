@@ -45,7 +45,9 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
       statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
     );
     return AppBar(
-      title: titleWidget ?? (title != null ? Text(title!, style: titleStyle) : null),
+      title:
+          titleWidget ??
+          (title != null ? Text(title!, style: titleStyle) : null),
       leading: leading,
       actions: actions,
       centerTitle: centerTitle,

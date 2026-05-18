@@ -53,7 +53,10 @@ class _WebDavFolderPickerPageState extends State<WebDavFolderPickerPage> {
       _error = null;
     });
     try {
-      final dirs = await _service.listDirectories(source: widget.source, path: _path);
+      final dirs = await _service.listDirectories(
+        source: widget.source,
+        path: _path,
+      );
       if (!mounted) return;
       setState(() {
         _dirs = dirs;
@@ -102,10 +105,7 @@ class _WebDavFolderPickerPageState extends State<WebDavFolderPickerPage> {
           TextButton(
             onPressed: _loading
                 ? null
-                : () => Navigator.pop(
-                      context,
-                      _selected.toList()..sort(),
-                    ),
+                : () => Navigator.pop(context, _selected.toList()..sort()),
             child: Text('完成($selectedCount)'),
           ),
         ],
@@ -200,7 +200,8 @@ class _WebDavFolderPickerPageState extends State<WebDavFolderPickerPage> {
                                 }
                               });
                             },
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                           ),
                           const Icon(Icons.chevron_right),

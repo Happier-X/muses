@@ -67,7 +67,10 @@ class WebDavSource {
     List<String> readList(String key) {
       final raw = json[key];
       if (raw is List) {
-        return raw.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+        return raw
+            .map((e) => e.toString())
+            .where((e) => e.trim().isNotEmpty)
+            .toList();
       }
       return const [];
     }
@@ -87,7 +90,8 @@ class WebDavSource {
 }
 
 class WebDavSourceRepository {
-  static final WebDavSourceRepository instance = WebDavSourceRepository._internal();
+  static final WebDavSourceRepository instance =
+      WebDavSourceRepository._internal();
   WebDavSourceRepository._internal();
 
   static const String _prefsKey = 'webdav_sources_v1';

@@ -15,6 +15,6 @@ Future<void> main() async {
   await AppThemeSettings.ensureLoaded();
   await AppLayoutSettings.ensureLoaded();
   await AppBackgroundSettings.ensureLoaded();
-  runApp(const NagoMusicApp());
+  runApp(const MusesApp());
   SongDao().fetchAllCached();
 }

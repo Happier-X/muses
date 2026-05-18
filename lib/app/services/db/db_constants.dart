@@ -1,5 +1,5 @@
 class DbConstants {
-  static const String dbName = 'nagomusic.db';
+  static const String dbName = 'muses.db';
   static const int dbVersion = 9;
   static const String tableSongs = 'songs';
   static const String tablePlaylists = 'playlists';

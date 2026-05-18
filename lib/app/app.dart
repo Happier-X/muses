@@ -7,13 +7,13 @@ import 'router/app_router.dart';
 import 'state/settings_state.dart';
 import 'theme/app_styles.dart';
 
-class NagoMusicApp extends StatelessWidget {
+class MusesApp extends StatelessWidget {
   static final GlobalKey<NavigatorState> rootNavigatorKey =
       GlobalKey<NavigatorState>();
   static final GlobalKey<NavigatorState> baseNavigatorKey =
       GlobalKey<NavigatorState>();
 
-  const NagoMusicApp({super.key});
+  const MusesApp({super.key});
 
   ThemeData _applyDynamic(ThemeData base, ColorScheme? scheme) {
     final appliedScheme = scheme ?? base.colorScheme;
@@ -131,7 +131,7 @@ class NagoMusicApp extends StatelessWidget {
                     }
 
                     return MaterialApp(
-                      title: 'NagoMusic',
+                      title: 'Muses',
                       navigatorKey: rootNavigatorKey,
                       theme: lightTheme,
                       darkTheme: darkTheme,

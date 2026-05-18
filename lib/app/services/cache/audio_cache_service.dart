@@ -43,12 +43,7 @@ class AudioCacheService {
     try {
       final paths = await _pathsFor(uri: parsed, headers: headers);
       final tmp = File('${paths.complete.path}.tmp');
-      final candidates = <File>[
-        paths.complete,
-        paths.part,
-        paths.marker,
-        tmp,
-      ];
+      final candidates = <File>[paths.complete, paths.part, paths.marker, tmp];
       for (final f in candidates) {
         try {
           if (await f.exists()) {
@@ -235,7 +230,9 @@ class AudioCacheService {
     }
 
     final currentSize = await paths.part.length();
-    final isComplete = expectedTotal != null ? currentSize >= expectedTotal : false;
+    final isComplete = expectedTotal != null
+        ? currentSize >= expectedTotal
+        : false;
     if (!isComplete) return paths.part;
 
     if (await paths.complete.exists()) {
@@ -426,10 +423,7 @@ class AudioCacheService {
           method: 'HEAD',
           responseType: ResponseType.stream,
           validateStatus: (code) => code != null && code >= 200 && code < 500,
-          headers: {
-            ...?headers,
-            'Accept-Encoding': 'identity',
-          },
+          headers: {...?headers, 'Accept-Encoding': 'identity'},
         ),
       );
       final len = _expectedTotalBytes(
@@ -473,21 +467,24 @@ class AudioCacheService {
     required int statusCode,
     required Map<String, List<String>> headers,
   }) {
-    final contentRange = headers.entries
-        .firstWhere(
-          (e) => e.key.toLowerCase() == 'content-range',
-          orElse: () => const MapEntry('', []),
-        )
-        .value
-        .isNotEmpty
-        ? headers.entries
-            .firstWhere((e) => e.key.toLowerCase() == 'content-range')
+    final contentRange =
+        headers.entries
+            .firstWhere(
+              (e) => e.key.toLowerCase() == 'content-range',
+              orElse: () => const MapEntry('', []),
+            )
             .value
-            .first
+            .isNotEmpty
+        ? headers.entries
+              .firstWhere((e) => e.key.toLowerCase() == 'content-range')
+              .value
+              .first
         : null;
 
     if (contentRange != null) {
-      final match = RegExp(r'bytes\s+\d+-\d+/(\d+|\*)').firstMatch(contentRange);
+      final match = RegExp(
+        r'bytes\s+\d+-\d+/(\d+|\*)',
+      ).firstMatch(contentRange);
       final total = match?.group(1);
       if (total != null && total != '*') {
         return int.tryParse(total);
@@ -495,17 +492,18 @@ class AudioCacheService {
     }
 
     if (statusCode == 200) {
-      final contentLength = headers.entries
-          .firstWhere(
-            (e) => e.key.toLowerCase() == 'content-length',
-            orElse: () => const MapEntry('', []),
-          )
-          .value
-          .isNotEmpty
-          ? headers.entries
-              .firstWhere((e) => e.key.toLowerCase() == 'content-length')
+      final contentLength =
+          headers.entries
+              .firstWhere(
+                (e) => e.key.toLowerCase() == 'content-length',
+                orElse: () => const MapEntry('', []),
+              )
               .value
-              .first
+              .isNotEmpty
+          ? headers.entries
+                .firstWhere((e) => e.key.toLowerCase() == 'content-length')
+                .value
+                .first
           : null;
       if (contentLength != null) return int.tryParse(contentLength);
     }
@@ -514,7 +512,8 @@ class AudioCacheService {
 
   String _headersKey(Map<String, String>? headers) {
     if (headers == null || headers.isEmpty) return '';
-    final entries = headers.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+    final entries = headers.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
     return entries.map((e) => '${e.key}=${e.value}').join('&');
   }
 
@@ -537,7 +536,9 @@ class AudioCacheService {
       await cacheDir.create(recursive: true);
     }
 
-    final ext = p.extension(uri.path).isNotEmpty ? p.extension(uri.path) : '.mp3';
+    final ext = p.extension(uri.path).isNotEmpty
+        ? p.extension(uri.path)
+        : '.mp3';
     final key = _hashKey('audio:${uri.toString()}:${_headersKey(headers)}');
 
     final complete = File(p.join(cacheDir.path, '$key${ext.toLowerCase()}'));
@@ -553,7 +554,10 @@ class AudioCacheService {
 
     int total = 0;
     try {
-      await for (final f in cacheDir.list(recursive: true, followLinks: false)) {
+      await for (final f in cacheDir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (f is File) {
           total += await f.length();
         }
@@ -583,13 +587,18 @@ class AudioCacheService {
     final items = <_CacheEntry>[];
     int total = 0;
     try {
-      await for (final f in cacheDir.list(recursive: false, followLinks: false)) {
+      await for (final f in cacheDir.list(
+        recursive: false,
+        followLinks: false,
+      )) {
         if (f is! File) continue;
         final path = f.path;
         if (path.endsWith('.part') || path.endsWith('.complete')) continue;
         final stat = await f.stat();
         if (stat.size <= 0) continue;
-        items.add(_CacheEntry(file: f, size: stat.size, modified: stat.modified));
+        items.add(
+          _CacheEntry(file: f, size: stat.size, modified: stat.modified),
+        );
         total += stat.size;
       }
     } catch (_) {

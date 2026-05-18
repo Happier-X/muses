@@ -37,9 +37,7 @@ class ArtworkCacheHelper {
     }
   }
 
-  static Future<void> removeCachedArtwork({
-    required String key,
-  }) async {
+  static Future<void> removeCachedArtwork({required String key}) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory(p.join(dir.path, 'artwork_cache'));

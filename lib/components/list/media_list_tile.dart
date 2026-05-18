@@ -35,8 +35,9 @@ class MediaListTile extends StatelessWidget {
     final subtitleColor = isHighlighted
         ? theme.colorScheme.primary
         : (isDark ? Colors.white70 : const Color.fromARGB(255, 100, 100, 100));
-    final titleColor =
-        isHighlighted ? theme.colorScheme.primary : theme.colorScheme.onSurface;
+    final titleColor = isHighlighted
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurface;
 
     final leadingWidget = multiSelect
         ? Row(
@@ -45,7 +46,9 @@ class MediaListTile extends StatelessWidget {
               Icon(
                 selected ? Icons.check_circle : Icons.circle_outlined,
                 size: 20,
-                color: selected ? theme.colorScheme.primary : theme.disabledColor,
+                color: selected
+                    ? theme.colorScheme.primary
+                    : theme.disabledColor,
               ),
               const SizedBox(width: 12),
               leading ?? const SizedBox.shrink(),

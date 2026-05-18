@@ -20,9 +20,19 @@ class ModernNavigationBar extends StatelessWidget {
         children: [
           _buildItem(context, 0, Icons.home_rounded, Icons.home_outlined, '首页'),
           _buildItem(
-              context, 1, Icons.music_note_rounded, Icons.music_note_outlined, '歌曲'),
+            context,
+            1,
+            Icons.music_note_rounded,
+            Icons.music_note_outlined,
+            '歌曲',
+          ),
           _buildItem(
-              context, 2, Icons.folder_rounded, Icons.folder_outlined, '音源'),
+            context,
+            2,
+            Icons.folder_rounded,
+            Icons.folder_outlined,
+            '音源',
+          ),
         ],
       ),
     );

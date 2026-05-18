@@ -1,4 +1,4 @@
-name: nagomusic
+name: muses
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -71,6 +71,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
+  msix: ^3.16.0
   path_provider_platform_interface: ^2.1.2
 
 # For information on the generic Dart part of this file, see the
@@ -118,3 +119,11 @@ flutter_launcher_icons:
   ios: true
   image_path: "开发文档/NagoAPP图标.png"
   min_sdk_android: 21
+
+msix_config:
+  display_name: Muses
+  publisher_display_name: Happier
+  identity_name: com.happier.muses
+  msix_version: 1.2.8.7
+  logo_path: 开发文档/NagoAPP图标.png
+  capabilities: internetClient,backgroundExecution

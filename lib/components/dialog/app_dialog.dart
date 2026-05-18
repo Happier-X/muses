@@ -22,7 +22,10 @@ class AppDialog extends StatelessWidget {
     required this.onConfirm,
     this.isDestructive = false,
     this.showCancel = true,
-  }) : assert(content != null || contentText != null, 'Either content or contentText must be provided');
+  }) : assert(
+         content != null || contentText != null,
+         'Either content or contentText must be provided',
+       );
 
   static Future<bool?> showConfirm(
     BuildContext context, {
@@ -49,18 +52,15 @@ class AppDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor =
-        Theme.of(context).dialogTheme.backgroundColor ?? Theme.of(context).colorScheme.surface;
+        Theme.of(context).dialogTheme.backgroundColor ??
+        Theme.of(context).colorScheme.surface;
 
     return Dialog(
       backgroundColor: backgroundColor,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minWidth: double.infinity,
-        ),
+        constraints: const BoxConstraints(minWidth: double.infinity),
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
@@ -81,7 +81,9 @@ class AppDialog extends StatelessWidget {
                     contentText!,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Theme.of(context).textTheme.bodyMedium?.color?.withAlpha(204),
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.color?.withAlpha(204),
                       height: 1.5,
                     ),
                   )
@@ -99,16 +101,23 @@ class AppDialog extends StatelessWidget {
                               backgroundColor: isDark
                                   ? Colors.white.withAlpha(20)
                                   : Colors.grey.withAlpha(26),
-                              foregroundColor: isDark ? Colors.white70 : Colors.black87,
+                              foregroundColor: isDark
+                                  ? Colors.white70
+                                  : Colors.black87,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(22),
                               ),
                               elevation: 0,
                             ),
-                            onPressed: onCancel ?? () => Navigator.of(context).pop(false),
+                            onPressed:
+                                onCancel ??
+                                () => Navigator.of(context).pop(false),
                             child: Text(
                               cancelText,
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ),
@@ -137,7 +146,10 @@ class AppDialog extends StatelessWidget {
                           },
                           child: Text(
                             confirmText,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ),

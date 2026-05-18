@@ -66,7 +66,9 @@ class LyricsParser {
         final leftOnlyHan =
             han.hasMatch(left) && !kana.hasMatch(left) && !latin.hasMatch(left);
         final rightOnlyHan =
-            han.hasMatch(right) && !kana.hasMatch(right) && !latin.hasMatch(right);
+            han.hasMatch(right) &&
+            !kana.hasMatch(right) &&
+            !latin.hasMatch(right);
         if (leftOnlyHan && rightOnlyHan) {
           mainText = fullText;
           transText = null;
@@ -93,8 +95,9 @@ class LyricsParser {
 
   static List<ParsedLyricLine> parseLrc(String lrc) {
     final lines = <ParsedLyricLine>[];
-    final rawLines =
-        lrc.split(RegExp(r'\r?\n')).where((e) => e.trim().isNotEmpty);
+    final rawLines = lrc
+        .split(RegExp(r'\r?\n'))
+        .where((e) => e.trim().isNotEmpty);
     final timeReg = RegExp(r'\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]');
 
     for (final raw in rawLines) {
@@ -123,7 +126,8 @@ class LyricsParser {
             }
           }
         }
-        final isEndTimestampLine = matches.length == 2 &&
+        final isEndTimestampLine =
+            matches.length == 2 &&
             textBetweenCount == 1 &&
             raw.substring(matches.last.end).trim().isEmpty;
         final hasInterleavedText = textBetweenCount > 1;
@@ -141,7 +145,10 @@ class LyricsParser {
       if (validMatches.isEmpty) {
         if (mainText.isNotEmpty) {
           final isDuplicate = lines.any(
-            (l) => l.time == null && l.text == mainText && l.translation == transText,
+            (l) =>
+                l.time == null &&
+                l.text == mainText &&
+                l.translation == transText,
           );
           if (!isDuplicate) {
             lines.add(ParsedLyricLine(null, mainText, translation: transText));
@@ -152,7 +159,8 @@ class LyricsParser {
 
       for (final m in validMatches) {
         final d = _parseTimeMatch(m);
-        if (mainText.isNotEmpty || (transText != null && transText.isNotEmpty)) {
+        if (mainText.isNotEmpty ||
+            (transText != null && transText.isNotEmpty)) {
           if (transText == null && lines.isNotEmpty) {
             final existingIndex = lines.lastIndexWhere((l) => l.time == d);
             if (existingIndex != -1) {
@@ -169,7 +177,8 @@ class LyricsParser {
             }
           }
           final isDuplicate = lines.any(
-            (l) => l.time == d && l.text == mainText && l.translation == transText,
+            (l) =>
+                l.time == d && l.text == mainText && l.translation == transText,
           );
           if (!isDuplicate) {
             lines.add(ParsedLyricLine(d, mainText, translation: transText));
@@ -200,15 +209,19 @@ class LyricsParser {
     if (count > 5000) return null;
 
     final weights = tokens.map((t) => t.weight).toList();
-    final weightSum =
-        weights.fold<double>(0.0, (sum, w) => sum + (w.isFinite ? w : 0.0));
+    final weightSum = weights.fold<double>(
+      0.0,
+      (sum, w) => sum + (w.isFinite ? w : 0.0),
+    );
     if (weightSum <= 0) {
       return _fallbackEvenWords(text, start, end);
     }
 
     final minMs = (totalMs / (count * 3)).floor().clamp(20, 80);
-    final maxMs =
-        math.min(1600, math.max(minMs, (totalMs * 0.45).round().clamp(120, 1600)));
+    final maxMs = math.min(
+      1600,
+      math.max(minMs, (totalMs * 0.45).round().clamp(120, 1600)),
+    );
 
     final durations = List<int>.generate(count, (i) {
       final d = (totalMs * (weights[i] / weightSum)).round();
@@ -306,8 +319,9 @@ class LyricsParser {
     for (int k = 0; k < len; k++) {
       final ch = String.fromCharCode(runes[k]);
       final wordStartMs = startMs + ((totalMs * k) ~/ len);
-      final wordEndMs =
-          k == len - 1 ? endMs : startMs + ((totalMs * (k + 1)) ~/ len);
+      final wordEndMs = k == len - 1
+          ? endMs
+          : startMs + ((totalMs * (k + 1)) ~/ len);
       final ws = Duration(milliseconds: wordStartMs);
       final we = Duration(milliseconds: math.max(wordEndMs, wordStartMs + 1));
       words.add(fl.LyricWord(text: ch, start: ws, end: we));
@@ -457,8 +471,9 @@ class LyricsParser {
     bool forceKaraoke = false,
   }) {
     final modelLines = <fl.LyricLine>[];
-    final rawLines =
-        lrc.split(RegExp(r'\r?\n')).where((e) => e.trim().isNotEmpty);
+    final rawLines = lrc
+        .split(RegExp(r'\r?\n'))
+        .where((e) => e.trim().isNotEmpty);
     final timeReg = RegExp(r'\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]');
     final seenTimes = <int>{};
 
@@ -488,7 +503,8 @@ class LyricsParser {
           }
         }
       }
-      final isEndTimestampLine = matches.length == 2 &&
+      final isEndTimestampLine =
+          matches.length == 2 &&
           textBetweenCount == 1 &&
           raw.substring(matches.last.end).trim().isEmpty;
       final hasInterleavedText = textBetweenCount > 1;
@@ -506,7 +522,9 @@ class LyricsParser {
         final words = <fl.LyricWord>[];
         for (int i = 0; i < matches.length; i++) {
           final segStart = matches[i].end;
-          final segEnd = i + 1 < matches.length ? matches[i + 1].start : raw.length;
+          final segEnd = i + 1 < matches.length
+              ? matches[i + 1].start
+              : raw.length;
           if (segEnd < segStart) continue;
           final segment = raw.substring(segStart, segEnd);
           if (segment.trim().isEmpty) continue;
@@ -514,11 +532,7 @@ class LyricsParser {
           final wordStart = timestamps[i];
           final wordEnd = i + 1 < timestamps.length ? timestamps[i + 1] : null;
           words.add(
-            fl.LyricWord(
-              text: segment,
-              start: wordStart,
-              end: wordEnd,
-            ),
+            fl.LyricWord(text: segment, start: wordStart, end: wordEnd),
           );
         }
 
@@ -553,7 +567,8 @@ class LyricsParser {
           final existingIndex = modelLines.lastIndexWhere((l) => l.start == d);
           if (existingIndex != -1) {
             final existing = modelLines[existingIndex];
-            if ((existing.translation == null || existing.translation!.isEmpty) &&
+            if ((existing.translation == null ||
+                    existing.translation!.isEmpty) &&
                 transText == null &&
                 _isTranslationCandidate(existing.text, mainText)) {
               modelLines[existingIndex] = fl.LyricLine(
@@ -579,11 +594,7 @@ class LyricsParser {
           }
           if (!seenTimes.add(d.inMilliseconds)) continue;
           modelLines.add(
-            fl.LyricLine(
-              start: d,
-              text: mainText,
-              translation: transText,
-            ),
+            fl.LyricLine(start: d, text: mainText, translation: transText),
           );
         }
       }
@@ -632,13 +643,15 @@ class LyricsParser {
     for (int i = 0; i < modelLines.length; i++) {
       final line = modelLines[i];
       final start = line.start;
-      final rawNextStart =
-          (i + 1 < modelLines.length) ? modelLines[i + 1].start : null;
+      final rawNextStart = (i + 1 < modelLines.length)
+          ? modelLines[i + 1].start
+          : null;
       final nextStart = (rawNextStart != null && rawNextStart == start)
           ? null
           : rawNextStart;
       final currentEnd = line.end;
-      var effectiveEnd = (currentEnd != null &&
+      var effectiveEnd =
+          (currentEnd != null &&
               currentEnd > start &&
               (nextStart == null || currentEnd <= nextStart))
           ? currentEnd
@@ -660,17 +673,14 @@ class LyricsParser {
         final fixedWords = <fl.LyricWord>[];
         for (int w = 0; w < words.length; w++) {
           final word = words[w];
-          Duration wordEnd = word.end ??
+          Duration wordEnd =
+              word.end ??
               ((w + 1 < words.length) ? words[w + 1].start : effectiveEnd);
           if (wordEnd <= word.start) {
             wordEnd = word.start + const Duration(milliseconds: 1);
           }
           fixedWords.add(
-            fl.LyricWord(
-              text: word.text,
-              start: word.start,
-              end: wordEnd,
-            ),
+            fl.LyricWord(text: word.text, start: word.start, end: wordEnd),
           );
         }
         words = fixedWords;
@@ -700,9 +710,6 @@ class _KaraokeToken {
   const _KaraokeToken(this.text, this.weight);
 
   _KaraokeToken copyWith({String? text, double? weight}) {
-    return _KaraokeToken(
-      text ?? this.text,
-      weight ?? this.weight,
-    );
+    return _KaraokeToken(text ?? this.text, weight ?? this.weight);
   }
 }

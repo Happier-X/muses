@@ -62,7 +62,7 @@ class SideMenu extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     Text(
-                      'NagoMusic',
+                      'Muses',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),

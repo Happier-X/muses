@@ -35,8 +35,9 @@ class AppListTile extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final defaultTitleColor = theme.colorScheme.onSurface;
-    final defaultSubtitleColor =
-        isDark ? Colors.white70 : const Color.fromARGB(255, 100, 100, 100);
+    final defaultSubtitleColor = isDark
+        ? Colors.white70
+        : const Color.fromARGB(255, 100, 100, 100);
 
     return Material(
       color: backgroundColor ?? Colors.transparent,
@@ -44,7 +45,8 @@ class AppListTile extends StatelessWidget {
         dense: dense,
         contentPadding: contentPadding,
         leading: leading,
-        title: titleWidget ??
+        title:
+            titleWidget ??
             (title != null
                 ? Text(
                     title!,

@@ -7,7 +7,7 @@ class NativeAudioThumbnailService {
       NativeAudioThumbnailService._();
 
   static const MethodChannel _channel = MethodChannel(
-    'com.lanke.nagomusic/native_artwork',
+    'com.happier.muses/native_artwork',
   );
 
   Future<Uint8List?> loadThumbnail(String? path, {int size = 320}) async {

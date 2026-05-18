@@ -152,9 +152,9 @@ class _ListeningStatsPageState extends State<ListeningStatsPage> {
           child: Text(
             _monthTitle(_month),
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
         IconButton(
@@ -171,11 +171,11 @@ class _ListeningStatsPageState extends State<ListeningStatsPage> {
     final firstDay = DateTime(_month.year, _month.month, 1);
     final leadingEmpty = firstDay.weekday - 1;
     final totalCells = ((leadingEmpty + daysInMonth) / 7).ceil() * 7;
-    final statsMap = {
-      for (final stat in _monthStats) stat.dayKey: stat,
-    };
-    final maxListenMs =
-        _monthStats.fold<int>(0, (max, stat) => stat.listenMs > max ? stat.listenMs : max);
+    final statsMap = {for (final stat in _monthStats) stat.dayKey: stat};
+    final maxListenMs = _monthStats.fold<int>(
+      0,
+      (max, stat) => stat.listenMs > max ? stat.listenMs : max,
+    );
     final labels = ['一', '二', '三', '四', '五', '六', '日'];
     return Column(
       children: [
@@ -211,14 +211,18 @@ class _ListeningStatsPageState extends State<ListeningStatsPage> {
             if (dayNumber < 1 || dayNumber > daysInMonth) {
               return const SizedBox.shrink();
             }
-            final dayKey = _dayKey(DateTime(_month.year, _month.month, dayNumber));
+            final dayKey = _dayKey(
+              DateTime(_month.year, _month.month, dayNumber),
+            );
             final stat = statsMap[dayKey];
             final ratio = maxListenMs == 0 || stat == null
                 ? 0.0
                 : (stat.listenMs / maxListenMs).clamp(0.0, 1.0);
             final hasListen = stat != null && stat.listenMs > 0;
             final bgColor = hasListen
-                ? theme.colorScheme.primary.withValues(alpha: 0.18 + 0.62 * ratio)
+                ? theme.colorScheme.primary.withValues(
+                    alpha: 0.18 + 0.62 * ratio,
+                  )
                 : Colors.transparent;
             final textColor = hasListen && ratio > 0.45
                 ? theme.colorScheme.onPrimary
@@ -250,12 +254,15 @@ class _ListeningStatsPageState extends State<ListeningStatsPage> {
   }
 
   Widget _buildMonthSummary(BuildContext context) {
-    final totalListenMs =
-        _monthStats.fold<int>(0, (sum, stat) => sum + stat.listenMs);
-    final totalPlayCount =
-        _monthStats.fold<int>(0, (sum, stat) => sum + stat.playCount);
-    final daysListened =
-        _monthStats.where((stat) => stat.listenMs > 0).length;
+    final totalListenMs = _monthStats.fold<int>(
+      0,
+      (sum, stat) => sum + stat.listenMs,
+    );
+    final totalPlayCount = _monthStats.fold<int>(
+      0,
+      (sum, stat) => sum + stat.playCount,
+    );
+    final daysListened = _monthStats.where((stat) => stat.listenMs > 0).length;
     return AppSettingSection(
       title: '本月概览',
       children: [
@@ -281,10 +288,7 @@ class _ListeningStatsPageState extends State<ListeningStatsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '高频歌曲',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        Text('高频歌曲', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Card(
           child: _topSongs.isEmpty
@@ -378,10 +382,7 @@ class _StatRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _StatRow({
-    required this.label,
-    required this.value,
-  });
+  const _StatRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -389,9 +390,9 @@ class _StatRow extends StatelessWidget {
       title: label,
       trailing: Text(
         value,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -401,8 +402,5 @@ class _SongStatRow {
   final SongEntity song;
   final SongListeningStat stat;
 
-  const _SongStatRow({
-    required this.song,
-    required this.stat,
-  });
+  const _SongStatRow({required this.song, required this.stat});
 }

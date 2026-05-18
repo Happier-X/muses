@@ -43,12 +43,15 @@ class _PlayerAppearanceSettingsPageState
     final borderColor = selected
         ? scheme.primary
         : (isDark ? Colors.white12 : Colors.black12);
-    final iconColor =
-        selected ? scheme.primary : (isDark ? Colors.white70 : Colors.black54);
-    final textColor =
-        selected ? scheme.primary : (isDark ? Colors.white70 : Colors.black87);
-    final background =
-        selected ? scheme.primary.withAlpha(31) : Colors.transparent;
+    final iconColor = selected
+        ? scheme.primary
+        : (isDark ? Colors.white70 : Colors.black54);
+    final textColor = selected
+        ? scheme.primary
+        : (isDark ? Colors.white70 : Colors.black87);
+    final background = selected
+        ? scheme.primary.withAlpha(31)
+        : Colors.transparent;
     return Expanded(
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -65,10 +68,7 @@ class _PlayerAppearanceSettingsPageState
             children: [
               Icon(icon, color: iconColor, size: 22),
               const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, color: textColor),
-              ),
+              Text(label, style: TextStyle(fontSize: 12, color: textColor)),
             ],
           ),
         ),
@@ -162,8 +162,7 @@ class _PlayerAppearanceSettingsPageState
                 },
               ),
               ValueListenableBuilder<ThemeMode>(
-                valueListenable:
-                    PlayerBackgroundSettings.playbackThemeMode,
+                valueListenable: PlayerBackgroundSettings.playbackThemeMode,
                 builder: (context, mode, _) {
                   return _modeRow(
                     context,

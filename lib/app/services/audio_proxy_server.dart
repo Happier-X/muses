@@ -75,8 +75,13 @@ class AudioProxyServer {
   }) async {
     await start();
     // Create a unique token based on cache path and time to prevent collisions
-    final token = '${cacheFile.path.hashCode}_${DateTime.now().microsecondsSinceEpoch}';
-    _sources[token] = _StreamSource(uri: uri, headers: headers, cacheFile: cacheFile);
+    final token =
+        '${cacheFile.path.hashCode}_${DateTime.now().microsecondsSinceEpoch}';
+    _sources[token] = _StreamSource(
+      uri: uri,
+      headers: headers,
+      cacheFile: cacheFile,
+    );
     return Uri.parse('http://127.0.0.1:${_server!.port}/stream?token=$token');
   }
 
@@ -90,7 +95,9 @@ class AudioProxyServer {
     final token = request.url.queryParameters['token'];
     if (token == null) {
       if (kDebugMode) {
-        debugPrint('AudioProxyServer 404: missing token ${request.requestedUri}');
+        debugPrint(
+          'AudioProxyServer 404: missing token ${request.requestedUri}',
+        );
       }
       return Response.notFound('');
     }
@@ -138,12 +145,17 @@ class AudioProxyServer {
 
     if (range.start >= length) {
       headers[HttpHeaders.contentRangeHeader] = 'bytes */$length';
-      return Response(HttpStatus.requestedRangeNotSatisfiable, headers: headers);
+      return Response(
+        HttpStatus.requestedRangeNotSatisfiable,
+        headers: headers,
+      );
     }
 
     final end = range.end >= length ? length - 1 : range.end;
-    headers[HttpHeaders.contentRangeHeader] = 'bytes ${range.start}-$end/$length';
-    headers[HttpHeaders.contentLengthHeader] = (end - range.start + 1).toString();
+    headers[HttpHeaders.contentRangeHeader] =
+        'bytes ${range.start}-$end/$length';
+    headers[HttpHeaders.contentLengthHeader] = (end - range.start + 1)
+        .toString();
     if (request.method == 'HEAD') {
       return Response(HttpStatus.partialContent, headers: headers);
     }
@@ -176,11 +188,13 @@ class AudioProxyServer {
     // Only resume if the request starts from 0 (normal playback start)
     // and we have a non-empty partial file
     final isResumeCandidate =
-        (requestedRange == null || requestedRange.start == 0) && localLength > 0;
-    
+        (requestedRange == null || requestedRange.start == 0) &&
+        localLength > 0;
+
     // If resuming, adjust the range header sent to remote
-    var effectiveRangeHeader =
-        isResumeCandidate ? 'bytes=$localLength-' : rangeHeader;
+    var effectiveRangeHeader = isResumeCandidate
+        ? 'bytes=$localLength-'
+        : rangeHeader;
 
     dio.Response<dio.ResponseBody> remoteResponse;
     try {
@@ -194,9 +208,9 @@ class AudioProxyServer {
     }
 
     var remoteStatus = remoteResponse.statusCode ?? 0;
-    
+
     // Handle edge cases where resumption might fail or be rejected
-    
+
     // 1. If remote returns 404/405 for HEAD, try generic GET
     if (request.method == 'HEAD' &&
         (remoteStatus == HttpStatus.notFound ||
@@ -259,9 +273,7 @@ class AudioProxyServer {
     if (remoteStatus >= 400) {
       if (kDebugMode) {
         final real = remoteResponse.realUri;
-        debugPrint(
-          'AudioProxyServer remote $remoteStatus: ${real.toString()}',
-        );
+        debugPrint('AudioProxyServer remote $remoteStatus: ${real.toString()}');
       }
       return Response(remoteStatus);
     }
@@ -285,8 +297,9 @@ class AudioProxyServer {
     var isResuming = false;
     if (isResumeCandidate &&
         remoteResponse.statusCode == HttpStatus.partialContent) {
-      final contentRange =
-          remoteResponse.headers.value(HttpHeaders.contentRangeHeader);
+      final contentRange = remoteResponse.headers.value(
+        HttpHeaders.contentRangeHeader,
+      );
       if (contentRange != null) {
         final parsed = _parseContentRange(contentRange);
         if (parsed != null && parsed.start == localLength) {
@@ -314,7 +327,8 @@ class AudioProxyServer {
 
     // Adjust headers for the client if we are stitching streams
     if (isResuming) {
-      final remoteLen = int.tryParse(
+      final remoteLen =
+          int.tryParse(
             remoteResponse.headers.value(HttpHeaders.contentLengthHeader) ?? '',
           ) ??
           0;
@@ -323,8 +337,9 @@ class AudioProxyServer {
         headers[HttpHeaders.contentLengthHeader] = totalLen.toString();
       }
 
-      final remoteContentRange =
-          remoteResponse.headers.value(HttpHeaders.contentRangeHeader);
+      final remoteContentRange = remoteResponse.headers.value(
+        HttpHeaders.contentRangeHeader,
+      );
       if (remoteContentRange != null) {
         final parsed = _parseContentRange(remoteContentRange);
         if (parsed != null) {
@@ -337,7 +352,8 @@ class AudioProxyServer {
     }
 
     IOSink? sink;
-    final canCache = (requestedRange == null || requestedRange.start == 0) &&
+    final canCache =
+        (requestedRange == null || requestedRange.start == 0) &&
         (remoteResponse.statusCode == HttpStatus.ok ||
             remoteResponse.statusCode == HttpStatus.partialContent);
 
@@ -345,15 +361,17 @@ class AudioProxyServer {
     var shouldComplete = false;
     int? expectedWriteBytes;
     if (remoteResponse.statusCode == HttpStatus.ok) {
-      final remoteLen =
-          int.tryParse(remoteResponse.headers.value(HttpHeaders.contentLengthHeader) ?? '');
+      final remoteLen = int.tryParse(
+        remoteResponse.headers.value(HttpHeaders.contentLengthHeader) ?? '',
+      );
       if (remoteLen != null && remoteLen > 0) {
         shouldComplete = true;
         expectedWriteBytes = remoteLen;
       }
     } else if (remoteResponse.statusCode == HttpStatus.partialContent) {
-      final contentRange =
-          remoteResponse.headers.value(HttpHeaders.contentRangeHeader);
+      final contentRange = remoteResponse.headers.value(
+        HttpHeaders.contentRangeHeader,
+      );
       if (contentRange != null) {
         final parsed = _parseContentRange(contentRange);
         if (parsed != null) {
@@ -363,7 +381,8 @@ class AudioProxyServer {
               expectedWriteBytes = parsed.total - localLength;
             }
           } else {
-            shouldComplete = parsed.start == 0 && parsed.end + 1 == parsed.total;
+            shouldComplete =
+                parsed.start == 0 && parsed.end + 1 == parsed.total;
             if (shouldComplete) {
               expectedWriteBytes = parsed.total;
             }
@@ -374,7 +393,9 @@ class AudioProxyServer {
 
     if (canCache && shouldComplete) {
       await tmpFile.parent.create(recursive: true);
-      sink = tmpFile.openWrite(mode: isResuming ? FileMode.append : FileMode.write);
+      sink = tmpFile.openWrite(
+        mode: isResuming ? FileMode.append : FileMode.write,
+      );
     }
 
     if (request.method == 'HEAD') {
@@ -423,13 +444,13 @@ class AudioProxyServer {
     var written = 0;
     // Use a larger buffer size (64KB) to reduce stream events and overhead
     final buffer = BytesBuilder(copy: false);
-    const bufferSize = 64 * 1024; 
+    const bufferSize = 64 * 1024;
 
     try {
       await for (final data in remoteStream) {
         if (data.isEmpty) continue;
         buffer.add(data);
-        
+
         if (buffer.length >= bufferSize) {
           final chunk = buffer.takeBytes();
           written += chunk.length;
@@ -437,7 +458,7 @@ class AudioProxyServer {
           yield chunk;
         }
       }
-      
+
       // Yield remaining bytes
       if (buffer.isNotEmpty) {
         final chunk = buffer.takeBytes();
@@ -456,8 +477,9 @@ class AudioProxyServer {
         await sink?.close();
       } catch (_) {}
 
-      final expectedOk =
-          expectedWriteBytes == null ? true : written == expectedWriteBytes;
+      final expectedOk = expectedWriteBytes == null
+          ? true
+          : written == expectedWriteBytes;
       if (error == null &&
           canCache &&
           shouldComplete &&
@@ -478,7 +500,9 @@ class AudioProxyServer {
           } catch (_) {}
         }
         try {
-          await File('${cacheFile.path}.complete').writeAsString('1', flush: true);
+          await File(
+            '${cacheFile.path}.complete',
+          ).writeAsString('1', flush: true);
         } catch (_) {}
       }
     }

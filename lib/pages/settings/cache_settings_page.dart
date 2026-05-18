@@ -274,9 +274,7 @@ class _CacheSettingsPageState extends State<CacheSettingsPage>
                   builder: (context, enabled, _) {
                     return AppSettingSwitchTile(
                       title: '使用自定义下载目录',
-                      subtitle: enabled
-                          ? '保存到你设置的文件夹'
-                          : '默认保存到 Download/NagoMusic',
+                      subtitle: enabled ? '保存到你设置的文件夹' : '默认保存到 Download/Muses',
                       value: enabled,
                       onChanged: (value) async {
                         if (value &&
@@ -297,7 +295,7 @@ class _CacheSettingsPageState extends State<CacheSettingsPage>
                   builder: (context, pathValue, _) {
                     final subtitle =
                         (pathValue == null || pathValue.trim().isEmpty)
-                        ? '未设置，当前使用 Download/NagoMusic'
+                        ? '未设置，当前使用 Download/Muses'
                         : pathValue;
                     return AppSettingTile(
                       title: '下载路径',
@@ -309,7 +307,7 @@ class _CacheSettingsPageState extends State<CacheSettingsPage>
                 ),
                 AppSettingTile(
                   title: '恢复默认下载路径',
-                  subtitle: '切回系统 Download/NagoMusic 目录',
+                  subtitle: '切回系统 Download/Muses 目录',
                   trailing: const Icon(Icons.refresh_rounded),
                   onTap: _clearDownloadDirectory,
                 ),

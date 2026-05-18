@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nagomusic/app/services/lyrics/lyrics_parser.dart';
+import 'package:muses/app/services/lyrics/lyrics_parser.dart';
 
 void main() {
   test('parse translation line with same timestamp', () {

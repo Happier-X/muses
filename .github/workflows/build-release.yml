@@ -58,15 +58,43 @@ jobs:
             echo "- ${GITHUB_SHA}" > release_notes.txt
           fi
       - run: |
-          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk nagomusic-v${VERSION}-arm64-v8a.apk
-          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk nagomusic-v${VERSION}-armeabi-v7a.apk
-          mv build/app/outputs/flutter-apk/app-x86_64-release.apk nagomusic-v${VERSION}-x86_64.apk
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk muses-v${VERSION}-arm64-v8a.apk
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk muses-v${VERSION}-armeabi-v7a.apk
+          mv build/app/outputs/flutter-apk/app-x86_64-release.apk muses-v${VERSION}-x86_64.apk
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.TAG }}
           name: v${{ env.TAG }}
           body_path: release_notes.txt
           files: |
-            nagomusic-v${{ env.VERSION }}-arm64-v8a.apk
-            nagomusic-v${{ env.VERSION }}-armeabi-v7a.apk
-            nagomusic-v${{ env.VERSION }}-x86_64.apk
+            muses-v${{ env.VERSION }}-arm64-v8a.apk
+            muses-v${{ env.VERSION }}-armeabi-v7a.apk
+            muses-v${{ env.VERSION }}-x86_64.apk
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - run: |
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          TAG=${VERSION/+/-}
+          echo "VERSION=$VERSION" >> $env:GITHUB_ENV
+          echo "TAG=$TAG" >> $env:GITHUB_ENV
+      - run: dart run msix:create
+      - run: |
+          mv "build/windows/runner/Release/Muses.msix" "muses-v${env:VERSION}-x64.msix"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.TAG }}
+          name: v${{ env.TAG }}
+          update_existing: true
+          files: |
+            muses-v${{ env.VERSION }}-x64.msix

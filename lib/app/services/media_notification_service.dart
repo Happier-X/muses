@@ -48,7 +48,7 @@ class MediaNotificationService {
     _audioHandler = await AudioService.init(
       builder: () => _NagoAudioHandler(PlayerService.instance),
       config: const AudioServiceConfig(
-        androidNotificationChannelId: 'com.nagomusic.playback',
+        androidNotificationChannelId: 'com.muses.playback',
         androidNotificationChannelName: '音乐播放',
         androidNotificationOngoing: true,
         androidStopForegroundOnPause: true,

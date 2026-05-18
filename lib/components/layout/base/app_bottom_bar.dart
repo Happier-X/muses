@@ -24,13 +24,15 @@ class AppBottomBar extends StatelessWidget {
     final bg =
         backgroundColor ?? (isDark ? const Color(0xFF1C1F24) : Colors.white);
     final border =
-        borderColor ?? (isDark ? Colors.white.withAlpha(20) : Colors.black.withAlpha(13));
+        borderColor ??
+        (isDark ? Colors.white.withAlpha(20) : Colors.black.withAlpha(13));
 
     Widget body = Container(
       decoration: BoxDecoration(
         color: bg,
         border: Border(top: BorderSide(color: border, width: 1)),
-        boxShadow: boxShadow ??
+        boxShadow:
+            boxShadow ??
             [
               BoxShadow(
                 color: Colors.black.withAlpha(13),
@@ -40,7 +42,8 @@ class AppBottomBar extends StatelessWidget {
             ],
       ),
       child: Padding(
-        padding: padding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding:
+            padding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: child,
       ),
     );

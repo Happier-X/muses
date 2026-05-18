@@ -123,11 +123,11 @@ class _ToastWidgetState extends State<_ToastWidget>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? const Color(0xFF32363C) : Colors.white;
+    final backgroundColor = isDark ? const Color(0xFF32363C) : Colors.white;
     final textColor = isDark ? Colors.white.withAlpha(230) : Colors.black87;
-    final shadowColor =
-        Colors.black.withAlpha(((isDark ? 0.3 : 0.1) * 255).round());
+    final shadowColor = Colors.black.withAlpha(
+      ((isDark ? 0.3 : 0.1) * 255).round(),
+    );
 
     final safeBottom = MediaQuery.of(context).padding.bottom;
     final bottomOffset = safeBottom + 24;
@@ -160,16 +160,14 @@ class _ToastWidgetState extends State<_ToastWidget>
                     ),
                   ],
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      _getIcon(),
-                      size: 20,
-                      color: _getIconColor(isDark),
-                    ),
+                    Icon(_getIcon(), size: 20, color: _getIconColor(isDark)),
                     const SizedBox(width: 10),
                     Flexible(
                       child: Text(

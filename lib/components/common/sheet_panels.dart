@@ -19,8 +19,9 @@ class AppSheetPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cardColor = theme.cardTheme.color ?? theme.cardColor;
-    final secondaryTextColor =
-        isDark ? Colors.white70 : const Color.fromARGB(255, 100, 100, 100);
+    final secondaryTextColor = isDark
+        ? Colors.white70
+        : const Color.fromARGB(255, 100, 100, 100);
 
     return Container(
       decoration: BoxDecoration(
@@ -61,10 +62,7 @@ class AppSheetPanel extends StatelessWidget {
                 ),
               )
             else
-              Padding(
-                padding: padding ?? EdgeInsets.zero,
-                child: child,
-              ),
+              Padding(padding: padding ?? EdgeInsets.zero, child: child),
           ],
         ),
       ),

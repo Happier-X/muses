@@ -29,7 +29,7 @@ class SongDownloadService {
   static final SongDownloadService instance = SongDownloadService._();
 
   static const MethodChannel _channel = MethodChannel(
-    'com.lanke.nagomusic/downloads',
+    'com.happier.muses/downloads',
   );
 
   final AudioCacheService _audioCache = AudioCacheService.instance;
@@ -56,7 +56,7 @@ class SongDownloadService {
         'sourcePath': source.path,
         'fileName': fileName,
         'mimeType': _mimeTypeFor(fileName),
-        'subdirectory': 'NagoMusic',
+        'subdirectory': 'Muses',
       });
       if (savedPath == null || savedPath.trim().isEmpty) {
         return const SongDownloadResult(success: false, message: '保存失败');
