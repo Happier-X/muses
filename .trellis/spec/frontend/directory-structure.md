@@ -98,15 +98,18 @@ Reference files:
 
 ## What Does Not Exist Yet
 
-The current codebase does not yet have:
+The current app has introduced lightweight feature support code for real feature behavior:
 
-- `composables/` or custom hook directories
-- shared `types/` directories
-- feature-scoped modules
-- service or API client layers
-- global store directories such as Pinia or Vuex stores
+```text
+src/features/sources/
+├── storage.ts
+├── types.ts
+└── webdav.ts
+```
 
-Do not add these structures preemptively in routine edits. Add them only when the app actually needs them and the task explicitly introduces that architecture.
+Use `src/features/<feature>/` only when a feature has actual non-view contracts such as persistence, native plugin integration, API/WebDAV clients, or shared feature types. Keep route-level screens in `src/views/` and keep route definitions in `src/router/index.ts`.
+
+Do not create broad `services/`, `api/`, or global store directories just because one feature needs small helpers.
 
 ---
 

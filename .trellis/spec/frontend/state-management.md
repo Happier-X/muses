@@ -67,9 +67,18 @@ If a future task adds Pinia or another store, document the chosen pattern in thi
 
 ## Server State and Persistence
 
-The current app has no API client or persistence layer. Do not create service/client/cache abstractions before the application has actual data access requirements.
+Use the smallest persistence mechanism that satisfies the feature contract. For non-sensitive app metadata, feature-local helpers may use browser storage such as `localStorage` with explicit validation before data is trusted.
 
-Capacitor dependencies are present, but no Capacitor APIs are currently used in `src/`.
+Sensitive values such as WebDAV passwords, tokens, or other credentials must not be written to `localStorage`, logs, route params, or task-visible metadata. On Android, store these values through a Capacitor secure storage plugin and keep only an opaque lookup key such as `credentialKey` in non-sensitive metadata.
+
+Current source module contract:
+
+- `localStorage` key `muses:sources` stores only source metadata.
+- WebDAV source metadata stores `credentialKey`, never the password.
+- WebDAV passwords are stored with `@aparajita/capacitor-secure-storage`.
+- Removing a WebDAV source should also remove the corresponding secure-storage entry.
+
+Avoid creating service/client/cache abstractions before the application has actual data access requirements.
 
 ---
 
@@ -80,4 +89,5 @@ Avoid:
 - Adding Pinia/Vuex just to store tab/page labels.
 - Mirroring router state in a global store.
 - Creating API or persistence folders without actual API or persistence behavior.
+- Storing credentials, tokens, or WebDAV passwords in `localStorage` or logs.
 - Passing large untyped state objects through props.
