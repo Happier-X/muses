@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">muses</string>
+    <string name="title_activity_main">muses</string>
+    <string name="package_name">ionic.muses</string>
+    <string name="custom_url_scheme">ionic.muses</string>
+</resources>
