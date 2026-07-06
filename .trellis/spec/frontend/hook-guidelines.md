@@ -1,51 +1,61 @@
 # Hook Guidelines
 
-> How hooks are used in this project.
+> Custom hook and composable conventions for this project.
 
 ---
 
 ## Overview
 
-<!--
-Document your project's hook conventions here.
+This Vue project currently does not define custom hooks/composables. There is no `src/composables/`, `src/hooks/`, or similar directory in the repository.
 
-Questions to answer:
-- What custom hooks do you have?
-- How do you handle data fetching?
-- What are the naming conventions?
-- How do you share stateful logic?
--->
+Reference evidence:
 
-(To be filled by the team)
+- `src/` contains `components/`, `router/`, `theme/`, and `views/` only.
+- Existing components use simple `<script setup lang="ts">` blocks without shared composables.
 
 ---
 
-## Custom Hook Patterns
+## Current Pattern
 
-<!-- How to create and structure custom hooks -->
+For the current app size, keep component logic local when it is only used by one component or page.
 
-(To be filled by the team)
+Examples of current local simplicity:
 
----
-
-## Data Fetching
-
-<!-- How data fetching is handled (React Query, SWR, etc.) -->
-
-(To be filled by the team)
+- `src/App.vue` only imports Ionic shell components.
+- `src/views/Tab1Page.vue` only imports Ionic layout components and `ExploreContainer`.
+- `src/views/TabsPage.vue` imports Ionic tab components and icon constants directly.
 
 ---
 
-## Naming Conventions
+## When to Add a Composable
 
-<!-- Hook naming rules (use*, etc.) -->
+Add a composable only when a task introduces repeated logic that is shared across multiple components or pages.
 
-(To be filled by the team)
+If a composable becomes necessary, prefer Vue naming conventions:
+
+- Put it under `src/composables/`.
+- Name files and functions with `use*`, for example `useExample.ts` exporting `useExample()`.
+- Keep it UI-framework agnostic unless it is explicitly tied to Ionic behavior.
+- Return named values and functions rather than a broad untyped object.
+
+This is a future-facing rule; no existing source file currently demonstrates it.
 
 ---
 
-## Common Mistakes
+## What to Avoid
 
-<!-- Hook-related mistakes your team has made -->
+Avoid inventing composables for one-off logic in this small app. In particular:
 
-(To be filled by the team)
+- Do not move simple static tab/page setup into hooks.
+- Do not add a composables directory solely for organization.
+- Do not introduce data-fetching abstractions before there is an API layer or repeated server-state pattern.
+
+---
+
+## Verification
+
+When adding a composable in the future:
+
+- Make sure it is imported from at least two places, or document why centralization is needed.
+- Cover non-trivial behavior with `vitest` tests under `tests/unit/` or colocated tests if the project later adopts that pattern.
+- Run `npm run build` and `npm run test:unit`.

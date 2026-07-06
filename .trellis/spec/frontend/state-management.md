@@ -1,51 +1,83 @@
 # State Management
 
-> How state is managed in this project.
+> Local state, global state, and server-state conventions for this project.
 
 ---
 
 ## Overview
 
-<!--
-Document your project's state management conventions here.
+The current app has no global state management layer. There is no Pinia, Vuex, custom store directory, API client, or server-state library in the codebase.
 
-Questions to answer:
-- What state management solution do you use?
-- How is local vs global state decided?
-- How do you handle server state?
-- What are the patterns for derived state?
--->
+State-related dependencies in `package.json` are limited to Vue, Vue Router, Ionic Vue, and Capacitor/Ionic packages.
 
-(To be filled by the team)
+Reference files:
 
----
-
-## State Categories
-
-<!-- Local state, global state, server state, URL state -->
-
-(To be filled by the team)
+- `package.json`
+- `src/main.ts`
+- `src/router/index.ts`
+- `src/views/Tab1Page.vue`
+- `src/views/TabsPage.vue`
 
 ---
 
-## When to Use Global State
+## Current State Pattern
 
-<!-- Criteria for promoting state to global -->
+The current UI is effectively static and route-driven:
 
-(To be filled by the team)
-
----
-
-## Server State
-
-<!-- How server data is cached and synchronized -->
-
-(To be filled by the team)
+- Route state is managed by Vue Router through `src/router/index.ts`.
+- Tab navigation is represented by Ionic tabs in `src/views/TabsPage.vue`.
+- Pages render static labels and a shared presentational component.
+- There is no app-level state initialized in `src/main.ts` beyond registering Ionic and the router.
 
 ---
 
-## Common Mistakes
+## Route State
 
-<!-- State management mistakes your team has made -->
+Keep navigation state in Vue Router and Ionic tab components.
 
-(To be filled by the team)
+Current route structure:
+
+- `/` redirects to `/tabs/tab1`
+- `/tabs/` renders `TabsPage`
+- `/tabs/tab1`, `/tabs/tab2`, and `/tabs/tab3` lazy-load their page components
+
+Reference file:
+
+- `src/router/index.ts`
+
+Avoid duplicating current tab selection in a separate store unless a task introduces a real cross-component state need.
+
+---
+
+## Local Component State
+
+For future small UI interactions, prefer local Vue state inside `<script setup lang="ts">` using Vue Composition API primitives such as `ref` and `computed`.
+
+Because current components are static, no existing file demonstrates local reactive state yet. Add it in the component that owns the interaction unless multiple components need the same value.
+
+---
+
+## Global State
+
+Do not add a global store preemptively. Introduce a global state library only when the app has repeated cross-page or cross-component state that cannot be cleanly handled with local state, props, emits, router params, or a focused composable.
+
+If a future task adds Pinia or another store, document the chosen pattern in this file and add concrete references to the first store modules.
+
+---
+
+## Server State and Persistence
+
+The current app has no API client or persistence layer. Do not create service/client/cache abstractions before the application has actual data access requirements.
+
+Capacitor dependencies are present, but no Capacitor APIs are currently used in `src/`.
+
+---
+
+## Anti-Patterns
+
+Avoid:
+
+- Adding Pinia/Vuex just to store tab/page labels.
+- Mirroring router state in a global store.
+- Creating API or persistence folders without actual API or persistence behavior.
+- Passing large untyped state objects through props.

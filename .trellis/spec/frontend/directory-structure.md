@@ -6,49 +6,116 @@
 
 ## Overview
 
-<!--
-Document your project's frontend directory structure here.
+The repository is a single frontend app with a simple Ionic Vue layout. Code is currently organized by technical role rather than by feature folder.
 
-Questions to answer:
-- Where do components live?
-- How are features/modules organized?
-- Where are shared utilities?
-- How are assets organized?
--->
+Current structure:
 
-(To be filled by the team)
-
----
-
-## Directory Layout
-
-```
-<!-- Replace with your actual structure -->
+```text
 src/
-├── ...
-└── ...
+├── App.vue
+├── main.ts
+├── vite-env.d.ts
+├── components/
+│   └── ExploreContainer.vue
+├── router/
+│   └── index.ts
+├── theme/
+│   └── variables.css
+└── views/
+    ├── Tab1Page.vue
+    ├── Tab2Page.vue
+    ├── Tab3Page.vue
+    └── TabsPage.vue
+```
+
+Related non-app folders:
+
+```text
+tests/
+├── e2e/
+│   ├── fixtures/
+│   ├── specs/
+│   └── support/
+└── unit/
 ```
 
 ---
 
 ## Module Organization
 
-<!-- How should new features be organized? -->
+Use the existing split unless the codebase grows enough to justify feature modules:
 
-(To be filled by the team)
+- `src/main.ts` owns app bootstrap, plugin registration, global CSS imports, and mount timing.
+- `src/App.vue` is the root shell and should stay minimal.
+- `src/router/index.ts` owns route records and redirects.
+- `src/views/` contains route-level pages.
+- `src/components/` contains reusable UI pieces used by pages.
+- `src/theme/` contains global Ionic theme customization.
+
+Reference files:
+
+- `src/main.ts`
+- `src/App.vue`
+- `src/router/index.ts`
+- `src/views/TabsPage.vue`
+
+---
+
+## Routing-Centric Structure
+
+This app currently follows Ionic’s page-container conventions:
+
+- Route-level screens live in `src/views/`.
+- The tab shell is implemented as a page component in `src/views/TabsPage.vue`.
+- Child tab pages are lazy-loaded from the router using `() => import(...)`.
+
+Reference files:
+
+- `src/router/index.ts`
+- `src/views/TabsPage.vue`
+
+Avoid putting route definitions inside page components. Keep navigation structure centralized in `src/router/index.ts`.
 
 ---
 
 ## Naming Conventions
 
-<!-- File and folder naming rules -->
+Current naming patterns in the repo:
 
-(To be filled by the team)
+- Vue SFC files use PascalCase: `App.vue`, `TabsPage.vue`, `ExploreContainer.vue`.
+- Route-level views use a `*Page.vue` suffix: `Tab1Page.vue`, `Tab2Page.vue`, `Tab3Page.vue`.
+- Router entry files use conventional names like `index.ts`.
+- Use the `@/` alias for imports from `src/`.
+
+Reference files:
+
+- `src/views/Tab1Page.vue`
+- `src/components/ExploreContainer.vue`
+- `src/router/index.ts`
+- `tsconfig.json`
+
+---
+
+## What Does Not Exist Yet
+
+The current codebase does not yet have:
+
+- `composables/` or custom hook directories
+- shared `types/` directories
+- feature-scoped modules
+- service or API client layers
+- global store directories such as Pinia or Vuex stores
+
+Do not add these structures preemptively in routine edits. Add them only when the app actually needs them and the task explicitly introduces that architecture.
 
 ---
 
 ## Examples
 
-<!-- Link to well-organized modules as examples -->
+Good reference points for the current shape:
 
-(To be filled by the team)
+- Root shell: `src/App.vue`
+- App bootstrap and CSS loading: `src/main.ts`
+- Router-owned page composition: `src/router/index.ts`
+- Tab page layout: `src/views/Tab1Page.vue`
+- Reusable shared component: `src/components/ExploreContainer.vue`
