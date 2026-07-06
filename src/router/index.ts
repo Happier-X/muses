@@ -33,7 +33,7 @@ const routes: Array<RouteRecordRaw> = [
       },
       {
         path: 'sources',
-        component: () => import('@/views/Tab2Page.vue')
+        component: () => import('@/views/SourcesPage.vue')
       },
       {
         path: 'settings',

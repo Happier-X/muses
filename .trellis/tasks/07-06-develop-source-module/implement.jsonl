@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"前端项目结构、Ionic Vue 当前形态与入口规范"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"新增页面、轻量工具模块与路由组织需要遵循现有目录结构"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"SourcesPage 需要遵循 Ionic 页面、组件导入、可访问性与样式规范"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"本任务新增持久化但不应引入全局状态管理，需要遵循轻量状态约束"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"新增音源模型、存储工具和 WebDAV 数据处理需符合严格 TypeScript 约束"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"实现后需要按项运行 lint、build、unit/e2e 等前端验证"}

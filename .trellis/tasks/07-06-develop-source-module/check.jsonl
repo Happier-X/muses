@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"检查实现是否符合当前 Ionic Vue 应用结构"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"检查新增文件位置、路由集中管理与避免过度架构"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"检查 Ionic 页面结构、显式组件导入、可访问性与 scoped 样式"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"检查持久化与状态处理是否避免不必要全局 store"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"检查新增类型、外部数据处理与 strict TypeScript 合规"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查验证命令、测试范围和质量要求是否满足"}
