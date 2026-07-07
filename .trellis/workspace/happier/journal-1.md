@@ -174,3 +174,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: 完成沉浸式播放器
+
+**Date**: 2026-07-07
+**Task**: 完成沉浸式播放器
+**Branch**: `main`
+
+### Summary
+
+实现沉浸式播放页、迷你播放器导航、AMLL 歌词与背景、播放进度 seek、Android 通知进度、WebDAV 音频缓存和延迟元数据补扫；修复歌词显示、AMLL 背景尺寸和敏感日志泄露问题，并更新播放器状态规范。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b599e5b` | (see git log) |
+| `6e6d3ba` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
