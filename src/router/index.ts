@@ -17,19 +17,19 @@ const routes: Array<RouteRecordRaw> = [
       },
       {
         path: 'songs',
-        component: () => import('@/views/Tab1Page.vue')
+        component: () => import('@/views/SongsPage.vue')
       },
       {
         path: 'albums',
-        component: () => import('@/views/Tab2Page.vue')
+        component: () => import('@/views/AlbumsPage.vue')
       },
       {
         path: 'artists',
-        component: () => import('@/views/Tab3Page.vue')
+        component: () => import('@/views/ArtistsPage.vue')
       },
       {
         path: 'playlists',
-        component: () => import('@/views/Tab1Page.vue')
+        component: () => import('@/views/PlaylistsPage.vue')
       },
       {
         path: 'sources',
@@ -37,7 +37,7 @@ const routes: Array<RouteRecordRaw> = [
       },
       {
         path: 'settings',
-        component: () => import('@/views/Tab3Page.vue')
+        component: () => import('@/views/SettingsPage.vue')
       }
     ]
   }

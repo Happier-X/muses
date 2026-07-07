@@ -1,0 +1,47 @@
+<template>
+  <ion-page>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title class="page-title">设置</ion-title>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content :fullscreen="true">
+      <ion-header collapse="condense">
+        <ion-toolbar>
+          <ion-title class="page-title" size="large">设置</ion-title>
+        </ion-toolbar>
+      </ion-header>
+
+      <div class="empty-state">
+        <h2>设置功能待开发</h2>
+        <p>后续会在这里配置应用偏好。</p>
+      </div>
+    </ion-content>
+  </ion-page>
+</template>
+
+<script setup lang="ts">
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from '@ionic/vue'
+</script>
+
+<style scoped>
+.page-title {
+  text-align: center;
+}
+
+.empty-state {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  color: var(--ion-color-medium);
+}
+
+.empty-state h2 {
+  margin-bottom: 8px;
+  color: var(--ion-text-color);
+}
+</style>

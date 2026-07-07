@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/index.md","reason":"前端任务入口规范，说明当前 Ionic Vue 项目形态和约束。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"指导 route-level views 与 feature helper 的文件边界。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"说明歌曲库 `muses:songs` 契约和禁止凭据展示。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"严格 TypeScript 和聚合类型约束。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"测试、构建、lint 与用户可见质量要求。"}
