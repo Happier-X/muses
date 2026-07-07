@@ -76,6 +76,8 @@ Current source module contract:
 - `localStorage` key `muses:sources` stores only source metadata.
 - WebDAV source metadata stores `credentialKey`, never the password.
 - WebDAV passwords are stored with `@aparajita/capacitor-secure-storage`.
+- WebDAV directory browsing on Android must use the project-local native `WebDav` Capacitor plugin for `PROPFIND`, backed by OkHttp. Do not use browser `fetch`/XHR-based WebDAV clients because Android WebView still enforces CORS; do not use built-in `CapacitorHttp` or `HttpURLConnection` for `PROPFIND` because they reject non-standard methods.
+- Because users may add arbitrary `http://` WebDAV servers, Android uses `network_security_config` with `base-config cleartextTrafficPermitted="true"`. Prefer HTTPS when possible and surface risk to users when adding plain HTTP sources.
 - Removing a WebDAV source should also remove the corresponding secure-storage entry.
 
 Avoid creating service/client/cache abstractions before the application has actual data access requirements.
@@ -90,4 +92,5 @@ Avoid:
 - Mirroring router state in a global store.
 - Creating API or persistence folders without actual API or persistence behavior.
 - Storing credentials, tokens, or WebDAV passwords in `localStorage` or logs.
+- Using browser `fetch`/XHR WebDAV clients for Android WebDAV browsing when remote servers do not provide CORS headers.
 - Passing large untyped state objects through props.

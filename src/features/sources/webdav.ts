@@ -1,5 +1,18 @@
-import { createClient, type FileStat } from 'webdav'
+import { registerPlugin } from '@capacitor/core'
 import type { WebDavConnectionInput, WebDavDirectoryItem } from './types'
+
+interface WebDavNativePlugin {
+  propfind(options: {
+    url: string
+    username: string
+    password: string
+  }): Promise<{
+    status: number
+    data: string
+  }>
+}
+
+export const WebDavNative = registerPlugin<WebDavNativePlugin>('WebDav')
 
 const ensureLeadingSlash = (path: string): string => {
   if (!path) {
@@ -28,41 +41,116 @@ export const getParentWebDavPath = (path: string): string | null => {
   return parent || '/'
 }
 
+const safeDecodeURIComponent = (value: string): string => {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 export const getWebDavDisplayName = (path: string): string => {
   const normalized = normalizeWebDavPath(path)
   if (normalized === '/') {
     return '/'
   }
 
-  return normalized.split('/').filter(Boolean).at(-1) ?? normalized
+  return safeDecodeURIComponent(normalized.split('/').filter(Boolean).at(-1) ?? normalized)
 }
 
-const isDirectory = (item: FileStat): boolean => {
-  return item.type === 'directory'
+const encodePath = (path: string): string => {
+  const normalized = normalizeWebDavPath(path)
+  if (normalized === '/') {
+    return '/'
+  }
+
+  return `/${normalized
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/')}`
+}
+
+export const buildWebDavUrl = (serverUrl: string, path: string): string => {
+  const trimmedServerUrl = serverUrl.trim().replace(/\/+$/, '')
+  const encodedPath = encodePath(path)
+  return `${trimmedServerUrl}${encodedPath}`
+}
+
+const getFirstChildText = (element: Element, localName: string): string => {
+  const child = Array.from(element.getElementsByTagName('*')).find((item) => item.localName === localName)
+  return child?.textContent?.trim() ?? ''
+}
+
+const hasCollectionResourceType = (element: Element): boolean => {
+  return Array.from(element.getElementsByTagName('*')).some((item) => item.localName === 'collection')
+}
+
+const stripServerBasePath = (serverUrl: string, href: string): string => {
+  const serverPath = normalizeWebDavPath(safeDecodeURIComponent(new URL(serverUrl).pathname))
+  const hrefPath = normalizeWebDavPath(safeDecodeURIComponent(new URL(href, serverUrl).pathname))
+
+  if (serverPath === '/') {
+    return hrefPath
+  }
+
+  if (hrefPath === serverPath) {
+    return '/'
+  }
+
+  if (hrefPath.startsWith(`${serverPath}/`)) {
+    return normalizeWebDavPath(hrefPath.slice(serverPath.length))
+  }
+
+  return hrefPath
+}
+
+const parseWebDavDirectories = (xmlText: string, serverUrl: string, currentPath: string): WebDavDirectoryItem[] => {
+  const document = new DOMParser().parseFromString(xmlText, 'application/xml')
+  const parserError = document.getElementsByTagName('parsererror')[0]
+  if (parserError) {
+    throw new Error('WebDAV 返回内容无法解析。')
+  }
+
+  const normalizedCurrentPath = normalizeWebDavPath(currentPath)
+  const responseElements = Array.from(document.getElementsByTagName('*')).filter((item) => item.localName === 'response')
+
+  return responseElements
+    .map((responseElement) => {
+      const href = getFirstChildText(responseElement, 'href')
+      const path = stripServerBasePath(serverUrl, href)
+      const basename = safeDecodeURIComponent(getFirstChildText(responseElement, 'displayname')) || getWebDavDisplayName(path)
+
+      return {
+        basename,
+        filename: href,
+        path,
+        isDirectory: hasCollectionResourceType(responseElement),
+      }
+    })
+    .filter((item) => item.isDirectory && item.path !== normalizedCurrentPath)
+    .map(({ basename, filename, path }) => ({ basename, filename, path }))
+    .sort((left, right) => left.basename.localeCompare(right.basename, 'zh-Hans-CN'))
 }
 
 export const listWebDavDirectories = async (
   connection: WebDavConnectionInput,
   path: string,
 ): Promise<WebDavDirectoryItem[]> => {
-  const client = createClient(connection.serverUrl, {
+  const normalizedPath = normalizeWebDavPath(path)
+  const response = await WebDavNative.propfind({
+    url: buildWebDavUrl(connection.serverUrl, normalizedPath),
     username: connection.username,
     password: connection.password,
   })
 
-  const normalizedPath = normalizeWebDavPath(path)
-  const contents = await client.getDirectoryContents(normalizedPath)
+  if (response.status === 401 || response.status === 403) {
+    throw new Error('WebDAV 认证失败，请检查用户名和密码。')
+  }
 
-  return contents
-    .filter(isDirectory)
-    .map((item) => {
-      const itemPath = normalizeWebDavPath(item.filename)
-      return {
-        basename: item.basename || getWebDavDisplayName(itemPath),
-        filename: item.filename,
-        path: itemPath,
-      }
-    })
-    .filter((item) => item.path !== normalizedPath)
-    .sort((left, right) => left.basename.localeCompare(right.basename, 'zh-Hans-CN'))
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`WebDAV 目录读取失败，状态码：${response.status}。`)
+  }
+
+  return parseWebDavDirectories(String(response.data), connection.serverUrl, normalizedPath)
 }

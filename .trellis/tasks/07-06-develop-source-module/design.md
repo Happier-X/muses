@@ -56,9 +56,9 @@ type SourceItem =
 
 ## WebDAV 流程
 
-- 引入 `webdav`。
 - 用户输入服务器地址、用户名、密码。
-- 使用连接信息创建 WebDAV client。
+- 使用项目内 Android 原生 `WebDav` Capacitor 插件发送 `PROPFIND` 请求，插件底层使用 OkHttp 支持 WebDAV 非标准方法，避免 Android WebView 浏览器网络栈的 CORS 限制，同时绕开 `CapacitorHttp` 和 `HttpURLConnection` 的标准 HTTP 方法白名单限制。
+- 用户可输入任意 WebDAV 地址。为支持用户自建的 `http://` WebDAV 服务，Android `network_security_config` 使用 `base-config cleartextTrafficPermitted="true"` 允许明文 HTTP；`https://` 地址仍按系统 TLS 校验处理。
 - 初始列出根目录或用户输入的起始路径。
 - 目录浏览只展示目录项；支持进入子目录、返回上级目录、多选目录。
 - 用户确认后，为每个选中目录创建 WebDAV 音源记录。
@@ -76,7 +76,6 @@ type SourceItem =
 新增依赖：
 
 - `@tanstack/vue-virtual`
-- `webdav`
 - `@capawesome/capacitor-file-picker`
 - `@aparajita/capacitor-secure-storage`
 
@@ -87,3 +86,4 @@ type SourceItem =
 - 不引入 Pinia/Vuex；本任务用轻量模块函数封装存储与 WebDAV 操作。
 - 本任务不扫描目录中的歌曲，不解析音乐元数据。
 - 本任务以 Android WebView 为目标，不保证 Web 浏览器生产可用。
+- 允许明文 HTTP 是为支持用户自定义 WebDAV 地址的产品取舍；后续可在 UI 中对 `http://` 地址提示安全风险。

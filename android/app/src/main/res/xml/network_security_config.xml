@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        音源模块允许用户自行添加任意 WebDAV 服务地址。
+        Android 的 network security policy 不能根据用户输入动态放行域名；
+        因此这里允许明文 HTTP，以支持用户自建的 http:// WebDAV 服务。
+        HTTPS 地址仍会按系统默认 TLS 校验处理。
+    -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

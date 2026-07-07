@@ -10,7 +10,7 @@
 - 当前音源 tab 路由为 `/tabs/sources`，仍复用 `src/views/Tab2Page.vue` 占位页。
 - 当前项目没有全局状态管理、持久化层、API client、WebDAV client 或虚拟列表依赖。
 - `@tanstack/vue-virtual` 当前未安装，可用于 Vue 虚拟列表。
-- `webdav` npm 包当前未安装，可作为 WebDAV 客户端候选；目标平台为 Android WebView，不以 Web 浏览器 CORS 能力作为目标边界。
+- `webdav` npm 包曾作为 WebDAV 客户端候选，但在 Android WebView 中通过浏览器 fetch/XHR 直连 WebDAV 仍会遇到 CORS；`CapacitorHttp` 也不允许 `PROPFIND` 这类 WebDAV 方法；当前 WebDAV 目录浏览改用项目内 Android 原生 `WebDav` Capacitor 插件发起 `PROPFIND` 请求。
 - 本地文件夹选择在 Web 浏览器中通常依赖 File System Access API，移动端或非 Chromium 浏览器需要 Capacitor/原生插件方案；当前 `src/` 中尚未使用 Capacitor 文件系统 API。
 - 用户已确认项目只需要支持安卓端，Web 浏览器不是目标运行平台。
 - 用户已确认本次 MVP 要做真实安卓目录选择，优先引入 `@capawesome/capacitor-file-picker` 并使用 `pickDirectory()` 获取目录路径。
@@ -34,7 +34,7 @@
 
 - MVP 运行平台与能力边界：仅支持安卓端。
 - 本地文件夹选择应使用真实安卓目录选择能力：引入 `@capawesome/capacitor-file-picker`，调用 `pickDirectory()`，将选中的目录作为本地音源加入列表。
-- WebDAV 添加应做真实连接和目录浏览：引入 `webdav` npm 包，输入服务器地址、用户名、密码后列出目录，支持进入子目录、多选文件夹并添加为音源。
+- WebDAV 添加应做真实连接和目录浏览：使用项目内 Android 原生 `WebDav` Capacitor 插件发送 `PROPFIND` 请求，输入服务器地址、用户名、密码后列出目录，支持进入子目录、多选文件夹并添加为音源。
 - 音源列表需要本地持久化，重启 App 后仍应展示。
 - WebDAV 密码需要保存，并必须使用 Android 安全存储方案；不得以明文写入 `localStorage`。
 - 用户已确认接受分离存储方案：音源列表元数据保存到 `localStorage`，WebDAV 密码保存到安全存储；WebDAV 音源记录只保存 `credentialKey` 引用密码。

@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createSourceId, getWebDavPasswordKey, loadSources, saveSources, saveWebDavPassword } from '@/features/sources/storage'
-import type { SourceItem } from '@/features/sources/types'
-import { getParentWebDavPath, getWebDavDisplayName, normalizeWebDavPath } from '@/features/sources/webdav'
+import type { SourceItem, WebDavConnectionInput } from '@/features/sources/types'
+import {
+  buildWebDavUrl,
+  getParentWebDavPath,
+  getWebDavDisplayName,
+  listWebDavDirectories,
+  normalizeWebDavPath,
+} from '@/features/sources/webdav'
 
 vi.mock('@aparajita/capacitor-secure-storage', () => ({
   SecureStorage: {
@@ -9,6 +15,12 @@ vi.mock('@aparajita/capacitor-secure-storage', () => ({
     get: vi.fn(),
     remove: vi.fn(),
   },
+}))
+
+vi.mock('@capacitor/core', () => ({
+  registerPlugin: vi.fn(() => ({
+    propfind: vi.fn(),
+  })),
 }))
 
 describe('音源存储', () => {
@@ -67,5 +79,93 @@ describe('WebDAV 路径工具', () => {
     expect(getParentWebDavPath('/music/rock')).toBe('/music')
     expect(getParentWebDavPath('/music')).toBe('/')
     expect(getWebDavDisplayName('/music/rock')).toBe('rock')
+  })
+
+  test('构建 WebDAV 请求地址时编码路径并移除服务地址尾部斜杠', () => {
+    expect(buildWebDavUrl('https://example.com/dav/', '/音乐/摇滚')).toBe('https://example.com/dav/%E9%9F%B3%E4%B9%90/%E6%91%87%E6%BB%9A')
+    expect(buildWebDavUrl('https://example.com/dav/', '/')).toBe('https://example.com/dav/')
+  })
+
+  test('展示名称会把百分号编码路径转成人类可读文本', () => {
+    expect(getWebDavDisplayName('/%E5%A4%B8%E5%85%8B%E4%B8%8A%E4%BC%A0%E6%96%87%E4%BB%B6')).toBe('夸克上传文件')
+  })
+})
+
+describe('WebDAV 原生插件目录读取', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  test('通过 WebDav 原生插件发送 PROPFIND 并解析目录响应', async () => {
+    const { WebDavNative } = await import('@/features/sources/webdav')
+    vi.mocked(WebDavNative.propfind).mockResolvedValue({
+      status: 207,
+      data: `<?xml version="1.0" encoding="utf-8"?>
+        <d:multistatus xmlns:d="DAV:">
+          <d:response>
+            <d:href>/dav/music/</d:href>
+            <d:propstat><d:prop><d:displayname>music</d:displayname><d:resourcetype><d:collection /></d:resourcetype></d:prop></d:propstat>
+          </d:response>
+          <d:response>
+            <d:href>/dav/music/rock/</d:href>
+            <d:propstat><d:prop><d:displayname>rock</d:displayname><d:resourcetype><d:collection /></d:resourcetype></d:prop></d:propstat>
+          </d:response>
+          <d:response>
+            <d:href>/dav/music/song.mp3</d:href>
+            <d:propstat><d:prop><d:displayname>song.mp3</d:displayname><d:resourcetype /></d:prop></d:propstat>
+          </d:response>
+        </d:multistatus>`,
+    })
+    const connection: WebDavConnectionInput = {
+      serverUrl: 'https://example.com/dav',
+      username: 'alice',
+      password: 'secret',
+    }
+
+    await expect(listWebDavDirectories(connection, '/music')).resolves.toEqual([
+      { basename: 'rock', filename: '/dav/music/rock/', path: '/music/rock' },
+    ])
+    expect(WebDavNative.propfind).toHaveBeenCalledWith({
+      url: 'https://example.com/dav/music',
+      username: 'alice',
+      password: 'secret',
+    })
+  })
+
+  test('解析 WebDAV 响应时将编码后的 href 转成可读路径', async () => {
+    const { WebDavNative } = await import('@/features/sources/webdav')
+    vi.mocked(WebDavNative.propfind).mockResolvedValue({
+      status: 207,
+      data: `<?xml version="1.0" encoding="utf-8"?>
+        <d:multistatus xmlns:d="DAV:">
+          <d:response>
+            <d:href>/dav/</d:href>
+            <d:propstat><d:prop><d:displayname>dav</d:displayname><d:resourcetype><d:collection /></d:resourcetype></d:prop></d:propstat>
+          </d:response>
+          <d:response>
+            <d:href>/dav/%E5%A4%B8%E5%85%8B%E4%B8%8A%E4%BC%A0%E6%96%87%E4%BB%B6/</d:href>
+            <d:propstat><d:prop><d:resourcetype><d:collection /></d:resourcetype></d:prop></d:propstat>
+          </d:response>
+        </d:multistatus>`,
+    })
+
+    await expect(
+      listWebDavDirectories({ serverUrl: 'https://example.com/dav', username: 'alice', password: 'secret' }, '/'),
+    ).resolves.toEqual([
+      {
+        basename: '夸克上传文件',
+        filename: '/dav/%E5%A4%B8%E5%85%8B%E4%B8%8A%E4%BC%A0%E6%96%87%E4%BB%B6/',
+        path: '/夸克上传文件',
+      },
+    ])
+  })
+
+  test('认证失败时给出明确错误', async () => {
+    const { WebDavNative } = await import('@/features/sources/webdav')
+    vi.mocked(WebDavNative.propfind).mockResolvedValue({ status: 401, data: '' })
+
+    await expect(
+      listWebDavDirectories({ serverUrl: 'https://example.com/dav', username: 'alice', password: 'bad' }, '/'),
+    ).rejects.toThrow('WebDAV 认证失败')
   })
 })
