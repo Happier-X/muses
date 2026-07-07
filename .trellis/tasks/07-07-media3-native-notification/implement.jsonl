@@ -1,0 +1,3 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/07-07-media3-native-notification/design.md", "reason": "Media3 原生通知架构与 Capgo 移除边界"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "播放器状态、安全边界和 Android MediaSessionService 契约"}
