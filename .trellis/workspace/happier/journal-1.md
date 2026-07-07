@@ -242,3 +242,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Media3 原生媒体通知
+
+**Date**: 2026-07-07
+**Task**: Media3 原生媒体通知
+**Branch**: `main`
+
+### Summary
+
+将 Android 媒体通知从 ExoPlayer + Capgo Media Session 混合方案迁回单一 Media3 原生方案：移除 Capgo 依赖和前端同步层，保留自有 AudioPlayer 插件作为播放桥接；AudioPlaybackService 继续使用同一个 ExoPlayer/MediaSession 处理播放、通知、锁屏和媒体键；补充 DefaultMediaNotificationProvider、清理测试与规范，并完成前端和 Android 编译验证。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1a86617` | (see git log) |
+| `84e2d0e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
