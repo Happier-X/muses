@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 3
+- **Total Sessions**: 4
 - **Last Active**: 2026-07-07
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~109 | Active |
+| `journal-1.md` | ~142 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 4 | 2026-07-07 | 展示入库音乐数据 | `0814b06` | `main` |
 | 3 | 2026-07-07 | 添加音源扫描入库 | `4f132f6`, `bd59047` | `main` |
 | 2 | 2026-07-07 | 开发音源模块 | `84590ac`, `6497f6c`, `da93c2b` | `main` |
 | 1 | 2026-07-06 | 调整底部 tab | `24d5707` | `main` |

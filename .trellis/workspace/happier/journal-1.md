@@ -107,3 +107,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: 展示入库音乐数据
+
+**Date**: 2026-07-07
+**Task**: 展示入库音乐数据
+**Branch**: `main`
+
+### Summary
+
+完成入库音乐数据展示：歌曲、专辑、艺术家页面读取 muses:songs 并展示列表/聚合和空状态；重命名 Tab 页面为 SongsPage、AlbumsPage、ArtistsPage；补充歌单/设置占位页；新增展示 helper 和单元测试，通过 test、lint、build 验证。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0814b06` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
