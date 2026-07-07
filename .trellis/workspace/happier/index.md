@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
+- **Total Sessions**: 7
 - **Last Active**: 2026-07-07
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~210 | Active |
+| `journal-1.md` | ~244 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-07-07 | 安卓媒体通知控制 | `2aea3cc`, `5817610` | `main` |
 | 6 | 2026-07-07 | 完成沉浸式播放器 | `b599e5b`, `6e6d3ba` | `main` |
 | 5 | 2026-07-07 | 完成歌曲点击播放 | `12b45cb`, `31baa43` | `main` |
 | 4 | 2026-07-07 | 展示入库音乐数据 | `0814b06` | `main` |

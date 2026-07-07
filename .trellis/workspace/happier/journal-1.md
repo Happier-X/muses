@@ -208,3 +208,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: 安卓媒体通知控制
+
+**Date**: 2026-07-07
+**Task**: 安卓媒体通知控制
+**Branch**: `main`
+
+### Summary
+
+完成 Android 媒体通知控制任务：采用 ExoPlayer/Media3 继续负责实际播放与 WebDAV 认证缓存，集成 Capgo Media Session 插件同步安全 metadata、播放状态、进度和系统媒体键回调；弱化原播放服务通知以降低双通知风险；补充媒体会话安全边界与初始化重试测试，并更新任务文档和播放器状态规范。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2aea3cc` | (see git log) |
+| `5817610` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
