@@ -38,3 +38,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: 开发音源模块
+
+**Date**: 2026-07-07
+**Task**: 开发音源模块
+**Branch**: `main`
+
+### Summary
+
+开发安卓端音源模块：新增独立音源页、TanStack 虚拟列表、本地目录选择、WebDAV 添加与多选、音源持久化和 WebDAV 密码安全存储；后续修复 Android WebDAV 浏览链路，改为 Kotlin 原生 WebDav 插件 + OkHttp 发送 PROPFIND，允许用户自定义 HTTP WebDAV，并兼容百分号编码中文路径。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `84590ac` | (see git log) |
+| `6497f6c` | (see git log) |
+| `da93c2b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
