@@ -17,6 +17,15 @@
 - `npm run test:unit`
 - `npm run build`
 - `npm run lint`
+- `cd android && ./gradlew :app:compileDebugKotlin`
+
+## Android 手工验证清单
+
+- 本地目录：Android 10/11/13+ 至少一台设备或模拟器，选择含多层子目录、中文路径、空格路径、大量文件的音乐目录。
+- 本地标签：验证 MP3/M4A/FLAC 等常见格式的标题、歌手、专辑、时长读取；验证标签异常文件会回退文件名并计入降级。
+- WebDAV 扫描：验证中文路径、空格路径、嵌套目录、401/403 认证失败、大文件、标签读取失败降级。
+- 安全检查：扫描完成后检查 `localStorage.muses:songs` 不含 WebDAV 密码、Basic Auth Header 或 SecureStorage 值。
+- 重复扫描：同一音源重复扫描不重复插入，同一路径标签变化时更新并保留 `createdAt`。
 
 ## 风险点
 
