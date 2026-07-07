@@ -6,8 +6,11 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import androidx.core.app.NotificationCompat
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -19,11 +22,31 @@ import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.TimeUnit
+import okhttp3.OkHttpClient
 
 class AudioPlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
     private var currentSongId: String? = null
+    private var currentTitle: String = "正在准备播放器"
+    private var currentArtist: String? = null
+    private val webDavHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+    private val webDavAudioCache by lazy { WebDavAudioCache(this, webDavHttpClient) }
+    private val progressHandler = Handler(Looper.getMainLooper())
+    private val progressRunnable = object : Runnable {
+        override fun run() {
+            if (currentSongId != null) {
+                publishState(if (player?.isPlaying == true) STATUS_PLAYING else STATUS_PAUSED)
+                scheduleProgressUpdates()
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -43,15 +66,15 @@ class AudioPlaybackService : MediaSessionService() {
             ACTION_PAUSE -> pausePlayback()
             ACTION_RESUME -> resumePlayback()
             ACTION_STOP -> stopPlayback()
+            ACTION_SEEK -> seekPlayback(intent.getDoubleExtra(EXTRA_POSITION, 0.0))
         }
         return START_STICKY
     }
 
     override fun onDestroy() {
-        mediaSession?.run {
-            player.release()
-            release()
-        }
+        progressHandler.removeCallbacks(progressRunnable)
+        player?.release()
+        mediaSession?.release()
         mediaSession = null
         player = null
         super.onDestroy()
@@ -70,11 +93,20 @@ class AudioPlaybackService : MediaSessionService() {
                     return
                 }
                 publishState(if (isPlaying) STATUS_PLAYING else STATUS_PAUSED)
+                if (isPlaying) {
+                    scheduleProgressUpdates()
+                } else {
+                    progressHandler.removeCallbacks(progressRunnable)
+                }
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
                     stopPlayback()
+                    return
+                }
+                if (currentSongId != null) {
+                    publishState(if (nextPlayer.isPlaying) STATUS_PLAYING else STATUS_PAUSED)
                 }
             }
 
@@ -96,6 +128,8 @@ class AudioPlaybackService : MediaSessionService() {
         val artist = intent.getStringExtra(EXTRA_ARTIST)
         val album = intent.getStringExtra(EXTRA_ALBUM)
 
+        currentTitle = title
+        currentArtist = artist
         startForeground(NOTIFICATION_ID, createForegroundNotification(title, artist))
 
         if (sourceType.isNullOrBlank() || songId.isNullOrBlank() || uri.isNullOrBlank()) {
@@ -103,19 +137,20 @@ class AudioPlaybackService : MediaSessionService() {
             return
         }
 
-        val mediaItem = MediaItem.Builder()
-            .setUri(Uri.parse(uri))
-            .setMediaId(songId)
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(title)
-                    .setArtist(artist)
-                    .setAlbumTitle(album)
-                    .build(),
-            )
-            .build()
-
         try {
+            val playbackUri = resolvePlaybackUri(sourceType, uri, intent)
+            val mediaItem = MediaItem.Builder()
+                .setUri(playbackUri)
+                .setMediaId(songId)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(title)
+                        .setArtist(artist)
+                        .setAlbumTitle(album)
+                        .build(),
+                )
+                .build()
+
             val activePlayer = ensurePlayer()
             currentSongId = songId
             publishState(STATUS_LOADING)
@@ -124,14 +159,35 @@ class AudioPlaybackService : MediaSessionService() {
             activePlayer.setMediaSource(createMediaSource(mediaItem, intent))
             activePlayer.prepare()
             activePlayer.play()
+            scheduleProgressUpdates()
         } catch (exception: Exception) {
             publishState(STATUS_ERROR, mapPlaybackError(exception))
         }
     }
 
+    private fun resolvePlaybackUri(sourceType: String, uri: String, intent: Intent): Uri {
+        if (sourceType != SOURCE_WEBDAV) {
+            return Uri.parse(uri)
+        }
+
+        val username = intent.getStringExtra(EXTRA_USERNAME)
+        val password = intent.getStringExtra(EXTRA_PASSWORD)
+        if (username == null || password == null) {
+            throw IllegalArgumentException("missingCredentials")
+        }
+
+        val cachedFile = webDavAudioCache.getCachedFile(uri)
+        if (cachedFile != null) {
+            return Uri.fromFile(cachedFile)
+        }
+
+        webDavAudioCache.downloadInBackground(uri, username, password)
+        return Uri.parse(uri)
+    }
+
     private fun createMediaSource(mediaItem: MediaItem, intent: Intent): ProgressiveMediaSource {
         val sourceType = intent.getStringExtra(EXTRA_SOURCE_TYPE)
-        val dataSourceFactory = if (sourceType == SOURCE_WEBDAV) {
+        val dataSourceFactory = if (sourceType == SOURCE_WEBDAV && mediaItem.localConfiguration?.uri?.scheme?.startsWith("http") == true) {
             val username = intent.getStringExtra(EXTRA_USERNAME)
             val password = intent.getStringExtra(EXTRA_PASSWORD)
             if (username == null || password == null) {
@@ -150,37 +206,96 @@ class AudioPlaybackService : MediaSessionService() {
     }
 
     private fun pausePlayback() {
-        player?.pause()
-        if (currentSongId != null) {
-            publishState(STATUS_PAUSED)
+        if (currentSongId == null) {
+            stopIdleService()
+            return
         }
+        player?.pause()
+        progressHandler.removeCallbacks(progressRunnable)
+        publishState(STATUS_PAUSED)
     }
 
     private fun resumePlayback() {
         val activePlayer = player
-        if (activePlayer != null && currentSongId != null) {
-            activePlayer.play()
-            publishState(STATUS_PLAYING)
+        if (activePlayer == null || currentSongId == null) {
+            stopIdleService()
+            return
+        }
+        activePlayer.play()
+        publishState(STATUS_PLAYING)
+        scheduleProgressUpdates()
+    }
+
+    private fun seekPlayback(positionSeconds: Double) {
+        val activePlayer = player
+        if (activePlayer == null || currentSongId == null) {
+            stopIdleService()
+            return
+        }
+        val durationMs = activePlayer.duration.takeIf { it != C.TIME_UNSET && it > 0 }
+        val requestedMs = (positionSeconds.coerceAtLeast(0.0) * 1000).toLong()
+        val targetMs = durationMs?.let { requestedMs.coerceAtMost(it) } ?: requestedMs
+        activePlayer.seekTo(targetMs)
+        publishState(if (activePlayer.isPlaying) STATUS_PLAYING else STATUS_PAUSED)
+        if (activePlayer.isPlaying) {
+            scheduleProgressUpdates()
         }
     }
 
+    private fun stopIdleService() {
+        progressHandler.removeCallbacks(progressRunnable)
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
     private fun stopPlayback() {
+        progressHandler.removeCallbacks(progressRunnable)
         player?.stop()
         currentSongId = null
+        currentTitle = "正在准备播放器"
+        currentArtist = null
         publishState(STATUS_STOPPED)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
+    private fun scheduleProgressUpdates() {
+        progressHandler.removeCallbacks(progressRunnable)
+        progressHandler.postDelayed(progressRunnable, PROGRESS_INTERVAL_MS)
+    }
+
     private fun publishState(status: String, errorMessage: String? = null) {
-        val snapshot = PlaybackStatus(status, currentSongId, errorMessage)
+        val position = currentPositionSeconds()
+        val duration = durationSeconds()
+        val snapshot = PlaybackStatus(status, currentSongId, errorMessage, position, duration)
         lastStatus = snapshot
+        updateNotification(status, position, duration)
         sendBroadcast(Intent(ACTION_STATE_CHANGED).apply {
             setPackage(packageName)
             putExtra(EXTRA_STATUS, snapshot.status)
             putExtra(EXTRA_SONG_ID, snapshot.currentSongId)
             putExtra(EXTRA_ERROR_MESSAGE, snapshot.errorMessage)
+            putExtra(EXTRA_POSITION, snapshot.position)
+            putExtra(EXTRA_DURATION, snapshot.duration)
         })
+    }
+
+    private fun currentPositionSeconds(): Double {
+        val value = player?.currentPosition ?: 0L
+        return if (value > 0) value / 1000.0 else 0.0
+    }
+
+    private fun durationSeconds(): Double {
+        val value = player?.duration ?: C.TIME_UNSET
+        return if (value != C.TIME_UNSET && value > 0) value / 1000.0 else 0.0
+    }
+
+    private fun updateNotification(status: String, position: Double, duration: Double) {
+        if (status == STATUS_STOPPED) {
+            return
+        }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(NOTIFICATION_ID, createForegroundNotification(currentTitle, currentArtist, position, duration))
     }
 
     private fun mapPlaybackError(error: Throwable): String {
@@ -195,16 +310,26 @@ class AudioPlaybackService : MediaSessionService() {
         }
     }
 
-    private fun createForegroundNotification(title: String, artist: String? = null): Notification {
+    private fun createForegroundNotification(
+        title: String,
+        artist: String? = null,
+        position: Double = 0.0,
+        duration: Double = 0.0,
+    ): Notification {
         val subtitle = artist?.takeIf { it.isNotBlank() } ?: "媒体播放服务"
-        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(title)
             .setContentText(subtitle)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+
+        if (duration > 0) {
+            builder.setProgress(duration.toInt(), position.coerceAtMost(duration).toInt(), false)
+        }
+
+        return builder.build()
     }
 
     private fun ensureNotificationChannel() {
@@ -236,6 +361,8 @@ class AudioPlaybackService : MediaSessionService() {
         val status: String,
         val currentSongId: String?,
         val errorMessage: String?,
+        val position: Double,
+        val duration: Double,
     )
 
     companion object {
@@ -245,6 +372,7 @@ class AudioPlaybackService : MediaSessionService() {
         const val ACTION_PAUSE = "ionic.muses.audio.PAUSE"
         const val ACTION_RESUME = "ionic.muses.audio.RESUME"
         const val ACTION_STOP = "ionic.muses.audio.STOP"
+        const val ACTION_SEEK = "ionic.muses.audio.SEEK"
         const val ACTION_STATE_CHANGED = "ionic.muses.audio.STATE_CHANGED"
 
         const val EXTRA_SOURCE_TYPE = "sourceType"
@@ -257,6 +385,8 @@ class AudioPlaybackService : MediaSessionService() {
         const val EXTRA_PASSWORD = "password"
         const val EXTRA_STATUS = "status"
         const val EXTRA_ERROR_MESSAGE = "errorMessage"
+        const val EXTRA_POSITION = "position"
+        const val EXTRA_DURATION = "duration"
 
         const val SOURCE_WEBDAV = "webdav"
         const val STATUS_IDLE = "idle"
@@ -265,9 +395,10 @@ class AudioPlaybackService : MediaSessionService() {
         const val STATUS_PAUSED = "paused"
         const val STATUS_STOPPED = "stopped"
         const val STATUS_ERROR = "error"
+        const val PROGRESS_INTERVAL_MS = 750L
 
         @Volatile
-        var lastStatus = PlaybackStatus(STATUS_IDLE, null, null)
+        var lastStatus = PlaybackStatus(STATUS_IDLE, null, null, 0.0, 0.0)
             private set
     }
 }

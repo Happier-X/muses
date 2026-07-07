@@ -1,7 +1,8 @@
 package ionic.muses
 
-import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.util.Base64
+import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -11,9 +12,9 @@ import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.OkHttpClient
 
 @CapacitorPlugin(name = "WebDav")
 class WebDavPlugin : Plugin() {
@@ -23,6 +24,8 @@ class WebDavPlugin : Plugin() {
             .readTimeout(READ_TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
             .build()
     }
+
+    private val audioCache by lazy { WebDavAudioCache(context, httpClient) }
 
     @PluginMethod
     fun propfind(call: PluginCall) {
@@ -69,7 +72,6 @@ class WebDavPlugin : Plugin() {
 
     @PluginMethod
     fun readMetadata(call: PluginCall) {
-        // 远程标签读取留在原生层，避免 WebView CORS、JS 大文件内存占用和认证信息进入前端下载链路。
         val url = call.getString("url")
         val username = call.getString("username")
         val password = call.getString("password")
@@ -85,35 +87,111 @@ class WebDavPlugin : Plugin() {
         }
 
         bridge.execute {
-            val retriever = MediaMetadataRetriever()
             try {
-                retriever.setDataSource(url, mapOf("Authorization" to "Basic ${encodeBasicAuth(username, password)}"))
-                call.resolve(extractMetadata(retriever))
+                val cacheKey = call.getString("songId") ?: safeCacheKey(url)
+                val diagnostics = mutableSetOf<String>()
+                val cachedFile = try {
+                    audioCache.getOrDownload(url, username, password)
+                } catch (exception: Exception) {
+                    throw WebDavMetadataException(downloadDiagnosticCode(exception), "WebDAV 音频下载失败，无法读取标签。")
+                }
+
+                if (cachedFile.length() <= 0L) {
+                    throw WebDavMetadataException("empty_file", "WebDAV 音频缓存为空，无法读取标签。")
+                }
+
+                val result = AudioMetadataReader(context).readFromFile(cachedFile, cacheKey)
+                readSidecarLyrics(url, username, password)?.let { lyrics ->
+                    if (!result.has("lyrics")) {
+                        result.put("lyrics", lyrics)
+                        result.put("lyricsSource", "sidecar")
+                    }
+                }
+                if (!result.has("lyrics")) {
+                    diagnostics.add("no_lyrics")
+                }
+                result.put("tagsScanned", true)
+                appendDiagnostics(result, diagnostics)
+                call.resolve(result)
+            } catch (exception: WebDavMetadataException) {
+                rejectMetadataFailure(call, exception.diagnosticCode, exception.message ?: "WebDAV 标签读取失败。")
+            } catch (exception: AudioMetadataException) {
+                rejectMetadataFailure(call, exception.diagnosticCode, exception.message ?: "WebDAV 标签读取失败。")
             } catch (exception: Exception) {
-                call.reject(exception.message, exception)
-            } finally {
-                runCatching { retriever.release() }
+                rejectMetadataFailure(call, "metadata_failed", "WebDAV 标签读取失败。")
             }
         }
     }
 
-    private fun extractMetadata(retriever: MediaMetadataRetriever): JSObject {
-        val result = JSObject()
-        putStringMetadata(result, "title", retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE))
-        putStringMetadata(result, "artist", retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST))
-        putStringMetadata(result, "album", retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM))
-        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.let { durationMs ->
-            if (durationMs > 0) {
-                result.put("duration", durationMs / 1000.0)
-            }
-        }
-        return result
+    private fun rejectMetadataFailure(call: PluginCall, code: String, message: String) {
+        val data = JSObject()
+        val diagnostic = JSObject()
+        val codes = JSArray()
+        codes.put(code)
+        diagnostic.put("codes", codes)
+        data.put("metadataDiagnostic", diagnostic)
+        call.reject(message, code, null, data)
     }
 
-    private fun putStringMetadata(result: JSObject, key: String, value: String?) {
-        if (!value.isNullOrBlank()) {
-            result.put(key, value)
+    private fun appendDiagnostics(result: JSObject, diagnostics: Set<String>) {
+        if (diagnostics.isEmpty()) {
+            return
         }
+        val existing = result.getJSObject("metadataDiagnostic") ?: JSObject()
+        val codes = existing.getJSONArray("codes") ?: JSArray()
+        diagnostics.forEach { codes.put(it) }
+        existing.put("codes", codes)
+        result.put("metadataDiagnostic", existing)
+    }
+
+    private fun downloadDiagnosticCode(exception: Exception): String {
+        val message = exception.message.orEmpty()
+        return when {
+            message.contains("webdavCacheEmpty", ignoreCase = true) -> "empty_file"
+            message.contains("webdavCacheDownloadFailed", ignoreCase = true) -> "download_failed"
+            else -> "download_failed"
+        }
+    }
+
+    private fun safeCacheKey(url: String): String {
+        return runCatching {
+            val uri = Uri.parse(url)
+            uri.buildUpon().query(null).fragment(null).build().toString()
+        }.getOrDefault("webdav-audio")
+    }
+
+    private fun readSidecarLyrics(audioUrl: String, username: String, password: String): String? {
+        val lyricUrl = buildSidecarLyricsUrl(audioUrl) ?: return null
+        val request = Request.Builder()
+            .url(lyricUrl)
+            .get()
+            .header("Authorization", "Basic ${encodeBasicAuth(username, password)}")
+            .header("Accept", "text/plain, */*")
+            .build()
+
+        return runCatching {
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return@use null
+                }
+                val bytes = response.body?.bytes() ?: return@use null
+                decodeResponseBody(bytes, response.header("Content-Type")).takeIf { it.isNotBlank() }
+            }
+        }.getOrNull()
+    }
+
+    private fun buildSidecarLyricsUrl(audioUrl: String): String? {
+        return runCatching {
+            val uri = Uri.parse(audioUrl)
+            val lastSegment = uri.lastPathSegment ?: return null
+            val lyricSegment = lastSegment.substringBeforeLast('.', lastSegment) + ".lrc"
+            uri.buildUpon()
+                .path(uri.path.orEmpty().substringBeforeLast('/') + "/" + lyricSegment)
+                .query(null)
+                .fragment(null)
+                .build()
+                .toString()
+        }.getOrNull()
     }
 
     private fun encodeBasicAuth(username: String, password: String): String {
@@ -170,3 +248,8 @@ class WebDavPlugin : Plugin() {
         val XML_ENCODING_PATTERN = Regex("<\\?xml[^>]*encoding=[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
     }
 }
+
+private class WebDavMetadataException(
+    val diagnosticCode: String,
+    message: String,
+) : Exception(message)

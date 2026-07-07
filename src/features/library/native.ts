@@ -3,7 +3,7 @@ import type { AudioFileEntry, NativeAudioMetadata } from './types'
 
 interface LocalLibraryNativePlugin {
   scanDirectory(options: { treeUri: string }): Promise<{ files: AudioFileEntry[] }>
-  readMetadata(options: { uri: string }): Promise<NativeAudioMetadata>
+  readMetadata(options: { uri: string; path?: string; songId?: string }): Promise<NativeAudioMetadata>
 }
 
 // 本地音源的平台能力边界：封装 Android SAF 树 URI 的递归枚举与元数据读取，未来可替换为成熟插件而不影响扫描器。

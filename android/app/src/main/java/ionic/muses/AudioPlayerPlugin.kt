@@ -106,6 +106,18 @@ class AudioPlayerPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun seek(call: PluginCall) {
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, AudioPlaybackService::class.java).apply {
+                action = AudioPlaybackService.ACTION_SEEK
+                putExtra(AudioPlaybackService.EXTRA_POSITION, call.getDouble("position", 0.0))
+            },
+        )
+        call.resolve()
+    }
+
+    @PluginMethod
     fun getState(call: PluginCall) {
         call.resolve(stateFromSnapshot(AudioPlaybackService.lastStatus))
     }
@@ -122,6 +134,8 @@ class AudioPlayerPlugin : Plugin() {
         result.put("status", intent.getStringExtra(AudioPlaybackService.EXTRA_STATUS) ?: AudioPlaybackService.STATUS_IDLE)
         intent.getStringExtra(AudioPlaybackService.EXTRA_SONG_ID)?.let { result.put("currentSongId", it) }
         intent.getStringExtra(AudioPlaybackService.EXTRA_ERROR_MESSAGE)?.let { result.put("errorMessage", it) }
+        result.put("position", intent.getDoubleExtra(AudioPlaybackService.EXTRA_POSITION, 0.0))
+        result.put("duration", intent.getDoubleExtra(AudioPlaybackService.EXTRA_DURATION, 0.0))
         return result
     }
 
@@ -130,6 +144,8 @@ class AudioPlayerPlugin : Plugin() {
         result.put("status", snapshot.status)
         snapshot.currentSongId?.let { result.put("currentSongId", it) }
         snapshot.errorMessage?.let { result.put("errorMessage", it) }
+        result.put("position", snapshot.position)
+        result.put("duration", snapshot.duration)
         return result
     }
 }

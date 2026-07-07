@@ -1,6 +1,5 @@
 package ionic.muses
 
-import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import com.getcapacitor.JSArray
@@ -52,14 +51,20 @@ class LocalLibraryPlugin : Plugin() {
         }
 
         bridge.execute {
-            val retriever = MediaMetadataRetriever()
             try {
-                retriever.setDataSource(context, Uri.parse(uriValue))
-                call.resolve(extractMetadata(retriever))
+                val uri = Uri.parse(uriValue)
+                val cacheKey = call.getString("songId") ?: uriValue
+                val result = AudioMetadataReader(context).readFromContentUri(uri, cacheKey)
+                readSidecarLyrics(uri)?.let { lyrics ->
+                    if (!result.has("lyrics")) {
+                        result.put("lyrics", lyrics)
+                        result.put("lyricsSource", "sidecar")
+                    }
+                }
+                result.put("tagsScanned", true)
+                call.resolve(result)
             } catch (exception: Exception) {
                 call.reject(exception.message, exception)
-            } finally {
-                runCatching { retriever.release() }
             }
         }
     }
@@ -81,22 +86,15 @@ class LocalLibraryPlugin : Plugin() {
         }
     }
 
-    private fun extractMetadata(retriever: MediaMetadataRetriever): JSObject {
-        val result = JSObject()
-        putStringMetadata(result, "title", retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE))
-        putStringMetadata(result, "artist", retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST))
-        putStringMetadata(result, "album", retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM))
-        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.let { durationMs ->
-            if (durationMs > 0) {
-                result.put("duration", durationMs / 1000.0)
-            }
-        }
-        return result
-    }
-
-    private fun putStringMetadata(result: JSObject, key: String, value: String?) {
-        if (!value.isNullOrBlank()) {
-            result.put(key, value)
+    private fun readSidecarLyrics(audioUri: Uri): String? {
+        val audioFile = DocumentFile.fromSingleUri(context, audioUri) ?: return null
+        val audioName = audioFile.name ?: return null
+        val parentUri = runCatching { Uri.parse(audioUri.toString().substringBeforeLast("/")) }.getOrNull() ?: return null
+        val parent = DocumentFile.fromTreeUri(context, parentUri) ?: return null
+        val lyricName = audioName.substringBeforeLast('.', audioName) + ".lrc"
+        val lyricFile = parent.findFile(lyricName) ?: return null
+        return context.contentResolver.openInputStream(lyricFile.uri)?.use { input ->
+            input.readBytes().toString(Charsets.UTF_8).takeIf { it.isNotBlank() }
         }
     }
 

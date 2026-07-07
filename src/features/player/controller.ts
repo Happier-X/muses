@@ -1,5 +1,7 @@
 import { computed, reactive, readonly } from 'vue'
 import type { SongItem } from '@/features/library/types'
+import { CURRENT_METADATA_VERSION, loadSongs, upsertSong } from '@/features/library/storage'
+import { readLocalAudioTags, readWebDavAudioTags } from '@/features/library/tags'
 import { getWebDavPassword, loadSources } from '@/features/sources/storage'
 import type { WebDavSourceItem } from '@/features/sources/types'
 import { AudioPlayerNative } from './native'
@@ -10,9 +12,18 @@ const state = reactive<PlayerState>({
   status: 'idle',
   currentSong: null,
   errorMessage: null,
+  position: 0,
+  duration: 0,
+  lyrics: null,
+  coverUri: null,
+  metadataStatus: 'idle',
 })
 
 let nativeListenerReady = false
+let metadataScanToken = 0
+
+const LOCAL_METADATA_SCAN_TIMEOUT_MS = 15_000
+const WEBDAV_METADATA_SCAN_TIMEOUT_MS = 120_000
 
 const setUserSafeError = (message: string) => {
   state.status = 'error'
@@ -30,9 +41,16 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
 
   state.status = nativeState.status
   state.errorMessage = nativeState.status === 'error' ? nativeState.errorMessage || '播放失败，请稍后重试。' : null
+  state.position = normalizePlaybackTime(nativeState.position)
+  state.duration = normalizePlaybackTime(nativeState.duration)
 
   if (nativeState.status === 'idle' || nativeState.status === 'stopped') {
     state.currentSong = null
+    state.position = 0
+    state.duration = 0
+    state.lyrics = null
+    state.coverUri = null
+    state.metadataStatus = 'idle'
   }
 }
 
@@ -47,6 +65,21 @@ export const initializePlayer = async (): Promise<void> => {
   } catch {
     // 非 Android 或原生插件尚不可用时，保持空闲状态，用户点击播放时再显示明确错误。
   }
+}
+
+const normalizePlaybackTime = (value: unknown): number => {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
+const syncDisplayStateFromSong = (song: SongItem): void => {
+  if (state.currentSong?.id !== song.id) {
+    return
+  }
+
+  state.currentSong = createPlayerSongSnapshot(song)
+  state.lyrics = song.lyrics || null
+  state.coverUri = song.coverUri || null
+  state.duration = normalizePlaybackTime(song.duration) || state.duration
 }
 
 const getWebDavSource = (song: SongItem): WebDavSourceItem => {
@@ -71,10 +104,7 @@ const buildPlayOptions = async (song: SongItem): Promise<PlayOptions> => {
   }
 
   const source = getWebDavSource(song)
-  const password = await getWebDavPassword(source.credentialKey)
-  if (!password) {
-    throw new Error('WebDAV 密码不存在，请重新添加该音源。')
-  }
+  const password = await requireWebDavPassword(song)
 
   return {
     sourceType: 'webdav',
@@ -86,6 +116,87 @@ const buildPlayOptions = async (song: SongItem): Promise<PlayOptions> => {
     artist: song.artist,
     album: song.album,
   }
+}
+
+const buildAudioFileEntry = (song: SongItem) => ({
+  path: song.path,
+  uri: song.uri,
+  name: song.path.split('/').pop() || song.title,
+})
+
+const getLatestSongSnapshot = (song: SongItem): SongItem => {
+  return loadSongs().find((item) => item.id === song.id || (item.sourceId === song.sourceId && item.path === song.path)) ?? song
+}
+
+const shouldRefreshMetadata = (song: SongItem): boolean => {
+  return song.tagsScanned !== true || song.metadataVersion !== CURRENT_METADATA_VERSION || (!song.lyrics && !song.coverUri)
+}
+
+const withMetadataScanTimeout = async <T>(operation: Promise<T>, timeoutMs: number): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('歌曲信息补充超时。')), timeoutMs)
+  })
+
+  try {
+    return await Promise.race([operation, timeout])
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
+const scanSongMetadata = async (song: SongItem): Promise<void> => {
+  if (!shouldRefreshMetadata(song)) {
+    syncDisplayStateFromSong(song)
+    state.metadataStatus = 'ready'
+    return
+  }
+
+  const token = ++metadataScanToken
+  state.metadataStatus = 'scanning'
+
+  try {
+    const timeoutMs = song.sourceType === 'webdav' ? WEBDAV_METADATA_SCAN_TIMEOUT_MS : LOCAL_METADATA_SCAN_TIMEOUT_MS
+    const tags = await withMetadataScanTimeout(song.sourceType === 'local'
+      ? readLocalAudioTags(buildAudioFileEntry(song), song.id)
+      : readWebDavAudioTags(getWebDavSource(song), buildAudioFileEntry(song), await requireWebDavPassword(song)), timeoutMs)
+
+    if (token !== metadataScanToken || state.currentSong?.id !== song.id) {
+      return
+    }
+
+    const result = upsertSong({
+      sourceId: song.sourceId,
+      sourceType: song.sourceType,
+      path: song.path,
+      uri: song.uri,
+      title: song.title,
+      tags: {
+        ...tags,
+        tagsScanned: true,
+        tagsScannedAt: new Date().toISOString(),
+        metadataVersion: CURRENT_METADATA_VERSION,
+      },
+    }, loadSongs())
+
+    syncDisplayStateFromSong(result.song)
+    state.metadataStatus = 'ready'
+  } catch {
+    if (token === metadataScanToken && state.currentSong?.id === song.id) {
+      state.metadataStatus = 'failed'
+    }
+  }
+}
+
+const requireWebDavPassword = async (song: SongItem): Promise<string> => {
+  const source = getWebDavSource(song)
+  const password = await getWebDavPassword(source.credentialKey)
+  if (!password) {
+    throw new Error('WebDAV 密码不存在，请重新添加该音源。')
+  }
+  return password
 }
 
 const SAFE_PLAYBACK_ERRORS = new Set([
@@ -104,13 +215,22 @@ const isSafePlaybackError = (message: string): boolean => {
 }
 
 export const playSong = async (song: SongItem): Promise<void> => {
+  const latestSong = getLatestSongSnapshot(song)
+
   state.status = 'loading'
-  state.currentSong = createPlayerSongSnapshot(song)
+  metadataScanToken += 1
+  state.currentSong = createPlayerSongSnapshot(latestSong)
   state.errorMessage = null
+  state.position = 0
+  state.duration = normalizePlaybackTime(latestSong.duration)
+  state.lyrics = latestSong.lyrics || null
+  state.coverUri = latestSong.coverUri || null
+  state.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'
 
   try {
-    await AudioPlayerNative.play(await buildPlayOptions(song))
+    await AudioPlayerNative.play(await buildPlayOptions(latestSong))
     state.status = 'playing'
+    void scanSongMetadata(latestSong)
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
     setUserSafeError(isSafePlaybackError(message) ? message : '播放失败，请稍后重试。')
@@ -137,12 +257,31 @@ export const resumePlayback = async (): Promise<void> => {
   }
 }
 
+export const seekPlayback = async (position: number): Promise<void> => {
+  const safePosition = state.duration > 0
+    ? Math.min(normalizePlaybackTime(position), state.duration)
+    : normalizePlaybackTime(position)
+  try {
+    await AudioPlayerNative.seek({ position: safePosition })
+    state.position = safePosition
+    state.errorMessage = null
+  } catch {
+    setUserSafeError('跳转播放进度失败，请稍后重试。')
+  }
+}
+
 export const stopPlayback = async (): Promise<void> => {
   try {
     await AudioPlayerNative.stop()
+    metadataScanToken += 1
     state.status = 'stopped'
     state.currentSong = null
     state.errorMessage = null
+    state.position = 0
+    state.duration = 0
+    state.lyrics = null
+    state.coverUri = null
+    state.metadataStatus = 'idle'
   } catch {
     setUserSafeError('停止播放失败，请稍后重试。')
   }

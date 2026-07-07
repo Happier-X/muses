@@ -1,0 +1,10 @@
+{"type":"spec","path":".trellis/spec/frontend/index.md","reason":"读取前端规范入口，遵守项目约定"}
+{"type":"spec","path":".trellis/spec/frontend/state-management.md","reason":"播放器状态、安全边界、WebDAV 凭据和 native plugin contract"}
+{"type":"spec","path":".trellis/spec/frontend/type-safety.md","reason":"扩展 SongItem、PlayerState、native contract 时保持类型安全"}
+{"type":"code","path":"src/features/player/controller.ts","reason":"扩展播放器状态、seek、进度同步和延迟补扫入口"}
+{"type":"code","path":"src/features/player/types.ts","reason":"扩展 PlayerState、AudioPlayerNativeState、歌曲快照字段"}
+{"type":"code","path":"src/features/library/types.ts","reason":"扩展 SongItem、AudioTags、NativeAudioMetadata 字段"}
+{"type":"code","path":"src/features/library/storage.ts","reason":"兼容旧歌曲记录并持久化歌词/封面引用/扫描状态"}
+{"type":"code","path":"android/app/src/main/java/ionic/muses/AudioPlaybackService.kt","reason":"实现进度广播、seek、通知进度和前台服务安全"}
+{"type":"code","path":"android/app/src/main/java/ionic/muses/LocalLibraryPlugin.kt","reason":"读取本地标签歌词、同目录 LRC 和封面缓存"}
+{"type":"code","path":"android/app/src/main/java/ionic/muses/WebDavPlugin.kt","reason":"读取 WebDAV 标签歌词、同目录 LRC 和封面缓存，保持认证边界"}

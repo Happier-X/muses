@@ -16,6 +16,7 @@ interface WebDavNativePlugin {
     url: string
     username: string
     password: string
+    songId?: string
   }): Promise<AudioTags>
 }
 

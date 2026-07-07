@@ -1,6 +1,7 @@
-import type { AudioTags, SongItem } from './types'
+import type { AudioTags, LyricsSource, SongItem } from './types'
 
 const SONGS_STORAGE_KEY = 'muses:songs'
+export const CURRENT_METADATA_VERSION = 2
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null
@@ -16,6 +17,18 @@ const isOptionalString = (value: unknown): value is string | undefined => {
 
 const isOptionalNumber = (value: unknown): value is number | undefined => {
   return value === undefined || (typeof value === 'number' && Number.isFinite(value))
+}
+
+const isOptionalBoolean = (value: unknown): value is boolean | undefined => {
+  return value === undefined || typeof value === 'boolean'
+}
+
+const isOptionalLyricsSource = (value: unknown): value is LyricsSource | undefined => {
+  return value === undefined || value === 'embedded' || value === 'sidecar'
+}
+
+const isSafeCoverUri = (value: string | undefined): boolean => {
+  return value === undefined || !value.startsWith('data:')
 }
 
 const isSongItem = (value: unknown): value is SongItem => {
@@ -34,7 +47,14 @@ const isSongItem = (value: unknown): value is SongItem => {
     isString(value.updatedAt) &&
     isOptionalString(value.artist) &&
     isOptionalString(value.album) &&
-    isOptionalNumber(value.duration)
+    isOptionalNumber(value.duration) &&
+    isOptionalString(value.lyrics) &&
+    isOptionalLyricsSource(value.lyricsSource) &&
+    isOptionalString(value.coverUri) &&
+    isSafeCoverUri(value.coverUri) &&
+    isOptionalBoolean(value.tagsScanned) &&
+    isOptionalString(value.tagsScannedAt) &&
+    isOptionalNumber(value.metadataVersion)
   )
 }
 
@@ -64,8 +84,16 @@ export const loadSongs = (): SongItem[] => {
   }
 }
 
+const sanitizeSongForStorage = (song: SongItem): SongItem => {
+  const { coverUri, ...rest } = song
+  return {
+    ...rest,
+    ...(coverUri && !coverUri.startsWith('data:') ? { coverUri } : {}),
+  }
+}
+
 export const saveSongs = (songs: SongItem[]): void => {
-  localStorage.setItem(SONGS_STORAGE_KEY, JSON.stringify(songs))
+  localStorage.setItem(SONGS_STORAGE_KEY, JSON.stringify(songs.map(sanitizeSongForStorage)))
 }
 
 export type UpsertSongStatus = 'inserted' | 'updated' | 'skipped'
@@ -92,7 +120,13 @@ const hasSongChanged = (left: SongItem, right: SongItem): boolean => {
     left.title !== right.title ||
     left.artist !== right.artist ||
     left.album !== right.album ||
-    left.duration !== right.duration
+    left.duration !== right.duration ||
+    left.lyrics !== right.lyrics ||
+    left.lyricsSource !== right.lyricsSource ||
+    left.coverUri !== right.coverUri ||
+    left.tagsScanned !== right.tagsScanned ||
+    left.tagsScannedAt !== right.tagsScannedAt ||
+    left.metadataVersion !== right.metadataVersion
   )
 }
 
@@ -112,6 +146,12 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
       artist: tags.artist,
       album: tags.album,
       duration: tags.duration,
+      lyrics: tags.lyrics,
+      lyricsSource: tags.lyricsSource,
+      coverUri: tags.coverUri && !tags.coverUri.startsWith('data:') ? tags.coverUri : undefined,
+      tagsScanned: tags.tagsScanned,
+      tagsScannedAt: tags.tagsScannedAt,
+      metadataVersion: tags.metadataVersion,
       createdAt: now,
       updatedAt: now,
     }
@@ -125,9 +165,17 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
     ...previousSong,
     uri: input.uri,
     title: tags.title?.trim() || input.title,
-    artist: tags.artist,
-    album: tags.album,
-    duration: tags.duration,
+    artist: tags.artist ?? previousSong.artist,
+    album: tags.album ?? previousSong.album,
+    duration: tags.duration ?? previousSong.duration,
+    lyrics: tags.lyrics ?? previousSong.lyrics,
+    lyricsSource: tags.lyricsSource ?? previousSong.lyricsSource,
+    coverUri: tags.coverUri === undefined
+      ? previousSong.coverUri
+      : tags.coverUri && !tags.coverUri.startsWith('data:') ? tags.coverUri : undefined,
+    tagsScanned: tags.tagsScanned ?? previousSong.tagsScanned,
+    tagsScannedAt: tags.tagsScannedAt ?? previousSong.tagsScannedAt,
+    metadataVersion: tags.metadataVersion ?? previousSong.metadataVersion,
     updatedAt: now,
   }
 

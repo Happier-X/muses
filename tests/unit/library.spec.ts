@@ -60,6 +60,117 @@ describe('歌曲库持久化', () => {
     expect(loadSongs()).toHaveLength(1)
   })
 
+  test('兼容旧记录并持久化歌词、封面引用和标签扫描状态', () => {
+    localStorage.setItem(
+      'muses:songs',
+      JSON.stringify([
+        {
+          id: 'old-song',
+          sourceId: 'source-1',
+          sourceType: 'local',
+          path: 'album/old.mp3',
+          uri: 'content://old',
+          title: '旧歌曲',
+          createdAt: '2026-07-07T00:00:00.000Z',
+          updatedAt: '2026-07-07T00:00:00.000Z',
+        },
+      ]),
+    )
+
+    expect(loadSongs()).toHaveLength(1)
+
+    const result = upsertSong({
+      sourceId: 'source-1',
+      sourceType: 'local',
+      path: 'album/new.mp3',
+      uri: 'content://new',
+      title: 'new',
+      tags: {
+        lyrics: '[00:01.00]一句歌词',
+        lyricsSource: 'embedded',
+        coverUri: 'file:///cache/covers/new.jpg',
+        tagsScanned: true,
+        tagsScannedAt: '2026-07-07T00:03:00.000Z',
+      },
+      now: '2026-07-07T00:03:00.000Z',
+    })
+
+    expect(result.song).toMatchObject({
+      lyrics: '[00:01.00]一句歌词',
+      lyricsSource: 'embedded',
+      coverUri: 'file:///cache/covers/new.jpg',
+      tagsScanned: true,
+      tagsScannedAt: '2026-07-07T00:03:00.000Z',
+    })
+  })
+
+  test('部分标签更新不会清空已有可选元数据', () => {
+    const first = upsertSong({
+      sourceId: 'source-1',
+      sourceType: 'webdav',
+      path: '/song.mp3',
+      uri: 'https://example.com/song.mp3',
+      title: '旧标题',
+      tags: {
+        artist: '旧歌手',
+        album: '旧专辑',
+        lyrics: '[00:01.00]旧歌词',
+        lyricsSource: 'embedded',
+        coverUri: 'file:///cache/covers/old.jpg',
+        tagsScanned: true,
+        tagsScannedAt: '2026-07-07T00:00:00.000Z',
+        metadataVersion: 1,
+      },
+      now: '2026-07-07T00:00:00.000Z',
+    })
+
+    const second = upsertSong(
+      {
+        sourceId: 'source-1',
+        sourceType: 'webdav',
+        path: '/song.mp3',
+        uri: 'https://example.com/song.mp3',
+        title: '文件标题',
+        tags: {
+          title: '新标题',
+          duration: 180,
+          tagsScanned: true,
+          tagsScannedAt: '2026-07-07T00:02:00.000Z',
+          metadataVersion: 2,
+        },
+        now: '2026-07-07T00:02:00.000Z',
+      },
+      first.songs,
+    )
+
+    expect(second.song).toMatchObject({
+      title: '新标题',
+      artist: '旧歌手',
+      album: '旧专辑',
+      duration: 180,
+      lyrics: '[00:01.00]旧歌词',
+      lyricsSource: 'embedded',
+      coverUri: 'file:///cache/covers/old.jpg',
+      tagsScanned: true,
+      metadataVersion: 2,
+    })
+  })
+
+  test('不会把 data URL 封面写入歌曲库', () => {
+    upsertSong({
+      sourceId: 'source-1',
+      sourceType: 'local',
+      path: 'album/song.mp3',
+      uri: 'content://song',
+      title: 'song',
+      tags: { coverUri: 'data:image/jpeg;base64,secret-cover' },
+      now: '2026-07-07T00:00:00.000Z',
+    })
+
+    expect(localStorage.getItem('muses:songs')).not.toContain('data:image')
+    expect(loadSongs()[0].coverUri).toBeUndefined()
+  })
+
   test('同一路径标签变化时更新原歌曲记录并保留创建时间', () => {
     const first = upsertSong({
       sourceId: 'source-1',
@@ -168,6 +279,7 @@ describe('扫描器摘要', () => {
       url: 'https://example.com/dav/music/song.mp3',
       username: 'alice',
       password: 'secret-password',
+      songId: '/music/song.mp3',
     })
     expect(localStorage.getItem('muses:songs')).not.toContain('secret-password')
     expect(loadSongs()).toMatchObject([{ title: '远程标题', album: '远程专辑' }])

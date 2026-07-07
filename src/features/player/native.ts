@@ -1,12 +1,13 @@
 import { registerPlugin } from '@capacitor/core'
 import type { PluginListenerHandle } from '@capacitor/core'
-import type { AudioPlayerNativeState, PlayOptions } from './types'
+import type { AudioPlayerNativeState, PlayOptions, SeekOptions } from './types'
 
 export interface AudioPlayerNativePlugin {
   play(options: PlayOptions): Promise<void>
   pause(): Promise<void>
   resume(): Promise<void>
   stop(): Promise<void>
+  seek(options: SeekOptions): Promise<void>
   getState(): Promise<AudioPlayerNativeState>
   addListener(
     eventName: 'stateChange',

@@ -156,15 +156,19 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - `AudioPlayer.pause(): Promise<void>`.
 - `AudioPlayer.resume(): Promise<void>`.
 - `AudioPlayer.stop(): Promise<void>`.
-- `AudioPlayer.getState(): Promise<AudioPlayerNativeState>`.
-- `AudioPlayer.addListener('stateChange', listener: (state: AudioPlayerNativeState) => void): Promise<PluginListenerHandle>`.
-- Player controller state held in `src/features/player/controller.ts` as a `reactive<PlayerState>` shared across components.
+- `AudioPlayer.seek({ position: number }): Promise<void>`，`position` 使用秒作为前端/插件边界单位，Android 服务内部再转换为毫秒。
+- `AudioPlayer.getState(): Promise<AudioPlayerNativeState>`，返回 `status`、`position`、`duration`、`errorMessage?` 等安全播放快照。
+- `AudioPlayer.addListener('stateChange', listener: (state: AudioPlayerNativeState) => void): Promise<PluginListenerHandle>`，播放中状态广播应携带当前进度与总时长。
+- Player controller state held in `src/features/player/controller.ts` as a `reactive<PlayerState>` shared across components，包含当前歌曲快照、播放状态、进度、总时长、歌词、封面引用与标签补扫状态。
 
 #### 3. Contracts
 
-- Player state must never contain WebDAV passwords, Basic Auth headers, or any SecureStorage values.
-- `MiniPlayer.vue` and `SongsPage.vue` only read from `playerState` (readonly) and call `playSong`/`pausePlayback`/`resumePlayback`/`stopPlayback`.
+- Player state must never contain WebDAV passwords, Basic Auth headers, SecureStorage values, or cover image base64 data.
+- `MiniPlayer.vue` and `SongsPage.vue` only read from `playerState` (readonly) and call `playSong`/`pausePlayback`/`resumePlayback`/`stopPlayback`/`seekPlayback`.
 - `playSong(song)` resolves the WebDAV password via `getWebDavPassword(source.credentialKey)` and passes it only to `AudioPlayerNative.play(...)`; the password never reaches localStorage, the UI state, or `muses:songs`.
+- Playback pages may persist and display `lyrics`, `lyricsSource`, `coverUri`, `tagsScanned`, and `tagsScannedAt`; `coverUri` must be an app-private cache URI/reference, not a `data:` URL or raw base64 payload.
+- If a song has incomplete tags, `playSong(song)` may trigger a single-song lazy metadata rescan after playback starts. The rescan must not block playback, must not scan the whole library, and must only update the currently playing song if the song identity still matches.
+- Lyric priority is embedded LRC first, same-directory same-name `.lrc` second, then an explicit no-lyrics state.
 - Android `AudioPlayerPlugin.kt` passes `EXTRA_PASSWORD` into an Intent; `AudioPlaybackService.kt` uses it only to construct a Basic Auth header for the ExoPlayer `DefaultHttpDataSource.Factory`, then the password is discarded after the MediaItem is created.
 - `AudioPlaybackService.kt` is started with `ContextCompat.startForegroundService(...)`; it must call `startForeground(...)` during `onCreate()` or immediately on play start, otherwise Android kills the app with `Context.startForegroundService() did not then call Service.startForeground()`.
 - When playback fails, the frontend shows only white-listed business errors or a generic message; it does not forward auth-related exception details into reactive state or `MiniPlayer.vue`.
@@ -174,23 +178,29 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Missing WebDAV password when playing a WebDAV song -> `playSong` throws with `WebDAV 密码不存在，请重新添加该音源。`.
 - Missing WebDAV source entry -> `playSong` throws with `找不到这首歌对应的 WebDAV 音源，请重新扫描音源。`.
 - Non-white-listed native exceptions -> frontend shows `播放失败，请稍后重试。`.
-- Native pause/resume/stop exception -> frontend shows a generic operation-failed message.
+- Native pause/resume/stop/seek exception -> frontend shows a generic operation-failed message.
+- Seek position below `0` -> clamp to `0`; seek position beyond known duration -> clamp to duration before calling ExoPlayer.
+- Unknown or non-positive duration -> disable deterministic progress UI/notification progress rather than publishing misleading values.
+- Lazy metadata rescan failure -> mark metadata status as failed or show a degraded UI; playback continues.
 - Foreground service started but no timely `startForeground(...)` call -> app ANR/crash; fix by creating a notification channel and foreground notification before long playback work.
 - Anonymous song or missing URI in a play Intent -> native service publishes `STATUS_ERROR` with a safe message, not raw exception details.
 
 #### 5. Good/Base/Bad Cases
 
-- Good: clicking a local song plays it; clicking a different song stops the previous one and plays the new one; the mini player updates across tabs.
+- Good: clicking a local song plays it; clicking a different song stops the previous one and plays the new one; the mini player updates across tabs, and `/player` displays synced progress, cover, controls, and lyrics fallback states.
 - Base: user stops playback via the mini player; Android notification disappears; `currentSong` is cleared.
 - Bad: WebDAV password ends up in `localStorage.getItem('muses:songs')` or is logged to diagnose a playback failure.
+- Bad: a cover image is saved into `muses:songs` as base64 instead of an app-private `coverUri` reference.
 
 #### 6. Tests Required
 
 - `playSong` for a local song calls `AudioPlayerNative.play` with local options only (no password).
 - `playSong` for a WebDAV song calls `getWebDavPassword`, passes it only to `AudioPlayerNative.play`, and does not store it.
 - `controller.ts` error handler maps unknown native errors to a safe string.
-- `MiniPlayer.vue` renders the current title, toggles play/pause, and stops.
+- `MiniPlayer.vue` renders the current title, toggles play/pause, stops, navigates to `/player` from the bar body, and prevents control-button click/keyboard events from bubbling into navigation.
+- `PlayerPage.vue` renders no-current-song and no-lyrics states; progress dragging calls `seekPlayback` with seconds.
 - `SongsPage.vue` highlights the currently playing song.
+- Android validation should include progress broadcasting, notification `setProgress(...)`, seek clamping, and service resource release.
 
 #### 7. Wrong vs Correct
 
@@ -198,7 +208,7 @@ Wrong:
 
 ```ts
 const options: WebDavPlayOptions = { ..., password }
-state.currentSong = { ...song, password }
+state.currentSong = { ...song, password, coverBase64 }
 ```
 
 Correct:
@@ -206,7 +216,8 @@ Correct:
 ```ts
 const password = await getWebDavPassword(source.credentialKey)
 await AudioPlayerNative.play({ sourceType: 'webdav', ..., password })
-// password never assigned to reactive state or localStorage
+await seekPlayback(42) // seconds at the frontend/native plugin boundary
+// password never assigned to reactive state or localStorage; cover uses coverUri only
 ```
 
 Avoid creating service/client/cache abstractions before the application has actual data access requirements.

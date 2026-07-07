@@ -1,5 +1,14 @@
 <template>
-  <div v-if="hasActiveSong || playerState.errorMessage" class="mini-player" role="region" aria-label="迷你播放器">
+  <div
+    v-if="hasActiveSong || playerState.errorMessage"
+    class="mini-player"
+    role="button"
+    tabindex="0"
+    aria-label="打开沉浸式播放器"
+    @click="openPlayerPage"
+    @keyup.enter="openPlayerPage"
+    @keyup.space="openPlayerPage"
+  >
     <div class="track-info">
       <strong>{{ playerState.currentSong?.title || '播放失败' }}</strong>
       <span v-if="playerState.currentSong?.artist">{{ playerState.currentSong.artist }}</span>
@@ -14,7 +23,9 @@
         size="small"
         :disabled="playerState.status === 'loading'"
         :aria-label="isPlaying ? '暂停播放' : '继续播放'"
-        @click="togglePlayback"
+        @click.stop="togglePlayback"
+        @keyup.enter.stop
+        @keyup.space.stop
       >
         <ion-icon slot="icon-only" :icon="isPlaying ? pause : play" />
       </ion-button>
@@ -23,7 +34,9 @@
         size="small"
         color="medium"
         aria-label="停止播放"
-        @click="stopPlayback"
+        @click.stop="stopPlayback"
+        @keyup.enter.stop
+        @keyup.space.stop
       >
         <ion-icon slot="icon-only" :icon="close" />
       </ion-button>
@@ -34,7 +47,14 @@
 <script setup lang="ts">
 import { IonButton, IonIcon } from '@ionic/vue'
 import { close, pause, play } from 'ionicons/icons'
+import { useRouter } from 'vue-router'
 import { hasActiveSong, isPlaying, pausePlayback, playerState, resumePlayback, stopPlayback } from '@/features/player/controller'
+
+const router = useRouter()
+
+const openPlayerPage = () => {
+  void router.push('/player')
+}
 
 const togglePlayback = async () => {
   if (isPlaying.value) {
@@ -49,6 +69,7 @@ const togglePlayback = async () => {
 <style scoped>
 .mini-player {
   position: fixed;
+  cursor: pointer;
   left: 12px;
   right: 12px;
   bottom: calc(64px + var(--ion-safe-area-bottom, 0px));

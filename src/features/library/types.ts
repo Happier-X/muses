@@ -1,5 +1,7 @@
 import type { SourceType } from '@/features/sources/types'
 
+export type LyricsSource = 'embedded' | 'sidecar'
+
 export interface SongItem {
   id: string
   sourceId: string
@@ -10,6 +12,12 @@ export interface SongItem {
   artist?: string
   album?: string
   duration?: number
+  lyrics?: string
+  lyricsSource?: LyricsSource
+  coverUri?: string
+  tagsScanned?: boolean
+  tagsScannedAt?: string
+  metadataVersion?: number
   createdAt: string
   updatedAt: string
 }
@@ -20,11 +28,22 @@ export interface AudioFileEntry {
   name: string
 }
 
+export interface AudioMetadataDiagnostic {
+  codes?: string[]
+}
+
 export interface AudioTags {
   title?: string
   artist?: string
   album?: string
   duration?: number
+  lyrics?: string
+  lyricsSource?: LyricsSource
+  coverUri?: string
+  tagsScanned?: boolean
+  tagsScannedAt?: string
+  metadataVersion?: number
+  metadataDiagnostic?: AudioMetadataDiagnostic
 }
 
 export interface ScanOptions {

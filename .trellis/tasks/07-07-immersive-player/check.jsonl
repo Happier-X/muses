@@ -1,0 +1,8 @@
+{"type":"spec","path":".trellis/spec/frontend/state-management.md","reason":"检查播放器状态、敏感信息边界、前台服务和 native contract 是否符合规范"}
+{"type":"spec","path":".trellis/spec/frontend/quality-guidelines.md","reason":"检查测试、降级状态和错误处理质量"}
+{"type":"code","path":"tests/unit/player.spec.ts","reason":"确认迷你播放器、播放控制、seek、延迟补扫和敏感信息测试覆盖"}
+{"type":"code","path":"tests/unit/library.spec.ts","reason":"确认歌曲元数据存储兼容与新字段持久化测试覆盖"}
+{"type":"command","path":"npm run test:unit -- --run","reason":"运行前端单元测试"}
+{"type":"command","path":"npm run lint","reason":"运行 ESLint"}
+{"type":"command","path":"npm run build","reason":"运行 TypeScript 与 Vite 构建"}
+{"type":"command","path":"cd android && ./gradlew :app:compileDebugKotlin","reason":"验证 Android Kotlin 编译"}

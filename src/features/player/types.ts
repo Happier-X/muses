@@ -4,6 +4,8 @@ export type PlaybackStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'stoppe
 
 export type PlayerSourceType = 'local' | 'webdav'
 
+export type PlayerMetadataStatus = 'idle' | 'scanning' | 'ready' | 'failed'
+
 export interface PlayerSongSnapshot {
   id: string
   sourceId: string
@@ -11,12 +13,21 @@ export interface PlayerSongSnapshot {
   title: string
   artist?: string
   album?: string
+  duration?: number
+  lyrics?: string
+  lyricsSource?: SongItem['lyricsSource']
+  coverUri?: string
 }
 
 export interface PlayerState {
   status: PlaybackStatus
   currentSong: PlayerSongSnapshot | null
   errorMessage: string | null
+  position: number
+  duration: number
+  lyrics: string | null
+  coverUri: string | null
+  metadataStatus: PlayerMetadataStatus
 }
 
 export interface LocalPlayOptions {
@@ -45,6 +56,13 @@ export interface AudioPlayerNativeState {
   status: PlaybackStatus
   currentSongId?: string
   errorMessage?: string
+  position?: number
+  duration?: number
+  bufferedPosition?: number
+}
+
+export interface SeekOptions {
+  position: number
 }
 
 export const createPlayerSongSnapshot = (song: SongItem): PlayerSongSnapshot => ({
@@ -54,4 +72,8 @@ export const createPlayerSongSnapshot = (song: SongItem): PlayerSongSnapshot => 
   title: song.title,
   artist: song.artist,
   album: song.album,
+  duration: song.duration,
+  lyrics: song.lyrics,
+  lyricsSource: song.lyricsSource,
+  coverUri: song.coverUri,
 })
