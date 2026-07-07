@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/index.md","reason":"检查前端实现是否符合项目整体形态。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"检查 player feature、页面和原生插件文件边界。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"检查歌曲库读取、SecureStorage 密码边界和 localStorage 安全。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"检查播放参数、状态和错误类型。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查测试覆盖、构建、lint 和用户可见质量。"}

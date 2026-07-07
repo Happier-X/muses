@@ -141,6 +141,74 @@ const password = await getWebDavPassword(source.credentialKey)
 const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri, title })
 ```
 
+```
+
+### Scenario: Global Audio Player State
+
+#### 1. Scope / Trigger
+
+- Trigger: the global audio player manages playback across pages, Android background playback, and notification controls. It touches frontend feature-local reactive state, Capacitor plugin communication, and Android `MediaSessionService` contracts.
+- Owning files: `src/features/player/*`, `src/components/MiniPlayer.vue`, `src/App.vue`, and project-local Android plugins `AudioPlayerPlugin.kt` + `AudioPlaybackService.kt`.
+
+#### 2. Signatures
+
+- `AudioPlayer.play(options: LocalPlayOptions | WebDavPlayOptions): Promise<void>`.
+- `AudioPlayer.pause(): Promise<void>`.
+- `AudioPlayer.resume(): Promise<void>`.
+- `AudioPlayer.stop(): Promise<void>`.
+- `AudioPlayer.getState(): Promise<AudioPlayerNativeState>`.
+- `AudioPlayer.addListener('stateChange', listener: (state: AudioPlayerNativeState) => void): Promise<PluginListenerHandle>`.
+- Player controller state held in `src/features/player/controller.ts` as a `reactive<PlayerState>` shared across components.
+
+#### 3. Contracts
+
+- Player state must never contain WebDAV passwords, Basic Auth headers, or any SecureStorage values.
+- `MiniPlayer.vue` and `SongsPage.vue` only read from `playerState` (readonly) and call `playSong`/`pausePlayback`/`resumePlayback`/`stopPlayback`.
+- `playSong(song)` resolves the WebDAV password via `getWebDavPassword(source.credentialKey)` and passes it only to `AudioPlayerNative.play(...)`; the password never reaches localStorage, the UI state, or `muses:songs`.
+- Android `AudioPlayerPlugin.kt` passes `EXTRA_PASSWORD` into an Intent; `AudioPlaybackService.kt` uses it only to construct a Basic Auth header for the ExoPlayer `DefaultHttpDataSource.Factory`, then the password is discarded after the MediaItem is created.
+- `AudioPlaybackService.kt` is started with `ContextCompat.startForegroundService(...)`; it must call `startForeground(...)` during `onCreate()` or immediately on play start, otherwise Android kills the app with `Context.startForegroundService() did not then call Service.startForeground()`.
+- When playback fails, the frontend shows only white-listed business errors or a generic message; it does not forward auth-related exception details into reactive state or `MiniPlayer.vue`.
+
+#### 4. Validation & Error Matrix
+
+- Missing WebDAV password when playing a WebDAV song -> `playSong` throws with `WebDAV 密码不存在，请重新添加该音源。`.
+- Missing WebDAV source entry -> `playSong` throws with `找不到这首歌对应的 WebDAV 音源，请重新扫描音源。`.
+- Non-white-listed native exceptions -> frontend shows `播放失败，请稍后重试。`.
+- Native pause/resume/stop exception -> frontend shows a generic operation-failed message.
+- Foreground service started but no timely `startForeground(...)` call -> app ANR/crash; fix by creating a notification channel and foreground notification before long playback work.
+- Anonymous song or missing URI in a play Intent -> native service publishes `STATUS_ERROR` with a safe message, not raw exception details.
+
+#### 5. Good/Base/Bad Cases
+
+- Good: clicking a local song plays it; clicking a different song stops the previous one and plays the new one; the mini player updates across tabs.
+- Base: user stops playback via the mini player; Android notification disappears; `currentSong` is cleared.
+- Bad: WebDAV password ends up in `localStorage.getItem('muses:songs')` or is logged to diagnose a playback failure.
+
+#### 6. Tests Required
+
+- `playSong` for a local song calls `AudioPlayerNative.play` with local options only (no password).
+- `playSong` for a WebDAV song calls `getWebDavPassword`, passes it only to `AudioPlayerNative.play`, and does not store it.
+- `controller.ts` error handler maps unknown native errors to a safe string.
+- `MiniPlayer.vue` renders the current title, toggles play/pause, and stops.
+- `SongsPage.vue` highlights the currently playing song.
+
+#### 7. Wrong vs Correct
+
+Wrong:
+
+```ts
+const options: WebDavPlayOptions = { ..., password }
+state.currentSong = { ...song, password }
+```
+
+Correct:
+
+```ts
+const password = await getWebDavPassword(source.credentialKey)
+await AudioPlayerNative.play({ sourceType: 'webdav', ..., password })
+// password never assigned to reactive state or localStorage
+```
+
 Avoid creating service/client/cache abstractions before the application has actual data access requirements.
 
 ---
