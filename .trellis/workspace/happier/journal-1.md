@@ -140,3 +140,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: 完成歌曲点击播放
+
+**Date**: 2026-07-07
+**Task**: 完成歌曲点击播放
+**Branch**: `main`
+
+### Summary
+
+实现歌曲点击播放、跨页面迷你播放器、Android 后台播放与通知栏控制；修复播放错误提示、迷你播放器透明背景和前台服务未及时 startForeground 导致的闪退。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `12b45cb` | (see git log) |
+| `31baa43` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
