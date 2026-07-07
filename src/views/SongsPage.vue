@@ -18,11 +18,19 @@
       </div>
 
       <ion-list v-else>
-        <ion-item v-for="song in songs" :key="song.id">
+        <ion-item
+          v-for="song in songs"
+          :key="song.id"
+          button
+          :detail="false"
+          :class="{ 'is-playing': playerState.currentSong?.id === song.id }"
+          @click="playSong(song)"
+        >
           <ion-label>
             <h2>{{ song.title }}</h2>
             <p>{{ getSongArtistName(song) }} · {{ getSongAlbumName(song) }}</p>
             <p>{{ formatSongDetail(song) }}</p>
+            <p v-if="playerState.currentSong?.id === song.id" class="playing-label">正在播放</p>
           </ion-label>
         </ion-item>
       </ion-list>
@@ -36,6 +44,7 @@ import { IonContent, IonHeader, IonItem, IonLabel, IonList, IonPage, IonTitle, I
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { formatDuration, getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
+import { playerState, playSong } from '@/features/player/controller'
 
 const songs = ref<SongItem[]>([])
 
@@ -75,5 +84,14 @@ onIonViewWillEnter(refreshSongs)
 .empty-state h2 {
   margin-bottom: 8px;
   color: var(--ion-text-color);
+}
+
+.is-playing {
+  --background: rgba(var(--ion-color-primary-rgb), 0.1);
+}
+
+.playing-label {
+  color: var(--ion-color-primary);
+  font-weight: 600;
 }
 </style>
