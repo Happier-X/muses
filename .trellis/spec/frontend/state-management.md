@@ -159,19 +159,26 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - `AudioPlayer.seek({ position: number }): Promise<void>`，`position` 使用秒作为前端/插件边界单位，Android 服务内部再转换为毫秒。
 - `AudioPlayer.getState(): Promise<AudioPlayerNativeState>`，返回 `status`、`position`、`duration`、`errorMessage?` 等安全播放快照。
 - `AudioPlayer.addListener('stateChange', listener: (state: AudioPlayerNativeState) => void): Promise<PluginListenerHandle>`，播放中状态广播应携带当前进度与总时长。
+- `MediaSession.setMetadata({ title, artist?, album?, artwork? })` receives non-sensitive display metadata only.
+- `MediaSession.setPlaybackState({ playbackState: 'none' | 'paused' | 'playing' })` mirrors safe player status.
+- `MediaSession.setPositionState({ duration, position, playbackRate })` uses seconds at the frontend/plugin boundary, matching `AudioPlayer.seek`.
+- `MediaSession.setActionHandler({ action }, handler)` maps system media actions to the existing player controller methods.
 - Player controller state held in `src/features/player/controller.ts` as a `reactive<PlayerState>` shared across components，包含当前歌曲快照、播放状态、进度、总时长、歌词、封面引用与标签补扫状态。
 
 #### 3. Contracts
 
 - Player state must never contain WebDAV passwords, Basic Auth headers, SecureStorage values, or cover image base64 data.
 - `MiniPlayer.vue` and `SongsPage.vue` only read from `playerState` (readonly) and call `playSong`/`pausePlayback`/`resumePlayback`/`stopPlayback`/`seekPlayback`.
-- `playSong(song)` resolves the WebDAV password via `getWebDavPassword(source.credentialKey)` and passes it only to `AudioPlayerNative.play(...)`; the password never reaches localStorage, the UI state, or `muses:songs`.
+- `playSong(song)` resolves the WebDAV password via `getWebDavPassword(source.credentialKey)` and passes it only to `AudioPlayerNative.play(...)`; the password never reaches localStorage, the UI state, `muses:songs`, or Capgo `MediaSession` payloads.
 - `playSong(song)` must first merge the incoming list item with the latest matching `muses:songs` record (`id` or `(sourceId, path)`) before creating `PlayerSongSnapshot`; otherwise stale list objects can miss lyrics/cover data that lazy metadata rescan already persisted.
-- Playback pages may persist and display `lyrics`, `lyricsSource`, `coverUri`, `tagsScanned`, and `tagsScannedAt`; `coverUri` must be an app-private cache URI/reference, not a `data:` URL or raw base64 payload. Display helpers must reject `data:` cover URIs even if malformed legacy data reaches the page.
+- Playback pages may persist and display `lyrics`, `lyricsSource`, `coverUri`, `tagsScanned`, and `tagsScannedAt`; `coverUri` must be an app-private cache URI/reference, not a `data:` URL or raw base64 payload. Display helpers and media-session sync helpers must reject `data:` / `blob:` / `;base64,` cover URIs even if malformed legacy data reaches the page.
+- The Capgo media-session sync layer must never pass WebDAV audio URLs, usernames, passwords, Authorization headers, SecureStorage values, or authenticated artwork URLs. It may pass title/artist/album, safe artwork reference, playback state, position, duration, and playbackRate only.
+- Media-session action handlers must be initialized idempotently and marked ready only after registration succeeds; plugin startup failure should allow retry on the next `initializePlayer()` or `playSong()`.
 - If a song has incomplete tags, `playSong(song)` may trigger a single-song lazy metadata rescan after playback starts. The rescan must not block playback, must not scan the whole library, and must only update the currently playing song if the song identity still matches.
 - Lyric priority is embedded LRC first, same-directory same-name `.lrc` second, then an explicit no-lyrics state.
 - Android `AudioPlayerPlugin.kt` passes `EXTRA_PASSWORD` into an Intent; `AudioPlaybackService.kt` uses it only to construct a Basic Auth header for the ExoPlayer `DefaultHttpDataSource.Factory`, then the password is discarded after the MediaItem is created.
 - `AudioPlaybackService.kt` is started with `ContextCompat.startForegroundService(...)`; it must call `startForeground(...)` during `onCreate()` or immediately on play start, otherwise Android kills the app with `Context.startForegroundService() did not then call Service.startForeground()`.
+- When a separate media-session plugin owns the user-visible media notification, the existing playback service foreground notification should be minimized (`IMPORTANCE_MIN`, silent, private/secret, no media controls) while still satisfying Android foreground-service rules.
 - When playback fails, the frontend shows only white-listed business errors or a generic message; it does not forward auth-related exception details into reactive state or `MiniPlayer.vue`.
 - AMLL background usage in `PlayerPage.vue` must wrap `BackgroundRender` in a real positioned container with explicit dimensions. The Vue binding renders its component root as `display: contents`, so styling the component root alone can leave the internal canvas with a 1px/0px height. Use an outer `.amll-background` layer and place `BackgroundRender` inside it with a full-size class; fallback CSS background must not cover the AMLL canvas when lyrics exist.
 - Two-panel player swiping uses a `200%`-wide flex container with two `50%` panels; switching to the lyric panel must translate by `-50%`, not `-100%`, or the lyric page is rendered off-screen.
@@ -186,6 +193,8 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Unknown or non-positive duration -> disable deterministic progress UI/notification progress rather than publishing misleading values.
 - Lazy metadata rescan failure -> mark metadata status as failed or show a degraded UI; playback continues.
 - Incoming song object lacks lyrics/cover but latest `muses:songs` has them -> `playSong` uses the latest stored display metadata immediately and does not show a false no-lyrics state.
+- Media-session plugin action-handler registration fails once -> do not mark controls initialized; retry later instead of permanently losing notification/media-key controls.
+- Media-session payload contains WebDAV password, Basic Auth, authenticated audio URL, or `data:` artwork -> fail the implementation; filter payload before calling Capgo.
 - AMLL background canvas height is near zero in WebView DevTools -> wrap `BackgroundRender` in a real full-size element instead of relying on component root styling.
 - Foreground service started but no timely `startForeground(...)` call -> app ANR/crash; fix by creating a notification channel and foreground notification before long playback work.
 - Anonymous song or missing URI in a play Intent -> native service publishes `STATUS_ERROR` with a safe message, not raw exception details.
@@ -196,7 +205,8 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Base: user stops playback via the mini player; Android notification disappears; `currentSong` is cleared.
 - Good: a stale song list item is played after metadata rescan has persisted lyrics; `/player` uses the latest stored lyrics immediately.
 - Bad: WebDAV password ends up in `localStorage.getItem('muses:songs')` or is logged to diagnose a playback failure.
-- Bad: a cover image is saved into `muses:songs` as base64 or rendered into the UI as a `data:` URL instead of an app-private `coverUri` reference.
+- Bad: a cover image is saved into `muses:songs` as base64, rendered into the UI as a `data:` URL, or passed to Capgo `MediaSession.setMetadata` as base64 artwork.
+- Bad: the media-session plugin receives WebDAV URLs/credentials or fails action-handler initialization once and never retries.
 - Bad: AMLL `BackgroundRender` is mounted directly as the positioned layer and its internal canvas measures as 1px high.
 
 #### 6. Tests Required
@@ -208,8 +218,9 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - `PlayerPage.vue` renders no-current-song and no-lyrics states; progress dragging calls `seekPlayback` with seconds.
 - `PlayerPage.vue` rejects `data:` cover URIs, renders AMLL lyrics after a left-swipe, uses `translateX(-50%)` for the second panel, and mounts `BackgroundRender` under a full-size `.amll-background` container.
 - `playSong` tests cover stale input objects by seeding `muses:songs` with newer lyrics/cover and asserting `playerState` uses the newer metadata.
+- Media-session tests assert metadata/position/playbackState sync, action handlers call existing controller methods, unsafe artwork and WebDAV credentials never reach Capgo payloads, and initialization retries after plugin failure.
 - `SongsPage.vue` highlights the currently playing song.
-- Android validation should include progress broadcasting, notification `setProgress(...)`, seek clamping, and service resource release.
+- Android validation should include progress broadcasting, notification `setProgress(...)` or equivalent media-session position sync, seek clamping, service resource release, and checking for duplicate visible notifications.
 
 #### 7. Wrong vs Correct
 
@@ -218,6 +229,8 @@ Wrong:
 ```ts
 const options: WebDavPlayOptions = { ..., password }
 state.currentSong = { ...song, password, coverBase64 }
+await MediaSession.setMetadata({ title, artwork: [{ src: song.uri }], password })
+controlsInitialized = true // set before action handlers are registered successfully
 const coverSrc = song.coverUri // may be data:image/jpeg;base64,...
 <BackgroundRender class="amll-background" /> // root is display: contents; canvas can measure 1px high
 const transform = `translateX(-${activePanel * 100}%)` // wrong for 200%-wide two-panel container
@@ -231,7 +244,10 @@ const password = await getWebDavPassword(source.credentialKey)
 await AudioPlayerNative.play({ sourceType: 'webdav', ..., password })
 await seekPlayback(42) // seconds at the frontend/native plugin boundary
 const coverSrc = toDisplayableUri(latestSong.coverUri) // returns '' for data: URIs
-// password never assigned to reactive state or localStorage; cover uses coverUri only
+await MediaSession.setMetadata({ title, artist, album, ...(safeArtwork ? { artwork: [{ src: safeArtwork }] } : {}) })
+await MediaSession.setPositionState({ duration, position, playbackRate: isPlaying ? 1 : 0 })
+controlsInitialized = true // only after all action handlers register
+// password never assigned to reactive state, localStorage, or MediaSession payload; cover uses safe coverUri only
 // AMLL background is wrapped in a real full-size element; lyric panel uses translateX(-50%)
 ```
 
