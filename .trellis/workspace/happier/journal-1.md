@@ -73,3 +73,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: 添加音源扫描入库
+
+**Date**: 2026-07-07
+**Task**: 添加音源扫描入库
+**Branch**: `main`
+
+### Summary
+
+完成音源扫描入库功能：音源卡片新增扫描入口、设置与进度弹窗；新增歌曲库持久化与去重；支持本地和 WebDAV 音频递归扫描及真实标签读取；补充 WebDAV 密码安全、插件替代评审、前端规范和单元/构建/Android 编译验证。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4f132f6` | (see git log) |
+| `bd59047` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
