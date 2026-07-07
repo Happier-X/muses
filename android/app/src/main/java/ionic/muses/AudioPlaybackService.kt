@@ -12,6 +12,7 @@ import android.util.Base64
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -19,12 +20,14 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 
+@UnstableApi
 class AudioPlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
@@ -50,8 +53,15 @@ class AudioPlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        ensureNotificationChannel()
-        startForeground(NOTIFICATION_ID, createForegroundNotification("正在准备播放器"))
+        ensureBootstrapNotificationChannel()
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this)
+                .setNotificationId(MEDIA_NOTIFICATION_ID)
+                .setChannelId(MEDIA_NOTIFICATION_CHANNEL_ID)
+                .setChannelName(R.string.audio_media_notification_channel)
+                .build(),
+        )
+        startForeground(BOOTSTRAP_NOTIFICATION_ID, createBootstrapNotification())
         ensurePlayer()
     }
 
@@ -130,7 +140,6 @@ class AudioPlaybackService : MediaSessionService() {
 
         currentTitle = title
         currentArtist = artist
-        startForeground(NOTIFICATION_ID, createForegroundNotification(title, artist))
 
         if (sourceType.isNullOrBlank() || songId.isNullOrBlank() || uri.isNullOrBlank()) {
             publishState(STATUS_ERROR, "播放参数不完整。")
@@ -269,7 +278,6 @@ class AudioPlaybackService : MediaSessionService() {
         val duration = durationSeconds()
         val snapshot = PlaybackStatus(status, currentSongId, errorMessage, position, duration)
         lastStatus = snapshot
-        updateNotification(status, position, duration)
         sendBroadcast(Intent(ACTION_STATE_CHANGED).apply {
             setPackage(packageName)
             putExtra(EXTRA_STATUS, snapshot.status)
@@ -290,13 +298,6 @@ class AudioPlaybackService : MediaSessionService() {
         return if (value != C.TIME_UNSET && value > 0) value / 1000.0 else 0.0
     }
 
-    private fun updateNotification(status: String, position: Double, duration: Double) {
-        if (status == STATUS_STOPPED) {
-            return
-        }
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(NOTIFICATION_ID, createForegroundNotification(currentTitle, currentArtist, position, duration))
-    }
 
     private fun mapPlaybackError(error: Throwable): String {
         val message = error.message.orEmpty()
@@ -310,17 +311,11 @@ class AudioPlaybackService : MediaSessionService() {
         }
     }
 
-    private fun createForegroundNotification(
-        title: String,
-        artist: String? = null,
-        position: Double = 0.0,
-        duration: Double = 0.0,
-    ): Notification {
-        val subtitle = artist?.takeIf { it.isNotBlank() } ?: "媒体播放服务"
-        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+    private fun createBootstrapNotification(): Notification {
+        return NotificationCompat.Builder(this, BOOTSTRAP_NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(title)
-            .setContentText(subtitle)
+            .setContentTitle("正在准备播放器")
+            .setContentText("媒体播放服务启动中")
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
@@ -330,19 +325,19 @@ class AudioPlaybackService : MediaSessionService() {
             .build()
     }
 
-    private fun ensureNotificationChannel() {
+    private fun ensureBootstrapNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return
         }
 
         val manager = getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(NOTIFICATION_CHANNEL_ID) != null) {
+        if (manager.getNotificationChannel(BOOTSTRAP_NOTIFICATION_CHANNEL_ID) != null) {
             return
         }
 
         val channel = NotificationChannel(
-            NOTIFICATION_CHANNEL_ID,
-            "后台播放服务",
+            BOOTSTRAP_NOTIFICATION_CHANNEL_ID,
+            "后台播放启动",
             NotificationManager.IMPORTANCE_MIN,
         ).apply {
             description = "保持后台音频播放运行，媒体控制由系统媒体通知提供。"
@@ -367,8 +362,10 @@ class AudioPlaybackService : MediaSessionService() {
 
     companion object {
         const val ACTION_PLAY = "ionic.muses.audio.PLAY"
-        const val NOTIFICATION_CHANNEL_ID = "audio-playback"
-        const val NOTIFICATION_ID = 1001
+        const val BOOTSTRAP_NOTIFICATION_CHANNEL_ID = "audio-playback-bootstrap"
+        const val MEDIA_NOTIFICATION_CHANNEL_ID = "audio-playback"
+        const val BOOTSTRAP_NOTIFICATION_ID = 1001
+        const val MEDIA_NOTIFICATION_ID = BOOTSTRAP_NOTIFICATION_ID
         const val ACTION_PAUSE = "ionic.muses.audio.PAUSE"
         const val ACTION_RESUME = "ionic.muses.audio.RESUME"
         const val ACTION_STOP = "ionic.muses.audio.STOP"

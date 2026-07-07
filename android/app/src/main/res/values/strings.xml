@@ -4,4 +4,5 @@
     <string name="title_activity_main">muses</string>
     <string name="package_name">ionic.muses</string>
     <string name="custom_url_scheme">ionic.muses</string>
+    <string name="audio_media_notification_channel">媒体播放</string>
 </resources>

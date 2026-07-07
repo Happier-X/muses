@@ -25,7 +25,6 @@
     "@capacitor/keyboard": "latest",
     "@capacitor/status-bar": "latest",
     "@capawesome/capacitor-file-picker": "^8.0.3",
-    "@capgo/capacitor-media-session": "^8.0.28",
     "@ionic/vue": "^8.0.0",
     "@ionic/vue-router": "^8.0.0",
     "@pixi/app": "^7.4.3",
