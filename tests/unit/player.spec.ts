@@ -5,24 +5,42 @@ import MiniPlayer from '@/components/MiniPlayer.vue'
 import PlayerPage from '@/views/PlayerPage.vue'
 import App from '@/App.vue'
 
-const { localLibraryNative, nativePlayer, webDavNative } = vi.hoisted(() => ({
-  localLibraryNative: {
-    scanDirectory: vi.fn(),
-    readMetadata: vi.fn(),
-  },
-  webDavNative: {
-    propfind: vi.fn(),
-    readMetadata: vi.fn(),
-  },
-  nativePlayer: {
-    play: vi.fn(),
-    pause: vi.fn(),
-    resume: vi.fn(),
-    stop: vi.fn(),
-    seek: vi.fn(),
-    getState: vi.fn(),
-    addListener: vi.fn(),
-  },
+const { localLibraryNative, mediaSessionHandlers, mediaSessionNative, nativePlayer, webDavNative } = vi.hoisted(() => {
+  const handlers = new Map<string, (details: { action: string; seekTime?: number | null }) => void>()
+  return {
+    localLibraryNative: {
+      scanDirectory: vi.fn(),
+      readMetadata: vi.fn(),
+    },
+    webDavNative: {
+      propfind: vi.fn(),
+      readMetadata: vi.fn(),
+    },
+    nativePlayer: {
+      play: vi.fn(),
+      pause: vi.fn(),
+      resume: vi.fn(),
+      stop: vi.fn(),
+      seek: vi.fn(),
+      getState: vi.fn(),
+      addListener: vi.fn(),
+    },
+    mediaSessionHandlers: handlers,
+    mediaSessionNative: {
+      setMetadata: vi.fn(),
+      setPlaybackState: vi.fn(),
+      setPositionState: vi.fn(),
+      setActionHandler: vi.fn((options: { action: string }, handler: (details: { action: string; seekTime?: number | null }) => void) => {
+        handlers.set(options.action, handler)
+        return Promise.resolve()
+      }),
+      getPluginVersion: vi.fn(),
+    },
+  }
+})
+
+vi.mock('@capgo/capacitor-media-session', () => ({
+  MediaSession: mediaSessionNative,
 }))
 
 vi.mock('@capacitor/core', () => ({
@@ -96,10 +114,29 @@ const resetPlayer = async () => {
   vi.useRealTimers()
 }
 
+const waitForMediaSessionSync = async () => {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 describe('播放器控制器', () => {
   afterEach(async () => {
     await resetPlayer()
     localStorage.clear()
+  })
+
+  test('媒体会话动作注册临时失败后会在下次播放时重试', async () => {
+    mediaSessionNative.setActionHandler.mockRejectedValueOnce(new Error('plugin unavailable'))
+    const { initializePlayer, playSong } = await import('@/features/player/controller')
+
+    await initializePlayer()
+    mediaSessionHandlers.clear()
+    mediaSessionNative.setActionHandler.mockClear()
+
+    await playSong(localSong)
+
+    expect(mediaSessionNative.setActionHandler).toHaveBeenCalled()
+    expect(mediaSessionHandlers.has('pause')).toBe(true)
   })
 
   test('播放本地歌曲时只把 content URI 和元数据传给原生插件', async () => {
@@ -155,6 +192,77 @@ describe('播放器控制器', () => {
     expect(localStorage.getItem('muses:sources')).not.toContain('secret-password')
     expect(JSON.stringify(playerState)).not.toContain('secret-password')
   })
+
+  test('播放歌曲时同步非敏感媒体会话元数据和状态', async () => {
+    const { playSong } = await import('@/features/player/controller')
+
+    await playSong({ ...localSong, duration: 180, coverUri: 'file:///cache/cover.jpg' })
+    await waitForMediaSessionSync()
+
+    expect(mediaSessionNative.setMetadata).toHaveBeenCalledWith({
+      title: '本地歌曲',
+      artist: '本地歌手',
+      album: '本地专辑',
+      artwork: [{ src: 'file:///cache/cover.jpg' }],
+    })
+    expect(mediaSessionNative.setPlaybackState).toHaveBeenLastCalledWith({ playbackState: 'playing' })
+    expect(mediaSessionNative.setPositionState).toHaveBeenCalledWith({ duration: 180, position: 0, playbackRate: 1 })
+  })
+
+  test('媒体会话不会接收 data URL 封面或 WebDAV 密码', async () => {
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    vi.mocked(SecureStorage.get).mockResolvedValue('secret-password')
+    localStorage.setItem(
+      'muses:sources',
+      JSON.stringify([
+        {
+          id: 'source-webdav',
+          type: 'webdav',
+          name: '远程音乐',
+          serverUrl: 'https://example.com/dav',
+          username: 'alice',
+          path: '/music',
+          credentialKey: 'muses:webdav-password:source-webdav',
+          createdAt: '2026-07-07T00:00:00.000Z',
+        },
+      ]),
+    )
+    const { playSong, playerState } = await import('@/features/player/controller')
+
+    await playSong({ ...webDavSong, coverUri: 'data:image/jpeg;base64,secret-password' })
+    await waitForMediaSessionSync()
+
+    expect(JSON.stringify(mediaSessionNative.setMetadata.mock.calls)).not.toContain('secret-password')
+    expect(mediaSessionNative.setMetadata).toHaveBeenCalledWith({
+      title: '远程歌曲',
+      artist: '远程歌手',
+      album: undefined,
+    })
+    expect(JSON.stringify(playerState)).not.toContain('secret-password')
+  })
+
+  test('系统媒体动作会驱动现有播放器控制函数', async () => {
+    const { initializePlayer, playSong } = await import('@/features/player/controller')
+
+    await initializePlayer()
+    await playSong(localSong)
+    mediaSessionHandlers.get('pause')?.({ action: 'pause' })
+    await waitForMediaSessionSync()
+    expect(nativePlayer.pause).toHaveBeenCalled()
+
+    mediaSessionHandlers.get('play')?.({ action: 'play' })
+    await waitForMediaSessionSync()
+    expect(nativePlayer.resume).toHaveBeenCalled()
+
+    mediaSessionHandlers.get('seekto')?.({ action: 'seekto', seekTime: 64.5 })
+    await waitForMediaSessionSync()
+    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 64.5 })
+
+    mediaSessionHandlers.get('stop')?.({ action: 'stop' })
+    await waitForMediaSessionSync()
+    expect(nativePlayer.stop).toHaveBeenCalled()
+  })
+
 
   test('播放列表旧对象时从歌曲库最新记录补齐歌词和封面', async () => {
     localStorage.setItem(
@@ -237,7 +345,7 @@ describe('播放器控制器', () => {
   test('暂停、继续、seek 和停止会更新播放状态', async () => {
     const { pausePlayback, playSong, playerState, resumePlayback, seekPlayback, stopPlayback } = await import('@/features/player/controller')
 
-    await playSong(localSong)
+    await playSong({ ...localSong, duration: 180 })
     await pausePlayback()
     expect(playerState.status).toBe('paused')
 
@@ -245,8 +353,10 @@ describe('播放器控制器', () => {
     expect(playerState.status).toBe('playing')
 
     await seekPlayback(42.5)
+    await waitForMediaSessionSync()
     expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 42.5 })
     expect(playerState.position).toBe(42.5)
+    expect(mediaSessionNative.setPositionState).toHaveBeenLastCalledWith({ duration: 180, position: 42.5, playbackRate: 1 })
 
     await stopPlayback()
     expect(playerState.status).toBe('stopped')

@@ -65,6 +65,19 @@ export interface SeekOptions {
   position: number
 }
 
+export const toSafeCoverUri = (coverUri?: string): string | undefined => {
+  if (!coverUri) {
+    return undefined
+  }
+
+  const normalized = coverUri.trim().toLowerCase()
+  if (normalized.startsWith('data:') || normalized.includes(';base64,')) {
+    return undefined
+  }
+
+  return coverUri
+}
+
 export const createPlayerSongSnapshot = (song: SongItem): PlayerSongSnapshot => ({
   id: song.id,
   sourceId: song.sourceId,
@@ -75,5 +88,5 @@ export const createPlayerSongSnapshot = (song: SongItem): PlayerSongSnapshot => 
   duration: song.duration,
   lyrics: song.lyrics,
   lyricsSource: song.lyricsSource,
-  coverUri: song.coverUri,
+  coverUri: toSafeCoverUri(song.coverUri),
 })

@@ -4,9 +4,10 @@ import { CURRENT_METADATA_VERSION, loadSongs, upsertSong } from '@/features/libr
 import { readLocalAudioTags, readWebDavAudioTags } from '@/features/library/tags'
 import { getWebDavPassword, loadSources } from '@/features/sources/storage'
 import type { WebDavSourceItem } from '@/features/sources/types'
+import { clearMediaSessionState, initializeMediaSessionControls, syncMediaSessionState } from './media-session'
 import { AudioPlayerNative } from './native'
 import type { AudioPlayerNativeState, PlayOptions, PlayerState } from './types'
-import { createPlayerSongSnapshot } from './types'
+import { createPlayerSongSnapshot, toSafeCoverUri } from './types'
 
 const state = reactive<PlayerState>({
   status: 'idle',
@@ -20,6 +21,7 @@ const state = reactive<PlayerState>({
 })
 
 let nativeListenerReady = false
+let mediaSessionReady = false
 let metadataScanToken = 0
 
 const LOCAL_METADATA_SCAN_TIMEOUT_MS = 15_000
@@ -52,9 +54,39 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
     state.coverUri = null
     state.metadataStatus = 'idle'
   }
+
+  syncMediaSessionSafely()
+}
+
+const syncMediaSessionSafely = (): void => {
+  void syncMediaSessionState(state).catch(() => undefined)
+}
+
+const clearMediaSessionSafely = (): void => {
+  void clearMediaSessionState().catch(() => undefined)
+}
+
+const initializeMediaSessionSafely = async (): Promise<void> => {
+  if (mediaSessionReady) {
+    return
+  }
+
+  try {
+    await initializeMediaSessionControls({
+      play: resumePlayback,
+      pause: pausePlayback,
+      stop: stopPlayback,
+      seekTo: seekPlayback,
+    })
+    mediaSessionReady = true
+  } catch {
+    // 非 Android 或媒体会话插件不可用时，不影响原生播放器本身。
+  }
 }
 
 export const initializePlayer = async (): Promise<void> => {
+  await initializeMediaSessionSafely()
+
   if (!nativeListenerReady) {
     nativeListenerReady = true
     await AudioPlayerNative.addListener('stateChange', applyNativeState)
@@ -78,8 +110,9 @@ const syncDisplayStateFromSong = (song: SongItem): void => {
 
   state.currentSong = createPlayerSongSnapshot(song)
   state.lyrics = song.lyrics || null
-  state.coverUri = song.coverUri || null
+  state.coverUri = toSafeCoverUri(song.coverUri) || null
   state.duration = normalizePlaybackTime(song.duration) || state.duration
+  syncMediaSessionSafely()
 }
 
 const getWebDavSource = (song: SongItem): WebDavSourceItem => {
@@ -224,16 +257,21 @@ export const playSong = async (song: SongItem): Promise<void> => {
   state.position = 0
   state.duration = normalizePlaybackTime(latestSong.duration)
   state.lyrics = latestSong.lyrics || null
-  state.coverUri = latestSong.coverUri || null
+  state.coverUri = toSafeCoverUri(latestSong.coverUri) || null
   state.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'
 
+  syncMediaSessionSafely()
+
   try {
+    await initializeMediaSessionSafely()
     await AudioPlayerNative.play(await buildPlayOptions(latestSong))
     state.status = 'playing'
+    syncMediaSessionSafely()
     void scanSongMetadata(latestSong)
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
     setUserSafeError(isSafePlaybackError(message) ? message : '播放失败，请稍后重试。')
+    syncMediaSessionSafely()
   }
 }
 
@@ -242,6 +280,7 @@ export const pausePlayback = async (): Promise<void> => {
     await AudioPlayerNative.pause()
     state.status = 'paused'
     state.errorMessage = null
+    syncMediaSessionSafely()
   } catch {
     setUserSafeError('暂停失败，请稍后重试。')
   }
@@ -252,6 +291,7 @@ export const resumePlayback = async (): Promise<void> => {
     await AudioPlayerNative.resume()
     state.status = 'playing'
     state.errorMessage = null
+    syncMediaSessionSafely()
   } catch {
     setUserSafeError('继续播放失败，请稍后重试。')
   }
@@ -265,6 +305,7 @@ export const seekPlayback = async (position: number): Promise<void> => {
     await AudioPlayerNative.seek({ position: safePosition })
     state.position = safePosition
     state.errorMessage = null
+    syncMediaSessionSafely()
   } catch {
     setUserSafeError('跳转播放进度失败，请稍后重试。')
   }
@@ -282,6 +323,7 @@ export const stopPlayback = async (): Promise<void> => {
     state.lyrics = null
     state.coverUri = null
     state.metadataStatus = 'idle'
+    clearMediaSessionSafely()
   } catch {
     setUserSafeError('停止播放失败，请稍后重试。')
   }

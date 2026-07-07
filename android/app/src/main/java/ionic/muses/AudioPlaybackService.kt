@@ -317,19 +317,17 @@ class AudioPlaybackService : MediaSessionService() {
         duration: Double = 0.0,
     ): Notification {
         val subtitle = artist?.takeIf { it.isNotBlank() } ?: "媒体播放服务"
-        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(title)
             .setContentText(subtitle)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-
-        if (duration > 0) {
-            builder.setProgress(duration.toInt(), position.coerceAtMost(duration).toInt(), false)
-        }
-
-        return builder.build()
+            .build()
     }
 
     private fun ensureNotificationChannel() {
@@ -344,10 +342,12 @@ class AudioPlaybackService : MediaSessionService() {
 
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
-            "播放控制",
-            NotificationManager.IMPORTANCE_LOW,
+            "后台播放服务",
+            NotificationManager.IMPORTANCE_MIN,
         ).apply {
-            description = "歌曲播放与通知栏控制"
+            description = "保持后台音频播放运行，媒体控制由系统媒体通知提供。"
+            setSound(null, null)
+            enableVibration(false)
         }
         manager.createNotificationChannel(channel)
     }
