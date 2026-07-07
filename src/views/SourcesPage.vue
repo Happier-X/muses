@@ -33,6 +33,9 @@
             </ion-card-header>
             <ion-card-content>
               <p class="source-path">{{ sources[virtualRow.index].path }}</p>
+              <div class="source-actions">
+                <ion-button size="small" @click="openScanSettings(sources[virtualRow.index])">扫描</ion-button>
+              </div>
             </ion-card-content>
           </ion-card>
         </div>
@@ -44,6 +47,63 @@
         :buttons="addSourceButtons"
         @didDismiss="isAddActionSheetOpen = false"
       />
+
+      <ion-modal :is-open="isScanSettingsOpen" @didDismiss="closeScanSettings">
+        <ion-header>
+          <ion-toolbar>
+            <ion-title>扫描设置</ion-title>
+            <ion-buttons slot="end">
+              <ion-button @click="closeScanSettings">关闭</ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+
+        <ion-content class="ion-padding">
+          <ion-list inset>
+            <ion-item>
+              <ion-toggle v-model="scanOptions.readTags">读取音乐标签</ion-toggle>
+            </ion-item>
+          </ion-list>
+          <p class="scan-hint">开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。</p>
+          <ion-button expand="block" :disabled="!selectedScanSource" @click="startScan">开始扫描</ion-button>
+        </ion-content>
+      </ion-modal>
+
+      <ion-modal :is-open="isScanProgressOpen" :backdrop-dismiss="scanProgress.stage !== 'processing' && scanProgress.stage !== 'discovering'">
+        <ion-header>
+          <ion-toolbar>
+            <ion-title>扫描进度</ion-title>
+            <ion-buttons slot="end">
+              <ion-button :disabled="scanProgress.stage === 'processing' || scanProgress.stage === 'discovering'" @click="closeScanProgress">
+                关闭
+              </ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+
+        <ion-content class="ion-padding">
+          <ion-progress-bar v-if="scanProgress.stage === 'discovering' || scanProgress.stage === 'processing'" type="indeterminate" />
+          <section class="scan-progress">
+            <h2>{{ getScanStageText(scanProgress.stage) }}</h2>
+            <p v-if="scanProgress.message">{{ scanProgress.message }}</p>
+            <p v-if="scanProgress.currentItem" class="source-path">当前：{{ scanProgress.currentItem }}</p>
+            <ion-list inset>
+              <ion-item>
+                <ion-label>已发现 / 已处理</ion-label>
+                <ion-note slot="end">{{ scanProgress.discovered }} / {{ scanProgress.processed }}</ion-note>
+              </ion-item>
+              <ion-item>
+                <ion-label>入库 / 更新 / 跳过</ion-label>
+                <ion-note slot="end">{{ scanProgress.inserted }} / {{ scanProgress.updated }} / {{ scanProgress.skipped }}</ion-note>
+              </ion-item>
+              <ion-item>
+                <ion-label>降级 / 失败</ion-label>
+                <ion-note slot="end">{{ scanProgress.degraded }} / {{ scanProgress.failed }}</ion-note>
+              </ion-item>
+            </ion-list>
+          </section>
+        </ion-content>
+      </ion-modal>
 
       <ion-modal :is-open="isWebDavModalOpen" @didDismiss="closeWebDavModal">
         <ion-header>
@@ -164,9 +224,12 @@ import {
   IonLabel,
   IonList,
   IonModal,
+  IonNote,
   IonPage,
+  IonProgressBar,
   IonText,
   IonTitle,
+  IonToggle,
   IonToolbar,
   type ActionSheetButton,
 } from '@ionic/vue'
@@ -174,6 +237,8 @@ import { add } from 'ionicons/icons'
 import { createSourceId, getWebDavPasswordKey, loadSources, saveSources, saveWebDavPassword } from '@/features/sources/storage'
 import type { SourceItem, WebDavConnectionInput, WebDavDirectoryItem } from '@/features/sources/types'
 import { getParentWebDavPath, getWebDavDisplayName, listWebDavDirectories, normalizeWebDavPath } from '@/features/sources/webdav'
+import { scanSourceLibrary } from '@/features/library/scanner'
+import type { ScanOptions, ScanProgress, ScanStage } from '@/features/library/types'
 
 const sources = ref<SourceItem[]>(loadSources())
 const listParentRef = ref<HTMLElement | null>(null)
@@ -191,12 +256,26 @@ const webDavForm = ref<WebDavConnectionInput>({
   username: '',
   password: '',
 })
+const selectedScanSource = ref<SourceItem | null>(null)
+const isScanSettingsOpen = ref(false)
+const isScanProgressOpen = ref(false)
+const scanOptions = ref<ScanOptions>({ readTags: true })
+const scanProgress = ref<ScanProgress>({
+  stage: 'idle',
+  discovered: 0,
+  processed: 0,
+  inserted: 0,
+  updated: 0,
+  skipped: 0,
+  failed: 0,
+  degraded: 0,
+})
 
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: sources.value.length,
     getScrollElement: () => listParentRef.value,
-    estimateSize: () => 116,
+    estimateSize: () => 148,
     overscan: 6,
   })),
 )
@@ -229,6 +308,73 @@ const getSourceSubtitle = (source: SourceItem): string => {
 
 const getLocalSourceName = (path: string): string => {
   return path.split(/[\\/]/).filter(Boolean).at(-1) || path
+}
+
+const getScanStageText = (stage: ScanStage): string => {
+  const stageText: Record<ScanStage, string> = {
+    idle: '等待扫描',
+    discovering: '正在查找文件',
+    processing: '正在扫描入库',
+    completed: '扫描完成',
+    failed: '扫描失败',
+  }
+  return stageText[stage]
+}
+
+const resetScanProgress = (): void => {
+  scanProgress.value = {
+    stage: 'idle',
+    discovered: 0,
+    processed: 0,
+    inserted: 0,
+    updated: 0,
+    skipped: 0,
+    failed: 0,
+    degraded: 0,
+  }
+}
+
+const openScanSettings = (source: SourceItem): void => {
+  selectedScanSource.value = source
+  scanOptions.value = { readTags: true }
+  resetScanProgress()
+  isScanSettingsOpen.value = true
+}
+
+const closeScanSettings = (): void => {
+  isScanSettingsOpen.value = false
+}
+
+const closeScanProgress = (): void => {
+  isScanProgressOpen.value = false
+  selectedScanSource.value = null
+}
+
+const startScan = async (): Promise<void> => {
+  if (!selectedScanSource.value) {
+    return
+  }
+
+  const source = selectedScanSource.value
+  closeScanSettings()
+  resetScanProgress()
+  isScanProgressOpen.value = true
+
+  try {
+    const result = await scanSourceLibrary(source, scanOptions.value, (progress) => {
+      scanProgress.value = progress
+    })
+    showSuccess(
+      `扫描完成：入库 ${result.summary.inserted} 首，更新 ${result.summary.updated} 首，跳过 ${result.summary.skipped} 首，降级 ${result.summary.degraded} 首。`,
+    )
+  } catch (error) {
+    scanProgress.value = {
+      ...scanProgress.value,
+      stage: 'failed',
+      message: error instanceof Error ? error.message : '扫描失败。',
+    }
+    showError(scanProgress.value.message ?? '扫描失败。')
+  }
 }
 
 const addLocalSource = async (): Promise<void> => {
@@ -416,6 +562,22 @@ const addSourceButtons: ActionSheetButton[] = [
   margin: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.source-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.scan-hint {
+  color: var(--ion-color-medium);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.scan-progress {
+  margin-top: 16px;
 }
 
 .webdav-form {

@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"前端任务入口规范，说明当前 Ionic Vue 项目形态和约束。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"指导新增 feature helper、视图和避免无必要架构扩张。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"要求使用 feature-local localStorage 持久化并保护 WebDAV 密码。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"严格 TypeScript 和共享类型组织约束。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"测试、构建、lint 与用户可见质量要求。"}
+{"file":".trellis/tasks/07-07-scan-source-library/research/local-directory-and-tags.md","reason":"记录 FilePicker 目录能力限制与本地标签读取实现影响。"}

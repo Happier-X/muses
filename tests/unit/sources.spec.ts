@@ -5,8 +5,10 @@ import {
   buildWebDavUrl,
   getParentWebDavPath,
   getWebDavDisplayName,
+  listWebDavAudioFiles,
   listWebDavDirectories,
   normalizeWebDavPath,
+  parseWebDavEntries,
 } from '@/features/sources/webdav'
 
 vi.mock('@aparajita/capacitor-secure-storage', () => ({
@@ -20,6 +22,7 @@ vi.mock('@aparajita/capacitor-secure-storage', () => ({
 vi.mock('@capacitor/core', () => ({
   registerPlugin: vi.fn(() => ({
     propfind: vi.fn(),
+    readMetadata: vi.fn(),
   })),
 }))
 
@@ -157,6 +160,56 @@ describe('WebDAV 原生插件目录读取', () => {
         filename: '/dav/%E5%A4%B8%E5%85%8B%E4%B8%8A%E4%BC%A0%E6%96%87%E4%BB%B6/',
         path: '/夸克上传文件',
       },
+    ])
+  })
+
+  test('解析 WebDAV 响应时保留目录和文件类型', () => {
+    expect(
+      parseWebDavEntries(
+        `<?xml version="1.0" encoding="utf-8"?>
+        <d:multistatus xmlns:d="DAV:">
+          <d:response>
+            <d:href>/dav/music/</d:href>
+            <d:propstat><d:prop><d:displayname>music</d:displayname><d:resourcetype><d:collection /></d:resourcetype></d:prop></d:propstat>
+          </d:response>
+          <d:response>
+            <d:href>/dav/music/song.mp3</d:href>
+            <d:propstat><d:prop><d:displayname>song.mp3</d:displayname><d:resourcetype /></d:prop></d:propstat>
+          </d:response>
+        </d:multistatus>`,
+        'https://example.com/dav',
+        '/music',
+      ),
+    ).toEqual([{ basename: 'song.mp3', filename: '/dav/music/song.mp3', path: '/music/song.mp3', isDirectory: false }])
+  })
+
+  test('递归列出 WebDAV 音频文件并过滤非音频文件', async () => {
+    const { WebDavNative } = await import('@/features/sources/webdav')
+    vi.mocked(WebDavNative.propfind)
+      .mockResolvedValueOnce({
+        status: 207,
+        data: `<?xml version="1.0" encoding="utf-8"?>
+          <d:multistatus xmlns:d="DAV:">
+            <d:response><d:href>/dav/music/</d:href><d:propstat><d:prop><d:resourcetype><d:collection /></d:resourcetype></d:prop></d:propstat></d:response>
+            <d:response><d:href>/dav/music/rock/</d:href><d:propstat><d:prop><d:displayname>rock</d:displayname><d:resourcetype><d:collection /></d:resourcetype></d:prop></d:propstat></d:response>
+            <d:response><d:href>/dav/music/a.mp3</d:href><d:propstat><d:prop><d:displayname>a.mp3</d:displayname><d:resourcetype /></d:prop></d:propstat></d:response>
+            <d:response><d:href>/dav/music/cover.jpg</d:href><d:propstat><d:prop><d:displayname>cover.jpg</d:displayname><d:resourcetype /></d:prop></d:propstat></d:response>
+          </d:multistatus>`,
+      })
+      .mockResolvedValueOnce({
+        status: 207,
+        data: `<?xml version="1.0" encoding="utf-8"?>
+          <d:multistatus xmlns:d="DAV:">
+            <d:response><d:href>/dav/music/rock/</d:href><d:propstat><d:prop><d:resourcetype><d:collection /></d:resourcetype></d:prop></d:propstat></d:response>
+            <d:response><d:href>/dav/music/rock/b.flac</d:href><d:propstat><d:prop><d:displayname>b.flac</d:displayname><d:resourcetype /></d:prop></d:propstat></d:response>
+          </d:multistatus>`,
+      })
+
+    await expect(
+      listWebDavAudioFiles({ serverUrl: 'https://example.com/dav', username: 'alice', password: 'secret' }, '/music'),
+    ).resolves.toEqual([
+      { path: '/music/a.mp3', uri: 'https://example.com/dav/music/a.mp3', name: 'a.mp3' },
+      { path: '/music/rock/b.flac', uri: 'https://example.com/dav/music/rock/b.flac', name: 'b.flac' },
     ])
   })
 

@@ -1,5 +1,6 @@
 package ionic.muses
 
+import android.media.MediaMetadataRetriever
 import android.util.Base64
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -63,6 +64,55 @@ class WebDavPlugin : Plugin() {
             } catch (exception: Exception) {
                 call.reject(exception.message, exception)
             }
+        }
+    }
+
+    @PluginMethod
+    fun readMetadata(call: PluginCall) {
+        // 远程标签读取留在原生层，避免 WebView CORS、JS 大文件内存占用和认证信息进入前端下载链路。
+        val url = call.getString("url")
+        val username = call.getString("username")
+        val password = call.getString("password")
+
+        if (url.isNullOrEmpty()) {
+            call.reject("缺少 WebDAV 文件地址。", "missingUrl")
+            return
+        }
+
+        if (username == null || password == null) {
+            call.reject("缺少 WebDAV 认证信息。", "missingCredentials")
+            return
+        }
+
+        bridge.execute {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(url, mapOf("Authorization" to "Basic ${encodeBasicAuth(username, password)}"))
+                call.resolve(extractMetadata(retriever))
+            } catch (exception: Exception) {
+                call.reject(exception.message, exception)
+            } finally {
+                runCatching { retriever.release() }
+            }
+        }
+    }
+
+    private fun extractMetadata(retriever: MediaMetadataRetriever): JSObject {
+        val result = JSObject()
+        putStringMetadata(result, "title", retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE))
+        putStringMetadata(result, "artist", retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST))
+        putStringMetadata(result, "album", retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM))
+        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.let { durationMs ->
+            if (durationMs > 0) {
+                result.put("duration", durationMs / 1000.0)
+            }
+        }
+        return result
+    }
+
+    private fun putStringMetadata(result: JSObject, key: String, value: String?) {
+        if (!value.isNullOrBlank()) {
+            result.put(key, value)
         }
     }
 

@@ -1,5 +1,7 @@
 import { registerPlugin } from '@capacitor/core'
-import type { WebDavConnectionInput, WebDavDirectoryItem } from './types'
+import type { AudioFileEntry, AudioTags } from '@/features/library/types'
+import { getFileNameFromPath, isSupportedAudioFile } from '@/features/library/audio'
+import type { WebDavConnectionInput, WebDavDirectoryItem, WebDavEntryItem } from './types'
 
 interface WebDavNativePlugin {
   propfind(options: {
@@ -10,6 +12,11 @@ interface WebDavNativePlugin {
     status: number
     data: string
   }>
+  readMetadata(options: {
+    url: string
+    username: string
+    password: string
+  }): Promise<AudioTags>
 }
 
 export const WebDavNative = registerPlugin<WebDavNativePlugin>('WebDav')
@@ -105,7 +112,7 @@ const stripServerBasePath = (serverUrl: string, href: string): string => {
   return hrefPath
 }
 
-const parseWebDavDirectories = (xmlText: string, serverUrl: string, currentPath: string): WebDavDirectoryItem[] => {
+export const parseWebDavEntries = (xmlText: string, serverUrl: string, currentPath: string): WebDavEntryItem[] => {
   const document = new DOMParser().parseFromString(xmlText, 'application/xml')
   const parserError = document.getElementsByTagName('parsererror')[0]
   if (parserError) {
@@ -128,15 +135,11 @@ const parseWebDavDirectories = (xmlText: string, serverUrl: string, currentPath:
         isDirectory: hasCollectionResourceType(responseElement),
       }
     })
-    .filter((item) => item.isDirectory && item.path !== normalizedCurrentPath)
-    .map(({ basename, filename, path }) => ({ basename, filename, path }))
+    .filter((item) => item.path !== normalizedCurrentPath)
     .sort((left, right) => left.basename.localeCompare(right.basename, 'zh-Hans-CN'))
 }
 
-export const listWebDavDirectories = async (
-  connection: WebDavConnectionInput,
-  path: string,
-): Promise<WebDavDirectoryItem[]> => {
+const propfindWebDavEntries = async (connection: WebDavConnectionInput, path: string): Promise<WebDavEntryItem[]> => {
   const normalizedPath = normalizeWebDavPath(path)
   const response = await WebDavNative.propfind({
     url: buildWebDavUrl(connection.serverUrl, normalizedPath),
@@ -152,5 +155,41 @@ export const listWebDavDirectories = async (
     throw new Error(`WebDAV 目录读取失败，状态码：${response.status}。`)
   }
 
-  return parseWebDavDirectories(String(response.data), connection.serverUrl, normalizedPath)
+  return parseWebDavEntries(String(response.data), connection.serverUrl, normalizedPath)
+}
+
+export const listWebDavDirectories = async (
+  connection: WebDavConnectionInput,
+  path: string,
+): Promise<WebDavDirectoryItem[]> => {
+  return (await propfindWebDavEntries(connection, path))
+    .filter((item) => item.isDirectory)
+    .map(({ basename, filename, path }) => ({ basename, filename, path }))
+}
+
+export const listWebDavAudioFiles = async (connection: WebDavConnectionInput, rootPath: string): Promise<AudioFileEntry[]> => {
+  const files: AudioFileEntry[] = []
+  const pendingDirectories = [normalizeWebDavPath(rootPath)]
+
+  while (pendingDirectories.length > 0) {
+    const currentPath = pendingDirectories.shift()
+    if (!currentPath) {
+      continue
+    }
+
+    const entries = await propfindWebDavEntries(connection, currentPath)
+    for (const entry of entries) {
+      if (entry.isDirectory) {
+        pendingDirectories.push(entry.path)
+      } else if (isSupportedAudioFile(entry.path)) {
+        files.push({
+          path: entry.path,
+          uri: buildWebDavUrl(connection.serverUrl, entry.path),
+          name: entry.basename || getFileNameFromPath(entry.path),
+        })
+      }
+    }
+  }
+
+  return files.sort((left, right) => left.path.localeCompare(right.path, 'zh-Hans-CN'))
 }

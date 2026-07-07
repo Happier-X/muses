@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"检查前端实现是否符合项目整体形态。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"检查新增文件位置和 feature 边界。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"检查歌曲库持久化、安全存储和 WebDAV 密码处理。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"检查严格类型、共享类型和避免宽泛 any。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查测试覆盖、构建、lint 和用户可见质量。"}
+{"file":".trellis/tasks/07-07-scan-source-library/research/local-directory-and-tags.md","reason":"检查本地目录扫描与标签读取是否满足真实能力限制。"}

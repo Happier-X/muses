@@ -80,6 +80,67 @@ Current source module contract:
 - Because users may add arbitrary `http://` WebDAV servers, Android uses `network_security_config` with `base-config cleartextTrafficPermitted="true"`. Prefer HTTPS when possible and surface risk to users when adding plain HTTP sources.
 - Removing a WebDAV source should also remove the corresponding secure-storage entry.
 
+### Scenario: Source Library Scan Persistence
+
+#### 1. Scope / Trigger
+
+- Trigger: scanning local/WebDAV sources into a local song library touches browser storage, SecureStorage credentials, frontend feature helpers, and Android native plugin contracts.
+- Owning files: `src/features/library/*`, `src/features/sources/webdav.ts`, `src/views/SourcesPage.vue`, and project-local Android plugins under `android/app/src/main/java/ionic/muses/`.
+
+#### 2. Signatures
+
+- Song storage key: `muses:songs`.
+- Song uniqueness: `(sourceId, path)`; use `upsertSong(...)` rather than appending raw arrays.
+- `LocalLibrary.scanDirectory({ treeUri: string }) -> { files: Array<{ path: string; uri: string; name: string }> }`.
+- `LocalLibrary.readMetadata({ uri: string }) -> { title?: string; artist?: string; album?: string; duration?: number }`.
+- `WebDav.propfind({ url: string; username: string; password: string }) -> { status: number; data: string }`.
+- `WebDav.readMetadata({ url: string; username: string; password: string }) -> { title?: string; artist?: string; album?: string; duration?: number }`.
+
+#### 3. Contracts
+
+- `muses:songs` may store song metadata only: IDs, source references, paths/URIs, display tags, and timestamps.
+- `muses:songs` must never store WebDAV passwords, Basic Auth headers, tokens, or SecureStorage values.
+- WebDAV scans must resolve passwords at scan time with `getWebDavPassword(source.credentialKey)` and pass them only to the native WebDAV call boundary.
+- Local directory scans use the saved Android `content://` tree URI from `FilePicker.pickDirectory()`; the file picker does not provide recursive children.
+- Real tag reading belongs in native/plugin or a bounded binary-read helper. Do not fake successful tag reads when metadata parsing fails.
+
+#### 4. Validation & Error Matrix
+
+- Missing WebDAV password -> fail the scan with a user-facing message such as `WebDAV 密码不存在，请重新添加该音源。`.
+- Invalid `muses:songs` JSON or malformed entries -> ignore invalid data and return only valid songs.
+- Per-file metadata parse failure -> fall back to filename title, increment degraded count, continue scanning.
+- Per-file upsert failure -> increment failed count, continue scanning remaining files when safe.
+- WebDAV `401` / `403` from `PROPFIND` -> show authentication failure and do not mutate source metadata.
+
+#### 5. Good/Base/Bad Cases
+
+- Good: repeated scans of the same source/path update or skip the existing song and preserve `createdAt` on updates.
+- Base: scan with `readTags: false` stores filename-derived titles without invoking metadata readers.
+- Bad: downloading an unbounded WebDAV audio file into frontend memory or logging a password to diagnose a scan failure.
+
+#### 6. Tests Required
+
+- Storage tests assert malformed `muses:songs` entries are ignored and `(sourceId, path)` prevents duplicate inserts.
+- Scanner tests assert tag parse failures increment `degraded` and still persist fallback-title songs.
+- WebDAV scanner tests assert `SecureStorage.get` is called with `credentialKey`, native metadata reading receives the password only at the call boundary, and `localStorage.getItem('muses:songs')` does not contain the password.
+- WebDAV XML tests assert file and directory responses are distinguished, audio extensions are filtered, and existing directory-only browsing remains compatible.
+
+#### 7. Wrong vs Correct
+
+Wrong:
+
+```ts
+const songs = [...loadSongs(), newSong]
+localStorage.setItem('muses:songs', JSON.stringify({ ...songs, password }))
+```
+
+Correct:
+
+```ts
+const password = await getWebDavPassword(source.credentialKey)
+const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri, title })
+```
+
 Avoid creating service/client/cache abstractions before the application has actual data access requirements.
 
 ---

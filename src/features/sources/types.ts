@@ -22,11 +22,14 @@ export interface WebDavSourceItem extends BaseSourceItem {
 
 export type SourceItem = LocalSourceItem | WebDavSourceItem
 
-export interface WebDavDirectoryItem {
+export interface WebDavEntryItem {
   basename: string
   filename: string
   path: string
+  isDirectory: boolean
 }
+
+export type WebDavDirectoryItem = Omit<WebDavEntryItem, 'isDirectory'>
 
 export interface WebDavConnectionInput {
   serverUrl: string
