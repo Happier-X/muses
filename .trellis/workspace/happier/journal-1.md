@@ -342,3 +342,39 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: GitHub Release 发布与双包名构建 v0.0.1
+
+**Date**: 2026-07-08
+**Task**: GitHub Release 发布与双包名构建 v0.0.1
+**Branch**: `main`
+
+### Summary
+
+实现 GitHub Release 自动发布流程：tag 触发 GitHub Actions 构建两个包名（com.muses.player + com.miui.player）的签名 APK 并自动创建 Release。修改 build.gradle 支持 -PappId 动态切换 applicationId，capacitor.config.ts 支持 CAPACITOR_APP_ID 环境变量。生成 keystore 并配置 GitHub Secrets 签名。发布 v0.0.1 验证通过，过程中修复两个 CI 坑：gradlew 执行权限（chmod +x）、AGP injected signing 相对路径解析为 Gradle daemon 目录（改用绝对路径）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ba2103d` | (see git log) |
+| `16c5403` | (see git log) |
+| `e6b7661` | (see git log) |
+| `2e811b0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

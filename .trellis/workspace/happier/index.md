@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 10
+- **Total Sessions**: 11
 - **Last Active**: 2026-07-08
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~344 | Active |
+| `journal-1.md` | ~380 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 11 | 2026-07-08 | GitHub Release 发布与双包名构建 v0.0.1 | `ba2103d`, `16c5403`, `e6b7661`, `2e811b0` | `main` |
 | 10 | 2026-07-08 | 改安卓包名为 com.muses.player | `be4c411` | `main` |
 | 9 | 2026-07-08 | 播放队列与循环随机模式 | `e45733d` | `main` |
 | 8 | 2026-07-07 | Media3 原生媒体通知 | `1a86617`, `84e2d0e` | `main` |
