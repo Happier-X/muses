@@ -309,3 +309,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: 改安卓包名为 com.muses.player
+
+**Date**: 2026-07-08
+**Task**: 改安卓包名为 com.muses.player
+**Branch**: `main`
+
+### Summary
+
+将 Android 原生包名从 ionic.muses 改为 com.muses.player：更新 capacitor.config.ts、build.gradle namespace/applicationId、strings.xml package_name/custom_url_scheme；迁移 7 个 Kotlin 源码到 com/muses/player 目录并更新 package 声明和 intent action 常量前缀；AndroidManifest 的 service 和 provider 引用通过 .* 简写自动跟随 applicationId；前端无硬编码引用；验证 lint/build/Kotlin 编译全部通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `be4c411` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

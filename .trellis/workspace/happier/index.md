@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
+- **Total Sessions**: 10
 - **Last Active**: 2026-07-08
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~311 | Active |
+| `journal-1.md` | ~344 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 10 | 2026-07-08 | 改安卓包名为 com.muses.player | `be4c411` | `main` |
 | 9 | 2026-07-08 | 播放队列与循环随机模式 | `e45733d` | `main` |
 | 8 | 2026-07-07 | Media3 原生媒体通知 | `1a86617`, `84e2d0e` | `main` |
 | 7 | 2026-07-07 | 安卓媒体通知控制 | `2aea3cc`, `5817610` | `main` |
