@@ -1,4 +1,4 @@
-package ionic.muses
+package com.muses.player
 
 import android.net.Uri
 import android.util.Base64

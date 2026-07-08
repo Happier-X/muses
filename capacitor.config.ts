@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'ionic.muses',
+  appId: 'com.muses.player',
   appName: 'muses',
   webDir: 'dist',
   loggingBehavior: 'none',

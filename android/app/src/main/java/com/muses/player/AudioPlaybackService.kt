@@ -1,4 +1,4 @@
-package ionic.muses
+package com.muses.player
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -366,16 +366,16 @@ class AudioPlaybackService : MediaSessionService() {
     )
 
     companion object {
-        const val ACTION_PLAY = "ionic.muses.audio.PLAY"
+        const val ACTION_PLAY = "com.muses.player.audio.PLAY"
         const val BOOTSTRAP_NOTIFICATION_CHANNEL_ID = "audio-playback-bootstrap"
         const val MEDIA_NOTIFICATION_CHANNEL_ID = "audio-playback"
         const val BOOTSTRAP_NOTIFICATION_ID = 1001
         const val MEDIA_NOTIFICATION_ID = BOOTSTRAP_NOTIFICATION_ID
-        const val ACTION_PAUSE = "ionic.muses.audio.PAUSE"
-        const val ACTION_RESUME = "ionic.muses.audio.RESUME"
-        const val ACTION_STOP = "ionic.muses.audio.STOP"
-        const val ACTION_SEEK = "ionic.muses.audio.SEEK"
-        const val ACTION_STATE_CHANGED = "ionic.muses.audio.STATE_CHANGED"
+        const val ACTION_PAUSE = "com.muses.player.audio.PAUSE"
+        const val ACTION_RESUME = "com.muses.player.audio.RESUME"
+        const val ACTION_STOP = "com.muses.player.audio.STOP"
+        const val ACTION_SEEK = "com.muses.player.audio.SEEK"
+        const val ACTION_STATE_CHANGED = "com.muses.player.audio.STATE_CHANGED"
 
         const val EXTRA_SOURCE_TYPE = "sourceType"
         const val EXTRA_SONG_ID = "songId"

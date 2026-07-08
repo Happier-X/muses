@@ -1,4 +1,4 @@
-package ionic.muses
+package com.muses.player
 
 import android.os.Bundle
 import com.getcapacitor.BridgeActivity

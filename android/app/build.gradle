@@ -2,10 +2,10 @@ apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
-    namespace = "ionic.muses"
+    namespace = "com.muses.player"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "ionic.muses"
+        applicationId "com.muses.player"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
