@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
-- **Last Active**: 2026-07-07
+- **Total Sessions**: 9
+- **Last Active**: 2026-07-08
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~278 | Active |
+| `journal-1.md` | ~311 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-07-08 | 播放队列与循环随机模式 | `e45733d` | `main` |
 | 8 | 2026-07-07 | Media3 原生媒体通知 | `1a86617`, `84e2d0e` | `main` |
 | 7 | 2026-07-07 | 安卓媒体通知控制 | `2aea3cc`, `5817610` | `main` |
 | 6 | 2026-07-07 | 完成沉浸式播放器 | `b599e5b`, `6e6d3ba` | `main` |

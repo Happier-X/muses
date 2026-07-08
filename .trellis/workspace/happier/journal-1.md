@@ -276,3 +276,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: 播放队列与循环随机模式
+
+**Date**: 2026-07-08
+**Task**: 播放队列与循环随机模式
+**Branch**: `main`
+
+### Summary
+
+完成播放队列、循环模式和播放模式：新增 queue.ts 实现队列入队/删除/清除/洗牌、advanceToNext/advanceToPrevious、单曲/列表循环和顺序/随机模式、ID-only 持久化到 muses:queue 和 muses:player-config；Android STATE_ENDED 广播 STATUS_FINISHED 避免提前清 foreground；SongsPage 入队入口；/player 沉浸页上一曲/下一曲/播放暂停/循环和随机按钮和 /queue 页面；任务文档和播放器状态规范更新。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e45733d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
