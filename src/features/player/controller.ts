@@ -7,6 +7,7 @@ import type { WebDavSourceItem } from '@/features/sources/types'
 import { AudioPlayerNative } from './native'
 import type { AudioPlayerNativeState, PlayOptions, PlayerState } from './types'
 import { createPlayerSongSnapshot, toSafeCoverUri } from './types'
+import { advanceToNext, advanceToPrevious, syncCurrentIndex } from './queue'
 
 const state = reactive<PlayerState>({
   status: 'idle',
@@ -51,8 +52,36 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
     state.lyrics = null
     state.coverUri = null
     state.metadataStatus = 'idle'
+    return
   }
 
+  if (nativeState.status === 'finished') {
+    void handlePlaybackFinished()
+  }
+}
+
+const handlePlaybackFinished = async (): Promise<void> => {
+  const nextSong = advanceToNext()
+  if (nextSong) {
+    await playSong(nextSong)
+    return
+  }
+
+  await stopPlayback()
+}
+
+export const playNextFromQueue = async (): Promise<void> => {
+  const nextSong = advanceToNext()
+  if (nextSong) {
+    await playSong(nextSong)
+  }
+}
+
+export const playPreviousFromQueue = async (): Promise<void> => {
+  const previousSong = advanceToPrevious()
+  if (previousSong) {
+    await playSong(previousSong)
+  }
 }
 
 export const initializePlayer = async (): Promise<void> => {
@@ -218,6 +247,8 @@ const isSafePlaybackError = (message: string): boolean => {
 export const playSong = async (song: SongItem): Promise<void> => {
   const latestSong = getLatestSongSnapshot(song)
 
+  syncCurrentIndex(latestSong.id)
+
   state.status = 'loading'
   metadataScanToken += 1
   state.currentSong = createPlayerSongSnapshot(latestSong)
@@ -291,3 +322,19 @@ export const stopPlayback = async (): Promise<void> => {
 export const playerState = readonly(state)
 export const isPlaying = computed(() => state.status === 'playing')
 export const hasActiveSong = computed(() => Boolean(state.currentSong))
+export const isPlaybackFinished = computed(() => state.status === 'finished')
+
+export {
+  advanceToNext,
+  advanceToPrevious,
+  clearQueue,
+  enqueueSong,
+  enqueueSongs,
+  queueState,
+  removeSongFromQueue,
+  repeatMode,
+  selectSongAtIndex,
+  shuffleEnabled,
+  toggleShuffle,
+  setRepeatMode,
+} from './queue'

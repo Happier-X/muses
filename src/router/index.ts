@@ -12,6 +12,10 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/views/PlayerPage.vue')
   },
   {
+    path: '/queue',
+    component: () => import('@/views/QueuePage.vue')
+  },
+  {
     path: '/tabs/',
     component: TabsPage,
     children: [

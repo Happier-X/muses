@@ -65,11 +65,48 @@
             </div>
 
             <div class="controls">
-              <ion-button fill="solid" color="light" shape="round" :disabled="playerState.status === 'loading'" @click="togglePlayback">
+              <ion-button fill="clear" color="light" shape="round" aria-label="上一曲" @click="onPrevious">
+                <ion-icon slot="icon-only" :icon="previousIcon" />
+              </ion-button>
+              <ion-button class="play-toggle" fill="solid" color="light" shape="round" :disabled="playerState.status === 'loading'" aria-label="播放或暂停" @click="togglePlayback">
                 <ion-icon slot="icon-only" :icon="isPlaying ? pause : play" />
               </ion-button>
-              <ion-button fill="outline" color="light" shape="round" @click="stopPlayback">
-                <ion-icon slot="icon-only" :icon="stop" />
+              <ion-button fill="clear" color="light" shape="round" aria-label="下一曲" @click="onNext">
+                <ion-icon slot="icon-only" :icon="nextIcon" />
+              </ion-button>
+            </div>
+
+            <div class="mode-bar">
+              <ion-button
+                fill="clear"
+                size="small"
+                color="light"
+                :aria-label="repeatModeLabel"
+                @click="onToggleRepeat"
+              >
+                <ion-icon slot="start" :icon="repeatIcon" />
+                {{ repeatModeLabel }}
+              </ion-button>
+
+              <ion-button
+                fill="clear"
+                size="small"
+                color="light"
+                :aria-label="shuffleModeLabel"
+                @click="onToggleShuffle"
+              >
+                <ion-icon slot="start" :icon="shuffleIcon" />
+                {{ shuffleModeLabel }}
+              </ion-button>
+
+              <ion-button
+                fill="clear"
+                size="small"
+                color="light"
+                aria-label="播放队列"
+                @click="goToQueue"
+              >
+                <ion-icon slot="icon-only" :icon="listIcon" />
               </ion-button>
             </div>
 
@@ -96,19 +133,47 @@
 import { computed, ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonButton, IonContent, IonIcon, IonPage } from '@ionic/vue'
-import { chevronDown, pause, play, stop } from 'ionicons/icons'
+import { chevronDown, listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from 'ionicons/icons'
 import { useRouter } from 'vue-router'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine } from '@applemusic-like-lyrics/core'
 import { parseLrc } from '@applemusic-like-lyrics/lyric'
 import '@applemusic-like-lyrics/core/style.css'
-import { isPlaying, pausePlayback, playerState, resumePlayback, seekPlayback, stopPlayback } from '@/features/player/controller'
+import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousFromQueue, queueState, resumePlayback, seekPlayback, setRepeatMode, toggleShuffle } from '@/features/player/controller'
 
 const router = useRouter()
 const activePanel = ref(0)
 const touchStartX = ref<number | null>(null)
 const meshGradientRenderer = MeshGradientRenderer
+
+const repeatModeLabel = computed(() => queueState.repeatMode === 'one' ? '单曲循环' : '列表循环')
+const repeatIcon = computed(() => queueState.repeatMode === 'one' ? repeat : repeatOutline)
+const shuffleModeLabel = computed(() => queueState.shuffleEnabled ? '随机播放' : '顺序播放')
+const shuffleIcon = computed(() => shuffle)
+const listIcon = listOutline
+const previousIcon = playSkipBack
+const nextIcon = playSkipForward
+
+const onToggleRepeat = () => {
+  setRepeatMode(queueState.repeatMode === 'one' ? 'all' : 'one')
+}
+
+const onToggleShuffle = () => {
+  toggleShuffle()
+}
+
+const goToQueue = () => {
+  void router.push('/queue')
+}
+
+const onPrevious = () => {
+  void playPreviousFromQueue()
+}
+
+const onNext = () => {
+  void playNextFromQueue()
+}
 
 const subtitle = computed(() => {
   const song = playerState.currentSong
@@ -330,8 +395,26 @@ const formatTime = (value: number): string => {
 }
 
 .controls ion-button {
-  width: 58px;
-  height: 58px;
+  width: 50px;
+  height: 50px;
+}
+
+.controls .play-toggle {
+  width: 64px;
+  height: 64px;
+}
+
+.mode-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin-top: 16px;
+}
+
+.mode-bar ion-button {
+  --color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
 }
 
 .lyric-panel {

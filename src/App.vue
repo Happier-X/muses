@@ -13,7 +13,7 @@ import MiniPlayer from '@/components/MiniPlayer.vue'
 import { initializePlayer } from '@/features/player/controller'
 
 const route = useRoute()
-const isPlayerPage = computed(() => route.path === '/player')
+const isPlayerPage = computed(() => route.path === '/player' || route.path === '/queue')
 
 onMounted(() => {
   void initializePlayer()

@@ -112,7 +112,10 @@ class AudioPlaybackService : MediaSessionService() {
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
-                    stopPlayback()
+                    progressHandler.removeCallbacks(progressRunnable)
+                    if (currentSongId != null) {
+                        publishState(STATUS_FINISHED)
+                    }
                     return
                 }
                 if (currentSongId != null) {
@@ -161,10 +164,12 @@ class AudioPlaybackService : MediaSessionService() {
                 .build()
 
             val activePlayer = ensurePlayer()
-            currentSongId = songId
-            publishState(STATUS_LOADING)
+            progressHandler.removeCallbacks(progressRunnable)
+            currentSongId = null
             activePlayer.stop()
             activePlayer.clearMediaItems()
+            currentSongId = songId
+            publishState(STATUS_LOADING)
             activePlayer.setMediaSource(createMediaSource(mediaItem, intent))
             activePlayer.prepare()
             activePlayer.play()
@@ -259,8 +264,8 @@ class AudioPlaybackService : MediaSessionService() {
 
     private fun stopPlayback() {
         progressHandler.removeCallbacks(progressRunnable)
-        player?.stop()
         currentSongId = null
+        player?.stop()
         currentTitle = "正在准备播放器"
         currentArtist = null
         publishState(STATUS_STOPPED)
@@ -390,6 +395,7 @@ class AudioPlaybackService : MediaSessionService() {
         const val STATUS_LOADING = "loading"
         const val STATUS_PLAYING = "playing"
         const val STATUS_PAUSED = "paused"
+        const val STATUS_FINISHED = "finished"
         const val STATUS_STOPPED = "stopped"
         const val STATUS_ERROR = "error"
         const val PROGRESS_INTERVAL_MS = 750L

@@ -1,6 +1,6 @@
 import type { SongItem } from '@/features/library/types'
 
-export type PlaybackStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'stopped' | 'error'
+export type PlaybackStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'stopped' | 'finished' | 'error'
 
 export type PlayerSourceType = 'local' | 'webdav'
 

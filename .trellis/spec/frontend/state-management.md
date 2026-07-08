@@ -158,7 +158,9 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - `AudioPlayer.stop(): Promise<void>`.
 - `AudioPlayer.seek({ position: number }): Promise<void>`，`position` 使用秒作为前端/插件边界单位，Android 服务内部再转换为毫秒。
 - `AudioPlayer.getState(): Promise<AudioPlayerNativeState>`，返回 `status`、`position`、`duration`、`errorMessage?` 等安全播放快照。
-- `AudioPlayer.addListener('stateChange', listener: (state: AudioPlayerNativeState) => void): Promise<PluginListenerHandle>`，播放中状态广播应携带当前进度与总时长。
+- `AudioPlayer.addListener('stateChange', listener: (state: AudioPlayerNativeState) => void): Promise<PluginListenerHandle>`，播放中状态广播应携带当前进度与总时长；自然播放结束应广播 `status='finished'`，手动停止才广播 `status='stopped'`。
+- Player queue helpers in `src/features/player/queue.ts`: `enqueueSongs(songs)`, `enqueueSong(song)`, `removeSongFromQueue(songId)`, `clearQueue()`, `selectSongAtIndex(index)`, `advanceToNext()`, `advanceToPrevious()`, `setRepeatMode(mode)`, `toggleShuffle()`, `syncCurrentIndex(songId)`.
+- Queue storage keys: `muses:queue` stores queue order as `{ songId }` items only; `muses:player-config` stores `{ repeatMode: 'one' | 'all', shuffleEnabled: boolean }`.
 - Android `AudioPlaybackService` exposes the single native `androidx.media3.session.MediaSession` backed by the same `ExoPlayer` that performs playback.
 - Media3 `MediaItem.MediaMetadata` contains non-sensitive display metadata only: title, artist, and album.
 - System notification, lock-screen controls, and media-key commands are handled by Media3 native session/player APIs, not by a frontend media-session plugin or JS action handlers.
@@ -167,16 +169,20 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 #### 3. Contracts
 
 - Player state must never contain WebDAV passwords, Basic Auth headers, SecureStorage values, or cover image base64 data.
-- `MiniPlayer.vue` and `SongsPage.vue` only read from `playerState` (readonly) and call `playSong`/`pausePlayback`/`resumePlayback`/`stopPlayback`/`seekPlayback`.
-- `playSong(song)` resolves the WebDAV password via `getWebDavPassword(source.credentialKey)` and passes it only to `AudioPlayerNative.play(...)`; the password never reaches localStorage, the UI state, `muses:songs`, Media3 metadata, or notification text.
+- `MiniPlayer.vue` and `SongsPage.vue` only read from `playerState` (readonly) and call `playSong`/`pausePlayback`/`resumePlayback`/`stopPlayback`/`seekPlayback`; queue UI may call feature-local queue helpers exported from the player controller.
+- `playSong(song)` resolves the WebDAV password via `getWebDavPassword(source.credentialKey)` and passes it only to `AudioPlayerNative.play(...)`; the password never reaches localStorage, the UI state, `muses:songs`, `muses:queue`, Media3 metadata, or notification text.
 - `playSong(song)` must first merge the incoming list item with the latest matching `muses:songs` record (`id` or `(sourceId, path)`) before creating `PlayerSongSnapshot`; otherwise stale list objects can miss lyrics/cover data that lazy metadata rescan already persisted.
 - Playback pages may persist and display `lyrics`, `lyricsSource`, `coverUri`, `tagsScanned`, and `tagsScannedAt`; `coverUri` must be an app-private cache URI/reference, not a `data:` URL or raw base64 payload. Display helpers must reject `data:` / `blob:` / `;base64,` cover URIs even if malformed legacy data reaches the page.
+- Playback queue persistence must be ID-only: write `{ songId }` records and order arrays, never full `SongItem`, `uri`, WebDAV username/password, Authorization headers, SecureStorage values, lyrics text, or cover URI/base64. Resolve queue display items from latest `loadSongs()` records at read time.
+- Random playback uses a persisted `shuffleOrder` separate from the original order; toggling shuffle off must restore the original sequential queue order and keep the current song index aligned when possible.
+- The immersive `/player` page should expose previous, play/pause, next, repeat, playback mode, and queue-entry controls. Previous uses the current queue order only (wrap head to tail); do not introduce an independent playback history stack unless a future task explicitly requires it.
 - Frontend code must not depend on `@capgo/capacitor-media-session` or any third-party media-session/notification plugin; Android system controls must route to the project-local `AudioPlaybackService` and its Media3 `MediaSession`.
 - If a song has incomplete tags, `playSong(song)` may trigger a single-song lazy metadata rescan after playback starts. The rescan must not block playback, must not scan the whole library, and must only update the currently playing song if the song identity still matches.
 - Lyric priority is embedded LRC first, same-directory same-name `.lrc` second, then an explicit no-lyrics state.
 - Android `AudioPlayerPlugin.kt` passes `EXTRA_PASSWORD` into an Intent; `AudioPlaybackService.kt` uses it only to construct a Basic Auth header for the ExoPlayer `DefaultHttpDataSource.Factory`, then the password is discarded after the MediaItem is created.
 - `AudioPlaybackService.kt` is started with `ContextCompat.startForegroundService(...)`; it must call `startForeground(...)` during `onCreate()` or immediately on play start, otherwise Android kills the app with `Context.startForegroundService() did not then call Service.startForeground()`.
 - `AudioPlaybackService.kt` may use a minimal bootstrap foreground notification to satisfy `startForegroundService(...)`, but the long-lived user-visible media notification should come from Media3 `DefaultMediaNotificationProvider` or an equivalent official Media3 notification provider.
+- `AudioPlaybackService.kt` must distinguish natural end from stop/switch: natural `Player.STATE_ENDED` with a current song publishes `STATUS_FINISHED` without clearing `currentSongId` or stopping foreground service; manual stop and internal switch clear `currentSongId` before `player.stop()` so they do not emit a false finished event.
 - When playback fails, the frontend shows only white-listed business errors or a generic message; it does not forward auth-related exception details into reactive state or `MiniPlayer.vue`.
 - AMLL background usage in `PlayerPage.vue` must wrap `BackgroundRender` in a real positioned container with explicit dimensions. The Vue binding renders its component root as `display: contents`, so styling the component root alone can leave the internal canvas with a 1px/0px height. Use an outer `.amll-background` layer and place `BackgroundRender` inside it with a full-size class; fallback CSS background must not cover the AMLL canvas when lyrics exist.
 - Two-panel player swiping uses a `200%`-wide flex container with two `50%` panels; switching to the lyric panel must translate by `-50%`, not `-100%`, or the lyric page is rendered off-screen.
@@ -191,6 +197,9 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Unknown or non-positive duration -> disable deterministic progress UI/notification progress rather than publishing misleading values.
 - Lazy metadata rescan failure -> mark metadata status as failed or show a degraded UI; playback continues.
 - Incoming song object lacks lyrics/cover but latest `muses:songs` has them -> `playSong` uses the latest stored display metadata immediately and does not show a false no-lyrics state.
+- Native `status='finished'` -> frontend calls `advanceToNext()`; if a song is returned, `playSong(nextSong)`, otherwise `stopPlayback()`.
+- Manual stop or internal song switch publishes `stopped`/`loading`, not `finished`; otherwise queue auto-advance can skip tracks or recurse.
+- Malformed or polluted `muses:queue` -> ignore invalid entries and re-save sanitized `{ songId }` records only.
 - Android system notification, lock-screen, or media-key control fails to update player state -> verify the single Media3 `MediaSession` is bound to the same `ExoPlayer` used for playback.
 - Media3 metadata or notification text contains WebDAV password, Basic Auth, authenticated audio URL, or `data:` artwork -> fail the implementation; keep metadata to safe title/artist/album fields.
 - AMLL background canvas height is near zero in WebView DevTools -> wrap `BackgroundRender` in a real full-size element instead of relying on component root styling.
@@ -202,8 +211,9 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Good: clicking a local song plays it; clicking a different song stops the previous one and plays the new one; the mini player updates across tabs, and `/player` displays synced progress, cover, controls, AMLL background, and lyrics fallback states.
 - Base: user stops playback via the mini player; Android notification disappears; `currentSong` is cleared.
 - Good: a stale song list item is played after metadata rescan has persisted lyrics; `/player` uses the latest stored lyrics immediately.
-- Bad: WebDAV password ends up in `localStorage.getItem('muses:songs')` or is logged to diagnose a playback failure.
-- Bad: a cover image is saved into `muses:songs` as base64, rendered into the UI as a `data:` URL, or passed into Media3 metadata/notification payloads as base64 artwork.
+- Bad: WebDAV password ends up in `localStorage.getItem('muses:songs')`, `localStorage.getItem('muses:queue')`, or is logged to diagnose a playback failure.
+- Bad: a queue stores full `SongItem` objects or audio `uri` values instead of ID-only order records.
+- Bad: a cover image is saved into `muses:songs` as base64, rendered into the UI as a `data:` URL, stored in `muses:queue`, or passed into Media3 metadata/notification payloads as base64 artwork.
 - Bad: adding a separate media-session plugin creates a second session/foreground service/notification instead of using the project-local Media3 service.
 - Bad: AMLL `BackgroundRender` is mounted directly as the positioned layer and its internal canvas measures as 1px high.
 
@@ -216,8 +226,9 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - `PlayerPage.vue` renders no-current-song and no-lyrics states; progress dragging calls `seekPlayback` with seconds.
 - `PlayerPage.vue` rejects `data:` cover URIs, renders AMLL lyrics after a left-swipe, uses `translateX(-50%)` for the second panel, and mounts `BackgroundRender` under a full-size `.amll-background` container.
 - `playSong` tests cover stale input objects by seeding `muses:songs` with newer lyrics/cover and asserting `playerState` uses the newer metadata.
-- `SongsPage.vue` highlights the currently playing song.
-- Android validation should include progress broadcasting, Media3 notification/lock-screen position sync, seek clamping, service resource release, media-key routing to the same `ExoPlayer`, and checking for duplicate visible notifications.
+- Queue tests assert ID-only persistence, enqueue/remove/clear behavior, sequential next, previous wrapping from head to tail, random shuffle order length, single-song repeat, list loop from tail to head, `finished` auto-advance, and empty queue fallback to `stopPlayback`.
+- `SongsPage.vue` highlights the currently playing song and queue actions do not bubble into direct playback.
+- Android validation should include progress broadcasting, `finished` broadcasting on natural end, Media3 notification/lock-screen position sync, seek clamping, service resource release, media-key routing to the same `ExoPlayer`, and checking for duplicate visible notifications.
 
 #### 7. Wrong vs Correct
 
@@ -226,6 +237,7 @@ Wrong:
 ```ts
 const options: WebDavPlayOptions = { ..., password }
 state.currentSong = { ...song, password, coverBase64 }
+localStorage.setItem('muses:queue', JSON.stringify([song]))
 await AudioPlayerNative.play({ sourceType: 'webdav', ..., password })
 await ThirdPartyMediaSession.setMetadata({ title, artwork: [{ src: song.uri }], password })
 const coverSrc = song.coverUri // may be data:image/jpeg;base64,...
@@ -239,6 +251,7 @@ Correct:
 const latestSong = getLatestSongSnapshot(song)
 const password = await getWebDavPassword(source.credentialKey)
 await AudioPlayerNative.play({ sourceType: 'webdav', ..., password })
+localStorage.setItem('muses:queue', JSON.stringify({ items: [{ songId: latestSong.id }] }))
 await seekPlayback(42) // seconds at the frontend/native plugin boundary
 const coverSrc = toDisplayableUri(latestSong.coverUri) // returns '' for data: URIs
 // Android AudioPlaybackService creates MediaItem metadata with title/artist/album only.
