@@ -5,7 +5,7 @@ android {
     namespace = "com.muses.player"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.muses.player"
+        applicationId project.hasProperty('appId') ? project.appId : "com.muses.player"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

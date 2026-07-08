@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/muses-release.keystore
+
+      - name: Build muses APK (com.muses.player)
+        run: |
+          npx cap sync android
+          cd android
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=muses-release.keystore \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
+      - name: Rename muses APK
+        run: |
+          mv android/app/build/outputs/apk/release/app-release.apk muses-v${{ steps.version.outputs.version }}.apk
+
+      - name: Build miui APK (com.miui.player)
+        env:
+          CAPACITOR_APP_ID: com.miui.player
+        run: |
+          npx cap sync android
+          cd android
+          ./gradlew assembleRelease -PappId=com.miui.player \
+            -Pandroid.injected.signing.store.file=muses-release.keystore \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
+      - name: Rename miui APK
+        run: |
+          mv android/app/build/outputs/apk/release/app-release.apk muses-v${{ steps.version.outputs.version }}-mi.apk
+
+      - name: Read changelog
+        id: changelog
+        run: |
+          CHANGELOG_FILE="changelog/v${{ steps.version.outputs.version }}.md"
+          if [ -f "$CHANGELOG_FILE" ]; then
+            cat "$CHANGELOG_FILE" >> release_body.md
+          else
+            echo "> 暂无更新日志" >> release_body.md
+          fi
+          echo "---" >> release_body.md
+          echo "" >> release_body.md
+          echo "### 构建产物" >> release_body.md
+          echo "- \`muses-v${{ steps.version.outputs.version }}.apk\` — 包名 \`com.muses.player\`" >> release_body.md
+          echo "- \`muses-v${{ steps.version.outputs.version }}-mi.apk\` — 包名 \`com.miui.player\`" >> release_body.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          body_path: release_body.md
+          files: |
+            muses-v${{ steps.version.outputs.version }}.apk
+            muses-v${{ steps.version.outputs.version }}-mi.apk
