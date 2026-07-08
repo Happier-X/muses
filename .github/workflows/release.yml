@@ -45,7 +45,7 @@ jobs:
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/muses-release.keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/muses-release.keystore
 
       - name: Build muses APK (com.muses.player)
         run: |
@@ -53,7 +53,7 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=muses-release.keystore \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/muses-release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
@@ -70,7 +70,7 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease -PappId=com.miui.player \
-            -Pandroid.injected.signing.store.file=muses-release.keystore \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/muses-release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
