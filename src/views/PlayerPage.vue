@@ -109,8 +109,6 @@
                 <ion-icon slot="icon-only" :icon="listIcon" />
               </ion-button>
             </div>
-
-            <p class="swipe-hint">左滑查看歌词</p>
           </section>
 
           <section class="panel lyric-panel" aria-label="歌词页">
@@ -121,7 +119,6 @@
               <h2>暂无歌词</h2>
               <p>当前歌曲没有内嵌歌词，也没有找到同目录同名 .lrc 文件。</p>
             </div>
-            <p class="swipe-hint">右滑返回控制页</p>
           </section>
         </div>
       </div>
@@ -369,7 +366,6 @@ const formatTime = (value: number): string => {
 
 .song-info p,
 .song-info small,
-.swipe-hint,
 .time-row {
   color: rgba(255, 255, 255, 0.72);
 }
