@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend 开发总索引，目录结构/组件/质量规范"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件规范 — TabsPage 改动需显式 import Ionic 组件、SFC 结构、scoped style 约定"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "目录规范 — variables.css 全局变量、views/ 页面结构、theme/ 归属"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量规范 — 实现完成后执行 lint + build + test:unit"}
