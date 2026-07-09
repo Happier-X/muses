@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量规范 — lint/build/test:unit 验证"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件规范 — 检查 PlayerPage SFC 结构和 @media scoped style"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器规范 — 检查 @applemusic-like-lyrics 背景/歌词未在本轮改动中破坏"}

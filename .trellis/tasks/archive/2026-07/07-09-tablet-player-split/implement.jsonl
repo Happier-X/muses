@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend 开发总索引"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件规范 — SFC scoped style、Ionic 组件显式导入、平板断点约定、ion-list Shadow DOM gotcha"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量规范 — lint + build + test:unit"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器规范 — 不改 native.ts/mediaSession.ts，避免冲突"}
