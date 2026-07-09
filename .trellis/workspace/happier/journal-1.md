@@ -480,3 +480,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: Player 宽屏 50/50 双栏：封面控制+歌词左右并排
+
+**Date**: 2026-07-09
+**Task**: Player 宽屏 50/50 双栏：封面控制+歌词左右并排
+**Branch**: `main`
+
+### Summary
+
+在 PlayerPage.vue style scoped 末尾新增 @media (min-width:768px) CSS 规则块，.panels 从 width:200%+translateX 滑动改为 display:flex 双栏并排、transform:none!important 覆盖内联样式。封面 min(40%,320px) 自适应，LyricPlayer flex:1 自填充。模板修复歌词 v-if 条件移除 && activePanel===1（宽屏下恒为 0 导致歌词不显示）。test:unit 更新相应断言。lint/build/test 全通过。窄屏零回归，背景层未分割。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `90d5f4b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

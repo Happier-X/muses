@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 14
+- **Total Sessions**: 15
 - **Last Active**: 2026-07-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~482 | Active |
+| `journal-1.md` | ~515 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 15 | 2026-07-09 | Player 宽屏 50/50 双栏：封面控制+歌词左右并排 | `90d5f4b` | `main` |
 | 14 | 2026-07-09 | 平板 MVP 响应式断点：列表多列网格 + Tab 侧栏 + 内容限位居中 | `e5c5af9`, `bbc6b05` | `main` |
 | 13 | 2026-07-09 | 修复安卓物理返回键：Tab 页直接退出 / 全屏页返回 | `9cf6787` | `main` |
 | 12 | 2026-07-09 | 媒体通知卡片与通知栏控制 | `b2eaa7d`, `deb80f1`, `2aada44` | `main` |
