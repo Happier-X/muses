@@ -513,3 +513,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: Player 页 vh → dvh 横屏视口校准
+
+**Date**: 2026-07-09
+**Task**: Player 页 vh → dvh 横屏视口校准
+**Branch**: `main`
+
+### Summary
+
+在 PlayerPage.vue style scoped 中把所有 vh 单位替换为 dvh（dynamic viewport height）：100vh→100dvh、calc(100vh-84px)→calc(100dvh-84px)、70vh→70dvh、48vh→48dvh。vw 单位保持不变。仅 4 处 CSS 值修改，无模板/脚本改动。build/lint/test 全通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3b706cf` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
