@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 12
+- **Total Sessions**: 13
 - **Last Active**: 2026-07-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~415 | Active |
+| `journal-1.md` | ~448 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 13 | 2026-07-09 | 修复安卓物理返回键：Tab 页直接退出 / 全屏页返回 | `9cf6787` | `main` |
 | 12 | 2026-07-09 | 媒体通知卡片与通知栏控制 | `b2eaa7d`, `deb80f1`, `2aada44` | `main` |
 | 11 | 2026-07-08 | GitHub Release 发布与双包名构建 v0.0.1 | `ba2103d`, `16c5403`, `e6b7661`, `2e811b0` | `main` |
 | 10 | 2026-07-08 | 改安卓包名为 com.muses.player | `be4c411` | `main` |

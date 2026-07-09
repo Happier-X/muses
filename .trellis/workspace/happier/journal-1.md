@@ -413,3 +413,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: 修复安卓物理返回键：Tab 页直接退出 / 全屏页返回
+
+**Date**: 2026-07-09
+**Task**: 修复安卓物理返回键：Tab 页直接退出 / 全屏页返回
+**Branch**: `main`
+
+### Summary
+
+在 src/App.vue onMounted 中注册 Capacitor App backButton 监听。全屏页 (/player, /queue) 按返键 router.back() 回标签页；标签页 (/tabs/*) 按返键 App.exitApp() 直接退出。无 toast，无原生修改。build/lint/test:unit 全通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9cf6787` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
