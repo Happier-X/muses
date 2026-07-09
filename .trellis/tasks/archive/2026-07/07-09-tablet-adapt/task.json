@@ -1,0 +1,31 @@
+{
+  "id": "tablet-adapt",
+  "name": "tablet-adapt",
+  "title": "平板适配：列表网格化 + Tab 侧栏 + 内容限位居中",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-07-09",
+  "completedAt": "2026-07-09",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-09-tablet-mvp-grid",
+    "07-09-tablet-player-split",
+    "07-09-tablet-dvh",
+    "07-09-tablet-miniplayer"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
