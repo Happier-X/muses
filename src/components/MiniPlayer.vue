@@ -122,4 +122,15 @@ const togglePlayback = async () => {
     background: #1f1f1f;
   }
 }
+
+@media (min-width: 768px) {
+  .mini-player {
+    left: auto;
+    right: auto;
+    bottom: calc(12px + var(--ion-safe-area-bottom, 0px));
+    width: var(--muses-content-max-width, 720px);
+    max-width: calc(100vw - 24px);
+    margin-inline: auto;
+  }
+}
 </style>
