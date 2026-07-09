@@ -378,3 +378,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: 媒体通知卡片与通知栏控制
+
+**Date**: 2026-07-09
+**Task**: 媒体通知卡片与通知栏控制
+**Branch**: `main`
+
+### Summary
+
+将 Android 音频播放迁移到 Capgo NativeAudio，使用 capacitor-media-session 接管标准 MediaStyle 通知，补齐封面、进度、播放暂停、上一曲/下一曲控制，并沉淀播放器媒体会话规范。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b2eaa7d` | (see git log) |
+| `deb80f1` | (see git log) |
+| `2aada44` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
