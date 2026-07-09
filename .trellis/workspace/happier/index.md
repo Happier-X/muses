@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 16
+- **Total Sessions**: 17
 - **Last Active**: 2026-07-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~548 | Active |
+| `journal-1.md` | ~581 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 17 | 2026-07-09 | MiniPlayer 宽屏居中限宽，侧栏适配 | `99ad040` | `main` |
 | 16 | 2026-07-09 | Player 页 vh → dvh 横屏视口校准 | `3b706cf` | `main` |
 | 15 | 2026-07-09 | Player 宽屏 50/50 双栏：封面控制+歌词左右并排 | `90d5f4b` | `main` |
 | 14 | 2026-07-09 | 平板 MVP 响应式断点：列表多列网格 + Tab 侧栏 + 内容限位居中 | `e5c5af9`, `bbc6b05` | `main` |

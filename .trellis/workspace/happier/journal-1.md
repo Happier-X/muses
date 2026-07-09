@@ -546,3 +546,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: MiniPlayer 宽屏居中限宽，侧栏适配
+
+**Date**: 2026-07-09
+**Task**: MiniPlayer 宽屏居中限宽，侧栏适配
+**Branch**: `main`
+
+### Summary
+
+在 MiniPlayer.vue style scoped 新增 @media (min-width:768px) 规则：宽屏下 left:auto / right:auto / margin-inline:auto 居中，width:var(--muses-content-max-width,720px) 限宽，bottom:calc(12px+safe-area) 不再依赖隐藏的 Tab Bar。窄屏不变。仅 11 行 CSS 改动，无模板/脚本改动。build/lint/test:unit 全通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `99ad040` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
