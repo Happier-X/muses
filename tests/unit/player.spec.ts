@@ -21,6 +21,7 @@ const { localLibraryNative, nativePlayer, webDavNative } = vi.hoisted(() => ({
     stop: vi.fn(),
     seek: vi.fn(),
     getState: vi.fn(),
+    ensureNotificationPermission: vi.fn(),
     addListener: vi.fn(),
   },
 }))
@@ -38,6 +39,10 @@ vi.mock('@capacitor/core', () => ({
     }
     return nativePlayer
   }),
+}))
+
+vi.mock('@/features/player/native', () => ({
+  AudioPlayerNative: nativePlayer,
 }))
 
 const { routerPush, routerBack, routeState } = vi.hoisted(() => ({

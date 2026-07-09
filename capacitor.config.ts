@@ -7,6 +7,11 @@ const config: CapacitorConfig = {
   appName: 'muses',
   webDir: 'dist',
   loggingBehavior: 'none',
+  plugins: {
+    NativeAudio: {
+      hls: false,
+    },
+  },
 };
 
 export default config;

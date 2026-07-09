@@ -130,6 +130,7 @@ const buildPlayOptions = async (song: SongItem): Promise<PlayOptions> => {
       title: song.title,
       artist: song.artist,
       album: song.album,
+      coverUri: toSafeCoverUri(song.coverUri),
     }
   }
 
@@ -145,6 +146,7 @@ const buildPlayOptions = async (song: SongItem): Promise<PlayOptions> => {
     title: song.title,
     artist: song.artist,
     album: song.album,
+    coverUri: toSafeCoverUri(song.coverUri),
   }
 }
 
@@ -260,6 +262,11 @@ export const playSong = async (song: SongItem): Promise<void> => {
   state.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'
 
   try {
+    try {
+      await AudioPlayerNative.ensureNotificationPermission()
+    } catch {
+      // 权限请求失败（非 Android / 插件不可用）静默忽略，不阻塞播放。
+    }
     await AudioPlayerNative.play(await buildPlayOptions(latestSong))
     state.status = 'playing'
     void scanSongMetadata(latestSong)

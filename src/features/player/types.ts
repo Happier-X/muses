@@ -37,6 +37,7 @@ export interface LocalPlayOptions {
   title: string
   artist?: string
   album?: string
+  coverUri?: string
 }
 
 export interface WebDavPlayOptions {
@@ -48,6 +49,7 @@ export interface WebDavPlayOptions {
   title: string
   artist?: string
   album?: string
+  coverUri?: string
 }
 
 export type PlayOptions = LocalPlayOptions | WebDavPlayOptions

@@ -1,151 +1,87 @@
 package com.muses.player
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import androidx.core.content.ContextCompat
+import android.Manifest
+import android.net.Uri
+import android.os.Build
 import com.getcapacitor.JSObject
+import com.getcapacitor.PermissionState
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
+import java.io.File
+import java.security.MessageDigest
 
-@CapacitorPlugin(name = "AudioPlayer")
+@CapacitorPlugin(
+    name = "AudioPlayer",
+    permissions = [
+        Permission(
+            strings = [Manifest.permission.POST_NOTIFICATIONS],
+            alias = "notifications",
+        ),
+    ],
+)
 class AudioPlayerPlugin : Plugin() {
-    private var stateReceiver: BroadcastReceiver? = null
-
-    override fun load() {
-        super.load()
-        stateReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == AudioPlaybackService.ACTION_STATE_CHANGED) {
-                    notifyListeners("stateChange", stateFromIntent(intent))
-                }
-            }
+    @PluginMethod
+    fun ensureNotificationPermission(call: PluginCall) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            call.resolve(JSObject().put("granted", true))
+            return
         }
-        ContextCompat.registerReceiver(
-            context,
-            stateReceiver,
-            IntentFilter(AudioPlaybackService.ACTION_STATE_CHANGED),
-            ContextCompat.RECEIVER_NOT_EXPORTED,
-        )
+        if (getPermissionState("notifications") == PermissionState.GRANTED) {
+            call.resolve(JSObject().put("granted", true))
+            return
+        }
+        requestPermissionForAlias("notifications", call, "onNotificationPermissionResult")
     }
 
-    override fun handleOnDestroy() {
-        stateReceiver?.let { context.unregisterReceiver(it) }
-        stateReceiver = null
-        super.handleOnDestroy()
+    @PermissionCallback
+    private fun onNotificationPermissionResult(call: PluginCall) {
+        val granted = getPermissionState("notifications") == PermissionState.GRANTED
+        call.resolve(JSObject().put("granted", granted))
     }
 
     @PluginMethod
-    fun play(call: PluginCall) {
-        val sourceType = call.getString("sourceType")
-        val songId = call.getString("songId")
-        val title = call.getString("title") ?: "未知歌曲"
-
-        if (sourceType != "local" && sourceType != "webdav") {
-            call.reject("不支持的音源类型。", "invalidSourceType")
+    fun prepareLocalAudioFile(call: PluginCall) {
+        val uriValue = call.getString("uri")
+        if (uriValue.isNullOrBlank()) {
+            call.reject("缺少本地音频地址。", "missingUri")
             return
         }
 
-        if (songId.isNullOrBlank()) {
-            call.reject("缺少歌曲 ID。", "missingSongId")
+        if (!uriValue.startsWith("content://")) {
+            call.resolve(JSObject().put("uri", uriValue))
             return
         }
 
-        val intent = Intent(context, AudioPlaybackService::class.java).apply {
-            action = AudioPlaybackService.ACTION_PLAY
-            putExtra(AudioPlaybackService.EXTRA_SOURCE_TYPE, sourceType)
-            putExtra(AudioPlaybackService.EXTRA_SONG_ID, songId)
-            putExtra(AudioPlaybackService.EXTRA_TITLE, title)
-            putExtra(AudioPlaybackService.EXTRA_ARTIST, call.getString("artist"))
-            putExtra(AudioPlaybackService.EXTRA_ALBUM, call.getString("album"))
+        bridge.execute {
+            try {
+                val preparedUri = copyContentUriToPlaybackCache(Uri.parse(uriValue), call.getString("songId") ?: uriValue)
+                call.resolve(JSObject().put("uri", preparedUri))
+            } catch (exception: Exception) {
+                call.reject("本地音频文件不可访问，请重新扫描或重新授权。", "contentUriNotFound", exception)
+            }
+        }
+    }
+
+    private fun copyContentUriToPlaybackCache(uri: Uri, cacheKey: String): String {
+        val cacheDir = File(context.cacheDir, "native-audio-playback").apply { mkdirs() }
+        val cachedFile = File(cacheDir, "${sha256(cacheKey)}.audio")
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            cachedFile.outputStream().use { output -> input.copyTo(output) }
+        } ?: throw IllegalArgumentException("contentUriNotFound")
+
+        if (cachedFile.length() <= 0L) {
+            throw IllegalArgumentException("contentUriNotFound")
         }
 
-        if (sourceType == "webdav") {
-            val url = call.getString("url")
-            val username = call.getString("username")
-            val password = call.getString("password")
-            if (url.isNullOrBlank() || username == null || password == null) {
-                call.reject("缺少 WebDAV 播放参数。", "missingWebDavOptions")
-                return
-            }
-            intent.putExtra(AudioPlaybackService.EXTRA_URI, url)
-            intent.putExtra(AudioPlaybackService.EXTRA_USERNAME, username)
-            intent.putExtra(AudioPlaybackService.EXTRA_PASSWORD, password)
-        } else {
-            val uri = call.getString("uri")
-            if (uri.isNullOrBlank()) {
-                call.reject("缺少本地音频地址。", "missingUri")
-                return
-            }
-            intent.putExtra(AudioPlaybackService.EXTRA_URI, uri)
-        }
-
-        ContextCompat.startForegroundService(context, intent)
-        call.resolve()
+        return Uri.fromFile(cachedFile).toString()
     }
 
-    @PluginMethod
-    fun pause(call: PluginCall) {
-        sendControl(AudioPlaybackService.ACTION_PAUSE)
-        call.resolve()
-    }
-
-    @PluginMethod
-    fun resume(call: PluginCall) {
-        sendControl(AudioPlaybackService.ACTION_RESUME)
-        call.resolve()
-    }
-
-    @PluginMethod
-    fun stop(call: PluginCall) {
-        sendControl(AudioPlaybackService.ACTION_STOP)
-        call.resolve()
-    }
-
-    @PluginMethod
-    fun seek(call: PluginCall) {
-        ContextCompat.startForegroundService(
-            context,
-            Intent(context, AudioPlaybackService::class.java).apply {
-                action = AudioPlaybackService.ACTION_SEEK
-                putExtra(AudioPlaybackService.EXTRA_POSITION, call.getDouble("position", 0.0))
-            },
-        )
-        call.resolve()
-    }
-
-    @PluginMethod
-    fun getState(call: PluginCall) {
-        call.resolve(stateFromSnapshot(AudioPlaybackService.lastStatus))
-    }
-
-    private fun sendControl(actionName: String) {
-        ContextCompat.startForegroundService(
-            context,
-            Intent(context, AudioPlaybackService::class.java).apply { action = actionName },
-        )
-    }
-
-    private fun stateFromIntent(intent: Intent): JSObject {
-        val result = JSObject()
-        result.put("status", intent.getStringExtra(AudioPlaybackService.EXTRA_STATUS) ?: AudioPlaybackService.STATUS_IDLE)
-        intent.getStringExtra(AudioPlaybackService.EXTRA_SONG_ID)?.let { result.put("currentSongId", it) }
-        intent.getStringExtra(AudioPlaybackService.EXTRA_ERROR_MESSAGE)?.let { result.put("errorMessage", it) }
-        result.put("position", intent.getDoubleExtra(AudioPlaybackService.EXTRA_POSITION, 0.0))
-        result.put("duration", intent.getDoubleExtra(AudioPlaybackService.EXTRA_DURATION, 0.0))
-        return result
-    }
-
-    private fun stateFromSnapshot(snapshot: AudioPlaybackService.PlaybackStatus): JSObject {
-        val result = JSObject()
-        result.put("status", snapshot.status)
-        snapshot.currentSongId?.let { result.put("currentSongId", it) }
-        snapshot.errorMessage?.let { result.put("errorMessage", it) }
-        result.put("position", snapshot.position)
-        result.put("duration", snapshot.duration)
-        return result
+    private fun sha256(value: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { byte -> "%02x".format(byte) }
     }
 }
