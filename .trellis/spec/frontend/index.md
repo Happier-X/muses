@@ -29,6 +29,7 @@ The guidance in this directory documents the codebase as it exists today. It is 
 | [State Management](./state-management.md) | Local state, global state, server state | Filled |
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | Filled |
 | [Type Safety](./type-safety.md) | Type patterns, validation | Filled |
+| [Features·Player](./features-player.md) | 播放器/原生通知/媒体会话规范 | Filled |
 
 ---
 
