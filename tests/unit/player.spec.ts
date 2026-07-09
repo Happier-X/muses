@@ -422,7 +422,7 @@ describe('沉浸式播放页', () => {
 
     expect(wrapper.get('img[alt="歌曲封面"]').attributes('src')).toBe('webview:file:///cover.jpg')
     expect(wrapper.get('.amll-background [data-test="amll-background"]').attributes('data-album')).toBe('webview:file:///cover.jpg')
-    expect(wrapper.find('[data-test="amll-lyrics"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="amll-lyrics"]').exists()).toBe(true)
 
     const panels = wrapper.get('.panels')
     await panels.trigger('touchstart', { changedTouches: [{ clientX: 320 }] })

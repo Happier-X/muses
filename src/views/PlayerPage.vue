@@ -112,7 +112,7 @@
           </section>
 
           <section class="panel lyric-panel" aria-label="歌词页">
-            <template v-if="hasLyrics && activePanel === 1">
+            <template v-if="hasLyrics">
               <LyricPlayer class="lyric-player" :lyric-lines="lyricLines" :current-time="playerState.position * 1000" />
             </template>
             <div v-else class="lyric-empty">
@@ -436,5 +436,42 @@ const formatTime = (value: number): string => {
   text-align: left;
   white-space: pre-wrap;
   background: rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 768px) {
+  .panels {
+    width: auto;
+    display: flex;
+    flex-direction: row;
+    min-height: 0;
+    overflow: hidden;
+    transform: none !important;
+  }
+  .panel {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+  }
+  .info-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .lyric-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .cover {
+    width: min(40%, 320px);
+  }
+  .lyric-player {
+    flex: 1;
+    min-height: 200px;
+    height: auto;
+  }
 }
 </style>
