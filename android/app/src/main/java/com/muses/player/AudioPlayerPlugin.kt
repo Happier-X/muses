@@ -1,8 +1,10 @@
 package com.muses.player
 
 import android.Manifest
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
+import android.util.Base64
 import com.getcapacitor.JSObject
 import com.getcapacitor.PermissionState
 import com.getcapacitor.Plugin
@@ -11,6 +13,7 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
 
@@ -83,5 +86,32 @@ class AudioPlayerPlugin : Plugin() {
     private fun sha256(value: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { byte -> "%02x".format(byte) }
+    }
+
+    @PluginMethod
+    fun prepareArtworkDataUrl(call: PluginCall) {
+        val uriValue = call.getString("uri")
+        if (uriValue.isNullOrBlank()) {
+            call.resolve(JSObject().put("dataUrl", null as String?))
+            return
+        }
+
+        bridge.execute {
+            try {
+                val uri = Uri.parse(uriValue)
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    val bitmap = BitmapFactory.decodeStream(input)
+                        ?: throw IllegalArgumentException("unsupportedImage")
+                    val outputStream = ByteArrayOutputStream()
+                    if (!bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, outputStream)) {
+                        throw IllegalArgumentException("compressFailed")
+                    }
+                    val encoded = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+                    call.resolve(JSObject().put("dataUrl", "data:image/jpeg;base64,$encoded"))
+                } ?: throw IllegalArgumentException("artworkNotFound")
+            } catch (exception: Exception) {
+                call.resolve(JSObject().put("dataUrl", null as String?))
+            }
+        }
     }
 }

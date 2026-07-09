@@ -25,6 +25,7 @@
     "@capacitor/keyboard": "latest",
     "@capacitor/status-bar": "latest",
     "@capawesome/capacitor-file-picker": "^8.0.3",
+    "@capgo/capacitor-media-session": "^8.0.28",
     "@capgo/capacitor-native-audio": "^8.4.15",
     "@ionic/vue": "^8.0.0",
     "@ionic/vue-router": "^8.0.0",

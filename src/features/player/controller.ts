@@ -8,6 +8,13 @@ import { AudioPlayerNative } from './native'
 import type { AudioPlayerNativeState, PlayOptions, PlayerState } from './types'
 import { createPlayerSongSnapshot, toSafeCoverUri } from './types'
 import { advanceToNext, advanceToPrevious, syncCurrentIndex } from './queue'
+import {
+  setupMediaSessionActions,
+  updateMediaSessionMetadata,
+  updateMediaSessionPlayback,
+  updateMediaSessionPosition,
+  clearMediaSession,
+} from './mediaSession'
 
 const state = reactive<PlayerState>({
   status: 'idle',
@@ -52,8 +59,11 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
     state.lyrics = null
     state.coverUri = null
     state.metadataStatus = 'idle'
+    syncMediaSessionState()
     return
   }
+
+  syncMediaSessionState()
 
   if (nativeState.status === 'finished') {
     void handlePlaybackFinished()
@@ -90,6 +100,15 @@ export const initializePlayer = async (): Promise<void> => {
     await AudioPlayerNative.addListener('stateChange', applyNativeState)
   }
 
+  await setupMediaSessionActions({
+    play: resumePlayback,
+    pause: pausePlayback,
+    stop: stopPlayback,
+    previoustrack: playPreviousFromQueue,
+    nexttrack: playNextFromQueue,
+    seekto: seekPlayback,
+  })
+
   try {
     applyNativeState(await AudioPlayerNative.getState())
   } catch {
@@ -99,6 +118,27 @@ export const initializePlayer = async (): Promise<void> => {
 
 const normalizePlaybackTime = (value: unknown): number => {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
+const syncMediaSessionState = (): void => {
+  if (!state.currentSong) {
+    void clearMediaSession().catch(() => undefined)
+    return
+  }
+
+  void updateMediaSessionPlayback(state.status).catch(() => undefined)
+  void updateMediaSessionPosition(state.position, state.duration).catch(() => undefined)
+}
+
+const syncMediaSessionSong = (song: SongItem): void => {
+  void updateMediaSessionMetadata({
+    title: song.title,
+    artist: song.artist,
+    album: song.album,
+    coverUri: toSafeCoverUri(song.coverUri),
+  }).catch(() => undefined)
+  void updateMediaSessionPosition(normalizePlaybackTime(state.position), normalizePlaybackTime(song.duration) || state.duration).catch(() => undefined)
+  void updateMediaSessionPlayback(state.status).catch(() => undefined)
 }
 
 const syncDisplayStateFromSong = (song: SongItem): void => {
@@ -260,6 +300,7 @@ export const playSong = async (song: SongItem): Promise<void> => {
   state.lyrics = latestSong.lyrics || null
   state.coverUri = toSafeCoverUri(latestSong.coverUri) || null
   state.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'
+  syncMediaSessionSong(latestSong)
 
   try {
     try {
@@ -321,6 +362,7 @@ export const stopPlayback = async (): Promise<void> => {
     state.lyrics = null
     state.coverUri = null
     state.metadataStatus = 'idle'
+    syncMediaSessionState()
   } catch {
     setUserSafeError('停止播放失败，请稍后重试。')
   }

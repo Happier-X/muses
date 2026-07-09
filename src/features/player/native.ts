@@ -6,6 +6,7 @@ import type { AudioPlayerNativeState, PlaybackStatus, PlayOptions, SeekOptions }
 interface AudioPlayerPermissionBridge {
   ensureNotificationPermission(): Promise<{ granted: boolean }>
   prepareLocalAudioFile?(options: { uri: string; songId: string }): Promise<{ uri: string }>
+  prepareArtworkDataUrl?(options: { uri: string }): Promise<{ dataUrl: string | null }>
 }
 
 interface NativePlaybackStateEvent {
@@ -40,7 +41,7 @@ export interface AudioPlayerNativePlugin {
   ): Promise<PluginListenerHandle>
 }
 
-const AudioPlayerBridge = registerPlugin<AudioPlayerPermissionBridge>('AudioPlayer')
+export const AudioPlayerBridge = registerPlugin<AudioPlayerPermissionBridge>('AudioPlayer')
 
 let configured = false
 let currentAssetId: string | null = null
@@ -67,7 +68,7 @@ const configureNativeAudio = async (): Promise<void> => {
     focus: true,
     background: true,
     backgroundPlayback: true,
-    showNotification: true,
+    showNotification: false,
   })
   configured = true
   logNativeAudio('configure:done')
@@ -196,19 +197,12 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     emitCurrentState('loading')
 
     const isUrl = isRemoteUrl(assetPath) || assetPath.startsWith('file://')
-    const notificationMetadata = {
-      title: options.title,
-      artist: options.artist,
-      album: options.album,
-      artworkUrl: options.coverUri,
-    }
     logNativeAudio('play:resolved', {
       assetId,
       sourceType: options.sourceType,
       assetPathPrefix: assetPath.slice(0, 80),
       isUrl,
       hasHeaders: Boolean(headers),
-      notificationMetadata,
     })
 
     try {
@@ -218,7 +212,6 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
         isUrl,
         audioChannelNum: 1,
         headers,
-        notificationMetadata,
       })
       logNativeAudio('preload:done', { assetId })
       currentDuration = normalizePlaybackTime((await NativeAudio.getDuration({ assetId }).catch(() => ({ duration: 0 }))).duration)
