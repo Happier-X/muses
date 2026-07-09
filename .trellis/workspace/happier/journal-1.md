@@ -579,3 +579,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 18: 设置页增加版本展示和 GitHub Release 更新检查
+
+**Date**: 2026-07-09
+**Task**: 设置页增加版本展示和 GitHub Release 更新检查
+**Branch**: `main`
+
+### Summary
+
+在 SettingsPage.vue 中实现版本展示和更新检查功能：从 package.json 读取 version 0.0.2 显示应用版本；'检查更新'按钮调用 GitHub Releases API 获取最新版本；版本相同时 Toast '已是最新版本'；有新版本时 Toast 提示并 window.open('_system') 打开 Release 下载页。处理了 403 rate limit、网络异常、tag 格式异常等边界情况。无新增依赖。build/lint/test 全通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `373b2f8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

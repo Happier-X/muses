@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 17
+- **Total Sessions**: 18
 - **Last Active**: 2026-07-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~581 | Active |
+| `journal-1.md` | ~614 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 18 | 2026-07-09 | 设置页增加版本展示和 GitHub Release 更新检查 | `373b2f8` | `main` |
 | 17 | 2026-07-09 | MiniPlayer 宽屏居中限宽，侧栏适配 | `99ad040` | `main` |
 | 16 | 2026-07-09 | Player 页 vh → dvh 横屏视口校准 | `3b706cf` | `main` |
 | 15 | 2026-07-09 | Player 宽屏 50/50 双栏：封面控制+歌词左右并排 | `90d5f4b` | `main` |
