@@ -446,3 +446,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: 平板 MVP 响应式断点：列表多列网格 + Tab 侧栏 + 内容限位居中
+
+**Date**: 2026-07-09
+**Task**: 平板 MVP 响应式断点：列表多列网格 + Tab 侧栏 + 内容限位居中
+**Branch**: `main`
+
+### Summary
+
+在 src/theme/variables.css 定义全局断点变量 --muses-breakpoint-tablet:768px --muses-content-max-width:720px。TabsPage：ion-split-pane when=768 + ion-menu 宽屏左侧侧栏（6标签竖排），窄屏保留 ion-tabs 底部 Tab Bar。SongsPage/AlbumsPage/ArtistsPage：ion-list 外包 .list-grid CSS Grid repeat(auto-fill, minmax(320px,1fr)) 多列自适应；fix ion-list Shadow DOM 需 display:contents。Playlists/Settings/Sources：.tablet-content-limit 限位居中 720px。lint/build/test:unit 全通过。spec 更新 component-guidelines.md 记录断点约定和两部分 gotcha。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e5c5af9` | (see git log) |
+| `bbc6b05` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
