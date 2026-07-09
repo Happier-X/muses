@@ -1,2 +1,9 @@
+:root {
+  /* 平板断点：物理宽度 ≥ 768px 时切换为平板布局 */
+  --muses-breakpoint-tablet: 768px;
+  /* 平板模式下内容区域最大宽度，居中对齐 */
+  --muses-content-max-width: 720px;
+}
+
 /* For information on how to create your own theme, please refer to:
 http://ionicframework.com/docs/theming/ */

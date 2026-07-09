@@ -17,8 +17,9 @@
         <p>点击右上角加号添加本地文件夹或 WebDAV 文件夹。</p>
       </div>
 
-      <div v-else ref="listParentRef" class="source-list">
-        <div class="source-list-spacer" :style="{ height: `${totalSize}px` }">
+      <div v-else class="tablet-content-limit">
+        <div ref="listParentRef" class="source-list">
+          <div class="source-list-spacer" :style="{ height: `${totalSize}px` }">
           <ion-card
             v-for="virtualRow in virtualRows"
             :key="sources[virtualRow.index].id"
@@ -38,6 +39,7 @@
               </div>
             </ion-card-content>
           </ion-card>
+          </div>
         </div>
       </div>
 
@@ -609,5 +611,16 @@ const addSourceButtons: ActionSheetButton[] = [
 .empty-directory {
   color: var(--ion-color-medium);
   text-align: center;
+}
+
+.tablet-content-limit {
+  height: 100%;
+}
+
+@media (min-width: 768px) {
+  .tablet-content-limit {
+    max-width: var(--muses-content-max-width);
+    margin-inline: auto;
+  }
 }
 </style>

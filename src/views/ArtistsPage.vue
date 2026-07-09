@@ -17,7 +17,8 @@
         <p>请先到音源页添加并扫描音源。</p>
       </div>
 
-      <ion-list v-else>
+      <div v-else class="list-grid tablet-content-limit">
+        <ion-list>
         <ion-item v-for="artist in artists" :key="artist.name">
           <ion-label>
             <h2>{{ artist.name }}</h2>
@@ -26,6 +27,7 @@
           </ion-label>
         </ion-item>
       </ion-list>
+      </div>
     </ion-content>
   </ion-page>
 </template>
@@ -67,5 +69,22 @@ onIonViewWillEnter(refreshSongs)
 .empty-state h2 {
   margin-bottom: 8px;
   color: var(--ion-text-color);
+}
+@media (min-width: 768px) {
+  .list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1px;
+    max-width: var(--muses-content-max-width);
+    margin-inline: auto;
+  }
+
+  .list-grid > ion-list {
+    display: contents;
+  }
+
+  .list-grid ion-item {
+    width: 100%;
+  }
 }
 </style>

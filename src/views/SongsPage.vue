@@ -27,7 +27,8 @@
         <p>请先到音源页添加并扫描音源。</p>
       </div>
 
-      <ion-list v-else>
+      <div v-else class="list-grid tablet-content-limit">
+        <ion-list>
         <ion-item
           v-for="song in songs"
           :key="song.id"
@@ -52,6 +53,7 @@
           </ion-button>
         </ion-item>
       </ion-list>
+      </div>
     </ion-content>
   </ion-page>
 </template>
@@ -119,5 +121,22 @@ onIonViewWillEnter(refreshSongs)
 .playing-label {
   color: var(--ion-color-primary);
   font-weight: 600;
+}
+@media (min-width: 768px) {
+  .list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1px;
+    max-width: var(--muses-content-max-width);
+    margin-inline: auto;
+  }
+
+  .list-grid > ion-list {
+    display: contents;
+  }
+
+  .list-grid ion-item {
+    width: 100%;
+  }
 }
 </style>

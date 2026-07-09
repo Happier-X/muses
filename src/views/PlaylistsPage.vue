@@ -12,9 +12,11 @@
         </ion-toolbar>
       </ion-header>
 
-      <div class="empty-state">
-        <h2>歌单功能待开发</h2>
-        <p>后续会在这里管理你的歌单。</p>
+      <div class="tablet-content-limit">
+        <div class="empty-state">
+          <h2>歌单功能待开发</h2>
+          <p>后续会在这里管理你的歌单。</p>
+        </div>
       </div>
     </ion-content>
   </ion-page>
@@ -43,5 +45,11 @@ import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from '@ionic/vue
 .empty-state h2 {
   margin-bottom: 8px;
   color: var(--ion-text-color);
+}
+@media (min-width: 768px) {
+  .tablet-content-limit {
+    max-width: var(--muses-content-max-width);
+    margin-inline: auto;
+  }
 }
 </style>
