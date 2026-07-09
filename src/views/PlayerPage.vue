@@ -308,7 +308,7 @@ const formatTime = (value: number): string => {
 
 .empty-state,
 .panel {
-  min-height: calc(100vh - 84px);
+  min-height: calc(100dvh - 84px);
   padding: 24px;
 }
 
@@ -327,7 +327,7 @@ const formatTime = (value: number): string => {
   z-index: 1;
   display: flex;
   width: 200%;
-  min-height: calc(100vh - 84px);
+  min-height: calc(100dvh - 84px);
   overflow: visible;
   transition: transform 220ms ease;
 }
@@ -423,13 +423,13 @@ const formatTime = (value: number): string => {
 .lyric-player {
   display: block;
   width: 100%;
-  height: 70vh;
+  height: 70dvh;
   min-height: 420px;
 }
 
 .lyric-empty pre {
   max-width: 88vw;
-  max-height: 48vh;
+  max-height: 48dvh;
   overflow: auto;
   padding: 16px;
   border-radius: 16px;
