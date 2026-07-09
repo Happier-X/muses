@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend 开发总索引，包含目录结构、组件规范、质量规范等"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件规范 — 在 App.vue 中编写逻辑需遵循 Vue SFC Composition API 规范"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "Hook/Composable 规范 — 返回键处理逻辑放在 App.vue onMounted，不抽 composable"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量规范 — 实现完成后需执行 npm run build 验证 TypeScript 和构建"}

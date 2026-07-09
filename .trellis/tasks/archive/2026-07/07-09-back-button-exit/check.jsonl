@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量规范 — 检查 lint、build、test 是否通过"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件规范 — 验证 App.vue 改动符合 Vue SFC 和 Ionic 项目约定"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器规范 — 确保返回键处理不与播放器逻辑冲突"}
