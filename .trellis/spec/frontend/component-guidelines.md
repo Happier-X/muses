@@ -99,7 +99,64 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 ---
 
-## Styling Patterns
+## Responsive Breakpoint Convention
+
+项目使用以下全局 CSS 变量在宽屏下适配平板布局：
+
+- `--muses-breakpoint-tablet: 768px` — 平板断点宽度（定义于 `src/theme/variables.css`）
+- `--muses-content-max-width: 720px` — 内容最大宽度限位居中
+
+### 断点约定的规则
+
+1. **全局变量统一在 `src/theme/variables.css` 的 `:root` 中定义**，单一来源，所有页面引用 `var(--muses-*)`。
+2. **`@media (min-width: XXX)` 条件中不可使用 `var()`** — CSS 标准不允许。在 `@media` 中直接使用硬编码的 `768px`；`var()` 只用于属性值部分（如 `max-width: var(--muses-content-max-width)`）。
+3. **宽屏下隐藏元素**：对窄屏专属元素（如 `ion-tab-bar`）使用 `@media (min-width: 768px) { … display: none }`。
+4. **窄屏零回归**：所有平板改造限定在 `@media (min-width: 768px)` 内；窄屏下不加任何额外样式。
+
+### 当前平板组件模式
+
+- **侧栏**：`src/views/TabsPage.vue` 的外层 `ion-split-pane when="768"` + `ion-menu` 在宽屏下提供左侧导航，窄屏回落为底部 Tab Bar。
+- **列表多列**：`src/views/SongsPage.vue`（及 Albums/Artists 页）的 `<ion-list>` 外包 `<div class="list-grid">`，通过 CSS Grid `repeat(auto-fill, minmax(320px, 1fr))` 自动分列。
+- **内容限位居中**：各列表页 `.tablet-content-limit` 和 `.list-grid` 在宽屏下 `max-width: var(--muses-content-max-width); margin-inline: auto`。
+
+## Styling Gotchas
+
+### ion-list 为 Web Component，CSS Grid 在外层无法布局子 ion-item
+
+`ion-list` 是 Ionic Web Component，有 Shadow DOM 隔离。在外层 div 套 CSS Grid 后，`ion-list` 只是 grid 容器的第一个子项，不会将 `ion-item` 暴露为 grid item。
+
+**修复**：在宽屏下给 `ion-list` 加 `display: contents;`，使 `ion-item` 成为 grid 容器的直接子元素：
+
+```css
+@media (min-width: 768px) {
+  .list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1px;
+    max-width: var(--muses-content-max-width);
+    margin-inline: auto;
+  }
+  .list-grid > ion-list {
+    display: contents;
+  }
+}
+```
+
+### CSS var() 不可用于 @media 断点条件
+
+CSS 变量只能在属性值中解析，不能在 `@media (min-width: …)` 中生效。错误写法：
+
+```css
+/* ✗ 错误——CSS 变量在 @media 条件中无法解析 */
+@media (min-width: var(--muses-breakpoint-tablet)) { … }
+
+/* ✓ 正确——@media 条件用硬编码，属性值用 var() */
+@media (min-width: 768px) {
+  .list-grid {
+    max-width: var(--muses-content-max-width);
+  }
+}
+```
 
 Current styling is split by scope:
 
