@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 19
+- **Total Sessions**: 20
 - **Last Active**: 2026-07-10
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~649 | Active |
+| `journal-1.md` | ~684 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 20 | 2026-07-10 | 修复手机端底部导航 | `562a4f2`, `c41ee97`, `ff4d01a` | `main` |
 | 19 | 2026-07-10 | Android MuMu 导航修复 | `7dce460`, `eb81cb0`, `c5f7da5` | `main` |
 | 18 | 2026-07-09 | 设置页增加版本展示和 GitHub Release 更新检查 | `373b2f8` | `main` |
 | 17 | 2026-07-09 | MiniPlayer 宽屏居中限宽，侧栏适配 | `99ad040` | `main` |

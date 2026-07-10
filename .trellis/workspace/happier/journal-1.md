@@ -647,3 +647,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 20: 修复手机端底部导航
+
+**Date**: 2026-07-10
+**Task**: 修复手机端底部导航
+**Branch**: `main`
+
+### Summary
+
+修复 v0.0.3 后手机端底部导航缺失与重复显示问题：将 TabsPage 移动端底栏从 Ionic ion-tab-bar 改为普通 nav + RouterLink，保留平板左侧导航；补充前端组件规范并完成构建、Android 打包、MuMu 安装启动验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `562a4f2` | (see git log) |
+| `c41ee97` | (see git log) |
+| `ff4d01a` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
