@@ -49,7 +49,7 @@ Reference files:
 - `src/views/Tab3Page.vue`
 - `src/views/TabsPage.vue`
 
-Avoid building route-level pages without `ion-page`, because that breaks Ionic layout expectations.
+Avoid building route-level content pages without `ion-page`, because that breaks Ionic layout expectations. Exception: a parent route shell such as `src/views/TabsPage.vue` may be a plain Vue layout container when it exists only to place navigation chrome around child pages rendered by `<RouterView />`; this avoids duplicate Ionic page stacking in nested routes.
 
 ---
 
@@ -115,7 +115,9 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 ### 当前平板组件模式
 
-- **侧栏**：`src/views/TabsPage.vue` 的外层 `ion-split-pane when="768"` + `ion-menu` 在宽屏下提供左侧导航，窄屏回落为底部 Tab Bar。
+- **导航 Shell**：`src/views/TabsPage.vue` 使用普通 Vue 布局容器作为父级 shell，不使用 `ion-page` 包裹父路由布局；子页面继续保留自己的 Ionic page 结构。
+- **侧栏**：宽屏下由固定定位的普通 `<aside>` 提供左侧导航，右侧 `<main>` 渲染 `<RouterView />`；窄屏回落为底部 `ion-tab-bar`。
+- **避免 Split Pane**：当前 MuMu / Android WebView 环境中，`ion-split-pane` + `ion-menu` 曾触发白屏；不要在 `TabsPage.vue` 中恢复该结构，除非完成真机与 MuMu 回归验证。
 - **列表多列**：`src/views/SongsPage.vue`（及 Albums/Artists 页）的 `<ion-list>` 外包 `<div class="list-grid">`，通过 CSS Grid `repeat(auto-fill, minmax(320px, 1fr))` 自动分列。
 - **内容限位居中**：各列表页 `.tablet-content-limit` 和 `.list-grid` 在宽屏下 `max-width: var(--muses-content-max-width); margin-inline: auto`。
 
@@ -200,3 +202,5 @@ Given the current app shape, common mistakes to avoid are:
 - Forgetting to import Ionic components explicitly in the SFC script block
 - Mixing global theme concerns into component-local styles
 - Introducing new architectural layers (store, services, composables) without an actual need in the task
+- Wrapping a nested parent route shell in `ion-page` when child route pages already provide Ionic page containers; in Android WebView this can cause duplicate navigation chrome or stacked layouts
+- Reintroducing `ion-split-pane` / `ion-menu` for the main tabs shell without MuMu regression testing; this previously caused a white screen in the Android emulator
