@@ -176,9 +176,9 @@ Do not duplicate Ionic core or utility CSS imports inside page components.
 
 ---
 
-## MiniPlayer 底栏约定
+## MiniPlayer 与播放器 Overlay 约定
 
-`src/components/MiniPlayer.vue` 是应用级固定底栏，由 `src/App.vue` 控制在 `/player` 与 `/queue` 页面隐藏。
+`src/components/MiniPlayer.vue` 是应用级固定底栏，由 `src/App.vue` 始终挂载；播放器和队列使用全局 overlay 状态显示，不再通过 `/player` 或 `/queue` 路由打开。
 
 ### 样式约定
 
@@ -186,12 +186,13 @@ Do not duplicate Ionic core or utility CSS imports inside page components.
 - 底栏本身不使用圆角和阴影，仅保留顶部边线分隔内容。
 - 封面容器圆角与歌曲列表一致，使用 `border-radius: 10px`。
 - 无当前歌曲或无封面时展示稳定占位封面与占位文案，避免播放状态为空时底栏跳动或消失。
+- `MiniPlayer` 不要因 overlay 打开而用 `v-if` 卸载；overlay 打开时只禁用交互（例如 `pointer-events: none`），避免下滑关闭时底栏闪烁。
 
 ### 交互约定
 
-- 点击底栏主体进入 `/player`。
-- 点击播放/暂停按钮只控制播放状态，不能触发进入 `/player`。
-- 点击队列按钮只进入 `/queue`，不能触发进入 `/player`。
+- 点击底栏主体调用 `openPlayerOverlay()`，不能改变当前路由 URL。
+- 点击播放/暂停按钮只控制播放状态，不能触发打开播放器 overlay。
+- 点击队列按钮调用 `openQueueOverlay()`，不能改变当前路由 URL，也不能触发打开播放器 overlay。
 - 对 Ionic `ion-button` 不要只依赖 `@click.stop`；按钮内部事件可能穿过 Web Component 边界。父级主体点击处理需要检查 `event.composedPath()`，如果事件路径包含 `.player-actions` 就直接忽略。
 
 ```ts
@@ -199,9 +200,16 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   if (event.composedPath().some((target) => target instanceof Element && target.classList.contains('player-actions'))) {
     return
   }
-  void router.push('/player')
+  openPlayerOverlay()
 }
 ```
+
+### Overlay 页面约定
+
+- `PlayerPage.vue` 和 `QueuePage.vue` 是全局 overlay 内容组件，由 `App.vue` 渲染在 `ion-router-outlet` 之后；不要在 `src/router/index.ts` 中新增 `/player` 或 `/queue` 路由。
+- 打开播放器/队列 overlay 时底层 tabs 路由页面必须保持存在，以支持下滑收起露出真实底层页面。
+- 播放器 overlay 顶部不显示返回/收起按钮；关闭通过下滑手势、Android back 键或显式 overlay 状态完成。
+- 下滑收起播放器时移动 overlay 内容层，不要移动 Ionic 路由页或依赖透明路由页露出缓存层，否则容易出现黑屏或重复页面。
 
 ## Accessibility
 
@@ -226,6 +234,7 @@ Avoid:
 Given the current app shape, common mistakes to avoid are:
 
 - Putting route logic inside page components instead of `src/router/index.ts`
+- Adding `/player` or `/queue` routes for immersive playback; these surfaces are global overlays, not route pages
 - Forgetting to import Ionic components explicitly in the SFC script block
 - Mixing global theme concerns into component-local styles
 - Introducing new architectural layers (store, services, composables) without an actual need in the task
@@ -233,3 +242,4 @@ Given the current app shape, common mistakes to avoid are:
 - Reintroducing `ion-split-pane` / `ion-menu` for the main tabs shell without MuMu regression testing; this previously caused a white screen in the Android emulator
 - Using `ion-tab-bar` / `ion-tab-button` outside an `ion-tabs` shell in `TabsPage.vue`; in the custom parent route shell, use a plain `<nav>` with `RouterLink` to avoid missing or duplicated mobile bottom navigation
 - Relying only on `@click.stop` for nested `ion-button` controls inside a clickable parent; guard the parent handler with `event.composedPath()` so button clicks do not trigger parent navigation
+- Hiding `MiniPlayer` with `v-if` while a player overlay is open; keep it mounted behind the overlay and disable interaction to avoid close-animation flicker

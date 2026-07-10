@@ -45,7 +45,7 @@ Reference file:
 
 - `src/router/index.ts`
 
-Avoid duplicating current tab selection in a separate store unless a task introduces a real cross-component state need.
+Avoid duplicating current tab selection in a separate store unless a task introduces a real cross-component state need. Do not mirror player/queue overlay visibility into the router; use `src/features/player/overlay.ts` for that state.
 
 ---
 
@@ -60,6 +60,13 @@ Because current components are static, no existing file demonstrates local react
 ## Global State
 
 Do not add a global store preemptively. Introduce a global state library only when the app has repeated cross-page or cross-component state that cannot be cleanly handled with local state, props, emits, router params, or a focused composable.
+
+Focused feature-level composables are acceptable for small cross-component UI state. Current example:
+
+- `src/features/player/overlay.ts` owns `playerOverlayVisible` and `queueOverlayVisible` plus `open*/close*` helpers for global player/queue overlays.
+- Player and queue overlays are UI state, not route state; opening them must not push `/player` or `/queue` into the router.
+- `App.vue` is the overlay host and owns Android back-button precedence: close queue overlay first, then player overlay, then exit.
+- Keep `MiniPlayer` mounted behind overlays and disable interaction while overlays are active; do not use route checks or `v-if` unmounting for overlay visibility side effects.
 
 If a future task adds Pinia or another store, document the chosen pattern in this file and add concrete references to the first store modules.
 
