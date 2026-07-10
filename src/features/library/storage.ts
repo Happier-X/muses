@@ -1,6 +1,7 @@
 import type { AudioTags, LyricsSource, SongItem } from './types'
 
 const SONGS_STORAGE_KEY = 'muses:songs'
+export const SONGS_UPDATED_EVENT = 'muses:songs-updated'
 export const CURRENT_METADATA_VERSION = 2
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -92,8 +93,17 @@ const sanitizeSongForStorage = (song: SongItem): SongItem => {
   }
 }
 
+const notifySongsUpdated = (): void => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.dispatchEvent(new CustomEvent(SONGS_UPDATED_EVENT))
+}
+
 export const saveSongs = (songs: SongItem[]): void => {
   localStorage.setItem(SONGS_STORAGE_KEY, JSON.stringify(songs.map(sanitizeSongForStorage)))
+  notifySongsUpdated()
 }
 
 export type UpsertSongStatus = 'inserted' | 'updated' | 'skipped'

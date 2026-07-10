@@ -4,13 +4,8 @@
       <ion-toolbar>
         <ion-title class="page-title">歌曲</ion-title>
         <ion-buttons slot="end">
-          <ion-button
-            v-if="songs.length > 0"
-            fill="clear"
-            aria-label="将当前歌曲列表全部加入播放队列"
-            @click="enqueueAllSongs"
-          >
-            全部入队
+          <ion-button fill="clear" aria-label="搜索歌曲">
+            <ion-icon slot="icon-only" :icon="searchOutline" aria-hidden="true" />
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
@@ -29,42 +24,51 @@
 
       <div v-else class="list-grid tablet-content-limit">
         <ion-list>
-        <ion-item
-          v-for="song in songs"
-          :key="song.id"
-          button
-          :detail="false"
-          :class="{ 'is-playing': playerState.currentSong?.id === song.id }"
-          @click="playSong(song)"
-        >
-          <ion-label>
-            <h2>{{ song.title }}</h2>
-            <p>{{ getSongArtistName(song) }} · {{ getSongAlbumName(song) }}</p>
-            <p>{{ formatSongDetail(song) }}</p>
-            <p v-if="playerState.currentSong?.id === song.id" class="playing-label">正在播放</p>
-          </ion-label>
-          <ion-button
-            slot="end"
-            fill="clear"
-            aria-label="追加到播放队列"
-            @click.stop="enqueueSingleSong(song)"
+          <ion-item
+            v-for="song in songs"
+            :key="song.id"
+            button
+            :detail="false"
+            lines="none"
+            class="song-item"
+            :class="{ 'is-playing': playerState.currentSong?.id === song.id }"
+            @click="playSong(song)"
           >
-            入队
-          </ion-button>
-        </ion-item>
-      </ion-list>
+            <div class="song-cover" slot="start" aria-hidden="true">
+              <img v-if="getSongCoverSrc(song)" :src="getSongCoverSrc(song)" alt="" />
+              <ion-icon v-else :icon="musicalNotesOutline" aria-hidden="true" />
+            </div>
+
+            <ion-label>
+              <h2>{{ song.title }}</h2>
+              <p>{{ getSongArtistName(song) }} - {{ getSongAlbumName(song) }}</p>
+            </ion-label>
+
+            <ion-button
+              slot="end"
+              fill="clear"
+              class="more-button"
+              aria-label="更多歌曲操作"
+              @click.stop="enqueueSingleSong(song)"
+            >
+              <ion-icon slot="icon-only" :icon="ellipsisVertical" aria-hidden="true" />
+            </ion-button>
+          </ion-item>
+        </ion-list>
       </div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { IonButton, IonButtons, IonContent, IonHeader, IonItem, IonLabel, IonList, IonPage, IonTitle, IonToolbar, onIonViewWillEnter } from '@ionic/vue'
-import { loadSongs } from '@/features/library/storage'
+import { onMounted, onUnmounted, ref } from 'vue'
+import { Capacitor } from '@capacitor/core'
+import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonPage, IonTitle, IonToolbar, onIonViewWillEnter } from '@ionic/vue'
+import { ellipsisVertical, musicalNotesOutline, searchOutline } from 'ionicons/icons'
+import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
-import { formatDuration, getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
-import { enqueueSong, enqueueSongs, playerState, playSong } from '@/features/player/controller'
+import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
+import { enqueueSong, playerState, playSong } from '@/features/player/controller'
 
 const songs = ref<SongItem[]>([])
 
@@ -72,24 +76,38 @@ const refreshSongs = () => {
   songs.value = sortSongsForDisplay(loadSongs())
 }
 
-const enqueueAllSongs = () => {
-  enqueueSongs(songs.value)
-}
-
 const enqueueSingleSong = (song: SongItem) => {
   enqueueSong(song)
 }
 
-const formatSongDetail = (song: SongItem): string => {
-  const duration = formatDuration(song.duration)
-  if (duration) {
-    return duration
+const toDisplayableUri = (uri: string): string => {
+  const normalizedUri = uri.trim().toLowerCase()
+  if (!uri || normalizedUri.startsWith('data:') || normalizedUri.startsWith('blob:') || normalizedUri.includes(';base64,')) {
+    return ''
   }
 
-  return song.sourceType === 'webdav' ? 'WebDAV 音源' : '本地音源'
+  return normalizedUri.startsWith('http://') || normalizedUri.startsWith('https://')
+    ? uri
+    : Capacitor.convertFileSrc(uri)
 }
 
-onMounted(refreshSongs)
+const getSongCoverSrc = (song: SongItem): string => {
+  return song.coverUri ? toDisplayableUri(song.coverUri) : ''
+}
+
+onMounted(() => {
+  refreshSongs()
+  if (typeof window !== 'undefined') {
+    window.addEventListener(SONGS_UPDATED_EVENT, refreshSongs)
+  }
+})
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener(SONGS_UPDATED_EVENT, refreshSongs)
+  }
+})
+
 onIonViewWillEnter(refreshSongs)
 </script>
 
@@ -114,14 +132,46 @@ onIonViewWillEnter(refreshSongs)
   color: var(--ion-text-color);
 }
 
+.song-item {
+  --min-height: 72px;
+}
+
+.song-cover {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: rgba(var(--ion-color-medium-rgb), 0.16);
+  color: var(--ion-color-medium);
+  flex-shrink: 0;
+}
+
+.song-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.song-cover ion-icon {
+  font-size: 24px;
+}
+
+.song-item h2 {
+  font-weight: 600;
+}
+
+.more-button {
+  --padding-start: 8px;
+  --padding-end: 8px;
+  color: var(--ion-color-medium);
+}
+
 .is-playing {
   --background: rgba(var(--ion-color-primary-rgb), 0.1);
 }
 
-.playing-label {
-  color: var(--ion-color-primary);
-  font-weight: 600;
-}
 @media (min-width: 768px) {
   .list-grid {
     display: grid;
