@@ -1,6 +1,5 @@
 <template>
   <div
-    v-if="hasActiveSong || playerState.errorMessage"
     class="mini-player"
     role="button"
     tabindex="0"
@@ -9,19 +8,21 @@
     @keyup.enter="openPlayerPage"
     @keyup.space="openPlayerPage"
   >
+    <div class="cover-wrap" aria-hidden="true">
+      <img v-if="coverSrc" :src="coverSrc" alt="" />
+      <ion-icon v-else :icon="musicalNotes" />
+    </div>
+
     <div class="track-info">
-      <strong>{{ playerState.currentSong?.title || '播放失败' }}</strong>
-      <span v-if="playerState.currentSong?.artist">{{ playerState.currentSong.artist }}</span>
-      <span v-else-if="playerState.status === 'loading'">正在准备播放...</span>
-      <span v-else-if="playerState.errorMessage" class="error-message">{{ playerState.errorMessage }}</span>
+      <strong>{{ titleText }}</strong>
+      <span>{{ subtitleText }}</span>
     </div>
 
     <div class="player-actions">
       <ion-button
-        v-if="playerState.currentSong"
         fill="clear"
         size="small"
-        :disabled="playerState.status === 'loading'"
+        :disabled="!playerState.currentSong || playerState.status === 'loading'"
         :aria-label="isPlaying ? '暂停播放' : '继续播放'"
         @click.stop="togglePlayback"
         @keyup.enter.stop
@@ -32,31 +33,62 @@
       <ion-button
         fill="clear"
         size="small"
-        color="medium"
-        aria-label="停止播放"
-        @click.stop="stopPlayback"
+        aria-label="打开播放队列"
+        @click.stop="openQueuePage"
         @keyup.enter.stop
         @keyup.space.stop
       >
-        <ion-icon slot="icon-only" :icon="close" />
+        <ion-icon slot="icon-only" :icon="list" />
       </ion-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { Capacitor } from '@capacitor/core'
 import { IonButton, IonIcon } from '@ionic/vue'
-import { close, pause, play } from 'ionicons/icons'
+import { list, musicalNotes, pause, play } from 'ionicons/icons'
 import { useRouter } from 'vue-router'
-import { hasActiveSong, isPlaying, pausePlayback, playerState, resumePlayback, stopPlayback } from '@/features/player/controller'
+import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 
 const router = useRouter()
 
-const openPlayerPage = () => {
+const titleText = computed(() => playerState.currentSong?.title || '暂无播放歌曲')
+const subtitleText = computed(() => {
+  const song = playerState.currentSong
+  if (!song) {
+    return '未知艺术家 - 未知专辑'
+  }
+
+  return `${song.artist || '未知艺术家'} - ${song.album || '未知专辑'}`
+})
+const currentCoverUri = computed(() => playerState.coverUri || playerState.currentSong?.coverUri || '')
+const coverSrc = computed(() => toDisplayableUri(currentCoverUri.value))
+
+const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
+  if (isPlayerActionEvent(event)) {
+    return
+  }
+
   void router.push('/player')
 }
 
+const isPlayerActionEvent = (event: MouseEvent | KeyboardEvent): boolean => {
+  return event.composedPath().some((target) => {
+    return target instanceof Element && target.classList.contains('player-actions')
+  })
+}
+
+const openQueuePage = () => {
+  void router.push('/queue')
+}
+
 const togglePlayback = async () => {
+  if (!playerState.currentSong) {
+    return
+  }
+
   if (isPlaying.value) {
     await pausePlayback()
     return
@@ -64,27 +96,58 @@ const togglePlayback = async () => {
 
   await resumePlayback()
 }
+
+const toDisplayableUri = (uri: string): string => {
+  const normalizedUri = uri.trim().toLowerCase()
+  if (!uri || normalizedUri.startsWith('data:') || normalizedUri.startsWith('blob:') || normalizedUri.includes(';base64,')) {
+    return ''
+  }
+
+  return normalizedUri.startsWith('http://') || normalizedUri.startsWith('https://')
+    ? uri
+    : Capacitor.convertFileSrc(uri)
+}
 </script>
 
 <style scoped>
 .mini-player {
   position: fixed;
   cursor: pointer;
-  left: 12px;
-  right: 12px;
+  left: 0;
+  right: 0;
   bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
   z-index: 1000;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   color: var(--ion-text-color);
   background: #ffffff;
-  background-clip: padding-box;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.cover-wrap {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(var(--ion-color-medium-rgb), 0.16);
+  color: var(--ion-color-medium);
+}
+
+.cover-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-wrap ion-icon {
+  font-size: 24px;
 }
 
 .track-info {
@@ -92,7 +155,7 @@ const togglePlayback = async () => {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .track-info strong,
@@ -102,35 +165,27 @@ const togglePlayback = async () => {
   white-space: nowrap;
 }
 
+.track-info strong {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
 .track-info span {
   color: var(--ion-color-medium);
   font-size: 13px;
 }
 
-.track-info .error-message {
-  color: var(--ion-color-danger);
-}
-
 .player-actions {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
+  gap: 2px;
 }
 
 @media (prefers-color-scheme: dark) {
   .mini-player {
-    border-color: rgba(255, 255, 255, 0.12);
+    border-top-color: rgba(255, 255, 255, 0.12);
     background: #1f1f1f;
-  }
-}
-
-@media (min-width: 768px) {
-  .mini-player {
-    left: auto;
-    right: auto;
-    bottom: calc(12px + var(--ion-safe-area-bottom, 0px));
-    width: var(--muses-content-max-width, 720px);
-    max-width: calc(100vw - 24px);
-    margin-inline: auto;
   }
 }
 </style>
