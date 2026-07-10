@@ -612,3 +612,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 19: Android MuMu 导航修复
+
+**Date**: 2026-07-10
+**Task**: Android MuMu 导航修复
+**Branch**: `main`
+
+### Summary
+
+修复 Ionic Vue Capacitor 应用在 MuMu/Android WebView 下的导航布局问题：改用普通 TabsPage 布局 shell，避免 ion-split-pane/ion-menu 白屏与父子 ion-page 叠层导致的双左侧导航；验证构建、安装和启动流程，并记录前端兼容性规范。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7dce460` | (see git log) |
+| `eb81cb0` | (see git log) |
+| `c5f7da5` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
