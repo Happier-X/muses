@@ -1,5 +1,5 @@
-import { createRouter, createWebHistory } from '@ionic/vue-router';
-import { RouteRecordRaw } from 'vue-router';
+import { createRouter } from '@ionic/vue-router';
+import { createWebHistory, RouteRecordRaw } from 'vue-router';
 import TabsPage from '../views/TabsPage.vue'
 
 const routes: Array<RouteRecordRaw> = [
@@ -8,15 +8,7 @@ const routes: Array<RouteRecordRaw> = [
     redirect: '/tabs/songs'
   },
   {
-    path: '/player',
-    component: () => import('@/views/PlayerPage.vue')
-  },
-  {
-    path: '/queue',
-    component: () => import('@/views/QueuePage.vue')
-  },
-  {
-    path: '/tabs/',
+    path: '/tabs',
     component: TabsPage,
     children: [
       {
@@ -48,6 +40,14 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/SettingsPage.vue')
       }
     ]
+  },
+  {
+    path: '/player',
+    component: () => import('@/views/PlayerPage.vue')
+  },
+  {
+    path: '/queue',
+    component: () => import('@/views/QueuePage.vue')
   }
 ]
 

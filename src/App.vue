@@ -23,7 +23,6 @@ onMounted(() => {
   App.addListener('backButton', ({ canGoBack }) => {
     const path = route.path
 
-    // 全屏页：播放器 / 队列 → router.back()
     if (path === '/player' || path === '/queue') {
       if (canGoBack) {
         router.back()
@@ -31,7 +30,6 @@ onMounted(() => {
       return
     }
 
-    // 标签页（/tabs/* 或 /）→ 退出应用
     App.exitApp()
   })
 })
