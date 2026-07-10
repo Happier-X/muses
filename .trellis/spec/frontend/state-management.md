@@ -100,6 +100,7 @@ Current source module contract:
 
 - `muses:songs` may store song metadata only: IDs, source references, paths/URIs, display tags, and timestamps.
 - `muses:songs` must never store WebDAV passwords, Basic Auth headers, tokens, or SecureStorage values.
+- `saveSongs(...)` dispatches the feature-local `SONGS_UPDATED_EVENT` after persistence; pages that display song metadata, such as `SongsPage.vue`, should listen while mounted and reload via `loadSongs()` so lazy metadata rescans are reflected without a full route reload.
 - WebDAV scans must resolve passwords at scan time with `getWebDavPassword(source.credentialKey)` and pass them only to the native WebDAV call boundary.
 - Local directory scans use the saved Android `content://` tree URI from `FilePicker.pickDirectory()`; the file picker does not provide recursive children.
 - Real tag reading belongs in native/plugin or a bounded binary-read helper. Do not fake successful tag reads when metadata parsing fails.
@@ -211,6 +212,7 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Good: clicking a local song plays it; clicking a different song stops the previous one and plays the new one; the mini player updates across tabs, and `/player` displays synced progress, cover, controls, AMLL background, and lyrics fallback states.
 - Base: user stops playback via the mini player; Android notification disappears; `currentSong` is cleared.
 - Good: a stale song list item is played after metadata rescan has persisted lyrics; `/player` uses the latest stored lyrics immediately.
+- Good: a song row is visible while lazy metadata rescan persists title/artist/album/cover; `SONGS_UPDATED_EVENT` causes the list page to reload the latest `muses:songs` record.
 - Bad: WebDAV password ends up in `localStorage.getItem('muses:songs')`, `localStorage.getItem('muses:queue')`, or is logged to diagnose a playback failure.
 - Bad: a queue stores full `SongItem` objects or audio `uri` values instead of ID-only order records.
 - Bad: a cover image is saved into `muses:songs` as base64, rendered into the UI as a `data:` URL, stored in `muses:queue`, or passed into Media3 metadata/notification payloads as base64 artwork.
