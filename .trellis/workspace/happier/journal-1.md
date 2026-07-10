@@ -717,3 +717,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 22: 调整底部播放条样式
+
+**Date**: 2026-07-10
+**Task**: 调整底部播放条样式
+**Branch**: `main`
+
+### Summary
+
+将底部播放条改为非播放器/队列页常驻全宽底栏，补充封面、歌曲信息、播放和队列按钮；修复 Ionic 按钮事件穿透导致误入沉浸式播放页；记录 MiniPlayer 底栏组件约定。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e980d31` | (see git log) |
+| `7125dd6` | (see git log) |
+| `89b10e1` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
