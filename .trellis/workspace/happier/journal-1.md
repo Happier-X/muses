@@ -752,3 +752,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 23: 播放器全局叠加层改造
+
+**Date**: 2026-07-10
+**Task**: 播放器全局叠加层改造
+**Branch**: `main`
+
+### Summary
+
+将沉浸式播放器和队列从独立路由改为全局 overlay，保持底层 tab 页面存在；修复下滑关闭黑屏/重复页面、MiniPlayer 闪烁和返回按钮残留；记录播放器 overlay 与状态管理约定。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9d464d5` | (see git log) |
+| `2998718` | (see git log) |
+| `6341b00` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
