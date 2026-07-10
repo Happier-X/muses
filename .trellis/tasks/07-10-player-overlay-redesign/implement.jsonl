@@ -1,0 +1,13 @@
+{"type":"task","path":".trellis/tasks/07-10-player-overlay-redesign/prd.md","reason":"需求与验收标准"}
+{"type":"task","path":".trellis/tasks/07-10-player-overlay-redesign/design.md","reason":"overlay 目标架构与状态管理设计"}
+{"type":"task","path":".trellis/tasks/07-10-player-overlay-redesign/implement.md","reason":"实施顺序、回滚点和验证清单"}
+{"type":"spec","path":".trellis/spec/frontend/component-guidelines.md","reason":"Vue/Ionic 组件结构、TabsPage/MiniPlayer 约定和常见坑"}
+{"type":"spec","path":".trellis/spec/frontend/state-management.md","reason":"避免引入全局状态库，使用轻量 composable/state"}
+{"type":"spec","path":".trellis/spec/frontend/quality-guidelines.md","reason":"构建、验证和路由改动检查要求"}
+{"type":"spec","path":".trellis/spec/frontend/type-safety.md","reason":"Vue SFC 和路由类型约定"}
+{"type":"source","path":"src/App.vue","reason":"overlay 宿主、MiniPlayer 显隐和 Android back 键处理"}
+{"type":"source","path":"src/components/MiniPlayer.vue","reason":"打开播放器/队列入口"}
+{"type":"source","path":"src/views/PlayerPage.vue","reason":"播放器 UI、下滑手势和队列入口"}
+{"type":"source","path":"src/views/QueuePage.vue","reason":"队列 overlay 内容与关闭逻辑"}
+{"type":"source","path":"src/router/index.ts","reason":"删除 /player /queue 路由并保留 tabs 路由"}
+{"type":"source","path":"src/views/TabsPage.vue","reason":"底部导航 shell 和 tabs route 限制"}

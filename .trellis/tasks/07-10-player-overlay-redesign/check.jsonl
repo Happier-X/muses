@@ -1,0 +1,12 @@
+{"type":"task","path":".trellis/tasks/07-10-player-overlay-redesign/prd.md","reason":"检查验收标准是否全部满足"}
+{"type":"task","path":".trellis/tasks/07-10-player-overlay-redesign/design.md","reason":"检查实现是否符合 overlay 架构设计"}
+{"type":"task","path":".trellis/tasks/07-10-player-overlay-redesign/implement.md","reason":"检查实施清单和回滚点"}
+{"type":"spec","path":".trellis/spec/frontend/component-guidelines.md","reason":"检查 Ionic Vue 组件、TabsPage/MiniPlayer 约定"}
+{"type":"spec","path":".trellis/spec/frontend/state-management.md","reason":"检查状态管理是否符合轻量约定"}
+{"type":"spec","path":".trellis/spec/frontend/quality-guidelines.md","reason":"检查 build 和导航改动验证要求"}
+{"type":"source","path":"src/App.vue","reason":"检查 overlay 宿主和 back 键逻辑"}
+{"type":"source","path":"src/components/MiniPlayer.vue","reason":"检查入口不再改变路由"}
+{"type":"source","path":"src/views/PlayerPage.vue","reason":"检查播放器 overlay、下滑手势和无路由依赖"}
+{"type":"source","path":"src/views/QueuePage.vue","reason":"检查队列 overlay 和关闭逻辑"}
+{"type":"source","path":"src/router/index.ts","reason":"确认 /player /queue 路由已删除"}
+{"type":"source","path":"src/views/TabsPage.vue","reason":"确认 tabbar 只在 tabs 路由显示"}
