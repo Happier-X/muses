@@ -682,3 +682,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 21: 改造歌曲页列表样式
+
+**Date**: 2026-07-10
+**Task**: 改造歌曲页列表样式
+**Branch**: `main`
+
+### Summary
+
+将歌曲页改造成封面列表样式：顶部搜索入口，歌曲行展示封面、歌名、艺术家-专辑和竖向三点更多按钮；去掉行分隔线与正在播放文案，保留点击播放；新增歌曲库更新事件，让元数据补扫后列表自动刷新展示最新封面和标签。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `094a12f` | (see git log) |
+| `6f2727d` | (see git log) |
+| `342a3c5` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
