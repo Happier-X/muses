@@ -1,32 +1,41 @@
 <template>
   <ion-app>
     <ion-router-outlet />
-    <MiniPlayer v-if="!isPlayerPage" />
+    <MiniPlayer
+      class="app-mini-player"
+      :class="{ 'is-overlay-active': playerOverlayVisible || queueOverlayVisible }"
+      :aria-hidden="playerOverlayVisible || queueOverlayVisible"
+    />
+    <Transition name="player-overlay">
+      <PlayerPage v-if="playerOverlayVisible" />
+    </Transition>
+    <Transition name="queue-overlay">
+      <QueuePage v-if="queueOverlayVisible" />
+    </Transition>
   </ion-app>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { IonApp, IonRouterOutlet } from '@ionic/vue'
-import { useRoute, useRouter } from 'vue-router'
 import { App } from '@capacitor/app'
 import MiniPlayer from '@/components/MiniPlayer.vue'
+import PlayerPage from '@/views/PlayerPage.vue'
+import QueuePage from '@/views/QueuePage.vue'
 import { initializePlayer } from '@/features/player/controller'
-
-const route = useRoute()
-const router = useRouter()
-const isPlayerPage = computed(() => route.path === '/player' || route.path === '/queue')
+import { closePlayerOverlay, closeQueueOverlay, playerOverlayVisible, queueOverlayVisible } from '@/features/player/overlay'
 
 onMounted(() => {
   void initializePlayer()
 
-  App.addListener('backButton', ({ canGoBack }) => {
-    const path = route.path
+  App.addListener('backButton', () => {
+    if (queueOverlayVisible.value) {
+      closeQueueOverlay()
+      return
+    }
 
-    if (path === '/player' || path === '/queue') {
-      if (canGoBack) {
-        router.back()
-      }
+    if (playerOverlayVisible.value) {
+      closePlayerOverlay()
       return
     }
 
@@ -34,3 +43,23 @@ onMounted(() => {
   })
 })
 </script>
+
+<style scoped>
+.app-mini-player.is-overlay-active {
+  pointer-events: none;
+}
+
+.player-overlay-enter-active,
+.player-overlay-leave-active,
+.queue-overlay-enter-active,
+.queue-overlay-leave-active {
+  transition: transform 220ms ease;
+}
+
+.player-overlay-enter-from,
+.player-overlay-leave-to,
+.queue-overlay-enter-from,
+.queue-overlay-leave-to {
+  transform: translateY(100%);
+}
+</style>

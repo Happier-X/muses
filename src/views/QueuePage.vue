@@ -1,5 +1,5 @@
 <template>
-  <ion-page>
+  <div class="queue-overlay">
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
@@ -54,7 +54,7 @@
         </ion-item-sliding>
       </ion-list>
     </ion-content>
-  </ion-page>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -71,12 +71,10 @@ import {
   IonLabel,
   IonList,
   IonNote,
-  IonPage,
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
 import { chevronBack, close, musicalNotes, trash } from 'ionicons/icons'
-import { useRouter } from 'vue-router'
 import {
   clearQueue,
   playSong,
@@ -84,15 +82,10 @@ import {
   removeSongFromQueue,
   selectSongAtIndex,
 } from '@/features/player/controller'
-
-const router = useRouter()
+import { closeQueueOverlay } from '@/features/player/overlay'
 
 const goBack = () => {
-  if (window.history.length > 1) {
-    router.back()
-    return
-  }
-  void router.push('/tabs/songs')
+  closeQueueOverlay()
 }
 
 const onClearQueue = () => {
@@ -112,6 +105,19 @@ const onSelectSong = async (index: number) => {
 </script>
 
 <style scoped>
+.queue-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  background: var(--ion-background-color, #fff);
+}
+
+.queue-overlay ion-content {
+  flex: 1;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;

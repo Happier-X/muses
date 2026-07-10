@@ -49,10 +49,8 @@ import { computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonButton, IonIcon } from '@ionic/vue'
 import { list, musicalNotes, pause, play } from 'ionicons/icons'
-import { useRouter } from 'vue-router'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
-
-const router = useRouter()
+import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 
 const titleText = computed(() => playerState.currentSong?.title || '暂无播放歌曲')
 const subtitleText = computed(() => {
@@ -71,7 +69,7 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
     return
   }
 
-  void router.push('/player')
+  openPlayerOverlay()
 }
 
 const isPlayerActionEvent = (event: MouseEvent | KeyboardEvent): boolean => {
@@ -81,7 +79,7 @@ const isPlayerActionEvent = (event: MouseEvent | KeyboardEvent): boolean => {
 }
 
 const openQueuePage = () => {
-  void router.push('/queue')
+  openQueueOverlay()
 }
 
 const togglePlayback = async () => {

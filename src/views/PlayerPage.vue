@@ -1,7 +1,16 @@
 <template>
-  <ion-page>
-    <ion-content fullscreen class="player-page">
-      <div class="immersive-shell">
+  <div
+    class="player-overlay"
+    @touchstart="onTouchStart"
+    @touchmove="onTouchMove"
+    @touchend="onTouchEnd"
+    @touchcancel="onTouchEnd"
+  >
+    <div
+      class="immersive-shell"
+      :class="{ 'is-dragging': isDraggingVertically }"
+      :style="{ transform: `translateY(${dragOffsetY}px)` }"
+    >
         <div v-if="hasLyrics" class="amll-background">
           <BackgroundRender
             class="amll-background-render"
@@ -15,9 +24,6 @@
         <div class="fallback-background" />
 
         <header class="player-header">
-          <ion-button fill="clear" color="light" aria-label="返回" @click="goBack">
-            <ion-icon slot="icon-only" :icon="chevronDown" />
-          </ion-button>
           <span>正在播放</span>
         </header>
 
@@ -25,15 +31,12 @@
           <div class="placeholder-cover">♪</div>
           <h1>暂无播放歌曲</h1>
           <p>从歌曲列表选择一首音乐后，即可进入沉浸式播放。</p>
-          <ion-button color="light" @click="goBack">返回</ion-button>
         </section>
 
         <div
           v-else
           class="panels"
           :style="{ transform: `translateX(-${activePanel * 50}%)` }"
-          @touchstart="onTouchStart"
-          @touchend="onTouchEnd"
         >
           <section class="panel info-panel" aria-label="播放控制页">
             <img v-if="coverSrc" class="cover" :src="coverSrc" alt="歌曲封面" />
@@ -121,27 +124,29 @@
             </div>
           </section>
         </div>
-      </div>
-    </ion-content>
-  </ion-page>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { IonButton, IonContent, IonIcon, IonPage } from '@ionic/vue'
-import { chevronDown, listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from 'ionicons/icons'
-import { useRouter } from 'vue-router'
+import { IonButton, IonIcon } from '@ionic/vue'
+import { listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from 'ionicons/icons'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine } from '@applemusic-like-lyrics/core'
 import { parseLrc } from '@applemusic-like-lyrics/lyric'
 import '@applemusic-like-lyrics/core/style.css'
 import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousFromQueue, queueState, resumePlayback, seekPlayback, setRepeatMode, toggleShuffle } from '@/features/player/controller'
-
-const router = useRouter()
+import { closePlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 const activePanel = ref(0)
 const touchStartX = ref<number | null>(null)
+const touchStartY = ref<number | null>(null)
+const dragOffsetY = ref(0)
+const gestureDirection = ref<'horizontal' | 'vertical' | null>(null)
+const isDraggingVertically = ref(false)
+const canDragDown = ref(false)
 const meshGradientRenderer = MeshGradientRenderer
 
 const repeatModeLabel = computed(() => queueState.repeatMode === 'one' ? '单曲循环' : '列表循环')
@@ -161,7 +166,7 @@ const onToggleShuffle = () => {
 }
 
 const goToQueue = () => {
-  void router.push('/queue')
+  openQueueOverlay()
 }
 
 const onPrevious = () => {
@@ -197,12 +202,17 @@ const hasLyrics = computed(() => lyricLines.value.length > 0)
 const canSeek = computed(() => playerState.duration > 0)
 const durationForSlider = computed(() => playerState.duration || 1)
 
+const resetDragState = () => {
+  touchStartX.value = null
+  touchStartY.value = null
+  gestureDirection.value = null
+  canDragDown.value = false
+  isDraggingVertically.value = false
+  dragOffsetY.value = 0
+}
+
 const goBack = () => {
-  if (window.history.length > 1) {
-    router.back()
-    return
-  }
-  void router.push('/tabs/songs')
+  closePlayerOverlay()
 }
 
 const togglePlayback = async () => {
@@ -219,28 +229,94 @@ const onSeek = async (event: Event) => {
 }
 
 const onTouchStart = (event: TouchEvent) => {
-  touchStartX.value = event.changedTouches[0]?.clientX ?? null
+  const touch = event.changedTouches[0]
+  touchStartX.value = touch?.clientX ?? null
+  touchStartY.value = touch?.clientY ?? null
+  gestureDirection.value = null
+  isDraggingVertically.value = false
+  canDragDown.value = canStartVerticalDismiss(event)
+}
+
+const onTouchMove = (event: TouchEvent) => {
+  const startX = touchStartX.value
+  const startY = touchStartY.value
+  const touch = event.changedTouches[0]
+  if (startX === null || startY === null || !touch) {
+    return
+  }
+
+  const deltaX = touch.clientX - startX
+  const deltaY = touch.clientY - startY
+
+  if (!gestureDirection.value && Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 8) {
+    gestureDirection.value = Math.abs(deltaY) > Math.abs(deltaX) ? 'vertical' : 'horizontal'
+  }
+
+  if (gestureDirection.value !== 'vertical' || !canDragDown.value) {
+    return
+  }
+
+  const nextOffset = Math.max(0, deltaY)
+  dragOffsetY.value = nextOffset
+  isDraggingVertically.value = nextOffset > 0
+
+  if (nextOffset > 0) {
+    event.preventDefault()
+  }
 }
 
 const onTouchEnd = (event: TouchEvent) => {
   const startX = touchStartX.value
   const endX = event.changedTouches[0]?.clientX
+  const shouldDismiss = gestureDirection.value === 'vertical' && dragOffsetY.value >= getDismissThreshold()
+
   touchStartX.value = null
+  touchStartY.value = null
+  gestureDirection.value = null
+  canDragDown.value = false
+  isDraggingVertically.value = false
+
+  if (shouldDismiss) {
+    goBack()
+    return
+  }
+
+  if (dragOffsetY.value > 0) {
+    dragOffsetY.value = 0
+    return
+  }
+
   if (startX === null || endX === undefined || Math.abs(startX - endX) < 40) {
     return
   }
   activePanel.value = endX < startX ? 1 : 0
 }
 
+const canStartVerticalDismiss = (event: TouchEvent): boolean => {
+  return !event.composedPath().some((target) => {
+    if (!(target instanceof HTMLElement)) {
+      return false
+    }
+    return target.scrollHeight > target.clientHeight && target.scrollTop > 0
+  })
+}
+
+const getDismissThreshold = (): number => {
+  return Math.min(160, Math.max(96, window.innerHeight * 0.18))
+}
+
 const toDisplayableUri = (uri: string): string => {
   if (!uri) {
     return ''
   }
-  return uri.startsWith('data:')
-    ? ''
-    : uri.startsWith('http://') || uri.startsWith('https://')
-      ? uri
-      : Capacitor.convertFileSrc(uri)
+  const normalizedUri = uri.trim().toLowerCase()
+  if (normalizedUri.startsWith('data:') || normalizedUri.startsWith('blob:') || normalizedUri.includes(';base64,')) {
+    return ''
+  }
+
+  return normalizedUri.startsWith('http://') || normalizedUri.startsWith('https://')
+    ? uri
+    : Capacitor.convertFileSrc(uri)
 }
 
 const normalizeLrc = (lyrics: string): string => {
@@ -253,18 +329,31 @@ const formatTime = (value: number): string => {
   const seconds = String(totalSeconds % 60).padStart(2, '0')
   return `${minutes}:${seconds}`
 }
+
+onUnmounted(() => {
+  resetDragState()
+})
 </script>
 
 <style scoped>
-.player-page {
-  --background: #05070d;
+.player-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  overflow: hidden;
   color: #fff;
 }
 
 .immersive-shell {
   position: relative;
-  min-height: 100%;
+  min-height: 100dvh;
   overflow: hidden;
+  background: #05070d;
+  transition: transform 220ms ease;
+}
+
+.immersive-shell.is-dragging {
+  transition: none;
 }
 
 .amll-background,

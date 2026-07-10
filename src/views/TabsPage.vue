@@ -1,7 +1,7 @@
 <template>
   <div class="tabs-page-shell">
     <div class="layout-shell">
-      <aside v-if="isTablet" class="tablet-sidebar" aria-label="主导航">
+      <aside v-if="isTablet && isTabsRoute" class="tablet-sidebar" aria-label="主导航">
         <ion-list inset>
           <ion-item
             v-for="item in navItems"
@@ -17,12 +17,12 @@
         </ion-list>
       </aside>
 
-      <main class="content-shell">
+      <main class="content-shell" :class="{ 'has-tabs-navigation': isTabsRoute }">
         <RouterView />
       </main>
     </div>
 
-    <nav v-if="!isTablet" class="mobile-tab-bar" aria-label="底部导航">
+    <nav v-if="!isTablet && isTabsRoute" class="mobile-tab-bar" aria-label="底部导航">
       <RouterLink
         v-for="item in navItems"
         :key="item.to"
@@ -55,6 +55,7 @@ const navItems = [
 const route = useRoute()
 const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
 const isTablet = computed(() => viewportWidth.value >= 768)
+const isTabsRoute = computed(() => route.path === '/tabs' || route.path.startsWith('/tabs/'))
 
 const updateViewportWidth = () => {
   viewportWidth.value = window.innerWidth
@@ -91,6 +92,10 @@ onUnmounted(() => {
 .content-shell {
   flex: 1;
   min-height: 0;
+  padding-bottom: 0;
+}
+
+.content-shell.has-tabs-navigation {
   padding-bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
 }
 
@@ -156,14 +161,17 @@ onUnmounted(() => {
   }
 
   .content-shell {
+    min-width: 0;
+    padding-bottom: 0;
+  }
+
+  .content-shell.has-tabs-navigation {
     position: fixed;
     top: 0;
     right: 0;
     bottom: 0;
     left: 240px;
-    min-width: 0;
     overflow: auto;
-    padding-bottom: 0;
   }
 
   .mobile-tab-bar {
