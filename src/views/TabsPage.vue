@@ -3,29 +3,16 @@
     <div class="layout-shell">
       <aside v-if="isTablet" class="tablet-sidebar" aria-label="主导航">
         <ion-list inset>
-          <ion-item :router-link="'/tabs/songs'" :detail="false" lines="none" :class="{ 'is-active': route.path === '/tabs/songs' }">
-            <ion-icon slot="start" aria-hidden="true" :icon="musicalNotes" />
-            <ion-label>歌曲</ion-label>
-          </ion-item>
-          <ion-item :router-link="'/tabs/albums'" :detail="false" lines="none" :class="{ 'is-active': route.path === '/tabs/albums' }">
-            <ion-icon slot="start" aria-hidden="true" :icon="albums" />
-            <ion-label>专辑</ion-label>
-          </ion-item>
-          <ion-item :router-link="'/tabs/artists'" :detail="false" lines="none" :class="{ 'is-active': route.path === '/tabs/artists' }">
-            <ion-icon slot="start" aria-hidden="true" :icon="person" />
-            <ion-label>艺术家</ion-label>
-          </ion-item>
-          <ion-item :router-link="'/tabs/playlists'" :detail="false" lines="none" :class="{ 'is-active': route.path === '/tabs/playlists' }">
-            <ion-icon slot="start" aria-hidden="true" :icon="list" />
-            <ion-label>歌单</ion-label>
-          </ion-item>
-          <ion-item :router-link="'/tabs/sources'" :detail="false" lines="none" :class="{ 'is-active': route.path === '/tabs/sources' }">
-            <ion-icon slot="start" aria-hidden="true" :icon="radio" />
-            <ion-label>音源</ion-label>
-          </ion-item>
-          <ion-item :router-link="'/tabs/settings'" :detail="false" lines="none" :class="{ 'is-active': route.path === '/tabs/settings' }">
-            <ion-icon slot="start" aria-hidden="true" :icon="settings" />
-            <ion-label>设置</ion-label>
+          <ion-item
+            v-for="item in navItems"
+            :key="item.to"
+            :router-link="item.to"
+            :detail="false"
+            lines="none"
+            :class="{ 'is-active': route.path === item.to }"
+          >
+            <ion-icon slot="start" aria-hidden="true" :icon="item.icon" />
+            <ion-label>{{ item.label }}</ion-label>
           </ion-item>
         </ion-list>
       </aside>
@@ -35,40 +22,35 @@
       </main>
     </div>
 
-    <ion-tab-bar v-if="!isTablet" class="mobile-tab-bar">
-      <ion-tab-button tab="songs" href="/tabs/songs">
-        <ion-icon aria-hidden="true" :icon="musicalNotes" />
-        <ion-label>歌曲</ion-label>
-      </ion-tab-button>
-      <ion-tab-button tab="albums" href="/tabs/albums">
-        <ion-icon aria-hidden="true" :icon="albums" />
-        <ion-label>专辑</ion-label>
-      </ion-tab-button>
-      <ion-tab-button tab="artists" href="/tabs/artists">
-        <ion-icon aria-hidden="true" :icon="person" />
-        <ion-label>艺术家</ion-label>
-      </ion-tab-button>
-      <ion-tab-button tab="playlists" href="/tabs/playlists">
-        <ion-icon aria-hidden="true" :icon="list" />
-        <ion-label>歌单</ion-label>
-      </ion-tab-button>
-      <ion-tab-button tab="sources" href="/tabs/sources">
-        <ion-icon aria-hidden="true" :icon="radio" />
-        <ion-label>音源</ion-label>
-      </ion-tab-button>
-      <ion-tab-button tab="settings" href="/tabs/settings">
-        <ion-icon aria-hidden="true" :icon="settings" />
-        <ion-label>设置</ion-label>
-      </ion-tab-button>
-    </ion-tab-bar>
+    <nav v-if="!isTablet" class="mobile-tab-bar" aria-label="底部导航">
+      <RouterLink
+        v-for="item in navItems"
+        :key="item.to"
+        class="mobile-tab-link"
+        :class="{ 'is-active': route.path === item.to }"
+        :to="item.to"
+      >
+        <ion-icon aria-hidden="true" :icon="item.icon" />
+        <span>{{ item.label }}</span>
+      </RouterLink>
+    </nav>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { IonIcon, IonItem, IonLabel, IonList, IonTabBar, IonTabButton } from '@ionic/vue'
-import { useRoute, RouterView } from 'vue-router'
+import { IonIcon, IonItem, IonLabel, IonList } from '@ionic/vue'
+import { useRoute, RouterLink, RouterView } from 'vue-router'
 import { albums, list, musicalNotes, person, radio, settings } from 'ionicons/icons'
+
+const navItems = [
+  { to: '/tabs/songs', label: '歌曲', icon: musicalNotes },
+  { to: '/tabs/albums', label: '专辑', icon: albums },
+  { to: '/tabs/artists', label: '艺术家', icon: person },
+  { to: '/tabs/playlists', label: '歌单', icon: list },
+  { to: '/tabs/sources', label: '音源', icon: radio },
+  { to: '/tabs/settings', label: '设置', icon: settings },
+]
 
 const route = useRoute()
 const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
@@ -90,13 +72,16 @@ onUnmounted(() => {
 
 <style scoped>
 .tabs-page-shell {
+  display: flex;
+  flex-direction: column;
   height: 100%;
 }
 
 .layout-shell {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  height: 100%;
+  min-height: 0;
 }
 
 .tablet-sidebar {
@@ -106,10 +91,42 @@ onUnmounted(() => {
 .content-shell {
   flex: 1;
   min-height: 0;
+  padding-bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
 }
 
 .mobile-tab-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  padding: 6px 0 calc(6px + var(--ion-safe-area-bottom, 0px));
+  border-top: 1px solid var(--ion-color-step-150, #e0e0e0);
+  background: var(--ion-tab-bar-background, var(--ion-background-color, #fff));
+}
+
+.mobile-tab-link {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 52px;
+  color: var(--ion-color-step-650, #595959);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.mobile-tab-link ion-icon {
+  font-size: 22px;
+}
+
+.mobile-tab-link.is-active {
+  color: var(--ion-color-primary);
+  font-weight: 600;
 }
 
 .tablet-sidebar .is-active {
@@ -146,6 +163,7 @@ onUnmounted(() => {
     left: 240px;
     min-width: 0;
     overflow: auto;
+    padding-bottom: 0;
   }
 
   .mobile-tab-bar {
