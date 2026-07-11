@@ -812,3 +812,36 @@
 
 - 重量级 overlay 组件（含 PIXI/AMLL）绝不能静态 import 进 `App.vue`；必须 `defineAsyncComponent` 接 `v-if` 控制的按需加载。
 - MiniPlayer 依赖轻且需首屏始终可见，保持静态 import 例外。
+
+
+## Session 24: 应用秒开优化：PlayerPage/QueuePage 异步化 + manualChunks 分包
+
+**Date**: 2026-07-11
+**Task**: 应用秒开优化：PlayerPage/QueuePage 异步化 + manualChunks 分包
+**Branch**: `main`
+
+### Summary
+
+诊断打开应用白屏几秒根因：App.vue 静态 import PlayerPage 把 @applemusic-like-lyrics + @pixi 整套 WebGL 库拖进首屏主 bundle（1.5MB）。改造 src/App.vue 将 PlayerPage/QueuePage 改为 defineAsyncComponent 按需加载；vite.config.ts 新增 manualChunks 拆出 amll-pixi/ionic/vue-vendor 三个 chunk。首屏主入口 JS 从 1.5MB 降到 38KB（gzip 13.67KB），AMLL/Pixi 405KB 仅在点开播放器时加载。npm run build（含 vue-tsc）与 npm run lint 均通过；AC3/AC5 手测由用户确认 OK。spec frontend/component-guidelines 补充『Overlay 组件必须异步加载』约定。任务 07-11-app-instant-open 已归档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d07cfe2` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

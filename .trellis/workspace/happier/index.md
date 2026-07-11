@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 23
-- **Last Active**: 2026-07-10
+- **Total Sessions**: 24
+- **Last Active**: 2026-07-11
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~789 | Active |
+| `journal-1.md` | ~847 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 24 | 2026-07-11 | 应用秒开优化：PlayerPage/QueuePage 异步化 + manualChunks 分包 | `d07cfe2` | `main` |
 | 23 | 2026-07-10 | 播放器全局叠加层改造 | `9d464d5`, `2998718`, `6341b00` | `main` |
 | 22 | 2026-07-10 | 调整底部播放条样式 | `e980d31`, `7125dd6`, `89b10e1` | `main` |
 | 21 | 2026-07-10 | 改造歌曲页列表样式 | `094a12f`, `6f2727d`, `342a3c5` | `main` |
