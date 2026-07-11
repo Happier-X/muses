@@ -211,6 +211,29 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
 - 播放器 overlay 顶部不显示返回/收起按钮；关闭通过下滑手势、Android back 键或显式 overlay 状态完成。
 - 下滑收起播放器时移动 overlay 内容层，不要移动 Ionic 路由页或依赖透明路由页露出缓存层，否则容易出现黑屏或重复页面。
 
+### Overlay 组件必须异步加载（首屏性能约定）
+
+**What**: `App.vue` 中 `PlayerPage` / `QueuePage` 必须用 `defineAsyncComponent(() => import(...))` 异步加载，不能用静态 `import`。
+
+**Why**: `PlayerPage` 静态 `import @applemusic-like-lyrics/*` + `@pixi/*` 整套 WebGL 库（gzip 后上百 KB，原体积 ~400KB+）。一旦静态 import 被打进 `App.vue`，这些库就进入首屏必须同步下载/执行的主 bundle，直接导致打开应用白屏几秒。改为 `defineAsyncComponent` 后，Vite/Rollup 把 PlayerPage 及其依赖切成独立异步 chunk，仅在 `v-if="playerOverlayVisible"` 首次为 true（即用户点开播放器全屏页）时才加载。实测主入口 JS 从 1.5MB 降到 38KB。
+
+**Example**:
+```ts
+// ✓ 正确——异步加载，重量级库进独立 chunk
+import { defineAsyncComponent, onMounted } from 'vue'
+const PlayerPage = defineAsyncComponent(() => import('@/views/PlayerPage.vue'))
+const QueuePage = defineAsyncComponent(() => import('@/views/QueuePage.vue'))
+```
+```ts
+// ✗ 错误——静态 import，drag AMLL/Pixi 进首屏主 bundle，导致白屏
+import PlayerPage from '@/views/PlayerPage.vue'
+import QueuePage from '@/views/QueuePage.vue'
+```
+
+**Related**: `vite.config.ts` 的 `build.rollupOptions.output.manualChunks` 已将 `@applemusic-like-lyrics` + `@pixi` 锁定到 `amll-pixi` chunk、`@ionic/vue`+`ionicons` 到 `ionic` chunk、`vue`+`vue-router` 到 `vue-vendor` chunk，利于长期缓存。新增任何重量级（>50KB）第三方库到 overlay 页面时，同样适用此约定；不要再用静态 import 把它拽进主 bundle。
+
+**Gotcha**: 异步组件首次解析有极短延迟；如果 `<Transition>` 动画出现时序问题，给 `defineAsyncComponent` 传 `loadingComponent` / `delay` 选项，不要回退到静态 import。MiniPlayer 必须保持静态 import（它依赖很轻且首屏底栏需始终可见，不能等异步加载）。
+
 ## Accessibility
 
 The current codebase includes a few baseline patterns that should be preserved:

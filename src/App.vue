@@ -16,14 +16,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { defineAsyncComponent, onMounted } from 'vue'
 import { IonApp, IonRouterOutlet } from '@ionic/vue'
 import { App } from '@capacitor/app'
 import MiniPlayer from '@/components/MiniPlayer.vue'
-import PlayerPage from '@/views/PlayerPage.vue'
-import QueuePage from '@/views/QueuePage.vue'
 import { initializePlayer } from '@/features/player/controller'
 import { closePlayerOverlay, closeQueueOverlay, playerOverlayVisible, queueOverlayVisible } from '@/features/player/overlay'
+
+const PlayerPage = defineAsyncComponent(() => import('@/views/PlayerPage.vue'))
+const QueuePage = defineAsyncComponent(() => import('@/views/QueuePage.vue'))
 
 onMounted(() => {
   void initializePlayer()

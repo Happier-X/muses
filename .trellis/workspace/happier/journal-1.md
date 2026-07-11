@@ -787,3 +787,28 @@
 ### Next Steps
 
 - None - task complete
+
+---
+
+## 2026-07-11 应用秒开优化（app-instant-open）
+
+### 背景
+
+打开应用白屏几秒才显示首屏。诊断：`App.vue` 静态 `import PlayerPage`，把 `@applemusic-like-lyrics/*` + `@pixi/*` 整套 WebGL 库（~400KB+）拖进首屏主 bundle（1.5MB）。
+
+### 改动
+
+- `src/App.vue`：PlayerPage/QueuePage 改为 `defineAsyncComponent(() => import(...))`，模板与 `<Transition>` 行为不变。
+- `vite.config.ts`：新增 `build.rollupOptions.output.manualChunks`，拆出 `amll-pixi` / `ionic` / `vue-vendor` 三个 chunk。
+- `.trellis/spec/frontend/component-guidelines.md`：补充「Overlay 组件必须异步加载」约定，防止未来再用静态 import 拖累首屏。
+
+### 验证
+
+- `npm run build`（含 vue-tsc）通过，`npm run lint` 通过。
+- 首屏主入口 JS：1.5MB → 38KB（gzip 13.67KB），`amll-pixi-*.js` 405KB 独立异步 chunk（仅点开播放器时加载），MiniPlayer 保留在主入口。
+- AC3/AC5 手测由用户确认 OK。
+
+### 经验
+
+- 重量级 overlay 组件（含 PIXI/AMLL）绝不能静态 import 进 `App.vue`；必须 `defineAsyncComponent` 接 `v-if` 控制的按需加载。
+- MiniPlayer 依赖轻且需首屏始终可见，保持静态 import 例外。

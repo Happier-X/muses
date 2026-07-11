@@ -19,6 +19,31 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (
+            id.includes('@applemusic-like-lyrics') ||
+            id.includes('@pixi')
+          ) {
+            return 'amll-pixi'
+          }
+          if (id.includes('@ionic/vue') || id.includes('ionicons')) {
+            return 'ionic'
+          }
+          if (
+            id.includes('node_modules/vue/') ||
+            id.includes('node_modules/@vue/') ||
+            id.includes('node_modules/vue-router/') ||
+            id.includes('node_modules/@ionic/vue-router/')
+          ) {
+            return 'vue-vendor'
+          }
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom'
