@@ -82,7 +82,7 @@
               </ion-button>
               <ion-button
                 class="play-toggle"
-                fill="solid"
+                fill="clear"
                 color="light"
                 shape="round"
                 :disabled="playerState.status === 'loading'"
@@ -739,7 +739,6 @@ onUnmounted(() => {
   width: 68px;
   height: 68px;
   font-size: 30px;
-  --box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
 }
 
 .mode-bar {
