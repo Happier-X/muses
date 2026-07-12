@@ -146,10 +146,23 @@ const syncDisplayStateFromSong = (song: SongItem): void => {
     return
   }
 
+  const previous = state.currentSong
+  const nextCover = toSafeCoverUri(song.coverUri) || null
+  // 懒扫描补全封面/标签后必须 re-sync 媒体会话，否则通知栏永远拿不到新封面。
+  const mediaFieldsChanged =
+    previous.title !== song.title
+    || previous.artist !== song.artist
+    || previous.album !== song.album
+    || state.coverUri !== nextCover
+
   state.currentSong = createPlayerSongSnapshot(song)
   state.lyrics = song.lyrics || null
-  state.coverUri = toSafeCoverUri(song.coverUri) || null
+  state.coverUri = nextCover
   state.duration = normalizePlaybackTime(song.duration) || state.duration
+
+  if (mediaFieldsChanged) {
+    syncMediaSessionSong(song)
+  }
 }
 
 const getWebDavSource = (song: SongItem): WebDavSourceItem => {

@@ -15,6 +15,8 @@ import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileInputStream
+import java.io.InputStream
 import java.security.MessageDigest
 
 @CapacitorPlugin(
@@ -88,6 +90,26 @@ class AudioPlayerPlugin : Plugin() {
         return digest.joinToString("") { byte -> "%02x".format(byte) }
     }
 
+    /**
+     * 缓存封面多为 file://.../cache/covers/*.jpg。
+     * 部分机型 ContentResolver 打开 file:// 会失败，优先 FileInputStream；
+     * content:// 继续走 ContentResolver。失败 resolve dataUrl=null，由前端强制清空旧封面。
+     */
+    private fun openArtworkInputStream(uri: Uri): InputStream? {
+        return when (uri.scheme?.lowercase()) {
+            "file" -> {
+                val path = uri.path
+                if (path.isNullOrBlank()) {
+                    null
+                } else {
+                    val file = File(path)
+                    if (file.isFile && file.canRead()) FileInputStream(file) else null
+                }
+            }
+            else -> context.contentResolver.openInputStream(uri)
+        }
+    }
+
     @PluginMethod
     fun prepareArtworkDataUrl(call: PluginCall) {
         val uriValue = call.getString("uri")
@@ -99,7 +121,7 @@ class AudioPlayerPlugin : Plugin() {
         bridge.execute {
             try {
                 val uri = Uri.parse(uriValue)
-                context.contentResolver.openInputStream(uri)?.use { input ->
+                openArtworkInputStream(uri)?.use { input ->
                     val bitmap = BitmapFactory.decodeStream(input)
                         ?: throw IllegalArgumentException("unsupportedImage")
                     val outputStream = ByteArrayOutputStream()

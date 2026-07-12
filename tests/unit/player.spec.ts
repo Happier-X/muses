@@ -5,7 +5,7 @@ import MiniPlayer from '@/components/MiniPlayer.vue'
 import PlayerPage from '@/views/PlayerPage.vue'
 import App from '@/App.vue'
 
-const { localLibraryNative, nativePlayer, webDavNative } = vi.hoisted(() => ({
+const { localLibraryNative, nativePlayer, audioPlayerBridge, webDavNative } = vi.hoisted(() => ({
   localLibraryNative: {
     scanDirectory: vi.fn(),
     readMetadata: vi.fn(),
@@ -23,6 +23,12 @@ const { localLibraryNative, nativePlayer, webDavNative } = vi.hoisted(() => ({
     getState: vi.fn(),
     ensureNotificationPermission: vi.fn(),
     addListener: vi.fn(),
+  },
+  audioPlayerBridge: {
+    ensureNotificationPermission: vi.fn().mockResolvedValue({ granted: true }),
+    prepareArtworkDataUrl: vi.fn(async ({ uri }: { uri: string }) => ({
+      dataUrl: `data:image/jpeg;base64,${btoa(uri)}`,
+    })),
   },
 }))
 
@@ -43,6 +49,7 @@ vi.mock('@capacitor/core', () => ({
 
 vi.mock('@/features/player/native', () => ({
   AudioPlayerNative: nativePlayer,
+  AudioPlayerBridge: audioPlayerBridge,
 }))
 
 const { routerPush, routerBack, routeState } = vi.hoisted(() => ({
@@ -118,6 +125,10 @@ const resetPlayer = async () => {
   await stopPlayback()
   vi.clearAllMocks()
   vi.useRealTimers()
+  audioPlayerBridge.prepareArtworkDataUrl.mockReset()
+  audioPlayerBridge.prepareArtworkDataUrl.mockImplementation(async ({ uri }: { uri: string }) => ({
+    dataUrl: `data:image/jpeg;base64,${btoa(uri)}`,
+  }))
 }
 
 
@@ -278,6 +289,195 @@ describe('播放器控制器', () => {
     await stopPlayback()
     expect(playerState.status).toBe('stopped')
     expect(playerState.currentSong).toBeNull()
+  })
+})
+
+describe('媒体通知封面同步', () => {
+  afterEach(async () => {
+    await resetPlayer()
+    localStorage.clear()
+  })
+
+  test('A→B 不同封面时最终 artwork 使用 B 的 data URL', async () => {
+    const { MediaSession } = await import('@capgo/capacitor-media-session')
+    const { playSong } = await import('@/features/player/controller')
+    const { EMPTY_ARTWORK_DATA_URL } = await import('@/features/player/mediaSession')
+
+    const songA = {
+      ...localSong,
+      id: 'song-a',
+      path: 'album/a.mp3',
+      uri: 'content://music/a',
+      coverUri: 'file:///cache/covers/a.jpg',
+      title: '歌曲A',
+      tagsScanned: true,
+      metadataVersion: 2,
+    }
+    const songB = {
+      ...localSong,
+      id: 'song-b',
+      path: 'album/b.mp3',
+      uri: 'content://music/b',
+      coverUri: 'file:///cache/covers/b.jpg',
+      title: '歌曲B',
+      tagsScanned: true,
+      metadataVersion: 2,
+    }
+    const expectedB = `data:image/jpeg;base64,${btoa('file:///cache/covers/b.jpg')}`
+
+    await playSong(songA)
+    await vi.waitFor(() => {
+      expect(audioPlayerBridge.prepareArtworkDataUrl).toHaveBeenCalledWith({ uri: 'file:///cache/covers/a.jpg' })
+    })
+
+    vi.mocked(MediaSession.setMetadata).mockClear()
+    audioPlayerBridge.prepareArtworkDataUrl.mockClear()
+
+    await playSong(songB)
+    await vi.waitFor(() => {
+      const calls = vi.mocked(MediaSession.setMetadata).mock.calls.map((call) => call[0])
+      expect(calls.some((payload) => payload.title === '歌曲B' && payload.artwork?.[0]?.src === expectedB)).toBe(true)
+    })
+
+    const artworkCalls = vi.mocked(MediaSession.setMetadata).mock.calls
+      .map((call) => call[0])
+      .filter((payload) => payload.title === '歌曲B' && Array.isArray(payload.artwork) && payload.artwork.length > 0)
+
+    expect(artworkCalls.length).toBeGreaterThanOrEqual(2)
+    // 首帧占位清空 + 二次真实封面
+    expect(artworkCalls[0].artwork?.[0]?.src).toBe(EMPTY_ARTWORK_DATA_URL)
+    expect(artworkCalls[artworkCalls.length - 1].artwork?.[0]?.src).toBe(expectedB)
+  })
+
+  test('有封面切到无封面时用占位 data: 覆盖，不残留上一首', async () => {
+    const { MediaSession } = await import('@capgo/capacitor-media-session')
+    const { playSong } = await import('@/features/player/controller')
+    const { EMPTY_ARTWORK_DATA_URL } = await import('@/features/player/mediaSession')
+
+    await playSong({
+      ...localSong,
+      id: 'song-with-cover',
+      path: 'album/with-cover.mp3',
+      coverUri: 'file:///cache/covers/a.jpg',
+      title: '有封面',
+      tagsScanned: true,
+      metadataVersion: 2,
+    })
+    await vi.waitFor(() => {
+      expect(audioPlayerBridge.prepareArtworkDataUrl).toHaveBeenCalled()
+    })
+
+    vi.mocked(MediaSession.setMetadata).mockClear()
+    audioPlayerBridge.prepareArtworkDataUrl.mockClear()
+
+    await playSong({
+      ...localSong,
+      id: 'song-no-cover',
+      path: 'album/no-cover.mp3',
+      title: '无封面',
+      tagsScanned: true,
+      metadataVersion: 2,
+    })
+
+    const calls = vi.mocked(MediaSession.setMetadata).mock.calls.map((call) => call[0])
+    expect(calls.length).toBeGreaterThan(0)
+    const last = calls[calls.length - 1]
+    expect(last.title).toBe('无封面')
+    expect(last.artwork?.[0]?.src).toBe(EMPTY_ARTWORK_DATA_URL)
+    expect(audioPlayerBridge.prepareArtworkDataUrl).not.toHaveBeenCalled()
+  })
+
+  test('懒扫描补全 coverUri 后会再次 setMetadata', async () => {
+    const { MediaSession } = await import('@capgo/capacitor-media-session')
+    // 预置库记录，保证 upsert 更新同一 id，而非 createSongId 新 id
+    localStorage.setItem('muses:songs', JSON.stringify([localSong]))
+    localLibraryNative.readMetadata.mockResolvedValueOnce({
+      title: '本地歌曲',
+      artist: '本地歌手',
+      album: '本地专辑',
+      coverUri: 'file:///cache/covers/scanned.jpg',
+    })
+
+    const { playSong, playerState } = await import('@/features/player/controller')
+    const expectedCover = `data:image/jpeg;base64,${btoa('file:///cache/covers/scanned.jpg')}`
+
+    await playSong({ ...localSong, tagsScanned: false })
+    expect(playerState.metadataStatus).toBe('scanning')
+
+    await vi.waitFor(() => {
+      expect(playerState.metadataStatus).toBe('ready')
+      expect(playerState.coverUri).toBe('file:///cache/covers/scanned.jpg')
+    })
+
+    await vi.waitFor(() => {
+      expect(audioPlayerBridge.prepareArtworkDataUrl).toHaveBeenCalledWith({
+        uri: 'file:///cache/covers/scanned.jpg',
+      })
+      const hasScannedArtwork = vi.mocked(MediaSession.setMetadata).mock.calls
+        .some((call) => call[0].artwork?.[0]?.src === expectedCover)
+      expect(hasScannedArtwork).toBe(true)
+    })
+  })
+
+  test('快速切歌时过期 token 丢弃旧封面回调', async () => {
+    const { MediaSession } = await import('@capgo/capacitor-media-session')
+    let resolveA: ((value: { dataUrl: string | null }) => void) | undefined
+    const prepareA = new Promise<{ dataUrl: string | null }>((resolve) => {
+      resolveA = resolve
+    })
+
+    audioPlayerBridge.prepareArtworkDataUrl.mockImplementationOnce(async () => prepareA)
+    audioPlayerBridge.prepareArtworkDataUrl.mockImplementationOnce(async ({ uri }: { uri: string }) => ({
+      dataUrl: `data:image/jpeg;base64,${btoa(uri)}`,
+    }))
+
+    const { playSong } = await import('@/features/player/controller')
+    const expectedB = `data:image/jpeg;base64,${btoa('file:///cache/covers/fast-b.jpg')}`
+    const expectedA = `data:image/jpeg;base64,${btoa('file:///cache/covers/slow-a.jpg')}`
+
+    const playA = playSong({
+      ...localSong,
+      id: 'song-slow-a',
+      path: 'album/slow-a.mp3',
+      title: '慢封面A',
+      coverUri: 'file:///cache/covers/slow-a.jpg',
+      tagsScanned: true,
+      metadataVersion: 2,
+    })
+    // 等 A 的首帧 metadata 发出并开始 prepare
+    await vi.waitFor(() => {
+      expect(audioPlayerBridge.prepareArtworkDataUrl).toHaveBeenCalledWith({ uri: 'file:///cache/covers/slow-a.jpg' })
+    })
+
+    await playSong({
+      ...localSong,
+      id: 'song-fast-b',
+      path: 'album/fast-b.mp3',
+      title: '快封面B',
+      coverUri: 'file:///cache/covers/fast-b.jpg',
+      tagsScanned: true,
+      metadataVersion: 2,
+    })
+    await vi.waitFor(() => {
+      expect(audioPlayerBridge.prepareArtworkDataUrl).toHaveBeenCalledWith({ uri: 'file:///cache/covers/fast-b.jpg' })
+      const hasB = vi.mocked(MediaSession.setMetadata).mock.calls
+        .some((call) => call[0].artwork?.[0]?.src === expectedB)
+      expect(hasB).toBe(true)
+    })
+
+    // A 的慢回调在 B 之后才返回，必须被 token 丢弃
+    resolveA?.({ dataUrl: expectedA })
+    await playA
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const allArtwork = vi.mocked(MediaSession.setMetadata).mock.calls
+      .map((call) => call[0].artwork?.[0]?.src)
+      .filter(Boolean)
+
+    expect(allArtwork.includes(expectedA)).toBe(false)
+    expect(allArtwork.includes(expectedB)).toBe(true)
   })
 })
 

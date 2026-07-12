@@ -9,12 +9,22 @@ type SeekHandler = (seconds: number) => Promise<void> | void
 
 const ACTIVE_ACTIONS: MediaSessionAction[] = ['play', 'pause', 'previoustrack', 'nexttrack', 'stop']
 
+/**
+ * 1×1 中性 JPEG 的 data URL。
+ * capgo media-session Android 端在 artwork=[] 时不会清掉旧 Bitmap，
+ * 必须用显式 data: 图覆盖，才能避免切到无封面歌曲时残留上一首封面。
+ */
+export const EMPTY_ARTWORK_DATA_URL =
+  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGcP//Z'
+
 /** 丢弃过期封面回调，避免快速切歌串封面。 */
 let metadataToken = 0
 
+const emptyArtwork = () => [{ src: EMPTY_ARTWORK_DATA_URL, type: 'image/jpeg' }]
+
 const toMediaImage = (dataUrl: string | null | undefined) => {
   if (!dataUrl) {
-    return undefined
+    return emptyArtwork()
   }
   const mimeMatch = dataUrl.match(/^data:([^;]+);base64,/)
   const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg'
@@ -79,12 +89,12 @@ export const updateMediaSessionMetadata = async (params: {
 }) => {
   const token = ++metadataToken
 
-  // 文字先上，不等待封面转换，缩短首帧通知出现时间。
+  // 文字先上；同时用占位 data: 强制覆盖旧 Bitmap（空数组清不掉）。
   await MediaSession.setMetadata({
     title: params.title,
     artist: params.artist,
     album: params.album,
-    artwork: [],
+    artwork: emptyArtwork(),
   })
 
   if (!params.coverUri) {
@@ -96,6 +106,7 @@ export const updateMediaSessionMetadata = async (params: {
     return
   }
 
+  // prepare 失败时保留首帧的占位清空，避免残留上一首封面。
   if (!artworkDataUrl) {
     return
   }
@@ -125,5 +136,5 @@ export const updateMediaSessionPosition = async (positionSeconds: number, durati
 export const clearMediaSession = async () => {
   metadataToken += 1
   await MediaSession.setPlaybackState({ playbackState: 'none' })
-  await MediaSession.setMetadata({ title: '', artwork: [] })
+  await MediaSession.setMetadata({ title: '', artwork: emptyArtwork() })
 }
