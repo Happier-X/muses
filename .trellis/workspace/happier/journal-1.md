@@ -880,3 +880,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 26: 沉浸式播放页 UI 复刻
+
+**Date**: 2026-07-12
+**Task**: 沉浸式播放页 UI 复刻
+**Branch**: `main`
+
+### Summary
+
+复刻沉浸式播放页控制页：去掉顶部标题、纯图标次要控制、一屏适配；修复 overlay 打开时底层歌曲列表滚动穿透；回写组件约定并完成任务归档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `47b56e6` | (see git log) |
+| `2b22377` | (see git log) |
+| `3c6c717` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

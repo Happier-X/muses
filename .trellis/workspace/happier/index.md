@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 25
+- **Total Sessions**: 26
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~882 | Active |
+| `journal-1.md` | ~917 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 26 | 2026-07-12 | 沉浸式播放页 UI 复刻 | `47b56e6`, `2b22377`, `3c6c717` | `main` |
 | 25 | 2026-07-12 | 修复媒体通知延迟与退出后丢失 | `d64b405`, `026c4be`, `c561648` | `main` |
 | 24 | 2026-07-11 | 应用秒开优化：PlayerPage/QueuePage 异步化 + manualChunks 分包 | `d07cfe2` | `main` |
 | 23 | 2026-07-10 | 播放器全局叠加层改造 | `9d464d5`, `2998718`, `6341b00` | `main` |
