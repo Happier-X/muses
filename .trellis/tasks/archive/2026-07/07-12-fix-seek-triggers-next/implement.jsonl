@@ -1,0 +1,3 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "finished 与媒体会话约定"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "finished 自动切歌契约"}
