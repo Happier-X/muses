@@ -1195,3 +1195,37 @@ Issue #10：宽屏 MiniPlayer bottom 去掉 64px tab 占位，贴底；同步 gu
 ### Next Steps
 
 - None - task complete
+
+
+## Session 35: 平板歌曲页改为一列
+
+**Date**: 2026-07-12
+**Task**: 平板歌曲页改为一列
+**Branch**: `main`
+
+### Summary
+
+Issue #11：SongsPage 宽屏取消 list-grid 多列，仅保留限位居中；同步 guidelines。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `305b5c5` | (see git log) |
+| `78d41f9` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
