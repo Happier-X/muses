@@ -131,6 +131,17 @@ Also prefer the `@/` alias for application imports from `src/`:
 - `toggleShuffle` 会生成 `shuffleOrder`；`selectSongAtIndex(0)` 取乱序首曲。
 - 不破坏右侧现有控件（搜索等）。
 
+### SongsPage 跳转到当前播放 FAB
+
+`src/views/SongsPage.vue` 在 `ion-content` 内右下侧放置 `ion-fab` / `ion-fab-button`，用于滚动到当前播放歌曲行：
+
+- 图标：`ionicons` 的 `locateOutline`；`aria-label="跳转到当前播放"`。
+- 可见性：`v-if="currentPlayingInList"` —— 仅当 `playerState.currentSong?.id` 存在且该 id 出现在当前歌曲列表中时展示；无当前播放或不在列表则隐藏。
+- 行定位：每行 `ion-item` 带 `data-song-id="song.id"`；点击 FAB 用 `document.querySelectorAll('[data-song-id]')` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })`（宽屏多列同样适用）。
+- 可选轻高亮：滚动后给目标行加 `jump-highlight` 约 1.2s，再移除；卸载时清理 timer。
+- 安全区：`.jump-current-fab` 的 `bottom` 需避开底部 Tab Bar + MiniPlayer（窄屏约 `calc(144px + safe-area)`；宽屏无 Tab Bar 时约 `calc(80px + safe-area)`），`right: 12px`，不遮挡列表关键操作。
+- 不破坏现有列表点击播放与更多按钮交互。
+
 ## Styling Gotchas
 
 ### ion-list 为 Web Component，CSS Grid 在外层无法布局子 ion-item
