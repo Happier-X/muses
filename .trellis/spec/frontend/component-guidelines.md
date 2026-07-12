@@ -118,7 +118,8 @@ Also prefer the `@/` alias for application imports from `src/`:
 - **导航 Shell**：`src/views/TabsPage.vue` 使用普通 Vue 布局容器作为父级 shell，不使用 `ion-page` 包裹父路由布局；子页面继续保留自己的 Ionic page 结构。
 - **侧栏**：宽屏下由固定定位的普通 `<aside>` 提供左侧导航，右侧 `<main>` 渲染 `<RouterView />`；窄屏回落为普通 `<nav>` + `RouterLink` 底部导航。
 - **避免 Split Pane**：当前 MuMu / Android WebView 环境中，`ion-split-pane` + `ion-menu` 曾触发白屏；不要在 `TabsPage.vue` 中恢复该结构，除非完成真机与 MuMu 回归验证。
-- **列表多列**：`src/views/SongsPage.vue`（及 Albums/Artists 页）的 `<ion-list>` 外包 `<div class="list-grid">`，通过 CSS Grid `repeat(auto-fill, minmax(320px, 1fr))` 自动分列。
+- **列表多列（仅 Albums/Artists）**：`src/views/AlbumsPage.vue` / `src/views/ArtistsPage.vue` 的 `<ion-list>` 外包 `<div class="list-grid">`，宽屏通过 CSS Grid `repeat(auto-fill, minmax(320px, 1fr))` 自动分列。
+- **SongsPage 宽屏单列**：`src/views/SongsPage.vue` 宽屏不使用多列 grid，列表始终竖排单列；外层 `.list-grid` / `.tablet-content-limit` 仅做 `max-width: var(--muses-content-max-width); margin-inline: auto` 限位居中（与窄屏一致的一列体验）。
 - **内容限位居中**：各列表页 `.tablet-content-limit` 和 `.list-grid` 在宽屏下 `max-width: var(--muses-content-max-width); margin-inline: auto`。
 
 ### SongsPage 顶部随机播放全部
@@ -137,7 +138,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 - 图标：`ionicons` 的 `locateOutline`；`aria-label="跳转到当前播放"`。
 - 可见性：`v-if="currentPlayingInList"` —— 仅当 `playerState.currentSong?.id` 存在且该 id 出现在当前歌曲列表中时展示；无当前播放或不在列表则隐藏。
-- 行定位：每行 `ion-item` 带 `data-song-id="song.id"`；点击 FAB 用 `document.querySelectorAll('[data-song-id]')` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })`（宽屏多列同样适用）。
+- 行定位：每行 `ion-item` 带 `data-song-id="song.id"`；点击 FAB 用页面内 `[data-song-id]` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })`（宽屏单列同样适用）。
 - 可选轻高亮：滚动后给目标行加 `jump-highlight` 约 1.2s，再移除；卸载时清理 timer。
 - 安全区：`.jump-current-fab` 的 `bottom` 需避开底部导航与 MiniPlayer（窄屏约 `calc(144px + safe-area)` = Tab Bar ~64 + MiniPlayer ~64 + 间距；宽屏无 Tab Bar、MiniPlayer 贴底，约 `calc(80px + safe-area)` = MiniPlayer ~64 + 间距），`right: 12px`，不遮挡列表关键操作。勿按「平板 MiniPlayer 抬高 64px」再额外加偏移。
 - 不破坏现有列表点击播放与更多按钮交互。
@@ -148,7 +149,9 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 `ion-list` 是 Ionic Web Component，有 Shadow DOM 隔离。在外层 div 套 CSS Grid 后，`ion-list` 只是 grid 容器的第一个子项，不会将 `ion-item` 暴露为 grid item。
 
-**修复**：在宽屏下给 `ion-list` 加 `display: contents;`，使 `ion-item` 成为 grid 容器的直接子元素：
+**适用范围**：仅 Albums/Artists 等仍使用宽屏多列的页面。`SongsPage` 宽屏已改为单列，不再使用 grid + `display: contents`。
+
+**修复（多列页）**：在宽屏下给 `ion-list` 加 `display: contents;`，使 `ion-item` 成为 grid 容器的直接子元素：
 
 ```css
 @media (min-width: 768px) {
@@ -161,6 +164,17 @@ Also prefer the `@/` alias for application imports from `src/`:
   }
   .list-grid > ion-list {
     display: contents;
+  }
+}
+```
+
+**SongsPage 宽屏单列**：
+
+```css
+@media (min-width: 768px) {
+  .list-grid {
+    max-width: var(--muses-content-max-width);
+    margin-inline: auto;
   }
 }
 ```
