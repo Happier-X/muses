@@ -173,13 +173,13 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Media3 `MediaItem.MediaMetadata` contains non-sensitive display metadata only: title, artist, and album.
 - System notification, lock-screen controls, and media-key commands are handled by Media3 native session/player APIs, not by a frontend media-session plugin or JS action handlers.
 - Player controller state held in `src/features/player/controller.ts` as a `reactive<PlayerState>` shared across components，包含当前歌曲快照、播放状态、进度、总时长、**已缓冲终点 `bufferedPosition: number | null`**、歌词、封面引用与标签补扫状态。
-- `bufferedPosition`：秒；`null` 表示缓冲未知（不画假缓冲条，seek 退化为 duration clamp）；有值时 seek 上限为 `min(duration, bufferedPosition)`，越界拒绝。切歌 / stop / 失败必须重置为 `null`。
+- `bufferedPosition`：秒；`null` 表示缓冲未知（不画假缓冲条，seek 退化为 duration clamp）；WebDAV 远程直链始终为 `null`，本地完整文件可设为 duration；有值时 seek 上限为 `min(duration, bufferedPosition)`，越界拒绝。切歌 / stop / 失败必须重置为 `null`。
 
 #### 3. Contracts
 
 - Player state must never contain WebDAV passwords, Basic Auth headers, SecureStorage values, or cover image base64 data.
 - `MiniPlayer.vue` and `SongsPage.vue` only read from `playerState` (readonly) and call `playSong`/`pausePlayback`/`resumePlayback`/`stopPlayback`/`seekPlayback`; queue UI may call feature-local queue helpers exported from the player controller.
-- `playSong(song)` resolves the WebDAV password via `getWebDavPassword(source.credentialKey)` and passes it only to `AudioPlayerNative.play(...)`; the password never reaches localStorage, the UI state, `muses:songs`, `muses:queue`, Media3 metadata, or notification text.
+- `playSong(song)` resolves the WebDAV password via `getWebDavPassword(source.credentialKey)` and passes it only to `AudioPlayerNative.play(...)`; `native.ts` then preloads the remote URL with a Basic `Authorization` header and must not call `prepareWebDavAudioFile` or play a growing `.partial` file. The password never reaches localStorage, the UI state, `muses:songs`, `muses:queue`, Media3 metadata, or notification text.
 - `playSong(song)` must first merge the incoming list item with the latest matching `muses:songs` record (`id` or `(sourceId, path)`) before creating `PlayerSongSnapshot`; otherwise stale list objects can miss lyrics/cover data that lazy metadata rescan already persisted.
 - Playback pages may persist and display `lyrics`, `lyricsSource`, `coverUri`, `tagsScanned`, and `tagsScannedAt`; `coverUri` must be an app-private cache URI/reference, not a `data:` URL or raw base64 payload. Display helpers must reject `data:` / `blob:` / `;base64,` cover URIs even if malformed legacy data reaches the page.
 - Playback queue persistence must be ID-only: write `{ songId }` records and order arrays, never full `SongItem`, `uri`, WebDAV username/password, Authorization headers, SecureStorage values, lyrics text, or cover URI/base64. Resolve queue display items from latest `loadSongs()` records at read time.
@@ -233,14 +233,14 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Bad: AMLL `BackgroundRender` is mounted directly as the positioned layer and its internal canvas measures as 1px high.
 - Bad: treating every native `finished`/`complete` as natural end and calling `advanceToNext` after a mid-track seek to an unbuffered position.
 - Good: mid-track seek then pseudo-`finished` keeps the current song; only near-end finished without seek guard advances the queue.
-- Good: remote/WebDAV progressive buffer grows `bufferedPosition`; UI `--buffered` updates; seek past buffer is rejected.
+- Good: WebDAV uses the remote URL + Basic Auth header, keeps `bufferedPosition = null`, renders no fake buffer layer, and seeks with duration clamp.
 - Good: local ready song reports full buffer (`bufferedPosition = duration`) and allows full-length seek.
 - Bad: switching songs inherits previous track's `bufferedPosition`.
 
 #### 6. Tests Required
 
 - `playSong` for a local song calls `AudioPlayerNative.play` with local options only (no password).
-- `playSong` for a WebDAV song calls `getWebDavPassword`, passes it only to `AudioPlayerNative.play`, and does not store it.
+- `playSong` for a WebDAV song calls `getWebDavPassword`, passes it only to `AudioPlayerNative.play`, and does not store it；`native.ts` tests assert remote URL + Authorization preload, no `prepareWebDavAudioFile` call, and unknown buffer state.
 - `controller.ts` error handler maps unknown native errors to a safe string.
 - `MiniPlayer.vue` renders the current title, toggles play/pause, stops, opens the player overlay from the bar body only when `currentSong` exists (click/Enter/Space do nothing when empty), and prevents control-button click/keyboard events from bubbling into overlay open.
 - `PlayerPage.vue` renders no-current-song and no-lyrics states; progress dragging calls `seekPlayback` with seconds.

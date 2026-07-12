@@ -272,8 +272,8 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
 - **三层进度条（已缓冲）**：
   - CSS 变量：`--progress`（已播放 %）、`--buffered`（已缓冲 %）；`max` 仍为 `duration` 视觉全长。
   - 轨道语义：`0→progress` 已播放 / `progress→buffered` 已缓冲未播放 / `buffered→100%` 未缓冲。
-  - **缓冲未知**（`playerState.bufferedPosition == null`）时不设置 `--buffered`，CSS 回落为无独立缓冲层，禁止画假缓冲条。
-  - `input/change` 时将目标 clamp 到已缓冲终点；`seekPlayback` 越界返回 `false` 时进度条/歌词可轻提示「缓冲中」。
+  - **缓冲未知**（`playerState.bufferedPosition == null`）时不设置 `--buffered`，CSS 回落为无独立缓冲层，禁止画假缓冲条；WebDAV 远程直链固定属于此状态。
+  - 缓冲已知时，`input/change` 将目标 clamp 到已缓冲终点，`seekPlayback` 越界返回 `false` 时进度条/歌词可轻提示「缓冲中」；WebDAV 缓冲未知时不得按伪缓冲限制，沿用 duration clamp。
   - **歌词行点击**：目标 > `bufferedPosition` 时不 seek（与进度条共用 `seekPlayback` 拒绝语义）。
 
 ### Overlay 组件必须异步加载（首屏性能约定）
