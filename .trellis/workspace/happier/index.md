@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 32
+- **Total Sessions**: 33
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1127 | Active |
+| `journal-1.md` | ~1163 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 33 | 2026-07-12 | 歌曲页随机播放与跳转当前播放 | `8eee1f1`, `9376df8`, `79fc001`, `fc1f303` | `main` |
 | 32 | 2026-07-12 | 进度条已缓冲区间并限制 seek | `f124f14`, `1f52059` | `main` |
 | 31 | 2026-07-12 | 修复 seek 未完成时误触发下一曲 | `875a1b8`, `2c32adc` | `main` |
 | 30 | 2026-07-12 | 修复沉浸式播放页 open issues #5/#4/#3/#2 | `50fc107`, `0683de6`, `d95fc3b`, `3a15887`, `8062233`, `b325872`, `3c917f4`, `552dbaf` | `main` |
