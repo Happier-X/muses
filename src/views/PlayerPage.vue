@@ -514,7 +514,26 @@ const onTouchEnd = (event: TouchEvent) => {
   activePanel.value = endX < startX ? 1 : 0
 }
 
+const isLyricPanelTarget = (event: TouchEvent): boolean => {
+  // 优先用 target.closest：真实 DOM 与 @vue/test-utils trigger 都可靠；
+  // 再兜底 composedPath，覆盖 Shadow DOM / 合成事件路径。
+  if (event.target instanceof Element && event.target.closest('.lyric-panel, .lyric-player')) {
+    return true
+  }
+  return event.composedPath().some((target) => {
+    if (!(target instanceof Element)) {
+      return false
+    }
+    return target.classList.contains('lyric-panel') || target.classList.contains('lyric-player')
+  })
+}
+
 const canStartVerticalDismiss = (event: TouchEvent): boolean => {
+  // AMLL LyricPlayer 内部滚动基于 transform，非原生 scroll，无法被下方的原生滚动检测识别。
+  // 触点位于歌词面板/歌词播放器内时，禁止 overlay 下滑关闭，避免歌词上下滚动误触发收起。
+  if (isLyricPanelTarget(event)) {
+    return false
+  }
   return !event.composedPath().some((target) => {
     if (!(target instanceof HTMLElement)) {
       return false

@@ -924,6 +924,88 @@ describe('沉浸式播放页', () => {
     expect(nativePlayer.play).toHaveBeenCalledWith(expect.objectContaining({ songId: 'song-local-2' }))
   })
 
+  test('歌词区域内上下滑动不关闭 overlay、不产生下拉位移，横向滑动仍可切回控制页', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    const { playerOverlayVisible, openPlayerOverlay, closePlayerOverlay } = await import('@/features/player/overlay')
+    closePlayerOverlay()
+    await playSong({
+      ...localSong,
+      lyrics: '[00:01.00]第一句歌词\n[00:05.00]第二句歌词',
+      lyricsSource: 'embedded',
+    })
+    openPlayerOverlay()
+    expect(playerOverlayVisible.value).toBe(true)
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    const overlay = wrapper.get('.player-overlay')
+    const shell = wrapper.get('.immersive-shell')
+    const lyricPlayer = wrapper.get('[data-test="amll-lyrics"]')
+    const panels = wrapper.get('.panels')
+
+    // 先右滑到歌词页（activePanel = 1）
+    await overlay.trigger('touchstart', { changedTouches: [{ clientX: 320, clientY: 400 }] })
+    await overlay.trigger('touchend', { changedTouches: [{ clientX: 80, clientY: 400 }] })
+    expect(panels.attributes('style')).toContain('translateX(-50%)')
+
+    // 在歌词区域内大幅上下滑动：不应产生 dragOffsetY，也不应关闭 overlay
+    await lyricPlayer.trigger('touchstart', { changedTouches: [{ clientX: 200, clientY: 100 }] })
+    await lyricPlayer.trigger('touchmove', { changedTouches: [{ clientX: 200, clientY: 360 }] })
+    await lyricPlayer.trigger('touchend', { changedTouches: [{ clientX: 200, clientY: 360 }] })
+
+    expect(shell.attributes('style') || '').toMatch(/translateY\(0px\)/)
+    expect(playerOverlayVisible.value).toBe(true)
+
+    // 歌词区域内横向滑动仍可切回控制页
+    await lyricPlayer.trigger('touchstart', { changedTouches: [{ clientX: 80, clientY: 400 }] })
+    await lyricPlayer.trigger('touchend', { changedTouches: [{ clientX: 320, clientY: 400 }] })
+    expect(panels.attributes('style') || '').not.toContain('translateX(-50%)')
+    expect(playerOverlayVisible.value).toBe(true)
+
+    closePlayerOverlay()
+  })
+
+  test('控制页上下滑动仍可关闭 overlay', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    const { playerOverlayVisible, openPlayerOverlay, closePlayerOverlay } = await import('@/features/player/overlay')
+    closePlayerOverlay()
+    await playSong(localSong)
+    openPlayerOverlay()
+    expect(playerOverlayVisible.value).toBe(true)
+
+    // 固定 dismiss 阈值依赖的 window.innerHeight，保证测试稳定
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 })
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    const infoPanel = wrapper.get('.info-panel')
+
+    // 控制页大幅下滑超过阈值 → 关闭 overlay
+    await infoPanel.trigger('touchstart', { changedTouches: [{ clientX: 200, clientY: 80 }] })
+    await infoPanel.trigger('touchmove', { changedTouches: [{ clientX: 200, clientY: 320 }] })
+    await infoPanel.trigger('touchend', { changedTouches: [{ clientX: 200, clientY: 320 }] })
+
+    expect(playerOverlayVisible.value).toBe(false)
+  })
+
 })
 
 describe('应用壳', () => {
