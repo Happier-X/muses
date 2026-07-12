@@ -1,10 +1,10 @@
 <template>
-  <ion-app>
-    <ion-router-outlet />
+  <ion-app :class="{ 'has-global-overlay': hasGlobalOverlay }">
+    <ion-router-outlet class="app-router-outlet" />
     <MiniPlayer
       class="app-mini-player"
-      :class="{ 'is-overlay-active': playerOverlayVisible || queueOverlayVisible }"
-      :aria-hidden="playerOverlayVisible || queueOverlayVisible"
+      :class="{ 'is-overlay-active': hasGlobalOverlay }"
+      :aria-hidden="hasGlobalOverlay"
     />
     <Transition name="player-overlay">
       <PlayerPage v-if="playerOverlayVisible" />
@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, onMounted } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
 import { IonApp, IonRouterOutlet } from '@ionic/vue'
 import { App } from '@capacitor/app'
 import MiniPlayer from '@/components/MiniPlayer.vue'
@@ -25,6 +25,16 @@ import { closePlayerOverlay, closeQueueOverlay, playerOverlayVisible, queueOverl
 
 const PlayerPage = defineAsyncComponent(() => import('@/views/PlayerPage.vue'))
 const QueuePage = defineAsyncComponent(() => import('@/views/QueuePage.vue'))
+const hasGlobalOverlay = computed(() => playerOverlayVisible.value || queueOverlayVisible.value)
+
+const syncBodyOverlayLock = (locked: boolean) => {
+  document.documentElement.classList.toggle('muses-overlay-open', locked)
+  document.body.classList.toggle('muses-overlay-open', locked)
+}
+
+watch(hasGlobalOverlay, (locked) => {
+  syncBodyOverlayLock(locked)
+}, { immediate: true })
 
 onMounted(() => {
   void initializePlayer()
@@ -46,10 +56,19 @@ onMounted(() => {
     })
   })
 })
+
+onUnmounted(() => {
+  syncBodyOverlayLock(false)
+})
 </script>
 
 <style scoped>
 .app-mini-player.is-overlay-active {
+  pointer-events: none;
+}
+
+/* 打开全局 overlay 时彻底切断底层路由页交互与滚动，避免触摸穿透。 */
+ion-app.has-global-overlay .app-router-outlet {
   pointer-events: none;
 }
 
@@ -65,5 +84,20 @@ onMounted(() => {
 .queue-overlay-enter-from,
 .queue-overlay-leave-to {
   transform: translateY(100%);
+}
+</style>
+
+<style>
+html.muses-overlay-open,
+body.muses-overlay-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+/* 只锁路由页内容，不锁队列 overlay 自己的 ion-content。 */
+body.muses-overlay-open ion-router-outlet ion-content {
+  --overflow: hidden;
+  pointer-events: none;
+  overscroll-behavior: none;
 }
 </style>

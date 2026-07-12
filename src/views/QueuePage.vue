@@ -111,6 +111,8 @@ const onSelectSong = async (index: number) => {
   z-index: 1200;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--ion-background-color, #fff);
 }
 
