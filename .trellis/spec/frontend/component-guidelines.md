@@ -191,13 +191,18 @@ Do not duplicate Ionic core or utility CSS imports inside page components.
 ### 交互约定
 
 - 点击底栏主体调用 `openPlayerOverlay()`，不能改变当前路由 URL。
+- **无当前歌曲时不可打开沉浸式播放页**：当 `playerState.currentSong` 为 `null` 时，点击主体或键盘 Enter / Space 都不得调用 `openPlayerOverlay()`；主体应标记 `aria-disabled`，并去掉 `cursor: pointer` 误导。
 - 点击播放/暂停按钮只控制播放状态，不能触发打开播放器 overlay。
+- 无歌曲时播放/暂停按钮继续禁用；队列按钮行为不受影响，仍可打开队列 overlay。
 - 点击队列按钮调用 `openQueueOverlay()`，不能改变当前路由 URL，也不能触发打开播放器 overlay。
 - 对 Ionic `ion-button` 不要只依赖 `@click.stop`；按钮内部事件可能穿过 Web Component 边界。父级主体点击处理需要检查 `event.composedPath()`，如果事件路径包含 `.player-actions` 就直接忽略。
 
 ```ts
 const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   if (event.composedPath().some((target) => target instanceof Element && target.classList.contains('player-actions'))) {
+    return
+  }
+  if (!playerState.currentSong) {
     return
   }
   openPlayerOverlay()

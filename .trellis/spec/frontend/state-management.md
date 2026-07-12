@@ -183,7 +183,7 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Playback pages may persist and display `lyrics`, `lyricsSource`, `coverUri`, `tagsScanned`, and `tagsScannedAt`; `coverUri` must be an app-private cache URI/reference, not a `data:` URL or raw base64 payload. Display helpers must reject `data:` / `blob:` / `;base64,` cover URIs even if malformed legacy data reaches the page.
 - Playback queue persistence must be ID-only: write `{ songId }` records and order arrays, never full `SongItem`, `uri`, WebDAV username/password, Authorization headers, SecureStorage values, lyrics text, or cover URI/base64. Resolve queue display items from latest `loadSongs()` records at read time.
 - Random playback uses a persisted `shuffleOrder` separate from the original order; toggling shuffle off must restore the original sequential queue order and keep the current song index aligned when possible.
-- The immersive `/player` page should expose previous, play/pause, next, repeat, playback mode, and queue-entry controls. Previous uses the current queue order only (wrap head to tail); do not introduce an independent playback history stack unless a future task explicitly requires it.
+- The immersive player overlay (`PlayerPage.vue`) should expose previous, play/pause, next, repeat, playback mode, and queue-entry controls. Previous uses the current queue order only (wrap head to tail); do not introduce an independent playback history stack unless a future task explicitly requires it. Opening this overlay from `MiniPlayer` requires a current song (`playerState.currentSong`); when there is no current song, the mini player body must not open the overlay.
 - Frontend code must not depend on `@capgo/capacitor-media-session` or any third-party media-session/notification plugin; Android system controls must route to the project-local `AudioPlaybackService` and its Media3 `MediaSession`.
 - If a song has incomplete tags, `playSong(song)` may trigger a single-song lazy metadata rescan after playback starts. The rescan must not block playback, must not scan the whole library, and must only update the currently playing song if the song identity still matches.
 - Lyric priority is embedded LRC first, same-directory same-name `.lrc` second, then an explicit no-lyrics state.
@@ -216,9 +216,9 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 
 #### 5. Good/Base/Bad Cases
 
-- Good: clicking a local song plays it; clicking a different song stops the previous one and plays the new one; the mini player updates across tabs, and `/player` displays synced progress, cover, controls, AMLL background, and lyrics fallback states.
-- Base: user stops playback via the mini player; Android notification disappears; `currentSong` is cleared.
-- Good: a stale song list item is played after metadata rescan has persisted lyrics; `/player` uses the latest stored lyrics immediately.
+- Good: clicking a local song plays it; clicking a different song stops the previous one and plays the new one; the mini player updates across tabs, and the player overlay displays synced progress, cover, controls, AMLL background, and lyrics fallback states.
+- Base: user stops playback via the mini player; Android notification disappears; `currentSong` is cleared; clicking the mini player body no longer opens the player overlay until a song is playing again.
+- Good: a stale song list item is played after metadata rescan has persisted lyrics; the player overlay uses the latest stored lyrics immediately.
 - Good: a song row is visible while lazy metadata rescan persists title/artist/album/cover; `SONGS_UPDATED_EVENT` causes the list page to reload the latest `muses:songs` record.
 - Bad: WebDAV password ends up in `localStorage.getItem('muses:songs')`, `localStorage.getItem('muses:queue')`, or is logged to diagnose a playback failure.
 - Bad: a queue stores full `SongItem` objects or audio `uri` values instead of ID-only order records.
@@ -231,7 +231,7 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - `playSong` for a local song calls `AudioPlayerNative.play` with local options only (no password).
 - `playSong` for a WebDAV song calls `getWebDavPassword`, passes it only to `AudioPlayerNative.play`, and does not store it.
 - `controller.ts` error handler maps unknown native errors to a safe string.
-- `MiniPlayer.vue` renders the current title, toggles play/pause, stops, navigates to `/player` from the bar body, and prevents control-button click/keyboard events from bubbling into navigation.
+- `MiniPlayer.vue` renders the current title, toggles play/pause, stops, opens the player overlay from the bar body only when `currentSong` exists (click/Enter/Space do nothing when empty), and prevents control-button click/keyboard events from bubbling into overlay open.
 - `PlayerPage.vue` renders no-current-song and no-lyrics states; progress dragging calls `seekPlayback` with seconds.
 - `PlayerPage.vue` rejects `data:` cover URIs, renders AMLL lyrics after a left-swipe, uses `translateX(-50%)` for the second panel, and mounts `BackgroundRender` under a full-size `.amll-background` container.
 - `playSong` tests cover stale input objects by seeding `muses:songs` with newer lyrics/cover and asserting `playerState` uses the newer metadata.
