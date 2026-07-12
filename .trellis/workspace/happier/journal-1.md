@@ -1331,3 +1331,37 @@ Issue #9：openScanSettings 按 source.type 设默认 readTags（webdav=false, l
 ### Next Steps
 
 - None - task complete
+
+
+## Session 39: 接入 amll-ttml-db 在线歌词匹配
+
+**Date**: 2026-07-12
+**Task**: 接入 amll-ttml-db 在线歌词匹配
+**Branch**: `main`
+
+### Summary
+
+Issue #8：接入 amll-ttml-db 索引/TTML 按需拉取、歌名歌手打分、在线优先本地回退、运行时缓存与切歌防串词；同步 frontend spec。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1c78663` | (see git log) |
+| `a15a123` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
