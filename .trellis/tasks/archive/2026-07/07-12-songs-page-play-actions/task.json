@@ -1,0 +1,29 @@
+{
+  "id": "songs-page-play-actions",
+  "name": "songs-page-play-actions",
+  "title": "歌曲页随机播放与跳转当前播放",
+  "description": "修复 Issue #6 #7",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-07-12",
+  "completedAt": "2026-07-12",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-12-songs-page-shuffle-all",
+    "07-12-songs-page-jump-current"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
