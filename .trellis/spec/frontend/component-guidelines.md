@@ -298,6 +298,38 @@ import QueuePage from '@/views/QueuePage.vue'
 
 **Gotcha**: 异步组件首次解析有极短延迟；如果 `<Transition>` 动画出现时序问题，给 `defineAsyncComponent` 传 `loadingComponent` / `delay` 选项，不要回退到静态 import。MiniPlayer 必须保持静态 import（它依赖很轻且首屏底栏需始终可见，不能等异步加载）。
 
+## SourcesPage 扫描默认值约定
+
+`src/views/SourcesPage.vue` 的扫描设置弹窗在 `openScanSettings(source)` 中按音源类型设置 `scanOptions.readTags` 默认值；顶层 `scanOptions = ref<ScanOptions>({ readTags: true })` 仅作初始占位，实际使用前会被 `openScanSettings` 覆写。
+
+### 规则
+
+1. **WebDAV 默认关闭 `readTags`**：WebDAV 读标签需逐文件网络请求读取原生元数据，开启会明显变慢、易卡顿。`src/features/library/scanner.ts` 中 `options.readTags` 决定是否调用 `readWebDavAudioTags` / `WebDavNative.readMetadata`，关闭时回退为文件名标题。
+2. **本地音源默认开启 `readTags`**：本地元数据读取无网络开销，无需回归。
+3. **用户仍可手动切换**：弹窗中的 `ion-toggle v-model="scanOptions.readTags"` 不受默认值影响，用户可随时打开/关闭。
+
+### 正确实现
+
+```ts
+const openScanSettings = (source: SourceItem): void => {
+  selectedScanSource.value = source
+  // WebDAV 默认关闭读标签（避免网络逐文件读取导致慢/卡）；本地默认开启
+  scanOptions.value = { readTags: source.type !== 'webdav' }
+  resetScanProgress()
+  isScanSettingsOpen.value = true
+}
+```
+
+### 避免
+
+- 在 `openScanSettings` 中对所有音源统一写死 `{ readTags: true }`——会让 WebDAV 扫描默认逐文件读标签。
+- 把 WebDAV 默认 `false` 提到 scanner 层（`scanSourceLibrary`/`readTagsSafely`）——读标签与否是扫描期用户可调的偏好，应由调用方在 `ScanOptions` 中明确传入，scanner 只负责如实执行 `options.readTags`。
+- 删除顶层 `scanOptions` 初始值或改为函数式默认——弹窗打开前必经 `openScanSettings` 覆写，初始占位值保持 `{ readTags: true }` 即可，无需引入额外抽象。
+
+参考文件：`src/views/SourcesPage.vue`、`src/features/library/scanner.ts`、`src/features/library/types.ts`（`ScanOptions`）。
+
+—
+
 ## Accessibility
 
 The current codebase includes a few baseline patterns that should be preserved:
