@@ -64,6 +64,15 @@
    - `playSong` / `stopPlayback` 必须清理 seek guard，避免新歌首帧误吞真实 finished 或卡住队列。
    - 不修改 capgo 插件源码；远程/未缓冲 seek 触发的 `STATE_ENDED`/`complete` 在前端边界消化。
 
+8. **已缓冲进度与 seek 限制**（`bufferedPosition`）  
+   - `PlayerState.bufferedPosition: number | null`：秒；`null` = 缓冲未知（不画假缓冲条，seek 退化为 duration clamp）。
+   - **本地就绪**：`prepareLocalAudioFile` 完成后原生上报 `fullyBuffered`，前端 `bufferedPosition = duration`，缓冲条铺满，可全长 seek。
+   - **WebDAV/远程**：`AudioPlayerPlugin.prepareWebDavAudioFile` 渐进下载到 `WebDavAudioCache` 同 key 缓存文件；达到可播阈值（约 256KB）即返回 `file://` 交给现有 `NativeAudio.play`（**非整首下完才播**）；下载进度经 `bufferProgress` 事件换算 `bufferedPosition`。
+   - **seek 上限**：缓冲已知时 `min(duration, bufferedPosition)`；目标越界时 **拒绝 seek**（返回 `false`），不发起原生跳转。歌词点击共用 `seekPlayback`。
+   - **切歌 / stop / 播放失败** 必须 `resetBufferState()`，禁止串曲缓冲。
+   - 不改 `node_modules/@capgo/*`；缓冲由项目自有 `AudioPlayer` 插件上报，经 `native.ts` 合并进 `stateChange`。
+   - 保留 seek 保护窗 + 自然结尾判定作为第二道防线。
+
 ---
 
 ## 约束与禁止模式
@@ -73,6 +82,9 @@
 - **禁止**在 `native.ts` 中搞双向依赖（目前 `mediaSession.ts` 和 `native.ts` 是解耦的；`mediaSession.ts` 仅 import `AudioPlayerBridge` 用于封面转换桥接）。
 - **禁止**修改 `node_modules/@capgo/*` 源码（我们只修复了 manifest 中 `MediaButtonReceiver` 的缺失，这是 app 侧修正，不是插件修改）。
 - **禁止**对任意 `finished`/`complete` 无条件 `advanceToNext`；必须经过 seek 保护窗 + 接近自然结尾校验。
+- **禁止**在缓冲已知时把 seek 目标落到 `bufferedPosition` 之外（进度条与歌词均须拒绝或 clamp 到已缓冲终点）。
+- **禁止**远程强制「整首下载完成才开始播放」；渐进下载达到可播阈值即 `file://` 起播。
+- **禁止**缓冲未知时画假缓冲条；`bufferedPosition === null` 时 UI 不设 `--buffered`。
 
 ---
 
@@ -90,6 +102,12 @@
 - 接近结尾的 finished → 仍自动下一曲
 - 歌词点击 seek 与进度条 seek 共用同一保护逻辑
 - `duration=0` 的 finished 不自动 advance
+- 缓冲已知时拖到未缓冲区 → 不调用原生 seek
+- 歌词点击未缓冲时间码 → 不 seek
+- 本地 full buffer → 可全长 seek
+- 切歌 / stop 后 `bufferedPosition` 重置为 null
+- 缓冲增长单调合并；回退上报不得拉低
+- 缓冲未知时 seek 仍按 duration clamp
 
 ---
 
@@ -111,6 +129,8 @@
 - **`file://` 缓存封面 `prepareArtworkDataUrl` 静默失败**  
   修复：原生侧 `file://` 优先 `FileInputStream`。
 - **seek 到未缓冲区间后伪 finished 误切下一曲**  
-  修复：`seekPlayback` 成功后开启保护窗；`applyNativeState` 仅在非保护窗且接近自然结尾时 `handlePlaybackFinished`。
+  修复：源头限制 seek ≤ `bufferedPosition`；`seekPlayback` 成功后开启保护窗；`applyNativeState` 仅在非保护窗且接近自然结尾时 `handlePlaybackFinished`。
+- **缓冲串曲 / 切歌后仍显示上一首缓冲条**  
+  修复：`playSong` / `stopPlayback` / 播放失败均 `resetBufferState()`；原生 `cancelBufferSession` 取消上一首渐进下载。
 - **没有 `npx cap sync android` 就部署**：前端代码改动不会反映到 APK  
   修复：每次前端改完后执行 `npm run build && npx cap copy android && cd android && ./gradlew :app:assembleDebug`。

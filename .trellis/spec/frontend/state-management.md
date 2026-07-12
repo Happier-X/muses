@@ -172,7 +172,8 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Android `AudioPlaybackService` exposes the single native `androidx.media3.session.MediaSession` backed by the same `ExoPlayer` that performs playback.
 - Media3 `MediaItem.MediaMetadata` contains non-sensitive display metadata only: title, artist, and album.
 - System notification, lock-screen controls, and media-key commands are handled by Media3 native session/player APIs, not by a frontend media-session plugin or JS action handlers.
-- Player controller state held in `src/features/player/controller.ts` as a `reactive<PlayerState>` shared across components，包含当前歌曲快照、播放状态、进度、总时长、歌词、封面引用与标签补扫状态。
+- Player controller state held in `src/features/player/controller.ts` as a `reactive<PlayerState>` shared across components，包含当前歌曲快照、播放状态、进度、总时长、**已缓冲终点 `bufferedPosition: number | null`**、歌词、封面引用与标签补扫状态。
+- `bufferedPosition`：秒；`null` 表示缓冲未知（不画假缓冲条，seek 退化为 duration clamp）；有值时 seek 上限为 `min(duration, bufferedPosition)`，越界拒绝。切歌 / stop / 失败必须重置为 `null`。
 
 #### 3. Contracts
 
@@ -201,7 +202,8 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Missing WebDAV source entry -> `playSong` throws with `找不到这首歌对应的 WebDAV 音源，请重新扫描音源。`.
 - Non-white-listed native exceptions -> frontend shows `播放失败，请稍后重试。`.
 - Native pause/resume/stop/seek exception -> frontend shows a generic operation-failed message.
-- Seek position below `0` -> clamp to `0`; seek position beyond known duration -> clamp to duration before calling ExoPlayer.
+- Seek position below `0` -> clamp to `0`; seek position beyond known duration -> clamp to duration before calling native seek.
+- Seek position beyond known `bufferedPosition`（缓冲已知）-> **拒绝 seek**（`seekPlayback` 返回 `false`），不调用原生 seek；缓冲未知时退化为 duration clamp。
 - Unknown or non-positive duration -> disable deterministic progress UI/notification progress rather than publishing misleading values.
 - Lazy metadata rescan failure -> mark metadata status as failed or show a degraded UI; playback continues.
 - Incoming song object lacks lyrics/cover but latest `muses:songs` has them -> `playSong` uses the latest stored display metadata immediately and does not show a false no-lyrics state.
@@ -230,6 +232,9 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Bad: AMLL `BackgroundRender` is mounted directly as the positioned layer and its internal canvas measures as 1px high.
 - Bad: treating every native `finished`/`complete` as natural end and calling `advanceToNext` after a mid-track seek to an unbuffered position.
 - Good: mid-track seek then pseudo-`finished` keeps the current song; only near-end finished without seek guard advances the queue.
+- Good: remote/WebDAV progressive buffer grows `bufferedPosition`; UI `--buffered` updates; seek past buffer is rejected.
+- Good: local ready song reports full buffer (`bufferedPosition = duration`) and allows full-length seek.
+- Bad: switching songs inherits previous track's `bufferedPosition`.
 
 #### 6. Tests Required
 
@@ -241,6 +246,7 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - `PlayerPage.vue` rejects `data:` cover URIs, renders AMLL lyrics after a left-swipe, uses `translateX(-50%)` for the second panel, and mounts `BackgroundRender` under a full-size `.amll-background` container.
 - `playSong` tests cover stale input objects by seeding `muses:songs` with newer lyrics/cover and asserting `playerState` uses the newer metadata.
 - Queue tests assert ID-only persistence, enqueue/remove/clear behavior, sequential next, previous wrapping from head to tail, random shuffle order length, single-song repeat, list loop from tail to head, near-end `finished` auto-advance, seek-guard suppressing false `finished`, and empty queue fallback to `stopPlayback`.
+- Buffer/seek tests assert: clamp/reject past `bufferedPosition`, lyric reject, local full buffer, stop/切歌 reset, monotonic buffer growth, unknown-buffer duration clamp, PlayerPage `--buffered` style.
 - `SongsPage.vue` highlights the currently playing song and queue actions do not bubble into direct playback.
 - Android validation should include progress broadcasting, `finished` broadcasting on natural end, Media3 notification/lock-screen position sync, seek clamping, service resource release, media-key routing to the same `ExoPlayer`, and checking for duplicate visible notifications.
 

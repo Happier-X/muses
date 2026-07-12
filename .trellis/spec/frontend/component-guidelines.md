@@ -229,6 +229,12 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
 - 打开播放器/队列 overlay 时必须锁定底层路由页交互与滚动：`ion-router-outlet` 设 `pointer-events: none`，`body.muses-overlay-open ion-router-outlet ion-content` 禁用滚动；不要锁住队列 overlay 自己的 `ion-content`。
 - 播放器 overlay 自身使用 `touch-action: none`，并在非原生控件（非 input/range）上对 `touchmove` 调用 `preventDefault`，防止滑动穿透到底层歌曲列表；进度条保留可拖动。
 - **进度条手势隔离**：`.progress-area` 必须 `@touchstart.stop` / `@pointerdown.stop`，并配合短 debounce 的 `seekGestureLocked`；seek 期间/刚结束后禁止 `playPreviousFromQueue` / `playNextFromQueue`，也禁止横向切换 `activePanel`，避免松手点穿到上一曲/下一曲或误切歌词面板。
+- **三层进度条（已缓冲）**：
+  - CSS 变量：`--progress`（已播放 %）、`--buffered`（已缓冲 %）；`max` 仍为 `duration` 视觉全长。
+  - 轨道语义：`0→progress` 已播放 / `progress→buffered` 已缓冲未播放 / `buffered→100%` 未缓冲。
+  - **缓冲未知**（`playerState.bufferedPosition == null`）时不设置 `--buffered`，CSS 回落为无独立缓冲层，禁止画假缓冲条。
+  - `input/change` 时将目标 clamp 到已缓冲终点；`seekPlayback` 越界返回 `false` 时进度条/歌词可轻提示「缓冲中」。
+  - **歌词行点击**：目标 > `bufferedPosition` 时不 seek（与进度条共用 `seekPlayback` 拒绝语义）。
 
 ### Overlay 组件必须异步加载（首屏性能约定）
 
