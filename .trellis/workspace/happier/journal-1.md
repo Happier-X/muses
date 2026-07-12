@@ -1057,3 +1057,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 31: 修复 seek 未完成时误触发下一曲
+
+**Date**: 2026-07-12
+**Task**: 修复 seek 未完成时误触发下一曲
+**Branch**: `main`
+
+### Summary
+
+seek 保护窗 + 接近自然结尾判定，避免未缓冲 seek 伪 finished 自动切歌；进度条/歌词/媒体会话 seek 共用逻辑；同步 spec 与单测。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `875a1b8` | (see git log) |
+| `2c32adc` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
