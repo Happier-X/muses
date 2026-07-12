@@ -48,7 +48,16 @@
               <small v-else-if="playerState.metadataStatus === 'failed'">歌曲信息补充失败，已使用当前信息播放。</small>
             </div>
 
-            <div class="progress-area">
+            <div
+              class="progress-area"
+              @touchstart.stop="onProgressGestureStart"
+              @touchmove.stop
+              @touchend.stop="onProgressGestureEnd"
+              @touchcancel.stop="onProgressGestureEnd"
+              @pointerdown.stop="onProgressGestureStart"
+              @pointerup.stop="onProgressGestureEnd"
+              @pointercancel.stop="onProgressGestureEnd"
+            >
               <input
                 class="progress-slider"
                 type="range"
@@ -175,6 +184,10 @@ const dragOffsetY = ref(0)
 const gestureDirection = ref<'horizontal' | 'vertical' | null>(null)
 const isDraggingVertically = ref(false)
 const canDragDown = ref(false)
+/** 进度条交互中或结束后的短保护期，防止松手穿透到上一曲/下一曲或横向切面板。 */
+const seekGestureLocked = ref(false)
+let seekUnlockTimer: ReturnType<typeof setTimeout> | null = null
+const SEEK_CLICK_GUARD_MS = 300
 const meshGradientRenderer = MeshGradientRenderer
 
 const repeatModeLabel = computed(() => queueState.repeatMode === 'one' ? '单曲循环' : '列表循环')
@@ -197,11 +210,52 @@ const goToQueue = () => {
   openQueueOverlay()
 }
 
+const clearSeekUnlockTimer = () => {
+  if (seekUnlockTimer !== null) {
+    clearTimeout(seekUnlockTimer)
+    seekUnlockTimer = null
+  }
+}
+
+const lockSeekGesture = () => {
+  seekGestureLocked.value = true
+  clearSeekUnlockTimer()
+}
+
+const scheduleSeekUnlock = () => {
+  clearSeekUnlockTimer()
+  seekUnlockTimer = setTimeout(() => {
+    seekGestureLocked.value = false
+    seekUnlockTimer = null
+  }, SEEK_CLICK_GUARD_MS)
+}
+
+const onProgressGestureStart = () => {
+  lockSeekGesture()
+  // 进度条手势与 overlay 全局手势隔离：清空已记录的触点，避免半成品横向/纵向手势。
+  touchStartX.value = null
+  touchStartY.value = null
+  gestureDirection.value = null
+  canDragDown.value = false
+  isDraggingVertically.value = false
+  dragOffsetY.value = 0
+}
+
+const onProgressGestureEnd = () => {
+  scheduleSeekUnlock()
+}
+
 const onPrevious = () => {
+  if (seekGestureLocked.value) {
+    return
+  }
   void playPreviousFromQueue()
 }
 
 const onNext = () => {
+  if (seekGestureLocked.value) {
+    return
+  }
   void playNextFromQueue()
 }
 
@@ -262,11 +316,25 @@ const togglePlayback = async () => {
 }
 
 const onSeek = async (event: Event) => {
+  // change 可能在 pointerup 之后触发；再锁一次并续期 debounce，覆盖 click 穿透窗口。
+  lockSeekGesture()
+  scheduleSeekUnlock()
   const target = event.target as HTMLInputElement
   await seekPlayback(Number(target.value))
 }
 
 const onTouchStart = (event: TouchEvent) => {
+  // 原生控件（进度条）或 seek 锁定期内，不启动 overlay 面板/下滑手势。
+  if (seekGestureLocked.value || isNativeInteractiveTarget(event.target)) {
+    touchStartX.value = null
+    touchStartY.value = null
+    gestureDirection.value = null
+    isDraggingVertically.value = false
+    canDragDown.value = false
+    dragOffsetY.value = 0
+    return
+  }
+
   const touch = event.changedTouches[0]
   touchStartX.value = touch?.clientX ?? null
   touchStartY.value = touch?.clientY ?? null
@@ -316,6 +384,7 @@ const onTouchEnd = (event: TouchEvent) => {
   const startX = touchStartX.value
   const endX = event.changedTouches[0]?.clientX
   const shouldDismiss = gestureDirection.value === 'vertical' && dragOffsetY.value >= getDismissThreshold()
+  const skipPanelSwitch = seekGestureLocked.value || isNativeInteractiveTarget(event.target)
 
   touchStartX.value = null
   touchStartY.value = null
@@ -329,6 +398,12 @@ const onTouchEnd = (event: TouchEvent) => {
   }
 
   if (dragOffsetY.value > 0) {
+    dragOffsetY.value = 0
+    return
+  }
+
+  // 进度条拖动期间/刚结束时，忽略横向位移，避免误切控制/歌词面板。
+  if (skipPanelSwitch) {
     dragOffsetY.value = 0
     return
   }
@@ -378,6 +453,8 @@ const formatTime = (value: number): string => {
 }
 
 onUnmounted(() => {
+  clearSeekUnlockTimer()
+  seekGestureLocked.value = false
   resetDragState()
 })
 </script>

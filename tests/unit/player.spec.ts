@@ -749,6 +749,86 @@ describe('沉浸式播放页', () => {
     expect(wrapper.get('.lyric-header').text()).not.toContain('未知歌手')
   })
 
+  test('拖动进度条期间不会误触上一曲/下一曲，也不会切换歌词面板', async () => {
+    const secondLocalSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }, secondLocalSong]))
+    const {
+      clearQueue,
+      enqueueSongs,
+      playSong,
+      playerState,
+      queueState,
+      setRepeatMode,
+      toggleShuffle,
+    } = await import('@/features/player/controller')
+    clearQueue()
+    setRepeatMode('all')
+    if (queueState.shuffleEnabled) {
+      toggleShuffle()
+    }
+    enqueueSongs([{ ...localSong, duration: 180 }, secondLocalSong])
+    await playSong({ ...localSong, duration: 180 })
+    expect(playerState.currentSong?.id).toBe('song-local')
+    expect(playerState.duration).toBe(180)
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { emits: ['click'], template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    const progressArea = wrapper.get('.progress-area')
+    const slider = wrapper.get('input[aria-label="播放进度"]')
+    const overlay = wrapper.get('.player-overlay')
+    const panels = wrapper.get('.panels')
+
+    // seek 本身仍可用（先验证，避免后续锁逻辑掩盖）
+    nativePlayer.seek.mockClear()
+    await slider.setValue('45')
+    await slider.trigger('change')
+    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 45 })
+
+    // 进度条按下：应隔离 overlay 手势
+    await progressArea.trigger('touchstart')
+    await progressArea.trigger('pointerdown')
+
+    // 即使横向位移很大，也不应切换到歌词面板
+    await overlay.trigger('touchstart', { changedTouches: [{ clientX: 320, clientY: 400 }] })
+    await overlay.trigger('touchend', { changedTouches: [{ clientX: 80, clientY: 400 }] })
+    expect(panels.attributes('style') || '').not.toContain('translateX(-50%)')
+
+    // 松手瞬间点到上一曲/下一曲应被 seek 锁吞掉
+    nativePlayer.play.mockClear()
+    await wrapper.get('button[aria-label="下一曲"]').trigger('click')
+    await wrapper.get('button[aria-label="上一曲"]').trigger('click')
+    expect(nativePlayer.play).not.toHaveBeenCalled()
+    expect(playerState.currentSong?.id).toBe('song-local')
+
+    await progressArea.trigger('touchend')
+    await progressArea.trigger('pointerup')
+
+    // 保护期内仍不可 prev/next
+    nativePlayer.play.mockClear()
+    await wrapper.get('button[aria-label="下一曲"]').trigger('click')
+    expect(nativePlayer.play).not.toHaveBeenCalled()
+
+    // 保护期结束后恢复正常（略大于 300ms debounce）
+    await new Promise((resolve) => setTimeout(resolve, 320))
+    await wrapper.get('button[aria-label="下一曲"]').trigger('click')
+    expect(nativePlayer.play).toHaveBeenCalledWith(expect.objectContaining({ songId: 'song-local-2' }))
+  })
+
 })
 
 describe('应用壳', () => {
