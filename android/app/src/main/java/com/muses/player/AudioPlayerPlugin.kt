@@ -91,7 +91,7 @@ class AudioPlayerPlugin : Plugin() {
     }
 
     /**
-     * 缓存封面多为 file://.../cache/covers/*.jpg。
+     * 缓存封面多为 file://.../cache/covers 下的 jpg 文件。
      * 部分机型 ContentResolver 打开 file:// 会失败，优先 FileInputStream；
      * content:// 继续走 ContentResolver。失败 resolve dataUrl=null，由前端强制清空旧封面。
      */
