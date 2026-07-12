@@ -1596,3 +1596,321 @@ describe('播放队列与循环/随机模式', () => {
     }, { timeout: 1000 })
   })
 })
+
+describe('已缓冲进度与 seek 限制', () => {
+  afterEach(async () => {
+    await resetPlayer()
+    localStorage.clear()
+  })
+
+  test('缓冲已知时 seek 越界拒绝且不调用原生 seek', async () => {
+    vi.resetModules()
+    const { initializePlayer, playSong, playerState, seekPlayback } = await import('@/features/player/controller')
+    await initializePlayer()
+    await playSong({ ...localSong, duration: 180 })
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: {
+      status: string
+      currentSongId?: string
+      position?: number
+      duration?: number
+      bufferedPosition?: number
+    }) => void
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      position: 10,
+      duration: 180,
+      bufferedPosition: 40,
+    })
+    expect(playerState.bufferedPosition).toBe(40)
+
+    nativePlayer.seek.mockClear()
+    const ok = await seekPlayback(90)
+    expect(ok).toBe(false)
+    expect(nativePlayer.seek).not.toHaveBeenCalled()
+    expect(playerState.position).toBe(10)
+  })
+
+  test('缓冲已知时 seek 在已缓冲区间内成功', async () => {
+    vi.resetModules()
+    const { initializePlayer, playSong, playerState, seekPlayback } = await import('@/features/player/controller')
+    await initializePlayer()
+    await playSong({ ...localSong, duration: 180 })
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: {
+      status: string
+      currentSongId?: string
+      position?: number
+      duration?: number
+      bufferedPosition?: number
+    }) => void
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      position: 5,
+      duration: 180,
+      bufferedPosition: 60,
+    })
+
+    nativePlayer.seek.mockClear()
+    const ok = await seekPlayback(42.5)
+    expect(ok).toBe(true)
+    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 42.5 })
+    expect(playerState.position).toBe(42.5)
+  })
+
+  test('歌词点击未缓冲时间码不发起 seek', async () => {
+    vi.resetModules()
+    const { initializePlayer, playSong, seekPlayback } = await import('@/features/player/controller')
+    await initializePlayer()
+    await playSong({
+      ...localSong,
+      duration: 180,
+      lyrics: '[00:01.00]第一句\n[00:50.00]未缓冲句',
+      lyricsSource: 'embedded',
+    })
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: {
+      status: string
+      currentSongId?: string
+      duration?: number
+      bufferedPosition?: number
+    }) => void
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      duration: 180,
+      bufferedPosition: 30,
+    })
+
+    nativePlayer.seek.mockClear()
+    // 模拟歌词点击 50s（> 30s 缓冲）
+    const ok = await seekPlayback(50)
+    expect(ok).toBe(false)
+    expect(nativePlayer.seek).not.toHaveBeenCalled()
+  })
+
+  test('本地就绪 full buffer 时可全长 seek', async () => {
+    vi.resetModules()
+    const { initializePlayer, playSong, playerState, seekPlayback } = await import('@/features/player/controller')
+    await initializePlayer()
+    await playSong({ ...localSong, duration: 180 })
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: {
+      status: string
+      currentSongId?: string
+      duration?: number
+      bufferedPosition?: number
+    }) => void
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      duration: 180,
+      bufferedPosition: 180,
+    })
+    expect(playerState.bufferedPosition).toBe(180)
+
+    nativePlayer.seek.mockClear()
+    const ok = await seekPlayback(175)
+    expect(ok).toBe(true)
+    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 175 })
+  })
+
+  test('切歌后缓冲重置且不继承上一首', async () => {
+    vi.resetModules()
+    const secondLocalSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+      duration: 200,
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }, secondLocalSong]))
+    const { initializePlayer, playSong, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
+    await playSong({ ...localSong, duration: 180 })
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: {
+      status: string
+      currentSongId?: string
+      duration?: number
+      bufferedPosition?: number
+    }) => void
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      duration: 180,
+      bufferedPosition: 90,
+    })
+    expect(playerState.bufferedPosition).toBe(90)
+
+    await playSong(secondLocalSong)
+    // 新歌起播时缓冲先清零，禁止串曲
+    expect(playerState.bufferedPosition).toBeNull()
+    expect(playerState.currentSong?.id).toBe('song-local-2')
+  })
+
+  test('stop 后缓冲重置为 null', async () => {
+    vi.resetModules()
+    const { initializePlayer, playSong, playerState, stopPlayback } = await import('@/features/player/controller')
+    await initializePlayer()
+    await playSong({ ...localSong, duration: 180 })
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: {
+      status: string
+      currentSongId?: string
+      duration?: number
+      bufferedPosition?: number
+    }) => void
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      duration: 180,
+      bufferedPosition: 50,
+    })
+    expect(playerState.bufferedPosition).toBe(50)
+
+    await stopPlayback()
+    expect(playerState.bufferedPosition).toBeNull()
+  })
+
+  test('缓冲增长会单调合并到 playerState', async () => {
+    vi.resetModules()
+    const { initializePlayer, playSong, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
+    await playSong({ ...localSong, duration: 180 })
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: {
+      status: string
+      currentSongId?: string
+      duration?: number
+      bufferedPosition?: number
+    }) => void
+
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      duration: 180,
+      bufferedPosition: 20,
+    })
+    expect(playerState.bufferedPosition).toBe(20)
+
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      duration: 180,
+      bufferedPosition: 55,
+    })
+    expect(playerState.bufferedPosition).toBe(55)
+
+    // 回退上报不得把缓冲拉低
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      duration: 180,
+      bufferedPosition: 40,
+    })
+    expect(playerState.bufferedPosition).toBe(55)
+  })
+
+  test('缓冲未知时 seek 退化为 duration clamp', async () => {
+    vi.resetModules()
+    const { initializePlayer, playSong, playerState, seekPlayback } = await import('@/features/player/controller')
+    await initializePlayer()
+    await playSong({ ...localSong, duration: 180 })
+    // 不注入 bufferedPosition → null 降级
+    expect(playerState.bufferedPosition).toBeNull()
+
+    nativePlayer.seek.mockClear()
+    const ok = await seekPlayback(200)
+    expect(ok).toBe(true)
+    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 180 })
+    expect(playerState.position).toBe(180)
+  })
+
+  test('PlayerPage 在有缓冲数据时设置 --buffered 样式', async () => {
+    // 不 resetModules：PlayerPage 静态 import 的 controller 需与本测试同一实例
+    const { playSong, playerState } = await import('@/features/player/controller')
+    await playSong({ ...localSong, duration: 100 })
+
+    // 直接通过 stateChange 路径不可用时，用多次 play 后的 reactive 状态驱动 UI：
+    // 模拟缓冲写入——通过再次 play + 手动注入（若 listener 已注册）
+    const listenerCall = nativePlayer.addListener.mock.calls.find((call) => call[0] === 'stateChange')
+    if (listenerCall) {
+      const stateChangeCallback = listenerCall[1] as (state: {
+        status: string
+        currentSongId?: string
+        position?: number
+        duration?: number
+        bufferedPosition?: number
+      }) => void
+      stateChangeCallback({
+        status: 'playing',
+        currentSongId: 'song-local',
+        position: 10,
+        duration: 100,
+        bufferedPosition: 40,
+      })
+    } else {
+      // initializePlayer 可能已在先前用例执行且 mock 被 clear；至少保证 currentSong 存在
+      expect(playerState.currentSong?.id).toBe('song-local')
+    }
+
+    // 若缓冲未能写入（无 listener），用 controller 再走一遍 initialize 保证链路
+    if (playerState.bufferedPosition == null) {
+      vi.resetModules()
+      const mod = await import('@/features/player/controller')
+      await mod.initializePlayer()
+      await mod.playSong({ ...localSong, duration: 100 })
+      const cb = nativePlayer.addListener.mock.calls[0][1] as (state: {
+        status: string
+        currentSongId?: string
+        position?: number
+        duration?: number
+        bufferedPosition?: number
+      }) => void
+      cb({
+        status: 'playing',
+        currentSongId: 'song-local',
+        position: 10,
+        duration: 100,
+        bufferedPosition: 40,
+      })
+      // 动态 re-import PlayerPage 以绑定同一 controller 模块
+      const { default: FreshPlayerPage } = await import('@/views/PlayerPage.vue')
+      const wrapper = mount(FreshPlayerPage, {
+        global: {
+          stubs: {
+            IonPage: { template: '<main><slot /></main>' },
+            IonContent: { template: '<section><slot /></section>' },
+            IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+            IonIcon: true,
+          },
+        },
+      })
+      await wrapper.vm.$nextTick()
+      const slider = wrapper.get('.progress-slider')
+      const style = slider.attributes('style') || ''
+      expect(style.includes('--buffered') || wrapper.html().includes('--buffered')).toBe(true)
+      return
+    }
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    await wrapper.vm.$nextTick()
+    const slider = wrapper.get('.progress-slider')
+    const style = slider.attributes('style') || ''
+    expect(style.includes('--buffered') || wrapper.html().includes('--buffered')).toBe(true)
+  })
+})

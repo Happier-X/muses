@@ -25,6 +25,12 @@ export interface PlayerState {
   errorMessage: string | null
   position: number
   duration: number
+  /**
+   * 已缓冲终点（秒）。
+   * - null：缓冲未知，不画缓冲条，seek 退化为 duration clamp
+   * - 有值：可 seek 上限 = min(duration, bufferedPosition)
+   */
+  bufferedPosition: number | null
   lyrics: string | null
   coverUri: string | null
   metadataStatus: PlayerMetadataStatus
@@ -38,6 +44,8 @@ export interface LocalPlayOptions {
   artist?: string
   album?: string
   coverUri?: string
+  /** 已知时长（秒），供缓冲换算兜底 */
+  duration?: number
 }
 
 export interface WebDavPlayOptions {
@@ -50,6 +58,8 @@ export interface WebDavPlayOptions {
   artist?: string
   album?: string
   coverUri?: string
+  /** 已知时长（秒），渐进下载进度换算 bufferedPosition 用 */
+  duration?: number
 }
 
 export type PlayOptions = LocalPlayOptions | WebDavPlayOptions

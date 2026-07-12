@@ -5,7 +5,7 @@ import type { PlaybackStatus } from './types'
 
 type ActionHandler = () => Promise<void> | void
 
-type SeekHandler = (seconds: number) => Promise<void> | void
+type SeekHandler = (seconds: number) => Promise<boolean | void> | boolean | void
 
 const ACTIVE_ACTIONS: MediaSessionAction[] = ['play', 'pause', 'previoustrack', 'nexttrack', 'stop']
 

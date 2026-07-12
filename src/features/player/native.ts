@@ -3,10 +3,30 @@ import { registerPlugin } from '@capacitor/core'
 import type { PluginListenerHandle } from '@capacitor/core'
 import type { AudioPlayerNativeState, PlaybackStatus, PlayOptions, SeekOptions } from './types'
 
+interface BufferProgressEvent {
+  songId?: string
+  bufferedPosition?: number
+  duration?: number
+  fullyBuffered?: boolean
+  bufferedRatio?: number
+}
+
 interface AudioPlayerPermissionBridge {
   ensureNotificationPermission(): Promise<{ granted: boolean }>
   prepareLocalAudioFile?(options: { uri: string; songId: string }): Promise<{ uri: string }>
+  prepareWebDavAudioFile?(options: {
+    url: string
+    username: string
+    password: string
+    songId: string
+    duration?: number
+  }): Promise<{ uri: string; ready?: boolean }>
+  cancelBufferSession?(options?: { songId?: string }): Promise<void>
   prepareArtworkDataUrl?(options: { uri: string }): Promise<{ dataUrl: string | null }>
+  addListener?(
+    eventName: 'bufferProgress',
+    listenerFunc: (event: BufferProgressEvent) => void,
+  ): Promise<PluginListenerHandle>
 }
 
 interface NativePlaybackStateEvent {
@@ -49,8 +69,15 @@ let currentSongId: string | null = null
 let currentStatus: PlaybackStatus = 'idle'
 let currentPosition = 0
 let currentDuration = 0
+/** 已缓冲终点（秒）；null = 未知，不画缓冲条 */
+let currentBufferedPosition: number | null = null
+/** 最近一次缓冲比例；duration 晚到时用于换算秒数 */
+let lastBufferedRatio: number | null = null
+let fullyBufferedPending = false
 let nativeListenersReady = false
+let bridgeBufferListenerReady = false
 let nativeListenerHandles: PluginListenerHandle[] = []
+let bridgeBufferListenerHandle: PluginListenerHandle | null = null
 const stateListeners = new Set<(state: AudioPlayerNativeState) => void>()
 
 const logNativeAudio = (message: string, data?: unknown): void => {
@@ -89,6 +116,18 @@ const notifyState = (state: AudioPlayerNativeState): void => {
   stateListeners.forEach((listener) => listener(state))
 }
 
+/** 对外广播用的有限缓冲秒数；Infinity/未知不传，避免 controller 收到非有限值被丢弃。 */
+const getEmitBufferedPosition = (): number | undefined => {
+  if (currentBufferedPosition == null) {
+    return undefined
+  }
+  if (Number.isFinite(currentBufferedPosition)) {
+    return currentBufferedPosition
+  }
+  // full buffer 占位 Infinity：duration 已知时换算为全长，否则暂不广播（等 reconcile）
+  return currentDuration > 0 ? currentDuration : undefined
+}
+
 const emitCurrentState = (status: PlaybackStatus = currentStatus): void => {
   currentStatus = status
   notifyState({
@@ -96,6 +135,7 @@ const emitCurrentState = (status: PlaybackStatus = currentStatus): void => {
     currentSongId: currentSongId || undefined,
     position: currentPosition,
     duration: currentDuration,
+    bufferedPosition: getEmitBufferedPosition(),
   })
 }
 
@@ -128,6 +168,7 @@ const ensureNativeListeners = async (): Promise<void> => {
       }
       currentPosition = normalizePlaybackTime(event.currentTime) || currentPosition
       currentDuration = normalizePlaybackTime(event.duration) || currentDuration
+      reconcileBufferedWithDuration()
       emitCurrentState(mapPlaybackStatus(event))
     }),
     NativeAudio.addListener('currentTime', (event: NativeCurrentTimeEvent) => {
@@ -146,6 +187,76 @@ const ensureNativeListeners = async (): Promise<void> => {
   ])
 }
 
+const ensureBridgeBufferListener = async (): Promise<void> => {
+  if (bridgeBufferListenerReady || !AudioPlayerBridge.addListener) {
+    return
+  }
+  bridgeBufferListenerReady = true
+  try {
+    bridgeBufferListenerHandle = await AudioPlayerBridge.addListener('bufferProgress', (event: BufferProgressEvent) => {
+      if (!event.songId || event.songId !== currentSongId) {
+        return
+      }
+
+      if (typeof event.bufferedRatio === 'number' && Number.isFinite(event.bufferedRatio) && event.bufferedRatio >= 0) {
+        lastBufferedRatio = Math.min(1, Math.max(0, event.bufferedRatio))
+      }
+
+      if (event.fullyBuffered === true) {
+        fullyBufferedPending = true
+        lastBufferedRatio = 1
+        // 本地 full 或下载完成：缓冲 = duration（若已知），否则 POSITIVE_INFINITY 等 duration 补齐
+        if (currentDuration > 0) {
+          currentBufferedPosition = currentDuration
+        } else if (typeof event.bufferedPosition === 'number' && Number.isFinite(event.bufferedPosition) && event.bufferedPosition >= 0) {
+          currentBufferedPosition = event.bufferedPosition
+        } else {
+          currentBufferedPosition = Number.POSITIVE_INFINITY
+        }
+        reconcileBufferedWithDuration()
+        emitCurrentState(currentStatus)
+        return
+      }
+
+      if (typeof event.bufferedPosition === 'number' && Number.isFinite(event.bufferedPosition) && event.bufferedPosition >= 0) {
+        // 单调不减
+        currentBufferedPosition = Math.max(currentBufferedPosition ?? 0, event.bufferedPosition)
+        reconcileBufferedWithDuration()
+        emitCurrentState(currentStatus)
+        return
+      }
+
+      // 仅有 ratio：duration 已知时换算；未知时不画假条（R6），等 duration 后 reconcile
+      if (lastBufferedRatio != null && currentDuration > 0) {
+        const next = currentDuration * lastBufferedRatio
+        currentBufferedPosition = Math.max(currentBufferedPosition ?? 0, next)
+        reconcileBufferedWithDuration()
+        emitCurrentState(currentStatus)
+      }
+    })
+  } catch {
+    bridgeBufferListenerReady = false
+  }
+}
+
+/** duration 更新后：用 ratio/full 标志补齐秒数，并把超界缓冲压回合法范围。 */
+const reconcileBufferedWithDuration = (): void => {
+  if (currentDuration <= 0) {
+    return
+  }
+  if (fullyBufferedPending || (currentBufferedPosition != null && !Number.isFinite(currentBufferedPosition))) {
+    currentBufferedPosition = currentDuration
+    fullyBufferedPending = false
+    return
+  }
+  if (currentBufferedPosition == null && lastBufferedRatio != null) {
+    currentBufferedPosition = currentDuration * lastBufferedRatio
+  }
+  if (currentBufferedPosition != null && currentBufferedPosition > currentDuration) {
+    currentBufferedPosition = currentDuration
+  }
+}
+
 const normalizePlaybackTime = (value: unknown): number => {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
 }
@@ -160,10 +271,45 @@ const unloadCurrentAsset = async (): Promise<void> => {
   await NativeAudio.unload({ assetId }).catch(() => undefined)
 }
 
+const cancelActiveBufferSession = async (songId?: string | null): Promise<void> => {
+  if (!AudioPlayerBridge.cancelBufferSession) {
+    return
+  }
+  await AudioPlayerBridge.cancelBufferSession(songId ? { songId } : undefined).catch(() => undefined)
+}
+
 const toAssetId = (songId: string): string => `song-${songId.replace(/[^a-zA-Z0-9_-]/g, '-')}`
 
-const resolveAssetPath = async (options: PlayOptions): Promise<{ assetPath: string; headers?: Record<string, string> }> => {
+const resolveAssetPath = async (options: PlayOptions): Promise<{ assetPath: string; headers?: Record<string, string>; fullBuffer?: boolean }> => {
   if (options.sourceType === 'webdav') {
+    // 优先：项目自有渐进下载 → file://（不改 capgo，边下边播）
+    if (AudioPlayerBridge.prepareWebDavAudioFile) {
+      try {
+        const prepared = await AudioPlayerBridge.prepareWebDavAudioFile({
+          url: options.url,
+          username: options.username,
+          password: options.password,
+          songId: options.songId,
+          // 元数据时长提示：原生用 (written/contentLength)*duration 换算秒数
+          duration: typeof options.duration === 'number' && options.duration > 0 ? options.duration : undefined,
+        })
+        logNativeAudio('webdav:progressive-ready', { uriPrefix: prepared.uri.slice(0, 80) })
+        return { assetPath: prepared.uri }
+      } catch (error) {
+        logNativeAudio('webdav:progressive-failed-fallback-remote', error instanceof Error ? { message: error.message } : error)
+        // 降级：直接远程 URL 流式播放；缓冲未知（R6）
+        currentBufferedPosition = null
+        return {
+          assetPath: options.url,
+          headers: {
+            Authorization: `Basic ${encodeBasicAuth(options.username, options.password)}`,
+          },
+        }
+      }
+    }
+
+    // 无原生渐进能力（Web/旧 APK）：远程直链 + 缓冲未知
+    currentBufferedPosition = null
     return {
       assetPath: options.url,
       headers: {
@@ -174,27 +320,47 @@ const resolveAssetPath = async (options: PlayOptions): Promise<{ assetPath: stri
 
   if (options.uri.startsWith('content://') && AudioPlayerBridge.prepareLocalAudioFile) {
     const result = await AudioPlayerBridge.prepareLocalAudioFile({ uri: options.uri, songId: options.songId })
-    return { assetPath: result.uri }
+    // 本地 prepare 完成后由原生 bufferProgress(fullyBuffered) 上报；此处兜底 full
+    currentBufferedPosition = Number.POSITIVE_INFINITY
+    return { assetPath: result.uri, fullBuffer: true }
   }
 
-  return { assetPath: options.uri }
+  // 已是 file:// 等本地路径
+  currentBufferedPosition = Number.POSITIVE_INFINITY
+  return { assetPath: options.uri, fullBuffer: true }
 }
 
 export const AudioPlayerNative: AudioPlayerNativePlugin = {
   async play(options) {
     await configureNativeAudio()
     await ensureNativeListeners()
+    await ensureBridgeBufferListener()
+    await cancelActiveBufferSession(currentSongId)
     await unloadCurrentAsset()
 
     const assetId = toAssetId(options.songId)
-    const { assetPath, headers } = await resolveAssetPath(options)
-
     currentAssetId = assetId
     currentSongId = options.songId
     currentStatus = 'loading'
     currentPosition = 0
     currentDuration = 0
+    currentBufferedPosition = null
+    lastBufferedRatio = null
+    fullyBufferedPending = false
     emitCurrentState('loading')
+
+    const { assetPath, headers, fullBuffer } = await resolveAssetPath(options)
+
+    // 若在 resolve 过程中被切歌，放弃后续 play
+    if (currentSongId !== options.songId) {
+      return
+    }
+
+    if (fullBuffer) {
+      currentBufferedPosition = Number.POSITIVE_INFINITY
+      fullyBufferedPending = true
+      lastBufferedRatio = 1
+    }
 
     const isUrl = isRemoteUrl(assetPath) || assetPath.startsWith('file://')
     logNativeAudio('play:resolved', {
@@ -203,6 +369,7 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
       assetPathPrefix: assetPath.slice(0, 80),
       isUrl,
       hasHeaders: Boolean(headers),
+      buffered: currentBufferedPosition,
     })
 
     try {
@@ -215,7 +382,8 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
       })
       logNativeAudio('preload:done', { assetId })
       currentDuration = normalizePlaybackTime((await NativeAudio.getDuration({ assetId }).catch(() => ({ duration: 0 }))).duration)
-      logNativeAudio('duration:done', { assetId, currentDuration })
+      reconcileBufferedWithDuration()
+      logNativeAudio('duration:done', { assetId, currentDuration, buffered: currentBufferedPosition })
       await NativeAudio.play({ assetId })
       logNativeAudio('play:done', { assetId })
       emitCurrentState('playing')
@@ -242,11 +410,15 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
   },
 
   async stop() {
+    await cancelActiveBufferSession(currentSongId)
     await unloadCurrentAsset()
     currentAssetId = null
     currentSongId = null
     currentPosition = 0
     currentDuration = 0
+    currentBufferedPosition = null
+    lastBufferedRatio = null
+    fullyBufferedPending = false
     emitCurrentState('stopped')
   },
 
@@ -261,7 +433,10 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
 
   async getState() {
     if (!currentAssetId) {
-      return { status: currentStatus }
+      return {
+        status: currentStatus,
+        bufferedPosition: getEmitBufferedPosition(),
+      }
     }
 
     const [position, duration, playing] = await Promise.all([
@@ -271,12 +446,14 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     ])
     currentPosition = normalizePlaybackTime(position.currentTime)
     currentDuration = normalizePlaybackTime(duration.duration)
+    reconcileBufferedWithDuration()
     currentStatus = playing.isPlaying ? 'playing' : currentStatus === 'playing' ? 'paused' : currentStatus
     return {
       status: currentStatus,
       currentSongId: currentSongId || undefined,
       position: currentPosition,
       duration: currentDuration,
+      bufferedPosition: getEmitBufferedPosition(),
     }
   },
 
@@ -290,6 +467,7 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     }
     stateListeners.add(listenerFunc)
     await ensureNativeListeners().catch(() => undefined)
+    await ensureBridgeBufferListener().catch(() => undefined)
     return {
       remove: async () => {
         stateListeners.delete(listenerFunc)
@@ -297,6 +475,11 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
           await Promise.all(nativeListenerHandles.map((handle) => handle.remove()))
           nativeListenerHandles = []
           nativeListenersReady = false
+          if (bridgeBufferListenerHandle) {
+            await bridgeBufferListenerHandle.remove().catch(() => undefined)
+            bridgeBufferListenerHandle = null
+            bridgeBufferListenerReady = false
+          }
         }
       },
     }

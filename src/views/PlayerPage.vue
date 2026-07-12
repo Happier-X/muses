@@ -58,20 +58,24 @@
               @pointerup.stop="onProgressGestureEnd"
               @pointercancel.stop="onProgressGestureEnd"
             >
-              <input
-                class="progress-slider"
-                type="range"
-                min="0"
-                :max="durationForSlider"
-                step="0.1"
-                :value="playerState.position"
-                :disabled="!canSeek"
-                :style="{ '--progress': progressPercent }"
-                aria-label="播放进度"
-                @change="onSeek"
-              />
+              <div class="progress-track">
+                <input
+                  class="progress-slider"
+                  type="range"
+                  min="0"
+                  :max="durationForSlider"
+                  step="0.1"
+                  :value="playerState.position"
+                  :disabled="!canSeek"
+                  :style="progressTrackStyle"
+                  aria-label="播放进度"
+                  @input="onSeekInput"
+                  @change="onSeek"
+                />
+              </div>
               <div class="time-row">
                 <span>{{ formatTime(playerState.position) }}</span>
+                <span v-if="bufferHintVisible" class="buffer-hint">缓冲中</span>
                 <span>{{ playerState.duration ? formatTime(playerState.duration) : '--:--' }}</span>
               </div>
             </div>
@@ -295,6 +299,41 @@ const progressPercent = computed(() => {
   return `${ratio * 100}%`
 })
 
+/** 已缓冲百分比；缓冲未知时不设 --buffered，CSS 不画假缓冲条（R6）。 */
+const bufferedPercent = computed(() => {
+  const duration = playerState.duration
+  const buffered = playerState.bufferedPosition
+  if (duration <= 0 || buffered == null || !Number.isFinite(buffered) || buffered < 0) {
+    return null
+  }
+  const ratio = Math.min(1, Math.max(0, buffered / duration))
+  return `${ratio * 100}%`
+})
+
+const progressTrackStyle = computed(() => {
+  const style: Record<string, string> = {
+    '--progress': progressPercent.value,
+  }
+  if (bufferedPercent.value != null) {
+    style['--buffered'] = bufferedPercent.value
+  }
+  return style
+})
+
+const bufferHintVisible = ref(false)
+let bufferHintTimer: ReturnType<typeof setTimeout> | null = null
+
+const showBufferHint = () => {
+  bufferHintVisible.value = true
+  if (bufferHintTimer !== null) {
+    clearTimeout(bufferHintTimer)
+  }
+  bufferHintTimer = setTimeout(() => {
+    bufferHintVisible.value = false
+    bufferHintTimer = null
+  }, 1200)
+}
+
 const resetDragState = () => {
   touchStartX.value = null
   touchStartY.value = null
@@ -316,15 +355,48 @@ const togglePlayback = async () => {
   await resumePlayback()
 }
 
+const clampSeekTarget = (raw: number): number => {
+  if (!Number.isFinite(raw) || raw < 0) {
+    return 0
+  }
+  const buffered = playerState.bufferedPosition
+  const duration = playerState.duration
+  let max = duration > 0 ? duration : Number.POSITIVE_INFINITY
+  if (buffered != null && Number.isFinite(buffered) && buffered >= 0) {
+    max = duration > 0 ? Math.min(duration, buffered) : buffered
+  }
+  return Number.isFinite(max) ? Math.min(raw, max) : raw
+}
+
+/** 拖动中视觉 clamp 到已缓冲终点，避免滑块越过缓冲层。 */
+const onSeekInput = (event: Event) => {
+  lockSeekGesture()
+  const target = event.target as HTMLInputElement
+  const clamped = clampSeekTarget(Number(target.value))
+  if (Number(target.value) > clamped + 0.05) {
+    target.value = String(clamped)
+    showBufferHint()
+  }
+}
+
 const onSeek = async (event: Event) => {
   // change 可能在 pointerup 之后触发；再锁一次并续期 debounce，覆盖 click 穿透窗口。
   lockSeekGesture()
   scheduleSeekUnlock()
   const target = event.target as HTMLInputElement
-  await seekPlayback(Number(target.value))
+  const requested = Number(target.value)
+  const clamped = clampSeekTarget(requested)
+  if (requested > clamped + 0.05) {
+    target.value = String(clamped)
+    showBufferHint()
+  }
+  const ok = await seekPlayback(clamped)
+  if (!ok && playerState.bufferedPosition != null) {
+    showBufferHint()
+  }
 }
 
-/** 点击有时间戳的歌词行，seek 到该行起始秒；无效 startTime 不处理。 */
+/** 点击有时间戳的歌词行，seek 到该行起始秒；无效 startTime / 未缓冲区间不处理。 */
 const onLyricLineClick = async (event: LyricLineMouseEvent) => {
   // 阻止冒泡到 overlay 手势，避免点击 seek 误切面板或关闭播放页。
   event.stopPropagation()
@@ -343,7 +415,12 @@ const onLyricLineClick = async (event: LyricLineMouseEvent) => {
   if (typeof startMs !== 'number' || !Number.isFinite(startMs) || startMs < 0) {
     return
   }
-  await seekPlayback(startMs / 1000)
+  const targetSec = startMs / 1000
+  const ok = await seekPlayback(targetSec)
+  if (!ok) {
+    // 未缓冲区间：不 seek，轻提示（R3）
+    showBufferHint()
+  }
 }
 
 const onTouchStart = (event: TouchEvent) => {
@@ -477,6 +554,10 @@ const formatTime = (value: number): string => {
 
 onUnmounted(() => {
   clearSeekUnlockTimer()
+  if (bufferHintTimer !== null) {
+    clearTimeout(bufferHintTimer)
+    bufferHintTimer = null
+  }
   seekGestureLocked.value = false
   resetDragState()
 })
@@ -670,6 +751,16 @@ onUnmounted(() => {
   width: 100%;
 }
 
+/* 三层进度：未缓冲底轨 / 已缓冲 / 已播放。
+ * 注意：不要在容器上默认写 --buffered，否则会继承到 slider，
+ * 导致 var(--buffered, var(--progress)) 永远命中假 0%（破坏 R6 未知缓冲降级）。
+ * --buffered 仅由 progressTrackStyle 在缓冲已知时注入到 slider。
+ */
+.progress-track {
+  position: relative;
+  width: 100%;
+}
+
 .progress-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -686,6 +777,13 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
+/*
+ * 轨道渐变语义：
+ * 0 → --progress：已播放
+ * --progress → --buffered：已缓冲未播放
+ * --buffered → 100%：未缓冲
+ * 当未设置 --buffered 时，--buffered 回落为 --progress，视觉上无独立缓冲层（R6）
+ */
 .progress-slider::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 999px;
@@ -693,8 +791,10 @@ onUnmounted(() => {
     to right,
     rgba(255, 255, 255, 0.92) 0%,
     rgba(255, 255, 255, 0.92) var(--progress, 0%),
-    rgba(255, 255, 255, 0.22) var(--progress, 0%),
-    rgba(255, 255, 255, 0.22) 100%
+    rgba(255, 255, 255, 0.42) var(--progress, 0%),
+    rgba(255, 255, 255, 0.42) var(--buffered, var(--progress, 0%)),
+    rgba(255, 255, 255, 0.18) var(--buffered, var(--progress, 0%)),
+    rgba(255, 255, 255, 0.18) 100%
   );
 }
 
@@ -717,8 +817,10 @@ onUnmounted(() => {
     to right,
     rgba(255, 255, 255, 0.92) 0%,
     rgba(255, 255, 255, 0.92) var(--progress, 0%),
-    rgba(255, 255, 255, 0.22) var(--progress, 0%),
-    rgba(255, 255, 255, 0.22) 100%
+    rgba(255, 255, 255, 0.42) var(--progress, 0%),
+    rgba(255, 255, 255, 0.42) var(--buffered, var(--progress, 0%)),
+    rgba(255, 255, 255, 0.18) var(--buffered, var(--progress, 0%)),
+    rgba(255, 255, 255, 0.18) 100%
   );
 }
 
@@ -734,9 +836,15 @@ onUnmounted(() => {
 .time-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-top: 2px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+.buffer-hint {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
 }
 
 .controls {

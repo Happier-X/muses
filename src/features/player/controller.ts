@@ -22,6 +22,7 @@ const state = reactive<PlayerState>({
   errorMessage: null,
   position: 0,
   duration: 0,
+  bufferedPosition: null,
   lyrics: null,
   coverUri: null,
   metadataStatus: 'idle',
@@ -109,15 +110,39 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   state.position = normalizePlaybackTime(nativeState.position)
   state.duration = normalizePlaybackTime(nativeState.duration)
 
+  // 缓冲：原生上报时单调合并；stop/idle/error 在下方 reset，禁止串曲
+  if (
+    nativeState.bufferedPosition !== undefined
+    && nativeState.status !== 'idle'
+    && nativeState.status !== 'stopped'
+    && nativeState.status !== 'error'
+  ) {
+    const nextBuffered = normalizeBufferedPosition(nativeState.bufferedPosition)
+    if (nextBuffered != null) {
+      const capped = state.duration > 0 ? Math.min(nextBuffered, state.duration) : nextBuffered
+      state.bufferedPosition = Math.max(state.bufferedPosition ?? 0, capped)
+    }
+  }
+
   if (nativeState.status === 'idle' || nativeState.status === 'stopped') {
     state.currentSong = null
     state.position = 0
     state.duration = 0
+    resetBufferState()
     state.lyrics = null
     state.coverUri = null
     state.metadataStatus = 'idle'
     syncMediaSessionState()
     return
+  }
+
+  if (nativeState.status === 'error') {
+    resetBufferState()
+  }
+
+  // duration 晚到：把已有缓冲压回 duration
+  if (state.duration > 0 && state.bufferedPosition != null && state.bufferedPosition > state.duration) {
+    state.bufferedPosition = state.duration
   }
 
   syncMediaSessionState()
@@ -171,6 +196,35 @@ export const initializePlayer = async (): Promise<void> => {
 
 const normalizePlaybackTime = (value: unknown): number => {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
+/** 将原生/业务层缓冲秒数归一；未知或非法 → null（不画假缓冲条）。 */
+const normalizeBufferedPosition = (value: unknown): number | null => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return null
+  }
+  return value
+}
+
+/**
+ * 可 seek 上限：缓冲已知时 min(duration, bufferedPosition)；
+ * 缓冲未知时退化为 duration clamp（R6 降级）。
+ */
+const getMaxSeekablePosition = (): number => {
+  if (state.duration > 0 && state.bufferedPosition != null && state.bufferedPosition >= 0) {
+    return Math.min(state.duration, state.bufferedPosition)
+  }
+  if (state.duration > 0) {
+    return state.duration
+  }
+  if (state.bufferedPosition != null && state.bufferedPosition >= 0) {
+    return state.bufferedPosition
+  }
+  return Number.POSITIVE_INFINITY
+}
+
+const resetBufferState = (): void => {
+  state.bufferedPosition = null
 }
 
 const syncMediaSessionState = (): void => {
@@ -237,6 +291,7 @@ const buildPlayOptions = async (song: SongItem): Promise<PlayOptions> => {
       artist: song.artist,
       album: song.album,
       coverUri: toSafeCoverUri(song.coverUri),
+      duration: song.duration,
     }
   }
 
@@ -253,6 +308,7 @@ const buildPlayOptions = async (song: SongItem): Promise<PlayOptions> => {
     artist: song.artist,
     album: song.album,
     coverUri: toSafeCoverUri(song.coverUri),
+    duration: song.duration,
   }
 }
 
@@ -365,6 +421,8 @@ export const playSong = async (song: SongItem): Promise<void> => {
   state.errorMessage = null
   state.position = 0
   state.duration = normalizePlaybackTime(latestSong.duration)
+  // 切歌先清缓冲，禁止继承上一首（R7）；本地 full / 远程增长由 native 再写入
+  resetBufferState()
   state.lyrics = latestSong.lyrics || null
   state.coverUri = toSafeCoverUri(latestSong.coverUri) || null
   state.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'
@@ -382,6 +440,7 @@ export const playSong = async (song: SongItem): Promise<void> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
     setUserSafeError(isSafePlaybackError(message) ? message : '播放失败，请稍后重试。')
+    resetBufferState()
     // loading 会乐观映射为 playing；播放失败时必须清掉媒体会话，避免残留通知/封面回调。
     void clearMediaSession().catch(() => undefined)
   }
@@ -407,10 +466,25 @@ export const resumePlayback = async (): Promise<void> => {
   }
 }
 
-export const seekPlayback = async (position: number): Promise<void> => {
-  const safePosition = state.duration > 0
-    ? Math.min(normalizePlaybackTime(position), state.duration)
-    : normalizePlaybackTime(position)
+/**
+ * 统一 seek 入口（进度条 / 歌词 / 媒体会话 seekto）。
+ * - 缓冲已知：上限 = min(duration, bufferedPosition)；越界目标不 seek（R2/R3 歌词拒绝）
+ * - 缓冲未知：退化为 duration clamp（R6）
+ * - 返回是否实际发起 seek，供 UI 做轻提示
+ */
+export const seekPlayback = async (position: number): Promise<boolean> => {
+  const requested = normalizePlaybackTime(position)
+  const maxSeekable = getMaxSeekablePosition()
+
+  // 歌词/进度条：目标超出已缓冲区间时拒绝，不发起越界 seek（R3）
+  if (state.bufferedPosition != null && Number.isFinite(maxSeekable) && requested > maxSeekable + 0.05) {
+    return false
+  }
+
+  const safePosition = Number.isFinite(maxSeekable)
+    ? Math.min(requested, maxSeekable)
+    : requested
+
   try {
     statusBeforeSeek = state.status === 'paused' ? 'paused' : 'playing'
     await AudioPlayerNative.seek({ position: safePosition })
@@ -418,8 +492,10 @@ export const seekPlayback = async (position: number): Promise<void> => {
     state.errorMessage = null
     // seek 成功后开启短保护窗，吞掉未缓冲区间触发的伪 finished
     lastSeekAt = Date.now()
+    return true
   } catch {
     setUserSafeError('跳转播放进度失败，请稍后重试。')
+    return false
   }
 }
 
@@ -433,6 +509,7 @@ export const stopPlayback = async (): Promise<void> => {
     state.errorMessage = null
     state.position = 0
     state.duration = 0
+    resetBufferState()
     state.lyrics = null
     state.coverUri = null
     state.metadataStatus = 'idle'
