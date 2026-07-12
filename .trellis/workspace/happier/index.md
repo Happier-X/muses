@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 31
+- **Total Sessions**: 32
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1093 | Active |
+| `journal-1.md` | ~1127 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 32 | 2026-07-12 | 进度条已缓冲区间并限制 seek | `f124f14`, `1f52059` | `main` |
 | 31 | 2026-07-12 | 修复 seek 未完成时误触发下一曲 | `875a1b8`, `2c32adc` | `main` |
 | 30 | 2026-07-12 | 修复沉浸式播放页 open issues #5/#4/#3/#2 | `50fc107`, `0683de6`, `d95fc3b`, `3a15887`, `8062233`, `b325872`, `3c917f4`, `552dbaf` | `main` |
 | 29 | 2026-07-12 | 修复切歌时媒体通知封面不更新 | `2f9fa16`, `6a40e07` | `main` |
