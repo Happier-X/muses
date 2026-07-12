@@ -1,7 +1,7 @@
 <template>
   <div
     class="player-overlay"
-    @touchstart="onTouchStart"
+    @touchstart.passive="onTouchStart"
     @touchmove="onTouchMove"
     @touchend="onTouchEnd"
     @touchcancel="onTouchEnd"
@@ -11,36 +11,35 @@
       :class="{ 'is-dragging': isDraggingVertically }"
       :style="{ transform: `translateY(${dragOffsetY}px)` }"
     >
-        <div v-if="hasLyrics" class="amll-background">
-          <BackgroundRender
-            class="amll-background-render"
-            :album="coverSrc || undefined"
-            :album-is-video="false"
-            :flow-speed="2"
-            :has-lyric="hasLyrics"
-            :renderer="meshGradientRenderer"
-          />
-        </div>
-        <div class="fallback-background" />
+      <div v-if="hasLyrics" class="amll-background">
+        <BackgroundRender
+          class="amll-background-render"
+          :album="coverSrc || undefined"
+          :album-is-video="false"
+          :flow-speed="2"
+          :has-lyric="hasLyrics"
+          :renderer="meshGradientRenderer"
+        />
+      </div>
+      <div class="fallback-background" />
 
-        <header class="player-header">
-          <span>正在播放</span>
-        </header>
+      <section v-if="!playerState.currentSong" class="empty-state">
+        <div class="placeholder-cover">♪</div>
+        <h1>暂无播放歌曲</h1>
+        <p>从歌曲列表选择一首音乐后，即可进入沉浸式播放。</p>
+      </section>
 
-        <section v-if="!playerState.currentSong" class="empty-state">
-          <div class="placeholder-cover">♪</div>
-          <h1>暂无播放歌曲</h1>
-          <p>从歌曲列表选择一首音乐后，即可进入沉浸式播放。</p>
-        </section>
-
-        <div
-          v-else
-          class="panels"
-          :style="{ transform: `translateX(-${activePanel * 50}%)` }"
-        >
-          <section class="panel info-panel" aria-label="播放控制页">
-            <img v-if="coverSrc" class="cover" :src="coverSrc" alt="歌曲封面" />
-            <div v-else class="cover placeholder-cover">♪</div>
+      <div
+        v-else
+        class="panels"
+        :style="{ transform: `translateX(-${activePanel * 50}%)` }"
+      >
+        <section class="panel info-panel" aria-label="播放控制页">
+          <div class="info-panel-inner">
+            <div class="cover-slot">
+              <img v-if="coverSrc" class="cover" :src="coverSrc" alt="歌曲封面" />
+              <div v-else class="cover placeholder-cover">♪</div>
+            </div>
 
             <div class="song-info">
               <h1>{{ playerState.currentSong.title }}</h1>
@@ -58,6 +57,7 @@
                 step="0.1"
                 :value="playerState.position"
                 :disabled="!canSeek"
+                :style="{ '--progress': progressPercent }"
                 aria-label="播放进度"
                 @change="onSeek"
               />
@@ -71,7 +71,15 @@
               <ion-button fill="clear" color="light" shape="round" aria-label="上一曲" @click="onPrevious">
                 <ion-icon slot="icon-only" :icon="previousIcon" />
               </ion-button>
-              <ion-button class="play-toggle" fill="solid" color="light" shape="round" :disabled="playerState.status === 'loading'" aria-label="播放或暂停" @click="togglePlayback">
+              <ion-button
+                class="play-toggle"
+                fill="solid"
+                color="light"
+                shape="round"
+                :disabled="playerState.status === 'loading'"
+                aria-label="播放或暂停"
+                @click="togglePlayback"
+              >
                 <ion-icon slot="icon-only" :icon="isPlaying ? pause : play" />
               </ion-button>
               <ion-button fill="clear" color="light" shape="round" aria-label="下一曲" @click="onNext">
@@ -82,48 +90,52 @@
             <div class="mode-bar">
               <ion-button
                 fill="clear"
-                size="small"
                 color="light"
+                shape="round"
+                class="mode-button"
+                :class="{ 'is-active': queueState.repeatMode === 'one' }"
                 :aria-label="repeatModeLabel"
                 @click="onToggleRepeat"
               >
-                <ion-icon slot="start" :icon="repeatIcon" />
-                {{ repeatModeLabel }}
+                <ion-icon slot="icon-only" :icon="repeatIcon" />
               </ion-button>
 
               <ion-button
                 fill="clear"
-                size="small"
                 color="light"
+                shape="round"
+                class="mode-button"
+                :class="{ 'is-active': queueState.shuffleEnabled }"
                 :aria-label="shuffleModeLabel"
                 @click="onToggleShuffle"
               >
-                <ion-icon slot="start" :icon="shuffleIcon" />
-                {{ shuffleModeLabel }}
+                <ion-icon slot="icon-only" :icon="shuffleIcon" />
               </ion-button>
 
               <ion-button
                 fill="clear"
-                size="small"
                 color="light"
+                shape="round"
+                class="mode-button"
                 aria-label="播放队列"
                 @click="goToQueue"
               >
                 <ion-icon slot="icon-only" :icon="listIcon" />
               </ion-button>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section class="panel lyric-panel" aria-label="歌词页">
-            <template v-if="hasLyrics">
-              <LyricPlayer class="lyric-player" :lyric-lines="lyricLines" :current-time="playerState.position * 1000" />
-            </template>
-            <div v-else class="lyric-empty">
-              <h2>暂无歌词</h2>
-              <p>当前歌曲没有内嵌歌词，也没有找到同目录同名 .lrc 文件。</p>
-            </div>
-          </section>
-        </div>
+        <section class="panel lyric-panel" aria-label="歌词页">
+          <template v-if="hasLyrics">
+            <LyricPlayer class="lyric-player" :lyric-lines="lyricLines" :current-time="playerState.position * 1000" />
+          </template>
+          <div v-else class="lyric-empty">
+            <h2>暂无歌词</h2>
+            <p>当前歌曲没有内嵌歌词，也没有找到同目录同名 .lrc 文件。</p>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 </template>
@@ -140,6 +152,7 @@ import { parseLrc } from '@applemusic-like-lyrics/lyric'
 import '@applemusic-like-lyrics/core/style.css'
 import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousFromQueue, queueState, resumePlayback, seekPlayback, setRepeatMode, toggleShuffle } from '@/features/player/controller'
 import { closePlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
+
 const activePanel = ref(0)
 const touchStartX = ref<number | null>(null)
 const touchStartY = ref<number | null>(null)
@@ -201,6 +214,14 @@ const lyricLines = computed<LyricLine[]>(() => {
 const hasLyrics = computed(() => lyricLines.value.length > 0)
 const canSeek = computed(() => playerState.duration > 0)
 const durationForSlider = computed(() => playerState.duration || 1)
+const progressPercent = computed(() => {
+  const duration = durationForSlider.value
+  if (duration <= 0) {
+    return '0%'
+  }
+  const ratio = Math.min(1, Math.max(0, playerState.position / duration))
+  return `${ratio * 100}%`
+})
 
 const resetDragState = () => {
   touchStartX.value = null
@@ -245,6 +266,11 @@ const onTouchMove = (event: TouchEvent) => {
     return
   }
 
+  // 进度条需要原生拖动；其余区域一律拦截默认滚动，防止穿透到底层歌曲列表。
+  if (!isNativeInteractiveTarget(event.target)) {
+    event.preventDefault()
+  }
+
   const deltaX = touch.clientX - startX
   const deltaY = touch.clientY - startY
 
@@ -259,10 +285,14 @@ const onTouchMove = (event: TouchEvent) => {
   const nextOffset = Math.max(0, deltaY)
   dragOffsetY.value = nextOffset
   isDraggingVertically.value = nextOffset > 0
+}
 
-  if (nextOffset > 0) {
-    event.preventDefault()
+const isNativeInteractiveTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof Element)) {
+    return false
   }
+
+  return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
 }
 
 const onTouchEnd = (event: TouchEvent) => {
@@ -341,12 +371,16 @@ onUnmounted(() => {
   inset: 0;
   z-index: 1100;
   overflow: hidden;
+  overscroll-behavior: none;
+  /* 手势统一由脚本处理，避免浏览器把垂直滑动交给底层 ion-content。 */
+  touch-action: none;
   color: #fff;
 }
 
 .immersive-shell {
   position: relative;
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
   background: #05070d;
   transition: transform 220ms ease;
@@ -378,27 +412,25 @@ onUnmounted(() => {
 
 .fallback-background {
   z-index: 0;
-  background: radial-gradient(circle at top, rgba(122, 92, 255, 0.35), transparent 35%), linear-gradient(160deg, #15192a, #05070d 70%);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(148, 120, 255, 0.28), transparent 42%),
+    linear-gradient(165deg, #171b2b 0%, #0a0c14 48%, #05070d 100%);
 }
 
 .amll-background + .fallback-background {
   opacity: 0;
 }
 
-.player-header {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: calc(18px + var(--ion-safe-area-top, 0px)) 16px 10px;
-  font-weight: 700;
-}
-
 .empty-state,
 .panel {
-  min-height: calc(100dvh - 84px);
-  padding: 24px;
+  box-sizing: border-box;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  padding:
+    calc(16px + var(--ion-safe-area-top, 0px))
+    24px
+    calc(16px + var(--ion-safe-area-bottom, 0px));
 }
 
 .empty-state,
@@ -411,13 +443,31 @@ onUnmounted(() => {
   text-align: center;
 }
 
+.info-panel {
+  justify-content: stretch;
+}
+
+.info-panel-inner {
+  width: min(100%, 420px);
+  height: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .panels {
   position: relative;
   z-index: 1;
   display: flex;
   width: 200%;
-  min-height: calc(100dvh - 84px);
-  overflow: visible;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
   transition: transform 220ms ease;
 }
 
@@ -427,12 +477,25 @@ onUnmounted(() => {
   flex: 0 0 50%;
 }
 
+.cover-slot {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  max-height: min(52dvh, 340px);
+}
+
 .cover {
-  width: min(72vw, 320px);
+  width: min(72vw, 100%, 340px);
+  max-width: 100%;
+  max-height: 100%;
   aspect-ratio: 1;
-  border-radius: 28px;
+  height: auto;
+  border-radius: clamp(18px, 4vw, 28px);
   object-fit: cover;
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
 }
 
 .placeholder-cover {
@@ -440,66 +503,174 @@ onUnmounted(() => {
   place-items: center;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
   color: rgba(255, 255, 255, 0.8);
-  font-size: 72px;
+  font-size: clamp(48px, 12vw, 72px);
 }
 
 .song-info {
+  flex: 0 0 auto;
   width: 100%;
-  margin: 28px 0 18px;
+  margin: 0;
+  text-align: left;
+  min-width: 0;
 }
 
 .song-info h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
+  margin: 0 0 4px;
+  font-size: clamp(20px, 5.6vw, 28px);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .song-info p,
 .song-info small,
 .time-row {
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.song-info p {
+  margin: 0;
+  font-size: clamp(13px, 3.6vw, 15px);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song-info small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .progress-area {
-  width: min(86vw, 420px);
+  flex: 0 0 auto;
+  width: 100%;
 }
 
 .progress-slider {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.progress-slider:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.progress-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(255, 255, 255, 0.92) var(--progress, 0%),
+    rgba(255, 255, 255, 0.22) var(--progress, 0%),
+    rgba(255, 255, 255, 0.22) 100%
+  );
+}
+
+.progress-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+}
+
+.progress-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(255, 255, 255, 0.92) var(--progress, 0%),
+    rgba(255, 255, 255, 0.22) var(--progress, 0%),
+    rgba(255, 255, 255, 0.22) 100%
+  );
+}
+
+.progress-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
 }
 
 .time-row {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  margin-top: 2px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .controls {
+  flex: 0 0 auto;
   display: flex;
-  gap: 18px;
-  margin-top: 24px;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 5vw, 28px);
+  width: 100%;
+  margin: 0;
 }
 
 .controls ion-button {
-  width: 50px;
-  height: 50px;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 52px;
+  height: 52px;
+  margin: 0;
+  font-size: 26px;
 }
 
 .controls .play-toggle {
-  width: 64px;
-  height: 64px;
+  width: 68px;
+  height: 68px;
+  font-size: 30px;
+  --box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
 }
 
 .mode-bar {
+  flex: 0 0 auto;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  gap: 4px;
-  margin-top: 16px;
+  width: 100%;
+  max-width: 280px;
+  margin: 0;
 }
 
 .mode-bar ion-button {
-  --color: rgba(255, 255, 255, 0.8);
-  font-size: 12px;
+  --padding-start: 0;
+  --padding-end: 0;
+  --color: rgba(255, 255, 255, 0.58);
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  font-size: 20px;
+}
+
+.mode-bar .mode-button.is-active {
+  --color: #ffffff;
 }
 
 .lyric-panel {
@@ -512,19 +683,15 @@ onUnmounted(() => {
 .lyric-player {
   display: block;
   width: 100%;
-  height: 70dvh;
-  min-height: 420px;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
 }
 
-.lyric-empty pre {
-  max-width: 88vw;
-  max-height: 48dvh;
-  overflow: auto;
-  padding: 16px;
-  border-radius: 16px;
-  text-align: left;
-  white-space: pre-wrap;
-  background: rgba(255, 255, 255, 0.1);
+.lyric-empty {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 @media (min-width: 768px) {
@@ -532,35 +699,79 @@ onUnmounted(() => {
     width: auto;
     display: flex;
     flex-direction: row;
-    min-height: 0;
+    height: 100%;
     overflow: hidden;
     transform: none !important;
   }
+
   .panel {
     flex: 1;
     width: auto;
     min-width: 0;
     min-height: 0;
   }
+
   .info-panel {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px 16px;
+    padding: 24px;
   }
+
+  .info-panel-inner {
+    height: 100%;
+    max-height: 100%;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .cover-slot {
+    max-height: min(48dvh, 320px);
+  }
+
+  .cover {
+    width: min(40vw, 320px);
+  }
+
+  .song-info {
+    text-align: center;
+  }
+
   .lyric-panel {
     display: flex;
     flex-direction: column;
     justify-content: center;
   }
-  .cover {
-    width: min(40%, 320px);
-  }
+
   .lyric-player {
     flex: 1;
-    min-height: 200px;
+    min-height: 0;
     height: auto;
+  }
+}
+
+@media (max-height: 720px) {
+  .controls ion-button {
+    width: 46px;
+    height: 46px;
+    font-size: 22px;
+  }
+
+  .controls .play-toggle {
+    width: 58px;
+    height: 58px;
+    font-size: 26px;
+  }
+
+  .mode-bar ion-button {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .cover-slot {
+    max-height: min(42dvh, 260px);
   }
 }
 </style>

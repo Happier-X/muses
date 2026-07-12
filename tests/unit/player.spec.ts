@@ -69,6 +69,22 @@ vi.mock('@aparajita/capacitor-secure-storage', () => ({
   },
 }))
 
+vi.mock('@capgo/capacitor-media-session', () => ({
+  MediaSession: {
+    setMetadata: vi.fn().mockResolvedValue(undefined),
+    setPlaybackState: vi.fn().mockResolvedValue(undefined),
+    setPositionState: vi.fn().mockResolvedValue(undefined),
+    setActionHandler: vi.fn().mockResolvedValue(undefined),
+  },
+}))
+
+vi.mock('@capacitor/app', () => ({
+  App: {
+    addListener: vi.fn().mockResolvedValue({ remove: vi.fn() }),
+    minimizeApp: vi.fn().mockResolvedValue(undefined),
+  },
+}))
+
 const localSong: SongItem = {
   id: 'song-local',
   sourceId: 'source-local',
@@ -284,16 +300,24 @@ describe('迷你播放器', () => {
     expect(wrapper.text()).toContain('本地歌曲')
     expect(wrapper.text()).toContain('本地歌手')
 
+    const { playerOverlayVisible, closePlayerOverlay, queueOverlayVisible, closeQueueOverlay } = await import('@/features/player/overlay')
+    closePlayerOverlay()
+    expect(playerOverlayVisible.value).toBe(false)
+
     await wrapper.trigger('click')
-    expect(routerPush).toHaveBeenCalledWith('/player')
-    routerPush.mockClear()
+    expect(playerOverlayVisible.value).toBe(true)
+    expect(routerPush).not.toHaveBeenCalled()
+    closePlayerOverlay()
 
     await wrapper.get('button[aria-label="暂停播放"]').trigger('click')
     expect(nativePlayer.pause).toHaveBeenCalled()
+    expect(playerOverlayVisible.value).toBe(false)
     expect(routerPush).not.toHaveBeenCalled()
 
-    await wrapper.get('button[aria-label="停止播放"]').trigger('click')
-    expect(nativePlayer.stop).toHaveBeenCalled()
+    await wrapper.get('button[aria-label="打开播放队列"]').trigger('click')
+    expect(queueOverlayVisible.value).toBe(true)
+    expect(routerPush).not.toHaveBeenCalled()
+    closeQueueOverlay()
   })
 })
 
@@ -303,7 +327,7 @@ describe('沉浸式播放页', () => {
     localStorage.clear()
   })
 
-  test('没有当前歌曲时展示空状态和返回入口', () => {
+  test('没有当前歌曲时展示空状态', () => {
     const wrapper = mount(PlayerPage, {
       global: {
         stubs: {
@@ -316,7 +340,8 @@ describe('沉浸式播放页', () => {
     })
 
     expect(wrapper.text()).toContain('暂无播放歌曲')
-    expect(wrapper.text()).toContain('返回')
+    expect(wrapper.text()).not.toContain('正在播放')
+    expect(wrapper.text()).not.toContain('返回')
   })
 
   test('展示当前歌曲、控制按钮、无歌词状态并传递 seek 参数', async () => {
@@ -362,12 +387,15 @@ describe('沉浸式播放页', () => {
 
     expect(wrapper.text()).toContain('本地歌曲')
     expect(wrapper.text()).toContain('暂无歌词')
-    expect(wrapper.text()).toContain('列表循环')
-    expect(wrapper.text()).toContain('顺序播放')
+    expect(wrapper.text()).not.toContain('正在播放')
+    expect(wrapper.text()).not.toContain('列表循环')
+    expect(wrapper.text()).not.toContain('顺序播放')
     expect(wrapper.get('img[alt="歌曲封面"]').attributes('src')).toBe('webview:file:///cover.jpg')
     expect(wrapper.find('button[aria-label="上一曲"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="下一曲"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="播放或暂停"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="列表循环"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="顺序播放"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="播放队列"]').exists()).toBe(true)
 
     const slider = wrapper.get('input[aria-label="播放进度"]')
@@ -442,10 +470,11 @@ describe('应用壳', () => {
     localStorage.clear()
   })
 
-  test('沉浸式播放页不展示底部迷你播放条', async () => {
+  test('打开沉浸式播放页时迷你播放条保持挂载并禁用交互', async () => {
     const { playSong } = await import('@/features/player/controller')
+    const { openPlayerOverlay, closePlayerOverlay } = await import('@/features/player/overlay')
     await playSong(localSong)
-    routeState.path = '/player'
+    openPlayerOverlay()
 
     const wrapper = mount(App, {
       global: {
@@ -456,7 +485,9 @@ describe('应用壳', () => {
       },
     })
 
-    expect(wrapper.find('.mini-player').exists()).toBe(false)
+    expect(wrapper.find('.mini-player').exists()).toBe(true)
+    expect(wrapper.find('.app-mini-player').classes()).toContain('is-overlay-active')
+    closePlayerOverlay()
   })
 })
 
