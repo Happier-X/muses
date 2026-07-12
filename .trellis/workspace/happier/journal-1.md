@@ -983,3 +983,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 29: 修复切歌时媒体通知封面不更新
+
+**Date**: 2026-07-12
+**Task**: 修复切歌时媒体通知封面不更新
+**Branch**: `main`
+
+### Summary
+
+修复 Issue #1：空 artwork 数组无法清旧封面，改用 1x1 占位 data: 强制覆盖；懒扫描补封面后 re-sync 媒体会话；file:// 优先 FileInputStream；补充单测与 features-player 约定并关闭 issue。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2f9fa16` | (see git log) |
+| `6a40e07` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

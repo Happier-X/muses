@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 28
+- **Total Sessions**: 29
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~985 | Active |
+| `journal-1.md` | ~1019 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 29 | 2026-07-12 | 修复切歌时媒体通知封面不更新 | `2f9fa16`, `6a40e07` | `main` |
 | 28 | 2026-07-12 | 无歌曲时禁用打开沉浸式播放页 | `53fc9f0`, `17f5290` | `main` |
 | 27 | 2026-07-12 | 歌词页 AMLL 视觉复刻 | `78d71bb`, `70e6038` | `main` |
 | 26 | 2026-07-12 | 沉浸式播放页 UI 复刻 | `47b56e6`, `2b22377`, `3c6c717` | `main` |
