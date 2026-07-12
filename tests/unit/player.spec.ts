@@ -1271,7 +1271,182 @@ describe('播放队列与循环/随机模式', () => {
     expect(nativePlayer.play).toHaveBeenCalledWith(expect.objectContaining({ songId: 'song-local' }))
   })
 
-  test('applyNativeState 接收 finished 后调用 advanceToNext 自动播下一首', async () => {
+  test('applyNativeState 接收接近结尾的 finished 后调用 advanceToNext 自动播下一首', async () => {
+    vi.resetModules()
+    const secondLocalSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }, secondLocalSong]))
+    const { enqueueSongs, initializePlayer, playSong, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
+    enqueueSongs([{ ...localSong, duration: 180 }, secondLocalSong])
+
+    await playSong({ ...localSong, duration: 180 })
+    expect(playerState.currentSong?.id).toBe('song-local')
+
+    // 模拟 ExoPlayer 自然结束：进度接近结尾
+    const listenerCalls = nativePlayer.addListener.mock.calls
+    expect(listenerCalls.length).toBeGreaterThan(0)
+    const stateChangeCallback = listenerCalls[0][1] as (state: unknown) => void
+
+    stateChangeCallback({
+      status: 'finished',
+      currentSongId: 'song-local',
+      position: 179.5,
+      duration: 180,
+    })
+
+    await vi.waitFor(() => {
+      expect(nativePlayer.play).toHaveBeenCalledTimes(2)
+    }, { timeout: 1000 })
+
+    expect(nativePlayer.play).toHaveBeenCalledWith(expect.objectContaining({
+      songId: 'song-local-2',
+    }))
+  })
+
+  test('finished 且队列为空时调用 stopPlayback', async () => {
+    vi.resetModules()
+    const { clearQueue, initializePlayer, playSong, playerState } = await import('@/features/player/controller')
+    clearQueue()
+    await initializePlayer()
+
+    await playSong({ ...localSong, duration: 180 })
+    expect(playerState.currentSong?.id).toBe('song-local')
+
+    const listenerCalls = nativePlayer.addListener.mock.calls
+    const stateChangeCallback = listenerCalls[0][1] as (state: unknown) => void
+
+    stateChangeCallback({
+      status: 'finished',
+      currentSongId: 'song-local',
+      position: 179.8,
+      duration: 180,
+    })
+
+    await vi.waitFor(() => {
+      expect(playerState.status).toBe('stopped')
+    }, { timeout: 2000 })
+
+    expect(playerState.currentSong).toBeNull()
+  })
+
+  test('seek 后立刻收到 finished 不会切到下一曲', async () => {
+    vi.resetModules()
+    const secondLocalSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }, secondLocalSong]))
+    const {
+      enqueueSongs,
+      initializePlayer,
+      playSong,
+      playerState,
+      seekPlayback,
+    } = await import('@/features/player/controller')
+    await initializePlayer()
+    enqueueSongs([{ ...localSong, duration: 180 }, secondLocalSong])
+    await playSong({ ...localSong, duration: 180 })
+
+    nativePlayer.play.mockClear()
+    await seekPlayback(90)
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
+    // 模拟 seek 到未缓冲区间后插件伪报 ENDED/complete
+    stateChangeCallback({
+      status: 'finished',
+      currentSongId: 'song-local',
+      position: 0,
+      duration: 180,
+    })
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(nativePlayer.play).not.toHaveBeenCalled()
+    expect(playerState.currentSong?.id).toBe('song-local')
+    expect(playerState.status).toBe('playing')
+    expect(playerState.position).toBe(90)
+  })
+
+  test('接近结尾的 finished 仍自动下一曲', async () => {
+    vi.resetModules()
+    const secondLocalSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 200 }, secondLocalSong]))
+    const { enqueueSongs, initializePlayer, playSong, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
+    enqueueSongs([{ ...localSong, duration: 200 }, secondLocalSong])
+    await playSong({ ...localSong, duration: 200 })
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
+    stateChangeCallback({
+      status: 'finished',
+      currentSongId: 'song-local',
+      position: 199,
+      duration: 200,
+    })
+
+    await vi.waitFor(() => {
+      expect(playerState.currentSong?.id).toBe('song-local-2')
+    }, { timeout: 1000 })
+  })
+
+  test('歌词点击 seek 后 finished 不切歌（与进度条共用保护）', async () => {
+    vi.resetModules()
+    const secondLocalSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }, secondLocalSong]))
+    const {
+      enqueueSongs,
+      initializePlayer,
+      playSong,
+      playerState,
+      seekPlayback,
+    } = await import('@/features/player/controller')
+    await initializePlayer()
+    enqueueSongs([{ ...localSong, duration: 180 }, secondLocalSong])
+    await playSong({ ...localSong, duration: 180 })
+
+    // 歌词点击与进度条都走 seekPlayback
+    nativePlayer.play.mockClear()
+    await seekPlayback(5)
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
+    stateChangeCallback({
+      status: 'finished',
+      currentSongId: 'song-local',
+      position: 5,
+      duration: 180,
+    })
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(nativePlayer.play).not.toHaveBeenCalled()
+    expect(playerState.currentSong?.id).toBe('song-local')
+    expect(playerState.status).toBe('playing')
+  })
+
+  test('duration 为 0 时 finished 不自动 advance', async () => {
     vi.resetModules()
     const secondLocalSong: SongItem = {
       ...localSong,
@@ -1284,16 +1459,10 @@ describe('播放队列与循环/随机模式', () => {
     const { enqueueSongs, initializePlayer, playSong, playerState } = await import('@/features/player/controller')
     await initializePlayer()
     enqueueSongs([localSong, secondLocalSong])
-
     await playSong(localSong)
-    expect(playerState.currentSong?.id).toBe('song-local')
 
-    // 模拟 ExoPlayer 结束事件：调用 addListener 注册的回调
-    const listenerCalls = nativePlayer.addListener.mock.calls
-    expect(listenerCalls.length).toBeGreaterThan(0)
-    const stateChangeCallback = listenerCalls[0][1] as (state: unknown) => void
-
-    // 广播 finished 事件
+    nativePlayer.play.mockClear()
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
     stateChangeCallback({
       status: 'finished',
       currentSongId: 'song-local',
@@ -1301,40 +1470,129 @@ describe('播放队列与循环/随机模式', () => {
       duration: 0,
     })
 
-    // 等待异步处理
-    await vi.waitFor(() => {
-      expect(nativePlayer.play).toHaveBeenCalledTimes(2)
-    }, { timeout: 1000 })
+    await Promise.resolve()
+    await Promise.resolve()
 
-    // 第二首应该已经播了
-    expect(nativePlayer.play).toHaveBeenCalledWith(expect.objectContaining({
-      songId: 'song-local-2',
-    }))
+    expect(nativePlayer.play).not.toHaveBeenCalled()
+    expect(playerState.currentSong?.id).toBe('song-local')
   })
 
-  test('finished 且队列为空时调用 stopPlayback', async () => {
+  test('seek 到接近结尾后保护窗内 finished 仍不切歌', async () => {
     vi.resetModules()
-    const { clearQueue, initializePlayer, playSong, playerState } = await import('@/features/player/controller')
-    clearQueue()
+    const secondLocalSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }, secondLocalSong]))
+    const {
+      enqueueSongs,
+      initializePlayer,
+      playSong,
+      playerState,
+      seekPlayback,
+    } = await import('@/features/player/controller')
     await initializePlayer()
+    enqueueSongs([{ ...localSong, duration: 180 }, secondLocalSong])
+    await playSong({ ...localSong, duration: 180 })
 
-    await playSong(localSong)
+    nativePlayer.play.mockClear()
+    // 最后 1s 歌词点击：near-end 为真，但保护窗优先
+    await seekPlayback(179.2)
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
+    stateChangeCallback({
+      status: 'finished',
+      currentSongId: 'song-local',
+      position: 179.2,
+      duration: 180,
+    })
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(nativePlayer.play).not.toHaveBeenCalled()
     expect(playerState.currentSong?.id).toBe('song-local')
+  })
 
-    const listenerCalls = nativePlayer.addListener.mock.calls
-    const stateChangeCallback = listenerCalls[0][1] as (state: unknown) => void
+  test('paused 状态下 seek 后伪 finished 恢复为 paused 且不切歌', async () => {
+    vi.resetModules()
+    const secondLocalSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }, secondLocalSong]))
+    const {
+      enqueueSongs,
+      initializePlayer,
+      pausePlayback,
+      playSong,
+      playerState,
+      seekPlayback,
+    } = await import('@/features/player/controller')
+    await initializePlayer()
+    enqueueSongs([{ ...localSong, duration: 180 }, secondLocalSong])
+    await playSong({ ...localSong, duration: 180 })
+    await pausePlayback()
+    expect(playerState.status).toBe('paused')
 
+    nativePlayer.play.mockClear()
+    await seekPlayback(60)
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
     stateChangeCallback({
       status: 'finished',
       currentSongId: 'song-local',
       position: 0,
-      duration: 0,
+      duration: 180,
+    })
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(nativePlayer.play).not.toHaveBeenCalled()
+    expect(playerState.currentSong?.id).toBe('song-local')
+    expect(playerState.status).toBe('paused')
+    expect(playerState.position).toBe(60)
+  })
+
+  test('finished 事件 position 为 0 但 state 已接近结尾时仍自动下一曲', async () => {
+    vi.resetModules()
+    const secondLocalSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }, secondLocalSong]))
+    const { enqueueSongs, initializePlayer, playSong, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
+    enqueueSongs([{ ...localSong, duration: 180 }, secondLocalSong])
+    await playSong({ ...localSong, duration: 180 })
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
+    // 先同步进度到接近结尾，再模拟 complete 把 position 回写成 0
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      position: 179.4,
+      duration: 180,
+    })
+    stateChangeCallback({
+      status: 'finished',
+      currentSongId: 'song-local',
+      position: 0,
+      duration: 180,
     })
 
     await vi.waitFor(() => {
-      expect(playerState.status).toBe('stopped')
-    }, { timeout: 2000 })
-
-    expect(playerState.currentSong).toBeNull()
+      expect(playerState.currentSong?.id).toBe('song-local-2')
+    }, { timeout: 1000 })
   })
 })

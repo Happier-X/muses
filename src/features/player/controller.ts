@@ -29,9 +29,35 @@ const state = reactive<PlayerState>({
 
 let nativeListenerReady = false
 let metadataScanToken = 0
+/** 用户主动 seek 后的时间戳；用于忽略 seek 到未缓冲区间触发的伪 finished */
+let lastSeekAt = 0
+/** seek 前的播放态，伪 finished 时按此恢复，避免误 advance */
+let statusBeforeSeek: 'playing' | 'paused' = 'playing'
 
 const LOCAL_METADATA_SCAN_TIMEOUT_MS = 15_000
 const WEBDAV_METADATA_SCAN_TIMEOUT_MS = 120_000
+/** seek 后短保护窗：此期间 finished 一律视为伪结束，不自动切歌 */
+const SEEK_FINISH_GUARD_MS = 1500
+/** 判定自然播完的进度容差（秒） */
+const NATURAL_END_EPSILON_SEC = 1.25
+
+const clearSeekGuard = (): void => {
+  lastSeekAt = 0
+}
+
+const isWithinSeekGuard = (): boolean => {
+  return lastSeekAt > 0 && Date.now() - lastSeekAt < SEEK_FINISH_GUARD_MS
+}
+
+const isNearNaturalEnd = (position: number, duration: number): boolean => {
+  // duration 未知时保守：不视为自然结束，避免远程未就绪时误切歌
+  return duration > 0 && position >= duration - NATURAL_END_EPSILON_SEC
+}
+
+/** 非自然结束的 finished 不得 advance（seek 保护窗优先，即便目标靠近结尾） */
+const shouldIgnoreFinished = (position: number, duration: number): boolean => {
+  return isWithinSeekGuard() || !isNearNaturalEnd(position, duration)
+}
 
 const setUserSafeError = (message: string) => {
   state.status = 'error'
@@ -44,6 +70,37 @@ const isCurrentNativeState = (nativeState: AudioPlayerNativeState): boolean => {
 
 const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   if (!isCurrentNativeState(nativeState)) {
+    return
+  }
+
+  // finished 需先做「自然结束」判定：seek 到未缓冲区间时插件可能伪报 complete/ENDED。
+  if (nativeState.status === 'finished') {
+    const nativePosition = normalizePlaybackTime(nativeState.position)
+    const nativeDuration = normalizePlaybackTime(nativeState.duration) || state.duration
+    // 保护窗内保留 seek 目标进度；窗外取 native/state 较大值，
+    // 避免 complete 事件 position 回 0 时误判「未接近结尾」而吞掉真实播完。
+    const effectivePosition = isWithinSeekGuard()
+      ? state.position
+      : Math.max(nativePosition, state.position)
+    const effectiveDuration = nativeDuration
+
+    if (shouldIgnoreFinished(effectivePosition, effectiveDuration)) {
+      if (!isWithinSeekGuard() && nativePosition > 0) {
+        state.position = nativePosition
+      }
+      state.duration = effectiveDuration
+      state.status = isWithinSeekGuard() ? statusBeforeSeek : 'paused'
+      state.errorMessage = null
+      syncMediaSessionState()
+      return
+    }
+
+    state.status = 'finished'
+    state.errorMessage = null
+    state.position = effectivePosition
+    state.duration = effectiveDuration
+    syncMediaSessionState()
+    void handlePlaybackFinished()
     return
   }
 
@@ -64,10 +121,6 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   }
 
   syncMediaSessionState()
-
-  if (nativeState.status === 'finished') {
-    void handlePlaybackFinished()
-  }
 }
 
 const handlePlaybackFinished = async (): Promise<void> => {
@@ -303,6 +356,8 @@ export const playSong = async (song: SongItem): Promise<void> => {
   const latestSong = getLatestSongSnapshot(song)
 
   syncCurrentIndex(latestSong.id)
+  // 切歌清理 seek 保护，避免新歌首帧误吞真实 finished
+  clearSeekGuard()
 
   state.status = 'loading'
   metadataScanToken += 1
@@ -357,9 +412,12 @@ export const seekPlayback = async (position: number): Promise<void> => {
     ? Math.min(normalizePlaybackTime(position), state.duration)
     : normalizePlaybackTime(position)
   try {
+    statusBeforeSeek = state.status === 'paused' ? 'paused' : 'playing'
     await AudioPlayerNative.seek({ position: safePosition })
     state.position = safePosition
     state.errorMessage = null
+    // seek 成功后开启短保护窗，吞掉未缓冲区间触发的伪 finished
+    lastSeekAt = Date.now()
   } catch {
     setUserSafeError('跳转播放进度失败，请稍后重试。')
   }
@@ -368,6 +426,7 @@ export const seekPlayback = async (position: number): Promise<void> => {
 export const stopPlayback = async (): Promise<void> => {
   try {
     await AudioPlayerNative.stop()
+    clearSeekGuard()
     metadataScanToken += 1
     state.status = 'stopped'
     state.currentSong = null
