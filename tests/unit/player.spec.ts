@@ -322,6 +322,46 @@ describe('迷你播放器', () => {
     expect(routerPush).not.toHaveBeenCalled()
     closeQueueOverlay()
   })
+
+  test('无当前歌曲时点击或键盘操作主体不打开沉浸式播放页', async () => {
+    const wrapper = mount(MiniPlayer, {
+      global: {
+        stubs: {
+          IonButton: {
+            props: ['disabled'],
+            template: '<button :aria-label="$attrs[\'aria-label\']" :disabled="disabled" @click="$emit(\'click\', $event)"><slot /></button>',
+          },
+          IonIcon: true,
+        },
+      },
+    })
+
+    const { playerOverlayVisible, closePlayerOverlay, queueOverlayVisible, closeQueueOverlay } = await import('@/features/player/overlay')
+    closePlayerOverlay()
+    expect(playerOverlayVisible.value).toBe(false)
+
+    expect(wrapper.text()).toContain('暂无播放歌曲')
+    expect(wrapper.attributes('aria-disabled')).toBe('true')
+    expect(wrapper.classes()).toContain('is-empty')
+
+    await wrapper.trigger('click')
+    expect(playerOverlayVisible.value).toBe(false)
+
+    await wrapper.trigger('keyup.enter')
+    expect(playerOverlayVisible.value).toBe(false)
+
+    await wrapper.trigger('keyup.space')
+    expect(playerOverlayVisible.value).toBe(false)
+    expect(routerPush).not.toHaveBeenCalled()
+
+    const playButton = wrapper.get('button[aria-label="继续播放"]')
+    expect(playButton.attributes('disabled')).toBeDefined()
+
+    await wrapper.get('button[aria-label="打开播放队列"]').trigger('click')
+    expect(queueOverlayVisible.value).toBe(true)
+    expect(routerPush).not.toHaveBeenCalled()
+    closeQueueOverlay()
+  })
 })
 
 describe('沉浸式播放页', () => {

@@ -1,9 +1,11 @@
 <template>
   <div
     class="mini-player"
+    :class="{ 'is-empty': !playerState.currentSong }"
     role="button"
     tabindex="0"
     aria-label="打开沉浸式播放器"
+    :aria-disabled="!playerState.currentSong"
     @click="openPlayerPage"
     @keyup.enter="openPlayerPage"
     @keyup.space="openPlayerPage"
@@ -69,6 +71,10 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
     return
   }
 
+  if (!playerState.currentSong) {
+    return
+  }
+
   openPlayerOverlay()
 }
 
@@ -124,6 +130,10 @@ const toDisplayableUri = (uri: string): string => {
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   color: var(--ion-text-color);
   background: #ffffff;
+}
+
+.mini-player.is-empty {
+  cursor: default;
 }
 
 .cover-wrap {
