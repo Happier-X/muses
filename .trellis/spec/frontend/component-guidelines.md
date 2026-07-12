@@ -139,7 +139,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 - 可见性：`v-if="currentPlayingInList"` —— 仅当 `playerState.currentSong?.id` 存在且该 id 出现在当前歌曲列表中时展示；无当前播放或不在列表则隐藏。
 - 行定位：每行 `ion-item` 带 `data-song-id="song.id"`；点击 FAB 用 `document.querySelectorAll('[data-song-id]')` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })`（宽屏多列同样适用）。
 - 可选轻高亮：滚动后给目标行加 `jump-highlight` 约 1.2s，再移除；卸载时清理 timer。
-- 安全区：`.jump-current-fab` 的 `bottom` 需避开底部 Tab Bar + MiniPlayer（窄屏约 `calc(144px + safe-area)`；宽屏无 Tab Bar 时约 `calc(80px + safe-area)`），`right: 12px`，不遮挡列表关键操作。
+- 安全区：`.jump-current-fab` 的 `bottom` 需避开底部导航与 MiniPlayer（窄屏约 `calc(144px + safe-area)` = Tab Bar ~64 + MiniPlayer ~64 + 间距；宽屏无 Tab Bar、MiniPlayer 贴底，约 `calc(80px + safe-area)` = MiniPlayer ~64 + 间距），`right: 12px`，不遮挡列表关键操作。勿按「平板 MiniPlayer 抬高 64px」再额外加偏移。
 - 不破坏现有列表点击播放与更多按钮交互。
 
 ## Styling Gotchas
@@ -204,6 +204,8 @@ Do not duplicate Ionic core or utility CSS imports inside page components.
 ### 样式约定
 
 - 底栏占满屏幕宽度，固定在移动端底部导航栏上方。
+- **窄屏**（`<768px`）：`bottom: calc(64px + var(--ion-safe-area-bottom, 0px))`，为底部 Tab Bar 留位。
+- **宽屏**（`@media (min-width: 768px)`）：平板侧栏布局已隐藏 `.mobile-tab-bar`，底栏贴底，仅保留安全区：`bottom: var(--ion-safe-area-bottom, 0px)`；禁止继续抬高 64px，否则会悬空。
 - 底栏本身不使用圆角和阴影，仅保留顶部边线分隔内容。
 - 封面容器圆角与歌曲列表一致，使用 `border-radius: 10px`。
 - 无当前歌曲或无封面时展示稳定占位封面与占位文案，避免播放状态为空时底栏跳动或消失。
