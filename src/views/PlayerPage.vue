@@ -127,8 +127,23 @@
         </section>
 
         <section class="panel lyric-panel" aria-label="歌词页">
+          <header v-if="playerState.currentSong" class="lyric-header">
+            <h2 class="lyric-title">{{ playerState.currentSong.title }}</h2>
+            <p v-if="lyricArtist" class="lyric-artist">{{ lyricArtist }}</p>
+          </header>
+
           <template v-if="hasLyrics">
-            <LyricPlayer class="lyric-player" :lyric-lines="lyricLines" :current-time="playerState.position * 1000" />
+            <LyricPlayer
+              class="lyric-player"
+              :lyric-lines="lyricLines"
+              :current-time="playerState.position * 1000"
+              align-anchor="center"
+              :align-position="0.38"
+              :enable-spring="true"
+              :enable-blur="true"
+              :enable-scale="true"
+              :word-fade-width="0.5"
+            />
           </template>
           <div v-else class="lyric-empty">
             <h2>暂无歌词</h2>
@@ -194,6 +209,8 @@ const subtitle = computed(() => {
   const song = playerState.currentSong
   return [song?.artist, song?.album].filter(Boolean).join(' · ') || '未知歌手'
 })
+
+const lyricArtist = computed(() => playerState.currentSong?.artist?.trim() || '')
 
 const currentLyrics = computed(() => playerState.lyrics || playerState.currentSong?.lyrics || '')
 const currentCoverUri = computed(() => playerState.coverUri || playerState.currentSong?.coverUri || '')
@@ -676,21 +693,72 @@ onUnmounted(() => {
 .lyric-panel {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 12px;
   overflow: hidden;
+}
+
+.lyric-header {
+  flex: 0 0 auto;
+  width: 100%;
+  text-align: left;
+  min-width: 0;
+}
+
+.lyric-title {
+  margin: 0;
+  font-size: clamp(20px, 5.4vw, 28px);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lyric-artist {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: clamp(13px, 3.6vw, 15px);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lyric-player {
   display: block;
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  /* AMLL 通过 CSS 变量控制字号；窄屏偏大字左对齐 */
+  --amll-lp-font-size: clamp(22px, 6.5vw, 32px);
+  --amll-lp-line-padding-x: 0;
+  --amll-lp-line-width-aspect: 1;
+  --lyric-line-padding-x: 0;
+}
+
+/* AMLL 实际 player 挂在 wrapper 子节点；强制铺满 flex 槽位 */
+.lyric-player :deep(.amll-lyric-player) {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  min-height: 0;
-  max-height: 100%;
+}
+
+/* 去掉 AMLL 默认行左右 padding，使歌词左缘与顶部歌名对齐（panel 已有 24px 边距） */
+.lyric-player :deep(.FmKaba_lyricLine) {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .lyric-empty {
+  flex: 1 1 auto;
   width: 100%;
-  height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -741,13 +809,19 @@ onUnmounted(() => {
   .lyric-panel {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
+  }
+
+  /* 宽屏左侧控制页已有歌名/歌手，右侧不重复顶部信息 */
+  .lyric-header {
+    display: none;
   }
 
   .lyric-player {
     flex: 1;
     min-height: 0;
     height: auto;
+    --amll-lp-font-size: clamp(20px, 2.4vw, 30px);
   }
 }
 

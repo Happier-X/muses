@@ -58,7 +58,10 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@applemusic-like-lyrics/vue', () => ({
   BackgroundRender: { props: ['album'], template: '<div data-test="amll-background" :data-album="album"><slot /></div>' },
-  LyricPlayer: { props: ['lyricLines'], template: '<div data-test="amll-lyrics">{{ lyricLines?.[0]?.words?.[0]?.word }}</div>' },
+  LyricPlayer: {
+    props: ['lyricLines', 'currentTime', 'alignAnchor', 'alignPosition', 'enableSpring', 'enableBlur', 'enableScale', 'wordFadeWidth'],
+    template: '<div data-test="amll-lyrics" :data-align-position="alignPosition">{{ lyricLines?.[0]?.words?.[0]?.word }}</div>',
+  },
 }))
 
 vi.mock('@aparajita/capacitor-secure-storage', () => ({
@@ -458,7 +461,52 @@ describe('沉浸式播放页', () => {
 
     expect(panels.attributes('style')).toContain('translateX(-50%)')
     expect(wrapper.get('[data-test="amll-lyrics"]').text()).toContain('第一句歌词')
+    expect(wrapper.get('[data-test="amll-lyrics"]').attributes('data-align-position')).toBe('0.38')
+    expect(wrapper.get('.lyric-header .lyric-title').text()).toBe('本地歌曲')
+    expect(wrapper.get('.lyric-header .lyric-artist').text()).toBe('本地歌手')
+    expect(wrapper.find('.lyric-panel .progress-slider').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('暂无歌词')
+  })
+
+  test('无歌词时歌词页仍展示顶部歌名歌手与空状态', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    await playSong(localSong)
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    expect(wrapper.get('.lyric-header .lyric-title').text()).toBe('本地歌曲')
+    expect(wrapper.get('.lyric-header .lyric-artist').text()).toBe('本地歌手')
+    expect(wrapper.find('[data-test="amll-lyrics"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('暂无歌词')
+  })
+
+  test('无歌手时歌词页只展示歌名不回退未知歌手', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    await playSong({ ...localSong, artist: '' })
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    expect(wrapper.get('.lyric-header .lyric-title').text()).toBe('本地歌曲')
+    expect(wrapper.find('.lyric-header .lyric-artist').exists()).toBe(false)
+    expect(wrapper.get('.lyric-header').text()).not.toContain('未知歌手')
   })
 
 })
