@@ -121,6 +121,16 @@ Also prefer the `@/` alias for application imports from `src/`:
 - **列表多列**：`src/views/SongsPage.vue`（及 Albums/Artists 页）的 `<ion-list>` 外包 `<div class="list-grid">`，通过 CSS Grid `repeat(auto-fill, minmax(320px, 1fr))` 自动分列。
 - **内容限位居中**：各列表页 `.tablet-content-limit` 和 `.list-grid` 在宽屏下 `max-width: var(--muses-content-max-width); margin-inline: auto`。
 
+### SongsPage 顶部随机播放全部
+
+`src/views/SongsPage.vue` 顶部 `ion-toolbar` 左侧（`slot="start"`）放置随机播放全部按钮：
+
+- 图标：`ionicons` 的 `shuffle`；`fill="clear"`；`aria-label="随机播放全部"`。
+- 无歌曲时 `:disabled`，点击不产生副作用。
+- 点击语义：`clearQueue()` → `enqueueSongs(allSongs)` → 若 `!shuffleEnabled()` 则 `toggleShuffle()` → `selectSongAtIndex(0)` → `playSong(first)`。
+- `toggleShuffle` 会生成 `shuffleOrder`；`selectSongAtIndex(0)` 取乱序首曲。
+- 不破坏右侧现有控件（搜索等）。
+
 ## Styling Gotchas
 
 ### ion-list 为 Web Component，CSS Grid 在外层无法布局子 ion-item
