@@ -225,6 +225,7 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - 继续使用 `@applemusic-like-lyrics` 的 `LyricPlayer` + `parseLrc`，不自研滚动引擎；不修改 `node_modules`。
 - 打开播放器/队列 overlay 时必须锁定底层路由页交互与滚动：`ion-router-outlet` 设 `pointer-events: none`，`body.muses-overlay-open ion-router-outlet ion-content` 禁用滚动；不要锁住队列 overlay 自己的 `ion-content`。
 - 播放器 overlay 自身使用 `touch-action: none`，并在非原生控件（非 input/range）上对 `touchmove` 调用 `preventDefault`，防止滑动穿透到底层歌曲列表；进度条保留可拖动。
+- **进度条手势隔离**：`.progress-area` 必须 `@touchstart.stop` / `@pointerdown.stop`，并配合短 debounce 的 `seekGestureLocked`；seek 期间/刚结束后禁止 `playPreviousFromQueue` / `playNextFromQueue`，也禁止横向切换 `activePanel`，避免松手点穿到上一曲/下一曲或误切歌词面板。
 
 ### Overlay 组件必须异步加载（首屏性能约定）
 
