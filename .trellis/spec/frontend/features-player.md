@@ -75,6 +75,15 @@
 
 ---
 
+## 在线 TTML 歌词匹配
+
+- `playSong(song)` 无论歌曲是否已有本地歌词，均异步调用 `src/features/lyrics/amllTtmlDb.ts` 从 amll-ttml-db 匹配在线 TTML；匹配不得阻塞音频播放。
+- 展示优先级：在线 TTML 匹配成功 > 本地内嵌/同名 `.lrc` > 无歌词空态。匹配期间已有本地词先展示本地 LRC。
+- `PlayerState.lyricsFormat` 为 `'lrc' | 'ttml' | null`，决定 `PlayerPage.vue` 使用 `parseLrc` 或 `parseTTML(...).lines`；`onlineLyricsStatus` 为 `'idle' | 'matching' | 'ready' | 'miss' | 'error'`。
+- 索引与 TTML 仅保存在进程内存：索引单例缓存，TTML 按 `songId` 缓存，失败短时负缓存；不得整库打包或写回 `SongItem` / `muses:songs`。
+- 切歌递增歌词匹配 token；异步结果仅在 token 与 `currentSong.id` 同时匹配时写入，禁止上一首歌词串到当前歌曲。
+- CDN/解析失败静默回退，不弹播放错误，也不得改变音频播放状态。
+
 ## 约束与禁止模式
 
 - **禁止**在除 `native.ts` 之外的任何文件直接调用 `NativeAudio.*` 或 `MediaSession.*`。
