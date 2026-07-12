@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 39
+- **Total Sessions**: 40
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1367 | Active |
+| `journal-1.md` | ~1401 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 40 | 2026-07-12 | 修复 WebDAV 播放数秒后跳歌 | `bc784af`, `8a85550` | `main` |
 | 39 | 2026-07-12 | 接入 amll-ttml-db 在线歌词匹配 | `1c78663`, `a15a123` | `main` |
 | 38 | 2026-07-12 | WebDAV 扫描默认不读取标签 | `4178bcd`, `47ea8b0` | `main` |
 | 37 | 2026-07-12 | 歌词手势与关闭手势隔离 | `9903a05`, `472383c` | `main` |
