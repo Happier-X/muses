@@ -196,4 +196,11 @@ const toDisplayableUri = (uri: string): string => {
     background: #1f1f1f;
   }
 }
+
+/* 宽屏无底部 Tab Bar，贴底仅保留安全区，避免 64px 悬空 */
+@media (min-width: 768px) {
+  .mini-player {
+    bottom: var(--ion-safe-area-bottom, 0px);
+  }
+}
 </style>
