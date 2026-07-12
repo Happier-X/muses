@@ -315,20 +315,10 @@ onIonViewWillEnter(refreshSongs)
     bottom: calc(80px + var(--ion-safe-area-bottom, 0px));
   }
 
+  /* 歌曲页宽屏始终单列，仅保留内容最大宽度居中 */
   .list-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1px;
     max-width: var(--muses-content-max-width);
     margin-inline: auto;
-  }
-
-  .list-grid > ion-list {
-    display: contents;
-  }
-
-  .list-grid ion-item {
-    width: 100%;
   }
 }
 </style>
