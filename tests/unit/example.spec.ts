@@ -30,6 +30,8 @@ const {
     duration: 0,
     bufferedPosition: null as number | null,
     lyrics: null as string | null,
+    lyricsFormat: null as 'lrc' | 'ttml' | null,
+    onlineLyricsStatus: 'idle' as 'idle' | 'matching' | 'ready' | 'miss' | 'error',
     coverUri: null as string | null,
     metadataStatus: 'idle',
   },

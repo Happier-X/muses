@@ -4,6 +4,7 @@ import { CURRENT_METADATA_VERSION, loadSongs, upsertSong } from '@/features/libr
 import { readLocalAudioTags, readWebDavAudioTags } from '@/features/library/tags'
 import { getWebDavPassword, loadSources } from '@/features/sources/storage'
 import type { WebDavSourceItem } from '@/features/sources/types'
+import { matchAmllTtmlLyrics } from '@/features/lyrics'
 import { AudioPlayerNative } from './native'
 import type { AudioPlayerNativeState, PlayOptions, PlayerState } from './types'
 import { createPlayerSongSnapshot, toSafeCoverUri } from './types'
@@ -24,12 +25,16 @@ const state = reactive<PlayerState>({
   duration: 0,
   bufferedPosition: null,
   lyrics: null,
+  lyricsFormat: null,
+  onlineLyricsStatus: 'idle',
   coverUri: null,
   metadataStatus: 'idle',
 })
 
 let nativeListenerReady = false
 let metadataScanToken = 0
+/** 在线歌词匹配 token：切歌递增，回调仅当 token + songId 仍匹配时写 state */
+let lyricsMatchToken = 0
 /** 用户主动 seek 后的时间戳；用于忽略 seek 到未缓冲区间触发的伪 finished */
 let lastSeekAt = 0
 /** seek 前的播放态，伪 finished 时按此恢复，避免误 advance */
@@ -130,6 +135,8 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
     state.duration = 0
     resetBufferState()
     state.lyrics = null
+    state.lyricsFormat = null
+    state.onlineLyricsStatus = 'idle'
     state.coverUri = null
     state.metadataStatus = 'idle'
     syncMediaSessionState()
@@ -263,12 +270,60 @@ const syncDisplayStateFromSong = (song: SongItem): void => {
     || state.coverUri !== nextCover
 
   state.currentSong = createPlayerSongSnapshot(song)
-  state.lyrics = song.lyrics || null
+  // 在线 TTML 优先：匹配成功后不再被懒扫描的本地 LRC 覆盖
+  if (state.lyricsFormat !== 'ttml') {
+    state.lyrics = song.lyrics || null
+    state.lyricsFormat = song.lyrics ? 'lrc' : null
+  }
   state.coverUri = nextCover
   state.duration = normalizePlaybackTime(song.duration) || state.duration
 
   if (mediaFieldsChanged) {
     syncMediaSessionSong(song)
+  }
+}
+
+/**
+ * 切歌后异步匹配 amll-ttml-db；
+ * 成功写 TTML，失败保持本地 LRC/空态；token 防串曲。
+ */
+const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<void> => {
+  const localLyrics = song.lyrics || null
+  state.onlineLyricsStatus = 'matching'
+
+  try {
+    const result = await matchAmllTtmlLyrics({
+      songId: song.id,
+      title: song.title,
+      artist: song.artist,
+      album: song.album,
+    })
+
+    // 快速切歌：过期 token 或已不是当前曲，丢弃结果
+    if (token !== lyricsMatchToken || state.currentSong?.id !== song.id) {
+      return
+    }
+
+    if (result.ok) {
+      state.lyrics = result.ttml
+      state.lyricsFormat = 'ttml'
+      state.onlineLyricsStatus = 'ready'
+      return
+    }
+
+    // 失败回退本地；匹配期间标签补扫可能刚补到 LRC，优先保留 state 中的新本地词
+    const fallbackLyrics = state.lyricsFormat === 'lrc' ? state.lyrics : localLyrics
+    state.lyrics = fallbackLyrics
+    state.lyricsFormat = fallbackLyrics ? 'lrc' : null
+    state.onlineLyricsStatus = result.reason === 'network' || result.reason === 'parse' ? 'error' : 'miss'
+  } catch {
+    if (token !== lyricsMatchToken || state.currentSong?.id !== song.id) {
+      return
+    }
+    const fallbackLyrics = state.lyricsFormat === 'lrc' ? state.lyrics : localLyrics
+    state.lyrics = fallbackLyrics
+    state.lyricsFormat = fallbackLyrics ? 'lrc' : null
+    state.onlineLyricsStatus = 'error'
   }
 }
 
@@ -417,16 +472,23 @@ export const playSong = async (song: SongItem): Promise<void> => {
 
   state.status = 'loading'
   metadataScanToken += 1
+  const matchToken = ++lyricsMatchToken
   state.currentSong = createPlayerSongSnapshot(latestSong)
   state.errorMessage = null
   state.position = 0
   state.duration = normalizePlaybackTime(latestSong.duration)
   // 切歌先清缓冲，禁止继承上一首（R7）；本地 full / 远程增长由 native 再写入
   resetBufferState()
+  // 先展示本地歌词（可空），再异步匹配在线 TTML（在线优先）
   state.lyrics = latestSong.lyrics || null
+  state.lyricsFormat = latestSong.lyrics ? 'lrc' : null
+  state.onlineLyricsStatus = 'matching'
   state.coverUri = toSafeCoverUri(latestSong.coverUri) || null
   state.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'
   syncMediaSessionSong(latestSong)
+
+  // 无论是否有本地歌词，都自动尝试在线匹配（不阻塞播放）
+  void matchOnlineLyricsForSong(latestSong, matchToken)
 
   try {
     try {
@@ -438,6 +500,8 @@ export const playSong = async (song: SongItem): Promise<void> => {
     state.status = 'playing'
     void scanSongMetadata(latestSong)
   } catch (error) {
+    lyricsMatchToken += 1
+    state.onlineLyricsStatus = 'idle'
     const message = error instanceof Error ? error.message : ''
     setUserSafeError(isSafePlaybackError(message) ? message : '播放失败，请稍后重试。')
     resetBufferState()
@@ -504,6 +568,7 @@ export const stopPlayback = async (): Promise<void> => {
     await AudioPlayerNative.stop()
     clearSeekGuard()
     metadataScanToken += 1
+    lyricsMatchToken += 1
     state.status = 'stopped'
     state.currentSong = null
     state.errorMessage = null
@@ -511,6 +576,8 @@ export const stopPlayback = async (): Promise<void> => {
     state.duration = 0
     resetBufferState()
     state.lyrics = null
+    state.lyricsFormat = null
+    state.onlineLyricsStatus = 'idle'
     state.coverUri = null
     state.metadataStatus = 'idle'
     syncMediaSessionState()

@@ -160,8 +160,8 @@
             />
           </template>
           <div v-else class="lyric-empty">
-            <h2>暂无歌词</h2>
-            <p>当前歌曲没有内嵌歌词，也没有找到同目录同名 .lrc 文件。</p>
+            <h2>{{ lyricEmptyTitle }}</h2>
+            <p>{{ lyricEmptyDescription }}</p>
           </div>
         </section>
       </div>
@@ -177,7 +177,7 @@ import { listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeat
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
-import { parseLrc } from '@applemusic-like-lyrics/lyric'
+import { parseLrc, parseTTML } from '@applemusic-like-lyrics/lyric'
 import '@applemusic-like-lyrics/core/style.css'
 import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousFromQueue, queueState, resumePlayback, seekPlayback, setRepeatMode, toggleShuffle } from '@/features/player/controller'
 import { closePlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
@@ -281,6 +281,10 @@ const lyricLines = computed<LyricLine[]>(() => {
   }
 
   try {
+    // 在线 TTML 用 parseTTML(...).lines；本地 LRC 用 parseLrc
+    if (playerState.lyricsFormat === 'ttml') {
+      return parseTTML(currentLyrics.value).lines
+    }
     return parseLrc(normalizeLrc(currentLyrics.value))
   } catch {
     return []
@@ -288,6 +292,28 @@ const lyricLines = computed<LyricLine[]>(() => {
 })
 
 const hasLyrics = computed(() => lyricLines.value.length > 0)
+
+/** 匹配中且无本地词：显示匹配中；失败/无匹配且无本地：区分空态文案 */
+const lyricEmptyTitle = computed(() => {
+  if (playerState.onlineLyricsStatus === 'matching' && !currentLyrics.value) {
+    return '正在匹配歌词'
+  }
+  return '暂无歌词'
+})
+
+const lyricEmptyDescription = computed(() => {
+  if (playerState.onlineLyricsStatus === 'matching' && !currentLyrics.value) {
+    return '正在匹配在线歌词…'
+  }
+  if (
+    playerState.onlineLyricsStatus === 'miss'
+    || playerState.onlineLyricsStatus === 'error'
+    || (playerState.lyricsFormat === 'ttml' && !hasLyrics.value)
+  ) {
+    return '未匹配到可用的在线歌词，当前歌曲也没有内嵌歌词或同目录同名 .lrc 文件。'
+  }
+  return '当前歌曲没有内嵌歌词，也没有找到同目录同名 .lrc 文件。'
+})
 const canSeek = computed(() => playerState.duration > 0)
 const durationForSlider = computed(() => playerState.duration || 1)
 const progressPercent = computed(() => {

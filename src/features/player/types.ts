@@ -6,6 +6,12 @@ export type PlayerSourceType = 'local' | 'webdav'
 
 export type PlayerMetadataStatus = 'idle' | 'scanning' | 'ready' | 'failed'
 
+/** 当前展示歌词的格式：本地 LRC / 在线 TTML / 无 */
+export type LyricsFormat = 'lrc' | 'ttml' | null
+
+/** 在线 amll-ttml-db 匹配状态 */
+export type OnlineLyricsStatus = 'idle' | 'matching' | 'ready' | 'miss' | 'error'
+
 export interface PlayerSongSnapshot {
   id: string
   sourceId: string
@@ -32,6 +38,10 @@ export interface PlayerState {
    */
   bufferedPosition: number | null
   lyrics: string | null
+  /** 展示用歌词格式；切歌时重置 */
+  lyricsFormat: LyricsFormat
+  /** 在线 TTML 匹配状态；不写回 SongItem */
+  onlineLyricsStatus: OnlineLyricsStatus
   coverUri: string | null
   metadataStatus: PlayerMetadataStatus
 }
