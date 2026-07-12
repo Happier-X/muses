@@ -949,3 +949,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 28: 无歌曲时禁用打开沉浸式播放页
+
+**Date**: 2026-07-12
+**Task**: 无歌曲时禁用打开沉浸式播放页
+**Branch**: `main`
+
+### Summary
+
+无当前歌曲时 MiniPlayer 主体点击/键盘不再打开沉浸式播放页；补充单测与 frontend spec 约定。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `53fc9f0` | (see git log) |
+| `17f5290` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
