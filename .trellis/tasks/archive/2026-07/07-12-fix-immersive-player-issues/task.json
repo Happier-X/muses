@@ -1,0 +1,31 @@
+{
+  "id": "fix-immersive-player-issues",
+  "name": "fix-immersive-player-issues",
+  "title": "修复沉浸式播放页 open issues",
+  "description": "逐个修复 Issue #5/#4/#3/#2",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-07-12",
+  "completedAt": "2026-07-12",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-12-fix-seek-prev-next",
+    "07-12-remove-cover-shadow",
+    "07-12-plain-control-icons",
+    "07-12-lyric-click-seek"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
