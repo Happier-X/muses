@@ -1017,3 +1017,43 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 30: 修复沉浸式播放页 open issues #5/#4/#3/#2
+
+**Date**: 2026-07-12
+**Task**: 修复沉浸式播放页 open issues #5/#4/#3/#2
+**Branch**: `main`
+
+### Summary
+
+逐个修复并关闭 Issue：#5 进度条手势隔离避免误触切歌；#4 去掉封面阴影；#3 主控制改为纯图标；#2 歌词点击跳转对应行。同步 component-guidelines 约定。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `50fc107` | (see git log) |
+| `0683de6` | (see git log) |
+| `d95fc3b` | (see git log) |
+| `3a15887` | (see git log) |
+| `8062233` | (see git log) |
+| `b325872` | (see git log) |
+| `3c917f4` | (see git log) |
+| `552dbaf` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
