@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 36
+- **Total Sessions**: 37
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1265 | Active |
+| `journal-1.md` | ~1299 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 37 | 2026-07-12 | 歌词手势与关闭手势隔离 | `9903a05`, `472383c` | `main` |
 | 36 | 2026-07-12 | 平板沉浸式封面保持正方形 | `934a3b6`, `00b1a66` | `main` |
 | 35 | 2026-07-12 | 平板歌曲页改为一列 | `305b5c5`, `78d41f9` | `main` |
 | 34 | 2026-07-12 | 平板 MiniPlayer 贴底 | `76ef8dd`, `48ab8bf` | `main` |
