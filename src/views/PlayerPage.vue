@@ -1004,8 +1004,9 @@ onUnmounted(() => {
     max-height: min(48dvh, 320px);
   }
 
+  /* width 同时受 vw 与 dvh 约束，保证 aspect-ratio 1 时高度不超过 cover-slot max-height，避免被 clamp 拉伸 */
   .cover {
-    width: min(40vw, 320px);
+    width: min(40vw, 48dvh, 320px);
   }
 
   .song-info {
@@ -1052,6 +1053,13 @@ onUnmounted(() => {
 
   .cover-slot {
     max-height: min(42dvh, 260px);
+  }
+}
+
+/* 宽屏 + 矮屏：cover width 与更紧的 cover-slot max-height 对齐，避免 48dvh 仍超过 42dvh 时被 clamp */
+@media (min-width: 768px) and (max-height: 720px) {
+  .cover {
+    width: min(40vw, 42dvh, 260px);
   }
 }
 </style>
