@@ -589,7 +589,6 @@ onUnmounted(() => {
   height: auto;
   border-radius: clamp(18px, 4vw, 28px);
   object-fit: cover;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
 }
 
 .placeholder-cover {
