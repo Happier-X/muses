@@ -915,3 +915,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 27: 歌词页 AMLL 视觉复刻
+
+**Date**: 2026-07-12
+**Task**: 歌词页 AMLL 视觉复刻
+**Branch**: `main`
+
+### Summary
+
+将沉浸式播放器歌词页按参考图复刻：窄屏顶部歌名+歌手、AMLL 大字左对齐与中上对齐，宽屏隐藏重复 header；单测/lint/build 通过并沉淀 component 规范。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `78d71bb` | (see git log) |
+| `70e6038` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
