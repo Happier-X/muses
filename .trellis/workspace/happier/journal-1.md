@@ -1399,3 +1399,37 @@ Issue #14：WebDAV 恢复远程直链播放，禁用播放链路中的渐进 par
 ### Next Steps
 
 - None - task complete
+
+
+## Session 41: 沉浸式播放页状态栏白色内容
+
+**Date**: 2026-07-12
+**Task**: 沉浸式播放页状态栏白色内容
+**Branch**: `main`
+
+### Summary
+
+Issue #15：App.vue 监听 playerOverlayVisible 管理 StatusBar Style.Dark/Default，加入异步竞态保护与测试；同步 component spec。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `882423c` | (see git log) |
+| `925f34d` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
