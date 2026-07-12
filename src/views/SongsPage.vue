@@ -1,5 +1,5 @@
 <template>
-  <ion-page>
+  <ion-page ref="pageRef">
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
@@ -42,6 +42,7 @@
             lines="none"
             class="song-item"
             :class="{ 'is-playing': playerState.currentSong?.id === song.id }"
+            :data-song-id="song.id"
             @click="playSong(song)"
           >
             <div class="song-cover" slot="start" aria-hidden="true">
@@ -66,15 +67,45 @@
           </ion-item>
         </ion-list>
       </div>
+
+      <ion-fab
+        v-if="currentPlayingInList"
+        vertical="bottom"
+        horizontal="end"
+        slot="fixed"
+        class="jump-current-fab"
+      >
+        <ion-fab-button
+          aria-label="跳转到当前播放"
+          @click="scrollToCurrentSong"
+        >
+          <ion-icon :icon="locateOutline" aria-hidden="true" />
+        </ion-fab-button>
+      </ion-fab>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonPage, IonTitle, IonToolbar, onIonViewWillEnter } from '@ionic/vue'
-import { ellipsisVertical, musicalNotesOutline, searchOutline, shuffle } from 'ionicons/icons'
+import {
+  IonButton,
+  IonButtons,
+  IonContent,
+  IonFab,
+  IonFabButton,
+  IonHeader,
+  IonIcon,
+  IonItem,
+  IonLabel,
+  IonList,
+  IonPage,
+  IonTitle,
+  IonToolbar,
+  onIonViewWillEnter,
+} from '@ionic/vue'
+import { ellipsisVertical, locateOutline, musicalNotesOutline, searchOutline, shuffle } from 'ionicons/icons'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
@@ -90,6 +121,16 @@ import {
 } from '@/features/player/controller'
 
 const songs = ref<SongItem[]>([])
+const pageRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
+let jumpHighlightTimer: ReturnType<typeof setTimeout> | null = null
+
+const currentPlayingInList = computed(() => {
+  const currentId = playerState.currentSong?.id
+  if (!currentId) {
+    return false
+  }
+  return songs.value.some((song) => song.id === currentId)
+})
 
 const refreshSongs = () => {
   songs.value = sortSongsForDisplay(loadSongs())
@@ -113,6 +154,53 @@ const onShuffleAll = () => {
   if (first) {
     void playSong(first)
   }
+}
+
+const resolvePageRoot = (): ParentNode | null => {
+  const value = pageRef.value
+  if (!value) {
+    return typeof document !== 'undefined' ? document : null
+  }
+  if (value instanceof HTMLElement) {
+    return value
+  }
+  if (value.$el instanceof HTMLElement) {
+    return value.$el
+  }
+  return typeof document !== 'undefined' ? document : null
+}
+
+const findSongRow = (songId: string): HTMLElement | null => {
+  const root = resolvePageRoot()
+  if (!root) {
+    return null
+  }
+
+  const rows = Array.from(root.querySelectorAll<HTMLElement>('[data-song-id]'))
+  return rows.find((row) => row.getAttribute('data-song-id') === songId) ?? null
+}
+
+const scrollToCurrentSong = () => {
+  const currentId = playerState.currentSong?.id
+  if (!currentId) {
+    return
+  }
+
+  const row = findSongRow(currentId)
+  if (!row) {
+    return
+  }
+
+  row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+
+  row.classList.add('jump-highlight')
+  if (jumpHighlightTimer) {
+    clearTimeout(jumpHighlightTimer)
+  }
+  jumpHighlightTimer = setTimeout(() => {
+    row.classList.remove('jump-highlight')
+    jumpHighlightTimer = null
+  }, 1200)
 }
 
 const toDisplayableUri = (uri: string): string => {
@@ -140,6 +228,10 @@ onMounted(() => {
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener(SONGS_UPDATED_EVENT, refreshSongs)
+  }
+  if (jumpHighlightTimer) {
+    clearTimeout(jumpHighlightTimer)
+    jumpHighlightTimer = null
   }
 })
 
@@ -207,7 +299,22 @@ onIonViewWillEnter(refreshSongs)
   --background: rgba(var(--ion-color-primary-rgb), 0.1);
 }
 
+.jump-highlight {
+  --background: rgba(var(--ion-color-primary-rgb), 0.22);
+}
+
+/* 避开底部 Tab Bar（~64）+ MiniPlayer（~64）+ 间距，保留安全区 */
+.jump-current-fab {
+  bottom: calc(144px + var(--ion-safe-area-bottom, 0px));
+  right: 12px;
+}
+
 @media (min-width: 768px) {
+  .jump-current-fab {
+    /* 宽屏无底部 Tab Bar，仍避开 MiniPlayer */
+    bottom: calc(80px + var(--ion-safe-area-bottom, 0px));
+  }
+
   .list-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));

@@ -13,6 +13,7 @@ const {
   selectSongAtIndex,
   shuffleEnabled,
   toggleShuffle,
+  playerState,
 } = vi.hoisted(() => ({
   clearQueue: vi.fn(),
   enqueueSongs: vi.fn(),
@@ -20,6 +21,18 @@ const {
   selectSongAtIndex: vi.fn(),
   shuffleEnabled: vi.fn(() => false),
   toggleShuffle: vi.fn(),
+  // 可变 plain object：各用例在 mount 前赋值即可，无需 reactive
+  playerState: {
+    currentSong: null as SongItem | null,
+    status: 'idle',
+    errorMessage: null as string | null,
+    position: 0,
+    duration: 0,
+    bufferedPosition: null as number | null,
+    lyrics: null as string | null,
+    coverUri: null as string | null,
+    metadataStatus: 'idle',
+  },
 }))
 
 vi.mock('@/features/player/controller', async () => {
@@ -33,17 +46,7 @@ vi.mock('@/features/player/controller', async () => {
     shuffleEnabled,
     toggleShuffle,
     enqueueSong: vi.fn(),
-    playerState: {
-      currentSong: null,
-      status: 'idle',
-      errorMessage: null,
-      position: 0,
-      duration: 0,
-      bufferedPosition: null,
-      lyrics: null,
-      coverUri: null,
-      metadataStatus: 'idle',
-    },
+    playerState,
   }
 })
 
@@ -78,9 +81,16 @@ const mountSongsPage = () => mount(SongsPage, {
         emits: ['click'],
         template: '<button v-bind="$attrs" :disabled="$attrs.disabled" @click="$emit(\'click\')"><slot /></button>',
       },
+      IonFab: { template: '<div class="ion-fab-stub"><slot /></div>' },
+      IonFabButton: {
+        emits: ['click'],
+        template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
+      },
       IonIcon: true,
       IonList: { template: '<div><slot /></div>' },
-      IonItem: { template: '<div @click="$emit(\'click\')"><slot /><slot name="start" /><slot name="end" /></div>' },
+      IonItem: {
+        template: '<div v-bind="$attrs" @click="$emit(\'click\')"><slot /><slot name="start" /><slot name="end" /></div>',
+      },
       IonLabel: { template: '<div><slot /></div>' },
     },
   },
@@ -96,6 +106,7 @@ describe('音乐库标签页', () => {
     toggleShuffle.mockClear()
     shuffleEnabled.mockReturnValue(false)
     selectSongAtIndex.mockReturnValue(null)
+    playerState.currentSong = null
   })
 
   afterEach(() => {
@@ -232,5 +243,91 @@ describe('音乐库标签页', () => {
     expect(toggleShuffle).not.toHaveBeenCalled()
     expect(selectSongAtIndex).toHaveBeenCalledWith(0)
     expect(playSong).toHaveBeenCalledWith(songs[0])
+  })
+
+  test('无当前播放时不展示跳转到当前播放 FAB', async () => {
+    saveSongs([createSong({ id: '1', title: '歌一' })])
+    playerState.currentSong = null
+
+    const wrapper = mountSongsPage()
+    await nextTick()
+
+    expect(wrapper.find('button[aria-label="跳转到当前播放"]').exists()).toBe(false)
+  })
+
+  test('当前播放不在列表中时不展示跳转到当前播放 FAB', async () => {
+    saveSongs([createSong({ id: '1', title: '歌一' })])
+    playerState.currentSong = createSong({ id: 'missing', title: '不在列表' })
+
+    const wrapper = mountSongsPage()
+    await nextTick()
+
+    expect(wrapper.find('button[aria-label="跳转到当前播放"]').exists()).toBe(false)
+  })
+
+  test('有当前播放且在列表中时点击 FAB 滚动到对应行', async () => {
+    const songs = [
+      createSong({ id: '1', title: '歌一' }),
+      createSong({ id: '2', title: '歌二' }),
+      createSong({ id: '3', title: '歌三' }),
+    ]
+    saveSongs(songs)
+    playerState.currentSong = songs[1]
+
+    const scrollIntoView = vi.fn()
+    const originalScrollIntoView = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    try {
+      const wrapper = mount(SongsPage, {
+        attachTo: host,
+        global: {
+          stubs: {
+            IonPage: { template: '<main><slot /></main>' },
+            IonHeader: { template: '<header><slot /></header>' },
+            IonToolbar: { template: '<div><slot /></div>' },
+            IonTitle: { template: '<div><slot /></div>' },
+            IonContent: { template: '<section><slot /></section>' },
+            IonButtons: { template: '<div><slot /></div>' },
+            IonButton: {
+              emits: ['click'],
+              template: '<button v-bind="$attrs" :disabled="$attrs.disabled" @click="$emit(\'click\')"><slot /></button>',
+            },
+            IonFab: { template: '<div class="ion-fab-stub"><slot /></div>' },
+            IonFabButton: {
+              emits: ['click'],
+              template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
+            },
+            IonIcon: true,
+            IonList: { template: '<div><slot /></div>' },
+            IonItem: {
+              template: '<div v-bind="$attrs" @click="$emit(\'click\')"><slot /><slot name="start" /><slot name="end" /></div>',
+            },
+            IonLabel: { template: '<div><slot /></div>' },
+          },
+        },
+      })
+      await nextTick()
+
+      const fab = wrapper.get('button[aria-label="跳转到当前播放"]')
+      await fab.trigger('click')
+      await nextTick()
+
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest',
+      })
+      const target = wrapper.find('[data-song-id="2"]')
+      expect(target.exists()).toBe(true)
+      expect(target.classes()).toContain('jump-highlight')
+      wrapper.unmount()
+    } finally {
+      Element.prototype.scrollIntoView = originalScrollIntoView
+      host.remove()
+    }
   })
 })
