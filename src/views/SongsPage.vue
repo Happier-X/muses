@@ -2,6 +2,16 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button
+            fill="clear"
+            aria-label="随机播放全部"
+            :disabled="songs.length === 0"
+            @click="onShuffleAll"
+          >
+            <ion-icon slot="icon-only" :icon="shuffle" aria-hidden="true" />
+          </ion-button>
+        </ion-buttons>
         <ion-title class="page-title">歌曲</ion-title>
         <ion-buttons slot="end">
           <ion-button fill="clear" aria-label="搜索歌曲">
@@ -64,11 +74,20 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonPage, IonTitle, IonToolbar, onIonViewWillEnter } from '@ionic/vue'
-import { ellipsisVertical, musicalNotesOutline, searchOutline } from 'ionicons/icons'
+import { ellipsisVertical, musicalNotesOutline, searchOutline, shuffle } from 'ionicons/icons'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
-import { enqueueSong, playerState, playSong } from '@/features/player/controller'
+import {
+  clearQueue,
+  enqueueSong,
+  enqueueSongs,
+  playerState,
+  playSong,
+  selectSongAtIndex,
+  shuffleEnabled,
+  toggleShuffle,
+} from '@/features/player/controller'
 
 const songs = ref<SongItem[]>([])
 
@@ -78,6 +97,22 @@ const refreshSongs = () => {
 
 const enqueueSingleSong = (song: SongItem) => {
   enqueueSong(song)
+}
+
+const onShuffleAll = () => {
+  if (songs.value.length === 0) {
+    return
+  }
+
+  clearQueue()
+  enqueueSongs(songs.value)
+  if (!shuffleEnabled()) {
+    toggleShuffle()
+  }
+  const first = selectSongAtIndex(0)
+  if (first) {
+    void playSong(first)
+  }
 }
 
 const toDisplayableUri = (uri: string): string => {

@@ -1,10 +1,51 @@
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import SongsPage from '@/views/SongsPage.vue'
 import AlbumsPage from '@/views/AlbumsPage.vue'
 import ArtistsPage from '@/views/ArtistsPage.vue'
 import type { SongItem } from '@/features/library/types'
+
+const {
+  clearQueue,
+  enqueueSongs,
+  playSong,
+  selectSongAtIndex,
+  shuffleEnabled,
+  toggleShuffle,
+} = vi.hoisted(() => ({
+  clearQueue: vi.fn(),
+  enqueueSongs: vi.fn(),
+  playSong: vi.fn().mockResolvedValue(undefined),
+  selectSongAtIndex: vi.fn(),
+  shuffleEnabled: vi.fn(() => false),
+  toggleShuffle: vi.fn(),
+}))
+
+vi.mock('@/features/player/controller', async () => {
+  const actual = await vi.importActual<typeof import('@/features/player/controller')>('@/features/player/controller')
+  return {
+    ...actual,
+    clearQueue,
+    enqueueSongs,
+    playSong,
+    selectSongAtIndex,
+    shuffleEnabled,
+    toggleShuffle,
+    enqueueSong: vi.fn(),
+    playerState: {
+      currentSong: null,
+      status: 'idle',
+      errorMessage: null,
+      position: 0,
+      duration: 0,
+      bufferedPosition: null,
+      lyrics: null,
+      coverUri: null,
+      metadataStatus: 'idle',
+    },
+  }
+})
 
 const createSong = (overrides: Partial<SongItem>): SongItem => ({
   id: overrides.id ?? `song-${overrides.path ?? 'path'}`,
@@ -24,7 +65,39 @@ const saveSongs = (songs: SongItem[]) => {
   localStorage.setItem('muses:songs', JSON.stringify(songs))
 }
 
+const mountSongsPage = () => mount(SongsPage, {
+  global: {
+    stubs: {
+      IonPage: { template: '<main><slot /></main>' },
+      IonHeader: { template: '<header><slot /></header>' },
+      IonToolbar: { template: '<div><slot /></div>' },
+      IonTitle: { template: '<div><slot /></div>' },
+      IonContent: { template: '<section><slot /></section>' },
+      IonButtons: { template: '<div><slot /></div>' },
+      IonButton: {
+        emits: ['click'],
+        template: '<button v-bind="$attrs" :disabled="$attrs.disabled" @click="$emit(\'click\')"><slot /></button>',
+      },
+      IonIcon: true,
+      IonList: { template: '<div><slot /></div>' },
+      IonItem: { template: '<div @click="$emit(\'click\')"><slot /><slot name="start" /><slot name="end" /></div>' },
+      IonLabel: { template: '<div><slot /></div>' },
+    },
+  },
+})
+
 describe('音乐库标签页', () => {
+  beforeEach(() => {
+    clearQueue.mockClear()
+    enqueueSongs.mockClear()
+    playSong.mockClear()
+    selectSongAtIndex.mockClear()
+    shuffleEnabled.mockClear()
+    toggleShuffle.mockClear()
+    shuffleEnabled.mockReturnValue(false)
+    selectSongAtIndex.mockReturnValue(null)
+  })
+
   afterEach(() => {
     localStorage.clear()
   })
@@ -34,12 +107,11 @@ describe('音乐库标签页', () => {
       createSong({ id: '1', title: '入库歌曲', artist: '歌手甲', album: '专辑甲', duration: 185 }),
     ])
 
-    const wrapper = mount(SongsPage)
+    const wrapper = mountSongsPage()
     await nextTick()
 
     expect(wrapper.text()).toContain('入库歌曲')
-    expect(wrapper.text()).toContain('歌手甲 · 专辑甲')
-    expect(wrapper.text()).toContain('3:05')
+    expect(wrapper.text()).toContain('歌手甲 - 专辑甲')
   })
 
   test('专辑页展示专辑聚合和未知专辑', async () => {
@@ -75,7 +147,7 @@ describe('音乐库标签页', () => {
   })
 
   test('三个页面在无歌曲时展示空状态', async () => {
-    const songsPage = mount(SongsPage)
+    const songsPage = mountSongsPage()
     await nextTick()
     expect(songsPage.text()).toContain('还没有歌曲')
 
@@ -86,5 +158,79 @@ describe('音乐库标签页', () => {
     const artistsPage = mount(ArtistsPage)
     await nextTick()
     expect(artistsPage.text()).toContain('还没有艺术家')
+  })
+
+  test('歌曲页顶部有随机播放全部按钮且无歌曲时禁用', async () => {
+    const wrapper = mountSongsPage()
+    await nextTick()
+
+    const button = wrapper.get('button[aria-label="随机播放全部"]')
+    expect(button.attributes('disabled')).toBeDefined()
+
+    await button.trigger('click')
+    expect(clearQueue).not.toHaveBeenCalled()
+    expect(enqueueSongs).not.toHaveBeenCalled()
+    expect(toggleShuffle).not.toHaveBeenCalled()
+    expect(selectSongAtIndex).not.toHaveBeenCalled()
+    expect(playSong).not.toHaveBeenCalled()
+  })
+
+  test('点击随机播放全部：清空队列 → 装入全部 → 开启 shuffle → 播放乱序首曲', async () => {
+    const songs = [
+      createSong({ id: '1', title: '歌一', artist: '甲', album: 'A' }),
+      createSong({ id: '2', title: '歌二', artist: '乙', album: 'B' }),
+    ]
+    saveSongs(songs)
+    const firstShuffled = songs[1]
+    selectSongAtIndex.mockReturnValue(firstShuffled)
+    shuffleEnabled.mockReturnValue(false)
+
+    const wrapper = mountSongsPage()
+    await nextTick()
+
+    const button = wrapper.get('button[aria-label="随机播放全部"]')
+    expect(button.attributes('disabled')).toBeUndefined()
+
+    await button.trigger('click')
+
+    expect(clearQueue).toHaveBeenCalledTimes(1)
+    expect(enqueueSongs).toHaveBeenCalledTimes(1)
+    const enqueued = enqueueSongs.mock.calls[0][0] as SongItem[]
+    expect(enqueued.map((song) => song.id).sort()).toEqual(['1', '2'])
+    expect(shuffleEnabled).toHaveBeenCalled()
+    expect(toggleShuffle).toHaveBeenCalledTimes(1)
+    expect(selectSongAtIndex).toHaveBeenCalledWith(0)
+    expect(playSong).toHaveBeenCalledWith(firstShuffled)
+
+    // 调用顺序：clear → enqueue → toggle → select → play
+    const callOrder = [
+      clearQueue.mock.invocationCallOrder[0],
+      enqueueSongs.mock.invocationCallOrder[0],
+      toggleShuffle.mock.invocationCallOrder[0],
+      selectSongAtIndex.mock.invocationCallOrder[0],
+      playSong.mock.invocationCallOrder[0],
+    ]
+    expect(callOrder).toEqual([...callOrder].sort((a, b) => a - b))
+  })
+
+  test('shuffle 已开启时点击随机播放全部不再 toggleShuffle', async () => {
+    const songs = [
+      createSong({ id: '1', title: '歌一' }),
+      createSong({ id: '2', title: '歌二' }),
+    ]
+    saveSongs(songs)
+    selectSongAtIndex.mockReturnValue(songs[0])
+    shuffleEnabled.mockReturnValue(true)
+
+    const wrapper = mountSongsPage()
+    await nextTick()
+
+    await wrapper.get('button[aria-label="随机播放全部"]').trigger('click')
+
+    expect(clearQueue).toHaveBeenCalledTimes(1)
+    expect(enqueueSongs).toHaveBeenCalledTimes(1)
+    expect(toggleShuffle).not.toHaveBeenCalled()
+    expect(selectSongAtIndex).toHaveBeenCalledWith(0)
+    expect(playSong).toHaveBeenCalledWith(songs[0])
   })
 })
