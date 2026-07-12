@@ -67,7 +67,30 @@ vi.mock('@applemusic-like-lyrics/vue', () => ({
   BackgroundRender: { props: ['album'], template: '<div data-test="amll-background" :data-album="album"><slot /></div>' },
   LyricPlayer: {
     props: ['lyricLines', 'currentTime', 'alignAnchor', 'alignPosition', 'enableSpring', 'enableBlur', 'enableScale', 'wordFadeWidth'],
-    template: '<div data-test="amll-lyrics" :data-align-position="alignPosition">{{ lyricLines?.[0]?.words?.[0]?.word }}</div>',
+    emits: ['lineClick'],
+    methods: {
+      emitLineClick(startTime: number | undefined) {
+        this.$emit('lineClick', {
+          lineIndex: 0,
+          line: {
+            getLine: () => (startTime === undefined ? {} : { startTime }),
+          },
+          stopPropagation: () => undefined,
+          preventDefault: () => undefined,
+        })
+      },
+    },
+    template: `
+      <div data-test="amll-lyrics" :data-align-position="alignPosition">
+        <button
+          type="button"
+          data-test="lyric-line-click"
+          @click="emitLineClick(5000)"
+        >
+          {{ lyricLines?.[0]?.words?.[0]?.word }}
+        </button>
+      </div>
+    `,
   },
 }))
 
@@ -750,6 +773,75 @@ describe('沉浸式播放页', () => {
     expect(wrapper.get('.lyric-header .lyric-title').text()).toBe('本地歌曲')
     expect(wrapper.find('.lyric-header .lyric-artist').exists()).toBe(false)
     expect(wrapper.get('.lyric-header').text()).not.toContain('未知歌手')
+  })
+
+  test('点击歌词行会 seek 到该行起始秒', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    await playSong({
+      ...localSong,
+      duration: 180,
+      lyrics: '[ar:测试歌手]\n[00:01.00]第一句歌词\n[00:05.00]第二句歌词',
+      lyricsSource: 'embedded',
+    })
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-test="amll-lyrics"]').exists()).toBe(true)
+    nativePlayer.seek.mockClear()
+
+    await wrapper.get('[data-test="lyric-line-click"]').trigger('click')
+
+    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 5 })
+  })
+
+  test('点击 startTime 无效的歌词行不会 seek', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    await playSong({
+      ...localSong,
+      duration: 180,
+      lyrics: '[ar:测试歌手]\n[00:01.00]第一句歌词\n[00:05.00]第二句歌词',
+      lyricsSource: 'embedded',
+    })
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    const lyric = wrapper.findComponent('[data-test="amll-lyrics"]')
+    nativePlayer.seek.mockClear()
+
+    const emitInvalid = async (startTime?: number) => {
+      await lyric.vm.$emit('lineClick', {
+        lineIndex: 0,
+        line: {
+          getLine: () => (startTime === undefined ? {} : { startTime }),
+        },
+        stopPropagation: () => undefined,
+        preventDefault: () => undefined,
+      })
+    }
+
+    await emitInvalid(Number.NaN)
+    await emitInvalid(-1)
+    await emitInvalid(undefined)
+
+    expect(nativePlayer.seek).not.toHaveBeenCalled()
   })
 
   test('拖动进度条期间不会误触上一曲/下一曲，也不会切换歌词面板', async () => {

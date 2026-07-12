@@ -152,6 +152,7 @@
               :enable-blur="true"
               :enable-scale="true"
               :word-fade-width="0.5"
+              @line-click="onLyricLineClick"
             />
           </template>
           <div v-else class="lyric-empty">
@@ -171,7 +172,7 @@ import { IonButton, IonIcon } from '@ionic/vue'
 import { listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from 'ionicons/icons'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
-import type { LyricLine } from '@applemusic-like-lyrics/core'
+import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
 import { parseLrc } from '@applemusic-like-lyrics/lyric'
 import '@applemusic-like-lyrics/core/style.css'
 import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousFromQueue, queueState, resumePlayback, seekPlayback, setRepeatMode, toggleShuffle } from '@/features/player/controller'
@@ -321,6 +322,28 @@ const onSeek = async (event: Event) => {
   scheduleSeekUnlock()
   const target = event.target as HTMLInputElement
   await seekPlayback(Number(target.value))
+}
+
+/** 点击有时间戳的歌词行，seek 到该行起始秒；无效 startTime 不处理。 */
+const onLyricLineClick = async (event: LyricLineMouseEvent) => {
+  // 阻止冒泡到 overlay 手势，避免点击 seek 误切面板或关闭播放页。
+  event.stopPropagation()
+  event.preventDefault()
+  lockSeekGesture()
+  scheduleSeekUnlock()
+  touchStartX.value = null
+  touchStartY.value = null
+  gestureDirection.value = null
+  canDragDown.value = false
+  isDraggingVertically.value = false
+  dragOffsetY.value = 0
+
+  // LyricLineBase 通过 getLine() 暴露 LyricLine；startTime 单位为毫秒。
+  const startMs = event.line?.getLine?.()?.startTime
+  if (typeof startMs !== 'number' || !Number.isFinite(startMs) || startMs < 0) {
+    return
+  }
+  await seekPlayback(startMs / 1000)
 }
 
 const onTouchStart = (event: TouchEvent) => {
