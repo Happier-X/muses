@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端 spec 索引"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "PlayerPage overlay、异步加载与无障碍约定"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "播放器状态、封面安全、AMLL 背景与双面板滑动约定"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器功能边界，避免误改原生/通知"}

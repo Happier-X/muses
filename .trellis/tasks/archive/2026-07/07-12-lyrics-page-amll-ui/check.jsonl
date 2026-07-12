@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量检查基线"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "检查 overlay/异步/无障碍合规"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "检查播放页状态与 AMLL 约束"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "检查未越界改动播放原生层"}
