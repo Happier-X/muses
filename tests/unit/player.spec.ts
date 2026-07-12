@@ -5,7 +5,7 @@ import MiniPlayer from '@/components/MiniPlayer.vue'
 import PlayerPage from '@/views/PlayerPage.vue'
 import App from '@/App.vue'
 
-const { localLibraryNative, nativePlayer, audioPlayerBridge, webDavNative } = vi.hoisted(() => ({
+const { localLibraryNative, nativePlayer, nativeAudio, audioPlayerBridge, webDavNative } = vi.hoisted(() => ({
   localLibraryNative: {
     scanDirectory: vi.fn(),
     readMetadata: vi.fn(),
@@ -24,8 +24,40 @@ const { localLibraryNative, nativePlayer, audioPlayerBridge, webDavNative } = vi
     ensureNotificationPermission: vi.fn(),
     addListener: vi.fn(),
   },
+  nativeAudio: {
+    configure: vi.fn().mockResolvedValue(undefined),
+    addListener: vi.fn().mockResolvedValue({ remove: vi.fn() }),
+    preload: vi.fn().mockResolvedValue(undefined),
+    play: vi.fn().mockResolvedValue(undefined),
+    stop: vi.fn().mockResolvedValue(undefined),
+    unload: vi.fn().mockResolvedValue(undefined),
+    pause: vi.fn().mockResolvedValue(undefined),
+    resume: vi.fn().mockResolvedValue(undefined),
+    setCurrentTime: vi.fn().mockResolvedValue(undefined),
+    getCurrentTime: vi.fn().mockResolvedValue({ currentTime: 0 }),
+    getDuration: vi.fn().mockResolvedValue({ duration: 180 }),
+    isPlaying: vi.fn().mockResolvedValue({ isPlaying: true }),
+  },
   audioPlayerBridge: {
+    bufferProgressListener: undefined as ((event: {
+      songId?: string
+      bufferedPosition?: number
+      bufferedRatio?: number
+      fullyBuffered?: boolean
+    }) => void) | undefined,
     ensureNotificationPermission: vi.fn().mockResolvedValue({ granted: true }),
+    prepareLocalAudioFile: vi.fn(),
+    prepareWebDavAudioFile: vi.fn(),
+    cancelBufferSession: vi.fn().mockResolvedValue(undefined),
+    addListener: vi.fn(async (_eventName: string, listener: (event: {
+      songId?: string
+      bufferedPosition?: number
+      bufferedRatio?: number
+      fullyBuffered?: boolean
+    }) => void) => {
+      audioPlayerBridge.bufferProgressListener = listener
+      return { remove: vi.fn() }
+    }),
     prepareArtworkDataUrl: vi.fn(async ({ uri }: { uri: string }) => ({
       dataUrl: `data:image/jpeg;base64,${btoa(uri)}`,
     })),
@@ -43,8 +75,15 @@ vi.mock('@capacitor/core', () => ({
     if (name === 'WebDav') {
       return webDavNative
     }
+    if (name === 'AudioPlayer') {
+      return audioPlayerBridge
+    }
     return nativePlayer
   }),
+}))
+
+vi.mock('@capgo/capacitor-native-audio', () => ({
+  NativeAudio: nativeAudio,
 }))
 
 vi.mock('@/features/player/native', () => ({
@@ -154,6 +193,64 @@ const resetPlayer = async () => {
   }))
 }
 
+
+describe('原生播放器封装', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    nativeAudio.getDuration.mockResolvedValue({ duration: 180 })
+  })
+
+  test('WebDAV 使用远程 URL 和 Basic Auth，且不调用渐进文件准备', async () => {
+    const { AudioPlayerNative } = await vi.importActual<typeof import('@/features/player/native')>('@/features/player/native')
+
+    await AudioPlayerNative.play({
+      sourceType: 'webdav',
+      songId: 'song-webdav-native',
+      url: 'https://example.com/dav/music/remote.flac',
+      username: 'alice',
+      password: 'secret-password',
+      title: '远程歌曲',
+    })
+
+    expect(audioPlayerBridge.prepareWebDavAudioFile).not.toHaveBeenCalled()
+    expect(audioPlayerBridge.cancelBufferSession).toHaveBeenCalled()
+    expect(nativeAudio.preload).toHaveBeenCalledWith({
+      assetId: 'song-song-webdav-native',
+      assetPath: 'https://example.com/dav/music/remote.flac',
+      isUrl: true,
+      audioChannelNum: 1,
+      headers: {
+        Authorization: `Basic ${btoa('alice:secret-password')}`,
+      },
+    })
+    expect((await AudioPlayerNative.getState()).bufferedPosition).toBeUndefined()
+
+    audioPlayerBridge.bufferProgressListener?.({
+      songId: 'song-webdav-native',
+      bufferedPosition: 90,
+      bufferedRatio: 0.5,
+    })
+    expect((await AudioPlayerNative.getState()).bufferedPosition).toBeUndefined()
+  })
+
+  test('本地文件保持完整缓冲', async () => {
+    audioPlayerBridge.prepareLocalAudioFile.mockResolvedValueOnce({ uri: 'file:///cache/local.mp3' })
+    const { AudioPlayerNative } = await vi.importActual<typeof import('@/features/player/native')>('@/features/player/native')
+
+    await AudioPlayerNative.play({
+      sourceType: 'local',
+      songId: 'song-local-native',
+      uri: 'content://music/local',
+      title: '本地歌曲',
+    })
+
+    expect(nativeAudio.preload).toHaveBeenCalledWith(expect.objectContaining({
+      assetPath: 'file:///cache/local.mp3',
+      isUrl: true,
+    }))
+    expect(await AudioPlayerNative.getState()).toEqual(expect.objectContaining({ bufferedPosition: 180 }))
+  })
+})
 
 describe('播放器控制器', () => {
   afterEach(async () => {

@@ -66,6 +66,7 @@ export const AudioPlayerBridge = registerPlugin<AudioPlayerPermissionBridge>('Au
 let configured = false
 let currentAssetId: string | null = null
 let currentSongId: string | null = null
+let currentSourceType: PlayOptions['sourceType'] | null = null
 let currentStatus: PlaybackStatus = 'idle'
 let currentPosition = 0
 let currentDuration = 0
@@ -194,7 +195,7 @@ const ensureBridgeBufferListener = async (): Promise<void> => {
   bridgeBufferListenerReady = true
   try {
     bridgeBufferListenerHandle = await AudioPlayerBridge.addListener('bufferProgress', (event: BufferProgressEvent) => {
-      if (!event.songId || event.songId !== currentSongId) {
+      if (!event.songId || event.songId !== currentSongId || currentSourceType === 'webdav') {
         return
       }
 
@@ -282,33 +283,6 @@ const toAssetId = (songId: string): string => `song-${songId.replace(/[^a-zA-Z0-
 
 const resolveAssetPath = async (options: PlayOptions): Promise<{ assetPath: string; headers?: Record<string, string>; fullBuffer?: boolean }> => {
   if (options.sourceType === 'webdav') {
-    // 优先：项目自有渐进下载 → file://（不改 capgo，边下边播）
-    if (AudioPlayerBridge.prepareWebDavAudioFile) {
-      try {
-        const prepared = await AudioPlayerBridge.prepareWebDavAudioFile({
-          url: options.url,
-          username: options.username,
-          password: options.password,
-          songId: options.songId,
-          // 元数据时长提示：原生用 (written/contentLength)*duration 换算秒数
-          duration: typeof options.duration === 'number' && options.duration > 0 ? options.duration : undefined,
-        })
-        logNativeAudio('webdav:progressive-ready', { uriPrefix: prepared.uri.slice(0, 80) })
-        return { assetPath: prepared.uri }
-      } catch (error) {
-        logNativeAudio('webdav:progressive-failed-fallback-remote', error instanceof Error ? { message: error.message } : error)
-        // 降级：直接远程 URL 流式播放；缓冲未知（R6）
-        currentBufferedPosition = null
-        return {
-          assetPath: options.url,
-          headers: {
-            Authorization: `Basic ${encodeBasicAuth(options.username, options.password)}`,
-          },
-        }
-      }
-    }
-
-    // 无原生渐进能力（Web/旧 APK）：远程直链 + 缓冲未知
     currentBufferedPosition = null
     return {
       assetPath: options.url,
@@ -341,6 +315,7 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     const assetId = toAssetId(options.songId)
     currentAssetId = assetId
     currentSongId = options.songId
+    currentSourceType = options.sourceType
     currentStatus = 'loading'
     currentPosition = 0
     currentDuration = 0
@@ -414,6 +389,7 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     await unloadCurrentAsset()
     currentAssetId = null
     currentSongId = null
+    currentSourceType = null
     currentPosition = 0
     currentDuration = 0
     currentBufferedPosition = null
