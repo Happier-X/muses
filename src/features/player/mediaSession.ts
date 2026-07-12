@@ -9,6 +9,9 @@ type SeekHandler = (seconds: number) => Promise<void> | void
 
 const ACTIVE_ACTIONS: MediaSessionAction[] = ['play', 'pause', 'previoustrack', 'nexttrack', 'stop']
 
+/** 丢弃过期封面回调，避免快速切歌串封面。 */
+let metadataToken = 0
+
 const toMediaImage = (dataUrl: string | null | undefined) => {
   if (!dataUrl) {
     return undefined
@@ -28,6 +31,22 @@ const prepareArtworkDataUrl = async (coverUri?: string | null): Promise<string |
   } catch {
     return null
   }
+}
+
+/**
+ * loading/finished 必须保持 active，否则 capgo media-session 会 stop 前台服务再重建：
+ * - loading：切歌预加载
+ * - finished：队列自动下一首前的短暂窗口
+ * idle/stopped/error 才映射 none，由 clear/stop 路径清理。
+ */
+const toMediaPlaybackState = (status: PlaybackStatus): 'playing' | 'paused' | 'none' => {
+  if (status === 'playing' || status === 'loading' || status === 'finished') {
+    return 'playing'
+  }
+  if (status === 'paused') {
+    return 'paused'
+  }
+  return 'none'
 }
 
 export const setupMediaSessionActions = async (handlers: {
@@ -58,7 +77,29 @@ export const updateMediaSessionMetadata = async (params: {
   album?: string
   coverUri?: string | null
 }) => {
+  const token = ++metadataToken
+
+  // 文字先上，不等待封面转换，缩短首帧通知出现时间。
+  await MediaSession.setMetadata({
+    title: params.title,
+    artist: params.artist,
+    album: params.album,
+    artwork: [],
+  })
+
+  if (!params.coverUri) {
+    return
+  }
+
   const artworkDataUrl = await prepareArtworkDataUrl(params.coverUri)
+  if (token !== metadataToken) {
+    return
+  }
+
+  if (!artworkDataUrl) {
+    return
+  }
+
   await MediaSession.setMetadata({
     title: params.title,
     artist: params.artist,
@@ -69,7 +110,7 @@ export const updateMediaSessionMetadata = async (params: {
 
 export const updateMediaSessionPlayback = async (status: PlaybackStatus) => {
   await MediaSession.setPlaybackState({
-    playbackState: status === 'playing' ? 'playing' : status === 'paused' ? 'paused' : 'none',
+    playbackState: toMediaPlaybackState(status),
   })
 }
 
@@ -82,6 +123,7 @@ export const updateMediaSessionPosition = async (positionSeconds: number, durati
 }
 
 export const clearMediaSession = async () => {
+  metadataToken += 1
   await MediaSession.setPlaybackState({ playbackState: 'none' })
   await MediaSession.setMetadata({ title: '', artwork: [] })
 }

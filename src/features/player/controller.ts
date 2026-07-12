@@ -314,6 +314,8 @@ export const playSong = async (song: SongItem): Promise<void> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
     setUserSafeError(isSafePlaybackError(message) ? message : '播放失败，请稍后重试。')
+    // loading 会乐观映射为 playing；播放失败时必须清掉媒体会话，避免残留通知/封面回调。
+    void clearMediaSession().catch(() => undefined)
   }
 }
 

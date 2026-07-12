@@ -40,7 +40,10 @@ onMounted(() => {
       return
     }
 
-    App.exitApp()
+    // 仅退到后台，不 destroy Activity，避免 media-session 前台服务随 unbind 被销毁。
+    void App.minimizeApp().catch(() => {
+      // 非 Android / 不可用时静默忽略，避免打断 UI。
+    })
   })
 })
 </script>
