@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器/媒体通知架构约束：native-audio 只播、media-session 管通知、禁止双 provider、封面 data 桥"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "播放器状态与后台/通知同步边界，避免敏感信息进 metadata"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "App 层返回键与 player overlay 交互约定"}
