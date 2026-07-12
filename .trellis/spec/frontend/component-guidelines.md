@@ -254,6 +254,7 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
 - 下滑收起播放器时移动 overlay 内容层，不要移动 Ionic 路由页或依赖透明路由页露出缓存层，否则容易出现黑屏或重复页面。
 - 沉浸式控制页布局自上而下：大封面 → 歌名/歌手 → 进度条 → 主控制（上一曲/播放暂停/下一曲）→ 次要控制（循环/随机/队列）。
 - 沉浸式控制页封面（`.cover` / 占位封面）不加 `box-shadow`；宽屏与窄屏保持一致，避免封面后方出现额外阴影。
+- **封面必须保持正方形**：`.cover` 使用 `aspect-ratio: 1; height: auto; object-fit: cover`。宽屏 `.cover` 的 `width` 必须同时受 vw 与 cover-slot 的 dvh/`max-height` 约束（如 `min(40vw, 48dvh, 320px)`；矮屏再收紧为 `min(40vw, 42dvh, 260px)`），确保正方形高度不超过 `.cover-slot` 的 `max-height`。禁止只改 `width: min(40vw, 320px)` 而让 `max-height` 单独 clamp 高度——那会在宽屏矮高场景把封面拉成非正方形。
 - 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
 - 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。
 - 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位缩放，禁止页面纵向滚动。
@@ -328,3 +329,4 @@ Given the current app shape, common mistakes to avoid are:
 - Using `ion-tab-bar` / `ion-tab-button` outside an `ion-tabs` shell in `TabsPage.vue`; in the custom parent route shell, use a plain `<nav>` with `RouterLink` to avoid missing or duplicated mobile bottom navigation
 - Relying only on `@click.stop` for nested `ion-button` controls inside a clickable parent; guard the parent handler with `event.composedPath()` so button clicks do not trigger parent navigation
 - Hiding `MiniPlayer` with `v-if` while a player overlay is open; keep it mounted behind the overlay and disable interaction to avoid close-animation flicker
+- Setting wide-screen immersive `.cover` width with only `min(40vw, 320px)` while `.cover-slot` clamps height via `max-height: min(48dvh, …)`；宽屏矮高时正方形高度会被 clamp、宽度不变 → 封面非正方形拉伸。宽屏 `.cover` width 必须同步含 dvh 上限
