@@ -40,6 +40,9 @@
      - `nexttrack` → `playNextFromQueue`
    - 每次播放状态、进度变化后，必须同步到 `setPlaybackState` / `setPositionState`。
    - song 切换时，同步 `setMetadata`（title/artist/album/cover）。
+   - **`loading`/`finished` 不得映射为 `none`**：应保持 active（当前实现映射为 `playing`），否则插件会 stop 前台服务再重建，造成通知延迟/闪断（含队列自动下一首窗口）。
+   - **metadata 两段式更新**：先推 title/artist/album（无封面），封面经 `prepareArtworkDataUrl` 转 `data:` 后二次 `setMetadata`；用 token 丢弃过期封面回调。
+   - **返回键退出界面 = `App.minimizeApp()`**（`moveTaskToBack`），禁止用 `App.exitApp()` 作为 Tab 层返回默认行为；`exitApp` 会 destroy Activity → media-session unbind → 前台服务与通知一并消失。
 
 4. **封面兼容（file:// 无法直接使用）**  
    当前 `@capgo/capacitor-media-session` 只接受 `http://` 或 `data:` URI 作为 artwork。所以遇到 `file://` 封面时，需要通过原生桥接（`AudioPlayerPlugin.prepareArtworkDataUrl`）转换为 `data:image/jpeg;base64,...` 再传给 `setMetadata.artwork`。
@@ -75,5 +78,11 @@
 - **manifest 中缺少 MediaButtonReceiver 声明**：导致通知栏按钮显示但点击没反应  
   修复：在 `AndroidManifest.xml` 的 `<application>` 中添加形如  
   `<receiver android:name="androidx.media.session.MediaButtonReceiver" android:exported="true"> ... </receiver>`。
+- **Tab 返回键调用 `App.exitApp()`**：Activity destroy → media-session unbind destroy → 播放中通知消失  
+  修复：改用 `App.minimizeApp()`，仅退到后台。
+- **`loading` 映射为 media-session `none`**：切歌时通知闪断/延迟  
+  修复：loading 保持 active（`playing`），仅 stop/clear 时置 `none`。
+- **`setMetadata` 同步等待封面 base64**：首帧通知被大图转换拖慢  
+  修复：文字先上、封面后补。
 - **没有 `npx cap sync android` 就部署**：前端代码改动不会反映到 APK  
   修复：每次前端改完后执行 `npm run build && npx cap copy android && cd android && ./gradlew :app:assembleDebug`。

@@ -65,7 +65,7 @@ Focused feature-level composables are acceptable for small cross-component UI st
 
 - `src/features/player/overlay.ts` owns `playerOverlayVisible` and `queueOverlayVisible` plus `open*/close*` helpers for global player/queue overlays.
 - Player and queue overlays are UI state, not route state; opening them must not push `/player` or `/queue` into the router.
-- `App.vue` is the overlay host and owns Android back-button precedence: close queue overlay first, then player overlay, then exit.
+- `App.vue` is the overlay host and owns Android back-button precedence: close queue overlay first, then player overlay, then `App.minimizeApp()` (do not `exitApp()`; destroying the Activity tears down media-session foreground notification).
 - Keep `MiniPlayer` mounted behind overlays and disable interaction while overlays are active; do not use route checks or `v-if` unmounting for overlay visibility side effects.
 
 If a future task adds Pinia or another store, document the chosen pattern in this file and add concrete references to the first store modules.
