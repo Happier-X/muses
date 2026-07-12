@@ -338,7 +338,8 @@ const resetScanProgress = (): void => {
 
 const openScanSettings = (source: SourceItem): void => {
   selectedScanSource.value = source
-  scanOptions.value = { readTags: true }
+  // WebDAV 默认关闭读标签（避免网络逐文件读取导致慢/卡）；本地默认开启
+  scanOptions.value = { readTags: source.type !== 'webdav' }
   resetScanProgress()
   isScanSettingsOpen.value = true
 }
