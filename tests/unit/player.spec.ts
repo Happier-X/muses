@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import type { SongItem } from '@/features/library/types'
 import MiniPlayer from '@/components/MiniPlayer.vue'
 import PlayerPage from '@/views/PlayerPage.vue'
 import App from '@/App.vue'
 
-const { localLibraryNative, nativePlayer, nativeAudio, audioPlayerBridge, webDavNative } = vi.hoisted(() => ({
+const { localLibraryNative, nativePlayer, nativeAudio, audioPlayerBridge, webDavNative, statusBarSetStyle } = vi.hoisted(() => ({
   localLibraryNative: {
     scanDirectory: vi.fn(),
     readMetadata: vi.fn(),
@@ -24,6 +25,7 @@ const { localLibraryNative, nativePlayer, nativeAudio, audioPlayerBridge, webDav
     ensureNotificationPermission: vi.fn(),
     addListener: vi.fn(),
   },
+  statusBarSetStyle: vi.fn().mockResolvedValue(undefined),
   nativeAudio: {
     configure: vi.fn().mockResolvedValue(undefined),
     addListener: vi.fn().mockResolvedValue({ remove: vi.fn() }),
@@ -155,6 +157,11 @@ vi.mock('@capacitor/app', () => ({
     addListener: vi.fn().mockResolvedValue({ remove: vi.fn() }),
     minimizeApp: vi.fn().mockResolvedValue(undefined),
   },
+}))
+
+vi.mock('@capacitor/status-bar', () => ({
+  StatusBar: { setStyle: statusBarSetStyle },
+  Style: { Dark: 'DARK', Default: 'DEFAULT', Light: 'LIGHT' },
 }))
 
 const localSong: SongItem = {
@@ -1106,6 +1113,31 @@ describe('沉浸式播放页', () => {
 })
 
 describe('应用壳', () => {
+  const mountApp = () => mount(App, {
+    global: {
+      stubs: {
+        IonApp: { template: '<main><slot /></main>' },
+        IonRouterOutlet: { template: '<div />' },
+        PlayerPage: true,
+        QueuePage: true,
+      },
+    },
+  })
+  const flushStatusBar = async () => {
+    await nextTick()
+    for (let index = 0; index < 6; index += 1) {
+      await Promise.resolve()
+    }
+  }
+
+  beforeEach(async () => {
+    const { closePlayerOverlay, closeQueueOverlay } = await import('@/features/player/overlay')
+    closePlayerOverlay()
+    closeQueueOverlay()
+    statusBarSetStyle.mockReset()
+    statusBarSetStyle.mockResolvedValue(undefined)
+  })
+
   afterEach(async () => {
     routeState.path = '/tabs/songs'
     await resetPlayer()
@@ -1118,18 +1150,114 @@ describe('应用壳', () => {
     await playSong(localSong)
     openPlayerOverlay()
 
-    const wrapper = mount(App, {
-      global: {
-        stubs: {
-          IonApp: { template: '<main><slot /></main>' },
-          IonRouterOutlet: { template: '<div />' },
-        },
-      },
-    })
+    const wrapper = mountApp()
 
     expect(wrapper.find('.mini-player').exists()).toBe(true)
     expect(wrapper.find('.app-mini-player').classes()).toContain('is-overlay-active')
     closePlayerOverlay()
+    wrapper.unmount()
+  })
+
+  test('播放器 overlay 打开时使用白色状态栏内容，关闭后恢复默认', async () => {
+    const { openPlayerOverlay, closePlayerOverlay } = await import('@/features/player/overlay')
+    const wrapper = mountApp()
+
+    openPlayerOverlay()
+    await flushStatusBar()
+    expect(statusBarSetStyle).toHaveBeenLastCalledWith({ style: 'DARK' })
+
+    closePlayerOverlay()
+    await flushStatusBar()
+    expect(statusBarSetStyle).toHaveBeenLastCalledWith({ style: 'DEFAULT' })
+    wrapper.unmount()
+  })
+
+  test('单独打开队列 overlay 不修改状态栏', async () => {
+    const { openQueueOverlay } = await import('@/features/player/overlay')
+    const wrapper = mountApp()
+
+    openQueueOverlay()
+    await flushStatusBar()
+    expect(statusBarSetStyle).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  test('状态栏插件失败时静默忽略且 overlay 状态正常更新', async () => {
+    const { playerOverlayVisible, openPlayerOverlay, closePlayerOverlay } = await import('@/features/player/overlay')
+    statusBarSetStyle.mockRejectedValueOnce(new Error('插件不可用'))
+    const wrapper = mountApp()
+
+    openPlayerOverlay()
+    await flushStatusBar()
+    expect(playerOverlayVisible.value).toBe(true)
+
+    closePlayerOverlay()
+    await flushStatusBar()
+    expect(playerOverlayVisible.value).toBe(false)
+    expect(statusBarSetStyle).toHaveBeenLastCalledWith({ style: 'DEFAULT' })
+    wrapper.unmount()
+  })
+
+  test('快速开关播放器 overlay 后最终应用最新状态栏样式', async () => {
+    const { openPlayerOverlay, closePlayerOverlay } = await import('@/features/player/overlay')
+    const appliedStyles: string[] = []
+    let resolveDarkStyle: (() => void) | undefined
+    statusBarSetStyle.mockImplementation(({ style }: { style: string }) => {
+      if (style === 'DARK' && !resolveDarkStyle) {
+        return new Promise<void>((resolve) => {
+          resolveDarkStyle = () => {
+            appliedStyles.push(style)
+            resolve()
+          }
+        })
+      }
+
+      appliedStyles.push(style)
+      return Promise.resolve()
+    })
+    const wrapper = mountApp()
+
+    openPlayerOverlay()
+    await flushStatusBar()
+    closePlayerOverlay()
+    openPlayerOverlay()
+    closePlayerOverlay()
+    await flushStatusBar()
+    resolveDarkStyle?.()
+    await flushStatusBar()
+
+    expect(appliedStyles).toEqual(['DARK', 'DEFAULT'])
+    wrapper.unmount()
+  })
+
+  test('应用壳卸载时等待在途请求后恢复默认状态栏样式', async () => {
+    const { openPlayerOverlay } = await import('@/features/player/overlay')
+    const appliedStyles: string[] = []
+    let resolveDarkStyle: (() => void) | undefined
+    statusBarSetStyle.mockImplementation(({ style }: { style: string }) => {
+      if (style === 'DARK') {
+        return new Promise<void>((resolve) => {
+          resolveDarkStyle = () => {
+            appliedStyles.push(style)
+            resolve()
+          }
+        })
+      }
+
+      appliedStyles.push(style)
+      return Promise.resolve()
+    })
+    const wrapper = mountApp()
+    openPlayerOverlay()
+    await flushStatusBar()
+
+    wrapper.unmount()
+    await flushStatusBar()
+    expect(appliedStyles).toEqual([])
+
+    resolveDarkStyle?.()
+    await flushStatusBar()
+    expect(appliedStyles).toEqual(['DARK', 'DEFAULT'])
   })
 })
 

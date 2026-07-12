@@ -19,6 +19,7 @@
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
 import { IonApp, IonRouterOutlet } from '@ionic/vue'
 import { App } from '@capacitor/app'
+import { StatusBar, Style } from '@capacitor/status-bar'
 import MiniPlayer from '@/components/MiniPlayer.vue'
 import { initializePlayer } from '@/features/player/controller'
 import { closePlayerOverlay, closeQueueOverlay, playerOverlayVisible, queueOverlayVisible } from '@/features/player/overlay'
@@ -26,6 +27,22 @@ import { closePlayerOverlay, closeQueueOverlay, playerOverlayVisible, queueOverl
 const PlayerPage = defineAsyncComponent(() => import('@/views/PlayerPage.vue'))
 const QueuePage = defineAsyncComponent(() => import('@/views/QueuePage.vue'))
 const hasGlobalOverlay = computed(() => playerOverlayVisible.value || queueOverlayVisible.value)
+let statusBarRequestToken = 0
+let statusBarSyncQueue = Promise.resolve()
+
+const syncPlayerStatusBar = (visible: boolean) => {
+  const requestToken = ++statusBarRequestToken
+  statusBarSyncQueue = statusBarSyncQueue
+    .catch(() => undefined)
+    .then(async () => {
+      if (requestToken !== statusBarRequestToken) {
+        return
+      }
+
+      await StatusBar.setStyle({ style: visible ? Style.Dark : Style.Default })
+    })
+    .catch(() => undefined)
+}
 
 const syncBodyOverlayLock = (locked: boolean) => {
   document.documentElement.classList.toggle('muses-overlay-open', locked)
@@ -35,6 +52,10 @@ const syncBodyOverlayLock = (locked: boolean) => {
 watch(hasGlobalOverlay, (locked) => {
   syncBodyOverlayLock(locked)
 }, { immediate: true })
+
+watch(playerOverlayVisible, (visible) => {
+  syncPlayerStatusBar(visible)
+})
 
 onMounted(() => {
   void initializePlayer()
@@ -59,6 +80,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   syncBodyOverlayLock(false)
+  syncPlayerStatusBar(false)
 })
 </script>
 
