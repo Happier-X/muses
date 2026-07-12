@@ -56,6 +56,14 @@
 6. **前台服务/通知 ID 冲突**  
    capacitor-media-session 使用自己的通知 ID（`id=1, channel=playback`），但我们的旧 `AudioPlaybackService`（当前已清理为空服务）不再产生第二个媒体通知，避免前台服务通知冲突。
 
+7. **finished 自动切歌必须判定自然结束**（`controller.ts`）  
+   - 进度条 / 歌词点击 / 媒体会话 `seekto` 均走 `seekPlayback`；成功后记录 `lastSeekAt`（保护窗约 1500ms）。
+   - 仅当「不在 seek 保护窗」且「`duration > 0` 且 `position >= duration - epsilon`（epsilon≈1.25s）」时，才把 `finished` 当作自然播完并 `handlePlaybackFinished` → `advanceToNext`。
+   - **非自然结束的 finished 不得 advance**：保护窗内或未接近结尾（含 `duration=0`）时丢弃伪 finished，恢复 `playing`/`paused`，保留 `currentSong` 与 seek 目标进度。
+   - seek 保护窗优先于 near-end：即便 seek 到最后 1s 歌词，保护窗内 finished 也不切歌。
+   - `playSong` / `stopPlayback` 必须清理 seek guard，避免新歌首帧误吞真实 finished 或卡住队列。
+   - 不修改 capgo 插件源码；远程/未缓冲 seek 触发的 `STATE_ENDED`/`complete` 在前端边界消化。
+
 ---
 
 ## 约束与禁止模式
@@ -64,6 +72,7 @@
 - **禁止**同时使用多个 notification provider（native-audio 的 showNotification 和 media-session 的通知只能开一个；当前我们只使用 media-session）。
 - **禁止**在 `native.ts` 中搞双向依赖（目前 `mediaSession.ts` 和 `native.ts` 是解耦的；`mediaSession.ts` 仅 import `AudioPlayerBridge` 用于封面转换桥接）。
 - **禁止**修改 `node_modules/@capgo/*` 源码（我们只修复了 manifest 中 `MediaButtonReceiver` 的缺失，这是 app 侧修正，不是插件修改）。
+- **禁止**对任意 `finished`/`complete` 无条件 `advanceToNext`；必须经过 seek 保护窗 + 接近自然结尾校验。
 
 ---
 
@@ -77,6 +86,10 @@
 - 有封面 → 无封面：最终用占位 `data:` 覆盖，不残留 A
 - 开播后懒扫描写入 `coverUri` 会再次 `setMetadata`
 - 快速切歌时过期 token 丢弃旧封面回调
+- seek 后立刻注入 finished → 不切歌、保留 currentSong
+- 接近结尾的 finished → 仍自动下一曲
+- 歌词点击 seek 与进度条 seek 共用同一保护逻辑
+- `duration=0` 的 finished 不自动 advance
 
 ---
 
@@ -97,5 +110,7 @@
   修复：`syncDisplayStateFromSong` 检测 cover/title/artist/album 变化后调用 `syncMediaSessionSong`。
 - **`file://` 缓存封面 `prepareArtworkDataUrl` 静默失败**  
   修复：原生侧 `file://` 优先 `FileInputStream`。
+- **seek 到未缓冲区间后伪 finished 误切下一曲**  
+  修复：`seekPlayback` 成功后开启保护窗；`applyNativeState` 仅在非保护窗且接近自然结尾时 `handlePlaybackFinished`。
 - **没有 `npx cap sync android` 就部署**：前端代码改动不会反映到 APK  
   修复：每次前端改完后执行 `npm run build && npx cap copy android && cd android && ./gradlew :app:assembleDebug`。

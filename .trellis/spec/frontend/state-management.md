@@ -205,7 +205,10 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Unknown or non-positive duration -> disable deterministic progress UI/notification progress rather than publishing misleading values.
 - Lazy metadata rescan failure -> mark metadata status as failed or show a degraded UI; playback continues.
 - Incoming song object lacks lyrics/cover but latest `muses:songs` has them -> `playSong` uses the latest stored display metadata immediately and does not show a false no-lyrics state.
-- Native `status='finished'` -> frontend calls `advanceToNext()`; if a song is returned, `playSong(nextSong)`, otherwise `stopPlayback()`.
+- Native `status='finished'` 仅在可判定为**自然播完**时才 `handlePlaybackFinished` → `advanceToNext()`；有下一首则 `playSong(nextSong)`，否则 `stopPlayback()`。
+- 自然播完判定：`duration > 0` 且 `position >= duration - NATURAL_END_EPSILON_SEC`（约 1.25s），且不在用户 seek 保护窗内（`SEEK_FINISH_GUARD_MS`≈1500ms）。
+- **非自然结束的 finished 不得 advance**：seek 保护窗内、未接近结尾、或 `duration=0` 时，丢弃伪 finished，恢复 `playing`/`paused`，保留 `currentSong` 与最近有效/seek 目标进度。
+- 进度条、歌词点击、媒体会话 `seekto` 共用 `seekPlayback`；成功后记录 `lastSeekAt`。`playSong`/`stopPlayback` 清理 seek guard。
 - Manual stop or internal song switch publishes `stopped`/`loading`, not `finished`; otherwise queue auto-advance can skip tracks or recurse.
 - Malformed or polluted `muses:queue` -> ignore invalid entries and re-save sanitized `{ songId }` records only.
 - Android system notification, lock-screen, or media-key control fails to update player state -> verify the single Media3 `MediaSession` is bound to the same `ExoPlayer` used for playback.
@@ -225,6 +228,8 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - Bad: a cover image is saved into `muses:songs` as base64, rendered into the UI as a `data:` URL, stored in `muses:queue`, or passed into Media3 metadata/notification payloads as base64 artwork.
 - Bad: adding a separate media-session plugin creates a second session/foreground service/notification instead of using the project-local Media3 service.
 - Bad: AMLL `BackgroundRender` is mounted directly as the positioned layer and its internal canvas measures as 1px high.
+- Bad: treating every native `finished`/`complete` as natural end and calling `advanceToNext` after a mid-track seek to an unbuffered position.
+- Good: mid-track seek then pseudo-`finished` keeps the current song; only near-end finished without seek guard advances the queue.
 
 #### 6. Tests Required
 
@@ -235,7 +240,7 @@ const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri,
 - `PlayerPage.vue` renders no-current-song and no-lyrics states; progress dragging calls `seekPlayback` with seconds.
 - `PlayerPage.vue` rejects `data:` cover URIs, renders AMLL lyrics after a left-swipe, uses `translateX(-50%)` for the second panel, and mounts `BackgroundRender` under a full-size `.amll-background` container.
 - `playSong` tests cover stale input objects by seeding `muses:songs` with newer lyrics/cover and asserting `playerState` uses the newer metadata.
-- Queue tests assert ID-only persistence, enqueue/remove/clear behavior, sequential next, previous wrapping from head to tail, random shuffle order length, single-song repeat, list loop from tail to head, `finished` auto-advance, and empty queue fallback to `stopPlayback`.
+- Queue tests assert ID-only persistence, enqueue/remove/clear behavior, sequential next, previous wrapping from head to tail, random shuffle order length, single-song repeat, list loop from tail to head, near-end `finished` auto-advance, seek-guard suppressing false `finished`, and empty queue fallback to `stopPlayback`.
 - `SongsPage.vue` highlights the currently playing song and queue actions do not bubble into direct playback.
 - Android validation should include progress broadcasting, `finished` broadcasting on natural end, Media3 notification/lock-screen position sync, seek clamping, service resource release, media-key routing to the same `ExoPlayer`, and checking for duplicate visible notifications.
 
