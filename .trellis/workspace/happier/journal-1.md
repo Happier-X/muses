@@ -1297,3 +1297,37 @@ Issue #13：歌词面板触点禁止 vertical dismiss，保留横向切换；补
 ### Next Steps
 
 - None - task complete
+
+
+## Session 38: WebDAV 扫描默认不读取标签
+
+**Date**: 2026-07-12
+**Task**: WebDAV 扫描默认不读取标签
+**Branch**: `main`
+
+### Summary
+
+Issue #9：openScanSettings 按 source.type 设默认 readTags（webdav=false, local=true）；同步 guidelines。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4178bcd` | (see git log) |
+| `47ea8b0` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
