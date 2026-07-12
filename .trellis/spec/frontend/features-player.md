@@ -41,11 +41,14 @@
    - 每次播放状态、进度变化后，必须同步到 `setPlaybackState` / `setPositionState`。
    - song 切换时，同步 `setMetadata`（title/artist/album/cover）。
    - **`loading`/`finished` 不得映射为 `none`**：应保持 active（当前实现映射为 `playing`），否则插件会 stop 前台服务再重建，造成通知延迟/闪断（含队列自动下一首窗口）。
-   - **metadata 两段式更新**：先推 title/artist/album（无封面），封面经 `prepareArtworkDataUrl` 转 `data:` 后二次 `setMetadata`；用 token 丢弃过期封面回调。
+   - **metadata 两段式更新**：先推 title/artist/album + **占位清空 artwork**（1×1 中性 JPEG `data:`），封面经 `prepareArtworkDataUrl` 转 `data:` 后二次 `setMetadata`；用 token 丢弃过期封面回调。
+   - **空 `artwork: []` 不能清封面**：capgo Android 插件仅在 `artwork[].src` 非空时才 `urlToBitmap`；传入空数组会**保留上一首 Bitmap**。无封面 / prepare 失败 / clear 时必须用显式 `data:` 占位图强制覆盖。
+   - **懒扫描补全封面后必须 re-sync**：`scanSongMetadata` → `syncDisplayStateFromSong` 在当前曲 `coverUri`/title/artist/album 变化时须再调 `syncMediaSessionSong`，不能只更新 UI。
    - **返回键退出界面 = `App.minimizeApp()`**（`moveTaskToBack`），禁止用 `App.exitApp()` 作为 Tab 层返回默认行为；`exitApp` 会 destroy Activity → media-session unbind → 前台服务与通知一并消失。
 
 4. **封面兼容（file:// 无法直接使用）**  
-   当前 `@capgo/capacitor-media-session` 只接受 `http://` 或 `data:` URI 作为 artwork。所以遇到 `file://` 封面时，需要通过原生桥接（`AudioPlayerPlugin.prepareArtworkDataUrl`）转换为 `data:image/jpeg;base64,...` 再传给 `setMetadata.artwork`。
+   当前 `@capgo/capacitor-media-session` 只接受 `http://` 或 `data:` URI 作为 artwork。所以遇到 `file://` 封面时，需要通过原生桥接（`AudioPlayerPlugin.prepareArtworkDataUrl`）转换为 `data:image/jpeg;base64,...` 再传给 `setMetadata.artwork`。  
+   `prepareArtworkDataUrl` 对 `file://` 优先 `FileInputStream`，`content://` 走 `ContentResolver`；失败 resolve `dataUrl=null`，由前端占位图清空旧封面。
 
 5. **Android 13+ 运行时权限**  
    首次播放前仍然需要通过 `AudioPlayerBridge.ensureNotificationPermission()` 请求 `POST_NOTIFICATIONS`，并在授权失败时静默忽略，不阻塞播放。
@@ -70,6 +73,10 @@
 - WebDAV 音源播放→通知出现 → 封面 / 标题，Basic Auth headers 通过 NativeAudio 的 `headers` 送达
 - 暂停/停止→通知同步出成 `none` 状态
 - 队列自动下一首→通知立即刷新为新歌曲
+- 有封面 A → 有封面 B：最终带 artwork 的 `setMetadata` 使用 B
+- 有封面 → 无封面：最终用占位 `data:` 覆盖，不残留 A
+- 开播后懒扫描写入 `coverUri` 会再次 `setMetadata`
+- 快速切歌时过期 token 丢弃旧封面回调
 
 ---
 
@@ -84,5 +91,11 @@
   修复：loading 保持 active（`playing`），仅 stop/clear 时置 `none`。
 - **`setMetadata` 同步等待封面 base64**：首帧通知被大图转换拖慢  
   修复：文字先上、封面后补。
+- **`artwork: []` 切到无封面歌曲仍显示上一首封面**  
+  修复：首帧与 clear 路径一律用 1×1 中性 JPEG `data:` 强制覆盖；prepare 失败也保留占位清空。
+- **懒扫描补到封面后通知栏不更新**  
+  修复：`syncDisplayStateFromSong` 检测 cover/title/artist/album 变化后调用 `syncMediaSessionSong`。
+- **`file://` 缓存封面 `prepareArtworkDataUrl` 静默失败**  
+  修复：原生侧 `file://` 优先 `FileInputStream`。
 - **没有 `npx cap sync android` 就部署**：前端代码改动不会反映到 APK  
   修复：每次前端改完后执行 `npm run build && npx cap copy android && cd android && ./gradlew :app:assembleDebug`。
