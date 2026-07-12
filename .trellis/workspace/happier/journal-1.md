@@ -845,3 +845,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 25: 修复媒体通知延迟与退出后丢失
+
+**Date**: 2026-07-12
+**Task**: 修复媒体通知延迟与退出后丢失
+**Branch**: `main`
+
+### Summary
+
+返回键改为 minimizeApp 保留 media-session 前台服务；loading/finished 保持 active 避免通知闪断；metadata 文字先上封面后补；播放失败清会话；规范回写 features-player/state-management
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d64b405` | (see git log) |
+| `026c4be` | (see git log) |
+| `c561648` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
