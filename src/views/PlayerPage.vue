@@ -14,6 +14,7 @@
       <!-- 背景与歌词解耦：切歌暂无词时不卸载，避免闪默认底（#20） -->
       <div v-if="showAlbumBackground" class="amll-background">
         <BackgroundRender
+          :key="backgroundAlbumSrc || 'no-album'"
           class="amll-background-render"
           :album="backgroundAlbumSrc || undefined"
           :album-is-video="false"

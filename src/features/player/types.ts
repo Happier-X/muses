@@ -168,3 +168,29 @@ export const shouldPersistOnlineLyrics = (
   const incomingRank = lyricsFormatRank(incomingFormat, true)
   return incomingRank > existingRank
 }
+
+/**
+ * 懒扫描/封面写回 sync 时是否采用库内歌词覆盖运行时。
+ * - 库内无词：绝不覆盖运行时已有词（避免在线 LRC 被空库抹掉 #21）
+ * - 仅库内质量严格更优时替换
+ */
+export const shouldApplyStoredLyricsOverRuntime = (
+  runtimeLyrics: string | null | undefined,
+  runtimeFormat: LyricsFormat,
+  stored: Pick<SongItem, 'lyrics' | 'lyricsFormat'>,
+): boolean => {
+  const storedText = stored.lyrics?.trim() || ''
+  if (!storedText) {
+    return false
+  }
+  const runtimeText = runtimeLyrics?.trim() || ''
+  if (!runtimeText) {
+    return true
+  }
+  const storedRank = lyricsFormatRank(
+    stored.lyricsFormat ?? 'lrc',
+    true,
+  )
+  const runtimeRank = lyricsFormatRank(runtimeFormat, true)
+  return storedRank > runtimeRank
+}

@@ -16,6 +16,7 @@ import type { AudioPlayerNativeState, PlayOptions, PlayerState } from './types'
 import {
   createPlayerSongSnapshot,
   resolveStoredLyricsFormat,
+  shouldApplyStoredLyricsOverRuntime,
   shouldPersistOnlineLyrics,
   toSafeCoverUri,
 } from './types'
@@ -297,12 +298,8 @@ const syncDisplayStateFromSong = (song: SongItem): void => {
     || state.coverUri !== nextCover
 
   state.currentSong = createPlayerSongSnapshot(song)
-  // 在线/库内高质量词优先：勿用懒扫描 LRC 覆盖 ttml/yrc/qrc
-  const onlineOrWordLevel =
-    state.lyricsFormat === 'ttml'
-    || state.lyricsFormat === 'yrc'
-    || state.lyricsFormat === 'qrc'
-  if (!onlineOrWordLevel) {
+  // 库内词仅在「有文且质量更优」时覆盖运行时；库空绝不抹掉在线已展示词（#21）
+  if (shouldApplyStoredLyricsOverRuntime(state.lyrics, state.lyricsFormat, song)) {
     state.lyrics = song.lyrics || null
     state.lyricsFormat = resolveStoredLyricsFormat(song)
   }

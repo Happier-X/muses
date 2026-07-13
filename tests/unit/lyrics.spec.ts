@@ -620,3 +620,14 @@ describe('在线歌词编排 matchOnlineLyrics', () => {
     expect(lrclib.searchLyrics).not.toHaveBeenCalled()
   })
 })
+
+describe('歌词 sync 覆盖规则 shouldApplyStoredLyricsOverRuntime', () => {
+  test('库空不覆盖运行时；库更优才覆盖', async () => {
+    const { shouldApplyStoredLyricsOverRuntime } = await import('@/features/player/types')
+    expect(shouldApplyStoredLyricsOverRuntime('[00:01]在线', 'lrc', {})).toBe(false)
+    expect(shouldApplyStoredLyricsOverRuntime('[00:01]在线', 'lrc', { lyrics: '' })).toBe(false)
+    expect(shouldApplyStoredLyricsOverRuntime(null, null, { lyrics: '[00:01]库', lyricsFormat: 'lrc' })).toBe(true)
+    expect(shouldApplyStoredLyricsOverRuntime('[00:01]L', 'lrc', { lyrics: 'T', lyricsFormat: 'ttml' })).toBe(true)
+    expect(shouldApplyStoredLyricsOverRuntime('T', 'ttml', { lyrics: 'L', lyricsFormat: 'lrc' })).toBe(false)
+  })
+})

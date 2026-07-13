@@ -1048,6 +1048,53 @@ describe('媒体通知封面同步', () => {
     setOnlineCoverProvidersForTest(null)
   })
 
+  test('在线封面写回后不得清空已展示的在线歌词', async () => {
+    const lyricsMod = await import('@/features/lyrics')
+    vi.mocked(lyricsMod.matchOnlineLyrics).mockResolvedValueOnce({
+      ok: true,
+      text: '[00:01.00]在线词',
+      format: 'lrc',
+      source: 'kw',
+    })
+
+    const { setOnlineCoverProvidersForTest } = await import('@/features/cover')
+    const searchCoverUrl = vi.fn().mockResolvedValue('https://is1-ssl.mzstatic.com/image/a.jpg')
+    setOnlineCoverProvidersForTest([{ id: 'itunes', searchCoverUrl }])
+    cacheRemoteCoverMock.mockResolvedValueOnce('file:///cache/covers/online-a.jpg')
+
+    localStorage.setItem('muses:songs', JSON.stringify([{
+      ...localSong,
+      tagsScanned: true,
+      metadataVersion: 2,
+      coverUri: undefined,
+      lyrics: undefined,
+    }]))
+
+    const { playSong, playerState } = await import('@/features/player/controller')
+    await playSong({
+      ...localSong,
+      tagsScanned: true,
+      metadataVersion: 2,
+      coverUri: undefined,
+    })
+
+    await vi.waitFor(() => {
+      expect(playerState.onlineLyricsStatus).toBe('ready')
+      expect(playerState.lyrics).toBe('[00:01.00]在线词')
+    })
+
+    await vi.waitFor(() => {
+      expect(playerState.coverUri).toBe('file:///cache/covers/online-a.jpg')
+    })
+
+    // 封面 sync 后歌词必须仍在
+    expect(playerState.lyrics).toBe('[00:01.00]在线词')
+    expect(playerState.lyricsFormat).toBe('lrc')
+
+    setOnlineCoverProvidersForTest(null)
+    vi.mocked(lyricsMod.matchOnlineLyrics).mockResolvedValue({ ok: false, reason: 'no-match' })
+  })
+
   test('快速切歌时过期 token 丢弃旧封面回调', async () => {
     const { MediaSession } = await import('@capgo/capacitor-media-session')
     let resolveA: ((value: { dataUrl: string | null }) => void) | undefined
