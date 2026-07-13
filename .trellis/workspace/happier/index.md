@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 44
+- **Total Sessions**: 45
 - **Last Active**: 2026-07-13
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1537 | Active |
+| `journal-1.md` | ~1571 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 45 | 2026-07-13 | 在线封面增加咪咕回退 | `82fbf1c`, `7785824` | `main` |
 | 44 | 2026-07-13 | 在线匹配歌曲封面 | `2c092ee`, `336eab7` | `main` |
 | 43 | 2026-07-13 | 沉浸式矮屏/横屏布局自适应 | `0fc3f32`, `0dd5702` | `main` |
 | 42 | 2026-07-13 | 预取下一首 WebDAV 完整缓存 | `03d6db7`, `6eeb32c` | `main` |
