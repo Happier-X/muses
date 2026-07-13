@@ -6,7 +6,7 @@ export type OnlineCoverQuery = {
   album?: string
 }
 
-export type OnlineCoverSource = 'itunes' | 'kw' | 'mg' | 'kg'
+export type OnlineCoverSource = 'itunes' | 'kw' | 'mg' | 'kg' | 'tx' | 'wy'
 
 export type OnlineCoverMatchOk = {
   ok: true

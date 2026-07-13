@@ -14,6 +14,8 @@ import { searchItunesCoverUrl } from '@/features/cover/providers/itunes'
 import { searchKwCoverUrl } from '@/features/cover/providers/kw'
 import { searchMgCoverUrl } from '@/features/cover/providers/mg'
 import { searchKgCoverUrl } from '@/features/cover/providers/kg'
+import { searchTxCoverUrl } from '@/features/cover/providers/tx'
+import { searchWyCoverUrl } from '@/features/cover/providers/wy'
 
 const sampleQuery: OnlineCoverQuery = {
   songId: 'song-1',
@@ -330,6 +332,172 @@ describe('在线封面匹配', () => {
     expect(kw.searchCoverUrl).toHaveBeenCalledTimes(1)
     expect(mg.searchCoverUrl).toHaveBeenCalledTimes(1)
     expect(kg.searchCoverUrl).toHaveBeenCalledTimes(1)
+  })
+
+  test('tx 用 albummid 拼 gtimg 封面 URL', async () => {
+    httpGet.mockResolvedValueOnce({
+      status: 200,
+      data: JSON.stringify({
+        data: {
+          song: {
+            list: [
+              {
+                songname: '晴天',
+                albumname: '叶惠美',
+                albummid: '000MkMni19ClKG',
+                singer: [{ name: '周杰伦' }],
+              },
+            ],
+          },
+        },
+      }),
+    })
+
+    await expect(searchTxCoverUrl(sampleQuery)).resolves.toBe(
+      'https://y.gtimg.cn/music/photo_new/T002R500x500M000000MkMni19ClKG.jpg',
+    )
+  })
+
+  test('tx 无 albummid 返回 null', async () => {
+    httpGet.mockResolvedValueOnce({
+      status: 200,
+      data: JSON.stringify({
+        data: { song: { list: [{ songname: '晴天', albummid: '' }] } },
+      }),
+    })
+    await expect(searchTxCoverUrl(sampleQuery)).resolves.toBeNull()
+  })
+
+  test('wy 搜索后拉详情取 picUrl 并升 https', async () => {
+    httpGet
+      .mockResolvedValueOnce({
+        status: 200,
+        data: JSON.stringify({
+          result: {
+            songs: [
+              {
+                id: 186016,
+                name: '晴天',
+                artists: [{ name: '周杰伦' }],
+                album: { name: '叶惠美' },
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        data: JSON.stringify({
+          songs: [
+            {
+              album: {
+                picUrl: 'http://p2.music.126.net/ZGffiDQZrGj5s_hnR1CNbg==/109951165566379710.jpg',
+              },
+            },
+          ],
+        }),
+      })
+
+    await expect(searchWyCoverUrl(sampleQuery)).resolves.toBe(
+      'https://p2.music.126.net/ZGffiDQZrGj5s_hnR1CNbg==/109951165566379710.jpg',
+    )
+    expect(httpGet).toHaveBeenCalledTimes(2)
+  })
+
+  test('前源 miss 时 tx 回退成功', async () => {
+    const miss = (id: CoverProvider['id']): CoverProvider => ({
+      id,
+      searchCoverUrl: vi.fn().mockResolvedValue(null),
+    })
+    const itunes = miss('itunes')
+    const kw = miss('kw')
+    const mg = miss('mg')
+    const kg = miss('kg')
+    const tx: CoverProvider = {
+      id: 'tx',
+      searchCoverUrl: vi.fn().mockResolvedValue(
+        'https://y.gtimg.cn/music/photo_new/T002R500x500M000000MkMni19ClKG.jpg',
+      ),
+    }
+    const wy: CoverProvider = {
+      id: 'wy',
+      searchCoverUrl: vi.fn().mockResolvedValue('https://p2.music.126.net/a.jpg'),
+    }
+
+    await expect(matchOnlineCoverRemote(sampleQuery, [itunes, kw, mg, kg, tx, wy])).resolves.toEqual({
+      ok: true,
+      remoteUrl: 'https://y.gtimg.cn/music/photo_new/T002R500x500M000000MkMni19ClKG.jpg',
+      source: 'tx',
+    })
+    expect(tx.searchCoverUrl).toHaveBeenCalled()
+    expect(wy.searchCoverUrl).not.toHaveBeenCalled()
+  })
+
+  test('前源 miss 时 wy 回退成功', async () => {
+    const miss = (id: CoverProvider['id']): CoverProvider => ({
+      id,
+      searchCoverUrl: vi.fn().mockResolvedValue(null),
+    })
+    const providers: CoverProvider[] = [
+      miss('itunes'),
+      miss('kw'),
+      miss('mg'),
+      miss('kg'),
+      miss('tx'),
+      {
+        id: 'wy',
+        searchCoverUrl: vi.fn().mockResolvedValue('https://p2.music.126.net/cover.jpg'),
+      },
+    ]
+
+    await expect(matchOnlineCoverRemote(sampleQuery, providers)).resolves.toEqual({
+      ok: true,
+      remoteUrl: 'https://p2.music.126.net/cover.jpg',
+      source: 'wy',
+    })
+  })
+
+  test('前源成功时不请求 tx/wy', async () => {
+    const itunes: CoverProvider = {
+      id: 'itunes',
+      searchCoverUrl: vi.fn().mockResolvedValue('https://is1-ssl.mzstatic.com/a.jpg'),
+    }
+    const tx: CoverProvider = {
+      id: 'tx',
+      searchCoverUrl: vi.fn().mockResolvedValue('https://y.gtimg.cn/b.jpg'),
+    }
+    const wy: CoverProvider = {
+      id: 'wy',
+      searchCoverUrl: vi.fn().mockResolvedValue('https://p2.music.126.net/c.jpg'),
+    }
+
+    await expect(matchOnlineCoverRemote(sampleQuery, [itunes, tx, wy])).resolves.toEqual({
+      ok: true,
+      remoteUrl: 'https://is1-ssl.mzstatic.com/a.jpg',
+      source: 'itunes',
+    })
+    expect(tx.searchCoverUrl).not.toHaveBeenCalled()
+    expect(wy.searchCoverUrl).not.toHaveBeenCalled()
+  })
+
+  test('六源 miss 写入负缓存', async () => {
+    const ids: CoverProvider['id'][] = ['itunes', 'kw', 'mg', 'kg', 'tx', 'wy']
+    const providers = ids.map((id) => ({
+      id,
+      searchCoverUrl: vi.fn().mockResolvedValue(null),
+    }))
+
+    await expect(matchOnlineCoverRemote(sampleQuery, providers)).resolves.toEqual({
+      ok: false,
+      reason: 'no-match',
+    })
+    await expect(matchOnlineCoverRemote(sampleQuery, providers)).resolves.toEqual({
+      ok: false,
+      reason: 'no-match',
+    })
+    for (const p of providers) {
+      expect(p.searchCoverUrl).toHaveBeenCalledTimes(1)
+    }
   })
 
   test('iTunes+kw miss 时 mg 回退成功', async () => {
