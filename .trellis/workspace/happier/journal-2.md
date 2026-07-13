@@ -38,3 +38,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 59: 歌词页浮动翻译和播放按钮
+
+**Date**: 2026-07-13
+**Task**: 歌词页浮动翻译和播放按钮
+**Branch**: `main`
+
+### Summary
+
+#23/#24：歌词页翻译开关；手机播放暂停按钮；平板隐藏。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c7c0926` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
