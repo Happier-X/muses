@@ -105,11 +105,12 @@
 - 切歌递增 `onlineCoverToken`；结果仅在 token 与 `currentSong.id` 同时匹配时写回并 `syncDisplayStateFromSong` + 媒体会话封面。
 - 失败/无命中/超时静默；进程内负缓存避免同曲短时间反复请求；不影响歌词与播放状态机。
 
-## 在线文本元信息（artist / album 仅补缺）
+## 在线文本元信息（artist / album 仅补缺；弱 title 可写）
 
-- 触发：与封面并列，`scanSongMetadata` 结束后若 `artist` 或 `album` 仍空（trim），异步调用 `src/features/metadata`；不得阻塞播放。
-- 字段：仅补 **artist / album**；**禁止**在线改 `title`。
-- 写回：`upsertSong` 仅填充仍为空的字段；已有非空标签不覆盖。
+- 触发：与封面并列，`scanSongMetadata` 结束后若 `artist`/`album` 仍空，或 `title` 为弱标签，异步调用 `src/features/metadata`；不得阻塞播放。
+- **弱 title**：`normalizeText(title) === normalizeText(getTitleFromPath(path))`（扫描无内嵌标题时的文件名兜底）。
+- 字段：artist/album **仅补空**；弱 title 且 hit.title 与当前 title **相关**（normalize 相等或互相包含）时可写 title；**强 title 禁止覆盖**。
+- 写回：`upsertSong` 顶层 title + tags；已有非空 artist/album 不覆盖。
 - 源顺序：kw → tx → wy → kg → mg（对齐 any-listen 国内段；不含 iTunes）；与封面并行、独立 token（`onlineTextToken`）与负缓存。
 - 切歌递增 token；结果仅在 token 与当前曲 id 匹配时写回并 `syncDisplayStateFromSong` + 媒体会话文本。
 - 失败静默；不影响封面、歌词与播放状态机。
@@ -134,7 +135,7 @@
 
 - 本地音源播放→通知出现 → 封面 / 标题 / 上一曲 / 下一曲 可用
 - 无封面歌曲播放后在线匹配成功 → 本地 cache covers URI 写回且 UI/通知刷新；已有封面不请求；miss 时按 iTunes→kw→tx→wy→kg→mg 串行回退
-- 无 artist/album 歌曲播放后在线匹配成功 → 仅空字段写回且 UI/通知文本刷新；已有字段不覆盖；不改 title
+- 无 artist/album 或弱 title 歌曲播放后在线匹配成功 → 空字段/弱 title 写回且 UI/通知文本刷新；强 title 与已有 artist/album 不覆盖
 - WebDAV 无完整缓存→NativeAudio 使用远程 URL + Basic Auth headers，不调用 `prepareWebDavAudioFile`，`bufferedPosition` 保持 `null`
 - WebDAV 完整缓存命中→`file://` 完整文件播放，`bufferedPosition = duration`，不带 Authorization headers
 - 播放成功后预取下一首 WebDAV（`peekNext` + `prefetchWebDavAudioFile`）；本地下一首 / 单曲循环自身 / 空队列不预取
