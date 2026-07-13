@@ -1569,3 +1569,37 @@ Issue #18：iTunes+kw 在线补封面；cache/covers 写回；仅补缺；同步
 ### Next Steps
 
 - None - task complete
+
+
+## Session 46: 在线封面增加酷狗回退
+
+**Date**: 2026-07-13
+**Task**: 在线封面增加酷狗回退
+**Branch**: `main`
+
+### Summary
+
+封面匹配链扩展为 iTunes→kw→mg→kg；单测与 spec 同步。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a085e0a` | (see git log) |
+| `2b57212` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
