@@ -71,3 +71,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 60: 修复沉浸式再打开半屏
+
+**Date**: 2026-07-13
+**Task**: 修复沉浸式再打开半屏
+**Branch**: `main`
+
+### Summary
+
+#25：保活 PlayerPage 显隐与下滑关闭清理 dragOffsetY。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c600494` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
