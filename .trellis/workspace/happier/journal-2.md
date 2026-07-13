@@ -104,3 +104,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 61: 修复歌词翻译开关和图标尺寸
+
+**Date**: 2026-07-13
+**Task**: 修复歌词翻译开关和图标尺寸
+**Branch**: `main`
+
+### Summary
+
+#26：翻译显隐重建 LyricPlayer；浮动按钮缩小。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9b704cf` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
