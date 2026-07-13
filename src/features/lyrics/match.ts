@@ -3,6 +3,7 @@
  * 不写库；由 controller 写入 playerState。
  */
 import { matchAmllTtmlLyrics } from './amllTtmlDb'
+import { lrclibLyricsProvider } from './providers/lrclib'
 import { platformLyricsProviders } from './providers/platform'
 import type {
   LyricsProvider,
@@ -10,8 +11,11 @@ import type {
   OnlineLyricsQuery,
 } from './providers/types'
 
-/** 默认回退链：平台五源；LRCLIB 由后续子任务 append */
-const defaultFallbackProviders: LyricsProvider[] = [...platformLyricsProviders]
+/** 默认回退链：平台五源 → LRCLIB（amll 在编排层最前） */
+const defaultFallbackProviders: LyricsProvider[] = [
+  ...platformLyricsProviders,
+  lrclibLyricsProvider,
+]
 
 let fallbackOverride: LyricsProvider[] | null = null
 

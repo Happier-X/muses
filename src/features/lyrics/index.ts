@@ -16,3 +16,4 @@ export type {
   OnlineLyricsSource,
 } from './providers/types'
 export { platformLyricsProviders } from './providers/platform'
+export { lrclibLyricsProvider, searchLrclibLyrics } from './providers/lrclib'

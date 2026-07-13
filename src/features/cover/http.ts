@@ -10,6 +10,7 @@ export const httpGetText = async (url: string, headers?: Record<string, string>)
       headers,
       responseType: 'text',
     })
+    // 业务 HTTP 错误（含 404）直接抛出，勿再回退 fetch，避免双请求与测试实网污染
     if (response.status < 200 || response.status >= 300) {
       throw new Error(`http ${response.status}`)
     }
@@ -18,7 +19,10 @@ export const httpGetText = async (url: string, headers?: Record<string, string>)
     }
     return JSON.stringify(response.data ?? '')
   } catch (error) {
-    // CapacitorHttp 在纯 web/vitest 可能不可用
+    // 仅当 CapacitorHttp 调用本身失败（插件不可用/网络层）时回退 fetch
+    if (error instanceof Error && /^http \d+/.test(error.message)) {
+      throw error
+    }
     if (typeof fetch === 'function') {
       const response = await fetch(url, { headers })
       if (!response.ok) {

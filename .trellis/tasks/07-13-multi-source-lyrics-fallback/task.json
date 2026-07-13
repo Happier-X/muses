@@ -1,0 +1,30 @@
+{
+  "id": "multi-source-lyrics-fallback",
+  "name": "multi-source-lyrics-fallback",
+  "title": "多源歌词回退链",
+  "description": "以 amll 为首，miss 后 any-listen 平台歌词，再回退公开 LRC",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-07-13",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-13-lyrics-orchestrator",
+    "07-13-lyrics-platform-providers",
+    "07-13-lyrics-lrclib"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
