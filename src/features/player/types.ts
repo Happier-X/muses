@@ -6,8 +6,8 @@ export type PlayerSourceType = 'local' | 'webdav'
 
 export type PlayerMetadataStatus = 'idle' | 'scanning' | 'ready' | 'failed'
 
-/** 当前展示歌词的格式：本地 LRC / 在线 TTML / 无 */
-export type LyricsFormat = 'lrc' | 'ttml' | null
+/** 当前展示歌词格式：本地 LRC / 在线 TTML / 平台逐字 yrc·qrc / 无 */
+export type LyricsFormat = 'lrc' | 'ttml' | 'yrc' | 'qrc' | null
 
 /** 在线 amll-ttml-db 匹配状态 */
 export type OnlineLyricsStatus = 'idle' | 'matching' | 'ready' | 'miss' | 'error'

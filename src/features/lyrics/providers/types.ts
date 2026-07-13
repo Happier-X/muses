@@ -8,7 +8,8 @@ export type OnlineLyricsQuery = {
   duration?: number
 }
 
-export type OnlineLyricsFormat = 'ttml' | 'lrc'
+/** ttml=amll；lrc=行级；yrc/qrc=平台逐字（@applemusic-like-lyrics/lyric 可解析） */
+export type OnlineLyricsFormat = 'ttml' | 'lrc' | 'yrc' | 'qrc'
 
 export type OnlineLyricsSource =
   | 'amll'

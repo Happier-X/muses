@@ -3,14 +3,15 @@
  * 不写库；由 controller 写入 playerState。
  */
 import { matchAmllTtmlLyrics } from './amllTtmlDb'
+import { platformLyricsProviders } from './providers/platform'
 import type {
   LyricsProvider,
   OnlineLyricsMatchResult,
   OnlineLyricsQuery,
 } from './providers/types'
 
-/** 默认回退链：后续子任务注册平台与 LRCLIB；编排交付时为空数组 */
-const defaultFallbackProviders: LyricsProvider[] = []
+/** 默认回退链：平台五源；LRCLIB 由后续子任务 append */
+const defaultFallbackProviders: LyricsProvider[] = [...platformLyricsProviders]
 
 let fallbackOverride: LyricsProvider[] | null = null
 
@@ -74,7 +75,7 @@ export const matchOnlineLyrics = async (
         return {
           ok: true,
           text,
-          format: hit!.format === 'ttml' ? 'ttml' : 'lrc',
+          format: hit!.format,
           source: provider.id,
         }
       }

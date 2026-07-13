@@ -15,3 +15,4 @@ export type {
   OnlineLyricsQuery,
   OnlineLyricsSource,
 } from './providers/types'
+export { platformLyricsProviders } from './providers/platform'

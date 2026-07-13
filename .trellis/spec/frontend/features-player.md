@@ -89,7 +89,9 @@
 ## 在线歌词匹配（多源回退）
 
 - `playSong(song)` 无论歌曲是否已有本地歌词，均异步调用 `src/features/lyrics` 的 `matchOnlineLyrics`；匹配不得阻塞音频播放。
-- 在线串行优先级：**amll TTML** → 平台歌词（kw→tx→wy→kg→mg，由 provider 注册）→ **LRCLIB** LRC → 本地内嵌/同名 `.lrc` → 空态。匹配期间已有本地词先展示本地 LRC。
+- 在线串行优先级：**amll TTML** → 平台歌词（kw→tx→wy→kg→mg）→ **LRCLIB** LRC → 本地内嵌/同名 `.lrc` → 空态。匹配期间已有本地词先展示本地 LRC。
+- 平台源内 **逐字优先**：网易 `yrc`、QQ `qrc`（若可得）优先于行级 LRC；UI 用 `@applemusic-like-lyrics/lyric` 的 `parseYrc` / `parseQrc` / `parseLrc` / `parseTTML`。
+- `lyricsFormat`：`ttml | lrc | yrc | qrc | null`。
 - **禁止**把在线歌词写回 `SongItem` / `muses:songs`（与封面/文本元信息不同）。
 - `PlayerState.lyricsFormat` 为 `'lrc' | 'ttml' | null`，决定 `PlayerPage.vue` 使用 `parseLrc` 或 `parseTTML(...).lines`；`onlineLyricsStatus` 为 `'idle' | 'matching' | 'ready' | 'miss' | 'error'`。
 - 索引与 TTML 仅保存在进程内存：索引单例缓存，TTML 按 `songId` 缓存，失败短时负缓存；不得整库打包或写回 `SongItem` / `muses:songs`。

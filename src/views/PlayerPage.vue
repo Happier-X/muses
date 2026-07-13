@@ -177,7 +177,7 @@ import { listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeat
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
-import { parseLrc, parseTTML } from '@applemusic-like-lyrics/lyric'
+import { parseLrc, parseQrc, parseTTML, parseYrc } from '@applemusic-like-lyrics/lyric'
 import '@applemusic-like-lyrics/core/style.css'
 import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousFromQueue, queueState, resumePlayback, seekPlayback, setRepeatMode, toggleShuffle } from '@/features/player/controller'
 import { closePlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
@@ -281,9 +281,15 @@ const lyricLines = computed<LyricLine[]>(() => {
   }
 
   try {
-    // 在线 TTML 用 parseTTML(...).lines；本地 LRC 用 parseLrc
+    // amll 解析：TTML / 网易 yrc / QQ qrc / 通用 LRC
     if (playerState.lyricsFormat === 'ttml') {
       return parseTTML(currentLyrics.value).lines
+    }
+    if (playerState.lyricsFormat === 'yrc') {
+      return parseYrc(currentLyrics.value)
+    }
+    if (playerState.lyricsFormat === 'qrc') {
+      return parseQrc(currentLyrics.value)
     }
     return parseLrc(normalizeLrc(currentLyrics.value))
   } catch {

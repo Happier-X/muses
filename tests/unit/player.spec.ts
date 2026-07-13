@@ -6,6 +6,15 @@ import MiniPlayer from '@/components/MiniPlayer.vue'
 import PlayerPage from '@/views/PlayerPage.vue'
 import App from '@/App.vue'
 
+/** 播放页 UI 单测不跑真实多源歌词，避免 matching 空态文案抖动 */
+vi.mock('@/features/lyrics', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/lyrics')>()
+  return {
+    ...actual,
+    matchOnlineLyrics: vi.fn().mockResolvedValue({ ok: false, reason: 'no-match' }),
+  }
+})
+
 const { localLibraryNative, nativePlayer, nativeAudio, audioPlayerBridge, webDavNative, statusBarSetStyle } = vi.hoisted(() => ({
   localLibraryNative: {
     scanDirectory: vi.fn(),
