@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 56
+- **Total Sessions**: 57
 - **Last Active**: 2026-07-13
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1939 | Active |
+| `journal-1.md` | ~1972 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 57 | 2026-07-13 | 关闭沉浸式保活动态背景 | `fb6f5af` | `main` |
 | 56 | 2026-07-13 | 封面同步不抹歌词 | `b0d180b` | `main` |
 | 55 | 2026-07-13 | 切歌背景不闪默认 | `8068ae4` | `main` |
 | 54 | 2026-07-13 | 在线歌词写回曲库 | `e9c0c46` | `main` |

@@ -1937,3 +1937,36 @@ tx decryptQrcHex；wy eapi yrc；其余平台仍 LRC。
 ### Next Steps
 
 - None - task complete
+
+
+## Session 57: 关闭沉浸式保活动态背景
+
+**Date**: 2026-07-13
+**Task**: 关闭沉浸式保活动态背景
+**Branch**: `main`
+
+### Summary
+
+#22 PlayerPage 有曲保活；关闭不销毁 BackgroundRender。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fb6f5af` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
