@@ -419,7 +419,7 @@ const withMetadataScanTimeout = async <T>(operation: Promise<T>, timeoutMs: numb
 }
 
 /**
- * 在线补 artist/album：仅补缺；写回 muses:songs；不改 title。
+ * 在线补文本元信息：artist/album 仅补缺；弱 title（=文件名）可写相关在线 title。
  * 源：kw → tx → wy → kg → mg；失败静默。
  */
 const matchOnlineTextMetaForSong = async (song: SongItem, token: number): Promise<void> => {
@@ -436,6 +436,7 @@ const matchOnlineTextMetaForSong = async (song: SongItem, token: number): Promis
     const remote = await matchOnlineTextMeta({
       songId: latest.id,
       title: latest.title,
+      path: latest.path,
       artist: latest.artist,
       album: latest.album,
     })
@@ -459,6 +460,7 @@ const matchOnlineTextMetaForSong = async (song: SongItem, token: number): Promis
       uri: next.uri,
       title: next.title,
       tags: {
+        title: next.title,
         artist: next.artist,
         album: next.album,
       },

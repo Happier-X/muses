@@ -2,6 +2,8 @@
 export type OnlineTextQuery = {
   songId: string
   title: string
+  /** 用于弱 title 判定（与去扩展名文件名比较） */
+  path?: string
   artist?: string
   album?: string
 }

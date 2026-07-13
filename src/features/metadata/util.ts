@@ -1,22 +1,52 @@
-import type { OnlineTextQuery, TextMetaHit } from './types'
+import { getTitleFromPath } from '@/features/library/audio'
 import { normalizeText } from '@/features/lyrics/normalize'
+import type { OnlineTextQuery, TextMetaHit } from './types'
 
 export const isBlank = (value: string | undefined | null): boolean => !value?.trim()
 
-/** artist 或 album 任一为空则需要匹配 */
-export const needsOnlineTextMeta = (query: Pick<OnlineTextQuery, 'artist' | 'album'>): boolean =>
-  isBlank(query.artist) || isBlank(query.album)
+/**
+ * 弱 title：与去扩展名文件名 normalize 后相等（扫描无内嵌标题时的兜底形态）。
+ * path 无效或基名为空时不视为弱，避免误覆盖。
+ */
+export const isWeakTitle = (title: string | undefined | null, path: string | undefined | null): boolean => {
+  const t = title?.trim()
+  const p = path?.trim()
+  if (!t || !p) {
+    return false
+  }
+  const base = getTitleFromPath(p).trim()
+  if (!base) {
+    return false
+  }
+  return normalizeText(t) === normalizeText(base)
+}
+
+/** 标题相关：normalize 后相等或互相包含 */
+export const titlesRelated = (
+  a: string | undefined | null,
+  b: string | undefined | null,
+): boolean => {
+  const na = normalizeText(a)
+  const nb = normalizeText(b)
+  if (!na || !nb) {
+    return false
+  }
+  return na === nb || na.includes(nb) || nb.includes(na)
+}
+
+export type OnlineTextNeedQuery = Pick<OnlineTextQuery, 'title' | 'artist' | 'album' | 'path'>
+
+/** artist/album 空，或 title 为弱标签时需要匹配 */
+export const needsOnlineTextMeta = (query: OnlineTextNeedQuery): boolean =>
+  isBlank(query.artist) || isBlank(query.album) || isWeakTitle(query.title, query.path)
 
 export const buildKeyword = (query: OnlineTextQuery): string =>
   [query.title, query.artist, query.album].filter((part) => part?.trim()).join(' ').trim()
 
 /**
- * 命中是否对「当前仍缺字段」有用：至少补上一个空字段。
+ * 命中是否对当前缺口有用：补空 artist/album，或弱 title 的相关 title。
  */
-export const hitFillsMissing = (
-  hit: TextMetaHit,
-  query: Pick<OnlineTextQuery, 'artist' | 'album'>,
-): boolean => {
+export const hitFillsMissing = (hit: TextMetaHit, query: OnlineTextNeedQuery): boolean => {
   const needArtist = isBlank(query.artist)
   const needAlbum = isBlank(query.album)
   if (needArtist && hit.artist?.trim()) {
@@ -25,23 +55,47 @@ export const hitFillsMissing = (
   if (needAlbum && hit.album?.trim()) {
     return true
   }
+  if (
+    isWeakTitle(query.title, query.path)
+    && hit.title?.trim()
+    && titlesRelated(hit.title, query.title)
+  ) {
+    return true
+  }
   return false
 }
 
+type MergeBase = {
+  title: string
+  path?: string
+  artist?: string
+  album?: string
+}
+
 /**
- * 仅补缺合并：不覆盖已有非空 artist/album；永不改 title。
+ * 合并：弱 title + 相关 hit.title 可改 title；artist/album 仅补空。
  */
-export const mergeTextMetaFillEmpty = <T extends { artist?: string; album?: string }>(
+export const mergeTextMetaFillEmpty = <T extends MergeBase>(
   latest: T,
-  hit: Pick<TextMetaHit, 'artist' | 'album'>,
+  hit: Pick<TextMetaHit, 'title' | 'artist' | 'album'>,
 ): { next: T; changed: boolean } => {
+  const weak = isWeakTitle(latest.title, latest.path)
+  const hitTitle = hit.title?.trim()
+  const canWriteTitle = weak && !!hitTitle && titlesRelated(hitTitle, latest.title)
+
+  const nextTitle = canWriteTitle ? hitTitle! : latest.title
   const nextArtist = !isBlank(latest.artist) ? latest.artist : (hit.artist?.trim() || latest.artist)
   const nextAlbum = !isBlank(latest.album) ? latest.album : (hit.album?.trim() || latest.album)
+
   const changed =
-    (nextArtist || '') !== (latest.artist || '') || (nextAlbum || '') !== (latest.album || '')
+    nextTitle !== latest.title
+    || (nextArtist || '') !== (latest.artist || '')
+    || (nextAlbum || '') !== (latest.album || '')
+
   return {
     next: {
       ...latest,
+      title: nextTitle,
       artist: nextArtist,
       album: nextAlbum,
     },
