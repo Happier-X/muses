@@ -1637,3 +1637,37 @@ Issue #18：iTunes+kw 在线补封面；cache/covers 写回；仅补缺；同步
 ### Next Steps
 
 - None - task complete
+
+
+## Session 48: 在线补缺artist/album
+
+**Date**: 2026-07-13
+**Task**: 在线补缺artist/album
+**Branch**: `main`
+
+### Summary
+
+新增 metadata 模块；播放时仅补缺写回 artist/album；封面链对齐 any-listen。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3b7a324` | (see git log) |
+| `4c6c1a9` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
