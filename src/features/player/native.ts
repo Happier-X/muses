@@ -14,6 +14,7 @@ interface BufferProgressEvent {
 interface AudioPlayerPermissionBridge {
   ensureNotificationPermission(): Promise<{ granted: boolean }>
   prepareLocalAudioFile?(options: { uri: string; songId: string }): Promise<{ uri: string }>
+  /** 渐进下载保留兼容，播放路径禁止调用。 */
   prepareWebDavAudioFile?(options: {
     url: string
     username: string
@@ -21,6 +22,15 @@ interface AudioPlayerPermissionBridge {
     songId: string
     duration?: number
   }): Promise<{ uri: string; ready?: boolean }>
+  /** 仅返回完整缓存 URI；partial / 未命中返回 uri=null。 */
+  getCachedWebDavAudioFile?(options: { url: string }): Promise<{ uri: string | null }>
+  /** 后台完整预取；cached=已有完整缓存，started=新启动下载。 */
+  prefetchWebDavAudioFile?(options: {
+    url: string
+    username: string
+    password: string
+    songId: string
+  }): Promise<{ cached: boolean; started: boolean }>
   cancelBufferSession?(options?: { songId?: string }): Promise<void>
   prepareArtworkDataUrl?(options: { uri: string }): Promise<{ dataUrl: string | null }>
   addListener?(
@@ -281,8 +291,64 @@ const cancelActiveBufferSession = async (songId?: string | null): Promise<void> 
 
 const toAssetId = (songId: string): string => `song-${songId.replace(/[^a-zA-Z0-9_-]/g, '-')}`
 
+/**
+ * 查询 WebDAV 完整缓存。仅完整文件可本地播放；partial / 失败一律 null。
+ * 禁止调用 prepareWebDavAudioFile 作为播放路径。
+ */
+const resolveCachedWebDavUri = async (url: string): Promise<string | null> => {
+  if (!AudioPlayerBridge.getCachedWebDavAudioFile) {
+    return null
+  }
+  try {
+    const result = await AudioPlayerBridge.getCachedWebDavAudioFile({ url })
+    const uri = result?.uri
+    if (typeof uri === 'string' && uri.length > 0 && !uri.includes('.partial') && !uri.endsWith('.tmp')) {
+      return uri
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 后台预取 WebDAV 完整文件。失败静默；不阻塞播放。
+ * 密码仅传到 bridge，不写日志。
+ */
+export const prefetchWebDavAudioFile = async (options: {
+  url: string
+  username: string
+  password: string
+  songId: string
+}): Promise<{ cached: boolean; started: boolean }> => {
+  if (!AudioPlayerBridge.prefetchWebDavAudioFile) {
+    return { cached: false, started: false }
+  }
+  try {
+    const result = await AudioPlayerBridge.prefetchWebDavAudioFile({
+      url: options.url,
+      username: options.username,
+      password: options.password,
+      songId: options.songId,
+    })
+    return {
+      cached: result?.cached === true,
+      started: result?.started === true,
+    }
+  } catch {
+    return { cached: false, started: false }
+  }
+}
+
 const resolveAssetPath = async (options: PlayOptions): Promise<{ assetPath: string; headers?: Record<string, string>; fullBuffer?: boolean }> => {
   if (options.sourceType === 'webdav') {
+    // 完整缓存优先：命中 file:// + full buffer；未命中远程直链 + Basic Auth
+    const cachedUri = await resolveCachedWebDavUri(options.url)
+    if (cachedUri) {
+      currentBufferedPosition = Number.POSITIVE_INFINITY
+      return { assetPath: cachedUri, fullBuffer: true }
+    }
+
     currentBufferedPosition = null
     return {
       assetPath: options.url,

@@ -5,10 +5,22 @@ import { readLocalAudioTags, readWebDavAudioTags } from '@/features/library/tags
 import { getWebDavPassword, loadSources } from '@/features/sources/storage'
 import type { WebDavSourceItem } from '@/features/sources/types'
 import { matchAmllTtmlLyrics } from '@/features/lyrics'
-import { AudioPlayerNative } from './native'
+import { AudioPlayerNative, prefetchWebDavAudioFile } from './native'
 import type { AudioPlayerNativeState, PlayOptions, PlayerState } from './types'
 import { createPlayerSongSnapshot, toSafeCoverUri } from './types'
-import { advanceToNext, advanceToPrevious, syncCurrentIndex } from './queue'
+import {
+  advanceToNext,
+  advanceToPrevious,
+  clearQueue as clearQueueInternal,
+  enqueueSong as enqueueSongInternal,
+  enqueueSongs as enqueueSongsInternal,
+  peekNext,
+  removeSongFromQueue as removeSongFromQueueInternal,
+  setRepeatMode as setRepeatModeInternal,
+  syncCurrentIndex,
+  toggleShuffle as toggleShuffleInternal,
+  type RepeatMode,
+} from './queue'
 import {
   setupMediaSessionActions,
   updateMediaSessionMetadata,
@@ -448,6 +460,87 @@ const requireWebDavPassword = async (song: SongItem): Promise<string> => {
   return password
 }
 
+/**
+ * 当前曲进入 playing 后调度下一首 WebDAV 完整预取。
+ * 跳过：空队列 / 单曲循环自身 / 本地 / 非 webdav。
+ * 密码仅传到 bridge；失败静默，不阻塞播放。
+ */
+const prefetchNextTrack = async (currentSongId: string): Promise<void> => {
+  try {
+    const next = peekNext()
+    if (!next) {
+      return
+    }
+    // 单曲循环下一首是自身：不预取
+    if (next.id === currentSongId) {
+      return
+    }
+    if (next.sourceType !== 'webdav') {
+      return
+    }
+
+    const source = getWebDavSource(next)
+    const password = await getWebDavPassword(source.credentialKey)
+    if (!password) {
+      return
+    }
+
+    await prefetchWebDavAudioFile({
+      url: next.uri,
+      username: source.username,
+      password,
+      songId: next.id,
+    })
+  } catch {
+    // 预取失败不得影响当前播放或切歌
+  }
+}
+
+/**
+ * 队列/循环/随机变更后重新解析下一首并调度预取。
+ * 仅在仍有当前曲且处于 playing/paused 时重调度；旧下载由原生侧不取消。
+ */
+const reschedulePrefetchAfterQueueChange = (): void => {
+  const currentId = state.currentSong?.id
+  if (!currentId) {
+    return
+  }
+  if (state.status !== 'playing' && state.status !== 'paused') {
+    return
+  }
+  void prefetchNextTrack(currentId)
+}
+
+export const enqueueSongs = (songs: SongItem[]): void => {
+  enqueueSongsInternal(songs)
+  reschedulePrefetchAfterQueueChange()
+}
+
+export const enqueueSong = (song: SongItem): void => {
+  enqueueSongInternal(song)
+  reschedulePrefetchAfterQueueChange()
+}
+
+export const removeSongFromQueue = (songId: string): void => {
+  removeSongFromQueueInternal(songId)
+  reschedulePrefetchAfterQueueChange()
+}
+
+export const clearQueue = (): void => {
+  clearQueueInternal()
+  reschedulePrefetchAfterQueueChange()
+}
+
+export const setRepeatMode = (mode: RepeatMode): void => {
+  setRepeatModeInternal(mode)
+  reschedulePrefetchAfterQueueChange()
+}
+
+export const toggleShuffle = (): void => {
+  toggleShuffleInternal()
+  reschedulePrefetchAfterQueueChange()
+}
+
 const SAFE_PLAYBACK_ERRORS = new Set([
   '找不到这首歌对应的 WebDAV 音源，请重新扫描音源。',
   'WebDAV 密码不存在，请重新添加该音源。',
@@ -499,6 +592,8 @@ export const playSong = async (song: SongItem): Promise<void> => {
     await AudioPlayerNative.play(await buildPlayOptions(latestSong))
     state.status = 'playing'
     void scanSongMetadata(latestSong)
+    // 播放成功后后台预取下一首 WebDAV（失败静默）
+    void prefetchNextTrack(latestSong.id)
   } catch (error) {
     lyricsMatchToken += 1
     state.onlineLyricsStatus = 'idle'
@@ -594,14 +689,9 @@ export const isPlaybackFinished = computed(() => state.status === 'finished')
 export {
   advanceToNext,
   advanceToPrevious,
-  clearQueue,
-  enqueueSong,
-  enqueueSongs,
+  peekNext,
   queueState,
-  removeSongFromQueue,
   repeatMode,
   selectSongAtIndex,
   shuffleEnabled,
-  toggleShuffle,
-  setRepeatMode,
 } from './queue'

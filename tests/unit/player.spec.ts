@@ -50,6 +50,8 @@ const { localLibraryNative, nativePlayer, nativeAudio, audioPlayerBridge, webDav
     ensureNotificationPermission: vi.fn().mockResolvedValue({ granted: true }),
     prepareLocalAudioFile: vi.fn(),
     prepareWebDavAudioFile: vi.fn(),
+    getCachedWebDavAudioFile: vi.fn().mockResolvedValue({ uri: null }),
+    prefetchWebDavAudioFile: vi.fn().mockResolvedValue({ cached: false, started: true }),
     cancelBufferSession: vi.fn().mockResolvedValue(undefined),
     addListener: vi.fn(async (_eventName: string, listener: (event: {
       songId?: string
@@ -88,9 +90,12 @@ vi.mock('@capgo/capacitor-native-audio', () => ({
   NativeAudio: nativeAudio,
 }))
 
+const prefetchWebDavAudioFileMock = vi.hoisted(() => vi.fn().mockResolvedValue({ cached: false, started: true }))
+
 vi.mock('@/features/player/native', () => ({
   AudioPlayerNative: nativePlayer,
   AudioPlayerBridge: audioPlayerBridge,
+  prefetchWebDavAudioFile: prefetchWebDavAudioFileMock,
 }))
 
 const { routerPush, routerBack, routeState } = vi.hoisted(() => ({
@@ -194,6 +199,12 @@ const resetPlayer = async () => {
   await stopPlayback()
   vi.clearAllMocks()
   vi.useRealTimers()
+  prefetchWebDavAudioFileMock.mockReset()
+  prefetchWebDavAudioFileMock.mockResolvedValue({ cached: false, started: true })
+  audioPlayerBridge.getCachedWebDavAudioFile.mockReset()
+  audioPlayerBridge.getCachedWebDavAudioFile.mockResolvedValue({ uri: null })
+  audioPlayerBridge.prefetchWebDavAudioFile.mockReset()
+  audioPlayerBridge.prefetchWebDavAudioFile.mockResolvedValue({ cached: false, started: true })
   audioPlayerBridge.prepareArtworkDataUrl.mockReset()
   audioPlayerBridge.prepareArtworkDataUrl.mockImplementation(async ({ uri }: { uri: string }) => ({
     dataUrl: `data:image/jpeg;base64,${btoa(uri)}`,
@@ -205,9 +216,11 @@ describe('原生播放器封装', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     nativeAudio.getDuration.mockResolvedValue({ duration: 180 })
+    audioPlayerBridge.getCachedWebDavAudioFile.mockResolvedValue({ uri: null })
+    audioPlayerBridge.prefetchWebDavAudioFile.mockResolvedValue({ cached: false, started: true })
   })
 
-  test('WebDAV 使用远程 URL 和 Basic Auth，且不调用渐进文件准备', async () => {
+  test('WebDAV 未缓存时使用远程 URL 和 Basic Auth，且不调用渐进文件准备', async () => {
     const { AudioPlayerNative } = await vi.importActual<typeof import('@/features/player/native')>('@/features/player/native')
 
     await AudioPlayerNative.play({
@@ -219,6 +232,9 @@ describe('原生播放器封装', () => {
       title: '远程歌曲',
     })
 
+    expect(audioPlayerBridge.getCachedWebDavAudioFile).toHaveBeenCalledWith({
+      url: 'https://example.com/dav/music/remote.flac',
+    })
     expect(audioPlayerBridge.prepareWebDavAudioFile).not.toHaveBeenCalled()
     expect(audioPlayerBridge.cancelBufferSession).toHaveBeenCalled()
     expect(nativeAudio.preload).toHaveBeenCalledWith({
@@ -238,6 +254,73 @@ describe('原生播放器封装', () => {
       bufferedRatio: 0.5,
     })
     expect((await AudioPlayerNative.getState()).bufferedPosition).toBeUndefined()
+  })
+
+  test('WebDAV 完整缓存命中时使用 file:// 并视为 full buffer', async () => {
+    audioPlayerBridge.getCachedWebDavAudioFile.mockResolvedValueOnce({
+      uri: 'file:///cache/webdav-audio/abc.flac',
+    })
+    const { AudioPlayerNative } = await vi.importActual<typeof import('@/features/player/native')>('@/features/player/native')
+
+    await AudioPlayerNative.play({
+      sourceType: 'webdav',
+      songId: 'song-webdav-cached',
+      url: 'https://example.com/dav/music/remote.flac',
+      username: 'alice',
+      password: 'secret-password',
+      title: '远程歌曲',
+    })
+
+    expect(audioPlayerBridge.prepareWebDavAudioFile).not.toHaveBeenCalled()
+    expect(nativeAudio.preload).toHaveBeenCalledWith(expect.objectContaining({
+      assetPath: 'file:///cache/webdav-audio/abc.flac',
+      isUrl: true,
+    }))
+    // 完整缓存不带 Authorization headers
+    const preloadArg = nativeAudio.preload.mock.calls[0][0] as { headers?: Record<string, string> }
+    expect(preloadArg.headers).toBeUndefined()
+    expect(await AudioPlayerNative.getState()).toEqual(expect.objectContaining({ bufferedPosition: 180 }))
+  })
+
+  test('partial 路径不得当作完整缓存命中', async () => {
+    audioPlayerBridge.getCachedWebDavAudioFile.mockResolvedValueOnce({
+      uri: 'file:///cache/webdav-audio/abc.flac.partial',
+    })
+    const { AudioPlayerNative } = await vi.importActual<typeof import('@/features/player/native')>('@/features/player/native')
+
+    await AudioPlayerNative.play({
+      sourceType: 'webdav',
+      songId: 'song-webdav-partial',
+      url: 'https://example.com/dav/music/remote.flac',
+      username: 'alice',
+      password: 'secret-password',
+      title: '远程歌曲',
+    })
+
+    expect(nativeAudio.preload).toHaveBeenCalledWith(expect.objectContaining({
+      assetPath: 'https://example.com/dav/music/remote.flac',
+    }))
+    expect((await AudioPlayerNative.getState()).bufferedPosition).toBeUndefined()
+  })
+
+  test('prefetchWebDavAudioFile 转发 bridge 且失败静默', async () => {
+    const native = await vi.importActual<typeof import('@/features/player/native')>('@/features/player/native')
+
+    audioPlayerBridge.prefetchWebDavAudioFile.mockResolvedValueOnce({ cached: true, started: false })
+    await expect(native.prefetchWebDavAudioFile({
+      url: 'https://example.com/a.flac',
+      username: 'u',
+      password: 'p',
+      songId: 's1',
+    })).resolves.toEqual({ cached: true, started: false })
+
+    audioPlayerBridge.prefetchWebDavAudioFile.mockRejectedValueOnce(new Error('network'))
+    await expect(native.prefetchWebDavAudioFile({
+      url: 'https://example.com/a.flac',
+      username: 'u',
+      password: 'p',
+      songId: 's1',
+    })).resolves.toEqual({ cached: false, started: false })
   })
 
   test('本地文件保持完整缓冲', async () => {
@@ -318,6 +401,199 @@ describe('播放器控制器', () => {
     })
     expect(localStorage.getItem('muses:sources')).not.toContain('secret-password')
     expect(JSON.stringify(playerState)).not.toContain('secret-password')
+  })
+
+  test('播放成功后为下一首 WebDAV 触发完整预取，密码只到 bridge', async () => {
+    prefetchWebDavAudioFileMock.mockClear()
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    vi.mocked(SecureStorage.get).mockResolvedValue('secret-password')
+    localStorage.setItem(
+      'muses:sources',
+      JSON.stringify([
+        {
+          id: 'source-webdav',
+          type: 'webdav',
+          name: '远程音乐',
+          serverUrl: 'https://example.com/dav',
+          username: 'alice',
+          path: '/music',
+          credentialKey: 'muses:webdav-password:source-webdav',
+          createdAt: '2026-07-07T00:00:00.000Z',
+        },
+      ]),
+    )
+    localStorage.setItem('muses:songs', JSON.stringify([localSong, webDavSong]))
+    const { clearQueue, enqueueSongs, playSong, playerState, selectSongAtIndex, setRepeatMode } = await import('@/features/player/controller')
+    setRepeatMode('all')
+    clearQueue()
+    enqueueSongs([localSong, webDavSong])
+    selectSongAtIndex(0)
+
+    await playSong(localSong)
+
+    await vi.waitFor(() => {
+      expect(prefetchWebDavAudioFileMock).toHaveBeenCalled()
+    })
+    expect(prefetchWebDavAudioFileMock).toHaveBeenCalledWith({
+      url: 'https://example.com/dav/music/remote.flac',
+      username: 'alice',
+      password: 'secret-password',
+      songId: 'song-webdav',
+    })
+    expect(JSON.stringify(playerState)).not.toContain('secret-password')
+    expect(localStorage.getItem('muses:songs')).not.toContain('secret-password')
+  })
+
+  test('下一首为本地时不预取', async () => {
+    prefetchWebDavAudioFileMock.mockClear()
+    const secondLocal: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([localSong, secondLocal]))
+    const { clearQueue, enqueueSongs, playSong, selectSongAtIndex, setRepeatMode } = await import('@/features/player/controller')
+    setRepeatMode('all')
+    clearQueue()
+    enqueueSongs([localSong, secondLocal])
+    selectSongAtIndex(0)
+
+    await playSong(localSong)
+
+    // 给异步预取一个 tick
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(prefetchWebDavAudioFileMock).not.toHaveBeenCalled()
+  })
+
+  test('单曲循环不预取自身', async () => {
+    prefetchWebDavAudioFileMock.mockClear()
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    vi.mocked(SecureStorage.get).mockResolvedValue('secret-password')
+    localStorage.setItem(
+      'muses:sources',
+      JSON.stringify([
+        {
+          id: 'source-webdav',
+          type: 'webdav',
+          name: '远程音乐',
+          serverUrl: 'https://example.com/dav',
+          username: 'alice',
+          path: '/music',
+          credentialKey: 'muses:webdav-password:source-webdav',
+          createdAt: '2026-07-07T00:00:00.000Z',
+        },
+      ]),
+    )
+    localStorage.setItem('muses:songs', JSON.stringify([webDavSong]))
+    const { clearQueue, enqueueSongs, playSong, setRepeatMode } = await import('@/features/player/controller')
+    clearQueue()
+    enqueueSongs([webDavSong])
+    setRepeatMode('one')
+
+    await playSong(webDavSong)
+
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(prefetchWebDavAudioFileMock).not.toHaveBeenCalled()
+  })
+
+  test('预取失败静默且不改变当前播放状态', async () => {
+    prefetchWebDavAudioFileMock.mockReset()
+    prefetchWebDavAudioFileMock.mockRejectedValueOnce(new Error('prefetch boom'))
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    vi.mocked(SecureStorage.get).mockResolvedValue('secret-password')
+    localStorage.setItem(
+      'muses:sources',
+      JSON.stringify([
+        {
+          id: 'source-webdav',
+          type: 'webdav',
+          name: '远程音乐',
+          serverUrl: 'https://example.com/dav',
+          username: 'alice',
+          path: '/music',
+          credentialKey: 'muses:webdav-password:source-webdav',
+          createdAt: '2026-07-07T00:00:00.000Z',
+        },
+      ]),
+    )
+    localStorage.setItem('muses:songs', JSON.stringify([localSong, webDavSong]))
+    const { clearQueue, enqueueSongs, playSong, playerState, selectSongAtIndex, setRepeatMode } = await import('@/features/player/controller')
+    setRepeatMode('all')
+    clearQueue()
+    enqueueSongs([localSong, webDavSong])
+    selectSongAtIndex(0)
+
+    await playSong(localSong)
+
+    await vi.waitFor(() => {
+      expect(prefetchWebDavAudioFileMock).toHaveBeenCalled()
+    })
+    expect(playerState.status).toBe('playing')
+    expect(playerState.currentSong?.id).toBe('song-local')
+    expect(playerState.errorMessage).toBeNull()
+  })
+
+  test('队列变更后会重新调度下一首预取', async () => {
+    prefetchWebDavAudioFileMock.mockClear()
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    vi.mocked(SecureStorage.get).mockResolvedValue('secret-password')
+    const anotherWebDav: SongItem = {
+      ...webDavSong,
+      id: 'song-webdav-2',
+      path: '/music/another.flac',
+      uri: 'https://example.com/dav/music/another.flac',
+      title: '另一首远程',
+    }
+    localStorage.setItem(
+      'muses:sources',
+      JSON.stringify([
+        {
+          id: 'source-webdav',
+          type: 'webdav',
+          name: '远程音乐',
+          serverUrl: 'https://example.com/dav',
+          username: 'alice',
+          path: '/music',
+          credentialKey: 'muses:webdav-password:source-webdav',
+          createdAt: '2026-07-07T00:00:00.000Z',
+        },
+      ]),
+    )
+    localStorage.setItem('muses:songs', JSON.stringify([localSong, webDavSong, anotherWebDav]))
+    const {
+      clearQueue,
+      enqueueSongs,
+      playSong,
+      removeSongFromQueue,
+      selectSongAtIndex,
+      setRepeatMode,
+    } = await import('@/features/player/controller')
+    setRepeatMode('all')
+    clearQueue()
+    enqueueSongs([localSong, webDavSong, anotherWebDav])
+    selectSongAtIndex(0)
+
+    await playSong(localSong)
+    await vi.waitFor(() => {
+      expect(prefetchWebDavAudioFileMock).toHaveBeenCalledWith(expect.objectContaining({
+        songId: 'song-webdav',
+      }))
+    })
+
+    const callsAfterPlay = prefetchWebDavAudioFileMock.mock.calls.length
+    removeSongFromQueue('song-webdav')
+
+    await vi.waitFor(() => {
+      expect(prefetchWebDavAudioFileMock.mock.calls.length).toBeGreaterThan(callsAfterPlay)
+    })
+    expect(prefetchWebDavAudioFileMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      songId: 'song-webdav-2',
+      url: 'https://example.com/dav/music/another.flac',
+    }))
   })
 
 
@@ -1498,6 +1774,59 @@ describe('播放队列与循环/随机模式', () => {
     clearQueue()
     const result = advanceToNext()
     expect(result).toBeNull()
+  })
+
+  test('peekNext 与 advanceToNext 目标一致但不改 currentIndex', async () => {
+    seedSongs()
+    const { advanceToNext, enqueueSongs, peekNext, queueState, selectSongAtIndex } = await import('@/features/player/queue')
+    enqueueSongs([localSong, webDavSong])
+    selectSongAtIndex(0)
+    expect(queueState.currentIndex).toBe(0)
+
+    const peeked = peekNext()
+    expect(peeked?.id).toBe('song-webdav')
+    expect(queueState.currentIndex).toBe(0)
+
+    const advanced = advanceToNext()
+    expect(advanced?.id).toBe('song-webdav')
+    expect(queueState.currentIndex).toBe(1)
+
+    // 列表循环：peek 末尾回绕首曲，索引不变
+    const peekedWrap = peekNext()
+    expect(peekedWrap?.id).toBe('song-local')
+    expect(queueState.currentIndex).toBe(1)
+  })
+
+  test('peekNext 单曲循环返回当前歌曲且不改索引', async () => {
+    seedSongs()
+    const { enqueueSongs, peekNext, queueState, selectSongAtIndex, setRepeatMode } = await import('@/features/player/queue')
+    enqueueSongs([localSong, webDavSong])
+    selectSongAtIndex(1)
+    setRepeatMode('one')
+
+    const peeked = peekNext()
+    expect(peeked?.id).toBe('song-webdav')
+    expect(queueState.currentIndex).toBe(1)
+  })
+
+  test('peekNext 空队列返回 null', async () => {
+    const { clearQueue, peekNext } = await import('@/features/player/queue')
+    clearQueue()
+    expect(peekNext()).toBeNull()
+  })
+
+  test('peekNext 随机模式下与 advanceToNext 目标一致', async () => {
+    seedSongs()
+    const { advanceToNext, enqueueSongs, peekNext, queueState, selectSongAtIndex, toggleShuffle } = await import('@/features/player/queue')
+    enqueueSongs([localSong, webDavSong])
+    toggleShuffle()
+    selectSongAtIndex(0)
+    const indexBefore = queueState.currentIndex
+
+    const peeked = peekNext()
+    expect(queueState.currentIndex).toBe(indexBefore)
+    const advanced = advanceToNext()
+    expect(advanced?.id).toBe(peeked?.id)
   })
 
   test('controller 暴露 queue 状态和模式切换', async () => {

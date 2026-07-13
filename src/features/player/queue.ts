@@ -242,6 +242,27 @@ export const selectSongAtIndex = (index: number): SongItem | null => {
   return resolvedItems[index]
 }
 
+/**
+ * 按当前 repeat/shuffle 规则解析「下一首」，不修改 currentIndex / 不写持久化。
+ * 语义与 advanceToNext 目标一致，但无副作用。
+ */
+export const peekNext = (): SongItem | null => {
+  const items = queueData.shuffleOrder ?? queueData.items
+
+  if (items.length === 0) {
+    return null
+  }
+
+  if (config.repeatMode === 'one') {
+    const index = currentIndex < 0 || currentIndex >= items.length ? 0 : currentIndex
+    return resolveSongsFromQueue([items[index]])[0] ?? null
+  }
+
+  const nextIndex = currentIndex + 1
+  const resolvedIndex = nextIndex >= items.length ? 0 : nextIndex
+  return resolveSongsFromQueue([items[resolvedIndex]])[0] ?? null
+}
+
 export const advanceToNext = (): SongItem | null => {
   const items = queueData.shuffleOrder ?? queueData.items
 

@@ -29,9 +29,19 @@ class WebDavAudioCache(
     /** 同一 URL 的渐进下载会话，避免并发重复拉取。 */
     private val progressiveSessions = ConcurrentHashMap<String, ProgressiveDownloadSession>()
 
+    /** 同一 URL 的完整后台下载进行中标记，避免重复写。 */
+    private val fullDownloadInFlight = ConcurrentHashMap.newKeySet<String>()
+
+    /**
+     * 仅返回完整缓存目标文件；.partial / .tmp 一律视为未命中。
+     */
     fun getCachedFile(url: String): File? {
         val file = cacheFile(url)
         if (!file.exists() || file.length() <= 0L) {
+            return null
+        }
+        // 名称以 .partial/.tmp 结尾的文件不是完整缓存（cacheFile 本身不会生成这些后缀）
+        if (file.name.endsWith(".partial") || file.name.endsWith(".tmp")) {
             return null
         }
         file.setLastModified(System.currentTimeMillis())
@@ -42,14 +52,31 @@ class WebDavAudioCache(
         return getCachedFile(url) ?: download(url, username, password)
     }
 
-    fun downloadInBackground(url: String, username: String, password: String) {
+    /**
+     * 后台完整下载。已有完整缓存或同 URL 已在下载中则 no-op。
+     * @return true 表示新启动了下载线程；false 表示已缓存或已有进行中的下载。
+     */
+    fun downloadInBackground(url: String, username: String, password: String): Boolean {
+        if (getCachedFile(url) != null) {
+            return false
+        }
+        if (!fullDownloadInFlight.add(url)) {
+            return false
+        }
         Thread {
-            runCatching { download(url, username, password) }
+            try {
+                if (getCachedFile(url) == null) {
+                    runCatching { download(url, username, password) }
+                }
+            } finally {
+                fullDownloadInFlight.remove(url)
+            }
         }.apply {
             name = "webdav-audio-cache"
             isDaemon = true
             start()
         }
+        return true
     }
 
     /**

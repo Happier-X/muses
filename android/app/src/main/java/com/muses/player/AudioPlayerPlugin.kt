@@ -204,6 +204,69 @@ class AudioPlayerPlugin : Plugin() {
         call.resolve()
     }
 
+    /**
+     * 查询 WebDAV 完整缓存文件 URI。
+     * 仅完整目标文件命中；.partial / 未完成下载返回 uri=null。
+     * 密码不参与、不回写。
+     */
+    @PluginMethod
+    fun getCachedWebDavAudioFile(call: PluginCall) {
+        val url = call.getString("url")
+        if (url.isNullOrBlank()) {
+            call.reject("缺少 WebDAV 音频地址。", "missingUrl")
+            return
+        }
+
+        bridge.execute {
+            val cached = audioCache.getCachedFile(url)
+            val result = JSObject()
+            result.put("uri", cached?.let { Uri.fromFile(it).toString() })
+            call.resolve(result)
+        }
+    }
+
+    /**
+     * 预取下一首 WebDAV：已有完整缓存则 cached=true；否则后台完整下载 started=true。
+     * 密码仅用于原生下载边界，不写入 resolve 结果。
+     */
+    @PluginMethod
+    fun prefetchWebDavAudioFile(call: PluginCall) {
+        val url = call.getString("url")
+        val username = call.getString("username")
+        val password = call.getString("password")
+        // songId 仅作诊断标识，预取正确性以 URL 缓存会话为准
+        @Suppress("UNUSED_VARIABLE")
+        val songId = call.getString("songId")
+
+        if (url.isNullOrBlank()) {
+            call.reject("缺少 WebDAV 音频地址。", "missingUrl")
+            return
+        }
+        if (username == null || password == null) {
+            call.reject("WebDAV 播放缺少认证信息。", "missingCredentials")
+            return
+        }
+
+        bridge.execute {
+            val cachedFile = audioCache.getCachedFile(url)
+            if (cachedFile != null) {
+                call.resolve(
+                    JSObject()
+                        .put("cached", true)
+                        .put("started", false),
+                )
+                return@execute
+            }
+
+            val started = audioCache.downloadInBackground(url, username, password)
+            call.resolve(
+                JSObject()
+                    .put("cached", false)
+                    .put("started", started),
+            )
+        }
+    }
+
     private fun emitFullBuffer(songId: String) {
         activeBufferSongId.set(songId)
         emitBufferProgress(
