@@ -6,7 +6,7 @@ import { httpGetJson } from '@/features/cover/http'
 import type { LyricsProvider, OnlineLyricsQuery } from './types'
 import { pickBest } from './util'
 
-const LRCLIB_UA = 'Muses/0.1.1 (local music player; https://github.com/Happier-X/muses)'
+const LRCLIB_UA = 'Muses/0.1.2 (local music player; https://github.com/Happier-X/muses)'
 
 const LRCLIB_HEADERS = {
   'User-Agent': LRCLIB_UA,
