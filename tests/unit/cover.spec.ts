@@ -13,6 +13,7 @@ import type { CoverProvider, OnlineCoverQuery } from '@/features/cover/types'
 import { searchItunesCoverUrl } from '@/features/cover/providers/itunes'
 import { searchKwCoverUrl } from '@/features/cover/providers/kw'
 import { searchMgCoverUrl } from '@/features/cover/providers/mg'
+import { searchKgCoverUrl } from '@/features/cover/providers/kg'
 
 const sampleQuery: OnlineCoverQuery = {
   songId: 'song-1',
@@ -204,6 +205,131 @@ describe('在线封面匹配', () => {
       source: 'mg',
     })
     expect(httpGet).toHaveBeenCalledTimes(3)
+  })
+  test('kg 解析搜索 Image（{size}→480，http→https）', async () => {
+    httpGet.mockResolvedValueOnce({
+      status: 200,
+      data: JSON.stringify({
+        data: {
+          lists: [
+            {
+              SongName: '晴天',
+              SingerName: '周杰伦',
+              AlbumName: '叶惠美',
+              AlbumID: '966846',
+              Image: 'http://imge.kugou.com/stdmusic/{size}/20230920/xxx.jpg',
+            },
+          ],
+        },
+      }),
+    })
+
+    await expect(searchKgCoverUrl(sampleQuery)).resolves.toBe(
+      'https://imge.kugou.com/stdmusic/480/20230920/xxx.jpg',
+    )
+  })
+
+  test('kg 空列表或无 Image 返回 null', async () => {
+    httpGet.mockResolvedValueOnce({
+      status: 200,
+      data: JSON.stringify({ data: { lists: [] } }),
+    })
+    await expect(searchKgCoverUrl(sampleQuery)).resolves.toBeNull()
+
+    httpGet.mockResolvedValueOnce({
+      status: 200,
+      data: JSON.stringify({ data: { lists: [{ SongName: '晴天' }] } }),
+    })
+    await expect(searchKgCoverUrl(sampleQuery)).resolves.toBeNull()
+  })
+
+  test('前三源 miss 时 kg 回退成功', async () => {
+    const itunes: CoverProvider = {
+      id: 'itunes',
+      searchCoverUrl: vi.fn().mockResolvedValue(null),
+    }
+    const kw: CoverProvider = {
+      id: 'kw',
+      searchCoverUrl: vi.fn().mockResolvedValue(null),
+    }
+    const mg: CoverProvider = {
+      id: 'mg',
+      searchCoverUrl: vi.fn().mockResolvedValue(null),
+    }
+    const kg: CoverProvider = {
+      id: 'kg',
+      searchCoverUrl: vi.fn().mockResolvedValue('https://imge.kugou.com/stdmusic/480/cover.jpg'),
+    }
+
+    await expect(matchOnlineCoverRemote(sampleQuery, [itunes, kw, mg, kg])).resolves.toEqual({
+      ok: true,
+      remoteUrl: 'https://imge.kugou.com/stdmusic/480/cover.jpg',
+      source: 'kg',
+    })
+    expect(itunes.searchCoverUrl).toHaveBeenCalled()
+    expect(kw.searchCoverUrl).toHaveBeenCalled()
+    expect(mg.searchCoverUrl).toHaveBeenCalled()
+    expect(kg.searchCoverUrl).toHaveBeenCalled()
+  })
+
+  test('前源成功时不请求 kg', async () => {
+    const itunes: CoverProvider = {
+      id: 'itunes',
+      searchCoverUrl: vi.fn().mockResolvedValue('https://is1-ssl.mzstatic.com/a.jpg'),
+    }
+    const kw: CoverProvider = {
+      id: 'kw',
+      searchCoverUrl: vi.fn().mockResolvedValue('https://img.kuwo.cn/b.jpg'),
+    }
+    const mg: CoverProvider = {
+      id: 'mg',
+      searchCoverUrl: vi.fn().mockResolvedValue('https://d.musicapp.migu.cn/c.jpg'),
+    }
+    const kg: CoverProvider = {
+      id: 'kg',
+      searchCoverUrl: vi.fn().mockResolvedValue('https://imge.kugou.com/d.jpg'),
+    }
+
+    await expect(matchOnlineCoverRemote(sampleQuery, [itunes, kw, mg, kg])).resolves.toEqual({
+      ok: true,
+      remoteUrl: 'https://is1-ssl.mzstatic.com/a.jpg',
+      source: 'itunes',
+    })
+    expect(kw.searchCoverUrl).not.toHaveBeenCalled()
+    expect(mg.searchCoverUrl).not.toHaveBeenCalled()
+    expect(kg.searchCoverUrl).not.toHaveBeenCalled()
+  })
+
+  test('四源 miss 写入负缓存', async () => {
+    const itunes: CoverProvider = {
+      id: 'itunes',
+      searchCoverUrl: vi.fn().mockResolvedValue(null),
+    }
+    const kw: CoverProvider = {
+      id: 'kw',
+      searchCoverUrl: vi.fn().mockResolvedValue(null),
+    }
+    const mg: CoverProvider = {
+      id: 'mg',
+      searchCoverUrl: vi.fn().mockResolvedValue(null),
+    }
+    const kg: CoverProvider = {
+      id: 'kg',
+      searchCoverUrl: vi.fn().mockResolvedValue(null),
+    }
+
+    await expect(matchOnlineCoverRemote(sampleQuery, [itunes, kw, mg, kg])).resolves.toEqual({
+      ok: false,
+      reason: 'no-match',
+    })
+    await expect(matchOnlineCoverRemote(sampleQuery, [itunes, kw, mg, kg])).resolves.toEqual({
+      ok: false,
+      reason: 'no-match',
+    })
+    expect(itunes.searchCoverUrl).toHaveBeenCalledTimes(1)
+    expect(kw.searchCoverUrl).toHaveBeenCalledTimes(1)
+    expect(mg.searchCoverUrl).toHaveBeenCalledTimes(1)
+    expect(kg.searchCoverUrl).toHaveBeenCalledTimes(1)
   })
 
   test('iTunes+kw miss 时 mg 回退成功', async () => {

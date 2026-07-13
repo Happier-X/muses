@@ -413,7 +413,7 @@ const withMetadataScanTimeout = async <T>(operation: Promise<T>, timeoutMs: numb
 
 /**
  * 在线补封面：仅当当前曲仍无安全 coverUri。
- * iTunes → kw → mg；下载到 cache/covers 后 upsert；失败静默。
+ * iTunes → kw → mg → kg；下载到 cache/covers 后 upsert；失败静默。
  */
 const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<void> => {
   try {

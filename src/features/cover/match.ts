@@ -1,6 +1,7 @@
 import { itunesCoverProvider } from './providers/itunes'
 import { kwCoverProvider } from './providers/kw'
 import { mgCoverProvider } from './providers/mg'
+import { kgCoverProvider } from './providers/kg'
 import type { CoverProvider, OnlineCoverMatchResult, OnlineCoverQuery } from './types'
 
 const NEGATIVE_CACHE_TTL_MS = 45 * 60 * 1000
@@ -15,8 +16,8 @@ const negativeBySongId = new Map<string, NegativeEntry>()
 const buildQueryKey = (query: OnlineCoverQuery): string =>
   JSON.stringify([query.title.trim(), query.artist?.trim() || '', query.album?.trim() || ''])
 
-/** 默认链：iTunes → 酷我 → 咪咕 */
-const defaultProviders: CoverProvider[] = [itunesCoverProvider, kwCoverProvider, mgCoverProvider]
+/** 默认链：iTunes → 酷我 → 咪咕 → 酷狗 */
+const defaultProviders: CoverProvider[] = [itunesCoverProvider, kwCoverProvider, mgCoverProvider, kgCoverProvider]
 
 /** 测试用：可注入的 provider 列表覆盖；null 表示用默认 */
 let providersOverride: CoverProvider[] | null = null
@@ -32,7 +33,7 @@ export const setOnlineCoverProvidersForTest = (providers: CoverProvider[] | null
 }
 
 /**
- * 多源编排：iTunes → kw → mg；返回远程封面 URL（不落盘）。
+ * 多源编排：iTunes → kw → mg → kg；返回远程封面 URL（不落盘）。
  */
 export const matchOnlineCoverRemote = async (
   query: OnlineCoverQuery,
