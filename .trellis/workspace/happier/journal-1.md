@@ -1433,3 +1433,37 @@ Issue #15：App.vue 监听 playerOverlayVisible 管理 StatusBar Style.Dark/Defa
 ### Next Steps
 
 - None - task complete
+
+
+## Session 42: 预取下一首 WebDAV 完整缓存
+
+**Date**: 2026-07-13
+**Task**: 预取下一首 WebDAV 完整缓存
+**Branch**: `main`
+
+### Summary
+
+Issue #16：peekNext + 后台完整预取；WebDAV 完整缓存优先 file://，未命中远程直链；队列/模式变化重调度；同步 player/state spec。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `03d6db7` | (see git log) |
+| `6eeb32c` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
