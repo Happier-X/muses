@@ -1340,6 +1340,68 @@ describe('沉浸式播放页', () => {
     expect(wrapper.text()).not.toContain('暂无歌词')
   })
 
+  test('仅有封面无歌词时仍展示 AMLL 动态背景（不依赖 hasLyrics）', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    await playSong({
+      ...localSong,
+      coverUri: 'file:///cover-only.jpg',
+    })
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-test="amll-lyrics"]').exists()).toBe(false)
+    expect(wrapper.get('.amll-background [data-test="amll-background"]').attributes('data-album')).toBe(
+      'webview:file:///cover-only.jpg',
+    )
+  })
+
+  test('切到无封面歌曲时粘性保留上一首封面作背景', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    await playSong({
+      ...localSong,
+      coverUri: 'file:///cover-a.jpg',
+    })
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    expect(wrapper.get('.amll-background [data-test="amll-background"]').attributes('data-album')).toBe(
+      'webview:file:///cover-a.jpg',
+    )
+
+    await playSong({
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首',
+      coverUri: undefined,
+    })
+    await nextTick()
+
+    expect(wrapper.get('.amll-background [data-test="amll-background"]').attributes('data-album')).toBe(
+      'webview:file:///cover-a.jpg',
+    )
+    expect(wrapper.get('img[alt="歌曲封面"]').attributes('src')).toBe('webview:file:///cover-a.jpg')
+  })
+
   test('无歌词时歌词页仍展示顶部歌名歌手与空状态', async () => {
     const { playSong } = await import('@/features/player/controller')
     await playSong(localSong)

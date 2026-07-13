@@ -86,6 +86,11 @@
 
 ---
 
+## 沉浸式播放页背景
+
+- AMLL `BackgroundRender` **不得**仅因「当前无歌词」而卸载；有当前曲且有可展示封面（含粘性封面）即渲染。
+- 切歌若新曲暂无 `coverUri`，UI 可短时**粘性**使用上一首可用封面作背景与封面槽，待新封面写入后再更新；无当前曲时清空粘性封面。避免闪回默认 `fallback-background`（#20）。
+
 ## 在线歌词匹配（多源回退）
 
 - `playSong(song)` 无论歌曲是否已有本地歌词，均异步调用 `src/features/lyrics` 的 `matchOnlineLyrics`；匹配不得阻塞音频播放。

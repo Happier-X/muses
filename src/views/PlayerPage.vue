@@ -11,10 +11,11 @@
       :class="{ 'is-dragging': isDraggingVertically }"
       :style="{ transform: `translateY(${dragOffsetY}px)` }"
     >
-      <div v-if="hasLyrics" class="amll-background">
+      <!-- 背景与歌词解耦：切歌暂无词时不卸载，避免闪默认底（#20） -->
+      <div v-if="showAlbumBackground" class="amll-background">
         <BackgroundRender
           class="amll-background-render"
-          :album="coverSrc || undefined"
+          :album="backgroundAlbumSrc || undefined"
           :album-is-video="false"
           :flow-speed="2"
           :has-lyric="hasLyrics"
@@ -37,7 +38,7 @@
         <section class="panel info-panel" aria-label="播放控制页">
           <div class="info-panel-inner">
             <div class="cover-slot">
-              <img v-if="coverSrc" class="cover" :src="coverSrc" alt="歌曲封面" />
+              <img v-if="displayCoverSrc" class="cover" :src="displayCoverSrc" alt="歌曲封面" />
               <div v-else class="cover placeholder-cover">♪</div>
             </div>
 
@@ -170,7 +171,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonButton, IonIcon } from '@ionic/vue'
 import { listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from 'ionicons/icons'
@@ -271,9 +272,45 @@ const subtitle = computed(() => {
 
 const lyricArtist = computed(() => playerState.currentSong?.artist?.trim() || '')
 
+const toDisplayableUri = (uri: string): string => {
+  if (!uri) {
+    return ''
+  }
+  const normalizedUri = uri.trim().toLowerCase()
+  if (normalizedUri.startsWith('data:') || normalizedUri.startsWith('blob:') || normalizedUri.includes(';base64,')) {
+    return ''
+  }
+
+  return normalizedUri.startsWith('http://') || normalizedUri.startsWith('https://')
+    ? uri
+    : Capacitor.convertFileSrc(uri)
+}
+
 const currentLyrics = computed(() => playerState.lyrics || playerState.currentSong?.lyrics || '')
 const currentCoverUri = computed(() => playerState.coverUri || playerState.currentSong?.coverUri || '')
 const coverSrc = computed(() => toDisplayableUri(currentCoverUri.value))
+
+/** 切歌无封面时沿用上一张可展示封面，避免背景/封面闪默认（#20） */
+const stickyCoverSrc = ref('')
+watch(
+  [() => playerState.currentSong?.id, coverSrc],
+  ([songId, nextCover]) => {
+    if (!songId) {
+      stickyCoverSrc.value = ''
+      return
+    }
+    if (nextCover) {
+      stickyCoverSrc.value = nextCover
+    }
+  },
+  { immediate: true },
+)
+
+const displayCoverSrc = computed(() => coverSrc.value || stickyCoverSrc.value)
+const backgroundAlbumSrc = computed(() => displayCoverSrc.value)
+const showAlbumBackground = computed(
+  () => !!playerState.currentSong && !!backgroundAlbumSrc.value,
+)
 
 const lyricLines = computed<LyricLine[]>(() => {
   if (!currentLyrics.value) {
@@ -576,20 +613,6 @@ const canStartVerticalDismiss = (event: TouchEvent): boolean => {
 
 const getDismissThreshold = (): number => {
   return Math.min(160, Math.max(96, window.innerHeight * 0.18))
-}
-
-const toDisplayableUri = (uri: string): string => {
-  if (!uri) {
-    return ''
-  }
-  const normalizedUri = uri.trim().toLowerCase()
-  if (normalizedUri.startsWith('data:') || normalizedUri.startsWith('blob:') || normalizedUri.includes(';base64,')) {
-    return ''
-  }
-
-  return normalizedUri.startsWith('http://') || normalizedUri.startsWith('https://')
-    ? uri
-    : Capacitor.convertFileSrc(uri)
 }
 
 const normalizeLrc = (lyrics: string): string => {
