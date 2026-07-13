@@ -1871,3 +1871,36 @@ tx decryptQrcHex；wy eapi yrc；其余平台仍 LRC。
 ### Next Steps
 
 - None - task complete
+
+
+## Session 55: 切歌背景不闪默认
+
+**Date**: 2026-07-13
+**Task**: 切歌背景不闪默认
+**Branch**: `main`
+
+### Summary
+
+粘性封面 + 背景不绑 hasLyrics；#20。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8068ae4` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
