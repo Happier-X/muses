@@ -28,8 +28,31 @@ const isOptionalLyricsSource = (value: unknown): value is LyricsSource | undefin
   return value === undefined || value === 'embedded' || value === 'sidecar'
 }
 
-const isSafeCoverUri = (value: string | undefined): boolean => {
-  return value === undefined || !value.startsWith('data:')
+/** 加载校验：仅硬拒绝 data:/base64，避免整条歌曲被丢弃；http 等在 sanitize 时剥离 */
+const isLoadableCoverUri = (value: string | undefined): boolean => {
+  if (value === undefined) {
+    return true
+  }
+  const normalized = value.trim().toLowerCase()
+  return !normalized.startsWith('data:') && !normalized.includes(';base64,')
+}
+
+/** 写库/写回：仅保留本地安全 URI */
+const sanitizeCoverUri = (coverUri: string | undefined): string | undefined => {
+  if (!coverUri?.trim()) {
+    return undefined
+  }
+  const normalized = coverUri.trim().toLowerCase()
+  if (
+    normalized.startsWith('data:')
+    || normalized.startsWith('blob:')
+    || normalized.includes(';base64,')
+    || normalized.startsWith('http://')
+    || normalized.startsWith('https://')
+  ) {
+    return undefined
+  }
+  return coverUri.trim()
 }
 
 const isSongItem = (value: unknown): value is SongItem => {
@@ -52,7 +75,7 @@ const isSongItem = (value: unknown): value is SongItem => {
     isOptionalString(value.lyrics) &&
     isOptionalLyricsSource(value.lyricsSource) &&
     isOptionalString(value.coverUri) &&
-    isSafeCoverUri(value.coverUri) &&
+    isLoadableCoverUri(value.coverUri) &&
     isOptionalBoolean(value.tagsScanned) &&
     isOptionalString(value.tagsScannedAt) &&
     isOptionalNumber(value.metadataVersion)
@@ -79,7 +102,13 @@ export const loadSongs = (): SongItem[] => {
       return []
     }
 
-    return parsedValue.filter(isSongItem)
+    return parsedValue.filter(isSongItem).map((song) => {
+      const safeCover = sanitizeCoverUri(song.coverUri)
+      if (safeCover === song.coverUri) {
+        return song
+      }
+      return safeCover ? { ...song, coverUri: safeCover } : { ...song, coverUri: undefined }
+    })
   } catch {
     return []
   }
@@ -87,9 +116,10 @@ export const loadSongs = (): SongItem[] => {
 
 const sanitizeSongForStorage = (song: SongItem): SongItem => {
   const { coverUri, ...rest } = song
+  const safeCover = sanitizeCoverUri(coverUri)
   return {
     ...rest,
-    ...(coverUri && !coverUri.startsWith('data:') ? { coverUri } : {}),
+    ...(safeCover ? { coverUri: safeCover } : {}),
   }
 }
 
@@ -158,7 +188,7 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
       duration: tags.duration,
       lyrics: tags.lyrics,
       lyricsSource: tags.lyricsSource,
-      coverUri: tags.coverUri && !tags.coverUri.startsWith('data:') ? tags.coverUri : undefined,
+      coverUri: sanitizeCoverUri(tags.coverUri),
       tagsScanned: tags.tagsScanned,
       tagsScannedAt: tags.tagsScannedAt,
       metadataVersion: tags.metadataVersion,
@@ -181,8 +211,8 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
     lyrics: tags.lyrics ?? previousSong.lyrics,
     lyricsSource: tags.lyricsSource ?? previousSong.lyricsSource,
     coverUri: tags.coverUri === undefined
-      ? previousSong.coverUri
-      : tags.coverUri && !tags.coverUri.startsWith('data:') ? tags.coverUri : undefined,
+      ? sanitizeCoverUri(previousSong.coverUri)
+      : sanitizeCoverUri(tags.coverUri),
     tagsScanned: tags.tagsScanned ?? previousSong.tagsScanned,
     tagsScannedAt: tags.tagsScannedAt ?? previousSong.tagsScannedAt,
     metadataVersion: tags.metadataVersion ?? previousSong.metadataVersion,

@@ -21,6 +21,7 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import okhttp3.OkHttpClient
+import okhttp3.Request
 
 @CapacitorPlugin(
     name = "AudioPlayer",
@@ -36,6 +37,15 @@ class AudioPlayerPlugin : Plugin() {
         OkHttpClient.Builder()
             .connectTimeout(15_000L, TimeUnit.MILLISECONDS)
             .readTimeout(0L, TimeUnit.MILLISECONDS) // 渐进下载可能持续整首歌
+            .build()
+    }
+
+    /** 封面下载专用：短超时，避免挂死在线匹配 */
+    private val coverHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(10_000L, TimeUnit.MILLISECONDS)
+            .readTimeout(15_000L, TimeUnit.MILLISECONDS)
+            .callTimeout(20_000L, TimeUnit.MILLISECONDS)
             .build()
     }
 
@@ -339,6 +349,72 @@ class AudioPlayerPlugin : Plugin() {
                 }
             }
             else -> context.contentResolver.openInputStream(uri)
+        }
+    }
+
+    /**
+     * 下载远程封面到 cache/covers/{sha256(cacheKey)}.jpg，返回 file:// URI。
+     * 失败 resolve uri=null，不 reject，避免阻塞播放侧在线匹配。
+     */
+    @PluginMethod
+    fun cacheRemoteCover(call: PluginCall) {
+        val url = call.getString("url")
+        val cacheKey = call.getString("cacheKey")
+        if (url.isNullOrBlank() || cacheKey.isNullOrBlank()) {
+            call.resolve(JSObject().put("uri", null as String?))
+            return
+        }
+        if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
+            call.resolve(JSObject().put("uri", null as String?))
+            return
+        }
+
+        bridge.execute {
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "Muses/1.0")
+                    .get()
+                    .build()
+                coverHttpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        call.resolve(JSObject().put("uri", null as String?))
+                        return@execute
+                    }
+                    val body = response.body
+                    if (body == null) {
+                        call.resolve(JSObject().put("uri", null as String?))
+                        return@execute
+                    }
+                    // 限制封面体积，防止异常大响应占满缓存
+                    val contentLength = body.contentLength()
+                    if (contentLength > 5L * 1024L * 1024L) {
+                        call.resolve(JSObject().put("uri", null as String?))
+                        return@execute
+                    }
+                    val bytes = body.bytes()
+                    if (bytes.isEmpty() || bytes.size > 5 * 1024 * 1024) {
+                        call.resolve(JSObject().put("uri", null as String?))
+                        return@execute
+                    }
+                    // 简单魔数校验：JPEG / PNG / WebP / GIF
+                    val isImage =
+                        (bytes.size >= 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte()) ||
+                            (bytes.size >= 8 && bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte()) ||
+                            (bytes.size >= 12 && bytes[0] == 0x52.toByte() && bytes[8] == 0x57.toByte()) ||
+                            (bytes.size >= 6 && bytes[0] == 0x47.toByte() && bytes[1] == 0x49.toByte())
+                    if (!isImage) {
+                        call.resolve(JSObject().put("uri", null as String?))
+                        return@execute
+                    }
+                    val directory = File(context.cacheDir, "covers").apply { mkdirs() }
+                    val file = File(directory, "${sha256(cacheKey)}.jpg")
+                    file.writeBytes(bytes)
+                    call.resolve(JSObject().put("uri", Uri.fromFile(file).toString()))
+                }
+            } catch (_: Exception) {
+                call.resolve(JSObject().put("uri", null as String?))
+            }
         }
     }
 

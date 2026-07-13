@@ -5,7 +5,8 @@ import { readLocalAudioTags, readWebDavAudioTags } from '@/features/library/tags
 import { getWebDavPassword, loadSources } from '@/features/sources/storage'
 import type { WebDavSourceItem } from '@/features/sources/types'
 import { matchAmllTtmlLyrics } from '@/features/lyrics'
-import { AudioPlayerNative, prefetchWebDavAudioFile } from './native'
+import { matchOnlineCoverRemote } from '@/features/cover'
+import { AudioPlayerNative, cacheRemoteCover, prefetchWebDavAudioFile } from './native'
 import type { AudioPlayerNativeState, PlayOptions, PlayerState } from './types'
 import { createPlayerSongSnapshot, toSafeCoverUri } from './types'
 import {
@@ -47,6 +48,8 @@ let nativeListenerReady = false
 let metadataScanToken = 0
 /** 在线歌词匹配 token：切歌递增，回调仅当 token + songId 仍匹配时写 state */
 let lyricsMatchToken = 0
+/** 在线封面匹配 token：切歌递增，回调仅当 token + songId 仍匹配时写 state */
+let onlineCoverToken = 0
 /** 用户主动 seek 后的时间戳；用于忽略 seek 到未缓冲区间触发的伪 finished */
 let lastSeekAt = 0
 /** seek 前的播放态，伪 finished 时按此恢复，避免误 advance */
@@ -408,10 +411,80 @@ const withMetadataScanTimeout = async <T>(operation: Promise<T>, timeoutMs: numb
   }
 }
 
+/**
+ * 在线补封面：仅当当前曲仍无安全 coverUri。
+ * iTunes → kw；下载到 cache/covers 后 upsert；失败静默。
+ */
+const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<void> => {
+  try {
+    if (token !== onlineCoverToken || state.currentSong?.id !== song.id) {
+      return
+    }
+    if (toSafeCoverUri(state.coverUri || song.coverUri)) {
+      return
+    }
+
+    const latest = getLatestSongSnapshot(song)
+    if (toSafeCoverUri(latest.coverUri)) {
+      if (token === onlineCoverToken && state.currentSong?.id === song.id) {
+        syncDisplayStateFromSong(latest)
+      }
+      return
+    }
+
+    const remote = await matchOnlineCoverRemote({
+      songId: latest.id,
+      title: latest.title,
+      artist: latest.artist,
+      album: latest.album,
+    })
+
+    if (token !== onlineCoverToken || state.currentSong?.id !== song.id) {
+      return
+    }
+    if (!remote.ok) {
+      return
+    }
+
+    const localUri = await cacheRemoteCover({
+      url: remote.remoteUrl,
+      cacheKey: `online:${latest.id}`,
+    })
+    const safeUri = toSafeCoverUri(localUri || undefined)
+    if (!safeUri) {
+      return
+    }
+    if (token !== onlineCoverToken || state.currentSong?.id !== song.id) {
+      return
+    }
+
+    const result = upsertSong({
+      sourceId: latest.sourceId,
+      sourceType: latest.sourceType,
+      path: latest.path,
+      uri: latest.uri,
+      title: latest.title,
+      tags: {
+        coverUri: safeUri,
+      },
+    }, loadSongs())
+
+    if (token === onlineCoverToken && state.currentSong?.id === song.id) {
+      syncDisplayStateFromSong(result.song)
+    }
+  } catch {
+    // 在线封面失败静默，不影响播放
+  }
+}
+
 const scanSongMetadata = async (song: SongItem): Promise<void> => {
+  const coverToken = ++onlineCoverToken
+
   if (!shouldRefreshMetadata(song)) {
     syncDisplayStateFromSong(song)
     state.metadataStatus = 'ready'
+    // 本地已扫描但仍可能无封面 → 在线补
+    void matchOnlineCoverForSong(song, coverToken)
     return
   }
 
@@ -444,9 +517,12 @@ const scanSongMetadata = async (song: SongItem): Promise<void> => {
 
     syncDisplayStateFromSong(result.song)
     state.metadataStatus = 'ready'
+    void matchOnlineCoverForSong(result.song, coverToken)
   } catch {
     if (token === metadataScanToken && state.currentSong?.id === song.id) {
       state.metadataStatus = 'failed'
+      // 本地扫描失败仍尝试在线补封面（仅补缺）
+      void matchOnlineCoverForSong(song, coverToken)
     }
   }
 }
@@ -566,6 +642,8 @@ export const playSong = async (song: SongItem): Promise<void> => {
   state.status = 'loading'
   metadataScanToken += 1
   const matchToken = ++lyricsMatchToken
+  // 切歌即作废进行中的在线封面匹配，避免上一首结果串到新曲
+  onlineCoverToken += 1
   state.currentSong = createPlayerSongSnapshot(latestSong)
   state.errorMessage = null
   state.position = 0
@@ -596,6 +674,7 @@ export const playSong = async (song: SongItem): Promise<void> => {
     void prefetchNextTrack(latestSong.id)
   } catch (error) {
     lyricsMatchToken += 1
+    onlineCoverToken += 1
     state.onlineLyricsStatus = 'idle'
     const message = error instanceof Error ? error.message : ''
     setUserSafeError(isSafePlaybackError(message) ? message : '播放失败，请稍后重试。')
@@ -664,6 +743,7 @@ export const stopPlayback = async (): Promise<void> => {
     clearSeekGuard()
     metadataScanToken += 1
     lyricsMatchToken += 1
+    onlineCoverToken += 1
     state.status = 'stopped'
     state.currentSong = null
     state.errorMessage = null

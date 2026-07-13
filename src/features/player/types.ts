@@ -92,12 +92,24 @@ export const toSafeCoverUri = (coverUri?: string): string | undefined => {
     return undefined
   }
 
-  const normalized = coverUri.trim().toLowerCase()
-  if (normalized.startsWith('data:') || normalized.includes(';base64,')) {
+  const trimmed = coverUri.trim()
+  if (!trimmed) {
     return undefined
   }
 
-  return coverUri
+  const normalized = trimmed.toLowerCase()
+  // 仅允许 app 私有/本地安全 URI；禁止 data/base64/blob/裸远程 URL 进入曲库与播放态
+  if (
+    normalized.startsWith('data:')
+    || normalized.startsWith('blob:')
+    || normalized.includes(';base64,')
+    || normalized.startsWith('http://')
+    || normalized.startsWith('https://')
+  ) {
+    return undefined
+  }
+
+  return trimmed
 }
 
 export const createPlayerSongSnapshot = (song: SongItem): PlayerSongSnapshot => ({

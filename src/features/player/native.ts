@@ -33,6 +33,8 @@ interface AudioPlayerPermissionBridge {
   }): Promise<{ cached: boolean; started: boolean }>
   cancelBufferSession?(options?: { songId?: string }): Promise<void>
   prepareArtworkDataUrl?(options: { uri: string }): Promise<{ dataUrl: string | null }>
+  /** 下载远程封面到 cache/covers，返回 file://；失败 uri=null */
+  cacheRemoteCover?(options: { url: string; cacheKey: string }): Promise<{ uri: string | null }>
   addListener?(
     eventName: 'bufferProgress',
     listenerFunc: (event: BufferProgressEvent) => void,
@@ -337,6 +339,43 @@ export const prefetchWebDavAudioFile = async (options: {
     }
   } catch {
     return { cached: false, started: false }
+  }
+}
+
+/**
+ * 缓存远程封面到 app 私有 covers 目录，返回安全 file://。
+ * 插件不可用或失败时返回 null（不抛）。
+ */
+export const cacheRemoteCover = async (options: {
+  url: string
+  cacheKey: string
+}): Promise<string | null> => {
+  if (!AudioPlayerBridge.cacheRemoteCover) {
+    return null
+  }
+  try {
+    const result = await AudioPlayerBridge.cacheRemoteCover({
+      url: options.url,
+      cacheKey: options.cacheKey,
+    })
+    const uri = result?.uri?.trim()
+    if (!uri) {
+      return null
+    }
+    const normalized = uri.toLowerCase()
+    // 仅接受本地/内容 URI；拒绝 data/base64/远程 URL 误写曲库
+    if (
+      normalized.startsWith('data:')
+      || normalized.startsWith('blob:')
+      || normalized.includes(';base64,')
+      || normalized.startsWith('http://')
+      || normalized.startsWith('https://')
+    ) {
+      return null
+    }
+    return uri
+  } catch {
+    return null
   }
 }
 

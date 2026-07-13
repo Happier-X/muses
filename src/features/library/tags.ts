@@ -12,7 +12,14 @@ const normalizeTags = (tags: AudioTags): Omit<AudioTags, 'metadataDiagnostic'> =
     duration: typeof tags.duration === 'number' && Number.isFinite(tags.duration) && tags.duration > 0 ? tags.duration : undefined,
     lyrics: tags.lyrics?.trim() || undefined,
     lyricsSource: tags.lyricsSource === 'embedded' || tags.lyricsSource === 'sidecar' ? tags.lyricsSource : undefined,
-    coverUri: coverUri && !coverUri.startsWith('data:') ? coverUri : undefined,
+    coverUri: coverUri
+      && !coverUri.toLowerCase().startsWith('data:')
+      && !coverUri.toLowerCase().startsWith('blob:')
+      && !coverUri.includes(';base64,')
+      && !coverUri.toLowerCase().startsWith('http://')
+      && !coverUri.toLowerCase().startsWith('https://')
+      ? coverUri
+      : undefined,
     tagsScanned: tags.tagsScanned,
     tagsScannedAt: tags.tagsScannedAt,
     metadataVersion: tags.metadataVersion,

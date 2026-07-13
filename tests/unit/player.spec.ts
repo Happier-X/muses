@@ -65,12 +65,16 @@ const { localLibraryNative, nativePlayer, nativeAudio, audioPlayerBridge, webDav
     prepareArtworkDataUrl: vi.fn(async ({ uri }: { uri: string }) => ({
       dataUrl: `data:image/jpeg;base64,${btoa(uri)}`,
     })),
+    cacheRemoteCover: vi.fn().mockResolvedValue({ uri: null }),
   },
 }))
 
 vi.mock('@capacitor/core', () => ({
   Capacitor: {
     convertFileSrc: vi.fn((uri: string) => `webview:${uri}`),
+  },
+  CapacitorHttp: {
+    get: vi.fn().mockRejectedValue(new Error('http mock')),
   },
   registerPlugin: vi.fn((name: string) => {
     if (name === 'LocalLibrary') {
@@ -92,8 +96,11 @@ vi.mock('@capgo/capacitor-native-audio', () => ({
 
 const prefetchWebDavAudioFileMock = vi.hoisted(() => vi.fn().mockResolvedValue({ cached: false, started: true }))
 
+const cacheRemoteCoverMock = vi.hoisted(() => vi.fn().mockResolvedValue(null))
+
 vi.mock('@/features/player/native', () => ({
   AudioPlayerNative: nativePlayer,
+  cacheRemoteCover: cacheRemoteCoverMock,
   AudioPlayerBridge: audioPlayerBridge,
   prefetchWebDavAudioFile: prefetchWebDavAudioFileMock,
 }))
@@ -201,10 +208,20 @@ const resetPlayer = async () => {
   vi.useRealTimers()
   prefetchWebDavAudioFileMock.mockReset()
   prefetchWebDavAudioFileMock.mockResolvedValue({ cached: false, started: true })
+  cacheRemoteCoverMock.mockReset()
+  cacheRemoteCoverMock.mockResolvedValue(null)
+  try {
+    const { setOnlineCoverProvidersForTest } = await import('@/features/cover')
+    setOnlineCoverProvidersForTest(null)
+  } catch {
+    // ignore
+  }
   audioPlayerBridge.getCachedWebDavAudioFile.mockReset()
   audioPlayerBridge.getCachedWebDavAudioFile.mockResolvedValue({ uri: null })
   audioPlayerBridge.prefetchWebDavAudioFile.mockReset()
   audioPlayerBridge.prefetchWebDavAudioFile.mockResolvedValue({ cached: false, started: true })
+  audioPlayerBridge.cacheRemoteCover.mockReset()
+  audioPlayerBridge.cacheRemoteCover.mockResolvedValue({ uri: null })
   audioPlayerBridge.prepareArtworkDataUrl.mockReset()
   audioPlayerBridge.prepareArtworkDataUrl.mockImplementation(async ({ uri }: { uri: string }) => ({
     dataUrl: `data:image/jpeg;base64,${btoa(uri)}`,
@@ -321,6 +338,34 @@ describe('原生播放器封装', () => {
       password: 'p',
       songId: 's1',
     })).resolves.toEqual({ cached: false, started: false })
+  })
+
+  test('cacheRemoteCover 转发 bridge 且拒绝 data/base64/远程 URL 与失败', async () => {
+    const native = await vi.importActual<typeof import('@/features/player/native')>('@/features/player/native')
+
+    audioPlayerBridge.cacheRemoteCover.mockResolvedValueOnce({ uri: 'file:///cache/covers/online.jpg' })
+    await expect(native.cacheRemoteCover({
+      url: 'https://example.com/a.jpg',
+      cacheKey: 'online:s1',
+    })).resolves.toBe('file:///cache/covers/online.jpg')
+
+    audioPlayerBridge.cacheRemoteCover.mockResolvedValueOnce({ uri: 'data:image/jpeg;base64,abc' })
+    await expect(native.cacheRemoteCover({
+      url: 'https://example.com/a.jpg',
+      cacheKey: 'online:s1',
+    })).resolves.toBeNull()
+
+    audioPlayerBridge.cacheRemoteCover.mockResolvedValueOnce({ uri: 'https://cdn.example.com/remote.jpg' })
+    await expect(native.cacheRemoteCover({
+      url: 'https://example.com/a.jpg',
+      cacheKey: 'online:s1',
+    })).resolves.toBeNull()
+
+    audioPlayerBridge.cacheRemoteCover.mockRejectedValueOnce(new Error('network'))
+    await expect(native.cacheRemoteCover({
+      url: 'https://example.com/a.jpg',
+      cacheKey: 'online:s1',
+    })).resolves.toBeNull()
   })
 
   test('本地文件保持完整缓冲', async () => {
@@ -820,6 +865,178 @@ describe('媒体通知封面同步', () => {
         .some((call) => call[0].artwork?.[0]?.src === expectedCover)
       expect(hasScannedArtwork).toBe(true)
     })
+  })
+
+  test('无封面时在线匹配成功会写回 coverUri 并刷新展示', async () => {
+    const { setOnlineCoverProvidersForTest } = await import('@/features/cover')
+    const searchCoverUrl = vi.fn().mockResolvedValue('https://is1-ssl.mzstatic.com/image/a.jpg')
+    setOnlineCoverProvidersForTest([
+      { id: 'itunes', searchCoverUrl },
+      { id: 'kw', searchCoverUrl: vi.fn() },
+    ])
+
+    cacheRemoteCoverMock.mockResolvedValueOnce('file:///cache/covers/online-matched.jpg')
+    localStorage.setItem('muses:songs', JSON.stringify([{
+      ...localSong,
+      tagsScanned: true,
+      metadataVersion: 2,
+      coverUri: undefined,
+    }]))
+
+    const { playSong, playerState } = await import('@/features/player/controller')
+    await playSong({
+      ...localSong,
+      tagsScanned: true,
+      metadataVersion: 2,
+      coverUri: undefined,
+    })
+
+    await vi.waitFor(() => {
+      expect(searchCoverUrl).toHaveBeenCalled()
+      expect(cacheRemoteCoverMock).toHaveBeenCalledWith({
+        url: 'https://is1-ssl.mzstatic.com/image/a.jpg',
+        cacheKey: `online:${localSong.id}`,
+      })
+      expect(playerState.coverUri).toBe('file:///cache/covers/online-matched.jpg')
+    })
+
+    const stored = JSON.parse(localStorage.getItem('muses:songs') || '[]') as Array<{ id: string; coverUri?: string }>
+    const row = stored.find((item) => item.id === localSong.id)
+    expect(row?.coverUri).toBe('file:///cache/covers/online-matched.jpg')
+    expect(row?.coverUri?.startsWith('data:')).toBe(false)
+    expect(String(localStorage.getItem('muses:songs'))).not.toContain('base64')
+
+    setOnlineCoverProvidersForTest(null)
+  })
+
+  test('已有封面时不发起在线匹配', async () => {
+    const { setOnlineCoverProvidersForTest } = await import('@/features/cover')
+    const searchCoverUrl = vi.fn().mockResolvedValue('https://is1-ssl.mzstatic.com/image/a.jpg')
+    setOnlineCoverProvidersForTest([{ id: 'itunes', searchCoverUrl }])
+
+    localStorage.setItem('muses:songs', JSON.stringify([{
+      ...localSong,
+      coverUri: 'file:///cache/covers/existing.jpg',
+      tagsScanned: true,
+      metadataVersion: 2,
+    }]))
+
+    const { playSong, playerState } = await import('@/features/player/controller')
+    await playSong({
+      ...localSong,
+      coverUri: 'file:///cache/covers/existing.jpg',
+      tagsScanned: true,
+      metadataVersion: 2,
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(searchCoverUrl).not.toHaveBeenCalled()
+    expect(cacheRemoteCoverMock).not.toHaveBeenCalled()
+    expect(playerState.coverUri).toBe('file:///cache/covers/existing.jpg')
+
+    setOnlineCoverProvidersForTest(null)
+  })
+
+  test('快速切歌时过期在线封面匹配不写回当前曲', async () => {
+    const { setOnlineCoverProvidersForTest } = await import('@/features/cover')
+    let resolveSlow: ((url: string | null) => void) | undefined
+    const slowSearch = new Promise<string | null>((resolve) => {
+      resolveSlow = resolve
+    })
+    const searchCoverUrl = vi.fn().mockReturnValueOnce(slowSearch)
+    setOnlineCoverProvidersForTest([
+      { id: 'itunes', searchCoverUrl },
+      { id: 'kw', searchCoverUrl: vi.fn() },
+    ])
+
+    const songA: SongItem = {
+      ...localSong,
+      id: 'song-online-cover-a',
+      path: '/music/a.mp3',
+      uri: 'content://local/a.mp3',
+      title: '歌曲A',
+      tagsScanned: true,
+      metadataVersion: 2,
+      coverUri: undefined,
+    }
+    const songB: SongItem = {
+      ...localSong,
+      id: 'song-online-cover-b',
+      path: '/music/b.mp3',
+      uri: 'content://local/b.mp3',
+      title: '歌曲B',
+      tagsScanned: true,
+      metadataVersion: 2,
+      coverUri: 'file:///cache/covers/b-existing.jpg',
+    }
+
+    localStorage.setItem('muses:songs', JSON.stringify([songA, songB]))
+
+    const { playSong, playerState } = await import('@/features/player/controller')
+    await playSong(songA)
+
+    await vi.waitFor(() => {
+      expect(searchCoverUrl).toHaveBeenCalled()
+    })
+
+    // 切到 B（已有封面，不应被 A 的慢结果覆盖）
+    setOnlineCoverProvidersForTest([
+      { id: 'itunes', searchCoverUrl: vi.fn().mockResolvedValue(null) },
+    ])
+    await playSong(songB)
+    expect(playerState.currentSong?.id).toBe(songB.id)
+    expect(playerState.coverUri).toBe('file:///cache/covers/b-existing.jpg')
+
+    cacheRemoteCoverMock.mockResolvedValueOnce('file:///cache/covers/stale-a.jpg')
+    resolveSlow?.('https://is1-ssl.mzstatic.com/image/stale-a.jpg')
+
+    await new Promise((resolve) => setTimeout(resolve, 40))
+
+    expect(playerState.currentSong?.id).toBe(songB.id)
+    expect(playerState.coverUri).toBe('file:///cache/covers/b-existing.jpg')
+    const stored = JSON.parse(localStorage.getItem('muses:songs') || '[]') as Array<{ id: string; coverUri?: string }>
+    const rowB = stored.find((item) => item.id === songB.id)
+    expect(rowB?.coverUri).toBe('file:///cache/covers/b-existing.jpg')
+    // 过期结果不得写回 A 或污染当前曲
+    expect(playerState.coverUri).not.toBe('file:///cache/covers/stale-a.jpg')
+
+    setOnlineCoverProvidersForTest(null)
+  })
+
+  test('在线封面不得把远程 URL 写回 muses:songs', async () => {
+    const { setOnlineCoverProvidersForTest } = await import('@/features/cover')
+    const searchCoverUrl = vi.fn().mockResolvedValue('https://is1-ssl.mzstatic.com/image/a.jpg')
+    setOnlineCoverProvidersForTest([{ id: 'itunes', searchCoverUrl }])
+
+    // 模拟 bridge 误返回远程 URL（或未落盘）
+    cacheRemoteCoverMock.mockResolvedValueOnce('https://is1-ssl.mzstatic.com/image/a.jpg')
+    localStorage.setItem('muses:songs', JSON.stringify([{
+      ...localSong,
+      tagsScanned: true,
+      metadataVersion: 2,
+      coverUri: undefined,
+    }]))
+
+    const { playSong, playerState } = await import('@/features/player/controller')
+    await playSong({
+      ...localSong,
+      tagsScanned: true,
+      metadataVersion: 2,
+      coverUri: undefined,
+    })
+
+    await vi.waitFor(() => {
+      expect(searchCoverUrl).toHaveBeenCalled()
+      expect(cacheRemoteCoverMock).toHaveBeenCalled()
+    })
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    expect(playerState.coverUri).toBeNull()
+    const raw = String(localStorage.getItem('muses:songs') || '')
+    expect(raw).not.toContain('https://is1-ssl.mzstatic.com')
+    expect(raw).not.toContain('base64')
+
+    setOnlineCoverProvidersForTest(null)
   })
 
   test('快速切歌时过期 token 丢弃旧封面回调', async () => {
