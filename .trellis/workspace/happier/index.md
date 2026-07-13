@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 42
+- **Total Sessions**: 43
 - **Last Active**: 2026-07-13
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1469 | Active |
+| `journal-1.md` | ~1503 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 43 | 2026-07-13 | 沉浸式矮屏/横屏布局自适应 | `0fc3f32`, `0dd5702` | `main` |
 | 42 | 2026-07-13 | 预取下一首 WebDAV 完整缓存 | `03d6db7`, `6eeb32c` | `main` |
 | 41 | 2026-07-12 | 沉浸式播放页状态栏白色内容 | `882423c`, `925f34d` | `main` |
 | 40 | 2026-07-12 | 修复 WebDAV 播放数秒后跳歌 | `bc784af`, `8a85550` | `main` |

@@ -1467,3 +1467,37 @@ Issue #16：peekNext + 后台完整预取；WebDAV 完整缓存优先 file://，
 ### Next Steps
 
 - None - task complete
+
+
+## Session 43: 沉浸式矮屏/横屏布局自适应
+
+**Date**: 2026-07-13
+**Task**: 沉浸式矮屏/横屏布局自适应
+**Branch**: `main`
+
+### Summary
+
+Issue #17：窄屏封面宽高互限保持正方形；矮屏 720/520 收紧控制区；同步 component-guidelines。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0fc3f32` | (see git log) |
+| `0dd5702` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
