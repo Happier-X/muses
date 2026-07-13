@@ -1,10 +1,12 @@
 /**
- * 网易云歌词：公开 search + /api/song/lyric。
- * 优先 yrc（若返回），否则 lrc。逐字 yrc 用 amll parseYrc。
+ * 网易云歌词：优先 eapi 拿 yrc，否则公开 API / 行级 LRC。
+ * 逐字 yrc 用 amll parseYrc。
  */
-import { httpGetJson } from '@/features/cover/http'
+import { httpGetJson, httpPostJson } from '@/features/cover/http'
 import type { LyricsProvider, OnlineLyricsQuery } from './types'
 import { buildKeyword, pickBest } from './util'
+import { buildEapiParams } from './wyCrypto'
+import { looksLikeWordLevelBracket } from './qrc'
 
 type WySearchSong = {
   id?: number
@@ -33,6 +35,40 @@ const WY_HEADERS = {
   Accept: 'application/json,text/plain,*/*',
 }
 
+const WY_EAPI_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36',
+  origin: 'https://music.163.com',
+  Referer: 'https://music.163.com/',
+  'Content-Type': 'application/x-www-form-urlencoded',
+  Accept: '*/*',
+}
+
+const isYrcBody = (text: string): boolean => {
+  if (!text.trim()) {
+    return false
+  }
+  // 含 [start,dur](t,d,0) 或至少一行 [n,n]
+  if (/\(\d+,\d+,\d+\)/.test(text) && looksLikeWordLevelBracket(text)) {
+    return true
+  }
+  return looksLikeWordLevelBracket(text) && text.includes('(')
+}
+
+const pickFromBody = (
+  body: WyLyricResponse,
+): { text: string; format: 'lrc' | 'yrc' } | null => {
+  const yrc = body.yrc?.lyric?.trim()
+  if (yrc && isYrcBody(yrc)) {
+    return { text: yrc, format: 'yrc' }
+  }
+  const lrc = body.lrc?.lyric?.trim()
+  if (lrc && /\[\d+:\d+/.test(lrc)) {
+    return { text: lrc, format: 'lrc' }
+  }
+  return null
+}
+
 const searchWySongId = async (query: OnlineLyricsQuery): Promise<number | null> => {
   const keyword = buildKeyword(query)
   if (!keyword) {
@@ -53,6 +89,41 @@ const searchWySongId = async (query: OnlineLyricsQuery): Promise<number | null> 
   return pickBest(list, query)?.id ?? null
 }
 
+const fetchWyEapiLyric = async (id: number): Promise<WyLyricResponse | null> => {
+  const apiPath = '/api/song/lyric/v1'
+  const payload = {
+    id,
+    cp: false,
+    tv: 0,
+    lv: 0,
+    rv: 0,
+    kv: 0,
+    yv: 0,
+    ytv: 0,
+    yrv: 0,
+  }
+  try {
+    const params = buildEapiParams(apiPath, payload)
+    return await httpPostJson<WyLyricResponse>(
+      'https://interface3.music.163.com/eapi/song/lyric/v1',
+      `params=${params}`,
+      WY_EAPI_HEADERS,
+    )
+  } catch {
+    return null
+  }
+}
+
+const fetchWyPublicLyric = async (id: number): Promise<WyLyricResponse | null> => {
+  try {
+    const url =
+      `https://music.163.com/api/song/lyric?id=${id}&lv=-1&kv=-1&tv=-1&rv=-1&yv=1`
+    return await httpGetJson<WyLyricResponse>(url, WY_HEADERS)
+  } catch {
+    return null
+  }
+}
+
 export const searchWyLyrics = async (
   query: OnlineLyricsQuery,
 ): Promise<{ text: string; format: 'lrc' | 'yrc' } | null> => {
@@ -61,22 +132,17 @@ export const searchWyLyrics = async (
     return null
   }
 
-  // yv=1 请求 yrc；公开 API 不一定返回，有则优先
-  const url =
-    `https://music.163.com/api/song/lyric?id=${id}&lv=-1&kv=-1&tv=-1&rv=-1&yv=1`
-  const body = await httpGetJson<WyLyricResponse>(url, WY_HEADERS)
-
-  const yrc = body.yrc?.lyric?.trim()
-  if (yrc && (yrc.includes('(') || yrc.includes('['))) {
-    // 网易 yrc 行格式 [start,duration](word times)
-    if (/^\[?\d+,\d+\]/.test(yrc.split('\n').find((l) => l.trim()) || '') || yrc.includes('],[')) {
-      return { text: yrc, format: 'yrc' }
+  const eapiBody = await fetchWyEapiLyric(id)
+  if (eapiBody) {
+    const hit = pickFromBody(eapiBody)
+    if (hit) {
+      return hit
     }
   }
 
-  const lrc = body.lrc?.lyric?.trim()
-  if (lrc && /\[\d+:\d+/.test(lrc)) {
-    return { text: lrc, format: 'lrc' }
+  const publicBody = await fetchWyPublicLyric(id)
+  if (publicBody) {
+    return pickFromBody(publicBody)
   }
   return null
 }

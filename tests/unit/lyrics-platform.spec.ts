@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const httpGet = vi.hoisted(() => vi.fn())
+const httpPost = vi.hoisted(() => vi.fn())
 
 vi.mock('@capacitor/core', () => ({
   CapacitorHttp: {
     get: httpGet,
+    post: httpPost,
   },
 }))
 
@@ -24,6 +26,7 @@ const query = {
 describe('平台歌词 providers', () => {
   beforeEach(() => {
     httpGet.mockReset()
+    httpPost.mockReset()
     setOnlineLyricsFallbackProvidersForTest(null)
   })
 
@@ -61,7 +64,7 @@ describe('平台歌词 providers', () => {
     expect(hit?.text).toContain('[00:33.000]从出生那年就飘着')
   })
 
-  test('tx 返回 plain LRC', async () => {
+  test('tx 无 songid 时返回 plain LRC', async () => {
     httpGet
       .mockResolvedValueOnce({
         status: 200,
@@ -94,23 +97,22 @@ describe('平台歌词 providers', () => {
     })
   })
 
-  test('wy 优先 yrc 否则 lrc', async () => {
-    httpGet
-      .mockResolvedValueOnce({
-        status: 200,
-        data: JSON.stringify({
-          result: {
-            songs: [{ id: 186016, name: '晴天', artists: [{ name: '周杰伦' }], album: { name: '叶惠美' } }],
-          },
-        }),
-      })
-      .mockResolvedValueOnce({
-        status: 200,
-        data: JSON.stringify({
-          yrc: { lyric: '[1140,450](1140,120,0)故(1260,120,0)事' },
-          lrc: { lyric: '[00:01.14]故事' },
-        }),
-      })
+  test('wy eapi 优先 yrc', async () => {
+    httpGet.mockResolvedValueOnce({
+      status: 200,
+      data: JSON.stringify({
+        result: {
+          songs: [{ id: 186016, name: '晴天', artists: [{ name: '周杰伦' }], album: { name: '叶惠美' } }],
+        },
+      }),
+    })
+    httpPost.mockResolvedValueOnce({
+      status: 200,
+      data: JSON.stringify({
+        yrc: { lyric: '[1140,450](1140,120,0)故(1260,120,0)事' },
+        lrc: { lyric: '[00:01.14]故事' },
+      }),
+    })
 
     await expect(searchWyLyrics(query)).resolves.toEqual({
       format: 'yrc',

@@ -90,7 +90,9 @@
 
 - `playSong(song)` 无论歌曲是否已有本地歌词，均异步调用 `src/features/lyrics` 的 `matchOnlineLyrics`；匹配不得阻塞音频播放。
 - 在线串行优先级：**amll TTML** → 平台歌词（kw→tx→wy→kg→mg）→ **LRCLIB** LRC → 本地内嵌/同名 `.lrc` → 空态。匹配期间已有本地词先展示本地 LRC。
-- 平台源内 **逐字优先**：网易 `yrc`、QQ `qrc`（若可得）优先于行级 LRC；UI 用 `@applemusic-like-lyrics/lyric` 的 `parseYrc` / `parseQrc` / `parseLrc` / `parseTTML`。
+- 平台源内 **逐字优先**（AMLL 原生仅 yrc/qrc；krc/mrc/lyricx 不做）：
+  - **QQ**：`GetPlayLyricInfo` 加密串 → `decryptQrcHex` → 提取 `LyricContent` → `format: 'qrc'`；失败降级 `fcg_query_lyric_new` LRC。
+  - **网易**：eapi `/api/song/lyric/v1` 优先 `yrc`，否则公开 API / LRC；UI 用 `parseYrc` / `parseQrc` / `parseLrc` / `parseTTML`。
 - LRCLIB：`/api/get`（含 duration）→ `/api/search`；**仅** `syncedLyrics`；合规 `User-Agent`；MVP 不用 plainLyrics。
 - `lyricsFormat`：`ttml | lrc | yrc | qrc | null`。
 - **禁止**把在线歌词写回 `SongItem` / `muses:songs`（与封面/文本元信息不同）。

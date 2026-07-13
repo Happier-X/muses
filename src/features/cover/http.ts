@@ -38,3 +38,54 @@ export const httpGetJson = async <T>(url: string, headers?: Record<string, strin
   const text = await httpGetText(url, headers)
   return JSON.parse(text) as T
 }
+
+/**
+ * 跨端文本 POST。data 为已序列化 body 字符串（如 form / raw json）。
+ * 业务 4xx/5xx 不回退 fetch。
+ */
+export const httpPostText = async (
+  url: string,
+  data: string,
+  headers?: Record<string, string>,
+): Promise<string> => {
+  try {
+    const response = await CapacitorHttp.post({
+      url,
+      headers,
+      data,
+      responseType: 'text',
+    })
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`http ${response.status}`)
+    }
+    if (typeof response.data === 'string') {
+      return response.data
+    }
+    return JSON.stringify(response.data ?? '')
+  } catch (error) {
+    if (error instanceof Error && /^http \d+/.test(error.message)) {
+      throw error
+    }
+    if (typeof fetch === 'function') {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: data,
+      })
+      if (!response.ok) {
+        throw new Error(`http ${response.status}`)
+      }
+      return response.text()
+    }
+    throw error
+  }
+}
+
+export const httpPostJson = async <T>(
+  url: string,
+  data: string,
+  headers?: Record<string, string>,
+): Promise<T> => {
+  const text = await httpPostText(url, data, headers)
+  return JSON.parse(text) as T
+}
