@@ -255,10 +255,18 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
 - 下滑收起播放器时移动 overlay 内容层，不要移动 Ionic 路由页或依赖透明路由页露出缓存层，否则容易出现黑屏或重复页面。
 - 沉浸式控制页布局自上而下：大封面 → 歌名/歌手 → 进度条 → 主控制（上一曲/播放暂停/下一曲）→ 次要控制（循环/随机/队列）。
 - 沉浸式控制页封面（`.cover` / 占位封面）不加 `box-shadow`；宽屏与窄屏保持一致，避免封面后方出现额外阴影。
-- **封面必须保持正方形**：`.cover` 使用 `aspect-ratio: 1; height: auto; object-fit: cover`。宽屏 `.cover` 的 `width` 必须同时受 vw 与 cover-slot 的 dvh/`max-height` 约束（如 `min(40vw, 48dvh, 320px)`；矮屏再收紧为 `min(40vw, 42dvh, 260px)`），确保正方形高度不超过 `.cover-slot` 的 `max-height`。禁止只改 `width: min(40vw, 320px)` 而让 `max-height` 单独 clamp 高度——那会在宽屏矮高场景把封面拉成非正方形。
+- **封面必须保持正方形**：`.cover` / `.placeholder-cover`（与 `.cover` 共用尺寸类）使用 `aspect-ratio: 1; height: auto; object-fit: cover`。正方形边长 = `min(水平上限, 垂直上限)`。
+  - **窄屏** `.cover` 的 `width` 也必须同时受 vw 与 cover-slot 的 dvh/`max-height` 约束（默认 `min(72vw, 100%, 340px, 52dvh)`；`max-height: 720px` 时 `min(72vw, 100%, 260px, 42dvh)`；更矮 `max-height: 520px` 时 `min(72vw, 100%, 200px, 38dvh)`）。
+  - **宽屏** 同理：`min(40vw, 48dvh, 320px)`；矮屏 `min(40vw, 42dvh, 260px)`；更矮 `min(40vw, 38dvh, 200px)`。
+  - 禁止只写 `width: min(72vw, 100%, 340px)` 或 `min(40vw, 320px)` 而仅靠 `max-height: 100%` clamp 高度——当 cover-slot 可用高度小于目标宽度时，高度被夹、宽度仍按 vw → 封面被压成长方形（车机矮屏/手机横屏的典型回归）。
+- **矮屏/横屏控制区收紧**（仅控制页 `.info-panel`，不改歌词页）：保持竖排与全部控件可见，不改为左右分栏、不隐藏模式栏/进度。用 `max-height` 分层收紧：
+  - 默认（正常竖屏高度，如 `>720px`）：较大 padding / gap / 按钮与进度热区，观感不变。
+  - `max-height: 720px`：减小 panel 上下 padding（保留 `safe-area`）、`info-panel-inner` gap、进度 slider 热区（约 20px）、主控与模式栏按钮尺寸，封面槽位拿到更多垂直空间。
+  - `max-height: 520px`：再收一档 gap/字号/按钮/热区（约 18px），仍显示全部控件。
+  - 不引入 landscape 专用 DOM；横屏通常命中 `max-height` 断点即可。padding 只减固定 px 部分，用 `calc(... + safe-area)`，不得抹掉安全区。
 - 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
 - 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。
-- 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位缩放，禁止页面纵向滚动。
+- 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位（`.cover-slot`：`flex: 1 1 auto; min-height: 0`）缩放，控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
 - 歌词页（AMLL）视觉约定：
   - **窄屏** `.lyric-panel`：顶部 `.lyric-header` 展示歌名（主标题）+ 歌手（副标题，空则不渲染；不拼接专辑、不回退「未知歌手」）；其下为 `flex:1` 的 AMLL `LyricPlayer`；底部仅安全区，**不放**迷你进度/播放控制。
   - **宽屏**（`@media (min-width: 768px)`）：隐藏 `.lyric-header`，右侧只保留歌词；AMLL 视觉参数与窄屏一致。
@@ -364,4 +372,5 @@ Given the current app shape, common mistakes to avoid are:
 - Using `ion-tab-bar` / `ion-tab-button` outside an `ion-tabs` shell in `TabsPage.vue`; in the custom parent route shell, use a plain `<nav>` with `RouterLink` to avoid missing or duplicated mobile bottom navigation
 - Relying only on `@click.stop` for nested `ion-button` controls inside a clickable parent; guard the parent handler with `event.composedPath()` so button clicks do not trigger parent navigation
 - Hiding `MiniPlayer` with `v-if` while a player overlay is open; keep it mounted behind the overlay and disable interaction to avoid close-animation flicker
-- Setting wide-screen immersive `.cover` width with only `min(40vw, 320px)` while `.cover-slot` clamps height via `max-height: min(48dvh, …)`；宽屏矮高时正方形高度会被 clamp、宽度不变 → 封面非正方形拉伸。宽屏 `.cover` width 必须同步含 dvh 上限
+- Setting immersive `.cover` width without a height-based cap（窄屏只写 `min(72vw, 100%, 340px)` 或宽屏只写 `min(40vw, 320px)`）while `.cover-slot` clamps height via `max-height: min(…dvh, …)`；矮高/横屏时正方形高度被 clamp、宽度不变 → 封面被压成长方形。窄屏与宽屏 `.cover` width 都必须同步含 dvh/`max-height` 对齐的上限
+- 矮屏控制页只缩按钮却不收 panel padding / `info-panel-inner` gap / 进度热区，导致控制区仍占过多垂直空间、封面槽位被挤；或为腾空间隐藏模式栏/进度——应分层 `max-height` 收紧尺寸，保留全部控件
