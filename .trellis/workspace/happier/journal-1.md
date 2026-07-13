@@ -1904,3 +1904,36 @@ tx decryptQrcHex；wy eapi yrc；其余平台仍 LRC。
 ### Next Steps
 
 - None - task complete
+
+
+## Session 56: 封面同步不抹歌词
+
+**Date**: 2026-07-13
+**Task**: 封面同步不抹歌词
+**Branch**: `main`
+
+### Summary
+
+#21：空库不覆盖在线词；背景 key 重建。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b0d180b` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
