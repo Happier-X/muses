@@ -6,9 +6,12 @@
       :class="{ 'is-overlay-active': hasGlobalOverlay }"
       :aria-hidden="hasGlobalOverlay"
     />
-    <Transition name="player-overlay">
-      <PlayerPage v-if="playerOverlayVisible" />
-    </Transition>
+    <!-- 有当前曲时保活 PlayerPage，避免关闭再打开重建 BackgroundRender 闪默认底（#22） -->
+    <PlayerPage
+      v-if="keepPlayerPageMounted"
+      class="app-player-page"
+      :class="{ 'is-player-visible': playerOverlayVisible }"
+    />
     <Transition name="queue-overlay">
       <QueuePage v-if="queueOverlayVisible" />
     </Transition>
@@ -21,12 +24,16 @@ import { IonApp, IonRouterOutlet } from '@ionic/vue'
 import { App } from '@capacitor/app'
 import { StatusBar, Style } from '@capacitor/status-bar'
 import MiniPlayer from '@/components/MiniPlayer.vue'
-import { initializePlayer } from '@/features/player/controller'
+import { initializePlayer, playerState } from '@/features/player/controller'
 import { closePlayerOverlay, closeQueueOverlay, playerOverlayVisible, queueOverlayVisible } from '@/features/player/overlay'
 
 const PlayerPage = defineAsyncComponent(() => import('@/views/PlayerPage.vue'))
 const QueuePage = defineAsyncComponent(() => import('@/views/QueuePage.vue'))
 const hasGlobalOverlay = computed(() => playerOverlayVisible.value || queueOverlayVisible.value)
+/** 播放中/有当前曲时不卸载沉浸页，仅隐藏，保留 AMLL 动态背景 */
+const keepPlayerPageMounted = computed(
+  () => playerOverlayVisible.value || !!playerState.currentSong,
+)
 let statusBarRequestToken = 0
 let statusBarSyncQueue = Promise.resolve()
 
@@ -94,18 +101,31 @@ ion-app.has-global-overlay .app-router-outlet {
   pointer-events: none;
 }
 
-.player-overlay-enter-active,
-.player-overlay-leave-active,
 .queue-overlay-enter-active,
 .queue-overlay-leave-active {
   transition: transform 220ms ease;
 }
 
-.player-overlay-enter-from,
-.player-overlay-leave-to,
 .queue-overlay-enter-from,
 .queue-overlay-leave-to {
   transform: translateY(100%);
+}
+
+/* 关闭态：移出视口但保持挂载，背景不销毁 */
+.app-player-page:not(.is-player-visible) {
+  transform: translateY(100%);
+  pointer-events: none;
+  /* 仍参与合成层，避免再次打开时整页白闪 */
+  visibility: visible;
+}
+
+.app-player-page {
+  transition: transform 220ms ease;
+}
+
+.app-player-page.is-player-visible {
+  transform: translateY(0);
+  pointer-events: auto;
 }
 </style>
 

@@ -1,6 +1,7 @@
 <template>
   <div
     class="player-overlay"
+    :aria-hidden="!playerOverlayVisible"
     @touchstart.passive="onTouchStart"
     @touchmove="onTouchMove"
     @touchend="onTouchEnd"
@@ -182,7 +183,7 @@ import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/cor
 import { parseLrc, parseQrc, parseTTML, parseYrc } from '@applemusic-like-lyrics/lyric'
 import '@applemusic-like-lyrics/core/style.css'
 import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousFromQueue, queueState, resumePlayback, seekPlayback, setRepeatMode, toggleShuffle } from '@/features/player/controller'
-import { closePlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
+import { closePlayerOverlay, openQueueOverlay, playerOverlayVisible } from '@/features/player/overlay'
 
 const activePanel = ref(0)
 const touchStartX = ref<number | null>(null)

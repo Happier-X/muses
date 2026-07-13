@@ -1769,6 +1769,38 @@ describe('应用壳', () => {
     wrapper.unmount()
   })
 
+  test('有当前曲时关闭沉浸式仍保活 PlayerPage，无曲后可卸载', async () => {
+    const { playSong, stopPlayback } = await import('@/features/player/controller')
+    const { openPlayerOverlay, closePlayerOverlay } = await import('@/features/player/overlay')
+    await playSong(localSong)
+    openPlayerOverlay()
+
+    const wrapper = mount(App, {
+      global: {
+        stubs: {
+          IonApp: { template: '<main><slot /></main>' },
+          IonRouterOutlet: { template: '<div />' },
+          PlayerPage: { template: '<div data-test="player-page-root" />' },
+          QueuePage: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-test="player-page-root"]').exists()).toBe(true)
+    expect(wrapper.find('.app-player-page').classes()).toContain('is-player-visible')
+
+    closePlayerOverlay()
+    await nextTick()
+    // 关闭后仍挂载，仅去掉可见 class
+    expect(wrapper.find('[data-test="player-page-root"]').exists()).toBe(true)
+    expect(wrapper.find('.app-player-page').classes()).not.toContain('is-player-visible')
+
+    await stopPlayback()
+    await nextTick()
+    expect(wrapper.find('[data-test="player-page-root"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   test('播放器 overlay 打开时使用白色状态栏内容，关闭后恢复默认', async () => {
     const { openPlayerOverlay, closePlayerOverlay } = await import('@/features/player/overlay')
     const wrapper = mountApp()
