@@ -335,6 +335,12 @@ const coverSrc = computed(() => toDisplayableUri(currentCoverUri.value))
 
 /** 切歌无封面时沿用上一张可展示封面，避免背景/封面闪默认（#20） */
 const stickyCoverSrc = ref('')
+
+/** PlayerPage 保活后，打开/关闭必须清掉上次下滑位移，避免再打开半屏（#25） */
+watch(playerOverlayVisible, () => {
+  resetDragState()
+})
+
 watch(
   [() => playerState.currentSong?.id, coverSrc],
   ([songId, nextCover]) => {
@@ -616,6 +622,7 @@ const onTouchEnd = (event: TouchEvent) => {
   isDraggingVertically.value = false
 
   if (shouldDismiss) {
+    dragOffsetY.value = 0
     goBack()
     return
   }

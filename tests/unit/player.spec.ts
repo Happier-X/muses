@@ -1775,9 +1775,17 @@ describe('沉浸式播放页', () => {
     // 控制页大幅下滑超过阈值 → 关闭 overlay
     await infoPanel.trigger('touchstart', { changedTouches: [{ clientX: 200, clientY: 80 }] })
     await infoPanel.trigger('touchmove', { changedTouches: [{ clientX: 200, clientY: 320 }] })
+    expect(wrapper.get('.immersive-shell').attributes('style') || '').toContain('translateY(240px)')
     await infoPanel.trigger('touchend', { changedTouches: [{ clientX: 200, clientY: 320 }] })
 
     expect(playerOverlayVisible.value).toBe(false)
+    expect(wrapper.get('.immersive-shell').attributes('style') || '').toContain('translateY(0px)')
+
+    // 保活页面再打开时内部位移仍必须归零，避免只展开一半（#25）
+    openPlayerOverlay()
+    await nextTick()
+    expect(playerOverlayVisible.value).toBe(true)
+    expect(wrapper.get('.immersive-shell').attributes('style') || '').toContain('translateY(0px)')
   })
 
 })
