@@ -67,11 +67,22 @@
 8. **已缓冲进度与 seek 限制**（`bufferedPosition`）  
    - `PlayerState.bufferedPosition: number | null`：秒；`null` = 缓冲未知（不画假缓冲条，seek 退化为 duration clamp）。
    - **本地就绪**：`prepareLocalAudioFile` 完成后原生上报 `fullyBuffered`，前端 `bufferedPosition = duration`，缓冲条铺满，可全长 seek。
-   - **WebDAV/远程**：`native.ts` 必须把原始远程 URL 与 Basic `Authorization` header 直接交给 `NativeAudio`；`bufferedPosition` 始终为 `null`，seek 仅按 duration clamp。原生 `prepareWebDavAudioFile` / `WebDavAudioCache` 代码可保留，但播放链路禁止调用，避免增长中的 `.partial` 文件临时 EOF 被误判为自然结束。
+   - **WebDAV 完整缓存优先**：`native.ts` 播放 WebDAV 时先调 `getCachedWebDavAudioFile({ url })`；仅当返回**完整**文件 URI 时用 `file://` 播放并 `bufferedPosition = duration`（full buffer）。未命中 / partial / 失败则远程 URL + Basic `Authorization` 直链，`bufferedPosition = null`，seek 仅按 duration clamp。
+   - **禁止 progressive 播放路径**：原生 `prepareWebDavAudioFile` / 增长中的 `.partial` 不得作为播放路径（可保留兼容代码与 `cancelBufferSession`，但切歌时仍可调用 cancel 清理旧会话）。
    - **seek 上限**：缓冲已知时 `min(duration, bufferedPosition)`；目标越界时 **拒绝 seek**（返回 `false`），不发起原生跳转。歌词点击共用 `seekPlayback`。
    - **切歌 / stop / 播放失败** 必须 `resetBufferState()`，禁止串曲缓冲。
    - 不改 `node_modules/@capgo/*`；缓冲由项目自有 `AudioPlayer` 插件上报，经 `native.ts` 合并进 `stateChange`。
    - 保留 seek 保护窗 + 自然结尾判定作为第二道防线。
+
+9. **下一首 WebDAV 完整预取**（`peekNext` + `prefetchWebDavAudioFile`）  
+   - `queue.ts` 提供无副作用 `peekNext()`：按当前 repeat/shuffle 规则解析下一首，**不**改 `currentIndex`。
+   - `playSong` 成功进入 `playing` 后调度 `prefetchNextTrack()`：`next = peekNext()`；仅当 next 为 WebDAV 且 `next.id !== current.id` 时解析密码并调用 `prefetchWebDavAudioFile`（经 `native.ts` → `AudioPlayerBridge`）。
+   - 队列变更 / `setRepeatMode` / `toggleShuffle` 后，若当前仍在 `playing`/`paused`，controller 包装的 queue API 会重新 `peekNext` 并调度预取；旧下载不取消。
+   - 跳过：空队列、单曲循环自身、本地下一首、非 WebDAV。
+   - 原生：`getCachedFile` 命中完整缓存 → `{ cached: true, started: false }` no-op；否则 `downloadInBackground` 完整下载 → `{ cached: false, started: true }`。同 URL 复用进行中会话，不重复写。
+   - 旧预取不取消；新下一首可并行启动。预取失败静默，不得阻塞当前播放或切歌。
+   - 密码只在 controller 解析后传入 bridge，不进 reactive state / localStorage / 日志。
+   - 预取遵守 `WebDavAudioCache` 缓存上限与淘汰；仅完整目标文件可命中，`.partial`/`.tmp` 不得当缓存。
 
 ---
 
@@ -92,15 +103,21 @@
 - **禁止**修改 `node_modules/@capgo/*` 源码（我们只修复了 manifest 中 `MediaButtonReceiver` 的缺失，这是 app 侧修正，不是插件修改）。
 - **禁止**对任意 `finished`/`complete` 无条件 `advanceToNext`；必须经过 seek 保护窗 + 接近自然结尾校验。
 - **禁止**在缓冲已知时把 seek 目标落到 `bufferedPosition` 之外（进度条与歌词均须拒绝或 clamp 到已缓冲终点）。
-- **禁止**WebDAV 播放增长中的本地 `.partial` / `file://` 文件；必须使用远程 URL + Basic Auth headers 直链播放。
+- **禁止**WebDAV 播放增长中的本地 `.partial` / 未完成 `file://` 文件；未完整缓存时必须使用远程 URL + Basic Auth headers 直链播放。
+- **禁止**把 `prepareWebDavAudioFile` / 渐进下载作为播放路径；完整缓存命中才允许 `file://` 本地播放。
 - **禁止**缓冲未知时画假缓冲条；`bufferedPosition === null` 时 UI 不设 `--buffered`。
+- **禁止**预取密码进入 player state / localStorage / 日志；预取失败不得影响当前播放。
 
 ---
 
 ## 测试要点
 
 - 本地音源播放→通知出现 → 封面 / 标题 / 上一曲 / 下一曲 可用
-- WebDAV 音源播放→NativeAudio 使用远程 URL + Basic Auth headers，不调用 `prepareWebDavAudioFile`，`bufferedPosition` 保持 `null`
+- WebDAV 无完整缓存→NativeAudio 使用远程 URL + Basic Auth headers，不调用 `prepareWebDavAudioFile`，`bufferedPosition` 保持 `null`
+- WebDAV 完整缓存命中→`file://` 完整文件播放，`bufferedPosition = duration`，不带 Authorization headers
+- 播放成功后预取下一首 WebDAV（`peekNext` + `prefetchWebDavAudioFile`）；本地下一首 / 单曲循环自身 / 空队列不预取
+- `peekNext` 与 `advanceToNext` 目标一致但不改 `currentIndex`
+- partial URI 不得当作缓存命中；预取失败静默
 - 暂停/停止→通知同步出成 `none` 状态
 - 队列自动下一首→通知立即刷新为新歌曲
 - 有封面 A → 有封面 B：最终带 artwork 的 `setMetadata` 使用 B
