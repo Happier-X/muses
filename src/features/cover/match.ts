@@ -18,14 +18,14 @@ const negativeBySongId = new Map<string, NegativeEntry>()
 const buildQueryKey = (query: OnlineCoverQuery): string =>
   JSON.stringify([query.title.trim(), query.artist?.trim() || '', query.album?.trim() || ''])
 
-/** 默认链：iTunes → 酷我 → 咪咕 → 酷狗 → QQ → 网易云 */
+/** 默认链：iTunes → 酷我 → QQ → 网易云 → 酷狗 → 咪咕（国内段对齐 any-listen sources） */
 const defaultProviders: CoverProvider[] = [
   itunesCoverProvider,
   kwCoverProvider,
-  mgCoverProvider,
-  kgCoverProvider,
   txCoverProvider,
   wyCoverProvider,
+  kgCoverProvider,
+  mgCoverProvider,
 ]
 
 /** 测试用：可注入的 provider 列表覆盖；null 表示用默认 */
@@ -42,7 +42,7 @@ export const setOnlineCoverProvidersForTest = (providers: CoverProvider[] | null
 }
 
 /**
- * 多源编排：iTunes → kw → mg → kg → tx → wy；返回远程封面 URL（不落盘）。
+ * 多源编排：iTunes → kw → tx → wy → kg → mg；返回远程封面 URL（不落盘）。
  */
 export const matchOnlineCoverRemote = async (
   query: OnlineCoverQuery,

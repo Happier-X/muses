@@ -175,7 +175,7 @@ describe('在线封面匹配', () => {
     await expect(searchMgCoverUrl(sampleQuery)).resolves.toBeNull()
   })
 
-  test('默认链 iTunes+kw miss 后走 mg', async () => {
+  test('默认链 iTunes+kw miss 后走 tx（any-listen 国内段顺序）', async () => {
     // itunes 空结果
     httpGet.mockResolvedValueOnce({
       status: 200,
@@ -186,25 +186,29 @@ describe('在线封面匹配', () => {
       status: 200,
       data: JSON.stringify({ abslist: [] }),
     })
-    // mg 命中
+    // tx 命中（默认链：iTunes → kw → tx → wy → kg → mg）
     httpGet.mockResolvedValueOnce({
       status: 200,
       data: JSON.stringify({
-        musics: [
-          {
-            songName: '晴天',
-            singerName: '周杰伦',
-            albumName: '叶惠美',
-            cover: 'https://d.musicapp.migu.cn/default-chain.jpg',
+        data: {
+          song: {
+            list: [
+              {
+                songname: '晴天',
+                albumname: '叶惠美',
+                albummid: '000MkMni19ClKG',
+                singer: [{ name: '周杰伦' }],
+              },
+            ],
           },
-        ],
+        },
       }),
     })
 
     await expect(matchOnlineCoverRemote(sampleQuery)).resolves.toEqual({
       ok: true,
-      remoteUrl: 'https://d.musicapp.migu.cn/default-chain.jpg',
-      source: 'mg',
+      remoteUrl: 'https://y.gtimg.cn/music/photo_new/T002R500x500M000000MkMni19ClKG.jpg',
+      source: 'tx',
     })
     expect(httpGet).toHaveBeenCalledTimes(3)
   })
@@ -424,7 +428,7 @@ describe('在线封面匹配', () => {
       searchCoverUrl: vi.fn().mockResolvedValue('https://p2.music.126.net/a.jpg'),
     }
 
-    await expect(matchOnlineCoverRemote(sampleQuery, [itunes, kw, mg, kg, tx, wy])).resolves.toEqual({
+    await expect(matchOnlineCoverRemote(sampleQuery, [itunes, kw, tx, wy, kg, mg])).resolves.toEqual({
       ok: true,
       remoteUrl: 'https://y.gtimg.cn/music/photo_new/T002R500x500M000000MkMni19ClKG.jpg',
       source: 'tx',
@@ -441,13 +445,13 @@ describe('在线封面匹配', () => {
     const providers: CoverProvider[] = [
       miss('itunes'),
       miss('kw'),
-      miss('mg'),
-      miss('kg'),
       miss('tx'),
       {
         id: 'wy',
         searchCoverUrl: vi.fn().mockResolvedValue('https://p2.music.126.net/cover.jpg'),
       },
+      miss('kg'),
+      miss('mg'),
     ]
 
     await expect(matchOnlineCoverRemote(sampleQuery, providers)).resolves.toEqual({
@@ -481,7 +485,7 @@ describe('在线封面匹配', () => {
   })
 
   test('六源 miss 写入负缓存', async () => {
-    const ids: CoverProvider['id'][] = ['itunes', 'kw', 'mg', 'kg', 'tx', 'wy']
+    const ids: CoverProvider['id'][] = ['itunes', 'kw', 'tx', 'wy', 'kg', 'mg']
     const providers = ids.map((id) => ({
       id,
       searchCoverUrl: vi.fn().mockResolvedValue(null),
