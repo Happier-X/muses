@@ -1805,3 +1805,36 @@ LRCLIB provider + 默认链挂载；httpGet 4xx 不双请求；父任务全链 A
 ### Next Steps
 
 - None - task complete
+
+
+## Session 53: 网易YRC与QQ QRC逐字
+
+**Date**: 2026-07-13
+**Task**: 网易YRC与QQ QRC逐字
+**Branch**: `main`
+
+### Summary
+
+tx decryptQrcHex；wy eapi yrc；其余平台仍 LRC。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `55d067a` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
