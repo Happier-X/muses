@@ -730,8 +730,10 @@ onUnmounted(() => {
   max-height: min(52dvh, 340px);
 }
 
-.cover {
-  width: min(72vw, 100%, 340px);
+/* 正方形边长 = min(水平上限, 垂直上限)；窄屏 width 必须含 dvh，避免仅靠 max-height clamp 拉成长方形 */
+.cover,
+.placeholder-cover {
+  width: min(72vw, 100%, 340px, 52dvh);
   max-width: 100%;
   max-height: 100%;
   aspect-ratio: 1;
@@ -1050,7 +1052,8 @@ onUnmounted(() => {
   }
 
   /* width 同时受 vw 与 dvh 约束，保证 aspect-ratio 1 时高度不超过 cover-slot max-height，避免被 clamp 拉伸 */
-  .cover {
+  .cover,
+  .placeholder-cover {
     width: min(40vw, 48dvh, 320px);
   }
 
@@ -1077,7 +1080,52 @@ onUnmounted(() => {
   }
 }
 
+/* 矮屏/横屏：收紧控制区占位，释放垂直空间给封面；不隐藏控件；不改 lyric-panel */
 @media (max-height: 720px) {
+  .info-panel {
+    padding:
+      calc(10px + var(--ion-safe-area-top, 0px))
+      24px
+      calc(10px + var(--ion-safe-area-bottom, 0px));
+  }
+
+  .info-panel-inner {
+    gap: 4px;
+  }
+
+  .cover-slot {
+    max-height: min(42dvh, 260px);
+  }
+
+  .cover,
+  .placeholder-cover {
+    width: min(72vw, 100%, 260px, 42dvh);
+  }
+
+  .song-info h1 {
+    font-size: clamp(18px, 5vw, 24px);
+    margin-bottom: 2px;
+  }
+
+  .progress-slider {
+    height: 20px;
+  }
+
+  .progress-slider::-webkit-slider-thumb {
+    width: 12px;
+    height: 12px;
+    margin-top: -4px;
+  }
+
+  .progress-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+  }
+
+  .controls {
+    gap: clamp(12px, 4vw, 20px);
+  }
+
   .controls ion-button {
     width: 46px;
     height: 46px;
@@ -1090,21 +1138,112 @@ onUnmounted(() => {
     font-size: 26px;
   }
 
+  .mode-bar {
+    max-width: 240px;
+  }
+
   .mode-bar ion-button {
     width: 40px;
     height: 40px;
     font-size: 18px;
   }
-
-  .cover-slot {
-    max-height: min(42dvh, 260px);
-  }
 }
 
 /* 宽屏 + 矮屏：cover width 与更紧的 cover-slot max-height 对齐，避免 48dvh 仍超过 42dvh 时被 clamp */
 @media (min-width: 768px) and (max-height: 720px) {
-  .cover {
+  .info-panel {
+    padding: 16px 24px;
+  }
+
+  .info-panel-inner {
+    gap: 8px;
+  }
+
+  .cover,
+  .placeholder-cover {
     width: min(40vw, 42dvh, 260px);
+  }
+}
+
+/* 更矮（车机/横屏极限）：再收一档，仍保留全部控件 */
+@media (max-height: 520px) {
+  .info-panel {
+    padding:
+      calc(6px + var(--ion-safe-area-top, 0px))
+      20px
+      calc(6px + var(--ion-safe-area-bottom, 0px));
+  }
+
+  .info-panel-inner {
+    gap: 2px;
+  }
+
+  .cover-slot {
+    max-height: min(38dvh, 200px);
+  }
+
+  .cover,
+  .placeholder-cover {
+    width: min(72vw, 100%, 200px, 38dvh);
+  }
+
+  .song-info h1 {
+    font-size: clamp(16px, 4.5vw, 20px);
+    margin-bottom: 0;
+  }
+
+  .song-info p {
+    font-size: 12px;
+  }
+
+  .song-info small {
+    margin-top: 2px;
+    font-size: 11px;
+  }
+
+  .progress-slider {
+    height: 18px;
+  }
+
+  .time-row {
+    font-size: 11px;
+  }
+
+  .controls {
+    gap: clamp(10px, 3.5vw, 16px);
+  }
+
+  .controls ion-button {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+
+  .controls .play-toggle {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+
+  .mode-bar {
+    max-width: 220px;
+  }
+
+  .mode-bar ion-button {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 768px) and (max-height: 520px) {
+  .info-panel {
+    padding: 12px 20px;
+  }
+
+  .cover,
+  .placeholder-cover {
+    width: min(40vw, 38dvh, 200px);
   }
 }
 </style>
