@@ -150,7 +150,9 @@
 
           <template v-if="hasLyrics">
             <LyricPlayer
+              :key="lyricPlayerKey"
               class="lyric-player"
+              :data-translation-visible="showLyricTranslation ? 'true' : 'false'"
               :lyric-lines="displayLyricLines"
               :current-time="playerState.position * 1000"
               align-anchor="center"
@@ -209,6 +211,7 @@ import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
 import { parseLrc, parseQrc, parseTTML, parseYrc } from '@applemusic-like-lyrics/lyric'
 import '@applemusic-like-lyrics/core/style.css'
+import { applyLyricTranslationVisibility } from '@/features/lyrics/display'
 import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousFromQueue, queueState, resumePlayback, seekPlayback, setRepeatMode, toggleShuffle } from '@/features/player/controller'
 import { closePlayerOverlay, openQueueOverlay, playerOverlayVisible } from '@/features/player/overlay'
 
@@ -384,15 +387,11 @@ const lyricLines = computed<LyricLine[]>(() => {
 })
 
 const displayLyricLines = computed<LyricLine[]>(() => {
-  if (showLyricTranslation.value) {
-    return lyricLines.value
-  }
-  return lyricLines.value.map((line) => ({
-    ...line,
-    translatedLyric: '',
-    romanLyric: '',
-  }))
+  return applyLyricTranslationVisibility(lyricLines.value, showLyricTranslation.value)
 })
+
+/** AMLL 内部会缓存行节点，翻译显隐切换时强制重建保证立即生效（#26） */
+const lyricPlayerKey = computed(() => `${playerState.currentSong?.id ?? 'none'}:${playerState.lyricsFormat ?? 'lrc'}:${showLyricTranslation.value ? 'translation-on' : 'translation-off'}`)
 
 const hasLyrics = computed(() => lyricLines.value.length > 0)
 
@@ -1106,16 +1105,16 @@ onUnmounted(() => {
 .lyric-fab {
   --padding-start: 0;
   --padding-end: 0;
-  --background: rgba(0, 0, 0, 0.22);
-  --background-hover: rgba(255, 255, 255, 0.18);
-  --background-activated: rgba(255, 255, 255, 0.24);
-  --color: rgba(255, 255, 255, 0.76);
-  width: 48px;
-  height: 48px;
+  --background: rgba(0, 0, 0, 0.16);
+  --background-hover: rgba(255, 255, 255, 0.14);
+  --background-activated: rgba(255, 255, 255, 0.2);
+  --color: rgba(255, 255, 255, 0.72);
+  width: 36px;
+  height: 36px;
   margin: 0;
-  font-size: 24px;
+  font-size: 18px;
   pointer-events: auto;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(10px);
 }
 
 .lyric-fab.is-active {
