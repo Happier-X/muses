@@ -9,7 +9,7 @@
             :router-link="item.to"
             :detail="false"
             lines="none"
-            :class="{ 'is-active': route.path === item.to }"
+            :class="{ 'is-active': isNavActive(item.to) }"
           >
             <ion-icon slot="start" aria-hidden="true" :icon="item.icon" />
             <ion-label>{{ item.label }}</ion-label>
@@ -27,7 +27,7 @@
         v-for="item in navItems"
         :key="item.to"
         class="mobile-tab-link"
-        :class="{ 'is-active': route.path === item.to }"
+        :class="{ 'is-active': isNavActive(item.to) }"
         :to="item.to"
       >
         <ion-icon aria-hidden="true" :icon="item.icon" />
@@ -56,6 +56,14 @@ const route = useRoute()
 const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
 const isTablet = computed(() => viewportWidth.value >= 768)
 const isTabsRoute = computed(() => route.path === '/tabs' || route.path.startsWith('/tabs/'))
+
+/** 详情子路由（如 /tabs/playlists/:id）仍高亮父 tab */
+const isNavActive = (to: string) => {
+  if (route.path === to) {
+    return true
+  }
+  return to !== '/tabs' && route.path.startsWith(`${to}/`)
+}
 
 const updateViewportWidth = () => {
   viewportWidth.value = window.innerWidth

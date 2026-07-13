@@ -105,9 +105,16 @@ src/features/sources/
 ├── storage.ts
 ├── types.ts
 └── webdav.ts
+
+src/features/playlist/
+├── index.ts
+├── storage.ts
+└── types.ts
 ```
 
 Use `src/features/<feature>/` only when a feature has actual non-view contracts such as persistence, native plugin integration, API/WebDAV clients, or shared feature types. Keep route-level screens in `src/views/` and keep route definitions in `src/router/index.ts`.
+
+Playlist list/detail live in `PlaylistsPage.vue` / `PlaylistDetailPage.vue`; route `playlists/:id` is owned by the router.
 
 Do not create broad `services/`, `api/`, or global store directories just because one feature needs small helpers.
 

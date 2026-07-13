@@ -60,13 +60,35 @@
               fill="clear"
               class="more-button"
               aria-label="更多歌曲操作"
-              @click.stop="enqueueSingleSong(song)"
+              @click.stop="openSongActions(song)"
             >
               <ion-icon slot="icon-only" :icon="ellipsisVertical" aria-hidden="true" />
             </ion-button>
           </ion-item>
         </ion-list>
       </div>
+
+      <ion-action-sheet
+        :is-open="isSongActionsOpen"
+        header="歌曲操作"
+        :buttons="songActionButtons"
+        @didDismiss="isSongActionsOpen = false"
+      />
+
+      <ion-action-sheet
+        :is-open="isPlaylistPickOpen"
+        header="加入歌单"
+        :buttons="playlistPickButtons"
+        @didDismiss="isPlaylistPickOpen = false"
+      />
+
+      <ion-alert
+        :is-open="isCreatePlaylistOpen"
+        header="新建歌单"
+        :inputs="createPlaylistInputs"
+        :buttons="createPlaylistButtons"
+        @didDismiss="isCreatePlaylistOpen = false"
+      />
 
       <ion-fab
         v-if="currentPlayingInList"
@@ -90,6 +112,8 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import {
+  IonActionSheet,
+  IonAlert,
   IonButton,
   IonButtons,
   IonContent,
@@ -104,11 +128,19 @@ import {
   IonTitle,
   IonToolbar,
   onIonViewWillEnter,
+  type ActionSheetButton,
+  type AlertButton,
+  type AlertInput,
 } from '@ionic/vue'
 import { ellipsisVertical, locateOutline, musicalNotesOutline, searchOutline, shuffle } from 'ionicons/icons'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
+import {
+  addSongToPlaylist,
+  createPlaylist,
+  loadPlaylists,
+} from '@/features/playlist'
 import {
   clearQueue,
   enqueueSong,
@@ -122,6 +154,10 @@ import {
 
 const songs = ref<SongItem[]>([])
 const pageRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
+const actionSong = ref<SongItem | null>(null)
+const isSongActionsOpen = ref(false)
+const isPlaylistPickOpen = ref(false)
+const isCreatePlaylistOpen = ref(false)
 let jumpHighlightTimer: ReturnType<typeof setTimeout> | null = null
 
 const currentPlayingInList = computed(() => {
@@ -136,9 +172,78 @@ const refreshSongs = () => {
   songs.value = sortSongsForDisplay(loadSongs())
 }
 
-const enqueueSingleSong = (song: SongItem) => {
-  enqueueSong(song)
+const openSongActions = (song: SongItem) => {
+  actionSong.value = song
+  isSongActionsOpen.value = true
 }
+
+const songActionButtons = computed<ActionSheetButton[]>(() => [
+  {
+    text: '添加到队列',
+    handler: () => {
+      if (actionSong.value) {
+        enqueueSong(actionSong.value)
+      }
+    },
+  },
+  {
+    text: '加入歌单…',
+    handler: () => {
+      // 等主 sheet 关闭后再开，避免叠层冲突
+      window.setTimeout(() => {
+        isPlaylistPickOpen.value = true
+      }, 180)
+    },
+  },
+  { text: '取消', role: 'cancel' },
+])
+
+const playlistPickButtons = computed<ActionSheetButton[]>(() => {
+  const list = loadPlaylists().slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const buttons: ActionSheetButton[] = list.map((playlist) => ({
+    text: playlist.name,
+    handler: () => {
+      if (actionSong.value) {
+        addSongToPlaylist(playlist.id, actionSong.value.id)
+      }
+    },
+  }))
+  buttons.push({
+    text: '新建歌单',
+    handler: () => {
+      window.setTimeout(() => {
+        isCreatePlaylistOpen.value = true
+      }, 180)
+    },
+  })
+  buttons.push({ text: '取消', role: 'cancel' })
+  return buttons
+})
+
+const createPlaylistInputs: AlertInput[] = [
+  {
+    name: 'name',
+    type: 'text',
+    placeholder: '歌单名称',
+    attributes: { maxlength: 80 },
+  },
+]
+
+const createPlaylistButtons = computed<AlertButton[]>(() => [
+  { text: '取消', role: 'cancel' },
+  {
+    text: '创建并加入',
+    handler: (data: { name?: string }) => {
+      const name = typeof data?.name === 'string' ? data.name : ''
+      const created = createPlaylist(name)
+      if (!created || !actionSong.value) {
+        return false
+      }
+      addSongToPlaylist(created.id, actionSong.value.id)
+      return true
+    },
+  },
+])
 
 const onShuffleAll = () => {
   if (songs.value.length === 0) {

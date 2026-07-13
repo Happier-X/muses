@@ -76,6 +76,8 @@ If a future task adds Pinia or another store, document the chosen pattern in thi
 
 Use the smallest persistence mechanism that satisfies the feature contract. For non-sensitive app metadata, feature-local helpers may use browser storage such as `localStorage` with explicit validation before data is trusted.
 
+- 本地歌单：`muses:playlists`（`src/features/playlist/storage.ts`），事件 `muses:playlists-updated`；仅存 `songIds` 引用曲库，展示时过滤失效 id。
+
 Sensitive values such as WebDAV passwords, tokens, or other credentials must not be written to `localStorage`, logs, route params, or task-visible metadata. On Android, store these values through a Capacitor secure storage plugin and keep only an opaque lookup key such as `credentialKey` in non-sensitive metadata.
 
 Current source module contract:
