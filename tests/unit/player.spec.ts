@@ -151,6 +151,7 @@ vi.mock('@applemusic-like-lyrics/vue', () => ({
         >
           {{ lyricLines?.[0]?.words?.[0]?.word }}
         </button>
+        <span data-test="lyric-translation">{{ lyricLines?.[0]?.translatedLyric }}</span>
       </div>
     `,
   },
@@ -1170,7 +1171,7 @@ describe('迷你播放器', () => {
     const wrapper = mount(MiniPlayer, {
       global: {
         stubs: {
-          IonButton: { template: '<button :aria-label="$attrs[\'aria-label\']" @click="$emit(\'click\', $event)"><slot /></button>' },
+          IonButton: { template: '<button v-bind="$attrs"><slot /></button>' },
           IonIcon: true,
         },
       },
@@ -1385,6 +1386,64 @@ describe('沉浸式播放页', () => {
     expect(wrapper.get('.lyric-header .lyric-artist').text()).toBe('本地歌手')
     expect(wrapper.find('.lyric-panel .progress-slider').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('暂无歌词')
+  })
+
+  test('歌词页翻译按钮可切换 aria 状态，手机显示播放按钮', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    window.dispatchEvent(new Event('resize'))
+    await playSong({
+      ...localSong,
+      lyrics: '[00:01.00]第一句歌词',
+      lyricsSource: 'embedded',
+    })
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button v-bind="$attrs"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-test="amll-lyrics"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="暂停播放"]').exists()).toBe(true)
+    const translateButton = wrapper.get('button[aria-label="隐藏翻译"]')
+    await translateButton.trigger('click')
+    await nextTick()
+    expect(wrapper.find('button[aria-label="显示翻译"]').exists()).toBe(true)
+    await wrapper.get('button[aria-label="显示翻译"]').trigger('click')
+    await nextTick()
+    expect(wrapper.find('button[aria-label="隐藏翻译"]').exists()).toBe(true)
+  })
+
+  test('平板模式歌词页不展示右下播放暂停按钮', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+    window.dispatchEvent(new Event('resize'))
+    await playSong({
+      ...localSong,
+      lyrics: '[00:01.00]第一句歌词',
+      lyricsSource: 'embedded',
+    })
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button v-bind="$attrs"><slot /></button>' },
+          IonIcon: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('button[aria-label="隐藏翻译"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="暂停播放"]').exists()).toBe(false)
+    expect(wrapper.find('button[aria-label="继续播放"]').exists()).toBe(false)
   })
 
   test('仅有封面无歌词时仍展示 AMLL 动态背景（不依赖 hasLyrics）', async () => {

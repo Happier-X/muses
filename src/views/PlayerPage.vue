@@ -151,7 +151,7 @@
           <template v-if="hasLyrics">
             <LyricPlayer
               class="lyric-player"
-              :lyric-lines="lyricLines"
+              :lyric-lines="displayLyricLines"
               :current-time="playerState.position * 1000"
               align-anchor="center"
               :align-position="0.38"
@@ -166,6 +166,33 @@
             <h2>{{ lyricEmptyTitle }}</h2>
             <p>{{ lyricEmptyDescription }}</p>
           </div>
+
+          <div v-if="playerState.currentSong" class="lyric-floating-actions" aria-label="歌词快捷操作">
+            <ion-button
+              fill="clear"
+              shape="round"
+              color="light"
+              class="lyric-fab lyric-translate-toggle"
+              :class="{ 'is-active': showLyricTranslation }"
+              :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
+              @click.stop="toggleLyricTranslation"
+            >
+              <ion-icon slot="icon-only" :icon="languageIcon" aria-hidden="true" />
+            </ion-button>
+
+            <ion-button
+              v-if="!isTabletLayout"
+              fill="clear"
+              shape="round"
+              color="light"
+              class="lyric-fab lyric-play-toggle"
+              :aria-label="isPlaying ? '暂停播放' : '继续播放'"
+              :disabled="playerState.status === 'loading'"
+              @click.stop="togglePlayback"
+            >
+              <ion-icon slot="icon-only" :icon="isPlaying ? pauseCircleIcon : playCircleIcon" aria-hidden="true" />
+            </ion-button>
+          </div>
         </section>
       </div>
     </div>
@@ -173,10 +200,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonButton, IonIcon } from '@ionic/vue'
-import { listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from 'ionicons/icons'
+import { languageOutline, listOutline, pause, pauseCircleOutline, play, playCircleOutline, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from 'ionicons/icons'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
@@ -192,6 +219,8 @@ const dragOffsetY = ref(0)
 const gestureDirection = ref<'horizontal' | 'vertical' | null>(null)
 const isDraggingVertically = ref(false)
 const canDragDown = ref(false)
+const showLyricTranslation = ref(true)
+const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
 /** 进度条交互中或结束后的短保护期，防止松手穿透到上一曲/下一曲或横向切面板。 */
 const seekGestureLocked = ref(false)
 let seekUnlockTimer: ReturnType<typeof setTimeout> | null = null
@@ -203,8 +232,20 @@ const repeatIcon = computed(() => queueState.repeatMode === 'one' ? repeat : rep
 const shuffleModeLabel = computed(() => queueState.shuffleEnabled ? '随机播放' : '顺序播放')
 const shuffleIcon = computed(() => shuffle)
 const listIcon = listOutline
+const languageIcon = languageOutline
+const playCircleIcon = playCircleOutline
+const pauseCircleIcon = pauseCircleOutline
 const previousIcon = playSkipBack
 const nextIcon = playSkipForward
+const isTabletLayout = computed(() => viewportWidth.value >= 768)
+
+const updateViewportWidth = () => {
+  viewportWidth.value = window.innerWidth
+}
+
+const toggleLyricTranslation = () => {
+  showLyricTranslation.value = !showLyricTranslation.value
+}
 
 const onToggleRepeat = () => {
   setRepeatMode(queueState.repeatMode === 'one' ? 'all' : 'one')
@@ -334,6 +375,17 @@ const lyricLines = computed<LyricLine[]>(() => {
   } catch {
     return []
   }
+})
+
+const displayLyricLines = computed<LyricLine[]>(() => {
+  if (showLyricTranslation.value) {
+    return lyricLines.value
+  }
+  return lyricLines.value.map((line) => ({
+    ...line,
+    translatedLyric: '',
+    romanLyric: '',
+  }))
 })
 
 const hasLyrics = computed(() => lyricLines.value.length > 0)
@@ -628,7 +680,13 @@ const formatTime = (value: number): string => {
   return `${minutes}:${seconds}`
 }
 
+onMounted(() => {
+  updateViewportWidth()
+  window.addEventListener('resize', updateViewportWidth)
+})
+
 onUnmounted(() => {
+  window.removeEventListener('resize', updateViewportWidth)
   clearSeekUnlockTimer()
   if (bufferHintTimer !== null) {
     clearTimeout(bufferHintTimer)
@@ -975,6 +1033,7 @@ onUnmounted(() => {
 }
 
 .lyric-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1023,6 +1082,37 @@ onUnmounted(() => {
   --amll-lp-line-padding-x: 0;
   --amll-lp-line-width-aspect: 1;
   --lyric-line-padding-x: 0;
+}
+
+.lyric-floating-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(8px + var(--ion-safe-area-bottom, 0px));
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.lyric-fab {
+  --padding-start: 0;
+  --padding-end: 0;
+  --background: rgba(0, 0, 0, 0.22);
+  --background-hover: rgba(255, 255, 255, 0.18);
+  --background-activated: rgba(255, 255, 255, 0.24);
+  --color: rgba(255, 255, 255, 0.76);
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  font-size: 24px;
+  pointer-events: auto;
+  backdrop-filter: blur(12px);
+}
+
+.lyric-fab.is-active {
+  --color: #ffffff;
 }
 
 /* AMLL 实际 player 挂在 wrapper 子节点；强制铺满 flex 槽位 */
@@ -1096,6 +1186,10 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+  }
+
+  .lyric-play-toggle {
+    display: none;
   }
 
   /* 宽屏左侧控制页已有歌名/歌手，右侧不重复顶部信息 */
