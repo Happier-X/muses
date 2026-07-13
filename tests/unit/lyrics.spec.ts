@@ -355,7 +355,7 @@ describe('播放器在线歌词匹配（token 防串曲）', () => {
       lyricsSource: 'embedded',
     })
 
-    // 起播瞬间应已进入 matching，且先展示本地
+    // 起播瞬间应已进入 matching，且先展示库内词
     expect(playerState.onlineLyricsStatus).toBe('matching')
     expect(playerState.lyrics).toBe('[00:01.00]本地歌词')
     expect(playerState.lyricsFormat).toBe('lrc')
@@ -370,8 +370,91 @@ describe('播放器在线歌词匹配（token 防串曲）', () => {
     )
     expect(playerState.lyrics).toBe(SAMPLE_TTML)
     expect(playerState.lyricsFormat).toBe('ttml')
-    // 不写回曲库
-    expect(localStorage.getItem('muses:songs')).toBeNull()
+    // 质量升级：LRC → TTML 写回曲库（按 path 找，upsert 可能生成稳定 id）
+    const stored = JSON.parse(localStorage.getItem('muses:songs') || '[]') as Array<{
+      path: string
+      lyrics?: string
+      lyricsSource?: string
+      lyricsFormat?: string
+    }>
+    const row = stored.find((s) => s.path === localSong.path)
+    expect(row?.lyrics).toBe(SAMPLE_TTML)
+    expect(row?.lyricsSource).toBe('online')
+    expect(row?.lyricsFormat).toBe('ttml')
+  })
+
+  test('库内已是 ttml 时在线 LRC 不写回覆盖', async () => {
+    mockNativePlayer()
+    localStorage.setItem(
+      'muses:songs',
+      JSON.stringify([
+        {
+          ...localSong,
+          lyrics: SAMPLE_TTML,
+          lyricsSource: 'online',
+          lyricsFormat: 'ttml',
+          createdAt: '2026-07-13T00:00:00.000Z',
+          updatedAt: '2026-07-13T00:00:00.000Z',
+        },
+      ]),
+    )
+    vi.doMock('@/features/lyrics', () => ({
+      matchOnlineLyrics: vi.fn().mockResolvedValue({
+        ok: true,
+        text: '[00:01.00]worse lrc',
+        format: 'lrc',
+        source: 'lrclib',
+      }),
+    }))
+
+    const { playSong, playerState } = await import('@/features/player/controller')
+    await playSong({
+      ...localSong,
+      lyrics: SAMPLE_TTML,
+      lyricsSource: 'online',
+      lyricsFormat: 'ttml',
+    })
+    await vi.waitFor(() => {
+      expect(playerState.onlineLyricsStatus).toBe('ready')
+    })
+    // 当次可展示在线 LRC，但不降级写库
+    expect(playerState.lyrics).toBe('[00:01.00]worse lrc')
+    const stored = JSON.parse(localStorage.getItem('muses:songs') || '[]') as Array<{
+      path: string
+      lyrics?: string
+      lyricsFormat?: string
+    }>
+    const row = stored.find((s) => s.path === localSong.path)
+    expect(row?.lyrics).toBe(SAMPLE_TTML)
+    expect(row?.lyricsFormat).toBe('ttml')
+  })
+
+  test('无词歌曲在线命中写回 online+format', async () => {
+    mockNativePlayer()
+    vi.doMock('@/features/lyrics', () => ({
+      matchOnlineLyrics: vi.fn().mockResolvedValue({
+        ok: true,
+        text: '[00:01.00]online',
+        format: 'lrc',
+        source: 'kw',
+      }),
+    }))
+
+    const { playSong, playerState } = await import('@/features/player/controller')
+    await playSong(localSong)
+    await vi.waitFor(() => {
+      expect(playerState.onlineLyricsStatus).toBe('ready')
+    })
+    const stored = JSON.parse(localStorage.getItem('muses:songs') || '[]') as Array<{
+      path: string
+      lyrics?: string
+      lyricsSource?: string
+      lyricsFormat?: string
+    }>
+    const row = stored.find((s) => s.path === localSong.path)
+    expect(row?.lyrics).toBe('[00:01.00]online')
+    expect(row?.lyricsSource).toBe('online')
+    expect(row?.lyricsFormat).toBe('lrc')
   })
 
   test('匹配失败回退本地歌词', async () => {

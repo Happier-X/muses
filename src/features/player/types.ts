@@ -22,6 +22,7 @@ export interface PlayerSongSnapshot {
   duration?: number
   lyrics?: string
   lyricsSource?: SongItem['lyricsSource']
+  lyricsFormat?: SongItem['lyricsFormat']
   coverUri?: string
 }
 
@@ -40,7 +41,7 @@ export interface PlayerState {
   lyrics: string | null
   /** 展示用歌词格式；切歌时重置 */
   lyricsFormat: LyricsFormat
-  /** 在线 TTML 匹配状态；不写回 SongItem */
+  /** 在线歌词匹配状态；命中可按质量写回 SongItem */
   onlineLyricsStatus: OnlineLyricsStatus
   coverUri: string | null
   metadataStatus: PlayerMetadataStatus
@@ -122,5 +123,48 @@ export const createPlayerSongSnapshot = (song: SongItem): PlayerSongSnapshot => 
   duration: song.duration,
   lyrics: song.lyrics,
   lyricsSource: song.lyricsSource,
+  lyricsFormat: song.lyricsFormat,
   coverUri: toSafeCoverUri(song.coverUri),
 })
+
+/** 库内缺 format 时兼容旧数据：有词默认 lrc */
+export const resolveStoredLyricsFormat = (song: Pick<SongItem, 'lyrics' | 'lyricsFormat'>): LyricsFormat => {
+  if (!song.lyrics?.trim()) {
+    return null
+  }
+  const format = song.lyricsFormat
+  if (format === 'lrc' || format === 'ttml' || format === 'yrc' || format === 'qrc') {
+    return format
+  }
+  return 'lrc'
+}
+
+/** 质量序：ttml/yrc/qrc=2，lrc=1，空=0 */
+export const lyricsFormatRank = (format: LyricsFormat | SongItem['lyricsFormat'] | undefined, hasText: boolean): number => {
+  if (!hasText) {
+    return 0
+  }
+  if (format === 'ttml' || format === 'yrc' || format === 'qrc') {
+    return 2
+  }
+  return 1
+}
+
+/** 在线结果是否应写回库（严格更优） */
+export const shouldPersistOnlineLyrics = (
+  existing: Pick<SongItem, 'lyrics' | 'lyricsFormat'>,
+  incomingFormat: Exclude<LyricsFormat, null>,
+  incomingText: string,
+): boolean => {
+  const text = incomingText.trim()
+  if (!text) {
+    return false
+  }
+  const existingText = existing.lyrics?.trim() || ''
+  const existingRank = lyricsFormatRank(
+    existing.lyricsFormat ?? (existingText ? 'lrc' : null),
+    !!existingText,
+  )
+  const incomingRank = lyricsFormatRank(incomingFormat, true)
+  return incomingRank > existingRank
+}

@@ -94,11 +94,12 @@
   - **QQ**：`GetPlayLyricInfo` 加密串 → `decryptQrcHex` → 提取 `LyricContent` → `format: 'qrc'`；失败降级 `fcg_query_lyric_new` LRC。
   - **网易**：eapi `/api/song/lyric/v1` 优先 `yrc`，否则公开 API / LRC；UI 用 `parseYrc` / `parseQrc` / `parseLrc` / `parseTTML`。
 - LRCLIB：`/api/get`（含 duration）→ `/api/search`；**仅** `syncedLyrics`；合规 `User-Agent`；MVP 不用 plainLyrics。
-- `lyricsFormat`：`ttml | lrc | yrc | qrc | null`。
-- **禁止**把在线歌词写回 `SongItem` / `muses:songs`（与封面/文本元信息不同）。
+- `lyricsFormat`：`ttml | lrc | yrc | qrc | null`（运行时）；库内 `SongItem.lyricsFormat` 可选同枚举。
+- **按质量写回曲库**：在线命中后若优于库内则 `upsertSong` 写 `lyrics` + `lyricsSource: 'online'` + `lyricsFormat`。质量序 `ttml|yrc|qrc` > `lrc` > 空；同级不覆盖。旧数据无 format 有词视为 `lrc`。
+- 播放初始化用库内 `lyrics`+`lyricsFormat`；有词仍跑在线匹配以便升级。
 - `httpGetText`：CapacitorHttp 返回的 4xx/5xx 直接抛出，**不**再回退 fetch（避免双请求与 404 误走实网）。
-- `PlayerState.lyricsFormat` 为 `'lrc' | 'ttml' | null`，决定 `PlayerPage.vue` 使用 `parseLrc` 或 `parseTTML(...).lines`；`onlineLyricsStatus` 为 `'idle' | 'matching' | 'ready' | 'miss' | 'error'`。
-- 索引与 TTML 仅保存在进程内存：索引单例缓存，TTML 按 `songId` 缓存，失败短时负缓存；不得整库打包或写回 `SongItem` / `muses:songs`。
+- `PlayerState.lyricsFormat` 为 `'lrc' | 'ttml' | 'yrc' | 'qrc' | null`，决定 `PlayerPage` 解析器；`onlineLyricsStatus` 为 `'idle' | 'matching' | 'ready' | 'miss' | 'error'`。
+- amll 索引与 TTML 正文请求缓存仍可在进程内存；**匹配成功的歌词正文**可按质量持久化到 `SongItem`（见上）。不得把整库 amll 索引打包进 APK。
 - 切歌递增歌词匹配 token；异步结果仅在 token 与 `currentSong.id` 同时匹配时写入，禁止上一首歌词串到当前歌曲。
 - CDN/解析失败静默回退，不弹播放错误，也不得改变音频播放状态。
 

@@ -11,7 +11,19 @@ const normalizeTags = (tags: AudioTags): Omit<AudioTags, 'metadataDiagnostic'> =
     album: tags.album?.trim() || undefined,
     duration: typeof tags.duration === 'number' && Number.isFinite(tags.duration) && tags.duration > 0 ? tags.duration : undefined,
     lyrics: tags.lyrics?.trim() || undefined,
-    lyricsSource: tags.lyricsSource === 'embedded' || tags.lyricsSource === 'sidecar' ? tags.lyricsSource : undefined,
+    lyricsSource:
+      tags.lyricsSource === 'embedded'
+      || tags.lyricsSource === 'sidecar'
+      || tags.lyricsSource === 'online'
+        ? tags.lyricsSource
+        : undefined,
+    lyricsFormat:
+      tags.lyricsFormat === 'lrc'
+      || tags.lyricsFormat === 'ttml'
+      || tags.lyricsFormat === 'yrc'
+      || tags.lyricsFormat === 'qrc'
+        ? tags.lyricsFormat
+        : undefined,
     coverUri: coverUri
       && !coverUri.toLowerCase().startsWith('data:')
       && !coverUri.toLowerCase().startsWith('blob:')

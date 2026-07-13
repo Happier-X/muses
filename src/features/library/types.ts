@@ -1,6 +1,9 @@
 import type { SourceType } from '@/features/sources/types'
 
-export type LyricsSource = 'embedded' | 'sidecar'
+export type LyricsSource = 'embedded' | 'sidecar' | 'online'
+
+/** 持久化歌词格式；与 playerState.lyricsFormat 对齐（不含 null） */
+export type SongLyricsFormat = 'lrc' | 'ttml' | 'yrc' | 'qrc'
 
 export interface SongItem {
   id: string
@@ -14,6 +17,8 @@ export interface SongItem {
   duration?: number
   lyrics?: string
   lyricsSource?: LyricsSource
+  /** 有 lyrics 时建议写入；缺省兼容旧数据按 lrc */
+  lyricsFormat?: SongLyricsFormat
   coverUri?: string
   tagsScanned?: boolean
   tagsScannedAt?: string
@@ -39,6 +44,7 @@ export interface AudioTags {
   duration?: number
   lyrics?: string
   lyricsSource?: LyricsSource
+  lyricsFormat?: SongLyricsFormat
   coverUri?: string
   tagsScanned?: boolean
   tagsScannedAt?: string

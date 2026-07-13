@@ -13,7 +13,12 @@ import {
 } from '@/features/metadata'
 import { AudioPlayerNative, cacheRemoteCover, prefetchWebDavAudioFile } from './native'
 import type { AudioPlayerNativeState, PlayOptions, PlayerState } from './types'
-import { createPlayerSongSnapshot, toSafeCoverUri } from './types'
+import {
+  createPlayerSongSnapshot,
+  resolveStoredLyricsFormat,
+  shouldPersistOnlineLyrics,
+  toSafeCoverUri,
+} from './types'
 import {
   advanceToNext,
   advanceToPrevious,
@@ -292,10 +297,14 @@ const syncDisplayStateFromSong = (song: SongItem): void => {
     || state.coverUri !== nextCover
 
   state.currentSong = createPlayerSongSnapshot(song)
-  // 在线 TTML 优先：匹配成功后不再被懒扫描的本地 LRC 覆盖
-  if (state.lyricsFormat !== 'ttml') {
+  // 在线/库内高质量词优先：勿用懒扫描 LRC 覆盖 ttml/yrc/qrc
+  const onlineOrWordLevel =
+    state.lyricsFormat === 'ttml'
+    || state.lyricsFormat === 'yrc'
+    || state.lyricsFormat === 'qrc'
+  if (!onlineOrWordLevel) {
     state.lyrics = song.lyrics || null
-    state.lyricsFormat = song.lyrics ? 'lrc' : null
+    state.lyricsFormat = resolveStoredLyricsFormat(song)
   }
   state.coverUri = nextCover
   state.duration = normalizePlaybackTime(song.duration) || state.duration
@@ -306,11 +315,12 @@ const syncDisplayStateFromSong = (song: SongItem): void => {
 }
 
 /**
- * 切歌后异步匹配在线歌词：amll → 平台 → LRCLIB（fallback 由 lyrics 模块注册）。
- * 成功写 playerState；不写库；失败保持本地 LRC/空态；token 防串曲。
+ * 切歌后异步匹配在线歌词：amll → 平台 → LRCLIB。
+ * 成功写 playerState；按质量写回 muses:songs；token 防串曲。
  */
 const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<void> => {
   const localLyrics = song.lyrics || null
+  const localFormat = resolveStoredLyricsFormat(song)
   state.onlineLyricsStatus = 'matching'
 
   try {
@@ -331,21 +341,63 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
       state.lyrics = result.text
       state.lyricsFormat = result.format
       state.onlineLyricsStatus = 'ready'
+
+      // 按质量写回曲库（严格更优才 upsert）
+      const latest = getLatestSongSnapshot(song)
+      if (shouldPersistOnlineLyrics(latest, result.format, result.text)) {
+        const written = upsertSong({
+          sourceId: latest.sourceId,
+          sourceType: latest.sourceType,
+          path: latest.path,
+          uri: latest.uri,
+          title: latest.title,
+          tags: {
+            title: latest.title,
+            artist: latest.artist,
+            album: latest.album,
+            duration: latest.duration,
+            lyrics: result.text,
+            lyricsSource: 'online',
+            lyricsFormat: result.format,
+            coverUri: latest.coverUri,
+            tagsScanned: latest.tagsScanned,
+            tagsScannedAt: latest.tagsScannedAt,
+            metadataVersion: latest.metadataVersion,
+          },
+        })
+        if (token === lyricsMatchToken && state.currentSong?.id === song.id) {
+          // 不整表替换 snapshot，避免 upsert 新建条目时 id 与播放态不一致
+          state.currentSong = {
+            ...state.currentSong,
+            lyrics: written.song.lyrics,
+            lyricsSource: written.song.lyricsSource,
+            lyricsFormat: written.song.lyricsFormat,
+          }
+        }
+      }
       return
     }
 
-    // 失败回退本地；匹配期间标签补扫可能刚补到 LRC，优先保留 state 中的新本地词
-    const fallbackLyrics = state.lyricsFormat === 'lrc' ? state.lyrics : localLyrics
+    // 失败回退库内/本地；匹配期间标签补扫可能刚补到词
+    const stateHasLyrics = !!(state.lyrics?.trim())
+    const fallbackLyrics = stateHasLyrics ? state.lyrics : localLyrics
+    const fallbackFormat = stateHasLyrics
+      ? (state.lyricsFormat ?? localFormat)
+      : localFormat
     state.lyrics = fallbackLyrics
-    state.lyricsFormat = fallbackLyrics ? 'lrc' : null
+    state.lyricsFormat = fallbackLyrics ? (fallbackFormat || 'lrc') : null
     state.onlineLyricsStatus = result.reason === 'network' || result.reason === 'parse' ? 'error' : 'miss'
   } catch {
     if (token !== lyricsMatchToken || state.currentSong?.id !== song.id) {
       return
     }
-    const fallbackLyrics = state.lyricsFormat === 'lrc' ? state.lyrics : localLyrics
+    const stateHasLyrics = !!(state.lyrics?.trim())
+    const fallbackLyrics = stateHasLyrics ? state.lyrics : localLyrics
+    const fallbackFormat = stateHasLyrics
+      ? (state.lyricsFormat ?? localFormat)
+      : localFormat
     state.lyrics = fallbackLyrics
-    state.lyricsFormat = fallbackLyrics ? 'lrc' : null
+    state.lyricsFormat = fallbackLyrics ? (fallbackFormat || 'lrc') : null
     state.onlineLyricsStatus = 'error'
   }
 }
@@ -719,9 +771,9 @@ export const playSong = async (song: SongItem): Promise<void> => {
   state.duration = normalizePlaybackTime(latestSong.duration)
   // 切歌先清缓冲，禁止继承上一首（R7）；本地 full / 远程增长由 native 再写入
   resetBufferState()
-  // 先展示本地歌词（可空），再异步匹配在线 TTML（在线优先）
+  // 先展示库内歌词（含 format），再异步在线匹配（可按质量升级写回）
   state.lyrics = latestSong.lyrics || null
-  state.lyricsFormat = latestSong.lyrics ? 'lrc' : null
+  state.lyricsFormat = resolveStoredLyricsFormat(latestSong)
   state.onlineLyricsStatus = 'matching'
   state.coverUri = toSafeCoverUri(latestSong.coverUri) || null
   state.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'

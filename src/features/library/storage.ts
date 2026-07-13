@@ -1,4 +1,4 @@
-import type { AudioTags, LyricsSource, SongItem } from './types'
+import type { AudioTags, LyricsSource, SongItem, SongLyricsFormat } from './types'
 
 const SONGS_STORAGE_KEY = 'muses:songs'
 export const SONGS_UPDATED_EVENT = 'muses:songs-updated'
@@ -25,7 +25,17 @@ const isOptionalBoolean = (value: unknown): value is boolean | undefined => {
 }
 
 const isOptionalLyricsSource = (value: unknown): value is LyricsSource | undefined => {
-  return value === undefined || value === 'embedded' || value === 'sidecar'
+  return value === undefined || value === 'embedded' || value === 'sidecar' || value === 'online'
+}
+
+const isOptionalLyricsFormat = (value: unknown): value is SongLyricsFormat | undefined => {
+  return (
+    value === undefined
+    || value === 'lrc'
+    || value === 'ttml'
+    || value === 'yrc'
+    || value === 'qrc'
+  )
 }
 
 /** 加载校验：仅硬拒绝 data:/base64，避免整条歌曲被丢弃；http 等在 sanitize 时剥离 */
@@ -74,6 +84,7 @@ const isSongItem = (value: unknown): value is SongItem => {
     isOptionalNumber(value.duration) &&
     isOptionalString(value.lyrics) &&
     isOptionalLyricsSource(value.lyricsSource) &&
+    isOptionalLyricsFormat(value.lyricsFormat) &&
     isOptionalString(value.coverUri) &&
     isLoadableCoverUri(value.coverUri) &&
     isOptionalBoolean(value.tagsScanned) &&
@@ -163,6 +174,7 @@ const hasSongChanged = (left: SongItem, right: SongItem): boolean => {
     left.duration !== right.duration ||
     left.lyrics !== right.lyrics ||
     left.lyricsSource !== right.lyricsSource ||
+    left.lyricsFormat !== right.lyricsFormat ||
     left.coverUri !== right.coverUri ||
     left.tagsScanned !== right.tagsScanned ||
     left.tagsScannedAt !== right.tagsScannedAt ||
@@ -188,6 +200,7 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
       duration: tags.duration,
       lyrics: tags.lyrics,
       lyricsSource: tags.lyricsSource,
+      lyricsFormat: tags.lyricsFormat,
       coverUri: sanitizeCoverUri(tags.coverUri),
       tagsScanned: tags.tagsScanned,
       tagsScannedAt: tags.tagsScannedAt,
@@ -210,6 +223,7 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
     duration: tags.duration ?? previousSong.duration,
     lyrics: tags.lyrics ?? previousSong.lyrics,
     lyricsSource: tags.lyricsSource ?? previousSong.lyricsSource,
+    lyricsFormat: tags.lyricsFormat ?? previousSong.lyricsFormat,
     coverUri: tags.coverUri === undefined
       ? sanitizeCoverUri(previousSong.coverUri)
       : sanitizeCoverUri(tags.coverUri),

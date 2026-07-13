@@ -156,6 +156,32 @@ describe('歌曲库持久化', () => {
     })
   })
 
+  test('可写入 online 歌词与 lyricsFormat', () => {
+    const result = upsertSong({
+      sourceId: 'source-1',
+      sourceType: 'local',
+      path: 'album/online.mp3',
+      uri: 'content://online',
+      title: 'online',
+      tags: {
+        lyrics: '[00:01.00]在线',
+        lyricsSource: 'online',
+        lyricsFormat: 'yrc',
+      },
+      now: '2026-07-13T00:00:00.000Z',
+    })
+
+    expect(result.song).toMatchObject({
+      lyrics: '[00:01.00]在线',
+      lyricsSource: 'online',
+      lyricsFormat: 'yrc',
+    })
+    expect(loadSongs()[0]).toMatchObject({
+      lyricsSource: 'online',
+      lyricsFormat: 'yrc',
+    })
+  })
+
   test('不会把 data URL 封面写入歌曲库', () => {
     upsertSong({
       sourceId: 'source-1',
