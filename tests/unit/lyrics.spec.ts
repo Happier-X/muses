@@ -338,14 +338,14 @@ describe('播放器在线歌词匹配（token 防串曲）', () => {
 
   test('开播后无论有无本地歌词都会进入 matching，成功写 TTML', async () => {
     mockNativePlayer()
-    const matchAmllTtmlLyrics = vi.fn().mockResolvedValue({
+    const matchOnlineLyrics = vi.fn().mockResolvedValue({
       ok: true,
-      ttml: SAMPLE_TTML,
-      rawLyricFile: 'idol.ttml',
-      score: 140,
+      text: SAMPLE_TTML,
+      format: 'ttml',
+      source: 'amll',
     })
     vi.doMock('@/features/lyrics', () => ({
-      matchAmllTtmlLyrics,
+      matchOnlineLyrics,
     }))
 
     const { playSong, playerState } = await import('@/features/player/controller')
@@ -365,7 +365,7 @@ describe('播放器在线歌词匹配（token 防串曲）', () => {
     await vi.waitFor(() => {
       expect(playerState.onlineLyricsStatus).toBe('ready')
     })
-    expect(matchAmllTtmlLyrics).toHaveBeenCalledWith(
+    expect(matchOnlineLyrics).toHaveBeenCalledWith(
       expect.objectContaining({ songId: 'song-local', title: 'Idol', artist: 'YOASOBI' }),
     )
     expect(playerState.lyrics).toBe(SAMPLE_TTML)
@@ -377,7 +377,7 @@ describe('播放器在线歌词匹配（token 防串曲）', () => {
   test('匹配失败回退本地歌词', async () => {
     mockNativePlayer()
     vi.doMock('@/features/lyrics', () => ({
-      matchAmllTtmlLyrics: vi.fn().mockResolvedValue({ ok: false, reason: 'no-match' }),
+      matchOnlineLyrics: vi.fn().mockResolvedValue({ ok: false, reason: 'no-match' }),
     }))
 
     const { playSong, playerState } = await import('@/features/player/controller')
@@ -400,17 +400,17 @@ describe('播放器在线歌词匹配（token 防串曲）', () => {
       resolveFirst = resolve
     })
 
-    const matchAmllTtmlLyrics = vi.fn()
+    const matchOnlineLyrics = vi.fn()
       .mockImplementationOnce(() => firstMatch)
       .mockResolvedValueOnce({
         ok: true,
-        ttml: '<tt>second</tt>',
-        rawLyricFile: 'yoru.ttml',
-        score: 100,
+        text: '<tt>second</tt>',
+        format: 'ttml',
+        source: 'amll',
       })
 
     vi.doMock('@/features/lyrics', () => ({
-      matchAmllTtmlLyrics,
+      matchOnlineLyrics,
     }))
 
     const { playSong, playerState } = await import('@/features/player/controller')
@@ -422,7 +422,7 @@ describe('播放器在线歌词匹配（token 防串曲）', () => {
     // 快速切到第二首
     await playSong(secondSong)
     await vi.waitFor(() => {
-      expect(matchAmllTtmlLyrics).toHaveBeenCalledTimes(2)
+      expect(matchOnlineLyrics).toHaveBeenCalledTimes(2)
     })
     await vi.waitFor(() => {
       expect(playerState.onlineLyricsStatus).toBe('ready')
@@ -433,9 +433,9 @@ describe('播放器在线歌词匹配（token 防串曲）', () => {
     // 迟到的第一首结果不得覆盖当前曲
     resolveFirst({
       ok: true,
-      ttml: '<tt>stale-first</tt>',
-      rawLyricFile: 'idol.ttml',
-      score: 140,
+      text: '<tt>stale-first</tt>',
+      format: 'ttml',
+      source: 'amll',
     })
     await Promise.resolve()
     await Promise.resolve()
@@ -447,7 +447,7 @@ describe('播放器在线歌词匹配（token 防串曲）', () => {
   test('网络错误且无本地词时 status=error，歌词保持空', async () => {
     mockNativePlayer()
     vi.doMock('@/features/lyrics', () => ({
-      matchAmllTtmlLyrics: vi.fn().mockResolvedValue({ ok: false, reason: 'network' }),
+      matchOnlineLyrics: vi.fn().mockResolvedValue({ ok: false, reason: 'network' }),
     }))
 
     const { playSong, playerState } = await import('@/features/player/controller')
@@ -457,5 +457,83 @@ describe('播放器在线歌词匹配（token 防串曲）', () => {
     })
     expect(playerState.lyrics).toBeNull()
     expect(playerState.lyricsFormat).toBeNull()
+  })
+})
+
+describe('在线歌词编排 matchOnlineLyrics', () => {
+  afterEach(async () => {
+    vi.unstubAllGlobals()
+    vi.doUnmock('@/features/lyrics')
+    const { setOnlineLyricsFallbackProvidersForTest } = await import('@/features/lyrics/match')
+    const { resetAmllTtmlDbCache } = await import('@/features/lyrics/amllTtmlDb')
+    setOnlineLyricsFallbackProvidersForTest(null)
+    resetAmllTtmlDbCache()
+    vi.resetModules()
+  })
+
+  test('amll 命中短路，不调 fallback', async () => {
+    vi.resetModules()
+    const { __setIndexCacheForTests } = await import('@/features/lyrics/amllTtmlDb')
+    __setIndexCacheForTests([
+      {
+        musicName: 'Idol',
+        artists: ['YOASOBI'],
+        album: 'Idol',
+        rawLyricFile: 'idol.ttml',
+      },
+    ])
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () => SAMPLE_TTML,
+      }),
+    )
+
+    const fallback = {
+      id: 'kw' as const,
+      searchLyrics: vi.fn().mockResolvedValue({ text: '[00:01.00]平台', format: 'lrc' as const }),
+    }
+    const { matchOnlineLyrics, setOnlineLyricsFallbackProvidersForTest } = await import('@/features/lyrics/match')
+    setOnlineLyricsFallbackProvidersForTest([fallback])
+
+    const result = await matchOnlineLyrics({
+      songId: 's1',
+      title: 'Idol',
+      artist: 'YOASOBI',
+    })
+    expect(result).toMatchObject({ ok: true, format: 'ttml', source: 'amll' })
+    expect(fallback.searchLyrics).not.toHaveBeenCalled()
+  })
+
+  test('amll miss 后走 fallback 并短路后续', async () => {
+    vi.resetModules()
+    const { __setIndexCacheForTests } = await import('@/features/lyrics/amllTtmlDb')
+    __setIndexCacheForTests([])
+
+    const kw = {
+      id: 'kw' as const,
+      searchLyrics: vi.fn().mockResolvedValue({ text: '[00:01.00]酷我', format: 'lrc' as const }),
+    }
+    const lrclib = {
+      id: 'lrclib' as const,
+      searchLyrics: vi.fn().mockResolvedValue({ text: '[00:01.00]lrc', format: 'lrc' as const }),
+    }
+    const { matchOnlineLyrics, setOnlineLyricsFallbackProvidersForTest } = await import('@/features/lyrics/match')
+    setOnlineLyricsFallbackProvidersForTest([kw, lrclib])
+
+    const result = await matchOnlineLyrics({
+      songId: 's2',
+      title: '无索引歌',
+      artist: 'X',
+    })
+    expect(result).toEqual({
+      ok: true,
+      text: '[00:01.00]酷我',
+      format: 'lrc',
+      source: 'kw',
+    })
+    expect(kw.searchLyrics).toHaveBeenCalled()
+    expect(lrclib.searchLyrics).not.toHaveBeenCalled()
   })
 })

@@ -4,7 +4,7 @@ import { CURRENT_METADATA_VERSION, loadSongs, upsertSong } from '@/features/libr
 import { readLocalAudioTags, readWebDavAudioTags } from '@/features/library/tags'
 import { getWebDavPassword, loadSources } from '@/features/sources/storage'
 import type { WebDavSourceItem } from '@/features/sources/types'
-import { matchAmllTtmlLyrics } from '@/features/lyrics'
+import { matchOnlineLyrics } from '@/features/lyrics'
 import { matchOnlineCoverRemote } from '@/features/cover'
 import {
   matchOnlineTextMeta,
@@ -306,19 +306,20 @@ const syncDisplayStateFromSong = (song: SongItem): void => {
 }
 
 /**
- * 切歌后异步匹配 amll-ttml-db；
- * 成功写 TTML，失败保持本地 LRC/空态；token 防串曲。
+ * 切歌后异步匹配在线歌词：amll → 平台 → LRCLIB（fallback 由 lyrics 模块注册）。
+ * 成功写 playerState；不写库；失败保持本地 LRC/空态；token 防串曲。
  */
 const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<void> => {
   const localLyrics = song.lyrics || null
   state.onlineLyricsStatus = 'matching'
 
   try {
-    const result = await matchAmllTtmlLyrics({
+    const result = await matchOnlineLyrics({
       songId: song.id,
       title: song.title,
       artist: song.artist,
       album: song.album,
+      duration: song.duration,
     })
 
     // 快速切歌：过期 token 或已不是当前曲，丢弃结果
@@ -327,8 +328,8 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
     }
 
     if (result.ok) {
-      state.lyrics = result.ttml
-      state.lyricsFormat = 'ttml'
+      state.lyrics = result.text
+      state.lyricsFormat = result.format
       state.onlineLyricsStatus = 'ready'
       return
     }
