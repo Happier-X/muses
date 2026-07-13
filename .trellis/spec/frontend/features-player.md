@@ -95,6 +95,16 @@
 - 切歌递增歌词匹配 token；异步结果仅在 token 与 `currentSong.id` 同时匹配时写入，禁止上一首歌词串到当前歌曲。
 - CDN/解析失败静默回退，不弹播放错误，也不得改变音频播放状态。
 
+## 在线封面匹配（仅补缺）
+
+- 触发：`playSong` 成功后 `scanSongMetadata` 结束（或本地已扫描仍无封面）时，若当前曲仍无安全 `coverUri`，异步调用 `src/features/cover` 匹配；不得阻塞播放。
+- 源顺序：iTunes Search → 未命中再 kw 酷我（结构预留多源）；任一源返回可用 HTTP(S) 图 URL 即停止。
+- 落盘：`AudioPlayerPlugin.cacheRemoteCover` 下载到 `cache/covers/{sha}.jpg`，返回 `file://`；`upsertSong` 仅写安全 URI。
+- **禁止**把 `data:` / base64 / 裸远程 URL 写入 `muses:songs`。
+- **禁止**覆盖已有安全 `coverUri`（本地内嵌/扫描结果优先）。
+- 切歌递增 `onlineCoverToken`；结果仅在 token 与 `currentSong.id` 同时匹配时写回并 `syncDisplayStateFromSong` + 媒体会话封面。
+- 失败/无命中/超时静默；进程内负缓存避免同曲短时间反复请求；不影响歌词与播放状态机。
+
 ## 约束与禁止模式
 
 - **禁止**在除 `native.ts` 之外的任何文件直接调用 `NativeAudio.*` 或 `MediaSession.*`。
@@ -107,12 +117,14 @@
 - **禁止**把 `prepareWebDavAudioFile` / 渐进下载作为播放路径；完整缓存命中才允许 `file://` 本地播放。
 - **禁止**缓冲未知时画假缓冲条；`bufferedPosition === null` 时 UI 不设 `--buffered`。
 - **禁止**预取密码进入 player state / localStorage / 日志；预取失败不得影响当前播放。
+- **禁止**在线封面把 `data:` / base64 / 远程 URL 写入曲库；禁止覆盖已有安全封面；匹配失败不得影响播放。
 
 ---
 
 ## 测试要点
 
 - 本地音源播放→通知出现 → 封面 / 标题 / 上一曲 / 下一曲 可用
+- 无封面歌曲播放后在线匹配成功 → 本地 cache covers URI 写回且 UI/通知刷新；已有封面不请求；iTunes miss 可回退 kw
 - WebDAV 无完整缓存→NativeAudio 使用远程 URL + Basic Auth headers，不调用 `prepareWebDavAudioFile`，`bufferedPosition` 保持 `null`
 - WebDAV 完整缓存命中→`file://` 完整文件播放，`bufferedPosition = duration`，不带 Authorization headers
 - 播放成功后预取下一首 WebDAV（`peekNext` + `prefetchWebDavAudioFile`）；本地下一首 / 单曲循环自身 / 空队列不预取
