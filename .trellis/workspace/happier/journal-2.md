@@ -170,3 +170,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 63: 修复快速切歌状态竞态
+
+**Date**: 2026-07-14
+**Task**: 修复快速切歌状态竞态
+**Branch**: `main`
+
+### Summary
+
+#28/#29：play generation + 收紧 native 状态匹配。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f9d3e59` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
