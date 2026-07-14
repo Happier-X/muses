@@ -2,16 +2,6 @@
   <ion-page ref="pageRef">
     <ion-header>
       <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-button
-            fill="clear"
-            aria-label="随机播放全部"
-            :disabled="songs.length === 0"
-            @click="onShuffleAll"
-          >
-            <ion-icon slot="icon-only" :icon="shuffle" aria-hidden="true" />
-          </ion-button>
-        </ion-buttons>
         <ion-title class="page-title">歌曲</ion-title>
         <ion-buttons slot="end">
           <ion-button fill="clear" aria-label="搜索歌曲">
@@ -66,6 +56,21 @@
             </ion-button>
           </ion-item>
         </ion-list>
+      </div>
+
+      <!-- 列表与底部 navbar / MiniPlayer 之间的统一操作区 -->
+      <div class="bottom-actions tablet-content-limit">
+        <ion-button
+          expand="block"
+          fill="outline"
+          class="shuffle-all-button"
+          aria-label="随机播放全部"
+          :disabled="songs.length === 0"
+          @click="onShuffleAll"
+        >
+          <ion-icon slot="start" :icon="shuffle" aria-hidden="true" />
+          随机播放全部
+        </ion-button>
       </div>
 
       <ion-action-sheet
@@ -364,6 +369,17 @@ onIonViewWillEnter(refreshSongs)
   color: var(--ion-text-color);
 }
 
+/* 列表与底部 Tab Bar / MiniPlayer 之间的操作区，留出安全区避免遮挡导航 */
+.bottom-actions {
+  padding: 12px 16px;
+  /* 窄屏：Tab Bar ~64 + MiniPlayer ~64 + 间距 */
+  padding-bottom: calc(144px + var(--ion-safe-area-bottom, 0px));
+}
+
+.shuffle-all-button {
+  margin: 0;
+}
+
 .song-item {
   --min-height: 72px;
 }
@@ -424,6 +440,13 @@ onIonViewWillEnter(refreshSongs)
   .list-grid {
     max-width: var(--muses-content-max-width);
     margin-inline: auto;
+  }
+
+  .bottom-actions {
+    max-width: var(--muses-content-max-width);
+    margin-inline: auto;
+    /* 宽屏无 Tab Bar，仅避开 MiniPlayer */
+    padding-bottom: calc(80px + var(--ion-safe-area-bottom, 0px));
   }
 }
 </style>

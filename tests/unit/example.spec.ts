@@ -173,7 +173,7 @@ describe('音乐库标签页', () => {
     expect(artistsPage.text()).toContain('还没有艺术家')
   })
 
-  test('歌曲页顶部有随机播放全部按钮且无歌曲时禁用', async () => {
+  test('歌曲页有随机播放全部按钮且无歌曲时禁用', async () => {
     const wrapper = mountSongsPage()
     await nextTick()
 

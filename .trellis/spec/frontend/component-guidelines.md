@@ -122,15 +122,17 @@ Also prefer the `@/` alias for application imports from `src/`:
 - **SongsPage 宽屏单列**：`src/views/SongsPage.vue` 宽屏不使用多列 grid，列表始终竖排单列；外层 `.list-grid` / `.tablet-content-limit` 仅做 `max-width: var(--muses-content-max-width); margin-inline: auto` 限位居中（与窄屏一致的一列体验）。
 - **内容限位居中**：各列表页 `.tablet-content-limit` 和 `.list-grid` 在宽屏下 `max-width: var(--muses-content-max-width); margin-inline: auto`。
 
-### SongsPage 顶部随机播放全部
+### SongsPage 列表底部随机播放全部
 
-`src/views/SongsPage.vue` 顶部 `ion-toolbar` 左侧（`slot="start"`）放置随机播放全部按钮：
+`src/views/SongsPage.vue` 在歌曲列表（或 empty-state）之后、底部 navbar / MiniPlayer 之前放置随机播放全部按钮：
 
-- 图标：`ionicons` 的 `shuffle`；`fill="clear"`；`aria-label="随机播放全部"`。
-- 无歌曲时 `:disabled`，点击不产生副作用。
+- 位置：`ion-content` 内 `.bottom-actions` 统一操作区，位于列表/空状态之后，不放在顶部 `ion-toolbar`。
+- 顶栏仅保留标题与右侧搜索等控件。
+- 图标：`ionicons` 的 `shuffle`；`fill="outline"` + `expand="block"`；`aria-label="随机播放全部"`。
+- 无歌曲时按钮仍出现且 `:disabled`，点击不产生副作用。
 - 点击语义：`clearQueue()` → `enqueueSongs(allSongs)` → 若 `!shuffleEnabled()` 则 `toggleShuffle()` → `selectSongAtIndex(0)` → `playSong(first)`。
 - `toggleShuffle` 会生成 `shuffleOrder`；`selectSongAtIndex(0)` 取乱序首曲。
-- 不破坏右侧现有控件（搜索等）。
+- 安全区：`.bottom-actions` 的 `padding-bottom` 需避开底部导航与 MiniPlayer（窄屏约 `calc(144px + safe-area)`；宽屏约 `calc(80px + safe-area)`），不遮挡导航。
 
 ### SongsPage 跳转到当前播放 FAB
 
