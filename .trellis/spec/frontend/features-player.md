@@ -94,6 +94,7 @@
 - 有 `currentSong` 时 **保活** `PlayerPage`（关闭沉浸式用 transform 隐藏，勿 `v-if` 销毁），避免再打开时 AMLL 背景重建闪默认底（#22）；无当前曲时可卸载。保活后打开/关闭必须 `resetDragState()`，下滑关闭前也要清零 `dragOffsetY`，避免再打开半屏（#25）。
 - 歌词页浮动：左下翻译开关（默认开，隐藏时清空 `translatedLyric`/`romanLyric`，并用 `key` 重建 `LyricPlayer` 保证 AMLL 立即刷新）；右下播放/暂停仅 **非平板**（`<768px`）显示；浮动按钮需小尺寸、低视觉权重（#23/#24/#26）。
 - 展示前须 `prepareLyricLinesForDisplay`：合并同时间戳双语主行、挂 `lyricsTranslation`（网易 tlyric 等 timed LRC），否则翻译开关无效且副行不会随主行激活提亮（#27）。
+- 快速切歌：`playSong` 用 generation 丢弃被 supersede 的 play 回写；native 状态有当前曲时必须 `currentSongId` 精确匹配；loading 期间忽略无关 paused/stopped（#28/#29）。
 
 ## 在线歌词匹配（多源回退）
 

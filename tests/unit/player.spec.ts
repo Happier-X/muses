@@ -421,6 +421,42 @@ describe('播放器控制器', () => {
     expect(playerState.currentSong?.title).toBe('本地歌曲')
   })
 
+  test('快速连切时被 supersede 的 play 不得把 UI 打成旧曲 paused', async () => {
+    let resolveA: (() => void) | undefined
+    const playA = new Promise<void>((resolve) => {
+      resolveA = resolve
+    })
+
+    nativePlayer.play
+      .mockImplementationOnce(async () => playA)
+      .mockImplementationOnce(async () => undefined)
+
+    const { playSong, playerState } = await import('@/features/player/controller')
+    const songA = { ...localSong, id: 'song-a', title: '歌曲A', path: 'a.mp3' }
+    const songB = {
+      ...localSong,
+      id: 'song-b',
+      title: '歌曲B',
+      path: 'b.mp3',
+      uri: 'content://music/b',
+    }
+
+    const first = playSong(songA)
+    await Promise.resolve()
+    expect(playerState.status).toBe('loading')
+    expect(playerState.currentSong?.id).toBe('song-a')
+
+    await playSong(songB)
+    expect(playerState.currentSong?.id).toBe('song-b')
+    expect(playerState.status).toBe('playing')
+
+    // 旧 play 晚到完成：不得覆盖新曲状态
+    resolveA?.()
+    await first
+    expect(playerState.currentSong?.id).toBe('song-b')
+    expect(playerState.status).toBe('playing')
+  })
+
   test('播放 WebDAV 歌曲时从 SecureStorage 读取密码，且密码不进入 localStorage 或 UI 状态', async () => {
     const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
     vi.mocked(SecureStorage.get).mockResolvedValue('secret-password')

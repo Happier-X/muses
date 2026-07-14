@@ -64,6 +64,8 @@ let lyricsMatchToken = 0
 let onlineCoverToken = 0
 /** 在线文本元信息 token：与封面分开，防串曲 */
 let onlineTextToken = 0
+/** playSong 代际：快速连切时仅最新一代可写 playing/error */
+let playGeneration = 0
 /** 用户主动 seek 后的时间戳；用于忽略 seek 到未缓冲区间触发的伪 finished */
 let lastSeekAt = 0
 /** seek 前的播放态，伪 finished 时按此恢复，避免误 advance */
@@ -100,11 +102,24 @@ const setUserSafeError = (message: string) => {
 }
 
 const isCurrentNativeState = (nativeState: AudioPlayerNativeState): boolean => {
-  return !nativeState.currentSongId || nativeState.currentSongId === state.currentSong?.id
+  const currentId = state.currentSong?.id
+  // 有当前曲时必须 songId 精确匹配；缺 id 的陈旧事件在快速切歌时会把 UI 打成 paused 而音频仍在播（#28/#29）
+  if (currentId) {
+    return nativeState.currentSongId === currentId
+  }
+  return !nativeState.currentSongId
 }
 
 const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   if (!isCurrentNativeState(nativeState)) {
+    return
+  }
+
+  // loading 切歌窗口：忽略无关 paused/stopped，避免旧 unload 把新歌 UI 冻在暂停
+  if (
+    state.status === 'loading'
+    && (nativeState.status === 'paused' || nativeState.status === 'stopped' || nativeState.status === 'idle')
+  ) {
     return
   }
 
@@ -761,6 +776,7 @@ export const playSong = async (song: SongItem): Promise<void> => {
   // 切歌清理 seek 保护，避免新歌首帧误吞真实 finished
   clearSeekGuard()
 
+  const generation = ++playGeneration
   state.status = 'loading'
   metadataScanToken += 1
   const matchToken = ++lyricsMatchToken
@@ -792,11 +808,18 @@ export const playSong = async (song: SongItem): Promise<void> => {
       // 权限请求失败（非 Android / 插件不可用）静默忽略，不阻塞播放。
     }
     await AudioPlayerNative.play(await buildPlayOptions(latestSong))
+    // 快速连切：被 supersede 的 play 不得回写 status（#28/#29）
+    if (generation !== playGeneration || state.currentSong?.id !== latestSong.id) {
+      return
+    }
     state.status = 'playing'
     void scanSongMetadata(latestSong)
     // 播放成功后后台预取下一首 WebDAV（失败静默）
     void prefetchNextTrack(latestSong.id)
   } catch (error) {
+    if (generation !== playGeneration || state.currentSong?.id !== latestSong.id) {
+      return
+    }
     lyricsMatchToken += 1
     onlineCoverToken += 1
     onlineTextToken += 1

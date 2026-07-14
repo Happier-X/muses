@@ -176,7 +176,8 @@ const ensureNativeListeners = async (): Promise<void> => {
 
   nativeListenerHandles = await Promise.all([
     NativeAudio.addListener('playbackState', (event: NativePlaybackStateEvent) => {
-      if (event.assetId && event.assetId !== currentAssetId) {
+      // 有当前 asset 时必须 id 匹配；缺 assetId 的陈旧事件在快速切歌时会污染状态（#28/#29）
+      if (currentAssetId && event.assetId !== currentAssetId) {
         return
       }
       currentPosition = normalizePlaybackTime(event.currentTime) || currentPosition
@@ -185,14 +186,14 @@ const ensureNativeListeners = async (): Promise<void> => {
       emitCurrentState(mapPlaybackStatus(event))
     }),
     NativeAudio.addListener('currentTime', (event: NativeCurrentTimeEvent) => {
-      if (event.assetId && event.assetId !== currentAssetId) {
+      if (currentAssetId && event.assetId !== currentAssetId) {
         return
       }
       currentPosition = normalizePlaybackTime(event.currentTime)
       emitCurrentState(currentStatus)
     }),
     NativeAudio.addListener('complete', (event: NativeCompleteEvent) => {
-      if (event.assetId && event.assetId !== currentAssetId) {
+      if (currentAssetId && event.assetId !== currentAssetId) {
         return
       }
       emitCurrentState('finished')
