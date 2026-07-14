@@ -25,7 +25,14 @@ export type LyricsProvider = {
   id: Exclude<OnlineLyricsSource, 'amll'>
   searchLyrics: (
     query: OnlineLyricsQuery,
-  ) => Promise<{ text: string; format: OnlineLyricsFormat } | null>
+  ) => Promise<OnlineLyricsProviderHit | null>
+}
+
+/** provider 命中；translationText 为 timed LRC 译文（如网易 tlyric） */
+export type OnlineLyricsProviderHit = {
+  text: string
+  format: OnlineLyricsFormat
+  translationText?: string
 }
 
 export type OnlineLyricsMatchOk = {
@@ -33,6 +40,7 @@ export type OnlineLyricsMatchOk = {
   text: string
   format: OnlineLyricsFormat
   source: OnlineLyricsSource
+  translationText?: string
 }
 
 export type OnlineLyricsMatchFail = {

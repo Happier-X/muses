@@ -6,6 +6,13 @@ export {
   setOnlineLyricsFallbackProvidersForTest,
 } from './match'
 export { normalizeText, splitArtistTokens } from './normalize'
+export {
+  attachTimedLyricsTranslation,
+  mergeDuplicateTimestampTranslations,
+  parseTimedLrcMap,
+  prepareLyricLinesForDisplay,
+} from './mergeTranslation'
+export { applyLyricTranslationVisibility } from './display'
 export { findBestMatch, scoreEntry, scoreTitle, scoreArtists, scoreAlbum, MIN_ACCEPT_SCORE, SCORE_WEIGHTS } from './score'
 export type { AmllIndexEntry, AmllMatchQuery, AmllMatchResult, AmllMatchFailReason } from './types'
 export type {

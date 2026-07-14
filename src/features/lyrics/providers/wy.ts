@@ -57,14 +57,21 @@ const isYrcBody = (text: string): boolean => {
 
 const pickFromBody = (
   body: WyLyricResponse,
-): { text: string; format: 'lrc' | 'yrc' } | null => {
+): { text: string; format: 'lrc' | 'yrc'; translationText?: string } | null => {
+  const translationText = body.tlyric?.lyric?.trim()
+  const withTrans = <T extends { text: string; format: 'lrc' | 'yrc' }>(hit: T) => (
+    translationText && /\[\d+:\d+/.test(translationText)
+      ? { ...hit, translationText }
+      : hit
+  )
+
   const yrc = body.yrc?.lyric?.trim()
   if (yrc && isYrcBody(yrc)) {
-    return { text: yrc, format: 'yrc' }
+    return withTrans({ text: yrc, format: 'yrc' })
   }
   const lrc = body.lrc?.lyric?.trim()
   if (lrc && /\[\d+:\d+/.test(lrc)) {
-    return { text: lrc, format: 'lrc' }
+    return withTrans({ text: lrc, format: 'lrc' })
   }
   return null
 }
@@ -94,13 +101,14 @@ const fetchWyEapiLyric = async (id: number): Promise<WyLyricResponse | null> => 
   const payload = {
     id,
     cp: false,
-    tv: 0,
-    lv: 0,
-    rv: 0,
-    kv: 0,
-    yv: 0,
-    ytv: 0,
-    yrv: 0,
+    // -1：请求翻译/原文/逐字；0 时部分环境不返回 tlyric
+    tv: -1,
+    lv: -1,
+    rv: -1,
+    kv: -1,
+    yv: 1,
+    ytv: 1,
+    yrv: -1,
   }
   try {
     const params = buildEapiParams(apiPath, payload)
@@ -126,7 +134,7 @@ const fetchWyPublicLyric = async (id: number): Promise<WyLyricResponse | null> =
 
 export const searchWyLyrics = async (
   query: OnlineLyricsQuery,
-): Promise<{ text: string; format: 'lrc' | 'yrc' } | null> => {
+): Promise<{ text: string; format: 'lrc' | 'yrc'; translationText?: string } | null> => {
   const id = await searchWySongId(query)
   if (!id) {
     return null

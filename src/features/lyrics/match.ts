@@ -76,11 +76,13 @@ export const matchOnlineLyrics = async (
       const hit = await provider.searchLyrics(query)
       const text = hit?.text?.trim()
       if (text) {
+        const translationText = hit?.translationText?.trim()
         return {
           ok: true,
           text,
           format: hit!.format,
           source: provider.id,
+          ...(translationText ? { translationText } : {}),
         }
       }
     } catch {

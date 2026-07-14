@@ -93,6 +93,7 @@
 - 封面晚到时 `BackgroundRender` 须用 `key` 绑定封面 URI 以重建；`syncDisplayStateFromSong` **禁止**用库内空歌词清空运行时已有词，仅库内质量严格更优时才替换（#21）。
 - 有 `currentSong` 时 **保活** `PlayerPage`（关闭沉浸式用 transform 隐藏，勿 `v-if` 销毁），避免再打开时 AMLL 背景重建闪默认底（#22）；无当前曲时可卸载。保活后打开/关闭必须 `resetDragState()`，下滑关闭前也要清零 `dragOffsetY`，避免再打开半屏（#25）。
 - 歌词页浮动：左下翻译开关（默认开，隐藏时清空 `translatedLyric`/`romanLyric`，并用 `key` 重建 `LyricPlayer` 保证 AMLL 立即刷新）；右下播放/暂停仅 **非平板**（`<768px`）显示；浮动按钮需小尺寸、低视觉权重（#23/#24/#26）。
+- 展示前须 `prepareLyricLinesForDisplay`：合并同时间戳双语主行、挂 `lyricsTranslation`（网易 tlyric 等 timed LRC），否则翻译开关无效且副行不会随主行激活提亮（#27）。
 
 ## 在线歌词匹配（多源回退）
 

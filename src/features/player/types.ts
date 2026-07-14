@@ -41,6 +41,8 @@ export interface PlayerState {
   lyrics: string | null
   /** 展示用歌词格式；切歌时重置 */
   lyricsFormat: LyricsFormat
+  /** 独立 timed LRC 译文（如网易 tlyric）；切歌重置 */
+  lyricsTranslation: string | null
   /** 在线歌词匹配状态；命中可按质量写回 SongItem */
   onlineLyricsStatus: OnlineLyricsStatus
   coverUri: string | null

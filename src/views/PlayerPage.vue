@@ -212,6 +212,7 @@ import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/cor
 import { parseLrc, parseQrc, parseTTML, parseYrc } from '@applemusic-like-lyrics/lyric'
 import '@applemusic-like-lyrics/core/style.css'
 import { applyLyricTranslationVisibility } from '@/features/lyrics/display'
+import { prepareLyricLinesForDisplay } from '@/features/lyrics/mergeTranslation'
 import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousFromQueue, queueState, resumePlayback, seekPlayback, setRepeatMode, toggleShuffle } from '@/features/player/controller'
 import { closePlayerOverlay, openQueueOverlay, playerOverlayVisible } from '@/features/player/overlay'
 
@@ -371,16 +372,18 @@ const lyricLines = computed<LyricLine[]>(() => {
 
   try {
     // amll 解析：TTML / 网易 yrc / QQ qrc / 通用 LRC
+    let lines: LyricLine[]
     if (playerState.lyricsFormat === 'ttml') {
-      return parseTTML(currentLyrics.value).lines
+      lines = parseTTML(currentLyrics.value).lines
+    } else if (playerState.lyricsFormat === 'yrc') {
+      lines = parseYrc(currentLyrics.value)
+    } else if (playerState.lyricsFormat === 'qrc') {
+      lines = parseQrc(currentLyrics.value)
+    } else {
+      lines = parseLrc(normalizeLrc(currentLyrics.value))
     }
-    if (playerState.lyricsFormat === 'yrc') {
-      return parseYrc(currentLyrics.value)
-    }
-    if (playerState.lyricsFormat === 'qrc') {
-      return parseQrc(currentLyrics.value)
-    }
-    return parseLrc(normalizeLrc(currentLyrics.value))
+    // 合并双语主行 + 挂 timed 译文，使翻译开关与副行高亮可用（#27）
+    return prepareLyricLinesForDisplay(lines, playerState.lyricsTranslation)
   } catch {
     return []
   }
@@ -1127,6 +1130,11 @@ onUnmounted(() => {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+/* 激活主行时抬高翻译/音译副行亮度，避免「有翻译但不高亮」（#27） */
+.lyric-player :deep(.FmKaba_lyricLine.FmKaba_active .FmKaba_lyricSubLine) {
+  opacity: 0.72;
 }
 
 /* 去掉 AMLL 默认行左右 padding，使歌词左缘与顶部歌名对齐（panel 已有 24px 边距） */

@@ -50,6 +50,7 @@ const state = reactive<PlayerState>({
   bufferedPosition: null,
   lyrics: null,
   lyricsFormat: null,
+  lyricsTranslation: null,
   onlineLyricsStatus: 'idle',
   coverUri: null,
   metadataStatus: 'idle',
@@ -164,6 +165,7 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
     resetBufferState()
     state.lyrics = null
     state.lyricsFormat = null
+    state.lyricsTranslation = null
     state.onlineLyricsStatus = 'idle'
     state.coverUri = null
     state.metadataStatus = 'idle'
@@ -337,6 +339,7 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
     if (result.ok) {
       state.lyrics = result.text
       state.lyricsFormat = result.format
+      state.lyricsTranslation = result.translationText?.trim() || null
       state.onlineLyricsStatus = 'ready'
 
       // 按质量写回曲库（严格更优才 upsert）
@@ -383,6 +386,7 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
       : localFormat
     state.lyrics = fallbackLyrics
     state.lyricsFormat = fallbackLyrics ? (fallbackFormat || 'lrc') : null
+    state.lyricsTranslation = null
     state.onlineLyricsStatus = result.reason === 'network' || result.reason === 'parse' ? 'error' : 'miss'
   } catch {
     if (token !== lyricsMatchToken || state.currentSong?.id !== song.id) {
@@ -395,6 +399,7 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
       : localFormat
     state.lyrics = fallbackLyrics
     state.lyricsFormat = fallbackLyrics ? (fallbackFormat || 'lrc') : null
+    state.lyricsTranslation = null
     state.onlineLyricsStatus = 'error'
   }
 }
@@ -771,6 +776,7 @@ export const playSong = async (song: SongItem): Promise<void> => {
   // 先展示库内歌词（含 format），再异步在线匹配（可按质量升级写回）
   state.lyrics = latestSong.lyrics || null
   state.lyricsFormat = resolveStoredLyricsFormat(latestSong)
+  state.lyricsTranslation = null
   state.onlineLyricsStatus = 'matching'
   state.coverUri = toSafeCoverUri(latestSong.coverUri) || null
   state.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'
@@ -872,6 +878,7 @@ export const stopPlayback = async (): Promise<void> => {
     resetBufferState()
     state.lyrics = null
     state.lyricsFormat = null
+    state.lyricsTranslation = null
     state.onlineLyricsStatus = 'idle'
     state.coverUri = null
     state.metadataStatus = 'idle'
