@@ -1357,6 +1357,19 @@ describe('沉浸式播放页', () => {
     expect(wrapper.find('button[aria-label="顺序播放"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="播放队列"]').exists()).toBe(true)
 
+    // 循环 / 随机模式按钮应可切换
+    expect(queueState.repeatMode).toBe('all')
+    await wrapper.get('button[aria-label="列表循环"]').trigger('click')
+    expect(queueState.repeatMode).toBe('one')
+    await wrapper.get('button[aria-label="单曲循环"]').trigger('click')
+    expect(queueState.repeatMode).toBe('all')
+
+    expect(queueState.shuffleEnabled).toBe(false)
+    await wrapper.get('button[aria-label="顺序播放"]').trigger('click')
+    expect(queueState.shuffleEnabled).toBe(true)
+    await wrapper.get('button[aria-label="随机播放"]').trigger('click')
+    expect(queueState.shuffleEnabled).toBe(false)
+
     const slider = wrapper.get('input[aria-label="播放进度"]')
     await slider.setValue('60')
     await slider.trigger('change')

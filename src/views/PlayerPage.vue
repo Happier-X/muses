@@ -556,7 +556,7 @@ const onLyricLineClick = async (event: LyricLineMouseEvent) => {
 
 const onTouchStart = (event: TouchEvent) => {
   // 原生控件（进度条）或 seek 锁定期内，不启动 overlay 面板/下滑手势。
-  if (seekGestureLocked.value || isNativeInteractiveTarget(event.target)) {
+  if (seekGestureLocked.value || isNativeInteractiveEvent(event)) {
     touchStartX.value = null
     touchStartY.value = null
     gestureDirection.value = null
@@ -583,7 +583,7 @@ const onTouchMove = (event: TouchEvent) => {
   }
 
   // 进度条需要原生拖动；其余区域一律拦截默认滚动，防止穿透到底层歌曲列表。
-  if (!isNativeInteractiveTarget(event.target)) {
+  if (!isNativeInteractiveEvent(event)) {
     event.preventDefault()
   }
 
@@ -603,19 +603,41 @@ const onTouchMove = (event: TouchEvent) => {
   isDraggingVertically.value = nextOffset > 0
 }
 
+const INTERACTIVE_SELECTOR =
+  'input, textarea, select, button, ion-button, a, [role="button"], [contenteditable="true"]'
+
+const isInteractiveElement = (el: Element): boolean => {
+  return Boolean(el.closest(INTERACTIVE_SELECTOR))
+}
+
 const isNativeInteractiveTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof Element)) {
     return false
   }
 
-  return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
+  // ion-button 使用 Shadow DOM：event.target 常在 shadow 内，closest 穿不过宿主，
+  // 必须配合 composedPath 识别，否则 touchmove preventDefault 会吞掉 click（循环/随机按钮失效）。
+  if (isInteractiveElement(target)) {
+    return true
+  }
+  return false
+}
+
+const isNativeInteractiveEvent = (event: TouchEvent | Event): boolean => {
+  if (isNativeInteractiveTarget(event.target)) {
+    return true
+  }
+  if (!('composedPath' in event) || typeof event.composedPath !== 'function') {
+    return false
+  }
+  return event.composedPath().some((node) => node instanceof Element && isInteractiveElement(node))
 }
 
 const onTouchEnd = (event: TouchEvent) => {
   const startX = touchStartX.value
   const endX = event.changedTouches[0]?.clientX
   const shouldDismiss = gestureDirection.value === 'vertical' && dragOffsetY.value >= getDismissThreshold()
-  const skipPanelSwitch = seekGestureLocked.value || isNativeInteractiveTarget(event.target)
+  const skipPanelSwitch = seekGestureLocked.value || isNativeInteractiveEvent(event)
 
   touchStartX.value = null
   touchStartY.value = null
@@ -1000,6 +1022,7 @@ onUnmounted(() => {
   gap: clamp(16px, 5vw, 28px);
   width: 100%;
   margin: 0;
+  touch-action: manipulation;
 }
 
 .controls ion-button {
@@ -1009,6 +1032,7 @@ onUnmounted(() => {
   height: 52px;
   margin: 0;
   font-size: 26px;
+  touch-action: manipulation;
 }
 
 .controls .play-toggle {
@@ -1025,6 +1049,8 @@ onUnmounted(() => {
   width: 100%;
   max-width: 280px;
   margin: 0;
+  /* 覆盖 overlay 的 touch-action:none，保证模式按钮可点 */
+  touch-action: manipulation;
 }
 
 .mode-bar ion-button {
@@ -1035,6 +1061,7 @@ onUnmounted(() => {
   height: 44px;
   margin: 0;
   font-size: 20px;
+  touch-action: manipulation;
 }
 
 .mode-bar .mode-button.is-active {
