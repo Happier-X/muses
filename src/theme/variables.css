@@ -5,5 +5,21 @@
   --muses-content-max-width: 720px;
 }
 
+/* 顶部导航栏不要阴影（Material / iOS 默认投影） */
+ion-header {
+  box-shadow: none !important;
+}
+
+ion-header ion-toolbar {
+  --box-shadow: none;
+  box-shadow: none;
+}
+
+/* MD 模式 header 底部渐变伪阴影 */
+ion-header.md::after {
+  background-image: none !important;
+  height: 0 !important;
+}
+
 /* For information on how to create your own theme, please refer to:
 http://ionicframework.com/docs/theming/ */
