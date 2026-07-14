@@ -203,3 +203,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 64: 歌曲页随机播放按钮移到列表与 navbar 之间
+
+**Date**: 2026-07-14
+**Task**: 歌曲页随机播放按钮移到列表与 navbar 之间
+**Branch**: `main`
+
+### Summary
+
+将 SongsPage「随机播放全部」从顶栏移到列表后的 bottom-actions，保留逻辑/禁用态/a11y；同步单测措辞与 component-guidelines；lint 与 213 单测通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `eb00ddd` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
