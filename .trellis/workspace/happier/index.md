@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 61
-- **Last Active**: 2026-07-13
+- **Total Sessions**: 62
+- **Last Active**: 2026-07-14
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~139 | Active |
+| `journal-2.md` | ~172 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 62 | 2026-07-14 | 修复歌词翻译开关与副行高亮 | `1712f76` | `main` |
 | 61 | 2026-07-13 | 修复歌词翻译开关和图标尺寸 | `9b704cf` | `main` |
 | 60 | 2026-07-13 | 修复沉浸式再打开半屏 | `c600494` | `main` |
 | 59 | 2026-07-13 | 歌词页浮动翻译和播放按钮 | `c7c0926` | `main` |

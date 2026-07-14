@@ -137,3 +137,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 62: 修复歌词翻译开关与副行高亮
+
+**Date**: 2026-07-14
+**Task**: 修复歌词翻译开关与副行高亮
+**Branch**: `main`
+
+### Summary
+
+#27：双语主行合并 + tlyric + 副行提亮。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1712f76` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
