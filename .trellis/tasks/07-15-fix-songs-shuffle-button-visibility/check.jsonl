@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"检查 SongsPage 底部常驻操作区、宽屏限位和安全区符合组件规范。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查前端测试、类型检查、构建与质量门禁。"}

@@ -10,7 +10,7 @@
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
-    <ion-content :fullscreen="true">
+    <ion-content :fullscreen="true" class="songs-content">
       <ion-header collapse="condense">
         <ion-toolbar>
           <ion-title class="page-title" size="large">歌曲</ion-title>
@@ -58,8 +58,8 @@
         </ion-list>
       </div>
 
-      <!-- 列表与底部 navbar / MiniPlayer 之间的统一操作区 -->
-      <div class="bottom-actions tablet-content-limit">
+      <!-- 常驻在 MiniPlayer 上方，不随歌曲列表滚动 -->
+      <div slot="fixed" class="bottom-actions tablet-content-limit">
         <ion-button
           expand="block"
           fill="outline"
@@ -369,11 +369,21 @@ onIonViewWillEnter(refreshSongs)
   color: var(--ion-text-color);
 }
 
-/* 列表与底部 Tab Bar / MiniPlayer 之间的操作区，留出安全区避免遮挡导航 */
+/* 为常驻操作区、MiniPlayer 与 Tab Bar 预留滚动空间，避免末行被遮挡 */
+.songs-content {
+  --padding-bottom: calc(208px + var(--ion-safe-area-bottom, 0px));
+}
+
+/* 固定在 MiniPlayer 顶边上方；MiniPlayer 本身已避让移动端 Tab Bar */
 .bottom-actions {
+  position: absolute;
+  right: 0;
+  bottom: calc(128px + var(--ion-safe-area-bottom, 0px));
+  left: 0;
+  z-index: 10;
+  box-sizing: border-box;
   padding: 12px 16px;
-  /* 窄屏：Tab Bar ~64 + MiniPlayer ~64 + 间距 */
-  padding-bottom: calc(144px + var(--ion-safe-area-bottom, 0px));
+  background: var(--ion-background-color, #fff);
 }
 
 .shuffle-all-button {
@@ -442,11 +452,14 @@ onIonViewWillEnter(refreshSongs)
     margin-inline: auto;
   }
 
+  .songs-content {
+    --padding-bottom: calc(144px + var(--ion-safe-area-bottom, 0px));
+  }
+
   .bottom-actions {
+    bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
     max-width: var(--muses-content-max-width);
     margin-inline: auto;
-    /* 宽屏无 Tab Bar，仅避开 MiniPlayer */
-    padding-bottom: calc(80px + var(--ion-safe-area-bottom, 0px));
   }
 }
 </style>

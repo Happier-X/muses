@@ -177,7 +177,12 @@ describe('音乐库标签页', () => {
     const wrapper = mountSongsPage()
     await nextTick()
 
+    const actions = wrapper.get('.bottom-actions')
+    expect(actions.attributes('slot')).toBe('fixed')
+
     const button = wrapper.get('button[aria-label="随机播放全部"]')
+    expect(button.attributes('expand')).toBe('block')
+    expect(button.attributes('fill')).toBe('outline')
     expect(button.attributes('disabled')).toBeDefined()
 
     await button.trigger('click')
