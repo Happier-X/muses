@@ -236,3 +236,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 65: 修复歌曲页随机播放按钮不可见
+
+**Date**: 2026-07-15
+**Task**: 修复歌曲页随机播放按钮不可见
+**Branch**: `main`
+
+### Summary
+
+将歌曲页随机播放全部按钮改为 MiniPlayer 上方的底部常驻整行操作区，补足移动端与宽屏安全区和列表滚动留位，并同步单测与前端组件规范。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c41553d` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

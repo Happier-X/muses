@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 64
-- **Last Active**: 2026-07-14
+- **Total Sessions**: 65
+- **Last Active**: 2026-07-15
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~238 | Active |
+| `journal-2.md` | ~271 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 65 | 2026-07-15 | 修复歌曲页随机播放按钮不可见 | `c41553d` | `main` |
 | 64 | 2026-07-14 | 歌曲页随机播放按钮移到列表与 navbar 之间 | `eb00ddd` | `main` |
 | 63 | 2026-07-14 | 修复快速切歌状态竞态 | `f9d3e59` | `main` |
 | 62 | 2026-07-14 | 修复歌词翻译开关与副行高亮 | `1712f76` | `main` |
