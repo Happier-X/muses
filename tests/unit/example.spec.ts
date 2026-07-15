@@ -177,12 +177,14 @@ describe('音乐库标签页', () => {
     const wrapper = mountSongsPage()
     await nextTick()
 
-    const actions = wrapper.get('.bottom-actions')
-    expect(actions.attributes('slot')).toBe('fixed')
+    const pageHeader = wrapper.get('main > header')
+    const actions = pageHeader.get('.shuffle-actions')
+    expect(actions.element.parentElement?.classList.contains('shuffle-toolbar')).toBe(true)
+    expect(wrapper.find('.bottom-actions').exists()).toBe(false)
 
-    const button = wrapper.get('button[aria-label="随机播放全部"]')
-    expect(button.attributes('expand')).toBe('block')
-    expect(button.attributes('fill')).toBe('outline')
+    const button = actions.get('button[aria-label="随机播放全部"]')
+    expect(button.attributes('expand')).toBeUndefined()
+    expect(button.attributes('fill')).toBe('clear')
     expect(button.attributes('disabled')).toBeDefined()
 
     await button.trigger('click')

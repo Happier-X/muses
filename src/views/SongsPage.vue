@@ -9,6 +9,20 @@
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
+      <ion-toolbar class="shuffle-toolbar">
+        <div class="shuffle-actions tablet-content-limit">
+          <ion-button
+            fill="clear"
+            class="shuffle-all-button"
+            aria-label="随机播放全部"
+            :disabled="songs.length === 0"
+            @click="onShuffleAll"
+          >
+            <ion-icon slot="start" :icon="shuffle" aria-hidden="true" />
+            随机播放全部
+          </ion-button>
+        </div>
+      </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true" class="songs-content">
       <ion-header collapse="condense">
@@ -56,21 +70,6 @@
             </ion-button>
           </ion-item>
         </ion-list>
-      </div>
-
-      <!-- 常驻在 MiniPlayer 上方，不随歌曲列表滚动 -->
-      <div slot="fixed" class="bottom-actions tablet-content-limit">
-        <ion-button
-          expand="block"
-          fill="outline"
-          class="shuffle-all-button"
-          aria-label="随机播放全部"
-          :disabled="songs.length === 0"
-          @click="onShuffleAll"
-        >
-          <ion-icon slot="start" :icon="shuffle" aria-hidden="true" />
-          随机播放全部
-        </ion-button>
       </div>
 
       <ion-action-sheet
@@ -365,21 +364,19 @@ onIonViewWillEnter(refreshSongs)
   color: var(--ion-text-color);
 }
 
-/* 为常驻操作区、MiniPlayer 与 Tab Bar 预留滚动空间，避免末行被遮挡 */
+/* 仅为 MiniPlayer 与 Tab Bar 预留滚动空间，避免末行被遮挡 */
 .songs-content {
-  --padding-bottom: calc(208px + var(--ion-safe-area-bottom, 0px));
+  --padding-bottom: calc(128px + var(--ion-safe-area-bottom, 0px));
 }
 
-/* 固定在 MiniPlayer 顶边上方；MiniPlayer 本身已避让移动端 Tab Bar */
-.bottom-actions {
-  position: absolute;
-  right: 0;
-  bottom: calc(128px + var(--ion-safe-area-bottom, 0px));
-  left: 0;
-  z-index: 10;
+.shuffle-toolbar {
+  --min-height: 48px;
+}
+
+.shuffle-actions {
   box-sizing: border-box;
-  padding: 12px 16px;
-  background: var(--ion-background-color, #fff);
+  width: 100%;
+  padding: 4px 8px;
 }
 
 .shuffle-all-button {
@@ -449,11 +446,10 @@ onIonViewWillEnter(refreshSongs)
   }
 
   .songs-content {
-    --padding-bottom: calc(144px + var(--ion-safe-area-bottom, 0px));
+    --padding-bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
   }
 
-  .bottom-actions {
-    bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
+  .shuffle-actions {
     max-width: var(--muses-content-max-width);
     margin-inline: auto;
   }
