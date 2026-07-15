@@ -148,6 +148,18 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 ## Styling Gotchas
 
+### navbar 普通标题必须使用全局绝对居中规则
+
+Ionic Material Design 模式下，普通 `ion-title` 位于 toolbar 的 flex 内容区。仅写 `text-align: center` 时，标题会受 `slot="start"` / `slot="end"` 操作区宽度影响；只有单侧按钮、左右按钮宽度不同或按钮条件隐藏时，标题不会相对完整 toolbar 真正居中。
+
+统一约定：
+
+- 全局规则定义在 `src/theme/variables.css`，选择器使用 `ion-header ion-toolbar > ion-title:not([size="large"])`。
+- 普通标题通过绝对定位覆盖 toolbar，并使用对称 `padding-inline` 为两侧按钮保留安全空间；动态长标题沿用 `ion-title` 的单行省略行为。
+- 标题层使用 `pointer-events: none`，直接子级 `ion-buttons` 保持更高层级，确保按钮点击热区和业务行为不变。
+- 必须通过 `:not([size="large"])` 排除折叠大标题，保持其默认文档流、左对齐和折叠动画。
+- 页面模板不添加仅用于居中的 `page-title` / `source-title` class，也不在 scoped 样式中用 `text-align: center` 模拟 navbar 居中。
+
 ### ion-list 为 Web Component，CSS Grid 在外层无法布局子 ion-item
 
 `ion-list` 是 Ionic Web Component，有 Shadow DOM 隔离。在外层 div 套 CSS Grid 后，`ion-list` 只是 grid 容器的第一个子项，不会将 `ion-item` 暴露为 grid item。

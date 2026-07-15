@@ -2,13 +2,13 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title class="page-title">艺术家</ion-title>
+        <ion-title>艺术家</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title class="page-title" size="large">艺术家</ion-title>
+          <ion-title size="large">艺术家</ion-title>
         </ion-toolbar>
       </ion-header>
 
@@ -51,10 +51,6 @@ onIonViewWillEnter(refreshSongs)
 </script>
 
 <style scoped>
-.page-title {
-  text-align: center;
-}
-
 .empty-state {
   min-height: 60vh;
   display: flex;

@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title class="page-title">歌单</ion-title>
+        <ion-title>歌单</ion-title>
         <ion-buttons slot="end">
           <ion-button fill="clear" aria-label="新建歌单" @click="openCreateAlert">
             <ion-icon slot="icon-only" :icon="addOutline" aria-hidden="true" />
@@ -13,7 +13,7 @@
     <ion-content :fullscreen="true">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title class="page-title" size="large">歌单</ion-title>
+          <ion-title size="large">歌单</ion-title>
         </ion-toolbar>
       </ion-header>
 
@@ -252,10 +252,6 @@ onIonViewWillEnter(() => {
 </script>
 
 <style scoped>
-.page-title {
-  text-align: center;
-}
-
 .empty-state {
   min-height: 60vh;
   display: flex;

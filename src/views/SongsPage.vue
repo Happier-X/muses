@@ -2,7 +2,7 @@
   <ion-page ref="pageRef">
     <ion-header>
       <ion-toolbar>
-        <ion-title class="page-title">歌曲</ion-title>
+        <ion-title>歌曲</ion-title>
         <ion-buttons slot="end">
           <ion-button fill="clear" aria-label="搜索歌曲">
             <ion-icon slot="icon-only" :icon="searchOutline" aria-hidden="true" />
@@ -13,7 +13,7 @@
     <ion-content :fullscreen="true" class="songs-content">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title class="page-title" size="large">歌曲</ion-title>
+          <ion-title size="large">歌曲</ion-title>
         </ion-toolbar>
       </ion-header>
 
@@ -349,10 +349,6 @@ onIonViewWillEnter(refreshSongs)
 </script>
 
 <style scoped>
-.page-title {
-  text-align: center;
-}
-
 .empty-state {
   min-height: 60vh;
   display: flex;

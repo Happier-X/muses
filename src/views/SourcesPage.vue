@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title class="source-title">音源</ion-title>
+        <ion-title>音源</ion-title>
         <ion-buttons slot="end">
           <ion-button aria-label="添加音源" @click="isAddActionSheetOpen = true">
             <ion-icon slot="icon-only" :icon="add" aria-hidden="true" />
@@ -526,10 +526,6 @@ const addSourceButtons: ActionSheetButton[] = [
 </script>
 
 <style scoped>
-.source-title {
-  text-align: center;
-}
-
 .empty-state {
   display: flex;
   min-height: 60%;

@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/tabs/playlists" text="" />
         </ion-buttons>
-        <ion-title class="page-title">{{ playlist?.name ?? '歌单' }}</ion-title>
+        <ion-title>{{ playlist?.name ?? '歌单' }}</ion-title>
         <ion-buttons slot="end">
           <ion-button
             fill="clear"
@@ -21,7 +21,7 @@
     <ion-content :fullscreen="true">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title class="page-title" size="large">{{ playlist?.name ?? '歌单' }}</ion-title>
+          <ion-title size="large">{{ playlist?.name ?? '歌单' }}</ion-title>
         </ion-toolbar>
       </ion-header>
 
@@ -178,10 +178,6 @@ onIonViewWillEnter(() => {
 </script>
 
 <style scoped>
-.page-title {
-  text-align: center;
-}
-
 .empty-state {
   min-height: 60vh;
   display: flex;

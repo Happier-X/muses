@@ -2,13 +2,13 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title class="page-title">设置</ion-title>
+        <ion-title>设置</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title class="page-title" size="large">设置</ion-title>
+          <ion-title size="large">设置</ion-title>
         </ion-toolbar>
       </ion-header>
 
@@ -98,10 +98,6 @@ const checkUpdate = async () => {
 </script>
 
 <style scoped>
-.page-title {
-  text-align: center;
-}
-
 .update-section {
   padding: 16px;
 }

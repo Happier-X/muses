@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"检查所有页面 navbar、小标题与折叠大标题符合 Ionic 组件约定。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行完整单测、lint、类型检查和构建。"}

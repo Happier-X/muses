@@ -15,6 +15,23 @@ ion-header ion-toolbar {
   box-shadow: none;
 }
 
+/* 普通 navbar 标题相对整个 toolbar 居中，不受左右操作区宽度影响 */
+ion-header ion-toolbar > ion-title:not([size="large"]) {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  padding-inline: 80px;
+  pointer-events: none;
+  text-align: center;
+  z-index: 0;
+}
+
+/* 标题层不拦截事件，操作按钮仍显式位于标题上方 */
+ion-header ion-toolbar > ion-buttons {
+  position: relative;
+  z-index: 1;
+}
+
 /* MD 模式 header 底部渐变伪阴影 */
 ion-header.md::after {
   background-image: none !important;
