@@ -269,3 +269,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 66: 修复所有页面 navbar 标题未居中
+
+**Date**: 2026-07-15
+**Task**: 修复所有页面 navbar 标题未居中
+**Branch**: `main`
+
+### Summary
+
+修复 GitHub Issue #30：为所有普通 navbar 标题增加相对完整 toolbar 的全局绝对居中规则，覆盖主页面、详情、播放队列与 Modal，保留折叠大标题左对齐；清理重复局部样式并补充测试与前端规范。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `37eedb9` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
