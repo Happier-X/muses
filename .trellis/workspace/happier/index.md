@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 67
-- **Last Active**: 2026-07-15
+- **Total Sessions**: 68
+- **Last Active**: 2026-07-17
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~337 | Active |
+| `journal-2.md` | ~380 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 68 | 2026-07-17 | 发布 v0.1.6 | `28d1acc` | `main` |
 | 67 | 2026-07-15 | 固定歌曲页随机播放入口 | `f2b5f90` | `main` |
 | 66 | 2026-07-15 | 修复所有页面 navbar 标题未居中 | `37eedb9` | `main` |
 | 65 | 2026-07-15 | 修复歌曲页随机播放按钮不可见 | `c41553d` | `main` |

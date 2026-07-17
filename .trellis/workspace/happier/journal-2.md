@@ -335,3 +335,40 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 68: 发布 v0.1.6
+
+**Date**: 2026-07-17
+**Task**: 发布 v0.1.6（未建 Trellis 任务）
+**Branch**: `main`
+
+### Summary
+
+将版本从 0.1.5 升至 0.1.6：同步 `package.json` 与 Android `versionCode/versionName`，撰写 changelog，提交 `chore(release): v0.1.6` 并推送 tag，触发 GitHub Actions 构建双包名签名 APK 并创建 Release。
+
+### Main Changes
+
+- `package.json` version → `0.1.6`
+- `android/app/build.gradle`：`versionCode 16`，`versionName "0.1.6"`
+- 新增 `changelog/v0.1.6.md`（随机播放按钮与 navbar 标题居中相关修复）
+- 推送 tag `v0.1.6`，Release CI 成功，产物：`muses-v0.1.6.apk`、`muses-v0.1.6-mi.apk`
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `28d1acc` | chore(release): v0.1.6 |
+
+### Testing
+
+- GitHub Actions Release workflow 成功（约 5 分钟）
+- Release 页面含双 APK 与 changelog
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - release complete
