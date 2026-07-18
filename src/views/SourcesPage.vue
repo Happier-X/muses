@@ -20,25 +20,29 @@
       <div v-else class="tablet-content-limit">
         <div ref="listParentRef" class="source-list">
           <div class="source-list-spacer" :style="{ height: `${totalSize}px` }">
-          <ion-card
-            v-for="virtualRow in virtualRows"
-            :key="sources[virtualRow.index].id"
-            class="source-card"
-            :style="{
-              transform: `translateY(${virtualRow.start}px)`,
-            }"
-          >
-            <ion-card-header>
-              <ion-card-title>{{ sources[virtualRow.index].name }}</ion-card-title>
-              <ion-card-subtitle>{{ getSourceSubtitle(sources[virtualRow.index]) }}</ion-card-subtitle>
-            </ion-card-header>
-            <ion-card-content>
-              <p class="source-path">{{ sources[virtualRow.index].path }}</p>
-              <div class="source-actions">
-                <ion-button size="small" @click="openScanSettings(sources[virtualRow.index])">扫描</ion-button>
-              </div>
-            </ion-card-content>
-          </ion-card>
+            <div
+              v-for="virtualRow in virtualRows"
+              :key="sources[virtualRow.index].id"
+              :ref="measureVirtualRow"
+              class="source-card-row"
+              :data-index="virtualRow.index"
+              :style="{
+                transform: `translateY(${virtualRow.start}px)`,
+              }"
+            >
+              <ion-card class="source-card">
+                <ion-card-header>
+                  <ion-card-title>{{ sources[virtualRow.index].name }}</ion-card-title>
+                  <ion-card-subtitle>{{ getSourceSubtitle(sources[virtualRow.index]) }}</ion-card-subtitle>
+                </ion-card-header>
+                <ion-card-content>
+                  <p class="source-path">{{ sources[virtualRow.index].path }}</p>
+                  <div class="source-actions">
+                    <ion-button size="small" @click="openScanSettings(sources[virtualRow.index])">扫描</ion-button>
+                  </div>
+                </ion-card-content>
+              </ion-card>
+            </div>
           </div>
         </div>
       </div>
@@ -205,7 +209,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
 import {
@@ -281,6 +285,10 @@ const rowVirtualizer = useVirtualizer(
     overscan: 6,
   })),
 )
+
+const measureVirtualRow = (element: Element | ComponentPublicInstance | null): void => {
+  rowVirtualizer.value.measureElement(element instanceof HTMLElement ? element : null)
+}
 
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
@@ -547,13 +555,18 @@ const addSourceButtons: ActionSheetButton[] = [
   position: relative;
 }
 
-.source-card {
+.source-card-row {
   position: absolute;
   top: 0;
   left: 12px;
   right: 12px;
+  box-sizing: border-box;
+  padding-block: 8px;
+}
+
+.source-card {
   min-height: 100px;
-  margin: 8px 0;
+  margin: 0;
 }
 
 .source-path {

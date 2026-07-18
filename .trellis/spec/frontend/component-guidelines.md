@@ -369,6 +369,64 @@ const openScanSettings = (source: SourceItem): void => {
 
 参考文件：`src/views/SourcesPage.vue`、`src/features/library/scanner.ts`、`src/features/library/types.ts`（`ScanOptions`）。
 
+## SourcesPage 虚拟列表行高测量约定
+
+`src/views/SourcesPage.vue` 使用 `@tanstack/vue-virtual` 渲染音源卡片。窄屏/竖屏下 Ionic 卡片实际高度会因副标题、内边距等超过固定估算值；若只依赖 `estimateSize` 而不实测行高，后续行的 `translateY` 会偏小，导致卡片互相覆盖并遮挡扫描按钮。
+
+### 规则
+
+1. **保留 `estimateSize` 仅作首屏占位**，挂载后必须用 `measureElement` 用真实高度重算。
+2. **测量目标必须是原生 HTML 元素**，不要直接测 `ion-card` 等 Web Component（Vue 组件实例/`$el` 与库的 `HTMLElement` 期望不一致）。正确做法是外包一层原生 `div` 作为虚拟行。
+3. **虚拟行必须带 `data-index`**（与库默认 `indexAttribute` 一致），并通过 ref 回调调用 `rowVirtualizer.value.measureElement(...)`。
+4. **行间距必须进入实测高度**：不要用 `margin` 做绝对定位行的垂直间距（`offsetHeight` 通常不计入 margin）。应把间距放进测量容器的 `padding` / `border-box`。
+5. **ref 回调只向 `measureElement` 传入 `HTMLElement | null`**：卸载时传入 `null`，由库清理断开节点。
+
+### 正确实现
+
+```vue
+<div
+  v-for="virtualRow in virtualRows"
+  :key="sources[virtualRow.index].id"
+  :ref="measureVirtualRow"
+  class="source-card-row"
+  :data-index="virtualRow.index"
+  :style="{ transform: `translateY(${virtualRow.start}px)` }"
+>
+  <ion-card class="source-card">...</ion-card>
+</div>
+```
+
+```ts
+const measureVirtualRow = (element: Element | ComponentPublicInstance | null): void => {
+  rowVirtualizer.value.measureElement(element instanceof HTMLElement ? element : null)
+}
+```
+
+```css
+.source-card-row {
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  box-sizing: border-box;
+  padding-block: 8px; /* 间距计入实测高度 */
+}
+
+.source-card {
+  min-height: 100px;
+  margin: 0; /* 不要用 margin 承担行间距 */
+}
+```
+
+### 避免
+
+- 只写 `estimateSize: () => 148`、不接 `measureElement` / `data-index`。
+- 把 `position: absolute` + `translateY` 直接绑在 `ion-card` 上并指望固定估算值在窄屏仍准确。
+- 用 `margin: 8px 0` 做绝对定位行间距，导致测量高度小于实际占位。
+- 在 ref 回调里直接访问组件实例的 `$el` 而不做 `HTMLElement` 收窄（类型不安全，且测量目标应优先选原生包装节点）。
+
+参考文件：`src/views/SourcesPage.vue`、`@tanstack/vue-virtual`。
+
 —
 
 ## Accessibility
