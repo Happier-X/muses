@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核 PlayerPage 中 Ionic/Vue 组件和歌词容器布局约定。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核前端 lint、构建和单元测试要求。"}
