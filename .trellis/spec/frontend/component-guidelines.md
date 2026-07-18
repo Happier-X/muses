@@ -311,6 +311,9 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
 - 播放器 overlay 自身使用 `touch-action: none`，并在非原生控件（非 input/range）上对 `touchmove` 调用 `preventDefault`，防止滑动穿透到底层歌曲列表；进度条保留可拖动。
 - **进度条手势隔离**：`.progress-area` 必须 `@touchstart.stop` / `@pointerdown.stop`，并配合短 debounce 的 `seekGestureLocked`；seek 期间/刚结束后禁止 `playPreviousFromQueue` / `playNextFromQueue`，也禁止横向切换 `activePanel`，避免松手点穿到上一曲/下一曲或误切歌词面板。
 - **三层进度条（已缓冲）**：
+  - 已播放、已缓冲和未缓冲底轨使用 `.progress-track` 下的绝对定位自绘层，原生 range 轨道保持透明；不要依赖 WebView 中可能不随响应式 value 重绘的 range 伪元素渐变。
+  - 拖动 `input` 时使用页面局部 preview position 同时驱动圆点与已播放层宽度；提交后再恢复使用 `playerState.position`。
+  - 点击轨道时按 `clientX` 相对 `getBoundingClientRect()` 换算 duration 目标，并复用缓冲 clamp、`seekPlayback` 和 seek 手势锁。
   - CSS 变量：`--progress`（已播放 %）、`--buffered`（已缓冲 %）；`max` 仍为 `duration` 视觉全长。
   - 轨道语义：`0→progress` 已播放 / `progress→buffered` 已缓冲未播放 / `buffered→100%` 未缓冲。
   - **缓冲未知**（`playerState.bufferedPosition == null`）时不设置 `--buffered`，CSS 回落为无独立缓冲层，禁止画假缓冲条；WebDAV 远程直链固定属于此状态。

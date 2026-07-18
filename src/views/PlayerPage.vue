@@ -61,7 +61,10 @@
               @pointerup.stop="onProgressGestureEnd"
               @pointercancel.stop="onProgressGestureEnd"
             >
-              <div class="progress-track">
+              <div class="progress-track" @click="onProgressTrackClick">
+                <div class="progress-track-base" aria-hidden="true" />
+                <div class="progress-track-buffered" :style="{ width: bufferedPercent ?? progressPercent }" aria-hidden="true" />
+                <div class="progress-track-played" :style="{ width: progressPercent }" aria-hidden="true" />
                 <input
                   class="progress-slider"
                   type="range"
@@ -421,12 +424,14 @@ const lyricEmptyDescription = computed(() => {
 })
 const canSeek = computed(() => playerState.duration > 0)
 const durationForSlider = computed(() => playerState.duration || 1)
+const seekPreviewPosition = ref<number | null>(null)
+const effectiveSeekPosition = computed(() => seekPreviewPosition.value ?? playerState.position)
 const progressPercent = computed(() => {
   const duration = durationForSlider.value
   if (duration <= 0) {
     return '0%'
   }
-  const ratio = Math.min(1, Math.max(0, playerState.position / duration))
+  const ratio = Math.min(1, Math.max(0, effectiveSeekPosition.value / duration))
   return `${ratio * 100}%`
 })
 
@@ -503,11 +508,35 @@ const clampSeekTarget = (raw: number): number => {
 const onSeekInput = (event: Event) => {
   lockSeekGesture()
   const target = event.target as HTMLInputElement
-  const clamped = clampSeekTarget(Number(target.value))
-  if (Number(target.value) > clamped + 0.05) {
+  const requested = Number(target.value)
+  const clamped = clampSeekTarget(requested)
+  seekPreviewPosition.value = clamped
+  if (requested > clamped + 0.05) {
     target.value = String(clamped)
     showBufferHint()
   }
+}
+
+const onProgressTrackClick = (event: MouseEvent) => {
+  if (event.target instanceof HTMLInputElement || !canSeek.value) {
+    return
+  }
+  const track = event.currentTarget
+  if (!(track instanceof HTMLElement)) {
+    return
+  }
+  const rect = track.getBoundingClientRect()
+  if (rect.width <= 0) {
+    return
+  }
+  const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
+  const target = clampSeekTarget(ratio * playerState.duration)
+  seekPreviewPosition.value = target
+  lockSeekGesture()
+  scheduleSeekUnlock()
+  void seekPlayback(target).finally(() => {
+    seekPreviewPosition.value = null
+  })
 }
 
 const onSeek = async (event: Event) => {
@@ -522,6 +551,7 @@ const onSeek = async (event: Event) => {
     showBufferHint()
   }
   const ok = await seekPlayback(clamped)
+  seekPreviewPosition.value = null
   if (!ok && playerState.bufferedPosition != null) {
     showBufferHint()
   }
@@ -928,9 +958,36 @@ onUnmounted(() => {
   width: 100%;
 }
 
+.progress-track-base,
+.progress-track-buffered,
+.progress-track-played {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 4px;
+  border-radius: 999px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.progress-track-base {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.progress-track-buffered {
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.progress-track-played {
+  background: rgba(255, 255, 255, 0.92);
+}
+
 .progress-slider {
   -webkit-appearance: none;
   appearance: none;
+  position: relative;
+  z-index: 2;
   width: 100%;
   height: 24px;
   margin: 0;
@@ -954,15 +1011,7 @@ onUnmounted(() => {
 .progress-slider::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0.92) 0%,
-    rgba(255, 255, 255, 0.92) var(--progress, 0%),
-    rgba(255, 255, 255, 0.42) var(--progress, 0%),
-    rgba(255, 255, 255, 0.42) var(--buffered, var(--progress, 0%)),
-    rgba(255, 255, 255, 0.18) var(--buffered, var(--progress, 0%)),
-    rgba(255, 255, 255, 0.18) 100%
-  );
+  background: transparent;
 }
 
 .progress-slider::-webkit-slider-thumb {
@@ -980,15 +1029,7 @@ onUnmounted(() => {
 .progress-slider::-moz-range-track {
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0.92) 0%,
-    rgba(255, 255, 255, 0.92) var(--progress, 0%),
-    rgba(255, 255, 255, 0.42) var(--progress, 0%),
-    rgba(255, 255, 255, 0.42) var(--buffered, var(--progress, 0%)),
-    rgba(255, 255, 255, 0.18) var(--buffered, var(--progress, 0%)),
-    rgba(255, 255, 255, 0.18) 100%
-  );
+  background: transparent;
 }
 
 .progress-slider::-moz-range-thumb {

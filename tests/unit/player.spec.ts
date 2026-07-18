@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { readFileSync } from 'node:fs'
 import type { SongItem } from '@/features/library/types'
@@ -1373,8 +1373,20 @@ describe('沉浸式播放页', () => {
 
     const slider = wrapper.get('input[aria-label="播放进度"]')
     await slider.setValue('60')
+    await slider.trigger('input')
+    expect(wrapper.get('.progress-track-played').attributes('style')).toContain('width: 33.33333333333333%')
     await slider.trigger('change')
     expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 60 })
+
+    const track = wrapper.get('.progress-track')
+    Object.defineProperty(track.element, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 10, width: 200, top: 0, right: 210, bottom: 24, height: 24 }),
+    })
+    nativePlayer.seek.mockClear()
+    await track.trigger('click', { clientX: 110 })
+    await flushPromises()
+    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 90 })
 
     const queueRaw = localStorage.getItem('muses:queue') || ''
     expect(queueRaw).not.toContain('secret-password')
