@@ -100,6 +100,7 @@ Current source module contract:
 
 - Song storage key: `muses:songs`.
 - Song uniqueness: `(sourceId, path)`; use `upsertSong(...)` rather than appending raw arrays.
+- Source rescan reconciliation: after a successful discovery list, call `reconcileSourceSongs(sourceId, keepPaths, existingSongs?)` so songs under that `sourceId` whose `path` is not in `keepPaths` are removed; other sources stay untouched. Empty discovery must clear that source’s songs. Discovery failure must not reconcile.
 - `LocalLibrary.scanDirectory({ treeUri: string }) -> { files: Array<{ path: string; uri: string; name: string }> }`.
 - `LocalLibrary.readMetadata({ uri: string }) -> { title?: string; artist?: string; album?: string; duration?: number }`.
 - `WebDav.propfind({ url: string; username: string; password: string }) -> { status: number; data: string }`.
@@ -119,18 +120,24 @@ Current source module contract:
 - Missing WebDAV password -> fail the scan with a user-facing message such as `WebDAV 密码不存在，请重新添加该音源。`.
 - Invalid `muses:songs` JSON or malformed entries -> ignore invalid data and return only valid songs.
 - Per-file metadata parse failure -> fall back to filename title, increment degraded count, continue scanning.
-- Per-file upsert failure -> increment failed count, continue scanning remaining files when safe.
+- Per-file upsert failure -> increment failed count, continue scanning remaining files when safe. Reconciliation still uses the full discovered path set, so a failed upsert path is not treated as “missing” and deleted if it was listed.
+- Discovery / list failure (local directory or WebDAV PROPFIND) -> fail the scan without calling `reconcileSourceSongs`.
 - WebDAV `401` / `403` from `PROPFIND` -> show authentication failure and do not mutate source metadata.
 
 #### 5. Good/Base/Bad Cases
 
 - Good: repeated scans of the same source/path update or skip the existing song and preserve `createdAt` on updates.
+- Good: rescan discovers zero files for a source -> that source’s previous songs are removed; other sources remain.
+- Good: rescan discovers a subset of paths -> only the missing paths under that source are removed (`ScanSummary.removed` reports the count).
 - Base: scan with `readTags: false` stores filename-derived titles without invoking metadata readers.
 - Bad: downloading an unbounded WebDAV audio file into frontend memory or logging a password to diagnose a scan failure.
+- Bad: treating a discovery failure as “empty list” and wiping the source’s library.
 
 #### 6. Tests Required
 
 - Storage tests assert malformed `muses:songs` entries are ignored and `(sourceId, path)` prevents duplicate inserts.
+- Storage/scanner tests assert empty and partial rescan reconciliation only removes the scanned source’s stale paths and increments `removed`.
+- Scanner tests assert discovery failure leaves existing songs unchanged.
 - Scanner tests assert tag parse failures increment `degraded` and still persist fallback-title songs.
 - WebDAV scanner tests assert `SecureStorage.get` is called with `credentialKey`, native metadata reading receives the password only at the call boundary, and `localStorage.getItem('muses:songs')` does not contain the password.
 - WebDAV XML tests assert file and directory responses are distinguished, audio extensions are filtered, and existing directory-only browsing remains compatible.
@@ -149,6 +156,7 @@ Correct:
 ```ts
 const password = await getWebDavPassword(source.credentialKey)
 const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri, title })
+const reconciled = reconcileSourceSongs(source.id, discoveredPaths, result.songs)
 ```
 
 ```

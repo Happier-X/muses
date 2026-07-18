@@ -242,3 +242,37 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
   saveSongs(songs)
   return { status: 'updated', song: nextSong, songs }
 }
+
+export interface ReconcileSourceSongsResult {
+  removed: number
+  songs: SongItem[]
+}
+
+/**
+ * 按音源对账：保留其他音源歌曲，以及本音源中 path 属于 keepPaths 的歌曲；
+ * 删除本音源中 path 不在 keepPaths 的旧歌曲。有删除时才写库。
+ */
+export const reconcileSourceSongs = (
+  sourceId: string,
+  keepPaths: Iterable<string>,
+  existingSongs = loadSongs(),
+): ReconcileSourceSongsResult => {
+  const keepPathSet = keepPaths instanceof Set ? keepPaths : new Set(keepPaths)
+  const nextSongs: SongItem[] = []
+  let removed = 0
+
+  for (const song of existingSongs) {
+    if (song.sourceId !== sourceId || keepPathSet.has(song.path)) {
+      nextSongs.push(song)
+      continue
+    }
+    removed += 1
+  }
+
+  if (removed === 0) {
+    return { removed: 0, songs: existingSongs }
+  }
+
+  saveSongs(nextSongs)
+  return { removed, songs: nextSongs }
+}

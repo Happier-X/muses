@@ -3,7 +3,7 @@ import { getWebDavPassword } from '@/features/sources/storage'
 import { listWebDavAudioFiles } from '@/features/sources/webdav'
 import { getTitleFromPath, isSupportedAudioFile } from './audio'
 import { scanLocalAudioFiles } from './native'
-import { upsertSong } from './storage'
+import { reconcileSourceSongs, upsertSong } from './storage'
 import { readLocalAudioTags, readWebDavAudioTags } from './tags'
 import type { AudioFileEntry, AudioTags, ScanOptions, ScanProgress, ScanProgressCallback, ScanResult, ScanSummary } from './types'
 
@@ -15,6 +15,7 @@ const createEmptySummary = (): ScanSummary => ({
   skipped: 0,
   failed: 0,
   degraded: 0,
+  removed: 0,
 })
 
 const emitProgress = (
@@ -80,6 +81,7 @@ export const scanSourceLibrary = async (
   try {
     const { files, webDavPassword } = await getAudioFiles(source)
     summary.discovered = files.length
+    const keepPaths = new Set(files.map((file) => file.path))
     emitProgress(onProgress, summary, { stage: 'processing', message: '正在入库音频文件…' })
 
     let songs = undefined
@@ -113,8 +115,12 @@ export const scanSourceLibrary = async (
       }
     }
 
+    // 发现阶段成功后才对账：以本次列出的路径为准清理该音源旧歌曲（含发现 0 文件）
+    const reconcileResult = reconcileSourceSongs(source.id, keepPaths, songs)
+    summary.removed = reconcileResult.removed
+
     emitProgress(onProgress, summary, { stage: 'completed', message: '扫描完成。' })
-    return { summary, songs: songs ?? [] }
+    return { summary, songs: reconcileResult.songs }
   } catch (error) {
     const message = error instanceof Error ? error.message : '扫描失败。'
     emitProgress(onProgress, summary, { stage: 'failed', message })

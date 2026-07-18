@@ -106,6 +106,10 @@
                 <ion-label>降级 / 失败</ion-label>
                 <ion-note slot="end">{{ scanProgress.degraded }} / {{ scanProgress.failed }}</ion-note>
               </ion-item>
+              <ion-item>
+                <ion-label>移除</ion-label>
+                <ion-note slot="end">{{ scanProgress.removed }}</ion-note>
+              </ion-item>
             </ion-list>
           </section>
         </ion-content>
@@ -275,6 +279,7 @@ const scanProgress = ref<ScanProgress>({
   skipped: 0,
   failed: 0,
   degraded: 0,
+  removed: 0,
 })
 
 const rowVirtualizer = useVirtualizer(
@@ -341,6 +346,7 @@ const resetScanProgress = (): void => {
     skipped: 0,
     failed: 0,
     degraded: 0,
+    removed: 0,
   }
 }
 
@@ -376,7 +382,7 @@ const startScan = async (): Promise<void> => {
       scanProgress.value = progress
     })
     showSuccess(
-      `扫描完成：入库 ${result.summary.inserted} 首，更新 ${result.summary.updated} 首，跳过 ${result.summary.skipped} 首，降级 ${result.summary.degraded} 首。`,
+      `扫描完成：入库 ${result.summary.inserted} 首，更新 ${result.summary.updated} 首，跳过 ${result.summary.skipped} 首，降级 ${result.summary.degraded} 首，移除 ${result.summary.removed} 首。`,
     )
   } catch (error) {
     scanProgress.value = {

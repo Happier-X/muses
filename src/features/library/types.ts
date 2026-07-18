@@ -66,6 +66,7 @@ export interface ScanSummary {
   skipped: number
   failed: number
   degraded: number
+  removed: number
 }
 
 export interface ScanProgress extends ScanSummary {
