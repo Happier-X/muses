@@ -1,0 +1,31 @@
+{
+  "id": "continue-fix-source-list-issues",
+  "name": "continue-fix-source-list-issues",
+  "title": "继续修复音源列表 issues",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-07-18",
+  "completedAt": "2026-07-19",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-18-fix-sources-portrait-overlap",
+    "07-18-fix-empty-rescan-stale-songs",
+    "07-18-add-source-delete",
+    "07-18-add-source-edit"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
