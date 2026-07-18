@@ -156,7 +156,7 @@
               :lyric-lines="displayLyricLines"
               :current-time="playerState.position * 1000"
               align-anchor="center"
-              :align-position="0.38"
+              :align-position="0.5"
               :enable-spring="true"
               :enable-blur="true"
               :enable-scale="true"

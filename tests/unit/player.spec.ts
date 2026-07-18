@@ -1430,7 +1430,7 @@ describe('沉浸式播放页', () => {
 
     expect(panels.attributes('style')).toContain('translateX(-50%)')
     expect(wrapper.get('[data-test="amll-lyrics"]').text()).toContain('第一句歌词')
-    expect(wrapper.get('[data-test="amll-lyrics"]').attributes('data-align-position')).toBe('0.38')
+    expect(wrapper.get('[data-test="amll-lyrics"]').attributes('data-align-position')).toBe('0.5')
     expect(wrapper.get('.lyric-header .lyric-title').text()).toBe('本地歌曲')
     expect(wrapper.get('.lyric-header .lyric-artist').text()).toBe('本地歌手')
     expect(wrapper.find('.lyric-panel .progress-slider').exists()).toBe(false)
