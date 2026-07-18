@@ -84,6 +84,121 @@ export const removeWebDavPassword = async (credentialKey: string): Promise<void>
   await SecureStorage.remove(credentialKey)
 }
 
+export interface LocalSourceUpdate {
+  name: string
+  path: string
+}
+
+export interface WebDavSourceUpdate {
+  name: string
+  serverUrl: string
+  username: string
+  path: string
+  password?: string
+}
+
+export type SourceUpdate = LocalSourceUpdate | WebDavSourceUpdate
+
+export interface UpdateSourceResult {
+  updated: SourceItem | null
+  sources: SourceItem[]
+}
+
+const hasOnlyKeys = (value: object, allowedKeys: string[]): boolean => {
+  return Object.keys(value).every((key) => allowedKeys.includes(key))
+}
+
+const isLocalSourceUpdate = (value: SourceUpdate): value is LocalSourceUpdate => {
+  return (
+    isString(value.name) &&
+    isString(value.path) &&
+    !('serverUrl' in value) &&
+    !('username' in value) &&
+    !('password' in value) &&
+    hasOnlyKeys(value, ['name', 'path'])
+  )
+}
+
+const isWebDavSourceUpdate = (value: SourceUpdate): value is WebDavSourceUpdate => {
+  if (!('serverUrl' in value) || !('username' in value)) {
+    return false
+  }
+
+  return (
+    isString(value.name) &&
+    isString(value.serverUrl) &&
+    isString(value.username) &&
+    isString(value.path) &&
+    (!('password' in value) || value.password === undefined || typeof value.password === 'string') &&
+    hasOnlyKeys(value, ['name', 'serverUrl', 'username', 'path', 'password'])
+  )
+}
+
+/**
+ * 只更新指定音源的可编辑字段，并保留音源身份与列表顺序。
+ * WebDAV 新密码先写安全存储；元数据写入失败时尽力恢复原凭据。
+ */
+export const updateSource = async (
+  sourceId: string,
+  changes: SourceUpdate,
+  existingSources = loadSources(),
+): Promise<UpdateSourceResult> => {
+  const index = existingSources.findIndex((source) => source.id === sourceId)
+  if (index < 0) {
+    return { updated: null, sources: existingSources }
+  }
+
+  const current = existingSources[index]
+  let updated: SourceItem
+  if (current.type === 'local') {
+    if (!isLocalSourceUpdate(changes)) {
+      throw new Error('本地音源编辑信息无效。')
+    }
+    updated = { ...current, name: changes.name, path: changes.path }
+  } else {
+    const currentWebDav = current
+    if (!isWebDavSourceUpdate(changes)) {
+      throw new Error('WebDAV 音源编辑信息无效。')
+    }
+    updated = {
+      ...currentWebDav,
+      name: changes.name,
+      serverUrl: changes.serverUrl,
+      username: changes.username,
+      path: changes.path,
+    }
+  }
+
+  const sources = existingSources.map((source, sourceIndex) => (sourceIndex === index ? updated : source))
+  const newPassword = current.type === 'webdav' && isWebDavSourceUpdate(changes) ? changes.password : undefined
+  if (!newPassword) {
+    saveSources(sources)
+    return { updated, sources }
+  }
+
+  if (current.type !== 'webdav') {
+    throw new Error('音源类型不匹配。')
+  }
+  const oldPassword = await getWebDavPassword(current.credentialKey)
+  await saveWebDavPassword(current.credentialKey, newPassword)
+  try {
+    saveSources(sources)
+  } catch (error) {
+    try {
+      if (oldPassword === null) {
+        await removeWebDavPassword(current.credentialKey)
+      } else {
+        await saveWebDavPassword(current.credentialKey, oldPassword)
+      }
+    } catch {
+      // 恢复凭据属于尽力而为，仍向调用方抛出原始元数据保存错误。
+    }
+    throw error
+  }
+
+  return { updated, sources }
+}
+
 export interface DeleteSourceResult {
   deleted: SourceItem | null
   sources: SourceItem[]

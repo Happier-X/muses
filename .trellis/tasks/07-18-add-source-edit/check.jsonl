@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核编辑 modal、操作按钮、Ionic 组件导入及虚拟列表布局是否符合约定。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核编辑持久化、WebDAV 密码不落普通存储、验证失败无副作用及编辑不立即清理歌曲。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"复核编辑输入联合类型、SourceItem 分支收窄与错误边界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行并评估 lint、类型构建和完整单元测试。"}

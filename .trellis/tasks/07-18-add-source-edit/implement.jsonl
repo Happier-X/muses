@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"约束 SourcesPage 的 Ionic Vue 组件结构、显式导入、按钮可访问性与虚拟列表真实行高测量。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"约束音源元数据持久化、WebDAV SecureStorage 安全边界与扫描对账行为。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"约束严格 TypeScript 下的联合类型、输入校验和类型收窄。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"提供 lint、构建、单元测试及用户可见交互的质量要求。"}

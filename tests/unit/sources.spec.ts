@@ -6,6 +6,7 @@ import {
   loadSources,
   saveSources,
   saveWebDavPassword,
+  updateSource,
 } from '@/features/sources/storage'
 import type { SourceItem, WebDavConnectionInput } from '@/features/sources/types'
 import {
@@ -74,6 +75,136 @@ describe('音源存储', () => {
     expect(loadSources()).toEqual([
       { id: 'local-1', type: 'local', name: '本地音乐', path: '/music', createdAt: '2026-07-06T00:00:00.000Z' },
     ])
+  })
+
+  test('编辑本地音源保留身份字段、顺序和其他音源', async () => {
+    const original: SourceItem = {
+      id: 'local-1',
+      type: 'local',
+      name: '旧名称',
+      path: '/old',
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+    const other: SourceItem = {
+      id: 'local-2',
+      type: 'local',
+      name: '其他音源',
+      path: '/other',
+      createdAt: '2026-07-18T01:00:00.000Z',
+    }
+
+    const result = await updateSource(original.id, { name: '新名称', path: '/new' }, [original, other])
+
+    expect(result.updated).toEqual({ ...original, name: '新名称', path: '/new' })
+    expect(result.sources).toEqual([{ ...original, name: '新名称', path: '/new' }, other])
+    expect(loadSources()).toEqual(result.sources)
+  })
+
+  test('编辑 WebDAV 非敏感字段且密码留空时不写安全存储', async () => {
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    const source: SourceItem = {
+      id: 'webdav-1',
+      type: 'webdav',
+      name: '旧名称',
+      serverUrl: 'https://old.example.com/dav',
+      username: 'alice',
+      path: '/old',
+      credentialKey: 'credential-1',
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+
+    const result = await updateSource(
+      source.id,
+      { name: '新名称', serverUrl: 'https://new.example.com/dav', username: 'bob', path: '/new', password: '' },
+      [source],
+    )
+
+    expect(result.updated).toEqual({
+      ...source,
+      name: '新名称',
+      serverUrl: 'https://new.example.com/dav',
+      username: 'bob',
+      path: '/new',
+    })
+    expect(SecureStorage.get).not.toHaveBeenCalled()
+    expect(SecureStorage.set).not.toHaveBeenCalled()
+    expect(localStorage.getItem('muses:sources')).not.toContain('password')
+  })
+
+  test('编辑 WebDAV 新密码时写入原 credentialKey 且不落 localStorage', async () => {
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    vi.mocked(SecureStorage.get).mockResolvedValueOnce('old-secret')
+    const source: SourceItem = {
+      id: 'webdav-1',
+      type: 'webdav',
+      name: '远程',
+      serverUrl: 'https://example.com/dav',
+      username: 'alice',
+      path: '/music',
+      credentialKey: 'credential-1',
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+
+    const result = await updateSource(
+      source.id,
+      { name: '远程音乐', serverUrl: source.serverUrl, username: source.username, path: source.path, password: 'new-secret' },
+      [source],
+    )
+
+    expect(SecureStorage.set).toHaveBeenCalledWith(source.credentialKey, 'new-secret')
+    expect(result.updated).toEqual({ ...source, name: '远程音乐' })
+    expect(result.updated).not.toHaveProperty('password')
+    expect(localStorage.getItem('muses:sources')).not.toContain('new-secret')
+  })
+
+  test('编辑不存在的音源时不改写存储', async () => {
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    const source: SourceItem = {
+      id: 'local-1',
+      type: 'local',
+      name: '本地',
+      path: '/music',
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+    saveSources([source])
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+    setItemSpy.mockClear()
+
+    const result = await updateSource('missing', { name: '新名称', path: '/new' }, [source])
+
+    expect(result).toEqual({ updated: null, sources: [source] })
+    expect(setItemSpy).not.toHaveBeenCalled()
+    expect(SecureStorage.set).not.toHaveBeenCalled()
+    setItemSpy.mockRestore()
+  })
+
+  test('WebDAV 元数据保存失败时尝试恢复旧密码', async () => {
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    vi.mocked(SecureStorage.get).mockResolvedValueOnce('old-secret')
+    const source: SourceItem = {
+      id: 'webdav-1',
+      type: 'webdav',
+      name: '远程',
+      serverUrl: 'https://example.com/dav',
+      username: 'alice',
+      path: '/music',
+      credentialKey: 'credential-1',
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+      throw new Error('metadata save failed')
+    })
+
+    await expect(
+      updateSource(
+        source.id,
+        { name: '新名称', serverUrl: source.serverUrl, username: source.username, path: source.path, password: 'new-secret' },
+        [source],
+      ),
+    ).rejects.toThrow('metadata save failed')
+    expect(SecureStorage.set).toHaveBeenNthCalledWith(1, source.credentialKey, 'new-secret')
+    expect(SecureStorage.set).toHaveBeenNthCalledWith(2, source.credentialKey, 'old-secret')
+    setItemSpy.mockRestore()
   })
 
   test('删除本地音源只更新 sources，不调用 SecureStorage.remove', async () => {

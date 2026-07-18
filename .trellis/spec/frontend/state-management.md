@@ -92,6 +92,12 @@ Current source module contract:
   - Missing id -> `{ deleted: null, sources }` and do not rewrite storage.
   - WebDAV: call `removeWebDavPassword(credentialKey)` **before** `saveSources`; if SecureStorage remove fails, throw and leave `muses:sources` unchanged.
   - After a successful source delete, UI should call `reconcileSourceSongs(deleted.id, [])` so that source’s songs are cleared while other sources stay intact.
+- Source edit API: `updateSource(sourceId, changes, existingSources?) -> { updated: SourceItem | null; sources: SourceItem[] }`.
+  - Preserve `id`, `type`, `createdAt`, and WebDAV `credentialKey`; replace only the target source and preserve list order.
+  - Local changes contain `name` and `path`; WebDAV changes contain `name`, `serverUrl`, `username`, `path`, and optional call-time `password`.
+  - A WebDAV password must never be part of the returned source or `muses:sources`; blank password means no SecureStorage write, non-blank password updates the existing `credentialKey`.
+  - Before WebDAV address, username, path, or password changes are persisted, UI must validate the target directory with the new password or a function-local read of the old SecureStorage password. Name-only changes do not require network validation.
+  - Validation failure must leave both source metadata and credentials unchanged; editing never immediately reconciles songs. A later successful scan applies normal source reconciliation.
 
 ### Scenario: Source Library Scan Persistence
 

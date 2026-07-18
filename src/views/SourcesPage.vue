@@ -38,6 +38,9 @@
                 <ion-card-content>
                   <p class="source-path">{{ sources[virtualRow.index].path }}</p>
                   <div class="source-actions">
+                    <ion-button size="small" fill="outline" @click="openEditSource(sources[virtualRow.index])">
+                      编辑
+                    </ion-button>
                     <ion-button
                       size="small"
                       color="danger"
@@ -69,6 +72,77 @@
         :buttons="deleteAlertButtons"
         @didDismiss="closeDeleteAlert"
       />
+
+      <ion-modal :is-open="isEditModalOpen" @didDismiss="closeEditSource">
+        <ion-header>
+          <ion-toolbar>
+            <ion-title>编辑音源</ion-title>
+            <ion-buttons slot="end">
+              <ion-button @click="closeEditSource">关闭</ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+
+        <ion-content class="ion-padding">
+          <form class="edit-source-form" @submit.prevent="saveEditedSource">
+            <ion-list inset>
+              <ion-item>
+                <ion-input v-model="editSourceForm.name" label="显示名称" label-placement="stacked" required />
+              </ion-item>
+              <template v-if="sourcePendingEdit?.type === 'webdav'">
+                <ion-item>
+                  <ion-input
+                    v-model="editSourceForm.serverUrl"
+                    label="服务器地址"
+                    label-placement="stacked"
+                    type="url"
+                    required
+                  />
+                </ion-item>
+                <ion-item>
+                  <ion-input
+                    v-model="editSourceForm.username"
+                    label="用户名"
+                    label-placement="stacked"
+                    autocomplete="username"
+                    required
+                  />
+                </ion-item>
+                <ion-item>
+                  <ion-input
+                    v-model="editSourceForm.password"
+                    label="新密码"
+                    label-placement="stacked"
+                    autocomplete="new-password"
+                    type="password"
+                    helper-text="留空则保留原密码"
+                  />
+                </ion-item>
+              </template>
+              <ion-item>
+                <ion-input v-model="editSourceForm.path" label="目录" label-placement="stacked" required />
+              </ion-item>
+            </ion-list>
+
+            <ion-button
+              v-if="sourcePendingEdit?.type === 'local'"
+              expand="block"
+              fill="outline"
+              type="button"
+              :disabled="isEditSaving"
+              @click="pickEditedLocalDirectory"
+            >
+              重新选择目录
+            </ion-button>
+            <ion-text v-if="editErrorMessage" color="danger">
+              <p class="message-text">{{ editErrorMessage }}</p>
+            </ion-text>
+            <ion-button expand="block" type="submit" :disabled="isEditSaving">
+              {{ isEditSaving ? '正在保存…' : '保存修改' }}
+            </ion-button>
+          </form>
+        </ion-content>
+      </ion-modal>
 
       <ion-modal :is-open="isScanSettingsOpen" @didDismiss="closeScanSettings">
         <ion-header>
@@ -265,10 +339,12 @@ import { add } from 'ionicons/icons'
 import {
   createSourceId,
   deleteSource,
+  getWebDavPassword,
   getWebDavPasswordKey,
   loadSources,
   saveSources,
   saveWebDavPassword,
+  updateSource,
 } from '@/features/sources/storage'
 import type { SourceItem, WebDavConnectionInput, WebDavDirectoryItem } from '@/features/sources/types'
 import { getParentWebDavPath, getWebDavDisplayName, listWebDavDirectories, normalizeWebDavPath } from '@/features/sources/webdav'
@@ -281,6 +357,17 @@ const listParentRef = ref<HTMLElement | null>(null)
 const isAddActionSheetOpen = ref(false)
 const isDeleteAlertOpen = ref(false)
 const sourcePendingDelete = ref<SourceItem | null>(null)
+const sourcePendingEdit = ref<SourceItem | null>(null)
+const isEditModalOpen = ref(false)
+const isEditSaving = ref(false)
+const editErrorMessage = ref('')
+const editSourceForm = ref({
+  name: '',
+  path: '',
+  serverUrl: '',
+  username: '',
+  password: '',
+})
 const isWebDavModalOpen = ref(false)
 const isWebDavLoading = ref(false)
 const isWebDavConnected = ref(false)
@@ -366,6 +453,111 @@ const closeDeleteAlert = (): void => {
 const confirmDeleteSource = (source: SourceItem): void => {
   sourcePendingDelete.value = source
   isDeleteAlertOpen.value = true
+}
+
+const openEditSource = (source: SourceItem): void => {
+  sourcePendingEdit.value = source
+  editSourceForm.value = {
+    name: source.name,
+    path: source.path,
+    serverUrl: source.type === 'webdav' ? source.serverUrl : '',
+    username: source.type === 'webdav' ? source.username : '',
+    password: '',
+  }
+  editErrorMessage.value = ''
+  isEditModalOpen.value = true
+}
+
+const closeEditSource = (): void => {
+  if (isEditSaving.value) {
+    return
+  }
+  isEditModalOpen.value = false
+  sourcePendingEdit.value = null
+  editErrorMessage.value = ''
+  editSourceForm.value.password = ''
+}
+
+const pickEditedLocalDirectory = async (): Promise<void> => {
+  try {
+    const result = await FilePicker.pickDirectory()
+    editSourceForm.value.path = result.path
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (!/cancel|取消/i.test(message)) {
+      editErrorMessage.value = '选择本地文件夹失败。'
+    }
+  }
+}
+
+const saveEditedSource = async (): Promise<void> => {
+  const source = sourcePendingEdit.value
+  if (!source || isEditSaving.value) {
+    return
+  }
+
+  const name = editSourceForm.value.name.trim()
+  const rawPath = editSourceForm.value.path.trim()
+  if (!name || !rawPath) {
+    editErrorMessage.value = '请完整填写音源信息。'
+    return
+  }
+  const path = source.type === 'webdav' ? normalizeWebDavPath(rawPath) : rawPath
+
+  isEditSaving.value = true
+  editErrorMessage.value = ''
+  try {
+    if (source.type === 'local') {
+      const result = await updateSource(source.id, { name, path }, sources.value)
+      if (!result.updated) {
+        throw new Error('找不到要编辑的音源。')
+      }
+      sources.value = result.sources
+    } else {
+      const serverUrl = editSourceForm.value.serverUrl.trim()
+      const username = editSourceForm.value.username.trim()
+      const password = editSourceForm.value.password
+      if (!serverUrl || !username) {
+        editErrorMessage.value = '请完整填写 WebDAV 连接信息。'
+        return
+      }
+
+      const connectionChanged =
+        serverUrl !== source.serverUrl || username !== source.username || path !== normalizeWebDavPath(source.path) || password.length > 0
+      if (connectionChanged) {
+        const verificationPassword = password || (await getWebDavPassword(source.credentialKey))
+        if (!verificationPassword) {
+          editErrorMessage.value = 'WebDAV 密码不存在，请输入新密码。'
+          return
+        }
+        try {
+          await listWebDavDirectories({ serverUrl, username, password: verificationPassword }, path)
+        } catch {
+          editErrorMessage.value = 'WebDAV 连接或目标目录验证失败，请检查编辑信息。'
+          return
+        }
+      }
+
+      const result = await updateSource(
+        source.id,
+        { name, serverUrl, username, path, ...(password ? { password } : {}) },
+        sources.value,
+      )
+      if (!result.updated) {
+        throw new Error('找不到要编辑的音源。')
+      }
+      sources.value = result.sources
+    }
+
+    isEditModalOpen.value = false
+    sourcePendingEdit.value = null
+    editSourceForm.value.password = ''
+    showSuccess('音源修改已保存。')
+  } catch {
+    editErrorMessage.value = '保存音源修改失败，请稍后重试。'
+  } finally {
+    isEditSaving.value = false
+  }
 }
 
 const executeDeleteSource = async (source: SourceItem): Promise<void> => {
@@ -680,6 +872,7 @@ const addSourceButtons: ActionSheetButton[] = [
   margin-top: 16px;
 }
 
+.edit-source-form,
 .webdav-form {
   margin-bottom: 16px;
 }
