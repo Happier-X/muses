@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 68
-- **Last Active**: 2026-07-17
+- **Total Sessions**: 69
+- **Last Active**: 2026-07-18
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~380 | Active |
+| `journal-2.md` | ~408 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 69 | 2026-07-18 | 修复 #31 音源页竖屏卡片重叠 | `a1e3c7a`, `3124fa4` | `main` |
 | 68 | 2026-07-17 | 发布 v0.1.6 | `28d1acc` | `main` |
 | 67 | 2026-07-15 | 固定歌曲页随机播放入口 | `f2b5f90` | `main` |
 | 66 | 2026-07-15 | 修复所有页面 navbar 标题未居中 | `37eedb9` | `main` |

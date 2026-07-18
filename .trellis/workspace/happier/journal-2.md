@@ -372,3 +372,37 @@
 ### Next Steps
 
 - None - release complete
+
+
+## Session 69: 修复 #31 音源页竖屏卡片重叠
+
+**Date**: 2026-07-18
+**Task**: 修复 #31 音源页竖屏卡片重叠
+**Branch**: `main`
+
+### Summary
+
+SourcesPage 虚拟列表接入 measureElement/data-index，行间距改为 padding 计入实测高度；更新 component-guidelines；关闭 #31 并归档任务。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a1e3c7a` | (see git log) |
+| `3124fa4` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
