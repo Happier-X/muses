@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { createSourceId, getWebDavPasswordKey, loadSources, saveSources, saveWebDavPassword } from '@/features/sources/storage'
+import {
+  createSourceId,
+  deleteSource,
+  getWebDavPasswordKey,
+  loadSources,
+  saveSources,
+  saveWebDavPassword,
+} from '@/features/sources/storage'
 import type { SourceItem, WebDavConnectionInput } from '@/features/sources/types'
 import {
   buildWebDavUrl,
@@ -67,6 +74,104 @@ describe('音源存储', () => {
     expect(loadSources()).toEqual([
       { id: 'local-1', type: 'local', name: '本地音乐', path: '/music', createdAt: '2026-07-06T00:00:00.000Z' },
     ])
+  })
+
+  test('删除本地音源只更新 sources，不调用 SecureStorage.remove', async () => {
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    const localSource: SourceItem = {
+      id: 'local-1',
+      type: 'local',
+      name: '本地音乐',
+      path: '/music',
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+    const otherSource: SourceItem = {
+      id: 'local-2',
+      type: 'local',
+      name: '另一本地',
+      path: '/other',
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+    saveSources([localSource, otherSource])
+
+    const result = await deleteSource('local-1')
+
+    expect(result.deleted).toEqual(localSource)
+    expect(result.sources).toEqual([otherSource])
+    expect(loadSources()).toEqual([otherSource])
+    expect(SecureStorage.remove).not.toHaveBeenCalled()
+  })
+
+  test('删除 WebDAV 音源会移除 SecureStorage 凭据并保留其他音源', async () => {
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    const webdavId = 'webdav-1'
+    const credentialKey = getWebDavPasswordKey(webdavId)
+    const webdavSource: SourceItem = {
+      id: webdavId,
+      type: 'webdav',
+      name: '远程',
+      serverUrl: 'https://example.com/dav',
+      username: 'alice',
+      path: '/music',
+      credentialKey,
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+    const localSource: SourceItem = {
+      id: 'local-1',
+      type: 'local',
+      name: '本地',
+      path: '/music',
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+    saveSources([webdavSource, localSource])
+
+    const result = await deleteSource(webdavId)
+
+    expect(SecureStorage.remove).toHaveBeenCalledWith(credentialKey)
+    expect(result.deleted).toEqual(webdavSource)
+    expect(result.sources).toEqual([localSource])
+    expect(loadSources()).toEqual([localSource])
+    expect(localStorage.getItem('muses:sources')).not.toContain('secret-password')
+  })
+
+  test('删除不存在的音源时不改写库', async () => {
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    const localSource: SourceItem = {
+      id: 'local-1',
+      type: 'local',
+      name: '本地',
+      path: '/music',
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+    saveSources([localSource])
+
+    const result = await deleteSource('missing-id')
+
+    expect(result.deleted).toBeNull()
+    expect(result.sources).toEqual([localSource])
+    expect(loadSources()).toEqual([localSource])
+    expect(SecureStorage.remove).not.toHaveBeenCalled()
+  })
+
+  test('WebDAV 凭据删除失败时不写 sources', async () => {
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    vi.mocked(SecureStorage.remove).mockRejectedValueOnce(new Error('secure remove failed'))
+    const webdavId = 'webdav-fail'
+    const credentialKey = getWebDavPasswordKey(webdavId)
+    const webdavSource: SourceItem = {
+      id: webdavId,
+      type: 'webdav',
+      name: '远程',
+      serverUrl: 'https://example.com/dav',
+      username: 'alice',
+      path: '/music',
+      credentialKey,
+      createdAt: '2026-07-18T00:00:00.000Z',
+    }
+    saveSources([webdavSource])
+
+    await expect(deleteSource(webdavId)).rejects.toThrow('secure remove failed')
+    expect(loadSources()).toEqual([webdavSource])
   })
 })
 

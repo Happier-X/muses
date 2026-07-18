@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/index.md","reason":"前端层总览与规范索引。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"SourcesPage 组件结构、Ionic 组件和按钮交互约定。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"音源、WebDAV 凭据和歌曲持久化安全约定。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"质量检查命令与测试约定。"}

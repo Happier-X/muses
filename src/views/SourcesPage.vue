@@ -38,6 +38,14 @@
                 <ion-card-content>
                   <p class="source-path">{{ sources[virtualRow.index].path }}</p>
                   <div class="source-actions">
+                    <ion-button
+                      size="small"
+                      color="danger"
+                      fill="outline"
+                      @click="confirmDeleteSource(sources[virtualRow.index])"
+                    >
+                      删除
+                    </ion-button>
                     <ion-button size="small" @click="openScanSettings(sources[virtualRow.index])">扫描</ion-button>
                   </div>
                 </ion-card-content>
@@ -52,6 +60,14 @@
         header="添加音源"
         :buttons="addSourceButtons"
         @didDismiss="isAddActionSheetOpen = false"
+      />
+
+      <ion-alert
+        :is-open="isDeleteAlertOpen"
+        header="删除音源"
+        :message="deleteAlertMessage"
+        :buttons="deleteAlertButtons"
+        @didDismiss="closeDeleteAlert"
       />
 
       <ion-modal :is-open="isScanSettingsOpen" @didDismiss="closeScanSettings">
@@ -218,6 +234,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
 import {
   IonActionSheet,
+  IonAlert,
   IonButton,
   IonButtons,
   IonCard,
@@ -242,17 +259,28 @@ import {
   IonToggle,
   IonToolbar,
   type ActionSheetButton,
+  type AlertButton,
 } from '@ionic/vue'
 import { add } from 'ionicons/icons'
-import { createSourceId, getWebDavPasswordKey, loadSources, saveSources, saveWebDavPassword } from '@/features/sources/storage'
+import {
+  createSourceId,
+  deleteSource,
+  getWebDavPasswordKey,
+  loadSources,
+  saveSources,
+  saveWebDavPassword,
+} from '@/features/sources/storage'
 import type { SourceItem, WebDavConnectionInput, WebDavDirectoryItem } from '@/features/sources/types'
 import { getParentWebDavPath, getWebDavDisplayName, listWebDavDirectories, normalizeWebDavPath } from '@/features/sources/webdav'
 import { scanSourceLibrary } from '@/features/library/scanner'
+import { reconcileSourceSongs } from '@/features/library/storage'
 import type { ScanOptions, ScanProgress, ScanStage } from '@/features/library/types'
 
 const sources = ref<SourceItem[]>(loadSources())
 const listParentRef = ref<HTMLElement | null>(null)
 const isAddActionSheetOpen = ref(false)
+const isDeleteAlertOpen = ref(false)
+const sourcePendingDelete = ref<SourceItem | null>(null)
 const isWebDavModalOpen = ref(false)
 const isWebDavLoading = ref(false)
 const isWebDavConnected = ref(false)
@@ -320,6 +348,59 @@ const getSourceSubtitle = (source: SourceItem): string => {
 
   return `WebDAV · ${source.username}@${source.serverUrl}`
 }
+
+const deleteAlertMessage = computed(() => {
+  const source = sourcePendingDelete.value
+  if (!source) {
+    return '确定删除该音源吗？'
+  }
+
+  return `确定删除「${source.name}」吗？将同时清理该音源下的歌曲${source.type === 'webdav' ? '与安全存储凭据' : ''}。`
+})
+
+const closeDeleteAlert = (): void => {
+  isDeleteAlertOpen.value = false
+  sourcePendingDelete.value = null
+}
+
+const confirmDeleteSource = (source: SourceItem): void => {
+  sourcePendingDelete.value = source
+  isDeleteAlertOpen.value = true
+}
+
+const executeDeleteSource = async (source: SourceItem): Promise<void> => {
+  try {
+    const result = await deleteSource(source.id, sources.value)
+    if (!result.deleted) {
+      showError('找不到要删除的音源。')
+      return
+    }
+
+    sources.value = result.sources
+    reconcileSourceSongs(result.deleted.id, [])
+    showSuccess(`已删除音源「${result.deleted.name}」。`)
+  } catch (error) {
+    showError(error instanceof Error ? error.message : '删除音源失败。')
+  }
+}
+
+const deleteAlertButtons = computed<AlertButton[]>(() => [
+  {
+    text: '取消',
+    role: 'cancel',
+  },
+  {
+    text: '删除',
+    role: 'destructive',
+    handler: () => {
+      const source = sourcePendingDelete.value
+      if (!source) {
+        return
+      }
+      void executeDeleteSource(source)
+    },
+  },
+])
 
 const getLocalSourceName = (path: string): string => {
   return path.split(/[\\/]/).filter(Boolean).at(-1) || path
@@ -585,6 +666,7 @@ const addSourceButtons: ActionSheetButton[] = [
 .source-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 8px;
 }
 

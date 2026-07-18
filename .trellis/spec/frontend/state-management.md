@@ -87,7 +87,11 @@ Current source module contract:
 - WebDAV passwords are stored with `@aparajita/capacitor-secure-storage`.
 - WebDAV directory browsing on Android must use the project-local native `WebDav` Capacitor plugin for `PROPFIND`, backed by OkHttp. Do not use browser `fetch`/XHR-based WebDAV clients because Android WebView still enforces CORS; do not use built-in `CapacitorHttp` or `HttpURLConnection` for `PROPFIND` because they reject non-standard methods.
 - Because users may add arbitrary `http://` WebDAV servers, Android uses `network_security_config` with `base-config cleartextTrafficPermitted="true"`. Prefer HTTPS when possible and surface risk to users when adding plain HTTP sources.
-- Removing a WebDAV source should also remove the corresponding secure-storage entry.
+- Removing a WebDAV source should also remove the corresponding secure-storage entry via `deleteSource(sourceId)` before rewriting `muses:sources`.
+- Source deletion API: `deleteSource(sourceId, existingSources?) -> { deleted: SourceItem | null; sources: SourceItem[] }`.
+  - Missing id -> `{ deleted: null, sources }` and do not rewrite storage.
+  - WebDAV: call `removeWebDavPassword(credentialKey)` **before** `saveSources`; if SecureStorage remove fails, throw and leave `muses:sources` unchanged.
+  - After a successful source delete, UI should call `reconcileSourceSongs(deleted.id, [])` so that source’s songs are cleared while other sources stay intact.
 
 ### Scenario: Source Library Scan Persistence
 

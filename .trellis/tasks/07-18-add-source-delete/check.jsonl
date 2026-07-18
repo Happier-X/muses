@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/index.md","reason":"按前端层规范检查实现边界。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"核对 SourcesPage Ionic 组件和交互一致性。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"核对 WebDAV 凭据与歌曲清理安全约定。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行并核对前端质量检查。"}

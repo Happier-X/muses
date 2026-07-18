@@ -83,3 +83,31 @@ export const getWebDavPassword = async (credentialKey: string): Promise<string |
 export const removeWebDavPassword = async (credentialKey: string): Promise<void> => {
   await SecureStorage.remove(credentialKey)
 }
+
+export interface DeleteSourceResult {
+  deleted: SourceItem | null
+  sources: SourceItem[]
+}
+
+/**
+ * 删除指定音源：WebDAV 先移除 SecureStorage 凭据，再写 sources。
+ * 凭据删除失败时不写库；找不到 id 时 deleted=null 且不改写库。
+ */
+export const deleteSource = async (
+  sourceId: string,
+  existingSources = loadSources(),
+): Promise<DeleteSourceResult> => {
+  const index = existingSources.findIndex((source) => source.id === sourceId)
+  if (index < 0) {
+    return { deleted: null, sources: existingSources }
+  }
+
+  const deleted = existingSources[index]
+  if (deleted.type === 'webdav') {
+    await removeWebDavPassword(deleted.credentialKey)
+  }
+
+  const sources = existingSources.filter((source) => source.id !== sourceId)
+  saveSources(sources)
+  return { deleted, sources }
+}
