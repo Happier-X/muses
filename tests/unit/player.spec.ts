@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import { readFileSync } from 'node:fs'
 import type { SongItem } from '@/features/library/types'
 import MiniPlayer from '@/components/MiniPlayer.vue'
 import PlayerPage from '@/views/PlayerPage.vue'
@@ -1435,6 +1436,12 @@ describe('沉浸式播放页', () => {
     expect(wrapper.get('.lyric-header .lyric-artist').text()).toBe('本地歌手')
     expect(wrapper.find('.lyric-panel .progress-slider').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('暂无歌词')
+  })
+
+  test('翻译副行样式跟随 AMLL 实际激活类高亮', () => {
+    const source = readFileSync('src/views/PlayerPage.vue', 'utf8')
+    expect(source).toContain('.FmKaba_lyricLine.FmKaba_active .FmKaba_lyricSubLine')
+    expect(source).toContain('.FmKaba_lyricMainLine.FmKaba_active ~ .FmKaba_lyricSubLine')
   })
 
   test('歌词页翻译按钮可切换 aria 状态，手机显示播放按钮', async () => {

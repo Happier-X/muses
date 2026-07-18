@@ -1159,8 +1159,13 @@ onUnmounted(() => {
   height: 100%;
 }
 
-/* 激活主行时抬高翻译/音译副行亮度，避免「有翻译但不高亮」（#27） */
-.lyric-player :deep(.FmKaba_lyricLine.FmKaba_active .FmKaba_lyricSubLine) {
+/* AMLL 实际类名：激活状态同时挂在行容器和主行，副行需跟随行容器同步高亮（#27） */
+.lyric-player :deep(.FmKaba_lyricLine .FmKaba_lyricSubLine) {
+  opacity: 0.3;
+}
+
+.lyric-player :deep(.FmKaba_lyricLine.FmKaba_active .FmKaba_lyricSubLine),
+.lyric-player :deep(.FmKaba_lyricLine .FmKaba_lyricMainLine.FmKaba_active ~ .FmKaba_lyricSubLine) {
   opacity: 0.72;
 }
 
