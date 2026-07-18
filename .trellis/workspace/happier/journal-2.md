@@ -406,3 +406,36 @@ SourcesPage 虚拟列表接入 measureElement/data-index，行间距改为 paddi
 ### Next Steps
 
 - None - task complete
+
+
+## Session 70: 修复 #32 空扫描残留旧歌曲
+
+**Date**: 2026-07-18
+**Task**: 修复 #32 空扫描残留旧歌曲
+**Branch**: `main`
+
+### Summary
+
+扫描成功后按本次发现路径对账当前音源歌曲；空扫描清源、部分扫描移除缺失路径、跨音源隔离、发现失败不删；关闭 #32。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `06c475d` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
