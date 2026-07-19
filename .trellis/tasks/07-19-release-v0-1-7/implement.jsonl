@@ -1,0 +1,3 @@
+{"file":".github/workflows/release.yml","reason":"确认标签触发、版本提取、双 APK 构建和 Release 资产命名契约。"}
+{"file":"package.json","reason":"确认前端版本字段与质量脚本。"}
+{"file":"android/app/build.gradle","reason":"确认 Android versionName/versionCode 发布字段。"}
