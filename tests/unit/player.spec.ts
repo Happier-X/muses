@@ -6,6 +6,7 @@ import type { SongItem } from '@/features/library/types'
 import MiniPlayer from '@/components/MiniPlayer.vue'
 import PlayerPage from '@/views/PlayerPage.vue'
 import App from '@/App.vue'
+import { listOutline, repeat, repeatOutline, shuffle } from 'ionicons/icons'
 
 /** 播放页 UI 单测不跑真实多源歌词，避免 matching 空态文案抖动 */
 vi.mock('@/features/lyrics', async (importOriginal) => {
@@ -1337,7 +1338,7 @@ describe('沉浸式播放页', () => {
           IonPage: { template: '<main><slot /></main>' },
           IonContent: { template: '<section><slot /></section>' },
           IonButton: { emits: ['click'], template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>' },
-          IonIcon: true,
+          IonIcon: { props: ['icon'], template: '<span data-test="icon" :data-icon="JSON.stringify(icon)" />' },
         },
       },
     })
@@ -1358,18 +1359,28 @@ describe('沉浸式播放页', () => {
     expect(wrapper.find('button[aria-label="顺序播放"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="播放队列"]').exists()).toBe(true)
 
-    // 循环 / 随机模式按钮应可切换
+    const modeIcon = (label: string) => wrapper.get(`button[aria-label="${label}"] [data-test="icon"]`).attributes('data-icon')
+
+    // 初始四种状态的标签和图标必须一一对应。
+    expect(modeIcon('列表循环')).toBe(JSON.stringify(repeatOutline))
+    expect(modeIcon('顺序播放')).toBe(JSON.stringify(listOutline))
+
+    // 循环 / 随机模式按钮应可切换，并立即刷新标签和图标。
     expect(queueState.repeatMode).toBe('all')
     await wrapper.get('button[aria-label="列表循环"]').trigger('click')
     expect(queueState.repeatMode).toBe('one')
+    expect(modeIcon('单曲循环')).toBe(JSON.stringify(repeat))
     await wrapper.get('button[aria-label="单曲循环"]').trigger('click')
     expect(queueState.repeatMode).toBe('all')
+    expect(modeIcon('列表循环')).toBe(JSON.stringify(repeatOutline))
 
     expect(queueState.shuffleEnabled).toBe(false)
     await wrapper.get('button[aria-label="顺序播放"]').trigger('click')
     expect(queueState.shuffleEnabled).toBe(true)
+    expect(modeIcon('随机播放')).toBe(JSON.stringify(shuffle))
     await wrapper.get('button[aria-label="随机播放"]').trigger('click')
     expect(queueState.shuffleEnabled).toBe(false)
+    expect(modeIcon('顺序播放')).toBe(JSON.stringify(listOutline))
 
     const slider = wrapper.get('input[aria-label="播放进度"]')
     await slider.setValue('60')

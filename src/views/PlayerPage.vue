@@ -237,7 +237,7 @@ const meshGradientRenderer = MeshGradientRenderer
 const repeatModeLabel = computed(() => queueState.repeatMode === 'one' ? '单曲循环' : '列表循环')
 const repeatIcon = computed(() => queueState.repeatMode === 'one' ? repeat : repeatOutline)
 const shuffleModeLabel = computed(() => queueState.shuffleEnabled ? '随机播放' : '顺序播放')
-const shuffleIcon = computed(() => shuffle)
+const shuffleIcon = computed(() => queueState.shuffleEnabled ? shuffle : listOutline)
 const listIcon = listOutline
 const languageIcon = languageOutline
 const playCircleIcon = playCircleOutline

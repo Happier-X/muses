@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"播放器模式按钮必须保持图标按钮、aria-label 和激活态约定。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"提供 Vue/TypeScript 组件测试、lint、build 和单元测试要求。"}

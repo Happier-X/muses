@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"检查四种播放/循环模式图标与标签是否同步，且不破坏播放器控制布局。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行最终质量验证和回归测试。"}

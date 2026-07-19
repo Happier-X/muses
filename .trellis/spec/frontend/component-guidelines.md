@@ -296,7 +296,7 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - `max-height: 520px`：再收一档 gap/字号/按钮/热区（约 18px），仍显示全部控件。
   - 不引入 landscape 专用 DOM；横屏通常命中 `max-height` 断点即可。padding 只减固定 px 部分，用 `calc(... + safe-area)`，不得抹掉安全区。
 - 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
-- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。
+- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步：列表循环使用 `repeatOutline`、单曲循环使用 `repeat`，顺序播放使用 `listOutline`、随机播放使用 `shuffle`；状态切换后图标和标签应立即更新。
 - 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位（`.cover-slot`：`flex: 1 1 auto; min-height: 0`）缩放，控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
 - 歌词页（AMLL）视觉约定：
   - **窄屏** `.lyric-panel`：顶部 `.lyric-header` 展示歌名（主标题）+ 歌手（副标题，空则不渲染；不拼接专辑、不回退「未知歌手」）；其下为 `flex:1` 的 AMLL `LyricPlayer`；底部仅安全区，**不放**迷你进度/播放控制。
