@@ -64,7 +64,15 @@
    - `playSong` / `stopPlayback` 必须清理 seek guard，避免新歌首帧误吞真实 finished 或卡住队列。
    - 不修改 capgo 插件源码；远程/未缓冲 seek 触发的 `STATE_ENDED`/`complete` 在前端边界消化。
 
-8. **已缓冲进度与 seek 限制**（`bufferedPosition`）  
+8. **播放失败自动恢复与有界跳过**
+   - `controller.ts` 在 `AudioPlayerNative.play` 失败且 generation 仍匹配时，沿当前 active order 自动尝试未尝试过的下一首；active order 使用 `shuffleOrder ?? items`。
+   - 失败恢复链用内部 `Set<songId>` 记录已尝试歌曲，最多检查一轮，禁止列表循环或单曲循环造成无限重试。
+   - 单曲循环仅在失败恢复链中临时忽略自身重试；用户 `repeatMode` 配置保持不变，成功后自然结束仍遵循单曲循环。
+   - 过期 generation 的失败必须直接丢弃，不推进队列、不覆盖当前歌曲状态；恢复中不要清媒体会话，只有链终止时才清理。
+   - 全部候选失败后保留白名单过滤后的安全错误文案，清理缓冲和媒体会话；原生错误、URL、认证头和密码不得进入状态、日志或持久化数据。
+   - 失败恢复 helper 保持播放器公开 API 最小化，仅供 controller 内部使用（队列层可提供独立可测试 helper）。
+
+9. **已缓冲进度与 seek 限制**（`bufferedPosition`）
    - `PlayerState.bufferedPosition: number | null`：秒；`null` = 缓冲未知（不画假缓冲条，seek 退化为 duration clamp）。
    - **本地就绪**：`prepareLocalAudioFile` 完成后原生上报 `fullyBuffered`，前端 `bufferedPosition = duration`，缓冲条铺满，可全长 seek。
    - **WebDAV 完整缓存优先**：`native.ts` 播放 WebDAV 时先调 `getCachedWebDavAudioFile({ url })`；仅当返回**完整**文件 URI 时用 `file://` 播放并 `bufferedPosition = duration`（full buffer）。未命中 / partial / 失败则远程 URL + Basic `Authorization` 直链，`bufferedPosition = null`，seek 仅按 duration clamp。

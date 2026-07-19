@@ -263,6 +263,40 @@ export const peekNext = (): SongItem | null => {
   return resolveSongsFromQueue([items[resolvedIndex]])[0] ?? null
 }
 
+/**
+ * 选择播放失败恢复链的下一首候选。
+ *
+ * 始终沿当前 active order 向后查找并最多回绕一次；该流程临时忽略单曲循环，
+ * 且跳过本次恢复链已经尝试过的歌曲，保证损坏队列不会无限推进。
+ */
+export const advanceToNextRecoveryCandidate = (attemptedSongIds: ReadonlySet<string>): SongItem | null => {
+  const items = queueData.shuffleOrder ?? queueData.items
+
+  if (items.length === 0) {
+    return null
+  }
+
+  const startIndex = currentIndex >= 0 && currentIndex < items.length ? currentIndex : -1
+  for (let offset = 1; offset <= items.length; offset += 1) {
+    const candidateIndex = (startIndex + offset) % items.length
+    const candidateItem = items[candidateIndex]
+    if (attemptedSongIds.has(candidateItem.songId)) {
+      continue
+    }
+
+    const candidate = resolveSongsFromQueue([candidateItem])[0]
+    if (!candidate) {
+      continue
+    }
+
+    currentIndex = candidateIndex
+    refreshQueueState()
+    return candidate
+  }
+
+  return null
+}
+
 export const advanceToNext = (): SongItem | null => {
   const items = queueData.shuffleOrder ?? queueData.items
 

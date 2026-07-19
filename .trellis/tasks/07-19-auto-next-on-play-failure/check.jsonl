@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/features-player.md","reason":"检查失败恢复有界、随机顺序、单曲循环、generation 和媒体会话安全。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行完整质量检查和回归测试。"}

@@ -214,8 +214,10 @@ const webDavSong: SongItem = {
 }
 
 const resetPlayer = async () => {
-  const { stopPlayback } = await import('@/features/player/controller')
+  const { clearQueue, setRepeatMode, stopPlayback } = await import('@/features/player/controller')
   await stopPlayback()
+  clearQueue()
+  setRepeatMode('all')
   vi.clearAllMocks()
   vi.useRealTimers()
   prefetchWebDavAudioFileMock.mockReset()
@@ -722,6 +724,127 @@ describe('播放器控制器', () => {
     expect(playerState.status).toBe('error')
     expect(playerState.errorMessage).toBe('播放失败，请稍后重试。')
     expect(JSON.stringify(playerState)).not.toContain('secret-password')
+  })
+
+  test('播放失败时自动跳过下一首并恢复播放', async () => {
+    const secondSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([localSong, secondSong]))
+    const { clearQueue, enqueueSongs, playSong, playerState } = await import('@/features/player/controller')
+    clearQueue()
+    enqueueSongs([localSong, secondSong])
+    nativePlayer.play.mockRejectedValueOnce(new Error('native secret url'))
+      .mockResolvedValueOnce(undefined)
+
+    await playSong(localSong)
+
+    expect(nativePlayer.play).toHaveBeenCalledTimes(2)
+    expect(playerState.currentSong?.id).toBe(secondSong.id)
+    expect(playerState.status).toBe('playing')
+    expect(playerState.errorMessage).toBeNull()
+  })
+
+  test('连续失败时每首只尝试一次并保留安全错误', async () => {
+    const songs = [0, 1, 2].map((index) => ({
+      ...localSong,
+      id: `failed-${index}`,
+      path: `failed-${index}.mp3`,
+      uri: `content://music/failed-${index}`,
+    }))
+    localStorage.setItem('muses:songs', JSON.stringify(songs))
+    const { clearQueue, enqueueSongs, playSong, playerState } = await import('@/features/player/controller')
+    clearQueue()
+    enqueueSongs(songs)
+    nativePlayer.play.mockRejectedValueOnce(new Error('Authorization: password'))
+      .mockRejectedValueOnce(new Error('Authorization: password'))
+      .mockRejectedValueOnce(new Error('Authorization: password'))
+
+    await playSong(songs[0])
+
+    expect(nativePlayer.play).toHaveBeenCalledTimes(songs.length)
+    expect(playerState.status).toBe('error')
+    expect(playerState.errorMessage).toBe('播放失败，请稍后重试。')
+    expect(JSON.stringify(playerState)).not.toContain('password')
+  })
+
+  test('单曲循环失败时不会重试自身', async () => {
+    const secondSong = { ...localSong, id: 'song-local-2', path: 'second.mp3', uri: 'content://music/second' }
+    localStorage.setItem('muses:songs', JSON.stringify([localSong, secondSong]))
+    const { clearQueue, enqueueSongs, playSong, playerState, setRepeatMode } = await import('@/features/player/controller')
+    clearQueue()
+    setRepeatMode('one')
+    enqueueSongs([localSong, secondSong])
+    nativePlayer.play.mockRejectedValueOnce(new Error('bad file')).mockResolvedValueOnce(undefined)
+
+    await playSong(localSong)
+
+    expect(nativePlayer.play).toHaveBeenCalledTimes(2)
+    expect(playerState.currentSong?.id).toBe(secondSong.id)
+    expect(playerState.status).toBe('playing')
+    expect(playerState.errorMessage).toBeNull()
+    expect(playerState.currentSong?.id).not.toBe(localSong.id)
+
+    const { queueState } = await import('@/features/player/controller')
+    expect(queueState.repeatMode).toBe('one')
+  })
+
+  test('过期播放失败不会自动推进队列或覆盖新歌曲状态', async () => {
+    const secondSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([localSong, secondSong]))
+    const { clearQueue, enqueueSongs, playSong, playerState } = await import('@/features/player/controller')
+    clearQueue()
+    enqueueSongs([localSong, secondSong])
+
+    let rejectFirst!: (error: Error) => void
+    const firstPlay = new Promise<void>((_, reject) => { rejectFirst = reject })
+    nativePlayer.play.mockImplementationOnce(() => firstPlay).mockResolvedValueOnce(undefined)
+
+    const firstRequest = playSong(localSong)
+    await vi.waitFor(() => expect(nativePlayer.play).toHaveBeenCalledTimes(1))
+    await playSong(secondSong)
+    rejectFirst(new Error('旧请求失败'))
+    await firstRequest
+
+    expect(nativePlayer.play).toHaveBeenCalledTimes(2)
+    expect(playerState.currentSong?.id).toBe(secondSong.id)
+    expect(playerState.status).toBe('playing')
+    expect(playerState.errorMessage).toBeNull()
+  })
+
+  test('继续失败恢复时不会清理下一首媒体会话', async () => {
+    const secondSong: SongItem = {
+      ...localSong,
+      id: 'song-local-2',
+      path: 'album/second.mp3',
+      uri: 'content://music/second',
+      title: '第二首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([localSong, secondSong]))
+    const { MediaSession } = await import('@capgo/capacitor-media-session')
+    const { clearQueue, enqueueSongs, playSong, playerState } = await import('@/features/player/controller')
+    clearQueue()
+    enqueueSongs([localSong, secondSong])
+    await flushPromises()
+    vi.mocked(MediaSession.setPlaybackState).mockClear()
+    vi.mocked(MediaSession.setMetadata).mockClear()
+    nativePlayer.play.mockRejectedValueOnce(new Error('第一首失败')).mockResolvedValueOnce(undefined)
+
+    await playSong(localSong)
+
+    expect(playerState.currentSong?.id).toBe(secondSong.id)
+    expect(MediaSession.setPlaybackState).not.toHaveBeenCalledWith({ playbackState: 'none' })
+    expect(MediaSession.setMetadata).not.toHaveBeenCalledWith(expect.objectContaining({ title: '' }))
   })
 
   test('本地标签补扫超时后不会一直停留在扫描状态', async () => {
@@ -2342,6 +2465,50 @@ describe('播放队列与循环/随机模式', () => {
     expect(advanced?.id).toBe(peeked?.id)
   })
 
+  test('失败恢复按当前 shuffleOrder 推进并跳过已尝试歌曲', async () => {
+    const thirdSong: SongItem = {
+      ...localSong,
+      id: 'song-local-3',
+      path: 'album/third.mp3',
+      uri: 'content://music/third',
+      title: '第三首本地歌曲',
+    }
+    localStorage.setItem('muses:songs', JSON.stringify([localSong, webDavSong, thirdSong]))
+    const {
+      advanceToNextRecoveryCandidate,
+      enqueueSongs,
+      queueState,
+      selectSongAtIndex,
+      toggleShuffle,
+    } = await import('@/features/player/queue')
+    enqueueSongs([localSong, webDavSong, thirdSong])
+    toggleShuffle()
+    selectSongAtIndex(0)
+    const activeOrder = queueState.items.map((song) => song.id)
+
+    const next = advanceToNextRecoveryCandidate(new Set([activeOrder[0]]))
+
+    expect(next?.id).toBe(activeOrder[1])
+    expect(queueState.currentIndex).toBe(1)
+  })
+
+  test('失败恢复遇到缺失曲库记录时有界跳过且不会重复候选', async () => {
+    localStorage.setItem('muses:songs', JSON.stringify([localSong]))
+    localStorage.setItem('muses:queue', JSON.stringify({
+      items: [{ songId: 'missing-song' }, { songId: localSong.id }],
+      originalOrder: [{ songId: 'missing-song' }, { songId: localSong.id }],
+      shuffleOrder: null,
+    }))
+    const { advanceToNextRecoveryCandidate, queueState } = await import('@/features/player/queue')
+
+    const candidate = advanceToNextRecoveryCandidate(new Set())
+    expect(candidate?.id).toBe(localSong.id)
+    expect(queueState.currentIndex).toBe(1)
+
+    expect(advanceToNextRecoveryCandidate(new Set([localSong.id]))).toBeNull()
+    expect(queueState.currentIndex).toBe(1)
+  })
+
   test('controller 暴露 queue 状态和模式切换', async () => {
     seedSongs()
     localStorage.setItem('muses:player-config', JSON.stringify({ repeatMode: 'all', shuffleEnabled: false }))
@@ -2386,6 +2553,18 @@ describe('播放队列与循环/随机模式', () => {
 
   test('playSong 自动同步当前歌曲到队列索引', async () => {
     seedSongs()
+    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage')
+    vi.mocked(SecureStorage.get).mockResolvedValue('secret-password')
+    localStorage.setItem('muses:sources', JSON.stringify([{
+      id: 'source-webdav',
+      type: 'webdav',
+      name: '远程音乐',
+      serverUrl: 'https://example.com/dav',
+      username: 'alice',
+      path: '/music',
+      credentialKey: 'muses:webdav-password:source-webdav',
+      createdAt: '2026-07-07T00:00:00.000Z',
+    }]))
     const { enqueueSongs, playSong, queueState } = await import('@/features/player/controller')
     enqueueSongs([localSong, webDavSong])
 

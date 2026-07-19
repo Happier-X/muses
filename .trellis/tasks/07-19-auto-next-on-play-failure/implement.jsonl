@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/features-player.md","reason":"播放器状态机、generation、队列推进、媒体会话、缓冲与敏感信息安全契约。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"TypeScript 构建、lint 和播放器单元测试要求。"}

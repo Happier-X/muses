@@ -22,6 +22,7 @@ import {
 } from './types'
 import {
   advanceToNext,
+  advanceToNextRecoveryCandidate as selectRecoveryCandidate,
   advanceToPrevious,
   clearQueue as clearQueueInternal,
   enqueueSong as enqueueSongInternal,
@@ -769,7 +770,14 @@ const isSafePlaybackError = (message: string): boolean => {
   return SAFE_PLAYBACK_ERRORS.has(message)
 }
 
-export const playSong = async (song: SongItem): Promise<void> => {
+interface PlaybackRecoveryContext {
+  attemptedSongIds: Set<string>
+}
+
+const playSongInternal = async (
+  song: SongItem,
+  recoveryContext?: PlaybackRecoveryContext,
+): Promise<void> => {
   const latestSong = getLatestSongSnapshot(song)
 
   syncCurrentIndex(latestSong.id)
@@ -827,9 +835,23 @@ export const playSong = async (song: SongItem): Promise<void> => {
     const message = error instanceof Error ? error.message : ''
     setUserSafeError(isSafePlaybackError(message) ? message : '播放失败，请稍后重试。')
     resetBufferState()
-    // loading 会乐观映射为 playing；播放失败时必须清掉媒体会话，避免残留通知/封面回调。
+
+    const activeRecovery = recoveryContext ?? { attemptedSongIds: new Set<string>() }
+    activeRecovery.attemptedSongIds.add(latestSong.id)
+    const nextSong = selectRecoveryCandidate(activeRecovery.attemptedSongIds)
+    if (nextSong) {
+      // 继续恢复时不清媒体会话，避免异步 clear 覆盖下一首刚写入的 metadata。
+      await playSongInternal(nextSong, activeRecovery)
+      return
+    }
+
+    // loading 会乐观映射为 playing；仅恢复链终止时清掉媒体会话。
     void clearMediaSession().catch(() => undefined)
   }
+}
+
+export const playSong = async (song: SongItem): Promise<void> => {
+  await playSongInternal(song)
 }
 
 export const pausePlayback = async (): Promise<void> => {
