@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 70
-- **Last Active**: 2026-07-18
+- **Total Sessions**: 71
+- **Last Active**: 2026-07-20
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~441 | Active |
+| `journal-2.md` | ~483 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 71 | 2026-07-20 | 完成播放与歌词问题修复及依赖升级 | `640a91f`, `01612b4`, `e0f2373`, `836b018`, `d5c515f`, `0eefcf9`, `158d1e4`, `2c112ea`, `06c475d`, `a1e3c7a` | `main` |
 | 70 | 2026-07-18 | 修复 #32 空扫描残留旧歌曲 | `06c475d` | `main` |
 | 69 | 2026-07-18 | 修复 #31 音源页竖屏卡片重叠 | `a1e3c7a`, `3124fa4` | `main` |
 | 68 | 2026-07-17 | 发布 v0.1.6 | `28d1acc` | `main` |

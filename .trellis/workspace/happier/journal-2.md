@@ -439,3 +439,45 @@ SourcesPage 虚拟列表接入 measureElement/data-index，行间距改为 paddi
 ### Next Steps
 
 - None - task complete
+
+
+## Session 71: 完成播放与歌词问题修复及依赖升级
+
+**Date**: 2026-07-20
+**Task**: 完成播放与歌词问题修复及依赖升级
+**Branch**: `main`
+
+### Summary
+
+完成音源列表删除、编辑、扫描对账和布局修复；完成歌词活跃行居中、歌词翻译、进度条交互、播放模式图标和播放失败自动下一首；完成已验证的依赖升级与 v0.1.7 发布。相关 GitHub issues 已关闭，父任务及子任务已归档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `640a91f` | (see git log) |
+| `01612b4` | (see git log) |
+| `e0f2373` | (see git log) |
+| `836b018` | (see git log) |
+| `d5c515f` | (see git log) |
+| `0eefcf9` | (see git log) |
+| `158d1e4` | (see git log) |
+| `2c112ea` | (see git log) |
+| `06c475d` | (see git log) |
+| `a1e3c7a` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
