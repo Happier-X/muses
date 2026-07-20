@@ -1,0 +1,33 @@
+{
+  "id": "continue-fix-playback-lyrics-issues",
+  "name": "continue-fix-playback-lyrics-issues",
+  "title": "继续修复播放与歌词 issues",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-07-19",
+  "completedAt": "2026-07-20",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-19-fix-lyrics-active-line",
+    "07-19-fix-lyrics-translation",
+    "07-19-fix-progress-bar-seek",
+    "07-19-fix-player-mode-icons",
+    "07-19-auto-next-on-play-failure",
+    "07-19-upgrade-all-dependencies"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
