@@ -156,6 +156,17 @@ Avoid:
 
 ---
 
+## 依赖升级约定
+
+依赖升级必须按兼容组分层验证，不能只改版本号：
+
+- Capacitor 核心与插件保持同一主版本；Ionic Vue 与 `ionicons` 采用其声明的兼容组合，避免安装两套图标运行时。
+- Vite、Vue 插件、legacy 插件应作为一组升级；Vitest 与 jsdom、ESLint 与 Vue/TypeScript 配置链也应分别成组验证。
+- 每组升级后运行 lint、build 和完整 unit test；最终执行 `npm ci` 验证锁文件可干净重建，并运行 `npx cap sync android` 检查原生插件同步。
+- 跨主版本若失败，任务记录必须保留具体命令和兼容性证据，不得为了满足“最新”强行破坏可构建组合。
+- 当前已验证组合包括 Vite 8 + plugin-vue 6 + plugin-legacy 8、Vitest 4 + jsdom 29、Cypress 15（Node 22/24）。TypeScript 7 与当前 vue-tsc/ESLint 配置链不兼容时应保留 TypeScript 5.9；ESLint 10 需独立迁移 flat config；Vue Router 5 需单独验证 Ionic Router 集成。
+- Android APK 最终构建需要 JDK 21；本地无 Java 时必须通过 CI 验证，不能把 `cap sync` 等同于 APK 编译成功。
+
 ## Recommended Verification Before Finishing Frontend Work
 
 For routine frontend edits:
