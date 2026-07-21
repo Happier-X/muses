@@ -485,9 +485,14 @@ const readRangeEventValue = (event: Event): number => {
   return Number.NaN
 }
 
-/** 拖动中视觉 clamp 到已缓冲终点，并用本地 preview 驱动 ion-range value。 */
+/** 拖动中视觉 clamp 到已缓冲终点，并用本地 preview 驱动 ion-range value。
+ * 仅用户进度条手势写入 preview：ion-range 在 value 属性变化时也会 emit ionInput，
+ * 若误写 preview 会盖住 playerState.position，导致进度条冻结（#47）。
+ */
 const onSeekInput = (event: Event) => {
-  lockSeekGesture()
+  if (!seekGestureLocked.value) {
+    return
+  }
   const requested = readRangeEventValue(event)
   if (!Number.isFinite(requested)) {
     return

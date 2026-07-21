@@ -3268,4 +3268,104 @@ describe('已缓冲进度与 seek 限制', () => {
     // 业务缓冲状态可保留；UI 不再画缓冲层 / 注入 --buffered
     expect(wrapper.html()).not.toContain('--buffered')
   })
+
+  test('playing 时轮询 getCurrentTime 推进 position（#47）', async () => {
+    vi.useFakeTimers()
+    vi.resetModules()
+    let tick = 0
+    nativeAudio.getCurrentTime.mockImplementation(async () => {
+      tick += 1
+      return { currentTime: tick * 0.5 }
+    })
+    nativeAudio.isPlaying.mockResolvedValue({ isPlaying: true })
+
+    const { AudioPlayerNative } = await vi.importActual<typeof import('@/features/player/native')>('@/features/player/native')
+
+    const positions: number[] = []
+    await AudioPlayerNative.addListener('stateChange', (state) => {
+      if (typeof state.position === 'number') {
+        positions.push(state.position)
+      }
+    })
+
+    await AudioPlayerNative.play({
+      sourceType: 'local',
+      songId: 'song-poll-pos',
+      uri: 'file:///music/poll.mp3',
+      title: '轮询进度',
+    })
+
+    await vi.advanceTimersByTimeAsync(800)
+    await flushPromises()
+
+    expect(nativeAudio.getCurrentTime).toHaveBeenCalled()
+    expect(positions.some((p) => p > 0)).toBe(true)
+
+    await AudioPlayerNative.pause()
+    const callsAfterPause = nativeAudio.getCurrentTime.mock.calls.length
+    await vi.advanceTimersByTimeAsync(800)
+    await flushPromises()
+    // pause 后停止轮询
+    expect(nativeAudio.getCurrentTime.mock.calls.length).toBe(callsAfterPause)
+
+    await AudioPlayerNative.stop()
+    vi.useRealTimers()
+  })
+
+  test('非手势 ionInput 不冻结进度条 value（#47）', async () => {
+    vi.resetModules()
+    const { initializePlayer, playSong, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
+    await playSong({ ...localSong, duration: 100 })
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: {
+      status: string
+      currentSongId?: string
+      position?: number
+      duration?: number
+    }) => void
+
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      position: 10,
+      duration: 100,
+    })
+    expect(playerState.position).toBe(10)
+
+    const { default: FreshPlayerPage } = await import('@/views/PlayerPage.vue')
+    const wrapper = mount(FreshPlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          IonIcon: true,
+          IonRange: {
+            name: 'IonRange',
+            props: ['min', 'max', 'step', 'value', 'disabled'],
+            emits: ['ionInput', 'ionChange'],
+            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="value" :disabled="disabled" @input="$emit('ionInput', { detail: { value: Number($event.target.value) } })" @change="$emit('ionChange', { detail: { value: Number($event.target.value) } })" />`,
+          },
+        },
+      },
+    })
+
+    await wrapper.vm.$nextTick()
+    const range = wrapper.findComponent({ name: 'IonRange' })
+    // 仅 emit ionInput，避免 setValue 连带 ionChange 误开 seek 手势锁
+    await range.vm.$emit('ionInput', { detail: { value: 40 } })
+    await nextTick()
+
+    // 若误写 seekPreview，后续 position 推进将无法驱动 range value prop
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      position: 25,
+      duration: 100,
+    })
+    await nextTick()
+    expect(playerState.position).toBe(25)
+    expect(range.props('value')).toBe(25)
+  })
 })

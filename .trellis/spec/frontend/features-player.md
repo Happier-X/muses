@@ -39,6 +39,7 @@
      - `previoustrack` → `playPreviousFromQueue`
      - `nexttrack` → `playNextFromQueue`
    - 每次播放状态、进度变化后，必须同步到 `setPlaybackState` / `setPositionState`。
+   - **进度推进不得只信插件 `currentTime` 事件**：`native.ts` 在 `playing` 期间须以 `getCurrentTime` 轮询兜底（约 250ms）；`play`/`resume`/`seek`(仍 playing) 启动，`pause`/`stop`/`unload` 停止。不改 `node_modules/@capgo/*`（#47）。
    - song 切换时，同步 `setMetadata`（title/artist/album/cover）。
    - **`loading`/`finished` 不得映射为 `none`**：应保持 active（当前实现映射为 `playing`），否则插件会 stop 前台服务再重建，造成通知延迟/闪断（含队列自动下一首窗口）。
    - **metadata 两段式更新**：先推 title/artist/album + **占位清空 artwork**（1×1 中性 JPEG `data:`），封面经 `prepareArtworkDataUrl` 转 `data:` 后二次 `setMetadata`；用 token 丢弃过期封面回调。
@@ -167,6 +168,8 @@
 - **禁止**WebDAV 播放增长中的本地 `.partial` / 未完成 `file://` 文件；未完整缓存时必须使用远程 URL + Basic Auth headers 直链播放。
 - **禁止**把 `prepareWebDavAudioFile` / 渐进下载作为播放路径；完整缓存命中才允许 `file://` 本地播放。
 - **禁止**缓冲未知时画假缓冲条；播放页进度使用 `ion-range`，不再自绘缓冲色条层，也不再注入 `--buffered` UI 变量。
+- **禁止**仅依赖 Capgo `currentTime` 事件驱动 UI 进度：playing 时必须有 `getCurrentTime` 轮询兜底，避免 timer 停转后条与时间冻结（#47）。
+- **禁止**在无用户进度条手势时因 `ion-range` 的 programmatic `ionInput` 写入 `seekPreviewPosition`，否则会盖住 `playerState.position` 导致填充不前进（#47）。
 - **禁止**预取密码进入 player state / localStorage / 日志；预取失败不得影响当前播放。
 - **禁止**在线封面把 `data:` / base64 / 远程 URL 写入曲库；禁止覆盖已有安全封面；匹配失败不得影响播放。
 
@@ -224,6 +227,8 @@
   修复：原生侧 `file://` 优先 `FileInputStream`。
 - **seek 到未缓冲区间后伪 finished 误切下一曲**  
   修复：源头限制 seek ≤ `bufferedPosition`；`seekPlayback` 成功后开启保护窗；`applyNativeState` 仅在非保护窗且接近自然结尾时 `handlePlaybackFinished`。
+- **播放中进度条/时间不前进，seek 后仍冻结（#47）**  
+  修复：`native.ts` playing 轮询 `getCurrentTime`；`PlayerPage` 仅在 `seekGestureLocked` 时写 seek preview，忽略 ion-range value 变化触发的伪 `ionInput`。
 - **缓冲串曲 / 切歌后仍显示上一首缓冲条**  
   修复：`playSong` / `stopPlayback` / 播放失败均 `resetBufferState()`；继续调用原生 `cancelBufferSession`，清理旧 APK 或遗留会话启动的渐进下载。
 - **没有 `npx cap sync android` 就部署**：前端代码改动不会反映到 APK  

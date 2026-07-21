@@ -95,6 +95,9 @@ let bridgeBufferListenerReady = false
 let nativeListenerHandles: PluginListenerHandle[] = []
 let bridgeBufferListenerHandle: PluginListenerHandle | null = null
 const stateListeners = new Set<(state: AudioPlayerNativeState) => void>()
+/** playing 时轮询 getCurrentTime，兜底插件 currentTime 事件丢失/timer 停转（#47） */
+const POSITION_POLL_MS = 250
+let positionPollTimer: ReturnType<typeof setInterval> | null = null
 
 const logNativeAudio = (message: string, data?: unknown): void => {
   // 保留诊断日志，Android WebView 会输出到 logcat，方便排查 Capgo 插件链路。
@@ -183,8 +186,12 @@ const ensureNativeListeners = async (): Promise<void> => {
       if (currentAssetId && event.assetId !== currentAssetId) {
         return
       }
-      currentPosition = normalizePlaybackTime(event.currentTime) || currentPosition
-      currentDuration = normalizePlaybackTime(event.duration) || currentDuration
+      if (typeof event.currentTime === 'number' && Number.isFinite(event.currentTime) && event.currentTime >= 0) {
+        currentPosition = normalizePlaybackTime(event.currentTime)
+      }
+      if (typeof event.duration === 'number' && Number.isFinite(event.duration) && event.duration >= 0) {
+        currentDuration = normalizePlaybackTime(event.duration) || currentDuration
+      }
       reconcileBufferedWithDuration()
       emitCurrentState(mapPlaybackStatus(event))
     }),
@@ -275,10 +282,50 @@ const reconcileBufferedWithDuration = (): void => {
 }
 
 const normalizePlaybackTime = (value: unknown): number => {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0
+}
+
+const stopPositionPolling = (): void => {
+  if (positionPollTimer != null) {
+    clearInterval(positionPollTimer)
+    positionPollTimer = null
+  }
+}
+
+const pollPlaybackPosition = async (): Promise<void> => {
+  const assetId = currentAssetId
+  if (!assetId || currentStatus !== 'playing') {
+    return
+  }
+
+  try {
+    const result = await NativeAudio.getCurrentTime({ assetId }).catch(() => null)
+    if (!result || currentAssetId !== assetId || currentStatus !== 'playing') {
+      return
+    }
+    const next = normalizePlaybackTime(result.currentTime)
+    // 与事件路径合并：有推进或 seek 回退时都写回
+    if (next !== currentPosition) {
+      currentPosition = next
+      emitCurrentState('playing')
+    }
+  } catch {
+    // 轮询失败不打断播放
+  }
+}
+
+const startPositionPolling = (): void => {
+  stopPositionPolling()
+  if (!currentAssetId || currentStatus !== 'playing') {
+    return
+  }
+  positionPollTimer = setInterval(() => {
+    void pollPlaybackPosition()
+  }, POSITION_POLL_MS)
 }
 
 const unloadCurrentAsset = async (): Promise<void> => {
+  stopPositionPolling()
   const assetId = currentAssetId
   if (!assetId) {
     return
@@ -479,7 +526,9 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
       await NativeAudio.setVolume({ assetId, volume }).catch(() => undefined)
       logNativeAudio('play:done', { assetId, volume })
       emitCurrentState('playing')
+      startPositionPolling()
     } catch (error) {
+      stopPositionPolling()
       logNativeAudio('play:error', error instanceof Error ? { message: error.message, stack: error.stack } : error)
       throw error
     }
@@ -499,6 +548,7 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     if (!currentAssetId) {
       return
     }
+    stopPositionPolling()
     await NativeAudio.pause({ assetId: currentAssetId })
     emitCurrentState('paused')
   },
@@ -509,9 +559,11 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     }
     await NativeAudio.resume({ assetId: currentAssetId })
     emitCurrentState('playing')
+    startPositionPolling()
   },
 
   async stop() {
+    stopPositionPolling()
     await cancelActiveBufferSession(currentSongId)
     await unloadCurrentAsset()
     currentAssetId = null
@@ -532,6 +584,10 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     await NativeAudio.setCurrentTime({ assetId: currentAssetId, time: options.position })
     currentPosition = options.position
     emitCurrentState(currentStatus)
+    // seek 不保证插件重启 timer；playing 时确保轮询兜底（#47）
+    if (currentStatus === 'playing') {
+      startPositionPolling()
+    }
   },
 
   async getState() {

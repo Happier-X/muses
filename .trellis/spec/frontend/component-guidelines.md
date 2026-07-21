@@ -351,6 +351,7 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
 - **进度条手势隔离**：`.progress-area` 必须 `@touchstart.stop` / `@pointerdown.stop`，并配合短 debounce 的 `seekGestureLocked`；seek 期间/刚结束后禁止 `playPreviousFromQueue` / `playNextFromQueue`，也禁止横向切换 `activePanel`，避免松手点穿到上一曲/下一曲或误切歌词面板。`isNativeInteractiveEvent` 必须识别 `ion-range` / `.progress-range`（不仅是原生 `input`）。
 - **进度条使用 `ion-range`（无可见圆点）**：
   - 控件：`<ion-range class="progress-range">`，`min=0`，`max=duration`（duration 为 0 时 max 兜底为 1 并禁用），`step` 细粒度（如 `0.1`），`value` 绑定 `effectiveSeekPosition`（拖动 preview 优先，否则 `playerState.position`）。
+  - **`onSeekInput` 仅在 `seekGestureLocked` 为 true 时写 preview**：`ion-range` 在 `value` 属性变化时会 emit `ionInput`；无手势锁时必须忽略，否则 preview 冻住填充、播放进度看似不走（#47）。
   - 隐藏 knob：`--knob-size: 0`、`--knob-box-shadow: none`，必要时透明 `--knob-background`；桌面与窄屏均不可见圆点，但轨道仍可点击/拖动 seek。
   - 轨道视觉用 ion-range 自带 bar：`--bar-background`（未播放）、`--bar-background-active`（已播放）、`--bar-height`；**不再维护** `.progress-track-buffered` / 自绘三层缓冲 DOM，也不再注入 UI 用的 `--buffered` CSS 变量。
   - 事件：`ionInput` → 更新 preview + `seekGestureLocked`；`ionChange` → `seekPlayback` + 解锁调度。缓冲已知时 UI 侧仍将目标 clamp 到 `bufferedPosition`，越界轻提示「缓冲中」；`seekPlayback` 业务 clamp/拒绝语义不变。

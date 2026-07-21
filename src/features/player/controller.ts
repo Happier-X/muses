@@ -251,7 +251,7 @@ export const initializePlayer = async (): Promise<void> => {
 }
 
 const normalizePlaybackTime = (value: unknown): number => {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0
 }
 
 /** 将原生/业务层缓冲秒数归一；未知或非法 → null（不画假缓冲条）。 */

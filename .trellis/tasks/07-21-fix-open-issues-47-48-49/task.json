@@ -1,0 +1,30 @@
+{
+  "id": "fix-open-issues-47-48-49",
+  "name": "fix-open-issues-47-48-49",
+  "title": "修复 open issues #47 #48 #49",
+  "description": "父任务：进度条同步、沉浸式提示清理、播放状态恢复",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-07-21",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-21-fix-progress-bar-sync",
+    "07-21-hide-immersive-enrichment-toasts",
+    "07-21-restore-playback-on-reopen"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
