@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "进度条手势隔离、播放页进度 UI 约定，需改为 ion-range"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "seekPlayback、缓冲状态与播放页交互边界"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "playerState.bufferedPosition 与 seek 上限语义"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端质量与禁止模式"}
