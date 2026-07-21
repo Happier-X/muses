@@ -521,3 +521,42 @@ SourcesPage 虚拟列表接入 measureElement/data-index，行间距改为 paddi
 
 - None - release complete
 
+
+## Session: 进度条改用 ion-range 隐藏圆点
+
+**Date**: 2026-07-21
+**Task**: 07-21-hide-progress-thumb（已归档）
+**Branch**: `main`
+
+### Summary
+
+关闭 GitHub #41：播放页进度条由原生 `input[type=range]` 改为 Ionic `ion-range`，隐藏 knob 圆点，去掉自绘三层缓冲色条 DOM；保留拖动/点击 seek、手势隔离与 `seekPlayback` 缓冲 clamp 业务语义。
+
+### Main Changes
+
+- `PlayerPage.vue`：`<ion-range class="progress-range">`，`--knob-size: 0` 等隐藏圆点
+- 去掉 `.progress-track-*` 自绘缓冲层；`ionInput`/`ionChange` 接线 seek
+- `isNativeInteractiveEvent` 识别 `ion-range` / `.progress-range`
+- 单测与 frontend spec（component / player / state）同步
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d1662e4` | fix(player): 播放页进度条改用 ion-range 并隐藏圆点 |
+| archive | chore(task): archive 07-21-hide-progress-thumb |
+
+### Testing
+
+- lint / vue-tsc 通过
+- `tests/unit/player.spec.ts` 100 passed
+- GitHub #41 closed
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
