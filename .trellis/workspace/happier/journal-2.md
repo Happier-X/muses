@@ -560,3 +560,43 @@ SourcesPage 虚拟列表接入 measureElement/data-index，行间距改为 paddi
 
 - None - task complete
 
+
+## Session: ion-icon 图标库换为 Lucide
+
+**Date**: 2026-07-21
+**Task**: 07-21-ion-icon-lucide（已归档）
+**Branch**: `main`
+
+### Summary
+
+关闭 GitHub #42：业务侧 `ion-icon` 图标数据从 `ionicons/icons` 改为 Lucide；保留 `ion-icon` 组件与现有 slot 用法。新增 `src/icons/ion-lucide.ts` 适配层。
+
+### Main Changes
+
+- 依赖新增 `lucide@^1.25.0`
+- 适配层：Lucide IconNode → data-URI SVG，供 `ion-icon :icon`
+- 替换 MiniPlayer / Player / Queue / Tabs / Songs / Playlists / PlaylistDetail / Sources 导入
+- 播放模式图标可区分（Repeat/Repeat1、List/Shuffle）
+- frontend spec 同步 Icon Conventions
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `713f98a` | feat(ui): 业务 ion-icon 图标改用 Lucide |
+| archive | chore(task): archive 07-21-ion-icon-lucide |
+
+### Testing
+
+- lint / build / unit 261 passed
+- 业务代码无 `from 'ionicons/icons'`
+- GitHub #42 closed
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
