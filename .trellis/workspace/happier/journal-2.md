@@ -481,3 +481,43 @@ SourcesPage 虚拟列表接入 measureElement/data-index，行间距改为 paddi
 ### Next Steps
 
 - None - task complete
+
+## Session: 发布 v0.1.8
+
+**Task**: 07-21-release-v0-1-8（已归档）
+
+### Summary
+
+将 v0.1.7 之后的依赖与工具链升级发布为 Android v0.1.8。推送 tag 后 GitHub Actions 成功构建并上传双包名签名 APK。
+
+### Main Changes
+
+- `package.json` / `package-lock.json` version → `0.1.8`
+- `android/app/build.gradle`：`versionCode 18`，`versionName "0.1.8"`
+- 新增 `changelog/v0.1.8.md`
+- 修复 Linux CI `npm ci`：固定 `picomatch` 解析（`overrides` + devDependency）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4bd43fb` | chore(release): v0.1.8 |
+| `e6d8b53` | fix(release): 同步 package-lock 版本至 0.1.8 |
+| `0c54226` | fix(deps): 重建 package-lock 以修复 npm ci 与 picomatch 不同步 |
+| `0bd5070` | fix(deps): 固定 picomatch 解析以兼容 Linux npm ci |
+
+### Testing
+
+- 本地 lint / build / unit test（261）通过
+- GitHub Release workflow success
+- 产物：`muses-v0.1.8.apk`、`muses-v0.1.8-mi.apk`
+- Release: https://github.com/Happier-X/muses/releases/tag/v0.1.8
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - release complete
+

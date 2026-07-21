@@ -165,6 +165,16 @@ Avoid:
 - 跨主版本若失败，任务记录必须保留具体命令和兼容性证据，不得为了满足“最新”强行破坏可构建组合。
 - 当前已验证组合包括 Vite 8 + plugin-vue 6 + plugin-legacy 8、Vitest 4 + jsdom 29、Cypress 15（Node 22/24）、ESLint 10 flat config + eslint-plugin-vue 10 + `@vue/eslint-config-typescript` 14。TypeScript 7 与当前 vue-tsc 3 仍因 `typescript/lib/tsc` 未导出而失败，应保留 TypeScript 5.9 + vue-tsc 2；Vue Router 5 被 `@ionic/vue-router@8` 的 `vue-router@^4.5.0` 依赖锁死，需等 Ionic 放宽 peer 后再升。
 - Android APK 最终构建需要 JDK 21；本地无 Java 时必须通过 CI 验证，不能把 `cap sync` 等同于 APK 编译成功。
+- **发布时必须同步 `package-lock.json` 的根 `version`**：仅改 `package.json` 的 `version` 而不改锁文件，会在 GitHub Actions（Linux + Node 22 `npm ci`）失败。
+- **`picomatch` 多版本并存**：Vite 8 / vitest / tinyglobby 需要 `picomatch@4`，`micromatch` 需要 `picomatch@2`。Windows 上本地 `npm ci` 可能通过，但 Linux CI 会对锁文件报 `Invalid: lock file's picomatch@2.3.2 does not satisfy picomatch@4.0.5`。发布或依赖升级后应用 `package.json` `overrides` + 直接 `devDependencies.picomatch@4.0.5` 固定解析，并在干净目录再跑一次 `npm ci`；最终以 Release workflow 的 `npm ci` 为准。
+
+## 发布约定（v* tag）
+
+1. 同步三处版本：`package.json`、`package-lock.json` 根 version、`android/app/build.gradle` 的 `versionName`；`versionCode` 严格递增。
+2. 新增 `changelog/vX.Y.Z.md`（中文，只写已合并内容）。
+3. 本地：`npm ci`、`npm run lint`、`npm run build`、`npm run test:unit -- --run`、`git diff --check`。
+4. 提交 `chore(release): vX.Y.Z` 后打 tag 并推送；确认 GitHub Release 含 `muses-vX.Y.Z.apk` 与 `muses-vX.Y.Z-mi.apk`。
+5. 若 Actions 在 `npm ci` 失败，先修锁文件/overrides，再移 tag 到修复提交后重推，不要假设本地 Windows `npm ci` 等同于 Linux CI。
 
 ## Recommended Verification Before Finishing Frontend Work
 
