@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "质量检查入口"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "对照 FAB 滚动与主控 fill 规范"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/测试/一致性检查约定"}
+{"file": ".trellis/tasks/07-21-fix-jump-current-and-fill-icons/prd.md", "reason": "验收标准核对"}
+{"file": ".trellis/tasks/07-21-fix-jump-current-and-fill-icons/design.md", "reason": "实现是否偏离设计决策"}

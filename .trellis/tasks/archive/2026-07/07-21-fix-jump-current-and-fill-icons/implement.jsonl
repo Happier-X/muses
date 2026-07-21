@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端入口与开发前检查清单"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "SongsPage FAB 滚动、MiniPlayer/PlayerPage 主控图标约定"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器相关行为边界，避免误改控制器逻辑"}
+{"file": ".trellis/tasks/07-21-fix-jump-current-and-fill-icons/prd.md", "reason": "需求与验收（#43/#45）"}
+{"file": ".trellis/tasks/07-21-fix-jump-current-and-fill-icons/design.md", "reason": "scroll-margin 与 fill 导出策略"}
+{"file": ".trellis/tasks/07-21-fix-jump-current-and-fill-icons/implement.md", "reason": "有序实现清单与验证命令"}
