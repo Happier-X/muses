@@ -201,7 +201,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonButton, IonIcon, IonRange } from '@ionic/vue'
-import { languageOutline, listOutline, pause, pauseCircleOutline, play, playCircleOutline, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from '@/icons/ion-lucide'
+import { languageOutline, list, listOutline, pause, pauseCircleOutline, play, playCircleOutline, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from '@/icons/ion-lucide'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
@@ -231,7 +231,7 @@ const repeatModeLabel = computed(() => queueState.repeatMode === 'one' ? '单曲
 const repeatIcon = computed(() => queueState.repeatMode === 'one' ? repeat : repeatOutline)
 const shuffleModeLabel = computed(() => queueState.shuffleEnabled ? '随机播放' : '顺序播放')
 const shuffleIcon = computed(() => queueState.shuffleEnabled ? shuffle : listOutline)
-const listIcon = listOutline
+const listIcon = list
 const languageIcon = languageOutline
 const playCircleIcon = playCircleOutline
 const pauseCircleIcon = pauseCircleOutline

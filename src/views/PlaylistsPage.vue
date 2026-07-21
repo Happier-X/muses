@@ -34,7 +34,7 @@
             @click="openDetail(item.id)"
           >
             <div class="playlist-icon" slot="start" aria-hidden="true">
-              <ion-icon :icon="listOutline" />
+              <ion-icon :icon="list" />
             </div>
             <ion-label>
               <h2>{{ item.name }}</h2>
@@ -101,7 +101,7 @@ import {
   type AlertButton,
   type AlertInput,
 } from '@ionic/vue'
-import { addOutline, ellipsisVertical, listOutline } from '@/icons/ion-lucide'
+import { addOutline, ellipsisVertical, list } from '@/icons/ion-lucide'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,

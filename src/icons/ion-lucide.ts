@@ -13,8 +13,8 @@
  * | playSkipBack（fill）  | SkipBack         | 上一曲主控     |
  * | playSkipForward（fill）| SkipForward     | 下一曲主控     |
  * | shuffle               | Shuffle          | 随机播放       |
- * | listOutline（顺序）   | List             | 顺序播放模式   |
- * | list（队列/歌单）     | ListMusic        | 队列/歌单导航  |
+ * | listOutline（顺序）   | List             | 仅顺序播放模式（shuffle off） |
+ * | list（队列/歌单）     | ListMusic        | 打开队列；歌单 Tab/列表占位   |
  * | repeatOutline（列表） | Repeat           | 列表循环       |
  * | repeat（单曲）        | Repeat1          | 单曲循环       |
  * | musicalNotes*         | Music            | 音乐占位/歌曲  |
@@ -144,9 +144,9 @@ export const pauseCircleOutline = lucideToIonIcon(PauseCircle)
 // —— 播放模式（状态切换必须用不同图标）——
 /** 随机播放 */
 export const shuffle = lucideToIonIcon(Shuffle)
-/** 顺序播放 / 通用列表线框 */
+/** 仅顺序播放模式（shuffle off）；勿用于队列/歌单 */
 export const listOutline = lucideToIonIcon(List)
-/** 队列、歌单导航 */
+/** 打开队列；歌单 Tab / 列表占位 */
 export const list = lucideToIonIcon(ListMusic)
 /** 列表循环 */
 export const repeatOutline = lucideToIonIcon(Repeat)

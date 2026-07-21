@@ -110,8 +110,28 @@ Also prefer the `@/` alias for application imports from `src/`:
 - 播放模式状态图标必须可区分：`repeatOutline` vs `repeat`、`listOutline` vs `shuffle`，不得两状态共用同一图标
 - 尺寸与颜色仍由现有 CSS / `color` 控制；适配层默认 Lucide outline（viewBox 24、`fill: none` + `stroke: currentColor`）
 - **播放主控 fill**：`play` / `pause` / `playSkipBack` / `playSkipForward` 经 `lucideToIonIcon(..., { variant: 'fill' })` 导出为实心（`fill: currentColor`，并保留同色 stroke 以免 Skip 竖线等无面积 path 消失），供 `MiniPlayer` 播放/暂停与 `PlayerPage` 主三键使用
-- **次级仍 outline**：列表「播放全部」用 `playOutline`（与 `play` 解耦，保持线框）；模式键（shuffle/repeat/list）、队列、返回、翻译、歌词页 `playCircle`/`pauseCircle` 等继续 outline
+- **次级仍 outline**：列表「播放全部」用 `playOutline`（与 `play` 解耦，保持线框）；模式键（`shuffle` / `repeat*` / 顺序用 `listOutline`）、队列入口（`list`）、返回、翻译、歌词页 `playCircle`/`pauseCircle` 等继续 outline
 - 主控按钮仍为 `fill="clear"` 纯图标，不得为 fill 图标另加 solid 圆底阴影
+
+### 同语义同图标（list vs listOutline）
+
+适配层用两个 Lucide 图标区分历史 ionicons 名；业务侧必须按语义选用，**不得混用**：
+
+| 语义 | 导出符号 | Lucide | 调用点示例 |
+|------|----------|--------|------------|
+| 打开队列 | `list` | ListMusic | `MiniPlayer` 队列键、`PlayerPage` 队列键 |
+| 歌单导航 / 歌单列表占位 | `list` | ListMusic | `TabsPage` 歌单 Tab、`PlaylistsPage` 行图标 |
+| 顺序播放模式（shuffle off） | `listOutline` | List | `PlayerPage` 的 `shuffleIcon` 非随机态 |
+| 随机播放模式 | `shuffle` | Shuffle | `PlayerPage` 的 `shuffleIcon` 随机态 |
+| 列表循环 / 单曲循环 | `repeatOutline` / `repeat` | Repeat / Repeat1 | 播放模式循环键 |
+| 播放主控 | `play` / `pause` / `playSkip*`（fill） | 既有 | MiniPlayer / PlayerPage 主三键 |
+| 列表次级播放 | `playOutline` | 既有 outline | 歌单详情「播放全部」等 |
+
+规则：
+
+- **`list`（ListMusic）** 专用于「打开队列」与「歌单」相关入口；`MiniPlayer` 与 `PlayerPage` 打开队列必须同一导出 `list`。
+- **`listOutline`（List）** **仅**用于顺序播放模式（shuffle off），不得用于队列按钮或歌单行占位。
+- `musicalNotes` 与 `musicalNotesOutline`、`add` 与 `addOutline` 在适配层已是同一 Lucide 几何的别名，视觉已一致；可不强制改名，但新代码优先与现有调用点保持一致。
 
 ---
 
@@ -315,7 +335,7 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - `max-height: 520px`：再收一档 gap/字号/按钮/热区（约 18px），仍显示全部控件。
   - 不引入 landscape 专用 DOM；横屏通常命中 `max-height` 断点即可。padding 只减固定 px 部分，用 `calc(... + safe-area)`，不得抹掉安全区。
 - 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；图标使用 `ion-lucide` 的 fill 导出（`play` / `pause` / `playSkipBack` / `playSkipForward`），不得回退 outline 主控或 ionicons 直引；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
-- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons/ion-lucide` 导入：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `List`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。
+- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons/ion-lucide` 导入：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `List`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。**打开队列**按钮使用 `list`（Lucide `ListMusic`），与 `MiniPlayer` 队列键一致；不得用 `listOutline` 表示队列（`listOutline` 仅顺序播放）。
 - 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位（`.cover-slot`：`flex: 1 1 auto; min-height: 0`）缩放，控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
 - 歌词页（AMLL）视觉约定：
   - **窄屏** `.lyric-panel`：顶部 `.lyric-header` 展示歌名（主标题）+ 歌手（副标题，空则不渲染；不拼接专辑、不回退「未知歌手」）；其下为 `flex:1` 的 AMLL `LyricPlayer`；底部仅安全区，**不放**迷你进度/播放控制。
