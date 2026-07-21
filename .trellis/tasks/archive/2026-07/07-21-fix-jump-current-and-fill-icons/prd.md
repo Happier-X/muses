@@ -80,7 +80,7 @@
 - [x] 图标仍走 `src/icons/ion-lucide.ts`，无业务侧 ionicons 回退
 - [x] component-guidelines 已同步上述约定
 - [x] lint / 相关 unit 通过
-- [ ] 关闭或评论关联 issue #43、#45（实现合并后）
+- [x] 关闭或评论关联 issue #43、#45（实现合并后）
 
 ## Notes
 
