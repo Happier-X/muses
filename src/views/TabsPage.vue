@@ -41,7 +41,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { IonIcon, IonItem, IonLabel, IonList } from '@ionic/vue'
 import { useRoute, RouterLink, RouterView } from 'vue-router'
-import { albums, list, musicalNotes, person, radio, settings } from 'ionicons/icons'
+import { albums, list, musicalNotes, person, radio, settings } from '@/icons/ion-lucide'
 
 const navItems = [
   { to: '/tabs/songs', label: '歌曲', icon: musicalNotes },

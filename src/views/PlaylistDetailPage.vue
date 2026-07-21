@@ -90,7 +90,7 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { musicalNotesOutline, playOutline, removeCircleOutline } from 'ionicons/icons'
+import { musicalNotesOutline, playOutline, removeCircleOutline } from '@/icons/ion-lucide'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'

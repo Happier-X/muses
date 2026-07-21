@@ -50,7 +50,7 @@
 import { computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonButton, IonIcon } from '@ionic/vue'
-import { list, musicalNotes, pause, play } from 'ionicons/icons'
+import { list, musicalNotes, pause, play } from '@/icons/ion-lucide'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 

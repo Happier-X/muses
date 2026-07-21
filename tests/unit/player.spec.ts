@@ -6,7 +6,7 @@ import type { SongItem } from '@/features/library/types'
 import MiniPlayer from '@/components/MiniPlayer.vue'
 import PlayerPage from '@/views/PlayerPage.vue'
 import App from '@/App.vue'
-import { listOutline, repeat, repeatOutline, shuffle } from 'ionicons/icons'
+import { listOutline, repeat, repeatOutline, shuffle } from '@/icons/ion-lucide'
 
 /** 播放页 UI 单测不跑真实多源歌词，避免 matching 空态文案抖动 */
 vi.mock('@/features/lyrics', async (importOriginal) => {

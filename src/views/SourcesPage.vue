@@ -335,7 +335,7 @@ import {
   type ActionSheetButton,
   type AlertButton,
 } from '@ionic/vue'
-import { add } from 'ionicons/icons'
+import { add } from '@/icons/ion-lucide'
 import {
   createSourceId,
   deleteSource,

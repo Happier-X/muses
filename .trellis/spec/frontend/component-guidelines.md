@@ -90,12 +90,25 @@ Examples:
 
 - `src/App.vue` imports `IonApp` and `IonRouterOutlet`
 - `src/views/Tab1Page.vue` imports `IonPage`, `IonHeader`, `IonToolbar`, `IonTitle`, `IonContent`
-- `src/views/TabsPage.vue` imports tab and icon-related Ionic components plus icon symbols from `ionicons/icons`
+- `src/views/TabsPage.vue` imports tab and icon-related Ionic components plus icon symbols from `@/icons/ion-lucide`（Lucide → ion-icon 适配层）
 
 Also prefer the `@/` alias for application imports from `src/`:
 
 - `import ExploreContainer from '@/components/ExploreContainer.vue'`
 - lazy route import `import('@/views/Tab1Page.vue')`
+
+---
+
+## Icon Conventions（Lucide + ion-icon）
+
+业务侧图标数据统一来自 Lucide，经薄适配层转为 `ion-icon` 可用的 data-URI SVG：
+
+- 适配层：`src/icons/ion-lucide.ts`
+- 导入：`import { play, pause, shuffle, ... } from '@/icons/ion-lucide'`
+- 渲染：继续使用 `<ion-icon :icon="..." />`（含 `slot="icon-only"`），**不要**引入 `lucide-vue-next` 等 Vue 图标组件替代 `ion-icon`
+- **禁止**业务代码 `import ... from 'ionicons/icons'`；`package.json` 可因 Ionic 间接依赖保留 `ionicons` 包
+- 播放模式状态图标必须可区分：`repeatOutline` vs `repeat`、`listOutline` vs `shuffle`，不得两状态共用同一图标
+- 尺寸与颜色仍由现有 CSS / `color` 控制，适配层保持 Lucide 默认 outline（viewBox 24、stroke currentColor）
 
 ---
 
@@ -128,7 +141,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 - 位置：放在 `ion-header` 的第二个 `ion-toolbar.shuffle-toolbar` 中，使入口与 Navbar 一起固定，不随 `ion-content` 中的歌曲列表滚动。
 - 布局：按钮容器在窄屏左对齐；宽屏使用 `max-width: var(--muses-content-max-width)` 与 `margin-inline: auto` 限宽居中，按钮仍位于内容左侧。
-- 样式：使用紧凑的 `fill="clear"` 按钮，展示 `ionicons` 的 `shuffle` 图标与“随机播放全部”文字；不得使用 `expand="block"` 或整行描边操作条。
+- 样式：使用紧凑的 `fill="clear"` 按钮，展示 Lucide 适配层导出的 `shuffle` 图标与“随机播放全部”文字；不得使用 `expand="block"` 或整行描边操作条。
 - 禁止恢复为 `ion-content slot="fixed"` 的底部 `.bottom-actions`，也不要把入口放入会随列表滚走的普通内容流。
 - 无歌曲时按钮仍出现且 `:disabled`，点击不产生副作用；保留 `aria-label="随机播放全部"`。
 - 点击语义：`clearQueue()` → `enqueueSongs(allSongs)` → 若 `!shuffleEnabled()` 则 `toggleShuffle()` → `selectSongAtIndex(0)` → `playSong(first)`。
@@ -155,7 +168,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 `src/views/SongsPage.vue` 在 `ion-content` 内右下侧放置 `ion-fab` / `ion-fab-button`，用于滚动到当前播放歌曲行：
 
-- 图标：`ionicons` 的 `locateOutline`；`aria-label="跳转到当前播放"`。
+- 图标：Lucide 适配层导出的 `locateOutline`；`aria-label="跳转到当前播放"`。
 - 可见性：`v-if="currentPlayingInList"` —— 仅当 `playerState.currentSong?.id` 存在且该 id 出现在当前歌曲列表中时展示；无当前播放或不在列表则隐藏。
 - 行定位：每行 `ion-item` 带 `data-song-id="song.id"`；点击 FAB 用页面内 `[data-song-id]` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })`（宽屏单列同样适用）。
 - 可选轻高亮：滚动后给目标行加 `jump-highlight` 约 1.2s，再移除；卸载时清理 timer。
@@ -296,7 +309,7 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - `max-height: 520px`：再收一档 gap/字号/按钮/热区（约 18px），仍显示全部控件。
   - 不引入 landscape 专用 DOM；横屏通常命中 `max-height` 断点即可。padding 只减固定 px 部分，用 `calc(... + safe-area)`，不得抹掉安全区。
 - 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
-- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步：列表循环使用 `repeatOutline`、单曲循环使用 `repeat`，顺序播放使用 `listOutline`、随机播放使用 `shuffle`；状态切换后图标和标签应立即更新。
+- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons/ion-lucide` 导入：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `List`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。
 - 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位（`.cover-slot`：`flex: 1 1 auto; min-height: 0`）缩放，控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
 - 歌词页（AMLL）视觉约定：
   - **窄屏** `.lyric-panel`：顶部 `.lyric-header` 展示歌名（主标题）+ 歌手（副标题，空则不渲染；不拼接专辑、不回退「未知歌手」）；其下为 `flex:1` 的 AMLL `LyricPlayer`；底部仅安全区，**不放**迷你进度/播放控制。

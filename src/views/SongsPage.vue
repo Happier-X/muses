@@ -136,7 +136,7 @@ import {
   type AlertButton,
   type AlertInput,
 } from '@ionic/vue'
-import { ellipsisVertical, locateOutline, musicalNotesOutline, searchOutline, shuffle } from 'ionicons/icons'
+import { ellipsisVertical, locateOutline, musicalNotesOutline, searchOutline, shuffle } from '@/icons/ion-lucide'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'

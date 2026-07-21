@@ -17,6 +17,8 @@ src/
 ├── vite-env.d.ts
 ├── components/
 │   └── ExploreContainer.vue
+├── icons/
+│   └── ion-lucide.ts
 ├── router/
 │   └── index.ts
 ├── theme/
@@ -50,6 +52,7 @@ Use the existing split unless the codebase grows enough to justify feature modul
 - `src/router/index.ts` owns route records and redirects.
 - `src/views/` contains route-level pages.
 - `src/components/` contains reusable UI pieces used by pages.
+- `src/icons/` contains the Lucide → `ion-icon` adapter (`ion-lucide.ts`)；业务图标统一从此导入，禁止从 `ionicons/icons` 导入。
 - `src/theme/` contains global Ionic theme customization.
 
 Reference files:

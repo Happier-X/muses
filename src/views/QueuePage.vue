@@ -74,7 +74,7 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
-import { chevronBack, close, musicalNotes, trash } from 'ionicons/icons'
+import { chevronBack, close, musicalNotes, trash } from '@/icons/ion-lucide'
 import {
   clearQueue,
   playSong,

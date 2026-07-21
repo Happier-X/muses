@@ -201,7 +201,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonButton, IonIcon, IonRange } from '@ionic/vue'
-import { languageOutline, listOutline, pause, pauseCircleOutline, play, playCircleOutline, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from 'ionicons/icons'
+import { languageOutline, listOutline, pause, pauseCircleOutline, play, playCircleOutline, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from '@/icons/ion-lucide'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
