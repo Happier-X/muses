@@ -327,7 +327,7 @@ describe('音乐库标签页', () => {
 
       expect(scrollIntoView).toHaveBeenCalledWith({
         behavior: 'smooth',
-        block: 'center',
+        block: 'start',
         inline: 'nearest',
       })
       const target = wrapper.find('[data-song-id="2"]')

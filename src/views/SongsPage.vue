@@ -300,7 +300,7 @@ const scrollToCurrentSong = () => {
     return
   }
 
-  row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+  row.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
 
   row.classList.add('jump-highlight')
   if (jumpHighlightTimer) {
