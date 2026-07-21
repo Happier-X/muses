@@ -28,21 +28,20 @@ Reference files:
 
 ## Linting
 
-The project uses ESLint with Vue 3 and TypeScript recommended configs.
+The project uses ESLint 10 flat config with Vue 3 and TypeScript recommended rules.
 
 Configuration file:
 
-- `.eslintrc.cjs`
+- `eslint.config.js`
 
-Current notable rules:
+Current notable rules and structure:
 
-- `plugin:vue/vue3-essential`
-- `eslint:recommended`
-- `@vue/typescript/recommended`
+- `withVueTs(...)` + `eslint-plugin-vue` `flat/essential` + `vueTsConfigs.recommended`
 - `no-console` warns only in production
 - `no-debugger` warns only in production
 - `vue/no-deprecated-slot-attribute` is disabled
 - `@typescript-eslint/no-explicit-any` is disabled
+- ignore 规则写在 flat config 的 `ignores` 中；不要再使用 `.eslintrc*` / `.eslintignore`
 
 Run:
 
@@ -164,7 +163,7 @@ Avoid:
 - Vite、Vue 插件、legacy 插件应作为一组升级；Vitest 与 jsdom、ESLint 与 Vue/TypeScript 配置链也应分别成组验证。
 - 每组升级后运行 lint、build 和完整 unit test；最终执行 `npm ci` 验证锁文件可干净重建，并运行 `npx cap sync android` 检查原生插件同步。
 - 跨主版本若失败，任务记录必须保留具体命令和兼容性证据，不得为了满足“最新”强行破坏可构建组合。
-- 当前已验证组合包括 Vite 8 + plugin-vue 6 + plugin-legacy 8、Vitest 4 + jsdom 29、Cypress 15（Node 22/24）。TypeScript 7 与当前 vue-tsc/ESLint 配置链不兼容时应保留 TypeScript 5.9；ESLint 10 需独立迁移 flat config；Vue Router 5 需单独验证 Ionic Router 集成。
+- 当前已验证组合包括 Vite 8 + plugin-vue 6 + plugin-legacy 8、Vitest 4 + jsdom 29、Cypress 15（Node 22/24）、ESLint 10 flat config + eslint-plugin-vue 10 + `@vue/eslint-config-typescript` 14。TypeScript 7 与当前 vue-tsc 3 仍因 `typescript/lib/tsc` 未导出而失败，应保留 TypeScript 5.9 + vue-tsc 2；Vue Router 5 被 `@ionic/vue-router@8` 的 `vue-router@^4.5.0` 依赖锁死，需等 Ionic 放宽 peer 后再升。
 - Android APK 最终构建需要 JDK 21；本地无 Java 时必须通过 CI 验证，不能把 `cap sync` 等同于 APK 编译成功。
 
 ## Recommended Verification Before Finishing Frontend Work

@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"验证 lint/build/unit/ci 门槛。"}
+{"file":"package.json","reason":"确认最终版本组合与脚本。"}
