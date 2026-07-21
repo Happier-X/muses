@@ -95,12 +95,25 @@ let bridgeBufferListenerReady = false
 let nativeListenerHandles: PluginListenerHandle[] = []
 let bridgeBufferListenerHandle: PluginListenerHandle | null = null
 const stateListeners = new Set<(state: AudioPlayerNativeState) => void>()
-/** playing 时轮询 getCurrentTime，兜底插件 currentTime 事件丢失/timer 停转（#47） */
-const POSITION_POLL_MS = 250
+/** playing 时轮询 getCurrentTime，兜底插件 currentTime 事件丢失/timer 停转（#47）；500ms 降低 WebView 压力（#50） */
+const POSITION_POLL_MS = 500
+/** 轮询 path 下低于此变化不 emit，减少无意义响应式刷新（#50） */
+const POSITION_EMIT_EPSILON_SEC = 0.05
 let positionPollTimer: ReturnType<typeof setInterval> | null = null
 
+const isNativeAudioDebugEnabled = (): boolean => {
+  try {
+    return localStorage.getItem('muses:debug-native-audio') === '1'
+  } catch {
+    return false
+  }
+}
+
 const logNativeAudio = (message: string, data?: unknown): void => {
-  // 保留诊断日志，Android WebView 会输出到 logcat，方便排查 Capgo 插件链路。
+  // 默认静默；调试时 localStorage.setItem('muses:debug-native-audio', '1')（#50）
+  if (!isNativeAudioDebugEnabled()) {
+    return
+  }
   console.info('[MusesNativeAudio]', message, data ?? '')
 }
 
@@ -304,8 +317,8 @@ const pollPlaybackPosition = async (): Promise<void> => {
       return
     }
     const next = normalizePlaybackTime(result.currentTime)
-    // 与事件路径合并：有推进或 seek 回退时都写回
-    if (next !== currentPosition) {
+    // 与事件路径合并；微小变化不 emit，减少 Vue/media 更新频次（#50）
+    if (Math.abs(next - currentPosition) >= POSITION_EMIT_EPSILON_SEC) {
       currentPosition = next
       emitCurrentState('playing')
     }

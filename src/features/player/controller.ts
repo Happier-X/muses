@@ -13,7 +13,7 @@ import {
 } from '@/features/metadata'
 import { AudioPlayerNative, cacheRemoteCover, prefetchWebDavAudioFile } from './native'
 import { dbToPlaybackVolume } from './loudness'
-import type { AudioPlayerNativeState, PlayOptions, PlayerState } from './types'
+import type { AudioPlayerNativeState, PlaybackStatus, PlayOptions, PlayerState } from './types'
 import {
   createPlayerSongSnapshot,
   resolveStoredLyricsFormat,
@@ -374,14 +374,33 @@ const resetBufferState = (): void => {
   state.bufferedPosition = null
 }
 
+/** media-session position 节流：避免进度 tick 每次跨 bridge（#50） */
+const MEDIA_POSITION_THROTTLE_MS = 1000
+let lastMediaPositionSyncAt = 0
+let lastMediaSyncedStatus: PlaybackStatus | null = null
+
 const syncMediaSessionState = (): void => {
   if (!state.currentSong) {
+    lastMediaSyncedStatus = null
+    lastMediaPositionSyncAt = 0
     void clearMediaSession().catch(() => undefined)
     return
   }
 
-  void updateMediaSessionPlayback(state.status).catch(() => undefined)
-  void updateMediaSessionPosition(state.position, state.duration).catch(() => undefined)
+  const statusChanged = lastMediaSyncedStatus !== state.status
+  if (statusChanged) {
+    lastMediaSyncedStatus = state.status
+    void updateMediaSessionPlayback(state.status).catch(() => undefined)
+  }
+
+  const now = Date.now()
+  const shouldSyncPosition =
+    statusChanged
+    || now - lastMediaPositionSyncAt >= MEDIA_POSITION_THROTTLE_MS
+  if (shouldSyncPosition) {
+    lastMediaPositionSyncAt = now
+    void updateMediaSessionPosition(state.position, state.duration).catch(() => undefined)
+  }
 }
 
 const syncMediaSessionSong = (song: SongItem): void => {

@@ -36,40 +36,55 @@
         <p>请先到音源页添加并扫描音源。</p>
       </div>
 
-      <div v-else class="list-grid tablet-content-limit">
-        <ion-list>
-          <ion-item
-            v-for="song in songs"
-            :key="song.id"
-            button
-            :detail="false"
-            lines="none"
-            class="song-item"
-            :class="{ 'is-playing': playerState.currentSong?.id === song.id }"
-            :data-song-id="song.id"
-            @click="playSong(song)"
+      <div v-else ref="listParentRef" class="song-list list-grid tablet-content-limit">
+        <div class="song-list-spacer" :style="{ height: `${totalSize}px` }">
+          <div
+            v-for="virtualRow in virtualRows"
+            :key="songs[virtualRow.index].id"
+            :ref="measureVirtualRow"
+            class="song-row"
+            :data-index="virtualRow.index"
+            :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
-            <div class="song-cover" slot="start" aria-hidden="true">
-              <img v-if="getSongCoverSrc(song)" :src="getSongCoverSrc(song)" alt="" />
-              <ion-icon v-else :icon="musicalNotesOutline" aria-hidden="true" />
-            </div>
-
-            <ion-label>
-              <h2>{{ song.title }}</h2>
-              <p>{{ getSongArtistName(song) }} - {{ getSongAlbumName(song) }}</p>
-            </ion-label>
-
-            <ion-button
-              slot="end"
-              fill="clear"
-              class="more-button"
-              aria-label="更多歌曲操作"
-              @click.stop="openSongActions(song)"
+            <ion-item
+              button
+              :detail="false"
+              lines="none"
+              class="song-item"
+              :class="{ 'is-playing': playerState.currentSong?.id === songs[virtualRow.index].id }"
+              :data-song-id="songs[virtualRow.index].id"
+              @click="playSong(songs[virtualRow.index])"
             >
-              <ion-icon slot="icon-only" :icon="ellipsisVertical" aria-hidden="true" />
-            </ion-button>
-          </ion-item>
-        </ion-list>
+              <div class="song-cover" slot="start" aria-hidden="true">
+                <img
+                  v-if="getSongCoverSrc(songs[virtualRow.index])"
+                  :src="getSongCoverSrc(songs[virtualRow.index])"
+                  alt=""
+                />
+                <ion-icon v-else :icon="musicalNotesOutline" aria-hidden="true" />
+              </div>
+
+              <ion-label>
+                <h2>{{ songs[virtualRow.index].title }}</h2>
+                <p>
+                  {{ getSongArtistName(songs[virtualRow.index]) }}
+                  -
+                  {{ getSongAlbumName(songs[virtualRow.index]) }}
+                </p>
+              </ion-label>
+
+              <ion-button
+                slot="end"
+                fill="clear"
+                class="more-button"
+                aria-label="更多歌曲操作"
+                @click.stop="openSongActions(songs[virtualRow.index])"
+              >
+                <ion-icon slot="icon-only" :icon="ellipsisVertical" aria-hidden="true" />
+              </ion-button>
+            </ion-item>
+          </div>
+        </div>
       </div>
 
       <ion-action-sheet
@@ -113,7 +128,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
 import {
   IonActionSheet,
@@ -127,7 +143,6 @@ import {
   IonIcon,
   IonItem,
   IonLabel,
-  IonList,
   IonPage,
   IonTitle,
   IonToolbar,
@@ -158,11 +173,48 @@ import {
 
 const songs = ref<SongItem[]>([])
 const pageRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
+const listParentRef = ref<HTMLElement | null>(null)
 const actionSong = ref<SongItem | null>(null)
 const isSongActionsOpen = ref(false)
 const isPlaylistPickOpen = ref(false)
 const isCreatePlaylistOpen = ref(false)
 let jumpHighlightTimer: ReturnType<typeof setTimeout> | null = null
+
+/** 大曲库只渲染可视行，降低滚动/卡顿（#50） */
+const rowVirtualizer = useVirtualizer(
+  computed(() => ({
+    count: songs.value.length,
+    getScrollElement: () => listParentRef.value,
+    estimateSize: () => 72,
+    overscan: 8,
+  })),
+)
+
+const measureVirtualRow = (element: Element | ComponentPublicInstance | null): void => {
+  rowVirtualizer.value.measureElement(element instanceof HTMLElement ? element : null)
+}
+
+const virtualRows = computed(() => {
+  const items = rowVirtualizer.value.getVirtualItems()
+  if (items.length > 0) {
+    return items
+  }
+  // 无滚动容器时（首帧 / 单测 stub）退化为全量行，避免空白与测试失败
+  return songs.value.map((_, index) => ({
+    index,
+    start: index * 72,
+    size: 72,
+    end: (index + 1) * 72,
+    key: index,
+  }))
+})
+const totalSize = computed(() => {
+  const measured = rowVirtualizer.value.getTotalSize()
+  if (measured > 0) {
+    return measured
+  }
+  return songs.value.length * 72
+})
 
 const currentPlayingInList = computed(() => {
   const currentId = playerState.currentSong?.id
@@ -289,19 +341,33 @@ const findSongRow = (songId: string): HTMLElement | null => {
   return rows.find((row) => row.getAttribute('data-song-id') === songId) ?? null
 }
 
-const scrollToCurrentSong = () => {
+const scrollToCurrentSong = async () => {
   const currentId = playerState.currentSong?.id
   if (!currentId) {
     return
   }
+
+  const index = songs.value.findIndex((song) => song.id === currentId)
+  if (index < 0) {
+    return
+  }
+
+  // 虚拟列表：先滚到索引，再高亮 DOM 行
+  rowVirtualizer.value.scrollToIndex(index, { align: 'start', behavior: 'smooth' })
+  await nextTick()
+  // 等 layout 一帧，确保目标行已挂载
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
 
   const row = findSongRow(currentId)
   if (!row) {
     return
   }
 
-  row.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
-
+  // 保留既有 scrollIntoView 合约（stub/首帧 virtualizer 尚未拿到容器时也可跳转）
+  const scrollableRow = row as HTMLElement & { scrollIntoView?: (options?: ScrollIntoViewOptions) => void }
+  scrollableRow.scrollIntoView?.({ behavior: 'smooth', block: 'start', inline: 'nearest' })
   row.classList.add('jump-highlight')
   if (jumpHighlightTimer) {
     clearTimeout(jumpHighlightTimer)
@@ -364,9 +430,9 @@ onIonViewWillEnter(refreshSongs)
   color: var(--ion-text-color);
 }
 
-/* 仅为 MiniPlayer 与 Tab Bar 预留滚动空间，避免末行被遮挡 */
+/* 列表自管 padding-bottom；content 不再重复加底内边距 */
 .songs-content {
-  --padding-bottom: calc(128px + var(--ion-safe-area-bottom, 0px));
+  --padding-bottom: 0;
 }
 
 .shuffle-toolbar {
@@ -383,13 +449,30 @@ onIonViewWillEnter(refreshSongs)
   margin: 0;
 }
 
+/* 自建滚动容器：虚拟列表需要固定高度 + overflow（#50） */
+.song-list {
+  height: 100%;
+  overflow: auto;
+  box-sizing: border-box;
+  /* 仅为 MiniPlayer 与 Tab Bar 预留滚动空间 */
+  padding-bottom: calc(128px + var(--ion-safe-area-bottom, 0px));
+}
+
+.song-list-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.song-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+}
+
 .song-item {
   --min-height: 72px;
-  /*
-   * scrollIntoView(block:start) 对齐滚动端口顶部，不扣除粘性头。
-   * 主 toolbar ~56 + shuffle toolbar ~48 + 缓冲 ≈ 120，避免当前行被顶栏挡住。
-   */
-  scroll-margin-top: 120px;
 }
 
 .song-cover {
@@ -450,8 +533,12 @@ onIonViewWillEnter(refreshSongs)
     margin-inline: auto;
   }
 
+  .song-list {
+    padding-bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
+  }
+
   .songs-content {
-    --padding-bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
+    --padding-bottom: 0;
   }
 
   .shuffle-actions {

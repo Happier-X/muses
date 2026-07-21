@@ -39,7 +39,9 @@
      - `previoustrack` → `playPreviousFromQueue`
      - `nexttrack` → `playNextFromQueue`
    - 每次播放状态、进度变化后，必须同步到 `setPlaybackState` / `setPositionState`。
-   - **进度推进不得只信插件 `currentTime` 事件**：`native.ts` 在 `playing` 期间须以 `getCurrentTime` 轮询兜底（约 250ms）；`play`/`resume`/`seek`(仍 playing) 启动，`pause`/`stop`/`unload` 停止。不改 `node_modules/@capgo/*`（#47）。
+   - **进度推进不得只信插件 `currentTime` 事件**：`native.ts` 在 `playing` 期间须以 `getCurrentTime` 轮询兜底（约 **500ms**，#50 从 250ms 降频）；`play`/`resume`/`seek`(仍 playing) 启动，`pause`/`stop`/`unload` 停止。低于 0.05s 的轮询变化不 emit。不改 `node_modules/@capgo/*`（#47/#50）。
+   - **MediaSession position 不得随每个 UI tick 跨 bridge**：position 至多约 1s 同步一次；播放状态变化仍立即同步（#50）。
+   - native-audio 诊断日志默认静默；仅 `muses:debug-native-audio=1` 时输出（#50）。
    - song 切换时，同步 `setMetadata`（title/artist/album/cover）。
    - **`loading`/`finished` 不得映射为 `none`**：应保持 active（当前实现映射为 `playing`），否则插件会 stop 前台服务再重建，造成通知延迟/闪断（含队列自动下一首窗口）。
    - **metadata 两段式更新**：先推 title/artist/album + **占位清空 artwork**（1×1 中性 JPEG `data:`），封面经 `prepareArtworkDataUrl` 转 `data:` 后二次 `setMetadata`；用 token 丢弃过期封面回调。

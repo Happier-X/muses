@@ -3299,7 +3299,8 @@ describe('已缓冲进度与 seek 限制', () => {
       title: '轮询进度',
     })
 
-    await vi.advanceTimersByTimeAsync(800)
+    // POSITION_POLL_MS = 500（#50）；推进两拍确保至少一次轮询
+    await vi.advanceTimersByTimeAsync(1200)
     await flushPromises()
 
     expect(nativeAudio.getCurrentTime).toHaveBeenCalled()
@@ -3307,7 +3308,7 @@ describe('已缓冲进度与 seek 限制', () => {
 
     await AudioPlayerNative.pause()
     const callsAfterPause = nativeAudio.getCurrentTime.mock.calls.length
-    await vi.advanceTimersByTimeAsync(800)
+    await vi.advanceTimersByTimeAsync(1200)
     await flushPromises()
     // pause 后停止轮询
     expect(nativeAudio.getCurrentTime.mock.calls.length).toBe(callsAfterPause)
