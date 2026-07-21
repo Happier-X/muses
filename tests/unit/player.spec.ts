@@ -1462,6 +1462,12 @@ describe('沉浸式播放页', () => {
           IonContent: { template: '<section><slot /></section>' },
           IonButton: { emits: ['click'], template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>' },
           IonIcon: { props: ['icon'], template: '<span data-test="icon" :data-icon="JSON.stringify(icon)" />' },
+          IonRange: {
+            name: 'IonRange',
+            props: ['min', 'max', 'step', 'value', 'disabled'],
+            emits: ['ionInput', 'ionChange'],
+            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="value" :disabled="disabled" @input="$emit('ionInput', { detail: { value: Number($event.target.value) } })" @change="$emit('ionChange', { detail: { value: Number($event.target.value) } })" />`,
+          },
         },
       },
     })
@@ -1505,22 +1511,12 @@ describe('沉浸式播放页', () => {
     expect(queueState.shuffleEnabled).toBe(false)
     expect(modeIcon('顺序播放')).toBe(JSON.stringify(listOutline))
 
-    const slider = wrapper.get('input[aria-label="播放进度"]')
+    const slider = wrapper.get('.progress-range[aria-label="播放进度"]')
     await slider.setValue('60')
     await slider.trigger('input')
-    expect(wrapper.get('.progress-track-played').attributes('style')).toContain('width: 33.33333333333333%')
     await slider.trigger('change')
-    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 60 })
-
-    const track = wrapper.get('.progress-track')
-    Object.defineProperty(track.element, 'getBoundingClientRect', {
-      configurable: true,
-      value: () => ({ left: 10, width: 200, top: 0, right: 210, bottom: 24, height: 24 }),
-    })
-    nativePlayer.seek.mockClear()
-    await track.trigger('click', { clientX: 110 })
     await flushPromises()
-    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 90 })
+    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 60 })
 
     const queueRaw = localStorage.getItem('muses:queue') || ''
     expect(queueRaw).not.toContain('secret-password')
@@ -1580,6 +1576,7 @@ describe('沉浸式播放页', () => {
     expect(wrapper.get('[data-test="amll-lyrics"]').attributes('data-align-position')).toBe('0.5')
     expect(wrapper.get('.lyric-header .lyric-title').text()).toBe('本地歌曲')
     expect(wrapper.get('.lyric-header .lyric-artist').text()).toBe('本地歌手')
+    expect(wrapper.find('.lyric-panel .progress-range').exists()).toBe(false)
     expect(wrapper.find('.lyric-panel .progress-slider').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('暂无歌词')
   })
@@ -1855,12 +1852,18 @@ describe('沉浸式播放页', () => {
           IonContent: { template: '<section><slot /></section>' },
           IonButton: { emits: ['click'], template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>' },
           IonIcon: true,
+          IonRange: {
+            name: 'IonRange',
+            props: ['min', 'max', 'step', 'value', 'disabled'],
+            emits: ['ionInput', 'ionChange'],
+            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="value" :disabled="disabled" @input="$emit('ionInput', { detail: { value: Number($event.target.value) } })" @change="$emit('ionChange', { detail: { value: Number($event.target.value) } })" />`,
+          },
         },
       },
     })
 
     const progressArea = wrapper.get('.progress-area')
-    const slider = wrapper.get('input[aria-label="播放进度"]')
+    const slider = wrapper.get('.progress-range[aria-label="播放进度"]')
     const overlay = wrapper.get('.player-overlay')
     const panels = wrapper.get('.panels')
 
@@ -1868,6 +1871,7 @@ describe('沉浸式播放页', () => {
     nativePlayer.seek.mockClear()
     await slider.setValue('45')
     await slider.trigger('change')
+    await flushPromises()
     expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 45 })
 
     // 进度条按下：应隔离 overlay 手势
@@ -3158,87 +3162,39 @@ describe('已缓冲进度与 seek 限制', () => {
     expect(playerState.position).toBe(180)
   })
 
-  test('PlayerPage 在有缓冲数据时设置 --buffered 样式', async () => {
-    // 不 resetModules：PlayerPage 静态 import 的 controller 需与本测试同一实例
-    const { playSong, playerState } = await import('@/features/player/controller')
+  test('PlayerPage 进度控件为 ion-range，无自绘缓冲色条', async () => {
+    // 本 describe 大量 resetModules；静态 import 的 PlayerPage 可能绑旧 controller。
+    // 动态 re-import 保证当前曲与页面同一 reactive 实例。
+    vi.resetModules()
+    const { initializePlayer, playSong, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
     await playSong({ ...localSong, duration: 100 })
+    expect(playerState.currentSong?.id).toBe('song-local')
 
-    // 直接通过 stateChange 路径不可用时，用多次 play 后的 reactive 状态驱动 UI：
-    // 模拟缓冲写入——通过再次 play + 手动注入（若 listener 已注册）
-    const listenerCall = nativePlayer.addListener.mock.calls.find((call) => call[0] === 'stateChange')
-    if (listenerCall) {
-      const stateChangeCallback = listenerCall[1] as (state: {
-        status: string
-        currentSongId?: string
-        position?: number
-        duration?: number
-        bufferedPosition?: number
-      }) => void
-      stateChangeCallback({
-        status: 'playing',
-        currentSongId: 'song-local',
-        position: 10,
-        duration: 100,
-        bufferedPosition: 40,
-      })
-    } else {
-      // initializePlayer 可能已在先前用例执行且 mock 被 clear；至少保证 currentSong 存在
-      expect(playerState.currentSong?.id).toBe('song-local')
-    }
-
-    // 若缓冲未能写入（无 listener），用 controller 再走一遍 initialize 保证链路
-    if (playerState.bufferedPosition == null) {
-      vi.resetModules()
-      const mod = await import('@/features/player/controller')
-      await mod.initializePlayer()
-      await mod.playSong({ ...localSong, duration: 100 })
-      const cb = nativePlayer.addListener.mock.calls[0][1] as (state: {
-        status: string
-        currentSongId?: string
-        position?: number
-        duration?: number
-        bufferedPosition?: number
-      }) => void
-      cb({
-        status: 'playing',
-        currentSongId: 'song-local',
-        position: 10,
-        duration: 100,
-        bufferedPosition: 40,
-      })
-      // 动态 re-import PlayerPage 以绑定同一 controller 模块
-      const { default: FreshPlayerPage } = await import('@/views/PlayerPage.vue')
-      const wrapper = mount(FreshPlayerPage, {
-        global: {
-          stubs: {
-            IonPage: { template: '<main><slot /></main>' },
-            IonContent: { template: '<section><slot /></section>' },
-            IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
-            IonIcon: true,
-          },
-        },
-      })
-      await wrapper.vm.$nextTick()
-      const slider = wrapper.get('.progress-slider')
-      const style = slider.attributes('style') || ''
-      expect(style.includes('--buffered') || wrapper.html().includes('--buffered')).toBe(true)
-      return
-    }
-
-    const wrapper = mount(PlayerPage, {
+    const { default: FreshPlayerPage } = await import('@/views/PlayerPage.vue')
+    const wrapper = mount(FreshPlayerPage, {
       global: {
         stubs: {
           IonPage: { template: '<main><slot /></main>' },
           IonContent: { template: '<section><slot /></section>' },
           IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
           IonIcon: true,
+          IonRange: {
+            name: 'IonRange',
+            props: ['min', 'max', 'step', 'value', 'disabled'],
+            emits: ['ionInput', 'ionChange'],
+            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="value" :disabled="disabled" @input="$emit('ionInput', { detail: { value: Number($event.target.value) } })" @change="$emit('ionChange', { detail: { value: Number($event.target.value) } })" />`,
+          },
         },
       },
     })
 
     await wrapper.vm.$nextTick()
-    const slider = wrapper.get('.progress-slider')
-    const style = slider.attributes('style') || ''
-    expect(style.includes('--buffered') || wrapper.html().includes('--buffered')).toBe(true)
+    expect(wrapper.find('.progress-range').exists()).toBe(true)
+    expect(wrapper.find('.progress-slider').exists()).toBe(false)
+    expect(wrapper.find('.progress-track-buffered').exists()).toBe(false)
+    expect(wrapper.find('.progress-track-played').exists()).toBe(false)
+    // 业务缓冲状态可保留；UI 不再画缓冲层 / 注入 --buffered
+    expect(wrapper.html()).not.toContain('--buffered')
   })
 })

@@ -276,7 +276,7 @@ const reconciled = reconcileSourceSongs(source.id, discoveredPaths, result.songs
 - `PlayerPage.vue` rejects `data:` cover URIs, renders AMLL lyrics after a left-swipe, uses `translateX(-50%)` for the second panel, and mounts `BackgroundRender` under a full-size `.amll-background` container.
 - `playSong` tests cover stale input objects by seeding `muses:songs` with newer lyrics/cover and asserting `playerState` uses the newer metadata.
 - Queue tests assert ID-only persistence, enqueue/remove/clear behavior, sequential next, previous wrapping from head to tail, random shuffle order length, single-song repeat, list loop from tail to head, near-end `finished` auto-advance, seek-guard suppressing false `finished`, and empty queue fallback to `stopPlayback`.
-- Buffer/seek tests assert: clamp/reject past `bufferedPosition`, lyric reject, local full buffer, stop/切歌 reset, monotonic buffer growth, unknown-buffer duration clamp, PlayerPage `--buffered` style.
+- Buffer/seek tests assert: clamp/reject past `bufferedPosition`, lyric reject, local full buffer, stop/切歌 reset, monotonic buffer growth, unknown-buffer duration clamp；PlayerPage 进度为 `ion-range`，无自绘缓冲层 / 无 `--buffered` UI 变量。
 - `SongsPage.vue` highlights the currently playing song and queue actions do not bubble into direct playback.
 - Android validation should include progress broadcasting, `finished` broadcasting on natural end, Media3 notification/lock-screen position sync, seek clamping, service resource release, media-key routing to the same `ExoPlayer`, and checking for duplicate visible notifications.
 

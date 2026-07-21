@@ -61,24 +61,17 @@
               @pointerup.stop="onProgressGestureEnd"
               @pointercancel.stop="onProgressGestureEnd"
             >
-              <div class="progress-track" @click="onProgressTrackClick">
-                <div class="progress-track-base" aria-hidden="true" />
-                <div class="progress-track-buffered" :style="{ width: bufferedPercent ?? progressPercent }" aria-hidden="true" />
-                <div class="progress-track-played" :style="{ width: progressPercent }" aria-hidden="true" />
-                <input
-                  class="progress-slider"
-                  type="range"
-                  min="0"
-                  :max="durationForSlider"
-                  step="0.1"
-                  :value="playerState.position"
-                  :disabled="!canSeek"
-                  :style="progressTrackStyle"
-                  aria-label="播放进度"
-                  @input="onSeekInput"
-                  @change="onSeek"
-                />
-              </div>
+              <ion-range
+                class="progress-range"
+                :min="0"
+                :max="durationForSlider"
+                :step="0.1"
+                :value="effectiveSeekPosition"
+                :disabled="!canSeek"
+                aria-label="播放进度"
+                @ionInput="onSeekInput"
+                @ionChange="onSeek"
+              />
               <div class="time-row">
                 <span>{{ formatTime(playerState.position) }}</span>
                 <span v-if="bufferHintVisible" class="buffer-hint">缓冲中</span>
@@ -207,7 +200,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { IonButton, IonIcon } from '@ionic/vue'
+import { IonButton, IonIcon, IonRange } from '@ionic/vue'
 import { languageOutline, listOutline, pause, pauseCircleOutline, play, playCircleOutline, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from 'ionicons/icons'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
@@ -426,35 +419,6 @@ const canSeek = computed(() => playerState.duration > 0)
 const durationForSlider = computed(() => playerState.duration || 1)
 const seekPreviewPosition = ref<number | null>(null)
 const effectiveSeekPosition = computed(() => seekPreviewPosition.value ?? playerState.position)
-const progressPercent = computed(() => {
-  const duration = durationForSlider.value
-  if (duration <= 0) {
-    return '0%'
-  }
-  const ratio = Math.min(1, Math.max(0, effectiveSeekPosition.value / duration))
-  return `${ratio * 100}%`
-})
-
-/** 已缓冲百分比；缓冲未知时不设 --buffered，CSS 不画假缓冲条（R6）。 */
-const bufferedPercent = computed(() => {
-  const duration = playerState.duration
-  const buffered = playerState.bufferedPosition
-  if (duration <= 0 || buffered == null || !Number.isFinite(buffered) || buffered < 0) {
-    return null
-  }
-  const ratio = Math.min(1, Math.max(0, buffered / duration))
-  return `${ratio * 100}%`
-})
-
-const progressTrackStyle = computed(() => {
-  const style: Record<string, string> = {
-    '--progress': progressPercent.value,
-  }
-  if (bufferedPercent.value != null) {
-    style['--buffered'] = bufferedPercent.value
-  }
-  return style
-})
 
 const bufferHintVisible = ref(false)
 let bufferHintTimer: ReturnType<typeof setTimeout> | null = null
@@ -504,50 +468,48 @@ const clampSeekTarget = (raw: number): number => {
   return Number.isFinite(max) ? Math.min(raw, max) : raw
 }
 
-/** 拖动中视觉 clamp 到已缓冲终点，避免滑块越过缓冲层。 */
+/** 从 ion-range 的 CustomEvent.detail.value 读取目标秒；兼容测试 stub 的 input 事件。 */
+const readRangeEventValue = (event: Event): number => {
+  const custom = event as CustomEvent<{ value?: number | { lower: number; upper: number } }>
+  const raw = custom.detail?.value
+  if (typeof raw === 'number') {
+    return raw
+  }
+  if (raw && typeof raw === 'object' && typeof raw.lower === 'number') {
+    return raw.lower
+  }
+  const target = event.target as { value?: string | number } | null
+  if (target && target.value != null && target.value !== '') {
+    return Number(target.value)
+  }
+  return Number.NaN
+}
+
+/** 拖动中视觉 clamp 到已缓冲终点，并用本地 preview 驱动 ion-range value。 */
 const onSeekInput = (event: Event) => {
   lockSeekGesture()
-  const target = event.target as HTMLInputElement
-  const requested = Number(target.value)
+  const requested = readRangeEventValue(event)
+  if (!Number.isFinite(requested)) {
+    return
+  }
   const clamped = clampSeekTarget(requested)
   seekPreviewPosition.value = clamped
   if (requested > clamped + 0.05) {
-    target.value = String(clamped)
     showBufferHint()
   }
 }
 
-const onProgressTrackClick = (event: MouseEvent) => {
-  if (event.target instanceof HTMLInputElement || !canSeek.value) {
-    return
-  }
-  const track = event.currentTarget
-  if (!(track instanceof HTMLElement)) {
-    return
-  }
-  const rect = track.getBoundingClientRect()
-  if (rect.width <= 0) {
-    return
-  }
-  const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
-  const target = clampSeekTarget(ratio * playerState.duration)
-  seekPreviewPosition.value = target
-  lockSeekGesture()
-  scheduleSeekUnlock()
-  void seekPlayback(target).finally(() => {
-    seekPreviewPosition.value = null
-  })
-}
-
 const onSeek = async (event: Event) => {
-  // change 可能在 pointerup 之后触发；再锁一次并续期 debounce，覆盖 click 穿透窗口。
+  // ionChange 可能在 pointerup 之后触发；再锁一次并续期 debounce，覆盖 click 穿透窗口。
   lockSeekGesture()
   scheduleSeekUnlock()
-  const target = event.target as HTMLInputElement
-  const requested = Number(target.value)
+  const requested = readRangeEventValue(event)
+  if (!Number.isFinite(requested)) {
+    seekPreviewPosition.value = null
+    return
+  }
   const clamped = clampSeekTarget(requested)
   if (requested > clamped + 0.05) {
-    target.value = String(clamped)
     showBufferHint()
   }
   const ok = await seekPlayback(clamped)
@@ -634,7 +596,7 @@ const onTouchMove = (event: TouchEvent) => {
 }
 
 const INTERACTIVE_SELECTOR =
-  'input, textarea, select, button, ion-button, a, [role="button"], [contenteditable="true"]'
+  'input, textarea, select, button, ion-button, ion-range, a, [role="button"], [contenteditable="true"], .progress-range'
 
 const isInteractiveElement = (el: Element): boolean => {
   return Boolean(el.closest(INTERACTIVE_SELECTOR))
@@ -948,97 +910,29 @@ onUnmounted(() => {
   width: 100%;
 }
 
-/* 三层进度：未缓冲底轨 / 已缓冲 / 已播放。
- * 注意：不要在容器上默认写 --buffered，否则会继承到 slider，
- * 导致 var(--buffered, var(--progress)) 永远命中假 0%（破坏 R6 未知缓冲降级）。
- * --buffered 仅由 progressTrackStyle 在缓冲已知时注入到 slider。
+/* ion-range 进度条：隐藏 knob，仅保留可拖动轨道与已播放填充。
+ * 不再维护自绘缓冲色条层；缓冲 clamp 仍由 seek 业务逻辑处理。
  */
-.progress-track {
-  position: relative;
-  width: 100%;
-}
-
-.progress-track-base,
-.progress-track-buffered,
-.progress-track-played {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  height: 4px;
-  border-radius: 999px;
-  pointer-events: none;
-  transform: translateY(-50%);
-}
-
-.progress-track-base {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.progress-track-buffered {
-  background: rgba(255, 255, 255, 0.42);
-}
-
-.progress-track-played {
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.progress-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  position: relative;
-  z-index: 2;
+.progress-range {
+  --knob-size: 0px;
+  --knob-background: transparent;
+  --knob-box-shadow: none;
+  --bar-height: 4px;
+  --bar-background: rgba(255, 255, 255, 0.2);
+  --bar-background-active: #fff;
+  --bar-border-radius: 999px;
   width: 100%;
   height: 24px;
+  min-height: 24px;
+  padding: 0;
   margin: 0;
-  background: transparent;
   cursor: pointer;
   touch-action: manipulation;
 }
 
-.progress-slider:disabled {
+.progress-range[disabled] {
   opacity: 0.55;
   cursor: not-allowed;
-}
-
-/*
- * 轨道渐变语义：
- * 0 → --progress：已播放
- * --progress → --buffered：已缓冲未播放
- * --buffered → 100%：未缓冲
- * 当未设置 --buffered 时，--buffered 回落为 --progress，视觉上无独立缓冲层（R6）
- */
-.progress-slider::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 999px;
-  background: transparent;
-}
-
-.progress-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: -5px;
-  border: 0;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
-}
-
-.progress-slider::-moz-range-track {
-  height: 4px;
-  border-radius: 999px;
-  background: transparent;
-}
-
-.progress-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border: 0;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
 }
 
 .time-row {
@@ -1319,19 +1213,9 @@ onUnmounted(() => {
     margin-bottom: 2px;
   }
 
-  .progress-slider {
+  .progress-range {
     height: 20px;
-  }
-
-  .progress-slider::-webkit-slider-thumb {
-    width: 12px;
-    height: 12px;
-    margin-top: -4px;
-  }
-
-  .progress-slider::-moz-range-thumb {
-    width: 12px;
-    height: 12px;
+    min-height: 20px;
   }
 
   .controls {
@@ -1413,8 +1297,9 @@ onUnmounted(() => {
     font-size: 11px;
   }
 
-  .progress-slider {
+  .progress-range {
     height: 18px;
+    min-height: 18px;
   }
 
   .time-row {

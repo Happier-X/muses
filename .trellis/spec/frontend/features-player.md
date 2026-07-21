@@ -151,7 +151,7 @@
 - **禁止**在缓冲已知时把 seek 目标落到 `bufferedPosition` 之外（进度条与歌词均须拒绝或 clamp 到已缓冲终点）。
 - **禁止**WebDAV 播放增长中的本地 `.partial` / 未完成 `file://` 文件；未完整缓存时必须使用远程 URL + Basic Auth headers 直链播放。
 - **禁止**把 `prepareWebDavAudioFile` / 渐进下载作为播放路径；完整缓存命中才允许 `file://` 本地播放。
-- **禁止**缓冲未知时画假缓冲条；`bufferedPosition === null` 时 UI 不设 `--buffered`。
+- **禁止**缓冲未知时画假缓冲条；播放页进度使用 `ion-range`，不再自绘缓冲色条层，也不再注入 `--buffered` UI 变量。
 - **禁止**预取密码进入 player state / localStorage / 日志；预取失败不得影响当前播放。
 - **禁止**在线封面把 `data:` / base64 / 远程 URL 写入曲库；禁止覆盖已有安全封面；匹配失败不得影响播放。
 

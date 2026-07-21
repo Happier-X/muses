@@ -308,16 +308,14 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - **歌词行点击 seek**：`LyricPlayer` 绑定 `@line-click`（AMLL emit `lineClick` / core `line-click`）。事件类型为 `LyricLineMouseEvent`，其中 `line` 是 `LyricLineBase`，通过 `line.getLine().startTime` 取起始时间（**毫秒**），再调用 `seekPlayback(startTime / 1000)`（秒）。`startTime` 非 number / 非有限数 / `< 0` 时不 seek。处理时 `stopPropagation` + 复用 `seekGestureLocked`，避免点击误触发 overlay 下滑关闭或横向切面板。无歌词空状态不绑定该行为。
   - **歌词区上下滑动手势隔离**：AMLL `LyricPlayer` 内部滚动基于 transform，**非原生 scroll**，`canStartVerticalDismiss` 的原生 `scrollHeight > clientHeight && scrollTop > 0` 检测无法识别。因此 `canStartVerticalDismiss` 必须额外用 `composedPath` 检测触点是否位于 `.lyric-panel` / `.lyric-player` 内，是则返回 `false`，使歌词区上下滑动不更新 `dragOffsetY`、不触发 overlay 下滑关闭。控制页（`.info-panel`）下滑关闭语义不变；`onTouchEnd` 中基于 `startX / endX` 的横向切换面板逻辑保留，歌词页左滑仍可切回控制页。
 - 打开播放器/队列 overlay 时必须锁定底层路由页交互与滚动：`ion-router-outlet` 设 `pointer-events: none`，`body.muses-overlay-open ion-router-outlet ion-content` 禁用滚动；不要锁住队列 overlay 自己的 `ion-content`。
-- 播放器 overlay 自身使用 `touch-action: none`，并在非原生控件（非 input/range）上对 `touchmove` 调用 `preventDefault`，防止滑动穿透到底层歌曲列表；进度条保留可拖动。
-- **进度条手势隔离**：`.progress-area` 必须 `@touchstart.stop` / `@pointerdown.stop`，并配合短 debounce 的 `seekGestureLocked`；seek 期间/刚结束后禁止 `playPreviousFromQueue` / `playNextFromQueue`，也禁止横向切换 `activePanel`，避免松手点穿到上一曲/下一曲或误切歌词面板。
-- **三层进度条（已缓冲）**：
-  - 已播放、已缓冲和未缓冲底轨使用 `.progress-track` 下的绝对定位自绘层，原生 range 轨道保持透明；不要依赖 WebView 中可能不随响应式 value 重绘的 range 伪元素渐变。
-  - 拖动 `input` 时使用页面局部 preview position 同时驱动圆点与已播放层宽度；提交后再恢复使用 `playerState.position`。
-  - 点击轨道时按 `clientX` 相对 `getBoundingClientRect()` 换算 duration 目标，并复用缓冲 clamp、`seekPlayback` 和 seek 手势锁。
-  - CSS 变量：`--progress`（已播放 %）、`--buffered`（已缓冲 %）；`max` 仍为 `duration` 视觉全长。
-  - 轨道语义：`0→progress` 已播放 / `progress→buffered` 已缓冲未播放 / `buffered→100%` 未缓冲。
-  - **缓冲未知**（`playerState.bufferedPosition == null`）时不设置 `--buffered`，CSS 回落为无独立缓冲层，禁止画假缓冲条；WebDAV 远程直链固定属于此状态。
-  - 缓冲已知时，`input/change` 将目标 clamp 到已缓冲终点，`seekPlayback` 越界返回 `false` 时进度条/歌词可轻提示「缓冲中」；WebDAV 缓冲未知时不得按伪缓冲限制，沿用 duration clamp。
+- 播放器 overlay 自身使用 `touch-action: none`，并在非原生可交互控件（含 `input` / `ion-range` / `ion-button` 等）上对 `touchmove` 调用 `preventDefault`，防止滑动穿透到底层歌曲列表；进度条保留可拖动。
+- **进度条手势隔离**：`.progress-area` 必须 `@touchstart.stop` / `@pointerdown.stop`，并配合短 debounce 的 `seekGestureLocked`；seek 期间/刚结束后禁止 `playPreviousFromQueue` / `playNextFromQueue`，也禁止横向切换 `activePanel`，避免松手点穿到上一曲/下一曲或误切歌词面板。`isNativeInteractiveEvent` 必须识别 `ion-range` / `.progress-range`（不仅是原生 `input`）。
+- **进度条使用 `ion-range`（无可见圆点）**：
+  - 控件：`<ion-range class="progress-range">`，`min=0`，`max=duration`（duration 为 0 时 max 兜底为 1 并禁用），`step` 细粒度（如 `0.1`），`value` 绑定 `effectiveSeekPosition`（拖动 preview 优先，否则 `playerState.position`）。
+  - 隐藏 knob：`--knob-size: 0`、`--knob-box-shadow: none`，必要时透明 `--knob-background`；桌面与窄屏均不可见圆点，但轨道仍可点击/拖动 seek。
+  - 轨道视觉用 ion-range 自带 bar：`--bar-background`（未播放）、`--bar-background-active`（已播放）、`--bar-height`；**不再维护** `.progress-track-buffered` / 自绘三层缓冲 DOM，也不再注入 UI 用的 `--buffered` CSS 变量。
+  - 事件：`ionInput` → 更新 preview + `seekGestureLocked`；`ionChange` → `seekPlayback` + 解锁调度。缓冲已知时 UI 侧仍将目标 clamp 到 `bufferedPosition`，越界轻提示「缓冲中」；`seekPlayback` 业务 clamp/拒绝语义不变。
+  - **缓冲未知**（`playerState.bufferedPosition == null`）时不画假缓冲条；WebDAV 远程直链固定属于此状态，seek 退化为 duration clamp。
   - **歌词行点击**：目标 > `bufferedPosition` 时不 seek（与进度条共用 `seekPlayback` 拒绝语义）。
 
 ### Overlay 组件必须异步加载（首屏性能约定）
