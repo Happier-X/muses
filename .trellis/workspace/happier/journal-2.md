@@ -600,3 +600,38 @@ SourcesPage 虚拟列表接入 measureElement/data-index，行间距改为 paddi
 
 - None - task complete
 
+
+## Session: 跳转当前播放置顶
+
+**Date**: 2026-07-21
+**Task**: 07-21-jump-current-scroll-start（已归档）
+**Branch**: `main`
+
+### Summary
+
+SongsPage FAB「跳转到当前播放」由 `scrollIntoView(block: center)` 改为 `block: start`，尽量置顶；列表末尾滚不动时停在可及位置。
+
+### Main Changes
+
+- `SongsPage.vue`：`block: 'start'`
+- 单测与 `component-guidelines.md` 同步
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b620504` | fix(songs): 跳转当前播放滚动到顶部 |
+| archive | chore(task): archive 07-21-jump-current-scroll-start |
+
+### Testing
+
+- `tests/unit/example.spec.ts` 10 passed
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
