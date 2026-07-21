@@ -3,8 +3,16 @@ import type { AudioFileEntry, AudioTags } from './types'
 import { WebDavNative, buildWebDavUrl } from '@/features/sources/webdav'
 import type { WebDavSourceItem } from '@/features/sources/types'
 
+const normalizeReplayGainTrackDb = (value: unknown): number | undefined => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined
+  }
+  return value
+}
+
 const normalizeTags = (tags: AudioTags): Omit<AudioTags, 'metadataDiagnostic'> => {
   const coverUri = tags.coverUri?.trim()
+  const replayGainTrackDb = normalizeReplayGainTrackDb(tags.replayGainTrackDb)
   return {
     title: tags.title?.trim() || undefined,
     artist: tags.artist?.trim() || undefined,
@@ -32,6 +40,7 @@ const normalizeTags = (tags: AudioTags): Omit<AudioTags, 'metadataDiagnostic'> =
       && !coverUri.toLowerCase().startsWith('https://')
       ? coverUri
       : undefined,
+    ...(replayGainTrackDb !== undefined ? { replayGainTrackDb } : {}),
     tagsScanned: tags.tagsScanned,
     tagsScannedAt: tags.tagsScannedAt,
     metadataVersion: tags.metadataVersion,

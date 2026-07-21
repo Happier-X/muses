@@ -146,9 +146,19 @@
 - 切歌递增 token；结果仅在 token 与当前曲 id 匹配时写回并 `syncDisplayStateFromSong` + 媒体会话文本。
 - 失败静默；不影响封面、歌词与播放状态机。
 
+## 响度均衡（ReplayGain 轻量，#46）
+
+- **仅标签**：扫描/懒读元数据时解析 track ReplayGain（`REPLAYGAIN_TRACK_GAIN` 等）写入 `SongItem.replayGainTrackDb`（dB）；可选次级 `R128_TRACK_GAIN`（Q7.8 整数按 ÷256 换算，无法落入合理 dB 区间则丢弃）。**禁止**全曲库 EBU R128 / ffmpeg 测响度，也禁止无标签时写假增益（0 或臆造值）。
+- **播放应用**：`controller` 根据 `loudnessNormalizeEnabled`（`muses:player-config`，**默认 true**）与 `replayGainTrackDb` 计算 `volume = clamp(10^(db/20), 0.1, 1.0)`，经 `PlayOptions.volume` 传入 `AudioPlayerNative.play`；`native.ts` 在 preload/play 后调用 `NativeAudio.setVolume`。
+- **能力边界**：插件 volume 上限 1.0，**无法**把过静曲放大超过系统满幅；关开关或无标签 → volume 1.0。
+- **切歌 / stop**：每首重算 volume；禁止串曲增益。懒扫补到 RG 后若仍在 playing/paused，须对当前曲 `setVolume`。
+- **设置**：`SettingsPage`「音量均衡」toggle；`setLoudnessNormalizeEnabled` 持久化并立即对当前曲重设 volume。
+- 纯函数：`src/features/player/loudness.ts`（`parseReplayGainDb` / `dbToPlaybackVolume`）。
+
 ## 约束与禁止模式
 
 - **禁止**在除 `native.ts` 之外的任何文件直接调用 `NativeAudio.*` 或 `MediaSession.*`。
+- **禁止**全库离线 loudness 扫描 / 无标签时写假 ReplayGain。
 - **禁止**同时使用多个 notification provider（native-audio 的 showNotification 和 media-session 的通知只能开一个；当前我们只使用 media-session）。
 - **禁止**在 `native.ts` 中搞双向依赖（目前 `mediaSession.ts` 和 `native.ts` 是解耦的；`mediaSession.ts` 仅 import `AudioPlayerBridge` 用于封面转换桥接）。
 - **禁止**修改 `node_modules/@capgo/*` 源码（我们只修复了 manifest 中 `MediaButtonReceiver` 的缺失，这是 app 侧修正，不是插件修改）。
@@ -188,6 +198,10 @@
 - 切歌 / stop 后 `bufferedPosition` 重置为 null
 - 缓冲增长单调合并；回退上报不得拉低
 - 缓冲未知时 seek 仍按 duration clamp
+- 有 ReplayGain 且开启音量均衡 → play 传入经 dB 换算并 clamp 的 volume（负 dB 小于 1，正 dB 最多 1.0）
+- 无标签 / 关闭均衡 → volume 1.0
+- 切歌后 volume 按新曲重算，不串曲
+- 设置开关即时生效并写入 `muses:player-config`
 
 ---
 

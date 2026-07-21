@@ -59,6 +59,8 @@ export interface LocalPlayOptions {
   coverUri?: string
   /** 已知时长（秒），供缓冲换算兜底 */
   duration?: number
+  /** 播放线性音量，capgo 范围约 0.1–1.0，默认 1.0 */
+  volume?: number
 }
 
 export interface WebDavPlayOptions {
@@ -73,6 +75,8 @@ export interface WebDavPlayOptions {
   coverUri?: string
   /** 已知时长（秒），渐进下载进度换算 bufferedPosition 用 */
   duration?: number
+  /** 播放线性音量，capgo 范围约 0.1–1.0，默认 1.0 */
+  volume?: number
 }
 
 export type PlayOptions = LocalPlayOptions | WebDavPlayOptions

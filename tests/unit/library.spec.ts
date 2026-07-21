@@ -156,6 +156,43 @@ describe('歌曲库持久化', () => {
     })
   })
 
+  test('可写入 track ReplayGain 且无标签不覆盖旧增益', () => {
+    const first = upsertSong({
+      sourceId: 'source-1',
+      sourceType: 'local',
+      path: 'album/rg.mp3',
+      uri: 'content://rg',
+      title: 'rg',
+      tags: {
+        replayGainTrackDb: -6.5,
+        tagsScanned: true,
+      },
+      now: '2026-07-21T00:00:00.000Z',
+    })
+
+    expect(first.song.replayGainTrackDb).toBe(-6.5)
+    expect(loadSongs()[0].replayGainTrackDb).toBe(-6.5)
+
+    const second = upsertSong(
+      {
+        sourceId: 'source-1',
+        sourceType: 'local',
+        path: 'album/rg.mp3',
+        uri: 'content://rg',
+        title: 'rg',
+        tags: {
+          title: 'rg-updated',
+          tagsScanned: true,
+        },
+        now: '2026-07-21T00:01:00.000Z',
+      },
+      first.songs,
+    )
+
+    expect(second.song.replayGainTrackDb).toBe(-6.5)
+    expect(second.song.title).toBe('rg-updated')
+  })
+
   test('可写入 online 歌词与 lyricsFormat', () => {
     const result = upsertSong({
       sourceId: 'source-1',

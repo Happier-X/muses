@@ -14,6 +14,8 @@ export type RepeatMode = 'one' | 'all'
 export interface PlayerConfig {
   repeatMode: RepeatMode
   shuffleEnabled: boolean
+  /** 根据歌曲 ReplayGain 标签做音量均衡；默认开启 */
+  loudnessNormalizeEnabled: boolean
 }
 
 export interface QueueItem {
@@ -48,23 +50,33 @@ const isQueueItem = (value: unknown): value is QueueItem => {
   return isRecord(value) && isString(value.songId)
 }
 
+const defaultConfig = (): PlayerConfig => ({
+  repeatMode: 'all',
+  shuffleEnabled: false,
+  // 默认开启：缓解曲库响度不一（#46）
+  loudnessNormalizeEnabled: true,
+})
+
 const loadConfig = (): PlayerConfig => {
+  const defaults = defaultConfig()
   const raw = localStorage.getItem(CONFIG_STORAGE_KEY)
   if (!raw) {
-    return { repeatMode: 'all', shuffleEnabled: false }
+    return defaults
   }
 
   try {
     const parsed: unknown = JSON.parse(raw)
     if (!isRecord(parsed)) {
-      return { repeatMode: 'all', shuffleEnabled: false }
+      return defaults
     }
 
     const repeatMode = parsed.repeatMode === 'one' ? 'one' : 'all'
     const shuffleEnabled = parsed.shuffleEnabled === true
-    return { repeatMode, shuffleEnabled }
+    // 旧 config 缺键时默认 true；仅显式 false 关闭
+    const loudnessNormalizeEnabled = parsed.loudnessNormalizeEnabled !== false
+    return { repeatMode, shuffleEnabled, loudnessNormalizeEnabled }
   } catch {
-    return { repeatMode: 'all', shuffleEnabled: false }
+    return defaults
   }
 }
 
@@ -72,6 +84,7 @@ const saveConfig = (config: PlayerConfig): void => {
   localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({
     repeatMode: config.repeatMode,
     shuffleEnabled: config.shuffleEnabled,
+    loudnessNormalizeEnabled: config.loudnessNormalizeEnabled,
   }))
 }
 
@@ -404,6 +417,13 @@ export const toggleShuffle = (): void => {
 }
 
 // --------------- 只读导出 ---------------
+
+export const setLoudnessNormalizeEnabled = (enabled: boolean): void => {
+  config.loudnessNormalizeEnabled = enabled
+  saveConfig(config)
+}
+
+export const isLoudnessNormalizeEnabled = (): boolean => config.loudnessNormalizeEnabled
 
 export const queueState = readonly(queueStateRaw)
 export const repeatMode = (): RepeatMode => queueStateRaw.repeatMode

@@ -1,6 +1,7 @@
 import { NativeAudio } from '@capgo/capacitor-native-audio'
 import { registerPlugin } from '@capacitor/core'
 import type { PluginListenerHandle } from '@capacitor/core'
+import { PLAYBACK_VOLUME_MAX, PLAYBACK_VOLUME_MIN } from './loudness'
 import type { AudioPlayerNativeState, PlaybackStatus, PlayOptions, SeekOptions } from './types'
 
 interface BufferProgressEvent {
@@ -65,6 +66,8 @@ export interface AudioPlayerNativePlugin {
   resume(): Promise<void>
   stop(): Promise<void>
   seek(options: SeekOptions): Promise<void>
+  /** 对当前 asset 设音量；无当前曲时 no-op。volume 建议已 clamp 到 0.1–1.0 */
+  setVolume(volume: number): Promise<void>
   getState(): Promise<AudioPlayerNativeState>
   ensureNotificationPermission(): Promise<{ granted: boolean }>
   addListener(
@@ -453,6 +456,11 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
       buffered: currentBufferedPosition,
     })
 
+    // 响度均衡 volume：缺省 1.0；由 controller 按 RG 计算后传入
+    const volume = typeof options.volume === 'number' && Number.isFinite(options.volume)
+      ? Math.min(PLAYBACK_VOLUME_MAX, Math.max(PLAYBACK_VOLUME_MIN, options.volume))
+      : PLAYBACK_VOLUME_MAX
+
     try {
       await NativeAudio.preload({
         assetId,
@@ -460,18 +468,31 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
         isUrl,
         audioChannelNum: 1,
         headers,
+        volume,
       })
-      logNativeAudio('preload:done', { assetId })
+      logNativeAudio('preload:done', { assetId, volume })
       currentDuration = normalizePlaybackTime((await NativeAudio.getDuration({ assetId }).catch(() => ({ duration: 0 }))).duration)
       reconcileBufferedWithDuration()
       logNativeAudio('duration:done', { assetId, currentDuration, buffered: currentBufferedPosition })
-      await NativeAudio.play({ assetId })
-      logNativeAudio('play:done', { assetId })
+      await NativeAudio.play({ assetId, volume })
+      // 成功路径再 setVolume，确保部分平台 preload volume 未生效时仍应用
+      await NativeAudio.setVolume({ assetId, volume }).catch(() => undefined)
+      logNativeAudio('play:done', { assetId, volume })
       emitCurrentState('playing')
     } catch (error) {
       logNativeAudio('play:error', error instanceof Error ? { message: error.message, stack: error.stack } : error)
       throw error
     }
+  },
+
+  async setVolume(volume: number) {
+    if (!currentAssetId) {
+      return
+    }
+    const safe = typeof volume === 'number' && Number.isFinite(volume)
+      ? Math.min(PLAYBACK_VOLUME_MAX, Math.max(PLAYBACK_VOLUME_MIN, volume))
+      : PLAYBACK_VOLUME_MAX
+    await NativeAudio.setVolume({ assetId: currentAssetId, volume: safe }).catch(() => undefined)
   },
 
   async pause() {

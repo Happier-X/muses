@@ -32,6 +32,7 @@ const { localLibraryNative, nativePlayer, nativeAudio, audioPlayerBridge, webDav
     resume: vi.fn(),
     stop: vi.fn(),
     seek: vi.fn(),
+    setVolume: vi.fn().mockResolvedValue(undefined),
     getState: vi.fn(),
     ensureNotificationPermission: vi.fn(),
     addListener: vi.fn(),
@@ -46,6 +47,7 @@ const { localLibraryNative, nativePlayer, nativeAudio, audioPlayerBridge, webDav
     unload: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn().mockResolvedValue(undefined),
     resume: vi.fn().mockResolvedValue(undefined),
+    setVolume: vi.fn().mockResolvedValue(undefined),
     setCurrentTime: vi.fn().mockResolvedValue(undefined),
     getCurrentTime: vi.fn().mockResolvedValue({ currentTime: 0 }),
     getDuration: vi.fn().mockResolvedValue({ duration: 180 }),
@@ -276,6 +278,11 @@ describe('原生播放器封装', () => {
       headers: {
         Authorization: `Basic ${btoa('alice:secret-password')}`,
       },
+      volume: 1,
+    })
+    expect(nativeAudio.setVolume).toHaveBeenCalledWith({
+      assetId: 'song-song-webdav-native',
+      volume: 1,
     })
     expect((await AudioPlayerNative.getState()).bufferedPosition).toBeUndefined()
 
@@ -420,9 +427,58 @@ describe('播放器控制器', () => {
       title: '本地歌曲',
       artist: '本地歌手',
       album: '本地专辑',
+      volume: 1,
     })
     expect(playerState.status).toBe('playing')
     expect(playerState.currentSong?.title).toBe('本地歌曲')
+  })
+
+  test('开启音量均衡且有 ReplayGain 时按 dB 传 volume', async () => {
+    const withGain = { ...localSong, replayGainTrackDb: -6 }
+    localStorage.setItem('muses:songs', JSON.stringify([withGain]))
+    const { playSong, setLoudnessNormalizeEnabled } = await import('@/features/player/controller')
+    setLoudnessNormalizeEnabled(true)
+
+    await playSong(withGain)
+
+    const expected = 10 ** (-6 / 20)
+    expect(nativePlayer.play).toHaveBeenCalledWith(expect.objectContaining({
+      songId: 'song-local',
+      volume: expect.closeTo(expected, 5),
+    }))
+  })
+
+  test('关闭音量均衡时即使有标签也传 volume 1', async () => {
+    const withGain = { ...localSong, replayGainTrackDb: -12 }
+    localStorage.setItem('muses:songs', JSON.stringify([withGain]))
+    const { playSong, setLoudnessNormalizeEnabled } = await import('@/features/player/controller')
+    setLoudnessNormalizeEnabled(false)
+
+    await playSong(withGain)
+
+    expect(nativePlayer.play).toHaveBeenCalledWith(expect.objectContaining({
+      volume: 1,
+    }))
+  })
+
+  test('切换音量均衡时对当前曲立即 setVolume', async () => {
+    const withGain = { ...localSong, replayGainTrackDb: -6 }
+    localStorage.setItem('muses:songs', JSON.stringify([withGain]))
+    const { playSong, setLoudnessNormalizeEnabled } = await import('@/features/player/controller')
+    setLoudnessNormalizeEnabled(true)
+    await playSong(withGain)
+    nativePlayer.setVolume.mockClear()
+
+    setLoudnessNormalizeEnabled(false)
+    await vi.waitFor(() => {
+      expect(nativePlayer.setVolume).toHaveBeenCalledWith(1)
+    })
+
+    nativePlayer.setVolume.mockClear()
+    setLoudnessNormalizeEnabled(true)
+    await vi.waitFor(() => {
+      expect(nativePlayer.setVolume).toHaveBeenCalledWith(expect.closeTo(10 ** (-6 / 20), 5))
+    })
   })
 
   test('快速连切时被 supersede 的 play 不得把 UI 打成旧曲 paused', async () => {
@@ -493,6 +549,7 @@ describe('播放器控制器', () => {
       title: '远程歌曲',
       artist: '远程歌手',
       album: undefined,
+      volume: 1,
     })
     expect(localStorage.getItem('muses:sources')).not.toContain('secret-password')
     expect(JSON.stringify(playerState)).not.toContain('secret-password')
@@ -2380,6 +2437,20 @@ describe('播放队列与循环/随机模式', () => {
 
     const config2 = JSON.parse(localStorage.getItem('muses:player-config')!)
     expect(config2.shuffleEnabled).toBe(true)
+  })
+
+  test('音量均衡开关默认开启且可持久化', async () => {
+    const {
+      isLoudnessNormalizeEnabled,
+      setLoudnessNormalizeEnabled,
+    } = await import('@/features/player/queue')
+
+    expect(isLoudnessNormalizeEnabled()).toBe(true)
+
+    setLoudnessNormalizeEnabled(false)
+    expect(isLoudnessNormalizeEnabled()).toBe(false)
+    const config = JSON.parse(localStorage.getItem('muses:player-config')!)
+    expect(config.loudnessNormalizeEnabled).toBe(false)
   })
 
   test('队列持久化到 muses:queue 只存 id 和排序，不含完整 SongItem', async () => {

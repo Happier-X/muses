@@ -2,7 +2,8 @@ import type { AudioTags, LyricsSource, SongItem, SongLyricsFormat } from './type
 
 const SONGS_STORAGE_KEY = 'muses:songs'
 export const SONGS_UPDATED_EVENT = 'muses:songs-updated'
-export const CURRENT_METADATA_VERSION = 2
+/** v3：增加 track ReplayGain 读取；旧 v2 曲在播放时会懒扫补增益 */
+export const CURRENT_METADATA_VERSION = 3
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null
@@ -87,6 +88,7 @@ const isSongItem = (value: unknown): value is SongItem => {
     isOptionalLyricsFormat(value.lyricsFormat) &&
     isOptionalString(value.coverUri) &&
     isLoadableCoverUri(value.coverUri) &&
+    isOptionalNumber(value.replayGainTrackDb) &&
     isOptionalBoolean(value.tagsScanned) &&
     isOptionalString(value.tagsScannedAt) &&
     isOptionalNumber(value.metadataVersion)
@@ -125,12 +127,21 @@ export const loadSongs = (): SongItem[] => {
   }
 }
 
+const sanitizeReplayGainTrackDb = (value: number | undefined): number | undefined => {
+  if (value === undefined || !Number.isFinite(value)) {
+    return undefined
+  }
+  return value
+}
+
 const sanitizeSongForStorage = (song: SongItem): SongItem => {
-  const { coverUri, ...rest } = song
+  const { coverUri, replayGainTrackDb, ...rest } = song
   const safeCover = sanitizeCoverUri(coverUri)
+  const safeGain = sanitizeReplayGainTrackDb(replayGainTrackDb)
   return {
     ...rest,
     ...(safeCover ? { coverUri: safeCover } : {}),
+    ...(safeGain !== undefined ? { replayGainTrackDb: safeGain } : {}),
   }
 }
 
@@ -176,6 +187,7 @@ const hasSongChanged = (left: SongItem, right: SongItem): boolean => {
     left.lyricsSource !== right.lyricsSource ||
     left.lyricsFormat !== right.lyricsFormat ||
     left.coverUri !== right.coverUri ||
+    left.replayGainTrackDb !== right.replayGainTrackDb ||
     left.tagsScanned !== right.tagsScanned ||
     left.tagsScannedAt !== right.tagsScannedAt ||
     left.metadataVersion !== right.metadataVersion
@@ -202,6 +214,7 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
       lyricsSource: tags.lyricsSource,
       lyricsFormat: tags.lyricsFormat,
       coverUri: sanitizeCoverUri(tags.coverUri),
+      replayGainTrackDb: sanitizeReplayGainTrackDb(tags.replayGainTrackDb),
       tagsScanned: tags.tagsScanned,
       tagsScannedAt: tags.tagsScannedAt,
       metadataVersion: tags.metadataVersion,
@@ -227,6 +240,10 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
     coverUri: tags.coverUri === undefined
       ? sanitizeCoverUri(previousSong.coverUri)
       : sanitizeCoverUri(tags.coverUri),
+    // 有新增益则更新；tags 未带该字段时保留旧值；不写假 0
+    replayGainTrackDb: tags.replayGainTrackDb === undefined
+      ? sanitizeReplayGainTrackDb(previousSong.replayGainTrackDb)
+      : sanitizeReplayGainTrackDb(tags.replayGainTrackDb),
     tagsScanned: tags.tagsScanned ?? previousSong.tagsScanned,
     tagsScannedAt: tags.tagsScannedAt ?? previousSong.tagsScannedAt,
     metadataVersion: tags.metadataVersion ?? previousSong.metadataVersion,

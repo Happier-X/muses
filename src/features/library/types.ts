@@ -20,6 +20,8 @@ export interface SongItem {
   /** 有 lyrics 时建议写入；缺省兼容旧数据按 lrc */
   lyricsFormat?: SongLyricsFormat
   coverUri?: string
+  /** track 级 ReplayGain（dB）；缺省/非法表示无标签，播放不调整 */
+  replayGainTrackDb?: number
   tagsScanned?: boolean
   tagsScannedAt?: string
   metadataVersion?: number
@@ -46,6 +48,8 @@ export interface AudioTags {
   lyricsSource?: LyricsSource
   lyricsFormat?: SongLyricsFormat
   coverUri?: string
+  /** track 级 ReplayGain（dB）；仅解析成功时存在 */
+  replayGainTrackDb?: number
   tagsScanned?: boolean
   tagsScannedAt?: string
   metadataVersion?: number

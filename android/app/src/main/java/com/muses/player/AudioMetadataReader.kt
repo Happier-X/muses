@@ -44,6 +44,10 @@ class AudioMetadataReader(private val context: Context) {
                 activeTag.firstArtwork?.binaryData?.let { picture ->
                     writeCover(cacheKey, picture)?.let { result.put("coverUri", it) }
                 }
+                // ReplayGain track gain：仅解析成功时写入，不写假增益
+                parseReplayGainTrackDb(activeTag)?.let { db ->
+                    result.put("replayGainTrackDb", db)
+                }
             }
         } catch (exception: Exception) {
             diagnostics.add("parse_failed")
@@ -111,6 +115,76 @@ class AudioMetadataReader(private val context: Context) {
     private fun firstLyricsValue(tag: Tag): String? {
         extractEmbeddedLyrics(tag.getFirst(FieldKey.LYRICS))?.let { return it }
         return firstRawFieldValue(tag, LYRICS_FIELD_ALIASES)?.let(::extractEmbeddedLyrics)
+    }
+
+    /**
+     * 读取 track 级 ReplayGain（dB）。
+     * jaudiotagger 3.0.1 无 REPLAYGAIN FieldKey，走原始字段别名 + TXXX/自定义帧扫描。
+     * 解析失败返回 null，调用方不得写入 0。
+     */
+    private fun parseReplayGainTrackDb(tag: Tag): Double? {
+        val candidates = mutableListOf<String>()
+
+        firstRawFieldValue(tag, REPLAYGAIN_TRACK_FIELD_ALIASES)?.let { candidates.add(it) }
+        // TXXX 等自定义帧可能以 description=REPLAYGAIN_TRACK_GAIN 出现
+        firstReplayGainFromCustomFields(tag)?.let { candidates.add(it) }
+
+        for (raw in candidates) {
+            parseReplayGainDbString(raw)?.let { return it }
+        }
+        return null
+    }
+
+    private fun firstReplayGainFromCustomFields(tag: Tag): String? {
+        val targetIds = REPLAYGAIN_TRACK_FIELD_ALIASES.map { normalizeFieldId(it) }.toSet()
+        return allFields(tag).firstNotNullOfOrNull { field ->
+            val fieldId = normalizeFieldId(field.id)
+            val content = readFieldValue(field)?.trim()?.takeIf { it.isNotBlank() } ?: return@firstNotNullOfOrNull null
+            // 字段 id 本身是 RG，或 content 形如 "REPLAYGAIN_TRACK_GAIN=-6.54 dB"
+            if (fieldId in targetIds) {
+                return@firstNotNullOfOrNull content
+            }
+            val lower = content.lowercase()
+            if (lower.contains("replaygain_track_gain") || lower.contains("r128_track_gain")) {
+                // 尝试从 key=value 中抽出数值段
+                val afterEq = content.substringAfter('=', missingDelimiterValue = content)
+                return@firstNotNullOfOrNull afterEq.trim()
+            }
+            null
+        }
+    }
+
+    private fun parseReplayGainDbString(raw: String): Double? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) {
+            return null
+        }
+        // 支持 "-6.54 dB" / "-6.54" / "+1.2 dB"；R128 Q7.8 整数（|value|>30）按 ÷256 换算为 dB
+        val withoutUnit = trimmed.replace(Regex("\\s*dB\\s*$", RegexOption.IGNORE_CASE), "").trim()
+        if (withoutUnit.isEmpty()) {
+            return null
+        }
+        val value = withoutUnit.toDoubleOrNull() ?: return null
+        return normalizeReplayGainDbValue(value)
+    }
+
+    /**
+     * 将解析数值规范为 track gain dB。
+     * 常规 ReplayGain 已是 dB；Opus 等 R128_TRACK_GAIN 常为 Q7.8（÷256）。
+     * 无法落入合理区间时返回 null，禁止写假增益。
+     */
+    private fun normalizeReplayGainDbValue(value: Double): Double? {
+        if (!value.isFinite()) {
+            return null
+        }
+        if (kotlin.math.abs(value) <= REPLAY_GAIN_DB_ABS_MAX) {
+            return value
+        }
+        val asQ78 = value / 256.0
+        if (asQ78.isFinite() && kotlin.math.abs(asQ78) <= REPLAY_GAIN_DB_ABS_MAX) {
+            return asQ78
+        }
+        return null
     }
 
     private fun firstRawFieldValue(tag: Tag, aliases: Set<String>): String? {
@@ -213,6 +287,14 @@ class AudioMetadataReader(private val context: Context) {
         val ARTIST_FIELD_ALIASES = setOf("ARTIST", "ALBUM_ARTIST", "TPE1", "TPE2", "©ART", "AUTHOR", "PERFORMER")
         val ALBUM_FIELD_ALIASES = setOf("ALBUM", "TALB", "©alb")
         val LYRICS_FIELD_ALIASES = setOf("LYRICS", "UNSYNCEDLYRICS", "UNSYNCED_LYRICS", "UNSYNCED LYRICS", "USLT", "SYLT", "DESCRIPTION", "DESC", "©lyr")
+        val REPLAYGAIN_TRACK_FIELD_ALIASES = setOf(
+            "REPLAYGAIN_TRACK_GAIN",
+            "replaygain_track_gain",
+            "R128_TRACK_GAIN",
+            "r128_track_gain",
+        )
+        /** 合理 track gain |dB| 上限；超出则尝试 Q7.8 换算 */
+        const val REPLAY_GAIN_DB_ABS_MAX = 30.0
     }
 }
 

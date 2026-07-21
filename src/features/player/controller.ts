@@ -12,6 +12,7 @@ import {
   needsOnlineTextMeta,
 } from '@/features/metadata'
 import { AudioPlayerNative, cacheRemoteCover, prefetchWebDavAudioFile } from './native'
+import { dbToPlaybackVolume } from './loudness'
 import type { AudioPlayerNativeState, PlayOptions, PlayerState } from './types'
 import {
   createPlayerSongSnapshot,
@@ -27,8 +28,10 @@ import {
   clearQueue as clearQueueInternal,
   enqueueSong as enqueueSongInternal,
   enqueueSongs as enqueueSongsInternal,
+  isLoudnessNormalizeEnabled,
   peekNext,
   removeSongFromQueue as removeSongFromQueueInternal,
+  setLoudnessNormalizeEnabled as setLoudnessNormalizeEnabledInternal,
   setRepeatMode as setRepeatModeInternal,
   syncCurrentIndex,
   toggleShuffle as toggleShuffleInternal,
@@ -429,7 +432,14 @@ const getWebDavSource = (song: SongItem): WebDavSourceItem => {
   return source
 }
 
+/** 按开关 + 曲目 ReplayGain 计算线性 volume（0.1–1.0） */
+const resolvePlaybackVolume = (song: Pick<SongItem, 'replayGainTrackDb'>): number => {
+  return dbToPlaybackVolume(song.replayGainTrackDb, isLoudnessNormalizeEnabled())
+}
+
 const buildPlayOptions = async (song: SongItem): Promise<PlayOptions> => {
+  const volume = resolvePlaybackVolume(song)
+
   if (song.sourceType === 'local') {
     return {
       sourceType: 'local',
@@ -440,6 +450,7 @@ const buildPlayOptions = async (song: SongItem): Promise<PlayOptions> => {
       album: song.album,
       coverUri: toSafeCoverUri(song.coverUri),
       duration: song.duration,
+      volume,
     }
   }
 
@@ -457,8 +468,30 @@ const buildPlayOptions = async (song: SongItem): Promise<PlayOptions> => {
     album: song.album,
     coverUri: toSafeCoverUri(song.coverUri),
     duration: song.duration,
+    volume,
   }
 }
+
+/** 对当前正在播放/暂停的曲目立即重算并应用音量（开关切换时） */
+const reapplyCurrentTrackVolume = async (): Promise<void> => {
+  if (state.status !== 'playing' && state.status !== 'paused') {
+    return
+  }
+  const currentId = state.currentSong?.id
+  if (!currentId) {
+    return
+  }
+  const latest = loadSongs().find((item) => item.id === currentId)
+  const volume = resolvePlaybackVolume(latest ?? { replayGainTrackDb: undefined })
+  await AudioPlayerNative.setVolume(volume)
+}
+
+export const setLoudnessNormalizeEnabled = (enabled: boolean): void => {
+  setLoudnessNormalizeEnabledInternal(enabled)
+  void reapplyCurrentTrackVolume()
+}
+
+export { isLoudnessNormalizeEnabled }
 
 const buildAudioFileEntry = (song: SongItem) => ({
   path: song.path,
@@ -653,6 +686,13 @@ const scanSongMetadata = async (song: SongItem): Promise<void> => {
 
     syncDisplayStateFromSong(result.song)
     state.metadataStatus = 'ready'
+    // 懒扫补到 ReplayGain 后立即重设当前曲音量，避免首播仍用 1.0
+    if (
+      (state.status === 'playing' || state.status === 'paused')
+      && state.currentSong?.id === result.song.id
+    ) {
+      void AudioPlayerNative.setVolume(resolvePlaybackVolume(result.song))
+    }
     void matchOnlineCoverForSong(result.song, coverToken)
     void matchOnlineTextMetaForSong(result.song, textToken)
   } catch {

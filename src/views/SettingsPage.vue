@@ -20,6 +20,18 @@
               <p>应用版本 {{ currentVersion }}</p>
             </ion-label>
           </ion-item>
+
+          <ion-item>
+            <ion-label>
+              <h2>音量均衡</h2>
+              <p>根据歌曲自带的 ReplayGain 等标签调整播放音量。无标签的歌曲不会改变；过静的歌曲无法放大超过系统满幅。</p>
+            </ion-label>
+            <ion-toggle
+              slot="end"
+              :checked="loudnessNormalizeEnabled"
+              @ionChange="onLoudnessToggle"
+            />
+          </ion-item>
         </ion-list>
 
         <div class="update-section">
@@ -38,7 +50,23 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { IonButton, IonContent, IonHeader, IonItem, IonLabel, IonList, IonPage, IonTitle, IonToolbar, toastController } from '@ionic/vue'
+import {
+  IonButton,
+  IonContent,
+  IonHeader,
+  IonItem,
+  IonLabel,
+  IonList,
+  IonPage,
+  IonTitle,
+  IonToggle,
+  IonToolbar,
+  toastController,
+} from '@ionic/vue'
+import {
+  isLoudnessNormalizeEnabled,
+  setLoudnessNormalizeEnabled,
+} from '@/features/player/controller'
 import pkg from '../../package.json'
 
 const present = async (opts: { message: string; duration: number }) => {
@@ -48,6 +76,13 @@ const present = async (opts: { message: string; duration: number }) => {
 
 const currentVersion = pkg.version
 const checking = ref(false)
+const loudnessNormalizeEnabled = ref(isLoudnessNormalizeEnabled())
+
+const onLoudnessToggle = (event: CustomEvent<{ checked?: boolean }>) => {
+  const enabled = Boolean(event.detail?.checked)
+  loudnessNormalizeEnabled.value = enabled
+  setLoudnessNormalizeEnabled(enabled)
+}
 
 const compareVersions = (a: string, b: string): number => {
   const partsA = a.split('.').map(Number)
