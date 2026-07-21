@@ -47,8 +47,6 @@
             <div class="song-info">
               <h1>{{ playerState.currentSong.title }}</h1>
               <p>{{ subtitle }}</p>
-              <small v-if="playerState.metadataStatus === 'scanning'">正在补充歌曲信息…</small>
-              <small v-else-if="playerState.metadataStatus === 'failed'">歌曲信息补充失败，已使用当前信息播放。</small>
             </div>
 
             <div

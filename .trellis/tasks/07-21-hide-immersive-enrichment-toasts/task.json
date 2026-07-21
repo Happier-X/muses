@@ -3,7 +3,7 @@
   "name": "hide-immersive-enrichment-toasts",
   "title": "沉浸式页隐藏信息补充提示 (#48)",
   "description": "沉浸式播放页不展示歌曲信息补充中/失败等提示",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
