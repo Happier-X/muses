@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "页面 ion-icon 与图标约定，需改为 Lucide"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "依赖与测试质量门槛"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新增 icons 适配层目录约定"}
