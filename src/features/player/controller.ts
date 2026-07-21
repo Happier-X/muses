@@ -32,11 +32,17 @@ import {
   peekNext,
   removeSongFromQueue as removeSongFromQueueInternal,
   setLoudnessNormalizeEnabled as setLoudnessNormalizeEnabledInternal,
+  findQueueIndexBySongId,
   setRepeatMode as setRepeatModeInternal,
   syncCurrentIndex,
   toggleShuffle as toggleShuffleInternal,
   type RepeatMode,
 } from './queue'
+import {
+  clearPlaybackSession,
+  loadPlaybackSession,
+  savePlaybackSession,
+} from './session'
 import {
   setupMediaSessionActions,
   updateMediaSessionMetadata,
@@ -74,6 +80,13 @@ let playGeneration = 0
 let lastSeekAt = 0
 /** seek 前的播放态，伪 finished 时按此恢复，避免误 advance */
 let statusBeforeSeek: 'playing' | 'paused' = 'playing'
+/** 冷启动恢复的续播起点（秒）；play 成功后 seek 一次并清空（#49） */
+let pendingResumePosition: number | null = null
+/** 仅 UI 恢复、原生尚未 load 当前曲：忽略原生 idle/stopped 以免冲掉展示（#49） */
+let restoredSessionUiOnly = false
+/** 会话 position 节流写入 */
+const SESSION_POSITION_THROTTLE_MS = 3000
+let lastSessionPersistAt = 0
 
 const LOCAL_METADATA_SCAN_TIMEOUT_MS = 15_000
 const WEBDAV_METADATA_SCAN_TIMEOUT_MS = 120_000
@@ -178,6 +191,10 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   }
 
   if (nativeState.status === 'idle' || nativeState.status === 'stopped') {
+    // 冷启动 getState / 陈旧 idle：不得冲掉「仅 UI 恢复」的当前曲与 session（#49）
+    if (restoredSessionUiOnly) {
+      return
+    }
     state.currentSong = null
     state.position = 0
     state.duration = 0
@@ -190,6 +207,11 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
     state.metadataStatus = 'idle'
     syncMediaSessionState()
     return
+  }
+
+  // playing 中进度节流写入本地会话（#49）
+  if (nativeState.status === 'playing' && state.currentSong) {
+    persistPlaybackSessionThrottled()
   }
 
   if (nativeState.status === 'error') {
@@ -228,6 +250,72 @@ export const playPreviousFromQueue = async (): Promise<void> => {
   }
 }
 
+const persistPlaybackSessionNow = (): void => {
+  const songId = state.currentSong?.id
+  if (!songId) {
+    return
+  }
+  savePlaybackSession({
+    currentSongId: songId,
+    position: normalizePlaybackTime(state.position),
+  })
+  lastSessionPersistAt = Date.now()
+}
+
+const persistPlaybackSessionThrottled = (): void => {
+  if (Date.now() - lastSessionPersistAt < SESSION_POSITION_THROTTLE_MS) {
+    return
+  }
+  persistPlaybackSessionNow()
+}
+
+/**
+ * 冷启动：从 localStorage 恢复当前曲展示为 paused，不自动出声（#49）。
+ * 仅在原生尚无活跃曲时生效。
+ */
+const restorePlaybackSessionIfNeeded = (): void => {
+  if (state.currentSong || state.status === 'playing' || state.status === 'loading') {
+    return
+  }
+
+  const session = loadPlaybackSession()
+  if (!session) {
+    return
+  }
+
+  const songs = loadSongs()
+  const song = songs.find((item) => item.id === session.currentSongId) ?? null
+  if (!song || findQueueIndexBySongId(song.id) < 0) {
+    // 曲库删除或不在队列：丢弃会话，避免展示幽灵当前曲
+    clearPlaybackSession()
+    return
+  }
+
+  syncCurrentIndex(song.id)
+  const duration = normalizePlaybackTime(song.duration)
+  const position = duration > 0
+    ? Math.min(normalizePlaybackTime(session.position), duration)
+    : normalizePlaybackTime(session.position)
+
+  state.status = 'paused'
+  state.currentSong = createPlayerSongSnapshot(song)
+  state.errorMessage = null
+  state.position = position
+  state.duration = duration
+  resetBufferState()
+  state.lyrics = song.lyrics || null
+  state.lyricsFormat = resolveStoredLyricsFormat(song)
+  state.lyricsTranslation = null
+  state.onlineLyricsStatus = 'idle'
+  state.coverUri = toSafeCoverUri(song.coverUri) || null
+  state.metadataStatus = song.tagsScanned === true ? 'ready' : 'idle'
+  // 续播起点记在 state.position；点播放时 resumePlayback 再起 native
+  pendingResumePosition = position > 0 ? position : null
+  restoredSessionUiOnly = true
+  syncMediaSessionSong(song)
+  syncMediaSessionState()
+}
+
 export const initializePlayer = async (): Promise<void> => {
   if (!nativeListenerReady) {
     nativeListenerReady = true
@@ -248,6 +336,9 @@ export const initializePlayer = async (): Promise<void> => {
   } catch {
     // 非 Android 或原生插件尚不可用时，保持空闲状态，用户点击播放时再显示明确错误。
   }
+
+  // 原生无活跃播放时恢复上次会话为暂停展示（#49）
+  restorePlaybackSessionIfNeeded()
 }
 
 const normalizePlaybackTime = (value: unknown): number => {
@@ -823,6 +914,8 @@ const playSongInternal = async (
   syncCurrentIndex(latestSong.id)
   // 切歌清理 seek 保护，避免新歌首帧误吞真实 finished
   clearSeekGuard()
+  // 一旦发起原生 play，不再处于「仅 UI 会话」
+  restoredSessionUiOnly = false
 
   const generation = ++playGeneration
   state.status = 'loading'
@@ -833,7 +926,10 @@ const playSongInternal = async (
   onlineTextToken += 1
   state.currentSong = createPlayerSongSnapshot(latestSong)
   state.errorMessage = null
-  state.position = 0
+  // 续播时保留待恢复进度展示，避免 play 前 UI 闪回 0（#49）
+  state.position = pendingResumePosition != null && pendingResumePosition > 0
+    ? pendingResumePosition
+    : 0
   state.duration = normalizePlaybackTime(latestSong.duration)
   // 切歌先清缓冲，禁止继承上一首（R7）；本地 full / 远程增长由 native 再写入
   resetBufferState()
@@ -861,6 +957,27 @@ const playSongInternal = async (
       return
     }
     state.status = 'playing'
+    // 冷启动续播：play 默认从 0，成功后 seek 到恢复进度（#49）
+    if (
+      pendingResumePosition != null
+      && pendingResumePosition > 0
+      && state.currentSong?.id === latestSong.id
+    ) {
+      const resumeAt = pendingResumePosition
+      pendingResumePosition = null
+      try {
+        await AudioPlayerNative.seek({ position: resumeAt })
+        if (generation === playGeneration && state.currentSong?.id === latestSong.id) {
+          state.position = resumeAt
+          lastSeekAt = Date.now()
+        }
+      } catch {
+        // seek 失败仍保持已起播，从 0 附近继续
+      }
+    } else {
+      pendingResumePosition = null
+    }
+    persistPlaybackSessionNow()
     void scanSongMetadata(latestSong)
     // 播放成功后后台预取下一首 WebDAV（失败静默）
     void prefetchNextTrack(latestSong.id)
@@ -891,6 +1008,10 @@ const playSongInternal = async (
 }
 
 export const playSong = async (song: SongItem): Promise<void> => {
+  // 用户主动点播新曲：不继承冷启动续播点
+  if (state.currentSong?.id !== song.id) {
+    pendingResumePosition = null
+  }
   await playSongInternal(song)
 }
 
@@ -899,17 +1020,42 @@ export const pausePlayback = async (): Promise<void> => {
     await AudioPlayerNative.pause()
     state.status = 'paused'
     state.errorMessage = null
+    persistPlaybackSessionNow()
   } catch {
     setUserSafeError('暂停失败，请稍后重试。')
   }
 }
 
 export const resumePlayback = async (): Promise<void> => {
+  // 冷启动仅 UI 恢复、原生尚未 load 时，resume 无 asset：改为 play + seek（#49）
+  if (state.currentSong && (state.status === 'paused' || state.status === 'stopped' || state.status === 'idle')) {
+    const song = loadSongs().find((item) => item.id === state.currentSong?.id)
+    if (song) {
+      if (pendingResumePosition == null && state.position > 0) {
+        pendingResumePosition = state.position
+      }
+      await playSongInternal(song)
+      return
+    }
+  }
+
   try {
     await AudioPlayerNative.resume()
     state.status = 'playing'
     state.errorMessage = null
+    persistPlaybackSessionNow()
   } catch {
+    // resume 失败时若有当前曲，回退 play 路径
+    const song = state.currentSong
+      ? loadSongs().find((item) => item.id === state.currentSong?.id)
+      : null
+    if (song) {
+      if (pendingResumePosition == null && state.position > 0) {
+        pendingResumePosition = state.position
+      }
+      await playSongInternal(song)
+      return
+    }
     setUserSafeError('继续播放失败，请稍后重试。')
   }
 }
@@ -935,11 +1081,19 @@ export const seekPlayback = async (position: number): Promise<boolean> => {
 
   try {
     statusBeforeSeek = state.status === 'paused' ? 'paused' : 'playing'
+    // 仅 UI 恢复、原生未起播时：只更新本地进度与会话，待用户播放时 seek（#49）
+    if (restoredSessionUiOnly) {
+      state.position = safePosition
+      pendingResumePosition = safePosition > 0 ? safePosition : null
+      persistPlaybackSessionNow()
+      return true
+    }
     await AudioPlayerNative.seek({ position: safePosition })
     state.position = safePosition
     state.errorMessage = null
     // seek 成功后开启短保护窗，吞掉未缓冲区间触发的伪 finished
     lastSeekAt = Date.now()
+    persistPlaybackSessionNow()
     return true
   } catch {
     setUserSafeError('跳转播放进度失败，请稍后重试。')
@@ -951,6 +1105,9 @@ export const stopPlayback = async (): Promise<void> => {
   try {
     await AudioPlayerNative.stop()
     clearSeekGuard()
+    pendingResumePosition = null
+    restoredSessionUiOnly = false
+    clearPlaybackSession()
     metadataScanToken += 1
     lyricsMatchToken += 1
     onlineCoverToken += 1

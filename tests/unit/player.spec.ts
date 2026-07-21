@@ -3369,3 +3369,119 @@ describe('已缓冲进度与 seek 限制', () => {
     expect(range.props('value')).toBe(25)
   })
 })
+
+describe('冷启动播放会话恢复 (#49)', () => {
+  afterEach(async () => {
+    await resetPlayer()
+    localStorage.clear()
+  })
+
+  test('initializePlayer 从 session 恢复为 paused 且不自动 play', async () => {
+    vi.resetModules()
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }]))
+    localStorage.setItem('muses:queue', JSON.stringify({
+      items: [{ songId: 'song-local' }],
+      originalOrder: [{ songId: 'song-local' }],
+      shuffleOrder: null,
+    }))
+    localStorage.setItem('muses:playback-session', JSON.stringify({
+      currentSongId: 'song-local',
+      position: 42.5,
+    }))
+
+    nativePlayer.getState.mockResolvedValue({ status: 'idle' })
+    const { initializePlayer, playerState, queueState } = await import('@/features/player/controller')
+    await initializePlayer()
+
+    expect(playerState.currentSong?.id).toBe('song-local')
+    expect(playerState.status).toBe('paused')
+    expect(playerState.position).toBe(42.5)
+    expect(queueState.currentIndex).toBe(0)
+    expect(nativePlayer.play).not.toHaveBeenCalled()
+  })
+
+  test('resumePlayback 从恢复进度 play + seek', async () => {
+    vi.resetModules()
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }]))
+    localStorage.setItem('muses:queue', JSON.stringify({
+      items: [{ songId: 'song-local' }],
+      originalOrder: [{ songId: 'song-local' }],
+      shuffleOrder: null,
+    }))
+    localStorage.setItem('muses:playback-session', JSON.stringify({
+      currentSongId: 'song-local',
+      position: 55,
+    }))
+
+    nativePlayer.getState.mockResolvedValue({ status: 'idle' })
+    const { initializePlayer, resumePlayback, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
+    expect(playerState.status).toBe('paused')
+
+    nativePlayer.play.mockClear()
+    nativePlayer.seek.mockClear()
+    await resumePlayback()
+
+    expect(nativePlayer.play).toHaveBeenCalled()
+    expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 55 })
+    expect(playerState.status).toBe('playing')
+    expect(playerState.position).toBe(55)
+  })
+
+  test('stopPlayback 清除 session', async () => {
+    vi.resetModules()
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }]))
+    localStorage.setItem('muses:queue', JSON.stringify({
+      items: [{ songId: 'song-local' }],
+      originalOrder: [{ songId: 'song-local' }],
+      shuffleOrder: null,
+    }))
+    localStorage.setItem('muses:playback-session', JSON.stringify({
+      currentSongId: 'song-local',
+      position: 10,
+    }))
+
+    nativePlayer.getState.mockResolvedValue({ status: 'idle' })
+    const { initializePlayer, stopPlayback } = await import('@/features/player/controller')
+    await initializePlayer()
+    await stopPlayback()
+
+    expect(localStorage.getItem('muses:playback-session')).toBeNull()
+  })
+
+  test('曲目不在队列时丢弃 session', async () => {
+    vi.resetModules()
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }]))
+    localStorage.setItem('muses:queue', JSON.stringify({
+      items: [],
+      originalOrder: [],
+      shuffleOrder: null,
+    }))
+    localStorage.setItem('muses:playback-session', JSON.stringify({
+      currentSongId: 'song-local',
+      position: 10,
+    }))
+
+    nativePlayer.getState.mockResolvedValue({ status: 'idle' })
+    const { initializePlayer, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
+
+    expect(playerState.currentSong).toBeNull()
+    expect(localStorage.getItem('muses:playback-session')).toBeNull()
+  })
+
+  test('session 序列化读写', async () => {
+    const { loadPlaybackSession, savePlaybackSession, clearPlaybackSession } = await import('@/features/player/session')
+    clearPlaybackSession()
+    expect(loadPlaybackSession()).toBeNull()
+
+    savePlaybackSession({ currentSongId: 's1', position: 12.3 })
+    expect(loadPlaybackSession()).toEqual(expect.objectContaining({
+      currentSongId: 's1',
+      position: 12.3,
+    }))
+
+    clearPlaybackSession()
+    expect(loadPlaybackSession()).toBeNull()
+  })
+})

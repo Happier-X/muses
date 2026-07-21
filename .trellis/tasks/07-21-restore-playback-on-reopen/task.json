@@ -3,7 +3,7 @@
   "name": "restore-playback-on-reopen",
   "title": "重启后恢复上次播放信息 (#49)",
   "description": "应用重新打开时保留并恢复上次播放队列与进度",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

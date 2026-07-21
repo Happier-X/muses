@@ -170,6 +170,8 @@
 - **禁止**缓冲未知时画假缓冲条；播放页进度使用 `ion-range`，不再自绘缓冲色条层，也不再注入 `--buffered` UI 变量。
 - **禁止**仅依赖 Capgo `currentTime` 事件驱动 UI 进度：playing 时必须有 `getCurrentTime` 轮询兜底，避免 timer 停转后条与时间冻结（#47）。
 - **禁止**在无用户进度条手势时因 `ion-range` 的 programmatic `ionInput` 写入 `seekPreviewPosition`，否则会盖住 `playerState.position` 导致填充不前进（#47）。
+- **冷启动播放会话**（`muses:playback-session`，#49）：存 `currentSongId` + `position`；`initializePlayer` 在原生无活跃曲时恢复为 **paused** 展示（不自动 play）；`stopPlayback` 清除 session；用户点播放走 `resumePlayback` → 必要时 `play` + `seek`。playing 中 position 节流写盘。
+- **禁止**冷启动自动出声；**禁止** `applyNativeState(idle)` 在「仅 UI 恢复」窗口冲掉已恢复的 `currentSong`/session。
 - **禁止**预取密码进入 player state / localStorage / 日志；预取失败不得影响当前播放。
 - **禁止**在线封面把 `data:` / base64 / 远程 URL 写入曲库；禁止覆盖已有安全封面；匹配失败不得影响播放。
 
@@ -205,6 +207,10 @@
 - 无标签 / 关闭均衡 → volume 1.0
 - 切歌后 volume 按新曲重算，不串曲
 - 设置开关即时生效并写入 `muses:player-config`
+- 有 session + 队列曲仍在 → 冷启动 `initializePlayer` 后 paused + 恢复 position；不调用 native play
+- 点播放 → play + seek 到恢复进度
+- stop → 清除 `muses:playback-session`；队列列表仍保留
+- 曲不在队列/曲库 → 丢弃 session，无当前曲
 
 ---
 
@@ -229,6 +235,8 @@
   修复：源头限制 seek ≤ `bufferedPosition`；`seekPlayback` 成功后开启保护窗；`applyNativeState` 仅在非保护窗且接近自然结尾时 `handlePlaybackFinished`。
 - **播放中进度条/时间不前进，seek 后仍冻结（#47）**  
   修复：`native.ts` playing 轮询 `getCurrentTime`；`PlayerPage` 仅在 `seekGestureLocked` 时写 seek preview，忽略 ion-range value 变化触发的伪 `ionInput`。
+- **杀进程重开无当前曲 / 进度丢失（#49）**  
+  修复：`session.ts` 持久化 songId+position；`initializePlayer` 恢复 paused UI；`resumePlayback` 无 asset 时 play+seek；`stopPlayback` 清 session。
 - **缓冲串曲 / 切歌后仍显示上一首缓冲条**  
   修复：`playSong` / `stopPlayback` / 播放失败均 `resetBufferState()`；继续调用原生 `cancelBufferSession`，清理旧 APK 或遗留会话启动的渐进下载。
 - **没有 `npx cap sync android` 就部署**：前端代码改动不会反映到 APK  
