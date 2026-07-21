@@ -101,8 +101,12 @@
 - 封面晚到时 `BackgroundRender` 须用 `key` 绑定封面 URI 以重建；`syncDisplayStateFromSong` **禁止**用库内空歌词清空运行时已有词，仅库内质量严格更优时才替换（#21）。
 - 有 `currentSong` 时 **保活** `PlayerPage`（关闭沉浸式用 transform 隐藏，勿 `v-if` 销毁），避免再打开时 AMLL 背景重建闪默认底（#22）；无当前曲时可卸载。保活后打开/关闭必须 `resetDragState()`，下滑关闭前也要清零 `dragOffsetY`，避免再打开半屏（#25）。
 - 歌词页浮动：左下翻译开关（默认开，隐藏时清空 `translatedLyric`/`romanLyric`，并用 `key` 重建 `LyricPlayer` 保证 AMLL 立即刷新）；右下播放/暂停仅 **非平板**（`<768px`）显示；浮动按钮需小尺寸、低视觉权重（#23/#24/#26）。
-- 展示前须 `prepareLyricLinesForDisplay`：合并同时间戳双语主行、挂 `lyricsTranslation`（网易 tlyric 等 timed LRC），否则翻译开关无效且副行不会随主行激活提亮（#27）。
-- **双语主译判定**：同时间戳双主行合并时不得只靠文件顺序。若一对中一行是 Han、另一行是非 Han（Latin / 假名 / Hangul 等），**非 Han 为主行**、Han 为 `translatedLyric`；已挂 `translatedLyric`（tlyric）的行不再双行合并以免颠倒。合并结果 `endTime = max(两行 endTime)`，避免活跃窗口过短导致高亮只闪一下。关翻译后主行须仍为原文。
+- **歌词解析 vs 翻译适配（AMLL 边界）**：
+  - 主词格式解析**只**用 `@applemusic-like-lyrics/lyric`（`parseLrc` / `parseYrc` / `parseQrc` / `parseTTML` 等），禁止自研平行格式解析器。
+  - `parseLrc` **不会**把同时间戳双行 plain LRC 自动收成主行+`translatedLyric`；独立 tlyric 也需业务挂载。
+  - 展示前 `prepareLyricLinesForDisplay`（`mergeTranslation.ts`）仅做：挂 `lyricsTranslation`（tlyric）→ 合并仍无译的同时间戳双主行 → 供翻译开关使用；**不是**第二套 LRC 引擎。
+  - 已有非空 `translatedLyric`（TTML/库结果或已 attach）禁止再双行合并或覆盖。
+- **双语主译判定**：同时间戳双主行合并时不得只靠文件顺序。若一对中一行是 Han、另一行是非 Han（Latin / 假名 / Hangul 等），**非 Han 为主行**、Han 为 `translatedLyric`。合并结果 `endTime = max(两行 endTime)`，避免活跃窗口过短导致高亮只闪一下。关翻译后主行须仍为原文。
 - 快速切歌：`playSong` 用 generation 丢弃被 supersede 的 play 回写；native 状态有当前曲时必须 `currentSongId` 精确匹配；loading 期间忽略无关 paused/stopped（#28/#29）。
 
 ## 在线歌词匹配（多源回退）

@@ -367,7 +367,7 @@ const lyricLines = computed<LyricLine[]>(() => {
   }
 
   try {
-    // amll 解析：TTML / 网易 yrc / QQ qrc / 通用 LRC
+    // 格式解析归 AMLL；业务只做 tlyric 挂载 + 双行 plain LRC 主译（mergeTranslation）。
     let lines: LyricLine[]
     if (playerState.lyricsFormat === 'ttml') {
       lines = parseTTML(currentLyrics.value).lines
@@ -378,7 +378,7 @@ const lyricLines = computed<LyricLine[]>(() => {
     } else {
       lines = parseLrc(normalizeLrc(currentLyrics.value))
     }
-    // 合并双语主行 + 挂 timed 译文，使翻译开关与副行高亮可用（#27）
+    // attach tlyric + 合并同时间戳双主行（库已填 translatedLyric 则跳过合并）
     return prepareLyricLinesForDisplay(lines, playerState.lyricsTranslation)
   } catch {
     return []

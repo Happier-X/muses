@@ -168,4 +168,28 @@ describe('歌词译文合并', () => {
     expect(hidden[0].words[0].word).toBe('Hello')
     expect(hidden[0].translatedLyric).toBe('')
   })
+
+  test('库已填 translatedLyric 时透传且不被 tlyric/双行合并覆盖', () => {
+    const fromAml = makeLine(1000, 'Hello', '库内译文')
+    const prepared = prepareLyricLinesForDisplay(
+      [fromAml, makeLine(1000, '你好')],
+      '[00:01.00]错误译文',
+    )
+    // 首行已有译 → 不与下一行合并，tlyric 也不覆盖
+    expect(prepared).toHaveLength(2)
+    expect(prepared[0].words[0].word).toBe('Hello')
+    expect(prepared[0].translatedLyric).toBe('库内译文')
+    expect(prepared[1].words[0].word).toBe('你好')
+  })
+
+  test('管线顺序：先 attach tlyric 再双行合并，已挂译的行不再合并', () => {
+    // 主词仅英文一行；tlyric 提供中文；不应依赖双行合并
+    const prepared = prepareLyricLinesForDisplay(
+      [makeLine(1000, 'Hello')],
+      '[00:01.00]你好',
+    )
+    expect(prepared).toHaveLength(1)
+    expect(prepared[0].words[0].word).toBe('Hello')
+    expect(prepared[0].translatedLyric).toBe('你好')
+  })
 })

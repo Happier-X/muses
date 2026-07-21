@@ -1,9 +1,26 @@
+/**
+ * 歌词翻译适配层（非格式解析器）。
+ *
+ * 职责边界（对齐 AMLL）：
+ * - 主词格式解析一律用 `@applemusic-like-lyrics/lyric` 的
+ *   `parseLrc` / `parseYrc` / `parseQrc` / `parseTTML` 等（见 PlayerPage）。
+ * - 本文件只做 AMLL **不会**完成的业务适配：
+ *   1) 独立 tlyric（timed LRC 译文串）挂到主行 `translatedLyric`
+ *   2) plain 双语 LRC 同时间戳双主行 → 主行+副行（非 Han 优先主行）
+ *   3) 供翻译开关使用的行数据准备（与 display.ts 配合）
+ * - 已有非空 `translatedLyric`（库解析结果或 tlyric 已挂）不得二次合并/覆盖主译语义。
+ * - `parseTimedLrcMap` 仅服务 tlyric 挂载：平台译文时间戳变体（逗号毫秒等）
+ *   比 `parseLrc` 更宽，**不**替代主词 LRC 解析。
+ */
 import type { LyricLine } from '@applemusic-like-lyrics/core'
 
 const TIME_TAG_RE = /\[(\d{1,3}):(\d{2})(?:[.,:](\d{1,3}))?\]/g
 const TRANSLATION_MATCH_TOLERANCE_MS = 80
 
-/** 解析带时间轴的 LRC 为 startMs → 文本（同时间后者覆盖） */
+/**
+ * 将独立 translation LRC 文本解析为 startMs → 文本（同时间后者覆盖）。
+ * 仅用于 attach tlyric，不是主歌词解析入口。
+ */
 export const parseTimedLrcMap = (text: string): Map<number, string> => {
   const map = new Map<number, string>()
   for (const raw of text.split(/\r?\n/)) {
@@ -60,7 +77,10 @@ const nearestTranslation = (map: Map<number, string>, startMs: number, tolerance
   return best
 }
 
-/** 把 timed LRC 译文挂到主歌词行的 translatedLyric */
+/**
+ * 把独立 timed LRC 译文（如网易 tlyric）挂到主行 `translatedLyric`。
+ * 已有非空 `translatedLyric` 的行（TTML/库内嵌译等）不覆盖。
+ */
 export const attachTimedLyricsTranslation = (
   lines: LyricLine[],
   translationLrc: string | null | undefined,
@@ -74,6 +94,7 @@ export const attachTimedLyricsTranslation = (
     return lines.map((line) => ({ ...line }))
   }
   return lines.map((line) => {
+    // 尊重 AMLL 解析或上游已填的翻译，避免二次猜测。
     if (line.translatedLyric?.trim()) {
       return { ...line }
     }
@@ -179,7 +200,10 @@ export const mergeDuplicateTimestampTranslations = (lines: LyricLine[]): LyricLi
   return result
 }
 
-/** 显示管线：先挂 timed 译文，再合并双行主词 */
+/**
+ * 显示管线（主词须已由 AMLL parse 完成）：
+ * attachTimed(tlyric?) → mergeDuplicate(仅双主行且无译) → 再由 UI 做 visibility。
+ */
 export const prepareLyricLinesForDisplay = (
   lines: LyricLine[],
   translationLrc?: string | null,
