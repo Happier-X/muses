@@ -106,9 +106,38 @@ const isLikelyTranslationPair = (source: string, candidate: string): boolean => 
   return !!sourceScript && !!candidateScript && sourceScript !== candidateScript
 }
 
+const linePlainText = (line: LyricLine): string =>
+  line.words.map((w) => w.word).join('').trim()
+
 /**
- * 合并「同时间戳双语主行」：原文 + 紧随的译文行 → translatedLyric。
+ * 在可合并的双语对中挑选主行与译文。
+ * 常见「中文在前、原文在后」时，Han 应作译文、非 Han 作主行，不能只靠文件顺序。
+ */
+const pickMainAndTranslation = (
+  first: LyricLine,
+  second: LyricLine,
+): { main: LyricLine; translation: string } => {
+  const firstText = linePlainText(first)
+  const secondText = linePlainText(second)
+  const firstScript = scriptSignature(firstText)
+  const secondScript = scriptSignature(secondText)
+
+  // 一对中一行是 Han、另一行是非 Han → 非 Han 为主行，Han 为译文。
+  if (firstScript === 'han' && secondScript && secondScript !== 'han') {
+    return { main: second, translation: firstText }
+  }
+  if (secondScript === 'han' && firstScript && firstScript !== 'han') {
+    return { main: first, translation: secondText }
+  }
+
+  // 其它可区分脚本对：默认前一行主、后一行译。
+  return { main: first, translation: secondText }
+}
+
+/**
+ * 合并「同时间戳双语主行」：原文主行 + 译文 → translatedLyric。
  * 只有文字体系明确不同才合并，避免吞掉同时间的两句独立歌词。
+ * 主译按脚本语义选择（非 Han 优先于 Han），不依赖 LRC 行序。
  */
 export const mergeDuplicateTimestampTranslations = (lines: LyricLine[]): LyricLine[] => {
   if (lines.length < 2) {
@@ -119,23 +148,28 @@ export const mergeDuplicateTimestampTranslations = (lines: LyricLine[]): LyricLi
   for (let index = 0; index < lines.length; index += 1) {
     const current = lines[index]
     const next = lines[index + 1]
+    const currentText = linePlainText(current)
+    const nextText = next ? linePlainText(next) : ''
     if (
       next
       && !current.isBG
       && !next.isBG
       && Math.abs(current.startTime - next.startTime) <= 50
+      // 任一侧已有独立 tlyric 挂载则不再双行合并，避免颠倒主译。
       && !current.translatedLyric?.trim()
-      && next.words.map((w) => w.word).join('').trim()
-      && current.words.map((w) => w.word).join('').trim()
-      && current.words.map((w) => w.word).join('') !== next.words.map((w) => w.word).join('')
-      && isLikelyTranslationPair(
-        current.words.map((w) => w.word).join('').trim(),
-        next.words.map((w) => w.word).join('').trim(),
-      )
+      && !next.translatedLyric?.trim()
+      && nextText
+      && currentText
+      && currentText !== nextText
+      && isLikelyTranslationPair(currentText, nextText)
     ) {
+      const { main, translation } = pickMainAndTranslation(current, next)
       result.push({
-        ...current,
-        translatedLyric: next.words.map((w) => w.word).join(''),
+        ...main,
+        startTime: Math.min(current.startTime, next.startTime),
+        // 取配对行较长结束时间，避免合并后活跃窗口过短导致高亮只闪一下。
+        endTime: Math.max(current.endTime, next.endTime),
+        translatedLyric: translation,
       })
       index += 1
       continue

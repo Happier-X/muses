@@ -38,7 +38,7 @@ describe('歌词译文合并', () => {
     expect(outside[0].translatedLyric).toBe('')
   })
 
-  test('同时间戳双主行合并为 translatedLyric', () => {
+  test('同时间戳双主行合并为 translatedLyric（原文在前）', () => {
     const lines = [
       makeLine(1000, 'Hello'),
       makeLine(1000, '你好'),
@@ -56,13 +56,64 @@ describe('歌词译文合并', () => {
     })
   })
 
+  test('中文在前、英文在后时仍以英文为主行', () => {
+    const merged = mergeDuplicateTimestampTranslations([
+      makeLine(1000, '你好'),
+      makeLine(1000, 'Hello'),
+      makeLine(3000, '世界'),
+      makeLine(3000, 'World'),
+    ])
+    expect(merged).toHaveLength(2)
+    expect(merged[0].words[0].word).toBe('Hello')
+    expect(merged[0].translatedLyric).toBe('你好')
+    expect(merged[1].words[0].word).toBe('World')
+    expect(merged[1].translatedLyric).toBe('世界')
+  })
+
+  test('合并后 endTime 取配对行较大值', () => {
+    const first = makeLine(1000, 'Hello')
+    first.endTime = 1500
+    first.words[0].endTime = 1500
+    const second = makeLine(1000, '你好')
+    second.endTime = 2800
+    second.words[0].endTime = 2800
+    const merged = mergeDuplicateTimestampTranslations([first, second])
+    expect(merged).toHaveLength(1)
+    expect(merged[0].endTime).toBe(2800)
+    expect(merged[0].words[0].word).toBe('Hello')
+    expect(merged[0].translatedLyric).toBe('你好')
+  })
+
   test('日文汉字假名混排与中文译文可正确合并', () => {
     const merged = mergeDuplicateTimestampTranslations([
       makeLine(1000, '君の名は'),
       makeLine(1000, '你的名字'),
     ])
     expect(merged).toHaveLength(1)
+    expect(merged[0].words[0].word).toBe('君の名は')
     expect(merged[0].translatedLyric).toBe('你的名字')
+  })
+
+  test('中文在前、日文假名在后时仍以日文为主行', () => {
+    const merged = mergeDuplicateTimestampTranslations([
+      makeLine(1000, '你的名字'),
+      makeLine(1000, '君の名は'),
+    ])
+    expect(merged).toHaveLength(1)
+    expect(merged[0].words[0].word).toBe('君の名は')
+    expect(merged[0].translatedLyric).toBe('你的名字')
+  })
+
+  test('已有 tlyric 的行不再被双行合并颠倒', () => {
+    const lines = [
+      makeLine(1000, '你好', '已有译文'),
+      makeLine(1000, 'Hello'),
+    ]
+    const merged = mergeDuplicateTimestampTranslations(lines)
+    expect(merged).toHaveLength(2)
+    expect(merged[0].words[0].word).toBe('你好')
+    expect(merged[0].translatedLyric).toBe('已有译文')
+    expect(merged[1].words[0].word).toBe('Hello')
   })
 
   test('同语言同时间行不应误合并为翻译', () => {
@@ -102,5 +153,19 @@ describe('歌词译文合并', () => {
     const hidden = applyLyricTranslationVisibility(prepared, false)
     expect(hidden[0].translatedLyric).toBe('')
     expect(hidden[0].words[0].word).toBe('Hello')
+  })
+
+  test('中文在前时关翻译仍保留英文主行', () => {
+    const prepared = prepareLyricLinesForDisplay(
+      [makeLine(1000, '你好'), makeLine(1000, 'Hello')],
+      null,
+    )
+    expect(prepared).toHaveLength(1)
+    expect(prepared[0].words[0].word).toBe('Hello')
+    expect(prepared[0].translatedLyric).toBe('你好')
+
+    const hidden = applyLyricTranslationVisibility(prepared, false)
+    expect(hidden[0].words[0].word).toBe('Hello')
+    expect(hidden[0].translatedLyric).toBe('')
   })
 })
