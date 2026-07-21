@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "对照同语义图标表"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量检查约定"}
+{"file": ".trellis/tasks/07-21-unify-semantic-icons/prd.md", "reason": "验收标准"}
+{"file": ".trellis/tasks/07-21-unify-semantic-icons/design.md", "reason": "是否偏离映射决策"}

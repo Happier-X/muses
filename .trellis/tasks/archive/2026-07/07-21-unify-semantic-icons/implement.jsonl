@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端入口与检查清单"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "图标与 MiniPlayer/Player 约定"}
+{"file": ".trellis/tasks/07-21-unify-semantic-icons/prd.md", "reason": "需求与验收"}
+{"file": ".trellis/tasks/07-21-unify-semantic-icons/design.md", "reason": "list vs listOutline 决策"}
+{"file": ".trellis/tasks/07-21-unify-semantic-icons/implement.md", "reason": "执行清单"}
