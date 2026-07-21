@@ -150,7 +150,7 @@
 ## 响度均衡（ReplayGain 轻量，#46）
 
 - **仅标签**：扫描/懒读元数据时解析 track ReplayGain（`REPLAYGAIN_TRACK_GAIN` 等）写入 `SongItem.replayGainTrackDb`（dB）；可选次级 `R128_TRACK_GAIN`（Q7.8 整数按 ÷256 换算，无法落入合理 dB 区间则丢弃）。**禁止**全曲库 EBU R128 / ffmpeg 测响度，也禁止无标签时写假增益（0 或臆造值）。
-- **播放应用**：`controller` 根据 `loudnessNormalizeEnabled`（`muses:player-config`，**默认 true**）与 `replayGainTrackDb` 计算 `volume = clamp(10^(db/20), 0.1, 1.0)`，经 `PlayOptions.volume` 传入 `AudioPlayerNative.play`；`native.ts` 在 preload/play 后调用 `NativeAudio.setVolume`。
+- **播放应用**：`controller` 根据 `loudnessNormalizeEnabled`（`muses:player-config`，**默认 true**）与 `replayGainTrackDb` 计算 `volume = clamp(10^((db + LOUDNESS_PREAMP_DB)/20), 0.1, 1.0)`，其中 **`LOUDNESS_PREAMP_DB = 6`**（#51 听感补偿；纯 RG 目标偏安静）。经 `PlayOptions.volume` 传入 `AudioPlayerNative.play`；`native.ts` 在 preload/play 后调用 `NativeAudio.setVolume`。
 - **能力边界**：插件 volume 上限 1.0，**无法**把过静曲放大超过系统满幅；关开关或无标签 → volume 1.0。
 - **切歌 / stop**：每首重算 volume；禁止串曲增益。懒扫补到 RG 后若仍在 playing/paused，须对当前曲 `setVolume`。
 - **设置**：`SettingsPage`「音量均衡」toggle；`setLoudnessNormalizeEnabled` 持久化并立即对当前曲重设 volume。
@@ -203,7 +203,7 @@
 - 切歌 / stop 后 `bufferedPosition` 重置为 null
 - 缓冲增长单调合并；回退上报不得拉低
 - 缓冲未知时 seek 仍按 duration clamp
-- 有 ReplayGain 且开启音量均衡 → play 传入经 dB 换算并 clamp 的 volume（负 dB 小于 1，正 dB 最多 1.0）
+- 有 ReplayGain 且开启音量均衡 → play 传入 `(rgDb + 6 dB preamp)` 换算并 clamp 的 volume（如 -6→约 1.0；-12→约 0.5；正 dB 仍最多 1.0）
 - 无标签 / 关闭均衡 → volume 1.0
 - 切歌后 volume 按新曲重算，不串曲
 - 设置开关即时生效并写入 `muses:player-config`

@@ -433,15 +433,16 @@ describe('播放器控制器', () => {
     expect(playerState.currentSong?.title).toBe('本地歌曲')
   })
 
-  test('开启音量均衡且有 ReplayGain 时按 dB 传 volume', async () => {
+  test('开启音量均衡且有 ReplayGain 时按 dB+preamp 传 volume', async () => {
     const withGain = { ...localSong, replayGainTrackDb: -6 }
     localStorage.setItem('muses:songs', JSON.stringify([withGain]))
     const { playSong, setLoudnessNormalizeEnabled } = await import('@/features/player/controller')
+    const { LOUDNESS_PREAMP_DB } = await import('@/features/player/loudness')
     setLoudnessNormalizeEnabled(true)
 
     await playSong(withGain)
 
-    const expected = 10 ** (-6 / 20)
+    const expected = 10 ** ((-6 + LOUDNESS_PREAMP_DB) / 20)
     expect(nativePlayer.play).toHaveBeenCalledWith(expect.objectContaining({
       songId: 'song-local',
       volume: expect.closeTo(expected, 5),
@@ -476,8 +477,11 @@ describe('播放器控制器', () => {
 
     nativePlayer.setVolume.mockClear()
     setLoudnessNormalizeEnabled(true)
+    const { LOUDNESS_PREAMP_DB } = await import('@/features/player/loudness')
     await vi.waitFor(() => {
-      expect(nativePlayer.setVolume).toHaveBeenCalledWith(expect.closeTo(10 ** (-6 / 20), 5))
+      expect(nativePlayer.setVolume).toHaveBeenCalledWith(
+        expect.closeTo(10 ** ((-6 + LOUDNESS_PREAMP_DB) / 20), 5),
+      )
     })
   })
 

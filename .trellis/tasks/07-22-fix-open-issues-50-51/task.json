@@ -1,0 +1,29 @@
+{
+  "id": "fix-open-issues-50-51",
+  "name": "fix-open-issues-50-51",
+  "title": "修复 open issues #50 #51",
+  "description": "父任务：卡顿/卡死与播放音量偏小",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-07-22",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-22-fix-app-jank",
+    "07-22-fix-playback-too-quiet"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

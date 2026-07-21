@@ -2,6 +2,12 @@
 export const PLAYBACK_VOLUME_MIN = 0.1
 export const PLAYBACK_VOLUME_MAX = 1.0
 
+/**
+ * 响度均衡开启时叠加的 preamp（dB）。
+ * 纯 ReplayGain 目标偏安静；+6 dB 抬高听感，仍 clamp 到插件 [0.1, 1.0]（#51）。
+ */
+export const LOUDNESS_PREAMP_DB = 6
+
 /** 合理 track gain 范围（dB）；超出则视为非法或需 Q7.8 换算 */
 const REPLAY_GAIN_DB_ABS_MAX = 30
 
@@ -56,7 +62,7 @@ const clampPlaybackVolume = (linear: number): number => {
 
 /**
  * ReplayGain dB → 播放线性音量（相对 1.0），并 clamp 到插件范围 [0.1, 1.0]。
- * 关闭均衡、无标签或非有限 dB 时返回 1.0。
+ * 开启均衡时叠加 LOUDNESS_PREAMP_DB（#51）；关闭均衡、无标签或非有限 dB 时返回 1.0。
  */
 export const dbToPlaybackVolume = (
   db: number | null | undefined,
@@ -66,6 +72,6 @@ export const dbToPlaybackVolume = (
     return PLAYBACK_VOLUME_MAX
   }
 
-  const linear = 10 ** (db / 20)
+  const linear = 10 ** ((db + LOUDNESS_PREAMP_DB) / 20)
   return clampPlaybackVolume(linear)
 }

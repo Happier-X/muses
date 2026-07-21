@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  LOUDNESS_PREAMP_DB,
   PLAYBACK_VOLUME_MAX,
   PLAYBACK_VOLUME_MIN,
   dbToPlaybackVolume,
@@ -51,14 +52,21 @@ describe('dbToPlaybackVolume', () => {
     expect(dbToPlaybackVolume(Number.POSITIVE_INFINITY, true)).toBe(PLAYBACK_VOLUME_MAX)
   })
 
-  test('负增益衰减响曲', () => {
+  test('负增益 + preamp：-6 dB + 6 dB preamp 约满幅', () => {
+    expect(LOUDNESS_PREAMP_DB).toBe(6)
     const volume = dbToPlaybackVolume(-6, true)
-    expect(volume).toBeCloseTo(10 ** (-6 / 20), 5)
-    expect(volume).toBeLessThan(1)
-    expect(volume).toBeGreaterThanOrEqual(PLAYBACK_VOLUME_MIN)
+    expect(volume).toBeCloseTo(10 ** ((-6 + LOUDNESS_PREAMP_DB) / 20), 5)
+    expect(volume).toBe(PLAYBACK_VOLUME_MAX)
   })
 
-  test('正增益最多顶到 1.0（无法超满幅放大）', () => {
+  test('较强负增益仍衰减但比无 preamp 更响', () => {
+    const volume = dbToPlaybackVolume(-12, true)
+    expect(volume).toBeCloseTo(10 ** ((-12 + LOUDNESS_PREAMP_DB) / 20), 5)
+    expect(volume).toBeLessThan(1)
+    expect(volume).toBeGreaterThan(10 ** (-12 / 20))
+  })
+
+  test('正增益 / 0 dB 最多顶到 1.0（无法超满幅放大）', () => {
     expect(dbToPlaybackVolume(6, true)).toBe(PLAYBACK_VOLUME_MAX)
     expect(dbToPlaybackVolume(0, true)).toBe(PLAYBACK_VOLUME_MAX)
   })
