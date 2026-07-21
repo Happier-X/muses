@@ -1,0 +1,3 @@
+{"file": ".github/workflows/release.yml", "reason": "确认标签触发、版本提取、双 APK 构建和 Release 资产命名契约。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "发布前 lint/build/test/diff check 约定。"}
+{"file": "changelog/v0.1.7.md", "reason": "变更日志格式参考。"}

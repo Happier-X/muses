@@ -1,0 +1,2 @@
+{"file": ".github/workflows/release.yml", "reason": "发布后检查 GitHub Actions 与 Release 资产。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "执行 lint、build、unit test 与 diff check。"}
