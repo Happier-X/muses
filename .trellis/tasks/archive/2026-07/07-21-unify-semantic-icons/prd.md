@@ -66,7 +66,7 @@
 - [x] 无业务侧 `ionicons/icons` 回退
 - [x] component-guidelines（及必要时 ion-lucide 注释）已同步
 - [x] lint / 相关 unit 通过
-- [ ] 关闭或评论 #44
+- [x] 关闭或评论 #44
 
 ## Notes
 
