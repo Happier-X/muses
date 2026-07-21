@@ -7,10 +7,11 @@
  * ionicons → Lucide 对照（语义等价，状态图标必须可区分）：
  * | ionicons              | Lucide           | 用途           |
  * |-----------------------|------------------|----------------|
- * | play / playOutline    | Play             | 播放           |
- * | pause                 | Pause            | 暂停           |
- * | playSkipBack          | SkipBack         | 上一曲         |
- * | playSkipForward       | SkipForward      | 下一曲         |
+ * | play（fill）          | Play             | 播放主控       |
+ * | playOutline           | Play             | 列表/次级播放  |
+ * | pause（fill）         | Pause            | 暂停主控       |
+ * | playSkipBack（fill）  | SkipBack         | 上一曲主控     |
+ * | playSkipForward（fill）| SkipForward     | 下一曲主控     |
  * | shuffle               | Shuffle          | 随机播放       |
  * | listOutline（顺序）   | List             | 顺序播放模式   |
  * | list（队列/歌单）     | ListMusic        | 队列/歌单导航  |
@@ -62,13 +63,36 @@ import {
   X,
 } from 'lucide'
 
+/** 图标变体：outline 线框（默认），fill 实心（播放主控）。 */
+export type LucideIonIconVariant = 'outline' | 'fill'
+
+export type LucideToIonIconOptions = {
+  variant?: LucideIonIconVariant
+}
+
 /** Lucide 默认 SVG 根属性（outline 24×24，stroke 继承 currentColor）。 */
-const SVG_ROOT_ATTRS: Record<string, string | number> = {
+const SVG_ROOT_ATTRS_OUTLINE: Record<string, string | number> = {
   xmlns: 'http://www.w3.org/2000/svg',
   width: 24,
   height: 24,
   viewBox: '0 0 24 24',
   fill: 'none',
+  stroke: 'currentColor',
+  'stroke-width': 2,
+  'stroke-linecap': 'round',
+  'stroke-linejoin': 'round',
+}
+
+/**
+ * fill 变体：实心填充。
+ * 保留同色 stroke，避免 SkipBack/SkipForward 的竖线 path（无面积）在 stroke:none 时消失。
+ */
+const SVG_ROOT_ATTRS_FILL: Record<string, string | number> = {
+  xmlns: 'http://www.w3.org/2000/svg',
+  width: 24,
+  height: 24,
+  viewBox: '0 0 24 24',
+  fill: 'currentColor',
   stroke: 'currentColor',
   'stroke-width': 2,
   'stroke-linecap': 'round',
@@ -87,21 +111,33 @@ const attrsToString = (attrs: Record<string, string | number | undefined>): stri
 /**
  * 将 Lucide IconNode 转为 ion-icon 可直接使用的 data-URI SVG。
  * 格式与 ionicons/icons 一致：`data:image/svg+xml;utf8,<svg...>`
+ *
+ * @param options.variant outline（默认线框）| fill（实心，用于播放主控）
  */
-export const lucideToIonIcon = (iconNode: IconNode): string => {
+export const lucideToIonIcon = (
+  iconNode: IconNode,
+  options: LucideToIonIconOptions = {},
+): string => {
+  const variant = options.variant ?? 'outline'
+  const rootAttrs = variant === 'fill' ? SVG_ROOT_ATTRS_FILL : SVG_ROOT_ATTRS_OUTLINE
   const children = iconNode
     .map(([tag, childAttrs]) => `<${tag} ${attrsToString(childAttrs)}/>`)
     .join('')
-  const svg = `<svg ${attrsToString(SVG_ROOT_ATTRS)}>${children}</svg>`
+  const svg = `<svg ${attrsToString(rootAttrs)}>${children}</svg>`
   return `data:image/svg+xml;utf8,${svg}`
 }
 
-// —— 播放控制 ——
-export const play = lucideToIonIcon(Play)
-export const playOutline = play
-export const pause = lucideToIonIcon(Pause)
-export const playSkipBack = lucideToIonIcon(SkipBack)
-export const playSkipForward = lucideToIonIcon(SkipForward)
+// —— 播放控制（主控 fill；次级入口 outline）——
+/** 播放主控（MiniPlayer / PlayerPage）——实心 */
+export const play = lucideToIonIcon(Play, { variant: 'fill' })
+/** 列表/次级「播放」入口——线框，与主控 play 解耦 */
+export const playOutline = lucideToIonIcon(Play, { variant: 'outline' })
+/** 暂停主控——实心 */
+export const pause = lucideToIonIcon(Pause, { variant: 'fill' })
+/** 上一曲主控——实心 */
+export const playSkipBack = lucideToIonIcon(SkipBack, { variant: 'fill' })
+/** 下一曲主控——实心 */
+export const playSkipForward = lucideToIonIcon(SkipForward, { variant: 'fill' })
 export const playCircleOutline = lucideToIonIcon(PlayCircle)
 export const pauseCircleOutline = lucideToIonIcon(PauseCircle)
 

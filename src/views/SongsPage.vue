@@ -385,6 +385,11 @@ onIonViewWillEnter(refreshSongs)
 
 .song-item {
   --min-height: 72px;
+  /*
+   * scrollIntoView(block:start) 对齐滚动端口顶部，不扣除粘性头。
+   * 主 toolbar ~56 + shuffle toolbar ~48 + 缓冲 ≈ 120，避免当前行被顶栏挡住。
+   */
+  scroll-margin-top: 120px;
 }
 
 .song-cover {

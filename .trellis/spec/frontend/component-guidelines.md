@@ -108,7 +108,10 @@ Also prefer the `@/` alias for application imports from `src/`:
 - 渲染：继续使用 `<ion-icon :icon="..." />`（含 `slot="icon-only"`），**不要**引入 `lucide-vue-next` 等 Vue 图标组件替代 `ion-icon`
 - **禁止**业务代码 `import ... from 'ionicons/icons'`；`package.json` 可因 Ionic 间接依赖保留 `ionicons` 包
 - 播放模式状态图标必须可区分：`repeatOutline` vs `repeat`、`listOutline` vs `shuffle`，不得两状态共用同一图标
-- 尺寸与颜色仍由现有 CSS / `color` 控制，适配层保持 Lucide 默认 outline（viewBox 24、stroke currentColor）
+- 尺寸与颜色仍由现有 CSS / `color` 控制；适配层默认 Lucide outline（viewBox 24、`fill: none` + `stroke: currentColor`）
+- **播放主控 fill**：`play` / `pause` / `playSkipBack` / `playSkipForward` 经 `lucideToIonIcon(..., { variant: 'fill' })` 导出为实心（`fill: currentColor`，并保留同色 stroke 以免 Skip 竖线等无面积 path 消失），供 `MiniPlayer` 播放/暂停与 `PlayerPage` 主三键使用
+- **次级仍 outline**：列表「播放全部」用 `playOutline`（与 `play` 解耦，保持线框）；模式键（shuffle/repeat/list）、队列、返回、翻译、歌词页 `playCircle`/`pauseCircle` 等继续 outline
+- 主控按钮仍为 `fill="clear"` 纯图标，不得为 fill 图标另加 solid 圆底阴影
 
 ---
 
@@ -170,7 +173,9 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 - 图标：Lucide 适配层导出的 `locateOutline`；`aria-label="跳转到当前播放"`。
 - 可见性：`v-if="currentPlayingInList"` —— 仅当 `playerState.currentSong?.id` 存在且该 id 出现在当前歌曲列表中时展示；无当前播放或不在列表则隐藏。
-- 行定位：每行 `ion-item` 带 `data-song-id="song.id"`；点击 FAB 用页面内 `[data-song-id]` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })`，尽量将当前曲滚到列表可视区顶部；列表末尾无法再滚时停在容器允许的最大位置（不必强行置顶）。宽屏单列同样适用。
+- 行定位：每行 `ion-item` 带 `data-song-id="song.id"`；点击 FAB 用页面内 `[data-song-id]` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })`。
+- **避开粘性顶栏**：`block: 'start'` 只对齐滚动端口顶部，不扣除外层粘性 `ion-header`（标题 toolbar + `.shuffle-toolbar`）。必须在 `.song-item`（或带 `data-song-id` 的行）设置足够的 `scroll-margin-top`（约 112–128px，当前实现 120px，覆盖双 toolbar + 缓冲），使目标行完整出现在列表可视区内、标题主信息不被顶栏挡住。仅写 `block: 'start'` 而不设 margin/等价偏移会回归遮挡。
+- 列表末尾无法再滚时停在容器允许的最大位置（不必强行置顶）。宽屏单列同样适用。
 - 可选轻高亮：滚动后给目标行加 `jump-highlight` 约 1.2s，再移除；卸载时清理 timer。
 - 安全区：`.jump-current-fab` 的 `bottom` 需避开底部导航与 MiniPlayer（窄屏约 `calc(144px + safe-area)` = Tab Bar ~64 + MiniPlayer ~64 + 间距；宽屏无 Tab Bar、MiniPlayer 贴底，约 `calc(80px + safe-area)` = MiniPlayer ~64 + 间距），`right: 12px`，不遮挡列表关键操作。勿按「平板 MiniPlayer 抬高 64px」再额外加偏移。
 - 不破坏现有列表点击播放与更多按钮交互。
@@ -274,6 +279,7 @@ Do not duplicate Ionic core or utility CSS imports inside page components.
 - 点击底栏主体调用 `openPlayerOverlay()`，不能改变当前路由 URL。
 - **无当前歌曲时不可打开沉浸式播放页**：当 `playerState.currentSong` 为 `null` 时，点击主体或键盘 Enter / Space 都不得调用 `openPlayerOverlay()`；主体应标记 `aria-disabled`，并去掉 `cursor: pointer` 误导。
 - 点击播放/暂停按钮只控制播放状态，不能触发打开播放器 overlay。
+- 播放/暂停图标使用 `ion-lucide` 的 fill 导出（`play` / `pause`），与沉浸页主控一致；不得用 outline 或 ionicons 直引。
 - 无歌曲时播放/暂停按钮继续禁用；队列按钮行为不受影响，仍可打开队列 overlay。
 - 点击队列按钮调用 `openQueueOverlay()`，不能改变当前路由 URL，也不能触发打开播放器 overlay。
 - 对 Ionic `ion-button` 不要只依赖 `@click.stop`；按钮内部事件可能穿过 Web Component 边界。父级主体点击处理需要检查 `event.composedPath()`，如果事件路径包含 `.player-actions` 就直接忽略。
@@ -308,7 +314,7 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - `max-height: 720px`：减小 panel 上下 padding（保留 `safe-area`）、`info-panel-inner` gap、进度 slider 热区（约 20px）、主控与模式栏按钮尺寸，封面槽位拿到更多垂直空间。
   - `max-height: 520px`：再收一档 gap/字号/按钮/热区（约 18px），仍显示全部控件。
   - 不引入 landscape 专用 DOM；横屏通常命中 `max-height` 断点即可。padding 只减固定 px 部分，用 `calc(... + safe-area)`，不得抹掉安全区。
-- 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
+- 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；图标使用 `ion-lucide` 的 fill 导出（`play` / `pause` / `playSkipBack` / `playSkipForward`），不得回退 outline 主控或 ionicons 直引；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
 - 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons/ion-lucide` 导入：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `List`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。
 - 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位（`.cover-slot`：`flex: 1 1 auto; min-height: 0`）缩放，控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
 - 歌词页（AMLL）视觉约定：
