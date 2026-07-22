@@ -413,6 +413,20 @@ const openScanSettings = (source: SourceItem): void => {
 
 参考文件：`src/views/SourcesPage.vue`、`src/features/library/scanner.ts`、`src/features/library/types.ts`（`ScanOptions`）。
 
+## QueuePage / PlaylistDetailPage 虚拟列表约定
+
+`QueuePage.vue` 和 `PlaylistDetailPage.vue` 的长队列/歌单列表使用 `@tanstack/vue-virtual`，避免一次挂载全量 Ionic 行。
+
+### 规则
+
+1. 虚拟器必须使用真实原生滚动容器，容器设置 `overflow: auto`、`min-height: 0` 和 `box-sizing: border-box`。
+2. 保留原生 HTML 包装行，行带 `data-index`，通过 `measureElement` 测量；不要直接把 Ionic Web Component 实例作为测量目标。
+3. 不要为虚拟器未就绪状态回退渲染完整数组，否则大列表首帧仍会创建全量 DOM。
+4. `ion-item-sliding` 不与虚拟行复用混用；需要删除时使用明确的行尾按钮，并用 `event.composedPath()` 防止按钮事件触发整行播放。
+5. 队列必须保留当前项 `aria-current`、当前项定位、播放、删除、清空和空态；歌单必须保留播放全部、单曲播放、移除、封面、空态和数据更新刷新。
+
+参考文件：`src/views/QueuePage.vue`、`src/views/PlaylistDetailPage.vue`、`@tanstack/vue-virtual`。
+
 ## SourcesPage 虚拟列表行高测量约定
 
 `src/views/SourcesPage.vue` 使用 `@tanstack/vue-virtual` 渲染音源卡片。窄屏/竖屏下 Ionic 卡片实际高度会因副标题、内边距等超过固定估算值；若只依赖 `estimateSize` 而不实测行高，后续行的 `translateY` 会偏小，导致卡片互相覆盖并遮挡扫描按钮。

@@ -36,43 +36,55 @@
           <p>在歌曲页点「更多」→「加入歌单」添加歌曲。</p>
         </div>
 
-        <ion-list v-else>
-          <ion-item
-            v-for="song in resolvedSongs"
-            :key="song.id"
-            button
-            :detail="false"
-            lines="none"
-            class="song-item"
-            :class="{ 'is-playing': playerState.currentSong?.id === song.id }"
-            @click="playSong(song)"
-          >
-            <div class="song-cover" slot="start" aria-hidden="true">
-              <img v-if="getSongCoverSrc(song)" :src="getSongCoverSrc(song)" alt="" />
-              <ion-icon v-else :icon="musicalNotesOutline" aria-hidden="true" />
-            </div>
-            <ion-label>
-              <h2>{{ song.title }}</h2>
-              <p>{{ getSongArtistName(song) }} - {{ getSongAlbumName(song) }}</p>
-            </ion-label>
-            <ion-button
-              slot="end"
-              fill="clear"
-              class="more-button"
-              aria-label="从歌单移除"
-              @click.stop="onRemove(song.id)"
+        <div v-else ref="listParentRef" class="playlist-list" role="list" aria-label="歌单歌曲">
+          <div class="playlist-list-spacer" :style="{ height: `${totalSize}px` }">
+            <div
+              v-for="row in visibleRows"
+              :key="row.song.id"
+              :ref="measureVirtualRow"
+              class="playlist-row"
+              role="listitem"
+              :data-index="row.virtualRow.index"
+              :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
-              <ion-icon slot="icon-only" :icon="removeCircleOutline" aria-hidden="true" />
-            </ion-button>
-          </ion-item>
-        </ion-list>
+              <ion-item
+                button
+                :detail="false"
+                lines="none"
+                class="song-item"
+                :class="{ 'is-playing': playerState.currentSong?.id === row.song.id }"
+                :aria-current="playerState.currentSong?.id === row.song.id ? 'true' : undefined"
+                @click="onPlaySong(row.song, $event)"
+              >
+                <div class="song-cover" slot="start" aria-hidden="true">
+                  <img v-if="getSongCoverSrc(row.song)" :src="getSongCoverSrc(row.song)" alt="" />
+                  <ion-icon v-else :icon="musicalNotesOutline" aria-hidden="true" />
+                </div>
+                <ion-label>
+                  <h2>{{ row.song.title }}</h2>
+                  <p>{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
+                </ion-label>
+                <ion-button
+                  slot="end"
+                  fill="clear"
+                  class="more-button"
+                  :aria-label="`从歌单移除 ${row.song.title}`"
+                  @click.stop="onRemove(row.song.id)"
+                >
+                  <ion-icon slot="icon-only" :icon="removeCircleOutline" aria-hidden="true" />
+                </ion-button>
+              </ion-item>
+            </div>
+          </div>
+        </div>
       </div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import {
@@ -84,7 +96,6 @@ import {
   IonIcon,
   IonItem,
   IonLabel,
-  IonList,
   IonPage,
   IonTitle,
   IonToolbar,
@@ -111,6 +122,7 @@ import {
 const route = useRoute()
 const playlist = ref<Playlist | undefined>()
 const allSongs = ref<SongItem[]>([])
+const listParentRef = ref<HTMLElement | null>(null)
 
 const playlistId = computed(() => {
   const raw = route.params.id
@@ -124,9 +136,33 @@ const resolvedSongs = computed(() => {
   return resolvePlaylistSongs(playlist.value, allSongs.value)
 })
 
+const rowVirtualizer = useVirtualizer(
+  computed(() => ({
+    count: resolvedSongs.value.length,
+    getScrollElement: () => listParentRef.value,
+    estimateSize: () => 68,
+    overscan: 8,
+  })),
+)
+
+const visibleRows = computed(() => rowVirtualizer.value.getVirtualItems().flatMap((virtualRow) => {
+  const song = resolvedSongs.value[virtualRow.index]
+  return song ? [{ virtualRow, song }] : []
+}))
+const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
+
+const measureVirtualRow = (element: Element | ComponentPublicInstance | null): void => {
+  rowVirtualizer.value.measureElement(element instanceof HTMLElement ? element : null)
+}
+
 const refresh = () => {
   allSongs.value = loadSongs()
   playlist.value = playlistId.value ? getPlaylist(playlistId.value) : undefined
+  void nextTick(() => {
+    if (resolvedSongs.value.length > 0) {
+      rowVirtualizer.value.measure()
+    }
+  })
 }
 
 const toDisplayableUri = (uri: string): string => {
@@ -151,6 +187,13 @@ const onPlayAll = () => {
   clearQueue()
   enqueueSongs(songs)
   void playSong(songs[0])
+}
+
+const onPlaySong = (song: SongItem, event: MouseEvent): void => {
+  if (event.composedPath().some((target) => target instanceof Element && target.classList.contains('more-button'))) {
+    return
+  }
+  void playSong(song)
 }
 
 const onRemove = (songId: string) => {
@@ -194,10 +237,34 @@ onIonViewWillEnter(() => {
   color: var(--ion-text-color);
 }
 
+.tablet-content-limit {
+  height: 100%;
+}
+
+.playlist-list {
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.playlist-list-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.playlist-row {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  box-sizing: border-box;
+  min-height: 68px;
+  padding-bottom: 4px;
+}
+
 .song-item {
   --padding-start: 12px;
   --inner-padding-end: 4px;
-  margin-bottom: 4px;
+  --min-height: 64px;
 }
 
 .song-item.is-playing {
