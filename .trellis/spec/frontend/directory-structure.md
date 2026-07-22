@@ -8,35 +8,35 @@
 
 The repository is a single frontend app with a simple Ionic Vue layout. Code is currently organized by technical role rather than by feature folder.
 
-Current structure:
+Current structure（npm workspaces monorepo）：
 
 ```text
+packages/
+└── happier-ui/                 # 通用 token + 语义组件（可跨项目）
+    ├── package.json
+    ├── README.md
+    └── src/
+        ├── index.ts
+        ├── tokens.css          # 权威 --h-*（含 --muses-* 别名）
+        └── components/
+            ├── HEmptyState.vue
+            ├── HIconButton.vue
+            ├── HListRow.vue
+            └── HSettingRow.vue
 src/
 ├── App.vue
 ├── main.ts
-├── vite-env.d.ts
 ├── components/
 │   ├── MiniPlayer.vue
-│   └── ui/
-│       ├── MEmptyState.vue
-│       ├── MCover.vue
-│       ├── MIconButton.vue
-│       ├── MListRow.vue
-│       ├── MPage.vue
-│       ├── MSettingRow.vue
-│       └── index.ts
-├── icons/
-│   └── ion-lucide.ts
-├── router/
-│   └── index.ts
+│   └── ui/                     # app 兼容层
+│       ├── index.ts            # re-export happier-ui + app-only
+│       ├── MListRow.vue        # 包装 HListRow + MCover
+│       ├── MCover.vue          # app-only
+│       └── MPage.vue           # HOST-IONIC
 ├── theme/
-│   ├── tokens.css
-│   └── variables.css
+│   ├── tokens.css              # @import happier-ui/tokens.css
+│   └── variables.css           # Ionic 桥接
 └── views/
-    ├── Tab1Page.vue
-    ├── Tab2Page.vue
-    ├── Tab3Page.vue
-    └── TabsPage.vue
 ```
 
 Related non-app folders:
@@ -61,10 +61,11 @@ Use the existing split unless the codebase grows enough to justify feature modul
 - `src/router/index.ts` owns route records and redirects.
 - `src/views/` contains route-level pages.
 - `src/components/` contains reusable UI pieces used by pages.
-- `src/components/ui/`：语义组件（未来 **`happier-ui`**）。通用壳纯 Vue 优先；`MCover` app-only；`MPage` 仍 HOST-IONIC。通过 `index.ts` 导出，不承载业务状态。
-- `src/icons/`：Lucide → `ion-icon` adapter；**调用方**把 icon data 传给 `MIconButton`，组件不 import 本表。
-- `src/theme/tokens.css`：权威 **`--h-*`**；`--muses-*` 为兼容别名。
-- `src/theme/variables.css`：Ionic 桥接读 `--h-*` + chrome 修正；`main.ts` 先 `tokens.css` 再本文件。
+- `packages/happier-ui`：跨项目包；根 `workspaces` + 依赖 `file:packages/happier-ui`。
+- `src/components/ui/`：兼容层——从 `happier-ui` re-export；`MListRow` 包装默认封面；`MCover`/`MPage` 仅 app。
+- `src/icons/`：调用方把 icon data 传给 `MIconButton`/`HIconButton`。
+- `src/theme/tokens.css`：仅 `@import 'happier-ui/tokens.css'`。
+- `src/theme/variables.css`：Ionic 桥接 `--h-*`；`main.ts` 先 tokens 再本文件。
 
 Reference files:
 

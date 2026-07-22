@@ -35,12 +35,12 @@ Examples:
 
 ## Muses 语义组件层 → `happier-ui`
 
-项目级复用 UI 放在 `src/components/ui/`（仓内阶段；未来包名 **`happier-ui`**）。
+通用组件与 token 在仓内包 **`packages/happier-ui`**；应用通过 `@/components/ui` re-export 兼容 `M*` 名。
 
-- **权威 token 前缀**：`--h-*`（`src/theme/tokens.css`）；`--muses-*` 为兼容别名，指向同一数值。
-- **实现**：通用壳 **纯 Vue 优先**，**不** peer `@ionic/vue` 作为包依赖；Ionic 仅 app 壳 / 表单控件本体。
-- **首版视觉**：照抄 **HeroUI Native** 主题角色与触控节奏（CSS 复现），**不**引入 `heroui-native` / RN。
-- **禁止**：`MIon*` 1:1 镜像、整库复刻 Ionic、Material elevation、包内 `@/features`。
+- **权威 token**：包内 `happier-ui/tokens.css` 的 **`--h-*`**；`--muses-*` 为兼容别名。
+- **实现**：通用壳 **纯 Vue 优先**；`@ionic/vue` 仅 optional peer（`HIconButton` 的 `ion-icon` path 过渡）。
+- **首版视觉**：HeroUI Native 角色与触控节奏；**不**引入 `heroui-native` / RN。
+- **禁止**：`MIon*`、整库复刻 Ionic、Material elevation、包内 `@/features` / 业务。
 
 ### 现有组件契约
 

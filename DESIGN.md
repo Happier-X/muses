@@ -101,7 +101,7 @@ components:
 
 列表与导航像关掉场灯的过道：安静、可读、可预期；真正开灯的只有沉浸播放页——封面、动态背景与逐词歌词占满注意力。产品个性是沉静、可靠、专注：工具感来自可信，而不是装饰。
 
-视觉系统建立在 **Ionic 应用壳 + HeroUI primary + 语义 token** 之上。`src/theme/tokens.css` 权威前缀为 **`--h-*`（happier-ui）**，`--muses-*` 为兼容别名；`variables.css` 把 `--h-*` 桥接到 `--ion-color-primary*`。主色照抄 HeroUI `common.blue`（`#006FEE`）。跨项目组件库方向 **`happier-ui`**：纯 Vue 壳、首版样式参照 **HeroUI Native**（不引入 RN 依赖）。设计延续「flat 列表 + 沉浸舞台」，拒绝 Material elevation。平台 Android 交付，**美学非 Material**。
+视觉系统建立在 **Ionic 应用壳 + HeroUI primary + 语义 token** 之上。权威 token 在仓内包 **`packages/happier-ui`**（`happier-ui/tokens.css`，前缀 **`--h-*`**）；`--muses-*` 为兼容别名。`src/theme/tokens.css` 仅 re-import 包；`variables.css` 把 `--h-*` 桥接到 Ionic。主色 HeroUI `common.blue`（`#006FEE`）。通用组件从 `happier-ui` 导出，app `@/components/ui` 做 re-export / Cover 包装。首版样式参照 **HeroUI Native**（无 RN 依赖）。flat 列表 + 沉浸舞台；非 Material。
 
 **Key Characteristics:**
 - 双层体验：曲库列表克制；沉浸页是听歌主舞台
