@@ -17,6 +17,7 @@ import {
   titlesRelated,
 } from '@/features/metadata'
 import type { OnlineTextQuery, TextMetaProvider } from '@/features/metadata'
+import { __getOnlineTextMetaCacheSizeForTests } from '@/features/metadata/match'
 import { searchKwTextMeta } from '@/features/metadata/providers/kw'
 import { searchTxTextMeta } from '@/features/metadata/providers/tx'
 
@@ -35,6 +36,14 @@ describe('在线文本元信息匹配', () => {
 
   afterEach(() => {
     resetOnlineTextMetaCache()
+  })
+
+  test('负缓存容量受限并保留近期条目', async () => {
+    const miss: TextMetaProvider = { id: 'miss', search: vi.fn().mockResolvedValue(null) }
+    for (let index = 0; index < 300; index += 1) {
+      await matchOnlineTextMeta({ ...sampleQuery, songId: `metadata-${index}` }, [miss])
+    }
+    expect(__getOnlineTextMetaCacheSizeForTests()).toBe(256)
   })
 
   test('needsOnlineTextMeta：空 artist/album 或弱 title 需要', () => {

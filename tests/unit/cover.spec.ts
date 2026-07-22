@@ -9,6 +9,7 @@ vi.mock('@capacitor/core', () => ({
 }))
 
 import { matchOnlineCoverRemote, resetOnlineCoverCache } from '@/features/cover'
+import { __getOnlineCoverCacheSizeForTests } from '@/features/cover/match'
 import type { CoverProvider, OnlineCoverQuery } from '@/features/cover/types'
 import { searchItunesCoverUrl } from '@/features/cover/providers/itunes'
 import { searchKwCoverUrl } from '@/features/cover/providers/kw'
@@ -32,6 +33,14 @@ describe('在线封面匹配', () => {
 
   afterEach(() => {
     resetOnlineCoverCache()
+  })
+
+  test('负缓存容量受限并保留近期条目', async () => {
+    const miss: CoverProvider = { id: 'miss', searchCoverUrl: vi.fn().mockResolvedValue(null) }
+    for (let index = 0; index < 300; index += 1) {
+      await matchOnlineCoverRemote({ ...sampleQuery, songId: `cover-${index}` }, [miss])
+    }
+    expect(__getOnlineCoverCacheSizeForTests()).toBe(256)
   })
 
   test('iTunes 命中返回放大后的 artwork URL', async () => {

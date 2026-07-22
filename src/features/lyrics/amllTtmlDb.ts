@@ -1,5 +1,6 @@
 import { findBestMatch } from './score'
 import { normalizeText } from './normalize'
+import { getBoundedCache, setBoundedCache } from '@/features/runtime/boundedCache'
 import type { AmllIndexEntry, AmllMatchQuery, AmllMatchResult, AmllRawIndexLine } from './types'
 
 const INDEX_URL = 'https://cdn.jsdelivr.net/gh/amll-dev/amll-ttml-db@main/metadata/raw-lyrics-index.jsonl'
@@ -10,6 +11,7 @@ const TTML_TIMEOUT_MS = 12_000
 
 /** 负缓存时长：避免同曲狂刷 CDN */
 const NEGATIVE_CACHE_TTL_MS = 5 * 60_000
+const SONG_CACHE_MAX_SIZE = 256
 
 interface TtmlCacheEntry {
   queryKey: string
@@ -259,7 +261,7 @@ const createQueryKey = (query: AmllMatchQuery): string => {
 }
 
 const getNegative = (songId: string, queryKey: string): NegativeCacheEntry | null => {
-  const entry = negativeBySongId.get(songId)
+  const entry = getBoundedCache(negativeBySongId, songId)
   if (!entry) {
     return null
   }
@@ -282,7 +284,7 @@ export const matchAmllTtmlLyrics = async (query: AmllMatchQuery): Promise<AmllMa
   }
 
   const queryKey = createQueryKey(query)
-  const cached = ttmlBySongId.get(songId)
+  const cached = getBoundedCache(ttmlBySongId, songId)
   if (cached) {
     if (cached.queryKey === queryKey) {
       return {
@@ -304,7 +306,7 @@ export const matchAmllTtmlLyrics = async (query: AmllMatchQuery): Promise<AmllMa
   try {
     index = await ensureIndex()
   } catch {
-    negativeBySongId.set(songId, { queryKey, reason: 'network', expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS })
+    setBoundedCache(negativeBySongId, songId, { queryKey, reason: 'network', expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS }, SONG_CACHE_MAX_SIZE)
     return { ok: false, reason: 'network' }
   }
 
@@ -321,7 +323,7 @@ export const matchAmllTtmlLyrics = async (query: AmllMatchQuery): Promise<AmllMa
   )
 
   if (!best) {
-    negativeBySongId.set(songId, { queryKey, reason: 'no-match', expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS })
+    setBoundedCache(negativeBySongId, songId, { queryKey, reason: 'no-match', expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS }, SONG_CACHE_MAX_SIZE)
     return { ok: false, reason: 'no-match' }
   }
 
@@ -333,7 +335,7 @@ export const matchAmllTtmlLyrics = async (query: AmllMatchQuery): Promise<AmllMa
       rawLyricFile: best.entry.rawLyricFile,
       score: best.score,
     }
-    ttmlBySongId.set(songId, hit)
+    setBoundedCache(ttmlBySongId, songId, hit, SONG_CACHE_MAX_SIZE)
     negativeBySongId.delete(songId)
     return {
       ok: true,
@@ -343,7 +345,7 @@ export const matchAmllTtmlLyrics = async (query: AmllMatchQuery): Promise<AmllMa
     }
   } catch (error) {
     const reason = error instanceof Error && error.message === 'parse' ? 'parse' : 'network'
-    negativeBySongId.set(songId, { queryKey, reason, expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS })
+    setBoundedCache(negativeBySongId, songId, { queryKey, reason, expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS }, SONG_CACHE_MAX_SIZE)
     return { ok: false, reason }
   }
 }
@@ -359,6 +361,12 @@ export const __setIndexCacheForTests = (entries: AmllIndexEntry[] | null): void 
 export const __getCandidateCountForTests = (title: string): number => {
   return searchIndexCache ? selectCandidates(searchIndexCache, title).length : 0
 }
+
+/** 测试辅助：读取受控歌曲缓存大小 */
+export const __getAmllCacheSizesForTests = (): { ttml: number; negative: number } => ({
+  ttml: ttmlBySongId.size,
+  negative: negativeBySongId.size,
+})
 
 /** 测试辅助：读取 TTML 缓存是否命中 */
 export const __hasTtmlCacheForTests = (songId: string): boolean => ttmlBySongId.has(songId)

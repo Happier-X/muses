@@ -14,7 +14,7 @@
 
 ## Acceptance Criteria
 
-- [ ] 任一受控 Map 超过上限后自动淘汰
-- [ ] 命中、负缓存 TTL、reset 测试不回归
-- [ ] App listener 卸载测试通过
-- [ ] lint、unit、build 通过
+- [x] 任一受控 Map 超过上限后自动淘汰
+- [x] 命中、负缓存 TTL、reset 测试不回归
+- [x] App listener 卸载测试通过
+- [x] lint、unit、build 通过

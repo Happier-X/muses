@@ -177,6 +177,16 @@ describe('amll-ttml-db 匹配与缓存', () => {
     expect(parseIndexLine('')).toBeNull()
   })
 
+  test('TTML 命中缓存容量受限', async () => {
+    const { __setIndexCacheForTests, matchAmllTtmlLyrics, __getAmllCacheSizesForTests } = await import('@/features/lyrics/amllTtmlDb')
+    __setIndexCacheForTests(sampleIndex)
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, text: async () => SAMPLE_TTML })))
+    for (let index = 0; index < 300; index += 1) {
+      await matchAmllTtmlLyrics({ songId: `amll-${index}`, title: 'Idol', artist: 'YOASOBI' })
+    }
+    expect(__getAmllCacheSizesForTests().ttml).toBe(256)
+  })
+
   test('匹配成功拉取 TTML 并按 songId 缓存', async () => {
     const { __setIndexCacheForTests, matchAmllTtmlLyrics, __hasTtmlCacheForTests } = await import(
       '@/features/lyrics/amllTtmlDb'

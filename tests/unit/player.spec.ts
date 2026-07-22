@@ -2214,6 +2214,18 @@ describe('应用壳', () => {
     wrapper.unmount()
   })
 
+  test('应用壳卸载时移除 Android back listener', async () => {
+    const { App: CapacitorApp } = await import('@capacitor/app')
+    const remove = vi.fn().mockResolvedValue(undefined)
+    vi.mocked(CapacitorApp.addListener).mockResolvedValueOnce({ remove })
+    const wrapper = mountApp()
+    await flushPromises()
+
+    wrapper.unmount()
+    await flushPromises()
+    expect(remove).toHaveBeenCalledTimes(1)
+  })
+
   test('应用壳卸载时等待在途请求后恢复默认状态栏样式', async () => {
     const { openPlayerOverlay } = await import('@/features/player/overlay')
     const appliedStyles: string[] = []

@@ -5,8 +5,10 @@ import { kgCoverProvider } from './providers/kg'
 import { txCoverProvider } from './providers/tx'
 import { wyCoverProvider } from './providers/wy'
 import type { CoverProvider, OnlineCoverMatchResult, OnlineCoverQuery } from './types'
+import { getBoundedCache, setBoundedCache } from '@/features/runtime/boundedCache'
 
 const NEGATIVE_CACHE_TTL_MS = 45 * 60 * 1000
+const NEGATIVE_CACHE_MAX_SIZE = 256
 
 type NegativeEntry = {
   queryKey: string
@@ -54,7 +56,7 @@ export const matchOnlineCoverRemote = async (
   }
 
   const queryKey = buildQueryKey(query)
-  const cached = negativeBySongId.get(query.songId)
+  const cached = getBoundedCache(negativeBySongId, query.songId)
   if (cached && cached.queryKey === queryKey && cached.expiresAt > Date.now()) {
     return { ok: false, reason: 'no-match' }
   }
@@ -73,10 +75,12 @@ export const matchOnlineCoverRemote = async (
     }
   }
 
-  negativeBySongId.set(query.songId, {
+  setBoundedCache(negativeBySongId, query.songId, {
     queryKey,
     expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS,
-  })
+  }, NEGATIVE_CACHE_MAX_SIZE)
 
   return { ok: false, reason: sawNetworkError ? 'network' : 'no-match' }
 }
+
+export const __getOnlineCoverCacheSizeForTests = (): number => negativeBySongId.size

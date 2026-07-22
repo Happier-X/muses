@@ -5,8 +5,10 @@ import { txTextMetaProvider } from './providers/tx'
 import { wyTextMetaProvider } from './providers/wy'
 import type { OnlineTextMatchResult, OnlineTextQuery, TextMetaProvider } from './types'
 import { hitFillsMissing, needsOnlineTextMeta } from './util'
+import { getBoundedCache, setBoundedCache } from '@/features/runtime/boundedCache'
 
 const NEGATIVE_CACHE_TTL_MS = 45 * 60 * 1000
+const NEGATIVE_CACHE_MAX_SIZE = 256
 
 type NegativeEntry = {
   queryKey: string
@@ -58,7 +60,7 @@ export const matchOnlineTextMeta = async (
   }
 
   const queryKey = buildQueryKey(query)
-  const cached = negativeBySongId.get(query.songId)
+  const cached = getBoundedCache(negativeBySongId, query.songId)
   if (cached && cached.queryKey === queryKey && cached.expiresAt > Date.now()) {
     return { ok: false, reason: 'no-match' }
   }
@@ -76,10 +78,12 @@ export const matchOnlineTextMeta = async (
     }
   }
 
-  negativeBySongId.set(query.songId, {
+  setBoundedCache(negativeBySongId, query.songId, {
     queryKey,
     expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS,
-  })
+  }, NEGATIVE_CACHE_MAX_SIZE)
 
   return { ok: false, reason: sawNetworkError ? 'network' : 'no-match' }
 }
+
+export const __getOnlineTextMetaCacheSizeForTests = (): number => negativeBySongId.size

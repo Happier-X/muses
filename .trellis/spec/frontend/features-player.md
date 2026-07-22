@@ -111,6 +111,8 @@
   - 已有非空 `translatedLyric`（TTML/库结果或已 attach）禁止再双行合并或覆盖。
 - **双语主译判定**：同时间戳双主行合并时不得只靠文件顺序。若一对中一行是 Han、另一行是非 Han（Latin / 假名 / Hangul 等），**非 Han 为主行**、Han 为 `translatedLyric`。合并结果 `endTime = max(两行 endTime)`，避免活跃窗口过短导致高亮只闪一下。关翻译后主行须仍为原文。
 - 快速切歌：`playSong` 用 generation 丢弃被 supersede 的 play 回写；native 状态有当前曲时必须 `currentSongId` 精确匹配；loading 期间忽略无关 paused/stopped（#28/#29）。
+- **运行时缓存必须有界**：AMLL TTML 命中缓存、AMLL/在线封面/在线文本负缓存使用共享轻量 LRU helper，默认最多保留 256 个近期条目；命中刷新近期顺序，负缓存原有 TTL 与 reset 语义保持。不得新增无限增长的按 songId Map。
+- **App 根级监听器必须卸载**：`App.vue` 注册 Capacitor `backButton` listener 时必须保存异步返回的 handle，并在组件卸载时调用 `remove()`；若 handle 在卸载后才 resolve，应立即移除，避免重复回调。
 
 ## 在线歌词匹配（多源回退）
 

@@ -22,6 +22,7 @@
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
 import { IonApp, IonRouterOutlet } from '@ionic/vue'
 import { App } from '@capacitor/app'
+import type { PluginListenerHandle } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
 import MiniPlayer from '@/components/MiniPlayer.vue'
 import { initializePlayer, playerState } from '@/features/player/controller'
@@ -36,6 +37,8 @@ const keepPlayerPageMounted = computed(
 )
 let statusBarRequestToken = 0
 let statusBarSyncQueue = Promise.resolve()
+let backButtonListener: PluginListenerHandle | null = null
+let appUnmounted = false
 
 const syncPlayerStatusBar = (visible: boolean) => {
   const requestToken = ++statusBarRequestToken
@@ -65,9 +68,10 @@ watch(playerOverlayVisible, (visible) => {
 })
 
 onMounted(() => {
+  appUnmounted = false
   void initializePlayer()
 
-  App.addListener('backButton', () => {
+  void App.addListener('backButton', () => {
     if (queueOverlayVisible.value) {
       closeQueueOverlay()
       return
@@ -82,10 +86,19 @@ onMounted(() => {
     void App.minimizeApp().catch(() => {
       // 非 Android / 不可用时静默忽略，避免打断 UI。
     })
-  })
+  }).then((handle) => {
+    if (appUnmounted) {
+      void handle.remove()
+      return
+    }
+    backButtonListener = handle
+  }).catch(() => undefined)
 })
 
 onUnmounted(() => {
+  appUnmounted = true
+  void backButtonListener?.remove()
+  backButtonListener = null
   syncBodyOverlayLock(false)
   syncPlayerStatusBar(false)
 })
