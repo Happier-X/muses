@@ -176,6 +176,11 @@ export interface UpsertSongResult {
   songs: SongItem[]
 }
 
+export interface StorageMutationOptions {
+  /** 批处理时关闭单次写入；默认 true，保持独立调用的既有行为。 */
+  persist?: boolean
+}
+
 const hasSongChanged = (left: SongItem, right: SongItem): boolean => {
   return (
     left.uri !== right.uri ||
@@ -194,7 +199,12 @@ const hasSongChanged = (left: SongItem, right: SongItem): boolean => {
   )
 }
 
-export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()): UpsertSongResult => {
+export const upsertSong = (
+  input: UpsertSongInput,
+  existingSongs = loadSongs(),
+  options: StorageMutationOptions = {},
+): UpsertSongResult => {
+  const persist = options.persist !== false
   const now = input.now ?? new Date().toISOString()
   const existingIndex = existingSongs.findIndex((song) => song.sourceId === input.sourceId && song.path === input.path)
   const tags = input.tags ?? {}
@@ -222,7 +232,9 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
       updatedAt: now,
     }
     const songs = [song, ...existingSongs]
-    saveSongs(songs)
+    if (persist) {
+      saveSongs(songs)
+    }
     return { status: 'inserted', song, songs }
   }
 
@@ -256,7 +268,9 @@ export const upsertSong = (input: UpsertSongInput, existingSongs = loadSongs()):
 
   const songs = [...existingSongs]
   songs[existingIndex] = nextSong
-  saveSongs(songs)
+  if (persist) {
+    saveSongs(songs)
+  }
   return { status: 'updated', song: nextSong, songs }
 }
 
@@ -273,6 +287,7 @@ export const reconcileSourceSongs = (
   sourceId: string,
   keepPaths: Iterable<string>,
   existingSongs = loadSongs(),
+  options: StorageMutationOptions = {},
 ): ReconcileSourceSongsResult => {
   const keepPathSet = keepPaths instanceof Set ? keepPaths : new Set(keepPaths)
   const nextSongs: SongItem[] = []
@@ -290,6 +305,8 @@ export const reconcileSourceSongs = (
     return { removed: 0, songs: existingSongs }
   }
 
-  saveSongs(nextSongs)
+  if (options.persist !== false) {
+    saveSongs(nextSongs)
+  }
   return { removed, songs: nextSongs }
 }

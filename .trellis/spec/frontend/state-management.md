@@ -110,6 +110,7 @@ Current source module contract:
 
 - Song storage key: `muses:songs`.
 - Song uniqueness: `(sourceId, path)`; use `upsertSong(...)` rather than appending raw arrays.
+- Storage mutation signatures: `upsertSong(input, existingSongs?, { persist?: boolean })` and `reconcileSourceSongs(sourceId, keepPaths, existingSongs?, { persist?: boolean })`. `persist` defaults to `true` for independent callers; scanner batch processing passes `false` and commits with one final `saveSongs(...)`.
 - Source rescan reconciliation: after a successful discovery list, call `reconcileSourceSongs(sourceId, keepPaths, existingSongs?)` so songs under that `sourceId` whose `path` is not in `keepPaths` are removed; other sources stay untouched. Empty discovery must clear that source’s songs. Discovery failure must not reconcile.
 - `LocalLibrary.scanDirectory({ treeUri: string }) -> { files: Array<{ path: string; uri: string; name: string }> }`.
 - `LocalLibrary.readMetadata({ uri: string }) -> { title?: string; artist?: string; album?: string; duration?: number }`.
@@ -121,6 +122,8 @@ Current source module contract:
 - `muses:songs` may store song metadata only: IDs, source references, paths/URIs, display tags, and timestamps.
 - `muses:songs` must never store WebDAV passwords, Basic Auth headers, tokens, or SecureStorage values.
 - `saveSongs(...)` dispatches the feature-local `SONGS_UPDATED_EVENT` after persistence; pages that display song metadata, such as `SongsPage.vue`, should listen while mounted and reload via `loadSongs()` so lazy metadata rescans are reflected without a full route reload.
+- A successful source scan is an atomic batch: load the original library once, apply per-file upserts and reconciliation in memory with `persist: false`, then call `saveSongs` at most once when the final library changed. A fatal error before commit leaves storage unchanged. Per-file upsert failures remain degraded batch entries: increment `failed`, keep the discovered path in `keepPaths`, and continue so an existing record for that path is not deleted as stale.
+- Scan progress may be throttled during the `processing` stage, but `discovering`/`processing` stage transitions and terminal `completed`/`failed` snapshots are immediate; the terminal snapshot must contain final summary counters.
 - WebDAV scans must resolve passwords at scan time with `getWebDavPassword(source.credentialKey)` and pass them only to the native WebDAV call boundary.
 - Local directory scans use the saved Android `content://` tree URI from `FilePicker.pickDirectory()`; the file picker does not provide recursive children.
 - Real tag reading belongs in native/plugin or a bounded binary-read helper. Do not fake successful tag reads when metadata parsing fails.
@@ -149,6 +152,7 @@ Current source module contract:
 - Storage/scanner tests assert empty and partial rescan reconciliation only removes the scanned source’s stale paths and increments `removed`.
 - Scanner tests assert discovery failure leaves existing songs unchanged.
 - Scanner tests assert tag parse failures increment `degraded` and still persist fallback-title songs.
+- Batch scanner tests assert a multi-song changed scan writes `muses:songs` and emits `SONGS_UPDATED_EVENT` exactly once; an unchanged scan emits neither; a fatal pre-commit failure preserves the original serialized library; the terminal progress snapshot includes final counters.
 - WebDAV scanner tests assert `SecureStorage.get` is called with `credentialKey`, native metadata reading receives the password only at the call boundary, and `localStorage.getItem('muses:songs')` does not contain the password.
 - WebDAV XML tests assert file and directory responses are distinguished, audio extensions are filtered, and existing directory-only browsing remains compatible.
 
@@ -161,12 +165,32 @@ const songs = [...loadSongs(), newSong]
 localStorage.setItem('muses:songs', JSON.stringify({ ...songs, password }))
 ```
 
-Correct:
+Correct（独立写入）:
 
 ```ts
 const password = await getWebDavPassword(source.credentialKey)
 const result = upsertSong({ sourceId: source.id, path: file.path, uri: file.uri, title })
 const reconciled = reconcileSourceSongs(source.id, discoveredPaths, result.songs)
+```
+
+Correct（扫描批处理）:
+
+```ts
+const originalSongs = loadSongs()
+let songs = originalSongs
+for (const file of files) {
+  songs = upsertSong(toInput(file), songs, { persist: false }).songs
+}
+const reconciled = reconcileSourceSongs(source.id, discoveredPaths, songs, { persist: false })
+if (hasChanges) saveSongs(reconciled.songs)
+```
+
+Bad（扫描循环内全量同步写盘）:
+
+```ts
+for (const file of files) {
+  upsertSong(toInput(file), songs) // 每首都 JSON.stringify + localStorage.setItem + 广播
+}
 ```
 
 ```

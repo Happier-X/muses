@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { SourceItem } from '@/features/sources/types'
 import { getTitleFromPath, isSupportedAudioFile } from '@/features/library/audio'
-import { loadSongs, reconcileSourceSongs, upsertSong } from '@/features/library/storage'
+import { loadSongs, reconcileSourceSongs, SONGS_UPDATED_EVENT, upsertSong } from '@/features/library/storage'
 import { scanSourceLibrary } from '@/features/library/scanner'
 
 vi.mock('@aparajita/capacitor-secure-storage', () => ({
@@ -340,6 +340,214 @@ describe('扫描器摘要', () => {
   afterEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
+  })
+
+  test('多首成功扫描只写入并广播一次，且独立 upsertSong 仍立即持久化', async () => {
+    const { LocalLibraryNative } = await import('@/features/library/native')
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+    const updatedListener = vi.fn()
+    window.addEventListener(SONGS_UPDATED_EVENT, updatedListener)
+    vi.mocked(LocalLibraryNative.scanDirectory).mockResolvedValue({
+      files: [
+        { path: 'album/one.mp3', uri: 'content://one', name: 'one.mp3' },
+        { path: 'album/two.mp3', uri: 'content://two', name: 'two.mp3' },
+      ],
+    })
+
+    const source: SourceItem = {
+      id: 'batch-source',
+      type: 'local',
+      name: '本地音乐',
+      path: 'content://tree/music',
+      createdAt: '2026-07-22T00:00:00.000Z',
+    }
+
+    await scanSourceLibrary(source, { readTags: false })
+    expect(setItemSpy.mock.calls.filter(([key]) => key === 'muses:songs')).toHaveLength(1)
+    expect(updatedListener).toHaveBeenCalledTimes(1)
+
+    upsertSong({
+      sourceId: 'batch-source',
+      sourceType: 'local',
+      path: 'album/three.mp3',
+      uri: 'content://three',
+      title: 'three',
+    })
+    expect(setItemSpy.mock.calls.filter(([key]) => key === 'muses:songs')).toHaveLength(2)
+    expect(updatedListener).toHaveBeenCalledTimes(2)
+    window.removeEventListener(SONGS_UPDATED_EVENT, updatedListener)
+    setItemSpy.mockRestore()
+  })
+
+  test('无变化扫描不写入也不广播', async () => {
+    const { LocalLibraryNative } = await import('@/features/library/native')
+    upsertSong({
+      sourceId: 'batch-source',
+      sourceType: 'local',
+      path: 'album/one.mp3',
+      uri: 'content://one',
+      title: 'one',
+      now: '2026-07-22T00:00:00.000Z',
+    })
+    vi.mocked(LocalLibraryNative.scanDirectory).mockResolvedValue({
+      files: [{ path: 'album/one.mp3', uri: 'content://one', name: 'one.mp3' }],
+    })
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+    const updatedListener = vi.fn()
+    window.addEventListener(SONGS_UPDATED_EVENT, updatedListener)
+
+    const source: SourceItem = {
+      id: 'batch-source',
+      type: 'local',
+      name: '本地音乐',
+      path: 'content://tree/music',
+      createdAt: '2026-07-22T00:00:00.000Z',
+    }
+
+    const result = await scanSourceLibrary(source, { readTags: false })
+
+    expect(result.summary).toMatchObject({ skipped: 1, inserted: 0, updated: 0, removed: 0 })
+    expect(setItemSpy.mock.calls.filter(([key]) => key === 'muses:songs')).toHaveLength(0)
+    expect(updatedListener).not.toHaveBeenCalled()
+    window.removeEventListener(SONGS_UPDATED_EVENT, updatedListener)
+    setItemSpy.mockRestore()
+  })
+
+  test('批次处理中发生致命失败不会提交已累积的半批数据', async () => {
+    const { LocalLibraryNative } = await import('@/features/library/native')
+    upsertSong({
+      sourceId: 'batch-source',
+      sourceType: 'local',
+      path: 'album/old.mp3',
+      uri: 'content://old',
+      title: 'old',
+      now: '2026-07-22T00:00:00.000Z',
+    })
+    const originalRaw = localStorage.getItem('muses:songs')
+    vi.mocked(LocalLibraryNative.scanDirectory).mockResolvedValue({
+      files: [
+        { path: 'album/one.mp3', uri: 'content://one', name: 'one.mp3' },
+        { path: 'album/two.mp3', uri: 'content://two', name: 'two.mp3' },
+      ],
+    })
+    const nowSpy = vi.spyOn(Date, 'now')
+    let now = 0
+    nowSpy.mockImplementation(() => (now += 100))
+    const updatedListener = vi.fn()
+    window.addEventListener(SONGS_UPDATED_EVENT, updatedListener)
+    const progress = vi.fn((value: { stage: string; currentItem?: string }) => {
+      if (value.stage === 'processing' && value.currentItem === 'album/two.mp3') {
+        throw new Error('进度接收失败')
+      }
+    })
+
+    const source: SourceItem = {
+      id: 'batch-source',
+      type: 'local',
+      name: '本地音乐',
+      path: 'content://tree/music',
+      createdAt: '2026-07-22T00:00:00.000Z',
+    }
+
+    await expect(scanSourceLibrary(source, { readTags: false }, progress)).rejects.toThrow('进度接收失败')
+    expect(localStorage.getItem('muses:songs')).toBe(originalRaw)
+    expect(updatedListener).not.toHaveBeenCalled()
+    expect(progress.mock.calls.some(([value]) => value.stage === 'failed')).toBe(true)
+    window.removeEventListener(SONGS_UPDATED_EVENT, updatedListener)
+    nowSpy.mockRestore()
+  })
+
+  test('单文件入库失败会保留同路径旧记录，并继续按完整发现路径对账', async () => {
+    const { LocalLibraryNative } = await import('@/features/library/native')
+    upsertSong({
+      sourceId: 'batch-source',
+      sourceType: 'local',
+      path: 'album/keep.mp3',
+      uri: 'content://old-keep',
+      title: '旧记录',
+      now: '2026-07-22T00:00:00.000Z',
+    })
+    upsertSong({
+      sourceId: 'batch-source',
+      sourceType: 'local',
+      path: 'album/stale.mp3',
+      uri: 'content://stale',
+      title: '待删除',
+      now: '2026-07-22T00:00:00.000Z',
+    })
+    const failedFile = {
+      path: 'album/keep.mp3',
+      name: 'keep.mp3',
+      get uri(): string {
+        throw new Error('构造入库数据失败')
+      },
+    }
+    vi.mocked(LocalLibraryNative.scanDirectory).mockResolvedValue({ files: [failedFile] })
+
+    const source: SourceItem = {
+      id: 'batch-source',
+      type: 'local',
+      name: '本地音乐',
+      path: 'content://tree/music',
+      createdAt: '2026-07-22T00:00:00.000Z',
+    }
+
+    const result = await scanSourceLibrary(source, { readTags: false })
+
+    expect(result.summary).toMatchObject({ discovered: 1, processed: 1, failed: 1, removed: 1 })
+    expect(loadSongs()).toMatchObject([{ path: 'album/keep.mp3', uri: 'content://old-keep', title: '旧记录' }])
+  })
+
+  test('完成进度不会因节流丢失最终 processed 计数', async () => {
+    const { LocalLibraryNative } = await import('@/features/library/native')
+    vi.mocked(LocalLibraryNative.scanDirectory).mockResolvedValue({
+      files: [
+        { path: 'album/one.mp3', uri: 'content://one', name: 'one.mp3' },
+        { path: 'album/two.mp3', uri: 'content://two', name: 'two.mp3' },
+      ],
+    })
+    const progress = vi.fn()
+    const source: SourceItem = {
+      id: 'batch-source',
+      type: 'local',
+      name: '本地音乐',
+      path: 'content://tree/music',
+      createdAt: '2026-07-22T00:00:00.000Z',
+    }
+
+    await scanSourceLibrary(source, { readTags: false }, progress)
+
+    const completed = progress.mock.calls.at(-1)?.[0]
+    expect(completed).toMatchObject({ stage: 'completed', discovered: 2, processed: 2, inserted: 2 })
+  })
+
+  test('标签读取失败按降级语义完成并提交批次', async () => {
+    const { LocalLibraryNative } = await import('@/features/library/native')
+    upsertSong({
+      sourceId: 'batch-source',
+      sourceType: 'local',
+      path: 'album/old.mp3',
+      uri: 'content://old',
+      title: 'old',
+      now: '2026-07-22T00:00:00.000Z',
+    })
+    vi.mocked(LocalLibraryNative.scanDirectory).mockResolvedValue({
+      files: [{ path: 'album/new.mp3', uri: 'content://new', name: 'new.mp3' }],
+    })
+    vi.mocked(LocalLibraryNative.readMetadata).mockRejectedValue(new Error('读取失败'))
+
+    const source: SourceItem = {
+      id: 'batch-source',
+      type: 'local',
+      name: '本地音乐',
+      path: 'content://tree/music',
+      createdAt: '2026-07-22T00:00:00.000Z',
+    }
+
+    // 标签解析失败属于可降级的单文件错误，批次仍应按既有语义完成。
+    const result = await scanSourceLibrary(source, { readTags: true })
+    expect(result.summary.degraded).toBe(1)
+    expect(loadSongs().map((song) => song.path)).toEqual(['album/new.mp3'])
   })
 
   test('标签读取失败时回退文件名并计入降级摘要，不中断扫描', async () => {

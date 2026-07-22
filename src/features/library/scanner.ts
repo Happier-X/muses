@@ -3,7 +3,7 @@ import { getWebDavPassword } from '@/features/sources/storage'
 import { listWebDavAudioFiles } from '@/features/sources/webdav'
 import { getTitleFromPath, isSupportedAudioFile } from './audio'
 import { scanLocalAudioFiles } from './native'
-import { reconcileSourceSongs, upsertSong } from './storage'
+import { loadSongs, reconcileSourceSongs, saveSongs, upsertSong } from './storage'
 import { readLocalAudioTags, readWebDavAudioTags } from './tags'
 import type { AudioFileEntry, AudioTags, ScanOptions, ScanProgress, ScanProgressCallback, ScanResult, ScanSummary } from './types'
 
@@ -18,12 +18,30 @@ const createEmptySummary = (): ScanSummary => ({
   removed: 0,
 })
 
-const emitProgress = (
+const createProgressEmitter = (
   onProgress: ScanProgressCallback | undefined,
   summary: ScanSummary,
-  progress: Pick<ScanProgress, 'stage' | 'currentItem' | 'message'>,
-): void => {
-  onProgress?.({ ...summary, ...progress })
+): ((progress: Pick<ScanProgress, 'stage' | 'currentItem' | 'message'>) => void) => {
+  let lastEmittedAt = 0
+  let lastStage: ScanProgress['stage'] = 'idle'
+  const throttleMs = 50
+
+  return (progress) => {
+    if (!onProgress) {
+      return
+    }
+
+    const now = Date.now()
+    const terminal = progress.stage === 'completed' || progress.stage === 'failed'
+    const stageChanged = progress.stage !== lastStage
+    if (!terminal && !stageChanged && now - lastEmittedAt < throttleMs) {
+      return
+    }
+
+    lastEmittedAt = now
+    lastStage = progress.stage
+    onProgress({ ...summary, ...progress })
+  }
 }
 
 const getAudioFiles = async (source: SourceItem): Promise<{ files: AudioFileEntry[]; webDavPassword?: string }> => {
@@ -75,19 +93,22 @@ export const scanSourceLibrary = async (
   onProgress?: ScanProgressCallback,
 ): Promise<ScanResult> => {
   const summary = createEmptySummary()
+  const emitProgress = createProgressEmitter(onProgress, summary)
 
-  emitProgress(onProgress, summary, { stage: 'discovering', message: '正在查找音频文件…' })
+  emitProgress({ stage: 'discovering', message: '正在查找音频文件…' })
 
   try {
     const { files, webDavPassword } = await getAudioFiles(source)
     summary.discovered = files.length
     const keepPaths = new Set(files.map((file) => file.path))
-    emitProgress(onProgress, summary, { stage: 'processing', message: '正在入库音频文件…' })
+    emitProgress({ stage: 'processing', message: '正在入库音频文件…' })
 
-    let songs = undefined
+    const originalSongs = loadSongs()
+    let songs = originalSongs
+    let hasChanges = false
     for (const file of files) {
       const fallbackTitle = getTitleFromPath(file.name || file.path)
-      emitProgress(onProgress, summary, { stage: 'processing', currentItem: file.path })
+      emitProgress({ stage: 'processing', currentItem: file.path })
 
       const tagResult = options.readTags ? await readTagsSafely(source, file, webDavPassword) : { tags: {}, degraded: false }
       if (tagResult.degraded) {
@@ -105,9 +126,13 @@ export const scanSourceLibrary = async (
             tags: tagResult.tags,
           },
           songs,
+          { persist: false },
         )
         songs = upsertResult.songs
         summary[upsertResult.status] += 1
+        if (upsertResult.status !== 'skipped') {
+          hasChanges = true
+        }
       } catch {
         summary.failed += 1
       } finally {
@@ -116,14 +141,21 @@ export const scanSourceLibrary = async (
     }
 
     // 发现阶段成功后才对账：以本次列出的路径为准清理该音源旧歌曲（含发现 0 文件）
-    const reconcileResult = reconcileSourceSongs(source.id, keepPaths, songs)
+    const reconcileResult = reconcileSourceSongs(source.id, keepPaths, songs, { persist: false })
     summary.removed = reconcileResult.removed
+    hasChanges ||= reconcileResult.removed > 0
 
-    emitProgress(onProgress, summary, { stage: 'completed', message: '扫描完成。' })
+    // 扫描期间只在内存中修改；成功后若最终曲库有变化，统一写入并广播一次。
+    // 直接复用变更摘要，避免提交前为比较新旧曲库额外做两次全量序列化。
+    if (hasChanges) {
+      saveSongs(reconcileResult.songs)
+    }
+
+    emitProgress({ stage: 'completed', message: '扫描完成。' })
     return { summary, songs: reconcileResult.songs }
   } catch (error) {
     const message = error instanceof Error ? error.message : '扫描失败。'
-    emitProgress(onProgress, summary, { stage: 'failed', message })
+    emitProgress({ stage: 'failed', message })
     throw error
   }
 }
