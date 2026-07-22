@@ -3,7 +3,7 @@
   "name": "app-performance-audit",
   "title": "全应用性能审计与卡顿治理",
   "description": "系统排查剩余卡顿热点，输出优先级与实施计划",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
