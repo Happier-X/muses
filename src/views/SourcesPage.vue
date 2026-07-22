@@ -12,10 +12,11 @@
     </ion-header>
 
     <ion-content :fullscreen="true">
-      <div v-if="sources.length === 0" class="empty-state">
-        <h2>还没有音源</h2>
-        <p>点击右上角加号添加本地文件夹或 WebDAV 文件夹。</p>
-      </div>
+      <m-empty-state
+        v-if="sources.length === 0"
+        title="还没有音源"
+        description="点击右上角加号添加本地文件夹或 WebDAV 文件夹。"
+      />
 
       <div v-else class="tablet-content-limit">
         <div ref="listParentRef" class="source-list">
@@ -336,6 +337,7 @@ import {
   type AlertButton,
 } from '@ionic/vue'
 import { add } from '@/icons/ion-lucide'
+import { MEmptyState } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,
@@ -813,17 +815,6 @@ const addSourceButtons: ActionSheetButton[] = [
 </script>
 
 <style scoped>
-.empty-state {
-  display: flex;
-  min-height: 60%;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  color: var(--ion-color-medium);
-  text-align: center;
-}
-
 .source-list {
   height: 100%;
   overflow: auto;

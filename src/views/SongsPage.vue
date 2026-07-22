@@ -31,10 +31,11 @@
         </ion-toolbar>
       </ion-header>
 
-      <div v-if="songs.length === 0" class="empty-state">
-        <h2>还没有歌曲</h2>
-        <p>请先到音源页添加并扫描音源。</p>
-      </div>
+      <m-empty-state
+        v-if="songs.length === 0"
+        title="还没有歌曲"
+        description="请先到音源页添加并扫描音源。"
+      />
 
       <div v-else ref="listParentRef" class="song-list list-grid tablet-content-limit">
         <div class="song-list-spacer" :style="{ height: `${totalSize}px` }">
@@ -55,14 +56,11 @@
               :data-song-id="songs[virtualRow.index].id"
               @click="playSong(songs[virtualRow.index])"
             >
-              <div class="song-cover" slot="start" aria-hidden="true">
-                <img
-                  v-if="getSongCoverSrc(songs[virtualRow.index])"
-                  :src="getSongCoverSrc(songs[virtualRow.index])"
-                  alt=""
-                />
-                <ion-icon v-else :icon="musicalNotesOutline" aria-hidden="true" />
-              </div>
+              <m-cover
+                slot="start"
+                :src="getSongCoverSrc(songs[virtualRow.index])"
+                alt=""
+              />
 
               <ion-label>
                 <h2>{{ songs[virtualRow.index].title }}</h2>
@@ -151,7 +149,8 @@ import {
   type AlertButton,
   type AlertInput,
 } from '@ionic/vue'
-import { ellipsisVertical, locateOutline, musicalNotesOutline, searchOutline, shuffle } from '@/icons/ion-lucide'
+import { ellipsisVertical, locateOutline, searchOutline, shuffle } from '@/icons/ion-lucide'
+import { MCover, MEmptyState } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
@@ -414,22 +413,6 @@ onIonViewWillEnter(refreshSongs)
 </script>
 
 <style scoped>
-.empty-state {
-  min-height: 60vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 24px;
-  color: var(--ion-color-medium);
-}
-
-.empty-state h2 {
-  margin-bottom: 8px;
-  color: var(--ion-text-color);
-}
-
 /* 列表自管 padding-bottom；content 不再重复加底内边距 */
 .songs-content {
   --padding-bottom: 0;
@@ -455,7 +438,7 @@ onIonViewWillEnter(refreshSongs)
   overflow: auto;
   box-sizing: border-box;
   /* 仅为 MiniPlayer 与 Tab Bar 预留滚动空间 */
-  padding-bottom: calc(128px + var(--ion-safe-area-bottom, 0px));
+  padding-bottom: calc(var(--muses-tab-bar-height) + var(--muses-mini-player-height) + var(--ion-safe-area-bottom, 0px));
 }
 
 .song-list-spacer {
@@ -472,29 +455,7 @@ onIonViewWillEnter(refreshSongs)
 }
 
 .song-item {
-  --min-height: 72px;
-}
-
-.song-cover {
-  width: 52px;
-  height: 52px;
-  border-radius: 10px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  background: rgba(var(--ion-color-medium-rgb), 0.16);
-  color: var(--ion-color-medium);
-  flex-shrink: 0;
-}
-
-.song-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.song-cover ion-icon {
-  font-size: 24px;
+  --min-height: var(--muses-song-row-height);
 }
 
 .song-item h2 {
@@ -508,11 +469,11 @@ onIonViewWillEnter(refreshSongs)
 }
 
 .is-playing {
-  --background: rgba(var(--ion-color-primary-rgb), 0.1);
+  --background: var(--muses-color-playing-bg);
 }
 
 .jump-highlight {
-  --background: rgba(var(--ion-color-primary-rgb), 0.22);
+  --background: var(--muses-color-jump-highlight);
 }
 
 /* 避开底部 Tab Bar（~64）+ MiniPlayer（~64）+ 间距，保留安全区 */
@@ -534,7 +495,7 @@ onIonViewWillEnter(refreshSongs)
   }
 
   .song-list {
-    padding-bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
+    padding-bottom: calc(var(--muses-mini-player-height) + var(--ion-safe-area-bottom, 0px));
   }
 
   .songs-content {

@@ -18,10 +18,11 @@
       </ion-header>
 
       <div class="tablet-content-limit">
-        <div v-if="playlists.length === 0" class="empty-state">
-          <h2>还没有歌单</h2>
-          <p>点右上角新建，或在歌曲页「更多」加入歌单。</p>
-        </div>
+        <m-empty-state
+          v-if="playlists.length === 0"
+          title="还没有歌单"
+          description="点右上角新建，或在歌曲页「更多」加入歌单。"
+        />
 
         <ion-list v-else>
           <ion-item
@@ -33,9 +34,11 @@
             class="playlist-item"
             @click="openDetail(item.id)"
           >
-            <div class="playlist-icon" slot="start" aria-hidden="true">
-              <ion-icon :icon="list" />
-            </div>
+            <m-cover slot="start" :size="48" radius="sm" alt="">
+              <template #placeholder>
+                <ion-icon :icon="list" aria-hidden="true" />
+              </template>
+            </m-cover>
             <ion-label>
               <h2>{{ item.name }}</h2>
               <p>{{ item.validCount }} 首</p>
@@ -102,6 +105,7 @@ import {
   type AlertInput,
 } from '@ionic/vue'
 import { addOutline, ellipsisVertical, list } from '@/icons/ion-lucide'
+import { MCover, MEmptyState } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,
@@ -252,38 +256,10 @@ onIonViewWillEnter(() => {
 </script>
 
 <style scoped>
-.empty-state {
-  min-height: 60vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 24px;
-  color: var(--ion-color-medium);
-}
-
-.empty-state h2 {
-  margin-bottom: 8px;
-  color: var(--ion-text-color);
-}
-
 .playlist-item {
   --padding-start: 12px;
   --inner-padding-end: 4px;
   margin-bottom: 4px;
-}
-
-.playlist-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(var(--ion-color-medium-rgb), 0.16);
-  font-size: 22px;
-  color: var(--ion-color-medium);
 }
 
 .more-button {

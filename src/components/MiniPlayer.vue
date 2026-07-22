@@ -10,10 +10,7 @@
     @keyup.enter="openPlayerPage"
     @keyup.space="openPlayerPage"
   >
-    <div class="cover-wrap" aria-hidden="true">
-      <img v-if="coverSrc" :src="coverSrc" alt="" />
-      <ion-icon v-else :icon="musicalNotes" />
-    </div>
+    <m-cover :src="coverSrc" :size="48" alt="" />
 
     <div class="track-info">
       <strong>{{ titleText }}</strong>
@@ -50,7 +47,8 @@
 import { computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonButton, IonIcon } from '@ionic/vue'
-import { list, musicalNotes, pause, play } from '@/icons/ion-lucide'
+import { list, pause, play } from '@/icons/ion-lucide'
+import { MCover } from '@/components/ui'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 
@@ -119,43 +117,21 @@ const toDisplayableUri = (uri: string): string => {
   cursor: pointer;
   left: 0;
   right: 0;
-  bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
-  z-index: 1000;
+  bottom: calc(var(--muses-tab-bar-height) + var(--ion-safe-area-bottom, 0px));
+  z-index: var(--muses-z-mini-player);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--muses-space-md);
   width: 100%;
-  min-height: 64px;
-  padding: 8px 12px;
+  min-height: var(--muses-mini-player-height);
+  padding: var(--muses-space-sm) var(--muses-space-md);
   border-top: 1px solid rgba(0, 0, 0, 0.08);
-  color: var(--ion-text-color);
-  background: #ffffff;
+  color: var(--muses-color-ink);
+  background: var(--muses-color-surface);
 }
 
 .mini-player.is-empty {
   cursor: default;
-}
-
-.cover-wrap {
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 10px;
-  background: rgba(var(--ion-color-medium-rgb), 0.16);
-  color: var(--ion-color-medium);
-}
-
-.cover-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cover-wrap ion-icon {
-  font-size: 24px;
 }
 
 .track-info {
@@ -174,13 +150,13 @@ const toDisplayableUri = (uri: string): string => {
 }
 
 .track-info strong {
-  font-size: 15px;
-  line-height: 1.25;
+  font-size: var(--muses-font-title);
+  line-height: var(--muses-line-height-title);
 }
 
 .track-info span {
   color: var(--ion-color-medium);
-  font-size: 13px;
+  font-size: var(--muses-font-body-sm);
 }
 
 .player-actions {
@@ -193,7 +169,7 @@ const toDisplayableUri = (uri: string): string => {
 @media (prefers-color-scheme: dark) {
   .mini-player {
     border-top-color: rgba(255, 255, 255, 0.12);
-    background: #1f1f1f;
+    background: var(--muses-color-surface-dark);
   }
 }
 

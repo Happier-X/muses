@@ -1,25 +1,17 @@
 <template>
-  <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>专辑</ion-title>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content :fullscreen="true">
-      <ion-header collapse="condense">
-        <ion-toolbar>
-          <ion-title size="large">专辑</ion-title>
-        </ion-toolbar>
-      </ion-header>
+  <m-page>
+    <template #title>专辑</template>
 
-      <div v-if="albums.length === 0" class="empty-state">
-        <h2>还没有专辑</h2>
-        <p>请先到音源页添加并扫描音源。</p>
-      </div>
+    <m-empty-state
+      v-if="albums.length === 0"
+      title="还没有专辑"
+      description="请先到音源页添加并扫描音源。"
+    />
 
-      <div v-else class="list-grid tablet-content-limit">
-        <ion-list>
+    <div v-else class="list-grid tablet-content-limit">
+      <ion-list>
         <ion-item v-for="album in albums" :key="album.name">
+          <m-cover slot="start" :src="getAlbumCoverSrc(album.songs)" alt="" />
           <ion-label>
             <h2>{{ album.name }}</h2>
             <p>{{ album.songCount }} 首歌曲</p>
@@ -27,14 +19,15 @@
           </ion-label>
         </ion-item>
       </ion-list>
-      </div>
-    </ion-content>
-  </ion-page>
+    </div>
+  </m-page>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { IonContent, IonHeader, IonItem, IonLabel, IonList, IonPage, IonTitle, IonToolbar, onIonViewWillEnter } from '@ionic/vue'
+import { Capacitor } from '@capacitor/core'
+import { IonItem, IonLabel, IonList, onIonViewWillEnter } from '@ionic/vue'
+import { MCover, MEmptyState, MPage } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByAlbum } from '@/features/library/views'
@@ -46,26 +39,21 @@ const refreshSongs = () => {
   songs.value = loadSongs()
 }
 
+const getAlbumCoverSrc = (albumSongs: SongItem[]): string => {
+  const coverUri = albumSongs.find((song) => song.coverUri)?.coverUri
+  if (!coverUri) return ''
+  const normalizedUri = coverUri.trim().toLowerCase()
+  if (normalizedUri.startsWith('data:') || normalizedUri.startsWith('blob:') || normalizedUri.includes(';base64,')) return ''
+  return normalizedUri.startsWith('http://') || normalizedUri.startsWith('https://')
+    ? coverUri
+    : Capacitor.convertFileSrc(coverUri)
+}
+
 onMounted(refreshSongs)
 onIonViewWillEnter(refreshSongs)
 </script>
 
 <style scoped>
-.empty-state {
-  min-height: 60vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 24px;
-  color: var(--ion-color-medium);
-}
-
-.empty-state h2 {
-  margin-bottom: 8px;
-  color: var(--ion-text-color);
-}
 @media (min-width: 768px) {
   .list-grid {
     display: grid;

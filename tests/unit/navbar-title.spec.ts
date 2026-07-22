@@ -8,8 +8,6 @@ const readSource = (file: string): string => readFileSync(resolve(process.cwd(),
 
 const navbarCases = [
   ['src/views/SongsPage.vue', '<ion-title>歌曲</ion-title>'],
-  ['src/views/AlbumsPage.vue', '<ion-title>专辑</ion-title>'],
-  ['src/views/ArtistsPage.vue', '<ion-title>艺术家</ion-title>'],
   ['src/views/PlaylistsPage.vue', '<ion-title>歌单</ion-title>'],
   ['src/views/SettingsPage.vue', '<ion-title>设置</ion-title>'],
   ['src/views/PlaylistDetailPage.vue', "<ion-title>{{ playlist?.name ?? '歌单' }}</ion-title>"],
@@ -20,13 +18,22 @@ const navbarCases = [
   ['src/views/SourcesPage.vue', '<ion-title>添加 WebDAV</ion-title>'],
 ] as const
 
+/** 经 MPage 承接 header/title 的简单列表页：页面只声明 title 槽，标题 markup 在组件内 */
+const mPageNavbarCases = [
+  ['src/views/AlbumsPage.vue', '专辑'],
+  ['src/views/ArtistsPage.vue', '艺术家'],
+] as const
+
 const collapsibleTitleFiles = [
   'src/views/SongsPage.vue',
-  'src/views/AlbumsPage.vue',
-  'src/views/ArtistsPage.vue',
   'src/views/PlaylistsPage.vue',
   'src/views/SettingsPage.vue',
   'src/views/PlaylistDetailPage.vue',
+]
+
+const mPageCollapsibleTitleFiles = [
+  'src/views/AlbumsPage.vue',
+  'src/views/ArtistsPage.vue',
 ]
 
 const ruleBody = (selector: string): string => {
@@ -69,12 +76,40 @@ describe('navbar 标题全局布局', () => {
     expect(titleMarkup).not.toContain('size="large"')
   })
 
+  test.each(mPageNavbarCases)('%s 经 MPage 声明 title 槽：%s', (file, titleText) => {
+    const source = readSource(file)
+
+    expect(source).toMatch(/<m-page[\s>]/)
+    expect(source).toContain(`<template #title>${titleText}</template>`)
+    expect(source).not.toMatch(/<ion-title[^>]*>/)
+  })
+
+  test('MPage 输出普通 ion-title 与可选折叠大标题，供全局居中规则命中', () => {
+    const source = readSource('src/components/ui/MPage.vue')
+
+    expect(source).toContain('<ion-title><slot name="title" /></ion-title>')
+    expect(source).toMatch(/<ion-title\s+size="large">/)
+    expect(source).toMatch(/condensedTitle/)
+  })
+
   test.each(collapsibleTitleFiles)('%s 的折叠大标题保留 size="large"', (file) => {
     expect(readSource(file)).toMatch(/<ion-title\s+size="large">/)
   })
 
+  test.each(mPageCollapsibleTitleFiles)('%s 通过 MPage 默认 condensedTitle 保留折叠大标题', (file) => {
+    const source = readSource(file)
+
+    expect(source).toMatch(/<m-page[\s>]/)
+    // 默认 condensedTitle=true；页面若显式关闭需另写断言
+    expect(source).not.toMatch(/:condensed-title="false"/)
+    expect(source).not.toMatch(/condensedTitle="false"/)
+  })
+
   test('页面不再使用仅用于 navbar 居中的局部 class', () => {
-    const files = [...new Set(navbarCases.map(([file]) => file))]
+    const files = [
+      ...new Set(navbarCases.map(([file]) => file)),
+      ...mPageNavbarCases.map(([file]) => file),
+    ]
     const sources = files.map(readSource).join('\n')
 
     expect(sources).not.toMatch(/(?:page-title|source-title)/)

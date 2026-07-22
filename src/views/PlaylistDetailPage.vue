@@ -26,15 +26,13 @@
       </ion-header>
 
       <div class="tablet-content-limit">
-        <div v-if="!playlist" class="empty-state">
-          <h2>歌单不存在</h2>
-          <p>可能已被删除。</p>
-        </div>
+        <m-empty-state v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
 
-        <div v-else-if="resolvedSongs.length === 0" class="empty-state">
-          <h2>歌单是空的</h2>
-          <p>在歌曲页点「更多」→「加入歌单」添加歌曲。</p>
-        </div>
+        <m-empty-state
+          v-else-if="resolvedSongs.length === 0"
+          title="歌单是空的"
+          description="在歌曲页点「更多」→「加入歌单」添加歌曲。"
+        />
 
         <div v-else ref="listParentRef" class="playlist-list" role="list" aria-label="歌单歌曲">
           <div class="playlist-list-spacer" :style="{ height: `${totalSize}px` }">
@@ -56,10 +54,13 @@
                 :aria-current="playerState.currentSong?.id === row.song.id ? 'true' : undefined"
                 @click="onPlaySong(row.song, $event)"
               >
-                <div class="song-cover" slot="start" aria-hidden="true">
-                  <img v-if="getSongCoverSrc(row.song)" :src="getSongCoverSrc(row.song)" alt="" />
-                  <ion-icon v-else :icon="musicalNotesOutline" aria-hidden="true" />
-                </div>
+                <m-cover
+                  slot="start"
+                  :src="getSongCoverSrc(row.song)"
+                  :size="48"
+                  radius="sm"
+                  alt=""
+                />
                 <ion-label>
                   <h2>{{ row.song.title }}</h2>
                   <p>{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
@@ -101,7 +102,8 @@ import {
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { musicalNotesOutline, playOutline, removeCircleOutline } from '@/icons/ion-lucide'
+import { playOutline, removeCircleOutline } from '@/icons/ion-lucide'
+import { MCover, MEmptyState } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'
@@ -221,22 +223,6 @@ onIonViewWillEnter(() => {
 </script>
 
 <style scoped>
-.empty-state {
-  min-height: 60vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 24px;
-  color: var(--ion-color-medium);
-}
-
-.empty-state h2 {
-  margin-bottom: 8px;
-  color: var(--ion-text-color);
-}
-
 .tablet-content-limit {
   height: 100%;
 }
@@ -268,26 +254,7 @@ onIonViewWillEnter(() => {
 }
 
 .song-item.is-playing {
-  --background: rgba(var(--ion-color-primary-rgb), 0.08);
-}
-
-.song-cover {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(var(--ion-color-medium-rgb), 0.16);
-  color: var(--ion-color-medium);
-  font-size: 22px;
-}
-
-.song-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  --background: var(--muses-color-playing-bg-soft);
 }
 
 .more-button {
