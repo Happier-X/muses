@@ -1,4 +1,5 @@
 <template>
+  <!-- HOST-IONIC — app shell；不进入 happier-ui 包心；路由/手势依赖 ion-page -->
   <ion-page>
     <ion-header>
       <ion-toolbar>

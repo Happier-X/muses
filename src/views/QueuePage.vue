@@ -136,7 +136,7 @@ const onRemoveSong = (songId: string) => {
   removeSongFromQueue(songId)
 }
 
-const onSelectSong = async (index: number, event: MouseEvent): Promise<void> => {
+const onSelectSong = async (index: number, event: MouseEvent | KeyboardEvent): Promise<void> => {
   if (event.composedPath().some((target) => target instanceof Element && target.classList.contains('remove-button'))) {
     return
   }

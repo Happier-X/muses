@@ -13,6 +13,9 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * APP-ONLY（不进 happier-ui v0.1）：音乐封面占位，依赖 ion-lucide。
+ */
 import { computed, type CSSProperties } from 'vue'
 import { IonIcon } from '@ionic/vue'
 import { musicalNotesOutline } from '@/icons/ion-lucide'

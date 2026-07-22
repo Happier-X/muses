@@ -440,9 +440,9 @@ onIonViewWillEnter(refreshSongs)
   scroll-margin-top: 120px;
 }
 
-/* 跳转高亮：class 挂在 MListRow 根 ion-item 上，需 :deep */
+/* 跳转高亮：class 挂在 MListRow 根节点（纯 Vue button/div） */
 :deep(.song-item.jump-highlight) {
-  --background: var(--muses-color-jump-highlight);
+  background: var(--muses-color-jump-highlight);
 }
 
 /* 避开底部 Tab Bar（~64）+ MiniPlayer（~64）+ 间距，保留安全区 */

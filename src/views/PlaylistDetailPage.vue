@@ -175,7 +175,7 @@ const onPlayAll = () => {
   void playSong(songs[0])
 }
 
-const onPlaySong = (song: SongItem, event: MouseEvent): void => {
+const onPlaySong = (song: SongItem, event: MouseEvent | KeyboardEvent): void => {
   if (event.composedPath().some((target) => target instanceof Element && target.classList.contains('more-button'))) {
     return
   }
