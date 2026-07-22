@@ -1,0 +1,33 @@
+{
+  "id": "app-performance-audit",
+  "name": "app-performance-audit",
+  "title": "全应用性能审计与卡顿治理",
+  "description": "系统排查剩余卡顿热点，输出优先级与实施计划",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-07-22",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-22-scan-batch-persist",
+    "07-22-queue-linear-resolve",
+    "07-22-virtualize-long-lists",
+    "07-22-hidden-player-render-budget",
+    "07-22-optimize-amll-index",
+    "07-22-runtime-cache-lifecycle"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

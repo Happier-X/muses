@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/index.md","reason":"前端规范入口与验收范围"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"核查虚拟列表、Overlay、Ionic 交互和响应式回归"}
+{"file":".trellis/spec/frontend/features-player.md","reason":"核查播放器与 AMLL 行为契约不回归"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"核查持久化、广播和状态一致性"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行 lint、测试、构建与代码质量审查"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"核查类型边界与运行时校验"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"核查扫描到 UI、队列到播放的完整数据流"}

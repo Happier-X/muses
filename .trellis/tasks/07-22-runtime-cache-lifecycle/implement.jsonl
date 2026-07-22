@@ -1,0 +1,8 @@
+{"file":".trellis/spec/frontend/index.md","reason":"前端规范入口与适用层说明"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Ionic Vue 组件、虚拟列表、播放器 Overlay 与扫描约定"}
+{"file":".trellis/spec/frontend/features-player.md","reason":"播放器、AMLL、队列、进度和后台播放不可回归契约"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"localStorage 与全局响应式状态约定"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"实现质量、测试和禁止模式"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"严格 TypeScript 与边界校验要求"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"存储、队列、组件与原生播放跨层数据流检查"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"虚拟列表和 bounded cache helper 复用检查"}
