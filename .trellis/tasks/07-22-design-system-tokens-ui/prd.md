@@ -55,15 +55,15 @@
 
 ## Acceptance Criteria
 
-- [ ] 存在统一 token 源；primary 与 DESIGN 一致（`#006FEE` 及 50–900）
-- [ ] Ionic primary 由 token/桥接驱动；深色不回退 Ionic 默认蓝
-- [ ] 至少 3 类重复硬编码已 token 化
-- [ ] `MEmptyState`、`MCover`、`MPage` 已交付，且 ≥2 个页面实际引用 Empty/Cover；≥1 页使用 MPage
-- [ ] Songs / Albums / Artists / Playlists 完成 empty/cover（及可行的 page 壳）迁移
-- [ ] 无新增 Material elevation / 运营卡片模式
-- [ ] lint / type-check 通过
-- [ ] frontend spec 已记录 token 与 `components/ui` 约定
-- [ ] `07-22-impeccable-init` 已归档后再开始本任务实现
+- [x] 存在统一 token 源；primary 与 DESIGN 一致（`#006FEE` 及 50–900）
+- [x] Ionic primary 由 token/桥接驱动；深色不回退 Ionic 默认蓝
+- [x] 至少 3 类重复硬编码已 token 化
+- [x] `MEmptyState`、`MCover`、`MPage` 已交付，且 ≥2 个页面实际引用 Empty/Cover；≥1 页使用 MPage
+- [x] Songs / Albums / Artists / Playlists 完成 empty/cover（及可行的 page 壳）迁移
+- [x] 无新增 Material elevation / 运营卡片模式
+- [x] lint / type-check 通过
+- [x] frontend spec 已记录 token 与 `components/ui` 约定
+- [x] `07-22-impeccable-init` 已归档后再开始本任务实现
 
 ## Notes
 

@@ -3,7 +3,7 @@
   "name": "design-system-tokens-ui",
   "title": "设计系统 Token 化与 Muses UI 组件库",
   "description": "全项目设计 token 落地，并二次封装高频 Ionic/业务模式为可复用语义组件库",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

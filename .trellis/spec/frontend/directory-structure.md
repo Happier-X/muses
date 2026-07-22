@@ -16,12 +16,18 @@ src/
 ├── main.ts
 ├── vite-env.d.ts
 ├── components/
-│   └── ExploreContainer.vue
+│   ├── MiniPlayer.vue
+│   └── ui/
+│       ├── MEmptyState.vue
+│       ├── MCover.vue
+│       ├── MPage.vue
+│       └── index.ts
 ├── icons/
 │   └── ion-lucide.ts
 ├── router/
 │   └── index.ts
 ├── theme/
+│   ├── tokens.css
 │   └── variables.css
 └── views/
     ├── Tab1Page.vue
@@ -52,8 +58,10 @@ Use the existing split unless the codebase grows enough to justify feature modul
 - `src/router/index.ts` owns route records and redirects.
 - `src/views/` contains route-level pages.
 - `src/components/` contains reusable UI pieces used by pages.
+- `src/components/ui/` contains Muses 薄语义组件；通过 `index.ts` 具名导出，允许内部组合 Ionic，但不承载业务状态。
 - `src/icons/` contains the Lucide → `ion-icon` adapter (`ion-lucide.ts`)；业务图标统一从此导入，禁止从 `ionicons/icons` 导入。
-- `src/theme/` contains global Ionic theme customization.
+- `src/theme/tokens.css` 是颜色、间距、圆角、字号、动效、布局与层级数值的唯一来源；统一使用 `--muses-*`。
+- `src/theme/variables.css` 只负责 Ionic 变量桥接与全局 chrome 修正；`main.ts` 必须先加载 `tokens.css` 再加载它。
 
 Reference files:
 

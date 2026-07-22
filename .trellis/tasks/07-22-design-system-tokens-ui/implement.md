@@ -10,44 +10,45 @@
 
 ### 0. 前置
 
-- [ ] impeccable-init 已 commit 并 archive
-- [ ] 当前任务 `task.py start` → `in_progress`
+- [x] impeccable-init 已 commit 并 archive
+- [x] 当前任务 `task.py start` → `in_progress`
 
 ### 1. Token 层
 
-- [ ] 新增 `src/theme/tokens.css`（色/间距/圆角/字号/动效/z-index/断点/immersive）
-- [ ] 重构 `src/theme/variables.css`：primary 与布局引用 token；保留 header 无阴影规则
-- [ ] `src/main.ts` 在 variables 之前 import tokens.css
-- [ ] 校验深色模式 primary 仍为 `#006FEE`
+- [x] 新增 `src/theme/tokens.css`（色/间距/圆角/字号/动效/z-index/断点/immersive）
+- [x] 重构 `src/theme/variables.css`：primary 与布局引用 token；保留 header 无阴影规则
+- [x] `src/main.ts` 在 variables 之前 import tokens.css
+- [x] 校验深色模式 primary 仍为 `#006FEE`
 
 ### 2. 组件层
 
-- [ ] `src/components/ui/MEmptyState.vue`
-- [ ] `src/components/ui/MCover.vue`
-- [ ] `src/components/ui/MPage.vue`
-- [ ] 可选 `index.ts` 导出
-- [ ] 列表 playing/行高：token 或共享类
+- [x] `src/components/ui/MEmptyState.vue`
+- [x] `src/components/ui/MCover.vue`
+- [x] `src/components/ui/MPage.vue`
+- [x] `index.ts` 具名导出
+- [x] 列表 playing/行高：token 化
 
 ### 3. 迁移
 
-- [ ] AlbumsPage / ArtistsPage：empty + cover（若适用）+ 尽量 MPage
-- [ ] PlaylistsPage / PlaylistDetailPage：empty + cover
-- [ ] SongsPage：empty + cover + playing 背景 token；MPage 若可行
-- [ ] MiniPlayer：封面改 MCover
-- [ ] SourcesPage empty（若结构一致）
-- [ ] PlayerPage：仅 immersive 硬编码色/时长 → token（不拆大组件）
+- [x] AlbumsPage / ArtistsPage：empty + cover（若适用）+ MPage
+- [x] PlaylistsPage / PlaylistDetailPage：empty + cover
+- [x] SongsPage：empty + cover + playing 背景 token
+- [x] MiniPlayer：封面改 MCover
+- [x] SourcesPage empty
+- [x] PlayerPage：仅 immersive 硬编码色/时长 → token（不拆大组件）
 
 ### 4. 文档与规范
 
-- [ ] 更新 `.trellis/spec/frontend/directory-structure.md`（theme + components/ui）
-- [ ] 更新 `component-guidelines.md`（ui 层约定、禁止 ion 1:1 封装）
-- [ ] DESIGN.md 组件节补充路径（轻量）
+- [x] 更新 `.trellis/spec/frontend/directory-structure.md`（theme + components/ui）
+- [x] 更新 `component-guidelines.md`（ui 层约定、禁止 ion 1:1 封装）
+- [x] DESIGN.md 组件节补充路径（轻量）
 
 ### 5. 验证
 
-- [ ] `npm run lint`
-- [ ] `npm run build`（含 vue-tsc）或项目惯用 type-check
-- [ ] 手动：歌曲列表播放高亮、空状态、MiniPlayer 封面、平板 720 宽、深浅色 primary
+- [x] `npm run lint`
+- [x] `npm run build`（含 vue-tsc）
+- [x] `npm run test:unit -- --run`（17 文件 / 311 测试通过）
+- [ ] 手动：歌曲列表播放高亮、空状态、MiniPlayer 封面、平板 720 宽、深浅色 primary（需 Android 真机/浏览器目视）
 
 ## 建议 commit 切分
 

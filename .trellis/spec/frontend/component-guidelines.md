@@ -33,6 +33,17 @@ Examples:
 
 ---
 
+## Muses 语义组件层
+
+项目级复用 UI 放在 `src/components/ui/`，当前基础契约为：
+
+- `MEmptyState`：统一空列表标题、说明与可选操作槽；页面不得复制 `.empty-state` 结构与视觉数值。
+- `MCover`：统一列表、歌单与 MiniPlayer 的封面及无图占位；尺寸用 `sm` / `md` 或明确数字，圆角用 `sm` / `md`。
+- `MPage`：只包装简单页面的 `ion-page`、无阴影 header 与 content；复杂双 toolbar 页面可继续直接组合 Ionic。
+- 通过 `@/components/ui` 具名导入。组件只表达 Muses 语义，不读取播放、曲库等业务状态。
+- 禁止给每个 `ion-*` 建立 1:1 同名封装；只有出现跨页面语义模式且能减少重复时才新增组件。
+- 组件样式必须优先引用 `src/theme/tokens.css` 的 `--muses-*`，不得重新硬编码主色、封面圆角、空态间距或层级。
+
 ## Ionic Page Pattern
 
 Route-level pages should follow the Ionic page container structure used by the existing views:
@@ -151,12 +162,12 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 项目使用以下全局 CSS 变量在宽屏下适配平板布局：
 
-- `--muses-breakpoint-tablet: 768px` — 平板断点宽度（定义于 `src/theme/variables.css`）
+- `--muses-breakpoint-tablet: 768px` — 平板断点宽度（定义于 `src/theme/tokens.css`）
 - `--muses-content-max-width: 720px` — 内容最大宽度限位居中
 
 ### 断点约定的规则
 
-1. **全局变量统一在 `src/theme/variables.css` 的 `:root` 中定义**，单一来源，所有页面引用 `var(--muses-*)`。
+1. **Muses 视觉变量统一在 `src/theme/tokens.css` 的 `:root` 中定义**，单一来源，所有页面引用 `var(--muses-*)`；`variables.css` 只桥接 Ionic。
 2. **`@media (min-width: XXX)` 条件中不可使用 `var()`** — CSS 标准不允许。在 `@media` 中直接使用硬编码的 `768px`；`var()` 只用于属性值部分（如 `max-width: var(--muses-content-max-width)`）。
 3. **宽屏下隐藏元素**：对窄屏专属元素（如 `ion-tab-bar`）使用 `@media (min-width: 768px) { … display: none }`。
 4. **窄屏零回归**：所有平板改造限定在 `@media (min-width: 768px)` 内；窄屏下不加任何额外样式。

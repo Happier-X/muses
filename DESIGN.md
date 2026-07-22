@@ -101,7 +101,7 @@ components:
 
 列表与导航像关掉场灯的过道：安静、可读、可预期；真正开灯的只有沉浸播放页——封面、动态背景与逐词歌词占满注意力。产品个性是沉静、可靠、专注：工具感来自可信，而不是装饰。
 
-视觉系统建立在 **Ionic 结构 + HeroUI 默认 primary 色板 + 局部硬编码** 之上。主色明确照抄 HeroUI `common.blue`（`#006FEE`），在 `src/theme/variables.css` 覆盖 `--ion-color-primary*`。设计决策应延续「flat 列表 + 沉浸舞台」的双层结构，而不是补齐 Material elevation 或流媒体运营卡片。平台是 Android（系统返回、安全区、通知语境），但 **美学明确拒绝 Material Design / 默认 Ionic MD 堆叠感**。
+视觉系统建立在 **Ionic 结构 + HeroUI 默认 primary 色板 + Muses 语义 token** 之上。`src/theme/tokens.css` 是视觉数值唯一来源，`src/theme/variables.css` 只负责把 `--muses-*` 桥接到 `--ion-color-primary*` 并修正全局 chrome。主色明确照抄 HeroUI `common.blue`（`#006FEE`）。设计决策应延续「flat 列表 + 沉浸舞台」的双层结构，而不是补齐 Material elevation 或流媒体运营卡片。平台是 Android（系统返回、安全区、通知语境），但 **美学明确拒绝 Material Design / 默认 Ionic MD 堆叠感**。
 
 **Key Characteristics:**
 - 双层体验：曲库列表克制；沉浸页是听歌主舞台
@@ -176,6 +176,8 @@ components:
 ## 5. Components
 
 气质总则：**沉浸页柔和，列表干脆。**
+
+第一批薄语义组件位于 `src/components/ui/`：`MEmptyState` 统一空列表表达，`MCover` 统一列表与 MiniPlayer 封面/占位，`MPage` 统一简单 Ionic 页面壳。它们可以组合 Ionic，但禁止为每个 `ion-*` 建立 1:1 同名包装。所有视觉数值优先引用 `src/theme/tokens.css` 中的 `--muses-*`。
 
 ### Buttons
 - **Shape:** 列表内 Ionic 文本/清空按钮；沉浸主控 52×52（播放 68×68），无填充圆钮默认
