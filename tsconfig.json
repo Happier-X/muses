@@ -13,9 +13,18 @@
     "skipLibCheck": true,
     "noEmit": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "happier-ui": ["./packages/happier-ui/src/index.ts"],
+      "happier-ui/*": ["./packages/happier-ui/src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "packages/happier-ui/src/**/*.ts",
+    "packages/happier-ui/src/**/*.vue"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
