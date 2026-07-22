@@ -8,23 +8,11 @@
 
 The repository is a single frontend app with a simple Ionic Vue layout. Code is currently organized by technical role rather than by feature folder.
 
-Current structure（npm workspaces monorepo）：
+通用 UI 库在 **仓外** `../happier-ui`（独立 git）；Muses 通过 `file:../happier-ui` 依赖。
 
 ```text
-apps/
-└── happier-ui-smoke/           # S3：第二宿主冒烟（纯 Vue + Capacitor 配置）
-packages/
-└── happier-ui/                 # 通用 token + 语义组件（可跨项目）
-    ├── package.json
-    ├── README.md
-    └── src/
-        ├── index.ts
-        ├── tokens.css          # 权威 --h-*（含 --muses-* 别名）
-        └── components/
-            ├── HEmptyState.vue
-            ├── HIconButton.vue
-            ├── HListRow.vue
-            └── HSettingRow.vue
+# 同级
+../happier-ui/                  # 独立库 + playground
 src/
 ├── App.vue
 ├── main.ts
@@ -63,7 +51,7 @@ Use the existing split unless the codebase grows enough to justify feature modul
 - `src/router/index.ts` owns route records and redirects.
 - `src/views/` contains route-level pages.
 - `src/components/` contains reusable UI pieces used by pages.
-- `packages/happier-ui`：跨项目包；根 `workspaces` + 依赖 `file:packages/happier-ui`。
+- 仓外 `../happier-ui`：跨项目包；依赖 `file:../happier-ui`；库内开发 + playground 目视，Muses 逐个替换。
 - `src/components/ui/`：兼容层——从 `happier-ui` re-export；`MListRow` 包装默认封面；`MCover`/`MPage` 仅 app。
 - `src/icons/`：调用方把 icon data 传给 `MIconButton`/`HIconButton`。
 - `src/theme/tokens.css`：仅 `@import 'happier-ui/tokens.css'`。

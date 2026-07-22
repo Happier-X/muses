@@ -1,0 +1,7 @@
+{"path": "packages/happier-ui/package.json", "type": "code"}
+{"path": "packages/happier-ui/src/index.ts", "type": "code"}
+{"path": "package.json", "type": "code"}
+{"path": "vite.config.ts", "type": "code"}
+{"path": "tsconfig.json", "type": "code"}
+{"path": "apps/happier-ui-smoke/package.json", "type": "code"}
+{"path": ".trellis/spec/frontend/directory-structure.md", "type": "spec"}

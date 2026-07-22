@@ -35,7 +35,7 @@ Examples:
 
 ## Muses 语义组件层 → `happier-ui`
 
-通用组件与 token 在仓内包 **`packages/happier-ui`**；应用通过 `@/components/ui` re-export 兼容 `M*` 名。
+通用组件与 token 在仓外独立库 **`../happier-ui`**（`file:../happier-ui`）；应用通过 `@/components/ui` re-export 兼容 `M*` 名，可逐个改为直接 `import from 'happier-ui'`。
 
 - **权威 token**：包内 `happier-ui/tokens.css` 的 **`--h-*`**；`--muses-*` 为兼容别名。
 - **实现**：通用壳 **纯 Vue 优先**；`@ionic/vue` 仅 optional peer（`HIconButton` 的 `ion-icon` path 过渡）。
