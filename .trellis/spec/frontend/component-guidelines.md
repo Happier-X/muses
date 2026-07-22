@@ -35,14 +35,46 @@ Examples:
 
 ## Muses 语义组件层
 
-项目级复用 UI 放在 `src/components/ui/`，当前基础契约为：
+项目级复用 UI 放在 `src/components/ui/`。**主路径**是 Ionic 上的薄语义二次封装：业务页优先 `M*` + token，Ionic 仅作内部实现。视觉对齐「暗场听席、flat、HeroUI primary 克制、非 Material」。
 
-- `MEmptyState`：统一空列表标题、说明与可选操作槽；页面不得复制 `.empty-state` 结构与视觉数值。
-- `MCover`：统一列表、歌单与 MiniPlayer 的封面及无图占位；尺寸用 `sm` / `md` 或明确数字，圆角用 `sm` / `md`。
-- `MPage`：只包装简单页面的 `ion-page`、无阴影 header 与 content；复杂双 toolbar 页面可继续直接组合 Ionic。
-- 通过 `@/components/ui` 具名导入。组件只表达 Muses 语义，不读取播放、曲库等业务状态。
-- 禁止给每个 `ion-*` 建立 1:1 同名封装；只有出现跨页面语义模式且能减少重复时才新增组件。
-- 组件样式必须优先引用 `src/theme/tokens.css` 的 `--muses-*`，不得重新硬编码主色、封面圆角、空态间距或层级。
+### 现有组件契约
+
+| 组件 | 语义 | 内部可包 |
+|------|------|----------|
+| `MEmptyState` | 空列表标题、说明与可选操作槽 | 纯布局 |
+| `MCover` | 列表/歌单/MiniPlayer 封面与占位 | `ion-icon` 占位 |
+| `MPage` | 简单页 `ion-page` + 无阴影 header/content | `ion-page` 等 |
+| `MIconButton` | 图标触控（≥48 热区） | `ion-button` fill=clear + `ion-icon` |
+| `MListRow` | 曲目/队列行（封面、双行、playing） | `ion-item` + 默认 `MCover` |
+| `MSettingRow` | 设置行壳（label + description + end 槽） | `ion-item` + `ion-label` |
+
+### 使用规则
+
+- 通过 `@/components/ui` 具名导入。组件只表达 Muses 语义，**不**读取播放、曲库等业务状态。
+- **禁止** `MIonButton` / `MIonItem` 等 1:1 同名镜像封装。
+- **禁止**本层全量自建导航栈 / Modal / Tab / ActionSheet 引擎；主舞台或 Ionic 调不动处才局部自建。
+- 组件样式必须优先引用 `src/theme/tokens.css` 的 `--muses-*`（含 `--muses-touch-target`、`--muses-icon-size-*`、`--muses-song-row-height`、`--muses-color-playing-bg`）；不得新硬编码主色、封面圆角、空态间距或 elevation。
+- `MIconButton`：`ariaLabel` 必填；图标 data 来自 `@/icons/ion-lucide`；可选 `stopPropagation`、`color`、`variant`（`default` / `on-media`）。
+- `MListRow`：`title` 必填；`playing` 控制当前曲背景；`end` 槽放 more/移除；不负责虚拟列表测量。
+- `MSettingRow`：toggle/input 放 `end` 槽，**不**封装 `ion-toggle` 本体。
+
+### 何时直连 `ion-*`（白名单）
+
+业务页可直接使用下列 Ionic 能力；**新增** UI 仍不得写死色/圆角，应用 token 或走 `M*`：
+
+| 允许直连 | 原因 |
+|----------|------|
+| `ion-page` / `ion-header` / `ion-toolbar` / `ion-title` / `ion-content` / `ion-buttons` | 页面壳；简单页优先 `MPage`，复杂双 toolbar / overlay 可直连 |
+| `ion-list` | 结构容器，暂不封装 |
+| `ion-button`（带文字，如「随机播放全部」「检查更新」） | 非纯图标主操作；纯图标触控用 `MIconButton` |
+| `ion-back-button` | 路由返回 |
+| `ion-toggle` / `ion-input` / `ion-range` | 表单控件本体；行壳用 `MSettingRow` |
+| `ion-action-sheet` / `ion-alert` / `ion-modal` / `ion-fab` | 本任务不封装的系统级交互 |
+| `ion-icon` | 仅在已有文字按钮 / 未迁移点；新图标触控优先 `MIconButton` |
+| `ion-note` | 次要标注（如队列序号） |
+| `ion-router-outlet` / Tab 壳相关 | 应用壳，非语义组件 |
+
+**不要**直连：`ion-item` 拼封面+双行曲目行（用 `MListRow`）；裸 `ion-button`+`icon-only` 做列表 more/移除/MiniPlayer 控（用 `MIconButton`）；复制 `.empty-state` 结构（用 `MEmptyState`）。
 
 ## Ionic Page Pattern
 

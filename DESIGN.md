@@ -177,17 +177,26 @@ components:
 
 气质总则：**沉浸页柔和，列表干脆。**
 
-第一批薄语义组件位于 `src/components/ui/`：`MEmptyState` 统一空列表表达，`MCover` 统一列表与 MiniPlayer 封面/占位，`MPage` 统一简单 Ionic 页面壳。它们可以组合 Ionic，但禁止为每个 `ion-*` 建立 1:1 同名包装。所有视觉数值优先引用 `src/theme/tokens.css` 中的 `--muses-*`。
+薄语义组件位于 `src/components/ui/`，主路径是 Ionic 上的二次封装，**禁止** `MIon*` 1:1 镜像，**禁止**为本库全量复刻 Modal/Tab 引擎。所有视觉数值优先引用 `src/theme/tokens.css` 的 `--muses-*`，无 Material elevation。
+
+| 组件 | 用途 |
+|------|------|
+| `MEmptyState` | 空列表标题/说明/操作槽 |
+| `MCover` | 列表与 MiniPlayer 封面/占位 |
+| `MPage` | 简单 Ionic 页壳 |
+| `MIconButton` | 图标触控；默认 48×48 热区，图标 ~22px；`fill=clear`，无 FAB 阴影 |
+| `MListRow` | 曲目/队列行；封面 + 标题/副标题 + end 槽；playing 用 primary 浅底 |
+| `MSettingRow` | 设置行壳；label/description + end 槽（toggle 仍 ion-toggle） |
 
 ### Buttons
-- **Shape:** 列表内 Ionic 文本/清空按钮；沉浸主控 52×52（播放 68×68），无填充圆钮默认
+- **Shape:** 列表内文本/清空按钮；纯图标触控用 `MIconButton`；沉浸主控 52×52（播放 68×68），无填充圆钮默认
 - **Primary actions:** 依赖 Ionic `color="primary"` 或图标实心 fill（播放主控）
 - **Immersive mode buttons:** 默认 `rgba(255,255,255,0.58)`，激活纯白
 - **Lyric FAB:** 40×40 胶囊（`border-radius: 999px`），半透明黑底 + 可选 `backdrop-filter: blur(10px)`，仅歌词页按需显示；激活时白底 22% 透明
 
 ### List rows / covers
-- **Song row:** `--min-height: 72px`；封面 52×52，`border-radius: 10px`
-- **Playlist / smaller covers:** 常为 `8px` 圆角
+- **Song row (`MListRow`):** `--min-height: var(--muses-song-row-height)`（72px）；封面 52×52，`border-radius: 10px`
+- **Playlist / smaller covers:** 常为 `8px` 圆角（`coverRadius="sm"`）
 - **Playing state:** 背景 `rgba(primary, 0.1)`；跳转高亮 `0.22`
 - **Placeholder cover:** `rgba(medium-rgb, 0.16)` 底 + medium 图标
 
