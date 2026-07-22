@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 73
+- **Total Sessions**: 74
 - **Last Active**: 2026-07-22
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1065 | Active |
+| `journal-2.md` | ~1102 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 74 | 2026-07-22 | 设计系统 Token 化与 Muses UI 组件库 | `39f5c26`, `335780b`, `358c7fb`, `7f727a6`, `193ab84` | `main` |
 | 73 | 2026-07-22 | 构建警告清理、图标统一与歌词浮动按钮按需显示 | `c102a0c`, `4a852e8`, `eb4fe52` | `main` |
 | 71 | 2026-07-20 | 完成播放与歌词问题修复及依赖升级 | `640a91f`, `01612b4`, `e0f2373`, `836b018`, `d5c515f`, `0eefcf9`, `158d1e4`, `2c112ea`, `06c475d`, `a1e3c7a` | `main` |
 | 70 | 2026-07-18 | 修复 #32 空扫描残留旧歌曲 | `06c475d` | `main` |
