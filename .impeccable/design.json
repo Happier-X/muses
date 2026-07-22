@@ -1,0 +1,406 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-22T15:10:00+08:00",
+  "title": "Design System: Muses",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "HeroUI Primary（blue 500）",
+        "canonical": "#006FEE",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "正文墨",
+        "canonical": "#000000",
+        "tonalRamp": [
+          "#000000",
+          "#1a1a1a",
+          "#333333",
+          "#4d4d4d",
+          "#666666",
+          "#808080",
+          "#b3b3b3",
+          "#e6e6e6"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "次要灰",
+        "canonical": "#92949c",
+        "tonalRamp": [
+          "#2e2f33",
+          "#45474d",
+          "#5c5f66",
+          "#747780",
+          "#92949c",
+          "#adafb5",
+          "#c8c9cd",
+          "#e4e4e6"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "纸面白",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#1a1a1a",
+          "#333333",
+          "#4d4d4d",
+          "#808080",
+          "#b3b3b3",
+          "#d9d9d9",
+          "#f2f2f2",
+          "#ffffff"
+        ]
+      },
+      "surface-elevated-dark": {
+        "role": "neutral",
+        "displayName": "暗条",
+        "canonical": "#1f1f1f",
+        "tonalRamp": [
+          "#0a0a0a",
+          "#141414",
+          "#1f1f1f",
+          "#2e2e2e",
+          "#3d3d3d",
+          "#5c5c5c",
+          "#8a8a8a",
+          "#cfcfcf"
+        ]
+      },
+      "immersive-void": {
+        "role": "neutral",
+        "displayName": "暗场虚空",
+        "canonical": "#05070d",
+        "tonalRamp": [
+          "#020308",
+          "#05070d",
+          "#0a0c14",
+          "#171b2b",
+          "#2a3148",
+          "#4a5570",
+          "#8b93a8",
+          "#d0d4de"
+        ]
+      },
+      "cover-placeholder-mid": {
+        "role": "tertiary",
+        "displayName": "无封面氛围紫",
+        "canonical": "#9478ff",
+        "tonalRamp": [
+          "#1a1233",
+          "#2e1f5c",
+          "#4a34a0",
+          "#6b4fd6",
+          "#9478ff",
+          "#b09aff",
+          "#cbbdff",
+          "#e8e2ff"
+        ]
+      },
+      "primary-50": {
+        "role": "primary",
+        "displayName": "HeroUI primary 50",
+        "canonical": "#E6F1FE",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      },
+      "primary-100": {
+        "role": "primary",
+        "displayName": "HeroUI primary 100",
+        "canonical": "#CCE3FD",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      },
+      "primary-200": {
+        "role": "primary",
+        "displayName": "HeroUI primary 200",
+        "canonical": "#99C7FB",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      },
+      "primary-300": {
+        "role": "primary",
+        "displayName": "HeroUI primary 300",
+        "canonical": "#66AAF9",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      },
+      "primary-400": {
+        "role": "primary",
+        "displayName": "HeroUI primary 400",
+        "canonical": "#338EF7",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      },
+      "primary-500": {
+        "role": "primary",
+        "displayName": "HeroUI primary 500",
+        "canonical": "#006FEE",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      },
+      "primary-600": {
+        "role": "primary",
+        "displayName": "HeroUI primary 600",
+        "canonical": "#005BC4",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      },
+      "primary-700": {
+        "role": "primary",
+        "displayName": "HeroUI primary 700",
+        "canonical": "#004493",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      },
+      "primary-800": {
+        "role": "primary",
+        "displayName": "HeroUI primary 800",
+        "canonical": "#002E62",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      },
+      "primary-900": {
+        "role": "primary",
+        "displayName": "HeroUI primary 900",
+        "canonical": "#001731",
+        "tonalRamp": [
+          "#001731",
+          "#002E62",
+          "#004493",
+          "#005BC4",
+          "#006FEE",
+          "#338EF7",
+          "#66AAF9",
+          "#CCE3FD"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "body": {
+        "displayName": "正文",
+        "purpose": "设置与通用文案；系统无衬线。"
+      },
+      "title": {
+        "displayName": "列表主标题",
+        "purpose": "MiniPlayer 曲名、列表行标题。"
+      },
+      "label": {
+        "displayName": "标签",
+        "purpose": "底栏、元信息。"
+      },
+      "immersive-title": {
+        "displayName": "沉浸歌名",
+        "purpose": "沉浸页主标题。"
+      },
+      "lyric": {
+        "displayName": "歌词",
+        "purpose": "AMLL 逐词歌词主舞台字号。"
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "overlay-slide",
+        "value": "220ms ease",
+        "purpose": "沉浸页开合、队列 overlay 滑入、面板横向切换。"
+      },
+      {
+        "name": "fab-fade",
+        "value": "180ms ease",
+        "purpose": "歌词页浮动按钮显隐。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "tablet",
+        "value": "768px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "MiniPlayer",
+      "kind": "custom",
+      "refersTo": "mini-player",
+      "description": "底部迷你播放条：封面 + 曲信息 + 播放控制，贴在 Tab 之上。",
+      "html": "<div class=\"ds-mini-player\"><div class=\"ds-mini-cover\"></div><div class=\"ds-mini-meta\"><strong>曲名</strong><span>艺人</span></div></div>",
+      "css": ".ds-mini-player{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 12px;border-top:1px solid rgba(0,0,0,.08);background:#fff;color:#000;font-family:system-ui,sans-serif}.ds-mini-cover{width:48px;height:48px;border-radius:10px;background:rgba(146,148,156,.16)}.ds-mini-meta{display:flex;flex-direction:column;gap:3px;min-width:0}.ds-mini-meta strong{font-size:15px;font-weight:600;line-height:1.25}.ds-mini-meta span{font-size:13px;color:#92949c}"
+    },
+    {
+      "name": "Tab active",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "底栏/侧栏选中态：主色 + 字重 600。",
+      "html": "<a class=\"ds-tab ds-tab-active\" href=\"#\"><span class=\"ds-tab-icon\">♪</span><span>歌曲</span></a>",
+      "css": ".ds-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;font-size:12px;color:#595959;text-decoration:none;font-family:system-ui,sans-serif}.ds-tab-icon{font-size:22px;line-height:1}.ds-tab-active{color:#006FEE;font-weight:600}"
+    },
+    {
+      "name": "Song row playing",
+      "kind": "custom",
+      "refersTo": "song-row-playing",
+      "description": "列表正在播放行：主色 10% 浅底。",
+      "html": "<div class=\"ds-song-row ds-song-row-playing\"><div class=\"ds-song-cover\"></div><div class=\"ds-song-text\"><strong>正在播放</strong><span>艺人</span></div></div>",
+      "css": ".ds-song-row{display:flex;align-items:center;gap:12px;min-height:72px;padding:8px 12px;font-family:system-ui,sans-serif}.ds-song-row-playing{background:rgba(0,111,238,.1)}.ds-song-cover{width:52px;height:52px;border-radius:10px;background:rgba(146,148,156,.16);flex-shrink:0}.ds-song-text{display:flex;flex-direction:column;gap:2px;min-width:0}.ds-song-text strong{font-size:15px;font-weight:600}.ds-song-text span{font-size:13px;color:#92949c}"
+    },
+    {
+      "name": "Progress bar",
+      "kind": "custom",
+      "refersTo": "progress-bar",
+      "description": "沉浸页进度轨：无 knob，4px pill。",
+      "html": "<div class=\"ds-progress\" role=\"slider\" aria-valuenow=\"40\"><div class=\"ds-progress-fill\"></div></div>",
+      "css": ".ds-progress{position:relative;width:100%;height:4px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden}.ds-progress-fill{width:40%;height:100%;background:#fff;border-radius:999px}"
+    },
+    {
+      "name": "Lyric FAB",
+      "kind": "button",
+      "refersTo": "lyric-fab",
+      "description": "歌词页按需浮动圆钮：半透明 + 轻 blur。",
+      "html": "<button type=\"button\" class=\"ds-lyric-fab\" aria-label=\"操作\">Aa</button>",
+      "css": ".ds-lyric-fab{width:40px;height:40px;border:0;border-radius:999px;background:rgba(0,0,0,.16);color:rgba(255,255,255,.78);font-size:14px;font-weight:600;backdrop-filter:blur(10px);cursor:pointer;font-family:system-ui,sans-serif}.ds-lyric-fab:hover{background:rgba(255,255,255,.14)}.ds-lyric-fab:focus-visible{outline:2px solid #fff;outline-offset:2px}.ds-lyric-fab.is-active{background:rgba(255,255,255,.22);color:#fff}"
+    },
+    {
+      "name": "Immersive title block",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "沉浸页歌名与艺人层级。",
+      "html": "<div class=\"ds-immersive-meta\"><h1>歌名</h1><p>艺人</p></div>",
+      "css": ".ds-immersive-meta{font-family:system-ui,sans-serif;color:#fff;text-align:left}.ds-immersive-meta h1{margin:0 0 4px;font-size:clamp(20px,5.6vw,28px);line-height:1.2;font-weight:700;letter-spacing:.01em}.ds-immersive-meta p{margin:0;font-size:clamp(13px,3.6vw,15px);line-height:1.35;color:rgba(255,255,255,.68)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "暗场听席",
+    "overview": "列表与导航像关掉场灯的过道：安静、可读、可预期；真正开灯的只有沉浸播放页——封面、动态背景与逐词歌词占满注意力。产品个性是沉静、可靠、专注：工具感来自可信，而不是装饰。视觉系统建立在 Ionic 结构 + HeroUI 默认 primary（#006FEE）+ 局部硬编码之上。设计决策应延续「flat 列表 + 沉浸舞台」的双层结构，而不是补齐 Material elevation 或流媒体运营卡片。平台是 Android（系统返回、安全区、通知语境），但美学明确拒绝 Material Design / 默认 Ionic MD 堆叠感。",
+    "keyCharacteristics": [
+      "双层体验：曲库列表克制；沉浸页是听歌主舞台",
+      "默认 flat：无顶栏阴影、无 MD elevation 套路",
+      "主色 = HeroUI primary #006FEE（及 50–900 色阶），仅作选中/播放/主操作",
+      "动效短、服务状态：约 180–220ms，无编排入场",
+      "平板 ≥768px：侧栏 240px + 内容最大宽 720px 居中"
+    ],
+    "rules": [
+      {
+        "name": "The Stage Light Rule",
+        "body": "列表层禁止大面积饱和色块；饱和色与封面氛围只允许出现在沉浸页或「正在播放」等状态提示。",
+        "section": "colors"
+      },
+      {
+        "name": "The HeroUI Primary Rule",
+        "body": "主色唯一来源是 HeroUI common.blue（DEFAULT #006FEE）。禁止回退 Ionic 默认 #0054e9 / 深色 #4d8dff，禁止另起一套「Muses 蓝」。主色只服务状态与主操作，不做英雄色铺底。",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "禁止为「更高级」引入展示衬线或装饰字体；产品 UI 只用系统无衬线。",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Corridor Rule",
+        "body": "列表与导航像过道：平、干净、可扫读。若看起来像 2014 Material 卡片墙，阴影与 elevation 已经过多。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 把沉浸页当主舞台：封面、歌词、主控优先；列表保持可扫读密度。",
+      "Do 用 1px 分隔与背景差分层；顶栏保持无阴影（见 variables.css）。",
+      "Do 为 Tab + MiniPlayer 预留底部滚动空间（约 128px + safe-area；平板相应减少）。",
+      "Do 动效只表达状态（开合沉浸页、队列滑入、FAB 显隐），时长约 180–220ms，ease / 非弹性。",
+      "Do 尊重安全区、系统返回与「减少动态效果」；沉浸手势不得破坏系统可控性。",
+      "Do 图标语义一致（Lucide 经 ion-icon 适配）；播放主控 fill，列表次要动作线框。",
+      "Do 触控目标尽量 ≥44–48dp 量级（主控 52–68、Tab ≥52）。"
+    ],
+    "donts": [
+      "Don't 使用 Material Design / 默认 Ionic MD 套路：厚重 elevation、FAB 阴影、系统控件堆叠感——平台是 Android，视觉不跟 MD。",
+      "Don't 做成花哨流媒体 App：强运营色块、推荐瀑布流、广告式卡片与促销节奏。",
+      "Don't 走极客终端风：纯黑底加霓虹强调、信息密度压过听感。",
+      "Don't 给列表卡片加侧边色条、渐变字、装饰性玻璃拟态（歌词 FAB 的轻 blur 是按需控件，不是卡片皮肤）。",
+      "Don't 把 HeroUI primary（#006FEE）当英雄色铺满页面；也不要混用 Ionic 旧默认蓝。",
+      "Don't 在列表层复制沉浸页的大封面圆角与暗场渐变。",
+      "Don't 用编排式入场动画或超过约 250ms 的拖沓过渡打断听歌流。"
+    ]
+  }
+}
