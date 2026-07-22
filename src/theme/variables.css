@@ -1,26 +1,26 @@
 /*
- * Ionic 桥接：主色与布局 token 定义于 tokens.css（--muses-*）。
+ * Ionic 桥接：权威 token 在 tokens.css（--h-*；--muses-* 为兼容别名）。
  * 本文件只做 ion-* 映射与全局 chrome 修正，禁止回退 Ionic 默认蓝。
  */
 :root {
-  --ion-color-primary: var(--muses-color-primary);
-  --ion-color-primary-rgb: var(--muses-color-primary-rgb);
-  --ion-color-primary-contrast: var(--muses-color-primary-contrast);
-  --ion-color-primary-contrast-rgb: var(--muses-color-primary-contrast-rgb);
+  --ion-color-primary: var(--h-color-primary);
+  --ion-color-primary-rgb: var(--h-color-primary-rgb);
+  --ion-color-primary-contrast: var(--h-color-primary-contrast);
+  --ion-color-primary-contrast-rgb: var(--h-color-primary-contrast-rgb);
   /* shade / tint 对齐 HeroUI 600 / 400 */
-  --ion-color-primary-shade: var(--muses-primary-600);
-  --ion-color-primary-tint: var(--muses-primary-400);
+  --ion-color-primary-shade: var(--h-primary-600);
+  --ion-color-primary-tint: var(--h-primary-400);
 }
 
 /* 覆盖 Ionic dark.system 默认 primary（#4d8dff），深浅色均保持 HeroUI primary */
 @media (prefers-color-scheme: dark) {
   :root {
-    --ion-color-primary: var(--muses-color-primary);
-    --ion-color-primary-rgb: var(--muses-color-primary-rgb);
-    --ion-color-primary-contrast: var(--muses-color-primary-contrast);
-    --ion-color-primary-contrast-rgb: var(--muses-color-primary-contrast-rgb);
-    --ion-color-primary-shade: var(--muses-primary-600);
-    --ion-color-primary-tint: var(--muses-primary-400);
+    --ion-color-primary: var(--h-color-primary);
+    --ion-color-primary-rgb: var(--h-color-primary-rgb);
+    --ion-color-primary-contrast: var(--h-color-primary-contrast);
+    --ion-color-primary-contrast-rgb: var(--h-color-primary-contrast-rgb);
+    --ion-color-primary-shade: var(--h-primary-600);
+    --ion-color-primary-tint: var(--h-primary-400);
   }
 }
 
