@@ -121,6 +121,42 @@ describe('amll-ttml-db 匹配与缓存', () => {
     resetAmllTtmlDbCache()
   })
 
+  test('大索引分片解析会让出事件循环', async () => {
+    const { parseIndexJsonlChunked } = await import('@/features/lyrics/amllTtmlDb')
+    const line = JSON.stringify({ metadata: [['musicName', ['Idol']]], rawLyricFile: 'idol.ttml' })
+    let yielded = false
+    setTimeout(() => { yielded = true }, 0)
+    const entries = await parseIndexJsonlChunked(`${line}\n${line}`, 1)
+    expect(entries).toHaveLength(2)
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(yielded).toBe(true)
+  })
+
+  test('常见 exact/contains 查询只评分候选子集', async () => {
+    const { __setIndexCacheForTests, matchAmllTtmlLyrics, __getCandidateCountForTests } = await import('@/features/lyrics/amllTtmlDb')
+    const largeIndex = Array.from({ length: 300 }, (_, index) => ({
+      musicName: `Noise ${index}`,
+      artists: [`Artist ${index}`],
+      album: `Album ${index}`,
+      rawLyricFile: `noise-${index}.ttml`,
+    }))
+    largeIndex.push(...sampleIndex)
+    __setIndexCacheForTests(largeIndex)
+
+    const fetchMock = vi.fn(async () => ({ ok: true, text: async () => SAMPLE_TTML }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await matchAmllTtmlLyrics({
+      songId: 'song-subset',
+      title: 'Idol',
+      artist: 'YOASOBI',
+      album: 'Idol',
+    })
+    expect(result.ok).toBe(true)
+    expect(__getCandidateCountForTests('Idol')).toBeLessThan(largeIndex.length)
+    expect(__getCandidateCountForTests('Idol')).toBeLessThan(40)
+  })
+
   test('解析 jsonl 索引行', async () => {
     const { parseIndexLine, parseIndexJsonl } = await import('@/features/lyrics/amllTtmlDb')
     const line = JSON.stringify({

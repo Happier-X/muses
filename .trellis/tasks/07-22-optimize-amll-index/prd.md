@@ -14,7 +14,7 @@
 
 ## Acceptance Criteria
 
-- [ ] 常见 exact/contains 查询不再扫描全部 3125 条记录
-- [ ] 分片解析期间可让出事件循环
-- [ ] 既有评分边界、网络失败、并发缓存测试通过
-- [ ] lint、unit、build 通过
+- [x] 常见 exact/contains 查询不再扫描全部 3125 条记录
+- [x] 分片解析期间可让出事件循环
+- [x] 既有评分边界、网络失败、并发缓存测试通过
+- [x] lint、unit、build 通过

@@ -1,4 +1,5 @@
 import { findBestMatch } from './score'
+import { normalizeText } from './normalize'
 import type { AmllIndexEntry, AmllMatchQuery, AmllMatchResult, AmllRawIndexLine } from './types'
 
 const INDEX_URL = 'https://cdn.jsdelivr.net/gh/amll-dev/amll-ttml-db@main/metadata/raw-lyrics-index.jsonl'
@@ -23,7 +24,14 @@ interface NegativeCacheEntry {
   expiresAt: number
 }
 
+interface AmllSearchIndex {
+  entries: AmllIndexEntry[]
+  exactTitles: Map<string, number[]>
+  titleTrigrams: Map<string, number[]>
+}
+
 let indexCache: AmllIndexEntry[] | null = null
+let searchIndexCache: AmllSearchIndex | null = null
 let indexPromise: Promise<AmllIndexEntry[]> | null = null
 
 const ttmlBySongId = new Map<string, TtmlCacheEntry>()
@@ -32,6 +40,7 @@ const negativeBySongId = new Map<string, NegativeCacheEntry>()
 /** 测试/回滚用：清空全部运行时缓存 */
 export const resetAmllTtmlDbCache = (): void => {
   indexCache = null
+  searchIndexCache = null
   indexPromise = null
   ttmlBySongId.clear()
   negativeBySongId.clear()
@@ -110,6 +119,73 @@ export const parseIndexJsonl = (text: string): AmllIndexEntry[] => {
   return entries
 }
 
+/** 分片解析大索引，定期让出事件循环，避免首次匹配阻塞 UI。 */
+export const parseIndexJsonlChunked = async (text: string, chunkSize = 128): Promise<AmllIndexEntry[]> => {
+  const entries: AmllIndexEntry[] = []
+  const lines = text.split(/\r?\n/)
+  for (let offset = 0; offset < lines.length; offset += chunkSize) {
+    for (const line of lines.slice(offset, offset + chunkSize)) {
+      const entry = parseIndexLine(line)
+      if (entry) {
+        entries.push(entry)
+      }
+    }
+    if (offset + chunkSize < lines.length) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    }
+  }
+  return entries
+}
+
+const addToBucket = (bucket: Map<string, number[]>, key: string, index: number): void => {
+  const values = bucket.get(key)
+  if (values) {
+    values.push(index)
+  } else {
+    bucket.set(key, [index])
+  }
+}
+
+const createSearchIndex = (entries: AmllIndexEntry[]): AmllSearchIndex => {
+  const exactTitles = new Map<string, number[]>()
+  const titleTrigrams = new Map<string, number[]>()
+  entries.forEach((entry, index) => {
+    const title = normalizeText(entry.musicName)
+    if (!title) return
+    addToBucket(exactTitles, title, index)
+    if (title.length < 3) {
+      addToBucket(titleTrigrams, `short:${title}`, index)
+    } else {
+      for (let offset = 0; offset <= title.length - 3; offset += 1) {
+        addToBucket(titleTrigrams, title.slice(offset, offset + 3), index)
+      }
+    }
+  })
+  return { entries, exactTitles, titleTrigrams }
+}
+
+const selectCandidates = (searchIndex: AmllSearchIndex, title: string): AmllIndexEntry[] => {
+  const normalizedTitle = normalizeText(title)
+  const candidateIndexes = new Set<number>(searchIndex.exactTitles.get(normalizedTitle) ?? [])
+  if (normalizedTitle.length >= 3) {
+    for (let offset = 0; offset <= normalizedTitle.length - 3; offset += 1) {
+      for (const candidateIndex of searchIndex.titleTrigrams.get(normalizedTitle.slice(offset, offset + 3)) ?? []) {
+        candidateIndexes.add(candidateIndex)
+      }
+    }
+    for (const [key, indexes] of searchIndex.titleTrigrams) {
+      if (key.startsWith('short:') && normalizedTitle.includes(key.slice(6))) {
+        indexes.forEach((candidateIndex) => candidateIndexes.add(candidateIndex))
+      }
+    }
+  } else if (normalizedTitle) {
+    for (const candidateIndex of searchIndex.titleTrigrams.get(`short:${normalizedTitle}`) ?? []) {
+      candidateIndexes.add(candidateIndex)
+    }
+  }
+  return [...candidateIndexes].map((candidateIndex) => searchIndex.entries[candidateIndex])
+}
+
 const loadIndexFromNetwork = async (): Promise<AmllIndexEntry[]> => {
   try {
     const response = await fetchWithTimeout(INDEX_URL, INDEX_TIMEOUT_MS)
@@ -117,7 +193,7 @@ const loadIndexFromNetwork = async (): Promise<AmllIndexEntry[]> => {
       throw new Error(`index http ${response.status}`)
     }
     const text = await response.text()
-    return parseIndexJsonl(text)
+    return parseIndexJsonlChunked(text)
   } catch {
     throw new Error('network')
   }
@@ -135,6 +211,7 @@ export const ensureIndex = async (): Promise<AmllIndexEntry[]> => {
   indexPromise = loadIndexFromNetwork()
     .then((entries) => {
       indexCache = entries
+      searchIndexCache = createSearchIndex(entries)
       return entries
     })
     .catch((error) => {
@@ -231,13 +308,16 @@ export const matchAmllTtmlLyrics = async (query: AmllMatchQuery): Promise<AmllMa
     return { ok: false, reason: 'network' }
   }
 
+  const searchIndex = searchIndexCache ?? createSearchIndex(index)
+  searchIndexCache = searchIndex
+  const candidates = selectCandidates(searchIndex, query.title)
   const best = findBestMatch(
     {
       title: query.title,
       artist: query.artist,
       album: query.album,
     },
-    index,
+    candidates,
   )
 
   if (!best) {
@@ -271,7 +351,13 @@ export const matchAmllTtmlLyrics = async (query: AmllMatchQuery): Promise<AmllMa
 /** 测试辅助：注入内存索引（跳过网络） */
 export const __setIndexCacheForTests = (entries: AmllIndexEntry[] | null): void => {
   indexCache = entries
+  searchIndexCache = entries ? createSearchIndex(entries) : null
   indexPromise = null
+}
+
+/** 测试辅助：读取常见查询实际进入精确评分的候选数 */
+export const __getCandidateCountForTests = (title: string): number => {
+  return searchIndexCache ? selectCandidates(searchIndexCache, title).length : 0
 }
 
 /** 测试辅助：读取 TTML 缓存是否命中 */
