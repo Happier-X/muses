@@ -1,0 +1,78 @@
+:root {
+  /* HeroUI common.blue：Muses 唯一主色色阶 */
+  --muses-primary-50: #e6f1fe;
+  --muses-primary-100: #cce3fd;
+  --muses-primary-200: #99c7fb;
+  --muses-primary-300: #66aaf9;
+  --muses-primary-400: #338ef7;
+  --muses-primary-500: #006fee;
+  --muses-primary-600: #005bc4;
+  --muses-primary-700: #004493;
+  --muses-primary-800: #002e62;
+  --muses-primary-900: #001731;
+
+  /* 语义颜色 */
+  --muses-color-primary: var(--muses-primary-500);
+  --muses-color-primary-rgb: 0, 111, 238;
+  --muses-color-primary-contrast: #ffffff;
+  --muses-color-primary-contrast-rgb: 255, 255, 255;
+  --muses-color-surface: #ffffff;
+  --muses-color-surface-dark: #1f1f1f;
+  --muses-color-ink: var(--ion-text-color, #000000);
+  --muses-color-ink-muted: var(--ion-color-medium, #92949c);
+  --muses-color-border-subtle: var(--ion-color-step-150, #e0e0e0);
+  --muses-color-cover-placeholder: rgba(var(--ion-color-medium-rgb), 0.16);
+  --muses-color-playing-bg: rgba(var(--muses-color-primary-rgb), 0.1);
+  --muses-color-playing-bg-soft: rgba(var(--muses-color-primary-rgb), 0.08);
+  --muses-color-jump-highlight: rgba(var(--muses-color-primary-rgb), 0.22);
+
+  /* 沉浸播放页专用色 */
+  --muses-immersive-void: #05070d;
+  --muses-immersive-deep: #0a0c14;
+  --muses-immersive-surface: #171b2b;
+  --muses-immersive-ink: #ffffff;
+  --muses-immersive-ink-soft: rgba(255, 255, 255, 0.68);
+  --muses-immersive-track: rgba(255, 255, 255, 0.2);
+  --muses-immersive-placeholder: rgba(148, 120, 255, 0.28);
+
+  /* 间距 */
+  --muses-space-xs: 2px;
+  --muses-space-sm: 8px;
+  --muses-space-md: 12px;
+  --muses-space-lg: 16px;
+  --muses-space-xl: 24px;
+
+  /* 圆角 */
+  --muses-radius-cover-sm: 8px;
+  --muses-radius-cover: 10px;
+  --muses-radius-cover-immersive: clamp(18px, 4vw, 28px);
+  --muses-radius-pill: 999px;
+
+  /* 字号角色 */
+  --muses-font-title: 15px;
+  --muses-font-body-sm: 13px;
+  --muses-font-label: 12px;
+  --muses-line-height-title: 1.25;
+
+  /* 动效 */
+  --muses-duration-overlay: 220ms;
+  --muses-duration-fab: 180ms;
+  --muses-ease-standard: ease;
+
+  /* 布局 */
+  --muses-breakpoint-tablet: 768px;
+  --muses-content-max-width: 720px;
+  --muses-sidebar-width: 240px;
+  --muses-tab-bar-height: 64px;
+  --muses-mini-player-height: 64px;
+  --muses-cover-size-sm: 48px;
+  --muses-cover-size-md: 52px;
+  --muses-song-row-height: 72px;
+  --muses-empty-state-min-height: 60vh;
+  --muses-empty-state-max-width: 34rem;
+
+  /* 层级：导航 < MiniPlayer < 沉浸页 */
+  --muses-z-tab: 30;
+  --muses-z-mini-player: 1000;
+  --muses-z-player: 1100;
+}

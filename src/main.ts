@@ -31,7 +31,8 @@ import '@ionic/vue/css/display.css';
 /* @import '@ionic/vue/css/palettes/dark.class.css'; */
 import '@ionic/vue/css/palettes/dark.system.css';
 
-/* Theme variables */
+/* Design tokens first, then Ionic variable bridge */
+import './theme/tokens.css';
 import './theme/variables.css';
 
 const app = createApp(App)

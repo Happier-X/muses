@@ -823,12 +823,12 @@ onUnmounted(() => {
 .player-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: var(--muses-z-player);
   overflow: hidden;
   overscroll-behavior: none;
   /* 手势统一由脚本处理，避免浏览器把垂直滑动交给底层 ion-content。 */
   touch-action: none;
-  color: #fff;
+  color: var(--muses-immersive-ink);
 }
 
 .immersive-shell {
@@ -836,8 +836,8 @@ onUnmounted(() => {
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
-  background: #05070d;
-  transition: transform 220ms ease;
+  background: var(--muses-immersive-void);
+  transition: transform var(--muses-duration-overlay) var(--muses-ease-standard);
 }
 
 .immersive-shell.is-dragging {
@@ -867,8 +867,8 @@ onUnmounted(() => {
 .fallback-background {
   z-index: 0;
   background:
-    radial-gradient(circle at 50% 18%, rgba(148, 120, 255, 0.28), transparent 42%),
-    linear-gradient(165deg, #171b2b 0%, #0a0c14 48%, #05070d 100%);
+    radial-gradient(circle at 50% 18%, var(--muses-immersive-placeholder), transparent 42%),
+    linear-gradient(165deg, var(--muses-immersive-surface) 0%, var(--muses-immersive-deep) 48%, var(--muses-immersive-void) 100%);
 }
 
 .amll-background + .fallback-background {
@@ -922,7 +922,7 @@ onUnmounted(() => {
   height: 100%;
   max-height: 100%;
   overflow: hidden;
-  transition: transform 220ms ease;
+  transition: transform var(--muses-duration-overlay) var(--muses-ease-standard);
 }
 
 .panel {
@@ -949,7 +949,7 @@ onUnmounted(() => {
   max-height: 100%;
   aspect-ratio: 1;
   height: auto;
-  border-radius: clamp(18px, 4vw, 28px);
+  border-radius: var(--muses-radius-cover-immersive);
   object-fit: cover;
 }
 
@@ -983,7 +983,7 @@ onUnmounted(() => {
 .song-info p,
 .song-info small,
 .time-row {
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--muses-immersive-ink-soft);
 }
 
 .song-info p {
@@ -1017,9 +1017,9 @@ onUnmounted(() => {
   --knob-background: transparent;
   --knob-box-shadow: none;
   --bar-height: 4px;
-  --bar-background: rgba(255, 255, 255, 0.2);
-  --bar-background-active: #fff;
-  --bar-border-radius: 999px;
+  --bar-background: var(--muses-immersive-track);
+  --bar-background-active: var(--muses-immersive-ink);
+  --bar-border-radius: var(--muses-radius-pill);
   width: 100%;
   height: 24px;
   min-height: 24px;
@@ -1165,7 +1165,7 @@ onUnmounted(() => {
   justify-content: space-between;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 180ms ease;
+  transition: opacity var(--muses-duration-fab) var(--muses-ease-standard);
 }
 
 .lyric-floating-actions.is-visible {
@@ -1184,7 +1184,7 @@ onUnmounted(() => {
   --background-hover: rgba(255, 255, 255, 0.14);
   --background-activated: rgba(255, 255, 255, 0.2);
   --color: rgba(255, 255, 255, 0.78);
-  --border-radius: 999px;
+  --border-radius: var(--muses-radius-pill);
   width: 40px;
   height: 40px;
   min-width: 40px;

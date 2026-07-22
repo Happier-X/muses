@@ -1,43 +1,26 @@
+/*
+ * Ionic 桥接：主色与布局 token 定义于 tokens.css（--muses-*）。
+ * 本文件只做 ion-* 映射与全局 chrome 修正，禁止回退 Ionic 默认蓝。
+ */
 :root {
-  /* 平板断点：物理宽度 ≥ 768px 时切换为平板布局 */
-  --muses-breakpoint-tablet: 768px;
-  /* 平板模式下内容区域最大宽度，居中对齐 */
-  --muses-content-max-width: 720px;
-
-  /*
-   * 主色：照抄 HeroUI / NextUI 默认 primary（common.blue）
-   * 源：https://github.com/heroui-inc/heroui — packages/core/theme/src/colors/blue.ts
-   * DEFAULT = blue[500] = #006FEE
-   */
-  --muses-primary-50: #e6f1fe;
-  --muses-primary-100: #cce3fd;
-  --muses-primary-200: #99c7fb;
-  --muses-primary-300: #66aaf9;
-  --muses-primary-400: #338ef7;
-  --muses-primary-500: #006fee;
-  --muses-primary-600: #005bc4;
-  --muses-primary-700: #004493;
-  --muses-primary-800: #002e62;
-  --muses-primary-900: #001731;
-
-  --ion-color-primary: #006fee;
-  --ion-color-primary-rgb: 0, 111, 238;
-  --ion-color-primary-contrast: #ffffff;
-  --ion-color-primary-contrast-rgb: 255, 255, 255;
-  /* shade / tint 对齐 HeroUI 600 / 400，便于 hover 与实心按钮层次 */
-  --ion-color-primary-shade: #005bc4;
-  --ion-color-primary-tint: #338ef7;
+  --ion-color-primary: var(--muses-color-primary);
+  --ion-color-primary-rgb: var(--muses-color-primary-rgb);
+  --ion-color-primary-contrast: var(--muses-color-primary-contrast);
+  --ion-color-primary-contrast-rgb: var(--muses-color-primary-contrast-rgb);
+  /* shade / tint 对齐 HeroUI 600 / 400 */
+  --ion-color-primary-shade: var(--muses-primary-600);
+  --ion-color-primary-tint: var(--muses-primary-400);
 }
 
 /* 覆盖 Ionic dark.system 默认 primary（#4d8dff），深浅色均保持 HeroUI primary */
 @media (prefers-color-scheme: dark) {
   :root {
-    --ion-color-primary: #006fee;
-    --ion-color-primary-rgb: 0, 111, 238;
-    --ion-color-primary-contrast: #ffffff;
-    --ion-color-primary-contrast-rgb: 255, 255, 255;
-    --ion-color-primary-shade: #005bc4;
-    --ion-color-primary-tint: #338ef7;
+    --ion-color-primary: var(--muses-color-primary);
+    --ion-color-primary-rgb: var(--muses-color-primary-rgb);
+    --ion-color-primary-contrast: var(--muses-color-primary-contrast);
+    --ion-color-primary-contrast-rgb: var(--muses-color-primary-contrast-rgb);
+    --ion-color-primary-shade: var(--muses-primary-600);
+    --ion-color-primary-tint: var(--muses-primary-400);
   }
 }
 

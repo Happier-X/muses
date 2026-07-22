@@ -104,7 +104,7 @@ onUnmounted(() => {
 }
 
 .content-shell.has-tabs-navigation {
-  padding-bottom: calc(64px + var(--ion-safe-area-bottom, 0px));
+  padding-bottom: calc(var(--muses-tab-bar-height) + var(--ion-safe-area-bottom, 0px));
 }
 
 .mobile-tab-bar {
@@ -112,11 +112,11 @@ onUnmounted(() => {
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 30;
+  z-index: var(--muses-z-tab);
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   padding: 6px 0 calc(6px + var(--ion-safe-area-bottom, 0px));
-  border-top: 1px solid var(--ion-color-step-150, #e0e0e0);
+  border-top: 1px solid var(--muses-color-border-subtle);
   background: var(--ion-tab-bar-background, var(--ion-background-color, #fff));
 }
 
@@ -160,9 +160,9 @@ onUnmounted(() => {
     left: 0;
     bottom: 0;
     z-index: 20;
-    width: 240px;
+    width: var(--muses-sidebar-width);
     overflow: auto;
-    border-right: 1px solid var(--ion-color-step-150, #e0e0e0);
+    border-right: 1px solid var(--muses-color-border-subtle);
     background: var(--ion-background-color, #fff);
     padding-top: calc(12px + var(--ion-safe-area-top, 0px));
     box-sizing: border-box;
@@ -178,7 +178,7 @@ onUnmounted(() => {
     top: 0;
     right: 0;
     bottom: 0;
-    left: 240px;
+    left: var(--muses-sidebar-width);
     overflow: auto;
   }
 
