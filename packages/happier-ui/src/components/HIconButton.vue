@@ -13,8 +13,8 @@
     @keyup.enter="onKeyGuard"
     @keyup.space="onKeyGuard"
   >
+    <!-- 优先 slot（纯 Vue 宿主）；icon path 时用 Web Component ion-icon（宿主需加载 Ionic core） -->
     <slot>
-      <!-- 过渡：宿主传入 ionicons path data 时用 ion-icon（需宿主装 @ionic/vue） -->
       <ion-icon v-if="icon" :icon="icon" aria-hidden="true" />
     </slot>
   </button>
@@ -23,14 +23,12 @@
 <script setup lang="ts">
 /**
  * happier-ui：纯 Vue 图标触控。
- * icon prop 依赖宿主 Ionic 的 ion-icon 渲染 path；也可用默认 slot 完全自定义图标。
+ * 不 import @ionic/vue，避免无 Ionic 宿主无法解析依赖。
+ * - slot：任意图标（SVG 等）
+ * - icon：ionicons path data，依赖宿主页面已注册/加载 ion-icon
  */
-import { IonIcon } from '@ionic/vue'
-
 const props = withDefaults(defineProps<{
-  /** 图标 path data（由宿主如 ion-lucide 传入）；也可用 slot */
   icon?: string
-  /** 无障碍必填标签 */
   ariaLabel: string
   disabled?: boolean
   size?: 'md' | 'lg'
@@ -111,12 +109,18 @@ const onKeyGuard = (event: KeyboardEvent) => {
   min-height: calc(var(--h-touch-target, 48px) + 8px);
 }
 
-.h-icon-button ion-icon {
+.h-icon-button :deep(ion-icon),
+.h-icon-button :deep(svg) {
+  width: var(--h-icon-size-md, 22px);
+  height: var(--h-icon-size-md, 22px);
   font-size: var(--h-icon-size-md, 22px);
   pointer-events: none;
 }
 
-.h-icon-button--lg ion-icon {
+.h-icon-button--lg :deep(ion-icon),
+.h-icon-button--lg :deep(svg) {
+  width: var(--h-icon-size-lg, 24px);
+  height: var(--h-icon-size-lg, 24px);
   font-size: var(--h-icon-size-lg, 24px);
 }
 

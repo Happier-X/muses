@@ -4,7 +4,8 @@
   "version": "0.2.0",
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "dev": "vite",
@@ -13,6 +14,8 @@
     "test:e2e": "cypress run",
     "test:unit": "vitest",
     "lint": "eslint .",
+    "dev:smoke": "npm run dev -w happier-ui-smoke",
+    "build:smoke": "npm run build -w happier-ui-smoke",
     "ionic:build": "npm run build",
     "ionic:serve": "npm run dev -- --open"
   },
