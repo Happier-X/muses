@@ -2253,6 +2253,56 @@ describe('播放队列与循环/随机模式', () => {
     vi.resetModules()
   })
 
+  test('大队列解析保持顺序、重复队列项并跳过缺失歌曲', async () => {
+    const songs = Array.from({ length: 1200 }, (_, index) => ({
+      ...localSong,
+      id: `song-large-${index}`,
+      path: `album/large-${index}.mp3`,
+      uri: `content://music/large-${index}`,
+      title: `大队列歌曲 ${index}`,
+    }))
+    const queueItems = songs.flatMap((song, index) => [
+      { songId: index % 100 === 0 ? `missing-${index}` : song.id },
+      { songId: song.id },
+    ])
+    localStorage.setItem('muses:songs', JSON.stringify(songs))
+    localStorage.setItem('muses:queue', JSON.stringify({
+      items: queueItems,
+      originalOrder: queueItems,
+      shuffleOrder: null,
+    }))
+
+    const { queueState } = await import('@/features/player/queue')
+    const expectedIds = queueItems
+      .filter((item) => !item.songId.startsWith('missing-'))
+      .map((item) => item.songId)
+    expect(queueState.items.map((song) => song.id)).toEqual(expectedIds)
+
+    // 性能结构属于本任务的明确契约；仅约束解析函数使用 Map 且不退回逐项 find。
+    const source = readFileSync('src/features/player/queue.ts', 'utf8')
+    const resolverSource = source.slice(
+      source.indexOf('const createSongResolver'),
+      source.indexOf('// --------------- 内部可变状态'),
+    )
+    expect(resolverSource).toContain('new Map<string, SongItem>()')
+    expect(resolverSource).not.toContain('.find(')
+  })
+
+  test('曲库异常出现重复 songId 时保持旧 Array.find 的首条命中语义', async () => {
+    const duplicateFirst = { ...localSong, title: '首条记录' }
+    const duplicateSecond = { ...localSong, title: '后续重复记录', uri: 'content://music/duplicate' }
+    localStorage.setItem('muses:songs', JSON.stringify([duplicateFirst, duplicateSecond]))
+    localStorage.setItem('muses:queue', JSON.stringify({
+      items: [{ songId: localSong.id }],
+      originalOrder: [{ songId: localSong.id }],
+      shuffleOrder: null,
+    }))
+
+    const { queueState } = await import('@/features/player/queue')
+    expect(queueState.items).toHaveLength(1)
+    expect(queueState.items[0].title).toBe('首条记录')
+  })
+
   test('enqueueSongs 入队后将歌曲加入队列且不包含密码', async () => {
     seedSongs()
     const { enqueueSongs, queueState } = await import('@/features/player/queue')

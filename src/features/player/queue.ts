@@ -141,11 +141,27 @@ const fisherYatesShuffle = <T>(array: T[]): T[] => {
 
 // --------------- 将 QueueItem[] 解析为 SongItem[] ---------------
 
+const createSongResolver = (songs = loadSongs()): ((queueItems: QueueItem[]) => SongItem[]) => {
+  const songsById = new Map<string, SongItem>()
+  for (const song of songs) {
+    // 与原先 Array.find 一致：异常重复 id 时保留曲库中的第一条记录。
+    if (!songsById.has(song.id)) {
+      songsById.set(song.id, song)
+    }
+  }
+
+  return (queueItems: QueueItem[]): SongItem[] => queueItems.flatMap((queueItem) => {
+    const song = songsById.get(queueItem.songId)
+    return song ? [song] : []
+  })
+}
+
 const resolveSongsFromQueue = (queueItems: QueueItem[]): SongItem[] => {
-  const songs = loadSongs()
-  return queueItems
-    .map((qi) => songs.find((song) => song.id === qi.songId))
-    .filter((song): song is SongItem => Boolean(song))
+  return createSongResolver()(queueItems)
+}
+
+const getResolvedActiveItems = (): SongItem[] => {
+  return resolveSongsFromQueue(queueData.shuffleOrder ?? queueData.items)
 }
 
 // --------------- 内部可变状态 ---------------
@@ -164,8 +180,7 @@ const queueStateRaw = reactive<QueueState>({
 
 // --------------- 刷新只读状态 ---------------
 
-const refreshQueueState = () => {
-  const resolvedItems = resolveSongsFromQueue(queueData.shuffleOrder ?? queueData.items)
+const refreshQueueState = (resolvedItems = resolveSongsFromQueue(queueData.shuffleOrder ?? queueData.items)) => {
   queueStateRaw.items = resolvedItems
   queueStateRaw.currentIndex = currentIndex
   queueStateRaw.hasItems = resolvedItems.length > 0
@@ -251,7 +266,7 @@ export const selectSongAtIndex = (index: number): SongItem | null => {
   }
 
   currentIndex = index
-  refreshQueueState()
+  refreshQueueState(resolvedItems)
   return resolvedItems[index]
 }
 
@@ -260,7 +275,7 @@ export const selectSongAtIndex = (index: number): SongItem | null => {
  * 语义与 advanceToNext 目标一致，但无副作用。
  */
 export const peekNext = (): SongItem | null => {
-  const items = queueData.shuffleOrder ?? queueData.items
+  const items = getResolvedActiveItems()
 
   if (items.length === 0) {
     return null
@@ -268,12 +283,11 @@ export const peekNext = (): SongItem | null => {
 
   if (config.repeatMode === 'one') {
     const index = currentIndex < 0 || currentIndex >= items.length ? 0 : currentIndex
-    return resolveSongsFromQueue([items[index]])[0] ?? null
+    return items[index] ?? null
   }
 
   const nextIndex = currentIndex + 1
-  const resolvedIndex = nextIndex >= items.length ? 0 : nextIndex
-  return resolveSongsFromQueue([items[resolvedIndex]])[0] ?? null
+  return items[nextIndex >= items.length ? 0 : nextIndex] ?? null
 }
 
 /**
@@ -289,21 +303,22 @@ export const advanceToNextRecoveryCandidate = (attemptedSongIds: ReadonlySet<str
     return null
   }
 
+  const resolvedItems = getResolvedActiveItems()
+  if (resolvedItems.length === 0) {
+    return null
+  }
+  const resolvedById = new Map(resolvedItems.map((song) => [song.id, song]))
   const startIndex = currentIndex >= 0 && currentIndex < items.length ? currentIndex : -1
   for (let offset = 1; offset <= items.length; offset += 1) {
     const candidateIndex = (startIndex + offset) % items.length
     const candidateItem = items[candidateIndex]
-    if (attemptedSongIds.has(candidateItem.songId)) {
-      continue
-    }
-
-    const candidate = resolveSongsFromQueue([candidateItem])[0]
-    if (!candidate) {
+    const candidate = resolvedById.get(candidateItem.songId)
+    if (!candidate || attemptedSongIds.has(candidate.id)) {
       continue
     }
 
     currentIndex = candidateIndex
-    refreshQueueState()
+    refreshQueueState(resolvedItems)
     return candidate
   }
 
@@ -319,23 +334,24 @@ export const advanceToNext = (): SongItem | null => {
     return null
   }
 
+  const resolvedItems = getResolvedActiveItems()
+  if (resolvedItems.length === 0) {
+    currentIndex = -1
+    refreshQueueState(resolvedItems)
+    return null
+  }
+
   if (config.repeatMode === 'one') {
-    if (currentIndex < 0 || currentIndex >= items.length) {
+    if (currentIndex < 0 || currentIndex >= resolvedItems.length) {
       currentIndex = 0
     }
-    refreshQueueState()
-    return resolveSongsFromQueue([items[currentIndex]])[0] ?? null
+    refreshQueueState(resolvedItems)
+    return resolvedItems[currentIndex] ?? null
   }
 
-  const nextIndex = currentIndex + 1
-  if (nextIndex >= items.length) {
-    currentIndex = 0
-  } else {
-    currentIndex = nextIndex
-  }
-
-  refreshQueueState()
-  return resolveSongsFromQueue([items[currentIndex]])[0] ?? null
+  currentIndex = currentIndex + 1 >= resolvedItems.length ? 0 : currentIndex + 1
+  refreshQueueState(resolvedItems)
+  return resolvedItems[currentIndex] ?? null
 }
 
 export const advanceToPrevious = (): SongItem | null => {
@@ -347,28 +363,28 @@ export const advanceToPrevious = (): SongItem | null => {
     return null
   }
 
+  const resolvedItems = getResolvedActiveItems()
+  if (resolvedItems.length === 0) {
+    currentIndex = -1
+    refreshQueueState(resolvedItems)
+    return null
+  }
+
   if (config.repeatMode === 'one') {
-    if (currentIndex < 0 || currentIndex >= items.length) {
+    if (currentIndex < 0 || currentIndex >= resolvedItems.length) {
       currentIndex = 0
     }
-    refreshQueueState()
-    return resolveSongsFromQueue([items[currentIndex]])[0] ?? null
+    refreshQueueState(resolvedItems)
+    return resolvedItems[currentIndex] ?? null
   }
 
-  const previousIndex = currentIndex - 1
-  if (previousIndex < 0) {
-    currentIndex = items.length - 1
-  } else {
-    currentIndex = previousIndex
-  }
-
-  refreshQueueState()
-  return resolveSongsFromQueue([items[currentIndex]])[0] ?? null
+  currentIndex = currentIndex - 1 < 0 ? resolvedItems.length - 1 : currentIndex - 1
+  refreshQueueState(resolvedItems)
+  return resolvedItems[currentIndex] ?? null
 }
 
 export const findQueueIndexBySongId = (songId: string): number => {
-  const items = queueData.shuffleOrder ?? queueData.items
-  return items.findIndex((qi) => qi.songId === songId)
+  return getResolvedActiveItems().findIndex((song) => song.id === songId)
 }
 
 export const syncCurrentIndex = (songId: string): void => {

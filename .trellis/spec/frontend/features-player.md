@@ -160,6 +160,7 @@
 
 ## 约束与禁止模式
 
+- **队列解析必须线性化**：从 ID 队列解析歌曲时，单次解析只加载一次 `loadSongs()`，构建 `songId -> SongItem` Map 后按队列顺序读取；禁止对每个队列项调用 `Array.find`。缺失歌曲跳过，重复 songId 保持曲库首条记录语义；不得引入跨窗口曲库缓存。
 - **禁止**在除 `native.ts` 之外的任何文件直接调用 `NativeAudio.*` 或 `MediaSession.*`。
 - **禁止**全库离线 loudness 扫描 / 无标签时写假 ReplayGain。
 - **禁止**同时使用多个 notification provider（native-audio 的 showNotification 和 media-session 的通知只能开一个；当前我们只使用 media-session）。

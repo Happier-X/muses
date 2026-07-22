@@ -13,7 +13,7 @@
 
 ## Acceptance Criteria
 
-- [ ] 解析过程中不再为每个队列项调用 `Array.find`
-- [ ] 全库入队、缺失歌曲、随机模式和 next/previous 行为不回归
-- [ ] 新增大队列正确性测试
-- [ ] 单测、lint、build 通过
+- [x] 解析过程中不再为每个队列项调用 `Array.find`
+- [x] 全库入队、缺失歌曲、随机模式和 next/previous 行为不回归
+- [x] 新增大队列正确性测试
+- [x] 单测、lint、build 通过
