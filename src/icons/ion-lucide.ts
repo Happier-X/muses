@@ -13,44 +13,44 @@
  * | playSkipBack（fill）  | SkipBack         | 上一曲主控     |
  * | playSkipForward（fill）| SkipForward     | 下一曲主控     |
  * | shuffle               | Shuffle          | 随机播放       |
- * | listOutline（顺序）   | List             | 仅顺序播放模式（shuffle off） |
+ * | listOutline（顺序）   | ListOrdered      | 仅顺序播放模式（shuffle off） |
  * | list（队列/歌单）     | ListMusic        | 打开队列；歌单 Tab/列表占位   |
  * | repeatOutline（列表） | Repeat           | 列表循环       |
  * | repeat（单曲）        | Repeat1          | 单曲循环       |
  * | musicalNotes*         | Music            | 音乐占位/歌曲  |
- * | albums                | DiscAlbum        | 专辑           |
- * | person                | User             | 艺术家         |
- * | radio                 | Radio            | 音源           |
+ * | albums                | Disc3            | 专辑           |
+ * | person                | MicVocal         | 艺术家         |
+ * | radio                 | Folder           | 音源           |
  * | settings              | Settings         | 设置           |
  * | searchOutline         | Search           | 搜索           |
  * | add / addOutline      | Plus             | 新增           |
  * | close                 | X                | 关闭           |
  * | trash                 | Trash2           | 删除           |
  * | chevronBack           | ChevronLeft      | 返回           |
- * | languageOutline       | Languages        | 歌词翻译       |
+ * | languageOutline       | Captions         | 歌词翻译开     |
+ * | languageOffOutline    | CaptionsOff      | 歌词翻译关     |
  * | locateOutline         | Locate           | 定位当前播放   |
  * | ellipsisVertical      | EllipsisVertical | 更多菜单       |
  * | removeCircleOutline   | CircleMinus      | 从列表移除     |
- * | playCircleOutline     | PlayCircle       | 圆形播放       |
- * | pauseCircleOutline    | PauseCircle      | 圆形暂停       |
+ * | play / pause（fill）  | Play / Pause     | 播放主控与歌词页浮动播放键 |
  */
 import type { IconNode } from 'lucide'
 import {
+  Captions,
+  CaptionsOff,
   ChevronLeft,
   CircleMinus,
-  DiscAlbum,
+  Disc3,
   EllipsisVertical,
-  Languages,
-  List,
+  Folder,
   ListMusic,
+  ListOrdered,
   Locate,
+  MicVocal,
   Music,
   Pause,
-  PauseCircle,
   Play,
-  PlayCircle,
   Plus,
-  Radio,
   Repeat,
   Repeat1,
   Search,
@@ -59,7 +59,6 @@ import {
   SkipBack,
   SkipForward,
   Trash2,
-  User,
   X,
 } from 'lucide'
 
@@ -138,14 +137,12 @@ export const pause = lucideToIonIcon(Pause, { variant: 'fill' })
 export const playSkipBack = lucideToIonIcon(SkipBack, { variant: 'fill' })
 /** 下一曲主控——实心 */
 export const playSkipForward = lucideToIonIcon(SkipForward, { variant: 'fill' })
-export const playCircleOutline = lucideToIonIcon(PlayCircle)
-export const pauseCircleOutline = lucideToIonIcon(PauseCircle)
 
 // —— 播放模式（状态切换必须用不同图标）——
 /** 随机播放 */
 export const shuffle = lucideToIonIcon(Shuffle)
-/** 仅顺序播放模式（shuffle off）；勿用于队列/歌单 */
-export const listOutline = lucideToIonIcon(List)
+/** 仅顺序播放模式（shuffle off，Lucide ListOrdered）；勿用于队列/歌单 */
+export const listOutline = lucideToIonIcon(ListOrdered)
 /** 打开队列；歌单 Tab / 列表占位 */
 export const list = lucideToIonIcon(ListMusic)
 /** 列表循环 */
@@ -156,9 +153,12 @@ export const repeat = lucideToIonIcon(Repeat1)
 // —— 导航 / 占位 ——
 export const musicalNotes = lucideToIonIcon(Music)
 export const musicalNotesOutline = musicalNotes
-export const albums = lucideToIonIcon(DiscAlbum)
-export const person = lucideToIonIcon(User)
-export const radio = lucideToIonIcon(Radio)
+/** 专辑 Tab / 专辑列表 */
+export const albums = lucideToIonIcon(Disc3)
+/** 艺术家 Tab / 艺术家列表 */
+export const person = lucideToIonIcon(MicVocal)
+/** 音源 Tab / 音源入口（文件夹语义，非电台） */
+export const radio = lucideToIonIcon(Folder)
 export const settings = lucideToIonIcon(Settings)
 
 // —— 通用操作 ——
@@ -168,7 +168,10 @@ export const addOutline = add
 export const close = lucideToIonIcon(X)
 export const trash = lucideToIonIcon(Trash2)
 export const chevronBack = lucideToIonIcon(ChevronLeft)
-export const languageOutline = lucideToIonIcon(Languages)
+/** 歌词翻译开（显示译文）；与 languageOffOutline 同族，仅差开/关标记 */
+export const languageOutline = lucideToIonIcon(Captions)
+/** 歌词翻译关（隐藏译文）；须与 languageOutline 可区分，禁止改用无关几何 */
+export const languageOffOutline = lucideToIonIcon(CaptionsOff)
 export const locateOutline = lucideToIonIcon(Locate)
 export const ellipsisVertical = lucideToIonIcon(EllipsisVertical)
 export const removeCircleOutline = lucideToIonIcon(CircleMinus)
