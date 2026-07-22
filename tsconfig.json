@@ -14,17 +14,15 @@
     "noEmit": true,
     "paths": {
       "@/*": ["./src/*"],
-      "happier-ui": ["./packages/happier-ui/src/index.ts"],
-      "happier-ui/*": ["./packages/happier-ui/src/*"]
+      "happier-ui": ["../happier-ui/src/index.ts"],
+      "happier-ui/*": ["../happier-ui/src/*"]
     }
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.tsx",
-    "src/**/*.vue",
-    "packages/happier-ui/src/**/*.ts",
-    "packages/happier-ui/src/**/*.vue"
+    "src/**/*.vue"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

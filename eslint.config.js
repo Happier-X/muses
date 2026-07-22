@@ -11,7 +11,6 @@ export default withVueTs(
   {
     ignores: [
       'dist/**',
-      'apps/**/dist/**',
       'android/**',
       'ios/**',
       'coverage/**',

@@ -1,4 +1,4 @@
-/** 通用组件来自仓内包 happier-ui */
+/** 通用组件来自仓外独立库 happier-ui（file:../happier-ui） */
 export {
   HEmptyState,
   HIconButton,

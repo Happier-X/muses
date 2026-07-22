@@ -3,10 +3,6 @@
   "private": true,
   "version": "0.2.0",
   "type": "module",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
@@ -14,8 +10,6 @@
     "test:e2e": "cypress run",
     "test:unit": "vitest",
     "lint": "eslint .",
-    "dev:smoke": "npm run dev -w happier-ui-smoke",
-    "build:smoke": "npm run build -w happier-ui-smoke",
     "ionic:build": "npm run build",
     "ionic:serve": "npm run dev -- --open"
   },
@@ -47,7 +41,7 @@
     "jss": "^10.10.0",
     "jss-preset-default": "^10.10.0",
     "lucide": "^1.25.0",
-    "happier-ui": "file:packages/happier-ui",
+    "happier-ui": "file:../happier-ui",
     "vue": "^3.5.40",
     "vue-router": "^4.6.4"
   },
