@@ -33,30 +33,34 @@ Examples:
 
 ---
 
-## Muses 语义组件层
+## Muses 语义组件层 → `happier-ui`
 
-项目级复用 UI 放在 `src/components/ui/`。**主路径**是 Ionic 上的薄语义二次封装：业务页优先 `M*` + token，Ionic 仅作内部实现。视觉对齐「暗场听席、flat、HeroUI primary 克制、非 Material」。
+项目级复用 UI 放在 `src/components/ui/`（仓内阶段；未来包名 **`happier-ui`**）。
+
+- **权威 token 前缀**：`--h-*`（`src/theme/tokens.css`）；`--muses-*` 为兼容别名，指向同一数值。
+- **实现**：通用壳 **纯 Vue 优先**，**不** peer `@ionic/vue` 作为包依赖；Ionic 仅 app 壳 / 表单控件本体。
+- **首版视觉**：照抄 **HeroUI Native** 主题角色与触控节奏（CSS 复现），**不**引入 `heroui-native` / RN。
+- **禁止**：`MIon*` 1:1 镜像、整库复刻 Ionic、Material elevation、包内 `@/features`。
 
 ### 现有组件契约
 
-| 组件 | 语义 | 内部可包 |
-|------|------|----------|
-| `MEmptyState` | 空列表标题、说明与可选操作槽 | 纯布局 |
-| `MCover` | 列表/歌单/MiniPlayer 封面与占位 | `ion-icon` 占位 |
-| `MPage` | 简单页 `ion-page` + 无阴影 header/content | `ion-page` 等 |
-| `MIconButton` | 图标触控（≥48 热区） | `ion-button` fill=clear + `ion-icon` |
-| `MListRow` | 曲目/队列行（封面、双行、playing） | `ion-item` + 默认 `MCover` |
-| `MSettingRow` | 设置行壳（label + description + end 槽） | `ion-item` + `ion-label` |
+| 组件 | 语义 | 实现 | 进包 v0.1 |
+|------|------|------|-----------|
+| `MEmptyState` | 空列表 | 纯布局 | 是 |
+| `MIconButton` | 图标触控（≥48） | 纯 `button` + `ion-icon` 渲染 path | 是 |
+| `MListRow` | 曲目/队列行 | 纯 `div` + 可选 `MCover` | 是（Cover 可换 slot） |
+| `MSettingRow` | 设置行壳 | 纯布局 + end 槽 | 是 |
+| `MPage` | 简单页壳 | **HOST-IONIC** `ion-page`… | 否（暂 app） |
+| `MCover` | 音乐封面 | `ion-icon` + ion-lucide | **否 app-only** |
 
 ### 使用规则
 
-- 通过 `@/components/ui` 具名导入。组件只表达 Muses 语义，**不**读取播放、曲库等业务状态。
-- **禁止** `MIonButton` / `MIonItem` 等 1:1 同名镜像封装。
-- **禁止**本层全量自建导航栈 / Modal / Tab / ActionSheet 引擎；主舞台或 Ionic 调不动处才局部自建。
-- 组件样式必须优先引用 `src/theme/tokens.css` 的 `--muses-*`（含 `--muses-touch-target`、`--muses-icon-size-*`、`--muses-song-row-height`、`--muses-color-playing-bg`）；不得新硬编码主色、封面圆角、空态间距或 elevation。
-- `MIconButton`：`ariaLabel` 必填；图标 data 来自 `@/icons/ion-lucide`；可选 `stopPropagation`、`color`、`variant`（`default` / `on-media`）。
-- `MListRow`：`title` 必填；`playing` 控制当前曲背景；`end` 槽放 more/移除；不负责虚拟列表测量。
-- `MSettingRow`：toggle/input 放 `end` 槽，**不**封装 `ion-toggle` 本体。
+- 通过 `@/components/ui` 具名导入。组件只表达语义，**不**读取播放、曲库等业务状态。
+- 新样式优先 `--h-*` 或已有 `--muses-*` 别名；不得新硬编码主色 / elevation。
+- `MIconButton`：`ariaLabel` 必填；**图标 data 由调用方传入**（如 `@/icons/ion-lucide`），组件不 import 映射表；`color="danger"` 等语义色。
+- `MListRow`：根为 `div`（可点时 `role=button`），避免与 end 槽按钮嵌套；`playing` 背景；不负责 virtualizer。
+- `MSettingRow`：toggle 仍 `ion-toggle` 于 end 槽。
+- `MCover` / `MPage`：见上表；包抽取时勿默认导出 Cover。
 
 ### 何时直连 `ion-*`（白名单）
 

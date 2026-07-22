@@ -101,7 +101,7 @@ components:
 
 列表与导航像关掉场灯的过道：安静、可读、可预期；真正开灯的只有沉浸播放页——封面、动态背景与逐词歌词占满注意力。产品个性是沉静、可靠、专注：工具感来自可信，而不是装饰。
 
-视觉系统建立在 **Ionic 结构 + HeroUI 默认 primary 色板 + Muses 语义 token** 之上。`src/theme/tokens.css` 是视觉数值唯一来源，`src/theme/variables.css` 只负责把 `--muses-*` 桥接到 `--ion-color-primary*` 并修正全局 chrome。主色明确照抄 HeroUI `common.blue`（`#006FEE`）。设计决策应延续「flat 列表 + 沉浸舞台」的双层结构，而不是补齐 Material elevation 或流媒体运营卡片。平台是 Android（系统返回、安全区、通知语境），但 **美学明确拒绝 Material Design / 默认 Ionic MD 堆叠感**。
+视觉系统建立在 **Ionic 应用壳 + HeroUI primary + 语义 token** 之上。`src/theme/tokens.css` 权威前缀为 **`--h-*`（happier-ui）**，`--muses-*` 为兼容别名；`variables.css` 把 `--h-*` 桥接到 `--ion-color-primary*`。主色照抄 HeroUI `common.blue`（`#006FEE`）。跨项目组件库方向 **`happier-ui`**：纯 Vue 壳、首版样式参照 **HeroUI Native**（不引入 RN 依赖）。设计延续「flat 列表 + 沉浸舞台」，拒绝 Material elevation。平台 Android 交付，**美学非 Material**。
 
 **Key Characteristics:**
 - 双层体验：曲库列表克制；沉浸页是听歌主舞台
@@ -177,14 +177,14 @@ components:
 
 气质总则：**沉浸页柔和，列表干脆。**
 
-薄语义组件位于 `src/components/ui/`，主路径是 Ionic 上的二次封装，**禁止** `MIon*` 1:1 镜像，**禁止**为本库全量复刻 Modal/Tab 引擎。所有视觉数值优先引用 `src/theme/tokens.css` 的 `--muses-*`，无 Material elevation。
+薄语义组件位于 `src/components/ui/`（→ `happier-ui`）。通用组件纯 Vue 优先；**禁止** `MIon*`、全量复刻 Modal/Tab。视觉值走 `--h-*` / `--muses-*` 别名；首版形貌对齐 HeroUI Native 节奏，无 Material elevation。
 
 | 组件 | 用途 |
 |------|------|
 | `MEmptyState` | 空列表标题/说明/操作槽 |
 | `MCover` | 列表与 MiniPlayer 封面/占位 |
 | `MPage` | 简单 Ionic 页壳 |
-| `MIconButton` | 图标触控；默认 48×48 热区，图标 ~22px；`fill=clear`，无 FAB 阴影 |
+| `MIconButton` | 图标触控；默认 48×48 热区，图标 ~22px；纯 button，无 FAB 阴影 |
 | `MListRow` | 曲目/队列行；封面 + 标题/副标题 + end 槽；playing 用 primary 浅底 |
 | `MSettingRow` | 设置行壳；label/description + end 槽（toggle 仍 ion-toggle） |
 

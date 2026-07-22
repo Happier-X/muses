@@ -61,10 +61,10 @@ Use the existing split unless the codebase grows enough to justify feature modul
 - `src/router/index.ts` owns route records and redirects.
 - `src/views/` contains route-level pages.
 - `src/components/` contains reusable UI pieces used by pages.
-- `src/components/ui/` contains Muses 薄语义组件；通过 `index.ts` 具名导出，允许内部组合 Ionic，但不承载业务状态。
-- `src/icons/` contains the Lucide → `ion-icon` adapter (`ion-lucide.ts`)；业务图标统一从此导入，禁止从 `ionicons/icons` 导入。
-- `src/theme/tokens.css` 是颜色、间距、圆角、字号、动效、布局与层级数值的唯一来源；统一使用 `--muses-*`。
-- `src/theme/variables.css` 只负责 Ionic 变量桥接与全局 chrome 修正；`main.ts` 必须先加载 `tokens.css` 再加载它。
+- `src/components/ui/`：语义组件（未来 **`happier-ui`**）。通用壳纯 Vue 优先；`MCover` app-only；`MPage` 仍 HOST-IONIC。通过 `index.ts` 导出，不承载业务状态。
+- `src/icons/`：Lucide → `ion-icon` adapter；**调用方**把 icon data 传给 `MIconButton`，组件不 import 本表。
+- `src/theme/tokens.css`：权威 **`--h-*`**；`--muses-*` 为兼容别名。
+- `src/theme/variables.css`：Ionic 桥接读 `--h-*` + chrome 修正；`main.ts` 先 `tokens.css` 再本文件。
 
 Reference files:
 
