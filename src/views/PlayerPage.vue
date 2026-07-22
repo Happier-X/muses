@@ -148,7 +148,7 @@
               class="lyric-player"
               :data-translation-visible="showLyricTranslation ? 'true' : 'false'"
               :lyric-lines="displayLyricLines"
-              :current-time="playerState.position * 1000"
+              :current-time="lyricRenderTime"
               align-anchor="center"
               :align-position="0.5"
               :enable-spring="true"
@@ -211,6 +211,9 @@ import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousF
 import { closePlayerOverlay, openQueueOverlay, playerOverlayVisible } from '@/features/player/overlay'
 
 const activePanel = ref(0)
+/** 隐藏态冻结传给 AMLL 的时间输入；重新打开时由当前播放进度立即刷新。 */
+const hiddenLyricTime = ref(0)
+const lyricRenderTime = computed(() => playerOverlayVisible.value ? playerState.position * 1000 : hiddenLyricTime.value)
 const touchStartX = ref<number | null>(null)
 const touchStartY = ref<number | null>(null)
 const dragOffsetY = ref(0)
@@ -335,7 +338,11 @@ const coverSrc = computed(() => toDisplayableUri(currentCoverUri.value))
 const stickyCoverSrc = ref('')
 
 /** PlayerPage 保活后，打开/关闭必须清掉上次下滑位移，避免再打开半屏（#25） */
-watch(playerOverlayVisible, () => {
+watch(playerOverlayVisible, (visible) => {
+  if (visible) {
+    // 重新打开时直接跳到最新播放位置，避免歌词从关闭前的旧行开始。
+    hiddenLyricTime.value = playerState.position * 1000
+  }
   resetDragState()
 })
 

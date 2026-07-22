@@ -14,9 +14,9 @@
 
 ## Acceptance Criteria
 
-- [ ] 隐藏态 PlayerPage 不随每个 position tick 更新 AMLL currentTime
-- [ ] 关闭和重开无默认背景白闪、半屏或错误歌词位置
-- [ ] 下滑、Android back、队列 overlay 交互不回归
-- [ ] 单测覆盖 visible/hidden 输入门控
-- [ ] lint、build 通过
-- [ ] 真机完成关闭前后 CPU/GPU 观察；若本环境无法执行，明确列为人工验收项
+- [x] 隐藏态 PlayerPage 不随每个 position tick 更新 AMLL currentTime
+- [x] 关闭和重开无默认背景白闪、半屏或错误歌词位置
+- [x] 下滑、Android back、队列 overlay 交互不回归
+- [x] 单测覆盖 visible/hidden 输入门控
+- [x] lint、build 通过
+- [ ] 真机完成关闭前后 CPU/GPU 观察；当前环境无法执行，列为人工验收项

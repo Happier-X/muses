@@ -147,7 +147,7 @@ vi.mock('@applemusic-like-lyrics/vue', () => ({
       },
     },
     template: `
-      <div data-test="amll-lyrics" :data-align-position="alignPosition">
+      <div data-test="amll-lyrics" :data-align-position="alignPosition" :data-current-time="currentTime">
         <button
           type="button"
           data-test="lyric-line-click"
@@ -2101,6 +2101,13 @@ describe('应用壳', () => {
     expect(wrapper.find('.app-mini-player').classes()).toContain('is-overlay-active')
     closePlayerOverlay()
     wrapper.unmount()
+  })
+
+  test('隐藏播放器时门控 AMLL 时间输入并在重开时同步', () => {
+    const source = readFileSync('src/views/PlayerPage.vue', 'utf8')
+    expect(source).toContain(':current-time="lyricRenderTime"')
+    expect(source).toContain('playerOverlayVisible.value ? playerState.position * 1000 : hiddenLyricTime.value')
+    expect(source).toContain('hiddenLyricTime.value = playerState.position * 1000')
   })
 
   test('有当前曲时关闭沉浸式仍保活 PlayerPage，无曲后可卸载', async () => {

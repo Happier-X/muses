@@ -115,8 +115,9 @@ ion-app.has-global-overlay .app-router-outlet {
 .app-player-page:not(.is-player-visible) {
   transform: translateY(100%);
   pointer-events: none;
-  /* 仍参与合成层，避免再次打开时整页白闪 */
-  visibility: visible;
+  /* 保持组件与 AMLL 实例挂载，但跳过隐藏态绘制，避免 position tick 触发不可见页面合成。 */
+  visibility: hidden;
+  contain: paint;
 }
 
 .app-player-page {
@@ -126,6 +127,8 @@ ion-app.has-global-overlay .app-router-outlet {
 .app-player-page.is-player-visible {
   transform: translateY(0);
   pointer-events: auto;
+  visibility: visible;
+  contain: none;
 }
 </style>
 
