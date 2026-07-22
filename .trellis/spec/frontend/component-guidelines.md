@@ -109,28 +109,40 @@ Also prefer the `@/` alias for application imports from `src/`:
 - **禁止**业务代码 `import ... from 'ionicons/icons'`；`package.json` 可因 Ionic 间接依赖保留 `ionicons` 包
 - 播放模式状态图标必须可区分：`repeatOutline` vs `repeat`、`listOutline` vs `shuffle`，不得两状态共用同一图标
 - 尺寸与颜色仍由现有 CSS / `color` 控制；适配层默认 Lucide outline（viewBox 24、`fill: none` + `stroke: currentColor`）
-- **播放主控 fill**：`play` / `pause` / `playSkipBack` / `playSkipForward` 经 `lucideToIonIcon(..., { variant: 'fill' })` 导出为实心（`fill: currentColor`，并保留同色 stroke 以免 Skip 竖线等无面积 path 消失），供 `MiniPlayer` 播放/暂停与 `PlayerPage` 主三键使用
-- **次级仍 outline**：列表「播放全部」用 `playOutline`（与 `play` 解耦，保持线框）；模式键（`shuffle` / `repeat*` / 顺序用 `listOutline`）、队列入口（`list`）、返回、翻译、歌词页 `playCircle`/`pauseCircle` 等继续 outline
+- **播放主控 fill**：`play` / `pause` / `playSkipBack` / `playSkipForward` 经 `lucideToIonIcon(..., { variant: 'fill' })` 导出为实心（`fill: currentColor`，并保留同色 stroke 以免 Skip 竖线等无面积 path 消失），供 `MiniPlayer` 播放/暂停、`PlayerPage` 主三键，以及**歌词页右下角浮动播放/暂停**使用
+- **次级仍 outline**：列表「播放全部」用 `playOutline`（与 `play` 解耦，保持线框）；模式键（`shuffle` / `repeat*` / 顺序用 `listOutline`）、队列入口（`list`）、返回、翻译等继续 outline
+- **禁止**歌词页浮动播放键再使用圆形 `PlayCircle` / `PauseCircle`；必须与主控同一对 `play` / `pause`（fill）
+- **歌词翻译开关必须可区分且同族**：开 = `languageOutline`（Lucide `Captions`），关 = `languageOffOutline`（Lucide `CaptionsOff`）；同一字幕图标族，只差开/关标记。禁止两态共用同一图标只靠透明度，也禁止开态用 `Languages`、关态用 `CaptionsOff` 这种跨族搭配。`aria-label` 仍为「隐藏翻译」/「显示翻译」，并保留 `.is-active` 高亮作为辅助
 - 主控按钮仍为 `fill="clear"` 纯图标，不得为 fill 图标另加 solid 圆底阴影
 
 ### 同语义同图标（list vs listOutline）
 
-适配层用两个 Lucide 图标区分历史 ionicons 名；业务侧必须按语义选用，**不得混用**：
+适配层用不同 Lucide 图标区分历史 ionicons 名；业务侧必须按语义选用，**不得混用**：
 
 | 语义 | 导出符号 | Lucide | 调用点示例 |
 |------|----------|--------|------------|
 | 打开队列 | `list` | ListMusic | `MiniPlayer` 队列键、`PlayerPage` 队列键 |
 | 歌单导航 / 歌单列表占位 | `list` | ListMusic | `TabsPage` 歌单 Tab、`PlaylistsPage` 行图标 |
-| 顺序播放模式（shuffle off） | `listOutline` | List | `PlayerPage` 的 `shuffleIcon` 非随机态 |
+| 顺序播放模式（shuffle off） | `listOutline` | **ListOrdered** | `PlayerPage` 的 `shuffleIcon` 非随机态 |
 | 随机播放模式 | `shuffle` | Shuffle | `PlayerPage` 的 `shuffleIcon` 随机态 |
 | 列表循环 / 单曲循环 | `repeatOutline` / `repeat` | Repeat / Repeat1 | 播放模式循环键 |
-| 播放主控 | `play` / `pause` / `playSkip*`（fill） | 既有 | MiniPlayer / PlayerPage 主三键 |
-| 列表次级播放 | `playOutline` | 既有 outline | 歌单详情「播放全部」等 |
+| 播放主控 / 歌词浮动播放 | `play` / `pause` / `playSkip*`（fill） | Play / Pause / Skip* | MiniPlayer、PlayerPage 主三键、歌词页右下角浮动键 |
+| 列表次级播放 | `playOutline` | Play outline | 歌单详情「播放全部」等 |
+| 专辑 | `albums` | **Disc3** | `TabsPage` 专辑 Tab 等 |
+| 艺术家 | `person` | **MicVocal** | `TabsPage` 艺术家 Tab 等 |
+| 音源 | `radio` | **Folder** | `TabsPage` 音源 Tab 等 |
+| 歌曲占位 / 歌曲 Tab | `musicalNotes` / `musicalNotesOutline` | Music | 歌曲 Tab、列表无封面占位 |
+| 歌词翻译开 | `languageOutline` | **Captions** | 歌词页左下翻译键（显示译文） |
+| 歌词翻译关 | `languageOffOutline` | **CaptionsOff** | 歌词页左下翻译键（隐藏译文） |
 
 规则：
 
 - **`list`（ListMusic）** 专用于「打开队列」与「歌单」相关入口；`MiniPlayer` 与 `PlayerPage` 打开队列必须同一导出 `list`。
-- **`listOutline`（List）** **仅**用于顺序播放模式（shuffle off），不得用于队列按钮或歌单行占位。
+- **`listOutline`（ListOrdered）** **仅**用于顺序播放模式（shuffle off），不得用于队列按钮或歌单行占位；**不得**再映射为无序号的 Lucide `List`。
+- 歌词页右下角播放/暂停与主控同图标（`play` / `pause` fill），**不得**使用圆形 outline 变体。
+- 歌词页翻译键：`showLyricTranslation` 为 true 用 `languageOutline`，为 false 用 `languageOffOutline`；**不得**两态共用 `languageOutline`。
+- **导航 Tab 图标**：`albums` → Lucide `Disc3`（禁止 `DiscAlbum`）；`person` → Lucide `MicVocal`（禁止通用 `User`）；`radio` → Lucide `Folder`（音源是文件夹/目录语义，**禁止** `Radio` 电台图标，尽管导出符号历史名仍为 `radio`）。
+- 业务侧继续使用既有导出名 `albums` / `person` / `radio`，**不要**为改 Lucide 几何而重命名调用点；新代码优先与 `TabsPage` 保持一致。
 - `musicalNotes` 与 `musicalNotesOutline`、`add` 与 `addOutline` 在适配层已是同一 Lucide 几何的别名，视觉已一致；可不强制改名，但新代码优先与现有调用点保持一致。
 
 ---
@@ -336,10 +348,12 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - `max-height: 520px`：再收一档 gap/字号/按钮/热区（约 18px），仍显示全部控件。
   - 不引入 landscape 专用 DOM；横屏通常命中 `max-height` 断点即可。padding 只减固定 px 部分，用 `calc(... + safe-area)`，不得抹掉安全区。
 - 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；图标使用 `ion-lucide` 的 fill 导出（`play` / `pause` / `playSkipBack` / `playSkipForward`），不得回退 outline 主控或 ionicons 直引；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
-- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons/ion-lucide` 导入：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `List`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。**打开队列**按钮使用 `list`（Lucide `ListMusic`），与 `MiniPlayer` 队列键一致；不得用 `listOutline` 表示队列（`listOutline` 仅顺序播放）。
+- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons/ion-lucide` 导入：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `ListOrdered`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。**打开队列**按钮使用 `list`（Lucide `ListMusic`），与 `MiniPlayer` 队列键一致；不得用 `listOutline` 表示队列（`listOutline` 仅顺序播放）。
+- **歌词页浮动播放键**：窄屏歌词页右下角播放/暂停必须使用与主控相同的 `play` / `pause`（fill），禁止圆形 `PlayCircle` / `PauseCircle`。
 - 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位（`.cover-slot`：`flex: 1 1 auto; min-height: 0`）缩放，控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
 - 歌词页（AMLL）视觉约定：
-  - **窄屏** `.lyric-panel`：顶部 `.lyric-header` 展示歌名（主标题）+ 歌手（副标题，空则不渲染；不拼接专辑、不回退「未知歌手」）；其下为 `flex:1` 的 AMLL `LyricPlayer`；底部仅安全区，**不放**迷你进度/播放控制。
+  - **窄屏** `.lyric-panel`：顶部 `.lyric-header` 展示歌名（主标题）+ 歌手（副标题，空则不渲染；不拼接专辑、不回退「未知歌手」）；其下为 `flex:1` 的 AMLL `LyricPlayer`；底部仅安全区。
+  - **歌词页浮动 chrome 按需显示**：左下翻译、右下播放/暂停（仅非平板）默认 **隐藏**（`opacity: 0` + 容器/按钮 `pointer-events: none`），约 180ms fade。用户在 **歌词面板内** 点击或滑动歌词后显示（`.is-visible`），空闲 **3 秒** 再隐藏；点浮动按钮重置计时。**切回控制页**（`activePanel !== 1`）或 **关闭 overlay** 立即隐藏并清 timer。隐藏态禁止可点热区。
   - **宽屏**（`@media (min-width: 768px)`）：隐藏 `.lyric-header`，右侧只保留歌词；AMLL 视觉参数与窄屏一致。
   - AMLL 参数：`alignAnchor="center"`、`alignPosition=0.5`（当前行位于歌词可视区中心）、`enableBlur` / `enableScale` 开启；字号用 `--amll-lp-font-size`（约 `clamp(22px, 6.5vw, 32px)`）；用 `:deep()` 去掉行左右 padding，使歌词左缘与顶部信息对齐。
   - 翻译副行样式必须使用 AMLL 实际类名：`.FmKaba_lyricLine.FmKaba_active`、`.FmKaba_lyricMainLine.FmKaba_active` 和 `.FmKaba_lyricSubLine`；不要依赖不存在的自定义 active 类。歌词 timed 翻译需支持点号、冒号、逗号毫秒时间戳，匹配容差应保持较小并有超界测试，避免翻译错位。同时间戳双语主行合并时主行须为原文（非 Han 优先于 Han），关翻译后不得只剩中文译文当主行。

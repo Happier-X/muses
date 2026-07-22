@@ -136,7 +136,11 @@
           </div>
         </section>
 
-        <section class="panel lyric-panel" aria-label="歌词页">
+        <section
+          class="panel lyric-panel"
+          aria-label="歌词页"
+          @pointerup="onLyricPanelPointerUp"
+        >
           <header v-if="playerState.currentSong" class="lyric-header">
             <h2 class="lyric-title">{{ playerState.currentSong.title }}</h2>
             <p v-if="lyricArtist" class="lyric-artist">{{ lyricArtist }}</p>
@@ -163,7 +167,13 @@
             <p>{{ lyricEmptyDescription }}</p>
           </div>
 
-          <div v-if="playerState.currentSong" class="lyric-floating-actions" aria-label="歌词快捷操作">
+          <div
+            v-if="playerState.currentSong"
+            class="lyric-floating-actions"
+            :class="{ 'is-visible': lyricChromeVisible }"
+            aria-label="歌词快捷操作"
+            :aria-hidden="!lyricChromeVisible"
+          >
             <ion-button
               fill="clear"
               shape="round"
@@ -171,9 +181,10 @@
               class="lyric-fab lyric-translate-toggle"
               :class="{ 'is-active': showLyricTranslation }"
               :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
-              @click.stop="toggleLyricTranslation"
+              :tabindex="lyricChromeVisible ? 0 : -1"
+              @click.stop="onLyricTranslateClick"
             >
-              <ion-icon slot="icon-only" :icon="languageIcon" aria-hidden="true" />
+              <ion-icon slot="icon-only" :icon="translationIcon" aria-hidden="true" />
             </ion-button>
 
             <ion-button
@@ -184,9 +195,10 @@
               class="lyric-fab lyric-play-toggle"
               :aria-label="isPlaying ? '暂停播放' : '继续播放'"
               :disabled="playerState.status === 'loading'"
-              @click.stop="togglePlayback"
+              :tabindex="lyricChromeVisible ? 0 : -1"
+              @click.stop="onLyricPlayClick"
             >
-              <ion-icon slot="icon-only" :icon="isPlaying ? pauseCircleIcon : playCircleIcon" aria-hidden="true" />
+              <ion-icon slot="icon-only" :icon="isPlaying ? pause : play" aria-hidden="true" />
             </ion-button>
           </div>
         </section>
@@ -199,7 +211,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonButton, IonIcon, IonRange } from '@ionic/vue'
-import { languageOutline, list, listOutline, pause, pauseCircleOutline, play, playCircleOutline, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from '@/icons/ion-lucide'
+import { languageOffOutline, languageOutline, list, listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from '@/icons/ion-lucide'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
@@ -221,6 +233,10 @@ const gestureDirection = ref<'horizontal' | 'vertical' | null>(null)
 const isDraggingVertically = ref(false)
 const canDragDown = ref(false)
 const showLyricTranslation = ref(true)
+/** 歌词页浮动 chrome：默认隐藏，交互后显示，空闲 3s 再藏。 */
+const lyricChromeVisible = ref(false)
+let lyricChromeIdleTimer: ReturnType<typeof setTimeout> | null = null
+const LYRIC_FAB_IDLE_MS = 3000
 const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
 /** 进度条交互中或结束后的短保护期，防止松手穿透到上一曲/下一曲或横向切面板。 */
 const seekGestureLocked = ref(false)
@@ -233,9 +249,7 @@ const repeatIcon = computed(() => queueState.repeatMode === 'one' ? repeat : rep
 const shuffleModeLabel = computed(() => queueState.shuffleEnabled ? '随机播放' : '顺序播放')
 const shuffleIcon = computed(() => queueState.shuffleEnabled ? shuffle : listOutline)
 const listIcon = list
-const languageIcon = languageOutline
-const playCircleIcon = playCircleOutline
-const pauseCircleIcon = pauseCircleOutline
+const translationIcon = computed(() => showLyricTranslation.value ? languageOutline : languageOffOutline)
 const previousIcon = playSkipBack
 const nextIcon = playSkipForward
 const isTabletLayout = computed(() => viewportWidth.value >= 768)
@@ -244,8 +258,57 @@ const updateViewportWidth = () => {
   viewportWidth.value = window.innerWidth
 }
 
+const clearLyricChromeIdleTimer = () => {
+  if (lyricChromeIdleTimer !== null) {
+    clearTimeout(lyricChromeIdleTimer)
+    lyricChromeIdleTimer = null
+  }
+}
+
+const scheduleLyricChromeHide = () => {
+  clearLyricChromeIdleTimer()
+  lyricChromeIdleTimer = setTimeout(() => {
+    lyricChromeVisible.value = false
+    lyricChromeIdleTimer = null
+  }, LYRIC_FAB_IDLE_MS)
+}
+
+const revealLyricChrome = () => {
+  if (activePanel.value !== 1) {
+    return
+  }
+  lyricChromeVisible.value = true
+  scheduleLyricChromeHide()
+}
+
+const hideLyricChromeImmediate = () => {
+  lyricChromeVisible.value = false
+  clearLyricChromeIdleTimer()
+}
+
 const toggleLyricTranslation = () => {
   showLyricTranslation.value = !showLyricTranslation.value
+}
+
+const onLyricTranslateClick = () => {
+  revealLyricChrome()
+  toggleLyricTranslation()
+}
+
+const onLyricPlayClick = async () => {
+  revealLyricChrome()
+  await togglePlayback()
+}
+
+const onLyricPanelPointerUp = (event: PointerEvent) => {
+  if (activePanel.value !== 1 || !playerState.currentSong) {
+    return
+  }
+  // 已显示的 fab 自身 click 会重置 timer；此处避免重复与误触路径。
+  if (event.target instanceof Element && event.target.closest('.lyric-fab')) {
+    return
+  }
+  revealLyricChrome()
 }
 
 const onToggleRepeat = () => {
@@ -342,8 +405,16 @@ watch(playerOverlayVisible, (visible) => {
   if (visible) {
     // 重新打开时直接跳到最新播放位置，避免歌词从关闭前的旧行开始。
     hiddenLyricTime.value = playerState.position * 1000
+  } else {
+    hideLyricChromeImmediate()
   }
   resetDragState()
+})
+
+watch(activePanel, (panel) => {
+  if (panel !== 1) {
+    hideLyricChromeImmediate()
+  }
 })
 
 watch(
@@ -596,6 +667,15 @@ const onTouchMove = (event: TouchEvent) => {
     gestureDirection.value = Math.abs(deltaY) > Math.abs(deltaX) ? 'vertical' : 'horizontal'
   }
 
+  // 歌词面板内滑动（含 AMLL 上下浏览）时短暂露出浮动按钮。
+  if (
+    activePanel.value === 1
+    && isLyricPanelTarget(event)
+    && Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 8
+  ) {
+    revealLyricChrome()
+  }
+
   if (gestureDirection.value !== 'vertical' || !canDragDown.value) {
     return
   }
@@ -665,6 +745,14 @@ const onTouchEnd = (event: TouchEvent) => {
   }
 
   if (startX === null || endX === undefined || Math.abs(startX - endX) < 40) {
+    // 歌词面板轻点：显示浮动 chrome（pointerup 也会兜底；touch 路径保证移动端一致）。
+    if (
+      activePanel.value === 1
+      && isLyricPanelTarget(event)
+      && !isNativeInteractiveEvent(event)
+    ) {
+      revealLyricChrome()
+    }
     return
   }
   activePanel.value = endX < startX ? 1 : 0
@@ -721,6 +809,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', updateViewportWidth)
   clearSeekUnlockTimer()
+  clearLyricChromeIdleTimer()
   if (bufferHintTimer !== null) {
     clearTimeout(bufferHintTimer)
     bufferHintTimer = null
@@ -1067,33 +1156,63 @@ onUnmounted(() => {
 
 .lyric-floating-actions {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 12px;
+  right: 12px;
   bottom: calc(8px + var(--ion-safe-area-bottom, 0px));
   z-index: 3;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.lyric-floating-actions.is-visible {
+  opacity: 1;
+  /* 容器仍 none，仅子 fab 可点，避免透明热区吞歌词点击 */
   pointer-events: none;
 }
 
+/* 翻译键与播放键共用同一热区/图标盒，禁止各自另设字号或宽高 */
 .lyric-fab {
   --padding-start: 0;
   --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
   --background: rgba(0, 0, 0, 0.16);
   --background-hover: rgba(255, 255, 255, 0.14);
   --background-activated: rgba(255, 255, 255, 0.2);
-  --color: rgba(255, 255, 255, 0.72);
-  width: 36px;
-  height: 36px;
+  --color: rgba(255, 255, 255, 0.78);
+  --border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   margin: 0;
-  font-size: 18px;
-  pointer-events: auto;
+  font-size: 20px;
+  pointer-events: none;
   backdrop-filter: blur(10px);
+}
+
+.lyric-floating-actions.is-visible .lyric-fab {
+  pointer-events: auto;
+}
+
+.lyric-fab ion-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  margin: 0;
 }
 
 .lyric-fab.is-active {
   --color: #ffffff;
+  --background: rgba(255, 255, 255, 0.22);
+}
+
+.lyric-fab:not(.is-active) {
+  --color: rgba(255, 255, 255, 0.72);
 }
 
 /* AMLL 实际 player 挂在 wrapper 子节点；强制铺满 flex 槽位 */

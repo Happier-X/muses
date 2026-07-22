@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "歌词浮动 chrome 与图标验收"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "手势/seek/overlay 不回归"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量检查命令与标准"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "UI 状态与手势边界一致性"}

@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端规范索引与模块边界"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "PlayerPage 歌词页浮动按钮与图标约定"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器 overlay/手势与歌词交互契约"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/单测/build 质量门禁"}

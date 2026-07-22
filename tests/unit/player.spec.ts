@@ -6,7 +6,7 @@ import type { SongItem } from '@/features/library/types'
 import MiniPlayer from '@/components/MiniPlayer.vue'
 import PlayerPage from '@/views/PlayerPage.vue'
 import App from '@/App.vue'
-import { listOutline, repeat, repeatOutline, shuffle } from '@/icons/ion-lucide'
+import { languageOffOutline, languageOutline, listOutline, repeat, repeatOutline, shuffle } from '@/icons/ion-lucide'
 
 /** 播放页 UI 单测不跑真实多源歌词，避免 matching 空态文案抖动 */
 vi.mock('@/features/lyrics', async (importOriginal) => {
@@ -1648,7 +1648,8 @@ describe('沉浸式播放页', () => {
     expect(source).toContain('.FmKaba_lyricMainLine.FmKaba_active ~ .FmKaba_lyricSubLine')
   })
 
-  test('歌词页翻译按钮可切换 aria 状态，手机显示播放按钮', async () => {
+  test('歌词页浮动按钮默认隐藏，点击后显示，空闲 3 秒再隐藏', async () => {
+    vi.useFakeTimers()
     const { playSong } = await import('@/features/player/controller')
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
     window.dispatchEvent(new Event('resize'))
@@ -1669,15 +1670,78 @@ describe('沉浸式播放页', () => {
       },
     })
 
+    // 切到歌词面板
+    const shell = wrapper.get('.player-overlay')
+    await shell.trigger('touchstart', { changedTouches: [{ clientX: 300, clientY: 200 }] })
+    await shell.trigger('touchend', { changedTouches: [{ clientX: 40, clientY: 200 }] })
+    await nextTick()
+
+    const chrome = wrapper.get('.lyric-floating-actions')
+    expect(chrome.classes()).not.toContain('is-visible')
+
+    await wrapper.get('.lyric-panel').trigger('pointerup')
+    await nextTick()
+    expect(chrome.classes()).toContain('is-visible')
+
+    await vi.advanceTimersByTimeAsync(3000)
+    await nextTick()
+    expect(chrome.classes()).not.toContain('is-visible')
+
+    // 再显示后切回控制页应立即隐藏
+    await wrapper.get('.lyric-panel').trigger('pointerup')
+    await nextTick()
+    expect(chrome.classes()).toContain('is-visible')
+    await shell.trigger('touchstart', { changedTouches: [{ clientX: 40, clientY: 200 }] })
+    await shell.trigger('touchend', { changedTouches: [{ clientX: 300, clientY: 200 }] })
+    await nextTick()
+    expect(chrome.classes()).not.toContain('is-visible')
+
+    vi.useRealTimers()
+    wrapper.unmount()
+  })
+
+  test('歌词页翻译按钮可切换 aria 状态，手机显示播放按钮', async () => {
+    const { playSong } = await import('@/features/player/controller')
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    window.dispatchEvent(new Event('resize'))
+    await playSong({
+      ...localSong,
+      lyrics: '[00:01.00]第一句歌词',
+      lyricsSource: 'embedded',
+    })
+
+    const wrapper = mount(PlayerPage, {
+      global: {
+        stubs: {
+          IonPage: { template: '<main><slot /></main>' },
+          IonContent: { template: '<section><slot /></section>' },
+          IonButton: { template: '<button v-bind="$attrs"><slot /></button>' },
+          IonIcon: { props: ['icon'], template: '<span data-test="icon" :data-icon="JSON.stringify(icon)" />' },
+        },
+      },
+    })
+
+    const shell = wrapper.get('.player-overlay')
+    await shell.trigger('touchstart', { changedTouches: [{ clientX: 300, clientY: 200 }] })
+    await shell.trigger('touchend', { changedTouches: [{ clientX: 40, clientY: 200 }] })
+    await nextTick()
+
     expect(wrapper.find('[data-test="amll-lyrics"]').exists()).toBe(true)
+    expect(wrapper.find('.lyric-floating-actions').classes()).not.toContain('is-visible')
+    await wrapper.get('.lyric-panel').trigger('pointerup')
+    await nextTick()
+    expect(wrapper.find('.lyric-floating-actions').classes()).toContain('is-visible')
     expect(wrapper.find('button[aria-label="暂停播放"]').exists()).toBe(true)
     const translateButton = wrapper.get('button[aria-label="隐藏翻译"]')
+    expect(translateButton.get('[data-test="icon"]').attributes('data-icon')).toBe(JSON.stringify(languageOutline))
     await translateButton.trigger('click')
     await nextTick()
-    expect(wrapper.find('button[aria-label="显示翻译"]').exists()).toBe(true)
-    await wrapper.get('button[aria-label="显示翻译"]').trigger('click')
+    const showTranslateButton = wrapper.get('button[aria-label="显示翻译"]')
+    expect(showTranslateButton.get('[data-test="icon"]').attributes('data-icon')).toBe(JSON.stringify(languageOffOutline))
+    await showTranslateButton.trigger('click')
     await nextTick()
     expect(wrapper.find('button[aria-label="隐藏翻译"]').exists()).toBe(true)
+    expect(wrapper.get('button[aria-label="隐藏翻译"] [data-test="icon"]').attributes('data-icon')).toBe(JSON.stringify(languageOutline))
   })
 
   test('平板模式歌词页不展示右下播放暂停按钮', async () => {
