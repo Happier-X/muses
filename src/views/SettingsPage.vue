@@ -14,24 +14,22 @@
 
       <div class="tablet-content-limit">
         <ion-list>
-          <ion-item>
-            <ion-label>
-              <h2>Muses</h2>
-              <p>应用版本 {{ currentVersion }}</p>
-            </ion-label>
-          </ion-item>
+          <m-setting-row
+            label="Muses"
+            :description="`应用版本 ${currentVersion}`"
+          />
 
-          <ion-item>
-            <ion-label>
-              <h2>音量均衡</h2>
-              <p>根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。</p>
-            </ion-label>
-            <ion-toggle
-              slot="end"
-              :checked="loudnessNormalizeEnabled"
-              @ionChange="onLoudnessToggle"
-            />
-          </ion-item>
+          <m-setting-row
+            label="音量均衡"
+            description="根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。"
+          >
+            <template #end>
+              <ion-toggle
+                :checked="loudnessNormalizeEnabled"
+                @ionChange="onLoudnessToggle"
+              />
+            </template>
+          </m-setting-row>
         </ion-list>
 
         <div class="update-section">
@@ -54,8 +52,6 @@ import {
   IonButton,
   IonContent,
   IonHeader,
-  IonItem,
-  IonLabel,
   IonList,
   IonPage,
   IonTitle,
@@ -63,6 +59,7 @@ import {
   IonToolbar,
   toastController,
 } from '@ionic/vue'
+import { MSettingRow } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,
@@ -134,7 +131,7 @@ const checkUpdate = async () => {
 
 <style scoped>
 .update-section {
-  padding: 16px;
+  padding: var(--muses-space-lg);
 }
 
 @media (min-width: 768px) {

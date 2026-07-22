@@ -47,40 +47,25 @@
             :data-index="virtualRow.index"
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
-            <ion-item
-              button
-              :detail="false"
-              lines="none"
+            <m-list-row
               class="song-item"
-              :class="{ 'is-playing': playerState.currentSong?.id === songs[virtualRow.index].id }"
+              :title="songs[virtualRow.index].title"
+              :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
+              :cover-src="getSongCoverSrc(songs[virtualRow.index])"
+              :playing="playerState.currentSong?.id === songs[virtualRow.index].id"
               :data-song-id="songs[virtualRow.index].id"
               @click="playSong(songs[virtualRow.index])"
             >
-              <m-cover
-                slot="start"
-                :src="getSongCoverSrc(songs[virtualRow.index])"
-                alt=""
-              />
-
-              <ion-label>
-                <h2>{{ songs[virtualRow.index].title }}</h2>
-                <p>
-                  {{ getSongArtistName(songs[virtualRow.index]) }}
-                  -
-                  {{ getSongAlbumName(songs[virtualRow.index]) }}
-                </p>
-              </ion-label>
-
-              <ion-button
-                slot="end"
-                fill="clear"
-                class="more-button"
-                aria-label="更多歌曲操作"
-                @click.stop="openSongActions(songs[virtualRow.index])"
-              >
-                <ion-icon slot="icon-only" :icon="ellipsisVertical" aria-hidden="true" />
-              </ion-button>
-            </ion-item>
+              <template #end>
+                <m-icon-button
+                  class="more-button"
+                  :icon="ellipsisVertical"
+                  ariaLabel="更多歌曲操作"
+                  stop-propagation
+                  @click="openSongActions(songs[virtualRow.index])"
+                />
+              </template>
+            </m-list-row>
           </div>
         </div>
       </div>
@@ -139,8 +124,6 @@ import {
   IonFabButton,
   IonHeader,
   IonIcon,
-  IonItem,
-  IonLabel,
   IonPage,
   IonTitle,
   IonToolbar,
@@ -150,7 +133,7 @@ import {
   type AlertInput,
 } from '@ionic/vue'
 import { ellipsisVertical, locateOutline, searchOutline, shuffle } from '@/icons/ion-lucide'
-import { MCover, MEmptyState } from '@/components/ui'
+import { MEmptyState, MIconButton, MListRow } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
@@ -452,27 +435,13 @@ onIonViewWillEnter(refreshSongs)
   left: 0;
   right: 0;
   box-sizing: border-box;
+  min-height: var(--muses-song-row-height);
+  /* 避开双 toolbar，scrollIntoView block=start 时标题完整可见 */
+  scroll-margin-top: 120px;
 }
 
-.song-item {
-  --min-height: var(--muses-song-row-height);
-}
-
-.song-item h2 {
-  font-weight: 600;
-}
-
-.more-button {
-  --padding-start: 8px;
-  --padding-end: 8px;
-  color: var(--ion-color-medium);
-}
-
-.is-playing {
-  --background: var(--muses-color-playing-bg);
-}
-
-.jump-highlight {
+/* 跳转高亮：class 挂在 MListRow 根 ion-item 上，需 :deep */
+:deep(.song-item.jump-highlight) {
   --background: var(--muses-color-jump-highlight);
 }
 

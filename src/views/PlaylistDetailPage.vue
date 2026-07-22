@@ -7,14 +7,12 @@
         </ion-buttons>
         <ion-title>{{ playlist?.name ?? '歌单' }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button
-            fill="clear"
-            aria-label="播放全部"
+          <m-icon-button
+            :icon="playOutline"
+            ariaLabel="播放全部"
             :disabled="resolvedSongs.length === 0"
             @click="onPlayAll"
-          >
-            <ion-icon slot="icon-only" :icon="playOutline" aria-hidden="true" />
-          </ion-button>
+          />
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -45,36 +43,26 @@
               :data-index="row.virtualRow.index"
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
-              <ion-item
-                button
-                :detail="false"
-                lines="none"
+              <m-list-row
                 class="song-item"
-                :class="{ 'is-playing': playerState.currentSong?.id === row.song.id }"
-                :aria-current="playerState.currentSong?.id === row.song.id ? 'true' : undefined"
+                :title="row.song.title"
+                :subtitle="`${getSongArtistName(row.song)} - ${getSongAlbumName(row.song)}`"
+                :cover-src="getSongCoverSrc(row.song)"
+                :cover-size="48"
+                cover-radius="sm"
+                :playing="playerState.currentSong?.id === row.song.id"
                 @click="onPlaySong(row.song, $event)"
               >
-                <m-cover
-                  slot="start"
-                  :src="getSongCoverSrc(row.song)"
-                  :size="48"
-                  radius="sm"
-                  alt=""
-                />
-                <ion-label>
-                  <h2>{{ row.song.title }}</h2>
-                  <p>{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
-                </ion-label>
-                <ion-button
-                  slot="end"
-                  fill="clear"
-                  class="more-button"
-                  :aria-label="`从歌单移除 ${row.song.title}`"
-                  @click.stop="onRemove(row.song.id)"
-                >
-                  <ion-icon slot="icon-only" :icon="removeCircleOutline" aria-hidden="true" />
-                </ion-button>
-              </ion-item>
+                <template #end>
+                  <m-icon-button
+                    class="more-button"
+                    :icon="removeCircleOutline"
+                    :ariaLabel="`从歌单移除 ${row.song.title}`"
+                    stop-propagation
+                    @click="onRemove(row.song.id)"
+                  />
+                </template>
+              </m-list-row>
             </div>
           </div>
         </div>
@@ -90,20 +78,16 @@ import { useRoute } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import {
   IonBackButton,
-  IonButton,
   IonButtons,
   IonContent,
   IonHeader,
-  IonIcon,
-  IonItem,
-  IonLabel,
   IonPage,
   IonTitle,
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
 import { playOutline, removeCircleOutline } from '@/icons/ion-lucide'
-import { MCover, MEmptyState } from '@/components/ui'
+import { MEmptyState, MIconButton, MListRow } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'
@@ -142,7 +126,7 @@ const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: resolvedSongs.value.length,
     getScrollElement: () => listParentRef.value,
-    estimateSize: () => 68,
+    estimateSize: () => 72,
     overscan: 8,
   })),
 )
@@ -243,22 +227,7 @@ onIonViewWillEnter(() => {
   inset-inline: 0;
   top: 0;
   box-sizing: border-box;
-  min-height: 68px;
-  padding-bottom: 4px;
-}
-
-.song-item {
-  --padding-start: 12px;
-  --inner-padding-end: 4px;
-  --min-height: 64px;
-}
-
-.song-item.is-playing {
-  --background: var(--muses-color-playing-bg-soft);
-}
-
-.more-button {
-  margin: 0;
+  min-height: var(--muses-song-row-height);
 }
 
 @media (min-width: 768px) {

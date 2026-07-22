@@ -3,31 +3,31 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-button fill="clear" aria-label="返回" @click="goBack">
-            <ion-icon slot="icon-only" :icon="chevronBack" aria-hidden="true" />
-          </ion-button>
+          <m-icon-button
+            :icon="chevronBack"
+            ariaLabel="返回"
+            @click="goBack"
+          />
         </ion-buttons>
         <ion-title>播放队列</ion-title>
         <ion-buttons slot="end">
-          <ion-button
+          <m-icon-button
             v-if="queueState.hasItems"
-            fill="clear"
+            :icon="trash"
+            ariaLabel="清空队列"
             color="danger"
-            aria-label="清空队列"
             @click="onClearQueue"
-          >
-            <ion-icon slot="icon-only" :icon="trash" aria-hidden="true" />
-          </ion-button>
+          />
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
     <ion-content fullscreen>
-      <div v-if="!queueState.hasItems" class="empty-state">
-        <ion-icon class="empty-icon" :icon="musicalNotes" aria-hidden="true" />
-        <h2>队列为空</h2>
-        <p>从歌曲列表中添加歌曲即可开始播放。</p>
-      </div>
+      <m-empty-state
+        v-if="!queueState.hasItems"
+        title="队列为空"
+        description="从歌曲列表中添加歌曲即可开始播放。"
+      />
 
       <div v-else ref="listParentRef" class="queue-list" role="list" aria-label="播放队列歌曲">
         <div class="queue-list-spacer" :style="{ height: `${totalSize}px` }">
@@ -40,32 +40,27 @@
             :data-index="row.virtualRow.index"
             :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
           >
-            <ion-item
-              :class="{ 'current-song': row.virtualRow.index === queueState.currentIndex }"
-              :aria-current="row.virtualRow.index === queueState.currentIndex ? 'true' : undefined"
-              button
-              :detail="false"
+            <m-list-row
+              :title="row.song.title"
+              :subtitle="row.song.artist || '未知歌手'"
+              :cover="false"
+              :playing="row.virtualRow.index === queueState.currentIndex"
+              :show-playing-indicator="true"
+              class="queue-item"
               @click="onSelectSong(row.virtualRow.index, $event)"
             >
-              <ion-label>
-                <h2>
-                  <span v-if="row.virtualRow.index === queueState.currentIndex" class="current-indicator">♪ </span>
-                  {{ row.song.title }}
-                </h2>
-                <p>{{ row.song.artist || '未知歌手' }}</p>
-              </ion-label>
-              <ion-note slot="end" class="queue-index">{{ row.virtualRow.index + 1 }}</ion-note>
-              <ion-button
-                slot="end"
-                fill="clear"
-                color="danger"
-                class="remove-button"
-                :aria-label="`从队列删除 ${row.song.title}`"
-                @click.stop="onRemoveSong(row.song.id)"
-              >
-                <ion-icon slot="icon-only" :icon="close" aria-hidden="true" />
-              </ion-button>
-            </ion-item>
+              <template #end>
+                <ion-note class="queue-index">{{ row.virtualRow.index + 1 }}</ion-note>
+                <m-icon-button
+                  class="remove-button"
+                  :icon="close"
+                  :ariaLabel="`从队列删除 ${row.song.title}`"
+                  color="danger"
+                  stop-propagation
+                  @click="onRemoveSong(row.song.id)"
+                />
+              </template>
+            </m-list-row>
           </div>
         </div>
       </div>
@@ -77,18 +72,15 @@
 import { computed, nextTick, ref, type ComponentPublicInstance, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import {
-  IonButton,
   IonButtons,
   IonContent,
   IonHeader,
-  IonIcon,
-  IonItem,
-  IonLabel,
   IonNote,
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
-import { chevronBack, close, musicalNotes, trash } from '@/icons/ion-lucide'
+import { chevronBack, close, trash } from '@/icons/ion-lucide'
+import { MEmptyState, MIconButton, MListRow } from '@/components/ui'
 import {
   clearQueue,
   playSong,
@@ -104,7 +96,7 @@ const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: queueState.items.length,
     getScrollElement: () => listParentRef.value,
-    estimateSize: () => 56,
+    estimateSize: () => 72,
     overscan: 8,
   })),
 )
@@ -159,12 +151,13 @@ const onSelectSong = async (index: number, event: MouseEvent): Promise<void> => 
 .queue-overlay {
   position: fixed;
   inset: 0;
+  /* 队列叠在沉浸播放页之上（player=1100） */
   z-index: 1200;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   overscroll-behavior: none;
-  background: var(--ion-background-color, #fff);
+  background: var(--muses-color-surface);
 }
 
 .queue-overlay ion-content {
@@ -177,7 +170,7 @@ const onSelectSong = async (index: number, event: MouseEvent): Promise<void> => 
   overflow: auto;
   overscroll-behavior: contain;
   box-sizing: border-box;
-  padding-bottom: calc(96px + var(--ion-safe-area-bottom, 0px));
+  padding-bottom: calc(var(--muses-mini-player-height) + var(--muses-space-xl) + var(--ion-safe-area-bottom, 0px));
 }
 
 .queue-list-spacer {
@@ -190,45 +183,18 @@ const onSelectSong = async (index: number, event: MouseEvent): Promise<void> => 
   inset-inline: 0;
   top: 0;
   box-sizing: border-box;
-  min-height: 56px;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 48px 24px;
-  color: var(--ion-color-medium);
-}
-
-.empty-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.empty-state h2 {
-  margin: 0 0 8px;
-  font-size: 20px;
-}
-
-.empty-state p {
-  margin: 0;
-  font-size: 14px;
-}
-
-.current-song {
-  --background: var(--ion-color-light);
-}
-
-.current-indicator {
-  color: var(--ion-color-primary);
+  min-height: var(--muses-song-row-height);
 }
 
 .queue-index {
-  font-size: 12px;
+  font-size: var(--muses-font-label);
   opacity: 0.6;
+  margin-inline-end: var(--muses-space-xs);
+}
+
+@media (prefers-color-scheme: dark) {
+  .queue-overlay {
+    background: var(--muses-color-surface-dark);
+  }
 }
 </style>

@@ -18,27 +18,19 @@
     </div>
 
     <div class="player-actions">
-      <ion-button
-        fill="clear"
-        size="small"
+      <m-icon-button
+        :icon="isPlaying ? pause : play"
+        :ariaLabel="isPlaying ? '暂停播放' : '继续播放'"
         :disabled="!playerState.currentSong || playerState.status === 'loading'"
-        :aria-label="isPlaying ? '暂停播放' : '继续播放'"
-        @click.stop="togglePlayback"
-        @keyup.enter.stop
-        @keyup.space.stop
-      >
-        <ion-icon slot="icon-only" :icon="isPlaying ? pause : play" />
-      </ion-button>
-      <ion-button
-        fill="clear"
-        size="small"
-        aria-label="打开播放队列"
-        @click.stop="openQueuePage"
-        @keyup.enter.stop
-        @keyup.space.stop
-      >
-        <ion-icon slot="icon-only" :icon="list" />
-      </ion-button>
+        stop-propagation
+        @click="togglePlayback"
+      />
+      <m-icon-button
+        :icon="list"
+        ariaLabel="打开播放队列"
+        stop-propagation
+        @click="openQueuePage"
+      />
     </div>
   </div>
 </template>
@@ -46,9 +38,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { IonButton, IonIcon } from '@ionic/vue'
 import { list, pause, play } from '@/icons/ion-lucide'
-import { MCover } from '@/components/ui'
+import { MCover, MIconButton } from '@/components/ui'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 
@@ -155,7 +146,7 @@ const toDisplayableUri = (uri: string): string => {
 }
 
 .track-info span {
-  color: var(--ion-color-medium);
+  color: var(--muses-color-ink-muted);
   font-size: var(--muses-font-body-sm);
 }
 
@@ -163,7 +154,7 @@ const toDisplayableUri = (uri: string): string => {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 2px;
+  gap: var(--muses-space-xs);
 }
 
 @media (prefers-color-scheme: dark) {

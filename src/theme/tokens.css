@@ -68,6 +68,9 @@
   --muses-cover-size-sm: 48px;
   --muses-cover-size-md: 52px;
   --muses-song-row-height: 72px;
+  --muses-touch-target: 48px;
+  --muses-icon-size-md: 22px;
+  --muses-icon-size-lg: 24px;
   --muses-empty-state-min-height: 60vh;
   --muses-empty-state-max-width: 34rem;
 

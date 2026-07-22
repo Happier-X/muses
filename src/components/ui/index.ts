@@ -1,3 +1,6 @@
 export { default as MCover } from './MCover.vue'
 export { default as MEmptyState } from './MEmptyState.vue'
+export { default as MIconButton } from './MIconButton.vue'
+export { default as MListRow } from './MListRow.vue'
 export { default as MPage } from './MPage.vue'
+export { default as MSettingRow } from './MSettingRow.vue'
