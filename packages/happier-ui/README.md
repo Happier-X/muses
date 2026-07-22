@@ -11,10 +11,19 @@ import 'happier-ui/tokens.css'
 import { HIconButton, HListRow, HEmptyState, HSettingRow } from 'happier-ui'
 ```
 
+### 第二宿主冒烟
+
+见 **`apps/happier-ui-smoke`**（S3）：
+
+```bash
+npm run dev:smoke
+npm run build:smoke
+```
+
 ## Peer
 
 - **必选**：`vue` ^3.5
-- **可选**：`@ionic/vue` — 仅当使用 `HIconButton` 的 `icon` path（内部 `ion-icon`）时需要宿主已注册 Ionic
+- **`HIconButton`**：优先 **slot** 自定义图标；`icon` path 使用 Web Component `ion-icon`，宿主需自行加载 Ionic core（包 **不** import `@ionic/vue`）
 
 ## 不包含
 

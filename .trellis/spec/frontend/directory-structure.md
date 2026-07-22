@@ -11,6 +11,8 @@ The repository is a single frontend app with a simple Ionic Vue layout. Code is 
 Current structure（npm workspaces monorepo）：
 
 ```text
+apps/
+└── happier-ui-smoke/           # S3：第二宿主冒烟（纯 Vue + Capacitor 配置）
 packages/
 └── happier-ui/                 # 通用 token + 语义组件（可跨项目）
     ├── package.json

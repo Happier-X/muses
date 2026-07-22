@@ -1,0 +1,7 @@
+{"path": "packages/happier-ui/package.json", "type": "code"}
+{"path": "packages/happier-ui/src/index.ts", "type": "code"}
+{"path": "packages/happier-ui/README.md", "type": "code"}
+{"path": "package.json", "type": "code"}
+{"path": "vite.config.ts", "type": "code"}
+{"path": ".trellis/tasks/archive/2026-07/07-22-happier-ui-monorepo/design.md", "type": "context"}
+{"path": ".trellis/spec/frontend/directory-structure.md", "type": "spec"}
