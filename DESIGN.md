@@ -101,7 +101,7 @@ components:
 
 列表与导航像关掉场灯的过道：安静、可读、可预期；真正开灯的只有沉浸播放页——封面、动态背景与逐词歌词占满注意力。产品个性是沉静、可靠、专注：工具感来自可信，而不是装饰。
 
-视觉系统建立在 **Ionic 应用壳 + HeroUI primary + 语义 token** 之上。权威 token 与通用组件在 **仓外独立库 `../happier-ui`**（`happier-ui/tokens.css`，前缀 **`--h-*`**）；`--muses-*` 为兼容别名。`src/theme/tokens.css` 仅 re-import 包；`variables.css` 把 `--h-*` 桥接到 Ionic。主色 HeroUI `common.blue`（`#006FEE`）。Muses `@/components/ui` re-export / Cover 包装；库在独立仓开发，应用内逐个替换。首版样式参照 **HeroUI Native**。flat 列表 + 沉浸舞台；非 Material。
+视觉系统建立在 **Ionic 应用壳 + HeroUI primary + 语义 token** 之上。权威 token 与通用组件来自 npm **`happier-ui@0.0.1`**（`happier-ui/tokens.css`，前缀 **`--h-*`**）；`--muses-*` 为兼容别名。默认不得提交 `file:` 依赖或相邻源码 alias。`src/theme/tokens.css` re-import 包 token，`variables.css` 把 `--h-*` 桥接到 Ionic。主色 HeroUI `common.blue`（`#006FEE`）。`src/components/ui` 仅转出库真实导出与 app-only `MCover`/`MPage`。flat 列表 + 沉浸舞台；非 Material。
 
 **Key Characteristics:**
 - 双层体验：曲库列表克制；沉浸页是听歌主舞台
@@ -177,25 +177,25 @@ components:
 
 气质总则：**沉浸页柔和，列表干脆。**
 
-薄语义组件位于 `src/components/ui/`（→ `happier-ui`）。通用组件纯 Vue 优先；**禁止** `MIon*`、全量复刻 Modal/Tab。视觉值走 `--h-*` / `--muses-*` 别名；首版形貌对齐 HeroUI Native 节奏，无 Material elevation。
+通用语义组件来自 `happier-ui@0.0.1`；`src/components/ui/` 只 re-export 真实库导出，并保留 app-only `MCover`/`MPage`。视觉值走 `--h-*` / `--muses-*` 别名；禁止 `MIon*`、Material elevation，以及在 Muses 新造通用平行 M* 组件。库没有的列表行、设置行、icon-only 按钮等继续保留 Ionic/业务实现并登记任务 `gaps.md`，未来回 happier-ui 开发。
 
 | 组件 | 用途 |
 |------|------|
-| `MEmptyState` | 空列表标题/说明/操作槽 |
-| `MCover` | 列表与 MiniPlayer 封面/占位 |
-| `MPage` | 简单 Ionic 页壳 |
-| `MIconButton` | 图标触控；默认 48×48 热区，图标 ~22px；纯 button，无 FAB 阴影 |
-| `MListRow` | 曲目/队列行；封面 + 标题/副标题 + end 槽；playing 用 primary 浅底 |
-| `MSettingRow` | 设置行壳；label/description + end 槽（toggle 仍 ion-toggle） |
+| `HButton` / `HSwitch` / `HInput` / `HCheckbox` | 通用操作与表单控件 |
+| `HEmpty` / `HImage` / `HIcon` | 空态、通用图片、`@lucide/vue` 图标渲染 |
+| `HTabBar` / `HNavBar` | 导航视觉层；Ionic 路由宿主继续保留 |
+| `HBottomSheet` / `HDialog` | 库真实导出；本轮叠层引擎仍保留 Ionic |
+| `MCover` | app-only，列表与 MiniPlayer 音乐封面/占位 |
+| `MPage` | app-only，简单 Ionic 页壳 |
 
 ### Buttons
-- **Shape:** 列表内文本/清空按钮；纯图标触控用 `MIconButton`；沉浸主控 52×52（播放 68×68），无填充圆钮默认
+- **Shape:** 带文字操作优先 `HButton`；纯图标触控因库缺口保留 Ionic 按钮壳，但图标必须是 `HIcon`，并登记 `HIconButton` 缺口；沉浸主控 52×52（播放 68×68），无填充圆钮默认
 - **Primary actions:** 依赖 Ionic `color="primary"` 或图标实心 fill（播放主控）
 - **Immersive mode buttons:** 默认 `rgba(255,255,255,0.58)`，激活纯白
 - **Lyric FAB:** 40×40 胶囊（`border-radius: 999px`），半透明黑底 + 可选 `backdrop-filter: blur(10px)`，仅歌词页按需显示；激活时白底 22% 透明
 
 ### List rows / covers
-- **Song row (`MListRow`):** `--min-height: var(--muses-song-row-height)`（72px）；封面 52×52，`border-radius: 10px`
+- **Song row（当前 Ionic/业务实现）:** `--min-height: var(--muses-song-row-height)`（72px）；封面 52×52，`border-radius: 10px`；待 happier-ui 提供 `HListRow` 后再回迁
 - **Playlist / smaller covers:** 常为 `8px` 圆角（`coverRadius="sm"`）
 - **Playing state:** 背景 `rgba(primary, 0.1)`；跳转高亮 `0.22`
 - **Placeholder cover:** `rgba(medium-rgb, 0.16)` 底 + medium 图标
@@ -234,7 +234,7 @@ components:
 - **Do** 为 Tab + MiniPlayer 预留底部滚动空间（约 128px + safe-area；平板相应减少）。
 - **Do** 动效只表达状态（开合沉浸页、队列滑入、FAB 显隐），时长约 180–220ms，`ease` / 非弹性。
 - **Do** 尊重安全区、系统返回与「减少动态效果」；沉浸手势不得破坏系统可控性。
-- **Do** 图标语义一致（Lucide 经 `ion-icon` 适配）；播放主控 fill，列表次要动作线框。
+- **Do** 图标语义一致（`@lucide/vue` 组件经 `HIcon` 渲染）；播放主控 fill，列表次要动作线框。
 - **Do** 触控目标尽量 ≥44–48dp 量级（主控 52–68、Tab ≥52）。
 
 ### Don't:

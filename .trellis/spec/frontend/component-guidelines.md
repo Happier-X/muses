@@ -35,50 +35,40 @@ Examples:
 
 ## Muses 语义组件层 → `happier-ui`
 
-通用组件与 token 在仓外独立库 **`../happier-ui`**（`file:../happier-ui`）；应用通过 `@/components/ui` re-export 兼容 `M*` 名，可逐个改为直接 `import from 'happier-ui'`。
+Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.1`**，不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
 
 - **权威 token**：包内 `happier-ui/tokens.css` 的 **`--h-*`**；`--muses-*` 为兼容别名。
-- **实现**：通用壳 **纯 Vue 优先**；`@ionic/vue` 仅 optional peer（`HIconButton` 的 `ion-icon` path 过渡）。
+- **边界**：真实库导出为 `HButton`、`HSwitch`、`HBottomSheet`、`HDialog`、`HInput`、`HCheckbox`、`HEmpty`、`HImage`、`HIcon`、`HTabBar`、`HNavBar`；app-only 为 `MCover`（音乐封面）与 `MPage`（Ionic 宿主页壳）。
 - **首版视觉**：HeroUI Native 角色与触控节奏；**不**引入 `heroui-native` / RN。
 - **禁止**：`MIon*`、整库复刻 Ionic、Material elevation、包内 `@/features` / 业务。
 
-### 现有组件契约
+### 组件契约
 
-| 组件 | 语义 | 实现 | 进包 v0.1 |
-|------|------|------|-----------|
-| `MEmptyState` | 空列表 | 纯布局 | 是 |
-| `MIconButton` | 图标触控（≥48） | 纯 `button` + `ion-icon` 渲染 path | 是 |
-| `MListRow` | 曲目/队列行 | 纯 `div` + 可选 `MCover` | 是（Cover 可换 slot） |
-| `MSettingRow` | 设置行壳 | 纯布局 + end 槽 | 是 |
-| `MPage` | 简单页壳 | **HOST-IONIC** `ion-page`… | 否（暂 app） |
-| `MCover` | 音乐封面 | `ion-icon` + ion-lucide | **否 app-only** |
+`src/components/ui/index.ts` 只转出 happier-ui@0.0.1 的真实导出，并附带 `MCover`、`MPage`。已消失的 `HEmptyState`、`HIconButton`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow` 均不得恢复。Muses 不新造这些通用平行组件；库缺口保留 Ionic/业务实现并登记 `.trellis/tasks/07-23-happier-ui-full-migrate/gaps.md`，未来在 happier-ui 仓库开发后再回迁。
 
 ### 使用规则
 
 - 通过 `@/components/ui` 具名导入。组件只表达语义，**不**读取播放、曲库等业务状态。
 - 新样式优先 `--h-*` 或已有 `--muses-*` 别名；不得新硬编码主色 / elevation。
-- `MIconButton`：`ariaLabel` 必填；**图标 data 由调用方传入**（如 `@/icons/ion-lucide`），组件不 import 映射表；`color="danger"` 等语义色。
-- `MListRow`：根为 `div`（可点时 `role=button`），避免与 end 槽按钮嵌套；`playing` 背景；不负责 virtualizer。
-- `MSettingRow`：toggle 仍 `ion-toggle` 于 end 槽。
-- `MCover` / `MPage`：见上表；包抽取时勿默认导出 Cover。
+- `HEmpty`、`HButton`、`HSwitch`、`HInput`、`HCheckbox` 等已有能力优先使用；`MCover` 仅用于音乐封面业务。
+- 通用列表行、设置行、icon-only 按钮等 0.0.1 缺口不在 Muses 造替代组件，具体落点以 `gaps.md` 为准。
 
 ### 何时直连 `ion-*`（白名单）
 
-业务页可直接使用下列 Ionic 能力；**新增** UI 仍不得写死色/圆角，应用 token 或走 `M*`：
+业务页可直接使用下列 Ionic 能力；**新增** UI 仍不得写死色/圆角，应使用 token 或 happier-ui：
 
 | 允许直连 | 原因 |
 |----------|------|
 | `ion-page` / `ion-header` / `ion-toolbar` / `ion-title` / `ion-content` / `ion-buttons` | 页面壳；简单页优先 `MPage`，复杂双 toolbar / overlay 可直连 |
 | `ion-list` | 结构容器，暂不封装 |
-| `ion-button`（带文字，如「随机播放全部」「检查更新」） | 非纯图标主操作；纯图标触控用 `MIconButton` |
+| `ion-button`（带文字或纯图标缺口） | 带文字操作优先 `HButton`；icon-only 等库缺口保留 Ionic 壳并登记 |
 | `ion-back-button` | 路由返回 |
-| `ion-toggle` / `ion-input` / `ion-range` | 表单控件本体；行壳用 `MSettingRow` |
-| `ion-action-sheet` / `ion-alert` / `ion-modal` / `ion-fab` | 本任务不封装的系统级交互 |
-| `ion-icon` | 仅在已有文字按钮 / 未迁移点；新图标触控优先 `MIconButton` |
-| `ion-note` | 次要标注（如队列序号） |
+| `ion-toggle` / `ion-input` / `ion-checkbox` / `ion-range` | 优先 `HSwitch`/`HInput`/`HCheckbox`；`ion-range` 及未覆盖能力按缺口保留 |
+| `ion-action-sheet` / `ion-alert` / `ion-modal` / `ion-fab` | 叠层/FAB 宿主；仅替换内部图标为 `HIcon` |
+| `ion-note` / `ion-item` / `ion-label` / `ion-card*` / `ion-text` / `ion-progress-bar` | 库缺口：列表行、设置行、卡片、提示、进度等，保留并登记 `gaps.md` |
 | `ion-router-outlet` / Tab 壳相关 | 应用壳，非语义组件 |
 
-**不要**直连：`ion-item` 拼封面+双行曲目行（用 `MListRow`）；裸 `ion-button`+`icon-only` 做列表 more/移除/MiniPlayer 控（用 `MIconButton`）；复制 `.empty-state` 结构（用 `MEmptyState`）。
+**禁止**：业务代码使用 `ion-icon` / `@/icons/ion-lucide` / `ionicons/icons`；为迁移率新建 `MListRow`/`MSettingRow`/`MIconButton` 或复制空态结构。库没有对应组件时，保留现有 Ionic/业务结构并登记 `gaps.md`。
 
 ## Ionic Page Pattern
 
@@ -137,7 +127,7 @@ Examples:
 
 - `src/App.vue` imports `IonApp` and `IonRouterOutlet`
 - `src/views/Tab1Page.vue` imports `IonPage`, `IonHeader`, `IonToolbar`, `IonTitle`, `IonContent`
-- `src/views/TabsPage.vue` imports tab and icon-related Ionic components plus icon symbols from `@/icons/ion-lucide`（Lucide → ion-icon 适配层）
+- `src/views/TabsPage.vue` 从 `@/icons` 导入 Lucide Vue 语义组件，并使用 `HIcon` 渲染
 
 Also prefer the `@/` alias for application imports from `src/`:
 
@@ -146,17 +136,16 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 ---
 
-## Icon Conventions（Lucide + ion-icon）
+## 图标约定（`@lucide/vue` + `HIcon`）
 
-业务侧图标数据统一来自 Lucide，经薄适配层转为 `ion-icon` 可用的 data-URI SVG：
+业务侧图标统一使用 `@lucide/vue` 的 Vue 组件，并交给 happier-ui 的 `HIcon` 渲染：
 
-- 适配层：`src/icons/ion-lucide.ts`
-- 导入：`import { play, pause, shuffle, ... } from '@/icons/ion-lucide'`
-- 渲染：继续使用 `<ion-icon :icon="..." />`（含 `slot="icon-only"`），**不要**引入 `lucide-vue-next` 等 Vue 图标组件替代 `ion-icon`
-- **禁止**业务代码 `import ... from 'ionicons/icons'`；`package.json` 可因 Ionic 间接依赖保留 `ionicons` 包
-- 播放模式状态图标必须可区分：`repeatOutline` vs `repeat`、`listOutline` vs `shuffle`，不得两状态共用同一图标
-- 尺寸与颜色仍由现有 CSS / `color` 控制；适配层默认 Lucide outline（viewBox 24、`fill: none` + `stroke: currentColor`）
-- **播放主控 fill**：`play` / `pause` / `playSkipBack` / `playSkipForward` 经 `lucideToIonIcon(..., { variant: 'fill' })` 导出为实心（`fill: currentColor`，并保留同色 stroke 以免 Skip 竖线等无面积 path 消失），供 `MiniPlayer` 播放/暂停、`PlayerPage` 主三键，以及**歌词页右下角浮动播放/暂停**使用
+- 语义导出：`src/icons/index.ts`；导入示例：`import { play, pause, shuffle } from '@/icons'`。
+- 渲染：使用 `<HIcon :icon="play" />`；业务代码禁止 `ion-icon`、`@/icons/ion-lucide` 与 `ionicons/icons` 直引。
+- `package.json` 可因 Ionic 框架运行时保留 `ionicons`，但业务图标不得消费它。
+- 播放模式状态图标必须可区分：`repeatOutline` vs `repeat`、`listOutline` vs `shuffle`，不得两状态共用同一图标。
+- 尺寸、颜色与 fill/outline 由 `HIcon` 属性及现有 CSS 控制，保持 `currentColor`。
+- **播放主控 fill**：`play` / `pause` / `playSkipBack` / `playSkipForward` 使用 `HIcon` 的 fill 变体，供 `MiniPlayer`、`PlayerPage` 主三键及歌词页浮动播放控件使用。
 - **次级仍 outline**：列表「播放全部」用 `playOutline`（与 `play` 解耦，保持线框）；模式键（`shuffle` / `repeat*` / 顺序用 `listOutline`）、队列入口（`list`）、返回、翻译等继续 outline
 - **禁止**歌词页浮动播放键再使用圆形 `PlayCircle` / `PauseCircle`；必须与主控同一对 `play` / `pause`（fill）
 - **歌词翻译开关必须可区分且同族**：开 = `languageOutline`（Lucide `Captions`），关 = `languageOffOutline`（Lucide `CaptionsOff`）；同一字幕图标族，只差开/关标记。禁止两态共用同一图标只靠透明度，也禁止开态用 `Languages`、关态用 `CaptionsOff` 这种跨族搭配。`aria-label` 仍为「隐藏翻译」/「显示翻译」，并保留 `.is-active` 高亮作为辅助
@@ -164,7 +153,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 ### 同语义同图标（list vs listOutline）
 
-适配层用不同 Lucide 图标区分历史 ionicons 名；业务侧必须按语义选用，**不得混用**：
+`src/icons` 用不同 Lucide Vue 组件区分历史 ionicons 语义名；业务侧必须按语义选用，**不得混用**：
 
 | 语义 | 导出符号 | Lucide | 调用点示例 |
 |------|----------|--------|------------|
@@ -190,7 +179,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 - 歌词页翻译键：`showLyricTranslation` 为 true 用 `languageOutline`，为 false 用 `languageOffOutline`；**不得**两态共用 `languageOutline`。
 - **导航 Tab 图标**：`albums` → Lucide `Disc3`（禁止 `DiscAlbum`）；`person` → Lucide `MicVocal`（禁止通用 `User`）；`radio` → Lucide `Folder`（音源是文件夹/目录语义，**禁止** `Radio` 电台图标，尽管导出符号历史名仍为 `radio`）。
 - 业务侧继续使用既有导出名 `albums` / `person` / `radio`，**不要**为改 Lucide 几何而重命名调用点；新代码优先与 `TabsPage` 保持一致。
-- `musicalNotes` 与 `musicalNotesOutline`、`add` 与 `addOutline` 在适配层已是同一 Lucide 几何的别名，视觉已一致；可不强制改名，但新代码优先与现有调用点保持一致。
+- `musicalNotes` 与 `musicalNotesOutline`、`add` 与 `addOutline` 在 `@/icons` 中已是同一 Lucide 几何的别名，视觉已一致；可不强制改名，但新代码优先与现有调用点保持一致。
 
 ---
 
@@ -223,7 +212,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 - 位置：放在 `ion-header` 的第二个 `ion-toolbar.shuffle-toolbar` 中，使入口与 Navbar 一起固定，不随 `ion-content` 中的歌曲列表滚动。
 - 布局：按钮容器在窄屏左对齐；宽屏使用 `max-width: var(--muses-content-max-width)` 与 `margin-inline: auto` 限宽居中，按钮仍位于内容左侧。
-- 样式：使用紧凑的 `fill="clear"` 按钮，展示 Lucide 适配层导出的 `shuffle` 图标与“随机播放全部”文字；不得使用 `expand="block"` 或整行描边操作条。
+- 样式：优先 `HButton` + `HIcon` 展示 `@/icons` 的 `shuffle` 与「随机播放全部」文案；若仍用 Ionic 文字按钮，内部图标也必须是 `HIcon`，不得使用 `expand="block"` 或整行描边操作条。
 - 禁止恢复为 `ion-content slot="fixed"` 的底部 `.bottom-actions`，也不要把入口放入会随列表滚走的普通内容流。
 - 无歌曲时按钮仍出现且 `:disabled`，点击不产生副作用；保留 `aria-label="随机播放全部"`。
 - 点击语义：`clearQueue()` → `enqueueSongs(allSongs)` → 若 `!shuffleEnabled()` 则 `toggleShuffle()` → `selectSongAtIndex(0)` → `playSong(first)`。
@@ -237,10 +226,12 @@ Also prefer the `@/` alias for application imports from `src/`:
   <ion-toolbar><!-- 标题与搜索 --></ion-toolbar>
   <ion-toolbar class="shuffle-toolbar">
     <div class="shuffle-actions">
-      <ion-button fill="clear" aria-label="随机播放全部">
-        <ion-icon slot="start" :icon="shuffle" aria-hidden="true" />
+      <HButton variant="ghost" aria-label="随机播放全部">
+        <template #leading>
+          <HIcon :icon="shuffle" aria-hidden="true" />
+        </template>
         随机播放全部
-      </ion-button>
+      </HButton>
     </div>
   </ion-toolbar>
 </ion-header>
@@ -250,7 +241,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 `src/views/SongsPage.vue` 在 `ion-content` 内右下侧放置 `ion-fab` / `ion-fab-button`，用于滚动到当前播放歌曲行：
 
-- 图标：Lucide 适配层导出的 `locateOutline`；`aria-label="跳转到当前播放"`。
+- 图标：`@/icons` 的 `locateOutline` 经 `HIcon` 渲染；`aria-label="跳转到当前播放"`。
 - 可见性：`v-if="currentPlayingInList"` —— 仅当 `playerState.currentSong?.id` 存在且该 id 出现在当前歌曲列表中时展示；无当前播放或不在列表则隐藏。
 - 行定位：每行 `ion-item` 带 `data-song-id="song.id"`；点击 FAB 用页面内 `[data-song-id]` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })`。
 - **避开粘性顶栏**：`block: 'start'` 只对齐滚动端口顶部，不扣除外层粘性 `ion-header`（标题 toolbar + `.shuffle-toolbar`）。必须在 `.song-item`（或带 `data-song-id` 的行）设置足够的 `scroll-margin-top`（约 112–128px，当前实现 120px，覆盖双 toolbar + 缓冲），使目标行完整出现在列表可视区内、标题主信息不被顶栏挡住。仅写 `block: 'start'` 而不设 margin/等价偏移会回归遮挡。
@@ -358,7 +349,7 @@ Do not duplicate Ionic core or utility CSS imports inside page components.
 - 点击底栏主体调用 `openPlayerOverlay()`，不能改变当前路由 URL。
 - **无当前歌曲时不可打开沉浸式播放页**：当 `playerState.currentSong` 为 `null` 时，点击主体或键盘 Enter / Space 都不得调用 `openPlayerOverlay()`；主体应标记 `aria-disabled`，并去掉 `cursor: pointer` 误导。
 - 点击播放/暂停按钮只控制播放状态，不能触发打开播放器 overlay。
-- 播放/暂停图标使用 `ion-lucide` 的 fill 导出（`play` / `pause`），与沉浸页主控一致；不得用 outline 或 ionicons 直引。
+- 播放/暂停图标使用 `@/icons` 的 `play` / `pause` 组件并由 `HIcon` 以 fill 变体渲染，与沉浸页主控一致；不得用 outline、`ion-icon` 或 ionicons 直引。
 - 无歌曲时播放/暂停按钮继续禁用；队列按钮行为不受影响，仍可打开队列 overlay。
 - 点击队列按钮调用 `openQueueOverlay()`，不能改变当前路由 URL，也不能触发打开播放器 overlay。
 - 对 Ionic `ion-button` 不要只依赖 `@click.stop`；按钮内部事件可能穿过 Web Component 边界。父级主体点击处理需要检查 `event.composedPath()`，如果事件路径包含 `.player-actions` 就直接忽略。
@@ -394,8 +385,8 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - `max-height: 720px`：减小 panel 上下 padding（保留 `safe-area`）、`info-panel-inner` gap、进度 slider 热区（约 20px）、主控与模式栏按钮尺寸，封面槽位拿到更多垂直空间。
   - `max-height: 520px`：再收一档 gap/字号/按钮/热区（约 18px），仍显示全部控件。
   - 不引入 landscape 专用 DOM；横屏通常命中 `max-height` 断点即可。padding 只减固定 px 部分，用 `calc(... + safe-area)`，不得抹掉安全区。
-- 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；图标使用 `ion-lucide` 的 fill 导出（`play` / `pause` / `playSkipBack` / `playSkipForward`），不得回退 outline 主控或 ionicons 直引；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
-- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons/ion-lucide` 导入：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `ListOrdered`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。**打开队列**按钮使用 `list`（Lucide `ListMusic`），与 `MiniPlayer` 队列键一致；不得用 `listOutline` 表示队列（`listOutline` 仅顺序播放）。
+- 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；图标从 `@/icons` 导入并由 `HIcon` 以 fill 变体渲染（`play` / `pause` / `playSkipBack` / `playSkipForward`），不得回退 outline 主控或 ionicons 直引；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
+- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons` 导入并由 `HIcon` 渲染：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `ListOrdered`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。**打开队列**按钮使用 `list`（Lucide `ListMusic`），与 `MiniPlayer` 队列键一致；不得用 `listOutline` 表示队列（`listOutline` 仅顺序播放）。
 - **歌词页浮动播放键**：窄屏歌词页右下角播放/暂停必须使用与主控相同的 `play` / `pause`（fill），禁止圆形 `PlayCircle` / `PauseCircle`。
 - 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位（`.cover-slot`：`flex: 1 1 auto; min-height: 0`）缩放，控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
 - 歌词页（AMLL）视觉约定：
@@ -456,7 +447,7 @@ import QueuePage from '@/views/QueuePage.vue'
 
 1. **WebDAV 默认关闭 `readTags`**：WebDAV 读标签需逐文件网络请求读取原生元数据，开启会明显变慢、易卡顿。`src/features/library/scanner.ts` 中 `options.readTags` 决定是否调用 `readWebDavAudioTags` / `WebDavNative.readMetadata`，关闭时回退为文件名标题。
 2. **本地音源默认开启 `readTags`**：本地元数据读取无网络开销，无需回归。
-3. **用户仍可手动切换**：弹窗中的 `ion-toggle v-model="scanOptions.readTags"` 不受默认值影响，用户可随时打开/关闭。
+3. **用户仍可手动切换**：弹窗中的 `HSwitch v-model="scanOptions.readTags"` 不受默认值影响，用户可随时打开/关闭。
 
 ### 正确实现
 

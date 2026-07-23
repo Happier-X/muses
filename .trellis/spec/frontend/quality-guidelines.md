@@ -22,7 +22,7 @@ Reference files:
 - `tests/unit/example.spec.ts`
 - `tests/e2e/specs/test.cy.ts`
 - `cypress.config.ts`
-- `vite.config.ts`
+- `vite.config.ts`（仅构建配置；不得包含指向 `../happier-ui/src` 的 alias）
 
 ---
 
@@ -159,7 +159,8 @@ Avoid:
 
 依赖升级必须按兼容组分层验证，不能只改版本号：
 
-- Capacitor 核心与插件保持同一主版本；Ionic Vue 与其间接依赖的 `ionicons` 采用声明的兼容组合（框架运行时仍可能需要 `ionicons` 包）。业务侧图标统一走 Lucide + `@/icons/ion-lucide` 适配层，禁止业务代码 `import ... from 'ionicons/icons'`。
+- Capacitor 核心与插件保持同一主版本；Ionic Vue 与其间接依赖的 `ionicons` 采用声明的兼容组合（框架运行时仍可能需要 `ionicons` 包）。业务侧图标全面使用 `@lucide/vue` 组件 + happier-ui `HIcon`，禁止 `ion-icon`、`@/icons/ion-lucide` 与 `import ... from 'ionicons/icons'`。
+- `happier-ui` 默认固定使用 npm `happier-ui@0.0.1`；不得提交 `file:../happier-ui` 或相邻源码 alias。库没有的组件保留 Ionic/业务实现并登记任务 `gaps.md`，不得在 Muses 新造通用平行 M* 组件。
 - Vite、Vue 插件、legacy 插件应作为一组升级；Vitest 与 jsdom、ESLint 与 Vue/TypeScript 配置链也应分别成组验证。
 - 每组升级后运行 lint、build 和完整 unit test；最终执行 `npm ci` 验证锁文件可干净重建，并运行 `npx cap sync android` 检查原生插件同步。
 - 跨主版本若失败，任务记录必须保留具体命令和兼容性证据，不得为了满足“最新”强行破坏可构建组合。

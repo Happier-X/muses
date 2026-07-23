@@ -8,21 +8,18 @@
 
 The repository is a single frontend app with a simple Ionic Vue layout. Code is currently organized by technical role rather than by feature folder.
 
-通用 UI 库在 **仓外** `../happier-ui`（独立 git）；Muses 通过 `file:../happier-ui` 依赖。
+通用 UI 库为 npm 依赖 **`happier-ui@0.0.1`**；禁止提交 `file:../happier-ui`，也禁止 Vite/TypeScript 指向相邻仓库源码 alias。
 
 ```text
-# 同级
-../happier-ui/                  # 独立库 + playground
 src/
 ├── App.vue
 ├── main.ts
 ├── components/
 │   ├── MiniPlayer.vue
-│   └── ui/                     # app 兼容层
-│       ├── index.ts            # re-export happier-ui + app-only
-│       ├── MListRow.vue        # 包装 HListRow + MCover
-│       ├── MCover.vue          # app-only
-│       └── MPage.vue           # HOST-IONIC
+│   └── ui/                     # 库导出与 app-only 边界层
+│       ├── index.ts            # re-export happier-ui 真实导出 + app-only
+│       ├── MCover.vue          # app-only 音乐封面
+│       └── MPage.vue           # app-only HOST-IONIC 页壳
 ├── theme/
 │   ├── tokens.css              # @import happier-ui/tokens.css
 │   └── variables.css           # Ionic 桥接
@@ -46,14 +43,15 @@ tests/
 
 Use the existing split unless the codebase grows enough to justify feature modules:
 
-- `src/main.ts` owns app bootstrap, plugin registration, global CSS imports, and mount timing.
+- `src/main.ts` owns app bootstrap, plugin registration, global CSS imports, and mount timing；必须加载 `happier-ui/style.css`。
 - `src/App.vue` is the root shell and should stay minimal.
 - `src/router/index.ts` owns route records and redirects.
 - `src/views/` contains route-level pages.
 - `src/components/` contains reusable UI pieces used by pages.
-- 仓外 `../happier-ui`：跨项目包；依赖 `file:../happier-ui`；库内开发 + playground 目视，Muses 逐个替换。
-- `src/components/ui/`：兼容层——从 `happier-ui` re-export；`MListRow` 包装默认封面；`MCover`/`MPage` 仅 app。
-- `src/icons/`：调用方把 icon data 传给 `MIconButton`/`HIconButton`。
+- `happier-ui@0.0.1`：npm 发布包；默认以 registry 版本为准，本地联调只可临时 link，完成后恢复 npm 依赖。
+- `src/components/ui/`：边界层——只 re-export 库真实导出与 app-only 的 `MCover`/`MPage`；不新增通用 M* 平行组件。
+- `src/icons/`：导出 `@lucide/vue` 语义组件；业务统一通过 happier-ui `HIcon` 渲染，禁止旧 `ion-lucide` 适配层。
+- 库没有对应能力的 Ionic/业务落点记录在任务 `gaps.md`，未来回到 happier-ui 仓库开发。
 - `src/theme/tokens.css`：仅 `@import 'happier-ui/tokens.css'`。
 - `src/theme/variables.css`：Ionic 桥接 `--h-*`；`main.ts` 先 tokens 再本文件。
 
