@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "发布约定：三处版本、changelog、npm ci、tag 与 APK 验收"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "frontend 规范入口"}
+{"file": ".trellis/tasks/07-24-release-v0.2.1/prd.md", "reason": "发布需求与验收"}
+{"file": ".trellis/tasks/07-24-release-v0.2.1/design.md", "reason": "版本契约与流水线"}
+{"file": ".trellis/tasks/07-24-release-v0.2.1/implement.md", "reason": "分步执行与验证命令"}
+{"file": "changelog/v0.2.0.md", "reason": "Changelog 语气与结构参考"}
+{"file": ".github/workflows/release.yml", "reason": "tag 触发与产物命名契约"}

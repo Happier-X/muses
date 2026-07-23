@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "核对版本三处同步、changelog、验证命令与 tag 流程"}
+{"file": ".trellis/tasks/07-24-release-v0.2.1/prd.md", "reason": "验收标准"}
+{"file": ".trellis/tasks/07-24-release-v0.2.1/design.md", "reason": "版本契约与失败处理"}
+{"file": ".trellis/tasks/07-24-release-v0.2.1/implement.md", "reason": "步骤完成度"}
+{"file": ".github/workflows/release.yml", "reason": "Release 产物与 workflow 一致性"}
