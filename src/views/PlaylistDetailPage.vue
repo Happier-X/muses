@@ -7,12 +7,9 @@
         </ion-buttons>
         <ion-title>{{ playlist?.name ?? '歌单' }}</ion-title>
         <ion-buttons slot="end">
-          <m-icon-button
-            :icon="playOutline"
-            ariaLabel="播放全部"
-            :disabled="resolvedSongs.length === 0"
-            @click="onPlayAll"
-          />
+          <ion-button fill="clear" aria-label="播放全部" :disabled="resolvedSongs.length === 0" @click="onPlayAll">
+            <h-icon :icon="playOutline" />
+          </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -24,9 +21,9 @@
       </ion-header>
 
       <div class="tablet-content-limit">
-        <m-empty-state v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
+        <h-empty v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
 
-        <m-empty-state
+        <h-empty
           v-else-if="resolvedSongs.length === 0"
           title="歌单是空的"
           description="在歌曲页点「更多」→「加入歌单」添加歌曲。"
@@ -43,26 +40,29 @@
               :data-index="row.virtualRow.index"
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
-              <m-list-row
+              <ion-item
+                button
+                :detail="false"
+                lines="none"
                 class="song-item"
-                :title="row.song.title"
-                :subtitle="`${getSongArtistName(row.song)} - ${getSongAlbumName(row.song)}`"
-                :cover-src="getSongCoverSrc(row.song)"
-                :cover-size="48"
-                cover-radius="sm"
-                :playing="playerState.currentSong?.id === row.song.id"
+                :class="{ 'is-playing': playerState.currentSong?.id === row.song.id }"
                 @click="onPlaySong(row.song, $event)"
               >
-                <template #end>
-                  <m-icon-button
-                    class="more-button"
-                    :icon="removeCircleOutline"
-                    :ariaLabel="`从歌单移除 ${row.song.title}`"
-                    stop-propagation
-                    @click="onRemove(row.song.id)"
-                  />
-                </template>
-              </m-list-row>
+                <m-cover slot="start" :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
+                <ion-label>
+                  <h2>{{ row.song.title }}</h2>
+                  <p>{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
+                </ion-label>
+                <ion-button
+                  slot="end"
+                  fill="clear"
+                  class="more-button"
+                  :aria-label="`从歌单移除 ${row.song.title}`"
+                  @click.stop="onRemove(row.song.id)"
+                >
+                  <h-icon :icon="removeCircleOutline" />
+                </ion-button>
+              </ion-item>
             </div>
           </div>
         </div>
@@ -78,16 +78,19 @@ import { useRoute } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import {
   IonBackButton,
+  IonButton,
   IonButtons,
   IonContent,
   IonHeader,
+  IonItem,
+  IonLabel,
   IonPage,
   IonTitle,
   IonToolbar,
   onIonViewWillEnter,
 } from '@ionic/vue'
-import { playOutline, removeCircleOutline } from '@/icons/ion-lucide'
-import { MEmptyState, MIconButton, MListRow } from '@/components/ui'
+import { playOutline, removeCircleOutline } from '@/icons'
+import { HEmpty, HIcon, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'
@@ -228,6 +231,12 @@ onIonViewWillEnter(() => {
   top: 0;
   box-sizing: border-box;
   min-height: var(--muses-song-row-height);
+}
+
+/* 当前播放行：替代已删除 HListRow 的 playing 背景。 */
+:deep(.song-item.is-playing) {
+  --background: var(--muses-color-playing-bg);
+  background: var(--muses-color-playing-bg);
 }
 
 @media (min-width: 768px) {

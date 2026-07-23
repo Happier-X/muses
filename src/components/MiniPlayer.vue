@@ -18,19 +18,17 @@
     </div>
 
     <div class="player-actions">
-      <m-icon-button
-        :icon="isPlaying ? pause : play"
-        :ariaLabel="isPlaying ? '暂停播放' : '继续播放'"
+      <ion-button
+        fill="clear"
+        :aria-label="isPlaying ? '暂停播放' : '继续播放'"
         :disabled="!playerState.currentSong || playerState.status === 'loading'"
-        stop-propagation
-        @click="togglePlayback"
-      />
-      <m-icon-button
-        :icon="list"
-        ariaLabel="打开播放队列"
-        stop-propagation
-        @click="openQueuePage"
-      />
+        @click.stop="togglePlayback"
+      >
+        <h-icon :icon="isPlaying ? pause : play" variant="fill" />
+      </ion-button>
+      <ion-button fill="clear" aria-label="打开播放队列" @click.stop="openQueuePage">
+        <h-icon :icon="list" />
+      </ion-button>
     </div>
   </div>
 </template>
@@ -38,8 +36,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { list, pause, play } from '@/icons/ion-lucide'
-import { MCover, MIconButton } from '@/components/ui'
+import { IonButton } from '@ionic/vue'
+import { list, pause, play } from '@/icons'
+import { HIcon, MCover } from '@/components/ui'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 

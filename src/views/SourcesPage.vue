@@ -5,14 +5,14 @@
         <ion-title>音源</ion-title>
         <ion-buttons slot="end">
           <ion-button aria-label="添加音源" @click="isAddActionSheetOpen = true">
-            <ion-icon slot="icon-only" :icon="add" aria-hidden="true" />
+            <h-icon slot="icon-only" :icon="add" aria-hidden="true" />
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
     <ion-content :fullscreen="true">
-      <m-empty-state
+      <h-empty
         v-if="sources.length === 0"
         title="还没有音源"
         description="点击右上角加号添加本地文件夹或 WebDAV 文件夹。"
@@ -39,18 +39,9 @@
                 <ion-card-content>
                   <p class="source-path">{{ sources[virtualRow.index].path }}</p>
                   <div class="source-actions">
-                    <ion-button size="small" fill="outline" @click="openEditSource(sources[virtualRow.index])">
-                      编辑
-                    </ion-button>
-                    <ion-button
-                      size="small"
-                      color="danger"
-                      fill="outline"
-                      @click="confirmDeleteSource(sources[virtualRow.index])"
-                    >
-                      删除
-                    </ion-button>
-                    <ion-button size="small" @click="openScanSettings(sources[virtualRow.index])">扫描</ion-button>
+                    <h-button size="sm" variant="outline" @click="openEditSource(sources[virtualRow.index])">编辑</h-button>
+                    <h-button size="sm" variant="danger-soft" @click="confirmDeleteSource(sources[virtualRow.index])">删除</h-button>
+                    <h-button size="sm" variant="primary" @click="openScanSettings(sources[virtualRow.index])">扫描</h-button>
                   </div>
                 </ion-card-content>
               </ion-card>
@@ -86,61 +77,37 @@
 
         <ion-content class="ion-padding">
           <form class="edit-source-form" @submit.prevent="saveEditedSource">
-            <ion-list inset>
-              <ion-item>
-                <ion-input v-model="editSourceForm.name" label="显示名称" label-placement="stacked" required />
-              </ion-item>
+            <div class="form-fields">
+              <h-input v-model="editSourceForm.name" label="显示名称" />
               <template v-if="sourcePendingEdit?.type === 'webdav'">
-                <ion-item>
-                  <ion-input
-                    v-model="editSourceForm.serverUrl"
-                    label="服务器地址"
-                    label-placement="stacked"
-                    type="url"
-                    required
-                  />
-                </ion-item>
-                <ion-item>
-                  <ion-input
-                    v-model="editSourceForm.username"
-                    label="用户名"
-                    label-placement="stacked"
-                    autocomplete="username"
-                    required
-                  />
-                </ion-item>
-                <ion-item>
-                  <ion-input
-                    v-model="editSourceForm.password"
-                    label="新密码"
-                    label-placement="stacked"
-                    autocomplete="new-password"
-                    type="password"
-                    helper-text="留空则保留原密码"
-                  />
-                </ion-item>
+                <h-input v-model="editSourceForm.serverUrl" label="服务器地址" type="url" />
+                <h-input v-model="editSourceForm.username" label="用户名" autocomplete="username" />
+                <h-input
+                  v-model="editSourceForm.password"
+                  label="新密码"
+                  type="password"
+                  autocomplete="new-password"
+                  description="留空则保留原密码"
+                />
               </template>
-              <ion-item>
-                <ion-input v-model="editSourceForm.path" label="目录" label-placement="stacked" required />
-              </ion-item>
-            </ion-list>
+              <h-input v-model="editSourceForm.path" label="目录" />
+            </div>
 
-            <ion-button
+            <h-button
               v-if="sourcePendingEdit?.type === 'local'"
-              expand="block"
-              fill="outline"
+              variant="outline"
               type="button"
               :disabled="isEditSaving"
               @click="pickEditedLocalDirectory"
             >
               重新选择目录
-            </ion-button>
+            </h-button>
             <ion-text v-if="editErrorMessage" color="danger">
               <p class="message-text">{{ editErrorMessage }}</p>
             </ion-text>
-            <ion-button expand="block" type="submit" :disabled="isEditSaving">
+            <h-button variant="primary" type="submit" :disabled="isEditSaving">
               {{ isEditSaving ? '正在保存…' : '保存修改' }}
-            </ion-button>
+            </h-button>
           </form>
         </ion-content>
       </ion-modal>
@@ -156,13 +123,14 @@
         </ion-header>
 
         <ion-content class="ion-padding">
-          <ion-list inset>
-            <ion-item>
-              <ion-toggle v-model="scanOptions.readTags">读取音乐标签</ion-toggle>
-            </ion-item>
-          </ion-list>
+          <div class="form-fields">
+            <div class="setting-inline">
+              <span>读取音乐标签</span>
+              <h-switch v-model="scanOptions.readTags" aria-label="读取音乐标签" />
+            </div>
+          </div>
           <p class="scan-hint">开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。</p>
-          <ion-button expand="block" :disabled="!selectedScanSource" @click="startScan">开始扫描</ion-button>
+          <h-button variant="primary" :disabled="!selectedScanSource" @click="startScan">开始扫描</h-button>
         </ion-content>
       </ion-modal>
 
@@ -218,41 +186,29 @@
 
         <ion-content class="ion-padding">
           <form class="webdav-form" @submit.prevent="connectWebDav">
-            <ion-list inset>
-              <ion-item>
-                <ion-input
-                  v-model="webDavForm.serverUrl"
-                  label="服务器地址"
-                  label-placement="stacked"
-                  placeholder="https://example.com/dav"
-                  type="url"
-                  required
-                />
-              </ion-item>
-              <ion-item>
-                <ion-input
-                  v-model="webDavForm.username"
-                  label="用户名"
-                  label-placement="stacked"
-                  autocomplete="username"
-                  required
-                />
-              </ion-item>
-              <ion-item>
-                <ion-input
-                  v-model="webDavForm.password"
-                  label="密码"
-                  label-placement="stacked"
-                  autocomplete="current-password"
-                  type="password"
-                  required
-                />
-              </ion-item>
-            </ion-list>
+            <div class="form-fields">
+              <h-input
+                v-model="webDavForm.serverUrl"
+                label="服务器地址"
+                placeholder="https://example.com/dav"
+                type="url"
+              />
+              <h-input
+                v-model="webDavForm.username"
+                label="用户名"
+                autocomplete="username"
+              />
+              <h-input
+                v-model="webDavForm.password"
+                label="密码"
+                type="password"
+                autocomplete="current-password"
+              />
+            </div>
 
-            <ion-button expand="block" type="submit" :disabled="isWebDavLoading">
+            <h-button variant="primary" type="submit" :disabled="isWebDavLoading">
               {{ isWebDavConnected ? '重新连接' : '连接并浏览' }}
-            </ion-button>
+            </h-button>
           </form>
 
           <ion-text v-if="errorMessage" color="danger">
@@ -264,38 +220,36 @@
 
           <section v-if="isWebDavConnected" class="webdav-browser">
             <div class="browser-header">
-              <ion-button fill="clear" size="small" :disabled="!parentWebDavPath || isWebDavLoading" @click="goToParentDirectory">
+              <h-button variant="ghost" size="sm" :disabled="!parentWebDavPath || isWebDavLoading" @click="goToParentDirectory">
                 返回上级
-              </ion-button>
+              </h-button>
               <span class="current-path">{{ currentWebDavPath }}</span>
             </div>
 
-            <ion-list v-if="webDavDirectories.length > 0" inset>
-              <ion-item v-for="directory in webDavDirectories" :key="directory.path">
-                <ion-checkbox
-                  slot="start"
-                  :checked="selectedWebDavPaths.has(directory.path)"
-                  @ionChange="toggleWebDavSelection(directory.path)"
+            <div v-if="webDavDirectories.length > 0" class="webdav-dir-list">
+              <div v-for="directory in webDavDirectories" :key="directory.path" class="webdav-dir-row">
+                <h-checkbox
+                  :model-value="selectedWebDavPaths.has(directory.path)"
+                  :aria-label="`选择 ${directory.basename}`"
+                  @update:model-value="setWebDavSelection(directory.path, $event)"
                 />
-                <ion-label @click="openWebDavDirectory(directory.path)">
-                  <h2>{{ directory.basename }}</h2>
-                  <p>{{ directory.path }}</p>
-                </ion-label>
-                <ion-button fill="clear" slot="end" @click="openWebDavDirectory(directory.path)">
-                  进入
-                </ion-button>
-              </ion-item>
-            </ion-list>
+                <button type="button" class="webdav-dir-meta" @click="openWebDavDirectory(directory.path)">
+                  <strong>{{ directory.basename }}</strong>
+                  <span>{{ directory.path }}</span>
+                </button>
+                <h-button variant="ghost" size="sm" @click="openWebDavDirectory(directory.path)">进入</h-button>
+              </div>
+            </div>
 
             <p v-else class="empty-directory">当前目录没有可添加的子文件夹。</p>
 
-            <ion-button
-              expand="block"
+            <h-button
+              variant="primary"
               :disabled="selectedWebDavPaths.size === 0 || isWebDavLoading"
               @click="addSelectedWebDavSources"
             >
               添加选中的 {{ selectedWebDavPaths.size }} 个文件夹
-            </ion-button>
+            </h-button>
           </section>
         </ion-content>
       </ion-modal>
@@ -317,11 +271,8 @@ import {
   IonCardHeader,
   IonCardSubtitle,
   IonCardTitle,
-  IonCheckbox,
   IonContent,
   IonHeader,
-  IonIcon,
-  IonInput,
   IonItem,
   IonLabel,
   IonList,
@@ -331,13 +282,12 @@ import {
   IonProgressBar,
   IonText,
   IonTitle,
-  IonToggle,
   IonToolbar,
   type ActionSheetButton,
   type AlertButton,
 } from '@ionic/vue'
-import { add } from '@/icons/ion-lucide'
-import { MEmptyState } from '@/components/ui'
+import { add } from '@/icons'
+import { HButton, HCheckbox, HEmpty, HIcon, HInput, HSwitch } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,
@@ -746,14 +696,13 @@ const goToParentDirectory = async (): Promise<void> => {
   await loadWebDavDirectories(parentWebDavPath.value)
 }
 
-const toggleWebDavSelection = (path: string): void => {
+const setWebDavSelection = (path: string, selected: boolean): void => {
   const nextSelectedPaths = new Set(selectedWebDavPaths.value)
-  if (nextSelectedPaths.has(path)) {
-    nextSelectedPaths.delete(path)
-  } else {
+  if (selected) {
     nextSelectedPaths.add(path)
+  } else {
+    nextSelectedPaths.delete(path)
   }
-
   selectedWebDavPaths.value = nextSelectedPaths
 }
 
@@ -865,7 +814,48 @@ const addSourceButtons: ActionSheetButton[] = [
 
 .edit-source-form,
 .webdav-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   margin-bottom: 16px;
+}
+
+.form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.setting-inline,
+.webdav-dir-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.webdav-dir-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--muses-color-border-subtle);
+}
+
+.webdav-dir-meta {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.webdav-dir-meta span {
+  overflow: hidden;
+  color: var(--ion-color-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .message-text {

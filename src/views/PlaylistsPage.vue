@@ -5,7 +5,7 @@
         <ion-title>歌单</ion-title>
         <ion-buttons slot="end">
           <ion-button fill="clear" aria-label="新建歌单" @click="openCreateAlert">
-            <ion-icon slot="icon-only" :icon="addOutline" aria-hidden="true" />
+            <h-icon slot="icon-only" :icon="addOutline" aria-hidden="true" />
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
@@ -18,7 +18,7 @@
       </ion-header>
 
       <div class="tablet-content-limit">
-        <m-empty-state
+        <h-empty
           v-if="playlists.length === 0"
           title="还没有歌单"
           description="点右上角新建，或在歌曲页「更多」加入歌单。"
@@ -36,7 +36,7 @@
           >
             <m-cover slot="start" :size="48" radius="sm" alt="">
               <template #placeholder>
-                <ion-icon :icon="list" aria-hidden="true" />
+                <h-icon :icon="list" aria-hidden="true" />
               </template>
             </m-cover>
             <ion-label>
@@ -50,7 +50,7 @@
               aria-label="更多歌单操作"
               @click.stop="openPlaylistActions(item.id)"
             >
-              <ion-icon slot="icon-only" :icon="ellipsisVertical" aria-hidden="true" />
+              <h-icon slot="icon-only" :icon="ellipsisVertical" aria-hidden="true" />
             </ion-button>
           </ion-item>
         </ion-list>
@@ -92,7 +92,6 @@ import {
   IonButtons,
   IonContent,
   IonHeader,
-  IonIcon,
   IonItem,
   IonLabel,
   IonList,
@@ -104,8 +103,8 @@ import {
   type AlertButton,
   type AlertInput,
 } from '@ionic/vue'
-import { addOutline, ellipsisVertical, list } from '@/icons/ion-lucide'
-import { MCover, MEmptyState } from '@/components/ui'
+import { addOutline, ellipsisVertical, list } from '@/icons'
+import { HIcon, MCover, HEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,

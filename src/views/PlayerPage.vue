@@ -79,7 +79,7 @@
 
             <div class="controls">
               <ion-button fill="clear" color="light" shape="round" aria-label="上一曲" @click="onPrevious">
-                <ion-icon slot="icon-only" :icon="previousIcon" />
+                <h-icon slot="icon-only" :icon="previousIcon" variant="fill" />
               </ion-button>
               <ion-button
                 class="play-toggle"
@@ -90,10 +90,10 @@
                 aria-label="播放或暂停"
                 @click="togglePlayback"
               >
-                <ion-icon slot="icon-only" :icon="isPlaying ? pause : play" />
+                <h-icon slot="icon-only" :icon="isPlaying ? pause : play" variant="fill" />
               </ion-button>
               <ion-button fill="clear" color="light" shape="round" aria-label="下一曲" @click="onNext">
-                <ion-icon slot="icon-only" :icon="nextIcon" />
+                <h-icon slot="icon-only" :icon="nextIcon" variant="fill" />
               </ion-button>
             </div>
 
@@ -107,7 +107,7 @@
                 :aria-label="repeatModeLabel"
                 @click="onToggleRepeat"
               >
-                <ion-icon slot="icon-only" :icon="repeatIcon" />
+                <h-icon slot="icon-only" :icon="repeatIcon" />
               </ion-button>
 
               <ion-button
@@ -119,7 +119,7 @@
                 :aria-label="shuffleModeLabel"
                 @click="onToggleShuffle"
               >
-                <ion-icon slot="icon-only" :icon="shuffleIcon" />
+                <h-icon slot="icon-only" :icon="shuffleIcon" />
               </ion-button>
 
               <ion-button
@@ -130,7 +130,7 @@
                 aria-label="播放队列"
                 @click="goToQueue"
               >
-                <ion-icon slot="icon-only" :icon="listIcon" />
+                <h-icon slot="icon-only" :icon="listIcon" />
               </ion-button>
             </div>
           </div>
@@ -184,7 +184,7 @@
               :tabindex="lyricChromeVisible ? 0 : -1"
               @click.stop="onLyricTranslateClick"
             >
-              <ion-icon slot="icon-only" :icon="translationIcon" aria-hidden="true" />
+              <h-icon slot="icon-only" :icon="translationIcon" aria-hidden="true" />
             </ion-button>
 
             <ion-button
@@ -198,7 +198,7 @@
               :tabindex="lyricChromeVisible ? 0 : -1"
               @click.stop="onLyricPlayClick"
             >
-              <ion-icon slot="icon-only" :icon="isPlaying ? pause : play" aria-hidden="true" />
+              <h-icon slot="icon-only" :icon="isPlaying ? pause : play" variant="fill" />
             </ion-button>
           </div>
         </section>
@@ -208,10 +208,11 @@
 </template>
 
 <script setup lang="ts">
+import { HIcon } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { IonButton, IonIcon, IonRange } from '@ionic/vue'
-import { languageOffOutline, languageOutline, list, listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from '@/icons/ion-lucide'
+import { IonButton, IonRange } from '@ionic/vue'
+import { languageOffOutline, languageOutline, list, listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from '@/icons'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
@@ -1199,7 +1200,7 @@ onUnmounted(() => {
   pointer-events: auto;
 }
 
-.lyric-fab ion-icon {
+.lyric-fab :deep(.h-icon) {
   width: 20px;
   height: 20px;
   font-size: 20px;

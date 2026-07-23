@@ -11,7 +11,7 @@
             lines="none"
             :class="{ 'is-active': isNavActive(item.to) }"
           >
-            <ion-icon slot="start" aria-hidden="true" :icon="item.icon" />
+            <h-icon slot="start" aria-hidden="true" :icon="item.icon" />
             <ion-label>{{ item.label }}</ion-label>
           </ion-item>
         </ion-list>
@@ -22,26 +22,25 @@
       </main>
     </div>
 
-    <nav v-if="!isTablet && isTabsRoute" class="mobile-tab-bar" aria-label="底部导航">
-      <RouterLink
-        v-for="item in navItems"
-        :key="item.to"
-        class="mobile-tab-link"
-        :class="{ 'is-active': isNavActive(item.to) }"
-        :to="item.to"
-      >
-        <ion-icon aria-hidden="true" :icon="item.icon" />
-        <span>{{ item.label }}</span>
-      </RouterLink>
-    </nav>
+    <h-tab-bar
+      v-if="!isTablet && isTabsRoute"
+      class="mobile-tab-bar"
+      :model-value="activeTab"
+      :items="tabItems"
+      aria-label="底部导航"
+      fixed
+      safe-area
+      @update:model-value="navigateTab"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { HIcon, HTabBar, type HTabBarItem } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { IonIcon, IonItem, IonLabel, IonList } from '@ionic/vue'
-import { useRoute, RouterLink, RouterView } from 'vue-router'
-import { albums, list, musicalNotes, person, radio, settings } from '@/icons/ion-lucide'
+import { IonItem, IonLabel, IonList } from '@ionic/vue'
+import { useRoute, useRouter, RouterView } from 'vue-router'
+import { albums, list, musicalNotes, person, radio, settings } from '@/icons'
 
 const navItems = [
   { to: '/tabs/songs', label: '歌曲', icon: musicalNotes },
@@ -53,6 +52,12 @@ const navItems = [
 ]
 
 const route = useRoute()
+const router = useRouter()
+const tabItems: HTabBarItem[] = navItems.map((item) => ({ key: item.to, label: item.label, icon: item.icon }))
+const activeTab = computed(() => navItems.find((item) => isNavActive(item.to))?.to ?? '/tabs/songs')
+const navigateTab = (to: string) => {
+  if (to !== route.path) void router.push(to)
+}
 const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
 const isTablet = computed(() => viewportWidth.value >= 768)
 const isTabsRoute = computed(() => route.path === '/tabs' || route.path.startsWith('/tabs/'))
@@ -108,38 +113,7 @@ onUnmounted(() => {
 }
 
 .mobile-tab-bar {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
   z-index: var(--muses-z-tab);
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  padding: 6px 0 calc(6px + var(--ion-safe-area-bottom, 0px));
-  border-top: 1px solid var(--muses-color-border-subtle);
-  background: var(--ion-tab-bar-background, var(--ion-background-color, #fff));
-}
-
-.mobile-tab-link {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-width: 0;
-  min-height: 52px;
-  color: var(--ion-color-step-650, #595959);
-  font-size: 12px;
-  text-decoration: none;
-}
-
-.mobile-tab-link ion-icon {
-  font-size: 22px;
-}
-
-.mobile-tab-link.is-active {
-  color: var(--ion-color-primary);
-  font-weight: 600;
 }
 
 .tablet-sidebar .is-active {

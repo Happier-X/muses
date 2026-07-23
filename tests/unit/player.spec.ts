@@ -6,7 +6,6 @@ import type { SongItem } from '@/features/library/types'
 import MiniPlayer from '@/components/MiniPlayer.vue'
 import PlayerPage from '@/views/PlayerPage.vue'
 import App from '@/App.vue'
-import { languageOffOutline, languageOutline, listOutline, repeat, repeatOutline, shuffle } from '@/icons/ion-lucide'
 
 /** 播放页 UI 单测不跑真实多源歌词，避免 matching 空态文案抖动 */
 vi.mock('@/features/lyrics', async (importOriginal) => {
@@ -1549,28 +1548,28 @@ describe('沉浸式播放页', () => {
     expect(wrapper.find('button[aria-label="顺序播放"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="播放队列"]').exists()).toBe(true)
 
-    const modeIcon = (label: string) => wrapper.get(`button[aria-label="${label}"] [data-test="icon"]`).attributes('data-icon')
+    const modeIconClass = (label: string) => wrapper.get(`button[aria-label="${label}"] svg`).classes()
 
     // 初始四种状态的标签和图标必须一一对应。
-    expect(modeIcon('列表循环')).toBe(JSON.stringify(repeatOutline))
-    expect(modeIcon('顺序播放')).toBe(JSON.stringify(listOutline))
+    expect(modeIconClass('列表循环')).toContain('lucide-repeat')
+    expect(modeIconClass('顺序播放')).toContain('lucide-list-ordered')
 
     // 循环 / 随机模式按钮应可切换，并立即刷新标签和图标。
     expect(queueState.repeatMode).toBe('all')
     await wrapper.get('button[aria-label="列表循环"]').trigger('click')
     expect(queueState.repeatMode).toBe('one')
-    expect(modeIcon('单曲循环')).toBe(JSON.stringify(repeat))
+    expect(modeIconClass('单曲循环')).toContain('lucide-repeat-1')
     await wrapper.get('button[aria-label="单曲循环"]').trigger('click')
     expect(queueState.repeatMode).toBe('all')
-    expect(modeIcon('列表循环')).toBe(JSON.stringify(repeatOutline))
+    expect(modeIconClass('列表循环')).toContain('lucide-repeat')
 
     expect(queueState.shuffleEnabled).toBe(false)
     await wrapper.get('button[aria-label="顺序播放"]').trigger('click')
     expect(queueState.shuffleEnabled).toBe(true)
-    expect(modeIcon('随机播放')).toBe(JSON.stringify(shuffle))
+    expect(modeIconClass('随机播放')).toContain('lucide-shuffle')
     await wrapper.get('button[aria-label="随机播放"]').trigger('click')
     expect(queueState.shuffleEnabled).toBe(false)
-    expect(modeIcon('顺序播放')).toBe(JSON.stringify(listOutline))
+    expect(modeIconClass('顺序播放')).toContain('lucide-list-ordered')
 
     const slider = wrapper.get('.progress-range[aria-label="播放进度"]')
     await slider.setValue('60')
@@ -1733,15 +1732,15 @@ describe('沉浸式播放页', () => {
     expect(wrapper.find('.lyric-floating-actions').classes()).toContain('is-visible')
     expect(wrapper.find('button[aria-label="暂停播放"]').exists()).toBe(true)
     const translateButton = wrapper.get('button[aria-label="隐藏翻译"]')
-    expect(translateButton.get('[data-test="icon"]').attributes('data-icon')).toBe(JSON.stringify(languageOutline))
+    expect(translateButton.get('svg').classes()).toContain('lucide-captions')
     await translateButton.trigger('click')
     await nextTick()
     const showTranslateButton = wrapper.get('button[aria-label="显示翻译"]')
-    expect(showTranslateButton.get('[data-test="icon"]').attributes('data-icon')).toBe(JSON.stringify(languageOffOutline))
+    expect(showTranslateButton.get('svg').classes()).toContain('lucide-captions-off')
     await showTranslateButton.trigger('click')
     await nextTick()
     expect(wrapper.find('button[aria-label="隐藏翻译"]').exists()).toBe(true)
-    expect(wrapper.get('button[aria-label="隐藏翻译"] [data-test="icon"]').attributes('data-icon')).toBe(JSON.stringify(languageOutline))
+    expect(wrapper.get('button[aria-label="隐藏翻译"] svg').classes()).toContain('lucide-captions')
   })
 
   test('平板模式歌词页不展示右下播放暂停按钮', async () => {

@@ -13,9 +13,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "happier-ui": ["../happier-ui/src/index.ts"],
-      "happier-ui/*": ["../happier-ui/src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": [

@@ -5,22 +5,23 @@
         <ion-title>歌曲</ion-title>
         <ion-buttons slot="end">
           <ion-button fill="clear" aria-label="搜索歌曲">
-            <ion-icon slot="icon-only" :icon="searchOutline" aria-hidden="true" />
+            <h-icon slot="icon-only" :icon="searchOutline" aria-hidden="true" />
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
       <ion-toolbar class="shuffle-toolbar">
         <div class="shuffle-actions tablet-content-limit">
-          <ion-button
-            fill="clear"
+          <h-button
+            variant="ghost"
+            size="sm"
             class="shuffle-all-button"
             aria-label="随机播放全部"
             :disabled="songs.length === 0"
             @click="onShuffleAll"
           >
-            <ion-icon slot="start" :icon="shuffle" aria-hidden="true" />
+            <template #leading><h-icon :icon="shuffle" /></template>
             随机播放全部
-          </ion-button>
+          </h-button>
         </div>
       </ion-toolbar>
     </ion-header>
@@ -31,7 +32,7 @@
         </ion-toolbar>
       </ion-header>
 
-      <m-empty-state
+      <h-empty
         v-if="songs.length === 0"
         title="还没有歌曲"
         description="请先到音源页添加并扫描音源。"
@@ -47,25 +48,30 @@
             :data-index="virtualRow.index"
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
-            <m-list-row
+            <ion-item
+              button
+              :detail="false"
+              lines="none"
               class="song-item"
-              :title="songs[virtualRow.index].title"
-              :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
-              :cover-src="getSongCoverSrc(songs[virtualRow.index])"
-              :playing="playerState.currentSong?.id === songs[virtualRow.index].id"
+              :class="{ 'is-playing': playerState.currentSong?.id === songs[virtualRow.index].id }"
               :data-song-id="songs[virtualRow.index].id"
               @click="playSong(songs[virtualRow.index])"
             >
-              <template #end>
-                <m-icon-button
-                  class="more-button"
-                  :icon="ellipsisVertical"
-                  ariaLabel="更多歌曲操作"
-                  stop-propagation
-                  @click="openSongActions(songs[virtualRow.index])"
-                />
-              </template>
-            </m-list-row>
+              <m-cover slot="start" :src="getSongCoverSrc(songs[virtualRow.index])" alt="" />
+              <ion-label>
+                <h2>{{ songs[virtualRow.index].title }}</h2>
+                <p>{{ getSongArtistName(songs[virtualRow.index]) }} - {{ getSongAlbumName(songs[virtualRow.index]) }}</p>
+              </ion-label>
+              <ion-button
+                slot="end"
+                fill="clear"
+                class="more-button"
+                aria-label="更多歌曲操作"
+                @click.stop="openSongActions(songs[virtualRow.index])"
+              >
+                <h-icon :icon="ellipsisVertical" />
+              </ion-button>
+            </ion-item>
           </div>
         </div>
       </div>
@@ -103,7 +109,7 @@
           aria-label="跳转到当前播放"
           @click="scrollToCurrentSong"
         >
-          <ion-icon :icon="locateOutline" aria-hidden="true" />
+          <h-icon :icon="locateOutline" aria-hidden="true" />
         </ion-fab-button>
       </ion-fab>
     </ion-content>
@@ -123,7 +129,8 @@ import {
   IonFab,
   IonFabButton,
   IonHeader,
-  IonIcon,
+  IonItem,
+  IonLabel,
   IonPage,
   IonTitle,
   IonToolbar,
@@ -132,8 +139,8 @@ import {
   type AlertButton,
   type AlertInput,
 } from '@ionic/vue'
-import { ellipsisVertical, locateOutline, searchOutline, shuffle } from '@/icons/ion-lucide'
-import { MEmptyState, MIconButton, MListRow } from '@/components/ui'
+import { ellipsisVertical, locateOutline, searchOutline, shuffle } from '@/icons'
+import { HButton, HEmpty, HIcon, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
@@ -440,7 +447,13 @@ onIonViewWillEnter(refreshSongs)
   scroll-margin-top: 120px;
 }
 
-/* 跳转高亮：class 挂在 MListRow 根节点（纯 Vue button/div） */
+/* 当前播放行：替代已删除 HListRow 的 playing 背景。 */
+:deep(.song-item.is-playing) {
+  --background: var(--muses-color-playing-bg);
+  background: var(--muses-color-playing-bg);
+}
+
+/* 跳转高亮：class 挂在 Ionic 列表行根节点。 */
 :deep(.song-item.jump-highlight) {
   background: var(--muses-color-jump-highlight);
 }

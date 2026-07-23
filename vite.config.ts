@@ -17,8 +17,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      'happier-ui/tokens.css': path.resolve(__dirname, '../happier-ui/src/tokens.css'),
-      'happier-ui': path.resolve(__dirname, '../happier-ui/src/index.ts'),
     },
   },
   build: {

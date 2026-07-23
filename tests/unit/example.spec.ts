@@ -184,7 +184,7 @@ describe('音乐库标签页', () => {
 
     const button = actions.get('button[aria-label="随机播放全部"]')
     expect(button.attributes('expand')).toBeUndefined()
-    expect(button.attributes('fill')).toBe('clear')
+    expect(button.classes()).toContain('h-button--ghost')
     expect(button.attributes('disabled')).toBeDefined()
 
     await button.trigger('click')

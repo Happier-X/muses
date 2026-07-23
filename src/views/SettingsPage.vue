@@ -14,32 +14,35 @@
 
       <div class="tablet-content-limit">
         <ion-list>
-          <m-setting-row
-            label="Muses"
-            :description="`应用版本 ${currentVersion}`"
-          />
+          <ion-item lines="none">
+            <ion-label>
+              <h2>Muses</h2>
+              <p>应用版本 {{ currentVersion }}</p>
+            </ion-label>
+          </ion-item>
 
-          <m-setting-row
-            label="音量均衡"
-            description="根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。"
-          >
-            <template #end>
-              <ion-toggle
-                :checked="loudnessNormalizeEnabled"
-                @ionChange="onLoudnessToggle"
-              />
-            </template>
-          </m-setting-row>
+          <ion-item lines="none">
+            <ion-label>
+              <h2>音量均衡</h2>
+              <p>根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。</p>
+            </ion-label>
+            <h-switch
+              slot="end"
+              v-model="loudnessNormalizeEnabled"
+              aria-label="音量均衡"
+            />
+          </ion-item>
         </ion-list>
 
         <div class="update-section">
-          <ion-button
-            expand="block"
+          <h-button
+            variant="primary"
+            size="lg"
             :disabled="checking"
             @click="checkUpdate"
           >
             {{ checking ? '检查中...' : '检查更新' }}
-          </ion-button>
+          </h-button>
         </div>
       </div>
     </ion-content>
@@ -47,19 +50,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import {
-  IonButton,
   IonContent,
   IonHeader,
+  IonItem,
+  IonLabel,
   IonList,
   IonPage,
   IonTitle,
-  IonToggle,
   IonToolbar,
   toastController,
 } from '@ionic/vue'
-import { MSettingRow } from '@/components/ui'
+import { HButton, HSwitch } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,
@@ -75,11 +78,9 @@ const currentVersion = pkg.version
 const checking = ref(false)
 const loudnessNormalizeEnabled = ref(isLoudnessNormalizeEnabled())
 
-const onLoudnessToggle = (event: CustomEvent<{ checked?: boolean }>) => {
-  const enabled = Boolean(event.detail?.checked)
-  loudnessNormalizeEnabled.value = enabled
+watch(loudnessNormalizeEnabled, (enabled) => {
   setLoudnessNormalizeEnabled(enabled)
-}
+})
 
 const compareVersions = (a: string, b: string): number => {
   const partsA = a.split('.').map(Number)

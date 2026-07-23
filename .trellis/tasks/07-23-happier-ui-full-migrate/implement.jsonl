@@ -1,0 +1,14 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "frontend 层索引与 Pre-Development 清单入口"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件/图标/页壳约定；实现时以任务 design 覆盖过期 M* 与 file: 描述"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "ui 兼容层与 theme 目录边界"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/build/测试与依赖升级验证约定"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "strict TS、@/ alias、props 类型"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器/媒体会话相关约束，避免误改业务"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "禁止平行造轮子；缺口回库而非 app 通用组件"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "token/依赖/页面跨层一致性"}
+{"file": "PRODUCT.md", "reason": "产品定位与反例，约束视觉与交互取舍"}
+{"file": "DESIGN.md", "reason": "视觉 token 与组件气质；迁移后文档可能需同步"}
+{"file": ".trellis/tasks/07-23-happier-ui-full-migrate/prd.md", "reason": "需求与验收"}
+{"file": ".trellis/tasks/07-23-happier-ui-full-migrate/design.md", "reason": "技术边界、能力矩阵、图标与接入设计"}
+{"file": ".trellis/tasks/07-23-happier-ui-full-migrate/implement.md", "reason": "分阶段执行与验证命令"}
+{"file": ".trellis/tasks/07-23-happier-ui-full-migrate/gaps.md", "reason": "库缺口清单，实现中持续更新"}

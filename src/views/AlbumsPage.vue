@@ -2,7 +2,7 @@
   <m-page>
     <template #title>专辑</template>
 
-    <m-empty-state
+    <h-empty
       v-if="albums.length === 0"
       title="还没有专辑"
       description="请先到音源页添加并扫描音源。"
@@ -27,7 +27,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { IonItem, IonLabel, IonList, onIonViewWillEnter } from '@ionic/vue'
-import { MCover, MEmptyState, MPage } from '@/components/ui'
+import { MCover, HEmpty, MPage } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByAlbum } from '@/features/library/views'

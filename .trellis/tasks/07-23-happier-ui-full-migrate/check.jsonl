@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "检查范围与 frontend 规范入口"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "对照组件边界；注意任务 design 对过期条款的覆盖"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/build/unit 与 a11y 基线"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "类型与 import 约定"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "目录与 ui 层是否仍越界"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "是否在 app 内新造通用 UI 平行库"}
+{"file": ".trellis/tasks/07-23-happier-ui-full-migrate/prd.md", "reason": "验收标准核对"}
+{"file": ".trellis/tasks/07-23-happier-ui-full-migrate/design.md", "reason": "宿主/缺口/依赖契约核对"}
+{"file": ".trellis/tasks/07-23-happier-ui-full-migrate/implement.md", "reason": "阶段完成度与验证命令"}
+{"file": ".trellis/tasks/07-23-happier-ui-full-migrate/gaps.md", "reason": "缺口是否完整、是否误替换"}

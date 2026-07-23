@@ -2,7 +2,7 @@
   <m-page>
     <template #title>艺术家</template>
 
-    <m-empty-state
+    <h-empty
       v-if="artists.length === 0"
       title="还没有艺术家"
       description="请先到音源页添加并扫描音源。"
@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { IonItem, IonLabel, IonList, onIonViewWillEnter } from '@ionic/vue'
-import { MEmptyState, MPage } from '@/components/ui'
+import { HEmpty, MPage } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByArtist } from '@/features/library/views'

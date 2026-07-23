@@ -7,18 +7,16 @@
   >
     <img v-if="src" :src="src" :alt="alt" />
     <slot v-else name="placeholder">
-      <ion-icon :icon="musicalNotesOutline" aria-hidden="true" />
+      <h-icon :icon="musicalNotesOutline" />
     </slot>
   </span>
 </template>
 
 <script setup lang="ts">
-/**
- * APP-ONLY（不进 happier-ui v0.1）：音乐封面占位，依赖 ion-lucide。
- */
+/** APP-ONLY：音乐封面及稳定占位。 */
 import { computed, type CSSProperties } from 'vue'
-import { IonIcon } from '@ionic/vue'
-import { musicalNotesOutline } from '@/icons/ion-lucide'
+import { HIcon } from 'happier-ui'
+import { musicalNotesOutline } from '@/icons'
 
 const props = withDefaults(defineProps<{
   src?: string | null
