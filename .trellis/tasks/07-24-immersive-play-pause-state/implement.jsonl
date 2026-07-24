@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器状态机、#49 会话恢复、applyNativeState 与 resume 不变量"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "playerState 只读与 pause/resume 调用边界"}
+{"file": ".trellis/tasks/07-24-immersive-play-pause-state/design.md", "reason": "# ind 根因与 resume/stopped 守卫方案"}
