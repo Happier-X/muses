@@ -84,6 +84,8 @@ let statusBeforeSeek: 'playing' | 'paused' = 'playing'
 let pendingResumePosition: number | null = null
 /** 仅 UI 恢复、原生尚未 load 当前曲：忽略原生 idle/stopped 以免冲掉展示（#49） */
 let restoredSessionUiOnly = false
+/** 仅显式 stop 路径允许 native idle/stopped 清空 currentSong（#52） */
+let allowNativeClearCurrentSong = false
 /** 会话 position 节流写入 */
 const SESSION_POSITION_THROTTLE_MS = 3000
 let lastSessionPersistAt = 0
@@ -171,30 +173,18 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
     return
   }
 
-  state.status = nativeState.status
-  state.errorMessage = nativeState.status === 'error' ? nativeState.errorMessage || '播放失败，请稍后重试。' : null
-  state.position = normalizePlaybackTime(nativeState.position)
-  state.duration = normalizePlaybackTime(nativeState.duration)
-
-  // 缓冲：原生上报时单调合并；stop/idle/error 在下方 reset，禁止串曲
-  if (
-    nativeState.bufferedPosition !== undefined
-    && nativeState.status !== 'idle'
-    && nativeState.status !== 'stopped'
-    && nativeState.status !== 'error'
-  ) {
-    const nextBuffered = normalizeBufferedPosition(nativeState.bufferedPosition)
-    if (nextBuffered != null) {
-      const capped = state.duration > 0 ? Math.min(nextBuffered, state.duration) : nextBuffered
-      state.bufferedPosition = Math.max(state.bufferedPosition ?? 0, capped)
-    }
-  }
-
   if (nativeState.status === 'idle' || nativeState.status === 'stopped') {
     // 冷启动 getState / 陈旧 idle：不得冲掉「仅 UI 恢复」的当前曲与 session（#49）
     if (restoredSessionUiOnly) {
       return
     }
+    // 非显式 stop：整段忽略 unload/重载 stopped，避免 status 被冲成 stopped 且清空当前曲（#52）
+    if (!allowNativeClearCurrentSong && state.currentSong) {
+      return
+    }
+    allowNativeClearCurrentSong = false
+    state.status = nativeState.status
+    state.errorMessage = null
     state.currentSong = null
     state.position = 0
     state.duration = 0
@@ -207,6 +197,23 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
     state.metadataStatus = 'idle'
     syncMediaSessionState()
     return
+  }
+
+  state.status = nativeState.status
+  state.errorMessage = nativeState.status === 'error' ? nativeState.errorMessage || '播放失败，请稍后重试。' : null
+  state.position = normalizePlaybackTime(nativeState.position)
+  state.duration = normalizePlaybackTime(nativeState.duration)
+
+  // 缓冲：原生上报时单调合并；error 在下方 reset，禁止串曲
+  if (
+    nativeState.bufferedPosition !== undefined
+    && nativeState.status !== 'error'
+  ) {
+    const nextBuffered = normalizeBufferedPosition(nativeState.bufferedPosition)
+    if (nextBuffered != null) {
+      const capped = state.duration > 0 ? Math.min(nextBuffered, state.duration) : nextBuffered
+      state.bufferedPosition = Math.max(state.bufferedPosition ?? 0, capped)
+    }
   }
 
   // playing 中进度节流写入本地会话（#49）
@@ -1046,8 +1053,12 @@ export const pausePlayback = async (): Promise<void> => {
 }
 
 export const resumePlayback = async (): Promise<void> => {
-  // 冷启动仅 UI 恢复、原生尚未 load 时，resume 无 asset：改为 play + seek（#49）
-  if (state.currentSong && (state.status === 'paused' || state.status === 'stopped' || state.status === 'idle')) {
+  // 仅冷启动 UI 会话（原生无 asset）才整曲 play + seek（#49）；普通 pause 后走 resume（#52）
+  if (
+    restoredSessionUiOnly
+    && state.currentSong
+    && (state.status === 'paused' || state.status === 'stopped' || state.status === 'idle')
+  ) {
     const song = loadSongs().find((item) => item.id === state.currentSong?.id)
     if (song) {
       if (pendingResumePosition == null && state.position > 0) {
@@ -1122,6 +1133,8 @@ export const seekPlayback = async (position: number): Promise<boolean> => {
 
 export const stopPlayback = async (): Promise<void> => {
   try {
+    // 显式 stop：允许随后 native stopped 事件清空（自身也会同步清空）
+    allowNativeClearCurrentSong = true
     await AudioPlayerNative.stop()
     clearSeekGuard()
     pendingResumePosition = null
@@ -1143,8 +1156,10 @@ export const stopPlayback = async (): Promise<void> => {
     state.onlineLyricsStatus = 'idle'
     state.coverUri = null
     state.metadataStatus = 'idle'
+    allowNativeClearCurrentSong = false
     syncMediaSessionState()
   } catch {
+    allowNativeClearCurrentSong = false
     setUserSafeError('停止播放失败，请稍后重试。')
   }
 }

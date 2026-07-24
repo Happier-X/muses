@@ -177,6 +177,8 @@
 - **禁止**在无用户进度条手势时因 `ion-range` 的 programmatic `ionInput` 写入 `seekPreviewPosition`，否则会盖住 `playerState.position` 导致填充不前进（#47）。
 - **冷启动播放会话**（`muses:playback-session`，#49）：存 `currentSongId` + `position`；`initializePlayer` 在原生无活跃曲时恢复为 **paused** 展示（不自动 play）；`stopPlayback` 清除 session；用户点播放走 `resumePlayback` → 必要时 `play` + `seek`。playing 中 position 节流写盘。
 - **禁止**冷启动自动出声；**禁止** `applyNativeState(idle)` 在「仅 UI 恢复」窗口冲掉已恢复的 `currentSong`/session。
+- **`resumePlayback` 路径分流（#52）**：仅 `restoredSessionUiOnly === true`（冷启动仅 UI、原生无 asset）才允许整曲 `playSongInternal`（+ 可选 seek）；普通 pause 后必须 `AudioPlayerNative.resume()`。resume 失败才回退 play+seek。**禁止**把任意 `paused` 都当成无 asset 而 unload 重播。
+- **`applyNativeState` idle/stopped 清空守卫（#52）**：默认**不得**因 native `idle`/`stopped` 清空 `currentSong`；仅显式 `stopPlayback` 将 `allowNativeClearCurrentSong` 置 true 时允许清空（`stopPlayback` 自身也会同步清空）。陈旧 unload/重载 stopped 必须整段忽略（含 status），避免「UI 无曲 + 音频仍在播」或 status 被冲成 stopped。
 - **禁止**预取密码进入 player state / localStorage / 日志；预取失败不得影响当前播放。
 - **禁止**在线封面把 `data:` / base64 / 远程 URL 写入曲库；禁止覆盖已有安全封面；匹配失败不得影响播放。
 
@@ -216,6 +218,8 @@
 - 点播放 → play + seek 到恢复进度
 - stop → 清除 `muses:playback-session`；队列列表仍保留
 - 曲不在队列/曲库 → 丢弃 session，无当前曲
+- 两轮 pause/resume 后 `currentSong` 仍在；普通 resume 只调 `resume` 不二次 `play`（#52）
+- 非显式 stop 的 stopped 事件不改 status、不清空 `currentSong`（#52）
 
 ---
 
@@ -241,7 +245,10 @@
 - **播放中进度条/时间不前进，seek 后仍冻结（#47）**  
   修复：`native.ts` playing 轮询 `getCurrentTime`；`PlayerPage` 仅在 `seekGestureLocked` 时写 seek preview，忽略 ion-range value 变化触发的伪 `ionInput`。
 - **杀进程重开无当前曲 / 进度丢失（#49）**  
-  修复：`session.ts` 持久化 songId+position；`initializePlayer` 恢复 paused UI；`resumePlayback` 无 asset 时 play+seek；`stopPlayback` 清 session。
+  修复：`session.ts` 持久化 songId+position；`initializePlayer` 恢复 paused UI；`resumePlayback` 仅在 `restoredSessionUiOnly` 时 play+seek；`stopPlayback` 清 session。
+- **沉浸页二次暂停/播放后变空、迷你条「暂无播放歌曲」但声音仍在（#52）**  
+  根因：`resumePlayback` 把任意 paused 都走 `playSongInternal` → unload 的 stopped 清空 `currentSong`。  
+  修复：普通 resume 走 `AudioPlayerNative.resume()`；`allowNativeClearCurrentSong` 仅 `stopPlayback` 开启；非显式 stop 的 idle/stopped 整段忽略。
 - **缓冲串曲 / 切歌后仍显示上一首缓冲条**  
   修复：`playSong` / `stopPlayback` / 播放失败均 `resetBufferState()`；继续调用原生 `cancelBufferSession`，清理旧 APK 或遗留会话启动的渐进下载。
 - **没有 `npx cap sync android` 就部署**：前端代码改动不会反映到 APK  

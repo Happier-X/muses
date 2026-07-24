@@ -969,6 +969,55 @@ describe('播放器控制器', () => {
     expect(playerState.status).toBe('stopped')
     expect(playerState.currentSong).toBeNull()
   })
+
+  test('两轮暂停继续不丢当前曲且普通 resume 不整曲 play（#52）', async () => {
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }]))
+    const { pausePlayback, playSong, playerState, resumePlayback } = await import('@/features/player/controller')
+
+    await playSong({ ...localSong, duration: 180 })
+    expect(playerState.currentSong?.id).toBe('song-local')
+    expect(nativePlayer.play).toHaveBeenCalledTimes(1)
+
+    await pausePlayback()
+    expect(playerState.status).toBe('paused')
+    expect(playerState.currentSong?.id).toBe('song-local')
+
+    nativePlayer.play.mockClear()
+    nativePlayer.resume.mockClear()
+    await resumePlayback()
+    expect(playerState.status).toBe('playing')
+    expect(playerState.currentSong?.id).toBe('song-local')
+    expect(nativePlayer.resume).toHaveBeenCalled()
+    expect(nativePlayer.play).not.toHaveBeenCalled()
+
+    await pausePlayback()
+    nativePlayer.play.mockClear()
+    nativePlayer.resume.mockClear()
+    await resumePlayback()
+
+    expect(playerState.status).toBe('playing')
+    expect(playerState.currentSong?.id).toBe('song-local')
+    expect(nativePlayer.resume).toHaveBeenCalled()
+    expect(nativePlayer.play).not.toHaveBeenCalled()
+  })
+
+  test('非显式 stop 的 stopped 事件不得清空 currentSong（#52）', async () => {
+    const { initializePlayer, playSong, playerState, pausePlayback } = await import('@/features/player/controller')
+    await initializePlayer()
+    await playSong({ ...localSong, duration: 180 })
+    await pausePlayback()
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
+    stateChangeCallback({
+      status: 'stopped',
+      currentSongId: 'song-local',
+      position: 12,
+      duration: 180,
+    })
+
+    expect(playerState.currentSong?.id).toBe('song-local')
+    expect(playerState.status).toBe('paused')
+  })
 })
 
 describe('媒体通知封面同步', () => {
