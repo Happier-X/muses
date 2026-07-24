@@ -207,9 +207,9 @@ Also prefer the `@/` alias for application imports from `src/`:
 - **侧栏**：宽屏下由固定定位的普通 `<aside>` 提供左侧导航，右侧 `<main>` 渲染 `<RouterView />`；窄屏回落为普通 `<nav>` + `RouterLink` 底部导航。
 - **避免 Split Pane**：当前 MuMu / Android WebView 环境中，`ion-split-pane` + `ion-menu` 曾触发白屏；不要在 `TabsPage.vue` 中恢复该结构，除非完成真机与 MuMu 回归验证。
 - **专辑卡片网格（Albums）**：`src/views/AlbumsPage.vue` 使用 `<div class="album-grid">` 直接渲染 `<article class="album-card">` 卡片（封面 + 专辑名 + 歌曲数 + 艺术家摘要），不再使用 `ion-list` / `ion-item`。窄屏固定 `grid-template-columns: repeat(2, minmax(0, 1fr))`；宽屏在内容宽度上限内 `repeat(auto-fill, minmax(180px, 1fr))` 自动增列。卡片封面复用 `MCover`，通过 `.album-card > .album-card__cover { --m-cover-size: 100% !important; height: auto; aspect-ratio: 1; flex: 0 0 auto }` 覆盖 MCover 内联默认尺寸；`height: auto` 必须保留，使 `aspect-ratio` 能按卡片宽度计算正方形高度（不改 MCover 全局契约）。
-- **列表多列（仅 Artists）**：`src/views/ArtistsPage.vue` 的 `<ion-list>` 外包 `<div class="list-grid">`，宽屏通过 CSS Grid `repeat(auto-fill, minmax(320px, 1fr))` 自动分列。
+- **艺术家卡片网格（Artists）**：`src/views/ArtistsPage.vue` 使用 `<div class="artist-grid">` 直接渲染 `<article class="artist-card">` 卡片（圆形头像 + 艺术家名 + 歌曲数 + 专辑数），不再使用 `ion-list` / `ion-item`。窄屏固定 `grid-template-columns: repeat(2, minmax(0, 1fr))`；宽屏在内容宽度上限内 `repeat(auto-fill, minmax(180px, 1fr))` 自动增列。头像复用 `MCover`，从艺术家歌曲中选择首张有效封面，无封面时保留占位；通过 `.artist-card > .artist-card__avatar { --m-cover-size: 100% !important; height: auto; aspect-ratio: 1; border-radius: 50% }` 保持正圆。
 - **SongsPage 宽屏单列**：`src/views/SongsPage.vue` 宽屏不使用多列 grid，列表始终竖排单列；外层 `.list-grid` / `.tablet-content-limit` 仅做 `max-width: var(--muses-content-max-width); margin-inline: auto` 限位居中（与窄屏一致的一列体验）。
-- **内容限位居中**：各列表页 `.tablet-content-limit`、`.list-grid`（Artists）和 `.album-grid`（Albums）在宽屏下 `max-width: var(--muses-content-max-width); margin-inline: auto`。
+- **内容限位居中**：各列表页 `.tablet-content-limit`、`.artist-grid`（Artists）和 `.album-grid`（Albums）在宽屏下 `max-width: var(--muses-content-max-width); margin-inline: auto`。
 
 ### SongsPage Navbar 下方固定随机播放全部
 
@@ -272,7 +272,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 `ion-list` 是 Ionic Web Component，有 Shadow DOM 隔离。在外层 div 套 CSS Grid 后，`ion-list` 只是 grid 容器的第一个子项，不会将 `ion-item` 暴露为 grid item。
 
-**适用范围**：仅 Artists 等仍用 `ion-list` + 宽屏多列的页面。`AlbumsPage` 已改为 `article.album-card` 卡片网格（不含 `ion-list`），不适用本 gotcha；`SongsPage` 宽屏已改为单列，也不再使用 grid + `display: contents`。
+**适用范围**：仅仍使用 `ion-list` + 宽屏多列的页面。`ArtistsPage` 与 `AlbumsPage` 已改为直接渲染 `article` 卡片网格（不含 `ion-list`），不适用本 gotcha；`SongsPage` 宽屏已改为单列，也不再使用 grid + `display: contents`。
 
 **修复（多列页）**：在宽屏下给 `ion-list` 加 `display: contents;`，使 `ion-item` 成为 grid 容器的直接子元素：
 

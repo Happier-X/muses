@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { Capacitor } from '@capacitor/core'
 import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import SongsPage from '@/views/SongsPage.vue'
@@ -62,6 +63,7 @@ const createSong = (overrides: Partial<SongItem>): SongItem => ({
   artist: overrides.artist,
   album: overrides.album,
   duration: overrides.duration,
+  coverUri: overrides.coverUri,
   createdAt: overrides.createdAt ?? '2026-07-07T00:00:00.000Z',
   updatedAt: overrides.updatedAt ?? '2026-07-07T00:00:00.000Z',
 })
@@ -167,7 +169,13 @@ describe('音乐库标签页', () => {
 
   test('艺术家页展示艺术家聚合和未知艺术家', async () => {
     saveSongs([
-      createSong({ id: '1', title: '歌一', artist: '歌手甲', album: '专辑甲' }),
+      createSong({
+        id: '1',
+        title: '歌一',
+        artist: '歌手甲',
+        album: '专辑甲',
+        coverUri: 'file:///cache/covers/artist-a.jpg',
+      }),
       createSong({ id: '2', title: '歌二', artist: '歌手甲', album: '' }),
       createSong({ id: '3', title: '歌三', artist: '', album: '专辑乙' }),
     ])
@@ -175,10 +183,93 @@ describe('音乐库标签页', () => {
     const wrapper = mount(ArtistsPage)
     await nextTick()
 
-    expect(wrapper.text()).toContain('歌手甲')
-    expect(wrapper.text()).toContain('2 首歌曲')
-    expect(wrapper.text()).toContain('2 张专辑')
-    expect(wrapper.text()).toContain('未知艺术家')
+    // 卡片网格结构：不再渲染 ion-list / ion-item
+    expect(wrapper.find('ion-list').exists()).toBe(false)
+    expect(wrapper.find('ion-item').exists()).toBe(false)
+
+    const grid = wrapper.get('.artist-grid')
+    const cards = grid.findAll('.artist-card')
+    // 歌手甲 + 未知艺术家 = 2 张卡片
+    expect(cards).toHaveLength(2)
+
+    // 每张卡片包含头像和名字，以及两项统计（歌曲数、专辑数）
+    for (const card of cards) {
+      expect(card.find('.artist-card__avatar').exists()).toBe(true)
+      expect(card.find('.artist-card__name').exists()).toBe(true)
+      expect(card.findAll('.artist-card__count')).toHaveLength(2)
+    }
+
+    const artistCardByName = (name: string) => cards.find((card) => card.get('.artist-card__name').text() === name)
+    const knownArtistCard = artistCardByName('歌手甲')
+    const unknownArtistCard = artistCardByName('未知艺术家')
+
+    // 保留聚合信息（歌曲数 / 专辑数），并确保信息属于同一张卡片
+    expect(knownArtistCard).toBeTruthy()
+    expect(knownArtistCard?.findAll('.artist-card__count').map((stat) => stat.text())).toEqual([
+      '2 首歌曲',
+      '2 张专辑',
+    ])
+
+    // 有效 coverUri 的艺术家应渲染对应头像 img；头像为装饰性，alt 为空
+    const avatar = knownArtistCard?.get('.artist-card__avatar img')
+    expect(avatar?.attributes('src')).toBe(Capacitor.convertFileSrc('file:///cache/covers/artist-a.jpg'))
+    expect(avatar?.attributes('alt')).toBe('')
+
+    expect(unknownArtistCard).toBeTruthy()
+    expect(unknownArtistCard?.findAll('.artist-card__count').map((stat) => stat.text())).toEqual([
+      '1 首歌曲',
+      '1 张专辑',
+    ])
+  })
+
+  test('艺术家头像跳过无效封面并选用下一张有效本地封面', async () => {
+    saveSongs([
+      // 首曲为不可展示的 data: 封面，应被跳过
+      createSong({
+        id: '1',
+        title: '歌一',
+        artist: '歌手甲',
+        album: '专辑甲',
+        coverUri: 'data:image/png;base64,AAAA',
+      }),
+      // 次曲为有效本地封面，应作为头像来源
+      createSong({
+        id: '2',
+        title: '歌二',
+        artist: '歌手甲',
+        album: '专辑甲',
+        coverUri: 'file:///cache/covers/artist-a.jpg',
+      }),
+    ])
+
+    const wrapper = mount(ArtistsPage)
+    await nextTick()
+
+    const card = wrapper.get('.artist-card')
+    const avatar = card.get('.artist-card__avatar img')
+    expect(avatar.attributes('src')).toBe(Capacitor.convertFileSrc('file:///cache/covers/artist-a.jpg'))
+  })
+
+  test('艺术家无有效封面时头像展示占位而非图片', async () => {
+    saveSongs([
+      // 仅有不可展示封面，应回退占位
+      createSong({
+        id: '1',
+        title: '歌一',
+        artist: '歌手甲',
+        album: '专辑甲',
+        coverUri: 'data:image/png;base64,AAAA',
+      }),
+      createSong({ id: '2', title: '歌二', artist: '歌手甲', album: '专辑甲' }),
+    ])
+
+    const wrapper = mount(ArtistsPage)
+    await nextTick()
+
+    const card = wrapper.get('.artist-card')
+    // 无有效封面：不渲染 img，展示 MCover 稳定占位
+    expect(card.find('.artist-card__avatar img').exists()).toBe(false)
+    expect(card.find('.artist-card__avatar').exists()).toBe(true)
   })
 
   test('三个页面在无歌曲时展示空状态', async () => {
