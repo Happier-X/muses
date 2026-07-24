@@ -60,10 +60,9 @@ Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.1`**，不得提交 `fi
 
 | 允许直连 | 原因 |
 |----------|------|
-| `ion-page` / `ion-header` / `ion-toolbar` / `ion-title` / `ion-content` / `ion-buttons` | 页面壳；简单页优先 `MPage`，复杂双 toolbar / overlay 可直连 |
+| `ion-page` / `ion-content` | Ionic 路由页壳与滚动容器；简单页优先 `MPage` |
 | `ion-list` | 结构容器，暂不封装 |
 | `ion-button`（带文字或纯图标缺口） | 带文字操作优先 `HButton`；icon-only 等库缺口保留 Ionic 壳并登记 |
-| `ion-back-button` | 路由返回 |
 | `ion-toggle` / `ion-input` / `ion-checkbox` / `ion-range` | 优先 `HSwitch`/`HInput`/`HCheckbox`；`ion-range` 及未覆盖能力按缺口保留 |
 | `ion-action-sheet` / `ion-alert` / `ion-modal` / `ion-fab` | 叠层/FAB 宿主；仅替换内部图标为 `HIcon` |
 | `ion-note` / `ion-item` / `ion-label` / `ion-card*` / `ion-text` / `ion-progress-bar` | 库缺口：列表行、设置行、卡片、提示、进度等，保留并登记 `gaps.md` |
@@ -73,21 +72,25 @@ Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.1`**，不得提交 `fi
 
 ## Ionic Page Pattern
 
-Route-level pages should follow the Ionic page container structure used by the existing views:
+路由页面保留 Ionic 宿主页壳，但用户可见的顶部导航栏统一使用 `HNavBar`：
 
-- Wrap the page in `<ion-page>`.
-- Use `<ion-header>`, `<ion-toolbar>`, and `<ion-title>` for page headers.
-- Use `<ion-content :fullscreen="true">` for page content.
-- For tab pages, keep the collapsed large-title header pattern when appropriate.
+- 页面根节点使用 `<ion-page>`。
+- `HNavBar` 作为 `ion-page` 的直接子级，放在 `ion-content` 前，页面级统一传 `:fixed="false"`，让它参与 flex 布局并避免遮挡正文。
+- 页面内容使用 `<ion-content :fullscreen="false">`；不再依赖 Ionic 折叠大标题或 header 叠加。
+- 简单页面优先使用 `MPage`；其 `title`、`start`、`end` 插槽分别映射到 `HNavBar` 的 `title`、`left`、`right` 插槽。
+- modal 内的 `HNavBar` 同时传 `:fixed="false" :safe-area="false"`，避免重复状态栏留白。
+- overlay 自管 flex 布局时，`HNavBar :fixed="false"` 作为首个 flex 项。
+- 页面 navbar 禁止使用 `ion-header`、`ion-toolbar`、`ion-title`、`ion-buttons`、`ion-back-button` 拼装；返回行为使用 `HNavBar show-back` 与 `handleLeftClick` 显式处理。
 
-Reference files:
+参考文件：
 
-- `src/views/Tab1Page.vue`
-- `src/views/Tab2Page.vue`
-- `src/views/Tab3Page.vue`
-- `src/views/TabsPage.vue`
+- `src/components/ui/MPage.vue`
+- `src/views/SongsPage.vue`
+- `src/views/PlaylistDetailPage.vue`
+- `src/views/QueuePage.vue`
+- `src/views/SourcesPage.vue`
 
-Avoid building route-level content pages without `ion-page`, because that breaks Ionic layout expectations. Exception: a parent route shell such as `src/views/TabsPage.vue` may be a plain Vue layout container when it exists only to place navigation chrome around child pages rendered by `<RouterView />`; this avoids duplicate Ionic page stacking in nested routes.
+不要构建缺少 `ion-page` 的路由内容页，否则会破坏 Ionic 布局预期。例外：`src/views/TabsPage.vue` 这类仅负责导航 chrome 和 `<RouterView />` 的父路由壳可以使用普通 Vue 容器，避免嵌套路由重复堆叠 Ionic page。
 
 ---
 
@@ -211,7 +214,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 `src/views/SongsPage.vue` 在顶部 Navbar 正下方固定显示随机播放全部入口，歌曲列表在其下方滚动：
 
-- 位置：放在 `ion-header` 的第二个 `ion-toolbar.shuffle-toolbar` 中，使入口与 Navbar 一起固定，不随 `ion-content` 中的歌曲列表滚动。
+- 位置：作为 `HNavBar` 与 `ion-content` 之间的独立 `.shuffle-bar` flex 项，使入口与 Navbar 一起固定，不随歌曲列表滚动。
 - 布局：按钮容器在窄屏左对齐；宽屏使用 `max-width: var(--muses-content-max-width)` 与 `margin-inline: auto` 限宽居中，按钮仍位于内容左侧。
 - 样式：优先 `HButton` + `HIcon` 展示 `@/icons` 的 `shuffle` 与「随机播放全部」文案；若仍用 Ionic 文字按钮，内部图标也必须是 `HIcon`，不得使用 `expand="block"` 或整行描边操作条。
 - 禁止恢复为 `ion-content slot="fixed"` 的底部 `.bottom-actions`，也不要把入口放入会随列表滚走的普通内容流。
@@ -223,19 +226,18 @@ Also prefer the `@/` alias for application imports from `src/`:
 参考结构：
 
 ```vue
-<ion-header>
-  <ion-toolbar><!-- 标题与搜索 --></ion-toolbar>
-  <ion-toolbar class="shuffle-toolbar">
-    <div class="shuffle-actions">
-      <HButton variant="ghost" aria-label="随机播放全部">
-        <template #leading>
-          <HIcon :icon="shuffle" aria-hidden="true" />
-        </template>
-        随机播放全部
-      </HButton>
-    </div>
-  </ion-toolbar>
-</ion-header>
+<HNavBar title="歌曲" :fixed="false"><!-- 搜索操作 --></HNavBar>
+<div class="shuffle-bar">
+  <div class="shuffle-actions">
+    <HButton variant="ghost" aria-label="随机播放全部">
+      <template #leading>
+        <HIcon :icon="shuffle" aria-hidden="true" />
+      </template>
+      随机播放全部
+    </HButton>
+  </div>
+</div>
+<ion-content :fullscreen="false"><!-- 歌曲列表 --></ion-content>
 ```
 
 ### SongsPage 跳转到当前播放 FAB
@@ -245,7 +247,7 @@ Also prefer the `@/` alias for application imports from `src/`:
 - 图标：`@/icons` 的 `locateOutline` 经 `HIcon` 渲染；`aria-label="跳转到当前播放"`。
 - 可见性：`v-if="currentPlayingInList"` —— 仅当 `playerState.currentSong?.id` 存在且该 id 出现在当前歌曲列表中时展示；无当前播放或不在列表则隐藏。
 - 行定位：每行 `ion-item` 带 `data-song-id="song.id"`；点击 FAB 用页面内 `[data-song-id]` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })`。
-- **避开粘性顶栏**：`block: 'start'` 只对齐滚动端口顶部，不扣除外层粘性 `ion-header`（标题 toolbar + `.shuffle-toolbar`）。必须在 `.song-item`（或带 `data-song-id` 的行）设置足够的 `scroll-margin-top`（约 112–128px，当前实现 120px，覆盖双 toolbar + 缓冲），使目标行完整出现在列表可视区内、标题主信息不被顶栏挡住。仅写 `block: 'start'` 而不设 margin/等价偏移会回归遮挡。
+- **避开固定顶栏**：`block: 'start'` 只对齐滚动端口顶部，不扣除外层 `HNavBar + .shuffle-bar`。必须在 `.song-item`（或带 `data-song-id` 的行）设置足够的 `scroll-margin-top`（当前约 108px，覆盖 navbar、48px 随机播放条与缓冲），使目标行完整出现在列表可视区内、标题主信息不被顶栏挡住。仅写 `block: 'start'` 而不设 margin/等价偏移会回归遮挡。
 - 列表末尾无法再滚时停在容器允许的最大位置（不必强行置顶）。宽屏单列同样适用。
 - 可选轻高亮：滚动后给目标行加 `jump-highlight` 约 1.2s，再移除；卸载时清理 timer。
 - 安全区：`.jump-current-fab` 的 `bottom` 需避开底部导航与 MiniPlayer（窄屏约 `calc(144px + safe-area)` = Tab Bar ~64 + MiniPlayer ~64 + 间距；宽屏无 Tab Bar、MiniPlayer 贴底，约 `calc(80px + safe-area)` = MiniPlayer ~64 + 间距），`right: 12px`，不遮挡列表关键操作。勿按「平板 MiniPlayer 抬高 64px」再额外加偏移。
@@ -253,17 +255,17 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 ## Styling Gotchas
 
-### navbar 普通标题必须使用全局绝对居中规则
+### navbar 标题统一使用 HNavBar 居中契约
 
-Ionic Material Design 模式下，普通 `ion-title` 位于 toolbar 的 flex 内容区。仅写 `text-align: center` 时，标题会受 `slot="start"` / `slot="end"` 操作区宽度影响；只有单侧按钮、左右按钮宽度不同或按钮条件隐藏时，标题不会相对完整 toolbar 真正居中。
+页面与 modal 的顶部导航栏统一使用 `HNavBar`。其 `left / title / right` 三栏布局负责标题相对完整 navbar 居中，业务页面不再维护 Ionic 标题绝对定位补丁。
 
 统一约定：
 
-- 全局规则定义在 `src/theme/variables.css`，选择器使用 `ion-header ion-toolbar > ion-title:not([size="large"])`。
-- 普通标题通过绝对定位覆盖 toolbar，并使用对称 `padding-inline` 为两侧按钮保留安全空间；动态长标题沿用 `ion-title` 的单行省略行为。
-- 标题层使用 `pointer-events: none`，直接子级 `ion-buttons` 保持更高层级，确保按钮点击热区和业务行为不变。
-- 必须通过 `:not([size="large"])` 排除折叠大标题，保持其默认文档流、左对齐和折叠动画。
-- 页面模板不添加仅用于居中的 `page-title` / `source-title` class，也不在 scoped 样式中用 `text-align: center` 模拟 navbar 居中。
+- 标题优先使用 `title` prop；需要自定义内容时使用 `title` slot。
+- 左右操作分别使用 `left` / `right` slot；返回使用 `show-back`、`back-aria-label` 与 `handleLeftClick`。
+- 动态长标题依赖 `HNavBar` 内建单行省略，不添加页面级居中 class 或覆盖内部 grid。
+- `src/theme/variables.css` 只保留 Ionic token 桥接，不得恢复 `ion-header` / `ion-title` / `ion-buttons` navbar 专属全局样式。
+- 页面级 `safeArea` 保持默认开启；modal 内显式关闭；固定与否按页面壳规则设置。
 
 ### ion-list 为 Web Component，CSS Grid 在外层无法布局子 ion-item
 

@@ -1,22 +1,20 @@
 <template>
   <div class="queue-overlay">
-    <ion-header>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-button fill="clear" aria-label="返回" @click="goBack">
-            <h-icon :icon="chevronBack" />
-          </ion-button>
-        </ion-buttons>
-        <ion-title>播放队列</ion-title>
-        <ion-buttons slot="end">
-          <ion-button v-if="queueState.hasItems" fill="clear" color="danger" aria-label="清空队列" @click="onClearQueue">
-            <h-icon :icon="trash" />
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
+    <h-nav-bar
+      title="播放队列"
+      show-back
+      back-aria-label="返回"
+      :fixed="false"
+      @handle-left-click="goBack"
+    >
+      <template v-if="queueState.hasItems" #right>
+        <ion-button fill="clear" color="danger" aria-label="清空队列" @click="onClearQueue">
+          <h-icon :icon="trash" />
+        </ion-button>
+      </template>
+    </h-nav-bar>
 
-    <ion-content fullscreen>
+    <ion-content :fullscreen="false">
       <h-empty
         v-if="!queueState.hasItems"
         title="队列为空"
@@ -71,17 +69,13 @@ import { computed, nextTick, ref, type ComponentPublicInstance, watch } from 'vu
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import {
   IonButton,
-  IonButtons,
   IonContent,
-  IonHeader,
   IonItem,
   IonLabel,
   IonNote,
-  IonTitle,
-  IonToolbar,
 } from '@ionic/vue'
-import { chevronBack, close, trash } from '@/icons'
-import { HEmpty, HIcon } from '@/components/ui'
+import { close, trash } from '@/icons'
+import { HEmpty, HIcon, HNavBar } from '@/components/ui'
 import {
   clearQueue,
   playSong,

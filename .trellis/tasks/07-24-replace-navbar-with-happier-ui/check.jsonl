@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "核对 navbar 契约、shuffle 条语义、组件边界是否被正确迁移与更新"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "核对 lint/build/单测质量门槛与验证要求"}

@@ -1,37 +1,28 @@
 <template>
   <ion-page ref="pageRef">
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>歌曲</ion-title>
-        <ion-buttons slot="end">
-          <ion-button fill="clear" aria-label="搜索歌曲">
-            <h-icon slot="icon-only" :icon="searchOutline" aria-hidden="true" />
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-      <ion-toolbar class="shuffle-toolbar">
-        <div class="shuffle-actions tablet-content-limit">
-          <h-button
-            variant="ghost"
-            size="sm"
-            class="shuffle-all-button"
-            aria-label="随机播放全部"
-            :disabled="songs.length === 0"
-            @click="onShuffleAll"
-          >
-            <template #leading><h-icon :icon="shuffle" /></template>
-            随机播放全部
-          </h-button>
-        </div>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content :fullscreen="true" class="songs-content">
-      <ion-header collapse="condense">
-        <ion-toolbar>
-          <ion-title size="large">歌曲</ion-title>
-        </ion-toolbar>
-      </ion-header>
-
+    <h-nav-bar title="歌曲" :fixed="false">
+      <template #right>
+        <ion-button fill="clear" aria-label="搜索歌曲">
+          <h-icon slot="icon-only" :icon="searchOutline" aria-hidden="true" />
+        </ion-button>
+      </template>
+    </h-nav-bar>
+    <div class="shuffle-bar">
+      <div class="shuffle-actions tablet-content-limit">
+        <h-button
+          variant="ghost"
+          size="sm"
+          class="shuffle-all-button"
+          aria-label="随机播放全部"
+          :disabled="songs.length === 0"
+          @click="onShuffleAll"
+        >
+          <template #leading><h-icon :icon="shuffle" /></template>
+          随机播放全部
+        </h-button>
+      </div>
+    </div>
+    <ion-content :fullscreen="false" class="songs-content">
       <h-empty
         v-if="songs.length === 0"
         title="还没有歌曲"
@@ -124,23 +115,19 @@ import {
   IonActionSheet,
   IonAlert,
   IonButton,
-  IonButtons,
   IonContent,
   IonFab,
   IonFabButton,
-  IonHeader,
   IonItem,
   IonLabel,
   IonPage,
-  IonTitle,
-  IonToolbar,
   onIonViewWillEnter,
   type ActionSheetButton,
   type AlertButton,
   type AlertInput,
 } from '@ionic/vue'
 import { ellipsisVertical, locateOutline, searchOutline, shuffle } from '@/icons'
-import { HButton, HEmpty, HIcon, MCover } from '@/components/ui'
+import { HButton, HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
@@ -408,8 +395,10 @@ onIonViewWillEnter(refreshSongs)
   --padding-bottom: 0;
 }
 
-.shuffle-toolbar {
-  --min-height: 48px;
+.shuffle-bar {
+  flex: 0 0 48px;
+  min-height: 48px;
+  background: var(--muses-color-surface);
 }
 
 .shuffle-actions {
@@ -443,8 +432,8 @@ onIonViewWillEnter(refreshSongs)
   right: 0;
   box-sizing: border-box;
   min-height: var(--muses-song-row-height);
-  /* 避开双 toolbar，scrollIntoView block=start 时标题完整可见 */
-  scroll-margin-top: 120px;
+  /* 避开 navbar 与随机播放操作区，scrollIntoView block=start 时标题完整可见 */
+  scroll-margin-top: 108px;
 }
 
 /* 当前播放行：替代已删除 HListRow 的 playing 背景。 */

@@ -177,9 +177,10 @@ describe('音乐库标签页', () => {
     const wrapper = mountSongsPage()
     await nextTick()
 
-    const pageHeader = wrapper.get('main > header')
-    const actions = pageHeader.get('.shuffle-actions')
-    expect(actions.element.parentElement?.classList.contains('shuffle-toolbar')).toBe(true)
+    const navbar = wrapper.get('main > header')
+    const shuffleBar = wrapper.get('main > .shuffle-bar')
+    const actions = shuffleBar.get('.shuffle-actions')
+    expect(navbar.element.nextElementSibling).toBe(shuffleBar.element)
     expect(wrapper.find('.bottom-actions').exists()).toBe(false)
 
     const button = actions.get('button[aria-label="随机播放全部"]')

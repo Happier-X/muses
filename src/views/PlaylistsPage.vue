@@ -1,22 +1,13 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>歌单</ion-title>
-        <ion-buttons slot="end">
-          <ion-button fill="clear" aria-label="新建歌单" @click="openCreateAlert">
-            <h-icon slot="icon-only" :icon="addOutline" aria-hidden="true" />
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content :fullscreen="true">
-      <ion-header collapse="condense">
-        <ion-toolbar>
-          <ion-title size="large">歌单</ion-title>
-        </ion-toolbar>
-      </ion-header>
-
+    <h-nav-bar title="歌单" :fixed="false">
+      <template #right>
+        <ion-button fill="clear" aria-label="新建歌单" @click="openCreateAlert">
+          <h-icon slot="icon-only" :icon="addOutline" aria-hidden="true" />
+        </ion-button>
+      </template>
+    </h-nav-bar>
+    <ion-content :fullscreen="false">
       <div class="tablet-content-limit">
         <h-empty
           v-if="playlists.length === 0"
@@ -89,22 +80,18 @@ import {
   IonActionSheet,
   IonAlert,
   IonButton,
-  IonButtons,
   IonContent,
-  IonHeader,
   IonItem,
   IonLabel,
   IonList,
   IonPage,
-  IonTitle,
-  IonToolbar,
   onIonViewWillEnter,
   type ActionSheetButton,
   type AlertButton,
   type AlertInput,
 } from '@ionic/vue'
 import { addOutline, ellipsisVertical, list } from '@/icons'
-import { HIcon, MCover, HEmpty } from '@/components/ui'
+import { HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,

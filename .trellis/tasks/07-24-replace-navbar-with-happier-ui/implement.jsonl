@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "navbar 标题居中全局规则、shuffle 条固定位置、组件边界（只用 happier-ui 真实导出）等约束，迁移必须遵循并同步更新"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "确认 MPage 为 app-only 页壳、ui 边界层职责，改造 MPage 时不越界"}

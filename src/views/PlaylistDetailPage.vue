@@ -1,25 +1,19 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-back-button default-href="/tabs/playlists" text="" />
-        </ion-buttons>
-        <ion-title>{{ playlist?.name ?? '歌单' }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button fill="clear" aria-label="播放全部" :disabled="resolvedSongs.length === 0" @click="onPlayAll">
-            <h-icon :icon="playOutline" />
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content :fullscreen="true">
-      <ion-header collapse="condense">
-        <ion-toolbar>
-          <ion-title size="large">{{ playlist?.name ?? '歌单' }}</ion-title>
-        </ion-toolbar>
-      </ion-header>
-
+    <h-nav-bar
+      :title="playlist?.name ?? '歌单'"
+      show-back
+      back-aria-label="返回歌单"
+      :fixed="false"
+      @handle-left-click="goBack"
+    >
+      <template #right>
+        <ion-button fill="clear" aria-label="播放全部" :disabled="resolvedSongs.length === 0" @click="onPlayAll">
+          <h-icon :icon="playOutline" />
+        </ion-button>
+      </template>
+    </h-nav-bar>
+    <ion-content :fullscreen="false">
       <div class="tablet-content-limit">
         <h-empty v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
 
@@ -77,20 +71,16 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import {
-  IonBackButton,
   IonButton,
-  IonButtons,
   IonContent,
-  IonHeader,
   IonItem,
   IonLabel,
   IonPage,
-  IonTitle,
-  IonToolbar,
   onIonViewWillEnter,
+  useIonRouter,
 } from '@ionic/vue'
 import { playOutline, removeCircleOutline } from '@/icons'
-import { HEmpty, HIcon, MCover } from '@/components/ui'
+import { HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'
@@ -109,6 +99,7 @@ import {
 } from '@/features/player/controller'
 
 const route = useRoute()
+const ionRouter = useIonRouter()
 const playlist = ref<Playlist | undefined>()
 const allSongs = ref<SongItem[]>([])
 const listParentRef = ref<HTMLElement | null>(null)
@@ -166,6 +157,14 @@ const toDisplayableUri = (uri: string): string => {
 
 const getSongCoverSrc = (song: SongItem): string => {
   return song.coverUri ? toDisplayableUri(song.coverUri) : ''
+}
+
+const goBack = (): void => {
+  if (ionRouter.canGoBack()) {
+    ionRouter.back()
+    return
+  }
+  ionRouter.navigate('/tabs/playlists', 'back', 'pop')
 }
 
 const onPlayAll = () => {

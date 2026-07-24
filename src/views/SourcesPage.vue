@@ -1,17 +1,14 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>音源</ion-title>
-        <ion-buttons slot="end">
-          <ion-button aria-label="添加音源" @click="isAddActionSheetOpen = true">
-            <h-icon slot="icon-only" :icon="add" aria-hidden="true" />
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
+    <h-nav-bar title="音源" :fixed="false">
+      <template #right>
+        <ion-button aria-label="添加音源" @click="isAddActionSheetOpen = true">
+          <h-icon slot="icon-only" :icon="add" aria-hidden="true" />
+        </ion-button>
+      </template>
+    </h-nav-bar>
 
-    <ion-content :fullscreen="true">
+    <ion-content :fullscreen="false">
       <h-empty
         v-if="sources.length === 0"
         title="还没有音源"
@@ -66,14 +63,11 @@
       />
 
       <ion-modal :is-open="isEditModalOpen" :backdrop-dismiss="!isEditSaving" @didDismiss="closeEditSource">
-        <ion-header>
-          <ion-toolbar>
-            <ion-title>编辑音源</ion-title>
-            <ion-buttons slot="end">
-              <ion-button :disabled="isEditSaving" @click="closeEditSource">关闭</ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-        </ion-header>
+        <h-nav-bar title="编辑音源" :fixed="false" :safe-area="false">
+          <template #right>
+            <ion-button :disabled="isEditSaving" @click="closeEditSource">关闭</ion-button>
+          </template>
+        </h-nav-bar>
 
         <ion-content class="ion-padding">
           <form class="edit-source-form" @submit.prevent="editSourceForm.handleSubmit">
@@ -185,14 +179,11 @@
       </ion-modal>
 
       <ion-modal :is-open="isScanSettingsOpen" @didDismiss="closeScanSettings">
-        <ion-header>
-          <ion-toolbar>
-            <ion-title>扫描设置</ion-title>
-            <ion-buttons slot="end">
-              <ion-button @click="closeScanSettings">关闭</ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-        </ion-header>
+        <h-nav-bar title="扫描设置" :fixed="false" :safe-area="false">
+          <template #right>
+            <ion-button @click="closeScanSettings">关闭</ion-button>
+          </template>
+        </h-nav-bar>
 
         <ion-content class="ion-padding">
           <div class="form-fields">
@@ -207,16 +198,13 @@
       </ion-modal>
 
       <ion-modal :is-open="isScanProgressOpen" :backdrop-dismiss="scanProgress.stage !== 'processing' && scanProgress.stage !== 'discovering'">
-        <ion-header>
-          <ion-toolbar>
-            <ion-title>扫描进度</ion-title>
-            <ion-buttons slot="end">
-              <ion-button :disabled="scanProgress.stage === 'processing' || scanProgress.stage === 'discovering'" @click="closeScanProgress">
-                关闭
-              </ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-        </ion-header>
+        <h-nav-bar title="扫描进度" :fixed="false" :safe-area="false">
+          <template #right>
+            <ion-button :disabled="scanProgress.stage === 'processing' || scanProgress.stage === 'discovering'" @click="closeScanProgress">
+              关闭
+            </ion-button>
+          </template>
+        </h-nav-bar>
 
         <ion-content class="ion-padding">
           <ion-progress-bar v-if="scanProgress.stage === 'discovering' || scanProgress.stage === 'processing'" type="indeterminate" />
@@ -247,14 +235,11 @@
       </ion-modal>
 
       <ion-modal :is-open="isWebDavModalOpen" @didDismiss="closeWebDavModal">
-        <ion-header>
-          <ion-toolbar>
-            <ion-title>添加 WebDAV</ion-title>
-            <ion-buttons slot="end">
-              <ion-button @click="closeWebDavModal">关闭</ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-        </ion-header>
+        <h-nav-bar title="添加 WebDAV" :fixed="false" :safe-area="false">
+          <template #right>
+            <ion-button @click="closeWebDavModal">关闭</ion-button>
+          </template>
+        </h-nav-bar>
 
         <ion-content class="ion-padding">
           <form class="webdav-form" @submit.prevent="webDavForm.handleSubmit">
@@ -377,14 +362,12 @@ import {
   IonActionSheet,
   IonAlert,
   IonButton,
-  IonButtons,
   IonCard,
   IonCardContent,
   IonCardHeader,
   IonCardSubtitle,
   IonCardTitle,
   IonContent,
-  IonHeader,
   IonItem,
   IonLabel,
   IonList,
@@ -393,13 +376,11 @@ import {
   IonPage,
   IonProgressBar,
   IonText,
-  IonTitle,
-  IonToolbar,
   type ActionSheetButton,
   type AlertButton,
 } from '@ionic/vue'
 import { add } from '@/icons'
-import { HButton, HCheckbox, HEmpty, HIcon, HInput, HSwitch } from '@/components/ui'
+import { HButton, HCheckbox, HEmpty, HIcon, HInput, HNavBar, HSwitch } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,

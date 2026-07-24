@@ -1,117 +1,107 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
-const themeCss = readFileSync(resolve(process.cwd(), 'src/theme/variables.css'), 'utf8')
-
 const readSource = (file: string): string => readFileSync(resolve(process.cwd(), file), 'utf8')
 
-const navbarCases = [
-  ['src/views/SongsPage.vue', '<ion-title>歌曲</ion-title>'],
-  ['src/views/PlaylistsPage.vue', '<ion-title>歌单</ion-title>'],
-  ['src/views/SettingsPage.vue', '<ion-title>设置</ion-title>'],
-  ['src/views/PlaylistDetailPage.vue', "<ion-title>{{ playlist?.name ?? '歌单' }}</ion-title>"],
-  ['src/views/QueuePage.vue', '<ion-title>播放队列</ion-title>'],
-  ['src/views/SourcesPage.vue', '<ion-title>音源</ion-title>'],
-  ['src/views/SourcesPage.vue', '<ion-title>扫描设置</ion-title>'],
-  ['src/views/SourcesPage.vue', '<ion-title>扫描进度</ion-title>'],
-  ['src/views/SourcesPage.vue', '<ion-title>添加 WebDAV</ion-title>'],
+const listVueSources = (directory: string): string[] => readdirSync(resolve(process.cwd(), directory), { withFileTypes: true })
+  .flatMap((entry) => {
+    const path = `${directory}/${entry.name}`
+    if (entry.isDirectory()) {
+      return listVueSources(path)
+    }
+    return entry.isFile() && entry.name.endsWith('.vue') ? [path] : []
+  })
+
+const pageNavbarCases = [
+  ['src/views/SongsPage.vue', 'title="歌曲"'],
+  ['src/views/PlaylistsPage.vue', 'title="歌单"'],
+  ['src/views/SettingsPage.vue', 'title="设置"'],
+  ['src/views/PlaylistDetailPage.vue', ':title="playlist?.name ?? \'歌单\'"'],
+  ['src/views/QueuePage.vue', 'title="播放队列"'],
+  ['src/views/SourcesPage.vue', 'title="音源"'],
 ] as const
 
-/** 经 MPage 承接 header/title 的简单列表页：页面只声明 title 槽，标题 markup 在组件内 */
-const mPageNavbarCases = [
-  ['src/views/AlbumsPage.vue', '专辑'],
-  ['src/views/ArtistsPage.vue', '艺术家'],
+const modalNavbarCases = [
+  '编辑音源',
+  '扫描设置',
+  '扫描进度',
+  '添加 WebDAV',
 ] as const
 
-const collapsibleTitleFiles = [
-  'src/views/SongsPage.vue',
-  'src/views/PlaylistsPage.vue',
-  'src/views/SettingsPage.vue',
-  'src/views/PlaylistDetailPage.vue',
+const directNavbarFiles = [...new Set(pageNavbarCases.map(([file]) => file))]
+const allNavbarFiles = [
+  'src/components/ui/MPage.vue',
+  ...directNavbarFiles,
 ]
+const allVueSources = listVueSources('src')
 
-const mPageCollapsibleTitleFiles = [
-  'src/views/AlbumsPage.vue',
-  'src/views/ArtistsPage.vue',
-]
+const ionicNavbarPattern = /<ion-(?:header|toolbar|title|buttons|back-button)\b/
 
-const ruleBody = (selector: string): string => {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const match = themeCss.match(new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`))
-  expect(match, `缺少全局样式规则：${selector}`).not.toBeNull()
-  return match?.[1] ?? ''
-}
-
-describe('navbar 标题全局布局', () => {
-  test('普通标题相对完整 toolbar 绝对居中，并明确排除折叠大标题', () => {
-    const selector = 'ion-header ion-toolbar > ion-title:not([size="large"])'
-    const declarations = ruleBody(selector)
-
-    expect(declarations).toMatch(/position:\s*absolute/)
-    expect(declarations).toMatch(/inset:\s*0/)
-    expect(declarations).toMatch(/text-align:\s*center/)
-    expect(selector).toContain(':not([size="large"])')
-  })
-
-  test('为长标题保留对称安全空间，且标题层不拦截按钮事件', () => {
-    const declarations = ruleBody('ion-header ion-toolbar > ion-title:not([size="large"])')
-
-    expect(declarations).toMatch(/padding-inline:\s*80px/)
-    expect(declarations).toMatch(/pointer-events:\s*none/)
-  })
-
-  test('左右操作按钮位于标题层上方并保持可交互', () => {
-    const declarations = ruleBody('ion-header ion-toolbar > ion-buttons')
-
-    expect(declarations).toMatch(/position:\s*relative/)
-    expect(declarations).toMatch(/z-index:\s*1/)
-    expect(declarations).not.toMatch(/pointer-events:\s*none/)
-  })
-
-  test.each(navbarCases)('%s 的普通标题由全局规则接管：%s', (file, titleMarkup) => {
+describe('HNavBar 使用契约', () => {
+  test.each(pageNavbarCases)('%s 使用 HNavBar 承载标题', (file, titleBinding) => {
     const source = readSource(file)
 
-    expect(source).toContain(titleMarkup)
-    expect(titleMarkup).not.toContain('size="large"')
+    expect(source).toContain('<h-nav-bar')
+    expect(source).toContain(titleBinding)
+    expect(source).toContain(':fixed="false"')
   })
 
-  test.each(mPageNavbarCases)('%s 经 MPage 声明 title 槽：%s', (file, titleText) => {
-    const source = readSource(file)
-
-    expect(source).toMatch(/<m-page[\s>]/)
-    expect(source).toContain(`<template #title>${titleText}</template>`)
-    expect(source).not.toMatch(/<ion-title[^>]*>/)
-  })
-
-  test('MPage 输出普通 ion-title 与可选折叠大标题，供全局居中规则命中', () => {
+  test('MPage 将标题和左右操作映射到 HNavBar 插槽', () => {
     const source = readSource('src/components/ui/MPage.vue')
 
-    expect(source).toContain('<ion-title><slot name="title" /></ion-title>')
-    expect(source).toMatch(/<ion-title\s+size="large">/)
-    expect(source).toMatch(/condensedTitle/)
+    expect(source).toContain('<h-nav-bar :fixed="false">')
+    expect(source).toContain('<template v-if="$slots.start" #left>')
+    expect(source).toContain('<template #title>')
+    expect(source).toContain('<template v-if="$slots.end" #right>')
+    expect(source).toContain("import { HNavBar } from 'happier-ui'")
+    expect(source).not.toContain("from '@/components/ui'")
+    expect(source).not.toMatch(/condensedTitle|collapse="condense"/)
   })
 
-  test.each(collapsibleTitleFiles)('%s 的折叠大标题保留 size="large"', (file) => {
-    expect(readSource(file)).toMatch(/<ion-title\s+size="large">/)
-  })
-
-  test.each(mPageCollapsibleTitleFiles)('%s 通过 MPage 默认 condensedTitle 保留折叠大标题', (file) => {
+  test.each([
+    ['src/views/AlbumsPage.vue', '专辑'],
+    ['src/views/ArtistsPage.vue', '艺术家'],
+  ] as const)('%s 通过 MPage 的标题插槽使用 HNavBar：%s', (file, title) => {
     const source = readSource(file)
 
     expect(source).toMatch(/<m-page[\s>]/)
-    // 默认 condensedTitle=true；页面若显式关闭需另写断言
-    expect(source).not.toMatch(/:condensed-title="false"/)
-    expect(source).not.toMatch(/condensedTitle="false"/)
+    expect(source).toContain(`<template #title>${title}</template>`)
+    expect(source).not.toMatch(ionicNavbarPattern)
   })
 
-  test('页面不再使用仅用于 navbar 居中的局部 class', () => {
-    const files = [
-      ...new Set(navbarCases.map(([file]) => file)),
-      ...mPageNavbarCases.map(([file]) => file),
-    ]
-    const sources = files.map(readSource).join('\n')
+  test.each(modalNavbarCases)('SourcesPage 的“%s”弹窗使用非固定、无安全区 HNavBar', (title) => {
+    const source = readSource('src/views/SourcesPage.vue')
 
-    expect(sources).not.toMatch(/(?:page-title|source-title)/)
+    expect(source).toContain(`<h-nav-bar title="${title}" :fixed="false" :safe-area="false">`)
+  })
+
+  test('返回页面使用 HNavBar 返回契约', () => {
+    const playlistDetail = readSource('src/views/PlaylistDetailPage.vue')
+    const queue = readSource('src/views/QueuePage.vue')
+
+    for (const source of [playlistDetail, queue]) {
+      expect(source).toContain('show-back')
+      expect(source).toContain('@handle-left-click="goBack"')
+    }
+    expect(playlistDetail).toContain("ionRouter.navigate('/tabs/playlists', 'back', 'pop')")
+  })
+
+  test.each(allNavbarFiles)('%s 不再使用 Ionic navbar 标签', (file) => {
+    expect(readSource(file)).not.toMatch(ionicNavbarPattern)
+  })
+
+  test.each(allVueSources)('%s 不再直接声明 Ionic navbar 标签', (file) => {
+    expect(readSource(file)).not.toMatch(ionicNavbarPattern)
+  })
+
+  test.each(directNavbarFiles)('%s 的右侧业务按钮不依赖 HNavBar 容器点击', (file) => {
+    expect(readSource(file)).not.toMatch(/@handle-right-click=/)
+  })
+
+  test('全局主题不再包含 Ionic navbar 专属样式', () => {
+    const themeCss = readSource('src/theme/variables.css')
+
+    expect(themeCss).not.toMatch(/ion-header|ion-title|ion-buttons/)
   })
 })

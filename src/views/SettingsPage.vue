@@ -1,17 +1,7 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>设置</ion-title>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content :fullscreen="true">
-      <ion-header collapse="condense">
-        <ion-toolbar>
-          <ion-title size="large">设置</ion-title>
-        </ion-toolbar>
-      </ion-header>
-
+    <h-nav-bar title="设置" :fixed="false" />
+    <ion-content :fullscreen="false">
       <div class="tablet-content-limit">
         <ion-list>
           <ion-item lines="none">
@@ -53,16 +43,13 @@
 import { ref, watch } from 'vue'
 import {
   IonContent,
-  IonHeader,
   IonItem,
   IonLabel,
   IonList,
   IonPage,
-  IonTitle,
-  IonToolbar,
   toastController,
 } from '@ionic/vue'
-import { HButton, HSwitch } from '@/components/ui'
+import { HButton, HNavBar, HSwitch } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,
