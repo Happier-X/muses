@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "播放器 overlay、进度条 ion-range、冷启动恢复与 seek 交互规范"}
+{"file": "src/features/player/controller.ts", "reason": "冷启动会话恢复、原生状态同步、play+seek 续播状态机"}
+{"file": "tests/unit/player.spec.ts", "reason": "冷启动续播与进度条回归测试模式"}
