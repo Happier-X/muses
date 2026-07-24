@@ -45,13 +45,15 @@ Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.2`**，不得提交 `fi
 
 ### 组件契约
 
-`src/components/ui/index.ts` 只转出 happier-ui@0.0.2 的真实导出，并附带 `MCover`、`MPage`。0.0.2 已重新提供 `HIconButton`；仍不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留 Ionic/业务实现并登记 `.trellis/tasks/07-23-happier-ui-full-migrate/gaps.md`，未来在 happier-ui 仓库开发后再回迁。
+`src/components/ui/index.ts` 只转出 happier-ui@0.0.2 的真实导出，并附带 `MCover`、`MPage`。0.0.2 已重新提供 `HIconButton`；仍不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留 Ionic/业务实现并登记对应任务的 `gaps.md`（最新一轮见 `.trellis/tasks/07-24-replace-ionic-with-happier-ui/gaps.md`），未来在 happier-ui 仓库开发后再回迁。
 
 ### 使用规则
 
 - 通过 `@/components/ui` 具名导入。组件只表达语义，**不**读取播放、曲库等业务状态。
 - 新样式优先 `--h-*` 或已有 `--muses-*` 别名；不得新硬编码主色 / elevation。
-- `HEmpty`、`HButton`、`HIconButton`、`HSwitch`、`HInput`、`HCheckbox`、`HToast`、`HRange`、`HProgress`、`HCard`、`HCell`、`HCellGroup` 等已有能力优先使用；`MCover` 仅用于音乐封面业务。
+- `HEmpty`、`HButton`、`HIconButton`、`HSwitch`、`HInput`、`HCheckbox`、`HToast`、`HRange`、`HProgress`、`HCard` 等已有能力优先使用；`MCover` 仅用于音乐封面业务。
+  - `ion-progress-bar` → `HProgress`、`ion-card*` → `HCard`、icon-only `ion-button`（列表/导航栏）→ `HIconButton` 在 0.0.2 已可零回归替换（见 `07-24-replace-ionic-low-risk`），不再属于库缺口。
+- **`HCell` / `HCellGroup`（0.0.2 新增）本轮暂不采用**：现有列表/设置行基于 `ion-item` + `ion-list`，并叠加了 `ion-item-sliding`、`@tanstack/vue-virtual` 行高实测、`data-song-id` 定位、`slot="start/end"` 等约定；切换到 `HCell`/`HCellGroup` 需重验虚拟化测量与滑动删除，属独立评估项，未在本轮替换范围内。新列表行仍沿用现有 `ion-item` 约定，不得为迁移率贸然替换。
 - 通用列表行、设置行等仍属库缺口的能力不在 Muses 造替代组件，具体落点以 `gaps.md` 为准。
 - **可提交表单**统一用 `@tanstack/vue-form` + `HInput` 字段绑定；约定见 [forms.md](./forms.md)。
 
@@ -63,13 +65,24 @@ Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.2`**，不得提交 `fi
 |----------|------|
 | `ion-page` / `ion-content` | Ionic 路由页壳与滚动容器；简单页优先 `MPage` |
 | `ion-list` | 结构容器，暂不封装 |
-| `ion-button`（带文字或纯图标缺口） | 带文字操作优先 `HButton`；icon-only 等库缺口保留 Ionic 壳并登记 |
-| `ion-toggle` / `ion-input` / `ion-checkbox` / `ion-range` | 优先 `HSwitch`/`HInput`/`HCheckbox`；`ion-range` 及未覆盖能力按缺口保留 |
+| `ion-button`（特定缺口场景） | 带文字操作优先 `HButton`、纯图标优先 `HIconButton`；仅 fill 图标主控（`MiniPlayer` / `PlayerPage` 播放键）与「透明底 + danger 前景」（`QueuePage` 清空/删除）等 `HIconButton` 无法零回归的场景保留 Ionic 并登记 `gaps.md` |
+| `ion-toggle` / `ion-input` / `ion-checkbox` / `ion-range` | 优先 `HSwitch`/`HInput`/`HCheckbox`；`ion-range` 因 `HRange` 缺「释放提交」事件契约（详见下方 HRange 说明）在 `PlayerPage` 进度条保留 |
 | `ion-action-sheet` / `ion-alert` / `ion-modal` / `ion-fab` | 叠层/FAB 宿主；仅替换内部图标为 `HIcon` |
-| `ion-note` / `ion-item` / `ion-label` / `ion-card*` / `ion-text` / `ion-progress-bar` | 库缺口：列表行、设置行、卡片、提示、进度等，保留并登记 `gaps.md` |
+| `ion-note` / `ion-item` / `ion-label` / `ion-text` | 库缺口：列表行、设置行、提示等，保留并登记 `gaps.md` |
 | `ion-router-outlet` / Tab 壳相关 | 应用壳，非语义组件 |
 
 **禁止**：业务代码使用 `ion-icon` / `@/icons/ion-lucide` / `ionicons/icons`；为迁移率新建 `MListRow`/`MSettingRow`/`MIconButton` 或复制空态结构。库没有对应组件时，保留现有 Ionic/业务结构并登记 `gaps.md`。
+
+### `HRange` 当前能力差距（PlayerPage 进度条保留 `ion-range` 的原因）
+
+`HRange` 在视觉（`--h-range-fill` / `--h-range-track-bg` / `--h-range-thumb-*` 可隐藏 knob、定制已播放填充）与拖动预览（`update:modelValue` 可驱动 seek preview）两级都能覆盖 `ion-range`，但缺一条正式契约：
+
+- `HRange` 的 emits 只有 `update:modelValue`（等价原生 `input`，拖动中连续 fire），**无对应 `ionChange` 的「释放提交」事件**。
+- 宿主若想实现「拖动中预览 + 释放时提交 `seekPlayback`」只能依赖 fallthrough 监听原生 `@change`（靠 `HRange` 为单根 `<input>` 且未设 `inheritAttrs: false`），而这是 **未声明的库实现细节**，不在 `.d.ts` 的 emits 里，一旦上游重构（包 wrapper、收编 `change` 为自定义 emit、加 `inheritAttrs: false`）就会在 seek 敏感路径上 **静默失效**。
+
+因此 `src/views/PlayerPage.vue` 的进度条保留 `ion-range`（`ionInput` + `ionChange` 契约明确），并在 `07-24-replace-ionic-with-happier-ui/gaps.md` 登记。**解除条件**：happier-ui 为 `HRange` 补一条正式 `change`（释放/点击轨道/键盘调整时 fire，programmatic 改值不 fire）并写入 `.d.ts`。对应上游 issue：https://github.com/Happier-X/happier-ui/issues/1。契约落地后可零回归将 PlayerPage 进度条切换到 `HRange`。
+
+其他未覆盖能力（如 `drag-start`/`drag-end`）非必需：PlayerPage 手势锁 `seekGestureLocked` 本就绑在外层 `.progress-area` 的 pointer/touch 上，不靠 range 组件自身的 knob 事件。
 
 ## Ionic Page Pattern
 
@@ -500,12 +513,12 @@ const openScanSettings = (source: SourceItem): void => {
 
 ## SourcesPage 虚拟列表行高测量约定
 
-`src/views/SourcesPage.vue` 使用 `@tanstack/vue-virtual` 渲染音源卡片。窄屏/竖屏下 Ionic 卡片实际高度会因副标题、内边距等超过固定估算值；若只依赖 `estimateSize` 而不实测行高，后续行的 `translateY` 会偏小，导致卡片互相覆盖并遮挡扫描按钮。
+`src/views/SourcesPage.vue` 使用 `@tanstack/vue-virtual` 渲染音源卡片（已从 `ion-card` 迁移为 `HCard`）。窄屏/竖屏下卡片实际高度会因副标题、内边距等超过固定估算值；若只依赖 `estimateSize` 而不实测行高，后续行的 `translateY` 会偏小，导致卡片互相覆盖并遮挡扫描按钮。
 
 ### 规则
 
 1. **保留 `estimateSize` 仅作首屏占位**，挂载后必须用 `measureElement` 用真实高度重算。
-2. **测量目标必须是原生 HTML 元素**，不要直接测 `ion-card` 等 Web Component（Vue 组件实例/`$el` 与库的 `HTMLElement` 期望不一致）。正确做法是外包一层原生 `div` 作为虚拟行。
+2. **测量目标必须是原生 HTML 元素**，不要直接测 Vue 组件实例（组件本身的元素结构与库的 `HTMLElement` 期望不一致）。正确做法是外包一层原生 `div` 作为虚拟行。
 3. **虚拟行必须带 `data-index`**（与库默认 `indexAttribute` 一致），并通过 ref 回调调用 `rowVirtualizer.value.measureElement(...)`。
 4. **行间距必须进入实测高度**：不要用 `margin` 做绝对定位行的垂直间距（`offsetHeight` 通常不计入 margin）。应把间距放进测量容器的 `padding` / `border-box`。
 5. **ref 回调只向 `measureElement` 传入 `HTMLElement | null`**：卸载时传入 `null`，由库清理断开节点。
@@ -521,7 +534,7 @@ const openScanSettings = (source: SourceItem): void => {
   :data-index="virtualRow.index"
   :style="{ transform: `translateY(${virtualRow.start}px)` }"
 >
-  <ion-card class="source-card">...</ion-card>
+  <HCard class="source-card">...</HCard>
 </div>
 ```
 
@@ -544,13 +557,14 @@ const measureVirtualRow = (element: Element | ComponentPublicInstance | null): v
 .source-card {
   min-height: 100px;
   margin: 0; /* 不要用 margin 承担行间距 */
+  /* HCard 默认 margin:0，无需额外重置 */
 }
 ```
 
 ### 避免
 
 - 只写 `estimateSize: () => 148`、不接 `measureElement` / `data-index`。
-- 把 `position: absolute` + `translateY` 直接绑在 `ion-card` 上并指望固定估算值在窄屏仍准确。
+- 把 `position: absolute` + `translateY` 直接绑在 `HCard` 上并指望固定估算值在窄屏仍准确。
 - 用 `margin: 8px 0` 做绝对定位行间距，导致测量高度小于实际占位。
 - 在 ref 回调里直接访问组件实例的 `$el` 而不做 `HTMLElement` 收窄（类型不安全，且测量目标应优先选原生包装节点）。
 
