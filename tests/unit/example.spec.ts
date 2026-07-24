@@ -137,10 +137,32 @@ describe('音乐库标签页', () => {
     const wrapper = mount(AlbumsPage)
     await nextTick()
 
-    expect(wrapper.text()).toContain('专辑甲')
-    expect(wrapper.text()).toContain('2 首歌曲')
-    expect(wrapper.text()).toContain('歌手甲、歌手乙')
-    expect(wrapper.text()).toContain('未知专辑')
+    // 卡片网格结构：不再渲染 ion-list / ion-item
+    expect(wrapper.find('ion-list').exists()).toBe(false)
+    expect(wrapper.find('ion-item').exists()).toBe(false)
+
+    const grid = wrapper.get('.album-grid')
+    const cards = grid.findAll('.album-card')
+    // 专辑甲 + 未知专辑 = 2 张卡片
+    expect(cards).toHaveLength(2)
+
+    // 每张卡片包含封面与文字信息
+    for (const card of cards) {
+      expect(card.find('.album-card__cover').exists()).toBe(true)
+      expect(card.find('.album-card__name').exists()).toBe(true)
+      expect(card.find('.album-card__count').exists()).toBe(true)
+      expect(card.find('.album-card__artists').exists()).toBe(true)
+    }
+
+    const albumCardByName = (name: string) => cards.find((card) => card.get('.album-card__name').text() === name)
+    const knownAlbumCard = albumCardByName('专辑甲')
+    const unknownAlbumCard = albumCardByName('未知专辑')
+
+    // 保留聚合信息，并确保信息属于同一张卡片
+    expect(knownAlbumCard).toBeTruthy()
+    expect(knownAlbumCard?.get('.album-card__count').text()).toBe('2 首歌曲')
+    expect(knownAlbumCard?.get('.album-card__artists').text()).toBe('歌手甲、歌手乙')
+    expect(unknownAlbumCard).toBeTruthy()
   })
 
   test('艺术家页展示艺术家聚合和未知艺术家', async () => {
