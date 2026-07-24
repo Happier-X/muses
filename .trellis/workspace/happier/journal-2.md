@@ -1280,3 +1280,43 @@ localStorage `muses:playback-session` 存 currentSongId + position；冷启动�
 ### Next Steps
 
 - None - task complete
+
+---
+
+## Session 78 — 2026-07-24 22:25
+
+**Task**: 低风险 Ionic → happier-ui 替换（HProgress/HCard/按钮）
+**Branch**: `main`
+
+### Summary
+
+父任务 `07-24-replace-ionic-with-happier-ui` 下 child 1。把明确可无损替换的 Ionic 组件换成 happier-ui 0.0.2：SourcesPage 的 `ion-progress-bar`→`HProgress`（indeterminate）、`ion-card*`→`HCard`（因 outlined variant 的 header/body 间会有 border-top 分隔线，为零回归把标题/副标题/路径/操作全放 default slot，标题副标题用 token 自定义样式）、4 处 modal 关闭按钮 `ion-button`→`HButton variant="ghost" size="sm"`、导航栏加号 `ion-button`→`HIconButton variant="primary"`。列表/导航栏 icon-only 按钮换 `HIconButton variant="ghost"`：PlaylistsPage（新建/更多）、PlaylistDetailPage（播放全部/移除）、SongsPage（搜索/更多）。
+
+### Key Decisions
+
+- **MiniPlayer 播放/暂停/队列按钮保留 Ionic**：HIconButton 内部渲染 HIcon 只透传 `icon`+`size`，不透传 `variant`，播放/暂停用 `variant="fill"` 会退化为 stroke 描边 → 视觉回归。登记父任务缺口。
+- **QueuePage 清空/删除按钮保留 Ionic**：`fill="clear" color="danger"`（透明底 + danger 图标）组合无对应 HIconButton variant（danger 是实心红底、danger-soft 有红色底纹），无法零回归。登记缺口。
+- **aria-label 类型坑**：vue-tsc/Volar 把 kebab `aria-label` 当作全局 ARIA HTML 属性，不映射到 HIconButton 必填的 camelCase `ariaLabel` prop → 编译报 TS2345。改用 camelCase `ariaLabel`（静态）/ `:ariaLabel`（动态）解决。
+- **slot="end" 透传**：HIconButton 单根 `<button>` 未设 inheritAttrs:false，`slot="end"` 作普通属性透传到根 button，ion-item 正常读取（与既有 `m-cover slot="start"` 同模式验证有效）。
+
+### Main Changes
+
+- `src/views/SourcesPage.vue`：progress-bar→HProgress、card→HCard、4 关闭按钮 + 加号按钮替换，清理 Ionic imports，补 card 标题/副标题 token 样式。
+- `src/views/PlaylistsPage.vue`、`PlaylistDetailPage.vue`、`SongsPage.vue`：icon-only 按钮→HIconButton variant=ghost。
+- `.trellis/tasks/07-24-replace-ionic-with-happier-ui/gaps.md`：记录 MiniPlayer / QueuePage 两处缺口。
+
+### Testing
+
+- `npm run build`（vue-tsc + vite）通过、无类型错误。
+- 337 单测全过。
+- `npm run lint` 干净。
+- 视觉自查（Tailwind preflight × Ionic）仍待人工 `npm run dev`。
+
+### Status
+
+[OK] **Completed**（child 1）
+
+### Next Steps
+
+- child 2 `07-24-replace-player-range`：PlayerPage `ion-range`→`HRange` 评估。
+- child 3 `07-24-sync-spec-whitelist`：同步 spec 白名单。
