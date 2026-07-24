@@ -1320,3 +1320,52 @@ localStorage `muses:playback-session` 存 currentSongId + position；冷启动�
 
 - child 2 `07-24-replace-player-range`：PlayerPage `ion-range`→`HRange` 评估。
 - child 3 `07-24-sync-spec-whitelist`：同步 spec 白名单。
+
+---
+
+## 2026-07-25 06:27 — child 2：PlayerPage ion-range→HRange 评估
+
+**Task**: `07-24-replace-player-range`（父任务 `07-24-replace-ionic-with-happier-ui` 的 child 2）
+**Branch**: `main`
+
+### Summary
+
+纯评估任务，结论：**保留 ion-range，登记为库缺口，PlayerPage 不改动**。
+
+### 评估依据
+
+读了 HRange 源码（`node_modules/happier-ui/dist/index.js`）与 PlayerPage 进度条实现。HRange 是原生 `<input type="range">`，API 仅 `modelValue/min/max/step/disabled/size/ariaLabel/name` + `update:modelValue`。
+
+能覆盖：
+- 值绑定：`update:modelValue` 可替代 `ionInput` 的拖动连续预览。
+- 视觉：knob 可用 `:deep(::-webkit-slider-thumb)` + CSS 变量 `--h-range-fill/track-bg/thumb-*` 定制隐藏与填充，能对齐深色沉浸态。
+- 值语义：HRange 不因程序化 value 变化 emit（原生 input 语义），反而避开 #47 那个"程序化写值误 emit ionInput 冻结进度条"的坑。
+
+硬缺口：
+1. 无拖动生命周期语义事件：仅 `update:modelValue`（等价原生 input），无 `ionChange`/`ionKnobMoveEnd` 对应"释放提交 seek"。虽可 fallthrough 监听原生 `@change` 兜底，但跨平台时序需实测。
+2. 事件 payload：`readRangeEventValue` 需从 `CustomEvent.detail.value` 改读 `target.value`。
+3. 测试面广：`player.spec.ts` 3+ 处 IonRange stub + 1 处硬断言"进度控件为 ion-range"（3421 行）。
+4. 手势白名单：`INTERACTIVE_SELECTOR` 里的 `ion-range` 需改成 `input[type="range"]`。
+5. 回归敏感：该文件刚修完 #47 冷启动续播跳动（commit 63e3f71），进度条任何改动直接影响播放体验。
+
+### 决策
+
+PRD 明确"宁可保留也不强行替换破坏播放体验"。HRange 结构上可行，但收益（少一个 Ionic 依赖）不及测试面 + 回归风险代价。已在父任务 `gaps.md` 追加 HRange 缺口条目（解除条件：库提供 `drag-start/drag-end` 或稳定的 release `change` emit 契约）。
+
+### Main Changes
+
+- `.trellis/tasks/07-24-replace-ionic-with-happier-ui/gaps.md`：追加 HRange 缺口。
+- `.trellis/tasks/07-24-replace-player-range/prd.md`：勾选验收、记录结论。
+- PlayerPage.vue：**无改动**。
+
+### Testing
+
+- 无代码改动，跳过 build/test。
+
+### Status
+
+[OK] **Completed**（保留 ion-range 分支结案）
+
+### Next Steps
+
+- child 3 `07-24-sync-spec-whitelist`：同步 spec 白名单与组件契约。
