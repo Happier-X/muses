@@ -37,6 +37,7 @@
     "@pixi/filter-bulge-pinch": "^5.1.1",
     "@pixi/filter-color-matrix": "^7.4.3",
     "@pixi/sprite": "^7.4.3",
+    "@tanstack/vue-form": "^1.33.2",
     "@tanstack/vue-virtual": "^3.13.33",
     "happier-ui": "0.0.1",
     "ionicons": "^8.0.13",

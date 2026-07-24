@@ -65,32 +65,104 @@
         @didDismiss="closeDeleteAlert"
       />
 
-      <ion-modal :is-open="isEditModalOpen" @didDismiss="closeEditSource">
+      <ion-modal :is-open="isEditModalOpen" :backdrop-dismiss="!isEditSaving" @didDismiss="closeEditSource">
         <ion-header>
           <ion-toolbar>
             <ion-title>编辑音源</ion-title>
             <ion-buttons slot="end">
-              <ion-button @click="closeEditSource">关闭</ion-button>
+              <ion-button :disabled="isEditSaving" @click="closeEditSource">关闭</ion-button>
             </ion-buttons>
           </ion-toolbar>
         </ion-header>
 
         <ion-content class="ion-padding">
-          <form class="edit-source-form" @submit.prevent="saveEditedSource">
+          <form class="edit-source-form" @submit.prevent="editSourceForm.handleSubmit">
             <div class="form-fields">
-              <h-input v-model="editSourceForm.name" label="显示名称" />
+              <editSourceForm.Field
+                name="name"
+                :validators="{
+                  onSubmit: ({ value }) => requiredTrimmed(value, '请填写显示名称'),
+                }"
+              >
+                <template #default="{ field }">
+                  <h-input
+                    :model-value="field.state.value"
+                    label="显示名称"
+                    :error="firstFieldError(field.state.meta.errors)"
+                    :invalid="field.state.meta.errors.length > 0"
+                    @update:model-value="field.handleChange"
+                    @blur="field.handleBlur"
+                  />
+                </template>
+              </editSourceForm.Field>
               <template v-if="sourcePendingEdit?.type === 'webdav'">
-                <h-input v-model="editSourceForm.serverUrl" label="服务器地址" type="url" />
-                <h-input v-model="editSourceForm.username" label="用户名" autocomplete="username" />
-                <h-input
-                  v-model="editSourceForm.password"
-                  label="新密码"
-                  type="password"
-                  autocomplete="new-password"
-                  description="留空则保留原密码"
-                />
+                <editSourceForm.Field
+                  name="serverUrl"
+                  :validators="{
+                    onSubmit: ({ value }) => requiredTrimmed(value, '请填写服务器地址'),
+                  }"
+                >
+                  <template #default="{ field }">
+                    <h-input
+                      :model-value="field.state.value"
+                      label="服务器地址"
+                      type="url"
+                      :error="firstFieldError(field.state.meta.errors)"
+                      :invalid="field.state.meta.errors.length > 0"
+                      @update:model-value="field.handleChange"
+                      @blur="field.handleBlur"
+                    />
+                  </template>
+                </editSourceForm.Field>
+                <editSourceForm.Field
+                  name="username"
+                  :validators="{
+                    onSubmit: ({ value }) => requiredTrimmed(value, '请填写用户名'),
+                  }"
+                >
+                  <template #default="{ field }">
+                    <h-input
+                      :model-value="field.state.value"
+                      label="用户名"
+                      autocomplete="username"
+                      :error="firstFieldError(field.state.meta.errors)"
+                      :invalid="field.state.meta.errors.length > 0"
+                      @update:model-value="field.handleChange"
+                      @blur="field.handleBlur"
+                    />
+                  </template>
+                </editSourceForm.Field>
+                <editSourceForm.Field name="password">
+                  <template #default="{ field }">
+                    <h-input
+                      :model-value="field.state.value"
+                      label="新密码"
+                      type="password"
+                      autocomplete="new-password"
+                      description="留空则保留原密码"
+                      @update:model-value="field.handleChange"
+                      @blur="field.handleBlur"
+                    />
+                  </template>
+                </editSourceForm.Field>
               </template>
-              <h-input v-model="editSourceForm.path" label="目录" />
+              <editSourceForm.Field
+                name="path"
+                :validators="{
+                  onSubmit: ({ value }) => requiredTrimmed(value, '请填写目录'),
+                }"
+              >
+                <template #default="{ field }">
+                  <h-input
+                    :model-value="field.state.value"
+                    label="目录"
+                    :error="firstFieldError(field.state.meta.errors)"
+                    :invalid="field.state.meta.errors.length > 0"
+                    @update:model-value="field.handleChange"
+                    @blur="field.handleBlur"
+                  />
+                </template>
+              </editSourceForm.Field>
             </div>
 
             <h-button
@@ -185,28 +257,67 @@
         </ion-header>
 
         <ion-content class="ion-padding">
-          <form class="webdav-form" @submit.prevent="connectWebDav">
+          <form class="webdav-form" @submit.prevent="webDavForm.handleSubmit">
             <div class="form-fields">
-              <h-input
-                v-model="webDavForm.serverUrl"
-                label="服务器地址"
-                placeholder="https://example.com/dav"
-                type="url"
-              />
-              <h-input
-                v-model="webDavForm.username"
-                label="用户名"
-                autocomplete="username"
-              />
-              <h-input
-                v-model="webDavForm.password"
-                label="密码"
-                type="password"
-                autocomplete="current-password"
-              />
+              <webDavForm.Field
+                name="serverUrl"
+                :validators="{
+                  onSubmit: ({ value }) => requiredTrimmed(value, '请填写服务器地址'),
+                }"
+              >
+                <template #default="{ field }">
+                  <h-input
+                    :model-value="field.state.value"
+                    label="服务器地址"
+                    placeholder="https://example.com/dav"
+                    type="url"
+                    :error="firstFieldError(field.state.meta.errors)"
+                    :invalid="field.state.meta.errors.length > 0"
+                    @update:model-value="field.handleChange"
+                    @blur="field.handleBlur"
+                  />
+                </template>
+              </webDavForm.Field>
+              <webDavForm.Field
+                name="username"
+                :validators="{
+                  onSubmit: ({ value }) => requiredTrimmed(value, '请填写用户名'),
+                }"
+              >
+                <template #default="{ field }">
+                  <h-input
+                    :model-value="field.state.value"
+                    label="用户名"
+                    autocomplete="username"
+                    :error="firstFieldError(field.state.meta.errors)"
+                    :invalid="field.state.meta.errors.length > 0"
+                    @update:model-value="field.handleChange"
+                    @blur="field.handleBlur"
+                  />
+                </template>
+              </webDavForm.Field>
+              <webDavForm.Field
+                name="password"
+                :validators="{
+                  onSubmit: ({ value }) => requiredTrimmed(value, '请填写密码'),
+                }"
+              >
+                <template #default="{ field }">
+                  <h-input
+                    :model-value="field.state.value"
+                    label="密码"
+                    type="password"
+                    autocomplete="current-password"
+                    :error="firstFieldError(field.state.meta.errors)"
+                    :invalid="field.state.meta.errors.length > 0"
+                    @update:model-value="field.handleChange"
+                    @blur="field.handleBlur"
+                  />
+                </template>
+              </webDavForm.Field>
             </div>
 
-            <h-button variant="primary" type="submit" :disabled="isWebDavLoading">
+            <h-button variant="primary" type="submit" :disabled="isWebDavLoading || isWebDavSubmitting">
               {{ isWebDavConnected ? '重新连接' : '连接并浏览' }}
             </h-button>
           </form>
@@ -259,6 +370,7 @@
 
 <script setup lang="ts">
 import { computed, ref, type ComponentPublicInstance } from 'vue'
+import { useForm } from '@tanstack/vue-form'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
 import {
@@ -311,15 +423,7 @@ const isDeleteAlertOpen = ref(false)
 const sourcePendingDelete = ref<SourceItem | null>(null)
 const sourcePendingEdit = ref<SourceItem | null>(null)
 const isEditModalOpen = ref(false)
-const isEditSaving = ref(false)
 const editErrorMessage = ref('')
-const editSourceForm = ref({
-  name: '',
-  path: '',
-  serverUrl: '',
-  username: '',
-  password: '',
-})
 const isWebDavModalOpen = ref(false)
 const isWebDavLoading = ref(false)
 const isWebDavConnected = ref(false)
@@ -328,11 +432,114 @@ const successMessage = ref('')
 const currentWebDavPath = ref('/')
 const webDavDirectories = ref<WebDavDirectoryItem[]>([])
 const selectedWebDavPaths = ref(new Set<string>())
-const webDavForm = ref<WebDavConnectionInput>({
+
+const emptyWebDavFormValues = (): WebDavConnectionInput => ({
   serverUrl: '',
   username: '',
   password: '',
 })
+
+const emptyEditSourceFormValues = () => ({
+  name: '',
+  path: '',
+  serverUrl: '',
+  username: '',
+  password: '',
+})
+
+const requiredTrimmed = (value: string, message: string): string | undefined =>
+  value.trim() ? undefined : message
+
+const firstFieldError = (errors: unknown[]): string | undefined => {
+  const first = errors[0]
+  return typeof first === 'string' ? first : undefined
+}
+
+const webDavForm = useForm({
+  defaultValues: emptyWebDavFormValues(),
+  onSubmit: async ({ value }) => {
+    selectedWebDavPaths.value = new Set<string>()
+    // 写回 trim 后的连接信息，供后续浏览/添加复用
+    webDavForm.setFieldValue('serverUrl', value.serverUrl.trim())
+    webDavForm.setFieldValue('username', value.username.trim())
+    await loadWebDavDirectories('/')
+  },
+})
+
+const isWebDavSubmitting = webDavForm.useSelector((state) => state.isSubmitting)
+
+const getWebDavConnectionFromForm = (): WebDavConnectionInput => ({
+  serverUrl: String(webDavForm.getFieldValue('serverUrl') ?? '').trim(),
+  username: String(webDavForm.getFieldValue('username') ?? '').trim(),
+  password: String(webDavForm.getFieldValue('password') ?? ''),
+})
+
+const editSourceForm = useForm({
+  defaultValues: emptyEditSourceFormValues(),
+  onSubmit: async ({ value }) => {
+    const source = sourcePendingEdit.value
+    if (!source) {
+      return
+    }
+
+    const name = value.name.trim()
+    const rawPath = value.path.trim()
+    const path = source.type === 'webdav' ? normalizeWebDavPath(rawPath) : rawPath
+
+    editErrorMessage.value = ''
+    try {
+      if (source.type === 'local') {
+        const result = await updateSource(source.id, { name, path }, sources.value)
+        if (!result.updated) {
+          throw new Error('找不到要编辑的音源。')
+        }
+        sources.value = result.sources
+      } else {
+        const serverUrl = value.serverUrl.trim()
+        const username = value.username.trim()
+        const password = value.password
+
+        const connectionChanged =
+          serverUrl !== source.serverUrl ||
+          username !== source.username ||
+          path !== normalizeWebDavPath(source.path) ||
+          password.length > 0
+        if (connectionChanged) {
+          const verificationPassword = password || (await getWebDavPassword(source.credentialKey))
+          if (!verificationPassword) {
+            editErrorMessage.value = 'WebDAV 密码不存在，请输入新密码。'
+            return
+          }
+          try {
+            await listWebDavDirectories({ serverUrl, username, password: verificationPassword }, path)
+          } catch {
+            editErrorMessage.value = 'WebDAV 连接或目标目录验证失败，请检查编辑信息。'
+            return
+          }
+        }
+
+        const result = await updateSource(
+          source.id,
+          { name, serverUrl, username, path, ...(password ? { password } : {}) },
+          sources.value,
+        )
+        if (!result.updated) {
+          throw new Error('找不到要编辑的音源。')
+        }
+        sources.value = result.sources
+      }
+
+      isEditModalOpen.value = false
+      sourcePendingEdit.value = null
+      editSourceForm.reset(emptyEditSourceFormValues())
+      showSuccess('音源修改已保存。')
+    } catch {
+      editErrorMessage.value = '保存音源修改失败，请稍后重试。'
+    }
+  },
+})
+
+const isEditSaving = editSourceForm.useSelector((state) => state.isSubmitting)
 const selectedScanSource = ref<SourceItem | null>(null)
 const isScanSettingsOpen = ref(false)
 const isScanProgressOpen = ref(false)
@@ -409,13 +616,13 @@ const confirmDeleteSource = (source: SourceItem): void => {
 
 const openEditSource = (source: SourceItem): void => {
   sourcePendingEdit.value = source
-  editSourceForm.value = {
+  editSourceForm.reset({
     name: source.name,
     path: source.path,
     serverUrl: source.type === 'webdav' ? source.serverUrl : '',
     username: source.type === 'webdav' ? source.username : '',
     password: '',
-  }
+  })
   editErrorMessage.value = ''
   isEditModalOpen.value = true
 }
@@ -427,88 +634,18 @@ const closeEditSource = (): void => {
   isEditModalOpen.value = false
   sourcePendingEdit.value = null
   editErrorMessage.value = ''
-  editSourceForm.value.password = ''
+  editSourceForm.reset(emptyEditSourceFormValues())
 }
 
 const pickEditedLocalDirectory = async (): Promise<void> => {
   try {
     const result = await FilePicker.pickDirectory()
-    editSourceForm.value.path = result.path
+    editSourceForm.setFieldValue('path', result.path)
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
     if (!/cancel|取消/i.test(message)) {
       editErrorMessage.value = '选择本地文件夹失败。'
     }
-  }
-}
-
-const saveEditedSource = async (): Promise<void> => {
-  const source = sourcePendingEdit.value
-  if (!source || isEditSaving.value) {
-    return
-  }
-
-  const name = editSourceForm.value.name.trim()
-  const rawPath = editSourceForm.value.path.trim()
-  if (!name || !rawPath) {
-    editErrorMessage.value = '请完整填写音源信息。'
-    return
-  }
-  const path = source.type === 'webdav' ? normalizeWebDavPath(rawPath) : rawPath
-
-  isEditSaving.value = true
-  editErrorMessage.value = ''
-  try {
-    if (source.type === 'local') {
-      const result = await updateSource(source.id, { name, path }, sources.value)
-      if (!result.updated) {
-        throw new Error('找不到要编辑的音源。')
-      }
-      sources.value = result.sources
-    } else {
-      const serverUrl = editSourceForm.value.serverUrl.trim()
-      const username = editSourceForm.value.username.trim()
-      const password = editSourceForm.value.password
-      if (!serverUrl || !username) {
-        editErrorMessage.value = '请完整填写 WebDAV 连接信息。'
-        return
-      }
-
-      const connectionChanged =
-        serverUrl !== source.serverUrl || username !== source.username || path !== normalizeWebDavPath(source.path) || password.length > 0
-      if (connectionChanged) {
-        const verificationPassword = password || (await getWebDavPassword(source.credentialKey))
-        if (!verificationPassword) {
-          editErrorMessage.value = 'WebDAV 密码不存在，请输入新密码。'
-          return
-        }
-        try {
-          await listWebDavDirectories({ serverUrl, username, password: verificationPassword }, path)
-        } catch {
-          editErrorMessage.value = 'WebDAV 连接或目标目录验证失败，请检查编辑信息。'
-          return
-        }
-      }
-
-      const result = await updateSource(
-        source.id,
-        { name, serverUrl, username, path, ...(password ? { password } : {}) },
-        sources.value,
-      )
-      if (!result.updated) {
-        throw new Error('找不到要编辑的音源。')
-      }
-      sources.value = result.sources
-    }
-
-    isEditModalOpen.value = false
-    sourcePendingEdit.value = null
-    editSourceForm.value.password = ''
-    showSuccess('音源修改已保存。')
-  } catch {
-    editErrorMessage.value = '保存音源修改失败，请稍后重试。'
-  } finally {
-    isEditSaving.value = false
   }
 }
 
@@ -652,18 +789,16 @@ const closeWebDavModal = (): void => {
   currentWebDavPath.value = '/'
   webDavDirectories.value = []
   selectedWebDavPaths.value = new Set<string>()
-  webDavForm.value = {
-    serverUrl: '',
-    username: '',
-    password: '',
-  }
+  webDavForm.reset(emptyWebDavFormValues())
+  errorMessage.value = ''
+  successMessage.value = ''
 }
 
 const loadWebDavDirectories = async (path: string): Promise<void> => {
   isWebDavLoading.value = true
   try {
     const normalizedPath = normalizeWebDavPath(path)
-    webDavDirectories.value = await listWebDavDirectories(webDavForm.value, normalizedPath)
+    webDavDirectories.value = await listWebDavDirectories(getWebDavConnectionFromForm(), normalizedPath)
     currentWebDavPath.value = normalizedPath
     isWebDavConnected.value = true
     errorMessage.value = ''
@@ -672,16 +807,6 @@ const loadWebDavDirectories = async (path: string): Promise<void> => {
   } finally {
     isWebDavLoading.value = false
   }
-}
-
-const connectWebDav = async (): Promise<void> => {
-  if (!webDavForm.value.serverUrl || !webDavForm.value.username || !webDavForm.value.password) {
-    showError('请完整填写 WebDAV 连接信息。')
-    return
-  }
-
-  selectedWebDavPaths.value = new Set<string>()
-  await loadWebDavDirectories('/')
 }
 
 const openWebDavDirectory = async (path: string): Promise<void> => {
@@ -716,16 +841,17 @@ const addSelectedWebDavSources = async (): Promise<void> => {
     const createdAt = new Date().toISOString()
     const newSources: SourceItem[] = []
 
+    const connection = getWebDavConnectionFromForm()
     for (const path of selectedWebDavPaths.value) {
       const id = createSourceId()
       const credentialKey = getWebDavPasswordKey(id)
-      await saveWebDavPassword(credentialKey, webDavForm.value.password)
+      await saveWebDavPassword(credentialKey, connection.password)
       newSources.push({
         id,
         type: 'webdav',
         name: getWebDavDisplayName(path),
-        serverUrl: webDavForm.value.serverUrl,
-        username: webDavForm.value.username,
+        serverUrl: connection.serverUrl,
+        username: connection.username,
         path,
         credentialKey,
         createdAt,

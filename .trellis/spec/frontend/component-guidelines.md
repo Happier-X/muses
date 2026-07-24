@@ -52,6 +52,7 @@ Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.1`**，不得提交 `fi
 - 新样式优先 `--h-*` 或已有 `--muses-*` 别名；不得新硬编码主色 / elevation。
 - `HEmpty`、`HButton`、`HSwitch`、`HInput`、`HCheckbox` 等已有能力优先使用；`MCover` 仅用于音乐封面业务。
 - 通用列表行、设置行、icon-only 按钮等 0.0.1 缺口不在 Muses 造替代组件，具体落点以 `gaps.md` 为准。
+- **可提交表单**统一用 `@tanstack/vue-form` + `HInput` 字段绑定；约定见 [forms.md](./forms.md)。
 
 ### 何时直连 `ion-*`（白名单）
 
