@@ -73,6 +73,7 @@ onIonViewWillEnter(refreshSongs)
 /* MCover 会内联设置默认尺寸，卡片场景需显式覆盖为容器宽度。 */
 .album-card > .album-card__cover {
   --m-cover-size: 100% !important;
+  height: auto;
   aspect-ratio: 1;
   flex: 0 0 auto;
 }
