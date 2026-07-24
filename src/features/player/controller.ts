@@ -82,6 +82,13 @@ let lastSeekAt = 0
 let statusBeforeSeek: 'playing' | 'paused' = 'playing'
 /** 冷启动恢复的续播起点（秒）；play 成功后 seek 一次并清空（#49） */
 let pendingResumePosition: number | null = null
+/**
+ * 冷启动恢复 seek 保护（#53）：续播 play 已发起但恢复 seek 尚未完成时，
+ * 原生可能先上报同曲 playing + position: 0（或明显早于恢复点的初始位置），
+ * 此期间保留恢复位置为权威 UI 位置，避免进度条闪回 0 再跳回。
+ */
+let resumeSeekGuardSongId: string | null = null
+let resumeSeekGuardPosition: number | null = null
 /** 仅 UI 恢复、原生尚未 load 当前曲：忽略原生 idle/stopped 以免冲掉展示（#49） */
 let restoredSessionUiOnly = false
 /** 仅显式 stop 路径允许 native idle/stopped 清空 currentSong（#52） */
@@ -96,6 +103,13 @@ const WEBDAV_METADATA_SCAN_TIMEOUT_MS = 120_000
 const SEEK_FINISH_GUARD_MS = 1500
 /** 判定自然播完的进度容差（秒） */
 const NATURAL_END_EPSILON_SEC = 1.25
+/** 冷启动恢复窗内，早于恢复点这一容差以上的同曲原生 position 视为启动初始位置并屏蔽（#53） */
+const RESUME_SEEK_GUARD_EPSILON_SEC = 1
+
+const clearResumeSeekGuard = (): void => {
+  resumeSeekGuardSongId = null
+  resumeSeekGuardPosition = null
+}
 
 const clearSeekGuard = (): void => {
   lastSeekAt = 0
@@ -108,6 +122,12 @@ const isWithinSeekGuard = (): boolean => {
 const isNearNaturalEnd = (position: number, duration: number): boolean => {
   // duration 未知时保守：不视为自然结束，避免远程未就绪时误切歌
   return duration > 0 && position >= duration - NATURAL_END_EPSILON_SEC
+}
+
+const shouldGuardResumeSeekPosition = (songId: string | undefined, position: number): boolean => {
+  return resumeSeekGuardPosition != null
+    && resumeSeekGuardSongId === songId
+    && position < resumeSeekGuardPosition - RESUME_SEEK_GUARD_EPSILON_SEC
 }
 
 /** 非自然结束的 finished 不得 advance（seek 保护窗优先，即便目标靠近结尾） */
@@ -146,6 +166,13 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   if (nativeState.status === 'finished') {
     const nativePosition = normalizePlaybackTime(nativeState.position)
     const nativeDuration = normalizePlaybackTime(nativeState.duration) || state.duration
+    if (shouldGuardResumeSeekPosition(nativeState.currentSongId, nativePosition)) {
+      state.duration = nativeDuration
+      state.status = state.status === 'loading' ? 'playing' : state.status
+      state.errorMessage = null
+      syncMediaSessionState()
+      return
+    }
     // 保护窗内保留 seek 目标进度；窗外取 native/state 较大值，
     // 避免 complete 事件 position 回 0 时误判「未接近结尾」而吞掉真实播完。
     const effectivePosition = isWithinSeekGuard()
@@ -201,7 +228,19 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
 
   state.status = nativeState.status
   state.errorMessage = nativeState.status === 'error' ? nativeState.errorMessage || '播放失败，请稍后重试。' : null
-  state.position = normalizePlaybackTime(nativeState.position)
+  const nextPosition = normalizePlaybackTime(nativeState.position)
+  // 冷启动恢复 seek 完成前：屏蔽同曲明显早于恢复点的原生初始 position（#53）
+  if (resumeSeekGuardPosition != null && resumeSeekGuardSongId === nativeState.currentSongId) {
+    if (shouldGuardResumeSeekPosition(nativeState.currentSongId, nextPosition)) {
+      // 保留恢复位置为权威 UI 位置，其余字段仍按下方规则更新
+    } else {
+      // 已到达恢复点附近：seek 生效，结束保护并恢复正常原生 position 同步
+      clearResumeSeekGuard()
+      state.position = nextPosition
+    }
+  } else {
+    state.position = nextPosition
+  }
   state.duration = normalizePlaybackTime(nativeState.duration)
 
   // 缓冲：原生上报时单调合并；error 在下方 reset，禁止串曲
@@ -222,6 +261,7 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   }
 
   if (nativeState.status === 'error') {
+    clearResumeSeekGuard()
     resetBufferState()
   }
 
@@ -943,6 +983,14 @@ const playSongInternal = async (
   // 一旦发起原生 play，不再处于「仅 UI 会话」
   restoredSessionUiOnly = false
 
+  // 冷启动续播：play 前登记恢复 seek 保护，屏蔽启动阶段同曲早于恢复点的原生 position（#53）
+  if (pendingResumePosition != null && pendingResumePosition > 0) {
+    resumeSeekGuardSongId = latestSong.id
+    resumeSeekGuardPosition = pendingResumePosition
+  } else {
+    clearResumeSeekGuard()
+  }
+
   const generation = ++playGeneration
   state.status = 'loading'
   metadataScanToken += 1
@@ -998,10 +1046,14 @@ const playSongInternal = async (
           lastSeekAt = Date.now()
         }
       } catch {
-        // seek 失败仍保持已起播，从 0 附近继续
+        // seek 失败仍保持已起播，从原生实际位置继续
+      } finally {
+        // 恢复 seek 成功或失败都结束保护窗，让后续原生 position 正常驱动 UI（#53）
+        clearResumeSeekGuard()
       }
     } else {
       pendingResumePosition = null
+      clearResumeSeekGuard()
     }
     persistPlaybackSessionNow()
     void scanSongMetadata(latestSong)
@@ -1015,6 +1067,9 @@ const playSongInternal = async (
     onlineCoverToken += 1
     onlineTextToken += 1
     state.onlineLyricsStatus = 'idle'
+    // 播放失败：结束恢复 seek 保护且不让自动跳过的下一曲继承旧恢复点（#53）
+    pendingResumePosition = null
+    clearResumeSeekGuard()
     const message = error instanceof Error ? error.message : ''
     setUserSafeError(isSafePlaybackError(message) ? message : '播放失败，请稍后重试。')
     resetBufferState()
@@ -1037,6 +1092,7 @@ export const playSong = async (song: SongItem): Promise<void> => {
   // 用户主动点播新曲：不继承冷启动续播点
   if (state.currentSong?.id !== song.id) {
     pendingResumePosition = null
+    clearResumeSeekGuard()
   }
   await playSongInternal(song)
 }
@@ -1118,6 +1174,8 @@ export const seekPlayback = async (position: number): Promise<boolean> => {
       persistPlaybackSessionNow()
       return true
     }
+    // 普通 seek 优先于冷启动自动恢复；成功或失败都不得遗留恢复保护（#53）
+    clearResumeSeekGuard()
     await AudioPlayerNative.seek({ position: safePosition })
     state.position = safePosition
     state.errorMessage = null
@@ -1138,6 +1196,7 @@ export const stopPlayback = async (): Promise<void> => {
     await AudioPlayerNative.stop()
     clearSeekGuard()
     pendingResumePosition = null
+    clearResumeSeekGuard()
     restoredSessionUiOnly = false
     clearPlaybackSession()
     metadataScanToken += 1

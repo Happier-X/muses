@@ -416,6 +416,16 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - **缓冲未知**（`playerState.bufferedPosition == null`）时不画假缓冲条；WebDAV 远程直链固定属于此状态，seek 退化为 duration clamp。
   - **歌词行点击**：目标 > `bufferedPosition` 时不 seek（与进度条共用 `seekPlayback` 拒绝语义）。
 
+### 冷启动续播进度保护
+
+冷启动从 `muses:playback-session` 恢复后，`controller.ts` 先把持久化位置展示为 paused；用户点击继续播放时再执行原生 `play`，成功后 seek 到恢复点。恢复 seek 完成前，持久化位置是 UI 的权威进度：
+
+- 保护必须放在播放器 controller 状态协调层，不得在 `PlayerPage.vue` 维护平行进度缓存。
+- 只屏蔽当前歌曲明显早于恢复点的原生 position；`status`、`duration`、`bufferedPosition` 等其它字段仍按原生事件更新。
+- `playing` 与提前到达的 `finished` 事件都必须遵守保护，避免启动初始位置让进度条回退或触发错误的播放结束状态。
+- 原生位置到达恢复点附近，或恢复 seek 成功/失败、播放失败、主动切歌、普通 seek、显式 stop 时，必须清除保护，让后续真实进度正常驱动 UI。
+- 单元测试应通过 `AudioPlayerNative.addListener('stateChange', ...)` 注册的 listener 注入 seek pending 期间的同曲早期进度，并断言中间态不回退、最终仍调用恢复 seek、保护结束后进度可以继续更新。
+
 ### 隐藏播放器渲染降载约定
 
 `App.vue` 在有当前曲时保活 `PlayerPage`，关闭态不得恢复销毁重建；关闭态可用 `visibility: hidden` 与 `contain: paint` 跳过不可见绘制。`PlayerPage.vue` 的 AMLL `current-time` 在可见时跟随 `playerState.position`，隐藏时冻结；重新打开时必须以最新 position 同步，避免白闪和旧歌词位置。后台音频、MediaSession 和播放进度状态不受影响。

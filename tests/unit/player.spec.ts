@@ -3586,7 +3586,113 @@ describe('冷启动播放会话恢复 (#49)', () => {
     expect(nativePlayer.play).not.toHaveBeenCalled()
   })
 
-  test('resumePlayback 从恢复进度 play + seek', async () => {
+  test('resumePlayback 恢复 seek 完成前忽略原生初始进度，最终仍 play + seek', async () => {
+    vi.resetModules()
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }]))
+    localStorage.setItem('muses:queue', JSON.stringify({
+      items: [{ songId: 'song-local' }],
+      originalOrder: [{ songId: 'song-local' }],
+      shuffleOrder: null,
+    }))
+    localStorage.setItem('muses:playback-session', JSON.stringify({
+      currentSongId: 'song-local',
+      position: 55,
+    }))
+
+    let resolveSeek: (() => void) | undefined
+    const pendingSeek = new Promise<void>((resolve) => {
+      resolveSeek = resolve
+    })
+    nativePlayer.getState.mockResolvedValue({ status: 'idle' })
+    nativePlayer.seek.mockImplementationOnce(() => pendingSeek)
+    const { initializePlayer, resumePlayback, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
+    expect(playerState.status).toBe('paused')
+    expect(playerState.position).toBe(55)
+
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
+    nativePlayer.play.mockClear()
+    nativePlayer.seek.mockClear()
+    nativePlayer.seek.mockImplementationOnce(() => pendingSeek)
+    const resume = resumePlayback()
+
+    await vi.waitFor(() => {
+      expect(nativePlayer.play).toHaveBeenCalled()
+      expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 55 })
+    })
+
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      position: 0,
+      duration: 180,
+      bufferedPosition: 20,
+    })
+
+    expect(playerState.status).toBe('playing')
+    expect(playerState.position).toBe(55)
+    expect(playerState.duration).toBe(180)
+    expect(playerState.bufferedPosition).toBe(20)
+
+    resolveSeek?.()
+    await resume
+
+    expect(playerState.status).toBe('playing')
+    expect(playerState.position).toBe(55)
+
+    // 恢复 seek 成功后保护结束，后续真实播放进度可正常推进
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      position: 56,
+      duration: 180,
+    })
+    expect(playerState.position).toBe(56)
+  })
+
+  test('恢复 seek 完成前忽略同曲 finished 的早期进度', async () => {
+    vi.resetModules()
+    localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }]))
+    localStorage.setItem('muses:queue', JSON.stringify({
+      items: [{ songId: 'song-local' }],
+      originalOrder: [{ songId: 'song-local' }],
+      shuffleOrder: null,
+    }))
+    localStorage.setItem('muses:playback-session', JSON.stringify({
+      currentSongId: 'song-local',
+      position: 55,
+    }))
+
+    let resolveSeek: (() => void) | undefined
+    const pendingSeek = new Promise<void>((resolve) => {
+      resolveSeek = resolve
+    })
+    nativePlayer.getState.mockResolvedValue({ status: 'idle' })
+    nativePlayer.seek.mockImplementationOnce(() => pendingSeek)
+    const { initializePlayer, resumePlayback, playerState } = await import('@/features/player/controller')
+    await initializePlayer()
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
+
+    const resume = resumePlayback()
+    await vi.waitFor(() => {
+      expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 55 })
+    })
+
+    stateChangeCallback({
+      status: 'finished',
+      currentSongId: 'song-local',
+      position: 2,
+      duration: 180,
+    })
+
+    expect(playerState.status).toBe('playing')
+    expect(playerState.position).toBe(55)
+
+    resolveSeek?.()
+    await resume
+  })
+
+  test('恢复 seek 失败后结束保护并接受后续原生进度', async () => {
     vi.resetModules()
     localStorage.setItem('muses:songs', JSON.stringify([{ ...localSong, duration: 180 }]))
     localStorage.setItem('muses:queue', JSON.stringify({
@@ -3600,18 +3706,27 @@ describe('冷启动播放会话恢复 (#49)', () => {
     }))
 
     nativePlayer.getState.mockResolvedValue({ status: 'idle' })
+    nativePlayer.seek.mockRejectedValueOnce(new Error('seek failed'))
     const { initializePlayer, resumePlayback, playerState } = await import('@/features/player/controller')
     await initializePlayer()
-    expect(playerState.status).toBe('paused')
+    const stateChangeCallback = nativePlayer.addListener.mock.calls[0][1] as (state: unknown) => void
 
-    nativePlayer.play.mockClear()
-    nativePlayer.seek.mockClear()
     await resumePlayback()
 
     expect(nativePlayer.play).toHaveBeenCalled()
     expect(nativePlayer.seek).toHaveBeenCalledWith({ position: 55 })
     expect(playerState.status).toBe('playing')
-    expect(playerState.position).toBe(55)
+
+    stateChangeCallback({
+      status: 'playing',
+      currentSongId: 'song-local',
+      position: 3,
+      duration: 180,
+    })
+
+    expect(playerState.position).toBe(3)
+    expect(playerState.status).toBe('playing')
+    expect(playerState.errorMessage).toBeNull()
   })
 
   test('stopPlayback 清除 session', async () => {
