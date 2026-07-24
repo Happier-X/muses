@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端 spec 总览与索引；落地 forms 约定时需更新登记"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "HInput/HButton 与 happier-ui 使用边界；字段绑定不得违反组件契约"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量与禁止模式；避免引入未约定依赖与反模式"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "严格 TS 约定；form 默认值与字段类型应对齐"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "本地状态边界；表单状态归 TanStack Form，业务列表状态不混入"}
+{"file": ".trellis/tasks/07-24-tanstack-form/design.md", "reason": "表单边界、字段映射、错误分层与 UI 绑定约定"}
+{"file": ".trellis/tasks/07-24-tanstack-form/implement.md", "reason": "有序实现清单与验证命令"}
