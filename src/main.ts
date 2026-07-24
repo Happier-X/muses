@@ -3,7 +3,8 @@ import App from './App.vue'
 import router from './router';
 
 import { IonicVue } from '@ionic/vue';
-import 'happier-ui/style.css';
+/* Tailwind v4 管道：解析 happier-ui@0.0.2 的 @theme / 组件层 */
+import './theme/tailwind.css';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/vue/css/core.css';

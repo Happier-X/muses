@@ -8,7 +8,7 @@
 
 The repository is a single frontend app with a simple Ionic Vue layout. Code is currently organized by technical role rather than by feature folder.
 
-通用 UI 库为 npm 依赖 **`happier-ui@0.0.1`**；禁止提交 `file:../happier-ui`，也禁止 Vite/TypeScript 指向相邻仓库源码 alias。
+通用 UI 库为 npm 依赖 **`happier-ui@0.0.2`**；禁止提交 `file:../happier-ui`，也禁止 Vite/TypeScript 指向相邻仓库源码 alias。
 
 ```text
 src/
@@ -21,7 +21,8 @@ src/
 │       ├── MCover.vue          # app-only 音乐封面
 │       └── MPage.vue           # app-only HOST-IONIC 页壳
 ├── theme/
-│   ├── tokens.css              # @import happier-ui/tokens.css
+│   ├── tailwind.css            # @import tailwindcss + happier-ui/styles（TW4 管道）
+│   ├── tokens.css              # @import happier-ui/tokens.css（兼容/桥接）
 │   └── variables.css           # Ionic 桥接
 └── views/
 ```
@@ -43,17 +44,18 @@ tests/
 
 Use the existing split unless the codebase grows enough to justify feature modules:
 
-- `src/main.ts` owns app bootstrap, plugin registration, global CSS imports, and mount timing；必须加载 `happier-ui/style.css`。
+- `src/main.ts` owns app bootstrap, plugin registration, global CSS imports, and mount timing；必须先加载 `src/theme/tailwind.css`（内含 Tailwind v4 + `happier-ui/styles`），再加载 `tokens.css` / `variables.css`。
 - `src/App.vue` is the root shell and should stay minimal.
 - `src/router/index.ts` owns route records and redirects.
 - `src/views/` contains route-level pages.
 - `src/components/` contains reusable UI pieces used by pages.
-- `happier-ui@0.0.1`：npm 发布包；默认以 registry 版本为准，本地联调只可临时 link，完成后恢复 npm 依赖。
+- `happier-ui@0.0.2`：npm 发布包；默认以 registry 版本为准，本地联调只可临时 link，完成后恢复 npm 依赖。peer 需 `tailwindcss@^4`。
 - `src/components/ui/`：边界层——只 re-export 库真实导出与 app-only 的 `MCover`/`MPage`；不新增通用 M* 平行组件。
 - `src/icons/`：导出 `@lucide/vue` 语义组件；业务统一通过 happier-ui `HIcon` 渲染，禁止旧 `ion-lucide` 适配层。
 - 库没有对应能力的 Ionic/业务落点记录在任务 `gaps.md`，未来回到 happier-ui 仓库开发。
-- `src/theme/tokens.css`：仅 `@import 'happier-ui/tokens.css'`。
-- `src/theme/variables.css`：Ionic 桥接 `--h-*`；`main.ts` 先 tokens 再本文件。
+- `src/theme/tailwind.css`：Tailwind v4 入口（`@import 'tailwindcss'` + `@import 'happier-ui/styles'`）；`vite.config.ts` 必须启用 `@tailwindcss/vite` 的 `tailwindcss()` 插件。
+- `src/theme/tokens.css`：仅 `@import 'happier-ui/tokens.css'`（与 styles 内 token 同源，供桥接与单独引用）。
+- `src/theme/variables.css`：Ionic 桥接 `--h-*`；`main.ts` 在 tailwind 入口之后再加载 tokens / 本文件。
 
 Reference files:
 

@@ -35,23 +35,24 @@ Examples:
 
 ## Muses 语义组件层 → `happier-ui`
 
-Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.1`**，不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
+Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.2`**，不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
 
 - **权威 token**：包内 `happier-ui/tokens.css` 的 **`--h-*`**；`--muses-*` 为兼容别名。
-- **边界**：真实库导出为 `HButton`、`HSwitch`、`HBottomSheet`、`HDialog`、`HInput`、`HCheckbox`、`HEmpty`、`HImage`、`HIcon`、`HTabBar`、`HNavBar`；app-only 为 `MCover`（音乐封面）与 `MPage`（Ionic 宿主页壳）。
+- **样式管道（0.0.2 必需）**：宿主必须接入 **Tailwind CSS v4**（`tailwindcss` + `@tailwindcss/vite`）。全局入口 `src/theme/tailwind.css` 使用 `@import 'tailwindcss'` + `@import 'happier-ui/styles'`，由 Vite 的 `tailwindcss()` 插件解析 `@theme` / `@layer components`。**禁止**再直接 `import 'happier-ui/style.css'` 或把 `styles.css` 当普通预编译 CSS 跳过 Tailwind 管道。
+- **边界**：真实库导出为 `HButton`、`HIconButton`、`HSwitch`、`HBottomSheet`、`HDialog`、`HToast`、`HInput`、`HCheckbox`、`HRange`、`HProgress`、`HCard`、`HCell`、`HCellGroup`、`HEmpty`、`HImage`、`HIcon`、`HTabBar`、`HNavBar`、`HFloatingBubble`、`HSidebar`；类型含 `HTabBarItem`、`HSidebarItem`、`HFloatingBubbleOffset`、`HFloatingBubbleAxis`、`HFloatingBubbleMagnetic`、`HFloatingBubbleGap`；app-only 为 `MCover`（音乐封面）与 `MPage`（Ionic 宿主页壳）。
 - **首版视觉**：HeroUI Native 角色与触控节奏；**不**引入 `heroui-native` / RN。
 - **禁止**：`MIon*`、整库复刻 Ionic、Material elevation、包内 `@/features` / 业务。
 
 ### 组件契约
 
-`src/components/ui/index.ts` 只转出 happier-ui@0.0.1 的真实导出，并附带 `MCover`、`MPage`。已消失的 `HEmptyState`、`HIconButton`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow` 均不得恢复。Muses 不新造这些通用平行组件；库缺口保留 Ionic/业务实现并登记 `.trellis/tasks/07-23-happier-ui-full-migrate/gaps.md`，未来在 happier-ui 仓库开发后再回迁。
+`src/components/ui/index.ts` 只转出 happier-ui@0.0.2 的真实导出，并附带 `MCover`、`MPage`。0.0.2 已重新提供 `HIconButton`；仍不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留 Ionic/业务实现并登记 `.trellis/tasks/07-23-happier-ui-full-migrate/gaps.md`，未来在 happier-ui 仓库开发后再回迁。
 
 ### 使用规则
 
 - 通过 `@/components/ui` 具名导入。组件只表达语义，**不**读取播放、曲库等业务状态。
 - 新样式优先 `--h-*` 或已有 `--muses-*` 别名；不得新硬编码主色 / elevation。
-- `HEmpty`、`HButton`、`HSwitch`、`HInput`、`HCheckbox` 等已有能力优先使用；`MCover` 仅用于音乐封面业务。
-- 通用列表行、设置行、icon-only 按钮等 0.0.1 缺口不在 Muses 造替代组件，具体落点以 `gaps.md` 为准。
+- `HEmpty`、`HButton`、`HIconButton`、`HSwitch`、`HInput`、`HCheckbox`、`HToast`、`HRange`、`HProgress`、`HCard`、`HCell`、`HCellGroup` 等已有能力优先使用；`MCover` 仅用于音乐封面业务。
+- 通用列表行、设置行等仍属库缺口的能力不在 Muses 造替代组件，具体落点以 `gaps.md` 为准。
 - **可提交表单**统一用 `@tanstack/vue-form` + `HInput` 字段绑定；约定见 [forms.md](./forms.md)。
 
 ### 何时直连 `ion-*`（白名单）

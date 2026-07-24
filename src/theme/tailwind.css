@@ -1,0 +1,6 @@
+/*
+ * Tailwind v4 入口：happier-ui@0.0.2 的 styles 依赖宿主 Tailwind 管道解析
+ * @theme / @layer components。必须经此入口，不能直接 import 'happier-ui/styles.css'。
+ */
+@import 'tailwindcss';
+@import 'happier-ui/styles';
