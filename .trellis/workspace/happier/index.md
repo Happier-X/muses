@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 75
+- **Total Sessions**: 76
 - **Last Active**: 2026-07-24
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1215 | Active |
+| `journal-2.md` | ~1249 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 76 | 2026-07-24 | 修复沉浸式播放页二次暂停播放丢失当前曲 | `95bb2f5`, `6d1a77d` | `main` |
 | 75 | 2026-07-24 | 表单统一使用 TanStack Form | `948aa28`, `e5e57a3` | `main` |
 | 74 | 2026-07-22 | 设计系统 Token 化与 Muses UI 组件库 | `39f5c26`, `335780b`, `358c7fb`, `7f727a6`, `193ab84` | `main` |
 | 73 | 2026-07-22 | 构建警告清理、图标统一与歌词浮动按钮按需显示 | `c102a0c`, `4a852e8`, `eb4fe52` | `main` |
