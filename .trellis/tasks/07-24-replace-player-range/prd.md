@@ -26,9 +26,18 @@
 
 ## Acceptance Criteria
 
-- [ ] 给出 `HRange` 能否覆盖 PlayerPage 进度条的明确结论并记录依据。
-- [ ] 若替换：拖动 seek、续播定位、缓冲 clamp、knob 隐藏/填充视觉与替换前一致；`npm run build` + unit test 通过；手动验证进度条交互无回归。
-- [ ] 若保留：父任务缺口清单登记 `HRange` 差距，PlayerPage 保持 `ion-range` 不变。
+- [x] 给出 `HRange` 能否覆盖 PlayerPage 进度条的明确结论并记录依据。
+- [x] 结论：保留 `ion-range`。父任务 `gaps.md` 已登记 `HRange` 差距（拖动生命周期事件、事件 payload、测试面/手势白名单），PlayerPage 保持 `ion-range` 不变。
+
+## 评估结论（2026-07-24）
+
+**结论：保留 `ion-range`，不替换。**
+
+HRange 经源码确认为原生 `<input type="range">`，仅 `modelValue`/`min`/`max`/`step`/`disabled`/`size`/`ariaLabel`/`name` + `update:modelValue`。
+
+- 结构上可行：`update:modelValue` 可复刻拖动预览；knob 隐藏与填充色可用 `:deep()` 伪元素 + `--h-range-*` CSS 变量达成；HRange 不因程序化 value 变化 emit，反而避开 #47 陷阱。
+- 但不替换：（a）HRange 无拖动释放语义事件（`ionChange` 无对应，fallthrough `@change` 需跨平台实测）；（b）测试面广（player.spec.ts 多处 stub + 硬断言）；（c）该文件刚修 #47 续播跳动 bug，高回归敏感。
+- 依 PRD"宁可保留不强行替换"，收益（少一个 Ionic 依赖）不抵代价。已在父任务 `gaps.md` 登记解除条件。
 
 ## Notes
 

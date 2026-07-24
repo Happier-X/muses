@@ -3,7 +3,7 @@
   "name": "replace-player-range",
   "title": "PlayerPage 进度条 ion-range→HRange 评估与替换",
   "description": "评估 PlayerPage 进度条能否从 ion-range 迁移到 HRange：手势 ionKnobMoveStart/End、缓冲 clamp、knob 隐藏等；能补足则替换，否则登记 gap 保留 Ionic。高回归风险。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
