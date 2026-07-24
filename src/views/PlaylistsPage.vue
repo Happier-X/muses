@@ -2,9 +2,7 @@
   <ion-page>
     <h-nav-bar title="歌单" :fixed="false">
       <template #right>
-        <ion-button fill="clear" aria-label="新建歌单" @click="openCreateAlert">
-          <h-icon slot="icon-only" :icon="addOutline" aria-hidden="true" />
-        </ion-button>
+        <h-icon-button :icon="addOutline" ariaLabel="新建歌单" variant="ghost" @click="openCreateAlert" />
       </template>
     </h-nav-bar>
     <ion-content :fullscreen="false">
@@ -34,15 +32,14 @@
               <h2>{{ item.name }}</h2>
               <p>{{ item.validCount }} 首</p>
             </ion-label>
-            <ion-button
+            <h-icon-button
               slot="end"
-              fill="clear"
+              :icon="ellipsisVertical"
+              ariaLabel="更多歌单操作"
+              variant="ghost"
               class="more-button"
-              aria-label="更多歌单操作"
               @click.stop="openPlaylistActions(item.id)"
-            >
-              <h-icon slot="icon-only" :icon="ellipsisVertical" aria-hidden="true" />
-            </ion-button>
+            />
           </ion-item>
         </ion-list>
       </div>
@@ -79,7 +76,6 @@ import { useRouter } from 'vue-router'
 import {
   IonActionSheet,
   IonAlert,
-  IonButton,
   IonContent,
   IonItem,
   IonLabel,
@@ -91,7 +87,7 @@ import {
   type AlertInput,
 } from '@ionic/vue'
 import { addOutline, ellipsisVertical, list } from '@/icons'
-import { HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
+import { HEmpty, HIcon, HIconButton, HNavBar, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,

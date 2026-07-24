@@ -2,9 +2,7 @@
   <ion-page>
     <h-nav-bar title="音源" :fixed="false">
       <template #right>
-        <ion-button aria-label="添加音源" @click="isAddActionSheetOpen = true">
-          <h-icon slot="icon-only" :icon="add" aria-hidden="true" />
-        </ion-button>
+        <h-icon-button :icon="add" ariaLabel="添加音源" variant="primary" @click="isAddActionSheetOpen = true" />
       </template>
     </h-nav-bar>
 
@@ -28,20 +26,16 @@
                 transform: `translateY(${virtualRow.start}px)`,
               }"
             >
-              <ion-card class="source-card">
-                <ion-card-header>
-                  <ion-card-title>{{ sources[virtualRow.index].name }}</ion-card-title>
-                  <ion-card-subtitle>{{ getSourceSubtitle(sources[virtualRow.index]) }}</ion-card-subtitle>
-                </ion-card-header>
-                <ion-card-content>
-                  <p class="source-path">{{ sources[virtualRow.index].path }}</p>
-                  <div class="source-actions">
-                    <h-button size="sm" variant="outline" @click="openEditSource(sources[virtualRow.index])">编辑</h-button>
-                    <h-button size="sm" variant="danger-soft" @click="confirmDeleteSource(sources[virtualRow.index])">删除</h-button>
-                    <h-button size="sm" variant="primary" @click="openScanSettings(sources[virtualRow.index])">扫描</h-button>
-                  </div>
-                </ion-card-content>
-              </ion-card>
+              <h-card class="source-card">
+                <div class="source-card-title">{{ sources[virtualRow.index].name }}</div>
+                <div class="source-card-subtitle">{{ getSourceSubtitle(sources[virtualRow.index]) }}</div>
+                <p class="source-path">{{ sources[virtualRow.index].path }}</p>
+                <div class="source-actions">
+                  <h-button size="sm" variant="outline" @click="openEditSource(sources[virtualRow.index])">编辑</h-button>
+                  <h-button size="sm" variant="danger-soft" @click="confirmDeleteSource(sources[virtualRow.index])">删除</h-button>
+                  <h-button size="sm" variant="primary" @click="openScanSettings(sources[virtualRow.index])">扫描</h-button>
+                </div>
+              </h-card>
             </div>
           </div>
         </div>
@@ -65,7 +59,7 @@
       <ion-modal :is-open="isEditModalOpen" :backdrop-dismiss="!isEditSaving" @didDismiss="closeEditSource">
         <h-nav-bar title="编辑音源" :fixed="false" :safe-area="false">
           <template #right>
-            <ion-button :disabled="isEditSaving" @click="closeEditSource">关闭</ion-button>
+            <h-button variant="ghost" size="sm" :disabled="isEditSaving" @click="closeEditSource">关闭</h-button>
           </template>
         </h-nav-bar>
 
@@ -181,7 +175,7 @@
       <ion-modal :is-open="isScanSettingsOpen" @didDismiss="closeScanSettings">
         <h-nav-bar title="扫描设置" :fixed="false" :safe-area="false">
           <template #right>
-            <ion-button @click="closeScanSettings">关闭</ion-button>
+            <h-button variant="ghost" size="sm" @click="closeScanSettings">关闭</h-button>
           </template>
         </h-nav-bar>
 
@@ -200,14 +194,14 @@
       <ion-modal :is-open="isScanProgressOpen" :backdrop-dismiss="scanProgress.stage !== 'processing' && scanProgress.stage !== 'discovering'">
         <h-nav-bar title="扫描进度" :fixed="false" :safe-area="false">
           <template #right>
-            <ion-button :disabled="scanProgress.stage === 'processing' || scanProgress.stage === 'discovering'" @click="closeScanProgress">
+            <h-button variant="ghost" size="sm" :disabled="scanProgress.stage === 'processing' || scanProgress.stage === 'discovering'" @click="closeScanProgress">
               关闭
-            </ion-button>
+            </h-button>
           </template>
         </h-nav-bar>
 
         <ion-content class="ion-padding">
-          <ion-progress-bar v-if="scanProgress.stage === 'discovering' || scanProgress.stage === 'processing'" type="indeterminate" />
+          <h-progress v-if="scanProgress.stage === 'discovering' || scanProgress.stage === 'processing'" indeterminate aria-label="扫描进行中" />
           <section class="scan-progress">
             <h2>{{ getScanStageText(scanProgress.stage) }}</h2>
             <p v-if="scanProgress.message">{{ scanProgress.message }}</p>
@@ -237,7 +231,7 @@
       <ion-modal :is-open="isWebDavModalOpen" @didDismiss="closeWebDavModal">
         <h-nav-bar title="添加 WebDAV" :fixed="false" :safe-area="false">
           <template #right>
-            <ion-button @click="closeWebDavModal">关闭</ion-button>
+            <h-button variant="ghost" size="sm" @click="closeWebDavModal">关闭</h-button>
           </template>
         </h-nav-bar>
 
@@ -361,12 +355,6 @@ import { FilePicker } from '@capawesome/capacitor-file-picker'
 import {
   IonActionSheet,
   IonAlert,
-  IonButton,
-  IonCard,
-  IonCardContent,
-  IonCardHeader,
-  IonCardSubtitle,
-  IonCardTitle,
   IonContent,
   IonItem,
   IonLabel,
@@ -374,13 +362,12 @@ import {
   IonModal,
   IonNote,
   IonPage,
-  IonProgressBar,
   IonText,
   type ActionSheetButton,
   type AlertButton,
 } from '@ionic/vue'
 import { add } from '@/icons'
-import { HButton, HCheckbox, HEmpty, HIcon, HInput, HNavBar, HSwitch } from '@/components/ui'
+import { HButton, HCard, HCheckbox, HEmpty, HIconButton, HInput, HNavBar, HProgress, HSwitch } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,
@@ -895,9 +882,21 @@ const addSourceButtons: ActionSheetButton[] = [
   margin: 0;
 }
 
+.source-card-title {
+  font-size: var(--muses-font-title);
+  line-height: var(--muses-line-height-title);
+  font-weight: 600;
+}
+
+.source-card-subtitle {
+  margin-top: 2px;
+  color: var(--muses-color-ink-muted);
+  font-size: var(--muses-font-body-sm);
+}
+
 .source-path {
   overflow: hidden;
-  margin: 0;
+  margin: 8px 0 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

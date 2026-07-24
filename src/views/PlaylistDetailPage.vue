@@ -8,9 +8,13 @@
       @handle-left-click="goBack"
     >
       <template #right>
-        <ion-button fill="clear" aria-label="播放全部" :disabled="resolvedSongs.length === 0" @click="onPlayAll">
-          <h-icon :icon="playOutline" />
-        </ion-button>
+        <h-icon-button
+          :icon="playOutline"
+          ariaLabel="播放全部"
+          variant="ghost"
+          :disabled="resolvedSongs.length === 0"
+          @click="onPlayAll"
+        />
       </template>
     </h-nav-bar>
     <ion-content :fullscreen="false">
@@ -47,15 +51,14 @@
                   <h2>{{ row.song.title }}</h2>
                   <p>{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
                 </ion-label>
-                <ion-button
+                <h-icon-button
                   slot="end"
-                  fill="clear"
+                  :icon="removeCircleOutline"
+                  variant="ghost"
                   class="more-button"
-                  :aria-label="`从歌单移除 ${row.song.title}`"
+                  :ariaLabel="`从歌单移除 ${row.song.title}`"
                   @click.stop="onRemove(row.song.id)"
-                >
-                  <h-icon :icon="removeCircleOutline" />
-                </ion-button>
+                />
               </ion-item>
             </div>
           </div>
@@ -71,7 +74,6 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import {
-  IonButton,
   IonContent,
   IonItem,
   IonLabel,
@@ -80,7 +82,7 @@ import {
   useIonRouter,
 } from '@ionic/vue'
 import { playOutline, removeCircleOutline } from '@/icons'
-import { HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
+import { HEmpty, HIconButton, HNavBar, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'

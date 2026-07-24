@@ -1,0 +1,30 @@
+{
+  "id": "replace-ionic-with-happier-ui",
+  "name": "replace-ionic-with-happier-ui",
+  "title": "用 happier-ui 替换可替换的 Ionic 组件",
+  "description": "系统性地把项目中可用 happier-ui 0.0.2 覆盖的 Ionic 组件替换为 happier-ui 组件（HProgress/HCard/HButton/HIconButton/HRange 等），并同步 spec 白名单。父任务拥有源需求与子任务映射。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-07-24",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-24-replace-ionic-low-risk",
+    "07-24-replace-player-range",
+    "07-24-sync-spec-whitelist"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

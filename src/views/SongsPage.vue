@@ -2,9 +2,7 @@
   <ion-page ref="pageRef">
     <h-nav-bar title="歌曲" :fixed="false">
       <template #right>
-        <ion-button fill="clear" aria-label="搜索歌曲">
-          <h-icon slot="icon-only" :icon="searchOutline" aria-hidden="true" />
-        </ion-button>
+        <h-icon-button :icon="searchOutline" ariaLabel="搜索歌曲" variant="ghost" />
       </template>
     </h-nav-bar>
     <div class="shuffle-bar">
@@ -53,15 +51,14 @@
                 <h2>{{ songs[virtualRow.index].title }}</h2>
                 <p>{{ getSongArtistName(songs[virtualRow.index]) }} - {{ getSongAlbumName(songs[virtualRow.index]) }}</p>
               </ion-label>
-              <ion-button
+              <h-icon-button
                 slot="end"
-                fill="clear"
+                :icon="ellipsisVertical"
                 class="more-button"
-                aria-label="更多歌曲操作"
+                ariaLabel="更多歌曲操作"
+                variant="ghost"
                 @click.stop="openSongActions(songs[virtualRow.index])"
-              >
-                <h-icon :icon="ellipsisVertical" />
-              </ion-button>
+              />
             </ion-item>
           </div>
         </div>
@@ -114,7 +111,6 @@ import { Capacitor } from '@capacitor/core'
 import {
   IonActionSheet,
   IonAlert,
-  IonButton,
   IonContent,
   IonFab,
   IonFabButton,
@@ -127,7 +123,7 @@ import {
   type AlertInput,
 } from '@ionic/vue'
 import { ellipsisVertical, locateOutline, searchOutline, shuffle } from '@/icons'
-import { HButton, HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
+import { HButton, HEmpty, HIcon, HIconButton, HNavBar, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
