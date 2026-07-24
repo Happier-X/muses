@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/build/单元测试验证路径与无障碍约定"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "卡片布局、ion-list 移除与响应式断点合规检查"}

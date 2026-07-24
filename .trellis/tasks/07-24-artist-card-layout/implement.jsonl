@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "艺术家卡片网格、MCover 用法、响应式断点与图标约定"}
+{"file": "src/views/AlbumsPage.vue", "reason": "卡片网格布局与 MCover 尺寸覆盖的参考实现"}
