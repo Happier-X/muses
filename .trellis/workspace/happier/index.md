@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 76
+- **Total Sessions**: 77
 - **Last Active**: 2026-07-24
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1249 | Active |
+| `journal-2.md` | ~1282 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 77 | 2026-07-24 | 升级 happier-ui 到 0.0.2 并接入 Tailwind v4 | `cf75ff2` | `main` |
 | 76 | 2026-07-24 | 修复沉浸式播放页二次暂停播放丢失当前曲 | `95bb2f5`, `6d1a77d` | `main` |
 | 75 | 2026-07-24 | 表单统一使用 TanStack Form | `948aa28`, `e5e57a3` | `main` |
 | 74 | 2026-07-22 | 设计系统 Token 化与 Muses UI 组件库 | `39f5c26`, `335780b`, `358c7fb`, `7f727a6`, `193ab84` | `main` |

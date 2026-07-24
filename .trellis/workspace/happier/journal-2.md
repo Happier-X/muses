@@ -1247,3 +1247,36 @@ localStorage `muses:playback-session` 存 currentSongId + position；冷启动�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 77: 升级 happier-ui 到 0.0.2 并接入 Tailwind v4
+
+**Date**: 2026-07-24
+**Task**: 升级 happier-ui 到 0.0.2 并接入 Tailwind v4
+**Branch**: `main`
+
+### Summary
+
+将 happier-ui 从 0.0.1 升级到 0.0.2。0.0.2 为破坏性更新：移除旧 style.css 入口、强制要求宿主接入 Tailwind v4。新增 tailwindcss@^4 与 @tailwindcss/vite，vite.config.ts 启用 tailwindcss() 插件，新建 src/theme/tailwind.css 入口串 @import 'tailwindcss' + happier-ui/styles，main.ts 改引该入口。index.ts 补齐 9 个新组件（HIconButton/HToast/HRange/HProgress/HCard/HCell/HCellGroup/HFloatingBubble/HSidebar）与相关类型 re-export。同步三份 frontend spec 版本号、Tailwind v4 接入约定、修正 HIconButton 已重回库的表述。build、vue-tsc、337 单测、lint 全过。视觉层面（Tailwind preflight 与 Ionic 样式潜在冲突）留待人工自查。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cf75ff2` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
