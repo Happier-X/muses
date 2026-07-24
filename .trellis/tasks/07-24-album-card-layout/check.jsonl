@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"检查卡片布局、响应式规则、文本溢出、MCover 与 Ionic 边界是否符合前端规范。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"检查改动范围是否保持在专辑页面和既有测试边界。"}

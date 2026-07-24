@@ -1,0 +1,2 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"约束 Vue SFC、happier-ui/MCover 使用、响应式断点、卡片边界与样式 token。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"约束专辑页仍位于 views 层且复用现有 UI 边界，不新增平行组件。"}
