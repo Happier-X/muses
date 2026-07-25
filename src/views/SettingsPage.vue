@@ -35,16 +35,16 @@
           </h-button>
         </div>
       </div>
-
-      <h-toast
-        v-model="toast.visible"
-        :variant="toast.variant"
-        :duration="toast.duration"
-        position="bottom"
-      >
-        {{ toast.message }}
-      </h-toast>
     </ion-content>
+
+    <h-toast
+      v-model="toast.visible"
+      :variant="toast.variant"
+      :duration="toast.duration"
+      position="bottom"
+    >
+      {{ toast.message }}
+    </h-toast>
   </ion-page>
 </template>
 
