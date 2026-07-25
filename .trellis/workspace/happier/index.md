@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 77
-- **Last Active**: 2026-07-24
+- **Total Sessions**: 78
+- **Last Active**: 2026-07-25
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1282 | Active |
+| `journal-2.md` | ~1404 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 78 | 2026-07-25 | 修复 Tailwind v4 @layer 在旧版 Android WebView 不兼容 | `6e06f3c` | `main` |
 | 77 | 2026-07-24 | 升级 happier-ui 到 0.0.2 并接入 Tailwind v4 | `cf75ff2` | `main` |
 | 76 | 2026-07-24 | 修复沉浸式播放页二次暂停播放丢失当前曲 | `95bb2f5`, `6d1a77d` | `main` |
 | 75 | 2026-07-24 | 表单统一使用 TanStack Form | `948aa28`, `e5e57a3` | `main` |

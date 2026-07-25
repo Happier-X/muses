@@ -1369,3 +1369,36 @@ PRD 明确"宁可保留也不强行替换破坏播放体验"。HRange 结构上�
 ### Next Steps
 
 - child 3 `07-24-sync-spec-whitelist`：同步 spec 白名单与组件契约。
+
+
+## Session 78: 修复 Tailwind v4 @layer 在旧版 Android WebView 不兼容
+
+**Date**: 2026-07-25
+**Task**: 修复 Tailwind v4 @layer 在旧版 Android WebView 不兼容
+**Branch**: `main`
+
+### Summary
+
+诊断 Tailwind CSS v4 的 @layer 输出在旧版 Android WebView（Chrome < 99）上不兼容的问题。添加 PostCSS 插件（postcss.config.js）解包 @layer 块，使样式在旧浏览器上正常生效。验证构建产物中 @layer 已全部移除。更新 frontend quality-guidelines.md 记录构建兼容性知识。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6e06f3c` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
