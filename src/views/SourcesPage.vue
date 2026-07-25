@@ -761,8 +761,6 @@ const addLocalSource = async (): Promise<void> => {
 
 const openWebDavModal = (): void => {
   isWebDavModalOpen.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
 }
 
 const closeWebDavModal = (): void => {
@@ -773,8 +771,6 @@ const closeWebDavModal = (): void => {
   webDavDirectories.value = []
   selectedWebDavPaths.value = new Set<string>()
   webDavForm.reset(emptyWebDavFormValues())
-  errorMessage.value = ''
-  successMessage.value = ''
 }
 
 const loadWebDavDirectories = async (path: string): Promise<void> => {
@@ -784,7 +780,6 @@ const loadWebDavDirectories = async (path: string): Promise<void> => {
     webDavDirectories.value = await listWebDavDirectories(getWebDavConnectionFromForm(), normalizedPath)
     currentWebDavPath.value = normalizedPath
     isWebDavConnected.value = true
-    errorMessage.value = ''
   } catch (error) {
     showToast(error instanceof Error ? error.message : '读取 WebDAV 目录失败。', 'danger')
   } finally {
