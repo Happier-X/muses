@@ -1468,3 +1468,36 @@ SourcesPage 添加音源的底部菜单从 ion-action-sheet 替换为 happier-ui
 ### Next Steps
 
 - None - task complete
+
+
+## Session 81: 替换项目中的提示为 HToast
+
+**Date**: 2026-07-25
+**Task**: 替换项目中的提示为 HToast
+**Branch**: `main`
+
+### Summary
+
+SettingsPage 的 toastController 替换为 HToast，SourcesPage 的 showError/showSuccess 内联文本替换为 HToast 通知。使用 reactive toast state + showToast helper，variant 区分 danger/success/default。更新 spec 白名单。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `33f5d35` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

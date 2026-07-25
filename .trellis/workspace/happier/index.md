@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 80
+- **Total Sessions**: 81
 - **Last Active**: 2026-07-25
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1470 | Active |
+| `journal-2.md` | ~1503 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 81 | 2026-07-25 | 替换项目中的提示为 HToast | `33f5d35` | `main` |
 | 80 | 2026-07-25 | 音源页 ActionSheet 替换为 HBottomSheet | `cd4c2ac` | `main` |
 | 79 | 2026-07-25 | 音源页添加按钮 ghost 变体 | `4b57839` | `main` |
 | 78 | 2026-07-25 | 修复 Tailwind v4 @layer 在旧版 Android WebView 不兼容 | `6e06f3c` | `main` |
