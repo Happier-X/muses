@@ -1567,3 +1567,36 @@ SettingsPage 的 toastController 替换为 HToast，SourcesPage 的 showError/sh
 ### Next Steps
 
 - None - task complete
+
+
+## Session 84: 修复 HToast ion-content fixed 定位
+
+**Date**: 2026-07-25
+**Task**: 修复 HToast ion-content fixed 定位
+**Branch**: `main`
+
+### Summary
+
+SettingsPage 和 SourcesPage 的 HToast 在 ion-content 内 position:fixed 失效（Ionic Shadow DOM 限制），移至 ion-content 外部后恢复正常显示。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `086c92e` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

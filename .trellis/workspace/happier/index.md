@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 83
+- **Total Sessions**: 84
 - **Last Active**: 2026-07-25
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1569 | Active |
+| `journal-2.md` | ~1602 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 84 | 2026-07-25 | 修复 HToast ion-content fixed 定位 | `086c92e` | `main` |
 | 83 | 2026-07-25 | 修复 SourcesPage HToast 迁移残留引用 | `f8d1520` | `main` |
 | 82 | 2026-07-25 | 升级 happier-ui 0.0.3 | `a5a2f2d` | `main` |
 | 81 | 2026-07-25 | 替换项目中的提示为 HToast | `33f5d35` | `main` |
