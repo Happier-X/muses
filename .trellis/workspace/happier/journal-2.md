@@ -1501,3 +1501,36 @@ SettingsPage 的 toastController 替换为 HToast，SourcesPage 的 showError/sh
 ### Next Steps
 
 - None - task complete
+
+
+## Session 82: 升级 happier-ui 0.0.3
+
+**Date**: 2026-07-25
+**Task**: 升级 happier-ui 0.0.3
+**Branch**: `main`
+
+### Summary
+
+升级 happier-ui 0.0.2 → 0.0.3。新增 HBadge/HPagination/HTextarea/HTag/HSelect/HTable 组件注册。更新 UI 索引、类型导出和 spec 组件清单/版本固定说明。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a5a2f2d` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
