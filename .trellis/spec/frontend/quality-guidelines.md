@@ -141,6 +141,54 @@ Reference files:
 - `src/theme/variables.css`
 - `src/components/ExploreContainer.vue`
 
+## Tailwind v4 构建兼容性
+
+Tailwind CSS v4（`@import 'tailwindcss'`）将所有输出包裹在 CSS `@layer` 块中：
+
+- `@layer base` — Preflight 重置
+- `@layer components` — 组件样式
+- `@layer theme` — 主题变量
+- `@layer utilities` — 工具类
+
+⚠️ `@layer` 需要 **Chrome 99+（2022年3月）** 才支持。在旧版 Android WebView（Chrome < 99）上，浏览器会忽略所有 `@layer` 块内的样式。
+
+### 解决方案
+
+通过 `postcss.config.js` 添加 PostCSS 插件在构建阶段解包 `@layer` 块：
+
+```javascript
+// postcss.config.js — 解包 Tailwind v4 @layer，兼容旧版 Android WebView
+const layerCompat = {
+  postcssPlugin: 'layer-compat',
+  AtRule: {
+    layer: (atRule) => {
+      if (atRule.nodes && atRule.nodes.length > 0) {
+        atRule.replaceWith(...atRule.nodes)
+      }
+    },
+  },
+}
+
+export default {
+  plugins: [layerCompat],
+}
+```
+
+**原理**：Vite 的 CSS 管道顺序为 `@tailwindcss/vite` → PostCSS → 输出。PostCSS 插件看到的是已展开的 Tailwind CSS（含 `@layer` 块），解包后移除了 `@layer` 包装，使样式在旧版浏览器上正常生效。
+
+**注意点**：
+- 此方案保留开发阶段（桌面浏览器）的 `@layer` 行为，仅在构建阶段解包
+- 不切换回 `@tailwindcss/postcss`，继续使用 `@tailwindcss/vite`
+- 只处理带内容的 `@layer xxx { ... }` 块，不影响 `@layer xxx;` 声明
+
+验证方法：
+
+```bash
+# 构建后检查 CSS 中无 @layer 出现
+grep -c '@layer' dist/assets/index-*.css
+# 应输出 0
+```
+
 ---
 
 ## Anti-Patterns
