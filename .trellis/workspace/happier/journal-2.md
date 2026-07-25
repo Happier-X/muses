@@ -1402,3 +1402,36 @@ PRD 明确"宁可保留也不强行替换破坏播放体验"。HRange 结构上�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 79: 音源页添加按钮 ghost 变体
+
+**Date**: 2026-07-25
+**Task**: 音源页添加按钮 ghost 变体
+**Branch**: `main`
+
+### Summary
+
+SourcesPage 右上角添加图标按钮 variant="primary" → "ghost"，与 SongsPage 的搜索图标按钮保持一致的 ghost 样式。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4b57839` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
