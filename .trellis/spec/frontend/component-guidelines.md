@@ -39,7 +39,7 @@ Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.2`**，不得提交 `fi
 
 - **权威 token**：包内 `happier-ui/tokens.css` 的 **`--h-*`**；`--muses-*` 为兼容别名。
 - **样式管道（0.0.2 必需）**：宿主必须接入 **Tailwind CSS v4**（`tailwindcss` + `@tailwindcss/vite`）。全局入口 `src/theme/tailwind.css` 使用 `@import 'tailwindcss'` + `@import 'happier-ui/styles'`，由 Vite 的 `tailwindcss()` 插件解析 `@theme` / `@layer components`。**禁止**再直接 `import 'happier-ui/style.css'` 或把 `styles.css` 当普通预编译 CSS 跳过 Tailwind 管道。
-- **边界**：真实库导出为 `HButton`、`HIconButton`、`HSwitch`、`HBottomSheet`、`HDialog`、`HToast`、`HInput`、`HCheckbox`、`HRange`、`HProgress`、`HCard`、`HCell`、`HCellGroup`、`HEmpty`、`HImage`、`HIcon`、`HTabBar`、`HNavBar`、`HFloatingBubble`、`HSidebar`；类型含 `HTabBarItem`、`HSidebarItem`、`HFloatingBubbleOffset`、`HFloatingBubbleAxis`、`HFloatingBubbleMagnetic`、`HFloatingBubbleGap`；app-only 为 `MCover`（音乐封面）与 `MPage`（Ionic 宿主页壳）。
+- **边界**：真实库导出为 `HBadge`、`HBottomSheet`、`HButton`、`HCard`、`HCell`、`HCellGroup`、`HCheckbox`、`HDialog`、`HEmpty`、`HFloatingBubble`、`HIcon`、`HIconButton`、`HImage`、`HInput`、`HNavBar`、`HPagination`、`HProgress`、`HRange`、`HSelect`、`HSidebar`、`HSwitch`、`HTable`、`HTabBar`、`HTag`、`HTextarea`、`HToast`；类型含 `HSelectOption`、`HSidebarItem`、`HTableColumn`、`HTableSort`、`HTabBarItem`、`HFloatingBubbleOffset`、`HFloatingBubbleAxis`、`HFloatingBubbleMagnetic`、`HFloatingBubbleGap`；app-only 为 `MCover`（音乐封面）与 `MPage`（Ionic 宿主页壳）。
 - **首版视觉**：HeroUI Native 角色与触控节奏；**不**引入 `heroui-native` / RN。
 - **禁止**：`MIon*`、整库复刻 Ionic、Material elevation、包内 `@/features` / 业务。
 
