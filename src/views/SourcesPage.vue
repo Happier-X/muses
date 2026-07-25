@@ -169,9 +169,7 @@
             >
               重新选择目录
             </h-button>
-            <ion-text v-if="editErrorMessage" color="danger">
-              <p class="message-text">{{ editErrorMessage }}</p>
-            </ion-text>
+            <!-- editErrorMessage 已改为 showToast -->
             <h-button variant="primary" type="submit" :disabled="isEditSaving">
               {{ isEditSaving ? '正在保存…' : '保存修改' }}
             </h-button>
@@ -308,12 +306,7 @@
             </h-button>
           </form>
 
-          <ion-text v-if="errorMessage" color="danger">
-            <p class="message-text">{{ errorMessage }}</p>
-          </ion-text>
-          <ion-text v-if="successMessage" color="success">
-            <p class="message-text">{{ successMessage }}</p>
-          </ion-text>
+          <!-- errorMessage/successMessage 已改为 showToast -->
 
           <section v-if="isWebDavConnected" class="webdav-browser">
             <div class="browser-header">
@@ -350,6 +343,15 @@
           </section>
         </ion-content>
       </ion-modal>
+
+      <h-toast
+        v-model="toast.visible"
+        :variant="toast.variant"
+        :duration="toast.duration"
+        position="bottom"
+      >
+        {{ toast.message }}
+      </h-toast>
     </ion-content>
   </ion-page>
 </template>
@@ -368,11 +370,10 @@ import {
   IonModal,
   IonNote,
   IonPage,
-  IonText,
   type AlertButton,
 } from '@ionic/vue'
 import { add } from '@/icons'
-import { HBottomSheet, HButton, HCard, HCheckbox, HEmpty, HIconButton, HInput, HNavBar, HProgress, HSwitch } from '@/components/ui'
+import { HBottomSheet, HButton, HCard, HCheckbox, HEmpty, HIconButton, HInput, HNavBar, HProgress, HSwitch, HToast } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,
@@ -396,12 +397,29 @@ const isDeleteAlertOpen = ref(false)
 const sourcePendingDelete = ref<SourceItem | null>(null)
 const sourcePendingEdit = ref<SourceItem | null>(null)
 const isEditModalOpen = ref(false)
-const editErrorMessage = ref('')
+// editErrorMessage → showToast
 const isWebDavModalOpen = ref(false)
 const isWebDavLoading = ref(false)
 const isWebDavConnected = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
+const toast = ref<{
+  visible: boolean
+  message: string
+  variant: 'default' | 'success' | 'warning' | 'danger'
+  duration: number
+}>({
+  visible: false,
+  message: '',
+  variant: 'default',
+  duration: 2000,
+})
+
+const showToast = (
+  message: string,
+  variant: 'default' | 'success' | 'warning' | 'danger' = 'default',
+  duration = 2000,
+): void => {
+  toast.value = { visible: true, message, variant, duration }
+}
 const currentWebDavPath = ref('/')
 const webDavDirectories = ref<WebDavDirectoryItem[]>([])
 const selectedWebDavPaths = ref(new Set<string>())
@@ -459,7 +477,7 @@ const editSourceForm = useForm({
     const rawPath = value.path.trim()
     const path = source.type === 'webdav' ? normalizeWebDavPath(rawPath) : rawPath
 
-    editErrorMessage.value = ''
+    
     try {
       if (source.type === 'local') {
         const result = await updateSource(source.id, { name, path }, sources.value)
@@ -480,13 +498,13 @@ const editSourceForm = useForm({
         if (connectionChanged) {
           const verificationPassword = password || (await getWebDavPassword(source.credentialKey))
           if (!verificationPassword) {
-            editErrorMessage.value = 'WebDAV 密码不存在，请输入新密码。'
+            showToast('WebDAV 密码不存在，请输入新密码。', 'danger')
             return
           }
           try {
             await listWebDavDirectories({ serverUrl, username, password: verificationPassword }, path)
           } catch {
-            editErrorMessage.value = 'WebDAV 连接或目标目录验证失败，请检查编辑信息。'
+            showToast('WebDAV 连接或目标目录验证失败，请检查编辑信息。', 'danger')
             return
           }
         }
@@ -505,9 +523,9 @@ const editSourceForm = useForm({
       isEditModalOpen.value = false
       sourcePendingEdit.value = null
       editSourceForm.reset(emptyEditSourceFormValues())
-      showSuccess('音源修改已保存。')
+      showToast('音源修改已保存。', 'success')
     } catch {
-      editErrorMessage.value = '保存音源修改失败，请稍后重试。'
+      showToast('保存音源修改失败，请稍后重试。', 'danger')
     }
   },
 })
@@ -550,16 +568,6 @@ const persistSources = (): void => {
   saveSources(sources.value)
 }
 
-const showError = (message: string): void => {
-  errorMessage.value = message
-  successMessage.value = ''
-}
-
-const showSuccess = (message: string): void => {
-  successMessage.value = message
-  errorMessage.value = ''
-}
-
 const getSourceSubtitle = (source: SourceItem): string => {
   if (source.type === 'local') {
     return '本地文件夹'
@@ -596,7 +604,7 @@ const openEditSource = (source: SourceItem): void => {
     username: source.type === 'webdav' ? source.username : '',
     password: '',
   })
-  editErrorMessage.value = ''
+  
   isEditModalOpen.value = true
 }
 
@@ -606,7 +614,7 @@ const closeEditSource = (): void => {
   }
   isEditModalOpen.value = false
   sourcePendingEdit.value = null
-  editErrorMessage.value = ''
+  
   editSourceForm.reset(emptyEditSourceFormValues())
 }
 
@@ -617,7 +625,7 @@ const pickEditedLocalDirectory = async (): Promise<void> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
     if (!/cancel|取消/i.test(message)) {
-      editErrorMessage.value = '选择本地文件夹失败。'
+      showToast('选择本地文件夹失败。', 'danger')
     }
   }
 }
@@ -626,15 +634,15 @@ const executeDeleteSource = async (source: SourceItem): Promise<void> => {
   try {
     const result = await deleteSource(source.id, sources.value)
     if (!result.deleted) {
-      showError('找不到要删除的音源。')
+      showToast('找不到要删除的音源。', 'danger')
       return
     }
 
     sources.value = result.sources
     reconcileSourceSongs(result.deleted.id, [])
-    showSuccess(`已删除音源「${result.deleted.name}」。`)
+    showToast(`已删除音源「${result.deleted.name}」。`, 'success')
   } catch (error) {
-    showError(error instanceof Error ? error.message : '删除音源失败。')
+    showToast(error instanceof Error ? error.message : '删除音源失败。', 'danger')
   }
 }
 
@@ -716,8 +724,10 @@ const startScan = async (): Promise<void> => {
     const result = await scanSourceLibrary(source, scanOptions.value, (progress) => {
       scanProgress.value = progress
     })
-    showSuccess(
+    showToast(
       `扫描完成：入库 ${result.summary.inserted} 首，更新 ${result.summary.updated} 首，跳过 ${result.summary.skipped} 首，降级 ${result.summary.degraded} 首，移除 ${result.summary.removed} 首。`,
+      'success',
+      4000,
     )
   } catch (error) {
     scanProgress.value = {
@@ -725,7 +735,7 @@ const startScan = async (): Promise<void> => {
       stage: 'failed',
       message: error instanceof Error ? error.message : '扫描失败。',
     }
-    showError(scanProgress.value.message ?? '扫描失败。')
+    showToast(scanProgress.value.message ?? '扫描失败。', 'danger')
   }
 }
 
@@ -743,9 +753,9 @@ const addLocalSource = async (): Promise<void> => {
 
     sources.value = [source, ...sources.value]
     persistSources()
-    showSuccess('已添加本地文件夹。')
+    showToast('已添加本地文件夹。', 'success')
   } catch (error) {
-    showError(error instanceof Error ? error.message : '选择本地文件夹失败。')
+    showToast(error instanceof Error ? error.message : '选择本地文件夹失败。', 'danger')
   }
 }
 
@@ -776,7 +786,7 @@ const loadWebDavDirectories = async (path: string): Promise<void> => {
     isWebDavConnected.value = true
     errorMessage.value = ''
   } catch (error) {
-    showError(error instanceof Error ? error.message : '读取 WebDAV 目录失败。')
+    showToast(error instanceof Error ? error.message : '读取 WebDAV 目录失败。', 'danger')
   } finally {
     isWebDavLoading.value = false
   }
@@ -833,10 +843,10 @@ const addSelectedWebDavSources = async (): Promise<void> => {
 
     sources.value = [...newSources, ...sources.value]
     persistSources()
-    showSuccess(`已添加 ${newSources.length} 个 WebDAV 文件夹。`)
+    showToast(`已添加 ${newSources.length} 个 WebDAV 文件夹。`, 'success')
     closeWebDavModal()
   } catch (error) {
-    showError(error instanceof Error ? error.message : '保存 WebDAV 音源失败。')
+    showToast(error instanceof Error ? error.message : '保存 WebDAV 音源失败。', 'danger')
   } finally {
     isWebDavLoading.value = false
   }

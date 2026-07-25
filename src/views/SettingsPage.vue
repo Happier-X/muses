@@ -35,6 +35,15 @@
           </h-button>
         </div>
       </div>
+
+      <h-toast
+        v-model="toast.visible"
+        :variant="toast.variant"
+        :duration="toast.duration"
+        position="bottom"
+      >
+        {{ toast.message }}
+      </h-toast>
     </ion-content>
   </ion-page>
 </template>
@@ -47,23 +56,37 @@ import {
   IonLabel,
   IonList,
   IonPage,
-  toastController,
 } from '@ionic/vue'
-import { HButton, HNavBar, HSwitch } from '@/components/ui'
+import { HButton, HNavBar, HSwitch, HToast } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,
 } from '@/features/player/controller'
 import pkg from '../../package.json'
 
-const present = async (opts: { message: string; duration: number }) => {
-  const toast = await toastController.create(opts)
-  await toast.present()
-}
-
 const currentVersion = pkg.version
 const checking = ref(false)
 const loudnessNormalizeEnabled = ref(isLoudnessNormalizeEnabled())
+
+const toast = ref<{
+  visible: boolean
+  message: string
+  variant: 'default' | 'success' | 'warning' | 'danger'
+  duration: number
+}>({
+  visible: false,
+  message: '',
+  variant: 'default',
+  duration: 2000,
+})
+
+const showToast = (
+  message: string,
+  variant: 'default' | 'success' | 'warning' | 'danger' = 'default',
+  duration = 2000,
+): void => {
+  toast.value = { visible: true, message, variant, duration }
+}
 
 watch(loudnessNormalizeEnabled, (enabled) => {
   setLoudnessNormalizeEnabled(enabled)
@@ -88,9 +111,9 @@ const checkUpdate = async () => {
     const res = await fetch('https://api.github.com/repos/Happier-X/muses/releases/latest')
     if (!res.ok) {
       if (res.status === 403) {
-        present({ message: '检查更新失败，请稍后重试', duration: 2000 })
+        showToast('检查更新失败，请稍后重试', 'danger')
       } else {
-        present({ message: '检查更新失败，请检查网络连接', duration: 2000 })
+        showToast('检查更新失败，请检查网络连接', 'danger')
       }
       return
     }
@@ -98,19 +121,19 @@ const checkUpdate = async () => {
     const tag: string = data.tag_name ?? ''
     const match = tag.match(/^v(\d+\.\d+\.\d+)$/)
     if (!match) {
-      present({ message: '检查更新失败，版本格式异常', duration: 2000 })
+      showToast('检查更新失败，版本格式异常', 'danger')
       return
     }
     const latestVer = match[1]
     const cmp = compareVersions(latestVer, currentVersion)
     if (cmp <= 0) {
-      present({ message: '已是最新版本', duration: 2000 })
+      showToast('已是最新版本', 'success')
     } else {
-      present({ message: `发现新版本 v${latestVer}`, duration: 3000 })
+      showToast(`发现新版本 v${latestVer}`, 'default', 3000)
       window.open(data.html_url, '_system')
     }
   } catch {
-    present({ message: '检查更新失败，请检查网络连接', duration: 2000 })
+    showToast('检查更新失败，请检查网络连接', 'danger')
   } finally {
     checking.value = false
   }

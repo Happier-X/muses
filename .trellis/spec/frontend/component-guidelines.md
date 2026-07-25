@@ -67,7 +67,7 @@ Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.2`**，不得提交 `fi
 | `ion-list` | 结构容器，暂不封装 |
 | `ion-button`（特定缺口场景） | 带文字操作优先 `HButton`、纯图标优先 `HIconButton`；仅 fill 图标主控（`MiniPlayer` / `PlayerPage` 播放键）与「透明底 + danger 前景」（`QueuePage` 清空/删除）等 `HIconButton` 无法零回归的场景保留 Ionic 并登记 `gaps.md` |
 | `ion-toggle` / `ion-input` / `ion-checkbox` / `ion-range` | 优先 `HSwitch`/`HInput`/`HCheckbox`；`ion-range` 因 `HRange` 缺「释放提交」事件契约（详见下方 HRange 说明）在 `PlayerPage` 进度条保留 |
-| ~~`ion-action-sheet`~~ / `ion-alert` / `ion-modal` / `ion-fab` | `ion-action-sheet` → `HBottomSheet`（音源页）；其余：叠层/FAB 宿主；仅替换内部图标为 `HIcon` |
+| ~~`ion-action-sheet`~~ / `ion-alert` / `ion-modal` / `ion-fab` | `ion-action-sheet` → `HBottomSheet`（音源页）；`toastController` → `HToast`（SettingsPage、SourcesPage）；其余：叠层/FAB 宿主；仅替换内部图标为 `HIcon` |
 | `ion-note` / `ion-item` / `ion-label` / `ion-text` | 库缺口：列表行、设置行、提示等，保留并登记 `gaps.md` |
 | `ion-router-outlet` / Tab 壳相关 | 应用壳，非语义组件 |
 
