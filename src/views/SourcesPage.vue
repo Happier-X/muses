@@ -41,12 +41,19 @@
         </div>
       </div>
 
-      <ion-action-sheet
-        :is-open="isAddActionSheetOpen"
-        header="添加音源"
-        :buttons="addSourceButtons"
-        @didDismiss="isAddActionSheetOpen = false"
-      />
+      <h-bottom-sheet v-model="isAddActionSheetOpen" title="添加音源" :show-handle="true" @close="isAddActionSheetOpen = false">
+        <div class="action-sheet-list">
+          <button class="action-sheet-item" type="button" @click="handleAddLocal">
+            添加本地文件夹
+          </button>
+          <button class="action-sheet-item" type="button" @click="handleAddWebDav">
+            添加 WebDAV 文件夹
+          </button>
+          <button class="action-sheet-item action-sheet-cancel" type="button" @click="isAddActionSheetOpen = false">
+            取消
+          </button>
+        </div>
+      </h-bottom-sheet>
 
       <ion-alert
         :is-open="isDeleteAlertOpen"
@@ -353,7 +360,6 @@ import { useForm } from '@tanstack/vue-form'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
 import {
-  IonActionSheet,
   IonAlert,
   IonContent,
   IonItem,
@@ -363,11 +369,10 @@ import {
   IonNote,
   IonPage,
   IonText,
-  type ActionSheetButton,
   type AlertButton,
 } from '@ionic/vue'
 import { add } from '@/icons'
-import { HButton, HCard, HCheckbox, HEmpty, HIconButton, HInput, HNavBar, HProgress, HSwitch } from '@/components/ui'
+import { HBottomSheet, HButton, HCard, HCheckbox, HEmpty, HIconButton, HInput, HNavBar, HProgress, HSwitch } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,
@@ -837,24 +842,15 @@ const addSelectedWebDavSources = async (): Promise<void> => {
   }
 }
 
-const addSourceButtons: ActionSheetButton[] = [
-  {
-    text: '添加本地文件夹',
-    handler: () => {
-      void addLocalSource()
-    },
-  },
-  {
-    text: '添加 WebDAV 文件夹',
-    handler: () => {
-      openWebDavModal()
-    },
-  },
-  {
-    text: '取消',
-    role: 'cancel',
-  },
-]
+const handleAddLocal = (): void => {
+  isAddActionSheetOpen.value = false
+  void addLocalSource()
+}
+
+const handleAddWebDav = (): void => {
+  isAddActionSheetOpen.value = false
+  openWebDavModal()
+}
 </script>
 
 <style scoped>
@@ -989,6 +985,41 @@ const addSourceButtons: ActionSheetButton[] = [
 .empty-directory {
   color: var(--ion-color-medium);
   text-align: center;
+}
+
+.action-sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-space-xs, 2px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.action-sheet-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--h-touch-target, 48px);
+  padding: var(--h-space-md, 12px);
+  border: none;
+  border-radius: var(--h-radius-control, 12px);
+  background: transparent;
+  color: var(--h-color-ink, #000);
+  font: inherit;
+  font-size: var(--h-font-title, 15px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--h-duration-press, 0.12s) ease;
+}
+
+.action-sheet-item:active {
+  background: var(--h-color-surface-secondary, #f4f4f5);
+}
+
+.action-sheet-cancel {
+  margin-top: var(--h-space-sm, 8px);
+  color: var(--h-color-ink-muted, #92949c);
+  font-size: var(--h-font-body-sm, 13px);
 }
 
 .tablet-content-limit {
