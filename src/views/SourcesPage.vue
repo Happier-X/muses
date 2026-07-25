@@ -2,7 +2,7 @@
   <ion-page>
     <h-nav-bar title="音源" :fixed="false">
       <template #right>
-        <h-icon-button :icon="add" ariaLabel="添加音源" variant="primary" @click="isAddActionSheetOpen = true" />
+        <h-icon-button :icon="add" ariaLabel="添加音源" variant="ghost" @click="isAddActionSheetOpen = true" />
       </template>
     </h-nav-bar>
 
