@@ -1435,3 +1435,36 @@ SourcesPage 右上角添加图标按钮 variant="primary" → "ghost"，与 Song
 ### Next Steps
 
 - None - task complete
+
+
+## Session 80: 音源页 ActionSheet 替换为 HBottomSheet
+
+**Date**: 2026-07-25
+**Task**: 音源页 ActionSheet 替换为 HBottomSheet
+**Branch**: `main`
+
+### Summary
+
+SourcesPage 添加音源的底部菜单从 ion-action-sheet 替换为 happier-ui 的 HBottomSheet 组件。移除 Ionic ActionSheetButton 类型和相关导入，使用原生 button 实现选项列表，添加 action-sheet-list/item 样式。更新 spec 白名单状态。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cd4c2ac` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
