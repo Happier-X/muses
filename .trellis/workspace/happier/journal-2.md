@@ -1534,3 +1534,36 @@ SettingsPage 的 toastController 替换为 HToast，SourcesPage 的 showError/sh
 ### Next Steps
 
 - None - task complete
+
+
+## Session 83: 修复 SourcesPage HToast 迁移残留引用
+
+**Date**: 2026-07-25
+**Task**: 修复 SourcesPage HToast 迁移残留引用
+**Branch**: `main`
+
+### Summary
+
+移除 openWebDavModal/closeWebDavModal/loadWebDavDirectories 中残留的 errorMessage.value / successMessage.value 赋值（HToast 迁移时遗漏的清理）。修复 vue-tsc TS2304 编译错误。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f8d1520` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
