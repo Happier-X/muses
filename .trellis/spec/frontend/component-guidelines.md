@@ -579,3 +579,36 @@ Given the current app shape, common mistakes to avoid are:
 - Hiding `MiniPlayer` with `v-if` while a player overlay is open; keep it mounted behind the overlay and disable interaction to avoid close-animation flicker
 - Setting immersive `.cover` width without a height-based cap（窄屏只写 `min(72vw, 100%, 340px)` 或宽屏只写 `min(40vw, 320px)`）while `.cover-slot` clamps height via `max-height: min(…dvh, …)`；矮高/横屏时正方形高度被 clamp、宽度不变 → 封面被压成长方形。窄屏与宽屏 `.cover` width 都必须同步含 dvh/`max-height` 对齐的上限
 - 矮屏控制页只缩按钮却不收 panel padding / `info-panel-inner` gap / 进度热区，导致控制区仍占过多垂直空间、封面槽位被挤；或为腾空间隐藏模式栏/进度——应分层 `max-height` 收紧尺寸，保留全部控件
+
+---
+
+## 标记类与 Tailwind Utility 共存原则
+
+组件的 `class` 属性中有两类类名：以 utility 为主的 Tailwind 语义类（无前缀或有 `[` `(` 任意值 syntax）传给 class variable，另有少量非 Tailwind 自定义标记类。零 scoped CSS 的规则对这些标记类提出了留存标准：
+
+- **保留**的标记类必须满足至少一项：
+  1. `src/theme/tailwind.css` 中存在对应的全局级联锚点（e.g. `.player-overlay .cover`、`.lyric-panel`、`.lyric-empty`、`.immersive-shell`、`.controls`、`.mode-bar`、`.placeholder-cover`、`.info-panel`、`.m-page`、`.m-content`、`.m-content--fullscreen`、`.empty-state`、`.app-shell`、`.app-mini-player`、`.app-router-view` 等全局规则依赖）。
+  2. JS 运行时通过 `classList.contains` / `querySelector` / `composedPath` 查找的功能性标记（e.g. `.player-actions`、`.lyric-panel`、`.lyric-player`、`.more-button`、`.remove-button`）。
+  3. 用于 Vue Transition prop 的过渡类（无需保留：Transition 改用 `enter-active-class` 等 prop 传 Tailwind utility）。
+
+- **移除**的条件：标记类同时满足：
+  a. 不是 tailwind.css 全局规则锚点
+  b. 没有运行时代码 `classList.contains` 或 `querySelector` 引用
+  c. 没有用于 Transition 的具名 class
+  d. 不是 Vue 动态 `:class` 绑定产生的状态标识（如 `is-playing`、`is-active`，这些最终也可能是全局 CSS 依赖）
+
+- **测试**：测试代码的最佳选择是语义选择器（组件名、`aria-label`、`role`、`[data-song-id]`、`button`/`h2`/`img` 等）。仅当事先无法用语义定位某个元素时，可临时使用 Tailwind 的 utility class 选择器（e.g. `wrapper.find('[class*="flex-[0_0_48px]"]')`），但这种选择器在 utility class 重构时会断。测试断言**禁止**依赖纯命名标记类（如 `.album-grid`、`.artist-card__avatar`）——这些类应视为不可测试的装饰性残留，不属于运行时必需列表。
+
+**判定参考表（示例）**：
+
+| 标记类 | 锚定变量 | 判定 |
+|---|---|---|
+| `.player-overlay` | tailwind.css 全局规则 | ✅ 保留 |
+| `.lyric-panel`、`.lyric-player` | tailwind.css + JS `classList.contains` | ✅ 保留 |
+| `.mini-player` | tailwind.css 全局规则 | ✅ 保留 |
+| `.player-actions` | JS `event.composedPath` 代理 | ✅ 保留 |
+| `.more-button`、`.remove-button` | JS `event.composedPath` 代理 | ✅ 保留 |
+| `.album-grid`、`.artist-grid` | 无 CSS 锚点、无 JS 查询、仅测试装饰 | ❌ 移除 |
+| `.album-card*`、`.artist-card*` sub-elements | 同上 | ❌ 移除 |
+| `.shuffle-bar`、`.shuffle-actions` | 同上 | ❌ 移除 |
+| `.list-grid`、`.tablet-content-limit` | 同上 | ❌ 移除 |
