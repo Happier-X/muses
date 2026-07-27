@@ -364,11 +364,7 @@ import { scanSourceLibrary } from '@/features/library/scanner'
 import { reconcileSourceSongs } from '@/features/library/storage'
 import type { ScanOptions, ScanProgress, ScanStage } from '@/features/library/types'
 
-// action sheet 按钮样式（原 scoped .action-sheet-item），转 Tailwind utility 供本页多处复用
-const actionSheetItemClass =
-  'flex items-center justify-center w-full min-h-[var(--h-touch-target,48px)] p-[var(--h-space-md,12px)] border-none rounded-[var(--h-radius-control,12px)] bg-transparent text-[var(--h-color-ink,#000)] [font-family:inherit] [font-weight:inherit] [font-style:inherit] text-[length:var(--h-font-title,15px)] cursor-pointer [-webkit-tap-highlight-color:transparent] transition-[background-color] duration-[var(--h-duration-press,0.12s)] ease-[ease] active:bg-[var(--h-color-surface-secondary,#f4f4f5)]'
-const actionSheetCancelClass =
-  `${actionSheetItemClass} mt-[var(--h-space-sm,8px)] text-[var(--h-color-ink-muted,#92949c)] text-[length:var(--h-font-body-sm,13px)]`
+import { actionSheetCancelClass, actionSheetItemClass } from '@/theme/action-sheet'
 
 const sources = ref<SourceItem[]>(loadSources())
 const listParentRef = ref<HTMLElement | null>(null)

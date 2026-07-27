@@ -49,10 +49,10 @@
       </div>
 
       <h-bottom-sheet v-model="isActionsOpen" title="歌单操作" @close="onActionsDismiss">
-        <div class="action-sheet-list">
-          <button class="action-sheet-item" type="button" @click="handleRename">重命名</button>
-          <button class="action-sheet-item action-destructive" type="button" @click="handleDelete">删除</button>
-          <button class="action-sheet-item action-cancel" type="button" @click="isActionsOpen = false">取消</button>
+        <div class="action-sheet-list flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
+          <button :class="actionSheetItemClass" type="button" @click="handleRename">重命名</button>
+          <button :class="[actionSheetItemClass, actionSheetDestructiveClass]" type="button" @click="handleDelete">删除</button>
+          <button :class="[actionSheetItemClass, actionSheetCancelClass]" type="button" @click="isActionsOpen = false">取消</button>
         </div>
       </h-bottom-sheet>
 
@@ -80,6 +80,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { addOutline, ellipsisVertical, list } from '@/icons'
 import { HButton, HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
+import { actionSheetCancelClass, actionSheetDestructiveClass, actionSheetItemClass } from '@/theme/action-sheet'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,

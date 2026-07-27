@@ -40,23 +40,23 @@
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
             <div
-              class="song-item"
+              class="song-item flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
               :class="songItemClass(songs[virtualRow.index].id)"
               :data-song-id="songs[virtualRow.index].id"
               role="button"
               tabindex="0"
               @click="playSong(songs[virtualRow.index])"
             >
-              <m-cover :src="getSongCoverSrc(songs[virtualRow.index])" alt="" />
-              <div class="song-item-label">
-                <h2>{{ songs[virtualRow.index].title }}</h2>
-                <p>{{ getSongArtistName(songs[virtualRow.index]) }} - {{ getSongAlbumName(songs[virtualRow.index]) }}</p>
+              <m-cover class="!w-12 !h-12 !flex-none !rounded-md" :src="getSongCoverSrc(songs[virtualRow.index])" alt="" />
+              <div class="song-item-label flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
+                <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] truncate">{{ songs[virtualRow.index].title }}</h2>
+                <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ getSongArtistName(songs[virtualRow.index]) }} - {{ getSongAlbumName(songs[virtualRow.index]) }}</p>
               </div>
               <h-button
                 variant="ghost"
                 is-icon-only
                 shape="square"
-                class="more-button"
+                class="more-button flex-none m-0 ml-auto"
                 aria-label="更多歌曲操作"
                 @click.stop="openSongActions(songs[virtualRow.index])"
               >
@@ -68,26 +68,26 @@
       </div>
 
       <h-bottom-sheet v-model="isSongActionsOpen" title="歌曲操作">
-        <div class="action-sheet-list">
-          <button class="action-sheet-item" type="button" @click="onAddToQueue">添加到队列</button>
-          <button class="action-sheet-item" type="button" @click="onPickPlaylist">加入歌单…</button>
-          <button class="action-sheet-item action-cancel" type="button" @click="isSongActionsOpen = false">取消</button>
+        <div class="action-sheet-list flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
+          <button :class="actionSheetItemClass" type="button" @click="onAddToQueue">添加到队列</button>
+          <button :class="actionSheetItemClass" type="button" @click="onPickPlaylist">加入歌单…</button>
+          <button :class="[actionSheetItemClass, actionSheetCancelClass]" type="button" @click="isSongActionsOpen = false">取消</button>
         </div>
       </h-bottom-sheet>
 
       <h-bottom-sheet v-model="isPlaylistPickOpen" title="加入歌单">
-        <div class="action-sheet-list">
+        <div class="action-sheet-list flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
           <button
             v-for="pl in playlistList"
             :key="pl.id"
-            class="action-sheet-item"
+            :class="actionSheetItemClass"
             type="button"
             @click="onAddToPlaylist(pl.id)"
           >
             {{ pl.name }}
           </button>
-          <button class="action-sheet-item" type="button" @click="onCreateNewPlaylist">新建歌单</button>
-          <button class="action-sheet-item action-cancel" type="button" @click="isPlaylistPickOpen = false">取消</button>
+          <button :class="actionSheetItemClass" type="button" @click="onCreateNewPlaylist">新建歌单</button>
+          <button :class="[actionSheetItemClass, actionSheetCancelClass]" type="button" @click="isPlaylistPickOpen = false">取消</button>
         </div>
       </h-bottom-sheet>
 
@@ -119,6 +119,7 @@ import { Capacitor } from '@capacitor/core'
 import { ellipsisVertical, locateOutline, searchOutline, shuffle } from '@/icons'
 import { HBottomSheet, HButton, HDialog, HEmpty, HFloatingBubble, HIcon, HInput, HNavBar, MCover } from '@/components/ui'
 import type { HFloatingBubbleOffset } from '@/components/ui'
+import { actionSheetCancelClass, actionSheetItemClass } from '@/theme/action-sheet'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
