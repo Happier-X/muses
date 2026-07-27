@@ -39,7 +39,7 @@
               is-icon-only
               shape="square"
               aria-label="更多歌单操作"
-              class="m-0 more-button"
+              class="m-0"
               @click.stop="openPlaylistActions(item.id)"
             >
               <h-icon :icon="ellipsisVertical" />
@@ -49,7 +49,7 @@
       </div>
 
       <h-bottom-sheet v-model="isActionsOpen" title="歌单操作" @close="onActionsDismiss">
-        <div class="action-sheet-list flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
+        <div class="flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
           <button :class="actionSheetItemClass" type="button" @click="handleRename">重命名</button>
           <button :class="[actionSheetItemClass, actionSheetDestructiveClass]" type="button" @click="handleDelete">删除</button>
           <button :class="[actionSheetItemClass, actionSheetCancelClass]" type="button" @click="isActionsOpen = false">取消</button>

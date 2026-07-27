@@ -10,18 +10,18 @@
 
     <div
       v-else
-      class="album-grid grid grid-cols-2 gap-[var(--muses-space-lg)] p-[var(--muses-space-lg)] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[var(--muses-content-max-width)] md:mx-auto"
+      class="grid grid-cols-2 gap-[var(--muses-space-lg)] p-[var(--muses-space-lg)] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[var(--muses-content-max-width)] md:mx-auto"
     >
       <article
         v-for="album in albums"
         :key="album.name"
-        class="album-card flex flex-col gap-[var(--muses-space-sm)] min-w-0"
+        class="flex flex-col gap-[var(--muses-space-sm)] min-w-0"
       >
-        <m-cover class="album-card__cover !w-full !h-auto aspect-square !flex-none" :src="getAlbumCoverSrc(album.songs)" alt="" />
+        <m-cover class="!w-full !h-auto aspect-square !flex-none" :src="getAlbumCoverSrc(album.songs)" alt="" />
         <div class="flex flex-col gap-[var(--muses-space-xs)] min-w-0">
-          <h2 class="album-card__name m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] line-clamp-2">{{ album.name }}</h2>
-          <p class="album-card__count m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ album.songCount }} 首歌曲</p>
-          <p class="album-card__artists album-card__count m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ album.artistSummary }}</p>
+          <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] line-clamp-2">{{ album.name }}</h2>
+          <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ album.songCount }} 首歌曲</p>
+          <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ album.artistSummary }}</p>
         </div>
       </article>
     </div>

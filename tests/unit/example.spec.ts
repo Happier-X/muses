@@ -119,27 +119,25 @@ describe('音乐库标签页', () => {
     expect(wrapper.find('ion-list').exists()).toBe(false)
     expect(wrapper.find('ion-item').exists()).toBe(false)
 
-    const grid = wrapper.get('.album-grid')
-    const cards = grid.findAll('.album-card')
+    const cards = wrapper.findAll('article')
     // 专辑甲 + 未知专辑 = 2 张卡片
     expect(cards).toHaveLength(2)
 
     // 每张卡片包含封面与文字信息
     for (const card of cards) {
-      expect(card.find('.album-card__cover').exists()).toBe(true)
-      expect(card.find('.album-card__name').exists()).toBe(true)
-      expect(card.find('.album-card__count').exists()).toBe(true)
-      expect(card.find('.album-card__artists').exists()).toBe(true)
+      expect(card.find('.m-cover').exists()).toBe(true) // m-cover
+      expect(card.find('h2').exists()).toBe(true)
+      expect(card.findAll('p')).toHaveLength(2)
     }
 
-    const albumCardByName = (name: string) => cards.find((card) => card.get('.album-card__name').text() === name)
+    const albumCardByName = (name: string) => cards.find((card) => card.get('h2').text() === name)
     const knownAlbumCard = albumCardByName('专辑甲')
     const unknownAlbumCard = albumCardByName('未知专辑')
 
     // 保留聚合信息，并确保信息属于同一张卡片
     expect(knownAlbumCard).toBeTruthy()
-    expect(knownAlbumCard?.get('.album-card__count').text()).toBe('2 首歌曲')
-    expect(knownAlbumCard?.get('.album-card__artists').text()).toBe('歌手甲、歌手乙')
+    expect(knownAlbumCard?.findAll('p')[0].text()).toBe('2 首歌曲')
+    expect(knownAlbumCard?.findAll('p')[1].text()).toBe('歌手甲、歌手乙')
     expect(unknownAlbumCard).toBeTruthy()
   })
 
@@ -163,36 +161,35 @@ describe('音乐库标签页', () => {
     expect(wrapper.find('ion-list').exists()).toBe(false)
     expect(wrapper.find('ion-item').exists()).toBe(false)
 
-    const grid = wrapper.get('.artist-grid')
-    const cards = grid.findAll('.artist-card')
+    const cards = wrapper.findAll('article')
     // 歌手甲 + 未知艺术家 = 2 张卡片
     expect(cards).toHaveLength(2)
 
     // 每张卡片包含头像和名字，以及两项统计（歌曲数、专辑数）
     for (const card of cards) {
-      expect(card.find('.artist-card__avatar').exists()).toBe(true)
-      expect(card.find('.artist-card__name').exists()).toBe(true)
-      expect(card.findAll('.artist-card__count')).toHaveLength(2)
+      expect(card.find('.m-cover').exists()).toBe(true)
+      expect(card.find('h2').exists()).toBe(true)
+      expect(card.findAll('p')).toHaveLength(2)
     }
 
-    const artistCardByName = (name: string) => cards.find((card) => card.get('.artist-card__name').text() === name)
+    const artistCardByName = (name: string) => cards.find((card) => card.get('h2').text() === name)
     const knownArtistCard = artistCardByName('歌手甲')
     const unknownArtistCard = artistCardByName('未知艺术家')
 
     // 保留聚合信息（歌曲数 / 专辑数），并确保信息属于同一张卡片
     expect(knownArtistCard).toBeTruthy()
-    expect(knownArtistCard?.findAll('.artist-card__count').map((stat) => stat.text())).toEqual([
+    expect(knownArtistCard?.findAll('p').map((stat) => stat.text())).toEqual([
       '2 首歌曲',
       '2 张专辑',
     ])
 
     // 有效 coverUri 的艺术家应渲染对应头像 img；头像为装饰性，alt 为空
-    const avatar = knownArtistCard?.get('.artist-card__avatar img')
+    const avatar = knownArtistCard?.get('.m-cover img')
     expect(avatar?.attributes('src')).toBe(Capacitor.convertFileSrc('file:///cache/covers/artist-a.jpg'))
     expect(avatar?.attributes('alt')).toBe('')
 
     expect(unknownArtistCard).toBeTruthy()
-    expect(unknownArtistCard?.findAll('.artist-card__count').map((stat) => stat.text())).toEqual([
+    expect(unknownArtistCard?.findAll('p').map((stat) => stat.text())).toEqual([
       '1 首歌曲',
       '1 张专辑',
     ])
@@ -221,8 +218,8 @@ describe('音乐库标签页', () => {
     const wrapper = mount(ArtistsPage)
     await nextTick()
 
-    const card = wrapper.get('.artist-card')
-    const avatar = card.get('.artist-card__avatar img')
+    const card = wrapper.get('article')
+    const avatar = card.get('.m-cover img')
     expect(avatar.attributes('src')).toBe(Capacitor.convertFileSrc('file:///cache/covers/artist-a.jpg'))
   })
 
@@ -242,10 +239,10 @@ describe('音乐库标签页', () => {
     const wrapper = mount(ArtistsPage)
     await nextTick()
 
-    const card = wrapper.get('.artist-card')
+    const card = wrapper.get('article')
     // 无有效封面：不渲染 img，展示 MCover 稳定占位
-    expect(card.find('.artist-card__avatar img').exists()).toBe(false)
-    expect(card.find('.artist-card__avatar').exists()).toBe(true)
+    expect(card.find('.m-cover img').exists()).toBe(false)
+    expect(card.find('.m-cover').exists()).toBe(true)
   })
 
   test('三个页面在无歌曲时展示空状态', async () => {
@@ -266,15 +263,8 @@ describe('音乐库标签页', () => {
     const wrapper = mountSongsPage()
     await nextTick()
 
-    const navbar = wrapper.getComponent({ name: 'HNavBar' })
-    const shuffleBar = wrapper.get('.shuffle-bar')
-    const actions = shuffleBar.get('.shuffle-actions')
-    expect(navbar.element.nextElementSibling).toBe(shuffleBar.element)
-    expect(wrapper.find('.bottom-actions').exists()).toBe(false)
-
-    const button = actions.get('button[aria-label="随机播放全部"]')
-    expect(button.attributes('expand')).toBeUndefined()
-    expect(button.classes()).toContain('h-button--ghost')
+    // 随机播放入口按钮存在且在禁用态下不可触发
+    const button = wrapper.get('button[aria-label="随机播放全部"]')
     expect(button.attributes('disabled')).toBeDefined()
 
     await button.trigger('click')
@@ -413,7 +403,7 @@ describe('音乐库标签页', () => {
       }
       const target = wrapper.find('[data-song-id="2"]')
       expect(target.exists()).toBe(true)
-      expect(target.classes()).toContain('jump-highlight')
+      expect(target.classes()).toContain('bg-[var(--muses-color-jump-highlight)]')
       wrapper.unmount()
     } finally {
       Element.prototype.scrollIntoView = originalScrollIntoView

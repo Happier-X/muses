@@ -42,14 +42,14 @@
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
               <div
-                class="song-item flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
+                class="flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
                 :class="playerState.currentSong?.id === row.song.id ? 'bg-[var(--muses-color-playing-bg)]' : ''"
                 role="button"
                 tabindex="0"
                 @click="onPlaySong(row.song, $event)"
               >
                 <m-cover class="!flex-none" :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
-                <div class="song-item-label flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
+                <div class="flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
                   <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] truncate">{{ row.song.title }}</h2>
                   <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
                 </div>

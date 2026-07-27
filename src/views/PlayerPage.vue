@@ -72,7 +72,7 @@
               />
               <div class="time-row flex justify-between items-center mt-[2px] text-[12px] tabular-nums text-[var(--muses-immersive-ink-soft)]">
                 <span>{{ formatTime(playerState.position) }}</span>
-                <span v-if="bufferHintVisible" class="buffer-hint text-[rgba(255,255,255,0.55)] text-[11px]">缓冲中</span>
+                <span v-if="bufferHintVisible" class="text-[rgba(255,255,255,0.55)] text-[11px]">缓冲中</span>
                 <span>{{ playerState.duration ? formatTime(playerState.duration) : '--:--' }}</span>
               </div>
             </div>

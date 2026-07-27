@@ -7,8 +7,8 @@
         </h-button>
       </template>
     </h-nav-bar>
-    <div class="shuffle-bar flex-[0_0_48px] min-h-[48px] bg-[var(--muses-color-surface)]">
-      <div class="shuffle-actions box-border w-full px-[8px] py-[4px] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
+    <div class="flex-[0_0_48px] min-h-[48px] bg-[var(--muses-color-surface)]">
+      <div class="box-border w-full px-[8px] py-[4px] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-button
           variant="ghost"
           size="sm"
@@ -29,7 +29,7 @@
         description="请先到音源页添加并扫描音源。"
       />
 
-      <div v-else ref="listParentRef" class="list-grid tablet-content-limit h-full overflow-auto box-border pb-[calc(var(--muses-tab-bar-height)+var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] md:pb-[calc(var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
+      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[calc(var(--muses-tab-bar-height)+var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] md:pb-[calc(var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <div class="relative w-full" :style="{ height: `${totalSize}px` }">
           <div
             v-for="virtualRow in virtualRows"
@@ -40,7 +40,7 @@
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
             <div
-              class="song-item flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
+              class="flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
               :class="songItemClass(songs[virtualRow.index].id)"
               :data-song-id="songs[virtualRow.index].id"
               role="button"
@@ -48,7 +48,7 @@
               @click="playSong(songs[virtualRow.index])"
             >
               <m-cover class="!w-12 !h-12 !flex-none !rounded-md" :src="getSongCoverSrc(songs[virtualRow.index])" alt="" />
-              <div class="song-item-label flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
+              <div class="flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
                 <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] truncate">{{ songs[virtualRow.index].title }}</h2>
                 <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ getSongArtistName(songs[virtualRow.index]) }} - {{ getSongAlbumName(songs[virtualRow.index]) }}</p>
               </div>
@@ -56,7 +56,7 @@
                 variant="ghost"
                 is-icon-only
                 shape="square"
-                class="more-button flex-none m-0 ml-auto"
+                class="flex-none m-0 ml-auto"
                 aria-label="更多歌曲操作"
                 @click.stop="openSongActions(songs[virtualRow.index])"
               >
@@ -68,7 +68,7 @@
       </div>
 
       <h-bottom-sheet v-model="isSongActionsOpen" title="歌曲操作">
-        <div class="action-sheet-list flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
+        <div class="flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
           <button :class="actionSheetItemClass" type="button" @click="onAddToQueue">添加到队列</button>
           <button :class="actionSheetItemClass" type="button" @click="onPickPlaylist">加入歌单…</button>
           <button :class="[actionSheetItemClass, actionSheetCancelClass]" type="button" @click="isSongActionsOpen = false">取消</button>
@@ -76,7 +76,7 @@
       </h-bottom-sheet>
 
       <h-bottom-sheet v-model="isPlaylistPickOpen" title="加入歌单">
-        <div class="action-sheet-list flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
+        <div class="flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
           <button
             v-for="pl in playlistList"
             :key="pl.id"
@@ -155,7 +155,7 @@ const songItemClass = (songId: string): string => {
     classes.push('is-playing bg-[var(--muses-color-playing-bg)]')
   }
   if (highlightedSongId.value === songId) {
-    classes.push('jump-highlight bg-[var(--muses-color-jump-highlight)]')
+    classes.push('bg-[var(--muses-color-jump-highlight)]')
   }
   return classes.join(' ')
 }

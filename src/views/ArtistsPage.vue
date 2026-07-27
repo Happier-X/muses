@@ -10,22 +10,22 @@
 
     <div
       v-else
-      class="artist-grid tablet-content-limit grid grid-cols-2 gap-[var(--muses-space-lg)] p-[var(--muses-space-lg)] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[var(--muses-content-max-width)] md:mx-auto"
+      class="grid grid-cols-2 gap-[var(--muses-space-lg)] p-[var(--muses-space-lg)] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[var(--muses-content-max-width)] md:mx-auto"
     >
       <article
         v-for="artist in artists"
         :key="artist.name"
-        class="artist-card flex flex-col gap-[var(--muses-space-sm)] min-w-0"
+        class="flex flex-col gap-[var(--muses-space-sm)] min-w-0"
       >
         <m-cover
-          class="artist-card__avatar !w-full !h-auto aspect-square !flex-none !rounded-full"
+          class="!w-full !h-auto aspect-square !flex-none !rounded-full"
           :src="getArtistCoverSrc(artist.songs)"
           alt=""
         />
         <div class="flex flex-col gap-[var(--muses-space-xs)] min-w-0 text-center">
-          <h2 class="artist-card__name m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] line-clamp-2">{{ artist.name }}</h2>
-          <p class="artist-card__count m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ artist.songCount }} 首歌曲</p>
-          <p class="artist-card__count m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ artist.albumCount }} 张专辑</p>
+          <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] line-clamp-2">{{ artist.name }}</h2>
+          <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ artist.songCount }} 首歌曲</p>
+          <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ artist.albumCount }} 张专辑</p>
         </div>
       </article>
     </div>

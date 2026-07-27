@@ -33,14 +33,14 @@
             :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
           >
             <div
-              class="queue-item flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
+              class="flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
               :class="row.virtualRow.index === queueState.currentIndex ? 'is-playing bg-[var(--muses-color-playing-bg)]' : ''"
               :aria-current="row.virtualRow.index === queueState.currentIndex ? 'true' : undefined"
               role="button"
               tabindex="0"
               @click="onSelectSong(row.virtualRow.index, $event)"
             >
-              <div class="queue-item-label flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
+              <div class="flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
                 <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] truncate">{{ row.song.title }}</h2>
                 <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ row.song.artist || '未知歌手' }}</p>
               </div>
