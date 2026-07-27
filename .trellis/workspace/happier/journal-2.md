@@ -1600,3 +1600,53 @@ SettingsPage 和 SourcesPage 的 HToast 在 ion-content 内 position:fixed 失�
 ### Next Steps
 
 - None - task complete
+
+---
+
+**Date**: 2026-07-25
+**Task**: 脱离 Ionic 框架迁移至 vue-router 与自建页面骨架
+**Branch**: `main`
+
+### Summary
+
+一次性清干净应用对 Ionic 的依赖：升级 happier-ui 到精确版本 0.0.6，把残留的 ion-* 组件全部迁移到 happier-ui 等价物，替换路由（@ionic/vue-router → vue-router）与页面骨架（自建 MPage/MContent），移除生命周期钩子与 Ionic 全局 CSS，从 package.json 删除 @ionic/vue、@ionic/vue-router、ionicons。UI 完全建立在 happier-ui + Vue 原生能力之上，Capacitor 原生壳保持不变。
+
+### Main Changes
+
+- **依赖升级**：happier-ui 0.0.3 → 精确 0.0.6；HIconButton（0.0.4 已移除）全部迁移为 HButton（is-icon-only + shape + variant="ghost"）。
+- **ion-* 组件迁移**：ion-action-sheet → HBottomSheet；ion-alert → HDialog（输入型用 HInput）；SourcesPage 4 个 ion-modal 全屏表单 → HBottomSheet；ion-fab → HFloatingBubble；ion-button → HButton；ion-item/ion-label/ion-list → 原生 div/卡片网格；ion-note → muted `<span>`；ion-range → HRange（0.0.6 补齐 change 事件契约）。
+- **路由与骨架**：router/index.ts 改用 vue-router 的 createRouter；App.vue 的 IonApp/IonRouterOutlet → div.app-shell + `<RouterView>`（.app-router-view 包层）；新建 MContent.vue，MPage.vue 改为自建骨架（无 contain，避免重建 fixed 包含块导致浮层偏移）。
+- **生命周期**：5 处 onIonViewWillEnter → onMounted（TabsPage RouterView 无 KeepAlive，unmount/remount 等价）；PlaylistDetailPage 补 watch(playlistId) 处理 param 变化；useIonRouter → vue-router（有历史则 back，否则 replace）。
+- **全局样式**：main.ts 移除 IonicVue 插件 + 12 个 @ionic/vue/css/* + dark.system.css；body 字体/颜色 fallback 补进 tailwind.css；暗色由 happier-ui tokens 双触发独立暗色态承接（无 muses 侧 workaround）。
+- **safe-area**：16 处 var(--ion-safe-area-*) → env(safe-area-inset-*)。
+- **颜色变量**：variables.css 清空（Ionic 桥接移除）；SourcesPage --ion-color-medium → --h-color-ink-muted；TabsPage --ion-color-primary/--ion-background-color → happier-ui token。
+- **overlay 锁滚动选择器**：body.muses-overlay-open ion-router-outlet ion-content → .app-router-view / .m-content。
+- **spec 更新**：component-guidelines.md / quality-guidelines.md / index.md 三份全部改写为「已完全脱离 Ionic」现状。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c7dc92b` | feat: 脱离 Ionic 框架迁移至 vue-router 与自建页面骨架 |
+
+### Testing
+
+- `npm run build`（含 vue-tsc）通过（8.34s）。
+- `npm run test:unit -- --run`：17 文件 / 338 测试全部通过（8.15s）。
+- 源码残留检查：`rg "@ionic/|<ion-|from 'ionicons'|var(--ion-" src/` 零命中；happier-ui 精确 0.0.6；package.json 无 Ionic 依赖。
+- e2e 与真机手动回归（AC5-AC9：tab 切换、浮层交互、safe-area 裁切、状态栏/返回键）待后续在设备上验证。
+
+### 经验教训
+
+- **CRLF/edit-tool 行尾混用**：node 脚本改写文件必须同时尝试 `\n` 与 `\r\n` 匹配。
+- **inline node/bash 反引号转义失败**：改写含反引号的 spec，用文件编辑工具的定向 find/replace 块，别用内联 node。
+- **批量骨架替换后要重新 grep 开/闭标签**：曾漏一个 `</h-bottom-sheet>` 导致 "Element is missing end tag"。
+- **工具执行层故障期的"成功"记忆不可靠**：故障期误判提交成功，恢复后发现最新 commit 仍是旧的、文件还在暂存区。恢复后务必重新验证 git log + build + 测试再提交。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- e2e 与真机回归验证 AC4-AC9（tab 切换、浮层、safe-area、状态栏/返回键/键盘）。
