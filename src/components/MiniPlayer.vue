@@ -18,17 +18,19 @@
     </div>
 
     <div class="player-actions">
-      <ion-button
-        fill="clear"
+      <h-button
+        variant="ghost"
+        is-icon-only
+        shape="circle"
         :aria-label="isPlaying ? '暂停播放' : '继续播放'"
         :disabled="!playerState.currentSong || playerState.status === 'loading'"
         @click.stop="togglePlayback"
       >
         <h-icon :icon="isPlaying ? pause : play" variant="fill" />
-      </ion-button>
-      <ion-button fill="clear" aria-label="打开播放队列" @click.stop="openQueuePage">
+      </h-button>
+      <h-button variant="ghost" is-icon-only shape="circle" aria-label="打开播放队列" @click.stop="openQueuePage">
         <h-icon :icon="list" />
-      </ion-button>
+      </h-button>
     </div>
   </div>
 </template>
@@ -36,9 +38,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { IonButton } from '@ionic/vue'
 import { list, pause, play } from '@/icons'
-import { HIcon, MCover } from '@/components/ui'
+import { HButton, HIcon, MCover } from '@/components/ui'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 
@@ -107,7 +108,7 @@ const toDisplayableUri = (uri: string): string => {
   cursor: pointer;
   left: 0;
   right: 0;
-  bottom: calc(var(--muses-tab-bar-height) + var(--ion-safe-area-bottom, 0px));
+  bottom: calc(var(--muses-tab-bar-height) + env(safe-area-inset-bottom, 0px));
   z-index: var(--muses-z-mini-player);
   display: flex;
   align-items: center;
@@ -166,7 +167,7 @@ const toDisplayableUri = (uri: string): string => {
 /* 宽屏无底部 Tab Bar，贴底仅保留安全区，避免 64px 悬空 */
 @media (min-width: 768px) {
   .mini-player {
-    bottom: var(--ion-safe-area-bottom, 0px);
+    bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 </style>

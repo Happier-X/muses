@@ -1,8 +1,10 @@
 <template>
-  <ion-page ref="pageRef">
+  <div ref="pageRef" class="m-page">
     <h-nav-bar title="歌曲" :fixed="false">
       <template #right>
-        <h-icon-button :icon="searchOutline" ariaLabel="搜索歌曲" variant="ghost" />
+        <h-button variant="ghost" is-icon-only shape="square" aria-label="搜索歌曲">
+          <h-icon :icon="searchOutline" />
+        </h-button>
       </template>
     </h-nav-bar>
     <div class="shuffle-bar">
@@ -20,7 +22,7 @@
         </h-button>
       </div>
     </div>
-    <ion-content :fullscreen="false" class="songs-content">
+    <div class="m-content songs-content" style="overflow: hidden;">
       <h-empty
         v-if="songs.length === 0"
         title="还没有歌曲"
@@ -37,93 +39,86 @@
             :data-index="virtualRow.index"
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
-            <ion-item
-              button
-              :detail="false"
-              lines="none"
+            <div
               class="song-item"
               :class="{ 'is-playing': playerState.currentSong?.id === songs[virtualRow.index].id }"
               :data-song-id="songs[virtualRow.index].id"
+              role="button"
+              tabindex="0"
               @click="playSong(songs[virtualRow.index])"
             >
-              <m-cover slot="start" :src="getSongCoverSrc(songs[virtualRow.index])" alt="" />
-              <ion-label>
+              <m-cover :src="getSongCoverSrc(songs[virtualRow.index])" alt="" />
+              <div class="song-item-label">
                 <h2>{{ songs[virtualRow.index].title }}</h2>
                 <p>{{ getSongArtistName(songs[virtualRow.index]) }} - {{ getSongAlbumName(songs[virtualRow.index]) }}</p>
-              </ion-label>
-              <h-icon-button
-                slot="end"
-                :icon="ellipsisVertical"
-                class="more-button"
-                ariaLabel="更多歌曲操作"
+              </div>
+              <h-button
                 variant="ghost"
+                is-icon-only
+                shape="square"
+                class="more-button"
+                aria-label="更多歌曲操作"
                 @click.stop="openSongActions(songs[virtualRow.index])"
-              />
-            </ion-item>
+              >
+                <h-icon :icon="ellipsisVertical" />
+              </h-button>
+            </div>
           </div>
         </div>
       </div>
 
-      <ion-action-sheet
-        :is-open="isSongActionsOpen"
-        header="歌曲操作"
-        :buttons="songActionButtons"
-        @didDismiss="isSongActionsOpen = false"
-      />
+      <h-bottom-sheet v-model="isSongActionsOpen" title="歌曲操作">
+        <div class="action-sheet-list">
+          <button class="action-sheet-item" type="button" @click="onAddToQueue">添加到队列</button>
+          <button class="action-sheet-item" type="button" @click="onPickPlaylist">加入歌单…</button>
+          <button class="action-sheet-item action-cancel" type="button" @click="isSongActionsOpen = false">取消</button>
+        </div>
+      </h-bottom-sheet>
 
-      <ion-action-sheet
-        :is-open="isPlaylistPickOpen"
-        header="加入歌单"
-        :buttons="playlistPickButtons"
-        @didDismiss="isPlaylistPickOpen = false"
-      />
+      <h-bottom-sheet v-model="isPlaylistPickOpen" title="加入歌单">
+        <div class="action-sheet-list">
+          <button
+            v-for="pl in playlistList"
+            :key="pl.id"
+            class="action-sheet-item"
+            type="button"
+            @click="onAddToPlaylist(pl.id)"
+          >
+            {{ pl.name }}
+          </button>
+          <button class="action-sheet-item" type="button" @click="onCreateNewPlaylist">新建歌单</button>
+          <button class="action-sheet-item action-cancel" type="button" @click="isPlaylistPickOpen = false">取消</button>
+        </div>
+      </h-bottom-sheet>
 
-      <ion-alert
-        :is-open="isCreatePlaylistOpen"
-        header="新建歌单"
-        :inputs="createPlaylistInputs"
-        :buttons="createPlaylistButtons"
-        @didDismiss="isCreatePlaylistOpen = false"
-      />
+      <h-dialog v-model="isCreatePlaylistOpen" title="新建歌单">
+        <h-input v-model="newPlaylistName" placeholder="歌单名称" maxlength="80" />
+        <template #actions>
+          <h-button variant="ghost" @click="isCreatePlaylistOpen = false">取消</h-button>
+          <h-button variant="primary" @click="onConfirmCreatePlaylist">创建并加入</h-button>
+        </template>
+      </h-dialog>
 
-      <ion-fab
+      <h-floating-bubble
         v-if="currentPlayingInList"
-        vertical="bottom"
-        horizontal="end"
-        slot="fixed"
-        class="jump-current-fab"
+        axis="lock"
+        :offset="fabOffset"
+        :ariaLabel="'跳转到当前播放'"
+        @click="scrollToCurrentSong"
       >
-        <ion-fab-button
-          aria-label="跳转到当前播放"
-          @click="scrollToCurrentSong"
-        >
-          <h-icon :icon="locateOutline" aria-hidden="true" />
-        </ion-fab-button>
-      </ion-fab>
-    </ion-content>
-  </ion-page>
+        <h-icon :icon="locateOutline" aria-hidden="true" />
+      </h-floating-bubble>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
-import {
-  IonActionSheet,
-  IonAlert,
-  IonContent,
-  IonFab,
-  IonFabButton,
-  IonItem,
-  IonLabel,
-  IonPage,
-  onIonViewWillEnter,
-  type ActionSheetButton,
-  type AlertButton,
-  type AlertInput,
-} from '@ionic/vue'
 import { ellipsisVertical, locateOutline, searchOutline, shuffle } from '@/icons'
-import { HButton, HEmpty, HIcon, HIconButton, HNavBar, MCover } from '@/components/ui'
+import { HBottomSheet, HButton, HDialog, HEmpty, HFloatingBubble, HIcon, HInput, HNavBar, MCover } from '@/components/ui'
+import type { HFloatingBubbleOffset } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
@@ -196,6 +191,12 @@ const currentPlayingInList = computed(() => {
   return songs.value.some((song) => song.id === currentId)
 })
 
+const fabOffset = computed<HFloatingBubbleOffset>(() => {
+  const miniPlayerH = 64
+  const tabBarH = 64
+  return { x: window.innerWidth - 56, y: window.innerHeight - miniPlayerH - tabBarH - 56 }
+})
+
 const refreshSongs = () => {
   songs.value = sortSongsForDisplay(loadSongs())
 }
@@ -205,73 +206,51 @@ const openSongActions = (song: SongItem) => {
   isSongActionsOpen.value = true
 }
 
-const songActionButtons = computed<ActionSheetButton[]>(() => [
-  {
-    text: '添加到队列',
-    handler: () => {
-      if (actionSong.value) {
-        enqueueSong(actionSong.value)
-      }
-    },
-  },
-  {
-    text: '加入歌单…',
-    handler: () => {
-      // 等主 sheet 关闭后再开，避免叠层冲突
-      window.setTimeout(() => {
-        isPlaylistPickOpen.value = true
-      }, 180)
-    },
-  },
-  { text: '取消', role: 'cancel' },
-])
+const newPlaylistName = ref('')
 
-const playlistPickButtons = computed<ActionSheetButton[]>(() => {
-  const list = loadPlaylists().slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-  const buttons: ActionSheetButton[] = list.map((playlist) => ({
-    text: playlist.name,
-    handler: () => {
-      if (actionSong.value) {
-        addSongToPlaylist(playlist.id, actionSong.value.id)
-      }
-    },
-  }))
-  buttons.push({
-    text: '新建歌单',
-    handler: () => {
-      window.setTimeout(() => {
-        isCreatePlaylistOpen.value = true
-      }, 180)
-    },
-  })
-  buttons.push({ text: '取消', role: 'cancel' })
-  return buttons
+const onAddToQueue = () => {
+  if (actionSong.value) {
+    enqueueSong(actionSong.value)
+  }
+  isSongActionsOpen.value = false
+}
+
+const onPickPlaylist = () => {
+  isSongActionsOpen.value = false
+  // 等主 sheet 关闭后再开，避免叠层冲突
+  window.setTimeout(() => {
+    isPlaylistPickOpen.value = true
+  }, 180)
+}
+
+const playlistList = computed(() => {
+  return loadPlaylists().slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 })
 
-const createPlaylistInputs: AlertInput[] = [
-  {
-    name: 'name',
-    type: 'text',
-    placeholder: '歌单名称',
-    attributes: { maxlength: 80 },
-  },
-]
+const onAddToPlaylist = (playlistId: string) => {
+  if (actionSong.value) {
+    addSongToPlaylist(playlistId, actionSong.value.id)
+  }
+  isPlaylistPickOpen.value = false
+}
 
-const createPlaylistButtons = computed<AlertButton[]>(() => [
-  { text: '取消', role: 'cancel' },
-  {
-    text: '创建并加入',
-    handler: (data: { name?: string }) => {
-      const name = typeof data?.name === 'string' ? data.name : ''
-      const created = createPlaylist(name)
-      if (!created || !actionSong.value) {
-        return false
-      }
-      addSongToPlaylist(created.id, actionSong.value.id)
-      return true
-    },
-  },
-])
+const onCreateNewPlaylist = () => {
+  isPlaylistPickOpen.value = false
+  newPlaylistName.value = ''
+  window.setTimeout(() => {
+    isCreatePlaylistOpen.value = true
+  }, 180)
+}
+
+const onConfirmCreatePlaylist = () => {
+  const name = newPlaylistName.value.trim()
+  if (!name || !actionSong.value) return
+  const created = createPlaylist(name)
+  if (created) {
+    addSongToPlaylist(created.id, actionSong.value.id)
+  }
+  isCreatePlaylistOpen.value = false
+}
 
 const onShuffleAll = () => {
   if (songs.value.length === 0) {
@@ -381,8 +360,6 @@ onUnmounted(() => {
     jumpHighlightTimer = null
   }
 })
-
-onIonViewWillEnter(refreshSongs)
 </script>
 
 <style scoped>
@@ -413,7 +390,7 @@ onIonViewWillEnter(refreshSongs)
   overflow: auto;
   box-sizing: border-box;
   /* 仅为 MiniPlayer 与 Tab Bar 预留滚动空间 */
-  padding-bottom: calc(var(--muses-tab-bar-height) + var(--muses-mini-player-height) + var(--ion-safe-area-bottom, 0px));
+  padding-bottom: calc(var(--muses-tab-bar-height) + var(--muses-mini-player-height) + env(safe-area-inset-bottom, 0px));
 }
 
 .song-list-spacer {
@@ -432,29 +409,19 @@ onIonViewWillEnter(refreshSongs)
   scroll-margin-top: 108px;
 }
 
-/* 当前播放行：替代已删除 HListRow 的 playing 背景。 */
-:deep(.song-item.is-playing) {
-  --background: var(--muses-color-playing-bg);
+/* 当前播放行 */
+.song-item.is-playing {
   background: var(--muses-color-playing-bg);
 }
 
-/* 跳转高亮：class 挂在 Ionic 列表行根节点。 */
-:deep(.song-item.jump-highlight) {
+/* 跳转高亮 */
+.song-item.jump-highlight {
   background: var(--muses-color-jump-highlight);
 }
 
-/* 避开底部 Tab Bar（~64）+ MiniPlayer（~64）+ 间距，保留安全区 */
-.jump-current-fab {
-  bottom: calc(144px + var(--ion-safe-area-bottom, 0px));
-  right: 12px;
-}
+
 
 @media (min-width: 768px) {
-  .jump-current-fab {
-    /* 宽屏无底部 Tab Bar，仍避开 MiniPlayer */
-    bottom: calc(80px + var(--ion-safe-area-bottom, 0px));
-  }
-
   /* 歌曲页宽屏始终单列，仅保留内容最大宽度居中 */
   .list-grid {
     max-width: var(--muses-content-max-width);
@@ -462,7 +429,7 @@ onIonViewWillEnter(refreshSongs)
   }
 
   .song-list {
-    padding-bottom: calc(var(--muses-mini-player-height) + var(--ion-safe-area-bottom, 0px));
+    padding-bottom: calc(var(--muses-mini-player-height) + env(safe-area-inset-bottom, 0px));
   }
 
   .songs-content {

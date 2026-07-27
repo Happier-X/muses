@@ -2,19 +2,18 @@
   <div class="tabs-page-shell">
     <div class="layout-shell">
       <aside v-if="isTablet && isTabsRoute" class="tablet-sidebar" aria-label="主导航">
-        <ion-list inset>
-          <ion-item
+        <nav class="tablet-sidebar" aria-label="主导航">
+          <RouterLink
             v-for="item in navItems"
             :key="item.to"
-            :router-link="item.to"
-            :detail="false"
-            lines="none"
+            :to="item.to"
+            class="sidebar-link"
             :class="{ 'is-active': isNavActive(item.to) }"
           >
-            <h-icon slot="start" aria-hidden="true" :icon="item.icon" />
-            <ion-label>{{ item.label }}</ion-label>
-          </ion-item>
-        </ion-list>
+            <h-icon aria-hidden="true" :icon="item.icon" />
+            <span>{{ item.label }}</span>
+          </RouterLink>
+        </nav>
       </aside>
 
       <main class="content-shell" :class="{ 'has-tabs-navigation': isTabsRoute }">
@@ -38,7 +37,7 @@
 <script setup lang="ts">
 import { HIcon, HTabBar, type HTabBarItem } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { IonItem, IonLabel, IonList } from '@ionic/vue'
+
 import { useRoute, useRouter, RouterView } from 'vue-router'
 import { albums, list, musicalNotes, person, radio, settings } from '@/icons'
 
@@ -109,15 +108,16 @@ onUnmounted(() => {
 }
 
 .content-shell.has-tabs-navigation {
-  padding-bottom: calc(var(--muses-tab-bar-height) + var(--ion-safe-area-bottom, 0px));
+  padding-bottom: calc(var(--muses-tab-bar-height) + env(safe-area-inset-bottom, 0px));
 }
 
 .mobile-tab-bar {
   z-index: var(--muses-z-tab);
 }
 
-.tablet-sidebar .is-active {
-  --color: var(--ion-color-primary);
+.sidebar-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--h-color-ink); text-decoration: none; font-size: var(--muses-font-body); }
+.sidebar-link.is-active {
+  color: var(--h-color-primary);
   font-weight: 600;
 }
 
@@ -137,8 +137,8 @@ onUnmounted(() => {
     width: var(--muses-sidebar-width);
     overflow: auto;
     border-right: 1px solid var(--muses-color-border-subtle);
-    background: var(--ion-background-color, #fff);
-    padding-top: calc(12px + var(--ion-safe-area-top, 0px));
+    background: var(--h-color-surface);
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
     box-sizing: border-box;
   }
 

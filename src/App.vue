@@ -1,6 +1,8 @@
 <template>
-  <ion-app :class="{ 'has-global-overlay': hasGlobalOverlay }">
-    <ion-router-outlet class="app-router-outlet" />
+  <div class="app-shell" :class="{ 'has-global-overlay': hasGlobalOverlay }">
+    <div class="app-router-view">
+      <RouterView />
+    </div>
     <MiniPlayer
       class="app-mini-player"
       :class="{ 'is-overlay-active': hasGlobalOverlay }"
@@ -15,12 +17,12 @@
     <Transition name="queue-overlay">
       <QueuePage v-if="queueOverlayVisible" />
     </Transition>
-  </ion-app>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
-import { IonApp, IonRouterOutlet } from '@ionic/vue'
+import { RouterView } from 'vue-router'
 import { App } from '@capacitor/app'
 import type { PluginListenerHandle } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
@@ -105,12 +107,25 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-router-view {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
 .app-mini-player.is-overlay-active {
   pointer-events: none;
 }
 
 /* 打开全局 overlay 时彻底切断底层路由页交互与滚动，避免触摸穿透。 */
-ion-app.has-global-overlay .app-router-outlet {
+.app-shell.has-global-overlay .app-router-view {
   pointer-events: none;
 }
 
@@ -152,8 +167,8 @@ body.muses-overlay-open {
   overscroll-behavior: none;
 }
 
-/* 只锁路由页内容，不锁队列 overlay 自己的 ion-content。 */
-body.muses-overlay-open ion-router-outlet ion-content {
+/* 只锁路由页内容，不锁 overlay 自己的滚动。 */
+body.muses-overlay-open .m-content {
   --overflow: hidden;
   pointer-events: none;
   overscroll-behavior: none;

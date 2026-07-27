@@ -28,7 +28,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { onIonViewWillEnter } from '@ionic/vue'
 import { MCover, HEmpty, MPage } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
@@ -52,7 +51,7 @@ const getAlbumCoverSrc = (albumSongs: SongItem[]): string => {
 }
 
 onMounted(refreshSongs)
-onIonViewWillEnter(refreshSongs)
+onMounted(refreshSongs)
 </script>
 
 <style scoped>

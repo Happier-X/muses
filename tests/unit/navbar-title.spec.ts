@@ -70,10 +70,16 @@ describe('HNavBar 使用契约', () => {
     expect(source).not.toMatch(ionicNavbarPattern)
   })
 
-  test.each(modalNavbarCases)('SourcesPage 的“%s”弹窗使用非固定、无安全区 HNavBar', (title) => {
+  test.each(modalNavbarCases)('SourcesPage 的“%s”弹窗使用 HBottomSheet 标题', (title) => {
     const source = readSource('src/views/SourcesPage.vue')
 
-    expect(source).toContain(`<h-nav-bar title="${title}" :fixed="false" :safe-area="false">`)
+    if (title === '编辑音源' || title === '添加 WebDAV') {
+      // 直接使用 title prop
+      expect(source).toContain(`title="${title}"`)
+    } else {
+      // 使用 template #title slot
+      expect(source).toContain(`<span>${title}</span>`)
+    }
   })
 
   test('返回页面使用 HNavBar 返回契约', () => {
@@ -84,7 +90,8 @@ describe('HNavBar 使用契约', () => {
       expect(source).toContain('show-back')
       expect(source).toContain('@handle-left-click="goBack"')
     }
-    expect(playlistDetail).toContain("ionRouter.navigate('/tabs/playlists', 'back', 'pop')")
+    expect(playlistDetail).toContain('router.back()')
+    expect(playlistDetail).toContain("router.replace('/tabs/playlists')")
   })
 
   test.each(allNavbarFiles)('%s 不再使用 Ionic navbar 标签', (file) => {

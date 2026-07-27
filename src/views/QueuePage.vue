@@ -8,13 +8,13 @@
       @handle-left-click="goBack"
     >
       <template v-if="queueState.hasItems" #right>
-        <ion-button fill="clear" color="danger" aria-label="清空队列" @click="onClearQueue">
+        <h-button variant="danger-soft" is-icon-only shape="square" aria-label="清空队列" @click="onClearQueue">
           <h-icon :icon="trash" />
-        </ion-button>
+        </h-button>
       </template>
     </h-nav-bar>
 
-    <ion-content :fullscreen="false">
+    <div class="queue-content">
       <h-empty
         v-if="!queueState.hasItems"
         title="队列为空"
@@ -32,48 +32,40 @@
             :data-index="row.virtualRow.index"
             :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
           >
-            <ion-item
-              button
-              :detail="false"
-              lines="none"
+            <div
               class="queue-item"
               :class="{ 'is-playing': row.virtualRow.index === queueState.currentIndex }"
               :aria-current="row.virtualRow.index === queueState.currentIndex ? 'true' : undefined"
+              role="button"
+              tabindex="0"
               @click="onSelectSong(row.virtualRow.index, $event)"
             >
-              <ion-label>
+              <div class="queue-item-label">
                 <h2>{{ row.song.title }}</h2>
                 <p>{{ row.song.artist || '未知歌手' }}</p>
-              </ion-label>
-              <ion-note slot="end" class="queue-index">{{ row.virtualRow.index + 1 }}</ion-note>
-              <ion-button
-                slot="end"
-                fill="clear"
-                color="danger"
+              </div>
+              <span class="queue-index">{{ row.virtualRow.index + 1 }}</span>
+              <h-button
+                variant="danger-soft"
+                is-icon-only
+                shape="square"
                 class="remove-button"
                 :aria-label="`从队列删除 ${row.song.title}`"
                 @click.stop="onRemoveSong(row.song.id)"
               >
                 <h-icon :icon="close" />
-              </ion-button>
-            </ion-item>
+              </h-button>
+            </div>
           </div>
         </div>
       </div>
-    </ion-content>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, type ComponentPublicInstance, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
-import {
-  IonButton,
-  IonContent,
-  IonItem,
-  IonLabel,
-  IonNote,
-} from '@ionic/vue'
 import { close, trash } from '@/icons'
 import { HEmpty, HIcon, HNavBar } from '@/components/ui'
 import {
@@ -155,9 +147,10 @@ const onSelectSong = async (index: number, event: MouseEvent | KeyboardEvent): P
   background: var(--muses-color-surface);
 }
 
-.queue-overlay ion-content {
+.queue-overlay .queue-content {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .queue-list {
@@ -165,7 +158,7 @@ const onSelectSong = async (index: number, event: MouseEvent | KeyboardEvent): P
   overflow: auto;
   overscroll-behavior: contain;
   box-sizing: border-box;
-  padding-bottom: calc(var(--muses-mini-player-height) + var(--muses-space-xl) + var(--ion-safe-area-bottom, 0px));
+  padding-bottom: calc(var(--muses-mini-player-height) + var(--muses-space-xl) + env(safe-area-inset-bottom, 0px));
 }
 
 .queue-list-spacer {
@@ -187,9 +180,8 @@ const onSelectSong = async (index: number, event: MouseEvent | KeyboardEvent): P
   margin-inline-end: var(--muses-space-xs);
 }
 
-/* 当前队列项：替代已删除 HListRow 的 playing 背景。 */
-:deep(.queue-item.is-playing) {
-  --background: var(--muses-color-playing-bg);
+/* 当前队列项 */
+.queue-item.is-playing {
   background: var(--muses-color-playing-bg);
 }
 

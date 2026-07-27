@@ -1,6 +1,5 @@
 <template>
-  <!-- HOST-IONIC — app shell；不进入 happier-ui 包心；路由/手势依赖 ion-page -->
-  <ion-page>
+  <div class="m-page">
     <h-nav-bar :fixed="false">
       <template v-if="$slots.start" #left>
         <slot name="start" />
@@ -12,15 +11,18 @@
         <slot name="end" />
       </template>
     </h-nav-bar>
-    <ion-content :fullscreen="fullscreen">
+    <template v-if="$slots.subnavbar">
+      <slot name="subnavbar" />
+    </template>
+    <m-content :fullscreen="fullscreen">
       <slot />
-    </ion-content>
-  </ion-page>
+    </m-content>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { IonContent, IonPage } from '@ionic/vue'
 import { HNavBar } from 'happier-ui'
+import MContent from './MContent.vue'
 
 withDefaults(defineProps<{
   fullscreen?: boolean
@@ -28,3 +30,13 @@ withDefaults(defineProps<{
   fullscreen: false,
 })
 </script>
+
+<style>
+.m-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  /* ⚠️ 故意不加 contain，避免重建 fixed 包含块导致浮层偏移 */
+}
+</style>

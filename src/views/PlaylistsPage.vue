@@ -1,11 +1,13 @@
 <template>
-  <ion-page>
+  <div class="m-page">
     <h-nav-bar title="歌单" :fixed="false">
       <template #right>
-        <h-icon-button :icon="addOutline" ariaLabel="新建歌单" variant="ghost" @click="openCreateAlert" />
+        <h-button variant="ghost" is-icon-only shape="square" aria-label="新建歌单" @click="openCreateAlert">
+          <h-icon :icon="addOutline" />
+        </h-button>
       </template>
     </h-nav-bar>
-    <ion-content :fullscreen="false">
+    <div class="m-content">
       <div class="tablet-content-limit">
         <h-empty
           v-if="playlists.length === 0"
@@ -13,81 +15,71 @@
           description="点右上角新建，或在歌曲页「更多」加入歌单。"
         />
 
-        <ion-list v-else>
-          <ion-item
+        <div v-else class="playlist-list-static">
+          <div
             v-for="item in listRows"
             :key="item.id"
-            button
-            :detail="false"
-            lines="none"
             class="playlist-item"
+            role="button"
+            tabindex="0"
             @click="openDetail(item.id)"
+            @keyup.enter="openDetail(item.id)"
           >
-            <m-cover slot="start" :size="48" radius="sm" alt="">
+            <m-cover :size="48" radius="sm" alt="">
               <template #placeholder>
                 <h-icon :icon="list" aria-hidden="true" />
               </template>
             </m-cover>
-            <ion-label>
+            <div class="playlist-item-label">
               <h2>{{ item.name }}</h2>
               <p>{{ item.validCount }} 首</p>
-            </ion-label>
-            <h-icon-button
-              slot="end"
-              :icon="ellipsisVertical"
-              ariaLabel="更多歌单操作"
+            </div>
+            <h-button
               variant="ghost"
+              is-icon-only
+              shape="square"
+              aria-label="更多歌单操作"
               class="more-button"
               @click.stop="openPlaylistActions(item.id)"
-            />
-          </ion-item>
-        </ion-list>
+            >
+              <h-icon :icon="ellipsisVertical" />
+            </h-button>
+          </div>
+        </div>
       </div>
 
-      <ion-action-sheet
-        :is-open="isActionsOpen"
-        header="歌单操作"
-        :buttons="actionButtons"
-        @didDismiss="onActionsDismiss"
-      />
+      <h-bottom-sheet v-model="isActionsOpen" title="歌单操作" @close="onActionsDismiss">
+        <div class="action-sheet-list">
+          <button class="action-sheet-item" type="button" @click="handleRename">重命名</button>
+          <button class="action-sheet-item action-destructive" type="button" @click="handleDelete">删除</button>
+          <button class="action-sheet-item action-cancel" type="button" @click="isActionsOpen = false">取消</button>
+        </div>
+      </h-bottom-sheet>
 
-      <ion-alert
-        :is-open="isNameAlertOpen"
-        :header="nameAlertHeader"
-        :inputs="nameAlertInputs"
-        :buttons="nameAlertButtons"
-        @didDismiss="isNameAlertOpen = false"
-      />
+      <h-dialog v-model="isNameAlertOpen" :title="nameAlertHeader">
+        <h-input v-model="nameInput" placeholder="歌单名称" maxlength="80" />
+        <template #actions>
+          <h-button variant="ghost" @click="isNameAlertOpen = false">取消</h-button>
+          <h-button variant="primary" @click="onNameConfirm">确定</h-button>
+        </template>
+      </h-dialog>
 
-      <ion-alert
-        :is-open="isDeleteAlertOpen"
-        header="删除歌单"
-        :message="deleteMessage"
-        :buttons="deleteAlertButtons"
-        @didDismiss="isDeleteAlertOpen = false"
-      />
-    </ion-content>
-  </ion-page>
+      <h-dialog v-model="isDeleteAlertOpen" title="删除歌单">
+        <p>{{ deleteMessage }}</p>
+        <template #actions>
+          <h-button variant="ghost" @click="isDeleteAlertOpen = false">取消</h-button>
+          <h-button variant="danger" @click="onDeleteConfirm">删除</h-button>
+        </template>
+      </h-dialog>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  IonActionSheet,
-  IonAlert,
-  IonContent,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonPage,
-  onIonViewWillEnter,
-  type ActionSheetButton,
-  type AlertButton,
-  type AlertInput,
-} from '@ionic/vue'
 import { addOutline, ellipsisVertical, list } from '@/icons'
-import { HEmpty, HIcon, HIconButton, HNavBar, MCover } from '@/components/ui'
+import { HButton, HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,
@@ -111,7 +103,10 @@ const isDeleteAlertOpen = ref(false)
 const refresh = () => {
   playlists.value = loadPlaylists().slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   songsTick.value += 1
+  nameInput.value = ''
 }
+
+const nameInput = ref('')
 
 const listRows = computed(() => {
   void songsTick.value
@@ -141,85 +136,48 @@ const onActionsDismiss = () => {
   isActionsOpen.value = false
 }
 
-const actionButtons = computed<ActionSheetButton[]>(() => [
-  {
-    text: '重命名',
-    handler: () => {
-      nameAlertMode.value = 'rename'
-      isNameAlertOpen.value = true
-    },
-  },
-  {
-    text: '删除',
-    role: 'destructive',
-    handler: () => {
-      isDeleteAlertOpen.value = true
-    },
-  },
-  { text: '取消', role: 'cancel' },
-])
-
-const nameAlertHeader = computed(() => (nameAlertMode.value === 'create' ? '新建歌单' : '重命名歌单'))
-
-const nameAlertInputs = computed<AlertInput[]>(() => {
+const handleRename = () => {
+  isActionsOpen.value = false
+  nameAlertMode.value = 'rename'
   const current = activePlaylistId.value
     ? playlists.value.find((p) => p.id === activePlaylistId.value)?.name ?? ''
     : ''
-  return [
-    {
-      name: 'name',
-      type: 'text',
-      placeholder: '歌单名称',
-      value: nameAlertMode.value === 'rename' ? current : '',
-      attributes: { maxlength: 80 },
-    },
-  ]
-})
+  nameInput.value = current
+  isNameAlertOpen.value = true
+}
 
-const nameAlertButtons = computed<AlertButton[]>(() => [
-  { text: '取消', role: 'cancel' },
-  {
-    text: '确定',
-    handler: (data: { name?: string }) => {
-      const name = typeof data?.name === 'string' ? data.name : ''
-      if (nameAlertMode.value === 'create') {
-        const created = createPlaylist(name)
-        if (!created) {
-          return false
-        }
-        refresh()
-        return true
-      }
-      if (!activePlaylistId.value) {
-        return false
-      }
-      const ok = renamePlaylist(activePlaylistId.value, name)
-      if (ok) {
-        refresh()
-      }
-      return ok
-    },
-  },
-])
+const handleDelete = () => {
+  isActionsOpen.value = false
+  isDeleteAlertOpen.value = true
+}
+
+const nameAlertHeader = computed(() => (nameAlertMode.value === 'create' ? '新建歌单' : '重命名歌单'))
+
+const onNameConfirm = () => {
+  const name = nameInput.value.trim()
+  if (!name) return
+  if (nameAlertMode.value === 'create') {
+    const created = createPlaylist(name)
+    if (created) refresh()
+  } else if (activePlaylistId.value) {
+    const ok = renamePlaylist(activePlaylistId.value, name)
+    if (ok) refresh()
+  }
+  isNameAlertOpen.value = false
+}
 
 const deleteMessage = computed(() => {
   const name = playlists.value.find((p) => p.id === activePlaylistId.value)?.name ?? '该歌单'
   return `确定删除「${name}」？此操作不可撤销。`
 })
 
-const deleteAlertButtons = computed<AlertButton[]>(() => [
-  { text: '取消', role: 'cancel' },
-  {
-    text: '删除',
-    role: 'destructive',
-    handler: () => {
-      if (activePlaylistId.value) {
-        deletePlaylist(activePlaylistId.value)
-        refresh()
-      }
-    },
-  },
-])
+const onDeleteConfirm = () => {
+  if (activePlaylistId.value) {
+    deletePlaylist(activePlaylistId.value)
+    refresh()
+  }
+  isDeleteAlertOpen.value = false
+}
 
 onMounted(() => {
   refresh()
@@ -231,17 +189,36 @@ onUnmounted(() => {
   window.removeEventListener(PLAYLISTS_UPDATED_EVENT, refresh)
   window.removeEventListener(SONGS_UPDATED_EVENT, refresh)
 })
-
-onIonViewWillEnter(() => {
-  refresh()
-})
 </script>
 
 <style scoped>
 .playlist-item {
-  --padding-start: 12px;
-  --inner-padding-end: 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 12px;
   margin-bottom: 4px;
+  cursor: pointer;
+}
+
+.playlist-item-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.playlist-item-label h2 {
+  margin: 0;
+  font-size: var(--muses-font-title);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-item-label p {
+  margin: 0;
+  font-size: var(--muses-font-body-sm);
+  color: var(--h-color-ink-muted);
 }
 
 .more-button {

@@ -73,31 +73,7 @@ const saveSongs = (songs: SongItem[]) => {
 }
 
 const mountSongsPage = () => mount(SongsPage, {
-  global: {
-    stubs: {
-      IonPage: { template: '<main><slot /></main>' },
-      IonHeader: { template: '<header><slot /></header>' },
-      IonToolbar: { template: '<div><slot /></div>' },
-      IonTitle: { template: '<div><slot /></div>' },
-      IonContent: { template: '<section><slot /></section>' },
-      IonButtons: { template: '<div><slot /></div>' },
-      IonButton: {
-        emits: ['click'],
-        template: '<button v-bind="$attrs" :disabled="$attrs.disabled" @click="$emit(\'click\')"><slot /></button>',
-      },
-      IonFab: { template: '<div class="ion-fab-stub"><slot /></div>' },
-      IonFabButton: {
-        emits: ['click'],
-        template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
-      },
-      IonIcon: true,
-      IonList: { template: '<div><slot /></div>' },
-      IonItem: {
-        template: '<div v-bind="$attrs" @click="$emit(\'click\')"><slot /><slot name="start" /><slot name="end" /></div>',
-      },
-      IonLabel: { template: '<div><slot /></div>' },
-    },
-  },
+  global: {},
 })
 
 describe('音乐库标签页', () => {
@@ -290,8 +266,8 @@ describe('音乐库标签页', () => {
     const wrapper = mountSongsPage()
     await nextTick()
 
-    const navbar = wrapper.get('main > header')
-    const shuffleBar = wrapper.get('main > .shuffle-bar')
+    const navbar = wrapper.getComponent({ name: 'HNavBar' })
+    const shuffleBar = wrapper.get('.shuffle-bar')
     const actions = shuffleBar.get('.shuffle-actions')
     expect(navbar.element.nextElementSibling).toBe(shuffleBar.element)
     expect(wrapper.find('.bottom-actions').exists()).toBe(false)
@@ -409,27 +385,11 @@ describe('音乐库标签页', () => {
         attachTo: host,
         global: {
           stubs: {
-            IonPage: { template: '<main><slot /></main>' },
-            IonHeader: { template: '<header><slot /></header>' },
-            IonToolbar: { template: '<div><slot /></div>' },
-            IonTitle: { template: '<div><slot /></div>' },
-            IonContent: { template: '<section><slot /></section>' },
-            IonButtons: { template: '<div><slot /></div>' },
-            IonButton: {
+            HFloatingBubble: {
+              props: ['ariaLabel'],
               emits: ['click'],
-              template: '<button v-bind="$attrs" :disabled="$attrs.disabled" @click="$emit(\'click\')"><slot /></button>',
+              template: '<button :aria-label="ariaLabel" @click="$emit(\'click\', $event)"><slot /></button>',
             },
-            IonFab: { template: '<div class="ion-fab-stub"><slot /></div>' },
-            IonFabButton: {
-              emits: ['click'],
-              template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
-            },
-            IonIcon: true,
-            IonList: { template: '<div><slot /></div>' },
-            IonItem: {
-              template: '<div v-bind="$attrs" @click="$emit(\'click\')"><slot /><slot name="start" /><slot name="end" /></div>',
-            },
-            IonLabel: { template: '<div><slot /></div>' },
           },
         },
       })

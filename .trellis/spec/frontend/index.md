@@ -6,14 +6,19 @@
 
 ## Overview
 
-This repository is currently a small Ionic Vue starter-style app built with:
+This repository is a Vue 3 music app built with:
 
 - Vue 3 SFCs
-- `@ionic/vue` and `@ionic/vue-router`
+- `vue-router`（`createRouter` + `createWebHistory`）
+- `happier-ui`（组件 + tokens + 暗色态）+ 自建 `MPage` / `MContent` 页面骨架
+- Tailwind CSS v4（`@tailwindcss/vite`）
 - TypeScript with `strict: true`
 - Vite
 - Vitest for unit tests
 - Cypress for e2e tests
+- Capacitor 原生壳（状态栏/返回键/键盘）
+
+应用**已完全脱离 Ionic**（见 `07-25-migrate-off-ionic-core`）：零 `@ionic/*` 依赖、零 `ion-*` 标签、零 `ionicons`。
 
 The guidance in this directory documents the codebase as it exists today. It is intentionally lightweight and should match current project reality rather than aspirational architecture.
 
@@ -36,22 +41,22 @@ The guidance in this directory documents the codebase as it exists today. It is 
 
 ## Current App Shape
 
-The current app is organized around Ionic pages and tab routing:
+The app is organized around self-built page skeletons and tab routing:
 
-- App shell: `src/App.vue`
+- App shell: `src/App.vue`（自建 `div.app-shell` + `<RouterView>`）
 - App bootstrap: `src/main.ts`
-- Router definition: `src/router/index.ts`
+- Router definition: `src/router/index.ts`（`vue-router`）
+- Page skeleton: `src/components/ui/MPage.vue` / `src/components/ui/MContent.vue`
 - Top-level pages: `src/views/*.vue`
-- Shared UI component example: `src/components/ExploreContainer.vue`
-- Theme variables: `src/theme/variables.css`
+- Theme tokens: `src/theme/tokens.css` / `src/theme/tailwind.css`
 
 Representative files:
 
 - `src/main.ts`
 - `src/router/index.ts`
 - `src/views/TabsPage.vue`
-- `src/views/Tab1Page.vue`
-- `src/components/ExploreContainer.vue`
+- `src/views/SongsPage.vue`
+- `src/components/ui/MPage.vue`
 
 ---
 

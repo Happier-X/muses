@@ -10,7 +10,6 @@ export {
   HEmpty,
   HFloatingBubble,
   HIcon,
-  HIconButton,
   HImage,
   HInput,
   HNavBar,
@@ -41,5 +40,6 @@ export type {
 
 /** app-only：音乐封面 */
 export { default as MCover } from './MCover.vue'
-/** HOST-IONIC 页壳 */
+/** 自定义页壳 */
 export { default as MPage } from './MPage.vue'
+export { default as MContent } from './MContent.vue'

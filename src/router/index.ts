@@ -1,5 +1,4 @@
-import { createRouter } from '@ionic/vue-router';
-import { createWebHistory, RouteRecordRaw } from 'vue-router';
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import TabsPage from '../views/TabsPage.vue'
 
 const routes: Array<RouteRecordRaw> = [

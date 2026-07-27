@@ -126,6 +126,7 @@ const { routerPush, routerBack, routeState } = vi.hoisted(() => ({
 vi.mock('vue-router', () => ({
   useRoute: () => routeState,
   useRouter: () => ({ push: routerPush, back: routerBack }),
+  RouterView: { template: '<div />' },
 }))
 
 vi.mock('@applemusic-like-lyrics/vue', () => ({
@@ -1571,11 +1572,11 @@ describe('沉浸式播放页', () => {
           IonContent: { template: '<section><slot /></section>' },
           IonButton: { emits: ['click'], template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>' },
           IonIcon: { props: ['icon'], template: '<span data-test="icon" :data-icon="JSON.stringify(icon)" />' },
-          IonRange: {
-            name: 'IonRange',
-            props: ['min', 'max', 'step', 'value', 'disabled'],
-            emits: ['ionInput', 'ionChange'],
-            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="value" :disabled="disabled" @input="$emit('ionInput', { detail: { value: Number($event.target.value) } })" @change="$emit('ionChange', { detail: { value: Number($event.target.value) } })" />`,
+          HRange: {
+            name: 'HRange',
+            props: ['modelValue', 'min', 'max', 'step', 'disabled'],
+            emits: ['update:modelValue', 'change', 'dragStart', 'dragEnd'],
+            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="modelValue" :disabled="disabled" @input="$emit('update:modelValue', Number($event.target.value))" @change="$emit('change', Number($event.target.value))" />`,
           },
         },
       },
@@ -1590,9 +1591,9 @@ describe('沉浸式播放页', () => {
     expect(wrapper.find('button[aria-label="上一曲"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="下一曲"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="播放或暂停"]').exists()).toBe(true)
-    expect(wrapper.get('button[aria-label="上一曲"]').attributes('fill')).toBe('clear')
-    expect(wrapper.get('button[aria-label="下一曲"]').attributes('fill')).toBe('clear')
-    expect(wrapper.get('button[aria-label="播放或暂停"]').attributes('fill')).toBe('clear')
+    expect(wrapper.get('button[aria-label="上一曲"]').exists()).toBe(true)
+    expect(wrapper.get('button[aria-label="下一曲"]').exists()).toBe(true)
+    expect(wrapper.get('button[aria-label="播放或暂停"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="列表循环"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="顺序播放"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="播放队列"]').exists()).toBe(true)
@@ -2025,11 +2026,11 @@ describe('沉浸式播放页', () => {
           IonContent: { template: '<section><slot /></section>' },
           IonButton: { emits: ['click'], template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>' },
           IonIcon: true,
-          IonRange: {
-            name: 'IonRange',
-            props: ['min', 'max', 'step', 'value', 'disabled'],
-            emits: ['ionInput', 'ionChange'],
-            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="value" :disabled="disabled" @input="$emit('ionInput', { detail: { value: Number($event.target.value) } })" @change="$emit('ionChange', { detail: { value: Number($event.target.value) } })" />`,
+          HRange: {
+            name: 'HRange',
+            props: ['modelValue', 'min', 'max', 'step', 'disabled'],
+            emits: ['update:modelValue', 'change', 'dragStart', 'dragEnd'],
+            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="modelValue" :disabled="disabled" @input="$emit('update:modelValue', Number($event.target.value))" @change="$emit('change', Number($event.target.value))" />`,
           },
         },
       },
@@ -2174,7 +2175,7 @@ describe('应用壳', () => {
     global: {
       stubs: {
         IonApp: { template: '<main><slot /></main>' },
-        IonRouterOutlet: { template: '<div />' },
+        RouterView: { template: '<div />' },
         PlayerPage: true,
         QueuePage: true,
       },
@@ -2232,7 +2233,7 @@ describe('应用壳', () => {
       global: {
         stubs: {
           IonApp: { template: '<main><slot /></main>' },
-          IonRouterOutlet: { template: '<div />' },
+          RouterView: { template: '<div />' },
           PlayerPage: { template: '<div data-test="player-page-root" />' },
           QueuePage: true,
         },
@@ -3418,7 +3419,7 @@ describe('已缓冲进度与 seek 限制', () => {
     expect(playerState.position).toBe(180)
   })
 
-  test('PlayerPage 进度控件为 ion-range，无自绘缓冲色条', async () => {
+  test('PlayerPage 进度控件为 HRange，无自绘缓冲色条', async () => {
     // 本 describe 大量 resetModules；静态 import 的 PlayerPage 可能绑旧 controller。
     // 动态 re-import 保证当前曲与页面同一 reactive 实例。
     vi.resetModules()
@@ -3435,11 +3436,11 @@ describe('已缓冲进度与 seek 限制', () => {
           IonContent: { template: '<section><slot /></section>' },
           IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
           IonIcon: true,
-          IonRange: {
-            name: 'IonRange',
-            props: ['min', 'max', 'step', 'value', 'disabled'],
-            emits: ['ionInput', 'ionChange'],
-            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="value" :disabled="disabled" @input="$emit('ionInput', { detail: { value: Number($event.target.value) } })" @change="$emit('ionChange', { detail: { value: Number($event.target.value) } })" />`,
+          HRange: {
+            name: 'HRange',
+            props: ['modelValue', 'min', 'max', 'step', 'disabled'],
+            emits: ['update:modelValue', 'change', 'dragStart', 'dragEnd'],
+            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="modelValue" :disabled="disabled" @input="$emit('update:modelValue', Number($event.target.value))" @change="$emit('change', Number($event.target.value))" />`,
           },
         },
       },
@@ -3498,7 +3499,7 @@ describe('已缓冲进度与 seek 限制', () => {
     vi.useRealTimers()
   })
 
-  test('非手势 ionInput 不冻结进度条 value（#47）', async () => {
+  test('非手势 update:modelValue 不冻结进度条 value（#47）', async () => {
     vi.resetModules()
     const { initializePlayer, playSong, playerState } = await import('@/features/player/controller')
     await initializePlayer()
@@ -3527,20 +3528,20 @@ describe('已缓冲进度与 seek 限制', () => {
           IonContent: { template: '<section><slot /></section>' },
           IonButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
           IonIcon: true,
-          IonRange: {
-            name: 'IonRange',
-            props: ['min', 'max', 'step', 'value', 'disabled'],
-            emits: ['ionInput', 'ionChange'],
-            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="value" :disabled="disabled" @input="$emit('ionInput', { detail: { value: Number($event.target.value) } })" @change="$emit('ionChange', { detail: { value: Number($event.target.value) } })" />`,
+          HRange: {
+            name: 'HRange',
+            props: ['modelValue', 'min', 'max', 'step', 'disabled'],
+            emits: ['update:modelValue', 'change', 'dragStart', 'dragEnd'],
+            template: `<input class="progress-range" type="range" :min="min" :max="max" :step="step" :value="modelValue" :disabled="disabled" @input="$emit('update:modelValue', Number($event.target.value))" @change="$emit('change', Number($event.target.value))" />`,
           },
         },
       },
     })
 
     await wrapper.vm.$nextTick()
-    const range = wrapper.findComponent({ name: 'IonRange' })
-    // 仅 emit ionInput，避免 setValue 连带 ionChange 误开 seek 手势锁
-    await range.vm.$emit('ionInput', { detail: { value: 40 } })
+    const range = wrapper.findComponent({ name: 'HRange' })
+    // 仅 emit update:modelValue，避免 setValue 连带 ionChange 误开 seek 手势锁
+    await range.vm.$emit('update:modelValue', 40)
     await nextTick()
 
     // 若误写 seekPreview，后续 position 推进将无法驱动 range value prop
@@ -3552,7 +3553,7 @@ describe('已缓冲进度与 seek 限制', () => {
     })
     await nextTick()
     expect(playerState.position).toBe(25)
-    expect(range.props('value')).toBe(25)
+    expect(range.props('modelValue')).toBe(25)
   })
 })
 

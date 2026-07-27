@@ -59,16 +59,16 @@
               @pointerup.stop="onProgressGestureEnd"
               @pointercancel.stop="onProgressGestureEnd"
             >
-              <ion-range
+              <h-range
                 class="progress-range"
                 :min="0"
                 :max="durationForSlider"
                 :step="0.1"
-                :value="effectiveSeekPosition"
+                :model-value="effectiveSeekPosition"
                 :disabled="!canSeek"
                 aria-label="播放进度"
-                @ionInput="onSeekInput"
-                @ionChange="onSeek"
+                @update:model-value="onSeekInput"
+                @change="onSeek"
               />
               <div class="time-row">
                 <span>{{ formatTime(playerState.position) }}</span>
@@ -78,60 +78,60 @@
             </div>
 
             <div class="controls">
-              <ion-button fill="clear" color="light" shape="round" aria-label="上一曲" @click="onPrevious">
-                <h-icon slot="icon-only" :icon="previousIcon" variant="fill" />
-              </ion-button>
-              <ion-button
+              <h-button variant="ghost" is-icon-only shape="circle" aria-label="上一曲" @click="onPrevious">
+                <h-icon :icon="previousIcon" variant="fill" />
+              </h-button>
+              <h-button
                 class="play-toggle"
-                fill="clear"
-                color="light"
-                shape="round"
+                variant="ghost"
+                is-icon-only
+                shape="circle"
                 :disabled="playerState.status === 'loading'"
                 aria-label="播放或暂停"
                 @click="togglePlayback"
               >
-                <h-icon slot="icon-only" :icon="isPlaying ? pause : play" variant="fill" />
-              </ion-button>
-              <ion-button fill="clear" color="light" shape="round" aria-label="下一曲" @click="onNext">
-                <h-icon slot="icon-only" :icon="nextIcon" variant="fill" />
-              </ion-button>
+                <h-icon :icon="isPlaying ? pause : play" variant="fill" />
+              </h-button>
+              <h-button variant="ghost" is-icon-only shape="circle" aria-label="下一曲" @click="onNext">
+                <h-icon :icon="nextIcon" variant="fill" />
+              </h-button>
             </div>
 
             <div class="mode-bar">
-              <ion-button
-                fill="clear"
-                color="light"
-                shape="round"
+              <h-button
+                variant="ghost"
+                is-icon-only
+                shape="circle"
                 class="mode-button"
                 :class="{ 'is-active': queueState.repeatMode === 'one' }"
                 :aria-label="repeatModeLabel"
                 @click="onToggleRepeat"
               >
-                <h-icon slot="icon-only" :icon="repeatIcon" />
-              </ion-button>
+                <h-icon :icon="repeatIcon" />
+              </h-button>
 
-              <ion-button
-                fill="clear"
-                color="light"
-                shape="round"
+              <h-button
+                variant="ghost"
+                is-icon-only
+                shape="circle"
                 class="mode-button"
                 :class="{ 'is-active': queueState.shuffleEnabled }"
                 :aria-label="shuffleModeLabel"
                 @click="onToggleShuffle"
               >
-                <h-icon slot="icon-only" :icon="shuffleIcon" />
-              </ion-button>
+                <h-icon :icon="shuffleIcon" />
+              </h-button>
 
-              <ion-button
-                fill="clear"
-                color="light"
-                shape="round"
+              <h-button
+                variant="ghost"
+                is-icon-only
+                shape="circle"
                 class="mode-button"
                 aria-label="播放队列"
                 @click="goToQueue"
               >
-                <h-icon slot="icon-only" :icon="listIcon" />
-              </ion-button>
+                <h-icon :icon="listIcon" />
+              </h-button>
             </div>
           </div>
         </section>
@@ -174,32 +174,32 @@
             aria-label="歌词快捷操作"
             :aria-hidden="!lyricChromeVisible"
           >
-            <ion-button
-              fill="clear"
-              shape="round"
-              color="light"
+            <h-button
+              variant="ghost"
+              is-icon-only
+              shape="circle"
               class="lyric-fab lyric-translate-toggle"
               :class="{ 'is-active': showLyricTranslation }"
               :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
               :tabindex="lyricChromeVisible ? 0 : -1"
               @click.stop="onLyricTranslateClick"
             >
-              <h-icon slot="icon-only" :icon="translationIcon" aria-hidden="true" />
-            </ion-button>
+              <h-icon :icon="translationIcon" aria-hidden="true" />
+            </h-button>
 
-            <ion-button
+            <h-button
               v-if="!isTabletLayout"
-              fill="clear"
-              shape="round"
-              color="light"
+              variant="ghost"
+              is-icon-only
+              shape="circle"
               class="lyric-fab lyric-play-toggle"
               :aria-label="isPlaying ? '暂停播放' : '继续播放'"
               :disabled="playerState.status === 'loading'"
               :tabindex="lyricChromeVisible ? 0 : -1"
               @click.stop="onLyricPlayClick"
             >
-              <h-icon slot="icon-only" :icon="isPlaying ? pause : play" variant="fill" />
-            </ion-button>
+              <h-icon :icon="isPlaying ? pause : play" variant="fill" />
+            </h-button>
           </div>
         </section>
       </div>
@@ -208,10 +208,9 @@
 </template>
 
 <script setup lang="ts">
-import { HIcon } from '@/components/ui'
+import { HButton, HIcon, HRange } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { IonButton, IonRange } from '@ionic/vue'
 import { languageOffOutline, languageOutline, list, listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from '@/icons'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
@@ -545,32 +544,15 @@ const clampSeekTarget = (raw: number): number => {
   return Number.isFinite(max) ? Math.min(raw, max) : raw
 }
 
-/** 从 ion-range 的 CustomEvent.detail.value 读取目标秒；兼容测试 stub 的 input 事件。 */
-const readRangeEventValue = (event: Event): number => {
-  const custom = event as CustomEvent<{ value?: number | { lower: number; upper: number } }>
-  const raw = custom.detail?.value
-  if (typeof raw === 'number') {
-    return raw
-  }
-  if (raw && typeof raw === 'object' && typeof raw.lower === 'number') {
-    return raw.lower
-  }
-  const target = event.target as { value?: string | number } | null
-  if (target && target.value != null && target.value !== '') {
-    return Number(target.value)
-  }
-  return Number.NaN
-}
-
-/** 拖动中视觉 clamp 到已缓冲终点，并用本地 preview 驱动 ion-range value。
+/** 拖动中视觉 clamp 到已缓冲终点，并用本地 preview 驱动 h-range value。
  * 仅用户进度条手势写入 preview：ion-range 在 value 属性变化时也会 emit ionInput，
  * 若误写 preview 会盖住 playerState.position，导致进度条冻结（#47）。
  */
-const onSeekInput = (event: Event) => {
+const onSeekInput = (value: number) => {
   if (!seekGestureLocked.value) {
     return
   }
-  const requested = readRangeEventValue(event)
+  const requested = value
   if (!Number.isFinite(requested)) {
     return
   }
@@ -581,11 +563,11 @@ const onSeekInput = (event: Event) => {
   }
 }
 
-const onSeek = async (event: Event) => {
+const onSeek = async (value: number) => {
   // ionChange 可能在 pointerup 之后触发；再锁一次并续期 debounce，覆盖 click 穿透窗口。
   lockSeekGesture()
   scheduleSeekUnlock()
-  const requested = readRangeEventValue(event)
+  const requested = value
   if (!Number.isFinite(requested)) {
     seekPreviewPosition.value = null
     return
@@ -687,7 +669,7 @@ const onTouchMove = (event: TouchEvent) => {
 }
 
 const INTERACTIVE_SELECTOR =
-  'input, textarea, select, button, ion-button, ion-range, a, [role="button"], [contenteditable="true"], .progress-range'
+  'input, textarea, select, button, a, [role="button"], [contenteditable="true"], .progress-range'
 
 const isInteractiveElement = (el: Element): boolean => {
   return Boolean(el.closest(INTERACTIVE_SELECTOR))
@@ -883,9 +865,9 @@ onUnmounted(() => {
   max-height: 100%;
   overflow: hidden;
   padding:
-    calc(16px + var(--ion-safe-area-top, 0px))
+    calc(16px + env(safe-area-inset-top, 0px))
     24px
-    calc(16px + var(--ion-safe-area-bottom, 0px));
+    calc(16px + env(safe-area-inset-bottom, 0px));
 }
 
 .empty-state,
@@ -1060,14 +1042,13 @@ onUnmounted(() => {
   touch-action: manipulation;
 }
 
-.controls ion-button {
-  --padding-start: 0;
-  --padding-end: 0;
+.controls .h-button {
   width: 52px;
   height: 52px;
   margin: 0;
   font-size: 26px;
   touch-action: manipulation;
+  color: #fff;
 }
 
 .controls .play-toggle {
@@ -1088,15 +1069,13 @@ onUnmounted(() => {
   touch-action: manipulation;
 }
 
-.mode-bar ion-button {
-  --padding-start: 0;
-  --padding-end: 0;
-  --color: rgba(255, 255, 255, 0.58);
+.mode-bar .h-button {
   width: 44px;
   height: 44px;
   margin: 0;
   font-size: 20px;
   touch-action: manipulation;
+  color: rgba(255, 255, 255, 0.58);
 }
 
 .mode-bar .mode-button.is-active {
@@ -1159,7 +1138,7 @@ onUnmounted(() => {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: calc(8px + var(--ion-safe-area-bottom, 0px));
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   z-index: 3;
   display: flex;
   align-items: center;
@@ -1320,9 +1299,9 @@ onUnmounted(() => {
 @media (max-height: 720px) {
   .info-panel {
     padding:
-      calc(10px + var(--ion-safe-area-top, 0px))
+      calc(10px + env(safe-area-inset-top, 0px))
       24px
-      calc(10px + var(--ion-safe-area-bottom, 0px));
+      calc(10px + env(safe-area-inset-bottom, 0px));
   }
 
   .info-panel-inner {
@@ -1352,7 +1331,7 @@ onUnmounted(() => {
     gap: clamp(12px, 4vw, 20px);
   }
 
-  .controls ion-button {
+  .controls .h-button {
     width: 46px;
     height: 46px;
     font-size: 22px;
@@ -1368,7 +1347,7 @@ onUnmounted(() => {
     max-width: 240px;
   }
 
-  .mode-bar ion-button {
+  .mode-bar .h-button {
     width: 40px;
     height: 40px;
     font-size: 18px;
@@ -1395,9 +1374,9 @@ onUnmounted(() => {
 @media (max-height: 520px) {
   .info-panel {
     padding:
-      calc(6px + var(--ion-safe-area-top, 0px))
+      calc(6px + env(safe-area-inset-top, 0px))
       20px
-      calc(6px + var(--ion-safe-area-bottom, 0px));
+      calc(6px + env(safe-area-inset-bottom, 0px));
   }
 
   .info-panel-inner {
@@ -1440,7 +1419,7 @@ onUnmounted(() => {
     gap: clamp(10px, 3.5vw, 16px);
   }
 
-  .controls ion-button {
+  .controls .h-button {
     width: 40px;
     height: 40px;
     font-size: 20px;
@@ -1456,7 +1435,7 @@ onUnmounted(() => {
     max-width: 220px;
   }
 
-  .mode-bar ion-button {
+  .mode-bar .h-button {
     width: 36px;
     height: 36px;
     font-size: 16px;

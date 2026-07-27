@@ -103,9 +103,9 @@ Current example:
 The existing test:
 
 - visits `/`
-- asserts that `ion-content` contains `Tab 1 page`
+- asserts user-visible page content
 
-For new e2e tests, exercise user-visible routes and Ionic UI behavior. Avoid brittle selectors tied to Vue internals.
+For new e2e tests, exercise user-visible routes and UI behavior. Avoid brittle selectors tied to Vue internals.
 
 Run:
 
@@ -120,7 +120,7 @@ npm run test:e2e
 Preserve the accessibility practices already present in the UI:
 
 - Decorative icons use `aria-hidden="true"` in `src/views/TabsPage.vue`.
-- Navigation tabs include visible `IonLabel` text.
+- Navigation tabs include visible text labels（原生 `<span>` / 文案，不依赖 `IonLabel`）。
 - External links opened in new tabs include `rel="noopener noreferrer"` in `src/components/ExploreContainer.vue`.
 
 When adding controls, prefer visible labels or appropriate ARIA labels.
@@ -131,14 +131,14 @@ When adding controls, prefer visible labels or appropriate ARIA labels.
 
 Keep CSS concerns separated:
 
-- Global Ionic CSS imports stay in `src/main.ts`.
-- Theme customization belongs in `src/theme/variables.css`.
+- Global token / Tailwind imports stay in `src/main.ts`（`virtual:uno.css`、`./theme/tokens.css`、`./theme/tailwind.css`）；应用已完全脱离 Ionic，`main.ts` 不再有任何 `@ionic/vue/css/*` 导入。
+- 全局 body 字体/颜色 fallback 写在 `src/theme/tailwind.css`；`src/theme/variables.css` 已清空（Ionic 桥接已移除）。
 - Component-specific CSS uses `<style scoped>` in the component.
 
 Reference files:
 
 - `src/main.ts`
-- `src/theme/variables.css`
+- `src/theme/tailwind.css`
 - `src/components/ExploreContainer.vue`
 
 ## Tailwind v4 构建兼容性
@@ -197,8 +197,8 @@ Avoid:
 
 - Skipping `npm run build` after TypeScript or Vue SFC changes.
 - Adding tests that only assert framework implementation details.
-- Re-importing global Ionic CSS inside components.
-- Removing Ionic page wrappers from route-level views.
+- 重新引入 `@ionic/*` 依赖、`ion-*` 标签或 Ionic 全局 CSS（应用已完全脱离 Ionic）。
+- 移除路由页的自建 `MPage` / `MContent` 骨架而回退到裸 `<div>` 无滚动容器。
 - Introducing architecture not reflected by current requirements.
 
 ---
@@ -207,12 +207,12 @@ Avoid:
 
 依赖升级必须按兼容组分层验证，不能只改版本号：
 
-- Capacitor 核心与插件保持同一主版本；Ionic Vue 与其间接依赖的 `ionicons` 采用声明的兼容组合（框架运行时仍可能需要 `ionicons` 包）。业务侧图标全面使用 `@lucide/vue` 组件 + happier-ui `HIcon`，禁止 `ion-icon`、`@/icons/ion-lucide` 与 `import ... from 'ionicons/icons'`。
-- `happier-ui` 默认固定使用 npm `happier-ui@0.0.3`；不得提交 `file:../happier-ui` 或相邻源码 alias。0.0.2 起必须接入 Tailwind CSS v4（`tailwindcss` + `@tailwindcss/vite`），全局样式经 `src/theme/tailwind.css` 走 `@import 'tailwindcss'` + `@import 'happier-ui/styles'` 管道，禁止直接引旧 `style.css`。库没有的组件保留 Ionic/业务实现并登记任务 `gaps.md`，不得在 Muses 新造通用平行 M* 组件。
+- **应用已完全脱离 Ionic**（见 `07-25-migrate-off-ionic-core`）：`package.json` 无 `@ionic/vue` / `@ionic/vue-router` / `ionicons`；路由用 `vue-router`，页面骨架用自建 `MPage` / `MContent`。业务侧图标全面使用 `@lucide/vue` 组件 + happier-ui `HIcon`，禁止 `ion-icon`、`@/icons/ion-lucide` 与 `import ... from 'ionicons/icons'`。Capacitor 核心与插件保持同一主版本。
+- `happier-ui` 默认固定使用 npm **精确版本** `happier-ui@0.0.6`（不用 `^`）；不得提交 `file:../happier-ui` 或相邻源码 alias。必须接入 Tailwind CSS v4（`tailwindcss` + `@tailwindcss/vite`），全局样式经 `src/theme/tailwind.css` 走 `@import 'tailwindcss'` + `@import 'happier-ui/styles'` 管道，禁止直接引旧 `style.css`。库没有的组件保留业务实现并登记任务 `gaps.md`，不得在 Muses 新造通用平行 M* 组件。
 - Vite、Vue 插件、legacy 插件应作为一组升级；Vitest 与 jsdom、ESLint 与 Vue/TypeScript 配置链也应分别成组验证。
 - 每组升级后运行 lint、build 和完整 unit test；最终执行 `npm ci` 验证锁文件可干净重建，并运行 `npx cap sync android` 检查原生插件同步。
 - 跨主版本若失败，任务记录必须保留具体命令和兼容性证据，不得为了满足“最新”强行破坏可构建组合。
-- 当前已验证组合包括 Vite 8 + plugin-vue 6 + plugin-legacy 8、Vitest 4 + jsdom 29、Cypress 15（Node 22/24）、ESLint 10 flat config + eslint-plugin-vue 10 + `@vue/eslint-config-typescript` 14。TypeScript 7 与当前 vue-tsc 3 仍因 `typescript/lib/tsc` 未导出而失败，应保留 TypeScript 5.9 + vue-tsc 2；Vue Router 5 被 `@ionic/vue-router@8` 的 `vue-router@^4.5.0` 依赖锁死，需等 Ionic 放宽 peer 后再升。
+- 当前已验证组合包括 Vite 8 + plugin-vue 6 + plugin-legacy 8、Vitest 4 + jsdom 29、Cypress 15（Node 22/24）、ESLint 10 flat config + eslint-plugin-vue 10 + `@vue/eslint-config-typescript` 14。TypeScript 7 与当前 vue-tsc 3 仍因 `typescript/lib/tsc` 未导出而失败，应保留 TypeScript 5.9 + vue-tsc 2。应用已脱离 Ionic，`vue-router` 不再被 `@ionic/vue-router` 的 peer 依赖锁死，可按 vue-router 自身兼容性独立升级验证。
 - Android APK 最终构建需要 JDK 21；本地无 Java 时必须通过 CI 验证，不能把 `cap sync` 等同于 APK 编译成功。
 - **发布时必须同步 `package-lock.json` 的根 `version`**：仅改 `package.json` 的 `version` 而不改锁文件，会在 GitHub Actions（Linux + Node 22 `npm ci`）失败。
 - **`picomatch` 多版本并存**：Vite 8 / vitest / tinyglobby 需要 `picomatch@4`，`micromatch` 需要 `picomatch@2`。Windows 上本地 `npm ci` 可能通过，但 Linux CI 会对锁文件报 `Invalid: lock file's picomatch@2.3.2 does not satisfy picomatch@4.0.5`。发布或依赖升级后应用 `package.json` `overrides` + 直接 `devDependencies.picomatch@4.0.5` 固定解析，并在干净目录再跑一次 `npm ci`；最终以 Release workflow 的 `npm ci` 为准。

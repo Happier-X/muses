@@ -1,28 +1,27 @@
 <template>
-  <ion-page>
+  <div class="m-page">
     <h-nav-bar title="设置" :fixed="false" />
-    <ion-content :fullscreen="false">
+    <div class="m-content">
       <div class="tablet-content-limit">
-        <ion-list>
-          <ion-item lines="none">
-            <ion-label>
+      <div class="settings-list">
+          <div class="settings-row">
+            <div class="settings-cell">
               <h2>Muses</h2>
               <p>应用版本 {{ currentVersion }}</p>
-            </ion-label>
-          </ion-item>
+            </div>
+          </div>
 
-          <ion-item lines="none">
-            <ion-label>
+          <div class="settings-row">
+            <div class="settings-cell">
               <h2>音量均衡</h2>
               <p>根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。</p>
-            </ion-label>
+            </div>
             <h-switch
-              slot="end"
               v-model="loudnessNormalizeEnabled"
               aria-label="音量均衡"
             />
-          </ion-item>
-        </ion-list>
+          </div>
+        </div>
 
         <div class="update-section">
           <h-button
@@ -35,7 +34,7 @@
           </h-button>
         </div>
       </div>
-    </ion-content>
+    </div>
 
     <h-toast
       v-model="toast.visible"
@@ -45,18 +44,11 @@
     >
       {{ toast.message }}
     </h-toast>
-  </ion-page>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import {
-  IonContent,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonPage,
-} from '@ionic/vue'
 import { HButton, HNavBar, HSwitch, HToast } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,

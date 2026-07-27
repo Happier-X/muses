@@ -1,12 +1,14 @@
 <template>
-  <ion-page>
+  <div class="m-page">
     <h-nav-bar title="音源" :fixed="false">
       <template #right>
-        <h-icon-button :icon="add" ariaLabel="添加音源" variant="ghost" @click="isAddActionSheetOpen = true" />
+        <h-button variant="ghost" is-icon-only shape="square" aria-label="添加音源" @click="isAddActionSheetOpen = true">
+          <h-icon :icon="add" />
+        </h-button>
       </template>
     </h-nav-bar>
 
-    <ion-content :fullscreen="false">
+    <div class="m-content" id="source-page-content">
       <h-empty
         v-if="sources.length === 0"
         title="还没有音源"
@@ -55,22 +57,18 @@
         </div>
       </h-bottom-sheet>
 
-      <ion-alert
-        :is-open="isDeleteAlertOpen"
-        header="删除音源"
-        :message="deleteAlertMessage"
-        :buttons="deleteAlertButtons"
-        @didDismiss="closeDeleteAlert"
-      />
+      <h-dialog v-model="isDeleteAlertOpen" title="删除音源">
+        <p>{{ deleteAlertMessage }}</p>
+        <template #actions>
+          <h-button variant="ghost" @click="isDeleteAlertOpen = false">取消</h-button>
+          <h-button variant="danger" @click="onConfirmDeleteSource">删除</h-button>
+        </template>
+      </h-dialog>
 
-      <ion-modal :is-open="isEditModalOpen" :backdrop-dismiss="!isEditSaving" @didDismiss="closeEditSource">
-        <h-nav-bar title="编辑音源" :fixed="false" :safe-area="false">
-          <template #right>
-            <h-button variant="ghost" size="sm" :disabled="isEditSaving" @click="closeEditSource">关闭</h-button>
-          </template>
-        </h-nav-bar>
+      <h-bottom-sheet v-model="isEditModalOpen" title="编辑音源" @close="closeEditSource">
 
-        <ion-content class="ion-padding">
+        
+        <div class="edit-source-form-wrapper">
           <form class="edit-source-form" @submit.prevent="editSourceForm.handleSubmit">
             <div class="form-fields">
               <editSourceForm.Field
@@ -174,73 +172,61 @@
               {{ isEditSaving ? '正在保存…' : '保存修改' }}
             </h-button>
           </form>
-        </ion-content>
-      </ion-modal>
+        </div>
+      </h-bottom-sheet>
 
-      <ion-modal :is-open="isScanSettingsOpen" @didDismiss="closeScanSettings">
-        <h-nav-bar title="扫描设置" :fixed="false" :safe-area="false">
-          <template #right>
-            <h-button variant="ghost" size="sm" @click="closeScanSettings">关闭</h-button>
-          </template>
-        </h-nav-bar>
+      <h-bottom-sheet v-model="isScanSettingsOpen" @close="closeScanSettings">
+        <template #title>
+          <span>扫描设置</span>
+        </template>
+        <div class="setting-inline">
+          <span>读取音乐标签</span>
+          <h-switch v-model="scanOptions.readTags" aria-label="读取音乐标签" />
+        </div>
+        <p class="scan-hint">开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。</p>
+        <h-button variant="primary" :disabled="!selectedScanSource" @click="startScan">开始扫描</h-button>
+      </h-bottom-sheet>
 
-        <ion-content class="ion-padding">
-          <div class="form-fields">
-            <div class="setting-inline">
-              <span>读取音乐标签</span>
-              <h-switch v-model="scanOptions.readTags" aria-label="读取音乐标签" />
+      <h-bottom-sheet v-model="isScanProgressOpen" @close="closeScanProgress">
+        <template #title>
+          <span>扫描进度</span>
+          <h-button
+            variant="ghost"
+            size="sm"
+            :disabled="scanProgress.stage === 'processing' || scanProgress.stage === 'discovering'"
+            @click="closeScanProgress"
+          >
+            关闭
+          </h-button>
+        </template>
+
+        <h-progress v-if="scanProgress.stage === 'discovering' || scanProgress.stage === 'processing'" indeterminate aria-label="扫描进行中" />
+        <section class="scan-progress">
+          <h2>{{ getScanStageText(scanProgress.stage) }}</h2>
+          <p v-if="scanProgress.message">{{ scanProgress.message }}</p>
+          <p v-if="scanProgress.currentItem" class="source-path">当前：{{ scanProgress.currentItem }}</p>
+          <div class="scan-stats">
+            <div class="scan-stat-row">
+              <span>已发现 / 已处理</span>
+              <span class="source-note">{{ scanProgress.discovered }} / {{ scanProgress.processed }}</span>
+            </div>
+            <div class="scan-stat-row">
+              <span>入库 / 更新 / 跳过</span>
+              <span class="source-note">{{ scanProgress.inserted }} / {{ scanProgress.updated }} / {{ scanProgress.skipped }}</span>
+            </div>
+            <div class="scan-stat-row">
+              <span>降级 / 失败</span>
+              <span class="source-note">{{ scanProgress.degraded }} / {{ scanProgress.failed }}</span>
+            </div>
+            <div class="scan-stat-row">
+              <span>移除</span>
+              <span class="source-note">{{ scanProgress.removed }}</span>
             </div>
           </div>
-          <p class="scan-hint">开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。</p>
-          <h-button variant="primary" :disabled="!selectedScanSource" @click="startScan">开始扫描</h-button>
-        </ion-content>
-      </ion-modal>
+        </section>
+      </h-bottom-sheet>
 
-      <ion-modal :is-open="isScanProgressOpen" :backdrop-dismiss="scanProgress.stage !== 'processing' && scanProgress.stage !== 'discovering'">
-        <h-nav-bar title="扫描进度" :fixed="false" :safe-area="false">
-          <template #right>
-            <h-button variant="ghost" size="sm" :disabled="scanProgress.stage === 'processing' || scanProgress.stage === 'discovering'" @click="closeScanProgress">
-              关闭
-            </h-button>
-          </template>
-        </h-nav-bar>
-
-        <ion-content class="ion-padding">
-          <h-progress v-if="scanProgress.stage === 'discovering' || scanProgress.stage === 'processing'" indeterminate aria-label="扫描进行中" />
-          <section class="scan-progress">
-            <h2>{{ getScanStageText(scanProgress.stage) }}</h2>
-            <p v-if="scanProgress.message">{{ scanProgress.message }}</p>
-            <p v-if="scanProgress.currentItem" class="source-path">当前：{{ scanProgress.currentItem }}</p>
-            <ion-list inset>
-              <ion-item>
-                <ion-label>已发现 / 已处理</ion-label>
-                <ion-note slot="end">{{ scanProgress.discovered }} / {{ scanProgress.processed }}</ion-note>
-              </ion-item>
-              <ion-item>
-                <ion-label>入库 / 更新 / 跳过</ion-label>
-                <ion-note slot="end">{{ scanProgress.inserted }} / {{ scanProgress.updated }} / {{ scanProgress.skipped }}</ion-note>
-              </ion-item>
-              <ion-item>
-                <ion-label>降级 / 失败</ion-label>
-                <ion-note slot="end">{{ scanProgress.degraded }} / {{ scanProgress.failed }}</ion-note>
-              </ion-item>
-              <ion-item>
-                <ion-label>移除</ion-label>
-                <ion-note slot="end">{{ scanProgress.removed }}</ion-note>
-              </ion-item>
-            </ion-list>
-          </section>
-        </ion-content>
-      </ion-modal>
-
-      <ion-modal :is-open="isWebDavModalOpen" @didDismiss="closeWebDavModal">
-        <h-nav-bar title="添加 WebDAV" :fixed="false" :safe-area="false">
-          <template #right>
-            <h-button variant="ghost" size="sm" @click="closeWebDavModal">关闭</h-button>
-          </template>
-        </h-nav-bar>
-
-        <ion-content class="ion-padding">
+      <h-bottom-sheet v-model="isWebDavModalOpen" title="添加 WebDAV" @close="closeWebDavModal">
           <form class="webdav-form" @submit.prevent="webDavForm.handleSubmit">
             <div class="form-fields">
               <webDavForm.Field
@@ -341,9 +327,8 @@
               添加选中的 {{ selectedWebDavPaths.size }} 个文件夹
             </h-button>
           </section>
-        </ion-content>
-      </ion-modal>
-    </ion-content>
+      </h-bottom-sheet>
+    </div>
 
     <h-toast
       v-model="toast.visible"
@@ -353,7 +338,7 @@
     >
       {{ toast.message }}
     </h-toast>
-  </ion-page>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -361,19 +346,8 @@ import { computed, ref, type ComponentPublicInstance } from 'vue'
 import { useForm } from '@tanstack/vue-form'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
-import {
-  IonAlert,
-  IonContent,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonModal,
-  IonNote,
-  IonPage,
-  type AlertButton,
-} from '@ionic/vue'
 import { add } from '@/icons'
-import { HBottomSheet, HButton, HCard, HCheckbox, HEmpty, HIconButton, HInput, HNavBar, HProgress, HSwitch, HToast } from '@/components/ui'
+import { HBottomSheet, HButton, HCard, HCheckbox, HDialog, HEmpty, HIcon, HInput, HNavBar, HProgress, HSwitch, HToast } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,
@@ -590,6 +564,13 @@ const closeDeleteAlert = (): void => {
   sourcePendingDelete.value = null
 }
 
+const onConfirmDeleteSource = (): void => {
+  if (sourcePendingDelete.value) {
+    void executeDeleteSource(sourcePendingDelete.value)
+  }
+  closeDeleteAlert()
+}
+
 const confirmDeleteSource = (source: SourceItem): void => {
   sourcePendingDelete.value = source
   isDeleteAlertOpen.value = true
@@ -645,24 +626,6 @@ const executeDeleteSource = async (source: SourceItem): Promise<void> => {
     showToast(error instanceof Error ? error.message : '删除音源失败。', 'danger')
   }
 }
-
-const deleteAlertButtons = computed<AlertButton[]>(() => [
-  {
-    text: '取消',
-    role: 'cancel',
-  },
-  {
-    text: '删除',
-    role: 'destructive',
-    handler: () => {
-      const source = sourcePendingDelete.value
-      if (!source) {
-        return
-      }
-      void executeDeleteSource(source)
-    },
-  },
-])
 
 const getLocalSourceName = (path: string): string => {
   return path.split(/[\\/]/).filter(Boolean).at(-1) || path
@@ -910,7 +873,7 @@ const handleAddWebDav = (): void => {
 }
 
 .scan-hint {
-  color: var(--ion-color-medium);
+  color: var(--h-color-ink-muted);
   font-size: 14px;
   line-height: 1.4;
 }
@@ -960,7 +923,7 @@ const handleAddWebDav = (): void => {
 
 .webdav-dir-meta span {
   overflow: hidden;
-  color: var(--ion-color-medium);
+  color: var(--h-color-ink-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -982,13 +945,13 @@ const handleAddWebDav = (): void => {
 
 .current-path {
   overflow: hidden;
-  color: var(--ion-color-medium);
+  color: var(--h-color-ink-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .empty-directory {
-  color: var(--ion-color-medium);
+  color: var(--h-color-ink-muted);
   text-align: center;
 }
 

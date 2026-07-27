@@ -1,5 +1,5 @@
 <template>
-  <ion-page>
+  <div class="m-page">
     <h-nav-bar
       :title="playlist?.name ?? '歌单'"
       show-back
@@ -8,16 +8,19 @@
       @handle-left-click="goBack"
     >
       <template #right>
-        <h-icon-button
-          :icon="playOutline"
-          ariaLabel="播放全部"
+        <h-button
           variant="ghost"
+          is-icon-only
+          shape="square"
+          aria-label="播放全部"
           :disabled="resolvedSongs.length === 0"
           @click="onPlayAll"
-        />
+        >
+          <h-icon :icon="playOutline" />
+        </h-button>
       </template>
     </h-nav-bar>
-    <ion-content :fullscreen="false">
+    <div class="m-content" style="overflow: hidden;">
       <div class="tablet-content-limit">
         <h-empty v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
 
@@ -38,51 +41,44 @@
               :data-index="row.virtualRow.index"
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
-              <ion-item
-                button
-                :detail="false"
-                lines="none"
+              <div
                 class="song-item"
                 :class="{ 'is-playing': playerState.currentSong?.id === row.song.id }"
+                role="button"
+                tabindex="0"
                 @click="onPlaySong(row.song, $event)"
               >
-                <m-cover slot="start" :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
-                <ion-label>
+                <m-cover :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
+                <div class="song-item-label">
                   <h2>{{ row.song.title }}</h2>
                   <p>{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
-                </ion-label>
-                <h-icon-button
-                  slot="end"
-                  :icon="removeCircleOutline"
+                </div>
+                <h-button
                   variant="ghost"
+                  is-icon-only
+                  shape="square"
                   class="more-button"
-                  :ariaLabel="`从歌单移除 ${row.song.title}`"
+                  :aria-label="`从歌单移除 ${row.song.title}`"
                   @click.stop="onRemove(row.song.id)"
-                />
-              </ion-item>
+                >
+                  <h-icon :icon="removeCircleOutline" />
+                </h-button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </ion-content>
-  </ion-page>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import {
-  IonContent,
-  IonItem,
-  IonLabel,
-  IonPage,
-  onIonViewWillEnter,
-  useIonRouter,
-} from '@ionic/vue'
 import { playOutline, removeCircleOutline } from '@/icons'
-import { HEmpty, HIconButton, HNavBar, MCover } from '@/components/ui'
+import { HButton, HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'
@@ -101,7 +97,7 @@ import {
 } from '@/features/player/controller'
 
 const route = useRoute()
-const ionRouter = useIonRouter()
+const router = useRouter()
 const playlist = ref<Playlist | undefined>()
 const allSongs = ref<SongItem[]>([])
 const listParentRef = ref<HTMLElement | null>(null)
@@ -162,11 +158,12 @@ const getSongCoverSrc = (song: SongItem): string => {
 }
 
 const goBack = (): void => {
-  if (ionRouter.canGoBack()) {
-    ionRouter.back()
-    return
-  }
-  ionRouter.navigate('/tabs/playlists', 'back', 'pop')
+  // 优先回退历史栈，没有历史则回到歌单列表
+  router.back()
+  // vue-router 的 back() 在无历史时无操作，用超时兜底
+  window.setTimeout(() => {
+    router.replace('/tabs/playlists')
+  }, 100)
 }
 
 const onPlayAll = () => {
@@ -205,7 +202,8 @@ onUnmounted(() => {
   window.removeEventListener(SONGS_UPDATED_EVENT, refresh)
 })
 
-onIonViewWillEnter(() => {
+// 路由参数变化时刷新数据（同一组件复用场景）
+watch(playlistId, () => {
   refresh()
 })
 </script>
@@ -234,9 +232,8 @@ onIonViewWillEnter(() => {
   min-height: var(--muses-song-row-height);
 }
 
-/* 当前播放行：替代已删除 HListRow 的 playing 背景。 */
-:deep(.song-item.is-playing) {
-  --background: var(--muses-color-playing-bg);
+/* 当前播放行 */
+.song-item.is-playing {
   background: var(--muses-color-playing-bg);
 }
 

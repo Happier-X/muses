@@ -6,13 +6,12 @@
 
 ## Overview
 
-Components in this repository are Vue single-file components using the Composition API via `<script setup lang="ts">`. The current codebase is simple and mostly follows the default Ionic Vue starter patterns.
+Components in this repository are Vue single-file components using the Composition API via `<script setup lang="ts">`. 应用**已完全脱离 Ionic 框架**：路由用 `vue-router`（`createRouter` + `createWebHistory`），页面骨架用自建 `MPage` / `MContent`，UI 全部基于 `happier-ui` + Vue 原生能力。Capacitor 原生壳保持不变。
 
 Reference files:
 
-- `src/App.vue`
-- `src/components/ExploreContainer.vue`
-- `src/views/Tab1Page.vue`
+- `src/App.vue`（自建 app shell + `<RouterView>`）
+- `src/components/ui/MPage.vue` / `src/components/ui/MContent.vue`（自建页面骨架）
 - `src/views/TabsPage.vue`
 
 ---
@@ -27,84 +26,65 @@ Use the standard Vue SFC layout already present in the repo:
 
 Examples:
 
-- `src/App.vue` shows a minimal shell component with only Ionic wrapper markup.
-- `src/components/ExploreContainer.vue` shows template + script + scoped style.
-- `src/views/Tab1Page.vue` shows a route page with Ionic layout components and no local style block.
+- `src/App.vue` shows a minimal shell component: `<div class="app-shell">` + `<RouterView>` + MiniPlayer/PlayerPage/QueuePage 兄弟层级。
+- `src/components/ui/MPage.vue` 用 `HNavBar` + `MContent` 组成自建页面骨架。
+- `src/views/SettingsPage.vue` shows a route page using `MPage` with native list structure and scoped style.
 
 ---
 
 ## Muses 语义组件层 → `happier-ui`
 
-Muses 默认从 npm 使用固定版本 **`happier-ui@0.0.2`**，不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
+Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.6`**（不用 `^`），不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
 
-- **权威 token**：包内 `happier-ui/tokens.css` 的 **`--h-*`**；`--muses-*` 为兼容别名。
-- **样式管道（0.0.2 必需）**：宿主必须接入 **Tailwind CSS v4**（`tailwindcss` + `@tailwindcss/vite`）。全局入口 `src/theme/tailwind.css` 使用 `@import 'tailwindcss'` + `@import 'happier-ui/styles'`，由 Vite 的 `tailwindcss()` 插件解析 `@theme` / `@layer components`。**禁止**再直接 `import 'happier-ui/style.css'` 或把 `styles.css` 当普通预编译 CSS 跳过 Tailwind 管道。
-- **边界**：真实库导出为 `HBadge`、`HBottomSheet`、`HButton`、`HCard`、`HCell`、`HCellGroup`、`HCheckbox`、`HDialog`、`HEmpty`、`HFloatingBubble`、`HIcon`、`HIconButton`、`HImage`、`HInput`、`HNavBar`、`HPagination`、`HProgress`、`HRange`、`HSelect`、`HSidebar`、`HSwitch`、`HTable`、`HTabBar`、`HTag`、`HTextarea`、`HToast`；类型含 `HSelectOption`、`HSidebarItem`、`HTableColumn`、`HTableSort`、`HTabBarItem`、`HFloatingBubbleOffset`、`HFloatingBubbleAxis`、`HFloatingBubbleMagnetic`、`HFloatingBubbleGap`；app-only 为 `MCover`（音乐封面）与 `MPage`（Ionic 宿主页壳）。
+- **权威 token**：包内 `happier-ui/tokens.css` 的 **`--h-*`**；`--muses-*` 为兼容别名。0.0.5 起 tokens.css 已彻底去除 `var(--ion-*)` 反向依赖，改为自持有值，并内建双触发独立暗色态（`@media(prefers-color-scheme: dark) :root:not(.light)` 系统跟随 + `:root.dark`/`.dark` 手动强制）。暗色由 happier-ui 承接，**Muses 侧无需任何暗色 workaround**。
+- **样式管道（必需）**：宿主必须接入 **Tailwind CSS v4**（`tailwindcss` + `@tailwindcss/vite`）。全局入口 `src/theme/tailwind.css` 使用 `@import 'tailwindcss'` + `@import 'happier-ui/styles'`，由 Vite 的 `tailwindcss()` 插件解析 `@theme` / `@layer components`。**禁止**再直接 `import 'happier-ui/style.css'` 或把 `styles.css` 当普通预编译 CSS 跳过 Tailwind 管道。
+- **边界**：真实库导出为 `HBadge`、`HBottomSheet`、`HButton`、`HCard`、`HCell`、`HCellGroup`、`HCheckbox`、`HDialog`、`HEmpty`、`HFloatingBubble`、`HIcon`、`HImage`、`HInput`、`HNavBar`、`HPagination`、`HProgress`、`HRange`、`HSelect`、`HSidebar`、`HSwitch`、`HTable`、`HTabBar`、`HTag`、`HTextarea`、`HToast`；类型含 `HSelectOption`、`HSidebarItem`、`HTableColumn`、`HTableSort`、`HTabBarItem`、`HFloatingBubbleOffset`、`HFloatingBubbleAxis`、`HFloatingBubbleMagnetic`、`HFloatingBubbleGap`；app-only 为 `MCover`（音乐封面）、`MPage`（自建页壳）与 `MContent`（自建滚动容器）。
+- **`HIconButton` 已在 0.0.4 移除**，合并进 `HButton`（`is-icon-only` + `shape='square'|'circle'`）。图标按钮统一用 `<h-button is-icon-only shape=... variant=...>`，不得再引用 `HIconButton`。
 - **首版视觉**：HeroUI Native 角色与触控节奏；**不**引入 `heroui-native` / RN。
 - **禁止**：`MIon*`、整库复刻 Ionic、Material elevation、包内 `@/features` / 业务。
 
 ### 组件契约
 
-`src/components/ui/index.ts` 只转出 happier-ui@0.0.2 的真实导出，并附带 `MCover`、`MPage`。0.0.2 已重新提供 `HIconButton`；仍不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留 Ionic/业务实现并登记对应任务的 `gaps.md`（最新一轮见 `.trellis/tasks/07-24-replace-ionic-with-happier-ui/gaps.md`），未来在 happier-ui 仓库开发后再回迁。
+`src/components/ui/index.ts` 只转出 happier-ui@0.0.6 的真实导出，并附带 `MCover`、`MPage`、`MContent`。不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留业务实现并登记对应任务的 `gaps.md`，未来在 happier-ui 仓库开发后再回迁。
 
 ### 使用规则
 
 - 通过 `@/components/ui` 具名导入。组件只表达语义，**不**读取播放、曲库等业务状态。
 - 新样式优先 `--h-*` 或已有 `--muses-*` 别名；不得新硬编码主色 / elevation。
-- `HEmpty`、`HButton`、`HIconButton`、`HSwitch`、`HInput`、`HCheckbox`、`HToast`、`HRange`、`HProgress`、`HCard` 等已有能力优先使用；`MCover` 仅用于音乐封面业务。
-  - `ion-progress-bar` → `HProgress`、`ion-card*` → `HCard`、icon-only `ion-button`（列表/导航栏）→ `HIconButton` 在 0.0.2 已可零回归替换（见 `07-24-replace-ionic-low-risk`），不再属于库缺口。
-- **`HCell` / `HCellGroup`（0.0.2 新增）本轮暂不采用**：现有列表/设置行基于 `ion-item` + `ion-list`，并叠加了 `ion-item-sliding`、`@tanstack/vue-virtual` 行高实测、`data-song-id` 定位、`slot="start/end"` 等约定；切换到 `HCell`/`HCellGroup` 需重验虚拟化测量与滑动删除，属独立评估项，未在本轮替换范围内。新列表行仍沿用现有 `ion-item` 约定，不得为迁移率贸然替换。
-- 通用列表行、设置行等仍属库缺口的能力不在 Muses 造替代组件，具体落点以 `gaps.md` 为准。
+- `HEmpty`、`HButton`（含 icon-only）、`HSwitch`、`HInput`、`HCheckbox`、`HToast`、`HRange`、`HProgress`、`HCard`、`HBottomSheet`、`HDialog`、`HFloatingBubble` 等已有能力优先使用；`MCover` 仅用于音乐封面业务。
+- **项目已完全脱离 Ionic**（见 `07-25-migrate-off-ionic-core`）：源码零 `ion-*` 标签、零 `@ionic/*` 导入、零 `ionicons`。列表/设置行统一用原生 `<div>` 结构或 `HCellGroup`/`HCell`；虚拟列表行（SongsPage/QueuePage/PlaylistDetailPage）继续用自定义 `<div>` 行（保留 `data-song-id`、`.is-playing` 高亮、`@tanstack/vue-virtual` 行高实测等约定）。
 - **可提交表单**统一用 `@tanstack/vue-form` + `HInput` 字段绑定；约定见 [forms.md](./forms.md)。
 
-### 何时直连 `ion-*`（白名单）
+### `HRange` 进度条（已全面替换 `ion-range`）
 
-业务页可直接使用下列 Ionic 能力；**新增** UI 仍不得写死色/圆角，应使用 token 或 happier-ui：
+`PlayerPage` 进度条已从 `ion-range` 迁移到 `HRange`（happier-ui 0.0.6 起补齐正式 `change` 事件契约）：
 
-| 允许直连 | 原因 |
-|----------|------|
-| `ion-page` / `ion-content` | Ionic 路由页壳与滚动容器；简单页优先 `MPage` |
-| `ion-list` | 结构容器，暂不封装 |
-| `ion-button`（特定缺口场景） | 带文字操作优先 `HButton`、纯图标优先 `HIconButton`；仅 fill 图标主控（`MiniPlayer` / `PlayerPage` 播放键）与「透明底 + danger 前景」（`QueuePage` 清空/删除）等 `HIconButton` 无法零回归的场景保留 Ionic 并登记 `gaps.md` |
-| `ion-toggle` / `ion-input` / `ion-checkbox` / `ion-range` | 优先 `HSwitch`/`HInput`/`HCheckbox`；`ion-range` 因 `HRange` 缺「释放提交」事件契约（详见下方 HRange 说明）在 `PlayerPage` 进度条保留 |
-| ~~`ion-action-sheet`~~ / `ion-alert` / `ion-modal` / `ion-fab` | `ion-action-sheet` → `HBottomSheet`（音源页）；`toastController` → `HToast`（SettingsPage、SourcesPage）；其余：叠层/FAB 宿主；仅替换内部图标为 `HIcon` |
-| `ion-note` / `ion-item` / `ion-label` / `ion-text` | 库缺口：列表行、设置行、提示等，保留并登记 `gaps.md` |
-| `ion-router-outlet` / Tab 壳相关 | 应用壳，非语义组件 |
+- `HRange` emits：`update:modelValue`（拖动中连续 fire，等价原生 `input`）+ `change`（释放/点击轨道/键盘调整时 fire，programmatic 改值不 fire）+ `drag-start` / `drag-end`。
+- 拖动中预览用 `@update:model-value`（写 preview + `seekGestureLocked`）；释放提交用 `@change`（`seekPlayback` + 解锁调度）。
+- `:model-value` 绑定 `effectiveSeekPosition`（拖动 preview 优先，否则 `playerState.position`）。
+- knob 可隐藏（`--h-range-thumb-*`），轨道仍可点击/拖动 seek；已播放填充用 `--h-range-fill`，未播放轨道用 `--h-range-track-bg`。
 
-**禁止**：业务代码使用 `ion-icon` / `@/icons/ion-lucide` / `ionicons/icons`；为迁移率新建 `MListRow`/`MSettingRow`/`MIconButton` 或复制空态结构。库没有对应组件时，保留现有 Ionic/业务结构并登记 `gaps.md`。
+## 页面骨架 Pattern（MPage / MContent，自建，无 Ionic）
 
-### `HRange` 当前能力差距（PlayerPage 进度条保留 `ion-range` 的原因）
+路由页面使用自建骨架，顶部导航栏统一使用 `HNavBar`：
 
-`HRange` 在视觉（`--h-range-fill` / `--h-range-track-bg` / `--h-range-thumb-*` 可隐藏 knob、定制已播放填充）与拖动预览（`update:modelValue` 可驱动 seek preview）两级都能覆盖 `ion-range`，但缺一条正式契约：
-
-- `HRange` 的 emits 只有 `update:modelValue`（等价原生 `input`，拖动中连续 fire），**无对应 `ionChange` 的「释放提交」事件**。
-- 宿主若想实现「拖动中预览 + 释放时提交 `seekPlayback`」只能依赖 fallthrough 监听原生 `@change`（靠 `HRange` 为单根 `<input>` 且未设 `inheritAttrs: false`），而这是 **未声明的库实现细节**，不在 `.d.ts` 的 emits 里，一旦上游重构（包 wrapper、收编 `change` 为自定义 emit、加 `inheritAttrs: false`）就会在 seek 敏感路径上 **静默失效**。
-
-因此 `src/views/PlayerPage.vue` 的进度条保留 `ion-range`（`ionInput` + `ionChange` 契约明确），并在 `07-24-replace-ionic-with-happier-ui/gaps.md` 登记。**解除条件**：happier-ui 为 `HRange` 补一条正式 `change`（释放/点击轨道/键盘调整时 fire，programmatic 改值不 fire）并写入 `.d.ts`。对应上游 issue：https://github.com/Happier-X/happier-ui/issues/1。契约落地后可零回归将 PlayerPage 进度条切换到 `HRange`。
-
-其他未覆盖能力（如 `drag-start`/`drag-end`）非必需：PlayerPage 手势锁 `seekGestureLocked` 本就绑在外层 `.progress-area` 的 pointer/touch 上，不靠 range 组件自身的 knob 事件。
-
-## Ionic Page Pattern
-
-路由页面保留 Ionic 宿主页壳，但用户可见的顶部导航栏统一使用 `HNavBar`：
-
-- 页面根节点使用 `<ion-page>`。
-- `HNavBar` 作为 `ion-page` 的直接子级，放在 `ion-content` 前，页面级统一传 `:fixed="false"`，让它参与 flex 布局并避免遮挡正文。
-- 页面内容使用 `<ion-content :fullscreen="false">`；不再依赖 Ionic 折叠大标题或 header 叠加。
-- 简单页面优先使用 `MPage`；其 `title`、`start`、`end` 插槽分别映射到 `HNavBar` 的 `title`、`left`、`right` 插槽。
-- modal 内的 `HNavBar` 同时传 `:fixed="false" :safe-area="false"`，避免重复状态栏留白。
-- overlay 自管 flex 布局时，`HNavBar :fixed="false"` 作为首个 flex 项。
-- 页面 navbar 禁止使用 `ion-header`、`ion-toolbar`、`ion-title`、`ion-buttons`、`ion-back-button` 拼装；返回行为使用 `HNavBar show-back` 与 `handleLeftClick` 显式处理。
+- **`MPage`**（`src/components/ui/MPage.vue`）：自建页壳 `<div class="m-page">`（flex 纵向 + `height: 100%` + `overflow: hidden`，**无 `contain`** 以免重建 fixed 包含块导致浮层偏移）。内含 `HNavBar :fixed="false"` + 可选 `#subnavbar` slot（SongsPage shuffle-bar）+ `MContent`。`title` / `start` / `end` 插槽映射到 `HNavBar` 的 `title` / `left` / `right`。
+- **`MContent`**（`src/components/ui/MContent.vue`）：自建滚动容器 `<div class="m-content">`（`flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain`，**无 `contain`**）。虚拟列表页可传 `overflow: hidden`（内部列表自管滚动）。
+- 简单滚动页（SettingsPage、PlaylistsPage、AlbumsPage、ArtistsPage）直接用 `<m-page>`；虚拟列表页（SongsPage、PlaylistDetailPage）用 `m-page` + 内部 `.m-content` 覆盖 `overflow: hidden`。
+- overlay 页（PlayerPage、QueuePage）不使用 MPage/MContent，自建骨架自管滚动。
+- modal 内的 `HNavBar` 传 `:fixed="false" :safe-area="false"`，避免重复状态栏留白（弹层现统一为 `HBottomSheet` / `HDialog`，其 `title` prop 或 `#title` slot 承载标题）。
+- navbar 返回行为使用 `HNavBar show-back` 与 `handle-left-click` 显式处理。
 
 参考文件：
 
 - `src/components/ui/MPage.vue`
+- `src/components/ui/MContent.vue`
 - `src/views/SongsPage.vue`
 - `src/views/PlaylistDetailPage.vue`
 - `src/views/QueuePage.vue`
 - `src/views/SourcesPage.vue`
 
-不要构建缺少 `ion-page` 的路由内容页，否则会破坏 Ionic 布局预期。例外：`src/views/TabsPage.vue` 这类仅负责导航 chrome 和 `<RouterView />` 的父路由壳可以使用普通 Vue 容器，避免嵌套路由重复堆叠 Ionic page。
+`src/views/TabsPage.vue` 仅负责导航 chrome 和 `<RouterView />` 的父路由壳，使用普通 Vue 容器（`<nav>` / `<aside>` + `RouterLink`），不套 MPage。
 
 ---
 
@@ -127,7 +107,7 @@ For consistency with current code, simple presentational components may use comp
 Good fit:
 
 - Small display-only props on reusable components
-- Explicit imports for all used Ionic components
+- Explicit imports for all used happier-ui components via `@/components/ui`
 
 Avoid:
 
@@ -139,18 +119,19 @@ Avoid:
 
 ## Import Conventions
 
-Import all Ionic components explicitly inside each SFC.
+**禁止** `import ... from '@ionic/vue'`、`@ionic/vue-router`、`ionicons`。Ionic 依赖已从 `package.json` 删除。
 
 Examples:
 
-- `src/App.vue` imports `IonApp` and `IonRouterOutlet`
-- `src/views/Tab1Page.vue` imports `IonPage`, `IonHeader`, `IonToolbar`, `IonTitle`, `IonContent`
+- `src/App.vue` 使用原生 `RouterView`（来自 `vue-router`）与自建 `div.app-shell`
+- `src/router/index.ts` 使用 `createRouter` / `createWebHistory`（均来自 `vue-router`）
 - `src/views/TabsPage.vue` 从 `@/icons` 导入 Lucide Vue 语义组件，并使用 `HIcon` 渲染
+- 业务页通过 `@/components/ui` 具名导入 happier-ui 组件与 `MPage`/`MContent`/`MCover`
 
 Also prefer the `@/` alias for application imports from `src/`:
 
 - `import ExploreContainer from '@/components/ExploreContainer.vue'`
-- lazy route import `import('@/views/Tab1Page.vue')`
+- lazy route import `import('@/views/SongsPage.vue')`
 
 ---
 
@@ -160,14 +141,14 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 - 语义导出：`src/icons/index.ts`；导入示例：`import { play, pause, shuffle } from '@/icons'`。
 - 渲染：使用 `<HIcon :icon="play" />`；业务代码禁止 `ion-icon`、`@/icons/ion-lucide` 与 `ionicons/icons` 直引。
-- `package.json` 可因 Ionic 框架运行时保留 `ionicons`，但业务图标不得消费它。
+- `package.json` 已删除 `ionicons` 依赖；业务图标全面使用 `@lucide/vue` + `HIcon`。
 - 播放模式状态图标必须可区分：`repeatOutline` vs `repeat`、`listOutline` vs `shuffle`，不得两状态共用同一图标。
 - 尺寸、颜色与 fill/outline 由 `HIcon` 属性及现有 CSS 控制，保持 `currentColor`。
 - **播放主控 fill**：`play` / `pause` / `playSkipBack` / `playSkipForward` 使用 `HIcon` 的 fill 变体，供 `MiniPlayer`、`PlayerPage` 主三键及歌词页浮动播放控件使用。
 - **次级仍 outline**：列表「播放全部」用 `playOutline`（与 `play` 解耦，保持线框）；模式键（`shuffle` / `repeat*` / 顺序用 `listOutline`）、队列入口（`list`）、返回、翻译等继续 outline
 - **禁止**歌词页浮动播放键再使用圆形 `PlayCircle` / `PauseCircle`；必须与主控同一对 `play` / `pause`（fill）
 - **歌词翻译开关必须可区分且同族**：开 = `languageOutline`（Lucide `Captions`），关 = `languageOffOutline`（Lucide `CaptionsOff`）；同一字幕图标族，只差开/关标记。禁止两态共用同一图标只靠透明度，也禁止开态用 `Languages`、关态用 `CaptionsOff` 这种跨族搭配。`aria-label` 仍为「隐藏翻译」/「显示翻译」，并保留 `.is-active` 高亮作为辅助
-- 主控按钮仍为 `fill="clear"` 纯图标，不得为 fill 图标另加 solid 圆底阴影
+- 主控按钮统一 `HButton variant="ghost" is-icon-only shape="circle"` 纯图标，不得为 fill 图标另加 solid 圆底阴影
 
 ### 同语义同图标（list vs listOutline）
 
@@ -210,16 +191,16 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 ### 断点约定的规则
 
-1. **Muses 视觉变量统一在 `src/theme/tokens.css` 的 `:root` 中定义**，单一来源，所有页面引用 `var(--muses-*)`；`variables.css` 只桥接 Ionic。
+1. **Muses 视觉变量统一在 `src/theme/tokens.css` 的 `:root` 中定义**，单一来源，所有页面引用 `var(--muses-*)`；`variables.css` 已清空（Ionic 桥接已全部移除）。
 2. **`@media (min-width: XXX)` 条件中不可使用 `var()`** — CSS 标准不允许。在 `@media` 中直接使用硬编码的 `768px`；`var()` 只用于属性值部分（如 `max-width: var(--muses-content-max-width)`）。
-3. **宽屏下隐藏元素**：对窄屏专属元素（如 `ion-tab-bar`）使用 `@media (min-width: 768px) { … display: none }`。
+3. **宽屏下隐藏元素**：对窄屏专属元素（如底部 tab bar）使用 `@media (min-width: 768px) { … display: none }`。
 4. **窄屏零回归**：所有平板改造限定在 `@media (min-width: 768px)` 内；窄屏下不加任何额外样式。
 
 ### 当前平板组件模式
 
-- **导航 Shell**：`src/views/TabsPage.vue` 使用普通 Vue 布局容器作为父级 shell，不使用 `ion-page` 包裹父路由布局；子页面继续保留自己的 Ionic page 结构。
+- **导航 Shell**：`src/views/TabsPage.vue` 使用普通 Vue 布局容器作为父级 shell；子页面使用自建 `MPage`/`MContent` 骨架。
 - **侧栏**：宽屏下由固定定位的普通 `<aside>` 提供左侧导航，右侧 `<main>` 渲染 `<RouterView />`；窄屏回落为普通 `<nav>` + `RouterLink` 底部导航。
-- **避免 Split Pane**：当前 MuMu / Android WebView 环境中，`ion-split-pane` + `ion-menu` 曾触发白屏；不要在 `TabsPage.vue` 中恢复该结构，除非完成真机与 MuMu 回归验证。
+- **避免 Split Pane**：当前 MuMu / Android WebView 环境中，早期 `ion-split-pane` + `ion-menu` 曾触发白屏；已彻底移除 Ionic，不得回归该结构。
 - **专辑卡片网格（Albums）**：`src/views/AlbumsPage.vue` 使用 `<div class="album-grid">` 直接渲染 `<article class="album-card">` 卡片（封面 + 专辑名 + 歌曲数 + 艺术家摘要），不再使用 `ion-list` / `ion-item`。窄屏固定 `grid-template-columns: repeat(2, minmax(0, 1fr))`；宽屏在内容宽度上限内 `repeat(auto-fill, minmax(180px, 1fr))` 自动增列。卡片封面复用 `MCover`，通过 `.album-card > .album-card__cover { --m-cover-size: 100% !important; height: auto; aspect-ratio: 1; flex: 0 0 auto }` 覆盖 MCover 内联默认尺寸；`height: auto` 必须保留，使 `aspect-ratio` 能按卡片宽度计算正方形高度（不改 MCover 全局契约）。
 - **艺术家卡片网格（Artists）**：`src/views/ArtistsPage.vue` 使用 `<div class="artist-grid">` 直接渲染 `<article class="artist-card">` 卡片（圆形头像 + 艺术家名 + 歌曲数 + 专辑数），不再使用 `ion-list` / `ion-item`。窄屏固定 `grid-template-columns: repeat(2, minmax(0, 1fr))`；宽屏在内容宽度上限内 `repeat(auto-fill, minmax(180px, 1fr))` 自动增列。头像复用 `MCover`，从艺术家歌曲中选择首张有效封面，无封面时保留占位；通过 `.artist-card > .artist-card__avatar { --m-cover-size: 100% !important; height: auto; aspect-ratio: 1; border-radius: 50% }` 保持正圆。
 - **SongsPage 宽屏单列**：`src/views/SongsPage.vue` 宽屏不使用多列 grid，列表始终竖排单列；外层 `.list-grid` / `.tablet-content-limit` 仅做 `max-width: var(--muses-content-max-width); margin-inline: auto` 限位居中（与窄屏一致的一列体验）。
@@ -229,39 +210,44 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 `src/views/SongsPage.vue` 在顶部 Navbar 正下方固定显示随机播放全部入口，歌曲列表在其下方滚动：
 
-- 位置：作为 `HNavBar` 与 `ion-content` 之间的独立 `.shuffle-bar` flex 项，使入口与 Navbar 一起固定，不随歌曲列表滚动。
+- 位置：通过 `MPage` 的 `#subnavbar` 插槽承载，位于 `HNavBar` 与 `MContent` 之间的独立 `.shuffle-bar` flex 项，使入口与 Navbar 一起固定，不随歌曲列表滚动。
 - 布局：按钮容器在窄屏左对齐；宽屏使用 `max-width: var(--muses-content-max-width)` 与 `margin-inline: auto` 限宽居中，按钮仍位于内容左侧。
-- 样式：优先 `HButton` + `HIcon` 展示 `@/icons` 的 `shuffle` 与「随机播放全部」文案；若仍用 Ionic 文字按钮，内部图标也必须是 `HIcon`，不得使用 `expand="block"` 或整行描边操作条。
-- 禁止恢复为 `ion-content slot="fixed"` 的底部 `.bottom-actions`，也不要把入口放入会随列表滚走的普通内容流。
+- 样式：优先 `HButton` + `HIcon` 展示 `@/icons` 的 `shuffle` 与「随机播放全部」文案，不得使用整行描边操作条。
+- 禁止把入口放入会随列表滚走的普通内容流。
 - 无歌曲时按钮仍出现且 `:disabled`，点击不产生副作用；保留 `aria-label="随机播放全部"`。
 - 点击语义：`clearQueue()` → `enqueueSongs(allSongs)` → 若 `!shuffleEnabled()` 则 `toggleShuffle()` → `selectSongAtIndex(0)` → `playSong(first)`。
 - `toggleShuffle` 会生成 `shuffleOrder`；`selectSongAtIndex(0)` 取乱序首曲。
-- `ion-content` 的 `--padding-bottom` 只需避让 MiniPlayer 和移动端 Tab Bar，不再为随机播放操作条额外留位；仍须确保最后一首歌曲滚动到底后完整可见。
+- 歌曲列表滚动容器的 `padding-bottom` 只需避让 MiniPlayer 和移动端 Tab Bar，不再为随机播放操作条额外留位；仍须确保最后一首歌曲滚动到底后完整可见。
 
 参考结构：
 
 ```vue
-<HNavBar title="歌曲" :fixed="false"><!-- 搜索操作 --></HNavBar>
-<div class="shuffle-bar">
-  <div class="shuffle-actions">
-    <HButton variant="ghost" aria-label="随机播放全部">
-      <template #leading>
-        <HIcon :icon="shuffle" aria-hidden="true" />
-      </template>
-      随机播放全部
-    </HButton>
-  </div>
-</div>
-<ion-content :fullscreen="false"><!-- 歌曲列表 --></ion-content>
+<m-page fullscreen>
+  <template #title>歌曲</template>
+  <template #end><!-- 搜索操作 --></template>
+  <template #subnavbar>
+    <div class="shuffle-bar">
+      <div class="shuffle-actions">
+        <HButton variant="ghost" aria-label="随机播放全部">
+          <template #leading>
+            <HIcon :icon="shuffle" aria-hidden="true" />
+          </template>
+          随机播放全部
+        </HButton>
+      </div>
+    </div>
+  </template>
+  <!-- 歌曲虚拟列表 -->
+</m-page>
 ```
 
 ### SongsPage 跳转到当前播放 FAB
 
-`src/views/SongsPage.vue` 在 `ion-content` 内右下侧放置 `ion-fab` / `ion-fab-button`，用于滚动到当前播放歌曲行：
+`src/views/SongsPage.vue` 使用 `HFloatingBubble` 在右下侧放置浮动按钮，用于滚动到当前播放歌曲行：
 
-- 图标：`@/icons` 的 `locateOutline` 经 `HIcon` 渲染；`aria-label="跳转到当前播放"`。
+- 组件：`<h-floating-bubble axis="lock" :offset="fabOffset" :ariaLabel="'跳转到当前播放'" @click="scrollToCurrentSong">`；`axis="lock"` 禁拖拽，`offset` 直接指定绝对坐标（避让 MiniPlayer + tab-bar + safe-area）。图标用 `@/icons` 的 `locateOutline` 经 `HIcon` 渲染。
 - 可见性：`v-if="currentPlayingInList"` —— 仅当 `playerState.currentSong?.id` 存在且该 id 出现在当前歌曲列表中时展示；无当前播放或不在列表则隐藏。
-- 行定位：每行 `ion-item` 带 `data-song-id="song.id"`；点击 FAB 用页面内 `[data-song-id]` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })`。
+- 行定位：每行 `<div>` 带 `data-song-id="song.id"`；点击 FAB 用页面内 `[data-song-id]` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })`。
 - **避开固定顶栏**：`block: 'start'` 只对齐滚动端口顶部，不扣除外层 `HNavBar + .shuffle-bar`。必须在 `.song-item`（或带 `data-song-id` 的行）设置足够的 `scroll-margin-top`（当前约 108px，覆盖 navbar、48px 随机播放条与缓冲），使目标行完整出现在列表可视区内、标题主信息不被顶栏挡住。仅写 `block: 'start'` 而不设 margin/等价偏移会回归遮挡。
 - 列表末尾无法再滚时停在容器允许的最大位置（不必强行置顶）。宽屏单列同样适用。
 - 可选轻高亮：滚动后给目标行加 `jump-highlight` 约 1.2s，再移除；卸载时清理 timer。
@@ -279,31 +265,12 @@ Also prefer the `@/` alias for application imports from `src/`:
 - 标题优先使用 `title` prop；需要自定义内容时使用 `title` slot。
 - 左右操作分别使用 `left` / `right` slot；返回使用 `show-back`、`back-aria-label` 与 `handleLeftClick`。
 - 动态长标题依赖 `HNavBar` 内建单行省略，不添加页面级居中 class 或覆盖内部 grid。
-- `src/theme/variables.css` 只保留 Ionic token 桥接，不得恢复 `ion-header` / `ion-title` / `ion-buttons` navbar 专属全局样式。
+- `src/theme/variables.css` 已清空（Ionic 桥接已移除）；navbar 相关样式统一由 `HNavBar` 承接。
 - 页面级 `safeArea` 保持默认开启；modal 内显式关闭；固定与否按页面壳规则设置。
 
-### ion-list 为 Web Component，CSS Grid 在外层无法布局子 ion-item
+### 列表布局使用原生结构
 
-`ion-list` 是 Ionic Web Component，有 Shadow DOM 隔离。在外层 div 套 CSS Grid 后，`ion-list` 只是 grid 容器的第一个子项，不会将 `ion-item` 暴露为 grid item。
-
-**适用范围**：仅仍使用 `ion-list` + 宽屏多列的页面。`ArtistsPage` 与 `AlbumsPage` 已改为直接渲染 `article` 卡片网格（不含 `ion-list`），不适用本 gotcha；`SongsPage` 宽屏已改为单列，也不再使用 grid + `display: contents`。
-
-**修复（多列页）**：在宽屏下给 `ion-list` 加 `display: contents;`，使 `ion-item` 成为 grid 容器的直接子元素：
-
-```css
-@media (min-width: 768px) {
-  .list-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1px;
-    max-width: var(--muses-content-max-width);
-    margin-inline: auto;
-  }
-  .list-grid > ion-list {
-    display: contents;
-  }
-}
-```
+所有列表已从 `ion-list` / `ion-item` 迁移为原生 `<div>` 结构或卡片网格。`ArtistsPage` 与 `AlbumsPage` 直接渲染 `article` 卡片网格；`SongsPage` / `QueuePage` / `PlaylistDetailPage` 使用虚拟列表 + 原生行 `<div>`；`SettingsPage` / `PlaylistsPage` 使用原生 `<div>` 行。宽屏多列直接在原生 div 上写 CSS Grid，不再有 Web Component Shadow DOM 隔离问题。
 
 **SongsPage 宽屏单列**：
 
@@ -355,8 +322,8 @@ Do not duplicate Ionic core or utility CSS imports inside page components.
 ### 样式约定
 
 - 底栏占满屏幕宽度，固定在移动端底部导航栏上方。
-- **窄屏**（`<768px`）：`bottom: calc(64px + var(--ion-safe-area-bottom, 0px))`，为底部 Tab Bar 留位。
-- **宽屏**（`@media (min-width: 768px)`）：平板侧栏布局已隐藏 `.mobile-tab-bar`，底栏贴底，仅保留安全区：`bottom: var(--ion-safe-area-bottom, 0px)`；禁止继续抬高 64px，否则会悬空。
+- **窄屏**（`<768px`）：`bottom: calc(64px + env(safe-area-inset-bottom, 0px))`，为底部 Tab Bar 留位。
+- **宽屏**（`@media (min-width: 768px)`）：平板侧栏布局已隐藏 `.mobile-tab-bar`，底栏贴底，仅保留安全区：`bottom: env(safe-area-inset-bottom, 0px)`；禁止继续抬高 64px，否则会悬空。
 - 底栏本身不使用圆角和阴影，仅保留顶部边线分隔内容。
 - 封面容器圆角与歌曲列表一致，使用 `border-radius: 10px`。
 - 无当前歌曲或无封面时展示稳定占位封面与占位文案，避免播放状态为空时底栏跳动或消失。
@@ -368,9 +335,10 @@ Do not duplicate Ionic core or utility CSS imports inside page components.
 - **无当前歌曲时不可打开沉浸式播放页**：当 `playerState.currentSong` 为 `null` 时，点击主体或键盘 Enter / Space 都不得调用 `openPlayerOverlay()`；主体应标记 `aria-disabled`，并去掉 `cursor: pointer` 误导。
 - 点击播放/暂停按钮只控制播放状态，不能触发打开播放器 overlay。
 - 播放/暂停图标使用 `@/icons` 的 `play` / `pause` 组件并由 `HIcon` 以 fill 变体渲染，与沉浸页主控一致；不得用 outline、`ion-icon` 或 ionicons 直引。
+- 播放/暂停、队列等操作按钮统一用 `HButton`（`variant="ghost"` + `is-icon-only` + `shape="circle"`）。
 - 无歌曲时播放/暂停按钮继续禁用；队列按钮行为不受影响，仍可打开队列 overlay。
 - 点击队列按钮调用 `openQueueOverlay()`，不能改变当前路由 URL，也不能触发打开播放器 overlay。
-- 对 Ionic `ion-button` 不要只依赖 `@click.stop`；按钮内部事件可能穿过 Web Component 边界。父级主体点击处理需要检查 `event.composedPath()`，如果事件路径包含 `.player-actions` 就直接忽略。
+- 嵌套在可点击主体内的 `HButton` 不要只依赖 `@click.stop`。父级主体点击处理需要检查 `event.composedPath()`，如果事件路径包含 `.player-actions` 就直接忽略。
 
 ```ts
 const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
@@ -386,11 +354,11 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
 
 ### Overlay 页面约定
 
-- `PlayerPage.vue` 和 `QueuePage.vue` 是全局 overlay 内容组件，由 `App.vue` 渲染在 `ion-router-outlet` 之后；不要在 `src/router/index.ts` 中新增 `/player` 或 `/queue` 路由。
+- `PlayerPage.vue` 和 `QueuePage.vue` 是全局 overlay 内容组件，由 `App.vue` 渲染在 `<RouterView>`（`.app-router-view` 包层）之后；不要在 `src/router/index.ts` 中新增 `/player` 或 `/queue` 路由。
 - 打开播放器/队列 overlay 时底层 tabs 路由页面必须保持存在，以支持下滑收起露出真实底层页面。
 - 播放器 overlay 的系统状态栏样式由 `App.vue` 监听 `playerOverlayVisible` 统一管理：打开时调用 `StatusBar.setStyle({ style: Style.Dark })` 显示白色内容，关闭及 `App.vue` 卸载时用 `Style.Default` 恢复默认；插件失败必须静默忽略，并通过串行化或请求 token 防止快速开关导致异步乱序。不得监听 `hasGlobalOverlay`，队列 overlay 单独打开不修改状态栏，也不要在 `PlayerPage.vue` 内管理状态栏。
 - 播放器 overlay 顶部不显示返回/收起按钮，也不展示「正在播放」标题；顶部仅保留安全区留白。关闭通过下滑手势、Android back 键或显式 overlay 状态完成。
-- 下滑收起播放器时移动 overlay 内容层，不要移动 Ionic 路由页或依赖透明路由页露出缓存层，否则容易出现黑屏或重复页面。
+- 下滑收起播放器时移动 overlay 内容层，不要移动底层路由页或依赖透明路由页露出缓存层，否则容易出现黑屏或重复页面。
 - 沉浸式控制页布局自上而下：大封面 → 歌名/歌手 → 进度条 → 主控制（上一曲/播放暂停/下一曲）→ 次要控制（循环/随机/队列）。
 - **不展示元信息补充过程文案**（#48）：沉浸式页不得渲染「正在补充歌曲信息…」「歌曲信息补充失败…」等 `metadataStatus` 提示；后台扫描/在线补全逻辑可继续运行。
 - 沉浸式控制页封面（`.cover` / 占位封面）不加 `box-shadow`；宽屏与窄屏保持一致，避免封面后方出现额外阴影。
@@ -403,7 +371,7 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - `max-height: 720px`：减小 panel 上下 padding（保留 `safe-area`）、`info-panel-inner` gap、进度 slider 热区（约 20px）、主控与模式栏按钮尺寸，封面槽位拿到更多垂直空间。
   - `max-height: 520px`：再收一档 gap/字号/按钮/热区（约 18px），仍显示全部控件。
   - 不引入 landscape 专用 DOM；横屏通常命中 `max-height` 断点即可。padding 只减固定 px 部分，用 `calc(... + safe-area)`，不得抹掉安全区。
-- 主控制三键（上一曲/播放暂停/下一曲）均为 `fill="clear"` 纯图标按钮，无 solid 圆底与按钮阴影；图标从 `@/icons` 导入并由 `HIcon` 以 fill 变体渲染（`play` / `pause` / `playSkipBack` / `playSkipForward`），不得回退 outline 主控或 ionicons 直引；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
+- 主控制三键（上一曲/播放暂停/下一曲）均为 `HButton`（`variant="ghost"` + `is-icon-only` + `shape="circle"`）纯图标按钮，无 solid 圆底与按钮阴影；图标从 `@/icons` 导入并由 `HIcon` 以 fill 变体渲染（`play` / `pause` / `playSkipBack` / `playSkipForward`），不得回退 outline 主控或 ionicons 直引；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
 - 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons` 导入并由 `HIcon` 渲染：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `ListOrdered`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。**打开队列**按钮使用 `list`（Lucide `ListMusic`），与 `MiniPlayer` 队列键一致；不得用 `listOutline` 表示队列（`listOutline` 仅顺序播放）。
 - **歌词页浮动播放键**：窄屏歌词页右下角播放/暂停必须使用与主控相同的 `play` / `pause`（fill），禁止圆形 `PlayCircle` / `PauseCircle`。
 - 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位（`.cover-slot`：`flex: 1 1 auto; min-height: 0`）缩放，控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
@@ -418,15 +386,15 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - **歌词行点击 seek**：`LyricPlayer` 绑定 `@line-click`（AMLL emit `lineClick` / core `line-click`）。事件类型为 `LyricLineMouseEvent`，其中 `line` 是 `LyricLineBase`，通过 `line.getLine().startTime` 取起始时间（**毫秒**），再调用 `seekPlayback(startTime / 1000)`（秒）。`startTime` 非 number / 非有限数 / `< 0` 时不 seek。处理时 `stopPropagation` + 复用 `seekGestureLocked`，避免点击误触发 overlay 下滑关闭或横向切面板。无歌词空状态不绑定该行为。
   - **歌词区上下滑动手势隔离**：AMLL `LyricPlayer` 内部滚动基于 transform，**非原生 scroll**，`canStartVerticalDismiss` 的原生 `scrollHeight > clientHeight && scrollTop > 0` 检测无法识别。因此 `canStartVerticalDismiss` 必须额外用 `composedPath` 检测触点是否位于 `.lyric-panel` / `.lyric-player` 内，是则返回 `false`，使歌词区上下滑动不更新 `dragOffsetY`、不触发 overlay 下滑关闭。控制页（`.info-panel`）下滑关闭语义不变；`onTouchEnd` 中基于 `startX / endX` 的横向切换面板逻辑保留，歌词页左滑仍可切回控制页。
 - **SongsPage 大列表必须虚拟化**（#50）：使用 `@tanstack/vue-virtual` 只渲染可视行（固定约 72px，适量 overscan），自建滚动容器；「跳转当前播放」先 `scrollToIndex` 再高亮挂载行，禁止恢复全量 `v-for="song in songs"`。
-- 打开播放器/队列 overlay 时必须锁定底层路由页交互与滚动：`ion-router-outlet` 设 `pointer-events: none`，`body.muses-overlay-open ion-router-outlet ion-content` 禁用滚动；不要锁住队列 overlay 自己的 `ion-content`。
-- 播放器 overlay 自身使用 `touch-action: none`，并在非原生可交互控件（含 `input` / `ion-range` / `ion-button` 等）上对 `touchmove` 调用 `preventDefault`，防止滑动穿透到底层歌曲列表；进度条保留可拖动。
-- **进度条手势隔离**：`.progress-area` 必须 `@touchstart.stop` / `@pointerdown.stop`，并配合短 debounce 的 `seekGestureLocked`；seek 期间/刚结束后禁止 `playPreviousFromQueue` / `playNextFromQueue`，也禁止横向切换 `activePanel`，避免松手点穿到上一曲/下一曲或误切歌词面板。`isNativeInteractiveEvent` 必须识别 `ion-range` / `.progress-range`（不仅是原生 `input`）。
-- **进度条使用 `ion-range`（无可见圆点）**：
-  - 控件：`<ion-range class="progress-range">`，`min=0`，`max=duration`（duration 为 0 时 max 兜底为 1 并禁用），`step` 细粒度（如 `0.1`），`value` 绑定 `effectiveSeekPosition`（拖动 preview 优先，否则 `playerState.position`）。
-  - **`onSeekInput` 仅在 `seekGestureLocked` 为 true 时写 preview**：`ion-range` 在 `value` 属性变化时会 emit `ionInput`；无手势锁时必须忽略，否则 preview 冻住填充、播放进度看似不走（#47）。
-  - 隐藏 knob：`--knob-size: 0`、`--knob-box-shadow: none`，必要时透明 `--knob-background`；桌面与窄屏均不可见圆点，但轨道仍可点击/拖动 seek。
-  - 轨道视觉用 ion-range 自带 bar：`--bar-background`（未播放）、`--bar-background-active`（已播放）、`--bar-height`；**不再维护** `.progress-track-buffered` / 自绘三层缓冲 DOM，也不再注入 UI 用的 `--buffered` CSS 变量。
-  - 事件：`ionInput` → 更新 preview + `seekGestureLocked`；`ionChange` → `seekPlayback` + 解锁调度。缓冲已知时 UI 侧仍将目标 clamp 到 `bufferedPosition`，越界轻提示「缓冲中」；`seekPlayback` 业务 clamp/拒绝语义不变。
+- 打开播放器/队列 overlay 时必须锁定底层路由页交互与滚动：`.app-router-view` 设 `pointer-events: none`，`body.muses-overlay-open .app-router-view` / `.m-content` 禁用滚动；不要锁住队列 overlay 自己的滚动容器。
+- 播放器 overlay 自身使用 `touch-action: none`，并在非原生可交互控件（含 `input` / `HRange` / `HButton` 等）上对 `touchmove` 调用 `preventDefault`，防止滑动穿透到底层歌曲列表；进度条保留可拖动。
+- **进度条手势隔离**：`.progress-area` 必须 `@touchstart.stop` / `@pointerdown.stop`，并配合短 debounce 的 `seekGestureLocked`；seek 期间/刚结束后禁止 `playPreviousFromQueue` / `playNextFromQueue`，也禁止横向切换 `activePanel`，避免松手点穿到上一曲/下一曲或误切歌词面板。`isNativeInteractiveEvent` 必须识别 `HRange` / `.progress-range`（不仅是原生 `input`）。
+- **进度条使用 `HRange`（无可见圆点）**：
+  - 控件：`<h-range class="progress-range">`，`min=0`，`max=duration`（duration 为 0 时 max 兜底为 1 并禁用），`step` 细粒度（如 `0.1`），`:model-value` 绑定 `effectiveSeekPosition`（拖动 preview 优先，否则 `playerState.position`）。
+  - **`onSeekInput` 仅在 `seekGestureLocked` 为 true 时写 preview**：`HRange` 在值变化时会 emit `update:modelValue`（拖动中连续 fire）；无手势锁时必须忽略，否则 preview 冻住填充、播放进度看似不走（#47）。
+  - 隐藏 knob：用 `HRange` 的 `--h-range-thumb-*` 令 knob 不可见；桌面与窄屏均不可见圆点，但轨道仍可点击/拖动 seek。
+  - 轨道视觉用 `HRange` 自带 fill/track：`--h-range-track-bg`（未播放）、`--h-range-fill`（已播放）；**不再维护** `.progress-track-buffered` / 自绘三层缓冲 DOM，也不再注入 UI 用的 `--buffered` CSS 变量。
+  - 事件：`update:modelValue` → 更新 preview + `seekGestureLocked`；`change` → `seekPlayback` + 解锁调度（happier-ui 0.0.6 起 `HRange` 补齐了正式 `change` 释放提交事件契约）。缓冲已知时 UI 侧仍将目标 clamp 到 `bufferedPosition`，越界轻提示「缓冲中」；`seekPlayback` 业务 clamp/拒绝语义不变。
   - **缓冲未知**（`playerState.bufferedPosition == null`）时不画假缓冲条；WebDAV 远程直链固定属于此状态，seek 退化为 duration clamp。
   - **歌词行点击**：目标 > `bufferedPosition` 时不 seek（与进度条共用 `seekPlayback` 拒绝语义）。
 
@@ -463,7 +431,7 @@ import PlayerPage from '@/views/PlayerPage.vue'
 import QueuePage from '@/views/QueuePage.vue'
 ```
 
-**Related**: `vite.config.ts` 的 `build.rollupOptions.output.manualChunks` 已将 `@applemusic-like-lyrics` + `@pixi` 锁定到 `amll-pixi` chunk、`@ionic/vue`+`ionicons` 到 `ionic` chunk、`vue`+`vue-router` 到 `vue-vendor` chunk，利于长期缓存。新增任何重量级（>50KB）第三方库到 overlay 页面时，同样适用此约定；不要再用静态 import 把它拽进主 bundle。
+**Related**: `vite.config.ts` 的 `build.rollupOptions.output.manualChunks` 已将 `@applemusic-like-lyrics` + `@pixi` 锁定到 `amll-pixi` chunk、`vue`+`vue-router` 到 `vue-vendor` chunk，利于长期缓存。新增任何重量级（>50KB）第三方库到 overlay 页面时，同样适用此约定；不要再用静态 import 把它拽进主 bundle。
 
 **Gotcha**: 异步组件首次解析有极短延迟；如果 `<Transition>` 动画出现时序问题，给 `defineAsyncComponent` 传 `loadingComponent` / `delay` 选项，不要回退到静态 import。MiniPlayer 必须保持静态 import（它依赖很轻且首屏底栏需始终可见，不能等异步加载）。
 
@@ -499,14 +467,14 @@ const openScanSettings = (source: SourceItem): void => {
 
 ## QueuePage / PlaylistDetailPage 虚拟列表约定
 
-`QueuePage.vue` 和 `PlaylistDetailPage.vue` 的长队列/歌单列表使用 `@tanstack/vue-virtual`，避免一次挂载全量 Ionic 行。
+`QueuePage.vue` 和 `PlaylistDetailPage.vue` 的长队列/歌单列表使用 `@tanstack/vue-virtual`，避免一次挂载全量行。
 
 ### 规则
 
 1. 虚拟器必须使用真实原生滚动容器，容器设置 `overflow: auto`、`min-height: 0` 和 `box-sizing: border-box`。
-2. 保留原生 HTML 包装行，行带 `data-index`，通过 `measureElement` 测量；不要直接把 Ionic Web Component 实例作为测量目标。
+2. 保留原生 HTML 包装行，行带 `data-index`，通过 `measureElement` 测量。
 3. 不要为虚拟器未就绪状态回退渲染完整数组，否则大列表首帧仍会创建全量 DOM。
-4. `ion-item-sliding` 不与虚拟行复用混用；需要删除时使用明确的行尾按钮，并用 `event.composedPath()` 防止按钮事件触发整行播放。
+4. 需要删除时使用明确的行尾按钮，并用 `event.composedPath()` 防止按钮事件触发整行播放。
 5. 队列必须保留当前项 `aria-current`、当前项定位、播放、删除、清空和空态；歌单必须保留播放全部、单曲播放、移除、封面、空态和数据更新刷新。
 
 参考文件：`src/views/QueuePage.vue`、`src/views/PlaylistDetailPage.vue`、`@tanstack/vue-virtual`。
@@ -578,7 +546,7 @@ The current codebase includes a few baseline patterns that should be preserved:
 
 - Decorative icons use `aria-hidden="true"` in `src/views/TabsPage.vue`
 - External links in `src/components/ExploreContainer.vue` include `target="_blank"` with `rel="noopener noreferrer"`
-- Tab buttons use visible `IonLabel` text
+- Tab / 导航按钮使用可见文本标签（`<span>` / 原生文案），不依赖 `IonLabel`
 
 Preserve these practices when extending the UI.
 
@@ -596,13 +564,13 @@ Given the current app shape, common mistakes to avoid are:
 
 - Putting route logic inside page components instead of `src/router/index.ts`
 - Adding `/player` or `/queue` routes for immersive playback; these surfaces are global overlays, not route pages
-- Forgetting to import Ionic components explicitly in the SFC script block
+- Reintroducing any `@ionic/*` / `ionicons` 依赖或 `ion-*` 标签（本任务已完全脱离 Ionic）
 - Mixing global theme concerns into component-local styles
 - Introducing new architectural layers (store, services, composables) without an actual need in the task
-- Wrapping a nested parent route shell in `ion-page` when child route pages already provide Ionic page containers; in Android WebView this can cause duplicate navigation chrome or stacked layouts
-- Reintroducing `ion-split-pane` / `ion-menu` for the main tabs shell without MuMu regression testing; this previously caused a white screen in the Android emulator
-- Using `ion-tab-bar` / `ion-tab-button` outside an `ion-tabs` shell in `TabsPage.vue`; in the custom parent route shell, use a plain `<nav>` with `RouterLink` to avoid missing or duplicated mobile bottom navigation
-- Relying only on `@click.stop` for nested `ion-button` controls inside a clickable parent; guard the parent handler with `event.composedPath()` so button clicks do not trigger parent navigation
+- 给 `MPage` / `.m-page` 加 `contain`（会重建 fixed 包含块，导致 HToast/HBottomSheet 等浮层偏移）
+- 在 TabsPage 父路由壳上再套一层 `MPage` 导致重复导航 chrome 或堆叠布局
+- 用 `HIconButton`（0.0.4 已移除）代替 `HButton is-icon-only`
+- Relying only on `@click.stop` for nested `HButton` controls inside a clickable parent; guard the parent handler with `event.composedPath()` so button clicks do not trigger parent navigation
 - Hiding `MiniPlayer` with `v-if` while a player overlay is open; keep it mounted behind the overlay and disable interaction to avoid close-animation flicker
 - Setting immersive `.cover` width without a height-based cap（窄屏只写 `min(72vw, 100%, 340px)` 或宽屏只写 `min(40vw, 320px)`）while `.cover-slot` clamps height via `max-height: min(…dvh, …)`；矮高/横屏时正方形高度被 clamp、宽度不变 → 封面被压成长方形。窄屏与宽屏 `.cover` width 都必须同步含 dvh/`max-height` 对齐的上限
 - 矮屏控制页只缩按钮却不收 panel padding / `info-panel-inner` gap / 进度热区，导致控制区仍占过多垂直空间、封面槽位被挤；或为腾空间隐藏模式栏/进度——应分层 `max-height` 收紧尺寸，保留全部控件
