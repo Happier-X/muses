@@ -8,18 +8,18 @@
       </template>
     </h-nav-bar>
     <div class="m-content">
-      <div class="tablet-content-limit">
+      <div class="md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-empty
           v-if="playlists.length === 0"
           title="还没有歌单"
           description="点右上角新建，或在歌曲页「更多」加入歌单。"
         />
 
-        <div v-else class="playlist-list-static">
+        <div v-else>
           <div
             v-for="item in listRows"
             :key="item.id"
-            class="playlist-item"
+            class="flex items-center gap-3 py-2 px-3 mb-1 cursor-pointer"
             role="button"
             tabindex="0"
             @click="openDetail(item.id)"
@@ -30,16 +30,16 @@
                 <h-icon :icon="list" aria-hidden="true" />
               </template>
             </m-cover>
-            <div class="playlist-item-label">
-              <h2>{{ item.name }}</h2>
-              <p>{{ item.validCount }} 首</p>
+            <div class="flex-1 min-w-0">
+              <h2 class="m-0 text-[length:var(--muses-font-title)] font-semibold truncate">{{ item.name }}</h2>
+              <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted)]">{{ item.validCount }} 首</p>
             </div>
             <h-button
               variant="ghost"
               is-icon-only
               shape="square"
               aria-label="更多歌单操作"
-              class="more-button"
+              class="m-0 more-button"
               @click.stop="openPlaylistActions(item.id)"
             >
               <h-icon :icon="ellipsisVertical" />
@@ -190,45 +190,3 @@ onUnmounted(() => {
   window.removeEventListener(SONGS_UPDATED_EVENT, refresh)
 })
 </script>
-
-<style scoped>
-.playlist-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px 8px 12px;
-  margin-bottom: 4px;
-  cursor: pointer;
-}
-
-.playlist-item-label {
-  flex: 1;
-  min-width: 0;
-}
-
-.playlist-item-label h2 {
-  margin: 0;
-  font-size: var(--muses-font-title);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.playlist-item-label p {
-  margin: 0;
-  font-size: var(--muses-font-body-sm);
-  color: var(--h-color-ink-muted);
-}
-
-.more-button {
-  margin: 0;
-}
-
-@media (min-width: 768px) {
-  .tablet-content-limit {
-    max-width: var(--muses-content-max-width);
-    margin-inline: auto;
-  }
-}
-</style>

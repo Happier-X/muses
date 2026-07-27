@@ -8,21 +8,24 @@
       description="请先到音源页添加并扫描音源。"
     />
 
-    <div v-else class="artist-grid tablet-content-limit">
+    <div
+      v-else
+      class="artist-grid tablet-content-limit grid grid-cols-2 gap-[var(--muses-space-lg)] p-[var(--muses-space-lg)] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[var(--muses-content-max-width)] md:mx-auto"
+    >
       <article
         v-for="artist in artists"
         :key="artist.name"
-        class="artist-card"
+        class="artist-card flex flex-col gap-[var(--muses-space-sm)] min-w-0"
       >
         <m-cover
-          class="artist-card__avatar"
+          class="artist-card__avatar !w-full !h-auto aspect-square !flex-none !rounded-full"
           :src="getArtistCoverSrc(artist.songs)"
           alt=""
         />
-        <div class="artist-card__info">
-          <h2 class="artist-card__name">{{ artist.name }}</h2>
-          <p class="artist-card__count">{{ artist.songCount }} 首歌曲</p>
-          <p class="artist-card__count">{{ artist.albumCount }} 张专辑</p>
+        <div class="flex flex-col gap-[var(--muses-space-xs)] min-w-0 text-center">
+          <h2 class="artist-card__name m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] line-clamp-2">{{ artist.name }}</h2>
+          <p class="artist-card__count m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ artist.songCount }} 首歌曲</p>
+          <p class="artist-card__count m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ artist.albumCount }} 张专辑</p>
         </div>
       </article>
     </div>
@@ -65,64 +68,3 @@ const getArtistCoverSrc = (artistSongs: SongItem[]): string => {
 onMounted(refreshSongs)
 onMounted(refreshSongs)
 </script>
-
-<style scoped>
-.artist-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--muses-space-lg);
-  padding: var(--muses-space-lg);
-}
-
-.artist-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--muses-space-sm);
-  min-width: 0;
-}
-
-.artist-card > .artist-card__avatar {
-  --m-cover-size: 100% !important;
-  height: auto;
-  aspect-ratio: 1;
-  flex: 0 0 auto;
-  border-radius: 50%;
-}
-
-.artist-card__info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--muses-space-xs);
-  min-width: 0;
-  text-align: center;
-}
-
-.artist-card__name {
-  margin: 0;
-  font-size: var(--muses-font-title);
-  line-height: var(--muses-line-height-title);
-  color: var(--muses-color-ink);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.artist-card__count {
-  margin: 0;
-  font-size: var(--muses-font-body-sm);
-  color: var(--muses-color-ink-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-@media (min-width: 768px) {
-  .artist-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    max-width: var(--muses-content-max-width);
-    margin-inline: auto;
-  }
-}
-</style>

@@ -1,7 +1,11 @@
 <template>
   <div
-    class="mini-player"
-    :class="{ 'is-empty': !playerState.currentSong }"
+    class="mini-player fixed left-0 right-0 bottom-[calc(var(--muses-tab-bar-height)+env(safe-area-inset-bottom,0px))] z-[var(--muses-z-mini-player)] flex items-center gap-[var(--muses-space-md)] w-full min-h-[var(--muses-mini-player-height)] py-[var(--muses-space-sm)] px-[var(--muses-space-md)] border-t border-t-[rgba(0,0,0,0.08)] text-[color:var(--muses-color-ink)] bg-[var(--muses-color-surface)] dark:border-t-[rgba(255,255,255,0.12)] dark:bg-[var(--muses-color-surface-dark)] md:bottom-[env(safe-area-inset-bottom,0px)]"
+    :class="{
+      'cursor-pointer': !!playerState.currentSong,
+      'cursor-default': !playerState.currentSong,
+      'is-empty': !playerState.currentSong
+    }"
     role="button"
     tabindex="0"
     aria-label="打开沉浸式播放器"
@@ -12,12 +16,12 @@
   >
     <m-cover :src="coverSrc" :size="48" alt="" />
 
-    <div class="track-info">
-      <strong>{{ titleText }}</strong>
-      <span>{{ subtitleText }}</span>
+    <div class="track-info min-w-0 flex flex-1 flex-col gap-[3px]">
+      <strong class="truncate text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)]">{{ titleText }}</strong>
+      <span class="truncate text-[color:var(--muses-color-ink-muted)] text-[length:var(--muses-font-body-sm)]">{{ subtitleText }}</span>
     </div>
 
-    <div class="player-actions">
+    <div class="player-actions flex shrink-0 items-center gap-[var(--muses-space-xs)]">
       <h-button
         variant="ghost"
         is-icon-only
@@ -101,73 +105,3 @@ const toDisplayableUri = (uri: string): string => {
     : Capacitor.convertFileSrc(uri)
 }
 </script>
-
-<style scoped>
-.mini-player {
-  position: fixed;
-  cursor: pointer;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--muses-tab-bar-height) + env(safe-area-inset-bottom, 0px));
-  z-index: var(--muses-z-mini-player);
-  display: flex;
-  align-items: center;
-  gap: var(--muses-space-md);
-  width: 100%;
-  min-height: var(--muses-mini-player-height);
-  padding: var(--muses-space-sm) var(--muses-space-md);
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  color: var(--muses-color-ink);
-  background: var(--muses-color-surface);
-}
-
-.mini-player.is-empty {
-  cursor: default;
-}
-
-.track-info {
-  min-width: 0;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.track-info strong,
-.track-info span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.track-info strong {
-  font-size: var(--muses-font-title);
-  line-height: var(--muses-line-height-title);
-}
-
-.track-info span {
-  color: var(--muses-color-ink-muted);
-  font-size: var(--muses-font-body-sm);
-}
-
-.player-actions {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: var(--muses-space-xs);
-}
-
-@media (prefers-color-scheme: dark) {
-  .mini-player {
-    border-top-color: rgba(255, 255, 255, 0.12);
-    background: var(--muses-color-surface-dark);
-  }
-}
-
-/* 宽屏无底部 Tab Bar，贴底仅保留安全区，避免 64px 悬空 */
-@media (min-width: 768px) {
-  .mini-player {
-    bottom: env(safe-area-inset-bottom, 0px);
-  }
-}
-</style>

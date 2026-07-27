@@ -1,20 +1,33 @@
 <template>
-  <div class="app-shell" :class="{ 'has-global-overlay': hasGlobalOverlay }">
-    <div class="app-router-view">
+  <div class="app-shell flex flex-col h-full overflow-hidden">
+    <div
+      class="app-router-view flex-1 relative overflow-hidden"
+      :class="{ 'pointer-events-none': hasGlobalOverlay }"
+    >
       <RouterView />
     </div>
     <MiniPlayer
       class="app-mini-player"
-      :class="{ 'is-overlay-active': hasGlobalOverlay }"
+      :class="{ 'pointer-events-none': hasGlobalOverlay, 'is-overlay-active': hasGlobalOverlay }"
       :aria-hidden="hasGlobalOverlay"
     />
     <!-- 有当前曲时保活 PlayerPage，避免关闭再打开重建 BackgroundRender 闪默认底（#22） -->
     <PlayerPage
       v-if="keepPlayerPageMounted"
-      class="app-player-page"
-      :class="{ 'is-player-visible': playerOverlayVisible }"
+      class="app-player-page transition-transform duration-[220ms] ease-[ease]"
+      :class="[
+        playerOverlayVisible
+          ? 'translate-y-0 pointer-events-auto visible [contain:none]'
+          : 'translate-y-full pointer-events-none invisible [contain:paint]',
+        { 'is-player-visible': playerOverlayVisible }
+      ]"
     />
-    <Transition name="queue-overlay">
+    <Transition
+      enter-active-class="transition-transform duration-[220ms] ease-[ease]"
+      enter-from-class="translate-y-full"
+      leave-active-class="transition-transform duration-[220ms] ease-[ease]"
+      leave-to-class="translate-y-full"
+    >
       <QueuePage v-if="queueOverlayVisible" />
     </Transition>
   </div>
@@ -105,72 +118,3 @@ onUnmounted(() => {
   syncPlayerStatusBar(false)
 })
 </script>
-
-<style scoped>
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.app-router-view {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-}
-
-.app-mini-player.is-overlay-active {
-  pointer-events: none;
-}
-
-/* 打开全局 overlay 时彻底切断底层路由页交互与滚动，避免触摸穿透。 */
-.app-shell.has-global-overlay .app-router-view {
-  pointer-events: none;
-}
-
-.queue-overlay-enter-active,
-.queue-overlay-leave-active {
-  transition: transform 220ms ease;
-}
-
-.queue-overlay-enter-from,
-.queue-overlay-leave-to {
-  transform: translateY(100%);
-}
-
-/* 关闭态：移出视口但保持挂载，背景不销毁 */
-.app-player-page:not(.is-player-visible) {
-  transform: translateY(100%);
-  pointer-events: none;
-  /* 保持组件与 AMLL 实例挂载，但跳过隐藏态绘制，避免 position tick 触发不可见页面合成。 */
-  visibility: hidden;
-  contain: paint;
-}
-
-.app-player-page {
-  transition: transform 220ms ease;
-}
-
-.app-player-page.is-player-visible {
-  transform: translateY(0);
-  pointer-events: auto;
-  visibility: visible;
-  contain: none;
-}
-</style>
-
-<style>
-html.muses-overlay-open,
-body.muses-overlay-open {
-  overflow: hidden !important;
-  overscroll-behavior: none;
-}
-
-/* 只锁路由页内容，不锁 overlay 自己的滚动。 */
-body.muses-overlay-open .m-content {
-  --overflow: hidden;
-  pointer-events: none;
-  overscroll-behavior: none;
-}
-</style>

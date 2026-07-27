@@ -1692,7 +1692,7 @@ describe('沉浸式播放页', () => {
   })
 
   test('翻译副行样式跟随 AMLL 实际激活类高亮', () => {
-    const source = readFileSync('src/views/PlayerPage.vue', 'utf8')
+    const source = readFileSync('src/theme/tailwind.css', 'utf8')
     expect(source).toContain('.FmKaba_lyricLine.FmKaba_active .FmKaba_lyricSubLine')
     expect(source).toContain('.FmKaba_lyricMainLine.FmKaba_active ~ .FmKaba_lyricSubLine')
   })

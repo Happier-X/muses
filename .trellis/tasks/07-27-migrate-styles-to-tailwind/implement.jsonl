@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "迁移涉及修改 vue 组件和移除对 `<style scoped>` 的允许条款"}

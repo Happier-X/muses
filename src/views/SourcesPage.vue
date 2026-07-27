@@ -15,24 +15,24 @@
         description="点击右上角加号添加本地文件夹或 WebDAV 文件夹。"
       />
 
-      <div v-else class="tablet-content-limit">
-        <div ref="listParentRef" class="source-list">
-          <div class="source-list-spacer" :style="{ height: `${totalSize}px` }">
+      <div v-else class="h-full md:max-w-[var(--muses-content-max-width)] md:mx-auto">
+        <div ref="listParentRef" class="h-full overflow-auto pt-[8px] px-[12px] pb-[24px]">
+          <div class="relative" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
               :key="sources[virtualRow.index].id"
               :ref="measureVirtualRow"
-              class="source-card-row"
+              class="absolute top-0 left-[12px] right-[12px] box-border py-[8px]"
               :data-index="virtualRow.index"
               :style="{
                 transform: `translateY(${virtualRow.start}px)`,
               }"
             >
-              <h-card class="source-card">
-                <div class="source-card-title">{{ sources[virtualRow.index].name }}</div>
-                <div class="source-card-subtitle">{{ getSourceSubtitle(sources[virtualRow.index]) }}</div>
-                <p class="source-path">{{ sources[virtualRow.index].path }}</p>
-                <div class="source-actions">
+              <h-card class="min-h-[100px] m-0">
+                <div class="text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] font-semibold">{{ sources[virtualRow.index].name }}</div>
+                <div class="mt-[2px] text-[color:var(--muses-color-ink-muted)] text-[length:var(--muses-font-body-sm)]">{{ getSourceSubtitle(sources[virtualRow.index]) }}</div>
+                <p class="truncate mt-[8px]">{{ sources[virtualRow.index].path }}</p>
+                <div class="flex justify-end gap-[8px] mt-[8px]">
                   <h-button size="sm" variant="outline" @click="openEditSource(sources[virtualRow.index])">编辑</h-button>
                   <h-button size="sm" variant="danger-soft" @click="confirmDeleteSource(sources[virtualRow.index])">删除</h-button>
                   <h-button size="sm" variant="primary" @click="openScanSettings(sources[virtualRow.index])">扫描</h-button>
@@ -44,14 +44,14 @@
       </div>
 
       <h-bottom-sheet v-model="isAddActionSheetOpen" title="添加音源" :show-handle="true" @close="isAddActionSheetOpen = false">
-        <div class="action-sheet-list">
-          <button class="action-sheet-item" type="button" @click="handleAddLocal">
+        <div class="flex flex-col gap-[var(--h-space-xs,2px)] pb-[env(safe-area-inset-bottom,0px)]">
+          <button :class="actionSheetItemClass" type="button" @click="handleAddLocal">
             添加本地文件夹
           </button>
-          <button class="action-sheet-item" type="button" @click="handleAddWebDav">
+          <button :class="actionSheetItemClass" type="button" @click="handleAddWebDav">
             添加 WebDAV 文件夹
           </button>
-          <button class="action-sheet-item action-sheet-cancel" type="button" @click="isAddActionSheetOpen = false">
+          <button :class="actionSheetCancelClass" type="button" @click="isAddActionSheetOpen = false">
             取消
           </button>
         </div>
@@ -68,9 +68,9 @@
       <h-bottom-sheet v-model="isEditModalOpen" title="编辑音源" @close="closeEditSource">
 
         
-        <div class="edit-source-form-wrapper">
-          <form class="edit-source-form" @submit.prevent="editSourceForm.handleSubmit">
-            <div class="form-fields">
+        <div>
+          <form class="flex flex-col gap-[16px] mb-[16px]" @submit.prevent="editSourceForm.handleSubmit">
+            <div class="flex flex-col gap-[12px]">
               <editSourceForm.Field
                 name="name"
                 :validators="{
@@ -179,11 +179,11 @@
         <template #title>
           <span>扫描设置</span>
         </template>
-        <div class="setting-inline">
+        <div class="flex items-center gap-[12px]">
           <span>读取音乐标签</span>
           <h-switch v-model="scanOptions.readTags" aria-label="读取音乐标签" />
         </div>
-        <p class="scan-hint">开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。</p>
+        <p class="text-[color:var(--h-color-ink-muted)] text-[14px] leading-[1.4]">开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。</p>
         <h-button variant="primary" :disabled="!selectedScanSource" @click="startScan">开始扫描</h-button>
       </h-bottom-sheet>
 
@@ -201,10 +201,10 @@
         </template>
 
         <h-progress v-if="scanProgress.stage === 'discovering' || scanProgress.stage === 'processing'" indeterminate aria-label="扫描进行中" />
-        <section class="scan-progress">
+        <section class="mt-[16px]">
           <h2>{{ getScanStageText(scanProgress.stage) }}</h2>
           <p v-if="scanProgress.message">{{ scanProgress.message }}</p>
-          <p v-if="scanProgress.currentItem" class="source-path">当前：{{ scanProgress.currentItem }}</p>
+          <p v-if="scanProgress.currentItem" class="truncate">当前：{{ scanProgress.currentItem }}</p>
           <div class="scan-stats">
             <div class="scan-stat-row">
               <span>已发现 / 已处理</span>
@@ -227,8 +227,8 @@
       </h-bottom-sheet>
 
       <h-bottom-sheet v-model="isWebDavModalOpen" title="添加 WebDAV" @close="closeWebDavModal">
-          <form class="webdav-form" @submit.prevent="webDavForm.handleSubmit">
-            <div class="form-fields">
+          <form class="flex flex-col gap-[16px] mb-[16px]" @submit.prevent="webDavForm.handleSubmit">
+            <div class="flex flex-col gap-[12px]">
               <webDavForm.Field
                 name="serverUrl"
                 :validators="{
@@ -294,22 +294,22 @@
 
           <!-- errorMessage/successMessage 已改为 showToast -->
 
-          <section v-if="isWebDavConnected" class="webdav-browser">
-            <div class="browser-header">
+          <section v-if="isWebDavConnected" class="mt-[20px]">
+            <div class="flex items-center gap-[8px] mb-[8px]">
               <h-button variant="ghost" size="sm" :disabled="!parentWebDavPath || isWebDavLoading" @click="goToParentDirectory">
                 返回上级
               </h-button>
-              <span class="current-path">{{ currentWebDavPath }}</span>
+              <span class="truncate text-[color:var(--h-color-ink-muted)]">{{ currentWebDavPath }}</span>
             </div>
 
-            <div v-if="webDavDirectories.length > 0" class="webdav-dir-list">
-              <div v-for="directory in webDavDirectories" :key="directory.path" class="webdav-dir-row">
+            <div v-if="webDavDirectories.length > 0">
+              <div v-for="directory in webDavDirectories" :key="directory.path" class="flex items-center gap-[12px] py-[10px] border-b border-[var(--muses-color-border-subtle)]">
                 <h-checkbox
                   :model-value="selectedWebDavPaths.has(directory.path)"
                   :aria-label="`选择 ${directory.basename}`"
                   @update:model-value="setWebDavSelection(directory.path, $event)"
                 />
-                <button type="button" class="webdav-dir-meta" @click="openWebDavDirectory(directory.path)">
+                <button type="button" class="flex flex-1 min-w-0 flex-col gap-[2px] p-0 border-0 text-inherit bg-transparent text-left [&>span]:truncate [&>span]:text-[color:var(--h-color-ink-muted)]" @click="openWebDavDirectory(directory.path)">
                   <strong>{{ directory.basename }}</strong>
                   <span>{{ directory.path }}</span>
                 </button>
@@ -317,7 +317,7 @@
               </div>
             </div>
 
-            <p v-else class="empty-directory">当前目录没有可添加的子文件夹。</p>
+            <p v-else class="text-[color:var(--h-color-ink-muted)] text-center">当前目录没有可添加的子文件夹。</p>
 
             <h-button
               variant="primary"
@@ -363,6 +363,12 @@ import { getParentWebDavPath, getWebDavDisplayName, listWebDavDirectories, norma
 import { scanSourceLibrary } from '@/features/library/scanner'
 import { reconcileSourceSongs } from '@/features/library/storage'
 import type { ScanOptions, ScanProgress, ScanStage } from '@/features/library/types'
+
+// action sheet 按钮样式（原 scoped .action-sheet-item），转 Tailwind utility 供本页多处复用
+const actionSheetItemClass =
+  'flex items-center justify-center w-full min-h-[var(--h-touch-target,48px)] p-[var(--h-space-md,12px)] border-none rounded-[var(--h-radius-control,12px)] bg-transparent text-[var(--h-color-ink,#000)] [font-family:inherit] [font-weight:inherit] [font-style:inherit] text-[length:var(--h-font-title,15px)] cursor-pointer [-webkit-tap-highlight-color:transparent] transition-[background-color] duration-[var(--h-duration-press,0.12s)] ease-[ease] active:bg-[var(--h-color-surface-secondary,#f4f4f5)]'
+const actionSheetCancelClass =
+  `${actionSheetItemClass} mt-[var(--h-space-sm,8px)] text-[var(--h-color-ink-muted,#92949c)] text-[length:var(--h-font-body-sm,13px)]`
 
 const sources = ref<SourceItem[]>(loadSources())
 const listParentRef = ref<HTMLElement | null>(null)
@@ -820,184 +826,3 @@ const handleAddWebDav = (): void => {
   openWebDavModal()
 }
 </script>
-
-<style scoped>
-.source-list {
-  height: 100%;
-  overflow: auto;
-  padding: 8px 12px 24px;
-}
-
-.source-list-spacer {
-  position: relative;
-}
-
-.source-card-row {
-  position: absolute;
-  top: 0;
-  left: 12px;
-  right: 12px;
-  box-sizing: border-box;
-  padding-block: 8px;
-}
-
-.source-card {
-  min-height: 100px;
-  margin: 0;
-}
-
-.source-card-title {
-  font-size: var(--muses-font-title);
-  line-height: var(--muses-line-height-title);
-  font-weight: 600;
-}
-
-.source-card-subtitle {
-  margin-top: 2px;
-  color: var(--muses-color-ink-muted);
-  font-size: var(--muses-font-body-sm);
-}
-
-.source-path {
-  overflow: hidden;
-  margin: 8px 0 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.source-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.scan-hint {
-  color: var(--h-color-ink-muted);
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.scan-progress {
-  margin-top: 16px;
-}
-
-.edit-source-form,
-.webdav-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.form-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.setting-inline,
-.webdav-dir-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.webdav-dir-row {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--muses-color-border-subtle);
-}
-
-.webdav-dir-meta {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0;
-  border: 0;
-  color: inherit;
-  background: transparent;
-  text-align: left;
-}
-
-.webdav-dir-meta span {
-  overflow: hidden;
-  color: var(--h-color-ink-muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.message-text {
-  margin: 12px 0;
-}
-
-.webdav-browser {
-  margin-top: 20px;
-}
-
-.browser-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.current-path {
-  overflow: hidden;
-  color: var(--h-color-ink-muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.empty-directory {
-  color: var(--h-color-ink-muted);
-  text-align: center;
-}
-
-.action-sheet-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--h-space-xs, 2px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-.action-sheet-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: var(--h-touch-target, 48px);
-  padding: var(--h-space-md, 12px);
-  border: none;
-  border-radius: var(--h-radius-control, 12px);
-  background: transparent;
-  color: var(--h-color-ink, #000);
-  font: inherit;
-  font-size: var(--h-font-title, 15px);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color var(--h-duration-press, 0.12s) ease;
-}
-
-.action-sheet-item:active {
-  background: var(--h-color-surface-secondary, #f4f4f5);
-}
-
-.action-sheet-cancel {
-  margin-top: var(--h-space-sm, 8px);
-  color: var(--h-color-ink-muted, #92949c);
-  font-size: var(--h-font-body-sm, 13px);
-}
-
-.tablet-content-limit {
-  height: 100%;
-}
-
-@media (min-width: 768px) {
-  .tablet-content-limit {
-    max-width: var(--muses-content-max-width);
-    margin-inline: auto;
-  }
-}
-</style>

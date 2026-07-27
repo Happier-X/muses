@@ -1,14 +1,20 @@
 <template>
-  <div class="tabs-page-shell">
-    <div class="layout-shell">
-      <aside v-if="isTablet && isTabsRoute" class="tablet-sidebar" aria-label="主导航">
-        <nav class="tablet-sidebar" aria-label="主导航">
+  <div class="flex flex-col h-full">
+    <div class="flex flex-1 flex-col min-h-0 md:block md:h-full">
+      <aside
+        v-if="isTablet && isTabsRoute"
+        class="hidden md:block md:fixed md:top-0 md:left-0 md:bottom-0 md:z-20 md:w-[var(--muses-sidebar-width)] md:overflow-auto md:border-r md:border-r-[var(--muses-color-border-subtle)] md:bg-[var(--h-color-surface)] md:pt-[calc(12px+env(safe-area-inset-top,0px))] md:box-border"
+        aria-label="主导航"
+      >
+        <nav aria-label="主导航">
           <RouterLink
             v-for="item in navItems"
             :key="item.to"
             :to="item.to"
-            class="sidebar-link"
-            :class="{ 'is-active': isNavActive(item.to) }"
+            class="flex items-center gap-[12px] px-[16px] py-[12px] no-underline text-[length:var(--muses-font-body)]"
+            :class="isNavActive(item.to)
+              ? 'text-[color:var(--h-color-primary)] font-semibold'
+              : 'text-[color:var(--h-color-ink)]'"
           >
             <h-icon aria-hidden="true" :icon="item.icon" />
             <span>{{ item.label }}</span>
@@ -16,14 +22,19 @@
         </nav>
       </aside>
 
-      <main class="content-shell" :class="{ 'has-tabs-navigation': isTabsRoute }">
+      <main
+        class="flex-1 min-h-0"
+        :class="isTabsRoute
+          ? 'pb-[calc(var(--muses-tab-bar-height)+env(safe-area-inset-bottom,0px))] md:pb-0 md:fixed md:top-0 md:right-0 md:bottom-0 md:left-[var(--muses-sidebar-width)] md:overflow-auto'
+          : 'pb-0 md:min-w-0'"
+      >
         <RouterView />
       </main>
     </div>
 
     <h-tab-bar
       v-if="!isTablet && isTabsRoute"
-      class="mobile-tab-bar"
+      class="z-[var(--muses-z-tab)] md:hidden"
       :model-value="activeTab"
       :items="tabItems"
       aria-label="底部导航"
@@ -82,82 +93,3 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateViewportWidth)
 })
 </script>
-
-<style scoped>
-.tabs-page-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.layout-shell {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.tablet-sidebar {
-  display: none;
-}
-
-.content-shell {
-  flex: 1;
-  min-height: 0;
-  padding-bottom: 0;
-}
-
-.content-shell.has-tabs-navigation {
-  padding-bottom: calc(var(--muses-tab-bar-height) + env(safe-area-inset-bottom, 0px));
-}
-
-.mobile-tab-bar {
-  z-index: var(--muses-z-tab);
-}
-
-.sidebar-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--h-color-ink); text-decoration: none; font-size: var(--muses-font-body); }
-.sidebar-link.is-active {
-  color: var(--h-color-primary);
-  font-weight: 600;
-}
-
-@media (min-width: 768px) {
-  .layout-shell {
-    display: block;
-    height: 100%;
-  }
-
-  .tablet-sidebar {
-    display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    z-index: 20;
-    width: var(--muses-sidebar-width);
-    overflow: auto;
-    border-right: 1px solid var(--muses-color-border-subtle);
-    background: var(--h-color-surface);
-    padding-top: calc(12px + env(safe-area-inset-top, 0px));
-    box-sizing: border-box;
-  }
-
-  .content-shell {
-    min-width: 0;
-    padding-bottom: 0;
-  }
-
-  .content-shell.has-tabs-navigation {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: var(--muses-sidebar-width);
-    overflow: auto;
-  }
-
-  .mobile-tab-bar {
-    display: none;
-  }
-}
-</style>

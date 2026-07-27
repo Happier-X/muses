@@ -1,7 +1,7 @@
 <template>
   <span
-    class="m-cover"
-    :class="`m-cover--${radius}`"
+    class="w-[var(--m-cover-size)] h-[var(--m-cover-size)] flex-[0_0_var(--m-cover-size)] inline-grid place-items-center overflow-hidden bg-[var(--muses-color-cover-placeholder)] text-[var(--muses-color-ink-muted)] text-[calc(var(--m-cover-size)/2)] m-cover [&>img]:w-full [&>img]:h-full [&>img]:object-cover"
+    :class="radius === 'sm' ? 'rounded-[var(--muses-radius-cover-sm)]' : 'rounded-[var(--muses-radius-cover)]'"
     :style="coverStyle"
     :aria-hidden="alt ? undefined : 'true'"
   >
@@ -37,31 +37,3 @@ const coverStyle = computed<CSSProperties>(() => {
   return { '--m-cover-size': size }
 })
 </script>
-
-<style scoped>
-.m-cover {
-  width: var(--m-cover-size);
-  height: var(--m-cover-size);
-  flex: 0 0 var(--m-cover-size);
-  display: inline-grid;
-  place-items: center;
-  overflow: hidden;
-  background: var(--muses-color-cover-placeholder);
-  color: var(--muses-color-ink-muted);
-  font-size: calc(var(--m-cover-size) / 2);
-}
-
-.m-cover--sm {
-  border-radius: var(--muses-radius-cover-sm);
-}
-
-.m-cover--md {
-  border-radius: var(--muses-radius-cover);
-}
-
-.m-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-</style>

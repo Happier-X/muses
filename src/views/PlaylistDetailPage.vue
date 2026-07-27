@@ -21,7 +21,7 @@
       </template>
     </h-nav-bar>
     <div class="m-content" style="overflow: hidden;">
-      <div class="tablet-content-limit">
+      <div class="h-full md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-empty v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
 
         <h-empty
@@ -30,20 +30,20 @@
           description="在歌曲页点「更多」→「加入歌单」添加歌曲。"
         />
 
-        <div v-else ref="listParentRef" class="playlist-list" role="list" aria-label="歌单歌曲">
-          <div class="playlist-list-spacer" :style="{ height: `${totalSize}px` }">
+        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain" role="list" aria-label="歌单歌曲">
+          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="row in visibleRows"
               :key="row.song.id"
               :ref="measureVirtualRow"
-              class="playlist-row"
+              class="absolute inset-x-0 top-0 box-border min-h-[var(--muses-song-row-height)]"
               role="listitem"
               :data-index="row.virtualRow.index"
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
               <div
                 class="song-item"
-                :class="{ 'is-playing': playerState.currentSong?.id === row.song.id }"
+                :class="playerState.currentSong?.id === row.song.id ? 'bg-[var(--muses-color-playing-bg)]' : ''"
                 role="button"
                 tabindex="0"
                 @click="onPlaySong(row.song, $event)"
@@ -207,40 +207,3 @@ watch(playlistId, () => {
   refresh()
 })
 </script>
-
-<style scoped>
-.tablet-content-limit {
-  height: 100%;
-}
-
-.playlist-list {
-  height: 100%;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
-.playlist-list-spacer {
-  position: relative;
-  width: 100%;
-}
-
-.playlist-row {
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  box-sizing: border-box;
-  min-height: var(--muses-song-row-height);
-}
-
-/* 当前播放行 */
-.song-item.is-playing {
-  background: var(--muses-color-playing-bg);
-}
-
-@media (min-width: 768px) {
-  .tablet-content-limit {
-    max-width: var(--muses-content-max-width);
-    margin-inline: auto;
-  }
-}
-</style>

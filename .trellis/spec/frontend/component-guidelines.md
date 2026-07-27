@@ -22,13 +22,15 @@ Use the standard Vue SFC layout already present in the repo:
 
 1. `<template>` first
 2. `<script setup lang="ts">` second
-3. `<style scoped>` only when the component needs local styles
+3. All styling uses Tailwind CSS v4 utility classes via `class`/`:class`. 禁止组件 `<style scoped>` 块；所有样式必须通过 Tailwind utility class 表达（含任意值 `[...]` 语法与 `dark:` / `md:` 等变体）。
+   - 对于复杂的多层级响应式布局或 `:deep()` 内部 DOM 选择器，可移至全局入口 `src/theme/tailwind.css` 作为作用域手写 CSS。
+   - JS 运行时计算的 `:style` 动态绑定（如 `MCover` 的 `--m-cover-size`）允许保留，不属于组件 scoped CSS。
 
 Examples:
 
 - `src/App.vue` shows a minimal shell component: `<div class="app-shell">` + `<RouterView>` + MiniPlayer/PlayerPage/QueuePage 兄弟层级。
-- `src/components/ui/MPage.vue` 用 `HNavBar` + `MContent` 组成自建页面骨架。
-- `src/views/SettingsPage.vue` shows a route page using `MPage` with native list structure and scoped style.
+- `src/components/ui/MPage.vue` 用 `HNavBar` + `MContent` 组成自建页面骨架，样式全部为 Tailwind utility。
+- `src/views/SettingsPage.vue` 使用 `MPage` 原生列表结构，所有 class 使用 Tailwind utility。
 
 ---
 
@@ -301,15 +303,18 @@ CSS 变量只能在属性值中解析，不能在 `@media (min-width: …)` 中�
 
 Current styling is split by scope:
 
-- Global framework/theme CSS is loaded once in `src/main.ts`
-- Project theme overrides belong in `src/theme/variables.css`
-- Component-local styling can use `<style scoped>` when needed
+- Global framework/theme CSS is loaded once in `src/main.ts` via `src/theme/tailwind.css`
+- All component styling uses Tailwind CSS v4 utility classes via `class`/`:class`
+- For complex multi-tier responsive layouts or `:deep()` internal DOM selectors (e.g., AMLL internals),
+  component-scoped CSS can be placed in `src/theme/tailwind.css` as global rules prefixed with a
+  component-specific selector to avoid leaking.
+- JS runtime `:style` dynamic bindings are preserved and not considered scoped CSS.
 
 Reference files:
 
 - `src/main.ts`
-- `src/theme/variables.css`
-- `src/components/ExploreContainer.vue`
+- `src/theme/tailwind.css`
+- `src/components/MiniPlayer.vue`（Tailwind utility only）
 
 Do not duplicate Ionic core or utility CSS imports inside page components.
 

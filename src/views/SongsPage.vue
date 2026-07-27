@@ -7,12 +7,12 @@
         </h-button>
       </template>
     </h-nav-bar>
-    <div class="shuffle-bar">
-      <div class="shuffle-actions tablet-content-limit">
+    <div class="shuffle-bar flex-[0_0_48px] min-h-[48px] bg-[var(--muses-color-surface)]">
+      <div class="shuffle-actions box-border w-full px-[8px] py-[4px] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-button
           variant="ghost"
           size="sm"
-          class="shuffle-all-button"
+          class="m-0"
           aria-label="随机播放全部"
           :disabled="songs.length === 0"
           @click="onShuffleAll"
@@ -22,26 +22,26 @@
         </h-button>
       </div>
     </div>
-    <div class="m-content songs-content" style="overflow: hidden;">
+    <div class="m-content" style="overflow: hidden;">
       <h-empty
         v-if="songs.length === 0"
         title="还没有歌曲"
         description="请先到音源页添加并扫描音源。"
       />
 
-      <div v-else ref="listParentRef" class="song-list list-grid tablet-content-limit">
-        <div class="song-list-spacer" :style="{ height: `${totalSize}px` }">
+      <div v-else ref="listParentRef" class="list-grid tablet-content-limit h-full overflow-auto box-border pb-[calc(var(--muses-tab-bar-height)+var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] md:pb-[calc(var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
+        <div class="relative w-full" :style="{ height: `${totalSize}px` }">
           <div
             v-for="virtualRow in virtualRows"
             :key="songs[virtualRow.index].id"
             :ref="measureVirtualRow"
-            class="song-row"
+            class="absolute top-0 left-0 right-0 box-border min-h-[var(--muses-song-row-height)] scroll-mt-[108px]"
             :data-index="virtualRow.index"
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
             <div
               class="song-item"
-              :class="{ 'is-playing': playerState.currentSong?.id === songs[virtualRow.index].id }"
+              :class="songItemClass(songs[virtualRow.index].id)"
               :data-song-id="songs[virtualRow.index].id"
               role="button"
               tabindex="0"
@@ -145,7 +145,19 @@ const actionSong = ref<SongItem | null>(null)
 const isSongActionsOpen = ref(false)
 const isPlaylistPickOpen = ref(false)
 const isCreatePlaylistOpen = ref(false)
+const highlightedSongId = ref<string | null>(null)
 let jumpHighlightTimer: ReturnType<typeof setTimeout> | null = null
+
+const songItemClass = (songId: string): string => {
+  const classes: string[] = []
+  if (playerState.currentSong?.id === songId) {
+    classes.push('is-playing bg-[var(--muses-color-playing-bg)]')
+  }
+  if (highlightedSongId.value === songId) {
+    classes.push('jump-highlight bg-[var(--muses-color-jump-highlight)]')
+  }
+  return classes.join(' ')
+}
 
 /** 大曲库只渲染可视行，降低滚动/卡顿（#50） */
 const rowVirtualizer = useVirtualizer(
@@ -319,12 +331,12 @@ const scrollToCurrentSong = async () => {
   // 保留既有 scrollIntoView 合约（stub/首帧 virtualizer 尚未拿到容器时也可跳转）
   const scrollableRow = row as HTMLElement & { scrollIntoView?: (options?: ScrollIntoViewOptions) => void }
   scrollableRow.scrollIntoView?.({ behavior: 'smooth', block: 'start', inline: 'nearest' })
-  row.classList.add('jump-highlight')
+  highlightedSongId.value = currentId
   if (jumpHighlightTimer) {
     clearTimeout(jumpHighlightTimer)
   }
   jumpHighlightTimer = setTimeout(() => {
-    row.classList.remove('jump-highlight')
+    highlightedSongId.value = null
     jumpHighlightTimer = null
   }, 1200)
 }
@@ -361,84 +373,3 @@ onUnmounted(() => {
   }
 })
 </script>
-
-<style scoped>
-/* 列表自管 padding-bottom；content 不再重复加底内边距 */
-.songs-content {
-  --padding-bottom: 0;
-}
-
-.shuffle-bar {
-  flex: 0 0 48px;
-  min-height: 48px;
-  background: var(--muses-color-surface);
-}
-
-.shuffle-actions {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 4px 8px;
-}
-
-.shuffle-all-button {
-  margin: 0;
-}
-
-/* 自建滚动容器：虚拟列表需要固定高度 + overflow（#50） */
-.song-list {
-  height: 100%;
-  overflow: auto;
-  box-sizing: border-box;
-  /* 仅为 MiniPlayer 与 Tab Bar 预留滚动空间 */
-  padding-bottom: calc(var(--muses-tab-bar-height) + var(--muses-mini-player-height) + env(safe-area-inset-bottom, 0px));
-}
-
-.song-list-spacer {
-  position: relative;
-  width: 100%;
-}
-
-.song-row {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  box-sizing: border-box;
-  min-height: var(--muses-song-row-height);
-  /* 避开 navbar 与随机播放操作区，scrollIntoView block=start 时标题完整可见 */
-  scroll-margin-top: 108px;
-}
-
-/* 当前播放行 */
-.song-item.is-playing {
-  background: var(--muses-color-playing-bg);
-}
-
-/* 跳转高亮 */
-.song-item.jump-highlight {
-  background: var(--muses-color-jump-highlight);
-}
-
-
-
-@media (min-width: 768px) {
-  /* 歌曲页宽屏始终单列，仅保留内容最大宽度居中 */
-  .list-grid {
-    max-width: var(--muses-content-max-width);
-    margin-inline: auto;
-  }
-
-  .song-list {
-    padding-bottom: calc(var(--muses-mini-player-height) + env(safe-area-inset-bottom, 0px));
-  }
-
-  .songs-content {
-    --padding-bottom: 0;
-  }
-
-  .shuffle-actions {
-    max-width: var(--muses-content-max-width);
-    margin-inline: auto;
-  }
-}
-</style>

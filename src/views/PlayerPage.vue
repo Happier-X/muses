@@ -1,6 +1,6 @@
 <template>
   <div
-    class="player-overlay"
+    class="player-overlay fixed inset-0 z-[var(--muses-z-player)] overflow-hidden overscroll-behavior-none touch-action-none text-[var(--muses-immersive-ink)]"
     :aria-hidden="!playerOverlayVisible"
     @touchstart.passive="onTouchStart"
     @touchmove="onTouchMove"
@@ -8,15 +8,15 @@
     @touchcancel="onTouchEnd"
   >
     <div
-      class="immersive-shell"
-      :class="{ 'is-dragging': isDraggingVertically }"
+      class="immersive-shell relative h-dvh max-h-dvh overflow-hidden [background:var(--muses-immersive-void)] transition-[transform] duration-[var(--muses-duration-overlay)] ease-[var(--muses-ease-standard)]"
+      :class="{ 'is-dragging': isDraggingVertically, '!transition-none': isDraggingVertically }"
       :style="{ transform: `translateY(${dragOffsetY}px)` }"
     >
       <!-- 背景与歌词解耦：切歌暂无词时不卸载，避免闪默认底（#20） -->
-      <div v-if="showAlbumBackground" class="amll-background">
+      <div v-if="showAlbumBackground" class="amll-background absolute inset-0 z-0 overflow-hidden opacity-75">
         <BackgroundRender
           :key="backgroundAlbumSrc || 'no-album'"
-          class="amll-background-render"
+          class="amll-background-render absolute inset-0 block w-full h-full"
           :album="backgroundAlbumSrc || undefined"
           :album-is-video="false"
           :flow-speed="2"
@@ -24,9 +24,9 @@
           :renderer="meshGradientRenderer"
         />
       </div>
-      <div class="fallback-background" />
+      <div class="fallback-background absolute inset-0 z-0" :class="{ 'opacity-0': showAlbumBackground }" />
 
-      <section v-if="!playerState.currentSong" class="empty-state">
+      <section v-if="!playerState.currentSong" class="empty-state flex flex-col items-center justify-center text-center">
         <div class="placeholder-cover">♪</div>
         <h1>暂无播放歌曲</h1>
         <p>从歌曲列表选择一首音乐后，即可进入沉浸式播放。</p>
@@ -34,23 +34,23 @@
 
       <div
         v-else
-        class="panels"
+        class="panels relative z-10 flex w-[200%] h-full max-h-full overflow-hidden transition-[transform] duration-[var(--muses-duration-overlay)] ease-[var(--muses-ease-standard)]"
         :style="{ transform: `translateX(-${activePanel * 50}%)` }"
       >
-        <section class="panel info-panel" aria-label="播放控制页">
-          <div class="info-panel-inner">
-            <div class="cover-slot">
-              <img v-if="displayCoverSrc" class="cover" :src="displayCoverSrc" alt="歌曲封面" />
-              <div v-else class="cover placeholder-cover">♪</div>
+        <section class="panel info-panel flex flex-col items-center justify-stretch text-center" aria-label="播放控制页">
+          <div class="info-panel-inner flex flex-col items-center justify-between gap-[8px] w-[min(100%,420px)] h-full mx-auto min-h-0 overflow-hidden">
+            <div class="cover-slot flex-[1_1_auto] flex items-center justify-center w-full min-h-0">
+              <img v-if="displayCoverSrc" class="cover aspect-1 h-auto max-w-full max-h-full object-cover" :src="displayCoverSrc" alt="歌曲封面" />
+              <div v-else class="cover placeholder-cover aspect-1 h-auto max-w-full max-h-full object-cover">♪</div>
             </div>
 
-            <div class="song-info">
+            <div class="song-info flex-none w-full m-0 text-left min-w-0">
               <h1>{{ playerState.currentSong.title }}</h1>
               <p>{{ subtitle }}</p>
             </div>
 
             <div
-              class="progress-area"
+              class="progress-area flex-none w-full"
               @touchstart.stop="onProgressGestureStart"
               @touchmove.stop
               @touchend.stop="onProgressGestureEnd"
@@ -60,7 +60,7 @@
               @pointercancel.stop="onProgressGestureEnd"
             >
               <h-range
-                class="progress-range"
+                class="progress-range w-full cursor-pointer touch-manipulation"
                 :min="0"
                 :max="durationForSlider"
                 :step="0.1"
@@ -70,14 +70,14 @@
                 @update:model-value="onSeekInput"
                 @change="onSeek"
               />
-              <div class="time-row">
+              <div class="time-row flex justify-between items-center mt-[2px] text-[12px] tabular-nums text-[var(--muses-immersive-ink-soft)]">
                 <span>{{ formatTime(playerState.position) }}</span>
-                <span v-if="bufferHintVisible" class="buffer-hint">缓冲中</span>
+                <span v-if="bufferHintVisible" class="buffer-hint text-[rgba(255,255,255,0.55)] text-[11px]">缓冲中</span>
                 <span>{{ playerState.duration ? formatTime(playerState.duration) : '--:--' }}</span>
               </div>
             </div>
 
-            <div class="controls">
+            <div class="controls flex-none flex items-center justify-center gap-[clamp(16px,5vw,28px)] w-full m-0 touch-manipulation">
               <h-button variant="ghost" is-icon-only shape="circle" aria-label="上一曲" @click="onPrevious">
                 <h-icon :icon="previousIcon" variant="fill" />
               </h-button>
@@ -97,7 +97,7 @@
               </h-button>
             </div>
 
-            <div class="mode-bar">
+            <div class="mode-bar flex-none flex justify-between items-center w-full max-w-[280px] m-0 touch-manipulation">
               <h-button
                 variant="ghost"
                 is-icon-only
@@ -137,19 +137,19 @@
         </section>
 
         <section
-          class="panel lyric-panel"
+          class="panel lyric-panel relative flex flex-col items-stretch justify-start overflow-hidden"
           aria-label="歌词页"
           @pointerup="onLyricPanelPointerUp"
         >
-          <header v-if="playerState.currentSong" class="lyric-header">
-            <h2 class="lyric-title">{{ playerState.currentSong.title }}</h2>
-            <p v-if="lyricArtist" class="lyric-artist">{{ lyricArtist }}</p>
+          <header v-if="playerState.currentSong" class="lyric-header flex-none w-full text-left min-w-0">
+            <h2 class="lyric-title m-0 font-bold tracking-[0.01em] truncate">{{ playerState.currentSong.title }}</h2>
+            <p v-if="lyricArtist" class="lyric-artist m-0 truncate">{{ lyricArtist }}</p>
           </header>
 
           <template v-if="hasLyrics">
             <LyricPlayer
               :key="lyricPlayerKey"
-              class="lyric-player"
+              class="lyric-player block relative flex-[1_1_auto] w-full min-h-0 h-auto"
               :data-translation-visible="showLyricTranslation ? 'true' : 'false'"
               :lyric-lines="displayLyricLines"
               :current-time="lyricRenderTime"
@@ -162,14 +162,14 @@
               @line-click="onLyricLineClick"
             />
           </template>
-          <div v-else class="lyric-empty">
+          <div v-else class="lyric-empty flex flex-col items-center justify-center text-center flex-[1_1_auto] w-full min-h-0 overflow-hidden">
             <h2>{{ lyricEmptyTitle }}</h2>
             <p>{{ lyricEmptyDescription }}</p>
           </div>
 
           <div
             v-if="playerState.currentSong"
-            class="lyric-floating-actions"
+            class="lyric-floating-actions absolute left-[12px] right-[12px] bottom-[calc(8px+env(safe-area-inset-bottom,0px))] z-[3] flex items-center justify-between opacity-0 pointer-events-none transition-[opacity] duration-[var(--muses-duration-fab)] ease-[var(--muses-ease-standard)]"
             :class="{ 'is-visible': lyricChromeVisible }"
             aria-label="歌词快捷操作"
             :aria-hidden="!lyricChromeVisible"
@@ -178,8 +178,8 @@
               variant="ghost"
               is-icon-only
               shape="circle"
-              class="lyric-fab lyric-translate-toggle"
-              :class="{ 'is-active': showLyricTranslation }"
+              class="lyric-fab lyric-translate-toggle w-[40px] h-[40px] min-w-[40px] min-h-[40px] m-0 text-[20px] pointer-events-none backdrop-blur-[10px] [--padding-start:0] [--padding-end:0] [--padding-top:0] [--padding-bottom:0] [--background:rgba(0,0,0,0.16)] [--background-hover:rgba(255,255,255,0.14)] [--background-activated:rgba(255,255,255,0.2)] [--color:rgba(255,255,255,0.78)] [--border-radius:var(--muses-radius-pill)]"
+              :class="{ 'is-active': showLyricTranslation, '!pointer-events-auto [--color:#fff] [--background:rgba(255,255,255,0.22)]': showLyricTranslation }"
               :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
               :tabindex="lyricChromeVisible ? 0 : -1"
               @click.stop="onLyricTranslateClick"
@@ -192,7 +192,7 @@
               variant="ghost"
               is-icon-only
               shape="circle"
-              class="lyric-fab lyric-play-toggle"
+              class="lyric-fab lyric-play-toggle w-[40px] h-[40px] min-w-[40px] min-h-[40px] m-0 text-[20px] pointer-events-none backdrop-blur-[10px] [--padding-start:0] [--padding-end:0] [--padding-top:0] [--padding-bottom:0] [--background:rgba(0,0,0,0.16)] [--background-hover:rgba(255,255,255,0.14)] [--background-activated:rgba(255,255,255,0.2)] [--color:rgba(255,255,255,0.72)] [--border-radius:var(--muses-radius-pill)]"
               :aria-label="isPlaying ? '暂停播放' : '继续播放'"
               :disabled="playerState.status === 'loading'"
               :tabindex="lyricChromeVisible ? 0 : -1"
@@ -802,654 +802,3 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-.player-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--muses-z-player);
-  overflow: hidden;
-  overscroll-behavior: none;
-  /* 手势统一由脚本处理，避免浏览器把垂直滑动交给底层 ion-content。 */
-  touch-action: none;
-  color: var(--muses-immersive-ink);
-}
-
-.immersive-shell {
-  position: relative;
-  height: 100dvh;
-  max-height: 100dvh;
-  overflow: hidden;
-  background: var(--muses-immersive-void);
-  transition: transform var(--muses-duration-overlay) var(--muses-ease-standard);
-}
-
-.immersive-shell.is-dragging {
-  transition: none;
-}
-
-.amll-background,
-.fallback-background {
-  position: absolute;
-  inset: 0;
-}
-
-.amll-background {
-  z-index: 0;
-  overflow: hidden;
-  opacity: 0.75;
-}
-
-.amll-background-render {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.fallback-background {
-  z-index: 0;
-  background:
-    radial-gradient(circle at 50% 18%, var(--muses-immersive-placeholder), transparent 42%),
-    linear-gradient(165deg, var(--muses-immersive-surface) 0%, var(--muses-immersive-deep) 48%, var(--muses-immersive-void) 100%);
-}
-
-.amll-background + .fallback-background {
-  opacity: 0;
-}
-
-.empty-state,
-.panel {
-  box-sizing: border-box;
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden;
-  padding:
-    calc(16px + env(safe-area-inset-top, 0px))
-    24px
-    calc(16px + env(safe-area-inset-bottom, 0px));
-}
-
-.empty-state,
-.info-panel,
-.lyric-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-.info-panel {
-  justify-content: stretch;
-}
-
-.info-panel-inner {
-  width: min(100%, 420px);
-  height: 100%;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.panels {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  width: 200%;
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden;
-  transition: transform var(--muses-duration-overlay) var(--muses-ease-standard);
-}
-
-.panel {
-  width: 50%;
-  min-width: 50%;
-  flex: 0 0 50%;
-}
-
-.cover-slot {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 0;
-  max-height: min(52dvh, 340px);
-}
-
-/* 正方形边长 = min(水平上限, 垂直上限)；窄屏 width 必须含 dvh，避免仅靠 max-height clamp 拉成长方形 */
-.cover,
-.placeholder-cover {
-  width: min(72vw, 100%, 340px, 52dvh);
-  max-width: 100%;
-  max-height: 100%;
-  aspect-ratio: 1;
-  height: auto;
-  border-radius: var(--muses-radius-cover-immersive);
-  object-fit: cover;
-}
-
-.placeholder-cover {
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
-  color: rgba(255, 255, 255, 0.8);
-  font-size: clamp(48px, 12vw, 72px);
-}
-
-.song-info {
-  flex: 0 0 auto;
-  width: 100%;
-  margin: 0;
-  text-align: left;
-  min-width: 0;
-}
-
-.song-info h1 {
-  margin: 0 0 4px;
-  font-size: clamp(20px, 5.6vw, 28px);
-  line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.song-info p,
-.song-info small,
-.time-row {
-  color: var(--muses-immersive-ink-soft);
-}
-
-.song-info p {
-  margin: 0;
-  font-size: clamp(13px, 3.6vw, 15px);
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.song-info small {
-  display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.progress-area {
-  flex: 0 0 auto;
-  width: 100%;
-}
-
-/* ion-range 进度条：隐藏 knob，仅保留可拖动轨道与已播放填充。
- * 不再维护自绘缓冲色条层；缓冲 clamp 仍由 seek 业务逻辑处理。
- */
-.progress-range {
-  --knob-size: 0px;
-  --knob-background: transparent;
-  --knob-box-shadow: none;
-  --bar-height: 4px;
-  --bar-background: var(--muses-immersive-track);
-  --bar-background-active: var(--muses-immersive-ink);
-  --bar-border-radius: var(--muses-radius-pill);
-  width: 100%;
-  height: 24px;
-  min-height: 24px;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.progress-range[disabled] {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.time-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 2px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.buffer-hint {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 11px;
-}
-
-.controls {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(16px, 5vw, 28px);
-  width: 100%;
-  margin: 0;
-  touch-action: manipulation;
-}
-
-.controls .h-button {
-  width: 52px;
-  height: 52px;
-  margin: 0;
-  font-size: 26px;
-  touch-action: manipulation;
-  color: #fff;
-}
-
-.controls .play-toggle {
-  width: 68px;
-  height: 68px;
-  font-size: 30px;
-}
-
-.mode-bar {
-  flex: 0 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  max-width: 280px;
-  margin: 0;
-  /* 覆盖 overlay 的 touch-action:none，保证模式按钮可点 */
-  touch-action: manipulation;
-}
-
-.mode-bar .h-button {
-  width: 44px;
-  height: 44px;
-  margin: 0;
-  font-size: 20px;
-  touch-action: manipulation;
-  color: rgba(255, 255, 255, 0.58);
-}
-
-.mode-bar .mode-button.is-active {
-  --color: #ffffff;
-}
-
-.lyric-panel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: 12px;
-  overflow: hidden;
-}
-
-.lyric-header {
-  flex: 0 0 auto;
-  width: 100%;
-  text-align: left;
-  min-width: 0;
-}
-
-.lyric-title {
-  margin: 0;
-  font-size: clamp(20px, 5.4vw, 28px);
-  line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.lyric-artist {
-  margin: 6px 0 0;
-  color: rgba(255, 255, 255, 0.68);
-  font-size: clamp(13px, 3.6vw, 15px);
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.lyric-player {
-  display: block;
-  position: relative;
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 0;
-  height: auto;
-  /* AMLL 通过 CSS 变量控制字号；窄屏偏大字左对齐 */
-  --amll-lp-font-size: clamp(22px, 6.5vw, 32px);
-  --amll-lp-line-padding-x: 0;
-  --amll-lp-line-width-aspect: 1;
-  --lyric-line-padding-x: 0;
-}
-
-.lyric-floating-actions {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--muses-duration-fab) var(--muses-ease-standard);
-}
-
-.lyric-floating-actions.is-visible {
-  opacity: 1;
-  /* 容器仍 none，仅子 fab 可点，避免透明热区吞歌词点击 */
-  pointer-events: none;
-}
-
-/* 翻译键与播放键共用同一热区/图标盒，禁止各自另设字号或宽高 */
-.lyric-fab {
-  --padding-start: 0;
-  --padding-end: 0;
-  --padding-top: 0;
-  --padding-bottom: 0;
-  --background: rgba(0, 0, 0, 0.16);
-  --background-hover: rgba(255, 255, 255, 0.14);
-  --background-activated: rgba(255, 255, 255, 0.2);
-  --color: rgba(255, 255, 255, 0.78);
-  --border-radius: var(--muses-radius-pill);
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
-  margin: 0;
-  font-size: 20px;
-  pointer-events: none;
-  backdrop-filter: blur(10px);
-}
-
-.lyric-floating-actions.is-visible .lyric-fab {
-  pointer-events: auto;
-}
-
-.lyric-fab :deep(.h-icon) {
-  width: 20px;
-  height: 20px;
-  font-size: 20px;
-  margin: 0;
-}
-
-.lyric-fab.is-active {
-  --color: #ffffff;
-  --background: rgba(255, 255, 255, 0.22);
-}
-
-.lyric-fab:not(.is-active) {
-  --color: rgba(255, 255, 255, 0.72);
-}
-
-/* AMLL 实际 player 挂在 wrapper 子节点；强制铺满 flex 槽位 */
-.lyric-player :deep(.amll-lyric-player) {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-/* AMLL 实际类名：激活状态同时挂在行容器和主行，副行需跟随行容器同步高亮（#27） */
-.lyric-player :deep(.FmKaba_lyricLine .FmKaba_lyricSubLine) {
-  opacity: 0.3;
-}
-
-.lyric-player :deep(.FmKaba_lyricLine.FmKaba_active .FmKaba_lyricSubLine),
-.lyric-player :deep(.FmKaba_lyricLine .FmKaba_lyricMainLine.FmKaba_active ~ .FmKaba_lyricSubLine) {
-  opacity: 0.72;
-}
-
-/* 去掉 AMLL 默认行左右 padding，使歌词左缘与顶部歌名对齐（panel 已有 24px 边距） */
-.lyric-player :deep(.FmKaba_lyricLine) {
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.lyric-empty {
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 0;
-  overflow: hidden;
-}
-
-@media (min-width: 768px) {
-  .panels {
-    width: auto;
-    display: flex;
-    flex-direction: row;
-    height: 100%;
-    overflow: hidden;
-    transform: none !important;
-  }
-
-  .panel {
-    flex: 1;
-    width: auto;
-    min-width: 0;
-    min-height: 0;
-  }
-
-  .info-panel {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-
-  .info-panel-inner {
-    height: 100%;
-    max-height: 100%;
-    justify-content: center;
-    gap: 12px;
-  }
-
-  .cover-slot {
-    max-height: min(48dvh, 320px);
-  }
-
-  /* width 同时受 vw 与 dvh 约束，保证 aspect-ratio 1 时高度不超过 cover-slot max-height，避免被 clamp 拉伸 */
-  .cover,
-  .placeholder-cover {
-    width: min(40vw, 48dvh, 320px);
-  }
-
-  .song-info {
-    text-align: center;
-  }
-
-  .lyric-panel {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-  }
-
-  .lyric-play-toggle {
-    display: none;
-  }
-
-  /* 宽屏左侧控制页已有歌名/歌手，右侧不重复顶部信息 */
-  .lyric-header {
-    display: none;
-  }
-
-  .lyric-player {
-    flex: 1;
-    min-height: 0;
-    height: auto;
-    --amll-lp-font-size: clamp(20px, 2.4vw, 30px);
-  }
-}
-
-/* 矮屏/横屏：收紧控制区占位，释放垂直空间给封面；不隐藏控件；不改 lyric-panel */
-@media (max-height: 720px) {
-  .info-panel {
-    padding:
-      calc(10px + env(safe-area-inset-top, 0px))
-      24px
-      calc(10px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .info-panel-inner {
-    gap: 4px;
-  }
-
-  .cover-slot {
-    max-height: min(42dvh, 260px);
-  }
-
-  .cover,
-  .placeholder-cover {
-    width: min(72vw, 100%, 260px, 42dvh);
-  }
-
-  .song-info h1 {
-    font-size: clamp(18px, 5vw, 24px);
-    margin-bottom: 2px;
-  }
-
-  .progress-range {
-    height: 20px;
-    min-height: 20px;
-  }
-
-  .controls {
-    gap: clamp(12px, 4vw, 20px);
-  }
-
-  .controls .h-button {
-    width: 46px;
-    height: 46px;
-    font-size: 22px;
-  }
-
-  .controls .play-toggle {
-    width: 58px;
-    height: 58px;
-    font-size: 26px;
-  }
-
-  .mode-bar {
-    max-width: 240px;
-  }
-
-  .mode-bar .h-button {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
-  }
-}
-
-/* 宽屏 + 矮屏：cover width 与更紧的 cover-slot max-height 对齐，避免 48dvh 仍超过 42dvh 时被 clamp */
-@media (min-width: 768px) and (max-height: 720px) {
-  .info-panel {
-    padding: 16px 24px;
-  }
-
-  .info-panel-inner {
-    gap: 8px;
-  }
-
-  .cover,
-  .placeholder-cover {
-    width: min(40vw, 42dvh, 260px);
-  }
-}
-
-/* 更矮（车机/横屏极限）：再收一档，仍保留全部控件 */
-@media (max-height: 520px) {
-  .info-panel {
-    padding:
-      calc(6px + env(safe-area-inset-top, 0px))
-      20px
-      calc(6px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .info-panel-inner {
-    gap: 2px;
-  }
-
-  .cover-slot {
-    max-height: min(38dvh, 200px);
-  }
-
-  .cover,
-  .placeholder-cover {
-    width: min(72vw, 100%, 200px, 38dvh);
-  }
-
-  .song-info h1 {
-    font-size: clamp(16px, 4.5vw, 20px);
-    margin-bottom: 0;
-  }
-
-  .song-info p {
-    font-size: 12px;
-  }
-
-  .song-info small {
-    margin-top: 2px;
-    font-size: 11px;
-  }
-
-  .progress-range {
-    height: 18px;
-    min-height: 18px;
-  }
-
-  .time-row {
-    font-size: 11px;
-  }
-
-  .controls {
-    gap: clamp(10px, 3.5vw, 16px);
-  }
-
-  .controls .h-button {
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-  }
-
-  .controls .play-toggle {
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
-  }
-
-  .mode-bar {
-    max-width: 220px;
-  }
-
-  .mode-bar .h-button {
-    width: 36px;
-    height: 36px;
-    font-size: 16px;
-  }
-}
-
-@media (min-width: 768px) and (max-height: 520px) {
-  .info-panel {
-    padding: 12px 20px;
-  }
-
-  .cover,
-  .placeholder-cover {
-    width: min(40vw, 38dvh, 200px);
-  }
-}
-</style>

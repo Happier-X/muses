@@ -8,17 +8,20 @@
       description="请先到音源页添加并扫描音源。"
     />
 
-    <div v-else class="album-grid tablet-content-limit">
+    <div
+      v-else
+      class="album-grid grid grid-cols-2 gap-[var(--muses-space-lg)] p-[var(--muses-space-lg)] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[var(--muses-content-max-width)] md:mx-auto"
+    >
       <article
         v-for="album in albums"
         :key="album.name"
-        class="album-card"
+        class="album-card flex flex-col gap-[var(--muses-space-sm)] min-w-0"
       >
-        <m-cover class="album-card__cover" :src="getAlbumCoverSrc(album.songs)" alt="" />
-        <div class="album-card__info">
-          <h2 class="album-card__name">{{ album.name }}</h2>
-          <p class="album-card__count">{{ album.songCount }} 首歌曲</p>
-          <p class="album-card__artists">{{ album.artistSummary }}</p>
+        <m-cover class="album-card__cover !w-full !h-auto aspect-square !flex-none" :src="getAlbumCoverSrc(album.songs)" alt="" />
+        <div class="flex flex-col gap-[var(--muses-space-xs)] min-w-0">
+          <h2 class="album-card__name m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] line-clamp-2">{{ album.name }}</h2>
+          <p class="album-card__count m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ album.songCount }} 首歌曲</p>
+          <p class="album-card__artists album-card__count m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ album.artistSummary }}</p>
         </div>
       </article>
     </div>
@@ -53,67 +56,3 @@ const getAlbumCoverSrc = (albumSongs: SongItem[]): string => {
 onMounted(refreshSongs)
 onMounted(refreshSongs)
 </script>
-
-<style scoped>
-.album-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--muses-space-lg);
-  padding: var(--muses-space-lg);
-}
-
-.album-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--muses-space-sm);
-  min-width: 0;
-}
-
-/* MCover 会内联设置默认尺寸，卡片场景需显式覆盖为容器宽度。 */
-.album-card > .album-card__cover {
-  --m-cover-size: 100% !important;
-  height: auto;
-  aspect-ratio: 1;
-  flex: 0 0 auto;
-}
-
-.album-card__info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--muses-space-xs);
-  min-width: 0;
-}
-
-.album-card__name {
-  margin: 0;
-  font-size: var(--muses-font-title);
-  line-height: var(--muses-line-height-title);
-  color: var(--muses-color-ink);
-  /* 最多两行，超出省略，不撑破卡片 */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.album-card__count,
-.album-card__artists {
-  margin: 0;
-  font-size: var(--muses-font-body-sm);
-  color: var(--muses-color-ink-muted);
-  /* 单行省略 */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-@media (min-width: 768px) {
-  .album-grid {
-    /* 宽屏在内容宽度上限内按可用宽度自动增列 */
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    max-width: var(--muses-content-max-width);
-    margin-inline: auto;
-  }
-}
-</style>

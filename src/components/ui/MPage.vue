@@ -1,5 +1,5 @@
 <template>
-  <div class="m-page">
+  <div class="flex flex-col h-full overflow-hidden m-page">
     <h-nav-bar :fixed="false">
       <template v-if="$slots.start" #left>
         <slot name="start" />
@@ -30,13 +30,3 @@ withDefaults(defineProps<{
   fullscreen: false,
 })
 </script>
-
-<style>
-.m-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-  /* ⚠️ 故意不加 contain，避免重建 fixed 包含块导致浮层偏移 */
-}
-</style>

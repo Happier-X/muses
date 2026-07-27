@@ -1,5 +1,5 @@
 <template>
-  <div class="queue-overlay">
+  <div class="fixed inset-0 z-[1200] flex flex-col overflow-hidden overscroll-none bg-[var(--muses-color-surface)] dark:bg-[var(--muses-color-surface-dark)]">
     <h-nav-bar
       title="播放队列"
       show-back
@@ -14,27 +14,27 @@
       </template>
     </h-nav-bar>
 
-    <div class="queue-content">
+    <div class="flex-1 min-h-0 overflow-hidden">
       <h-empty
         v-if="!queueState.hasItems"
         title="队列为空"
         description="从歌曲列表中添加歌曲即可开始播放。"
       />
 
-      <div v-else ref="listParentRef" class="queue-list" role="list" aria-label="播放队列歌曲">
-        <div class="queue-list-spacer" :style="{ height: `${totalSize}px` }">
+      <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[calc(var(--muses-mini-player-height)+var(--muses-space-xl)+env(safe-area-inset-bottom,0px))]" role="list" aria-label="播放队列歌曲">
+        <div class="relative w-full" :style="{ height: `${totalSize}px` }">
           <div
             v-for="row in visibleRows"
             :key="row.song.id"
             :ref="measureVirtualRow"
-            class="queue-row"
+            class="absolute inset-x-0 top-0 box-border min-h-[var(--muses-song-row-height)]"
             role="listitem"
             :data-index="row.virtualRow.index"
             :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
           >
             <div
               class="queue-item"
-              :class="{ 'is-playing': row.virtualRow.index === queueState.currentIndex }"
+              :class="row.virtualRow.index === queueState.currentIndex ? 'is-playing bg-[var(--muses-color-playing-bg)]' : ''"
               :aria-current="row.virtualRow.index === queueState.currentIndex ? 'true' : undefined"
               role="button"
               tabindex="0"
@@ -44,7 +44,7 @@
                 <h2>{{ row.song.title }}</h2>
                 <p>{{ row.song.artist || '未知歌手' }}</p>
               </div>
-              <span class="queue-index">{{ row.virtualRow.index + 1 }}</span>
+              <span class="text-[length:var(--muses-font-label)] opacity-60 me-[var(--muses-space-xs)]">{{ row.virtualRow.index + 1 }}</span>
               <h-button
                 variant="danger-soft"
                 is-icon-only
@@ -133,61 +133,3 @@ const onSelectSong = async (index: number, event: MouseEvent | KeyboardEvent): P
   }
 }
 </script>
-
-<style scoped>
-.queue-overlay {
-  position: fixed;
-  inset: 0;
-  /* 队列叠在沉浸播放页之上（player=1100） */
-  z-index: 1200;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  overscroll-behavior: none;
-  background: var(--muses-color-surface);
-}
-
-.queue-overlay .queue-content {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.queue-list {
-  height: 100%;
-  overflow: auto;
-  overscroll-behavior: contain;
-  box-sizing: border-box;
-  padding-bottom: calc(var(--muses-mini-player-height) + var(--muses-space-xl) + env(safe-area-inset-bottom, 0px));
-}
-
-.queue-list-spacer {
-  position: relative;
-  width: 100%;
-}
-
-.queue-row {
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  box-sizing: border-box;
-  min-height: var(--muses-song-row-height);
-}
-
-.queue-index {
-  font-size: var(--muses-font-label);
-  opacity: 0.6;
-  margin-inline-end: var(--muses-space-xs);
-}
-
-/* 当前队列项 */
-.queue-item.is-playing {
-  background: var(--muses-color-playing-bg);
-}
-
-@media (prefers-color-scheme: dark) {
-  .queue-overlay {
-    background: var(--muses-color-surface-dark);
-  }
-}
-</style>

@@ -2,7 +2,7 @@
   <div class="m-page">
     <h-nav-bar title="设置" :fixed="false" />
     <div class="m-content">
-      <div class="tablet-content-limit">
+      <div class="md:max-w-[var(--muses-content-max-width)] md:mx-auto">
       <div class="settings-list">
           <div class="settings-row">
             <div class="settings-cell">
@@ -23,7 +23,7 @@
           </div>
         </div>
 
-        <div class="update-section">
+        <div class="update-section p-[var(--muses-space-lg)]">
           <h-button
             variant="primary"
             size="lg"
@@ -132,15 +132,3 @@ const checkUpdate = async () => {
 }
 </script>
 
-<style scoped>
-.update-section {
-  padding: var(--muses-space-lg);
-}
-
-@media (min-width: 768px) {
-  .tablet-content-limit {
-    max-width: var(--muses-content-max-width);
-    margin-inline: auto;
-  }
-}
-</style>
