@@ -205,22 +205,22 @@
           <h2>{{ getScanStageText(scanProgress.stage) }}</h2>
           <p v-if="scanProgress.message">{{ scanProgress.message }}</p>
           <p v-if="scanProgress.currentItem" class="truncate">当前：{{ scanProgress.currentItem }}</p>
-          <div class="scan-stats">
-            <div class="scan-stat-row">
+          <div>
+            <div>
               <span>已发现 / 已处理</span>
-              <span class="source-note">{{ scanProgress.discovered }} / {{ scanProgress.processed }}</span>
+              <span>{{ scanProgress.discovered }} / {{ scanProgress.processed }}</span>
             </div>
-            <div class="scan-stat-row">
+            <div>
               <span>入库 / 更新 / 跳过</span>
-              <span class="source-note">{{ scanProgress.inserted }} / {{ scanProgress.updated }} / {{ scanProgress.skipped }}</span>
+              <span>{{ scanProgress.inserted }} / {{ scanProgress.updated }} / {{ scanProgress.skipped }}</span>
             </div>
-            <div class="scan-stat-row">
+            <div>
               <span>降级 / 失败</span>
-              <span class="source-note">{{ scanProgress.degraded }} / {{ scanProgress.failed }}</span>
+              <span>{{ scanProgress.degraded }} / {{ scanProgress.failed }}</span>
             </div>
-            <div class="scan-stat-row">
+            <div>
               <span>移除</span>
-              <span class="source-note">{{ scanProgress.removed }}</span>
+              <span>{{ scanProgress.removed }}</span>
             </div>
           </div>
         </section>

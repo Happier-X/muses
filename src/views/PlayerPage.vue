@@ -102,7 +102,7 @@
                 variant="ghost"
                 is-icon-only
                 shape="circle"
-                class="mode-button"
+
                 :class="{ 'is-active': queueState.repeatMode === 'one' }"
                 :aria-label="repeatModeLabel"
                 @click="onToggleRepeat"
@@ -114,7 +114,7 @@
                 variant="ghost"
                 is-icon-only
                 shape="circle"
-                class="mode-button"
+
                 :class="{ 'is-active': queueState.shuffleEnabled }"
                 :aria-label="shuffleModeLabel"
                 @click="onToggleShuffle"
@@ -126,7 +126,7 @@
                 variant="ghost"
                 is-icon-only
                 shape="circle"
-                class="mode-button"
+
                 aria-label="播放队列"
                 @click="goToQueue"
               >
@@ -162,7 +162,7 @@
               @line-click="onLyricLineClick"
             />
           </template>
-          <div v-else class="lyric-empty flex flex-col items-center justify-center text-center flex-[1_1_auto] w-full min-h-0 overflow-hidden">
+          <div v-else class="flex flex-col items-center justify-center text-center flex-[1_1_auto] w-full min-h-0 overflow-hidden">
             <h2>{{ lyricEmptyTitle }}</h2>
             <p>{{ lyricEmptyDescription }}</p>
           </div>
@@ -178,7 +178,7 @@
               variant="ghost"
               is-icon-only
               shape="circle"
-              class="lyric-fab lyric-translate-toggle w-[40px] h-[40px] min-w-[40px] min-h-[40px] m-0 text-[20px] pointer-events-none backdrop-blur-[10px] [--padding-start:0] [--padding-end:0] [--padding-top:0] [--padding-bottom:0] [--background:rgba(0,0,0,0.16)] [--background-hover:rgba(255,255,255,0.14)] [--background-activated:rgba(255,255,255,0.2)] [--color:rgba(255,255,255,0.78)] [--border-radius:var(--muses-radius-pill)]"
+              class="lyric-fab w-[40px] h-[40px] min-w-[40px] min-h-[40px] m-0 text-[20px] pointer-events-none backdrop-blur-[10px] [--padding-start:0] [--padding-end:0] [--padding-top:0] [--padding-bottom:0] [--background:rgba(0,0,0,0.16)] [--background-hover:rgba(255,255,255,0.14)] [--background-activated:rgba(255,255,255,0.2)] [--color:rgba(255,255,255,0.78)] [--border-radius:var(--muses-radius-pill)]"
               :class="{ 'is-active': showLyricTranslation, '!pointer-events-auto [--color:#fff] [--background:rgba(255,255,255,0.22)]': showLyricTranslation }"
               :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
               :tabindex="lyricChromeVisible ? 0 : -1"

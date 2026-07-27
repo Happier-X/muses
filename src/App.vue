@@ -1,7 +1,7 @@
 <template>
-  <div class="app-shell flex flex-col h-full overflow-hidden">
+  <div class="flex flex-col h-full overflow-hidden">
     <div
-      class="app-router-view flex-1 relative overflow-hidden"
+      class="flex-1 relative overflow-hidden"
       :class="{ 'pointer-events-none': hasGlobalOverlay }"
     >
       <RouterView />

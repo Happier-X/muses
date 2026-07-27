@@ -16,7 +16,7 @@
   >
     <m-cover :src="coverSrc" :size="48" alt="" />
 
-    <div class="track-info min-w-0 flex flex-1 flex-col gap-[3px]">
+    <div class="min-w-0 flex flex-1 flex-col gap-[3px]">
       <strong class="truncate text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)]">{{ titleText }}</strong>
       <span class="truncate text-[color:var(--muses-color-ink-muted)] text-[length:var(--muses-font-body-sm)]">{{ subtitleText }}</span>
     </div>

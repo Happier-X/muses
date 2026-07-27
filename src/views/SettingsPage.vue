@@ -3,16 +3,16 @@
     <h-nav-bar title="设置" :fixed="false" />
     <div class="m-content">
       <div class="md:max-w-[var(--muses-content-max-width)] md:mx-auto">
-      <div class="settings-list">
-          <div class="settings-row">
-            <div class="settings-cell">
+      <div>
+          <div>
+            <div>
               <h2>Muses</h2>
               <p>应用版本 {{ currentVersion }}</p>
             </div>
           </div>
 
-          <div class="settings-row">
-            <div class="settings-cell">
+          <div>
+            <div>
               <h2>音量均衡</h2>
               <p>根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。</p>
             </div>
@@ -23,7 +23,7 @@
           </div>
         </div>
 
-        <div class="update-section p-[var(--muses-space-lg)]">
+        <div class="p-[var(--muses-space-lg)]">
           <h-button
             variant="primary"
             size="lg"
