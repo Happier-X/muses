@@ -191,6 +191,51 @@ grep -c '@layer' dist/assets/index-*.css
 
 ---
 
+## Vite 手动分块与循环依赖
+
+`manualChunks` 只能用于依赖边界明确、产物无环的模块组。不要强制把 `@applemusic-like-lyrics/*` 与 `@pixi/*` 合并为独立 vendor chunk；Vite 8 / Rolldown 可能把 CommonJS 互操作辅助函数放入其他共享 chunk，形成顶层循环求值，导致 Android WebView 启动时报 `TypeError: t is not a function` 并白屏。
+
+当前约定：
+
+- `vite.config.ts` 不为 `@applemusic-like-lyrics` / `@pixi` 配置 `manualChunks`，由 Rolldown 自动处理；AMLL/PIXI 会保留在异步 `PlayerPage` chunk，不进入首屏 `index` chunk。
+- 修改 `manualChunks` 后，不能只看 `npm run build` 是否通过；必须扫描 modern chunk 的静态 import 图，确认无环，并在 Capacitor Android WebView 中冷启动验证。
+- 若出现仅生产包白屏，优先用 CDP 检查未捕获异常与实际加载 URL；`loggingBehavior: 'none'` 时 JS console 不会进入 logcat。
+
+错误示例：
+
+```ts
+// 错误：可能制造 amll-pixi <-> storage 的跨 chunk 顶层循环
+if (id.includes('@applemusic-like-lyrics') || id.includes('@pixi')) {
+  return 'amll-pixi'
+}
+```
+
+正确示例：
+
+```ts
+// 正确：不手动切 AMLL/PIXI；保留边界稳定的 vendor 规则
+manualChunks(id) {
+  if (id.includes('@ionic/vue') || id.includes('ionicons')) {
+    return 'ionic'
+  }
+  if (id.includes('node_modules/vue/') || id.includes('node_modules/@vue/')) {
+    return 'vue-vendor'
+  }
+}
+```
+
+验证至少包括：
+
+```bash
+npm run lint
+npm run build
+npx cap sync android
+```
+
+产物断言：无 `amll-pixi*.js`，modern chunk import 图无环，冷启动后 URL 到达 `/tabs/songs`，CDP 无 `TypeError: t is not a function`。
+
+---
+
 ## Anti-Patterns
 
 Avoid:

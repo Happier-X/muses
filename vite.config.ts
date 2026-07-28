@@ -32,12 +32,6 @@ export default defineConfig({
       },
       output: {
         manualChunks(id) {
-          if (
-            id.includes('@applemusic-like-lyrics') ||
-            id.includes('@pixi')
-          ) {
-            return 'amll-pixi'
-          }
           if (id.includes('@ionic/vue') || id.includes('ionicons')) {
             return 'ionic'
           }
