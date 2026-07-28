@@ -343,13 +343,10 @@ Do not duplicate Ionic core or utility CSS imports inside page components.
 - 播放/暂停、队列等操作按钮统一用 `HButton`（`variant="ghost"` + `is-icon-only` + `shape="circle"`）。
 - 无歌曲时播放/暂停按钮继续禁用；队列按钮行为不受影响，仍可打开队列 overlay。
 - 点击队列按钮调用 `openQueueOverlay()`，不能改变当前路由 URL，也不能触发打开播放器 overlay。
-- 嵌套在可点击主体内的 `HButton` 不要只依赖 `@click.stop`。父级主体点击处理需要检查 `event.composedPath()`，如果事件路径包含 `.player-actions` 就直接忽略。
+- 嵌套在可点击主体内的 `HButton` 必须使用 `@click.stop` 阻止冒泡，父级主体不再依赖 `event.composedPath()` 手动过滤按钮区域。
 
 ```ts
-const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
-  if (event.composedPath().some((target) => target instanceof Element && target.classList.contains('player-actions'))) {
-    return
-  }
+const openPlayerPage = () => {
   if (!playerState.currentSong) {
     return
   }
@@ -389,7 +386,7 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
   - 继续使用 `@applemusic-like-lyrics` 的 `LyricPlayer`，不自研滚动引擎；主词解析用库内 `parseLrc` / `parseYrc` / `parseQrc` / `parseTTML`，翻译适配仅走 `prepareLyricLinesForDisplay`（tlyric 挂载 + 双行 plain LRC 主译 + 开关），不修改 `node_modules`，不新增平行歌词解析器。
   - 在线歌词匹配期间：若有本地歌词先展示本地；若无本地歌词显示「正在匹配在线歌词…」。匹配无结果、网络失败或解析失败且无本地歌词时，空态需说明「未匹配到在线歌词，且无本地歌词」，不得一直空白或弹错误打断播放。
   - **歌词行点击 seek**：`LyricPlayer` 绑定 `@line-click`（AMLL emit `lineClick` / core `line-click`）。事件类型为 `LyricLineMouseEvent`，其中 `line` 是 `LyricLineBase`，通过 `line.getLine().startTime` 取起始时间（**毫秒**），再调用 `seekPlayback(startTime / 1000)`（秒）。`startTime` 非 number / 非有限数 / `< 0` 时不 seek。处理时 `stopPropagation` + 复用 `seekGestureLocked`，避免点击误触发 overlay 下滑关闭或横向切面板。无歌词空状态不绑定该行为。
-  - **歌词区上下滑动手势隔离**：AMLL `LyricPlayer` 内部滚动基于 transform，**非原生 scroll**，`canStartVerticalDismiss` 的原生 `scrollHeight > clientHeight && scrollTop > 0` 检测无法识别。因此 `canStartVerticalDismiss` 必须额外用 `composedPath` 检测触点是否位于 `.lyric-panel` / `.lyric-player` 内，是则返回 `false`，使歌词区上下滑动不更新 `dragOffsetY`、不触发 overlay 下滑关闭。控制页（`.info-panel`）下滑关闭语义不变；`onTouchEnd` 中基于 `startX / endX` 的横向切换面板逻辑保留，歌词页左滑仍可切回控制页。
+  - **歌词区上下滑动手势隔离**：AMLL `LyricPlayer` 内部滚动基于 transform，**非原生 scroll**，`canStartVerticalDismiss` 的原生 `scrollHeight > clientHeight && scrollTop > 0` 检测无法识别。因此 `isLyricPanelTarget` 使用 lyrics panel / player 的 template ref 进行 `Node.contains` 判断触点是否落于歌词区内；`canStartVerticalDismiss` 在歌词区落点返回 `false`，使歌词区上下滑动不更新 `dragOffsetY`、不触发 overlay 下滑关闭。控制页（`.info-panel`）下滑关闭语义不变；`onTouchEnd` 中基于 `startX / endX` 的横向切换面板逻辑保留，歌词页左滑仍可切回控制页。`isNativeInteractiveEvent` 保留 `composedPath` 兜底以穿透 Shadow DOM 内的交互控件（如 `HButton` 原生按钮）。
 - **SongsPage 大列表必须虚拟化**（#50）：使用 `@tanstack/vue-virtual` 只渲染可视行（固定约 72px，适量 overscan），自建滚动容器；「跳转当前播放」先 `scrollToIndex` 再高亮挂载行，禁止恢复全量 `v-for="song in songs"`。
 - 打开播放器/队列 overlay 时必须锁定底层路由页交互与滚动：`.app-router-view` 设 `pointer-events: none`，`body.muses-overlay-open .app-router-view` / `.m-content` 禁用滚动；不要锁住队列 overlay 自己的滚动容器。
 - 播放器 overlay 自身使用 `touch-action: none`，并在非原生可交互控件（含 `input` / `HRange` / `HButton` 等）上对 `touchmove` 调用 `preventDefault`，防止滑动穿透到底层歌曲列表；进度条保留可拖动。
@@ -411,7 +408,9 @@ const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
 - 只屏蔽当前歌曲明显早于恢复点的原生 position；`status`、`duration`、`bufferedPosition` 等其它字段仍按原生事件更新。
 - `playing` 与提前到达的 `finished` 事件都必须遵守保护，避免启动初始位置让进度条回退或触发错误的播放结束状态。
 - 原生位置到达恢复点附近，或恢复 seek 成功/失败、播放失败、主动切歌、普通 seek、显式 stop 时，必须清除保护，让后续真实进度正常驱动 UI。
-- 单元测试应通过 `AudioPlayerNative.addListener('stateChange', ...)` 注册的 listener 注入 seek pending 期间的同曲早期进度，并断言中间态不回退、最终仍调用恢复 seek、保护结束后进度可以继续更新。
+- 单元测试与 e2e 基础设施已全部移除。项目不再包含任何自动化测试；用户通过手动验证确认功能。
+- 测试移除后，过去仅因测试存在的 DOM 标记类（`.immersive-shell`、`.mini-player`、`.app-mini-player`、`.app-player-page`、`.m-cover`、`.amll-background{,-render}` 等）已从模板中删除。
+- 未来如需恢复测试，优先使用语义选择器（`aria-label`、`role`、元素标签），禁止依赖命名标记类。
 
 ### 隐藏播放器渲染降载约定
 
@@ -479,7 +478,7 @@ const openScanSettings = (source: SourceItem): void => {
 1. 虚拟器必须使用真实原生滚动容器，容器设置 `overflow: auto`、`min-height: 0` 和 `box-sizing: border-box`。
 2. 保留原生 HTML 包装行，行带 `data-index`，通过 `measureElement` 测量。
 3. 不要为虚拟器未就绪状态回退渲染完整数组，否则大列表首帧仍会创建全量 DOM。
-4. 需要删除时使用明确的行尾按钮，并用 `event.composedPath()` 防止按钮事件触发整行播放。
+4. 需要删除时使用明确的行尾按钮，并信任 `@click.stop` 阻止按钮事件触发整行播放。
 5. 队列必须保留当前项 `aria-current`、当前项定位、播放、删除、清空和空态；歌单必须保留播放全部、单曲播放、移除、封面、空态和数据更新刷新。
 
 参考文件：`src/views/QueuePage.vue`、`src/views/PlaylistDetailPage.vue`、`@tanstack/vue-virtual`。
@@ -570,12 +569,12 @@ Given the current app shape, common mistakes to avoid are:
 - Putting route logic inside page components instead of `src/router/index.ts`
 - Adding `/player` or `/queue` routes for immersive playback; these surfaces are global overlays, not route pages
 - Reintroducing any `@ionic/*` / `ionicons` 依赖或 `ion-*` 标签（本任务已完全脱离 Ionic）
-- Mixing global theme concerns into component-local styles
+- Mixing global theme concerns into component styles (all styles must be Tailwind utility classes or tailwind.css-scoped rules)
 - Introducing new architectural layers (store, services, composables) without an actual need in the task
 - 给 `MPage` / `.m-page` 加 `contain`（会重建 fixed 包含块，导致 HToast/HBottomSheet 等浮层偏移）
 - 在 TabsPage 父路由壳上再套一层 `MPage` 导致重复导航 chrome 或堆叠布局
 - 用 `HIconButton`（0.0.4 已移除）代替 `HButton is-icon-only`
-- Relying only on `@click.stop` for nested `HButton` controls inside a clickable parent; guard the parent handler with `event.composedPath()` so button clicks do not trigger parent navigation
+- Using `@click.stop` on nested `HButton` controls inside a clickable parent; the parent handler does not need manual event-path filtering.
 - Hiding `MiniPlayer` with `v-if` while a player overlay is open; keep it mounted behind the overlay and disable interaction to avoid close-animation flicker
 - Setting immersive `.cover` width without a height-based cap（窄屏只写 `min(72vw, 100%, 340px)` 或宽屏只写 `min(40vw, 320px)`）while `.cover-slot` clamps height via `max-height: min(…dvh, …)`；矮高/横屏时正方形高度被 clamp、宽度不变 → 封面被压成长方形。窄屏与宽屏 `.cover` width 都必须同步含 dvh/`max-height` 对齐的上限
 - 矮屏控制页只缩按钮却不收 panel padding / `info-panel-inner` gap / 进度热区，导致控制区仍占过多垂直空间、封面槽位被挤；或为腾空间隐藏模式栏/进度——应分层 `max-height` 收紧尺寸，保留全部控件
@@ -587,28 +586,28 @@ Given the current app shape, common mistakes to avoid are:
 组件的 `class` 属性中有两类类名：以 utility 为主的 Tailwind 语义类（无前缀或有 `[` `(` 任意值 syntax）传给 class variable，另有少量非 Tailwind 自定义标记类。零 scoped CSS 的规则对这些标记类提出了留存标准：
 
 - **保留**的标记类必须满足至少一项：
-  1. `src/theme/tailwind.css` 中存在对应的全局级联锚点（e.g. `.player-overlay .cover`、`.lyric-panel`、`.lyric-empty`、`.immersive-shell`、`.controls`、`.mode-bar`、`.placeholder-cover`、`.info-panel`、`.m-page`、`.m-content`、`.m-content--fullscreen`、`.empty-state`、`.app-shell`、`.app-mini-player`、`.app-router-view` 等全局规则依赖）。
-  2. JS 运行时通过 `classList.contains` / `querySelector` / `composedPath` 查找的功能性标记（e.g. `.player-actions`、`.lyric-panel`、`.lyric-player`、`.more-button`、`.remove-button`）。
-  3. 用于 Vue Transition prop 的过渡类（无需保留：Transition 改用 `enter-active-class` 等 prop 传 Tailwind utility）。
+  1. `src/theme/tailwind.css` 中存在对应的全局级联锚点（e.g. `.player-overlay .cover`、`.lyric-panel`、`.controls`、`.info-panel`、`.m-page`、`.m-content`、`.empty-state` 等全局规则依赖）。
+  2. Vue 动态 `:class` 绑定产生的状态标识（如 `is-playing`、`is-active`、`is-dragging`、`is-overlay-active`、`is-player-visible`、`is-visible`、`is-empty`）。
 
 - **移除**的条件：标记类同时满足：
   a. 不是 tailwind.css 全局规则锚点
-  b. 没有运行时代码 `classList.contains` 或 `querySelector` 引用
-  c. 没有用于 Transition 的具名 class
-  d. 不是 Vue 动态 `:class` 绑定产生的状态标识（如 `is-playing`、`is-active`，这些最终也可能是全局 CSS 依赖）
+  b. 没有运行时代码依赖（项目已无 `classList.contains` / `querySelector` 标记类查询，无 `composedPath` 代理）
+  c. 不是 Vue 动态状态类
 
-- **测试**：测试代码的最佳选择是语义选择器（组件名、`aria-label`、`role`、`[data-song-id]`、`button`/`h2`/`img` 等）。仅当事先无法用语义定位某个元素时，可临时使用 Tailwind 的 utility class 选择器（e.g. `wrapper.find('[class*="flex-[0_0_48px]"]')`），但这种选择器在 utility class 重构时会断。测试断言**禁止**依赖纯命名标记类（如 `.album-grid`、`.artist-card__avatar`）——这些类应视为不可测试的装饰性残留，不属于运行时必需列表。
+- **项目已删除全部自动化测试**。标记类清理判定不再考虑测试依赖维度。
 
-**判定参考表（示例）**：
+**判定参考表（当前已执行）**：
 
-| 标记类 | 锚定变量 | 判定 |
-|---|---|---|
-| `.player-overlay` | tailwind.css 全局规则 | ✅ 保留 |
-| `.lyric-panel`、`.lyric-player` | tailwind.css + JS `classList.contains` | ✅ 保留 |
-| `.mini-player` | tailwind.css 全局规则 | ✅ 保留 |
-| `.player-actions` | JS `event.composedPath` 代理 | ✅ 保留 |
-| `.more-button`、`.remove-button` | JS `event.composedPath` 代理 | ✅ 保留 |
-| `.album-grid`、`.artist-grid` | 无 CSS 锚点、无 JS 查询、仅测试装饰 | ❌ 移除 |
-| `.album-card*`、`.artist-card*` sub-elements | 同上 | ❌ 移除 |
-| `.shuffle-bar`、`.shuffle-actions` | 同上 | ❌ 移除 |
-| `.list-grid`、`.tablet-content-limit` | 同上 | ❌ 移除 |
+| 标记类 | 锚定变量 | 判定 | 状态 |
+|---|---|---|---|
+| `.player-overlay` | tailwind.css 全局规则 | ✅ 保留 | — |
+| `.lyric-panel`、`.lyric-player`、`.lyric-*` | tailwind.css 全局规则 | ✅ 保留 | 已清手势 class 查询 |
+| `.progress-range`、`.progress-area` | tailwind.css 全局规则 | ✅ 保留 | 已清 class 查询 |
+| `.cover`、`.cover-slot`、`.controls`、`.mode-bar`、`.info-panel*`、`.panel`、`.panels`、`.empty-state`、`.fallback-background`、`.song-info`、`.time-row`、`.play-toggle` | tailwind.css 全局规则 | ✅ 保留 | — |
+| `.m-page`、`.m-content`、`.m-content--fullscreen` | tailwind.css 全局规则 | ✅ 保留 | — |
+| `is-playing`、`is-empty`、`is-overlay-active`、`is-player-visible`、`is-dragging`、`is-active`、`is-visible` | Vue `:class` 状态绑定 | ✅ 保留 | — |
+|data-song-id`, `data-index` | Vue 属性绑定，非 class | — | 保留（行身份标识）|
+| `.player-actions` / `.more-button` / `.remove-button` | 原 JS `composedPath` 代理（已改用 `@click.stop`） | ❌ 移除 | 已删 |
+| `.mini-player` / `.app-mini-player` / `.app-player-page` | 原测试断言 | ❌ 移除 | 已删 |
+| `.immersive-shell` / `.amll-background{,-render}` | 原测试断言 | ❌ 移除 | 已删 |
+| `.m-cover` | 原测试断言 + 组件根 class（无 CSS/js 锚点） | ❌ 移除 | 已删 |

@@ -38,7 +38,7 @@
               :aria-current="row.virtualRow.index === queueState.currentIndex ? 'true' : undefined"
               role="button"
               tabindex="0"
-              @click="onSelectSong(row.virtualRow.index, $event)"
+              @click="onSelectSong(row.virtualRow.index)"
             >
               <div class="flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
                 <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] truncate">{{ row.song.title }}</h2>
@@ -49,7 +49,7 @@
                 variant="danger-soft"
                 is-icon-only
                 shape="square"
-                class="remove-button flex-none m-0"
+                class="flex-none m-0"
                 :aria-label="`从队列删除 ${row.song.title}`"
                 @click.stop="onRemoveSong(row.song.id)"
               >
@@ -123,10 +123,7 @@ const onRemoveSong = (songId: string) => {
   removeSongFromQueue(songId)
 }
 
-const onSelectSong = async (index: number, event: MouseEvent | KeyboardEvent): Promise<void> => {
-  if (event.composedPath().some((target) => target instanceof Element && target.classList.contains('remove-button'))) {
-    return
-  }
+const onSelectSong = async (index: number): Promise<void> => {
   const song = selectSongAtIndex(index)
   if (song) {
     await playSong(song)

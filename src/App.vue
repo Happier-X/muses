@@ -7,14 +7,13 @@
       <RouterView />
     </div>
     <MiniPlayer
-      class="app-mini-player"
       :class="{ 'pointer-events-none': hasGlobalOverlay, 'is-overlay-active': hasGlobalOverlay }"
       :aria-hidden="hasGlobalOverlay"
     />
     <!-- 有当前曲时保活 PlayerPage，避免关闭再打开重建 BackgroundRender 闪默认底（#22） -->
     <PlayerPage
       v-if="keepPlayerPageMounted"
-      class="app-player-page transition-transform duration-[220ms] ease-[ease]"
+      class="transition-transform duration-[220ms] ease-[ease]"
       :class="[
         playerOverlayVisible
           ? 'translate-y-0 pointer-events-auto visible [contain:none]'

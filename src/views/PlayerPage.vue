@@ -8,15 +8,15 @@
     @touchcancel="onTouchEnd"
   >
     <div
-      class="immersive-shell relative h-dvh max-h-dvh overflow-hidden [background:var(--muses-immersive-void)] transition-[transform] duration-[var(--muses-duration-overlay)] ease-[var(--muses-ease-standard)]"
+      class="relative h-dvh max-h-dvh overflow-hidden [background:var(--muses-immersive-void)] transition-[transform] duration-[var(--muses-duration-overlay)] ease-[var(--muses-ease-standard)]"
       :class="{ 'is-dragging': isDraggingVertically, '!transition-none': isDraggingVertically }"
       :style="{ transform: `translateY(${dragOffsetY}px)` }"
     >
       <!-- 背景与歌词解耦：切歌暂无词时不卸载，避免闪默认底（#20） -->
-      <div v-if="showAlbumBackground" class="amll-background absolute inset-0 z-0 overflow-hidden opacity-75">
+      <div v-if="showAlbumBackground" class="absolute inset-0 z-0 overflow-hidden opacity-75">
         <BackgroundRender
           :key="backgroundAlbumSrc || 'no-album'"
-          class="amll-background-render absolute inset-0 block w-full h-full"
+          class="absolute inset-0 block w-full h-full"
           :album="backgroundAlbumSrc || undefined"
           :album-is-video="false"
           :flow-speed="2"
@@ -60,6 +60,7 @@
               @pointercancel.stop="onProgressGestureEnd"
             >
               <h-range
+                ref="progressRangeRef"
                 class="progress-range w-full cursor-pointer touch-manipulation"
                 :min="0"
                 :max="durationForSlider"
@@ -137,6 +138,7 @@
         </section>
 
         <section
+          ref="lyricPanelRef"
           class="panel lyric-panel relative flex flex-col items-stretch justify-start overflow-hidden"
           aria-label="歌词页"
           @pointerup="onLyricPanelPointerUp"
@@ -148,6 +150,7 @@
 
           <template v-if="hasLyrics">
             <LyricPlayer
+              ref="lyricPlayerRef"
               :key="lyricPlayerKey"
               class="lyric-player block relative flex-[1_1_auto] w-full min-h-0 h-auto"
               :data-translation-visible="showLyricTranslation ? 'true' : 'false'"
@@ -223,6 +226,10 @@ import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousF
 import { closePlayerOverlay, openQueueOverlay, playerOverlayVisible } from '@/features/player/overlay'
 
 const activePanel = ref(0)
+/** 手势落点判断用的 template ref（取代 closest / class 选择器查询）。 */
+const lyricPanelRef = ref<HTMLElement | null>(null)
+const lyricPlayerRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
+const progressRangeRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
 /** 隐藏态冻结传给 AMLL 的时间输入；重新打开时由当前播放进度立即刷新。 */
 const hiddenLyricTime = ref(0)
 const lyricRenderTime = computed(() => playerOverlayVisible.value ? playerState.position * 1000 : hiddenLyricTime.value)
@@ -668,10 +675,27 @@ const onTouchMove = (event: TouchEvent) => {
   isDraggingVertically.value = nextOffset > 0
 }
 
+/** 取出组件实例或原生元素的真实 DOM。 */
+const unwrapRef = (value: HTMLElement | { $el?: HTMLElement } | null): HTMLElement | null => {
+  if (!value) {
+    return null
+  }
+  return value instanceof HTMLElement ? value : (value.$el ?? null)
+}
+
+/** 进度条范围元素（取代 `.progress-range` 选择器查询）。 */
+const progressRangeEl = computed<HTMLElement | null>(() => unwrapRef(progressRangeRef.value))
+
+/** 原生交互控件选择器——全是标准元素/属性选择器，非 class 标记，属合法声明式查询。 */
 const INTERACTIVE_SELECTOR =
-  'input, textarea, select, button, a, [role="button"], [contenteditable="true"], .progress-range'
+  'input, textarea, select, button, a, [role="button"], [contenteditable="true"]'
 
 const isInteractiveElement = (el: Element): boolean => {
+  // 进度条用 ref 识别（取代原 `.progress-range` class 选择器）
+  const progressEl = progressRangeEl.value
+  if (progressEl && progressEl.contains(el)) {
+    return true
+  }
   return Boolean(el.closest(INTERACTIVE_SELECTOR))
 }
 
@@ -679,9 +703,6 @@ const isNativeInteractiveTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof Element)) {
     return false
   }
-
-  // ion-button 使用 Shadow DOM：event.target 常在 shadow 内，closest 穿不过宿主，
-  // 必须配合 composedPath 识别，否则 touchmove preventDefault 会吞掉 click（循环/随机按钮失效）。
   if (isInteractiveElement(target)) {
     return true
   }
@@ -692,6 +713,8 @@ const isNativeInteractiveEvent = (event: TouchEvent | Event): boolean => {
   if (isNativeInteractiveTarget(event.target)) {
     return true
   }
+  // Shadow DOM / 合成事件路径里目标可能是组件宿主（h-button 原生按钮上有 Shadow DOM）；
+  // composedPath 能穿透 shadow，closest/contains 在 light DOM 上能识别。元素级 API，非标记类查询。
   if (!('composedPath' in event) || typeof event.composedPath !== 'function') {
     return false
   }
@@ -742,17 +765,14 @@ const onTouchEnd = (event: TouchEvent) => {
 }
 
 const isLyricPanelTarget = (event: TouchEvent): boolean => {
-  // 优先用 target.closest：真实 DOM 与 @vue/test-utils trigger 都可靠；
-  // 再兜底 composedPath，覆盖 Shadow DOM / 合成事件路径。
-  if (event.target instanceof Element && event.target.closest('.lyric-panel, .lyric-player')) {
+  // 用 template ref 的 contains 判断触点是否落在歌词面板/歌词播放器内，取代 closest + classList.contains 标记类查询。
+  const target = event.target
+  const lyricPanelEl = lyricPanelRef.value
+  if (lyricPanelEl instanceof HTMLElement && target instanceof Node && lyricPanelEl.contains(target)) {
     return true
   }
-  return event.composedPath().some((target) => {
-    if (!(target instanceof Element)) {
-      return false
-    }
-    return target.classList.contains('lyric-panel') || target.classList.contains('lyric-player')
-  })
+  const lyricPlayerEl = unwrapRef(lyricPlayerRef.value)
+  return Boolean(lyricPlayerEl && target instanceof Node && lyricPlayerEl.contains(target))
 }
 
 const canStartVerticalDismiss = (event: TouchEvent): boolean => {

@@ -1,6 +1,6 @@
 <template>
   <div
-    class="mini-player fixed left-0 right-0 bottom-[calc(var(--muses-tab-bar-height)+env(safe-area-inset-bottom,0px))] z-[var(--muses-z-mini-player)] flex items-center gap-[var(--muses-space-md)] w-full min-h-[var(--muses-mini-player-height)] py-[var(--muses-space-sm)] px-[var(--muses-space-md)] border-t border-t-[rgba(0,0,0,0.08)] text-[color:var(--muses-color-ink)] bg-[var(--muses-color-surface)] dark:border-t-[rgba(255,255,255,0.12)] dark:bg-[var(--muses-color-surface-dark)] md:bottom-[env(safe-area-inset-bottom,0px)]"
+    class="fixed left-0 right-0 bottom-[calc(var(--muses-tab-bar-height)+env(safe-area-inset-bottom,0px))] z-[var(--muses-z-mini-player)] flex items-center gap-[var(--muses-space-md)] w-full min-h-[var(--muses-mini-player-height)] py-[var(--muses-space-sm)] px-[var(--muses-space-md)] border-t border-t-[rgba(0,0,0,0.08)] text-[color:var(--muses-color-ink)] bg-[var(--muses-color-surface)] dark:border-t-[rgba(255,255,255,0.12)] dark:bg-[var(--muses-color-surface-dark)] md:bottom-[env(safe-area-inset-bottom,0px)]"
     :class="{
       'cursor-pointer': !!playerState.currentSong,
       'cursor-default': !playerState.currentSong,
@@ -21,7 +21,7 @@
       <span class="truncate text-[color:var(--muses-color-ink-muted)] text-[length:var(--muses-font-body-sm)]">{{ subtitleText }}</span>
     </div>
 
-    <div class="player-actions flex shrink-0 items-center gap-[var(--muses-space-xs)]">
+    <div class="flex shrink-0 items-center gap-[var(--muses-space-xs)]">
       <h-button
         variant="ghost"
         is-icon-only
@@ -59,22 +59,12 @@ const subtitleText = computed(() => {
 const currentCoverUri = computed(() => playerState.coverUri || playerState.currentSong?.coverUri || '')
 const coverSrc = computed(() => toDisplayableUri(currentCoverUri.value))
 
-const openPlayerPage = (event: MouseEvent | KeyboardEvent) => {
-  if (isPlayerActionEvent(event)) {
-    return
-  }
-
+const openPlayerPage = () => {
   if (!playerState.currentSong) {
     return
   }
 
   openPlayerOverlay()
-}
-
-const isPlayerActionEvent = (event: MouseEvent | KeyboardEvent): boolean => {
-  return event.composedPath().some((target) => {
-    return target instanceof Element && target.classList.contains('player-actions')
-  })
 }
 
 const openQueuePage = () => {

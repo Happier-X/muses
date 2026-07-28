@@ -34,7 +34,7 @@
           <div
             v-for="virtualRow in virtualRows"
             :key="songs[virtualRow.index].id"
-            :ref="measureVirtualRow"
+            :ref="(el) => collectRowRef(el, songs[virtualRow.index].id)"
             class="absolute top-0 left-0 right-0 box-border min-h-[var(--muses-song-row-height)] scroll-mt-[108px]"
             :data-index="virtualRow.index"
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
@@ -140,8 +140,8 @@ import {
 } from '@/features/player/controller'
 
 const songs = ref<SongItem[]>([])
-const pageRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
 const listParentRef = ref<HTMLElement | null>(null)
+const songRowRefs = new Map<string, HTMLElement>()
 const actionSong = ref<SongItem | null>(null)
 const isSongActionsOpen = ref(false)
 const isPlaylistPickOpen = ref(false)
@@ -174,12 +174,23 @@ const measureVirtualRow = (element: Element | ComponentPublicInstance | null): v
   rowVirtualizer.value.measureElement(element instanceof HTMLElement ? element : null)
 }
 
+/** 同时凗给 virtualizer measure 与 songId->element map，供 FAB 跳转查询 */
+const collectRowRef = (element: Element | ComponentPublicInstance | null, songId: string): void => {
+  measureVirtualRow(element)
+  const el = element instanceof HTMLElement ? element : null
+  if (el) {
+    songRowRefs.set(songId, el)
+  } else {
+    songRowRefs.delete(songId)
+  }
+}
+
 const virtualRows = computed(() => {
   const items = rowVirtualizer.value.getVirtualItems()
   if (items.length > 0) {
     return items
   }
-  // 无滚动容器时（首帧 / 单测 stub）退化为全量行，避免空白与测试失败
+// 虚拟列表只剩可视行；首帧 / stub 退化逻辑保留（已无单测但为审美/强健性保留）
   return songs.value.map((_, index) => ({
     index,
     start: index * 72,
@@ -281,30 +292,6 @@ const onShuffleAll = () => {
   }
 }
 
-const resolvePageRoot = (): ParentNode | null => {
-  const value = pageRef.value
-  if (!value) {
-    return typeof document !== 'undefined' ? document : null
-  }
-  if (value instanceof HTMLElement) {
-    return value
-  }
-  if (value.$el instanceof HTMLElement) {
-    return value.$el
-  }
-  return typeof document !== 'undefined' ? document : null
-}
-
-const findSongRow = (songId: string): HTMLElement | null => {
-  const root = resolvePageRoot()
-  if (!root) {
-    return null
-  }
-
-  const rows = Array.from(root.querySelectorAll<HTMLElement>('[data-song-id]'))
-  return rows.find((row) => row.getAttribute('data-song-id') === songId) ?? null
-}
-
 const scrollToCurrentSong = async () => {
   const currentId = playerState.currentSong?.id
   if (!currentId) {
@@ -316,7 +303,7 @@ const scrollToCurrentSong = async () => {
     return
   }
 
-  // 虚拟列表：先滚到索引，再高亮 DOM 行
+  // 虚拟列表：先滚到索引
   rowVirtualizer.value.scrollToIndex(index, { align: 'start', behavior: 'smooth' })
   await nextTick()
   // 等 layout 一帧，确保目标行已挂载
@@ -324,14 +311,12 @@ const scrollToCurrentSong = async () => {
     requestAnimationFrame(() => resolve())
   })
 
-  const row = findSongRow(currentId)
+  const row = songRowRefs.get(currentId)
   if (!row) {
     return
   }
 
-  // 保留既有 scrollIntoView 合约（stub/首帧 virtualizer 尚未拿到容器时也可跳转）
-  const scrollableRow = row as HTMLElement & { scrollIntoView?: (options?: ScrollIntoViewOptions) => void }
-  scrollableRow.scrollIntoView?.({ behavior: 'smooth', block: 'start', inline: 'nearest' })
+  row.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
   highlightedSongId.value = currentId
   if (jumpHighlightTimer) {
     clearTimeout(jumpHighlightTimer)
@@ -372,5 +357,6 @@ onUnmounted(() => {
     clearTimeout(jumpHighlightTimer)
     jumpHighlightTimer = null
   }
+  songRowRefs.clear()
 })
 </script>

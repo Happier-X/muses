@@ -46,7 +46,7 @@
                 :class="playerState.currentSong?.id === row.song.id ? 'bg-[var(--muses-color-playing-bg)]' : ''"
                 role="button"
                 tabindex="0"
-                @click="onPlaySong(row.song, $event)"
+                @click="onPlaySong(row.song)"
               >
                 <m-cover class="!flex-none" :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
                 <div class="flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
@@ -57,7 +57,7 @@
                   variant="ghost"
                   is-icon-only
                   shape="square"
-                  class="more-button flex-none m-0 ml-auto"
+                  class="flex-none m-0 ml-auto"
                   :aria-label="`从歌单移除 ${row.song.title}`"
                   @click.stop="onRemove(row.song.id)"
                 >
@@ -176,10 +176,7 @@ const onPlayAll = () => {
   void playSong(songs[0])
 }
 
-const onPlaySong = (song: SongItem, event: MouseEvent | KeyboardEvent): void => {
-  if (event.composedPath().some((target) => target instanceof Element && target.classList.contains('more-button'))) {
-    return
-  }
+const onPlaySong = (song: SongItem): void => {
   void playSong(song)
 }
 
