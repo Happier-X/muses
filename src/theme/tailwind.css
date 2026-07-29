@@ -15,6 +15,18 @@ body {
 }
 
 /*
+ * 高度链：脱离 Ionic 后需自持 document→#app 100% 高度链，
+ * 否则 .m-page 的 height:100% 无确定高度的祖先，overflow:hidden 无法裁出内部滚动。
+ * 注意 #app 用 height:100% 与 body 一致；移动浏览器视口工具栏由 .m-content 内部
+ * overflow 滚动消化（不依赖 100dvh），避免 fixed 浮层错位。
+ */
+html,
+body,
+#app {
+  height: 100%;
+}
+
+/*
  * .m-page / .m-content 基础骨架样式（原 MPage.vue / MContent.vue 非 scoped 全局块）。
  * MPage/MContent 组件根节点已同时挂 Tailwind utility，此处保留供仍以原生
  * <div class="m-page"> / <div class="m-content"> 书写的页面（SongsPage / SourcesPage /

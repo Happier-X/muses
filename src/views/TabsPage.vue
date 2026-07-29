@@ -25,7 +25,7 @@
       <main
         class="flex-1 min-h-0"
         :class="isTabsRoute
-          ? 'pb-[calc(var(--muses-tab-bar-height)+env(safe-area-inset-bottom,0px))] md:pb-0 md:fixed md:top-0 md:right-0 md:bottom-0 md:left-[var(--muses-sidebar-width)] md:overflow-auto'
+          ? 'pb-[calc(var(--muses-tab-bar-height)+env(safe-area-inset-bottom,0px))] md:pb-0 md:fixed md:top-0 md:right-0 md:bottom-0 md:left-[var(--muses-sidebar-width)] md:overflow-hidden'
           : 'pb-0 md:min-w-0'"
       >
         <RouterView />
