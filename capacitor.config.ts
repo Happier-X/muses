@@ -8,6 +8,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   loggingBehavior: 'none',
   plugins: {
+    SystemBars: {
+      insetsHandling: 'css',
+    },
     NativeAudio: {
       hls: false,
     },

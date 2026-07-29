@@ -83,6 +83,12 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.6`**（不用 `^`�
 - **Tabs 视口不吞滚动**：`src/views/TabsPage.vue` 的 `<main>` 在 `md+` 用 `md:fixed` 铺满侧栏右侧时 **`md:overflow-hidden`**（不可用 `md:overflow-auto`），让纵向滚动回落到业务页 `.m-content`（虚拟列表页内部 list `overflow: auto`）。`main` 在窄屏用 `flex-1 min-h-0` 拿到确定高度；非 tabs 路由分支不引入整页滚动。
 - 顶栏 `HNavBar :fixed="false"` 依赖 `.m-page` flex 文档流钉住，不动组件级 `fixed=true`，避免与侧栏 `left` 偏移 / safe-area / overlay 叠加。
 
+### Capacitor Edge-to-Edge 安全区
+
+- `capacitor.config.ts` 必须显式设置 `SystemBars: { insetsHandling: 'css' }`，确保 Capacitor 8 向 `<html>` 注入 `--safe-area-inset-*` 自定义 CSS 变量。
+- Android WebView `< 140` 的 `env(safe-area-inset-*)` 可能不正确，因此组件和宿主代码**不得只读 `env()`**；必须优先使用 `var(--safe-area-inset-top, env(…, 0px))` 三级回退（Capacitor 变量 → 标准 env → 0px）。
+- `src/theme/tailwind.css` 保留宿主级 `.h-nav-bar--safe-area` 覆盖，在组件库正式发布修复前确保 navbar 安全区内容避让。此覆盖待库发版后清除。
+
 参考文件：
 
 - `src/components/ui/MPage.vue`

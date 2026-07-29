@@ -1,0 +1,5 @@
+[
+  {"id":1,"type":"research","timestamp":"2026-07-29T02:16:00Z","content":"Capacitor 8 SystemBars 默认 insetsHandling=css，注入 --safe-area-inset-* 自定义变量；HNavBar 只读 env()，Android WebView < 140 时 sys safe-area-inset-top 可能为 0。详见 research/capacitor-edge-to-edge.md。"},
+  {"id":2,"type":"research","timestamp":"2026-07-29T02:16:00Z","content":"happier-ui@0.0.6 HNavBar 的 .h-nav-bar--safe-area 用 padding-top: env(safe-area-inset-top, 0px)，无 Capacitor 自定义变量回退；HTabBar 同理。"},
+  {"id":3,"type":"research","timestamp":"2026-07-29T02:16:00Z","content":"component-guidelines.md 页面骨架 Pattern 确认 'HNavBar :fixed=false + .m-content' 布局；本次不改固定模式。"}
+]

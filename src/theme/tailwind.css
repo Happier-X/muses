@@ -54,6 +54,16 @@ body,
 }
 
 /*
+ * HNavBar safe-area 兼容覆盖：优先消费 Capacitor 8 SystemBars 注入的
+ * --safe-area-inset-top，再回退到标准 env()。Android WebView < 140 时
+ * env(safe-area-inset-top) 可能为 0，而 Capacitor 注入值正确。
+ * 待组件库正式修复后此覆盖可移除。
+ */
+.h-nav-bar--safe-area {
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+}
+
+/*
  * 全局 overlay 锁滚动（原 App.vue 非 scoped <style> 块）。
  * 作用于 document 根元素（html/body）与远端 .m-content，不在任何组件模板范围内，
  * 故保留为全局 CSS，不改写为 Tailwind utility。
