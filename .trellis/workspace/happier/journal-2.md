@@ -1650,3 +1650,29 @@ SettingsPage 和 SourcesPage 的 HToast 在 ion-content 内 position:fixed 失�
 ### Next Steps
 
 - e2e 与真机回归验证 AC4-AC9（tab 切换、浮层、safe-area、状态栏/返回键/键盘）。
+
+
+## Session 85: Navbar fixed + edge-to-edge safe-area in one session
+
+**Date**: 2026-07-29
+**Task**: Navbar fixed + edge-to-edge safe-area in one session
+**Branch**: `main`
+
+### Summary
+
+Two navbar fixes delivered in this session:
+
+1.  — Navbar 不随内容滚动（根因：TabsPage main  吞掉整页滚动；修复：改为  + 补齐 html/body/#app 高度链）。
+
+2.  — Android Edge-to-Edge 下 Navbar 安全区适配（根因：happier-ui HNavBar 只读不靠谱的 ，未回退 Capacitor 8 注入的 ；宿主修复：CSS 覆盖 + SystemBars 配置；组件库：提交 https://github.com/Happier-X/happier-ui/issues/12）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2efb577` | (see git log) |
+| `be4b298` | (see git log) |
+
+### Status
+
+[OK] **Completed**
