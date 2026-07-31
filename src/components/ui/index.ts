@@ -25,6 +25,7 @@ export {
   HTextarea,
   HToast,
   HBottomSheet,
+  HPopup,
 } from 'happier-ui'
 export type {
   HSelectOption,

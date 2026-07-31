@@ -21,14 +21,7 @@
         { 'is-player-visible': playerOverlayVisible }
       ]"
     />
-    <Transition
-      enter-active-class="transition-transform duration-[220ms] ease-[ease]"
-      enter-from-class="translate-y-full"
-      leave-active-class="transition-transform duration-[220ms] ease-[ease]"
-      leave-to-class="translate-y-full"
-    >
-      <QueuePage v-if="queueOverlayVisible" />
-    </Transition>
+    <QueuePage />
   </div>
 </template>
 

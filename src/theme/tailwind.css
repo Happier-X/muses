@@ -72,6 +72,16 @@ body.muses-overlay-open .m-content {
 }
 
 /*
+ * HPopup fullscreen 高度链：.h-popup__panel 是 fixed inset:0（有确定高度），
+ * 但 .h-popup__body 组件库 CSS 仅 min-width:0（高度 auto），slot 内容的
+ * h-full（100%）会解析失效。此处补 body 100%，使 slot 根 div 的 h-full 生效，
+ * 虚拟列表容器才能得到确定高度（否则全展开、虚拟化失效）。
+ */
+.h-popup--position-fullscreen .h-popup__body {
+  height: 100%;
+}
+
+/*
  * PlayerPage 沉浸式播放器样式（原 scoped CSS，迁至此保持全局 cascade）。
  * ⚠️ 所有选择器以 .player-overlay 为前缀，避免与其他组件冲突。
  */

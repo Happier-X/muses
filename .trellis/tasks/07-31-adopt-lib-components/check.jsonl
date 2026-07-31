@@ -1,0 +1,9 @@
+[
+  {"id":1,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC1: QueuePage 根元素改为 h-popup position=fullscreen，无手写 fixed inset-0 容器。"},
+  {"id":2,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC2: Queue 下滑可关闭；h-popup-fullscreen 转场动画生效。"},
+  {"id":3,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC3: 仅 Queue / Player+Queue / Queue+Player 三场景滚动锁无残留（grep .m-content 锁保留；行为验证）。"},
+  {"id":4,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC4: Queue 虚拟列表滚动/选歌/删除/清空/返回全部正常。"},
+  {"id":5,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC5: ExploreContainer.vue 删除后 rg 无引用；ui/index.ts 无导出。"},
+  {"id":6,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC6: npm run lint + build 通过。"},
+  {"id":7,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC7: PlayerPage 未改动，保活 keepPlayerPageMounted 与手势系统原样保留。"}
+]

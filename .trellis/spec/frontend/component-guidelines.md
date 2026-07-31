@@ -74,7 +74,27 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.7`**（不用 `^`�
 - **`MContent`**（`src/components/ui/MContent.vue`）：自建滚动容器 `<div class="m-content">`（`flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain`，**无 `contain`**）。虚拟列表页可传 `overflow: hidden`（内部列表自管滚动）。
 - 简单滚动页（SettingsPage、PlaylistsPage、AlbumsPage、ArtistsPage）直接用 `<m-page>`；虚拟列表页（SongsPage、PlaylistDetailPage）用 `m-page` + 内部 `.m-content` 覆盖 `overflow: hidden`。
 - overlay 页（PlayerPage、QueuePage）不使用 MPage/MContent，自建骨架自管滚动。
-- modal 内的 `HNavBar` 传 `:fixed="false" :safe-area="false"`，避免重复状态栏留白（弹层现统一为 `HBottomSheet` / `HDialog`，其 `title` prop 或 `#title` slot 承载标题）。
+- modal 内的 `HNavBar` 传 `:fixed="false" :safe-area="false"`，避免重复状态栏留白（弹层现统一为 `HBottomSheet` / `HDialog` / `HPopup`，其 `title` prop 或 `#title` slot 承载标题）。
+
+### 全屏浮层：QueuePage 用 HPopup fullscreen（0.0.7+）
+
+`QueuePage`（播放队列）自 `07-31-adopt-lib-components` 起使用 `HPopup position="fullscreen"`，替换原手写 `fixed inset-0 z-[1200]` 容器与 App.vue 的 `<Transition>` 包裹：
+
+- **双绑 v-model**：`v-model="queueOverlayVisible"`（`src/features/player/overlay.ts` 的 ref），`close-on-overlay` / `close-on-esc` 均关。关闭走 `closeQueueOverlay()`（返回按钮/系统返回），下滑关闭为 HPopup fullscreen 自带增强。
+- **常驻挂载**：`App.vue` 直接渲染 `<QueuePage />`（无 v-if/Transition），HPopup 内部 `v-if="visible"` 控制内容显隐与 `h-popup-fullscreen-in/out` 转场；不要再在外层套 v-if 否则 leave 动画被截断。
+- **高度链**：`.h-popup__body` 组件库 CSS 仅 `min-width:0`（高度 auto），slot 内容 `h-full` 会解析失效导致虚拟列表全展开。已在 `src/theme/tailwind.css` 补 `.h-popup--position-fullscreen .h-popup__body { height: 100% }`（宿主覆盖，非改库）。
+- **列表滚动与下滑关闭隔离**：HPopup fullscreen 的手势监听在 rootEl，以 panel 自身 `scrollTop` 判断是否接管；虚拟列表在内部容器滚动时 panel 不滚（scrollTop 恒 0），会被误判为下滑关闭。已在虚拟列表容器加 `@touchstart.stop @touchmove.stop @touchend.stop @touchcancel.stop` 阻断冒泡，列表滚动完全原生；HNavBar 区域仍可下滑关闭。
+- **滚动锁双锁并存**：HPopup `useScrollLock` 锁 `documentElement` inline overflow；宿主 `html/body.muses-overlay-open` class 锁（!important，PlayerPage 用）仍保留。二者独立、均幂等；`hasGlobalOverlay`/`syncBodyOverlayLock` 逻辑不变。
+- **z-index**：HPopup fullscreen 默认 `var(--h-popup-z, 1200)`，与原 QueuePage `z-[1200]` 一致，高于 PlayerPage `--h-z-player: 1100`（queue 从 player 内打开叠在其上）。
+
+### PlayerPage 保留宿主实现（不迁 HPopup）
+
+`PlayerPage` 自 0.0.7 起**仍保留宿主实现**（不迁移 HPopup fullscreen），原因（`07-31-adopt-lib-components` 用户决策 B）：
+
+1. **保活冲突（#22）**：HPopup 无 `keepAlive` / `v-show` 保活选项，slot 用 `v-if="visible"` 关闭即卸载；PlayerPage 需要关闭后保留 AMLL `BackgroundRender`（关闭卸载会重建导致闪默认底）。
+2. **手势冲突**：HPopup fullscreen 自带 swipe-down（用 panel `scrollTop` 判断），panel 为 `touch-action: pan-y`；PlayerPage 有 200+ 行自建手势（横向切面板、纵向关闭含 `canStartVerticalDismiss`、进度条隔离 `seekGestureLocked`、`touch-action-none`），强迁会互相干扰。
+
+后续若迁移需先在组件库加保活 + 手势禁用开关（跨仓库，需提 issue），当前不列入本仓库任务。
 - navbar 返回行为使用 `HNavBar show-back` 与 `handle-left-click` 显式处理。
 
 ### 高度链与 Tabs 视口滚动归属
