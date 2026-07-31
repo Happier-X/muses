@@ -1,0 +1,7 @@
+[
+  {"id":1,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC1: package.json/lock happier-ui=0.0.7 精确版本，无 file: 链接。"},
+  {"id":2,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC2: src/theme/tailwind.css 无 .h-nav-bar--safe-area 覆盖残留。"},
+  {"id":3,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC3: lint/build 通过；cap sync 后 assets 含 SystemBars.insetsHandling=css。"},
+  {"id":4,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC4/AC5: HBottomSheet/HDialog 页面（Sources/Songs/Playlists）打开关闭无报错、样式正确；HSelect 未用跳过。"},
+  {"id":5,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC6/AC7: Android edge-to-edge 真机验证或列待验项；0.0.7 无视觉回归（抽查按钮/卡片）。"}
+]

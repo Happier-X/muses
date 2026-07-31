@@ -35,7 +35,7 @@
     "@pixi/sprite": "^7.4.3",
     "@tanstack/vue-form": "^1.33.2",
     "@tanstack/vue-virtual": "^3.13.33",
-    "happier-ui": "0.0.6",
+    "happier-ui": "0.0.7",
     "jss": "^10.10.0",
     "jss-preset-default": "^10.10.0",
     "vue": "^3.5.40",

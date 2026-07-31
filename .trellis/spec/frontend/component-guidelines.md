@@ -36,7 +36,7 @@ Examples:
 
 ## Muses 语义组件层 → `happier-ui`
 
-Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.6`**（不用 `^`），不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
+Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.7`**（不用 `^`），不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
 
 - **权威 token**：包内 `happier-ui/tokens.css` 的 **`--h-*`**；`--muses-*` 为兼容别名。0.0.5 起 tokens.css 已彻底去除 `var(--ion-*)` 反向依赖，改为自持有值，并内建双触发独立暗色态（`@media(prefers-color-scheme: dark) :root:not(.light)` 系统跟随 + `:root.dark`/`.dark` 手动强制）。暗色由 happier-ui 承接，**Muses 侧无需任何暗色 workaround**。
 - **样式管道（必需）**：宿主必须接入 **Tailwind CSS v4**（`tailwindcss` + `@tailwindcss/vite`）。全局入口 `src/theme/tailwind.css` 使用 `@import 'tailwindcss'` + `@import 'happier-ui/styles'`，由 Vite 的 `tailwindcss()` 插件解析 `@theme` / `@layer components`。**禁止**再直接 `import 'happier-ui/style.css'` 或把 `styles.css` 当普通预编译 CSS 跳过 Tailwind 管道。
@@ -47,7 +47,7 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.6`**（不用 `^`�
 
 ### 组件契约
 
-`src/components/ui/index.ts` 只转出 happier-ui@0.0.6 的真实导出，并附带 `MCover`、`MPage`、`MContent`。不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留业务实现并登记对应任务的 `gaps.md`，未来在 happier-ui 仓库开发后再回迁。
+`src/components/ui/index.ts` 只转出 happier-ui@0.0.7 的真实导出，并附带 `MCover`、`MPage`、`MContent`。不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留业务实现并登记对应任务的 `gaps.md`，未来在 happier-ui 仓库开发后再回迁。
 
 ### 使用规则
 
@@ -59,7 +59,7 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.6`**（不用 `^`�
 
 ### `HRange` 进度条（已全面替换 `ion-range`）
 
-`PlayerPage` 进度条已从 `ion-range` 迁移到 `HRange`（happier-ui 0.0.6 起补齐正式 `change` 事件契约）：
+`PlayerPage` 进度条已从 `ion-range` 迁移到 `HRange`（happier-ui 0.0.7 起补齐正式 `change` 事件契约）：
 
 - `HRange` emits：`update:modelValue`（拖动中连续 fire，等价原生 `input`）+ `change`（释放/点击轨道/键盘调整时 fire，programmatic 改值不 fire）+ `drag-start` / `drag-end`。
 - 拖动中预览用 `@update:model-value`（写 preview + `seekGestureLocked`）；释放提交用 `@change`（`seekPlayback` + 解锁调度）。
@@ -87,7 +87,7 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.6`**（不用 `^`�
 
 - `capacitor.config.ts` 必须显式设置 `SystemBars: { insetsHandling: 'css' }`，确保 Capacitor 8 向 `<html>` 注入 `--safe-area-inset-*` 自定义 CSS 变量。
 - Android WebView `< 140` 的 `env(safe-area-inset-*)` 可能不正确，因此组件和宿主代码**不得只读 `env()`**；必须优先使用 `var(--safe-area-inset-top, env(…, 0px))` 三级回退（Capacitor 变量 → 标准 env → 0px）。
-- `src/theme/tailwind.css` 保留宿主级 `.h-nav-bar--safe-area` 覆盖，在组件库正式发布修复前确保 navbar 安全区内容避让。此覆盖待库发版后清除。
+- **safe-area 由组件库正式接管**（happier-ui ≥ 0.0.7，`c468411`）：`.h-nav-bar--safe-area` / `.h-tab-bar--safe-area` 已在库内实现三级回退。宿主**不得**再持有 `.h-nav-bar--safe-area` 覆盖（历史 workaround 已移除，07-31-upgrade-happier-ui-edge-to-edge）。
 
 参考文件：
 
@@ -408,7 +408,7 @@ const openPlayerPage = () => {
   - **`onSeekInput` 仅在 `seekGestureLocked` 为 true 时写 preview**：`HRange` 在值变化时会 emit `update:modelValue`（拖动中连续 fire）；无手势锁时必须忽略，否则 preview 冻住填充、播放进度看似不走（#47）。
   - 隐藏 knob：用 `HRange` 的 `--h-range-thumb-*` 令 knob 不可见；桌面与窄屏均不可见圆点，但轨道仍可点击/拖动 seek。具体实现（`src/theme/tailwind.css` 的 `.player-overlay .progress-range`）：`--h-range-thumb: 0px` + `::-webkit-slider-thumb` / `::-moz-range-thumb` 置 `width/height: 0; border: none; opacity: 0; pointer-events: none`（仅置 0 尺寸会残留组件自带的 2px border 圆点，必须同时覆盖 border）。thumb 的 `pointer-events: none` 不影响交互——原生 range 的点击/拖动由 input 元素承载。
   - 轨道视觉用 `HRange` 自带 fill/track：`--h-range-track-bg`（未播放）、`--h-range-fill`（已播放）；**不再维护** `.progress-track-buffered` / 自绘三层缓冲 DOM，也不再注入 UI 用的 `--buffered` CSS 变量。
-  - 事件：`update:modelValue` → 更新 preview + `seekGestureLocked`；`change` → `seekPlayback` + 解锁调度（happier-ui 0.0.6 起 `HRange` 补齐了正式 `change` 释放提交事件契约）。缓冲已知时 UI 侧仍将目标 clamp 到 `bufferedPosition`，越界轻提示「缓冲中」；`seekPlayback` 业务 clamp/拒绝语义不变。
+  - 事件：`update:modelValue` → 更新 preview + `seekGestureLocked`；`change` → `seekPlayback` + 解锁调度（happier-ui 0.0.7 起 `HRange` 补齐了正式 `change` 释放提交事件契约）。缓冲已知时 UI 侧仍将目标 clamp 到 `bufferedPosition`，越界轻提示「缓冲中」；`seekPlayback` 业务 clamp/拒绝语义不变。
   - **缓冲未知**（`playerState.bufferedPosition == null`）时不画假缓冲条；WebDAV 远程直链固定属于此状态，seek 退化为 duration clamp。
   - **歌词行点击**：目标 > `bufferedPosition` 时不 seek（与进度条共用 `seekPlayback` 拒绝语义）。
 

@@ -1,0 +1,5 @@
+[
+  {"id":1,"type":"research","timestamp":"2026-07-31T00:00:00Z","content":"happier-ui 0.0.7 已发布：c468411 修复 nav-bar/tab-bar safe-area 为 var(--safe-area-inset-*) 三级回退，closes #12。见 design.md 兼容性分析。"},
+  {"id":2,"type":"research","timestamp":"2026-07-31T00:00:00Z","content":"HBottomSheet/HDialog 0.0.7 改为 HPopup 薄包装，props/emits 兼容；HDialog #actions slot 保留（映射 #footer）。Muses 未用 HSelect，无浮层内部 BEM 依赖。component-guidelines.md 约定精确版本 + 无 file: 链接。"},
+  {"id":3,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC1~AC7：0.0.7 精确版本；workaround 移除；lint/build/sync 通过；HBottomSheet/HDialog 页无回归；Android edge-to-edge 待真机确认。"}
+]
