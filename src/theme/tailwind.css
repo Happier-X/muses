@@ -151,6 +151,35 @@ body.muses-overlay-open .m-content {
   color: rgba(255, 255, 255, 0.58);
 }
 
+/* HRange 进度条：隐藏 knob，恢复旧版 ion-range 的 4px 轨道样式。
+ * HRange 默认有 20px 圆球 knob 与 6px 轨道；此处用组件暴露的 CSS 变量覆盖：
+ * 轨道 4px、pill 圆角、填充色 --muses-immersive-ink、底色 --muses-immersive-track。
+ * thumb 伪元素同时置 0 尺寸/透明，确保 knob 不可见（WebKit + Firefox）。 */
+.player-overlay .progress-range {
+  --h-range-thumb: 0px;
+  --h-range-track-h: 4px;
+  --h-range-fill: var(--muses-immersive-ink);
+  --h-range-track-bg: var(--muses-immersive-track);
+  height: 24px;
+  min-height: 24px;
+}
+
+.player-overlay .progress-range::-webkit-slider-thumb {
+  width: 0;
+  height: 0;
+  border: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.player-overlay .progress-range::-moz-range-thumb {
+  width: 0;
+  height: 0;
+  border: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .player-overlay .lyric-panel {
   gap: 12px;
 }

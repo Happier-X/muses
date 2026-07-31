@@ -406,7 +406,7 @@ const openPlayerPage = () => {
 - **进度条使用 `HRange`（无可见圆点）**：
   - 控件：`<h-range class="progress-range">`，`min=0`，`max=duration`（duration 为 0 时 max 兜底为 1 并禁用），`step` 细粒度（如 `0.1`），`:model-value` 绑定 `effectiveSeekPosition`（拖动 preview 优先，否则 `playerState.position`）。
   - **`onSeekInput` 仅在 `seekGestureLocked` 为 true 时写 preview**：`HRange` 在值变化时会 emit `update:modelValue`（拖动中连续 fire）；无手势锁时必须忽略，否则 preview 冻住填充、播放进度看似不走（#47）。
-  - 隐藏 knob：用 `HRange` 的 `--h-range-thumb-*` 令 knob 不可见；桌面与窄屏均不可见圆点，但轨道仍可点击/拖动 seek。
+  - 隐藏 knob：用 `HRange` 的 `--h-range-thumb-*` 令 knob 不可见；桌面与窄屏均不可见圆点，但轨道仍可点击/拖动 seek。具体实现（`src/theme/tailwind.css` 的 `.player-overlay .progress-range`）：`--h-range-thumb: 0px` + `::-webkit-slider-thumb` / `::-moz-range-thumb` 置 `width/height: 0; border: none; opacity: 0; pointer-events: none`（仅置 0 尺寸会残留组件自带的 2px border 圆点，必须同时覆盖 border）。thumb 的 `pointer-events: none` 不影响交互——原生 range 的点击/拖动由 input 元素承载。
   - 轨道视觉用 `HRange` 自带 fill/track：`--h-range-track-bg`（未播放）、`--h-range-fill`（已播放）；**不再维护** `.progress-track-buffered` / 自绘三层缓冲 DOM，也不再注入 UI 用的 `--buffered` CSS 变量。
   - 事件：`update:modelValue` → 更新 preview + `seekGestureLocked`；`change` → `seekPlayback` + 解锁调度（happier-ui 0.0.6 起 `HRange` 补齐了正式 `change` 释放提交事件契约）。缓冲已知时 UI 侧仍将目标 clamp 到 `bufferedPosition`，越界轻提示「缓冲中」；`seekPlayback` 业务 clamp/拒绝语义不变。
   - **缓冲未知**（`playerState.bufferedPosition == null`）时不画假缓冲条；WebDAV 远程直链固定属于此状态，seek 退化为 duration clamp。
