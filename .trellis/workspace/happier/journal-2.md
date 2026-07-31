@@ -1676,3 +1676,33 @@ Two navbar fixes delivered in this session:
 ### Status
 
 [OK] **Completed**
+
+
+---
+
+## 2026-07-31 adopt-lib-components（已归档）
+
+**目标**：happier-ui 0.0.7 组件替换 Muses 宿主自建实现。
+
+**做了什么**：
+1. **QueuePage 迁移 HPopup fullscreen**：`v-model="queueOverlayVisible"`、`close-on-overlay/esc=false`；App.vue 移除 `<Transition>` 包裹、QueuePage 常驻（HPopup 内部 v-if 控制显隐与转场）。
+2. **高度链修复**：`.h-popup__body` 组件库 CSS 高度 auto → slot 内容 h-full 失效 → 虚拟列表全展开。宿主 tailwind.css 补 `.h-popup--position-fullscreen .h-popup__body { height:100% }`。
+3. **列表滚动与下滑关闭隔离**：HPopup fullscreen 手势监听 rootEl，panel scrollTop 恒 0 时误判列表滚动为下滑关闭；虚拟列表容器加 4 个 `@touch*.stop` 阻断冒泡（实测 root 收不到 touchstart/move）。
+4. **删除 ExploreContainer.vue**（死代码，rg 无引用）。
+5. **ui/index.ts 导出 HPopup**。
+6. **PlayerPage 保留宿主实现**（决策 B）：HPopup 无 keepAlive/手势开关，强迁破坏 #22 保活 + 手势冲突。
+
+**关键验证**（Edge headless CDP 实测）：
+- HPopup fullscreen Teleport 到 body，panel/body 均 844px（高度链修复生效）
+- 虚拟列表 clientHeight 787、scrollHeight 3688、totalSize 3600（50 行仅渲染 19 行，虚拟化正常）
+- `.stop` 生效：root 收到 0 次 touchstart/move，列表自身收到 1 次
+- 双锁并存：打开时 html inline overflow:hidden + html/body.muses-overlay-open class 锁；关闭后全部释放
+- 关闭后重开正常（列表 19 行、可见）
+
+**决策记录**：
+- QueuePage 下滑关闭是 HPopup fullscreen 自带增强（原宿主实现无）；列表内滚动不触发关闭（.stop 隔离），HNavBar 区域可下滑关闭。
+- 滚动锁双锁并存方案保留：HPopup useScrollLock（documentElement inline）+ 宿主 class 锁（PlayerPage 用），均幂等。
+
+**遗留**：Android 15/16 真机验证 edge-to-edge 视觉（上一任务 AC6）；本任务 HPopup fullscreen 建议真机确认下滑手感与转场。
+
+**提交**：`adopt-lib-components` 迁移提交 + `chore(task): archive`。
