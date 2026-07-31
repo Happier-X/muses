@@ -94,7 +94,7 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.7`**（不用 `^`�
 1. **保活冲突（#22）**：HPopup 无 `keepAlive` / `v-show` 保活选项，slot 用 `v-if="visible"` 关闭即卸载；PlayerPage 需要关闭后保留 AMLL `BackgroundRender`（关闭卸载会重建导致闪默认底）。
 2. **手势冲突**：HPopup fullscreen 自带 swipe-down（用 panel `scrollTop` 判断），panel 为 `touch-action: pan-y`；PlayerPage 有 200+ 行自建手势（横向切面板、纵向关闭含 `canStartVerticalDismiss`、进度条隔离 `seekGestureLocked`、`touch-action-none`），强迁会互相干扰。
 
-后续若迁移需先在组件库加保活 + 手势禁用开关（跨仓库，需提 issue），当前不列入本仓库任务。
+后续若迁移需先在组件库加保活 + 手势禁用开关（已提 issue：[Happier-X/happier-ui#13](https://github.com/Happier-X/happier-ui/issues/13)，OPEN），当前不列入本仓库任务。
 - navbar 返回行为使用 `HNavBar show-back` 与 `handle-left-click` 显式处理。
 
 ### 高度链与 Tabs 视口滚动归属
