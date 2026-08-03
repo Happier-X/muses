@@ -1757,3 +1757,25 @@ Two navbar fixes delivered in this session:
 ### Status
 
 [OK] **Completed**
+
+
+## Session 87: 沉浸页下滑露白修复
+
+**Date**: 2026-08-03
+**Task**: 沉浸页下滑露白修复
+**Branch**: `main`
+
+### Summary
+
+根因是 HPopup panel 默认 surface 白底，下滑只 translate 内层沉浸内容导致露白。将 .h-popup--swipe-disabled .h-popup__panel 设为 transparent，下拉透过 overlay 看底层列表；并写入 features-player 契约。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `982b754` | (see git log) |
+| `85c584b` | (see git log) |
+
+### Status
+
+[OK] **Completed**
