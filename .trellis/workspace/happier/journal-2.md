@@ -1823,3 +1823,36 @@ Two navbar fixes delivered in this session:
 ### Status
 
 [OK] **Completed**
+
+
+## Session 89: 歌曲页跳转当前曲二次点击下移
+
+**Date**: 2026-08-03
+**Task**: 歌曲页跳转当前曲二次点击下移
+**Branch**: `main`
+
+### Summary
+
+FAB 仅用 scrollToIndex，删除 scrollIntoView 与错误 scroll-mt，连点位置稳定；spec 同步虚拟列表定位约定
+
+### Main Changes
+
+- SongsPage scrollToCurrentSong 只 scrollToIndex + 高亮
+- 去掉虚拟行 scroll-mt-[108px] 与 songRowRefs
+- component-guidelines FAB 段与 anti-pattern 同步
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ce6d2ff` | (see git log) |
+| `465726f` | (see git log) |
+
+### Testing
+
+- [OK] npm run lint
+- [OK] trellis-check AC1-AC5 通过
+
+### Status
+
+[OK] **Completed**
