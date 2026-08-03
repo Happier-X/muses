@@ -12,6 +12,7 @@ import {
   needsOnlineTextMeta,
 } from '@/features/metadata'
 import { AudioPlayerNative, cacheRemoteCover, prefetchWebDavAudioFile } from './native'
+import { prefetchNextMetadata, shouldPrefetchNextMetadata } from './prefetchMetadata'
 import { dbToPlaybackVolume } from './loudness'
 import type { AudioPlayerNativeState, PlaybackStatus, PlayOptions, PlayerState } from './types'
 import {
@@ -74,6 +75,8 @@ let lyricsMatchToken = 0
 let onlineCoverToken = 0
 /** 在线文本元信息 token：与封面分开，防串曲 */
 let onlineTextToken = 0
+/** WebDAV 下一首元信息预取 token：与当前曲 match token 隔离，过期丢弃写库 */
+let metadataPrefetchToken = 0
 /** playSong 代际：快速连切时仅最新一代可写 playing/error */
 let playGeneration = 0
 /** 用户主动 seek 后的时间戳；用于忽略 seek 到未缓冲区间触发的伪 finished */
@@ -872,36 +875,40 @@ const requireWebDavPassword = async (song: SongItem): Promise<string> => {
 }
 
 /**
- * 当前曲进入 playing 后调度下一首 WebDAV 完整预取。
+ * 当前曲进入 playing 后调度下一首 WebDAV：音频完整预取 + 元信息写库预取。
  * 跳过：空队列 / 单曲循环自身 / 本地 / 非 webdav。
+ * 元信息不依赖 WebDAV 密码；音频缺密码时仍可跑元信息。
  * 密码仅传到 bridge；失败静默，不阻塞播放。
  */
 const prefetchNextTrack = async (currentSongId: string): Promise<void> => {
   try {
     const next = peekNext()
-    if (!next) {
-      return
-    }
-    // 单曲循环下一首是自身：不预取
-    if (next.id === currentSongId) {
-      return
-    }
-    if (next.sourceType !== 'webdav') {
+    if (!shouldPrefetchNextMetadata(next, currentSongId)) {
+      // 非 WebDAV 下一首：作废进行中的元信息预取，避免旧 next 晚到写库
+      metadataPrefetchToken += 1
       return
     }
 
-    const source = getWebDavSource(next)
-    const password = await getWebDavPassword(source.credentialKey)
-    if (!password) {
-      return
-    }
+    const token = ++metadataPrefetchToken
+    const isActive = () => token === metadataPrefetchToken
+    // 元信息与音频并行；不写 playerState，不碰当前曲 match token
+    void prefetchNextMetadata(next, isActive)
 
-    await prefetchWebDavAudioFile({
-      url: next.uri,
-      username: source.username,
-      password,
-      songId: next.id,
-    })
+    try {
+      const source = getWebDavSource(next)
+      const password = await getWebDavPassword(source.credentialKey)
+      if (!password || !isActive()) {
+        return
+      }
+      await prefetchWebDavAudioFile({
+        url: next.uri,
+        username: source.username,
+        password,
+        songId: next.id,
+      })
+    } catch {
+      // 音频预取失败不得影响元信息或当前播放
+    }
   } catch {
     // 预取失败不得影响当前播放或切歌
   }
@@ -998,6 +1005,8 @@ const playSongInternal = async (
   // 切歌即作废进行中的在线封面/文本匹配，避免上一首结果串到新曲
   onlineCoverToken += 1
   onlineTextToken += 1
+  // 作废下一首元信息预取（新 playing 成功后再为新的 peekNext 调度）
+  metadataPrefetchToken += 1
   state.currentSong = createPlayerSongSnapshot(latestSong)
   state.errorMessage = null
   // 续播时保留待恢复进度展示，避免 play 前 UI 闪回 0（#49）
@@ -1066,6 +1075,7 @@ const playSongInternal = async (
     lyricsMatchToken += 1
     onlineCoverToken += 1
     onlineTextToken += 1
+    metadataPrefetchToken += 1
     state.onlineLyricsStatus = 'idle'
     // 播放失败：结束恢复 seek 保护且不让自动跳过的下一曲继承旧恢复点（#53）
     pendingResumePosition = null
@@ -1203,6 +1213,7 @@ export const stopPlayback = async (): Promise<void> => {
     lyricsMatchToken += 1
     onlineCoverToken += 1
     onlineTextToken += 1
+    metadataPrefetchToken += 1
     state.status = 'stopped'
     state.currentSong = null
     state.errorMessage = null
