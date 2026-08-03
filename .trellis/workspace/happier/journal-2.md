@@ -1802,3 +1802,24 @@ Two navbar fixes delivered in this session:
 
 [OK] **Completed**
 
+
+
+## Session 88: 竖屏沉浸式控制页封面排版居中收紧
+
+**Date**: 2026-08-03
+**Task**: 竖屏沉浸式控制页封面排版居中收紧
+**Branch**: `main`
+
+### Summary
+
+手机竖屏控制页改为整体垂直居中：info-panel-inner justify-center + cover-slot 停止 flex-grow，消除封面偏上与松散留白；补 song-info 默认样式与省略；规范写入竖屏居中契约。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `651e942` | (see git log) |
+
+### Status
+
+[OK] **Completed**

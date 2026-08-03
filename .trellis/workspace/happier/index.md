@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 87
+- **Total Sessions**: 88
 - **Last Active**: 2026-08-03
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1781 | Active |
+| `journal-2.md` | ~1825 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 88 | 2026-08-03 | 竖屏沉浸式控制页封面排版居中收紧 | `651e942` | `main` |
 | 87 | 2026-08-03 | 沉浸页下滑露白修复 | `982b754`, `85c584b` | `main` |
 | 86 | 2026-08-03 | 沉浸式播放页顶部安全区适配 | `4702e47`, `ec63a32` | `main` |
 | 85 | 2026-07-29 | Navbar fixed + edge-to-edge safe-area in one session | `2efb577`, `be4b298` | `main` |
