@@ -97,6 +97,8 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.8`**（不用 `^`�
 - **swipe-close=false**：禁用 HPopup 内置下滑手势，库加 `.h-popup--swipe-disabled` 并把 `touch-action` 交还宿主；PlayerPage 200+ 行自建手势（横向切面板 / 纵向关闭 / `seekGestureLocked` / `touch-action-none`）原样保留。
 - **z-index**：HPopup 根是 `<Teleport>`，透传 `class`/`style` 会丢失，**不能**靠内联 `--h-popup-z` 覆盖。宿主在 `src/theme/tailwind.css` 用 `.h-popup--swipe-disabled { --h-popup-z: var(--muses-z-player, 1100) }` 区分 Player（1100）与 Queue（默认 1200）。`--muses-z-player` 来自 happier-ui tokens 的 `var(--h-z-player)`。
 - **高度链**：沿用 Queue 的 `.h-popup--position-fullscreen .h-popup__body { height: 100% }` 补丁；内容根 `h-full`（不再 `h-dvh`），HPopup panel 已 `inset:0`。
+- **安全区在内容层、不在 HPopup**：fullscreen panel 故意 `inset:0`、无 safe-area 内边距（背景 edge-to-edge）。内容避让由宿主 `.player-overlay .empty-state / .panel` padding 与歌词 FAB `bottom` 负责；**禁止**给 HPopup panel 或 AMLL/fallback 背景加 padding 当「修顶部」。（`08-03-player-top-safe-area`）
+- **Player 安全区公式**：一律 `var(--safe-area-inset-*, env(safe-area-inset-*, 0px))` 三级回退；禁止裸 `env()`。宽屏 / 矮屏 media query **只减固定 px**（如 16→10→6），始终 `calc(<px> + var(--safe-area-inset-*, env(...)))`；禁止 `padding: 24px` 这类把 top/bottom safe-area 整段抹掉的写法（平板 ≥768 曾因此顶进状态栏）。
 - **滚动锁双锁并存**：同 Queue——HPopup `useScrollLock` + 宿主 `muses-overlay-open` class 锁；`hasGlobalOverlay`/`syncBodyOverlayLock`/`syncPlayerStatusBar`/`backButton` 顺序不变。
 - **转场**：HPopup fullscreen 330ms `h-popup-fullscreen-in/out`（原 App.vue 220ms translate-y 已移除，观感变化已获批）。
 - navbar 返回行为使用 `HNavBar show-back` 与 `handle-left-click` 显式处理。
@@ -112,6 +114,7 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.8`**（不用 `^`�
 - `capacitor.config.ts` 必须显式设置 `SystemBars: { insetsHandling: 'css' }`，确保 Capacitor 8 向 `<html>` 注入 `--safe-area-inset-*` 自定义 CSS 变量。
 - Android WebView `< 140` 的 `env(safe-area-inset-*)` 可能不正确，因此组件和宿主代码**不得只读 `env()`**；必须优先使用 `var(--safe-area-inset-top, env(…, 0px))` 三级回退（Capacitor 变量 → 标准 env → 0px）。
 - **safe-area 由组件库正式接管**（happier-ui ≥ 0.0.7，`c468411`）：`.h-nav-bar--safe-area` / `.h-tab-bar--safe-area` 已在库内实现三级回退。宿主**不得**再持有 `.h-nav-bar--safe-area` 覆盖（历史 workaround 已移除，07-31-upgrade-happier-ui-edge-to-edge）。
+- **无 HNavBar 的全屏内容页**（如 PlayerPage）：库不会自动避让，宿主必须自己写三级回退；fullscreen 外壳不加 safe-area 是契约，不是 bug。
 
 参考文件：
 
