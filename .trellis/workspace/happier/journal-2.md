@@ -1735,3 +1735,25 @@ Two navbar fixes delivered in this session:
 
 **提交**：`c610d17` refactor(player) + `fb04316` archive。
 
+
+
+## Session 86: 沉浸式播放页顶部安全区适配
+
+**Date**: 2026-08-03
+**Task**: 沉浸式播放页顶部安全区适配
+**Branch**: `main`
+
+### Summary
+
+确认 Player 顶部顶状态栏是宿主内容层问题（非 HPopup）。Player panel/FAB 改三级回退 var(--safe-area-inset-*, env(...))，宽屏/矮屏 media 只减固定 px 不再抹掉 safe-area；spec 记录「安全区在内容层、不在 HPopup」。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4702e47` | (see git log) |
+| `ec63a32` | (see git log) |
+
+### Status
+
+[OK] **Completed**
