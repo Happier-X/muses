@@ -1779,3 +1779,26 @@ Two navbar fixes delivered in this session:
 ### Status
 
 [OK] **Completed**
+
+## Session 88: WebDAV 下一首元信息预取
+
+**Date**: 2026-08-03
+**Task**: 下一首元信息预加载
+**Branch**: `main`
+
+### Summary
+
+在现有 WebDAV 下一首音频预取旁，增加在线歌词/封面/文本写库预取（MVP C）。独立 metadataPrefetchToken，不写 playerState；写库串行化避免三路并行 upsert 丢字段。无密码仍可元信息预取。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9b66002` | feat(player): WebDAV 下一首预取在线歌词封面与文本写库 |
+| `d170bb0` | docs(spec): 记录下一首元信息预取契约 |
+| `b3af774` | chore(task): archive 08-03-prefetch-next-metadata |
+
+### Status
+
+[OK] **Completed**
+
