@@ -415,7 +415,9 @@ const openPlayerPage = () => {
 - 主控制三键（上一曲/播放暂停/下一曲）均为 `HButton`（`variant="ghost"` + `is-icon-only` + `shape="circle"`）纯图标按钮，无 solid 圆底与按钮阴影；图标从 `@/icons` 导入并由 `HIcon` 以 fill 变体渲染（`play` / `pause` / `playSkipBack` / `playSkipForward`），不得回退 outline 主控或 ionicons 直引；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
 - 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons` 导入并由 `HIcon` 渲染：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `ListOrdered`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。**打开队列**按钮使用 `list`（Lucide `ListMusic`），与 `MiniPlayer` 队列键一致；不得用 `listOutline` 表示队列（`listOutline` 仅顺序播放）。
 - **歌词页浮动播放键**：窄屏歌词页右下角播放/暂停必须使用与主控相同的 `play` / `pause`（fill），禁止圆形 `PlayCircle` / `PauseCircle`。
-- 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；封面用弹性槽位（`.cover-slot`：`flex: 1 1 auto; min-height: 0`）缩放，控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
+- 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
+- **竖屏控制页垂直节奏（整体居中收紧）**：`.info-panel-inner` 用 `justify-content: center` + 紧凑 `gap`（默认约 12px；矮屏断点再收），将「封面 → 歌名/歌手 → 进度 → 主控 → 模式栏」作为一组垂直居中。**禁止**回退 `justify-between` + `.cover-slot { flex-grow: 1 }`——会把封面顶到上半区并在槽内/块间制造大块松散留白。
+- **`.cover-slot` 不 flex-grow**：竖屏与宽屏均为 `flex: 0 1 auto; min-height: 0`，靠自身 `max-height` 与封面 width 的 dvh 上限缩放；矮屏仍可 shrink，但不吞噬剩余高度撑出上下空带。
 - 歌词页（AMLL）视觉约定：
   - **窄屏** `.lyric-panel`：顶部 `.lyric-header` 展示歌名（主标题）+ 歌手（副标题，空则不渲染；不拼接专辑、不回退「未知歌手」）；其下为 `flex:1` 的 AMLL `LyricPlayer`；底部仅安全区。
   - **歌词页浮动 chrome 按需显示**：左下翻译、右下播放/暂停（仅非平板）默认 **隐藏**（`opacity: 0` + 容器/按钮 `pointer-events: none`），约 180ms fade。用户在 **歌词面板内** 点击或滑动歌词后显示（`.is-visible`），空闲 **3 秒** 再隐藏；点浮动按钮重置计时。**切回控制页**（`activePanel !== 1`）或 **关闭 overlay** 立即隐藏并清 timer。隐藏态禁止可点热区。
@@ -616,6 +618,7 @@ Given the current app shape, common mistakes to avoid are:
 - Using `@click.stop` on nested `HButton` controls inside a clickable parent; the parent handler does not need manual event-path filtering.
 - Hiding `MiniPlayer` with `v-if` while a player overlay is open; keep it mounted behind the overlay and disable interaction to avoid close-animation flicker
 - Setting immersive `.cover` width without a height-based cap（窄屏只写 `min(72vw, 100%, 340px)` 或宽屏只写 `min(40vw, 320px)`）while `.cover-slot` clamps height via `max-height: min(…dvh, …)`；矮高/横屏时正方形高度被 clamp、宽度不变 → 封面被压成长方形。窄屏与宽屏 `.cover` width 都必须同步含 dvh/`max-height` 对齐的上限
+- 竖屏控制页用 `justify-between` + `.cover-slot { flex-grow: 1 }`（或 `flex: 1 1 auto`）把封面顶到上半区并在槽内制造松散留白；应 `justify-content: center` + `.cover-slot { flex: 0 1 auto }` 整体居中收紧
 - 矮屏控制页只缩按钮却不收 panel padding / `info-panel-inner` gap / 进度热区，导致控制区仍占过多垂直空间、封面槽位被挤；或为腾空间隐藏模式栏/进度——应分层 `max-height` 收紧尺寸，保留全部控件
 
 ---

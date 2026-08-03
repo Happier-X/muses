@@ -45,8 +45,8 @@
         :style="{ transform: `translateX(-${activePanel * 50}%)` }"
       >
         <section class="panel info-panel flex flex-col items-center justify-stretch text-center" aria-label="播放控制页">
-          <div class="info-panel-inner flex flex-col items-center justify-between gap-[8px] w-[min(100%,420px)] h-full mx-auto min-h-0 overflow-hidden">
-            <div class="cover-slot flex-[1_1_auto] flex items-center justify-center w-full min-h-0">
+          <div class="info-panel-inner flex flex-col items-center justify-center gap-[12px] w-[min(100%,420px)] h-full mx-auto min-h-0 overflow-hidden">
+            <div class="cover-slot flex-[0_1_auto] flex items-center justify-center w-full min-h-0">
               <img v-if="displayCoverSrc" class="cover aspect-1 h-auto max-w-full max-h-full object-cover" :src="displayCoverSrc" alt="歌曲封面" />
               <div v-else class="cover placeholder-cover aspect-1 h-auto max-w-full max-h-full object-cover">♪</div>
             </div>

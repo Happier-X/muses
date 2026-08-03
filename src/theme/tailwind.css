@@ -127,8 +127,36 @@ body.muses-overlay-open .m-content {
   flex: 0 0 50%;
 }
 
+/* 竖屏方案 3：cover-slot 不 flex-grow，避免 justify-center 后槽位仍撑出上下空带 */
 .player-overlay .cover-slot {
+  flex: 0 1 auto;
   max-height: min(52dvh, 340px);
+}
+
+.player-overlay .info-panel-inner {
+  justify-content: center;
+  gap: 12px;
+}
+
+.player-overlay .song-info h1 {
+  margin: 0;
+  font-size: clamp(20px, 5.4vw, 28px);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-overlay .song-info p {
+  margin: 6px 0 0;
+  color: var(--muses-immersive-ink-soft, rgba(255, 255, 255, 0.68));
+  font-size: clamp(13px, 3.6vw, 15px);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .player-overlay .cover,
