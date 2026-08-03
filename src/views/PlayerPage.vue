@@ -179,7 +179,7 @@
 
           <div
             v-if="playerState.currentSong"
-            class="lyric-floating-actions absolute left-[12px] right-[12px] bottom-[calc(8px+env(safe-area-inset-bottom,0px))] z-[3] flex items-center justify-between opacity-0 pointer-events-none transition-[opacity] duration-[var(--muses-duration-fab)] ease-[var(--muses-ease-standard)]"
+            class="lyric-floating-actions absolute left-[12px] right-[12px] bottom-[calc(8px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))] z-[3] flex items-center justify-between opacity-0 pointer-events-none transition-[opacity] duration-[var(--muses-duration-fab)] ease-[var(--muses-ease-standard)]"
             :class="{ 'is-visible': lyricChromeVisible }"
             aria-label="歌词快捷操作"
             :aria-hidden="!lyricChromeVisible"
