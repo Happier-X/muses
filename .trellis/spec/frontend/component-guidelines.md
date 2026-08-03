@@ -422,7 +422,9 @@ const openPlayerPage = () => {
 - **`.cover-slot` 不 flex-grow**：竖屏与宽屏均为 `flex: 0 1 auto; min-height: 0`，靠自身 `max-height` 与封面 width 的 dvh 上限缩放；矮屏仍可 shrink，但不吞噬剩余高度撑出上下空带。
 - 歌词页（AMLL）视觉约定：
   - **窄屏** `.lyric-panel`：顶部 `.lyric-header` 展示歌名（主标题）+ 歌手（副标题，空则不渲染；不拼接专辑、不回退「未知歌手」）；其下为 `flex:1` 的 AMLL `LyricPlayer`；底部仅安全区。
-  - **歌词页浮动 chrome 按需显示**：左下翻译、右下播放/暂停（仅非平板）默认 **隐藏**（`opacity: 0` + 容器/按钮 `pointer-events: none`），约 180ms fade。用户在 **歌词面板内** 点击或滑动歌词后显示（`.is-visible`），空闲 **3 秒** 再隐藏；点浮动按钮重置计时。**切回控制页**（`activePanel !== 1`）或 **关闭 overlay** 立即隐藏并清 timer。隐藏态禁止可点热区。
+  - **歌词页浮动 chrome 按需显示**：左下翻译、右下播放/暂停（仅非平板）默认 **隐藏**（`opacity: 0` + 容器/按钮 `pointer-events: none`），约 180ms fade。用户在 **歌词面板内** 点击或滑动歌词后显示（`.is-visible`），空闲 **3 秒** 再隐藏；点浮动按钮重置计时。**切回控制页**（`activePanel !== 1`）或 **关闭 overlay** 立即隐藏并清 timer。隐藏态禁止可点热区。竖屏/横屏/宽屏双栏均走同一 `lyricChromeVisible` 路径；宽屏仅隐藏播放键，**不**整区隐藏 chrome。
+  - **翻译键仅有译时出现**：`hasLyricTranslation` 为 true（`prepareLyricLinesForDisplay` 后任一行非空 `translatedLyric`/`romanLyric`，或 `playerState.lyricsTranslation` 非空）才渲染翻译 FAB；纯原文无译不占位。无译仅剩窄屏播放键时 `justify-end`；宽屏无译且无播放键时不挂浮动容器。
+  - **FAB 颜色（HButton ghost）**：沉浸深色底上必须用真实 `color` / `background`（全局 `.player-overlay .lyric-fab.h-button--ghost`）覆盖 ghost 默认 `var(--h-color-ink)` 黑字；**禁止** Ionic 时代的 `--color` / `--background` CSS 变量。激活翻译键 `.is-active` 用更亮字色 + 略高不透明白底区分。
   - **宽屏**（`@media (min-width: 768px)`）：隐藏 `.lyric-header`，右侧只保留歌词；AMLL 视觉参数与窄屏一致。
   - AMLL 参数：`alignAnchor="center"`、`alignPosition=0.5`（当前行位于歌词可视区中心）、`enableBlur` / `enableScale` 开启；字号用 `--amll-lp-font-size`（约 `clamp(22px, 6.5vw, 32px)`）；用 `:deep()` 去掉行左右 padding，使歌词左缘与顶部信息对齐。
   - 翻译副行样式必须使用 AMLL 实际类名：`.FmKaba_lyricLine.FmKaba_active`、`.FmKaba_lyricMainLine.FmKaba_active` 和 `.FmKaba_lyricSubLine`；不要依赖不存在的自定义 active 类。歌词 timed 翻译需支持点号、冒号、逗号毫秒时间戳，匹配容差应保持较小并有超界测试，避免翻译错位。同时间戳双语主行合并时主行须为原文（非 Han 优先于 Han），关翻译后不得只剩中文译文当主行。

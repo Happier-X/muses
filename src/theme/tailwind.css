@@ -260,20 +260,51 @@ body.muses-overlay-open .m-content {
   pointer-events: auto;
 }
 
+/* 真实 color/background 覆盖 HButton ghost 默认黑字；禁止再用 Ionic --color/--background */
+.player-overlay .lyric-fab.h-button--ghost {
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: var(--muses-radius-pill, 9999px);
+}
+
+.player-overlay .lyric-fab.h-button--ghost:not(:disabled):active {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .player-overlay .lyric-fab.h-button--ghost:not(:disabled):hover {
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  /* 特异性需高于上方 hover，避免激活翻译键 hover 时掉回半透明 */
+  .player-overlay .lyric-fab.is-active.h-button--ghost:not(:disabled):hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.28);
+  }
+}
+
 .player-overlay .lyric-fab .h-icon {
   width: 20px;
   height: 20px;
   font-size: 20px;
   margin: 0;
+  color: inherit;
 }
 
+.player-overlay .lyric-fab.is-active.h-button--ghost,
 .player-overlay .lyric-fab.is-active {
-  --color: #ffffff;
-  --background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.22);
 }
 
-.player-overlay .lyric-fab:not(.is-active) {
-  --color: rgba(255, 255, 255, 0.72);
+.player-overlay .lyric-fab.is-active.h-button--ghost:not(:disabled):active,
+.player-overlay .lyric-fab.is-active:not(:disabled):active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* AMLL 实际 player 挂在 wrapper 子节点；强制铺满 flex 槽位 */

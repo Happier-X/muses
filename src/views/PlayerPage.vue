@@ -178,18 +178,22 @@
           </div>
 
           <div
-            v-if="playerState.currentSong"
-            class="lyric-floating-actions absolute left-[12px] right-[12px] bottom-[calc(8px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))] z-[3] flex items-center justify-between opacity-0 pointer-events-none transition-[opacity] duration-[var(--muses-duration-fab)] ease-[var(--muses-ease-standard)]"
-            :class="{ 'is-visible': lyricChromeVisible }"
+            v-if="showLyricFloatingActions"
+            class="lyric-floating-actions absolute left-[12px] right-[12px] bottom-[calc(8px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))] z-[3] flex items-center opacity-0 pointer-events-none transition-[opacity] duration-[var(--muses-duration-fab)] ease-[var(--muses-ease-standard)]"
+            :class="[
+              { 'is-visible': lyricChromeVisible },
+              hasLyricTranslation ? 'justify-between' : 'justify-end',
+            ]"
             aria-label="歌词快捷操作"
             :aria-hidden="!lyricChromeVisible"
           >
             <h-button
+              v-if="hasLyricTranslation"
               variant="ghost"
               is-icon-only
               shape="circle"
-              class="lyric-fab w-[40px] h-[40px] min-w-[40px] min-h-[40px] m-0 text-[20px] pointer-events-none backdrop-blur-[10px] [--padding-start:0] [--padding-end:0] [--padding-top:0] [--padding-bottom:0] [--background:rgba(0,0,0,0.16)] [--background-hover:rgba(255,255,255,0.14)] [--background-activated:rgba(255,255,255,0.2)] [--color:rgba(255,255,255,0.78)] [--border-radius:var(--muses-radius-pill)]"
-              :class="{ 'is-active': showLyricTranslation, '!pointer-events-auto [--color:#fff] [--background:rgba(255,255,255,0.22)]': showLyricTranslation }"
+              class="lyric-fab w-[40px] h-[40px] min-w-[40px] min-h-[40px] m-0 text-[20px] pointer-events-none"
+              :class="{ 'is-active': showLyricTranslation }"
               :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
               :tabindex="lyricChromeVisible ? 0 : -1"
               @click.stop="onLyricTranslateClick"
@@ -202,7 +206,7 @@
               variant="ghost"
               is-icon-only
               shape="circle"
-              class="lyric-fab lyric-play-toggle w-[40px] h-[40px] min-w-[40px] min-h-[40px] m-0 text-[20px] pointer-events-none backdrop-blur-[10px] [--padding-start:0] [--padding-end:0] [--padding-top:0] [--padding-bottom:0] [--background:rgba(0,0,0,0.16)] [--background-hover:rgba(255,255,255,0.14)] [--background-activated:rgba(255,255,255,0.2)] [--color:rgba(255,255,255,0.72)] [--border-radius:var(--muses-radius-pill)]"
+              class="lyric-fab lyric-play-toggle w-[40px] h-[40px] min-w-[40px] min-h-[40px] m-0 text-[20px] pointer-events-none"
               :aria-label="isPlaying ? '暂停播放' : '继续播放'"
               :disabled="playerState.status === 'loading'"
               :tabindex="lyricChromeVisible ? 0 : -1"
@@ -484,6 +488,21 @@ const displayLyricLines = computed<LyricLine[]>(() => {
 const lyricPlayerKey = computed(() => `${playerState.currentSong?.id ?? 'none'}:${playerState.lyricsFormat ?? 'lrc'}:${showLyricTranslation.value ? 'translation-on' : 'translation-off'}`)
 
 const hasLyrics = computed(() => lyricLines.value.length > 0)
+
+/** 有译文/音译才出翻译键；prepare 后的行或独立 tlyric 任一即可 */
+const hasLyricTranslation = computed(() => {
+  if (playerState.lyricsTranslation?.trim()) {
+    return true
+  }
+  return lyricLines.value.some(
+    (line) => !!line.translatedLyric?.trim() || !!line.romanLyric?.trim(),
+  )
+})
+
+/** 宽屏无播放键且无译时不挂空 chrome */
+const showLyricFloatingActions = computed(
+  () => !!playerState.currentSong && (hasLyricTranslation.value || !isTabletLayout.value),
+)
 
 /** 匹配中且无本地词：显示匹配中；失败/无匹配且无本地：区分空态文案 */
 const lyricEmptyTitle = computed(() => {
