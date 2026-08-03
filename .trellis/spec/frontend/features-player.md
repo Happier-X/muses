@@ -85,15 +85,19 @@
    - 不改 `node_modules/@capgo/*`；缓冲由项目自有 `AudioPlayer` 插件上报，经 `native.ts` 合并进 `stateChange`。
    - 保留 seek 保护窗 + 自然结尾判定作为第二道防线。
 
-9. **下一首 WebDAV 完整预取**（`peekNext` + `prefetchWebDavAudioFile`）  
+9. **下一首 WebDAV 完整预取**（`peekNext` + 音频 + 元信息）  
    - `queue.ts` 提供无副作用 `peekNext()`：按当前 repeat/shuffle 规则解析下一首，**不**改 `currentIndex`。
-   - `playSong` 成功进入 `playing` 后调度 `prefetchNextTrack()`：`next = peekNext()`；仅当 next 为 WebDAV 且 `next.id !== current.id` 时解析密码并调用 `prefetchWebDavAudioFile`（经 `native.ts` → `AudioPlayerBridge`）。
-   - 队列变更 / `setRepeatMode` / `toggleShuffle` 后，若当前仍在 `playing`/`paused`，controller 包装的 queue API 会重新 `peekNext` 并调度预取；旧下载不取消。
-   - 跳过：空队列、单曲循环自身、本地下一首、非 WebDAV。
-   - 原生：`getCachedFile` 命中完整缓存 → `{ cached: true, started: false }` no-op；否则 `downloadInBackground` 完整下载 → `{ cached: false, started: true }`。同 URL 复用进行中会话，不重复写。
-   - 旧预取不取消；新下一首可并行启动。预取失败静默，不得阻塞当前播放或切歌。
+   - `playSong` 成功进入 `playing` 后调度 `prefetchNextTrack()`：`next = peekNext()`；仅当 next 为 WebDAV 且 `next.id !== current.id` 时：
+     1. **元信息写库预取**（`prefetchMetadata.ts`）：并行在线歌词 / 封面 / 文本补缺，成功则 `upsertSong`；**禁止**写当前 `playerState`，**禁止**动 `lyricsMatchToken` / `onlineCoverToken` / `onlineTextToken`。使用独立 `metadataPrefetchToken`，过期丢弃写库。
+     2. **音频完整预取**：解析密码并调用 `prefetchWebDavAudioFile`（经 `native.ts` → `AudioPlayerBridge`）。缺密码时仍可跑元信息，不得因无密码整段跳过。
+   - 写库策略对齐当前曲：歌词 `shouldPersistOnlineLyrics`；封面仅无安全 `coverUri` 时 `cacheRemoteCover` 后写安全 URI；文本 `needsOnlineTextMeta` + `mergeTextMetaFillEmpty`。
+   - 队列变更 / `setRepeatMode` / `toggleShuffle` 后，若当前仍在 `playing`/`paused`，controller 包装的 queue API 会重新 `peekNext` 并调度预取；旧音频下载不取消；元信息以新 token 作废旧写库。
+   - 跳过：空队列、单曲循环自身、本地下一首、非 WebDAV（本地下一首**不**做元信息预取，MVP 范围 C）。
+   - **禁止**下一首 `scanSongMetadata` 预扫；内嵌标签仍等真正切歌后扫描。
+   - 原生音频：`getCachedFile` 命中完整缓存 → `{ cached: true, started: false }` no-op；否则 `downloadInBackground` 完整下载 → `{ cached: false, started: true }`。同 URL 复用进行中会话，不重复写。
+   - 旧音频预取不取消；新下一首可并行启动。预取失败静默，不得阻塞当前播放或切歌。
    - 密码只在 controller 解析后传入 bridge，不进 reactive state / localStorage / 日志。
-   - 预取遵守 `WebDavAudioCache` 缓存上限与淘汰；仅完整目标文件可命中，`.partial`/`.tmp` 不得当缓存。
+   - 音频预取遵守 `WebDavAudioCache` 缓存上限与淘汰；仅完整目标文件可命中，`.partial`/`.tmp` 不得当缓存。
 
 ---
 
@@ -181,6 +185,8 @@
 - **`resumePlayback` 路径分流（#52）**：仅 `restoredSessionUiOnly === true`（冷启动仅 UI、原生无 asset）才允许整曲 `playSongInternal`（+ 可选 seek）；普通 pause 后必须 `AudioPlayerNative.resume()`。resume 失败才回退 play+seek。**禁止**把任意 `paused` 都当成无 asset 而 unload 重播。
 - **`applyNativeState` idle/stopped 清空守卫（#52）**：默认**不得**因 native `idle`/`stopped` 清空 `currentSong`；仅显式 `stopPlayback` 将 `allowNativeClearCurrentSong` 置 true 时允许清空（`stopPlayback` 自身也会同步清空）。陈旧 unload/重载 stopped 必须整段忽略（含 status），避免「UI 无曲 + 音频仍在播」或 status 被冲成 stopped。
 - **禁止**预取密码进入 player state / localStorage / 日志；预取失败不得影响当前播放。
+- **禁止**下一首元信息预取写当前 `playerState` 或复用/递增当前曲 `lyricsMatchToken` / `onlineCoverToken` / `onlineTextToken`；须独立 `metadataPrefetchToken`，只 upsert 曲库。
+- **禁止**对非 WebDAV 下一首做元信息预取（与音频预取同范围，除非产品明确扩大）。
 - **禁止**在线封面把 `data:` / base64 / 远程 URL 写入曲库；禁止覆盖已有安全封面；匹配失败不得影响播放。
 
 ---
@@ -192,7 +198,9 @@
 - 无 artist/album 或弱 title 歌曲播放后在线匹配成功 → 空字段/弱 title 写回且 UI/通知文本刷新；强 title 与已有 artist/album 不覆盖
 - WebDAV 无完整缓存→NativeAudio 使用远程 URL + Basic Auth headers，不调用 `prepareWebDavAudioFile`，`bufferedPosition` 保持 `null`
 - WebDAV 完整缓存命中→`file://` 完整文件播放，`bufferedPosition = duration`，不带 Authorization headers
-- 播放成功后预取下一首 WebDAV（`peekNext` + `prefetchWebDavAudioFile`）；本地下一首 / 单曲循环自身 / 空队列不预取
+- 播放成功后预取下一首 WebDAV 音频 + 元信息写库（`peekNext` + `prefetchWebDavAudioFile` + `prefetchNextMetadata`）；本地下一首 / 单曲循环自身 / 空队列不预取
+- 元信息预取进行中不得改写当前曲 playerState；token 过期不得写库
+- 无 WebDAV 密码时仍可预取下一首在线元信息
 - `peekNext` 与 `advanceToNext` 目标一致但不改 `currentIndex`
 - partial URI 不得当作缓存命中；预取失败静默
 - 暂停/停止→通知同步出成 `none` 状态
