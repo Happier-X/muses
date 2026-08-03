@@ -288,12 +288,14 @@ Also prefer the `@/` alias for application imports from `src/`:
 
 - 组件：`<h-floating-bubble axis="lock" :offset="fabOffset" :ariaLabel="'跳转到当前播放'" @click="scrollToCurrentSong">`；`axis="lock"` 禁拖拽，`offset` 直接指定绝对坐标（避让 MiniPlayer + tab-bar + safe-area）。图标用 `@/icons` 的 `locateOutline` 经 `HIcon` 渲染。
 - 可见性：`v-if="currentPlayingInList"` —— 仅当 `playerState.currentSong?.id` 存在且该 id 出现在当前歌曲列表中时展示；无当前播放或不在列表则隐藏。
-- 行定位：每行 `<div>` 带 `data-song-id="song.id"`；点击 FAB 用页面内 `[data-song-id]` 找到匹配行后 `scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })`。
-- **避开固定顶栏**：`block: 'start'` 只对齐滚动端口顶部，不扣除外层 `HNavBar + .shuffle-bar`。必须在 `.song-item`（或带 `data-song-id` 的行）设置足够的 `scroll-margin-top`（当前约 108px，覆盖 navbar、48px 随机播放条与缓冲），使目标行完整出现在列表可视区内、标题主信息不被顶栏挡住。仅写 `block: 'start'` 而不设 margin/等价偏移会回归遮挡。
+- **行定位（虚拟列表）**：`findIndex` 后只调用 `rowVirtualizer.scrollToIndex(index, { align: 'start' })`（可 smooth 一次，layout 后再瞬时兜底一次）。**禁止**再对行做 `scrollIntoView`，也**禁止**给虚拟行加 `scroll-margin-top` / `scroll-mt-*` 去「扣 navbar」。
+- **为何不用 scroll-margin**：列表滚动容器是 navbar + shuffle-bar **下方**的 `listParentRef`，顶栏不在滚动端口内；`align: 'start'` 已对齐列表可视区顶。历史 108px `scroll-mt` + `scrollIntoView` 会在**第二次及之后** FAB 点击时把当前行再往下挪（`08-03-songs-jump-current-second-click`）。
+- 行上可保留 `data-song-id` 供样式/调试；跳转**不得**依赖查询 DOM 再 `scrollIntoView`。
 - 列表末尾无法再滚时停在容器允许的最大位置（不必强行置顶）。宽屏单列同样适用。
-- 可选轻高亮：滚动后给目标行加 `jump-highlight` 约 1.2s，再移除；卸载时清理 timer。
-- 安全区：`.jump-current-fab` 的 `bottom` 需避开底部导航与 MiniPlayer（窄屏约 `calc(144px + safe-area)` = Tab Bar ~64 + MiniPlayer ~64 + 间距；宽屏无 Tab Bar、MiniPlayer 贴底，约 `calc(80px + safe-area)` = MiniPlayer ~64 + 间距），`right: 12px`，不遮挡列表关键操作。勿按「平板 MiniPlayer 抬高 64px」再额外加偏移。
+- 可选轻高亮：滚动后给目标行加 jump highlight 约 1.2s，再移除；卸载时清理 timer。高亮不依赖二次滚动。
+- 安全区：FAB `offset` / 底边需避开底部导航与 MiniPlayer（窄屏约 Tab Bar + MiniPlayer；宽屏无 Tab Bar、MiniPlayer 贴底），不遮挡列表关键操作。勿按「平板 MiniPlayer 抬高 64px」再额外加偏移。
 - 不破坏现有列表点击播放与更多按钮交互。
+- 对照：`QueuePage` 打开时仅 `scrollToIndex`（`align: 'center'`），同样不走 `scrollIntoView`。
 
 ## Styling Gotchas
 
@@ -620,6 +622,7 @@ Given the current app shape, common mistakes to avoid are:
 - Setting immersive `.cover` width without a height-based cap（窄屏只写 `min(72vw, 100%, 340px)` 或宽屏只写 `min(40vw, 320px)`）while `.cover-slot` clamps height via `max-height: min(…dvh, …)`；矮高/横屏时正方形高度被 clamp、宽度不变 → 封面被压成长方形。窄屏与宽屏 `.cover` width 都必须同步含 dvh/`max-height` 对齐的上限
 - 竖屏控制页用 `justify-between` + `.cover-slot { flex-grow: 1 }`（或 `flex: 1 1 auto`）把封面顶到上半区并在槽内制造松散留白；应 `justify-content: center` + `.cover-slot { flex: 0 1 auto }` 整体居中收紧
 - 矮屏控制页只缩按钮却不收 panel padding / `info-panel-inner` gap / 进度热区，导致控制区仍占过多垂直空间、封面槽位被挤；或为腾空间隐藏模式栏/进度——应分层 `max-height` 收紧尺寸，保留全部控件
+- SongsPage FAB 跳转在 `scrollToIndex` 后再 `scrollIntoView`，或给虚拟行加 `scroll-mt`/`scroll-margin-top`「扣 navbar」——滚动端口已在 chrome 下方，二次偏移会在连点时把当前行下移；只保留 virtualizer `scrollToIndex`
 
 ---
 

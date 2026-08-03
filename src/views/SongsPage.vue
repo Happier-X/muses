@@ -34,8 +34,8 @@
           <div
             v-for="virtualRow in virtualRows"
             :key="songs[virtualRow.index].id"
-            :ref="(el) => collectRowRef(el, songs[virtualRow.index].id)"
-            class="absolute top-0 left-0 right-0 box-border min-h-[var(--muses-song-row-height)] scroll-mt-[108px]"
+            :ref="measureVirtualRow"
+            class="absolute top-0 left-0 right-0 box-border min-h-[var(--muses-song-row-height)]"
             :data-index="virtualRow.index"
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
@@ -141,7 +141,6 @@ import {
 
 const songs = ref<SongItem[]>([])
 const listParentRef = ref<HTMLElement | null>(null)
-const songRowRefs = new Map<string, HTMLElement>()
 const actionSong = ref<SongItem | null>(null)
 const isSongActionsOpen = ref(false)
 const isPlaylistPickOpen = ref(false)
@@ -172,17 +171,6 @@ const rowVirtualizer = useVirtualizer(
 
 const measureVirtualRow = (element: Element | ComponentPublicInstance | null): void => {
   rowVirtualizer.value.measureElement(element instanceof HTMLElement ? element : null)
-}
-
-/** 同时凗给 virtualizer measure 与 songId->element map，供 FAB 跳转查询 */
-const collectRowRef = (element: Element | ComponentPublicInstance | null, songId: string): void => {
-  measureVirtualRow(element)
-  const el = element instanceof HTMLElement ? element : null
-  if (el) {
-    songRowRefs.set(songId, el)
-  } else {
-    songRowRefs.delete(songId)
-  }
 }
 
 const virtualRows = computed(() => {
@@ -303,20 +291,15 @@ const scrollToCurrentSong = async () => {
     return
   }
 
-  // 虚拟列表：先滚到索引
+  // 仅用 virtualizer 定位；禁止再 scrollIntoView + scroll-margin（滚动端口已在 navbar/shuffle 下，二次偏移会连点下移）
   rowVirtualizer.value.scrollToIndex(index, { align: 'start', behavior: 'smooth' })
   await nextTick()
-  // 等 layout 一帧，确保目标行已挂载
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => resolve())
   })
+  // measure 完成后兜底一次，仍不走 scrollIntoView
+  rowVirtualizer.value.scrollToIndex(index, { align: 'start' })
 
-  const row = songRowRefs.get(currentId)
-  if (!row) {
-    return
-  }
-
-  row.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
   highlightedSongId.value = currentId
   if (jumpHighlightTimer) {
     clearTimeout(jumpHighlightTimer)
@@ -357,6 +340,5 @@ onUnmounted(() => {
     clearTimeout(jumpHighlightTimer)
     jumpHighlightTimer = null
   }
-  songRowRefs.clear()
 })
 </script>
