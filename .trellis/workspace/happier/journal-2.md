@@ -1889,3 +1889,34 @@ FAB 仅用 scrollToIndex，删除 scrollIntoView 与错误 scroll-mt，连点位
 ### Status
 
 [OK] **Completed**
+
+## Session 91: 沉浸页 ghost 图标键按下态统一
+
+**Date**: 2026-08-04
+**Task**: 沉浸页图标按钮按下态统一
+**Branch**: `main`
+
+### Summary
+
+`.player-overlay .h-button--ghost` 统一主控/mode-bar/歌词 FAB 的 color/background/hover/active/is-active；mode-bar/FAB 默认淡色仅 `:not(.is-active)`，交互态置于其后避免 cascade 盖掉激活态。
+
+### Main Changes
+
+- `tailwind.css` 沉浸 ghost 基类 + cascade 修复
+- `component-guidelines` / `features-player` 按下态契约
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f25b906` | fix(player): 统一沉浸页 ghost 图标键按下态 |
+| `1829dc2` | chore(task): archive 08-04-player-immersive-btn-press-unify |
+
+### Testing
+
+- [OK] lint / build
+- [OK] trellis-check AC1–AC5 通过（含 cascade 修复）
+
+### Status
+
+[OK] **Completed**
