@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "验收 FAB 跳转描述与实现一致、无错误 scroll-margin"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/typecheck 与无无关回归"}
