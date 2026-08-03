@@ -1706,3 +1706,32 @@ Two navbar fixes delivered in this session:
 **遗留**：Android 15/16 真机验证 edge-to-edge 视觉（上一任务 AC6）；本任务 HPopup fullscreen 建议真机确认下滑手感与转场。
 
 **提交**：`adopt-lib-components` 迁移提交 + `chore(task): archive`。
+
+---
+
+## 2026-08-03 player-hpopup-migration（已归档）
+
+**目标**：PlayerPage 完整迁移 HPopup fullscreen（happier-ui 0.0.8 keepAlive + swipeClose）。
+
+**做了什么**：
+1. **升级 happier-ui@0.0.8 --save-exact**（精确锁定，含 #13 keepAlive/swipeClose）。
+2. **PlayerPage 根改为 HPopup**：`position="fullscreen" :keep-alive="true" :swipe-close="false" close-on-overlay/esc=false`；内容根 `h-full` + 原 touch 手势保留；去 fixed/z/aria-hidden。
+3. **App.vue 常驻挂载** `<PlayerPage />`，移除 `keepPlayerPageMounted` / translate-y 保活路径。
+4. **z-index 1100**：HPopup 根是 Teleport，透传 class/style 丢失；宿主用 `.h-popup--swipe-disabled { --h-popup-z: var(--muses-z-player, 1100) }` 区分 Queue 默认 1200。
+5. **Spec 更新**：component-guidelines / features-player / quality / directory-structure 同步 0.0.8 与 Player 迁移记录。
+
+**关键验证**（Edge headless CDP）：
+- OPEN：fullscreen + swipe-disabled，z=1100，panel/player 844，radius 0，双锁生效
+- CLOSE：keepAlive DOM 仍在、vis=hidden，双锁归零
+- REOPEN：vis=visible，z=1100
+- lint + build 通过
+
+**决策记录**：
+- 选项 A：完整迁移外壳，自建 200+ 行手势保留，swipeClose=false
+- 转场 220ms→330ms 已获批
+- 双锁并存不删 muses-overlay-open
+
+**遗留**：Android 15/16 edge-to-edge 真机（上一任务 AC6）；真机确认 Player 手势与 Queue 叠层观感。
+
+**提交**：`c610d17` refactor(player) + `fb04316` archive。
+
