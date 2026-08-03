@@ -8,7 +8,7 @@
 
 The repository is a single frontend app with a simple Ionic Vue layout. Code is currently organized by technical role rather than by feature folder.
 
-通用 UI 库为 npm 依赖 **`happier-ui@0.0.2`**；禁止提交 `file:../happier-ui`，也禁止 Vite/TypeScript 指向相邻仓库源码 alias。
+通用 UI 库为 npm 依赖 **`happier-ui@0.0.8`**；禁止提交 `file:../happier-ui`，也禁止 Vite/TypeScript 指向相邻仓库源码 alias。
 
 ```text
 src/
@@ -49,7 +49,7 @@ Use the existing split unless the codebase grows enough to justify feature modul
 - `src/router/index.ts` owns route records and redirects.
 - `src/views/` contains route-level pages.
 - `src/components/` contains reusable UI pieces used by pages.
-- `happier-ui@0.0.2`：npm 发布包；默认以 registry 版本为准，本地联调只可临时 link，完成后恢复 npm 依赖。peer 需 `tailwindcss@^4`。
+- `happier-ui@0.0.8`：npm 发布包；默认以 registry 版本为准，本地联调只可临时 link，完成后恢复 npm 依赖。peer 需 `tailwindcss@^4`。
 - `src/components/ui/`：边界层——只 re-export 库真实导出与 app-only 的 `MCover`/`MPage`；不新增通用 M* 平行组件。
 - `src/icons/`：导出 `@lucide/vue` 语义组件；业务统一通过 happier-ui `HIcon` 渲染，禁止旧 `ion-lucide` 适配层。
 - 库没有对应能力的 Ionic/业务落点记录在任务 `gaps.md`，未来回到 happier-ui 仓库开发。

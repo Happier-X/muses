@@ -10,17 +10,8 @@
       :class="{ 'pointer-events-none': hasGlobalOverlay, 'is-overlay-active': hasGlobalOverlay }"
       :aria-hidden="hasGlobalOverlay"
     />
-    <!-- 有当前曲时保活 PlayerPage，避免关闭再打开重建 BackgroundRender 闪默认底（#22） -->
-    <PlayerPage
-      v-if="keepPlayerPageMounted"
-      class="transition-transform duration-[220ms] ease-[ease]"
-      :class="[
-        playerOverlayVisible
-          ? 'translate-y-0 pointer-events-auto visible [contain:none]'
-          : 'translate-y-full pointer-events-none invisible [contain:paint]',
-        { 'is-player-visible': playerOverlayVisible }
-      ]"
-    />
+    <!-- 常驻 PlayerPage：HPopup keep-alive 关闭时 v-show 保活，避免关再开重建 AMLL 背景闪默认底（#22） -->
+    <PlayerPage />
     <QueuePage />
   </div>
 </template>
@@ -32,16 +23,12 @@ import { App } from '@capacitor/app'
 import type { PluginListenerHandle } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
 import MiniPlayer from '@/components/MiniPlayer.vue'
-import { initializePlayer, playerState } from '@/features/player/controller'
+import { initializePlayer } from '@/features/player/controller'
 import { closePlayerOverlay, closeQueueOverlay, playerOverlayVisible, queueOverlayVisible } from '@/features/player/overlay'
 
 const PlayerPage = defineAsyncComponent(() => import('@/views/PlayerPage.vue'))
 const QueuePage = defineAsyncComponent(() => import('@/views/QueuePage.vue'))
 const hasGlobalOverlay = computed(() => playerOverlayVisible.value || queueOverlayVisible.value)
-/** 播放中/有当前曲时不卸载沉浸页，仅隐藏，保留 AMLL 动态背景 */
-const keepPlayerPageMounted = computed(
-  () => playerOverlayVisible.value || !!playerState.currentSong,
-)
 let statusBarRequestToken = 0
 let statusBarSyncQueue = Promise.resolve()
 let backButtonListener: PluginListenerHandle | null = null

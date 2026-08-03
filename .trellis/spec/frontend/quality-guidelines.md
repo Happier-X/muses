@@ -253,7 +253,7 @@ Avoid:
 依赖升级必须按兼容组分层验证，不能只改版本号：
 
 - **应用已完全脱离 Ionic**（见 `07-25-migrate-off-ionic-core`）：`package.json` 无 `@ionic/vue` / `@ionic/vue-router` / `ionicons`；路由用 `vue-router`，页面骨架用自建 `MPage` / `MContent`。业务侧图标全面使用 `@lucide/vue` 组件 + happier-ui `HIcon`，禁止 `ion-icon`、`@/icons/ion-lucide` 与 `import ... from 'ionicons/icons'`。Capacitor 核心与插件保持同一主版本。
-- `happier-ui` 默认固定使用 npm **精确版本** `happier-ui@0.0.6`（不用 `^`）；不得提交 `file:../happier-ui` 或相邻源码 alias。必须接入 Tailwind CSS v4（`tailwindcss` + `@tailwindcss/vite`），全局样式经 `src/theme/tailwind.css` 走 `@import 'tailwindcss'` + `@import 'happier-ui/styles'` 管道，禁止直接引旧 `style.css`。库没有的组件保留业务实现并登记任务 `gaps.md`，不得在 Muses 新造通用平行 M* 组件。
+- `happier-ui` 默认固定使用 npm **精确版本** `happier-ui@0.0.8`（不用 `^`）；不得提交 `file:../happier-ui` 或相邻源码 alias。必须接入 Tailwind CSS v4（`tailwindcss` + `@tailwindcss/vite`），全局样式经 `src/theme/tailwind.css` 走 `@import 'tailwindcss'` + `@import 'happier-ui/styles'` 管道，禁止直接引旧 `style.css`。库没有的组件保留业务实现并登记任务 `gaps.md`，不得在 Muses 新造通用平行 M* 组件。
 - Vite、Vue 插件、legacy 插件应作为一组升级；Vitest 与 jsdom、ESLint 与 Vue/TypeScript 配置链也应分别成组验证。
 - 每组升级后运行 lint、build 和完整 unit test；最终执行 `npm ci` 验证锁文件可干净重建，并运行 `npx cap sync android` 检查原生插件同步。
 - 跨主版本若失败，任务记录必须保留具体命令和兼容性证据，不得为了满足“最新”强行破坏可构建组合。

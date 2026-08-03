@@ -1,17 +1,24 @@
 <template>
-  <div
-    class="player-overlay fixed inset-0 z-[var(--muses-z-player)] overflow-hidden overscroll-behavior-none touch-action-none text-[var(--muses-immersive-ink)]"
-    :aria-hidden="!playerOverlayVisible"
-    @touchstart.passive="onTouchStart"
-    @touchmove="onTouchMove"
-    @touchend="onTouchEnd"
-    @touchcancel="onTouchEnd"
+  <h-popup
+    v-model="playerOverlayVisible"
+    position="fullscreen"
+    :keep-alive="true"
+    :swipe-close="false"
+    :close-on-overlay="false"
+    :close-on-esc="false"
   >
     <div
-      class="relative h-dvh max-h-dvh overflow-hidden [background:var(--muses-immersive-void)] transition-[transform] duration-[var(--muses-duration-overlay)] ease-[var(--muses-ease-standard)]"
-      :class="{ 'is-dragging': isDraggingVertically, '!transition-none': isDraggingVertically }"
-      :style="{ transform: `translateY(${dragOffsetY}px)` }"
+      class="player-overlay h-full overflow-hidden overscroll-behavior-none touch-action-none text-[var(--muses-immersive-ink)]"
+      @touchstart.passive="onTouchStart"
+      @touchmove="onTouchMove"
+      @touchend="onTouchEnd"
+      @touchcancel="onTouchEnd"
     >
+      <div
+        class="relative h-full overflow-hidden [background:var(--muses-immersive-void)] transition-[transform] duration-[var(--muses-duration-overlay)] ease-[var(--muses-ease-standard)]"
+        :class="{ 'is-dragging': isDraggingVertically, '!transition-none': isDraggingVertically }"
+        :style="{ transform: `translateY(${dragOffsetY}px)` }"
+      >
       <!-- 背景与歌词解耦：切歌暂无词时不卸载，避免闪默认底（#20） -->
       <div v-if="showAlbumBackground" class="absolute inset-0 z-0 overflow-hidden opacity-75">
         <BackgroundRender
@@ -207,11 +214,12 @@
         </section>
       </div>
     </div>
-  </div>
+    </div>
+  </h-popup>
 </template>
 
 <script setup lang="ts">
-import { HButton, HIcon, HRange } from '@/components/ui'
+import { HButton, HIcon, HPopup, HRange } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { languageOffOutline, languageOutline, list, listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from '@/icons'

@@ -1,4 +1,4 @@
-/** 通用组件来自 npm 包 happier-ui@0.0.3；这里只转出真实导出。 */
+/** 通用组件来自 npm 包 happier-ui@0.0.8；这里只转出真实导出。 */
 export {
   HBadge,
   HButton,

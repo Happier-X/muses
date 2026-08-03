@@ -82,6 +82,15 @@ body.muses-overlay-open .m-content {
 }
 
 /*
+ * PlayerPage 专属 HPopup（immersive player）低于 QueuePage（fullscreen 默认
+ * --h-popup-z: 1200）的层叠。HPopup 根是 <Teleport>，透传 class/style 会丢失，
+ * 故用 .h-popup--swipe-disabled（:swipe-close="false" 时库自动加）作宿主侧区分。
+ */
+.h-popup--swipe-disabled {
+  --h-popup-z: var(--muses-z-player, 1100);
+}
+
+/*
  * PlayerPage 沉浸式播放器样式（原 scoped CSS，迁至此保持全局 cascade）。
  * ⚠️ 所有选择器以 .player-overlay 为前缀，避免与其他组件冲突。
  */

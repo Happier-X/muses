@@ -36,7 +36,7 @@ Examples:
 
 ## Muses 语义组件层 → `happier-ui`
 
-Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.7`**（不用 `^`），不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
+Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.8`**（不用 `^`），不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
 
 - **权威 token**：包内 `happier-ui/tokens.css` 的 **`--h-*`**；`--muses-*` 为兼容别名。0.0.5 起 tokens.css 已彻底去除 `var(--ion-*)` 反向依赖，改为自持有值，并内建双触发独立暗色态（`@media(prefers-color-scheme: dark) :root:not(.light)` 系统跟随 + `:root.dark`/`.dark` 手动强制）。暗色由 happier-ui 承接，**Muses 侧无需任何暗色 workaround**。
 - **样式管道（必需）**：宿主必须接入 **Tailwind CSS v4**（`tailwindcss` + `@tailwindcss/vite`）。全局入口 `src/theme/tailwind.css` 使用 `@import 'tailwindcss'` + `@import 'happier-ui/styles'`，由 Vite 的 `tailwindcss()` 插件解析 `@theme` / `@layer components`。**禁止**再直接 `import 'happier-ui/style.css'` 或把 `styles.css` 当普通预编译 CSS 跳过 Tailwind 管道。
@@ -47,7 +47,7 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.7`**（不用 `^`�
 
 ### 组件契约
 
-`src/components/ui/index.ts` 只转出 happier-ui@0.0.7 的真实导出，并附带 `MCover`、`MPage`、`MContent`。不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留业务实现并登记对应任务的 `gaps.md`，未来在 happier-ui 仓库开发后再回迁。
+`src/components/ui/index.ts` 只转出 happier-ui@0.0.8 的真实导出，并附带 `MCover`、`MPage`、`MContent`。不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留业务实现并登记对应任务的 `gaps.md`，未来在 happier-ui 仓库开发后再回迁。
 
 ### 使用规则
 
@@ -87,14 +87,18 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.7`**（不用 `^`�
 - **滚动锁双锁并存**：HPopup `useScrollLock` 锁 `documentElement` inline overflow；宿主 `html/body.muses-overlay-open` class 锁（!important，PlayerPage 用）仍保留。二者独立、均幂等；`hasGlobalOverlay`/`syncBodyOverlayLock` 逻辑不变。
 - **z-index**：HPopup fullscreen 默认 `var(--h-popup-z, 1200)`，与原 QueuePage `z-[1200]` 一致，高于 PlayerPage `--h-z-player: 1100`（queue 从 player 内打开叠在其上）。
 
-### PlayerPage 保留宿主实现（不迁 HPopup）
+### 全屏浮层：PlayerPage 用 HPopup fullscreen（0.0.8+，keepAlive + swipeClose）
 
-`PlayerPage` 自 0.0.7 起**仍保留宿主实现**（不迁移 HPopup fullscreen），原因（`07-31-adopt-lib-components` 用户决策 B）：
+`PlayerPage` 自 `08-03-player-hpopup-migration` 起完整迁移到 `HPopup position="fullscreen"`（happier-ui **0.0.8**，含 [Happier-X/happier-ui#13](https://github.com/Happier-X/happier-ui/issues/13) 的 `keepAlive` + `swipeClose`）：
 
-1. **保活冲突（#22）**：HPopup 无 `keepAlive` / `v-show` 保活选项，slot 用 `v-if="visible"` 关闭即卸载；PlayerPage 需要关闭后保留 AMLL `BackgroundRender`（关闭卸载会重建导致闪默认底）。
-2. **手势冲突**：HPopup fullscreen 自带 swipe-down（用 panel `scrollTop` 判断），panel 为 `touch-action: pan-y`；PlayerPage 有 200+ 行自建手势（横向切面板、纵向关闭含 `canStartVerticalDismiss`、进度条隔离 `seekGestureLocked`、`touch-action-none`），强迁会互相干扰。
-
-后续若迁移需先在组件库加保活 + 手势禁用开关（已提 issue：[Happier-X/happier-ui#13](https://github.com/Happier-X/happier-ui/issues/13)，OPEN），当前不列入本仓库任务。
+- **双绑 v-model**：`v-model="playerOverlayVisible"`，`close-on-overlay` / `close-on-esc` 均关。纵向关闭仍走 PlayerPage 自建手势 → `closePlayerOverlay()`。
+- **常驻挂载**：`App.vue` 直接渲染 `<PlayerPage />`（无 `keepPlayerPageMounted` v-if / translate-y 保活）。HPopup 内部 `keep-alive` 控制 slot 显隐。
+- **keep-alive**：`:keep-alive="true"` 关闭时 slot 用 `v-show` 隐藏不卸载，保留 AMLL `BackgroundRender`（#22，替代旧 `keepPlayerPageMounted` + `translate-y`）。
+- **swipe-close=false**：禁用 HPopup 内置下滑手势，库加 `.h-popup--swipe-disabled` 并把 `touch-action` 交还宿主；PlayerPage 200+ 行自建手势（横向切面板 / 纵向关闭 / `seekGestureLocked` / `touch-action-none`）原样保留。
+- **z-index**：HPopup 根是 `<Teleport>`，透传 `class`/`style` 会丢失，**不能**靠内联 `--h-popup-z` 覆盖。宿主在 `src/theme/tailwind.css` 用 `.h-popup--swipe-disabled { --h-popup-z: var(--muses-z-player, 1100) }` 区分 Player（1100）与 Queue（默认 1200）。`--muses-z-player` 来自 happier-ui tokens 的 `var(--h-z-player)`。
+- **高度链**：沿用 Queue 的 `.h-popup--position-fullscreen .h-popup__body { height: 100% }` 补丁；内容根 `h-full`（不再 `h-dvh`），HPopup panel 已 `inset:0`。
+- **滚动锁双锁并存**：同 Queue——HPopup `useScrollLock` + 宿主 `muses-overlay-open` class 锁；`hasGlobalOverlay`/`syncBodyOverlayLock`/`syncPlayerStatusBar`/`backButton` 顺序不变。
+- **转场**：HPopup fullscreen 330ms `h-popup-fullscreen-in/out`（原 App.vue 220ms translate-y 已移除，观感变化已获批）。
 - navbar 返回行为使用 `HNavBar show-back` 与 `handle-left-click` 显式处理。
 
 ### 高度链与 Tabs 视口滚动归属

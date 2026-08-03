@@ -102,7 +102,7 @@
 - AMLL `BackgroundRender` **不得**仅因「当前无歌词」而卸载；有当前曲且有可展示封面（含粘性封面）即渲染。
 - 切歌若新曲暂无 `coverUri`，UI 可短时**粘性**使用上一首可用封面作背景与封面槽，待新封面写入后再更新；无当前曲时清空粘性封面。避免闪回默认 `fallback-background`（#20）。
 - 封面晚到时 `BackgroundRender` 须用 `key` 绑定封面 URI 以重建；`syncDisplayStateFromSong` **禁止**用库内空歌词清空运行时已有词，仅库内质量严格更优时才替换（#21）。
-- 有 `currentSong` 时 **保活** `PlayerPage`（关闭沉浸式用 transform 隐藏，勿 `v-if` 销毁），避免再打开时 AMLL 背景重建闪默认底（#22）；无当前曲时可卸载。保活后打开/关闭必须 `resetDragState()`，下滑关闭前也要清零 `dragOffsetY`，避免再打开半屏（#25）。
+- `PlayerPage` 用 `HPopup position="fullscreen" :keep-alive="true"` 保活（#22）：关闭时 slot `v-show` 隐藏不卸载，避免再打开时 AMLL 背景重建闪默认底；App.vue 常驻挂载 `<PlayerPage />`（无 `keepPlayerPageMounted` / translate-y）。打开/关闭必须 `resetDragState()`，下滑关闭前也要清零 `dragOffsetY`，避免再打开半屏（#25）。
 - 歌词页浮动：左下翻译开关（默认开，隐藏时清空 `translatedLyric`/`romanLyric`，并用 `key` 重建 `LyricPlayer` 保证 AMLL 立即刷新）；右下播放/暂停仅 **非平板**（`<768px`）显示；浮动按钮需小尺寸、低视觉权重（#23/#24/#26）。
 - **歌词解析 vs 翻译适配（AMLL 边界）**：
   - 主词格式解析**只**用 `@applemusic-like-lyrics/lyric`（`parseLrc` / `parseYrc` / `parseQrc` / `parseTTML` 等），禁止自研平行格式解析器。
