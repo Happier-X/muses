@@ -173,13 +173,23 @@ body.muses-overlay-open .m-content {
   font-size: clamp(48px, 12vw, 72px);
 }
 
+/*
+ * 沉浸页 ghost 图标键统一交互（主控 / mode-bar / 歌词 FAB）。
+ * 覆盖 happier-ui ghost 默认黑字 + 浅灰 hover/active；禁止只改 color。
+ * 顺序：默认底色 → 尺寸/淡色差异 → hover/active/is-active（必须最后，否则同特异性会被 mode-bar/FAB 默认覆盖）。
+ */
+.player-overlay .h-button--ghost {
+  color: #ffffff;
+  background: transparent;
+  border-radius: var(--muses-radius-pill, 9999px);
+}
+
 .player-overlay .controls .h-button {
   width: 52px;
   height: 52px;
   margin: 0;
   font-size: 26px;
   touch-action: manipulation;
-  color: #fff;
 }
 
 .player-overlay .controls .play-toggle {
@@ -194,6 +204,10 @@ body.muses-overlay-open .m-content {
   margin: 0;
   font-size: 20px;
   touch-action: manipulation;
+}
+
+/* 仅非语义激活时更淡；:not(.is-active) 避免盖掉激活提亮 */
+.player-overlay .mode-bar .h-button:not(.is-active) {
   color: rgba(255, 255, 255, 0.58);
 }
 
@@ -260,31 +274,15 @@ body.muses-overlay-open .m-content {
   pointer-events: auto;
 }
 
-/* 真实 color/background 覆盖 HButton ghost 默认黑字；禁止再用 Ionic --color/--background */
+/* 歌词 FAB：始终 blur；默认略淡+微黑底仅非 .is-active，避免盖掉基类激活半透明白底 */
 .player-overlay .lyric-fab.h-button--ghost {
-  color: rgba(255, 255, 255, 0.78);
-  background: rgba(0, 0, 0, 0.16);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-radius: var(--muses-radius-pill, 9999px);
 }
 
-.player-overlay .lyric-fab.h-button--ghost:not(:disabled):active {
-  color: rgba(255, 255, 255, 0.92);
-  background: rgba(255, 255, 255, 0.2);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .player-overlay .lyric-fab.h-button--ghost:not(:disabled):hover {
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.14);
-  }
-
-  /* 特异性需高于上方 hover，避免激活翻译键 hover 时掉回半透明 */
-  .player-overlay .lyric-fab.is-active.h-button--ghost:not(:disabled):hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.28);
-  }
+.player-overlay .lyric-fab.h-button--ghost:not(.is-active) {
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(0, 0, 0, 0.16);
 }
 
 .player-overlay .lyric-fab .h-icon {
@@ -292,19 +290,38 @@ body.muses-overlay-open .m-content {
   height: 20px;
   font-size: 20px;
   margin: 0;
-  color: inherit;
 }
 
-.player-overlay .lyric-fab.is-active.h-button--ghost,
-.player-overlay .lyric-fab.is-active {
+/* 交互态放在 mode-bar/FAB 默认覆盖之后，保证同特异性下 hover/active/is-active 生效 */
+.player-overlay .h-button--ghost:not(:disabled):active {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .player-overlay .h-button--ghost:not(:disabled):hover {
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .player-overlay .h-button--ghost.is-active:not(:disabled):hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.28);
+  }
+}
+
+.player-overlay .h-button--ghost.is-active {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.22);
 }
 
-.player-overlay .lyric-fab.is-active.h-button--ghost:not(:disabled):active,
-.player-overlay .lyric-fab.is-active:not(:disabled):active {
+.player-overlay .h-button--ghost.is-active:not(:disabled):active {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.3);
+}
+
+.player-overlay .h-button--ghost .h-icon {
+  color: inherit;
 }
 
 /* AMLL 实际 player 挂在 wrapper 子节点；强制铺满 flex 槽位 */

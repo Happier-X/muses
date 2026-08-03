@@ -1,0 +1,4 @@
+{"path":".trellis/spec/frontend/component-guidelines.md","reason":"审查规范是否写明统一按下态"}
+{"path":".trellis/spec/frontend/features-player.md","reason":"审查播放页相关句"}
+{"path":"src/theme/tailwind.css","reason":"审查 ghost hover/active 是否统一"}
+{"path":"src/views/PlayerPage.vue","reason":"确认仍全为 HButton ghost"}

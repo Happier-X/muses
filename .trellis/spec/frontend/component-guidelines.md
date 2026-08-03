@@ -415,6 +415,7 @@ const openPlayerPage = () => {
   - `max-height: 520px`：再收一档 gap/字号/按钮/热区（约 18px），仍显示全部控件。
   - 不引入 landscape 专用 DOM；横屏通常命中 `max-height` 断点即可。padding 只减固定 px 部分，用 `calc(... + safe-area)`，不得抹掉安全区。
 - 主控制三键（上一曲/播放暂停/下一曲）均为 `HButton`（`variant="ghost"` + `is-icon-only` + `shape="circle"`）纯图标按钮，无 solid 圆底与按钮阴影；图标从 `@/icons` 导入并由 `HIcon` 以 fill 变体渲染（`play` / `pause` / `playSkipBack` / `playSkipForward`），不得回退 outline 主控或 ionicons 直引；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
+- **沉浸页 ghost 按下态必须统一**（`08-04-player-immersive-btn-press-unify`）：`.player-overlay` 内主控 / mode-bar / 歌词 FAB 共用 `.h-button--ghost` 基类覆盖 `color` + `background` + `:hover` / `:active` + 语义 `.is-active`（半透明白底、浅色字）。**禁止**只改 `color` 而依赖库 ghost 浅灰 active（深底上会闪灰块）；**禁止** Ionic `--color`/`--background`。mode-bar / FAB 默认可更淡，但按下与激活机制须与主控同族。
 - 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons` 导入并由 `HIcon` 渲染：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `ListOrdered`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。**打开队列**按钮使用 `list`（Lucide `ListMusic`），与 `MiniPlayer` 队列键一致；不得用 `listOutline` 表示队列（`listOutline` 仅顺序播放）。
 - **歌词页浮动播放键**：窄屏歌词页右下角播放/暂停必须使用与主控相同的 `play` / `pause`（fill），禁止圆形 `PlayCircle` / `PauseCircle`。
 - 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
@@ -424,7 +425,7 @@ const openPlayerPage = () => {
   - **窄屏** `.lyric-panel`：顶部 `.lyric-header` 展示歌名（主标题）+ 歌手（副标题，空则不渲染；不拼接专辑、不回退「未知歌手」）；其下为 `flex:1` 的 AMLL `LyricPlayer`；底部仅安全区。
   - **歌词页浮动 chrome 按需显示**：左下翻译、右下播放/暂停（仅非平板）默认 **隐藏**（`opacity: 0` + 容器/按钮 `pointer-events: none`），约 180ms fade。用户在 **歌词面板内** 点击或滑动歌词后显示（`.is-visible`），空闲 **3 秒** 再隐藏；点浮动按钮重置计时。**切回控制页**（`activePanel !== 1`）或 **关闭 overlay** 立即隐藏并清 timer。隐藏态禁止可点热区。竖屏/横屏/宽屏双栏均走同一 `lyricChromeVisible` 路径；宽屏仅隐藏播放键，**不**整区隐藏 chrome。
   - **翻译键仅有译时出现**：`hasLyricTranslation` 为 true（`prepareLyricLinesForDisplay` 后任一行非空 `translatedLyric`/`romanLyric`，或 `playerState.lyricsTranslation` 非空）才渲染翻译 FAB；纯原文无译不占位。无译仅剩窄屏播放键时 `justify-end`；宽屏无译且无播放键时不挂浮动容器。
-  - **FAB 颜色（HButton ghost）**：沉浸深色底上必须用真实 `color` / `background`（全局 `.player-overlay .lyric-fab.h-button--ghost`）覆盖 ghost 默认 `var(--h-color-ink)` 黑字；**禁止** Ionic 时代的 `--color` / `--background` CSS 变量。激活翻译键 `.is-active` 用更亮字色 + 略高不透明白底区分。
+  - **FAB 颜色（HButton ghost）**：与控制页主控/mode-bar 共用 `.player-overlay .h-button--ghost` 沉浸交互基类（浅色字 + 半透明白 hover/active）；FAB 默认可保留微黑底 + blur。激活翻译键 `.is-active` 用更亮字色 + 略高不透明白底；**禁止** Ionic `--color`/`--background`，也禁止只改字色。
   - **宽屏**（`@media (min-width: 768px)`）：隐藏 `.lyric-header`，右侧只保留歌词；AMLL 视觉参数与窄屏一致。
   - AMLL 参数：`alignAnchor="center"`、`alignPosition=0.5`（当前行位于歌词可视区中心）、`enableBlur` / `enableScale` 开启；字号用 `--amll-lp-font-size`（约 `clamp(22px, 6.5vw, 32px)`）；用 `:deep()` 去掉行左右 padding，使歌词左缘与顶部信息对齐。
   - 翻译副行样式必须使用 AMLL 实际类名：`.FmKaba_lyricLine.FmKaba_active`、`.FmKaba_lyricMainLine.FmKaba_active` 和 `.FmKaba_lyricSubLine`；不要依赖不存在的自定义 active 类。歌词 timed 翻译需支持点号、冒号、逗号毫秒时间戳，匹配容差应保持较小并有超界测试，避免翻译错位。同时间戳双语主行合并时主行须为原文（非 Han 优先于 Han），关翻译后不得只剩中文译文当主行。
