@@ -85,9 +85,18 @@ body.muses-overlay-open .m-content {
  * PlayerPage 专属 HPopup（immersive player）低于 QueuePage（fullscreen 默认
  * --h-popup-z: 1200）的层叠。HPopup 根是 <Teleport>，透传 class/style 会丢失，
  * 故用 .h-popup--swipe-disabled（:swipe-close="false" 时库自动加）作宿主侧区分。
+ *
+ * panel 默认 surface 白底：下滑关闭只 translate 内层沉浸内容，若 panel 仍为
+ * --h-color-surface 会露纯白。透明化 panel，露顶区透过 .h-popup__overlay
+ * 看到底层列表（Queue 无此 class，不受影响）。
  */
 .h-popup--swipe-disabled {
   --h-popup-z: var(--muses-z-player, 1100);
+}
+
+.h-popup--swipe-disabled .h-popup__panel {
+  background: transparent;
+  overflow: hidden;
 }
 
 /*
