@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端 Pre-Development 与层索引"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器预取/在线歌词封面文本/写库契约"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/test/构建约定"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用 match API 与避免复制 token 逻辑"}
+{"file": ".trellis/tasks/08-03-prefetch-next-metadata/design.md", "reason": "本任务技术边界与 token 隔离"}
+{"file": ".trellis/tasks/08-03-prefetch-next-metadata/implement.md", "reason": "实现清单与验证命令"}

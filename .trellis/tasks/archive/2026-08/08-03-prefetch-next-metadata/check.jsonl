@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Quality Check 入口"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "对照预取与在线匹配禁止模式"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/typecheck/test 门槛"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "controller→library 写库与 state 边界"}
+{"file": ".trellis/tasks/08-03-prefetch-next-metadata/prd.md", "reason": "验收标准 AC1–AC7"}
+{"file": ".trellis/tasks/08-03-prefetch-next-metadata/design.md", "reason": "独立 token、禁止写 playerState"}
