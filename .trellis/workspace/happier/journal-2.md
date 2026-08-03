@@ -1856,3 +1856,36 @@ FAB 仅用 scrollToIndex，删除 scrollIntoView 与错误 scroll-mt，连点位
 ### Status
 
 [OK] **Completed**
+
+
+## Session 90: 歌词页浮动按钮样式与翻译可见性
+
+**Date**: 2026-08-03
+**Task**: 歌词页浮动按钮样式与翻译可见性
+**Branch**: `main`
+
+### Summary
+
+歌词 FAB 改真实浅色覆盖 ghost 黑字；无译隐藏翻译键；宽屏无译不挂空 chrome；规范同步
+
+### Main Changes
+
+- PlayerPage hasLyricTranslation / showLyricFloatingActions
+- tailwind.css lyric-fab 真实 color/background
+- component-guidelines 与 features-player 同步
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b648014` | (see git log) |
+
+### Testing
+
+- [OK] npm run lint
+- [OK] npm run build
+- [OK] trellis-check AC1-AC5 通过
+
+### Status
+
+[OK] **Completed**

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 89
+- **Total Sessions**: 90
 - **Last Active**: 2026-08-03
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1858 | Active |
+| `journal-2.md` | ~1891 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 90 | 2026-08-03 | 歌词页浮动按钮样式与翻译可见性 | `b648014` | `main` |
 | 89 | 2026-08-03 | 歌曲页跳转当前曲二次点击下移 | `ce6d2ff`, `465726f` | `main` |
 | 88 | 2026-08-03 | 竖屏沉浸式控制页封面排版居中收紧 | `651e942` | `main` |
 | 87 | 2026-08-03 | 沉浸页下滑露白修复 | `982b754`, `85c584b` | `main` |
