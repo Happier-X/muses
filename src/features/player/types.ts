@@ -156,12 +156,16 @@ export const lyricsFormatRank = (format: LyricsFormat | SongItem['lyricsFormat']
   return 1
 }
 
-/** 在线结果是否应写回库（严格更优） */
+/** 在线结果是否应写回库（严格更优；手改歌词永久不写） */
 export const shouldPersistOnlineLyrics = (
-  existing: Pick<SongItem, 'lyrics' | 'lyricsFormat'>,
+  existing: Pick<SongItem, 'lyrics' | 'lyricsFormat' | 'userEditedFields'>,
   incomingFormat: Exclude<LyricsFormat, null>,
   incomingText: string,
 ): boolean => {
+  // 用户手改歌词：在线质量写回整段跳过
+  if (existing.userEditedFields?.includes('lyrics')) {
+    return false
+  }
   const text = incomingText.trim()
   if (!text) {
     return false

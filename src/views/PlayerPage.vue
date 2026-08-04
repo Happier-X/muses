@@ -105,7 +105,7 @@
               </h-button>
             </div>
 
-            <div class="mode-bar flex-none flex justify-between items-center w-full max-w-[280px] m-0 touch-manipulation">
+            <div class="mode-bar flex-none flex justify-between items-center w-full max-w-[320px] m-0 touch-manipulation">
               <h-button
                 variant="ghost"
                 is-icon-only
@@ -139,6 +139,16 @@
                 @click="goToQueue"
               >
                 <h-icon :icon="listIcon" />
+              </h-button>
+
+              <h-button
+                variant="ghost"
+                is-icon-only
+                shape="circle"
+                aria-label="更多"
+                @click="openPlayerActions"
+              >
+                <h-icon :icon="moreIcon" />
               </h-button>
             </div>
           </div>
@@ -219,14 +229,197 @@
       </div>
     </div>
     </div>
+
+    <!-- 歌曲操作：仅「编辑歌曲信息」（D2） -->
+    <h-bottom-sheet v-model="isPlayerActionsOpen" title="歌曲操作">
+      <div class="flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
+        <button :class="actionSheetItemClass" type="button" @click="onOpenSongEdit">编辑歌曲信息</button>
+        <button :class="[actionSheetItemClass, actionSheetCancelClass]" type="button" @click="isPlayerActionsOpen = false">取消</button>
+      </div>
+    </h-bottom-sheet>
+
+    <!-- 编辑歌曲信息：title/artist/album/封面/歌词/RG -->
+    <h-bottom-sheet v-model="isSongEditOpen" title="编辑歌曲信息">
+      <form
+        class="flex flex-col gap-[var(--muses-space-md)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]"
+        @submit.prevent="editForm.handleSubmit"
+      >
+        <editForm.Field
+          name="title"
+          :validators="{
+            onSubmit: ({ value }) => (String(value ?? '').trim() ? undefined : '请填写歌曲标题'),
+          }"
+        >
+          <template #default="{ field }">
+            <h-input
+              :model-value="field.state.value"
+              label="标题"
+              :error="typeof field.state.meta.errors[0] === 'string' ? field.state.meta.errors[0] : undefined"
+              :invalid="field.state.meta.errors.length > 0"
+              :disabled="isEditSubmitting"
+              @update:model-value="field.handleChange"
+              @blur="field.handleBlur"
+            />
+          </template>
+        </editForm.Field>
+
+        <editForm.Field name="artist">
+          <template #default="{ field }">
+            <h-input
+              :model-value="field.state.value"
+              label="艺术家"
+              :disabled="isEditSubmitting"
+              @update:model-value="field.handleChange"
+              @blur="field.handleBlur"
+            />
+          </template>
+        </editForm.Field>
+
+        <editForm.Field name="album">
+          <template #default="{ field }">
+            <h-input
+              :model-value="field.state.value"
+              label="专辑"
+              :disabled="isEditSubmitting"
+              @update:model-value="field.handleChange"
+              @blur="field.handleBlur"
+            />
+          </template>
+        </editForm.Field>
+
+        <div class="flex flex-col gap-[var(--muses-space-xs)]">
+          <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-immersive-ink-soft,#aaa)]">封面</p>
+          <div class="flex items-center gap-[var(--muses-space-md)]">
+            <img
+              v-if="editCoverPreviewSrc"
+              class="w-16 h-16 rounded-[10px] object-cover flex-none"
+              :src="editCoverPreviewSrc"
+              alt="封面预览"
+            >
+            <div
+              v-else
+              class="w-16 h-16 rounded-[10px] flex-none flex items-center justify-center bg-[rgba(255,255,255,0.08)] text-[24px]"
+              aria-hidden="true"
+            >
+              ♪
+            </div>
+            <div class="flex flex-col gap-[var(--muses-space-xs)] min-w-0">
+              <h-button
+                variant="ghost"
+                type="button"
+                size="sm"
+                :disabled="isEditSubmitting"
+                @click="onPickCover"
+              >
+                选择图片
+              </h-button>
+              <h-button
+                v-if="editCoverPreviewSrc"
+                variant="ghost"
+                type="button"
+                size="sm"
+                :disabled="isEditSubmitting"
+                @click="onClearCover"
+              >
+                清除封面
+              </h-button>
+            </div>
+          </div>
+          <input
+            ref="coverFileInputRef"
+            class="hidden"
+            type="file"
+            accept="image/*"
+            @change="onCoverFileChange"
+          >
+        </div>
+
+        <editForm.Field name="lyrics">
+          <template #default="{ field }">
+            <h-textarea
+              :model-value="field.state.value"
+              label="歌词（LRC 文本）"
+              :rows="6"
+              :disabled="isEditSubmitting"
+              @update:model-value="field.handleChange"
+              @blur="field.handleBlur"
+            />
+          </template>
+        </editForm.Field>
+
+        <editForm.Field
+          name="replayGainDb"
+          :validators="{
+            onSubmit: ({ value }) => validateReplayGainInput(String(value ?? '')),
+          }"
+        >
+          <template #default="{ field }">
+            <h-input
+              :model-value="field.state.value"
+              label="音量均衡（ReplayGain dB）"
+              placeholder="如 -6.5，空=清除"
+              :error="typeof field.state.meta.errors[0] === 'string' ? field.state.meta.errors[0] : undefined"
+              :invalid="field.state.meta.errors.length > 0"
+              :disabled="isEditSubmitting"
+              @update:model-value="field.handleChange"
+              @blur="field.handleBlur"
+            />
+          </template>
+        </editForm.Field>
+
+        <p v-if="editFormError" class="m-0 text-[length:var(--muses-font-body-sm)] text-[var(--h-color-danger,#f31260)]">
+          {{ editFormError }}
+        </p>
+
+        <div class="flex justify-end gap-[var(--muses-space-sm)] pt-[var(--muses-space-sm)]">
+          <h-button variant="ghost" type="button" :disabled="isEditSubmitting" @click="closeSongEdit">
+            取消
+          </h-button>
+          <h-button variant="primary" type="submit" :disabled="isEditSubmitting">
+            {{ isEditSubmitting ? '保存中…' : '保存' }}
+          </h-button>
+        </div>
+      </form>
+    </h-bottom-sheet>
+
+    <h-toast
+      v-model="toast.visible"
+      :variant="toast.variant"
+      :duration="toast.duration"
+    >
+      {{ toast.message }}
+    </h-toast>
   </h-popup>
 </template>
 
 <script setup lang="ts">
-import { HButton, HIcon, HPopup, HRange } from '@/components/ui'
+import {
+  HBottomSheet,
+  HButton,
+  HIcon,
+  HInput,
+  HPopup,
+  HRange,
+  HTextarea,
+  HToast,
+} from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useForm } from '@tanstack/vue-form'
 import { Capacitor } from '@capacitor/core'
-import { languageOffOutline, languageOutline, list, listOutline, pause, play, playSkipBack, playSkipForward, repeat, repeatOutline, shuffle } from '@/icons'
+import {
+  ellipsisVertical,
+  languageOffOutline,
+  languageOutline,
+  list,
+  listOutline,
+  pause,
+  play,
+  playSkipBack,
+  playSkipForward,
+  repeat,
+  repeatOutline,
+  shuffle,
+} from '@/icons'
 import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
@@ -234,8 +427,23 @@ import { parseLrc, parseQrc, parseTTML, parseYrc } from '@applemusic-like-lyrics
 import '@applemusic-like-lyrics/core/style.css'
 import { applyLyricTranslationVisibility } from '@/features/lyrics/display'
 import { prepareLyricLinesForDisplay } from '@/features/lyrics/mergeTranslation'
-import { isPlaying, pausePlayback, playerState, playNextFromQueue, playPreviousFromQueue, queueState, resumePlayback, seekPlayback, setRepeatMode, toggleShuffle } from '@/features/player/controller'
+import { loadSongs } from '@/features/library/storage'
+import { cacheCoverBytes } from '@/features/library/native'
+import {
+  isPlaying,
+  pausePlayback,
+  playerState,
+  playNextFromQueue,
+  playPreviousFromQueue,
+  queueState,
+  resumePlayback,
+  saveCurrentSongUserEdit,
+  seekPlayback,
+  setRepeatMode,
+  toggleShuffle,
+} from '@/features/player/controller'
 import { closePlayerOverlay, openQueueOverlay, playerOverlayVisible } from '@/features/player/overlay'
+import { actionSheetCancelClass, actionSheetItemClass } from '@/theme/action-sheet'
 
 const activePanel = ref(0)
 /** 手势落点判断用的 template ref（取代 closest / class 选择器查询）。 */
@@ -268,10 +476,269 @@ const repeatIcon = computed(() => queueState.repeatMode === 'one' ? repeat : rep
 const shuffleModeLabel = computed(() => queueState.shuffleEnabled ? '随机播放' : '顺序播放')
 const shuffleIcon = computed(() => queueState.shuffleEnabled ? shuffle : listOutline)
 const listIcon = list
+const moreIcon = ellipsisVertical
 const translationIcon = computed(() => showLyricTranslation.value ? languageOutline : languageOffOutline)
 const previousIcon = playSkipBack
 const nextIcon = playSkipForward
 const isTabletLayout = computed(() => viewportWidth.value >= 768)
+
+// ── 更多 / 编辑歌曲信息 ──────────────────────────────────────────
+const isPlayerActionsOpen = ref(false)
+const isSongEditOpen = ref(false)
+const editFormError = ref('')
+const coverFileInputRef = ref<HTMLInputElement | null>(null)
+/** 编辑中的安全封面 URI；null + cleared 表示用户清除 */
+const editCoverUri = ref<string | null>(null)
+const editCoverCleared = ref(false)
+/** 仅用户改过封面时才写入 patch，避免误标 userEditedFields.cover */
+const editCoverDirty = ref(false)
+/** 打开编辑时的基线，保存时仅提交相对基线有变化的字段 */
+const editBaseline = ref({
+  title: '',
+  artist: '',
+  album: '',
+  lyrics: '',
+  replayGainDb: '',
+})
+const editCoverPreviewSrc = computed(() => {
+  if (editCoverCleared.value) {
+    return ''
+  }
+  const uri = editCoverUri.value || ''
+  return uri ? toDisplayableUri(uri) : ''
+})
+
+const toast = ref<{
+  visible: boolean
+  message: string
+  variant: 'default' | 'success' | 'warning' | 'danger'
+  duration: number
+}>({
+  visible: false,
+  message: '',
+  variant: 'default',
+  duration: 2200,
+})
+
+const showToast = (
+  message: string,
+  variant: 'default' | 'success' | 'warning' | 'danger' = 'default',
+  duration = 2200,
+): void => {
+  toast.value = { visible: true, message, variant, duration }
+}
+
+const validateReplayGainInput = (value: string): string | undefined => {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return undefined
+  }
+  const normalized = trimmed.replace(/\s*dB\s*$/i, '').trim()
+  const num = Number(normalized)
+  if (!Number.isFinite(num)) {
+    return '请输入合法的 dB 数值'
+  }
+  if (Math.abs(num) > 30) {
+    return 'ReplayGain 应在 ±30 dB 内'
+  }
+  return undefined
+}
+
+const parseReplayGainInput = (value: string): number | null => {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+  const normalized = trimmed.replace(/\s*dB\s*$/i, '').trim()
+  const num = Number(normalized)
+  return Number.isFinite(num) ? num : null
+}
+
+const editForm = useForm({
+  defaultValues: {
+    title: '',
+    artist: '',
+    album: '',
+    lyrics: '',
+    replayGainDb: '',
+  },
+  onSubmit: async ({ value }) => {
+    editFormError.value = ''
+    const songId = playerState.currentSong?.id
+    if (!songId) {
+      editFormError.value = '当前没有播放中的歌曲。'
+      return
+    }
+
+    const title = value.title.trim()
+    if (!title) {
+      editFormError.value = '请填写歌曲标题'
+      return
+    }
+
+    const rgRaw = value.replayGainDb.trim()
+    const rgError = validateReplayGainInput(rgRaw)
+    if (rgError) {
+      editFormError.value = rgError
+      return
+    }
+
+    const baseline = editBaseline.value
+    const artist = value.artist.trim()
+    const album = value.album.trim()
+    const lyrics = value.lyrics
+    const nextRg = parseReplayGainInput(rgRaw)
+    const baseRg = parseReplayGainInput(baseline.replayGainDb)
+
+    // 仅提交相对打开时基线有变化的字段，避免「只改 title 也永久锁死 lyrics/RG」
+    const patch: Parameters<typeof saveCurrentSongUserEdit>[0] = {}
+    if (title !== baseline.title.trim()) {
+      patch.title = title
+    }
+    if (artist !== baseline.artist.trim()) {
+      patch.artist = artist
+    }
+    if (album !== baseline.album.trim()) {
+      patch.album = album
+    }
+    if (lyrics !== baseline.lyrics) {
+      patch.lyrics = lyrics
+      patch.lyricsFormat = 'lrc'
+    }
+    if (nextRg !== baseRg) {
+      patch.replayGainTrackDb = nextRg
+    }
+    if (editCoverDirty.value) {
+      patch.coverUri = editCoverCleared.value ? null : (editCoverUri.value || null)
+    }
+
+    if (Object.keys(patch).length === 0) {
+      isSongEditOpen.value = false
+      showToast('没有需要保存的修改', 'default')
+      return
+    }
+
+    // title 必填：若本次未改 title 但基线为空，仍须带上非空 title 才能过库校验；否则只传变更字段
+    if (patch.title === undefined && !baseline.title.trim()) {
+      patch.title = title
+    }
+
+    const result = await saveCurrentSongUserEdit(patch)
+
+    if (!result.libraryOk) {
+      editFormError.value = result.fileError || '保存失败'
+      showToast(result.fileError || '保存失败', 'danger')
+      return
+    }
+
+    isSongEditOpen.value = false
+    if (result.fileOk) {
+      showToast('已保存', 'success')
+    } else {
+      const reason = result.fileError ? `：${result.fileError}` : ''
+      showToast(`已更新曲库，写入音频文件失败${reason}`, 'warning', 3200)
+    }
+  },
+})
+
+const isEditSubmitting = editForm.useSelector((state) => state.isSubmitting)
+
+const openPlayerActions = () => {
+  if (!playerState.currentSong) {
+    return
+  }
+  isPlayerActionsOpen.value = true
+}
+
+const onOpenSongEdit = () => {
+  isPlayerActionsOpen.value = false
+  window.setTimeout(() => {
+    seedSongEditForm()
+    isSongEditOpen.value = true
+  }, 180)
+}
+
+const seedSongEditForm = () => {
+  const current = playerState.currentSong
+  if (!current) {
+    return
+  }
+  const latest = loadSongs().find((item) => item.id === current.id)
+  const title = latest?.title ?? current.title ?? ''
+  const artist = latest?.artist ?? current.artist ?? ''
+  const album = latest?.album ?? current.album ?? ''
+  const lyrics = latest?.lyrics ?? playerState.lyrics ?? current.lyrics ?? ''
+  const rg = latest?.replayGainTrackDb
+  const replayGainDb = rg !== undefined && Number.isFinite(rg) ? String(rg) : ''
+  const seed = {
+    title,
+    artist: artist || '',
+    album: album || '',
+    lyrics: lyrics || '',
+    replayGainDb,
+  }
+  editForm.reset(seed)
+  editBaseline.value = { ...seed }
+  editCoverUri.value = latest?.coverUri || current.coverUri || playerState.coverUri || null
+  editCoverCleared.value = false
+  editCoverDirty.value = false
+  editFormError.value = ''
+}
+
+const closeSongEdit = () => {
+  if (isEditSubmitting.value) {
+    return
+  }
+  isSongEditOpen.value = false
+}
+
+const onPickCover = () => {
+  coverFileInputRef.value?.click()
+}
+
+const onClearCover = () => {
+  editCoverUri.value = null
+  editCoverCleared.value = true
+  editCoverDirty.value = true
+}
+
+const onCoverFileChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  // 允许重复选同一文件
+  input.value = ''
+  if (!file) {
+    return
+  }
+  try {
+    const buffer = await file.arrayBuffer()
+    const bytes = new Uint8Array(buffer)
+    if (bytes.byteLength === 0 || bytes.byteLength > 5 * 1024 * 1024) {
+      showToast('图片过大或为空', 'warning')
+      return
+    }
+    let binary = ''
+    const chunk = 0x8000
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+    }
+    const base64Data = btoa(binary)
+    const songId = playerState.currentSong?.id || 'edit-cover'
+    const uri = await cacheCoverBytes({
+      cacheKey: `user-cover:${songId}:${Date.now()}`,
+      base64Data,
+    })
+    if (!uri) {
+      showToast('封面保存失败', 'danger')
+      return
+    }
+    editCoverUri.value = uri
+    editCoverCleared.value = false
+    editCoverDirty.value = true
+  } catch {
+    showToast('读取图片失败', 'danger')
+  }
+}
 
 const updateViewportWidth = () => {
   viewportWidth.value = window.innerWidth

@@ -1,0 +1,12 @@
+{"path":".trellis/spec/frontend/component-guidelines.md","range":"player mode-bar, HBottomSheet, HButton ghost immersive, icons"}
+{"path":".trellis/spec/frontend/features-player.md","range":"online cover/lyrics/text, loudness RG, scanSongMetadata, syncDisplay"}
+{"path":".trellis/spec/frontend/forms.md","range":"tanstack vue-form HInput onSubmit validators"}
+{"path":".trellis/spec/frontend/quality-guidelines.md","range":"forbidden patterns storage cover uri"}
+{"path":"src/views/PlayerPage.vue","range":"mode-bar controls"}
+{"path":"src/views/SongsPage.vue","range":"HBottomSheet song actions pattern"}
+{"path":"src/features/library/types.ts","range":"SongItem"}
+{"path":"src/features/library/storage.ts","range":"upsertSong sanitize cover RG"}
+{"path":"src/features/player/controller.ts","range":"scan online upsert sync volume"}
+{"path":"android/app/src/main/java/com/muses/player/AudioMetadataReader.kt","range":"jaudiotagger read patterns"}
+{"path":"android/app/src/main/java/com/muses/player/LocalLibraryPlugin.kt","range":"SAF readMetadata"}
+{"path":"src/theme/action-sheet.ts","range":"actionSheetItemClass"}

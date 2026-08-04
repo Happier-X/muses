@@ -3,6 +3,28 @@ import type { AudioFileEntry, AudioTags } from '@/features/library/types'
 import { getFileNameFromPath, isSupportedAudioFile } from '@/features/library/audio'
 import type { WebDavConnectionInput, WebDavDirectoryItem, WebDavEntryItem } from './types'
 
+/** 与 LocalLibrary 对齐的写标签结果 */
+export interface WebDavWriteMetadataResult {
+  ok: boolean
+  code?: string
+  message?: string
+}
+
+export interface WebDavWriteMetadataOptions {
+  url: string
+  username: string
+  password: string
+  title?: string
+  artist?: string
+  album?: string
+  lyrics?: string
+  clearLyrics?: boolean
+  coverPath?: string
+  clearCover?: boolean
+  replayGainTrackDb?: number
+  clearReplayGain?: boolean
+}
+
 interface WebDavNativePlugin {
   propfind(options: {
     url: string
@@ -18,9 +40,36 @@ interface WebDavNativePlugin {
     password: string
     songId?: string
   }): Promise<AudioTags>
+  writeMetadata?(options: WebDavWriteMetadataOptions): Promise<WebDavWriteMetadataResult>
 }
 
 export const WebDavNative = registerPlugin<WebDavNativePlugin>('WebDav')
+
+/** WebDAV 写内嵌标签 + PUT；密码不进日志。失败返回 ok:false。 */
+export const writeWebDavAudioMetadata = async (
+  options: WebDavWriteMetadataOptions,
+): Promise<WebDavWriteMetadataResult> => {
+  if (!WebDavNative.writeMetadata) {
+    return { ok: false, code: 'not_implemented', message: '当前环境不支持写入 WebDAV 标签。' }
+  }
+  try {
+    const result = await WebDavNative.writeMetadata(options)
+    if (result?.ok) {
+      return { ok: true }
+    }
+    return {
+      ok: false,
+      code: result?.code || 'write_failed',
+      message: result?.message || '写入 WebDAV 标签失败。',
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'write_failed',
+      message: error instanceof Error ? error.message : '写入 WebDAV 标签失败。',
+    }
+  }
+}
 
 const ensureLeadingSlash = (path: string): string => {
   if (!path) {

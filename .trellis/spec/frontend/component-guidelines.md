@@ -402,7 +402,8 @@ const openPlayerPage = () => {
 - 播放器 overlay 的系统状态栏样式由 `App.vue` 监听 `playerOverlayVisible` 统一管理：打开时调用 `StatusBar.setStyle({ style: Style.Dark })` 显示白色内容，关闭及 `App.vue` 卸载时用 `Style.Default` 恢复默认；插件失败必须静默忽略，并通过串行化或请求 token 防止快速开关导致异步乱序。不得监听 `hasGlobalOverlay`，队列 overlay 单独打开不修改状态栏，也不要在 `PlayerPage.vue` 内管理状态栏。
 - 播放器 overlay 顶部不显示返回/收起按钮，也不展示「正在播放」标题；顶部仅保留安全区留白。关闭通过下滑手势、Android back 键或显式 overlay 状态完成。
 - 下滑收起播放器时移动 overlay 内容层，不要移动底层路由页或依赖透明路由页露出缓存层，否则容易出现黑屏或重复页面。
-- 沉浸式控制页布局自上而下：大封面 → 歌名/歌手 → 进度条 → 主控制（上一曲/播放暂停/下一曲）→ 次要控制（循环/随机/队列）。
+- 沉浸式控制页布局自上而下：大封面 → 歌名/歌手 → 进度条 → 主控制（上一曲/播放暂停/下一曲）→ 次要控制（循环/随机/队列/**更多**）。
+- **mode-bar 更多菜单**（`08-04-player-more-edit-song`）：队列键旁增加 `ellipsisVertical`「更多」；`HBottomSheet` 标题「歌曲操作」，菜单项**仅**「编辑歌曲信息」+ 取消（不含加入歌单/加队列）。第二层 sheet「编辑歌曲信息」用 `@tanstack/vue-form` + `HInput`/`HTextarea` 编辑 title/artist/album/封面/歌词/ReplayGain dB；保存走 `saveCurrentSongUserEdit`（必写库 + 尽力写文件，D4 Toast 区分）。`mode-bar` `max-w` 约 320px；四键仍用沉浸 ghost。empty-state 无 mode-bar 故无更多键。
 - **不展示元信息补充过程文案**（#48）：沉浸式页不得渲染「正在补充歌曲信息…」「歌曲信息补充失败…」等 `metadataStatus` 提示；后台扫描/在线补全逻辑可继续运行。
 - 沉浸式控制页封面（`.cover` / 占位封面）不加 `box-shadow`；宽屏与窄屏保持一致，避免封面后方出现额外阴影。
 - **封面必须保持正方形**：`.cover` / `.placeholder-cover`（与 `.cover` 共用尺寸类）使用 `aspect-ratio: 1; height: auto; object-fit: cover`。正方形边长 = `min(水平上限, 垂直上限)`。

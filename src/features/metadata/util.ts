@@ -34,11 +34,26 @@ export const titlesRelated = (
   return na === nb || na.includes(nb) || nb.includes(na)
 }
 
-export type OnlineTextNeedQuery = Pick<OnlineTextQuery, 'title' | 'artist' | 'album' | 'path'>
+export type OnlineTextNeedQuery = Pick<OnlineTextQuery, 'title' | 'artist' | 'album' | 'path'> & {
+  /** 可选：用户手改保护；全保护时早退 */
+  userEditedFields?: Array<'title' | 'artist' | 'album' | string>
+}
 
-/** artist/album 空，或 title 为弱标签时需要匹配 */
-export const needsOnlineTextMeta = (query: OnlineTextNeedQuery): boolean =>
-  isBlank(query.artist) || isBlank(query.album) || isWeakTitle(query.title, query.path)
+/** artist/album 空，或 title 为弱标签时需要匹配；手改字段不参与缺口判定 */
+export const needsOnlineTextMeta = (query: OnlineTextNeedQuery): boolean => {
+  const protectedFields = query.userEditedFields ?? []
+  const titleProtected = protectedFields.includes('title')
+  const artistProtected = protectedFields.includes('artist')
+  const albumProtected = protectedFields.includes('album')
+  // 三字段均手改：在线文本补缺无意义
+  if (titleProtected && artistProtected && albumProtected) {
+    return false
+  }
+  const needArtist = !artistProtected && isBlank(query.artist)
+  const needAlbum = !albumProtected && isBlank(query.album)
+  const needWeakTitle = !titleProtected && isWeakTitle(query.title, query.path)
+  return needArtist || needAlbum || needWeakTitle
+}
 
 export const buildKeyword = (query: OnlineTextQuery): string =>
   [query.title, query.artist, query.album].filter((part) => part?.trim()).join(' ').trim()
@@ -47,8 +62,9 @@ export const buildKeyword = (query: OnlineTextQuery): string =>
  * 命中是否对当前缺口有用：补空 artist/album，或弱 title 的相关 title。
  */
 export const hitFillsMissing = (hit: TextMetaHit, query: OnlineTextNeedQuery): boolean => {
-  const needArtist = isBlank(query.artist)
-  const needAlbum = isBlank(query.album)
+  const protectedFields = query.userEditedFields ?? []
+  const needArtist = !protectedFields.includes('artist') && isBlank(query.artist)
+  const needAlbum = !protectedFields.includes('album') && isBlank(query.album)
   if (needArtist && hit.artist?.trim()) {
     return true
   }
@@ -56,7 +72,8 @@ export const hitFillsMissing = (hit: TextMetaHit, query: OnlineTextNeedQuery): b
     return true
   }
   if (
-    isWeakTitle(query.title, query.path)
+    !protectedFields.includes('title')
+    && isWeakTitle(query.title, query.path)
     && hit.title?.trim()
     && titlesRelated(hit.title, query.title)
   ) {
@@ -70,22 +87,33 @@ type MergeBase = {
   path?: string
   artist?: string
   album?: string
+  userEditedFields?: Array<'title' | 'artist' | 'album' | string>
 }
 
 /**
  * 合并：弱 title + 相关 hit.title 可改 title；artist/album 仅补空。
+ * 手改字段双保险：merge 前 strip（upsert 也会保护）。
  */
 export const mergeTextMetaFillEmpty = <T extends MergeBase>(
   latest: T,
   hit: Pick<TextMetaHit, 'title' | 'artist' | 'album'>,
 ): { next: T; changed: boolean } => {
-  const weak = isWeakTitle(latest.title, latest.path)
+  const protectedFields = latest.userEditedFields ?? []
+  const titleProtected = protectedFields.includes('title')
+  const artistProtected = protectedFields.includes('artist')
+  const albumProtected = protectedFields.includes('album')
+
+  const weak = !titleProtected && isWeakTitle(latest.title, latest.path)
   const hitTitle = hit.title?.trim()
   const canWriteTitle = weak && !!hitTitle && titlesRelated(hitTitle, latest.title)
 
   const nextTitle = canWriteTitle ? hitTitle! : latest.title
-  const nextArtist = !isBlank(latest.artist) ? latest.artist : (hit.artist?.trim() || latest.artist)
-  const nextAlbum = !isBlank(latest.album) ? latest.album : (hit.album?.trim() || latest.album)
+  const nextArtist = artistProtected || !isBlank(latest.artist)
+    ? latest.artist
+    : (hit.artist?.trim() || latest.artist)
+  const nextAlbum = albumProtected || !isBlank(latest.album)
+    ? latest.album
+    : (hit.album?.trim() || latest.album)
 
   const changed =
     nextTitle !== latest.title

@@ -8,6 +8,7 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import java.io.File
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
@@ -68,6 +69,107 @@ class WebDavPlugin : Plugin() {
                 call.reject(exception.message, exception)
             }
         }
+    }
+
+    /**
+     * WebDAV 写标签：下载/命中缓存 → jaudiotagger 写文件 → HTTP PUT 回传。
+     * 密码仅本次 call 使用，不落盘、不进日志。
+     */
+    @PluginMethod
+    fun writeMetadata(call: PluginCall) {
+        val url = call.getString("url")
+        val username = call.getString("username")
+        val password = call.getString("password")
+
+        if (url.isNullOrEmpty()) {
+            call.resolve(AudioMetadataWriter.failureResult("missingUrl", "缺少 WebDAV 文件地址。"))
+            return
+        }
+        if (username == null || password == null) {
+            call.resolve(AudioMetadataWriter.failureResult("missingCredentials", "缺少 WebDAV 认证信息。"))
+            return
+        }
+
+        bridge.execute {
+            try {
+                val cachedFile = try {
+                    audioCache.getOrDownload(url, username, password)
+                } catch (_: Exception) {
+                    call.resolve(AudioMetadataWriter.failureResult("download_failed", "下载 WebDAV 音频失败，无法写标签。"))
+                    return@execute
+                }
+
+                if (cachedFile.length() <= 0L) {
+                    call.resolve(AudioMetadataWriter.failureResult("empty_file", "WebDAV 音频缓存为空。"))
+                    return@execute
+                }
+
+                // 在缓存副本上写 tag，避免半写入污染；写成功后再覆盖缓存并 PUT
+                val workFile = File(cachedFile.parentFile, "${cachedFile.name}.write-tmp")
+                try {
+                    cachedFile.copyTo(workFile, overwrite = true)
+                    val request = parseWriteRequest(call)
+                    AudioMetadataWriter(context).writeToFile(workFile, request)
+
+                    val bodyBytes = workFile.readBytes()
+                    val putRequest = Request.Builder()
+                        .url(url)
+                        .put(bodyBytes.toRequestBody("application/octet-stream".toMediaType()))
+                        .header("Authorization", "Basic ${encodeBasicAuth(username, password)}")
+                        .build()
+
+                    httpClient.newCall(putRequest).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            call.resolve(
+                                AudioMetadataWriter.failureResult(
+                                    "put_failed",
+                                    "上传修改后的音频失败（HTTP ${response.code}）。",
+                                ),
+                            )
+                            return@execute
+                        }
+                    }
+
+                    // PUT 成功后用写好的文件替换本地完整缓存
+                    workFile.copyTo(cachedFile, overwrite = true)
+                    call.resolve(AudioMetadataWriter.successResult())
+                } finally {
+                    workFile.delete()
+                }
+            } catch (exception: AudioMetadataException) {
+                call.resolve(
+                    AudioMetadataWriter.failureResult(
+                        exception.diagnosticCode,
+                        exception.message ?: "写入标签失败。",
+                    ),
+                )
+            } catch (exception: Exception) {
+                call.resolve(
+                    AudioMetadataWriter.failureResult(
+                        "write_failed",
+                        exception.message ?: "写入标签失败。",
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun parseWriteRequest(call: PluginCall): AudioMetadataWriter.WriteRequest {
+        val clearLyrics = call.getBoolean("clearLyrics", false) == true
+        val clearCover = call.getBoolean("clearCover", false) == true
+        val clearReplayGain = call.getBoolean("clearReplayGain", false) == true
+        val rgValue = call.getDouble("replayGainTrackDb")
+        return AudioMetadataWriter.WriteRequest(
+            title = call.getString("title"),
+            artist = call.getString("artist"),
+            album = call.getString("album"),
+            lyrics = call.getString("lyrics"),
+            clearLyrics = clearLyrics,
+            coverPath = call.getString("coverPath"),
+            clearCover = clearCover,
+            replayGainTrackDb = if (clearReplayGain) null else rgValue,
+            clearReplayGain = clearReplayGain,
+        )
     }
 
     @PluginMethod

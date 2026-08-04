@@ -69,6 +69,79 @@ class LocalLibraryPlugin : Plugin() {
         }
     }
 
+    /**
+     * 写回本地 SAF content:// 内嵌标签。
+     * 成功 { ok: true }；失败 { ok: false, code, message }（不 reject，便于前端 D4 文案）。
+     */
+    @PluginMethod
+    fun writeMetadata(call: PluginCall) {
+        val uriValue = call.getString("uri")
+        if (uriValue.isNullOrEmpty()) {
+            call.resolve(AudioMetadataWriter.failureResult("missingUri", "缺少音频文件地址。"))
+            return
+        }
+
+        bridge.execute {
+            try {
+                val uri = Uri.parse(uriValue)
+                val request = parseWriteRequest(call)
+                AudioMetadataWriter(context).writeToContentUri(uri, request)
+                call.resolve(AudioMetadataWriter.successResult())
+            } catch (exception: AudioMetadataException) {
+                call.resolve(
+                    AudioMetadataWriter.failureResult(
+                        exception.diagnosticCode,
+                        exception.message ?: "写入标签失败。",
+                    ),
+                )
+            } catch (exception: Exception) {
+                call.resolve(
+                    AudioMetadataWriter.failureResult(
+                        "write_failed",
+                        exception.message ?: "写入标签失败。",
+                    ),
+                )
+            }
+        }
+    }
+
+    /** 将选图 base64 落到 cache/covers，返回安全 file://；失败 uri=null */
+    @PluginMethod
+    fun cacheCoverBytes(call: PluginCall) {
+        val cacheKey = call.getString("cacheKey")
+        val base64Data = call.getString("base64Data")
+        if (cacheKey.isNullOrBlank() || base64Data.isNullOrBlank()) {
+            call.resolve(JSObject().put("uri", null as String?))
+            return
+        }
+        bridge.execute {
+            try {
+                val uri = AudioMetadataWriter.cacheCoverBytes(context, cacheKey, base64Data)
+                call.resolve(JSObject().put("uri", uri))
+            } catch (_: Exception) {
+                call.resolve(JSObject().put("uri", null as String?))
+            }
+        }
+    }
+
+    private fun parseWriteRequest(call: PluginCall): AudioMetadataWriter.WriteRequest {
+        val clearLyrics = call.getBoolean("clearLyrics", false) == true
+        val clearCover = call.getBoolean("clearCover", false) == true
+        val clearReplayGain = call.getBoolean("clearReplayGain", false) == true
+        val rgValue = call.getDouble("replayGainTrackDb")
+        return AudioMetadataWriter.WriteRequest(
+            title = call.getString("title"),
+            artist = call.getString("artist"),
+            album = call.getString("album"),
+            lyrics = call.getString("lyrics"),
+            clearLyrics = clearLyrics,
+            coverPath = call.getString("coverPath"),
+            clearCover = clearCover,
+            replayGainTrackDb = if (clearReplayGain) null else rgValue,
+            clearReplayGain = clearReplayGain,
+        )
+    }
+
     private fun collectAudioFiles(directory: DocumentFile, relativePath: String, files: JSArray) {
         directory.listFiles().forEach { child ->
             val childName = child.name ?: return@forEach

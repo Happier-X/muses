@@ -462,8 +462,9 @@ body.muses-overlay-open .m-content {
     font-size: 26px;
   }
 
+  /* 四键 mode-bar：略放宽，避免更多键挤兑 */
   .player-overlay .mode-bar {
-    max-width: 240px;
+    max-width: 280px;
   }
 
   .player-overlay .mode-bar .h-button {
@@ -548,8 +549,9 @@ body.muses-overlay-open .m-content {
     font-size: 24px;
   }
 
+  /* 矮屏四键仍可用：不低于约 4×36 + 间距 */
   .player-overlay .mode-bar {
-    max-width: 220px;
+    max-width: 260px;
   }
 
   .player-overlay .mode-bar .h-button {

@@ -1,8 +1,17 @@
 import { computed, reactive, readonly } from 'vue'
 import type { SongItem } from '@/features/library/types'
-import { CURRENT_METADATA_VERSION, loadSongs, upsertSong } from '@/features/library/storage'
+import {
+  CURRENT_METADATA_VERSION,
+  isUserEditedField,
+  loadSongs,
+  updateSongUserEdit,
+  upsertSong,
+  type SongUserEditPatch,
+} from '@/features/library/storage'
+import { writeLocalAudioMetadata } from '@/features/library/native'
 import { readLocalAudioTags, readWebDavAudioTags } from '@/features/library/tags'
 import { getWebDavPassword, loadSources } from '@/features/sources/storage'
+import { writeWebDavAudioMetadata } from '@/features/sources/webdav'
 import type { WebDavSourceItem } from '@/features/sources/types'
 import { matchOnlineLyrics } from '@/features/lyrics'
 import { matchOnlineCoverRemote } from '@/features/cover'
@@ -464,7 +473,7 @@ const syncMediaSessionSong = (song: SongItem): void => {
   void updateMediaSessionPlayback(state.status).catch(() => undefined)
 }
 
-const syncDisplayStateFromSong = (song: SongItem): void => {
+const syncDisplayStateFromSong = (song: SongItem, options?: { forceLyrics?: boolean }): void => {
   if (state.currentSong?.id !== song.id) {
     return
   }
@@ -479,15 +488,20 @@ const syncDisplayStateFromSong = (song: SongItem): void => {
     || state.coverUri !== nextCover
 
   state.currentSong = createPlayerSongSnapshot(song)
-  // 库内词仅在「有文且质量更优」时覆盖运行时；库空绝不抹掉在线已展示词（#21）
-  if (shouldApplyStoredLyricsOverRuntime(state.lyrics, state.lyricsFormat, song)) {
+  // 用户手改歌词：强制用库内值替换运行时（含清空）
+  if (options?.forceLyrics) {
+    state.lyrics = song.lyrics?.trim() ? song.lyrics : null
+    state.lyricsFormat = resolveStoredLyricsFormat(song)
+    state.lyricsTranslation = null
+  } else if (shouldApplyStoredLyricsOverRuntime(state.lyrics, state.lyricsFormat, song)) {
+    // 库内词仅在「有文且质量更优」时覆盖运行时；库空绝不抹掉在线已展示词（#21）
     state.lyrics = song.lyrics || null
     state.lyricsFormat = resolveStoredLyricsFormat(song)
   }
   state.coverUri = nextCover
   state.duration = normalizePlaybackTime(song.duration) || state.duration
 
-  if (mediaFieldsChanged) {
+  if (mediaFieldsChanged || options?.forceLyrics) {
     syncMediaSessionSong(song)
   }
 }
@@ -499,6 +513,13 @@ const syncDisplayStateFromSong = (song: SongItem): void => {
 const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<void> => {
   const localLyrics = song.lyrics || null
   const localFormat = resolveStoredLyricsFormat(song)
+
+  // 用户手改歌词：不请求在线、不覆盖运行时展示（AC5 / R7）
+  if (isUserEditedField(song, 'lyrics') || isUserEditedField(getLatestSongSnapshot(song), 'lyrics')) {
+    state.onlineLyricsStatus = localLyrics?.trim() ? 'ready' : 'miss'
+    return
+  }
+
   state.onlineLyricsStatus = 'matching'
 
   try {
@@ -515,6 +536,16 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
       return
     }
 
+    // 匹配期间用户可能已手改歌词：再读库，禁止覆盖
+    const latestAfterMatch = getLatestSongSnapshot(song)
+    if (isUserEditedField(latestAfterMatch, 'lyrics')) {
+      state.lyrics = latestAfterMatch.lyrics?.trim() ? latestAfterMatch.lyrics : null
+      state.lyricsFormat = resolveStoredLyricsFormat(latestAfterMatch)
+      state.lyricsTranslation = null
+      state.onlineLyricsStatus = state.lyrics ? 'ready' : 'miss'
+      return
+    }
+
     if (result.ok) {
       state.lyrics = result.text
       state.lyricsFormat = result.format
@@ -522,7 +553,7 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
       state.onlineLyricsStatus = 'ready'
 
       // 按质量写回曲库（严格更优才 upsert）
-      const latest = getLatestSongSnapshot(song)
+      const latest = latestAfterMatch
       if (shouldPersistOnlineLyrics(latest, result.format, result.text)) {
         const written = upsertSong({
           sourceId: latest.sourceId,
@@ -747,6 +778,10 @@ const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<v
     if (token !== onlineCoverToken || state.currentSong?.id !== song.id) {
       return
     }
+    // 封面已手改：永久跳过在线补封面
+    if (isUserEditedField(song, 'cover') || isUserEditedField(getLatestSongSnapshot(song), 'cover')) {
+      return
+    }
     if (toSafeCoverUri(state.coverUri || song.coverUri)) {
       return
     }
@@ -769,6 +804,10 @@ const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<v
     if (token !== onlineCoverToken || state.currentSong?.id !== song.id) {
       return
     }
+    // 网络返回后再次确认：用户可能已手改/清除封面
+    if (isUserEditedField(getLatestSongSnapshot(song), 'cover')) {
+      return
+    }
     if (!remote.ok) {
       return
     }
@@ -782,6 +821,10 @@ const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<v
       return
     }
     if (token !== onlineCoverToken || state.currentSong?.id !== song.id) {
+      return
+    }
+    // 下载完成后最终闸门：手改封面不得 upsert
+    if (isUserEditedField(getLatestSongSnapshot(song), 'cover')) {
       return
     }
 
@@ -1232,6 +1275,138 @@ export const stopPlayback = async (): Promise<void> => {
     allowNativeClearCurrentSong = false
     setUserSafeError('停止播放失败，请稍后重试。')
   }
+}
+
+export interface SaveCurrentSongUserEditResult {
+  /** 曲库是否写入成功 */
+  libraryOk: boolean
+  /** 文件内嵌标签是否写入成功（尽力） */
+  fileOk: boolean
+  /** 文件失败短因，不含密码/路径敏感细节 */
+  fileError?: string
+  song?: SongItem
+}
+
+/**
+ * 保存当前曲用户编辑：先写库 → sync 展示/音量/会话 → 再尽力写文件标签（D4）。
+ * 文件失败不回滚库。
+ */
+export const saveCurrentSongUserEdit = async (
+  patch: SongUserEditPatch,
+): Promise<SaveCurrentSongUserEditResult> => {
+  const currentId = state.currentSong?.id
+  if (!currentId) {
+    return { libraryOk: false, fileOk: false, fileError: '当前没有播放中的歌曲。' }
+  }
+
+  let written: SongItem
+  try {
+    written = updateSongUserEdit(currentId, patch).song
+  } catch (error) {
+    return {
+      libraryOk: false,
+      fileOk: false,
+      fileError: error instanceof Error ? error.message : '保存曲库失败。',
+    }
+  }
+
+  // 用户歌词强制替换运行时；媒体会话/封面随 sync
+  const forceLyrics = patch.lyrics !== undefined
+  syncDisplayStateFromSong(written, { forceLyrics })
+
+  // 作废进行中的在线补缺，避免保存后异步结果冲掉手改展示/写库
+  if (forceLyrics) {
+    lyricsMatchToken += 1
+  }
+  if (patch.coverUri !== undefined) {
+    onlineCoverToken += 1
+  }
+  if (patch.title !== undefined || patch.artist !== undefined || patch.album !== undefined) {
+    onlineTextToken += 1
+  }
+
+  // RG 变化且正在播/暂停：立即重设音量
+  if (
+    patch.replayGainTrackDb !== undefined
+    && (state.status === 'playing' || state.status === 'paused')
+    && state.currentSong?.id === written.id
+  ) {
+    void AudioPlayerNative.setVolume(resolvePlaybackVolume(written))
+  }
+
+  // 尽力写文件；失败不回滚
+  const fileResult = await writeSongFileMetadata(written, patch)
+  return {
+    libraryOk: true,
+    fileOk: fileResult.ok,
+    fileError: fileResult.ok ? undefined : (fileResult.message || fileResult.code || '写入音频文件失败'),
+    song: written,
+  }
+}
+
+/** 文件侧写标签：local SAF / webdav PUT；密码不进 state/日志 */
+const writeSongFileMetadata = async (
+  song: SongItem,
+  patch: SongUserEditPatch,
+): Promise<{ ok: boolean; code?: string; message?: string }> => {
+  // 封面仅在 patch 显式包含时写文件，避免每次保存都重嵌已有图
+  const coverInPatch = patch.coverUri !== undefined
+  const clearCover = coverInPatch && (patch.coverUri === null || !String(patch.coverUri).trim())
+  const coverPath = coverInPatch && !clearCover ? toNativeCoverPath(song.coverUri) : null
+
+  const clearLyrics = patch.lyrics !== undefined && (patch.lyrics === null || !String(patch.lyrics).trim())
+  const rgInPatch = patch.replayGainTrackDb !== undefined
+  const clearReplayGain = rgInPatch && (
+    patch.replayGainTrackDb === null || !Number.isFinite(patch.replayGainTrackDb)
+  )
+
+  const common = {
+    title: song.title,
+    artist: song.artist ?? '',
+    album: song.album ?? '',
+    lyrics: clearLyrics ? undefined : (patch.lyrics !== undefined ? song.lyrics : undefined),
+    clearLyrics: clearLyrics || false,
+    coverPath: coverPath || undefined,
+    clearCover: clearCover || false,
+    replayGainTrackDb: rgInPatch && !clearReplayGain ? song.replayGainTrackDb : undefined,
+    clearReplayGain: clearReplayGain || false,
+  }
+
+  try {
+    if (song.sourceType === 'local') {
+      return await writeLocalAudioMetadata({
+        uri: song.uri,
+        ...common,
+      })
+    }
+
+    const source = getWebDavSource(song)
+    const password = await getWebDavPassword(source.credentialKey)
+    if (!password) {
+      return { ok: false, code: 'missingCredentials', message: '缺少 WebDAV 密码，无法写回文件。' }
+    }
+    return await writeWebDavAudioMetadata({
+      url: song.uri,
+      username: source.username,
+      password,
+      ...common,
+    })
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'write_failed',
+      message: error instanceof Error ? error.message : '写入音频文件失败。',
+    }
+  }
+}
+
+/** 曲库 coverUri → 原生可打开的 file path / file:// */
+const toNativeCoverPath = (coverUri: string | undefined): string | null => {
+  const safe = toSafeCoverUri(coverUri)
+  if (!safe) {
+    return null
+  }
+  return safe
 }
 
 export const playerState = readonly(state)

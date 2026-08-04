@@ -3,7 +3,7 @@
  * 由 controller.prefetchNextTrack 在 peekNext 为 WebDAV 且非自身时调度。
  */
 import type { SongItem } from '@/features/library/types'
-import { loadSongs, upsertSong } from '@/features/library/storage'
+import { isUserEditedField, loadSongs, upsertSong } from '@/features/library/storage'
 import { matchOnlineLyrics } from '@/features/lyrics'
 import { matchOnlineCoverRemote } from '@/features/cover'
 import {
@@ -72,6 +72,10 @@ export const prefetchLyricsForLibrary = async (
     if (!isActive()) {
       return
     }
+    // 手改歌词：预取在线歌词整段跳过
+    if (isUserEditedField(getLatestSongSnapshot(song), 'lyrics')) {
+      return
+    }
     const result = await matchOnlineLyrics({
       songId: song.id,
       title: song.title,
@@ -118,6 +122,10 @@ export const prefetchCoverForLibrary = async (
       return
     }
     const latestBefore = getLatestSongSnapshot(song)
+    // 封面手改：预取封面整段跳过
+    if (isUserEditedField(latestBefore, 'cover')) {
+      return
+    }
     if (toSafeCoverUri(latestBefore.coverUri)) {
       return
     }
@@ -140,9 +148,9 @@ export const prefetchCoverForLibrary = async (
     }
 
     await enqueueLibraryWrite(isActive, () => {
-      // 写库前再确认仍无安全封面，避免覆盖扫描/并发结果
+      // 写库前再确认仍无安全封面且未手改，避免覆盖扫描/用户编辑
       const again = getLatestSongSnapshot(song)
-      if (toSafeCoverUri(again.coverUri)) {
+      if (isUserEditedField(again, 'cover') || toSafeCoverUri(again.coverUri)) {
         return
       }
       upsertSong({

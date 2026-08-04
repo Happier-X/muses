@@ -1,4 +1,11 @@
-import type { AudioTags, LyricsSource, SongItem, SongLyricsFormat } from './types'
+import type {
+  AudioTags,
+  LyricsSource,
+  SongItem,
+  SongLyricsFormat,
+  UserEditedField,
+} from './types'
+import { USER_EDITED_FIELDS } from './types'
 
 const SONGS_STORAGE_KEY = 'muses:songs'
 export const SONGS_UPDATED_EVENT = 'muses:songs-updated'
@@ -37,6 +44,41 @@ const isOptionalLyricsFormat = (value: unknown): value is SongLyricsFormat | und
     || value === 'yrc'
     || value === 'qrc'
   )
+}
+
+const isUserEditedFieldValue = (value: unknown): value is UserEditedField => {
+  return (
+    value === 'title'
+    || value === 'artist'
+    || value === 'album'
+    || value === 'cover'
+    || value === 'lyrics'
+    || value === 'replayGain'
+  )
+}
+
+/** 校验并去重 userEditedFields；非法/空 → undefined */
+const sanitizeUserEditedFields = (value: unknown): UserEditedField[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+  const next: UserEditedField[] = []
+  for (const item of value) {
+    if (isUserEditedFieldValue(item) && !next.includes(item)) {
+      next.push(item)
+    }
+  }
+  return next.length > 0 ? next : undefined
+}
+
+const isOptionalUserEditedFields = (value: unknown): boolean => {
+  if (value === undefined) {
+    return true
+  }
+  if (!Array.isArray(value)) {
+    return false
+  }
+  return value.every((item) => isUserEditedFieldValue(item))
 }
 
 /** 加载校验：仅硬拒绝 data:/base64，避免整条歌曲被丢弃；http 等在 sanitize 时剥离 */
@@ -89,10 +131,81 @@ const isSongItem = (value: unknown): value is SongItem => {
     isOptionalString(value.coverUri) &&
     isLoadableCoverUri(value.coverUri) &&
     isOptionalNumber(value.replayGainTrackDb) &&
+    isOptionalUserEditedFields(value.userEditedFields) &&
     isOptionalBoolean(value.tagsScanned) &&
     isOptionalString(value.tagsScannedAt) &&
     isOptionalNumber(value.metadataVersion)
   )
+}
+
+/** 字段是否被用户手改保护 */
+export const isUserEditedField = (
+  song: Pick<SongItem, 'userEditedFields'> | null | undefined,
+  field: UserEditedField,
+): boolean => {
+  return !!song?.userEditedFields?.includes(field)
+}
+
+/**
+ * 自动 tags 写入前剥离用户保护字段，避免扫描/在线/预取覆盖手改。
+ * 返回新对象，不修改入参。
+ */
+export const applyTagsRespectingUserEdits = (
+  song: Pick<SongItem, 'userEditedFields'>,
+  tags: AudioTags,
+): AudioTags => {
+  const protectedFields = song.userEditedFields
+  if (!protectedFields || protectedFields.length === 0) {
+    return { ...tags }
+  }
+
+  const next: AudioTags = { ...tags }
+  if (protectedFields.includes('title')) {
+    delete next.title
+  }
+  if (protectedFields.includes('artist')) {
+    delete next.artist
+  }
+  if (protectedFields.includes('album')) {
+    delete next.album
+  }
+  if (protectedFields.includes('cover')) {
+    delete next.coverUri
+  }
+  if (protectedFields.includes('lyrics')) {
+    delete next.lyrics
+    delete next.lyricsSource
+    delete next.lyricsFormat
+  }
+  if (protectedFields.includes('replayGain')) {
+    delete next.replayGainTrackDb
+  }
+  return next
+}
+
+const sameUserEditedFields = (
+  left: UserEditedField[] | undefined,
+  right: UserEditedField[] | undefined,
+): boolean => {
+  const a = left ?? []
+  const b = right ?? []
+  if (a.length !== b.length) {
+    return false
+  }
+  return a.every((field) => b.includes(field))
+}
+
+const unionUserEditedFields = (
+  existing: UserEditedField[] | undefined,
+  extra: UserEditedField[],
+): UserEditedField[] | undefined => {
+  const next: UserEditedField[] = [...(existing ?? [])]
+  for (const field of extra) {
+    if (USER_EDITED_FIELDS.includes(field) && !next.includes(field)) {
+      next.push(field)
+    }
+  }
+  return next.length > 0 ? next : undefined
 }
 
 const encodeStablePart = (value: string): string => {
@@ -135,13 +248,15 @@ const sanitizeReplayGainTrackDb = (value: number | undefined): number | undefine
 }
 
 const sanitizeSongForStorage = (song: SongItem): SongItem => {
-  const { coverUri, replayGainTrackDb, ...rest } = song
+  const { coverUri, replayGainTrackDb, userEditedFields, ...rest } = song
   const safeCover = sanitizeCoverUri(coverUri)
   const safeGain = sanitizeReplayGainTrackDb(replayGainTrackDb)
+  const safeEdited = sanitizeUserEditedFields(userEditedFields)
   return {
     ...rest,
     ...(safeCover ? { coverUri: safeCover } : {}),
     ...(safeGain !== undefined ? { replayGainTrackDb: safeGain } : {}),
+    ...(safeEdited ? { userEditedFields: safeEdited } : {}),
   }
 }
 
@@ -193,6 +308,7 @@ const hasSongChanged = (left: SongItem, right: SongItem): boolean => {
     left.lyricsFormat !== right.lyricsFormat ||
     left.coverUri !== right.coverUri ||
     left.replayGainTrackDb !== right.replayGainTrackDb ||
+    !sameUserEditedFields(left.userEditedFields, right.userEditedFields) ||
     left.tagsScanned !== right.tagsScanned ||
     left.tagsScannedAt !== right.tagsScannedAt ||
     left.metadataVersion !== right.metadataVersion
@@ -239,26 +355,33 @@ export const upsertSong = (
   }
 
   const previousSong = existingSongs[existingIndex]
+  // 自动 upsert：用户手改字段永久保护（扫描/在线/预取统一受益）
+  const safeTags = applyTagsRespectingUserEdits(previousSong, tags)
   const nextSong: SongItem = {
     ...previousSong,
     uri: input.uri,
-    title: tags.title?.trim() || input.title,
-    artist: tags.artist ?? previousSong.artist,
-    album: tags.album ?? previousSong.album,
-    duration: tags.duration ?? previousSong.duration,
-    lyrics: tags.lyrics ?? previousSong.lyrics,
-    lyricsSource: tags.lyricsSource ?? previousSong.lyricsSource,
-    lyricsFormat: tags.lyricsFormat ?? previousSong.lyricsFormat,
-    coverUri: tags.coverUri === undefined
+    // title 保护时保留用户值；input.title 常为文件名兜底，不得冲掉手改
+    title: isUserEditedField(previousSong, 'title')
+      ? previousSong.title
+      : (safeTags.title?.trim() || input.title),
+    artist: safeTags.artist ?? previousSong.artist,
+    album: safeTags.album ?? previousSong.album,
+    duration: safeTags.duration ?? previousSong.duration,
+    lyrics: safeTags.lyrics ?? previousSong.lyrics,
+    lyricsSource: safeTags.lyricsSource ?? previousSong.lyricsSource,
+    lyricsFormat: safeTags.lyricsFormat ?? previousSong.lyricsFormat,
+    coverUri: safeTags.coverUri === undefined
       ? sanitizeCoverUri(previousSong.coverUri)
-      : sanitizeCoverUri(tags.coverUri),
+      : sanitizeCoverUri(safeTags.coverUri),
     // 有新增益则更新；tags 未带该字段时保留旧值；不写假 0
-    replayGainTrackDb: tags.replayGainTrackDb === undefined
+    replayGainTrackDb: safeTags.replayGainTrackDb === undefined
       ? sanitizeReplayGainTrackDb(previousSong.replayGainTrackDb)
-      : sanitizeReplayGainTrackDb(tags.replayGainTrackDb),
-    tagsScanned: tags.tagsScanned ?? previousSong.tagsScanned,
-    tagsScannedAt: tags.tagsScannedAt ?? previousSong.tagsScannedAt,
-    metadataVersion: tags.metadataVersion ?? previousSong.metadataVersion,
+      : sanitizeReplayGainTrackDb(safeTags.replayGainTrackDb),
+    // 自动路径不得清除或改写 userEditedFields
+    userEditedFields: previousSong.userEditedFields,
+    tagsScanned: safeTags.tagsScanned ?? previousSong.tagsScanned,
+    tagsScannedAt: safeTags.tagsScannedAt ?? previousSong.tagsScannedAt,
+    metadataVersion: safeTags.metadataVersion ?? previousSong.metadataVersion,
     updatedAt: now,
   }
 
@@ -272,6 +395,131 @@ export const upsertSong = (
     saveSongs(songs)
   }
   return { status: 'updated', song: nextSong, songs }
+}
+
+/** 用户手改 patch：undefined = 不改该字段；null（仅 RG/封面/歌词）= 清除 */
+export interface SongUserEditPatch {
+  title?: string
+  artist?: string
+  album?: string
+  /** 安全 file://；null/空串 = 清除封面 */
+  coverUri?: string | null
+  /** 歌词正文；null/空串 = 清除歌词 */
+  lyrics?: string | null
+  lyricsFormat?: SongLyricsFormat
+  /** track dB；null = 清除 RG 标签语义 */
+  replayGainTrackDb?: number | null
+}
+
+export interface UpdateSongUserEditResult {
+  song: SongItem
+  songs: SongItem[]
+}
+
+/**
+ * 用户编辑写库：更新字段并 union 进 userEditedFields。
+ * 仅此路径可改写保护集；扫描/在线 upsert 不得调用。
+ */
+export const updateSongUserEdit = (
+  songId: string,
+  patch: SongUserEditPatch,
+  existingSongs = loadSongs(),
+  options: StorageMutationOptions = {},
+): UpdateSongUserEditResult => {
+  const persist = options.persist !== false
+  const index = existingSongs.findIndex((song) => song.id === songId)
+  if (index < 0) {
+    throw new Error('找不到要编辑的歌曲。')
+  }
+
+  const previous = existingSongs[index]
+  const now = new Date().toISOString()
+  const edited: UserEditedField[] = []
+
+  let title = previous.title
+  if (patch.title !== undefined) {
+    const nextTitle = patch.title.trim()
+    if (!nextTitle) {
+      throw new Error('歌曲标题不能为空。')
+    }
+    title = nextTitle
+    edited.push('title')
+  }
+
+  let artist = previous.artist
+  if (patch.artist !== undefined) {
+    const nextArtist = patch.artist.trim()
+    artist = nextArtist || undefined
+    edited.push('artist')
+  }
+
+  let album = previous.album
+  if (patch.album !== undefined) {
+    const nextAlbum = patch.album.trim()
+    album = nextAlbum || undefined
+    edited.push('album')
+  }
+
+  let coverUri = previous.coverUri
+  if (patch.coverUri !== undefined) {
+    if (patch.coverUri === null || !String(patch.coverUri).trim()) {
+      coverUri = undefined
+    } else {
+      coverUri = sanitizeCoverUri(patch.coverUri) ?? undefined
+    }
+    edited.push('cover')
+  }
+
+  let lyrics = previous.lyrics
+  let lyricsSource = previous.lyricsSource
+  let lyricsFormat = previous.lyricsFormat
+  if (patch.lyrics !== undefined) {
+    if (patch.lyrics === null || !String(patch.lyrics).trim()) {
+      lyrics = undefined
+      lyricsSource = undefined
+      lyricsFormat = undefined
+    } else {
+      lyrics = patch.lyrics
+      // 用户粘贴视为手改内嵌语义；质量序不得再被在线覆盖
+      lyricsSource = 'embedded'
+      lyricsFormat = patch.lyricsFormat ?? 'lrc'
+    }
+    edited.push('lyrics')
+  } else if (patch.lyricsFormat !== undefined && previous.lyrics?.trim()) {
+    lyricsFormat = patch.lyricsFormat
+    edited.push('lyrics')
+  }
+
+  let replayGainTrackDb = previous.replayGainTrackDb
+  if (patch.replayGainTrackDb !== undefined) {
+    if (patch.replayGainTrackDb === null || !Number.isFinite(patch.replayGainTrackDb)) {
+      replayGainTrackDb = undefined
+    } else {
+      replayGainTrackDb = patch.replayGainTrackDb
+    }
+    edited.push('replayGain')
+  }
+
+  const nextSong: SongItem = {
+    ...previous,
+    title,
+    artist,
+    album,
+    coverUri: sanitizeCoverUri(coverUri),
+    lyrics,
+    lyricsSource,
+    lyricsFormat,
+    replayGainTrackDb: sanitizeReplayGainTrackDb(replayGainTrackDb),
+    userEditedFields: unionUserEditedFields(previous.userEditedFields, edited),
+    updatedAt: now,
+  }
+
+  const songs = [...existingSongs]
+  songs[index] = nextSong
+  if (persist) {
+    saveSongs(songs)
+  }
+  return { song: nextSong, songs }
 }
 
 export interface ReconcileSourceSongsResult {

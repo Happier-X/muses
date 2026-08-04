@@ -156,9 +156,19 @@
 - 切歌递增 token；结果仅在 token 与当前曲 id 匹配时写回并 `syncDisplayStateFromSong` + 媒体会话文本。
 - 失败静默；不影响封面、歌词与播放状态机。
 
+## 用户手改字段保护（`userEditedFields`，`08-04-player-more-edit-song`）
+
+- `SongItem.userEditedFields?: Array<'title'|'artist'|'album'|'cover'|'lyrics'|'replayGain'>`；旧数据缺省 `[]`。
+- **写库**：`updateSongUserEdit(songId, patch)` 更新字段并 **union** 进保护集；清空歌词/封面/RG 仍标记保护，避免扫描写回旧值。
+- **自动 upsert**：`upsertSong` 在更新已存在曲时调用 `applyTagsRespectingUserEdits`，受保护字段保留库内用户值；`userEditedFields` 不被自动路径清除。
+- **额外门闸**：`shouldPersistOnlineLyrics` 若 `lyrics` 手改则 false；`matchOnlineLyricsForSong` 手改时**不请求**在线且不覆盖运行时；在线封面/预取封面若 `cover` 手改则跳过（网络返回与下载后须再检）；`needsOnlineTextMeta` / `mergeTextMetaFillEmpty` 尊重 title/artist/album 保护。
+- **保存顺序（D4）**：`saveCurrentSongUserEdit` → 写库 → `syncDisplayStateFromSong`（歌词可 `forceLyrics`）→ 按 patch 递增对应 `lyricsMatchToken` / `onlineCoverToken` / `onlineTextToken` 作废在途补缺 → RG 变化时 `setVolume` → **再** 尽力 `writeMetadata`（local SAF / WebDAV PUT）。文件失败**不回滚库**，Toast 区分「已保存」与「已更新曲库，写入音频文件失败」。
+- **封面选图**：`LocalLibrary.cacheCoverBytes` 落 `cache/covers` 安全 `file://`；**禁止** data/http 入 `muses:songs`。
+- **原生写标签**：`AudioMetadataWriter` + `LocalLibraryPlugin.writeMetadata` / `WebDavPlugin.writeMetadata`；错误码 `not_writable` / `unsupported_format` / `put_failed` / `missingUri` 等。
+
 ## 响度均衡（ReplayGain 轻量，#46）
 
-- **仅标签**：扫描/懒读元数据时解析 track ReplayGain（`REPLAYGAIN_TRACK_GAIN` 等）写入 `SongItem.replayGainTrackDb`（dB）；可选次级 `R128_TRACK_GAIN`（Q7.8 整数按 ÷256 换算，无法落入合理 dB 区间则丢弃）。**禁止**全曲库 EBU R128 / ffmpeg 测响度，也禁止无标签时写假增益（0 或臆造值）。
+- **仅标签**：扫描/懒读元数据时解析 track ReplayGain（`REPLAYGAIN_TRACK_GAIN` 等）写入 `SongItem.replayGainTrackDb`（dB）；可选次级 `R128_TRACK_GAIN`（Q7.8 整数按 ÷256 换算，无法落入合理 dB 区间则丢弃）。**禁止**全曲库 EBU R128 / ffmpeg 测响度，也禁止无标签时写假增益（0 或臆造值）。用户在编辑页显式输入的 dB（含 0）视为有效手改并写入 `userEditedFields`。
 - **播放应用**：`controller` 根据 `loudnessNormalizeEnabled`（`muses:player-config`，**默认 true**）与 `replayGainTrackDb` 计算 `volume = clamp(10^((db + LOUDNESS_PREAMP_DB)/20), 0.1, 1.0)`，其中 **`LOUDNESS_PREAMP_DB = 6`**（#51 听感补偿；纯 RG 目标偏安静）。经 `PlayOptions.volume` 传入 `AudioPlayerNative.play`；`native.ts` 在 preload/play 后调用 `NativeAudio.setVolume`。
 - **能力边界**：插件 volume 上限 1.0，**无法**把过静曲放大超过系统满幅；关开关或无标签 → volume 1.0。
 - **切歌 / stop**：每首重算 volume；禁止串曲增益。懒扫补到 RG 后若仍在 playing/paused，须对当前曲 `setVolume`。
