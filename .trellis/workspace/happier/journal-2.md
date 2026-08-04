@@ -1920,3 +1920,43 @@ FAB 仅用 scrollToIndex，删除 scrollIntoView 与错误 scroll-mt，连点位
 ### Status
 
 [OK] **Completed**
+
+## Session 92: 沉浸页更多菜单与编辑歌曲信息
+
+**Date**: 2026-08-04
+**Task**: 沉浸页 mode-bar 更多菜单与编辑歌曲信息
+**Branch**: `main`
+
+### Summary
+
+mode-bar 队列旁「更多」→ BottomSheet 仅「编辑歌曲信息」；六字段写库 + 尽力写 local/WebDAV 内嵌标签（D4）；`userEditedFields` 永久保护；表单仅提交变更字段；保存作废在途在线 token。
+
+### Main Changes
+
+- 曲库：`userEditedFields` / `updateSongUserEdit` / upsert 自动保护
+- 播放：`saveCurrentSongUserEdit`；歌词/封面/文本/预取门闸
+- UI：`PlayerPage` 更多 + 编辑 sheet（useForm）
+- Android：`AudioMetadataWriter` + writeMetadata / cacheCoverBytes
+- Spec：component-guidelines + features-player
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `27294da` | feat(player): 沉浸页更多菜单与编辑歌曲信息 |
+| `4dc83ef` | chore(task): archive 08-04-player-more-edit-song |
+
+### Testing
+
+- [OK] lint / build
+- [OK] trellis-check AC1–AC7（含竞态门闸修复）
+
+### Known limits
+
+- 真机 SAF/WebDAV 写回、播放中写文件待验
+- RG TXXX 反射尽力；Web 无 write → not_implemented + 库 Toast
+- iOS 写标签 out of scope
+
+### Status
+
+[OK] **Completed**
