@@ -110,8 +110,6 @@
                 variant="ghost"
                 is-icon-only
                 shape="circle"
-
-                :class="{ 'is-active': queueState.repeatMode === 'one' }"
                 :aria-label="repeatModeLabel"
                 @click="onToggleRepeat"
               >
@@ -122,8 +120,6 @@
                 variant="ghost"
                 is-icon-only
                 shape="circle"
-
-                :class="{ 'is-active': queueState.shuffleEnabled }"
                 :aria-label="shuffleModeLabel"
                 @click="onToggleShuffle"
               >

@@ -404,6 +404,7 @@ const openPlayerPage = () => {
 - 下滑收起播放器时移动 overlay 内容层，不要移动底层路由页或依赖透明路由页露出缓存层，否则容易出现黑屏或重复页面。
 - 沉浸式控制页布局自上而下：大封面 → 歌名/歌手 → 进度条 → 主控制（上一曲/播放暂停/下一曲）→ 次要控制（循环/随机/队列/**更多**）。
 - **mode-bar 更多菜单**（`08-04-player-more-edit-song`）：队列键旁增加 `ellipsisVertical`「更多」；`HBottomSheet` 标题「歌曲操作」，菜单项**仅**「编辑歌曲信息」+ 取消（不含加入歌单/加队列）。第二层 sheet「编辑歌曲信息」用 `@tanstack/vue-form` + `HInput`/`HTextarea` 编辑 title/artist/album/封面/歌词/ReplayGain dB；保存走 `saveCurrentSongUserEdit`（必写库 + 尽力写文件，D4 Toast 区分）。`mode-bar` `max-w` 约 320px；四键仍用沉浸 ghost。empty-state 无 mode-bar 故无更多键。
+- **mode-bar 循环/随机无选中高亮**（`08-04-player-modebar-no-active`）：循环与随机**不得**绑定 `.is-active` 半透明白底；模式仅靠图标对 + `aria-label`（`repeat`/`repeatOutline`、`shuffle`/`listOutline`）。全局 `.is-active` CSS 仍保留给歌词翻译 FAB。
 - **不展示元信息补充过程文案**（#48）：沉浸式页不得渲染「正在补充歌曲信息…」「歌曲信息补充失败…」等 `metadataStatus` 提示；后台扫描/在线补全逻辑可继续运行。
 - 沉浸式控制页封面（`.cover` / 占位封面）不加 `box-shadow`；宽屏与窄屏保持一致，避免封面后方出现额外阴影。
 - **封面必须保持正方形**：`.cover` / `.placeholder-cover`（与 `.cover` 共用尺寸类）使用 `aspect-ratio: 1; height: auto; object-fit: cover`。正方形边长 = `min(水平上限, 垂直上限)`。
@@ -417,7 +418,7 @@ const openPlayerPage = () => {
   - 不引入 landscape 专用 DOM；横屏通常命中 `max-height` 断点即可。padding 只减固定 px 部分，用 `calc(... + safe-area)`，不得抹掉安全区。
 - 主控制三键（上一曲/播放暂停/下一曲）均为 `HButton`（`variant="ghost"` + `is-icon-only` + `shape="circle"`）纯图标按钮，无 solid 圆底与按钮阴影；图标从 `@/icons` 导入并由 `HIcon` 以 fill 变体渲染（`play` / `pause` / `playSkipBack` / `playSkipForward`），不得回退 outline 主控或 ionicons 直引；可保留略大热区（如播放键 68×68），必须提供 `aria-label`，loading 禁用态保留。
 - **沉浸页 ghost 按下态必须统一**（`08-04-player-immersive-btn-press-unify`）：`.player-overlay` 内主控 / mode-bar / 歌词 FAB 共用 `.h-button--ghost` 基类覆盖 `color` + `background` + `:hover` / `:active` + 语义 `.is-active`（半透明白底、浅色字）。**禁止**只改 `color` 而依赖库 ghost 浅灰 active（深底上会闪灰块）；**禁止** Ionic `--color`/`--background`。mode-bar / FAB 默认可更淡，但按下与激活机制须与主控同族。
-- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；激活态用高亮或更高不透明度表达，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons` 导入并由 `HIcon` 渲染：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `ListOrdered`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。**打开队列**按钮使用 `list`（Lucide `ListMusic`），与 `MiniPlayer` 队列键一致；不得用 `listOutline` 表示队列（`listOutline` 仅顺序播放）。
+- 循环/随机/队列使用纯图标按钮，必须提供 `aria-label`；**不要**用 `.is-active` 白底/提亮表达循环或随机「选中」，模式只靠图标对 + `aria-label`，不要依赖可见文字标签。播放器模式图标必须与当前状态同步，且一律从 `@/icons` 导入并由 `HIcon` 渲染：列表循环使用 `repeatOutline`（Lucide `Repeat`）、单曲循环使用 `repeat`（Lucide `Repeat1`），顺序播放使用 `listOutline`（Lucide `ListOrdered`）、随机播放使用 `shuffle`（Lucide `Shuffle`）；状态切换后图标和标签应立即更新，禁止两个状态共用同一图标。**打开队列**按钮使用 `list`（Lucide `ListMusic`），与 `MiniPlayer` 队列键一致；不得用 `listOutline` 表示队列（`listOutline` 仅顺序播放）。
 - **歌词页浮动播放键**：窄屏歌词页右下角播放/暂停必须使用与主控相同的 `play` / `pause`（fill），禁止圆形 `PlayCircle` / `PauseCircle`。
 - 控制页必须一屏适配：`immersive-shell` / panels 固定 `height: 100dvh`，`overflow: hidden`；控制区块 `flex: 0 0 auto`，禁止页面纵向滚动。
 - **竖屏控制页垂直节奏（整体居中收紧）**：`.info-panel-inner` 用 `justify-content: center` + 紧凑 `gap`（默认约 12px；矮屏断点再收），将「封面 → 歌名/歌手 → 进度 → 主控 → 模式栏」作为一组垂直居中。**禁止**回退 `justify-between` + `.cover-slot { flex-grow: 1 }`——会把封面顶到上半区并在槽内/块间制造大块松散留白。
