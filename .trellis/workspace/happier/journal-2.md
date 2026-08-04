@@ -1960,3 +1960,34 @@ mode-bar 队列旁「更多」→ BottomSheet 仅「编辑歌曲信息」；六�
 ### Status
 
 [OK] **Completed**
+
+## Session 93: mode-bar 循环/随机去掉选中高亮
+
+**Date**: 2026-08-04
+**Task**: 沉浸页 mode-bar 去掉随机/单曲循环选中态
+**Branch**: `main`
+
+### Summary
+
+去掉 mode-bar 循环/随机的 `.is-active` 半透明白底；模式仅图标 + aria-label。翻译 FAB 高亮保留。
+
+### Main Changes
+
+- `PlayerPage.vue` 去两处 is-active
+- `component-guidelines` / `features-player` 禁止 mode-bar 回退 is-active
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6fc110c` | fix(player): mode-bar 循环/随机去掉选中高亮 |
+| `c62da90` | chore(task): archive 08-04-player-modebar-no-active |
+
+### Testing
+
+- [OK] lint / build
+- [OK] 翻译 FAB is-active 仍在
+
+### Status
+
+[OK] **Completed**
