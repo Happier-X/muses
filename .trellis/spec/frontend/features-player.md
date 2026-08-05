@@ -156,6 +156,17 @@
 - 切歌递增 token；结果仅在 token 与当前曲 id 匹配时写回并 `syncDisplayStateFromSong` + 媒体会话文本。
 - 失败静默；不影响封面、歌词与播放状态机。
 
+## 编辑页云端强制搜（`searchEditCloudMeta`，`08-05-edit-cloud-meta-api`）
+
+- 入口模块：`src/features/editMeta`（`searchEditCloudMeta` + types）；**仅**服务编辑 sheet 主动获取，与播放静默补空 **分离**。
+- **强制搜**：忽略 `needsOnlineTextMeta` / 已有封面跳过 / `userEditedFields` 门闸；不读播放负缓存；不写 `playerState` / `upsertSong` / 封面落盘。
+- **返回**：`text` / `cover` / `lyrics` 三维，各含 `status`（`ok | no-match | network | aborted`）、`items[]`、`defaultIndex`（排序后最优为 0）。
+- **多候选 MVP**：文本 = 各 text provider 现有 `search`（每源 1 条）合并去重 + `scoreTextHit` 排序；封面 = 各 cover provider **不** first-stop，URL 去重；歌词 = amll + fallback **全收集**（不因首命中停止）；每维上限默认 8。
+- **封面**：API 只返回 `remoteUrl`；落盘 `cacheRemoteCover` 属 UI 应用阶段。
+- **取消**：可选 `AbortSignal`；循环检查 `aborted`。
+- **禁止**把编辑路径语义并入 `matchOnlineTextMeta` / `matchOnlineCoverRemote` / `matchOnlineLyrics`（播放 first-hit / 仅补空保持不变）。
+- UI 勾选应用 / 表单写入见父任务 `08-05-player-edit-cloud-meta` 与子任务 `08-05-edit-cloud-meta-ui`（本条只约束 API 层）。
+
 ## 用户手改字段保护（`userEditedFields`，`08-04-player-more-edit-song`）
 
 - `SongItem.userEditedFields?: Array<'title'|'artist'|'album'|'cover'|'lyrics'|'replayGain'>`；旧数据缺省 `[]`。
@@ -197,6 +208,8 @@
 - **禁止**预取密码进入 player state / localStorage / 日志；预取失败不得影响当前播放。
 - **禁止**下一首元信息预取写当前 `playerState` 或复用/递增当前曲 `lyricsMatchToken` / `onlineCoverToken` / `onlineTextToken`；须独立 `metadataPrefetchToken`，只 upsert 曲库。
 - **禁止**对非 WebDAV 下一首做元信息预取（与音频预取同范围，除非产品明确扩大）。
+- **禁止**在播放 `matchOnline*` 内做「编辑强制搜 / 多候选全收集」；编辑用 `searchEditCloudMeta`，播放路径保持 first-hit / 仅补空。
+- **禁止**编辑 API 内 `cacheRemoteCover` / 写库 / 写 `playerState`。
 - **禁止**在线封面把 `data:` / base64 / 远程 URL 写入曲库；禁止覆盖已有安全封面；匹配失败不得影响播放。
 
 ---
