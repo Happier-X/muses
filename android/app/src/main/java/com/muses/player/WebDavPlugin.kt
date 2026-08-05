@@ -58,7 +58,8 @@ class WebDavPlugin : Plugin() {
                     .build()
 
                 httpClient.newCall(request).execute().use { response ->
-                    val responseBytes = response.body?.bytes() ?: ByteArray(0)
+                    // OkHttp 5：Response.body 为非空 ResponseBody
+                    val responseBytes = response.body.bytes()
                     val data = decodeResponseBody(responseBytes, response.header("Content-Type"))
                     val result = JSObject()
                     result.put("status", response.code)
@@ -276,7 +277,10 @@ class WebDavPlugin : Plugin() {
                 if (!response.isSuccessful) {
                     return@use null
                 }
-                val bytes = response.body?.bytes() ?: return@use null
+                val bytes = response.body.bytes()
+                if (bytes.isEmpty()) {
+                    return@use null
+                }
                 decodeResponseBody(bytes, response.header("Content-Type")).takeIf { it.isNotBlank() }
             }
         }.getOrNull()

@@ -171,9 +171,10 @@ class WebDavAudioCache(
             if (!response.isSuccessful) {
                 throw IllegalStateException("webdavCacheDownloadFailed:${response.code}")
             }
-            response.body?.byteStream()?.use { input ->
+            // OkHttp 5：Response.body 为非空
+            response.body.byteStream().use { input ->
                 temp.outputStream().use { output -> input.copyTo(output) }
-            } ?: throw IllegalStateException("webdavCacheEmptyBody")
+            }
         }
 
         if (temp.length() <= 0L) {
@@ -334,7 +335,8 @@ class WebDavAudioCache(
                 if (!response.isSuccessful) {
                     throw IllegalStateException("webdavCacheDownloadFailed:${response.code}")
                 }
-                val body = response.body ?: throw IllegalStateException("webdavCacheEmptyBody")
+                // OkHttp 5：Response.body 为非空
+                val body = response.body
                 val contentLength = body.contentLength().takeIf { it > 0L }
                 var written = 0L
                 var signaledReady = false

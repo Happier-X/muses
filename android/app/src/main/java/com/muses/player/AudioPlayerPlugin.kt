@@ -381,11 +381,8 @@ class AudioPlayerPlugin : Plugin() {
                         call.resolve(JSObject().put("uri", null as String?))
                         return@execute
                     }
+                    // OkHttp 5：Response.body 为非空 ResponseBody
                     val body = response.body
-                    if (body == null) {
-                        call.resolve(JSObject().put("uri", null as String?))
-                        return@execute
-                    }
                     // 限制封面体积，防止异常大响应占满缓存
                     val contentLength = body.contentLength()
                     if (contentLength > 5L * 1024L * 1024L) {
