@@ -274,15 +274,18 @@ body.muses-overlay-open .m-content {
   pointer-events: auto;
 }
 
-/* 歌词 FAB：始终 blur；默认略淡+微黑底仅非 .is-active，避免盖掉基类激活半透明白底 */
+/* 歌词底栏：与封面 mode-bar 同系 ghost 图标键（尺寸/淡色），无 blur/实心底 */
 .player-overlay .lyric-fab.h-button--ghost {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  font-size: 20px;
+  touch-action: manipulation;
+  background: transparent;
 }
 
 .player-overlay .lyric-fab.h-button--ghost:not(.is-active) {
-  color: rgba(255, 255, 255, 0.78);
-  background: rgba(0, 0, 0, 0.16);
+  color: rgba(255, 255, 255, 0.58);
 }
 
 .player-overlay .lyric-fab .h-icon {

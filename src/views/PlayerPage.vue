@@ -198,7 +198,7 @@
               variant="ghost"
               is-icon-only
               shape="circle"
-              class="lyric-fab w-[40px] h-[40px] min-w-[40px] min-h-[40px] m-0 text-[20px] pointer-events-none"
+              class="lyric-fab pointer-events-none"
               :class="{ 'is-active': showLyricTranslation }"
               :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
               :tabindex="lyricChromeVisible ? 0 : -1"
@@ -212,7 +212,7 @@
               variant="ghost"
               is-icon-only
               shape="circle"
-              class="lyric-fab lyric-play-toggle w-[40px] h-[40px] min-w-[40px] min-h-[40px] m-0 text-[20px] pointer-events-none"
+              class="lyric-fab lyric-play-toggle pointer-events-none"
               :aria-label="isPlaying ? '暂停播放' : '继续播放'"
               :disabled="playerState.status === 'loading'"
               :tabindex="lyricChromeVisible ? 0 : -1"
