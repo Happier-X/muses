@@ -1,4 +1,4 @@
-import { reactive, readonly } from 'vue'
+import { readonly, ref } from 'vue'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 
@@ -170,7 +170,7 @@ let queueData = loadQueueData()
 const config = loadConfig()
 let currentIndex = -1
 
-const queueStateRaw = reactive<QueueState>({
+const queueStateRaw = ref<QueueState>({
   items: resolveSongsFromQueue(queueData.shuffleOrder ?? queueData.items),
   currentIndex: -1,
   hasItems: false,
@@ -181,11 +181,11 @@ const queueStateRaw = reactive<QueueState>({
 // --------------- 刷新只读状态 ---------------
 
 const refreshQueueState = (resolvedItems = resolveSongsFromQueue(queueData.shuffleOrder ?? queueData.items)) => {
-  queueStateRaw.items = resolvedItems
-  queueStateRaw.currentIndex = currentIndex
-  queueStateRaw.hasItems = resolvedItems.length > 0
-  queueStateRaw.repeatMode = config.repeatMode
-  queueStateRaw.shuffleEnabled = config.shuffleEnabled
+  queueStateRaw.value.items = resolvedItems
+  queueStateRaw.value.currentIndex = currentIndex
+  queueStateRaw.value.hasItems = resolvedItems.length > 0
+  queueStateRaw.value.repeatMode = config.repeatMode
+  queueStateRaw.value.shuffleEnabled = config.shuffleEnabled
 }
 
 // --------------- 队列操作 ---------------
@@ -441,7 +441,7 @@ export const setLoudnessNormalizeEnabled = (enabled: boolean): void => {
 
 export const isLoudnessNormalizeEnabled = (): boolean => config.loudnessNormalizeEnabled
 
-export const queueState = readonly(queueStateRaw)
-export const repeatMode = (): RepeatMode => queueStateRaw.repeatMode
+export const queueState = readonly(queueStateRaw.value)
+export const repeatMode = (): RepeatMode => queueStateRaw.value.repeatMode
 
-export const shuffleEnabled = (): boolean => queueStateRaw.shuffleEnabled
+export const shuffleEnabled = (): boolean => queueStateRaw.value.shuffleEnabled

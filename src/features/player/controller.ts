@@ -1,4 +1,4 @@
-import { computed, reactive, readonly } from 'vue'
+import { computed, readonly, ref } from 'vue'
 import type { SongItem } from '@/features/library/types'
 import {
   CURRENT_METADATA_VERSION,
@@ -61,7 +61,7 @@ import {
   clearMediaSession,
 } from './mediaSession'
 
-const state = reactive<PlayerState>({
+const state = ref<PlayerState>({
   status: 'idle',
   currentSong: null,
   errorMessage: null,
@@ -148,12 +148,12 @@ const shouldIgnoreFinished = (position: number, duration: number): boolean => {
 }
 
 const setUserSafeError = (message: string) => {
-  state.status = 'error'
-  state.errorMessage = message
+  state.value.status = 'error'
+  state.value.errorMessage = message
 }
 
 const isCurrentNativeState = (nativeState: AudioPlayerNativeState): boolean => {
-  const currentId = state.currentSong?.id
+  const currentId = state.value.currentSong?.id
   // 有当前曲时必须 songId 精确匹配；缺 id 的陈旧事件在快速切歌时会把 UI 打成 paused 而音频仍在播（#28/#29）
   if (currentId) {
     return nativeState.currentSongId === currentId
@@ -168,7 +168,7 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
 
   // loading 切歌窗口：忽略无关 paused/stopped，避免旧 unload 把新歌 UI 冻在暂停
   if (
-    state.status === 'loading'
+    state.value.status === 'loading'
     && (nativeState.status === 'paused' || nativeState.status === 'stopped' || nativeState.status === 'idle')
   ) {
     return
@@ -177,36 +177,36 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   // finished 需先做「自然结束」判定：seek 到未缓冲区间时插件可能伪报 complete/ENDED。
   if (nativeState.status === 'finished') {
     const nativePosition = normalizePlaybackTime(nativeState.position)
-    const nativeDuration = normalizePlaybackTime(nativeState.duration) || state.duration
+    const nativeDuration = normalizePlaybackTime(nativeState.duration) || state.value.duration
     if (shouldGuardResumeSeekPosition(nativeState.currentSongId, nativePosition)) {
-      state.duration = nativeDuration
-      state.status = state.status === 'loading' ? 'playing' : state.status
-      state.errorMessage = null
+      state.value.duration = nativeDuration
+      state.value.status = state.value.status === 'loading' ? 'playing' : state.value.status
+      state.value.errorMessage = null
       syncMediaSessionState()
       return
     }
     // 保护窗内保留 seek 目标进度；窗外取 native/state 较大值，
     // 避免 complete 事件 position 回 0 时误判「未接近结尾」而吞掉真实播完。
     const effectivePosition = isWithinSeekGuard()
-      ? state.position
-      : Math.max(nativePosition, state.position)
+      ? state.value.position
+      : Math.max(nativePosition, state.value.position)
     const effectiveDuration = nativeDuration
 
     if (shouldIgnoreFinished(effectivePosition, effectiveDuration)) {
       if (!isWithinSeekGuard() && nativePosition > 0) {
-        state.position = nativePosition
+        state.value.position = nativePosition
       }
-      state.duration = effectiveDuration
-      state.status = isWithinSeekGuard() ? statusBeforeSeek : 'paused'
-      state.errorMessage = null
+      state.value.duration = effectiveDuration
+      state.value.status = isWithinSeekGuard() ? statusBeforeSeek : 'paused'
+      state.value.errorMessage = null
       syncMediaSessionState()
       return
     }
 
-    state.status = 'finished'
-    state.errorMessage = null
-    state.position = effectivePosition
-    state.duration = effectiveDuration
+    state.value.status = 'finished'
+    state.value.errorMessage = null
+    state.value.position = effectivePosition
+    state.value.duration = effectiveDuration
     syncMediaSessionState()
     void handlePlaybackFinished()
     return
@@ -218,28 +218,28 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
       return
     }
     // 非显式 stop：整段忽略 unload/重载 stopped，避免 status 被冲成 stopped 且清空当前曲（#52）
-    if (!allowNativeClearCurrentSong && state.currentSong) {
+    if (!allowNativeClearCurrentSong && state.value.currentSong) {
       return
     }
     allowNativeClearCurrentSong = false
-    state.status = nativeState.status
-    state.errorMessage = null
-    state.currentSong = null
-    state.position = 0
-    state.duration = 0
+    state.value.status = nativeState.status
+    state.value.errorMessage = null
+    state.value.currentSong = null
+    state.value.position = 0
+    state.value.duration = 0
     resetBufferState()
-    state.lyrics = null
-    state.lyricsFormat = null
-    state.lyricsTranslation = null
-    state.onlineLyricsStatus = 'idle'
-    state.coverUri = null
-    state.metadataStatus = 'idle'
+    state.value.lyrics = null
+    state.value.lyricsFormat = null
+    state.value.lyricsTranslation = null
+    state.value.onlineLyricsStatus = 'idle'
+    state.value.coverUri = null
+    state.value.metadataStatus = 'idle'
     syncMediaSessionState()
     return
   }
 
-  state.status = nativeState.status
-  state.errorMessage = nativeState.status === 'error' ? nativeState.errorMessage || '播放失败，请稍后重试。' : null
+  state.value.status = nativeState.status
+  state.value.errorMessage = nativeState.status === 'error' ? nativeState.errorMessage || '播放失败，请稍后重试。' : null
   const nextPosition = normalizePlaybackTime(nativeState.position)
   // 冷启动恢复 seek 完成前：屏蔽同曲明显早于恢复点的原生初始 position（#53）
   if (resumeSeekGuardPosition != null && resumeSeekGuardSongId === nativeState.currentSongId) {
@@ -248,12 +248,12 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
     } else {
       // 已到达恢复点附近：seek 生效，结束保护并恢复正常原生 position 同步
       clearResumeSeekGuard()
-      state.position = nextPosition
+      state.value.position = nextPosition
     }
   } else {
-    state.position = nextPosition
+    state.value.position = nextPosition
   }
-  state.duration = normalizePlaybackTime(nativeState.duration)
+  state.value.duration = normalizePlaybackTime(nativeState.duration)
 
   // 缓冲：原生上报时单调合并；error 在下方 reset，禁止串曲
   if (
@@ -262,13 +262,13 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   ) {
     const nextBuffered = normalizeBufferedPosition(nativeState.bufferedPosition)
     if (nextBuffered != null) {
-      const capped = state.duration > 0 ? Math.min(nextBuffered, state.duration) : nextBuffered
-      state.bufferedPosition = Math.max(state.bufferedPosition ?? 0, capped)
+      const capped = state.value.duration > 0 ? Math.min(nextBuffered, state.value.duration) : nextBuffered
+      state.value.bufferedPosition = Math.max(state.value.bufferedPosition ?? 0, capped)
     }
   }
 
   // playing 中进度节流写入本地会话（#49）
-  if (nativeState.status === 'playing' && state.currentSong) {
+  if (nativeState.status === 'playing' && state.value.currentSong) {
     persistPlaybackSessionThrottled()
   }
 
@@ -278,8 +278,8 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   }
 
   // duration 晚到：把已有缓冲压回 duration
-  if (state.duration > 0 && state.bufferedPosition != null && state.bufferedPosition > state.duration) {
-    state.bufferedPosition = state.duration
+  if (state.value.duration > 0 && state.value.bufferedPosition != null && state.value.bufferedPosition > state.value.duration) {
+    state.value.bufferedPosition = state.value.duration
   }
 
   syncMediaSessionState()
@@ -310,13 +310,13 @@ export const playPreviousFromQueue = async (): Promise<void> => {
 }
 
 const persistPlaybackSessionNow = (): void => {
-  const songId = state.currentSong?.id
+  const songId = state.value.currentSong?.id
   if (!songId) {
     return
   }
   savePlaybackSession({
     currentSongId: songId,
-    position: normalizePlaybackTime(state.position),
+    position: normalizePlaybackTime(state.value.position),
   })
   lastSessionPersistAt = Date.now()
 }
@@ -333,7 +333,7 @@ const persistPlaybackSessionThrottled = (): void => {
  * 仅在原生尚无活跃曲时生效。
  */
 const restorePlaybackSessionIfNeeded = (): void => {
-  if (state.currentSong || state.status === 'playing' || state.status === 'loading') {
+  if (state.value.currentSong || state.value.status === 'playing' || state.value.status === 'loading') {
     return
   }
 
@@ -356,19 +356,19 @@ const restorePlaybackSessionIfNeeded = (): void => {
     ? Math.min(normalizePlaybackTime(session.position), duration)
     : normalizePlaybackTime(session.position)
 
-  state.status = 'paused'
-  state.currentSong = createPlayerSongSnapshot(song)
-  state.errorMessage = null
-  state.position = position
-  state.duration = duration
+  state.value.status = 'paused'
+  state.value.currentSong = createPlayerSongSnapshot(song)
+  state.value.errorMessage = null
+  state.value.position = position
+  state.value.duration = duration
   resetBufferState()
-  state.lyrics = song.lyrics || null
-  state.lyricsFormat = resolveStoredLyricsFormat(song)
-  state.lyricsTranslation = null
-  state.onlineLyricsStatus = 'idle'
-  state.coverUri = toSafeCoverUri(song.coverUri) || null
-  state.metadataStatus = song.tagsScanned === true ? 'ready' : 'idle'
-  // 续播起点记在 state.position；点播放时 resumePlayback 再起 native
+  state.value.lyrics = song.lyrics || null
+  state.value.lyricsFormat = resolveStoredLyricsFormat(song)
+  state.value.lyricsTranslation = null
+  state.value.onlineLyricsStatus = 'idle'
+  state.value.coverUri = toSafeCoverUri(song.coverUri) || null
+  state.value.metadataStatus = song.tagsScanned === true ? 'ready' : 'idle'
+  // 续播起点记在 state.value.position；点播放时 resumePlayback 再起 native
   pendingResumePosition = position > 0 ? position : null
   restoredSessionUiOnly = true
   syncMediaSessionSong(song)
@@ -417,20 +417,20 @@ const normalizeBufferedPosition = (value: unknown): number | null => {
  * 缓冲未知时退化为 duration clamp（R6 降级）。
  */
 const getMaxSeekablePosition = (): number => {
-  if (state.duration > 0 && state.bufferedPosition != null && state.bufferedPosition >= 0) {
-    return Math.min(state.duration, state.bufferedPosition)
+  if (state.value.duration > 0 && state.value.bufferedPosition != null && state.value.bufferedPosition >= 0) {
+    return Math.min(state.value.duration, state.value.bufferedPosition)
   }
-  if (state.duration > 0) {
-    return state.duration
+  if (state.value.duration > 0) {
+    return state.value.duration
   }
-  if (state.bufferedPosition != null && state.bufferedPosition >= 0) {
-    return state.bufferedPosition
+  if (state.value.bufferedPosition != null && state.value.bufferedPosition >= 0) {
+    return state.value.bufferedPosition
   }
   return Number.POSITIVE_INFINITY
 }
 
 const resetBufferState = (): void => {
-  state.bufferedPosition = null
+  state.value.bufferedPosition = null
 }
 
 /** media-session position 节流：避免进度 tick 每次跨 bridge（#50） */
@@ -439,17 +439,17 @@ let lastMediaPositionSyncAt = 0
 let lastMediaSyncedStatus: PlaybackStatus | null = null
 
 const syncMediaSessionState = (): void => {
-  if (!state.currentSong) {
+  if (!state.value.currentSong) {
     lastMediaSyncedStatus = null
     lastMediaPositionSyncAt = 0
     void clearMediaSession().catch(() => undefined)
     return
   }
 
-  const statusChanged = lastMediaSyncedStatus !== state.status
+  const statusChanged = lastMediaSyncedStatus !== state.value.status
   if (statusChanged) {
-    lastMediaSyncedStatus = state.status
-    void updateMediaSessionPlayback(state.status).catch(() => undefined)
+    lastMediaSyncedStatus = state.value.status
+    void updateMediaSessionPlayback(state.value.status).catch(() => undefined)
   }
 
   const now = Date.now()
@@ -458,7 +458,7 @@ const syncMediaSessionState = (): void => {
     || now - lastMediaPositionSyncAt >= MEDIA_POSITION_THROTTLE_MS
   if (shouldSyncPosition) {
     lastMediaPositionSyncAt = now
-    void updateMediaSessionPosition(state.position, state.duration).catch(() => undefined)
+    void updateMediaSessionPosition(state.value.position, state.value.duration).catch(() => undefined)
   }
 }
 
@@ -469,37 +469,37 @@ const syncMediaSessionSong = (song: SongItem): void => {
     album: song.album,
     coverUri: toSafeCoverUri(song.coverUri),
   }).catch(() => undefined)
-  void updateMediaSessionPosition(normalizePlaybackTime(state.position), normalizePlaybackTime(song.duration) || state.duration).catch(() => undefined)
-  void updateMediaSessionPlayback(state.status).catch(() => undefined)
+  void updateMediaSessionPosition(normalizePlaybackTime(state.value.position), normalizePlaybackTime(song.duration) || state.value.duration).catch(() => undefined)
+  void updateMediaSessionPlayback(state.value.status).catch(() => undefined)
 }
 
 const syncDisplayStateFromSong = (song: SongItem, options?: { forceLyrics?: boolean }): void => {
-  if (state.currentSong?.id !== song.id) {
+  if (state.value.currentSong?.id !== song.id) {
     return
   }
 
-  const previous = state.currentSong
+  const previous = state.value.currentSong
   const nextCover = toSafeCoverUri(song.coverUri) || null
   // 懒扫描补全封面/标签后必须 re-sync 媒体会话，否则通知栏永远拿不到新封面。
   const mediaFieldsChanged =
     previous.title !== song.title
     || previous.artist !== song.artist
     || previous.album !== song.album
-    || state.coverUri !== nextCover
+    || state.value.coverUri !== nextCover
 
-  state.currentSong = createPlayerSongSnapshot(song)
+  state.value.currentSong = createPlayerSongSnapshot(song)
   // 用户手改歌词：强制用库内值替换运行时（含清空）
   if (options?.forceLyrics) {
-    state.lyrics = song.lyrics?.trim() ? song.lyrics : null
-    state.lyricsFormat = resolveStoredLyricsFormat(song)
-    state.lyricsTranslation = null
-  } else if (shouldApplyStoredLyricsOverRuntime(state.lyrics, state.lyricsFormat, song)) {
+    state.value.lyrics = song.lyrics?.trim() ? song.lyrics : null
+    state.value.lyricsFormat = resolveStoredLyricsFormat(song)
+    state.value.lyricsTranslation = null
+  } else if (shouldApplyStoredLyricsOverRuntime(state.value.lyrics, state.value.lyricsFormat, song)) {
     // 库内词仅在「有文且质量更优」时覆盖运行时；库空绝不抹掉在线已展示词（#21）
-    state.lyrics = song.lyrics || null
-    state.lyricsFormat = resolveStoredLyricsFormat(song)
+    state.value.lyrics = song.lyrics || null
+    state.value.lyricsFormat = resolveStoredLyricsFormat(song)
   }
-  state.coverUri = nextCover
-  state.duration = normalizePlaybackTime(song.duration) || state.duration
+  state.value.coverUri = nextCover
+  state.value.duration = normalizePlaybackTime(song.duration) || state.value.duration
 
   if (mediaFieldsChanged || options?.forceLyrics) {
     syncMediaSessionSong(song)
@@ -516,11 +516,11 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
 
   // 用户手改歌词：不请求在线、不覆盖运行时展示（AC5 / R7）
   if (isUserEditedField(song, 'lyrics') || isUserEditedField(getLatestSongSnapshot(song), 'lyrics')) {
-    state.onlineLyricsStatus = localLyrics?.trim() ? 'ready' : 'miss'
+    state.value.onlineLyricsStatus = localLyrics?.trim() ? 'ready' : 'miss'
     return
   }
 
-  state.onlineLyricsStatus = 'matching'
+  state.value.onlineLyricsStatus = 'matching'
 
   try {
     const result = await matchOnlineLyrics({
@@ -532,25 +532,25 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
     })
 
     // 快速切歌：过期 token 或已不是当前曲，丢弃结果
-    if (token !== lyricsMatchToken || state.currentSong?.id !== song.id) {
+    if (token !== lyricsMatchToken || state.value.currentSong?.id !== song.id) {
       return
     }
 
     // 匹配期间用户可能已手改歌词：再读库，禁止覆盖
     const latestAfterMatch = getLatestSongSnapshot(song)
     if (isUserEditedField(latestAfterMatch, 'lyrics')) {
-      state.lyrics = latestAfterMatch.lyrics?.trim() ? latestAfterMatch.lyrics : null
-      state.lyricsFormat = resolveStoredLyricsFormat(latestAfterMatch)
-      state.lyricsTranslation = null
-      state.onlineLyricsStatus = state.lyrics ? 'ready' : 'miss'
+      state.value.lyrics = latestAfterMatch.lyrics?.trim() ? latestAfterMatch.lyrics : null
+      state.value.lyricsFormat = resolveStoredLyricsFormat(latestAfterMatch)
+      state.value.lyricsTranslation = null
+      state.value.onlineLyricsStatus = state.value.lyrics ? 'ready' : 'miss'
       return
     }
 
     if (result.ok) {
-      state.lyrics = result.text
-      state.lyricsFormat = result.format
-      state.lyricsTranslation = result.translationText?.trim() || null
-      state.onlineLyricsStatus = 'ready'
+      state.value.lyrics = result.text
+      state.value.lyricsFormat = result.format
+      state.value.lyricsTranslation = result.translationText?.trim() || null
+      state.value.onlineLyricsStatus = 'ready'
 
       // 按质量写回曲库（严格更优才 upsert）
       const latest = latestAfterMatch
@@ -575,10 +575,10 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
             metadataVersion: latest.metadataVersion,
           },
         })
-        if (token === lyricsMatchToken && state.currentSong?.id === song.id) {
+        if (token === lyricsMatchToken && state.value.currentSong?.id === song.id) {
           // 不整表替换 snapshot，避免 upsert 新建条目时 id 与播放态不一致
-          state.currentSong = {
-            ...state.currentSong,
+          state.value.currentSong = {
+            ...state.value.currentSong,
             lyrics: written.song.lyrics,
             lyricsSource: written.song.lyricsSource,
             lyricsFormat: written.song.lyricsFormat,
@@ -589,28 +589,28 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
     }
 
     // 失败回退库内/本地；匹配期间标签补扫可能刚补到词
-    const stateHasLyrics = !!(state.lyrics?.trim())
-    const fallbackLyrics = stateHasLyrics ? state.lyrics : localLyrics
+    const stateHasLyrics = !!(state.value.lyrics?.trim())
+    const fallbackLyrics = stateHasLyrics ? state.value.lyrics : localLyrics
     const fallbackFormat = stateHasLyrics
-      ? (state.lyricsFormat ?? localFormat)
+      ? (state.value.lyricsFormat ?? localFormat)
       : localFormat
-    state.lyrics = fallbackLyrics
-    state.lyricsFormat = fallbackLyrics ? (fallbackFormat || 'lrc') : null
-    state.lyricsTranslation = null
-    state.onlineLyricsStatus = result.reason === 'network' || result.reason === 'parse' ? 'error' : 'miss'
+    state.value.lyrics = fallbackLyrics
+    state.value.lyricsFormat = fallbackLyrics ? (fallbackFormat || 'lrc') : null
+    state.value.lyricsTranslation = null
+    state.value.onlineLyricsStatus = result.reason === 'network' || result.reason === 'parse' ? 'error' : 'miss'
   } catch {
-    if (token !== lyricsMatchToken || state.currentSong?.id !== song.id) {
+    if (token !== lyricsMatchToken || state.value.currentSong?.id !== song.id) {
       return
     }
-    const stateHasLyrics = !!(state.lyrics?.trim())
-    const fallbackLyrics = stateHasLyrics ? state.lyrics : localLyrics
+    const stateHasLyrics = !!(state.value.lyrics?.trim())
+    const fallbackLyrics = stateHasLyrics ? state.value.lyrics : localLyrics
     const fallbackFormat = stateHasLyrics
-      ? (state.lyricsFormat ?? localFormat)
+      ? (state.value.lyricsFormat ?? localFormat)
       : localFormat
-    state.lyrics = fallbackLyrics
-    state.lyricsFormat = fallbackLyrics ? (fallbackFormat || 'lrc') : null
-    state.lyricsTranslation = null
-    state.onlineLyricsStatus = 'error'
+    state.value.lyrics = fallbackLyrics
+    state.value.lyricsFormat = fallbackLyrics ? (fallbackFormat || 'lrc') : null
+    state.value.lyricsTranslation = null
+    state.value.onlineLyricsStatus = 'error'
   }
 }
 
@@ -665,10 +665,10 @@ const buildPlayOptions = async (song: SongItem): Promise<PlayOptions> => {
 
 /** 对当前正在播放/暂停的曲目立即重算并应用音量（开关切换时） */
 const reapplyCurrentTrackVolume = async (): Promise<void> => {
-  if (state.status !== 'playing' && state.status !== 'paused') {
+  if (state.value.status !== 'playing' && state.value.status !== 'paused') {
     return
   }
-  const currentId = state.currentSong?.id
+  const currentId = state.value.currentSong?.id
   if (!currentId) {
     return
   }
@@ -719,7 +719,7 @@ const withMetadataScanTimeout = async <T>(operation: Promise<T>, timeoutMs: numb
  */
 const matchOnlineTextMetaForSong = async (song: SongItem, token: number): Promise<void> => {
   try {
-    if (token !== onlineTextToken || state.currentSong?.id !== song.id) {
+    if (token !== onlineTextToken || state.value.currentSong?.id !== song.id) {
       return
     }
 
@@ -736,7 +736,7 @@ const matchOnlineTextMetaForSong = async (song: SongItem, token: number): Promis
       album: latest.album,
     })
 
-    if (token !== onlineTextToken || state.currentSong?.id !== song.id) {
+    if (token !== onlineTextToken || state.value.currentSong?.id !== song.id) {
       return
     }
     if (!remote.ok) {
@@ -761,7 +761,7 @@ const matchOnlineTextMetaForSong = async (song: SongItem, token: number): Promis
       },
     }, loadSongs())
 
-    if (token === onlineTextToken && state.currentSong?.id === song.id) {
+    if (token === onlineTextToken && state.value.currentSong?.id === song.id) {
       syncDisplayStateFromSong(result.song)
     }
   } catch {
@@ -775,20 +775,20 @@ const matchOnlineTextMetaForSong = async (song: SongItem, token: number): Promis
  */
 const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<void> => {
   try {
-    if (token !== onlineCoverToken || state.currentSong?.id !== song.id) {
+    if (token !== onlineCoverToken || state.value.currentSong?.id !== song.id) {
       return
     }
     // 封面已手改：永久跳过在线补封面
     if (isUserEditedField(song, 'cover') || isUserEditedField(getLatestSongSnapshot(song), 'cover')) {
       return
     }
-    if (toSafeCoverUri(state.coverUri || song.coverUri)) {
+    if (toSafeCoverUri(state.value.coverUri || song.coverUri)) {
       return
     }
 
     const latest = getLatestSongSnapshot(song)
     if (toSafeCoverUri(latest.coverUri)) {
-      if (token === onlineCoverToken && state.currentSong?.id === song.id) {
+      if (token === onlineCoverToken && state.value.currentSong?.id === song.id) {
         syncDisplayStateFromSong(latest)
       }
       return
@@ -801,7 +801,7 @@ const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<v
       album: latest.album,
     })
 
-    if (token !== onlineCoverToken || state.currentSong?.id !== song.id) {
+    if (token !== onlineCoverToken || state.value.currentSong?.id !== song.id) {
       return
     }
     // 网络返回后再次确认：用户可能已手改/清除封面
@@ -820,7 +820,7 @@ const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<v
     if (!safeUri) {
       return
     }
-    if (token !== onlineCoverToken || state.currentSong?.id !== song.id) {
+    if (token !== onlineCoverToken || state.value.currentSong?.id !== song.id) {
       return
     }
     // 下载完成后最终闸门：手改封面不得 upsert
@@ -839,7 +839,7 @@ const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<v
       },
     }, loadSongs())
 
-    if (token === onlineCoverToken && state.currentSong?.id === song.id) {
+    if (token === onlineCoverToken && state.value.currentSong?.id === song.id) {
       syncDisplayStateFromSong(result.song)
     }
   } catch {
@@ -853,7 +853,7 @@ const scanSongMetadata = async (song: SongItem): Promise<void> => {
 
   if (!shouldRefreshMetadata(song)) {
     syncDisplayStateFromSong(song)
-    state.metadataStatus = 'ready'
+    state.value.metadataStatus = 'ready'
     // 本地已扫描但仍可能缺封面/文本 → 在线补
     void matchOnlineCoverForSong(song, coverToken)
     void matchOnlineTextMetaForSong(song, textToken)
@@ -861,7 +861,7 @@ const scanSongMetadata = async (song: SongItem): Promise<void> => {
   }
 
   const token = ++metadataScanToken
-  state.metadataStatus = 'scanning'
+  state.value.metadataStatus = 'scanning'
 
   try {
     const timeoutMs = song.sourceType === 'webdav' ? WEBDAV_METADATA_SCAN_TIMEOUT_MS : LOCAL_METADATA_SCAN_TIMEOUT_MS
@@ -869,7 +869,7 @@ const scanSongMetadata = async (song: SongItem): Promise<void> => {
       ? readLocalAudioTags(buildAudioFileEntry(song), song.id)
       : readWebDavAudioTags(getWebDavSource(song), buildAudioFileEntry(song), await requireWebDavPassword(song)), timeoutMs)
 
-    if (token !== metadataScanToken || state.currentSong?.id !== song.id) {
+    if (token !== metadataScanToken || state.value.currentSong?.id !== song.id) {
       return
     }
 
@@ -888,19 +888,19 @@ const scanSongMetadata = async (song: SongItem): Promise<void> => {
     }, loadSongs())
 
     syncDisplayStateFromSong(result.song)
-    state.metadataStatus = 'ready'
+    state.value.metadataStatus = 'ready'
     // 懒扫补到 ReplayGain 后立即重设当前曲音量，避免首播仍用 1.0
     if (
-      (state.status === 'playing' || state.status === 'paused')
-      && state.currentSong?.id === result.song.id
+      (state.value.status === 'playing' || state.value.status === 'paused')
+      && state.value.currentSong?.id === result.song.id
     ) {
       void AudioPlayerNative.setVolume(resolvePlaybackVolume(result.song))
     }
     void matchOnlineCoverForSong(result.song, coverToken)
     void matchOnlineTextMetaForSong(result.song, textToken)
   } catch {
-    if (token === metadataScanToken && state.currentSong?.id === song.id) {
-      state.metadataStatus = 'failed'
+    if (token === metadataScanToken && state.value.currentSong?.id === song.id) {
+      state.value.metadataStatus = 'failed'
       // 本地扫描失败仍尝试在线补封面/文本（仅补缺）
       void matchOnlineCoverForSong(song, coverToken)
       void matchOnlineTextMetaForSong(song, textToken)
@@ -962,11 +962,11 @@ const prefetchNextTrack = async (currentSongId: string): Promise<void> => {
  * 仅在仍有当前曲且处于 playing/paused 时重调度；旧下载由原生侧不取消。
  */
 const reschedulePrefetchAfterQueueChange = (): void => {
-  const currentId = state.currentSong?.id
+  const currentId = state.value.currentSong?.id
   if (!currentId) {
     return
   }
-  if (state.status !== 'playing' && state.status !== 'paused') {
+  if (state.value.status !== 'playing' && state.value.status !== 'paused') {
     return
   }
   void prefetchNextTrack(currentId)
@@ -1042,7 +1042,7 @@ const playSongInternal = async (
   }
 
   const generation = ++playGeneration
-  state.status = 'loading'
+  state.value.status = 'loading'
   metadataScanToken += 1
   const matchToken = ++lyricsMatchToken
   // 切歌即作废进行中的在线封面/文本匹配，避免上一首结果串到新曲
@@ -1050,22 +1050,22 @@ const playSongInternal = async (
   onlineTextToken += 1
   // 作废下一首元信息预取（新 playing 成功后再为新的 peekNext 调度）
   metadataPrefetchToken += 1
-  state.currentSong = createPlayerSongSnapshot(latestSong)
-  state.errorMessage = null
+  state.value.currentSong = createPlayerSongSnapshot(latestSong)
+  state.value.errorMessage = null
   // 续播时保留待恢复进度展示，避免 play 前 UI 闪回 0（#49）
-  state.position = pendingResumePosition != null && pendingResumePosition > 0
+  state.value.position = pendingResumePosition != null && pendingResumePosition > 0
     ? pendingResumePosition
     : 0
-  state.duration = normalizePlaybackTime(latestSong.duration)
+  state.value.duration = normalizePlaybackTime(latestSong.duration)
   // 切歌先清缓冲，禁止继承上一首（R7）；本地 full / 远程增长由 native 再写入
   resetBufferState()
   // 先展示库内歌词（含 format），再异步在线匹配（可按质量升级写回）
-  state.lyrics = latestSong.lyrics || null
-  state.lyricsFormat = resolveStoredLyricsFormat(latestSong)
-  state.lyricsTranslation = null
-  state.onlineLyricsStatus = 'matching'
-  state.coverUri = toSafeCoverUri(latestSong.coverUri) || null
-  state.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'
+  state.value.lyrics = latestSong.lyrics || null
+  state.value.lyricsFormat = resolveStoredLyricsFormat(latestSong)
+  state.value.lyricsTranslation = null
+  state.value.onlineLyricsStatus = 'matching'
+  state.value.coverUri = toSafeCoverUri(latestSong.coverUri) || null
+  state.value.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'
   syncMediaSessionSong(latestSong)
 
   // 无论是否有本地歌词，都自动尝试在线匹配（不阻塞播放）
@@ -1079,22 +1079,22 @@ const playSongInternal = async (
     }
     await AudioPlayerNative.play(await buildPlayOptions(latestSong))
     // 快速连切：被 supersede 的 play 不得回写 status（#28/#29）
-    if (generation !== playGeneration || state.currentSong?.id !== latestSong.id) {
+    if (generation !== playGeneration || state.value.currentSong?.id !== latestSong.id) {
       return
     }
-    state.status = 'playing'
+    state.value.status = 'playing'
     // 冷启动续播：play 默认从 0，成功后 seek 到恢复进度（#49）
     if (
       pendingResumePosition != null
       && pendingResumePosition > 0
-      && state.currentSong?.id === latestSong.id
+      && state.value.currentSong?.id === latestSong.id
     ) {
       const resumeAt = pendingResumePosition
       pendingResumePosition = null
       try {
         await AudioPlayerNative.seek({ position: resumeAt })
-        if (generation === playGeneration && state.currentSong?.id === latestSong.id) {
-          state.position = resumeAt
+        if (generation === playGeneration && state.value.currentSong?.id === latestSong.id) {
+          state.value.position = resumeAt
           lastSeekAt = Date.now()
         }
       } catch {
@@ -1112,14 +1112,14 @@ const playSongInternal = async (
     // 播放成功后后台预取下一首 WebDAV（失败静默）
     void prefetchNextTrack(latestSong.id)
   } catch (error) {
-    if (generation !== playGeneration || state.currentSong?.id !== latestSong.id) {
+    if (generation !== playGeneration || state.value.currentSong?.id !== latestSong.id) {
       return
     }
     lyricsMatchToken += 1
     onlineCoverToken += 1
     onlineTextToken += 1
     metadataPrefetchToken += 1
-    state.onlineLyricsStatus = 'idle'
+    state.value.onlineLyricsStatus = 'idle'
     // 播放失败：结束恢复 seek 保护且不让自动跳过的下一曲继承旧恢复点（#53）
     pendingResumePosition = null
     clearResumeSeekGuard()
@@ -1143,7 +1143,7 @@ const playSongInternal = async (
 
 export const playSong = async (song: SongItem): Promise<void> => {
   // 用户主动点播新曲：不继承冷启动续播点
-  if (state.currentSong?.id !== song.id) {
+  if (state.value.currentSong?.id !== song.id) {
     pendingResumePosition = null
     clearResumeSeekGuard()
   }
@@ -1153,8 +1153,8 @@ export const playSong = async (song: SongItem): Promise<void> => {
 export const pausePlayback = async (): Promise<void> => {
   try {
     await AudioPlayerNative.pause()
-    state.status = 'paused'
-    state.errorMessage = null
+    state.value.status = 'paused'
+    state.value.errorMessage = null
     persistPlaybackSessionNow()
   } catch {
     setUserSafeError('暂停失败，请稍后重试。')
@@ -1165,13 +1165,13 @@ export const resumePlayback = async (): Promise<void> => {
   // 仅冷启动 UI 会话（原生无 asset）才整曲 play + seek（#49）；普通 pause 后走 resume（#52）
   if (
     restoredSessionUiOnly
-    && state.currentSong
-    && (state.status === 'paused' || state.status === 'stopped' || state.status === 'idle')
+    && state.value.currentSong
+    && (state.value.status === 'paused' || state.value.status === 'stopped' || state.value.status === 'idle')
   ) {
-    const song = loadSongs().find((item) => item.id === state.currentSong?.id)
+    const song = loadSongs().find((item) => item.id === state.value.currentSong?.id)
     if (song) {
-      if (pendingResumePosition == null && state.position > 0) {
-        pendingResumePosition = state.position
+      if (pendingResumePosition == null && state.value.position > 0) {
+        pendingResumePosition = state.value.position
       }
       await playSongInternal(song)
       return
@@ -1180,17 +1180,17 @@ export const resumePlayback = async (): Promise<void> => {
 
   try {
     await AudioPlayerNative.resume()
-    state.status = 'playing'
-    state.errorMessage = null
+    state.value.status = 'playing'
+    state.value.errorMessage = null
     persistPlaybackSessionNow()
   } catch {
     // resume 失败时若有当前曲，回退 play 路径
-    const song = state.currentSong
-      ? loadSongs().find((item) => item.id === state.currentSong?.id)
+    const song = state.value.currentSong
+      ? loadSongs().find((item) => item.id === state.value.currentSong?.id)
       : null
     if (song) {
-      if (pendingResumePosition == null && state.position > 0) {
-        pendingResumePosition = state.position
+      if (pendingResumePosition == null && state.value.position > 0) {
+        pendingResumePosition = state.value.position
       }
       await playSongInternal(song)
       return
@@ -1210,7 +1210,7 @@ export const seekPlayback = async (position: number): Promise<boolean> => {
   const maxSeekable = getMaxSeekablePosition()
 
   // 歌词/进度条：目标超出已缓冲区间时拒绝，不发起越界 seek（R3）
-  if (state.bufferedPosition != null && Number.isFinite(maxSeekable) && requested > maxSeekable + 0.05) {
+  if (state.value.bufferedPosition != null && Number.isFinite(maxSeekable) && requested > maxSeekable + 0.05) {
     return false
   }
 
@@ -1219,10 +1219,10 @@ export const seekPlayback = async (position: number): Promise<boolean> => {
     : requested
 
   try {
-    statusBeforeSeek = state.status === 'paused' ? 'paused' : 'playing'
+    statusBeforeSeek = state.value.status === 'paused' ? 'paused' : 'playing'
     // 仅 UI 恢复、原生未起播时：只更新本地进度与会话，待用户播放时 seek（#49）
     if (restoredSessionUiOnly) {
-      state.position = safePosition
+      state.value.position = safePosition
       pendingResumePosition = safePosition > 0 ? safePosition : null
       persistPlaybackSessionNow()
       return true
@@ -1230,8 +1230,8 @@ export const seekPlayback = async (position: number): Promise<boolean> => {
     // 普通 seek 优先于冷启动自动恢复；成功或失败都不得遗留恢复保护（#53）
     clearResumeSeekGuard()
     await AudioPlayerNative.seek({ position: safePosition })
-    state.position = safePosition
-    state.errorMessage = null
+    state.value.position = safePosition
+    state.value.errorMessage = null
     // seek 成功后开启短保护窗，吞掉未缓冲区间触发的伪 finished
     lastSeekAt = Date.now()
     persistPlaybackSessionNow()
@@ -1257,18 +1257,18 @@ export const stopPlayback = async (): Promise<void> => {
     onlineCoverToken += 1
     onlineTextToken += 1
     metadataPrefetchToken += 1
-    state.status = 'stopped'
-    state.currentSong = null
-    state.errorMessage = null
-    state.position = 0
-    state.duration = 0
+    state.value.status = 'stopped'
+    state.value.currentSong = null
+    state.value.errorMessage = null
+    state.value.position = 0
+    state.value.duration = 0
     resetBufferState()
-    state.lyrics = null
-    state.lyricsFormat = null
-    state.lyricsTranslation = null
-    state.onlineLyricsStatus = 'idle'
-    state.coverUri = null
-    state.metadataStatus = 'idle'
+    state.value.lyrics = null
+    state.value.lyricsFormat = null
+    state.value.lyricsTranslation = null
+    state.value.onlineLyricsStatus = 'idle'
+    state.value.coverUri = null
+    state.value.metadataStatus = 'idle'
     allowNativeClearCurrentSong = false
     syncMediaSessionState()
   } catch {
@@ -1294,7 +1294,7 @@ export interface SaveCurrentSongUserEditResult {
 export const saveCurrentSongUserEdit = async (
   patch: SongUserEditPatch,
 ): Promise<SaveCurrentSongUserEditResult> => {
-  const currentId = state.currentSong?.id
+  const currentId = state.value.currentSong?.id
   if (!currentId) {
     return { libraryOk: false, fileOk: false, fileError: '当前没有播放中的歌曲。' }
   }
@@ -1328,8 +1328,8 @@ export const saveCurrentSongUserEdit = async (
   // RG 变化且正在播/暂停：立即重设音量
   if (
     patch.replayGainTrackDb !== undefined
-    && (state.status === 'playing' || state.status === 'paused')
-    && state.currentSong?.id === written.id
+    && (state.value.status === 'playing' || state.value.status === 'paused')
+    && state.value.currentSong?.id === written.id
   ) {
     void AudioPlayerNative.setVolume(resolvePlaybackVolume(written))
   }
@@ -1409,10 +1409,10 @@ const toNativeCoverPath = (coverUri: string | undefined): string | null => {
   return safe
 }
 
-export const playerState = readonly(state)
-export const isPlaying = computed(() => state.status === 'playing')
-export const hasActiveSong = computed(() => Boolean(state.currentSong))
-export const isPlaybackFinished = computed(() => state.status === 'finished')
+export const playerState = readonly(state.value)
+export const isPlaying = computed(() => state.value.status === 'playing')
+export const hasActiveSong = computed(() => Boolean(state.value.currentSong))
+export const isPlaybackFinished = computed(() => state.value.status === 'finished')
 
 export {
   advanceToNext,

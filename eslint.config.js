@@ -41,6 +41,14 @@ export default withVueTs(
       'no-debugger': isProduction ? 'warn' : 'off',
       'vue/no-deprecated-slot-attribute': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
+      // 项目约定：统一使用 ref，禁用 reactive（见 .trellis/spec/frontend/state-management.md）
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: 'vue',
+          importNames: ['reactive'],
+          message: '禁止使用 reactive()，统一使用 ref（见 .trellis/spec/frontend/state-management.md）',
+        }],
+      }],
     },
   },
 )

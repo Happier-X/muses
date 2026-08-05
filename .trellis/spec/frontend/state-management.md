@@ -53,6 +53,14 @@ Avoid duplicating current tab selection in a separate store unless a task introd
 
 For future small UI interactions, prefer local Vue state inside `<script setup lang="ts">` using Vue Composition API primitives such as `ref` and `computed`.
 
+### 响应式 API 约定：统一 `ref`，禁用 `reactive`
+
+- 项目内所有响应式状态一律使用 `ref`（含对象/数组状态，统一通过 `ref<T>({ ... })` 包裹后以 `state.value.x` 读写）。
+- **禁止**导入或使用 `reactive()`（ESLint 规则 `no-restricted-imports` 强制，见 `eslint.config.js`）。
+- 需要对外暴露只读状态时，使用 `readonly(ref.value)` 或 `readonly(ref)`，组件侧以普通对象属性访问（如 `playerState.currentSong`），无需 `.value`。
+- 模块内部对 ref 的访问必须显式 `.value`，禁止在 `computed`/`watch`/函数体内遗漏。
+- 已有反例（禁止模式）：`const state = reactive<PlayerState>({ ... })`。正确写法见 `src/features/player/controller.ts` 与 `src/features/player/queue.ts` 的 `ref` 实现。
+
 Because current components are static, no existing file demonstrates local reactive state yet. Add it in the component that owns the interaction unless multiple components need the same value.
 
 ---
@@ -342,6 +350,7 @@ Avoid creating service/client/cache abstractions before the application has actu
 
 Avoid:
 
+- Using `reactive()` for any state; always use `ref`（ESLint `no-restricted-imports` 强制）。
 - Adding Pinia/Vuex just to store tab/page labels.
 - Mirroring router state in a global store.
 - Creating API or persistence folders without actual API or persistence behavior.
