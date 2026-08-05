@@ -86,3 +86,36 @@ API + UI 两子任务完成；父 PRD AC 全勾；spec 已记编辑云端路径�
 ### Status
 
 [OK] **父任务完成**
+
+---
+
+## Session 95: 清除 Ionic 脚手架残留
+
+**Date**: 2026-08-05
+**Task**: 清除 Ionic 脚手架与代码残留
+**Branch**: `main`
+
+### Summary
+
+D1=A：删除 ionic.config / ionic:* 脚本，标题 Muses，vite 死 chunk 与误导注释清理；同步 frontend spec；保留 Capacitor 与 changelog 历史。
+
+### Main Changes
+
+- 删除 `ionic.config.json`；`package.json` / `index.html` / `vite.config.ts`
+- `src/theme/*`、`PlayerPage` 注释中性化
+- `directory-structure` / `hook-guidelines` / `forms` / component 高度链表述
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a0ef82b` | chore: 清除 Ionic 脚手架与误导残留 |
+
+### Testing
+
+- [OK] lint / build
+- [OK] AC1–AC6
+
+### Status
+
+[OK] **完成**
