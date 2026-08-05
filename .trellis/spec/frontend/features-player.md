@@ -165,7 +165,12 @@
 - **封面**：API 只返回 `remoteUrl`；落盘 `cacheRemoteCover` 属 UI 应用阶段。
 - **取消**：可选 `AbortSignal`；循环检查 `aborted`。
 - **禁止**把编辑路径语义并入 `matchOnlineTextMeta` / `matchOnlineCoverRemote` / `matchOnlineLyrics`（播放 first-hit / 仅补空保持不变）。
-- UI 勾选应用 / 表单写入见父任务 `08-05-player-edit-cloud-meta` 与子任务 `08-05-edit-cloud-meta-ui`（本条只约束 API 层）。
+- UI 勾选应用 / 表单写入见 `08-05-edit-cloud-meta-ui`：
+  - 编辑 sheet **仅手动**「从云端获取」；打开不自动搜。
+  - 结果先预览 + 可换候选；**分字段勾选**后「应用到表单」才写 `editForm` / 封面。
+  - 封面应用必须 `cacheRemoteCover` → 安全 URI；禁止 http/data 入库。
+  - 歌词应用主词 text + `editLyricsFormat`；保存 dirty 时写入 `lyricsFormat`（手改歌词输入则重置为 `lrc`）。
+  - 关 sheet / 切歌：`AbortController` + 清空云端预览状态；封面异步回写须再检当前曲 id。
 
 ## 用户手改字段保护（`userEditedFields`，`08-04-player-more-edit-song`）
 

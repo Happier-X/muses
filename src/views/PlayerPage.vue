@@ -234,12 +234,213 @@
       </div>
     </h-bottom-sheet>
 
-    <!-- 编辑歌曲信息：title/artist/album/封面/歌词/RG -->
+    <!-- 编辑歌曲信息：title/artist/album/封面/歌词/RG + 云端获取 -->
     <h-bottom-sheet v-model="isSongEditOpen" title="编辑歌曲信息">
       <form
         class="flex flex-col gap-[var(--muses-space-md)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]"
         @submit.prevent="editForm.handleSubmit"
       >
+        <!-- 云端强制搜：预览 + 勾选应用，不自动覆盖表单 -->
+        <section
+          class="flex flex-col gap-[var(--muses-space-sm)] rounded-[12px] border border-[color:var(--h-color-border,rgba(0,0,0,0.08))] p-[var(--muses-space-md)]"
+          aria-label="从云端获取元信息"
+        >
+          <div class="flex items-center justify-between gap-[var(--muses-space-sm)]">
+            <p class="m-0 text-[length:var(--muses-font-body-sm)] font-medium">云端元信息</p>
+            <h-button
+              variant="ghost"
+              type="button"
+              size="sm"
+              :disabled="isEditSubmitting || cloudFetching || cloudApplying"
+              aria-label="从云端获取标题艺人专辑封面与歌词"
+              @click="onFetchCloudMeta"
+            >
+              {{ cloudFetching ? '获取中…' : '从云端获取' }}
+            </h-button>
+          </div>
+
+          <p
+            v-if="cloudStatusMessage"
+            class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]"
+          >
+            {{ cloudStatusMessage }}
+          </p>
+
+          <template v-if="cloudResult">
+            <div class="flex flex-col gap-[var(--muses-space-xs)]">
+              <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]">
+                文本 · {{ dimStatusLabel(cloudResult.text.status) }}
+                <template v-if="selectedTextHit">
+                  ：{{ selectedTextHit.title || '—' }} / {{ selectedTextHit.artist || '—' }} / {{ selectedTextHit.album || '—' }}
+                  <span v-if="selectedTextHit.source">（{{ selectedTextHit.source }}）</span>
+                </template>
+              </p>
+              <h-button
+                v-if="cloudResult.text.items.length > 1"
+                variant="ghost"
+                type="button"
+                size="sm"
+                class="self-start"
+                :disabled="cloudFetching || cloudApplying"
+                aria-label="更换文本候选"
+                @click="cloudExpandText = !cloudExpandText"
+              >
+                {{ cloudExpandText ? '收起文本候选' : '更换文本' }}
+              </h-button>
+              <div v-if="cloudExpandText" class="flex flex-col gap-[4px] max-h-36 overflow-y-auto">
+                <button
+                  v-for="(item, idx) in cloudResult.text.items"
+                  :key="`text-${idx}-${item.source}`"
+                  type="button"
+                  class="text-left text-[length:var(--muses-font-body-sm)] p-[6px] rounded-[8px] border-0 bg-transparent"
+                  :class="idx === cloudTextIndex ? 'bg-[rgba(0,0,0,0.06)]' : ''"
+                  @click="cloudTextIndex = idx"
+                >
+                  {{ item.title || '—' }} · {{ item.artist || '—' }} · {{ item.album || '—' }}
+                  <span class="opacity-60">（{{ item.source }}）</span>
+                </button>
+              </div>
+
+              <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]">
+                封面 · {{ dimStatusLabel(cloudResult.cover.status) }}
+                <template v-if="selectedCoverHit">（{{ selectedCoverHit.source }}）</template>
+              </p>
+              <img
+                v-if="selectedCoverHit"
+                class="w-14 h-14 rounded-[8px] object-cover"
+                :src="selectedCoverHit.remoteUrl"
+                alt="云端封面预览"
+              >
+              <h-button
+                v-if="cloudResult.cover.items.length > 1"
+                variant="ghost"
+                type="button"
+                size="sm"
+                class="self-start"
+                :disabled="cloudFetching || cloudApplying"
+                aria-label="更换封面候选"
+                @click="cloudExpandCover = !cloudExpandCover"
+              >
+                {{ cloudExpandCover ? '收起封面候选' : '更换封面' }}
+              </h-button>
+              <div v-if="cloudExpandCover" class="flex flex-wrap gap-[8px] max-h-40 overflow-y-auto">
+                <button
+                  v-for="(item, idx) in cloudResult.cover.items"
+                  :key="`cover-${idx}-${item.source}`"
+                  type="button"
+                  class="p-0 border-0 bg-transparent rounded-[8px] overflow-hidden ring-offset-1"
+                  :class="idx === cloudCoverIndex ? 'ring-2 ring-[var(--h-color-primary,#0070f0)]' : ''"
+                  :aria-label="`封面候选 ${idx + 1} ${item.source}`"
+                  @click="cloudCoverIndex = idx"
+                >
+                  <img class="w-12 h-12 object-cover" :src="item.remoteUrl" alt="">
+                </button>
+              </div>
+
+              <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]">
+                歌词 · {{ dimStatusLabel(cloudResult.lyrics.status) }}
+                <template v-if="selectedLyricsHit">
+                  ：{{ selectedLyricsHit.source }} / {{ selectedLyricsHit.format }}
+                  <span v-if="selectedLyricsHit.translationText">（含译文，应用仅主词）</span>
+                </template>
+              </p>
+              <p
+                v-if="selectedLyricsHit"
+                class="m-0 text-[length:var(--muses-font-body-sm)] whitespace-pre-wrap line-clamp-3 opacity-80"
+              >
+                {{ lyricsPreview(selectedLyricsHit.text) }}
+              </p>
+              <h-button
+                v-if="cloudResult.lyrics.items.length > 1"
+                variant="ghost"
+                type="button"
+                size="sm"
+                class="self-start"
+                :disabled="cloudFetching || cloudApplying"
+                aria-label="更换歌词候选"
+                @click="cloudExpandLyrics = !cloudExpandLyrics"
+              >
+                {{ cloudExpandLyrics ? '收起歌词候选' : '更换歌词' }}
+              </h-button>
+              <div v-if="cloudExpandLyrics" class="flex flex-col gap-[4px] max-h-36 overflow-y-auto">
+                <button
+                  v-for="(item, idx) in cloudResult.lyrics.items"
+                  :key="`lyrics-${idx}-${item.source}`"
+                  type="button"
+                  class="text-left text-[length:var(--muses-font-body-sm)] p-[6px] rounded-[8px] border-0 bg-transparent"
+                  :class="idx === cloudLyricsIndex ? 'bg-[rgba(0,0,0,0.06)]' : ''"
+                  @click="cloudLyricsIndex = idx"
+                >
+                  {{ item.source }} · {{ item.format }}
+                  <span class="opacity-60">{{ lyricsPreview(item.text, 40) }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-[6px] pt-[var(--muses-space-xs)]">
+              <p class="m-0 text-[length:var(--muses-font-body-sm)]">应用到表单的字段</p>
+              <div class="flex flex-wrap gap-x-[12px] gap-y-[6px]">
+                <label class="inline-flex items-center gap-[6px] text-[length:var(--muses-font-body-sm)]">
+                  <h-checkbox
+                    :model-value="cloudChecks.title"
+                    :disabled="!selectedTextHit?.title?.trim() || cloudFetching || cloudApplying"
+                    aria-label="应用标题"
+                    @update:model-value="cloudChecks.title = $event"
+                  />
+                  标题
+                </label>
+                <label class="inline-flex items-center gap-[6px] text-[length:var(--muses-font-body-sm)]">
+                  <h-checkbox
+                    :model-value="cloudChecks.artist"
+                    :disabled="!selectedTextHit?.artist?.trim() || cloudFetching || cloudApplying"
+                    aria-label="应用艺术家"
+                    @update:model-value="cloudChecks.artist = $event"
+                  />
+                  艺术家
+                </label>
+                <label class="inline-flex items-center gap-[6px] text-[length:var(--muses-font-body-sm)]">
+                  <h-checkbox
+                    :model-value="cloudChecks.album"
+                    :disabled="!selectedTextHit?.album?.trim() || cloudFetching || cloudApplying"
+                    aria-label="应用专辑"
+                    @update:model-value="cloudChecks.album = $event"
+                  />
+                  专辑
+                </label>
+                <label class="inline-flex items-center gap-[6px] text-[length:var(--muses-font-body-sm)]">
+                  <h-checkbox
+                    :model-value="cloudChecks.cover"
+                    :disabled="!selectedCoverHit || cloudFetching || cloudApplying"
+                    aria-label="应用封面"
+                    @update:model-value="cloudChecks.cover = $event"
+                  />
+                  封面
+                </label>
+                <label class="inline-flex items-center gap-[6px] text-[length:var(--muses-font-body-sm)]">
+                  <h-checkbox
+                    :model-value="cloudChecks.lyrics"
+                    :disabled="!selectedLyricsHit || cloudFetching || cloudApplying"
+                    aria-label="应用歌词"
+                    @update:model-value="cloudChecks.lyrics = $event"
+                  />
+                  歌词
+                </label>
+              </div>
+              <h-button
+                variant="primary"
+                type="button"
+                size="sm"
+                class="self-start"
+                :disabled="!canApplyCloud || cloudFetching || cloudApplying || isEditSubmitting"
+                aria-label="将勾选的云端字段应用到表单"
+                @click="onApplyCloudMeta"
+              >
+                {{ cloudApplying ? '应用中…' : '应用到表单' }}
+              </h-button>
+            </div>
+          </template>
+        </section>
+
         <editForm.Field
           name="title"
           :validators="{
@@ -334,10 +535,10 @@
           <template #default="{ field }">
             <h-textarea
               :model-value="field.state.value"
-              label="歌词（LRC 文本）"
+              label="歌词文本"
               :rows="6"
               :disabled="isEditSubmitting"
-              @update:model-value="field.handleChange"
+              @update:model-value="onEditLyricsInput(field, $event)"
               @blur="field.handleBlur"
             />
           </template>
@@ -392,6 +593,7 @@
 import {
   HBottomSheet,
   HButton,
+  HCheckbox,
   HIcon,
   HInput,
   HPopup,
@@ -402,6 +604,12 @@ import {
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useForm } from '@tanstack/vue-form'
 import { Capacitor } from '@capacitor/core'
+import {
+  searchEditCloudMeta,
+  type EditCloudMetaResult,
+  type EditDimStatus,
+} from '@/features/editMeta'
+import { cacheRemoteCover } from '@/features/player/native'
 import {
   ellipsisVertical,
   languageOffOutline,
@@ -425,6 +633,7 @@ import { applyLyricTranslationVisibility } from '@/features/lyrics/display'
 import { prepareLyricLinesForDisplay } from '@/features/lyrics/mergeTranslation'
 import { loadSongs } from '@/features/library/storage'
 import { cacheCoverBytes } from '@/features/library/native'
+import type { SongLyricsFormat } from '@/features/library/types'
 import {
   isPlaying,
   pausePlayback,
@@ -488,6 +697,8 @@ const editCoverUri = ref<string | null>(null)
 const editCoverCleared = ref(false)
 /** 仅用户改过封面时才写入 patch，避免误标 userEditedFields.cover */
 const editCoverDirty = ref(false)
+/** 应用歌词时的 format；保存 dirty 时写入 patch；手改文本回落 lrc */
+const editLyricsFormat = ref<SongLyricsFormat | null>(null)
 /** 打开编辑时的基线，保存时仅提交相对基线有变化的字段 */
 const editBaseline = ref({
   title: '',
@@ -599,7 +810,8 @@ const editForm = useForm({
     }
     if (lyrics !== baseline.lyrics) {
       patch.lyrics = lyrics
-      patch.lyricsFormat = 'lrc'
+      // 云端应用可带 ttml/yrc/qrc；手改文本默认 lrc
+      patch.lyricsFormat = editLyricsFormat.value || 'lrc'
     }
     if (nextRg !== baseRg) {
       patch.replayGainTrackDb = nextRg
@@ -678,15 +890,349 @@ const seedSongEditForm = () => {
   editCoverUri.value = latest?.coverUri || current.coverUri || playerState.coverUri || null
   editCoverCleared.value = false
   editCoverDirty.value = false
+  editLyricsFormat.value = (latest?.lyricsFormat as SongLyricsFormat | undefined)
+    || (playerState.lyricsFormat as SongLyricsFormat | null)
+    || null
   editFormError.value = ''
+  resetCloudMetaState({ abort: true })
 }
 
 const closeSongEdit = () => {
   if (isEditSubmitting.value) {
     return
   }
+  abortCloudFetch()
   isSongEditOpen.value = false
 }
+
+// ── 云端元信息（强制搜 + 勾选应用）──────────────────────────────
+const cloudFetching = ref(false)
+const cloudApplying = ref(false)
+const cloudResult = ref<EditCloudMetaResult | null>(null)
+const cloudStatusMessage = ref('')
+const cloudTextIndex = ref(0)
+const cloudCoverIndex = ref(0)
+const cloudLyricsIndex = ref(0)
+const cloudExpandText = ref(false)
+const cloudExpandCover = ref(false)
+const cloudExpandLyrics = ref(false)
+const cloudChecks = ref({
+  title: false,
+  artist: false,
+  album: false,
+  cover: false,
+  lyrics: false,
+})
+let cloudAbort: AbortController | null = null
+let cloudFetchGeneration = 0
+
+const abortCloudFetch = (): void => {
+  cloudAbort?.abort()
+  cloudAbort = null
+  cloudFetchGeneration += 1
+  cloudFetching.value = false
+}
+
+const resetCloudMetaState = (options?: { abort?: boolean }): void => {
+  if (options?.abort) {
+    abortCloudFetch()
+  }
+  cloudResult.value = null
+  cloudStatusMessage.value = ''
+  cloudTextIndex.value = 0
+  cloudCoverIndex.value = 0
+  cloudLyricsIndex.value = 0
+  cloudExpandText.value = false
+  cloudExpandCover.value = false
+  cloudExpandLyrics.value = false
+  cloudChecks.value = {
+    title: false,
+    artist: false,
+    album: false,
+    cover: false,
+    lyrics: false,
+  }
+  cloudApplying.value = false
+}
+
+const dimStatusLabel = (status: EditDimStatus): string => {
+  switch (status) {
+    case 'ok':
+      return '已命中'
+    case 'network':
+      return '网络异常'
+    case 'aborted':
+      return '已取消'
+    default:
+      return '无匹配'
+  }
+}
+
+const lyricsPreview = (text: string, max = 80): string => {
+  const oneLine = text.replace(/\s+/g, ' ').trim()
+  if (oneLine.length <= max) {
+    return oneLine
+  }
+  return `${oneLine.slice(0, max)}…`
+}
+
+const selectedTextHit = computed(() => {
+  const items = cloudResult.value?.text.items
+  if (!items?.length) {
+    return null
+  }
+  return items[cloudTextIndex.value] ?? items[0] ?? null
+})
+
+const selectedCoverHit = computed(() => {
+  const items = cloudResult.value?.cover.items
+  if (!items?.length) {
+    return null
+  }
+  return items[cloudCoverIndex.value] ?? items[0] ?? null
+})
+
+const selectedLyricsHit = computed(() => {
+  const items = cloudResult.value?.lyrics.items
+  if (!items?.length) {
+    return null
+  }
+  return items[cloudLyricsIndex.value] ?? items[0] ?? null
+})
+
+const canApplyCloud = computed(() => {
+  const c = cloudChecks.value
+  if (c.title && selectedTextHit.value?.title?.trim()) {
+    return true
+  }
+  if (c.artist && selectedTextHit.value?.artist?.trim()) {
+    return true
+  }
+  if (c.album && selectedTextHit.value?.album?.trim()) {
+    return true
+  }
+  if (c.cover && selectedCoverHit.value) {
+    return true
+  }
+  if (c.lyrics && selectedLyricsHit.value) {
+    return true
+  }
+  return false
+})
+
+const seedCloudChecksFromSelection = (): void => {
+  const text = selectedTextHit.value
+  cloudChecks.value = {
+    title: !!text?.title?.trim(),
+    artist: !!text?.artist?.trim(),
+    album: !!text?.album?.trim(),
+    cover: !!selectedCoverHit.value,
+    lyrics: !!selectedLyricsHit.value,
+  }
+}
+
+const onFetchCloudMeta = async (): Promise<void> => {
+  const song = playerState.currentSong
+  if (!song?.id || cloudFetching.value || isEditSubmitting.value) {
+    return
+  }
+
+  const title = String(editForm.getFieldValue('title') ?? '').trim() || song.title?.trim() || ''
+  if (!title) {
+    cloudStatusMessage.value = '请先填写标题再获取'
+    showToast('请先填写标题再获取', 'warning')
+    return
+  }
+
+  const artist = String(editForm.getFieldValue('artist') ?? '').trim() || undefined
+  const album = String(editForm.getFieldValue('album') ?? '').trim() || undefined
+
+  abortCloudFetch()
+  const controller = new AbortController()
+  cloudAbort = controller
+  const generation = cloudFetchGeneration
+  const songId = song.id
+  cloudFetching.value = true
+  cloudResult.value = null
+  cloudStatusMessage.value = '正在从多平台获取…'
+  cloudExpandText.value = false
+  cloudExpandCover.value = false
+  cloudExpandLyrics.value = false
+
+  try {
+    const result = await searchEditCloudMeta(
+      {
+        songId,
+        title,
+        artist,
+        album,
+        durationSec: Number.isFinite(playerState.duration) && playerState.duration > 0
+          ? playerState.duration
+          : undefined,
+      },
+      { signal: controller.signal },
+    )
+
+    if (
+      generation !== cloudFetchGeneration
+      || controller.signal.aborted
+      || !isSongEditOpen.value
+      || playerState.currentSong?.id !== songId
+    ) {
+      return
+    }
+
+    cloudResult.value = result
+    cloudTextIndex.value = result.text.defaultIndex
+    cloudCoverIndex.value = result.cover.defaultIndex
+    cloudLyricsIndex.value = result.lyrics.defaultIndex
+    seedCloudChecksFromSelection()
+
+    const anyOk =
+      result.text.status === 'ok'
+      || result.cover.status === 'ok'
+      || result.lyrics.status === 'ok'
+    const anyNetwork =
+      result.text.status === 'network'
+      || result.cover.status === 'network'
+      || result.lyrics.status === 'network'
+
+    if (anyOk) {
+      const parts = [
+        result.text.status === 'ok' ? `文本 ${result.text.items.length}` : null,
+        result.cover.status === 'ok' ? `封面 ${result.cover.items.length}` : null,
+        result.lyrics.status === 'ok' ? `歌词 ${result.lyrics.items.length}` : null,
+      ].filter(Boolean)
+      cloudStatusMessage.value = `已获取：${parts.join(' · ')}（勾选后应用到表单）`
+    } else if (anyNetwork) {
+      cloudStatusMessage.value = '网络异常，请稍后重试'
+      showToast('云端获取网络异常', 'warning')
+    } else {
+      cloudStatusMessage.value = '未找到匹配结果'
+      showToast('未找到云端匹配', 'default')
+    }
+  } catch (error) {
+    if (controller.signal.aborted || generation !== cloudFetchGeneration) {
+      return
+    }
+    cloudStatusMessage.value = '获取失败，请重试'
+    showToast('云端获取失败', 'danger')
+    console.warn('[edit-cloud-meta] fetch failed', error)
+  } finally {
+    if (generation === cloudFetchGeneration) {
+      cloudFetching.value = false
+    }
+    if (cloudAbort === controller) {
+      cloudAbort = null
+    }
+  }
+}
+
+const onEditLyricsInput = (
+  field: { handleChange: (value: string) => void },
+  value: string | number | null | undefined,
+): void => {
+  field.handleChange(String(value ?? ''))
+  // 手改文本默认 lrc；云端应用走 setFieldValue，不会触发本 handler
+  editLyricsFormat.value = 'lrc'
+}
+
+const onApplyCloudMeta = async (): Promise<void> => {
+  if (!canApplyCloud.value || cloudApplying.value || isEditSubmitting.value) {
+    return
+  }
+
+  const songId = playerState.currentSong?.id
+  if (!songId || !isSongEditOpen.value) {
+    return
+  }
+
+  cloudApplying.value = true
+  const checks = { ...cloudChecks.value }
+  const text = selectedTextHit.value
+  const cover = selectedCoverHit.value
+  const lyrics = selectedLyricsHit.value
+  const applied: string[] = []
+  const failed: string[] = []
+
+  const stillActive = (): boolean =>
+    isSongEditOpen.value && playerState.currentSong?.id === songId
+
+  try {
+    if (checks.title && text?.title?.trim()) {
+      editForm.setFieldValue('title', text.title.trim())
+      applied.push('标题')
+    }
+    if (checks.artist && text?.artist?.trim()) {
+      editForm.setFieldValue('artist', text.artist.trim())
+      applied.push('艺术家')
+    }
+    if (checks.album && text?.album?.trim()) {
+      editForm.setFieldValue('album', text.album.trim())
+      applied.push('专辑')
+    }
+    if (checks.lyrics && lyrics?.text?.trim()) {
+      editForm.setFieldValue('lyrics', lyrics.text)
+      const fmt = lyrics.format
+      editLyricsFormat.value =
+        fmt === 'ttml' || fmt === 'yrc' || fmt === 'qrc' || fmt === 'lrc' ? fmt : 'lrc'
+      applied.push('歌词')
+    }
+    if (checks.cover && cover?.remoteUrl) {
+      const localUri = await cacheRemoteCover({
+        url: cover.remoteUrl,
+        cacheKey: `edit-cloud-cover:${songId}:${cover.source}:${Date.now()}`,
+      })
+      // 关 sheet / 切歌后丢弃封面回写，避免串曲
+      if (!stillActive()) {
+        return
+      }
+      if (localUri) {
+        editCoverUri.value = localUri
+        editCoverCleared.value = false
+        editCoverDirty.value = true
+        applied.push('封面')
+      } else {
+        failed.push('封面')
+      }
+    }
+
+    if (!stillActive()) {
+      return
+    }
+
+    if (applied.length === 0 && failed.length === 0) {
+      showToast('请勾选要应用的字段', 'default')
+      return
+    }
+    if (failed.length && applied.length) {
+      showToast(`已应用 ${applied.join('、')}；${failed.join('、')}失败`, 'warning', 3200)
+    } else if (failed.length) {
+      showToast(`${failed.join('、')}应用失败`, 'danger')
+    } else {
+      showToast(`已应用到表单：${applied.join('、')}`, 'success')
+    }
+  } finally {
+    cloudApplying.value = false
+  }
+}
+
+watch(isSongEditOpen, (open) => {
+  if (!open) {
+    // 关 sheet：作废在途请求并清空未应用预览
+    resetCloudMetaState({ abort: true })
+  }
+})
+
+watch(
+  () => playerState.currentSong?.id,
+  (nextId, prevId) => {
+    if (prevId && nextId !== prevId && isSongEditOpen.value) {
+      resetCloudMetaState({ abort: true })
+      isSongEditOpen.value = false
+    }
+  },
+)
 
 const onPickCover = () => {
   coverFileInputRef.value?.click()

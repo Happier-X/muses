@@ -2,29 +2,29 @@
 
 ## 顺序
 
-1. **规划收口（本父任务）**  
-   - [x] PRD D1–D6 + AC  
-   - [x] design.md  
-   - [x] 子任务 prd  
-   - [x] 用户批准最终规划  
+1. **规划收口（本父任务）**
+   - [x] PRD D1–D6 + AC
+   - [x] design.md
+   - [x] 子任务 prd
+   - [x] 用户批准最终规划
    - [x] 子任务 design/implement + 分别 `task.py start` 子任务（**不要**用父任务做实现主体）
 
-2. **Child: `08-05-edit-cloud-meta-api`**  
-   - [x] 扩展/新增 search 多候选 + 强制搜（`src/features/editMeta`）  
-   - [x] 可调用导出 `searchEditCloudMeta`  
-   - [x] lint/build + check  
-   - [ ] commit → archive 子任务  
+2. **Child: `08-05-edit-cloud-meta-api`**
+   - [x] 扩展/新增 search 多候选 + 强制搜（`src/features/editMeta`）
+   - [x] 可调用导出 `searchEditCloudMeta`
+   - [x] lint/build + check
+   - [x] commit → archive 子任务
 
-3. **Child: `08-05-edit-cloud-meta-ui`**  
-   - PlayerPage 云端区块  
-   - 接 API、勾选应用、cache 封面  
-   - lint/build + AC 人工/检查  
-   - check → commit → archive 子任务  
+3. **Child: `08-05-edit-cloud-meta-ui`**
+   - [x] PlayerPage 云端区块
+   - [x] 接 API、勾选应用、cache 封面
+   - [x] lint/build + AC
+   - [ ] commit → archive 子任务
 
-4. **父任务集成**  
-   - 对照父 AC1–AC12  
-   - spec 更新  
-   - archive 父任务 + journal（注意 journal-2 行数，必要时 journal-3）
+4. **父任务集成**
+   - [ ] 对照父 AC1–AC12
+   - [ ] spec 更新
+   - [ ] archive 父任务 + journal
 
 ## 验证
 
@@ -37,8 +37,8 @@ npm run build
 
 ## 回滚点
 
-- API 落地后、UI 前：可只保留 API 无入口  
-- UI 落地后：隐藏按钮或整段回退  
+- API 落地后、UI 前：可只保留 API 无入口
+- UI 落地后：隐藏按钮或整段回退
 
 ## 禁止
 

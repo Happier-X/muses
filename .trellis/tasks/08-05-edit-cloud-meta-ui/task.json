@@ -3,7 +3,7 @@
   "name": "edit-cloud-meta-ui",
   "title": "编辑 sheet 云端预览勾选应用 UI",
   "description": "PlayerPage 编辑 sheet：从云端获取、候选、分字段勾选应用到表单",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
