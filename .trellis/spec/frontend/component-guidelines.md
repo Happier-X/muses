@@ -105,7 +105,7 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.8`**（不用 `^`�
 
 ### 高度链与 Tabs 视口滚动归属
 
-- **高度链**：`src/theme/tailwind.css` 必须保证 `html, body, #app { height: 100%; }`，否则 `.m-page { height: 100% }` 在脱离 Ionic 后无确定高度的祖先，`overflow: hidden` 无法裁出内部滚动，顶栏会随外层滚动卷走。不引入 `100dvh`——移动浏览器视口工具栏由 `.m-content` 内部 `overflow` 消化，避免 `position: fixed` 浮层（MiniPlayer / HTabBar / Player / Queue）错位。
+- **高度链**：`src/theme/tailwind.css` 必须保证 `html, body, #app { height: 100%; }`，否则 `.m-page { height: 100% }` 无确定高度的祖先，`overflow: hidden` 无法裁出内部滚动，顶栏会随外层滚动卷走。不引入 `100dvh`——移动浏览器视口工具栏由 `.m-content` 内部 `overflow` 消化，避免 `position: fixed` 浮层（MiniPlayer / HTabBar / Player / Queue）错位。
 - **Tabs 视口不吞滚动**：`src/views/TabsPage.vue` 的 `<main>` 在 `md+` 用 `md:fixed` 铺满侧栏右侧时 **`md:overflow-hidden`**（不可用 `md:overflow-auto`），让纵向滚动回落到业务页 `.m-content`（虚拟列表页内部 list `overflow: auto`）。`main` 在窄屏用 `flex-1 min-h-0` 拿到确定高度；非 tabs 路由分支不引入整页滚动。
 - 顶栏 `HNavBar :fixed="false"` 依赖 `.m-page` flex 文档流钉住，不动组件级 `fixed=true`，避免与侧栏 `left` 偏移 / safe-area / overlay 叠加。
 

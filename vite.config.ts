@@ -21,9 +21,9 @@ export default defineConfig({
     },
   },
   build: {
-    // Ionic 的 :host-context() 会被 lightningcss 误报；改用 esbuild 压缩 CSS。
+    // 使用 esbuild 压缩 CSS，避免部分选择器被 lightningcss 误报。
     cssMinify: 'esbuild',
-    // Ionic / AMLL-Pixi 业务上就是大 chunk，避免无意义的体积告警噪音。
+    // AMLL / Pixi 等业务 chunk 较大，提高阈值以减少无意义告警。
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
       // 关闭构建期插件耗时统计告警（Windows 下经常被 legacy 二次打包触发）。
@@ -32,14 +32,10 @@ export default defineConfig({
       },
       output: {
         manualChunks(id) {
-          if (id.includes('@ionic/vue') || id.includes('ionicons')) {
-            return 'ionic'
-          }
           if (
             id.includes('node_modules/vue/') ||
             id.includes('node_modules/@vue/') ||
-            id.includes('node_modules/vue-router/') ||
-            id.includes('node_modules/@ionic/vue-router/')
+            id.includes('node_modules/vue-router/')
           ) {
             return 'vue-vendor'
           }

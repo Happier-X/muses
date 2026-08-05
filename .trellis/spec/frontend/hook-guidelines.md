@@ -6,12 +6,12 @@
 
 ## Overview
 
-This Vue project currently does not define custom hooks/composables. There is no `src/composables/`, `src/hooks/`, or similar directory in the repository.
+This Vue project currently does not define a large shared composables layer. Prefer local `<script setup>` logic until logic is shared across multiple pages.
 
 Reference evidence:
 
-- `src/` contains `components/`, `router/`, `theme/`, and `views/` only.
-- Existing components use simple `<script setup lang="ts">` blocks without shared composables.
+- Business logic often lives under `src/features/*` pure modules rather than Vue composables.
+- Pages use Composition API without a mandatory `src/composables/` tree.
 
 ---
 
@@ -19,36 +19,32 @@ Reference evidence:
 
 For the current app size, keep component logic local when it is only used by one component or page.
 
-Examples of current local simplicity:
+Examples:
 
-- `src/App.vue` only imports Ionic shell components.
-- `src/views/Tab1Page.vue` only imports Ionic layout components and `ExploreContainer`.
-- `src/views/TabsPage.vue` imports Ionic tab components and icon constants directly.
+- `src/App.vue`：壳层 + Capacitor 状态栏 / 返回键；`RouterView` + MiniPlayer + 常驻 Player/Queue。
+- 各 `*Page.vue`：页面局部状态 + 调用 `src/features/*`。
 
 ---
 
 ## When to Add a Composable
 
-Add a composable only when a task introduces repeated logic that is shared across multiple components or pages.
+Add a composable only when a task introduces repeated logic shared across multiple components or pages.
 
-If a composable becomes necessary, prefer Vue naming conventions:
+If a composable becomes necessary:
 
 - Put it under `src/composables/`.
-- Name files and functions with `use*`, for example `useExample.ts` exporting `useExample()`.
-- Keep it UI-framework agnostic unless it is explicitly tied to Ionic behavior.
+- Name files and functions with `use*`，例如 `useExample.ts` exporting `useExample()`.
+- Keep it UI-framework agnostic（Vue / happier-ui / Capacitor 边界清晰）。
 - Return named values and functions rather than a broad untyped object.
-
-This is a future-facing rule; no existing source file currently demonstrates it.
 
 ---
 
 ## What to Avoid
 
-Avoid inventing composables for one-off logic in this small app. In particular:
-
-- Do not move simple static tab/page setup into hooks.
+- Do not move simple one-off page setup into hooks.
 - Do not add a composables directory solely for organization.
-- Do not introduce data-fetching abstractions before there is an API layer or repeated server-state pattern.
+- Do not introduce data-fetching abstractions before there is a repeated server-state pattern.
+- **Do not** reintroduce Ionic-specific lifecycle/composable patterns（`onIonView*` 等）。
 
 ---
 
@@ -57,5 +53,5 @@ Avoid inventing composables for one-off logic in this small app. In particular:
 When adding a composable in the future:
 
 - Make sure it is imported from at least two places, or document why centralization is needed.
-- Cover non-trivial behavior with `vitest` tests under `tests/unit/` or colocated tests if the project later adopts that pattern.
-- Run `npm run build` and `npm run test:unit`.
+- Cover non-trivial behavior with unit tests if the project adopts that pattern for the module.
+- Run `npm run lint` and `npm run build`.

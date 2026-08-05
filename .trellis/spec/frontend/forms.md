@@ -97,9 +97,9 @@ form.setFieldValue('path', nextPath)
 2. **validators 返回 string**（或 `undefined`），保证 `meta.errors[0]` 可直接给 `HInput.error`。
 3. **条件字段**（如 local 不展示 WebDAV 字段）：**不渲染则不挂 `form.Field`、不校验**，与 UI 一致。
 4. **密码可选更新**（编辑 WebDAV）：字段可存在但不做必填；空字符串表示保留原密码，业务层处理 SecureStorage。
-5. 外层可用原生 `<form @submit.prevent="form.handleSubmit">` + `type="submit"` 按钮；与 Ionic modal 焦点兼容即可。
-6. **提交中关闭保护**：用 `form.useSelector((s) => s.isSubmitting)` 驱动提交按钮 `disabled`；若表单在 `ion-modal` 内，同时对 modal 设 `:backdrop-dismiss="!isSubmitting"`、关闭按钮 `:disabled="isSubmitting"`，并在 close handler 内 early return。仅在 close 函数里 return 不够——用户仍可点 backdrop 或关闭按钮触发 dismiss 抖动。
-7. **loading 双源**：若同一 modal 还有非提交的异步（如 WebDAV 列目录），可保留独立 loading ref；连接/保存类提交态优先用 form `isSubmitting`，按钮 `disabled` 取并集。
+5. 外层可用原生 `<form @submit.prevent="form.handleSubmit">` + `type="submit"` 按钮。
+6. **提交中关闭保护**：用 `form.useSelector((s) => s.isSubmitting)` 驱动提交按钮 `disabled`；若表单在 `HPopup` / `HBottomSheet` 等浮层内，须禁用 backdrop 关闭与关闭按钮（或等价 props），并在 close handler 内 early return。仅在 close 函数里 return 不够——用户仍可点遮罩或关闭控件触发抖动。
+7. **loading 双源**：若同一浮层还有非提交的异步（如 WebDAV 列目录），可保留独立 loading ref；连接/保存类提交态优先用 form `isSubmitting`，按钮 `disabled` 取并集。
 
 ---
 

@@ -5,7 +5,7 @@
 @import 'tailwindcss';
 @import 'happier-ui/styles';
 
-/* 补齐 Ionic core.css 提供的字体/颜色，Ionic 全局 CSS 移除后的回退 */
+/* 应用默认字体与表面色（无第三方 UI 框架全局 CSS 时的宿主回退） */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: var(--h-color-ink);
@@ -15,7 +15,7 @@ body {
 }
 
 /*
- * 高度链：脱离 Ionic 后需自持 document→#app 100% 高度链，
+ * 高度链：宿主自持 document→#app 100% 高度，
  * 否则 .m-page 的 height:100% 无确定高度的祖先，overflow:hidden 无法裁出内部滚动。
  * 注意 #app 用 height:100% 与 body 一致；移动浏览器视口工具栏由 .m-content 内部
  * overflow 滚动消化（不依赖 100dvh），避免 fixed 浮层错位。
@@ -211,7 +211,7 @@ body.muses-overlay-open .m-content {
   color: rgba(255, 255, 255, 0.58);
 }
 
-/* HRange 进度条：隐藏 knob，恢复旧版 ion-range 的 4px 轨道样式。
+/* HRange 进度条：隐藏 knob，使用 4px 细轨道沉浸样式。
  * HRange 默认有 20px 圆球 knob 与 6px 轨道；此处用组件暴露的 CSS 变量覆盖：
  * 轨道 4px、pill 圆角、填充色 --muses-immersive-ink、底色 --muses-immersive-track。
  * thumb 伪元素同时置 0 尺寸/透明，确保 knob 不可见（WebKit + Firefox）。 */
