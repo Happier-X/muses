@@ -7,9 +7,9 @@
 ## Current Status
 
 <!-- @@@auto:current-status -->
-- **Active File**: `journal-2.md`
-- **Total Sessions**: 90
-- **Last Active**: 2026-08-03
+- **Active File**: `journal-3.md`
+- **Total Sessions**: 94
+- **Last Active**: 2026-08-05
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,8 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1891 | Active |
+| `journal-3.md` | ~40 | Active |
+| `journal-2.md` | ~1993 | Archived (满) |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 94 | 2026-08-05 | 编辑云端元信息 API | `33a45ad`, `c478b3e` | `main` |
 | 90 | 2026-08-03 | 歌词页浮动按钮样式与翻译可见性 | `b648014` | `main` |
 | 89 | 2026-08-03 | 歌曲页跳转当前曲二次点击下移 | `ce6d2ff`, `465726f` | `main` |
 | 88 | 2026-08-03 | 竖屏沉浸式控制页封面排版居中收紧 | `651e942` | `main` |
