@@ -1,0 +1,7 @@
+{"path":".trellis/spec/frontend/quality-guidelines.md","reason":"升级时禁止引入被禁模式；改动须可 lint"}
+{"path":".trellis/spec/frontend/type-safety.md","reason":"TS7/vue-tsc3 类型修复约束"}
+{"path":".trellis/spec/frontend/directory-structure.md","reason":"仅改依赖与必要配置，不乱挪目录"}
+{"path":"package.json","reason":"npm 依赖声明与 overrides"}
+{"path":"android/build.gradle","reason":"AGP/Kotlin/gms classpath"}
+{"path":"android/variables.gradle","reason":"AndroidX/OkHttp 版本"}
+{"path":"android/app/build.gradle","reason":"app 依赖与 proguard"}

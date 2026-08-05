@@ -1,0 +1,4 @@
+{"path":".trellis/spec/frontend/quality-guidelines.md","reason":"检查升级后仍符合质量规范"}
+{"path":".trellis/tasks/08-05-deps-upgrade-latest/prd.md","reason":"AC 对照"}
+{"path":"package.json","reason":"版本是否达约定"}
+{"path":"android/variables.gradle","reason":"Android 稳定最新"}
