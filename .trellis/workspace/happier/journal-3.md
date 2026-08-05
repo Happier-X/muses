@@ -36,3 +36,53 @@
 ### Status
 
 [OK] **API 子任务完成**；下一步 `08-05-edit-cloud-meta-ui`
+
+---
+
+## Session 94b: 编辑 sheet 云端 UI
+
+**Date**: 2026-08-05
+**Task**: 编辑 sheet 云端预览勾选应用 UI
+**Branch**: `main`
+
+### Summary
+
+PlayerPage 编辑 sheet 接入「从云端获取」：多维预览/换候选、分字段勾选、应用到表单；封面 cacheRemoteCover；关 sheet/切歌 abort。
+
+### Main Changes
+
+- `PlayerPage.vue` 云端区块 + apply/abort
+- `features-player.md` UI 契约补充
+
+### Testing
+
+- [OK] lint / build
+
+### Status
+
+[OK] **UI 子任务完成**；父任务集成收尾
+
+---
+
+## Session 94c: 父任务集成归档
+
+**Date**: 2026-08-05
+**Task**: 编辑歌曲信息接入云端元信息（父）
+**Branch**: `main`
+
+### Summary
+
+API + UI 两子任务完成；父 PRD AC 全勾；spec 已记编辑云端路径。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `33a45ad` | feat(editMeta): 编辑页云端强制搜与多候选编排 API |
+| `c478b3e` | docs(task): 规划编辑接入云端元信息父子任务 |
+| `0995644` | chore(task): archive 08-05-edit-cloud-meta-api |
+| `8babac5` | feat(player): 编辑 sheet 云端获取预览勾选应用 |
+
+### Status
+
+[OK] **父任务完成**
