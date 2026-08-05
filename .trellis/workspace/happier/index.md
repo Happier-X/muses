@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 96 | 2026-08-05 | 依赖升级 npm+Android（TS pin 6 / AGP9 / OkHttp5） | `d024eb3`, `aaedc84` | `main` |
 | 95 | 2026-08-05 | 清除 Ionic 脚手架残留 | `a0ef82b` | `main` |
 | 94 | 2026-08-05 | 编辑接入云端元信息（API+UI） | `33a45ad`–`8babac5` | `main` |
 | 90 | 2026-08-03 | 歌词页浮动按钮样式与翻译可见性 | `b648014` | `main` |

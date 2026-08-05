@@ -119,3 +119,46 @@ D1=A：删除 ionic.config / ionic:* 脚本，标题 Muses，vite 死 chunk 与�
 ### Status
 
 [OK] **完成**
+
+## Session 96: 依赖升级到最新（B + Android）
+
+**Date**: 2026-08-05
+**Task**: `.trellis/tasks/08-05-deps-upgrade-latest`
+**Branch**: `main`
+
+### Summary
+
+按策略 B 升级 npm 与 Android 稳定最新；TS7 因 vue-tsc/typescript-eslint 工具链失败按 D5 pin 到 TypeScript 6.0.3；AGP 9.3.1 + Gradle 9.5.0 + OkHttp 5.4 成功 `assembleDebug`。
+
+### Main Changes
+
+**npm**
+- Capacitor core/cli/android → 8.5.0；file-picker / native-audio patch；lucide 1.28；vite 8.2；eslint 10.8；tanstack / terser / plugin-legacy patch
+- vue-router → 5.2.0（无业务改动）
+- vue-tsc → 3.3.9
+- typescript **pin 6.0.3**（非 7.0.2）：TS7 下 vue-tsc 找不到 `typescript/lib/tsc`；eslint typescript-eslint peer `<6.1.0`
+- tsconfig：`moduleResolution: bundler` + `ignoreDeprecations: "6.0"`
+- vite.config：`import.meta.url` 替代 `__dirname`
+
+**Android**
+- AGP 9.3.1 / Kotlin 2.4.10 / gms 4.5.0 / Gradle wrapper 9.5.0
+- core 1.19 / activity 1.13 / webkit 1.16 / documentfile 1.1 / okhttp 5.4
+- compileSdk **37**（core 1.19 要求）；targetSdk 仍 36；versionName 0.2.4 不变
+- proguard → `proguard-android-optimize.txt`
+- `android.builtInKotlin=false` + `android.newDsl=false` 兼容 Capacitor 旧 variant API
+- OkHttp 5：`Response.body` 非空适配 AudioPlayer/WebDav/WebDavAudioCache
+
+**故意不升**
+- Pixi 7 / AMLL / happier-ui 0.0.8 / jaudiotagger 3.0.1 / appcompat 等仅有 rc 的包
+
+### Testing
+
+- [OK] `npm run lint`
+- [OK] `npm run build`
+- [OK] `npx cap sync android`
+- [OK] `./gradlew :app:assembleDebug`
+- [OK] `npm outdated` 仅剩 typescript latest=7.0.2（故意 pin）
+
+### Status
+
+[OK] **实现完成**（提交由主会话分段）
