@@ -483,7 +483,7 @@ import PlayerPage from '@/views/PlayerPage.vue'
 import QueuePage from '@/views/QueuePage.vue'
 ```
 
-**Related**: `vite.config.ts` 的 `build.rollupOptions.output.manualChunks` 已将 `@applemusic-like-lyrics` + `@pixi` 锁定到 `amll-pixi` chunk、`vue`+`vue-router` 到 `vue-vendor` chunk，利于长期缓存。新增任何重量级（>50KB）第三方库到 overlay 页面时，同样适用此约定；不要再用静态 import 把它拽进主 bundle。
+**Related**: `vite.config.ts` 的 `manualChunks` **只**把 `vue` / `@vue` / `vue-router` 归入 `vue-vendor`；**不要**再为 `@applemusic-like-lyrics` / `@pixi` 建 `amll-pixi` 手动 chunk（易与共享 CJS 互操作辅助形成顶层环，Android WebView 白屏）。AMLL/Pixi 依赖 `PlayerPage` 的 `defineAsyncComponent` 留在异步 chunk。新增重量级库时同样优先异步边界，不要静态 import 进首屏。
 
 **Gotcha**: 异步组件首次解析有极短延迟；如果 `<Transition>` 动画出现时序问题，给 `defineAsyncComponent` 传 `loadingComponent` / `delay` 选项，不要回退到静态 import。MiniPlayer 必须保持静态 import（它依赖很轻且首屏底栏需始终可见，不能等异步加载）。
 

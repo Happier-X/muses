@@ -20,7 +20,7 @@ Important compiler settings from `tsconfig.json`:
 
 - `strict: true`
 - `module: ESNext`
-- `moduleResolution: Node`
+- `moduleResolution: bundler`（TS 6 + vue-tsc 3；配合 `ignoreDeprecations: "6.0"`）
 - `isolatedModules: true`
 - `resolveJsonModule: true`
 - `noEmit: true`

@@ -257,7 +257,7 @@ Avoid:
 - Vite、Vue 插件、legacy 插件应作为一组升级；Vitest 与 jsdom、ESLint 与 Vue/TypeScript 配置链也应分别成组验证。
 - 每组升级后运行 lint、build 和完整 unit test；最终执行 `npm ci` 验证锁文件可干净重建，并运行 `npx cap sync android` 检查原生插件同步。
 - 跨主版本若失败，任务记录必须保留具体命令和兼容性证据，不得为了满足“最新”强行破坏可构建组合。
-- 当前已验证组合包括 Vite 8 + plugin-vue 6 + plugin-legacy 8、Vitest 4 + jsdom 29、Cypress 15（Node 22/24）、ESLint 10 flat config + eslint-plugin-vue 10 + `@vue/eslint-config-typescript` 14。TypeScript 7 与当前 vue-tsc 3 仍因 `typescript/lib/tsc` 未导出而失败，应保留 TypeScript 5.9 + vue-tsc 2。应用已脱离 Ionic，`vue-router` 不再被 `@ionic/vue-router` 的 peer 依赖锁死，可按 vue-router 自身兼容性独立升级验证。
+- 当前已验证组合包括 Vite 8 + plugin-vue 6 + plugin-legacy 8、ESLint 10 flat config + eslint-plugin-vue 10 + `@vue/eslint-config-typescript` 14、`vue-router` 5、`vue-tsc` 3、TypeScript **6.0.x**。TypeScript 7（`latest` 7.0.2）仍不可用：`vue-tsc` 无法解析 `typescript/lib/tsc`，且 `typescript-eslint@8` peer 为 `>=4.8.4 <6.1.0`，故 **pin TypeScript 6.0.3**（不要为了 latest 强升到 7）。应用已脱离 Ionic，`vue-router` 可按自身兼容性独立升级验证。
 - Android APK 最终构建需要 JDK 21；本地无 Java 时必须通过 CI 验证，不能把 `cap sync` 等同于 APK 编译成功。
 - **发布时必须同步 `package-lock.json` 的根 `version`**：仅改 `package.json` 的 `version` 而不改锁文件，会在 GitHub Actions（Linux + Node 22 `npm ci`）失败。
 - **`picomatch` 多版本并存**：Vite 8 / vitest / tinyglobby 需要 `picomatch@4`，`micromatch` 需要 `picomatch@2`。Windows 上本地 `npm ci` 可能通过，但 Linux CI 会对锁文件报 `Invalid: lock file's picomatch@2.3.2 does not satisfy picomatch@4.0.5`。发布或依赖升级后应用 `package.json` `overrides` + 直接 `devDependencies.picomatch@4.0.5` 固定解析，并在干净目录再跑一次 `npm ci`；最终以 Release workflow 的 `npm ci` 为准。
