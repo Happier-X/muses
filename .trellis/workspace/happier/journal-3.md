@@ -379,3 +379,10 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   且不触发 matchOnlineLyricsForSong；播放（playSong）才匹配
 - 修复：恢复会话也发起在线匹配（++lyricsMatchToken 独立 token 防串曲），
   翻译/按钮尽快可用；上一轮还改了移动端翻译按钮常显 + 无翻译 toast
+
+## Session 97r · 2026-08-06 · 歌曲页悬浮气泡外观优化
+
+- 默认 HFloatingBubble 实心主题蓝圆球突兀 → 改 surface 底 + 主题色图标
+  + border-subtle 细边框 + 柔和阴影（token 驱动暗色自适应）
+- HFloatingBubble teleport 到 body，scoped 失效 → tailwind.css 全局覆盖
+  （仅 SongsPage 使用）；hover 阴影加深
