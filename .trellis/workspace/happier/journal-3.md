@@ -403,3 +403,16 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   时间更新驱动时生效；暂停滚动不归位
 - 实现：LyricPlayer @wheel/@touchmove（fallthrough 根元素）→ 停止
   2 秒后 player.resetScroll() + calcLayout()（公开 API），暂停也生效
+
+## Session 97u · 2026-08-06 · 歌词自动回位修复（root cause）
+
+- 用户反馈"滚动后自动回高亮行"不行；模拟器复现：滚动发生但 2 秒后不回位
+- 排查链：事件 fallthrough 正常（touchmove 9 次）→ 滚动正常（activeY 319→-34）
+  → getLyricPlayerInstance 返回 null（hasPlayer false）
+- **Root cause**：Vue `expose()` 返回值经 proxyRefs 自动解包——`exposed.lyricPlayer`
+  直接是 LyricPlayerBase 实例（非 Ref），原 `comp?.lyricPlayer?.value` 恒 undefined
+- 修复：`comp?.lyricPlayer ?? null`；实测滚动后 2.9s activeY -34→319 回位成功（含暂停态）
+- 模拟器歌词测试环境：注入带 lrc 的歌曲 + 正确 queue 格式（{items:[{songId}]}）
+  + playback-session，写入后需等 ~2s 刷盘再 force-stop 才持久
+- PlayerPage 面板切换在模拟器 swipe 不可靠（命中封面按钮），用 JS 强制设置
+  .panels transform 使歌词面板可见再测
