@@ -585,7 +585,6 @@
       v-model="toast.visible"
       :variant="toast.variant"
       :duration="toast.duration"
-      position="bottom"
     >
       {{ toast.message }}
     </h-toast>
