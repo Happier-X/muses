@@ -218,7 +218,7 @@
               :tabindex="lyricChromeVisible ? 0 : -1"
               @click.stop="onLyricPlayClick"
             >
-              <h-icon :icon="isPlaying ? pause : play" variant="fill" />
+              <h-icon :icon="isPlaying ? pause : play" />
             </h-button>
           </div>
         </section>
