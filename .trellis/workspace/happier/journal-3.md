@@ -243,3 +243,12 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 
 ### 备注
 - 页面 body 背景与 cell 同为 `--h-color-surface`，分组靠 inset 圆角区分，视觉协调
+
+## Session 97c · 2026-08-06 · Muses 升级 happier-ui 0.1.1（BottomSheet 全宽）
+
+- 组件库 0.1.1 已发布（含 #15 slot-anchor 修复），npm 0.1.1 dist 验证通过
+- Muses 升级：happier-ui 0.0.10 → 0.1.1（精确版本），lint/build 通过，API 兼容
+- 模拟器 CDP 实测：歌单操作 sheet 面板 360px=视口宽（修复前 133px）；删除确认 dialog 仍居中内容自适应（291px）
+- 升级适配：PlayerPage h-toast 补 position="bottom"（0.1.0 HToast 重构默认居中，保持原行为）
+- spec 同步：依赖版本 0.1.1 + BottomSheet 全宽约定（component-guidelines.md / directory-structure.md / quality-guidelines.md）
+- 提交 9e96fdd
