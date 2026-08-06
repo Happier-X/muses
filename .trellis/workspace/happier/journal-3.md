@@ -284,3 +284,24 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 设置页「检查更新」从独立 primary 大按钮改为「关于」卡片内 clickable cell（chevron）
 - checking 时 description「正在检查更新…」，guard 防重入
 - 实测：cell 出现/按钮移除/checking 状态正常；lint + build 通过
+
+## Session 97i · 2026-08-06 · 歌曲页进入即滚到底（虚拟列表误滚动）
+
+### 现象
+进入歌曲页（冷启动或 tab 切换）列表自动滚到最底部。
+
+### 排查过程（模拟器 CDP 实证）
+- 复现：冷启动 scrollTop = sh - ch 精确到底（10 首 352 / 330 首 16984）
+- 排除：scrollToCurrentSong 未被调用（localStorage 调用日志为空）、
+  overflow-anchor:none 无效（全局注入仍滚）、行高 72=estimate（无 measure 偏差）
+- reload 与冷启动均复现；挂载后注入/重建数据不滚 → "挂载过程"特有
+- 疑 TanStack Virtual measure 期间 WebView 首屏布局时序漂移（机制未完全定位）
+
+### 修复
+- mount 后 4 秒内周期回顶兜底，用户 touchstart/wheel 即停（不打断手动滚动）
+- SongsPage + PlaylistDetailPage 同款；QueuePage 补 [overflow-anchor:none]
+- 验证：10/300 首冷启动 + tab 切回均 top=0
+
+### 沉淀
+- 虚拟列表首屏"精确滚到底" = sh-ch：优先排查 scrollToIndex/scroll anchoring/measure
+- TanStack Virtual 建议 scrollElement 设 overflow-anchor:none
