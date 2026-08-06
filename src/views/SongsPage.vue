@@ -141,6 +141,9 @@ import {
 
 const songs = ref<SongItem[]>([])
 const listParentRef = ref<HTMLElement | null>(null)
+/** tab 切换时的滚动位置保留（sessionStorage 持久，组件卸载/重挂载与懒加载 chunk 重执行均安全） */
+const SCROLL_SAVE_KEY = 'muses:songs-scroll-top'
+let savedSongsScrollTop = Number(sessionStorage.getItem(SCROLL_SAVE_KEY) || 0)
 const actionSong = ref<SongItem | null>(null)
 const isSongActionsOpen = ref(false)
 const isPlaylistPickOpen = ref(false)
@@ -330,22 +333,42 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener(SONGS_UPDATED_EVENT, refreshSongs)
   }
-  // 冷启动/重进页面时 WebView 首屏布局未稳，虚拟列表可能被误滚到底（scrollToCurrentSong 未调用、
-  // overflow-anchor:none 无效；疑 TanStack Virtual measure 期间布局漂移）。挂载后短暂周期回顶兜底，
-  // 用户一交互立即停止，避免打断手动滚动。
+  const mountAt = Date.now()
   let interacted = false
   const stop = () => { interacted = true }
-  const el = listParentRef.value
-  el?.addEventListener('touchstart', stop, { once: true, passive: true })
-  el?.addEventListener('wheel', stop, { once: true, passive: true })
-  const resetTop = () => {
-    if (interacted) return
+  // 挂载后 4 秒防漂移 + 挂滚动位置保存。
+  // 背景：WebView 首屏布局未稳时虚拟列表可能被误滚到底（scrollToCurrentSong 未调用、
+  // overflow-anchor:none 无效；疑 TanStack Virtual measure 期间布局漂移），冷启动与
+  // tab 切回（重新挂载）均会触发。统一处理：期望位置 = 保存值（有则恢复）或 0（顶部），
+  // 4 秒内无用户交互且 scrollTop 漂移远离期望位置时拉回；用户一交互（touchstart/wheel）
+  // 立即停止，避免打断手动滚动。
+  let attached = false
+  const attachScrollSave = () => {
     const cur = listParentRef.value
-    if (cur && cur.scrollTop > 0) cur.scrollTop = 0
+    if (!cur || attached) return
+    attached = true
+    cur.addEventListener('touchstart', stop, { once: true, passive: true })
+    cur.addEventListener('wheel', stop, { once: true, passive: true })
+    cur.addEventListener('scroll', () => {
+      if (Date.now() - mountAt < 4000) return
+      savedSongsScrollTop = cur.scrollTop
+      sessionStorage.setItem(SCROLL_SAVE_KEY, String(cur.scrollTop))
+    }, { passive: true })
   }
-  requestAnimationFrame(resetTop)
-  const iv = window.setInterval(resetTop, 250)
-  window.setTimeout(() => { window.clearInterval(iv); el?.removeEventListener('touchstart', stop); el?.removeEventListener('wheel', stop) }, 4000)
+  const guard = () => {
+    const cur = listParentRef.value
+    if (!cur || interacted || Date.now() - mountAt > 4000) return
+    const max = cur.scrollHeight - cur.clientHeight
+    if (max <= 0) return
+    // 期望位置：有保存值恢复（clamp 到当前列表范围），否则顶部
+    const target = savedSongsScrollTop > 0 ? Math.min(savedSongsScrollTop, max) : 0
+    if (Math.abs(cur.scrollTop - target) > 500) {
+      cur.scrollTop = target
+    }
+  }
+  requestAnimationFrame(guard)
+  const iv = window.setInterval(() => { attachScrollSave(); guard() }, 250)
+  window.setTimeout(() => window.clearInterval(iv), 4000)
 })
 
 onUnmounted(() => {
