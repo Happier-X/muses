@@ -349,3 +349,9 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 注：封面 mode-bar 播放键保留 fill（该处左右均为填充风格）
 - （回退 97m）用户决定播放/暂停保持 fill 风格（实心），翻译按钮 stroke 不变；
   两按钮视觉差异（实心 vs 空心）为用户接受的设计选择
+
+## Session 97n · 2026-08-06 · 翻译图标改 fill 风格
+
+- 用户要求翻译/取消翻译图标也 fill（与播放键实心一致）
+- Captions/CaptionsOff 加 variant="fill"（svg fill=currentColor，线框变实心色块）
+- 效果需真机确认（模拟器无歌词数据无法渲染）
