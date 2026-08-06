@@ -2,26 +2,27 @@
   <div class="m-page">
     <h-nav-bar title="设置" :fixed="false" />
     <div class="m-content">
-      <div class="md:max-w-[var(--muses-content-max-width)] md:mx-auto">
-      <div>
-          <div>
-            <div>
-              <h2>Muses</h2>
-              <p>应用版本 {{ currentVersion }}</p>
-            </div>
-          </div>
+      <div class="md:max-w-[var(--muses-content-max-width)] md:mx-auto space-y-[var(--muses-space-lg)]">
+        <h-cell-group title="关于">
+          <h-cell
+            title="Muses"
+            :description="`应用版本 ${currentVersion}`"
+          />
+        </h-cell-group>
 
-          <div>
-            <div>
-              <h2>音量均衡</h2>
-              <p>根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。</p>
-            </div>
-            <h-switch
-              v-model="loudnessNormalizeEnabled"
-              aria-label="音量均衡"
-            />
-          </div>
-        </div>
+        <h-cell-group title="音频">
+          <h-cell
+            title="音量均衡"
+            description="根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。"
+          >
+            <template #suffix>
+              <h-switch
+                v-model="loudnessNormalizeEnabled"
+                aria-label="音量均衡"
+              />
+            </template>
+          </h-cell>
+        </h-cell-group>
 
         <div class="p-[var(--muses-space-lg)]">
           <h-button
@@ -49,7 +50,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { HButton, HNavBar, HSwitch, HToast } from '@/components/ui'
+import { HButton, HCell, HCellGroup, HNavBar, HSwitch, HToast } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,
