@@ -468,3 +468,15 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   AlbumsPage/ArtistsPage 卡片 @click + cursor-pointer
 - 验证：专辑/艺术家点击进详情正常；播放全部正常；返回正常
 - 注意：lib-play-test 曾出现 rows=0 偶发（播放失败+存储竞态），重挂载后不复现
+
+## Session 97ab · 2026-08-06 · 详情页对齐歌曲页功能
+
+- 需求：专辑/艺术家详情页与歌曲页一样：随机播放全部 + 跳转当前歌曲气泡
+- 实现：LibraryDetailPage 加 shuffle 操作栏（onShuffleAll 同 SongsPage）；
+  跳转气泡（currentPlayingInList && !inViewport && !isListScrolling，
+  scrollToIndex + 1.2s 高亮）；fabOffset 无 tab bar
+- 验证：459 首'未知专辑'进详情；气泡显示→完整 pointer 点击
+  （pointerdown/up/click）scrollTop 0→32736 跳转成功；
+  播放行 is-playing 可见、气泡自动隐藏
+- 坑：程序化 b.click()（无 pointer 序列）不触发 HFloatingBubble emit，
+  真实触摸走 pointerdown→up→click 才有效——测试须 dispatch 完整序列
