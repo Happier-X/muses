@@ -3,14 +3,14 @@
     <h-nav-bar title="设置" :fixed="false" />
     <div class="m-content">
       <div class="md:max-w-[var(--muses-content-max-width)] md:mx-auto space-y-[var(--muses-space-lg)]">
-        <h-cell-group title="关于">
+        <h-cell-group title="关于" variant="card">
           <h-cell
             title="Muses"
             :description="`应用版本 ${currentVersion}`"
           />
         </h-cell-group>
 
-        <h-cell-group title="音频">
+        <h-cell-group title="音频" variant="card">
           <h-cell
             title="音量均衡"
             description="根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。"
