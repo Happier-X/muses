@@ -366,6 +366,9 @@ const restorePlaybackSessionIfNeeded = (): void => {
   state.value.lyricsFormat = resolveStoredLyricsFormat(song)
   state.value.lyricsTranslation = null
   state.value.onlineLyricsStatus = 'idle'
+  // 打开播放页（未播放）也异步匹配在线歌词：翻译/歌词尽快可用，不等点击播放
+  const restoreMatchToken = ++lyricsMatchToken
+  void matchOnlineLyricsForSong(song, restoreMatchToken)
   state.value.coverUri = toSafeCoverUri(song.coverUri) || null
   state.value.metadataStatus = song.tagsScanned === true ? 'ready' : 'idle'
   // 续播起点记在 state.value.position；点播放时 resumePlayback 再起 native
