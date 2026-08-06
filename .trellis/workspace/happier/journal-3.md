@@ -387,3 +387,4 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - HFloatingBubble teleport 到 body，scoped 失效 → tailwind.css 全局覆盖
   （仅 SongsPage 使用）；hover 阴影加深
 - 气泡图标 locateOutline → Crosshair 十字准星（更贴定位语义）
+- 气泡 48→40px、图标 20→18px；offset 56→48 保持贴边
