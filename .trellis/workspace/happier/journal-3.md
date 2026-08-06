@@ -459,3 +459,12 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   添加/编辑/WebDAV 仍 bottom-sheet
 - h-dialog API：modelValue/title/closeOnOverlay/closeOnEsc/close 事件/#title slot
 - 模拟器实测：扫描设置面板 y=202 h=211（屏幕 616 居中），非底部滑出
+
+## Session 97aa · 2026-08-06 · 专辑/艺术家点击进详情
+
+- 需求：专辑页和艺术家页的条目可点击进入详情（歌曲列表）
+- 方案：通用 LibraryDetailPage.vue（/tabs/library/:kind/:name），
+  kind 决定分组来源；虚拟列表复用 PlaylistDetailPage 模式（含冷启动回顶兜底）；
+  AlbumsPage/ArtistsPage 卡片 @click + cursor-pointer
+- 验证：专辑/艺术家点击进详情正常；播放全部正常；返回正常
+- 注意：lib-play-test 曾出现 rows=0 偶发（播放失败+存储竞态），重挂载后不复现
