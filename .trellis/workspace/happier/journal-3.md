@@ -371,3 +371,11 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 原因：v-if=hasLyricTranslation 依赖歌词加载（播放后才拉取）→ 首次打开无按钮
 - 修复：移动端（!isTabletLayout）浮层显示即常显翻译按钮；无翻译点击 toast 提示
 - 平板保持仅 hasLyricTranslation（浮层本身逻辑）
+
+## Session 97q · 2026-08-06 · 恢复会话即匹配在线歌词
+
+- 用户：未播放（打开播放页）歌词已展示但翻译按钮不显示，播放后才出现
+- 根因：restorePlaybackSessionIfNeeded 恢复会话时 lyricsTranslation=null
+  且不触发 matchOnlineLyricsForSong；播放（playSong）才匹配
+- 修复：恢复会话也发起在线匹配（++lyricsMatchToken 独立 token 防串曲），
+  翻译/按钮尽快可用；上一轮还改了移动端翻译按钮常显 + 无翻译 toast
