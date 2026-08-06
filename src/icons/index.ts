@@ -27,7 +27,7 @@ export {
   Trash2 as trash,
   ChevronLeft as chevronBack,
   Languages as languageOutline,
-  CaptionsOff as languageOffOutline,
+  Languages as languageOffOutline,
   Locate as locateOutline,
   EllipsisVertical as ellipsisVertical,
   CircleMinus as removeCircleOutline,
