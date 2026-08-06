@@ -226,3 +226,20 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 ### 方法论沉淀
 - flex 容器内无样式中间层（slot-anchor）会让子元素 width:100% 按内容宽解析——排查"宽度不对"时先看包含块链
 - 相邻仓库发布前注意工作区未提交改动（HLoading 任务），避免污染发布包
+
+## Session · 2026-08-06 · 设置页改用 HCell 组件（08-06-settings-cell-refactor）
+
+### 背景
+设置页（SettingsPage.vue）原为手写 h2/p/div 结构，不符合 spec 中"设置行统一用 HCellGroup/HCell"的约定。
+
+### 改动
+- Muses 版本信息、音量均衡两块改为 `h-cell-group`（title="关于"/"音频"）+ `h-cell`
+- 音量均衡的 `h-switch` 放入 `suffix` 插槽；业务逻辑（watch 持久化、检查更新、toast）零改动
+- 组间距用 `space-y-[var(--muses-space-lg)]`，外层保持 `md:max-w-[var(--muses-content-max-width)]`
+- 从 `@/components/ui` 导入 HCell、HCellGroup（已转出）
+
+### 验证
+- `npm run build`（vue-tsc + vite）通过；`npm run lint` 通过
+
+### 备注
+- 页面 body 背景与 cell 同为 `--h-color-surface`，分组靠 inset 圆角区分，视觉协调
