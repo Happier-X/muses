@@ -278,3 +278,9 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 
 - .m-page .h-nav-bar 加 border-bottom: none（灰底与内容融合，细分隔冗余）
 - 弹层内 navbar 保留默认线；实测设置页 navbar border 0px
+
+## Session 97h · 2026-08-06 · 检查更新改为 cell 组件
+
+- 设置页「检查更新」从独立 primary 大按钮改为「关于」卡片内 clickable cell（chevron）
+- checking 时 description「正在检查更新…」，guard 防重入
+- 实测：cell 出现/按钮移除/checking 状态正常；lint + build 通过
