@@ -267,3 +267,9 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - SongsPage 顶部工具条同步改灰；navbar/tab-bar/MiniPlayer/平板 sidebar 保持 surface 白（独立表面）
 - 暗色模式 token 自动适配（#2c2c2e）；模拟器实测卡片对比可见
 - spec 补"页面背景 token"约定；提交并归档
+
+## Session 97f · 2026-08-06 · 页面级 navbar 改灰底
+
+- 灰底页面 + 白 navbar 突兀；.m-page .h-nav-bar → surface-secondary
+- 选择器限 m-page 内：弹层（HPopup 白面板）内 navbar 保持 surface 白（播放队列验证 #ffffff）
+- 模拟器实测：页面 navbar #f4f4f5 = body；弹层 navbar 白
