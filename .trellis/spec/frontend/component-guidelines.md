@@ -281,6 +281,10 @@ ESLint 已启用 `vue/no-undef-components`（error）防回归：模板使用未
   - 移动端：`padding-bottom: var(--muses-mini-player-height)`（64px，最后一项紧贴 MiniPlayer，**无额外间距**；safe-area 已被 main 消化，**不再加**）；
   - 平板端（`md:`）：`calc(var(--muses-mini-player-height) + env(safe-area-inset-bottom, 0px))`（main `pb-0`、MiniPlayer 贴视口底，需补 safe-area）；
   - `SourcesPage` 非虚拟列表，保留卡片底部 24px 设计留白（`--muses-space-xl`，≈88px 含 mini-player）。
+- **虚拟列表滚动位置保留**（`SongsPage`）：tab 切换回来应恢复上次位置，不可回顶。
+  - 保存：列表 `scroll` 事件实时写入 `sessionStorage['muses:songs-scroll-top']`，**挂载后 4 秒内忽略**（防 WebView 误滚到底被存下）；**禁止在 `onUnmounted` 保存**（Vue 卸载时模板 ref 已置 null）；模块级变量也不可靠（懒加载 chunk 重新执行后归零）。
+  - 恢复：挂载后 4 秒内统一 guard——期望位置 = 保存值（`Math.min(saved, scrollHeight - clientHeight)` clamp）或 0（顶部），无用户交互且 `scrollTop` 漂移远离期望位置 >500px 则拉回；用户 `touchstart`/`wheel` 即停（`once`），不打断手动滚动。
+  - 原因：WebView 首屏布局未稳时虚拟列表可能被误滚到底（`scrollToCurrentSong` 未调用、`overflow-anchor:none` 无效），冷启动与 tab 切回均触发（`08-06-songs-auto-scroll-bottom`）。
 
 参考结构：
 
