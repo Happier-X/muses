@@ -273,3 +273,8 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 灰底页面 + 白 navbar 突兀；.m-page .h-nav-bar → surface-secondary
 - 选择器限 m-page 内：弹层（HPopup 白面板）内 navbar 保持 surface 白（播放队列验证 #ffffff）
 - 模拟器实测：页面 navbar #f4f4f5 = body；弹层 navbar 白
+
+## Session 97g · 2026-08-06 · 去掉页面级 navbar 底部分隔线
+
+- .m-page .h-nav-bar 加 border-bottom: none（灰底与内容融合，细分隔冗余）
+- 弹层内 navbar 保留默认线；实测设置页 navbar border 0px
