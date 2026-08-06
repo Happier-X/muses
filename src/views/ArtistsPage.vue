@@ -15,7 +15,10 @@
       <article
         v-for="artist in artists"
         :key="artist.name"
-        class="flex flex-col gap-[var(--muses-space-sm)] min-w-0"
+        class="flex flex-col gap-[var(--muses-space-sm)] min-w-0 cursor-pointer active:opacity-80"
+        role="button"
+        tabindex="0"
+        @click="openArtist(artist.name)"
       >
         <m-cover
           class="!w-full !h-auto aspect-square !flex-none !rounded-full"
@@ -34,11 +37,18 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { HEmpty, MCover, MPage } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByArtist } from '@/features/library/views'
+
+const router = useRouter()
+
+const openArtist = (name: string): void => {
+  void router.push(`/tabs/library/artist/${encodeURIComponent(name)}`)
+}
 
 const songs = ref<SongItem[]>([])
 const artists = computed(() => groupSongsByArtist(songs.value))

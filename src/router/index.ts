@@ -35,6 +35,10 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/PlaylistDetailPage.vue')
       },
       {
+        path: 'library/:kind/:name',
+        component: () => import('@/views/LibraryDetailPage.vue')
+      },
+      {
         path: 'sources',
         component: () => import('@/views/SourcesPage.vue')
       },

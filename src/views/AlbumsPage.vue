@@ -15,7 +15,10 @@
       <article
         v-for="album in albums"
         :key="album.name"
-        class="flex flex-col gap-[var(--muses-space-sm)] min-w-0"
+        class="flex flex-col gap-[var(--muses-space-sm)] min-w-0 cursor-pointer active:opacity-80"
+        role="button"
+        tabindex="0"
+        @click="openAlbum(album.name)"
       >
         <m-cover class="!w-full !h-auto aspect-square !flex-none" :src="getAlbumCoverSrc(album.songs)" alt="" />
         <div class="flex flex-col gap-[var(--muses-space-xs)] min-w-0">
@@ -30,11 +33,18 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { MCover, HEmpty, MPage } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByAlbum } from '@/features/library/views'
+
+const router = useRouter()
+
+const openAlbum = (name: string): void => {
+  void router.push(`/tabs/library/album/${encodeURIComponent(name)}`)
+}
 
 const songs = ref<SongItem[]>([])
 const albums = computed(() => groupSongsByAlbum(songs.value))
