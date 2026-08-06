@@ -162,3 +162,24 @@ D1=A：删除 ionic.config / ionic:* 脚本，标题 Muses，vite 死 chunk 与�
 ### Status
 
 [OK] **实现完成**（提交由主会话分段）
+
+
+## Session 95: 修复歌曲页滚动到底部多余空白（底部 padding 双算 tab-bar）
+
+**Date**: 2026-08-06
+**Task**: 修复歌曲页滚动到底部多余空白（底部 padding 双算 tab-bar）
+**Branch**: `main`
+
+### Summary
+
+诊断：SongsPage 虚拟列表底部 padding 重复计算了 tab-bar 高度（TabsPage main 已为其预留），导致滚动到底多出约 64px 空白。修复：SongsPage/PlaylistDetailPage 底部 padding 改为 mini-player-height + space-lg（移动端 80px）/ 平板端加 safe-area；SourcesPage 叠加预留并保留 24px 设计留白（space-xl）。同步修正 spec 避让职责边界约定（tab-bar 归 TabsPage main、列表只避让 MiniPlayer），防再双算。验证：lint/build 通过、Tailwind CSS 正确生成。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7312c40` | (see git log) |
+
+### Status
+
+[OK] **Completed**
