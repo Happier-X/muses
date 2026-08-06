@@ -217,7 +217,7 @@ body.muses-overlay-open .m-content {
 
 /* 仅非语义激活时更淡；:not(.is-active) 避免盖掉激活提亮 */
 .player-overlay .mode-bar .h-button:not(.is-active) {
-  color: rgba(255, 255, 255, 0.58);
+  color: #ffffff;
 }
 
 /* HRange 进度条：隐藏 knob，使用 4px 细轨道沉浸样式。
@@ -295,6 +295,11 @@ body.muses-overlay-open .m-content {
 
 .player-overlay .lyric-fab.h-button--ghost:not(.is-active) {
   color: rgba(255, 255, 255, 0.58);
+}
+
+/* 歌词底栏播放/暂停按钮亮色（区别于翻译按钮的淡色，用户在沉浸页要求） */
+.player-overlay .lyric-fab.lyric-play-toggle:not(.is-active) {
+  color: #ffffff;
 }
 
 .player-overlay .lyric-fab .h-icon {
