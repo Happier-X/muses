@@ -204,7 +204,7 @@
               :tabindex="lyricChromeVisible ? 0 : -1"
               @click.stop="onLyricTranslateClick"
             >
-              <h-icon :icon="translationIcon" variant="fill" aria-hidden="true" />
+              <h-icon :icon="translationIcon" aria-hidden="true" />
             </h-button>
 
             <h-button
