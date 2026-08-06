@@ -100,7 +100,7 @@
       </h-dialog>
 
       <h-floating-bubble
-        v-if="currentPlayingInList"
+        v-if="showJumpBubble"
         axis="lock"
         :offset="fabOffset"
         :ariaLabel="'跳转到当前播放'"
@@ -205,6 +205,36 @@ const currentPlayingInList = computed(() => {
   }
   return songs.value.some((song) => song.id === currentId)
 })
+
+/** 当前歌曲在 songs 中的下标（-1 表示不在列表） */
+const currentSongIndex = computed(() => {
+  const currentId = playerState.currentSong?.id
+  if (!currentId) return -1
+  return songs.value.findIndex((song) => song.id === currentId)
+})
+
+/** 当前歌曲行是否在可视区（渲染行含 overscan） */
+const currentSongInViewport = computed(() => {
+  const idx = currentSongIndex.value
+  if (idx < 0) return false
+  return virtualRows.value.some((item) => item.index === idx)
+})
+
+/** 列表滚动中（防抖 300ms）：滚动时隐藏气泡，避免遮挡行的更多按钮 */
+const isListScrolling = ref(false)
+let scrollIdleTimer: ReturnType<typeof setTimeout> | null = null
+const onListScroll = (): void => {
+  isListScrolling.value = true
+  if (scrollIdleTimer) clearTimeout(scrollIdleTimer)
+  scrollIdleTimer = setTimeout(() => {
+    isListScrolling.value = false
+  }, 300)
+}
+
+/** 跳转气泡：当前歌曲在列表且不在可视区且未滚动中才显示（跳转后自动隐藏，不挡更多按钮） */
+const showJumpBubble = computed(
+  () => currentPlayingInList.value && !currentSongInViewport.value && !isListScrolling.value,
+)
 
 const fabOffset = computed<HFloatingBubbleOffset>(() => {
   const miniPlayerH = 64
@@ -349,6 +379,7 @@ onMounted(() => {
     attached = true
     cur.addEventListener('touchstart', stop, { once: true, passive: true })
     cur.addEventListener('wheel', stop, { once: true, passive: true })
+    cur.addEventListener('scroll', onListScroll, { passive: true })
     cur.addEventListener('scroll', () => {
       if (Date.now() - mountAt < 4000) return
       savedSongsScrollTop = cur.scrollTop
@@ -374,6 +405,10 @@ onMounted(() => {
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener(SONGS_UPDATED_EVENT, refreshSongs)
+  }
+  if (scrollIdleTimer) {
+    clearTimeout(scrollIdleTimer)
+    scrollIdleTimer = null
   }
   if (jumpHighlightTimer) {
     clearTimeout(jumpHighlightTimer)
