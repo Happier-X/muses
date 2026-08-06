@@ -312,3 +312,24 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 用户要紧凑：padding 改为仅 mini-player-height（80→64px），最后一项紧贴播放条
 - SongsPage + PlaylistDetailPage 一致；实测 gap 15px → ~0px
 - spec 更新取值约定（去掉 space-lg）
+
+## Session 97k · 2026-08-06 · tab 切换保留歌曲列表滚动位置
+
+### 需求
+从其他页面切回歌曲页时列表回到顶部，用户期望保留上次滚动位置。
+
+### 关键发现（CDP 实证）
+- onUnmounted 保存不可行：**Vue 卸载时 listParentRef.value 已为 null**（ref 清空）
+- 模块级变量保存也不可靠：**懒加载 chunk 重新执行后模块变量归零**
+  （切回时 mount 日志 saved=0，尽管滚动事件已保存 10000）
+- 切回场景同样触发"误滚到底"：restore 设置 10000 后被拉到 max（27768），
+  原恢复分支无防漂移兜底
+
+### 方案
+- sessionStorage 持久保存（'muses:songs-scroll-top'）：跨组件生命周期 + chunk 重执行
+- scroll 事件实时保存（挂载初期 4 秒忽略，防误滚到底被存下）
+- 统一 guard：4 秒内无用户交互且 scrollTop 漂移远离期望位置（保存值 clamp / 0）>500 则拉回；
+  用户 touchstart/wheel 即停
+
+### 验证
+冷启动 top=0；滚到 10000 → 切走 → 切回 = 10000；用户触摸滚动 18000 不被拉回。
