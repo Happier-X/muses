@@ -359,3 +359,9 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   （翻译图标），fill 后为"文"字符号实心；关闭态 CaptionsOff 保留
 - 取消翻译也从 CaptionsOff 换 Languages：开/关同图标，靠 is-active 颜色提亮区分
 - 翻译图标去掉 fill 恢复 stroke 线条风格（Languages 图标保持）；播放键仍 fill
+
+## Session 97o · 2026-08-06 · 播放键与 mode-bar 亮色
+
+- 歌词底栏播放/暂停按钮非激活色 0.58 → #fff（lyric-play-toggle 专属规则）
+- 封面 mode-bar 四按钮（repeat/shuffle/list/more）非激活 0.58 → #fff
+- 激活状态不依赖颜色：repeat/shuffle 用图标实心 vs 空心切换指示
