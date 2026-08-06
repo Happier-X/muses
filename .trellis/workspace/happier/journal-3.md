@@ -333,3 +333,10 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 
 ### 验证
 冷启动 top=0；滚到 10000 → 切走 → 切回 = 10000；用户触摸滚动 18000 不被拉回。
+
+## Session 97l · 2026-08-06 · 翻译按钮激活态去背景
+
+- 播放页歌词底栏翻译按钮（h-button ghost + is-active）打开翻译时有
+  rgba(255,255,255,0.22) 常驻背景，用户要纯图标
+- 修复：.player-overlay .h-button--ghost.is-active 背景三态（常驻/hover/active）
+  全改 transparent，保留颜色提亮指示激活；build 产物验证 background:0 0
