@@ -1568,7 +1568,13 @@ const lyricEmptyDescription = computed(() => {
 const canSeek = computed(() => playerState.duration > 0)
 const durationForSlider = computed(() => playerState.duration || 1)
 const seekPreviewPosition = ref<number | null>(null)
-const effectiveSeekPosition = computed(() => seekPreviewPosition.value ?? playerState.position)
+const effectiveSeekPosition = computed(() => {
+  // duration 未知（库内无时长且 native 未上报）：进度归 0，避免 position/max=1 显示 100%
+  if (playerState.duration <= 0) {
+    return 0
+  }
+  return seekPreviewPosition.value ?? playerState.position
+})
 
 const bufferHintVisible = ref(false)
 let bufferHintTimer: ReturnType<typeof setTimeout> | null = null

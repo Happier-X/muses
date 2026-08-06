@@ -253,7 +253,10 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   } else {
     state.value.position = nextPosition
   }
-  state.value.duration = normalizePlaybackTime(nativeState.duration)
+  // duration 未就绪（native prepare 窗口上报 0）时保留已有值，
+  // 避免续播 position 相对 max=1 瞬间显示 100%（进度条爆炸后回跳）
+  const nativeDuration = normalizePlaybackTime(nativeState.duration)
+  state.value.duration = nativeDuration > 0 ? nativeDuration : state.value.duration
 
   // 缓冲：原生上报时单调合并；error 在下方 reset，禁止串曲
   if (
