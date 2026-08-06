@@ -441,3 +441,13 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 需求：toast 改回默认居中（此前 BottomSheet 全宽时改过 bottom）
 - 改动：PlayerPage/SettingsPage/SourcesPage 去掉 position="bottom"，
   h-toast 默认 position='center'
+
+## Session 97y · 2026-08-06 · 发布 v0.2.5
+
+- 版本：0.2.5 / versionCode 25（package.json / lock / build.gradle 同步）
+- 新增 changelog/v0.2.5.md（自 v0.2.4 起约 40 个功能提交：列表滚动位置保留/气泡、
+  歌词自动回位/翻译按钮、封面占位正方形、设置页卡片、toast 居中等）
+- 本地 lint/build/assembleDebug 验证 → commit chore(release): v0.2.5 (455c144)
+- push main + tag v0.2.5；GitHub Actions 3m16s 构建通过
+- Release: https://github.com/Happier-X/muses/releases/tag/v0.2.5
+  （muses-v0.2.5.apk 主包 + muses-v0.2.5-mi.apk MIUI 包）
