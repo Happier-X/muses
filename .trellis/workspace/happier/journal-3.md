@@ -357,3 +357,4 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 效果需真机确认（模拟器无歌词数据无法渲染）
 - 翻译按钮打开态 Captions fill 效果不佳（实心色块）→ 换 lucide Languages
   （翻译图标），fill 后为"文"字符号实心；关闭态 CaptionsOff 保留
+- 取消翻译也从 CaptionsOff 换 Languages：开/关同图标，靠 is-active 颜色提亮区分
