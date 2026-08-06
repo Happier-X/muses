@@ -30,7 +30,7 @@
           description="在歌曲页点「更多」→「加入歌单」添加歌曲。"
         />
 
-        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg))] md:pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg)+env(safe-area-inset-bottom,0px))]" role="list" aria-label="歌单歌曲">
+        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg))] md:pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg)+env(safe-area-inset-bottom,0px))] [overflow-anchor:none]" role="list" aria-label="歌单歌曲">
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="row in visibleRows"
@@ -192,6 +192,20 @@ onMounted(() => {
   refresh()
   window.addEventListener(PLAYLISTS_UPDATED_EVENT, refresh)
   window.addEventListener(SONGS_UPDATED_EVENT, refresh)
+  // 与 SongsPage 同款兜底：冷启动首屏布局未稳时虚拟列表可能被误滚到底
+  let interacted = false
+  const stop = () => { interacted = true }
+  const el = listParentRef.value
+  el?.addEventListener('touchstart', stop, { once: true, passive: true })
+  el?.addEventListener('wheel', stop, { once: true, passive: true })
+  const resetTop = () => {
+    if (interacted) return
+    const cur = listParentRef.value
+    if (cur && cur.scrollTop > 0) cur.scrollTop = 0
+  }
+  requestAnimationFrame(resetTop)
+  const iv = window.setInterval(resetTop, 250)
+  window.setTimeout(() => { window.clearInterval(iv); el?.removeEventListener('touchstart', stop); el?.removeEventListener('wheel', stop) }, 4000)
 })
 
 onUnmounted(() => {

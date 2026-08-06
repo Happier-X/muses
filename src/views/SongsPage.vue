@@ -29,7 +29,7 @@
         description="请先到音源页添加并扫描音源。"
       />
 
-      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg))] md:pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg)+env(safe-area-inset-bottom,0px))] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
+      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg))] md:pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg)+env(safe-area-inset-bottom,0px))] md:max-w-[var(--muses-content-max-width)] md:mx-auto [overflow-anchor:none]">
         <div class="relative w-full" :style="{ height: `${totalSize}px` }">
           <div
             v-for="virtualRow in virtualRows"
@@ -330,6 +330,22 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener(SONGS_UPDATED_EVENT, refreshSongs)
   }
+  // 冷启动/重进页面时 WebView 首屏布局未稳，虚拟列表可能被误滚到底（scrollToCurrentSong 未调用、
+  // overflow-anchor:none 无效；疑 TanStack Virtual measure 期间布局漂移）。挂载后短暂周期回顶兜底，
+  // 用户一交互立即停止，避免打断手动滚动。
+  let interacted = false
+  const stop = () => { interacted = true }
+  const el = listParentRef.value
+  el?.addEventListener('touchstart', stop, { once: true, passive: true })
+  el?.addEventListener('wheel', stop, { once: true, passive: true })
+  const resetTop = () => {
+    if (interacted) return
+    const cur = listParentRef.value
+    if (cur && cur.scrollTop > 0) cur.scrollTop = 0
+  }
+  requestAnimationFrame(resetTop)
+  const iv = window.setInterval(resetTop, 250)
+  window.setTimeout(() => { window.clearInterval(iv); el?.removeEventListener('touchstart', stop); el?.removeEventListener('wheel', stop) }, 4000)
 })
 
 onUnmounted(() => {
