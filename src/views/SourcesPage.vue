@@ -43,7 +43,7 @@
         </div>
       </div>
 
-      <h-dialog v-model="isAddActionSheetOpen" title="添加音源" @close="isAddActionSheetOpen = false">
+      <h-bottom-sheet v-model="isAddActionSheetOpen" title="添加音源" :show-handle="true" @close="isAddActionSheetOpen = false">
         <div class="flex flex-col gap-[var(--h-space-xs,2px)] pb-[env(safe-area-inset-bottom,0px)]">
           <button :class="actionSheetItemClass" type="button" @click="handleAddLocal">
             添加本地文件夹
@@ -55,7 +55,7 @@
             取消
           </button>
         </div>
-      </h-dialog>
+      </h-bottom-sheet>
 
       <h-dialog v-model="isDeleteAlertOpen" title="删除音源">
         <p>{{ deleteAlertMessage }}</p>
