@@ -106,7 +106,7 @@
         :ariaLabel="'跳转到当前播放'"
         @click="scrollToCurrentSong"
       >
-        <h-icon :icon="locateOutline" aria-hidden="true" />
+        <h-icon :icon="crosshair" aria-hidden="true" />
       </h-floating-bubble>
     </div>
   </div>
@@ -116,7 +116,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
-import { ellipsisVertical, locateOutline, searchOutline, shuffle } from '@/icons'
+import { crosshair, ellipsisVertical, searchOutline, shuffle } from '@/icons'
 import { HBottomSheet, HButton, HDialog, HEmpty, HFloatingBubble, HIcon, HInput, HNavBar, MCover } from '@/components/ui'
 import type { HFloatingBubbleOffset } from '@/components/ui'
 import { actionSheetCancelClass, actionSheetItemClass } from '@/theme/action-sheet'
