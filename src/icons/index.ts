@@ -26,7 +26,7 @@ export {
   X as close,
   Trash2 as trash,
   ChevronLeft as chevronBack,
-  Captions as languageOutline,
+  Languages as languageOutline,
   CaptionsOff as languageOffOutline,
   Locate as locateOutline,
   EllipsisVertical as ellipsisVertical,
