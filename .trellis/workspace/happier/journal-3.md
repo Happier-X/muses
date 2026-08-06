@@ -340,3 +340,10 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   rgba(255,255,255,0.22) 常驻背景，用户要纯图标
 - 修复：.player-overlay .h-button--ghost.is-active 背景三态（常驻/hover/active）
   全改 transparent，保留颜色提亮指示激活；build 产物验证 background:0 0
+
+## Session 97m · 2026-08-06 · 歌词底栏左右图标视觉一致
+
+- 翻译按钮（stroke 空心线条）与播放按钮（variant=fill 实心）同为
+  HIcon size=20（几何一致），但实心填充在 20px 框内视觉更大 → 观感不一致
+- 修复：歌词底栏播放按钮去掉 variant="fill"，两图标同为线条风格
+- 注：封面 mode-bar 播放键保留 fill（该处左右均为填充风格）
