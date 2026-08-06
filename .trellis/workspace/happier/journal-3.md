@@ -208,3 +208,21 @@ D1=A：删除 ionic.config / ionic:* 脚本，标题 Muses，vite 死 chunk 与�
 ### 方法论沉淀
 - **工具链**：Android WebView 可用 `adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>` + CDP（Runtime.evaluate）直接查真机/模拟器 DOM——比静态分析快得多
 - **教训**：`vue/no-undef-components` 应纳入默认 lint 配置；模板组件使用必须与导入核对
+
+## Session 97b · 2026-08-06 · BottomSheet 面板过窄（08-06-bottom-sheet-width）
+
+### 现象
+BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
+
+### 根因（模拟器 CDP 实证）
+- HPopup 结构：`.h-popup`(flex) → `.h-popup__slot-anchor`(组件库无任何样式，flex item 宽度=内容宽) → `.h-popup__panel`(width:100% 相对 slot-anchor 解析)
+- 0.0.9 的 #14 修复只改 `--h-bottom-sheet-max-width` 默认值，未解决宽度基准
+
+### 修复（用户决策：只改组件库，Muses 不动）
+- 组件库 Happier-X/happier-ui popup.css 合入 `.h-popup--position-bottom/top .h-popup__slot-anchor { width:100% }`，commit c4f119f 已 push；build:lib 产物验证通过
+- 提 issue #15（https://github.com/Happier-X/happier-ui/issues/15）
+- Muses 侧无代码改动；发布新版本后升级依赖即可
+
+### 方法论沉淀
+- flex 容器内无样式中间层（slot-anchor）会让子元素 width:100% 按内容宽解析——排查"宽度不对"时先看包含块链
+- 相邻仓库发布前注意工作区未提交改动（HLoading 任务），避免污染发布包
