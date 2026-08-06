@@ -42,10 +42,11 @@ body,
   /* ⚠️ 故意不加 contain，避免重建 fixed 包含块导致浮层偏移 */
 }
 
-/* 页面级导航栏与灰底页面背景协调（surface-secondary）；
+/* 页面级导航栏与灰底页面背景协调（surface-secondary），并去掉底部分隔线；
  * 弹层内 navbar（HPopup/BottomSheet/Dialog 面板为 surface 白）不受影响。 */
 .m-page .h-nav-bar {
   background: var(--h-color-surface-secondary);
+  border-bottom: none;
 }
 
 .m-content {
