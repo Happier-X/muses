@@ -6,20 +6,7 @@
       back-aria-label="返回"
       :fixed="false"
       @handle-left-click="goBack"
-    >
-      <template #right>
-        <h-button
-          variant="ghost"
-          is-icon-only
-          shape="square"
-          aria-label="播放全部"
-          :disabled="songs.length === 0"
-          @click="onPlayAll"
-        >
-          <h-icon :icon="playOutline" />
-        </h-button>
-      </template>
-    </h-nav-bar>
+    />
     <div class="flex-[0_0_48px] min-h-[48px] bg-[var(--h-color-surface-secondary)]">
       <div class="box-border w-full px-[8px] py-[4px] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-button
@@ -97,7 +84,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch, type ComponentP
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { playOutline, crosshair, shuffle } from '@/icons'
+import { crosshair, shuffle } from '@/icons'
 import { HButton, HEmpty, HFloatingBubble, HIcon, HNavBar, MCover } from '@/components/ui'
 import type { HFloatingBubbleOffset } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
@@ -279,16 +266,6 @@ const goBack = (): void => {
   window.setTimeout(() => {
     router.replace(kind.value === 'artist' ? '/tabs/artists' : '/tabs/albums')
   }, 100)
-}
-
-const onPlayAll = () => {
-  const list = songs.value
-  if (list.length === 0) {
-    return
-  }
-  clearQueue()
-  enqueueSongs(list)
-  void playSong(list[0])
 }
 
 const onPlaySong = (song: SongItem): void => {
