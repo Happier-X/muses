@@ -175,7 +175,7 @@
         </div>
       </h-bottom-sheet>
 
-      <h-bottom-sheet v-model="isScanSettingsOpen" @close="closeScanSettings">
+      <h-dialog v-model="isScanSettingsOpen" @close="closeScanSettings">
         <template #title>
           <span>扫描设置</span>
         </template>
@@ -185,9 +185,9 @@
         </div>
         <p class="text-[color:var(--h-color-ink-muted)] text-[14px] leading-[1.4]">开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。</p>
         <h-button variant="primary" :disabled="!selectedScanSource" @click="startScan">开始扫描</h-button>
-      </h-bottom-sheet>
+      </h-dialog>
 
-      <h-bottom-sheet v-model="isScanProgressOpen" @close="closeScanProgress">
+      <h-dialog v-model="isScanProgressOpen" @close="closeScanProgress">
         <template #title>
           <span>扫描进度</span>
           <h-button
@@ -224,7 +224,7 @@
             </div>
           </div>
         </section>
-      </h-bottom-sheet>
+      </h-dialog>
 
       <h-bottom-sheet v-model="isWebDavModalOpen" title="添加 WebDAV" @close="closeWebDavModal">
           <form class="flex flex-col gap-[16px] mb-[16px]" @submit.prevent="webDavForm.handleSubmit">
