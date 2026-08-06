@@ -196,7 +196,7 @@
             :aria-hidden="!lyricChromeVisible"
           >
             <h-button
-              v-if="!isTabletLayout || hasLyricTranslation"
+              v-if="hasLyricTranslation"
               variant="ghost"
               is-icon-only
               shape="circle"
