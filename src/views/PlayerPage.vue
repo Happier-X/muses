@@ -176,6 +176,8 @@
               :enable-scale="true"
               :word-fade-width="0.5"
               @line-click="onLyricLineClick"
+              @wheel="onLyricUserScroll"
+              @touchmove="onLyricUserScroll"
             />
           </template>
           <div v-else class="flex flex-col items-center justify-center text-center flex-[1_1_auto] w-full min-h-0 overflow-hidden">
@@ -655,6 +657,29 @@ const activePanel = ref(0)
 /** 手势落点判断用的 template ref（取代 closest / class 选择器查询）。 */
 const lyricPanelRef = ref<HTMLElement | null>(null)
 const lyricPlayerRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
+
+/** 歌词滚动后自动回高亮行：停止滚动 2 秒后调 AMLL resetScroll + calcLayout */
+let lyricScrollBackTimer: ReturnType<typeof setTimeout> | null = null
+const getLyricPlayerInstance = ():
+  | { resetScroll(): void; calcLayout(sync?: boolean, force?: boolean): Promise<void> }
+  | null => {
+  const comp = lyricPlayerRef.value as unknown as {
+    lyricPlayer?: { value?: { resetScroll(): void; calcLayout(sync?: boolean, force?: boolean): Promise<void> } }
+  } | null
+  return comp?.lyricPlayer?.value ?? null
+}
+const onLyricUserScroll = (): void => {
+  if (lyricScrollBackTimer) clearTimeout(lyricScrollBackTimer)
+  lyricScrollBackTimer = setTimeout(() => {
+    lyricScrollBackTimer = null
+    // AMLL 自带 5 秒归位（仅播放中时间更新时生效）；此处 2 秒主动归位，暂停时也生效
+    const player = getLyricPlayerInstance()
+    if (player) {
+      player.resetScroll()
+      void player.calcLayout()
+    }
+  }, 2000)
+}
 const progressRangeRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
 /** 隐藏态冻结传给 AMLL 的时间输入；重新打开时由当前播放进度立即刷新。 */
 const hiddenLyricTime = ref(0)
@@ -1855,6 +1880,10 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateViewportWidth)
   clearSeekUnlockTimer()
   clearLyricChromeIdleTimer()
+  if (lyricScrollBackTimer) {
+    clearTimeout(lyricScrollBackTimer)
+    lyricScrollBackTimer = null
+  }
   if (bufferHintTimer !== null) {
     clearTimeout(bufferHintTimer)
     bufferHintTimer = null
