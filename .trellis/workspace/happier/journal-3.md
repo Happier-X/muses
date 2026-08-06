@@ -183,3 +183,28 @@ D1=A：删除 ionic.config / ionic:* 脚本，标题 Muses，vite 死 chunk 与�
 ### Status
 
 [OK] **Completed**
+
+## Session 97 · 2026-08-06 · 修复歌单页弹层裸显 bug（08-06-playlist-page-fix）
+
+### 现象
+用户报告「一进入歌单页，列表下面出现『确定删除该歌单』提示」，确认无点击、无完整对话框。
+
+### 根因（模拟器 WebView CDP 实证）
+- PlaylistsPage.vue 模板用 `<h-bottom-sheet>`/`<h-dialog>`/`<h-input>` 但**未导入**对应组件（`import { HButton, HEmpty, HIcon, HNavBar, MCover }`）
+- 项目无全局组件注册（main.ts 仅 use(router)）→ Vue 把未解析标签当原生自定义元素渲染
+- 子内容无条件显示在 `.m-content` 文档流（列表下方），v-model 失效、无弹层样式
+- 回归自 c7dc92b（脱离 Ionic 迁移）起存在；lint/build 未拦截（vue-tsc 对 kebab-case 未知标签视为自定义元素不报错）
+
+### 修复（ff9da32）
+1. PlaylistsPage 补导 HBottomSheet/HDialog/HInput → 弹层恢复 teleport/居中/遮罩
+2. 启用 eslint `vue/no-undef-components`（error）防回归 → 顺带抓到 QueuePage 缺 HButton、TabsPage 缺 RouterLink 并修复
+3. PlaylistsPage 列表底部补 MiniPlayer 避让 padding（与 SongsPage 一致）
+
+### 验证
+- 模拟器 CDP：裸文本消失；点更多→sheet 弹出；点删除→dialog 居中 + 全屏遮罩（显示「确定删除「test」」）；取消正常关闭
+- lint + build 通过
+- spec 更新：component-guidelines.md「Import Conventions」新增「组件必须显式导入」约定
+
+### 方法论沉淀
+- **工具链**：Android WebView 可用 `adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>` + CDP（Runtime.evaluate）直接查真机/模拟器 DOM——比静态分析快得多
+- **教训**：`vue/no-undef-components` 应纳入默认 lint 配置；模板组件使用必须与导入核对
