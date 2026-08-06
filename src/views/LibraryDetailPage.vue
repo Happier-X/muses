@@ -20,6 +20,21 @@
         </h-button>
       </template>
     </h-nav-bar>
+    <div class="flex-[0_0_48px] min-h-[48px] bg-[var(--h-color-surface-secondary)]">
+      <div class="box-border w-full px-[8px] py-[4px] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
+        <h-button
+          variant="ghost"
+          size="sm"
+          class="m-0"
+          aria-label="随机播放全部"
+          :disabled="songs.length === 0"
+          @click="onShuffleAll"
+        >
+          <template #leading><h-icon :icon="shuffle" /></template>
+          随机播放全部
+        </h-button>
+      </div>
+    </div>
     <div class="m-content" style="overflow: hidden;">
       <div class="h-full md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-empty
@@ -34,6 +49,7 @@
           class="h-full overflow-auto overscroll-contain box-border pb-[var(--muses-mini-player-height)] md:pb-[calc(var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] [overflow-anchor:none]"
           role="list"
           :aria-label="`${pageTitle} 歌曲`"
+          @scroll="onListScroll"
         >
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
@@ -47,7 +63,7 @@
             >
               <div
                 class="flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
-                :class="playerState.currentSong?.id === row.song.id ? 'bg-[var(--muses-color-playing-bg)]' : ''"
+                :class="songItemClass(row.song.id)"
                 role="button"
                 tabindex="0"
                 @click="onPlaySong(row.song)"
@@ -63,6 +79,16 @@
         </div>
       </div>
     </div>
+
+    <h-floating-bubble
+      v-if="showJumpBubble"
+      axis="lock"
+      :offset="fabOffset"
+      :ariaLabel="'跳转到当前播放'"
+      @click="scrollToCurrentSong"
+    >
+      <h-icon :icon="crosshair" aria-hidden="true" />
+    </h-floating-bubble>
   </div>
 </template>
 
@@ -71,8 +97,9 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch, type ComponentP
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { playOutline } from '@/icons'
-import { HButton, HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
+import { playOutline, crosshair, shuffle } from '@/icons'
+import { HButton, HEmpty, HFloatingBubble, HIcon, HNavBar, MCover } from '@/components/ui'
+import type { HFloatingBubbleOffset } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, groupSongsByAlbum, groupSongsByArtist } from '@/features/library/views'
@@ -81,6 +108,9 @@ import {
   enqueueSongs,
   playerState,
   playSong,
+  selectSongAtIndex,
+  shuffleEnabled,
+  toggleShuffle,
 } from '@/features/player/controller'
 
 const route = useRoute()
@@ -124,6 +154,101 @@ const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
 
 const measureVirtualRow = (element: Element | ComponentPublicInstance | null): void => {
   rowVirtualizer.value.measureElement(element instanceof HTMLElement ? element : null)
+}
+
+const highlightedSongId = ref<string | null>(null)
+let jumpHighlightTimer: ReturnType<typeof setTimeout> | null = null
+
+const songItemClass = (songId: string): string => {
+  const classes: string[] = []
+  if (playerState.currentSong?.id === songId) {
+    classes.push('is-playing bg-[var(--muses-color-playing-bg)]')
+  }
+  if (highlightedSongId.value === songId) {
+    classes.push('bg-[var(--muses-color-jump-highlight)]')
+  }
+  return classes.join(' ')
+}
+
+const currentPlayingInList = computed(() => {
+  const currentId = playerState.currentSong?.id
+  if (!currentId) {
+    return false
+  }
+  return songs.value.some((song) => song.id === currentId)
+})
+
+const currentSongIndex = computed(() => {
+  const currentId = playerState.currentSong?.id
+  if (!currentId) return -1
+  return songs.value.findIndex((song) => song.id === currentId)
+})
+
+const currentSongInViewport = computed(() => {
+  const idx = currentSongIndex.value
+  if (idx < 0) return false
+  return visibleRows.value.some((row) => row.virtualRow.index === idx)
+})
+
+const isListScrolling = ref(false)
+let scrollIdleTimer: ReturnType<typeof setTimeout> | null = null
+const onListScroll = (): void => {
+  isListScrolling.value = true
+  if (scrollIdleTimer) clearTimeout(scrollIdleTimer)
+  scrollIdleTimer = setTimeout(() => {
+    isListScrolling.value = false
+  }, 300)
+}
+
+const showJumpBubble = computed(
+  () => currentPlayingInList.value && !currentSongInViewport.value && !isListScrolling.value,
+)
+
+const fabOffset = computed<HFloatingBubbleOffset>(() => {
+  const miniPlayerH = 64
+  return { x: window.innerWidth - 48, y: window.innerHeight - miniPlayerH - 48 }
+})
+
+const onShuffleAll = () => {
+  const list = songs.value
+  if (list.length === 0) {
+    return
+  }
+  clearQueue()
+  enqueueSongs(list)
+  if (!shuffleEnabled()) {
+    toggleShuffle()
+  }
+  const first = selectSongAtIndex(0)
+  if (first) {
+    void playSong(first)
+  }
+}
+
+const scrollToCurrentSong = async () => {
+  const currentId = playerState.currentSong?.id
+  if (!currentId) {
+    return
+  }
+  const index = songs.value.findIndex((song) => song.id === currentId)
+  if (index < 0) {
+    return
+  }
+  rowVirtualizer.value.scrollToIndex(index, { align: 'start', behavior: 'smooth' })
+  await nextTick()
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+  rowVirtualizer.value.scrollToIndex(index, { align: 'start' })
+
+  highlightedSongId.value = currentId
+  if (jumpHighlightTimer) {
+    clearTimeout(jumpHighlightTimer)
+  }
+  jumpHighlightTimer = setTimeout(() => {
+    highlightedSongId.value = null
+    jumpHighlightTimer = null
+  }, 1200)
 }
 
 const refresh = () => {
@@ -191,6 +316,14 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener(SONGS_UPDATED_EVENT, refresh)
+  if (scrollIdleTimer) {
+    clearTimeout(scrollIdleTimer)
+    scrollIdleTimer = null
+  }
+  if (jumpHighlightTimer) {
+    clearTimeout(jumpHighlightTimer)
+    jumpHighlightTimer = null
+  }
 })
 
 // 路由参数变化时刷新数据（同一组件复用场景）
