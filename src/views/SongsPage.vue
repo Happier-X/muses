@@ -29,7 +29,7 @@
         description="请先到音源页添加并扫描音源。"
       />
 
-      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg))] md:pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg)+env(safe-area-inset-bottom,0px))] md:max-w-[var(--muses-content-max-width)] md:mx-auto [overflow-anchor:none]">
+      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[var(--muses-mini-player-height)] md:pb-[calc(var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] md:max-w-[var(--muses-content-max-width)] md:mx-auto [overflow-anchor:none]">
         <div class="relative w-full" :style="{ height: `${totalSize}px` }">
           <div
             v-for="virtualRow in virtualRows"
