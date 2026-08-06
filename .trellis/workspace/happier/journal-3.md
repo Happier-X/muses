@@ -388,3 +388,10 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   （仅 SongsPage 使用）；hover 阴影加深
 - 气泡图标 locateOutline → Crosshair 十字准星（更贴定位语义）
 - 气泡 48→40px、图标 20→18px；offset 56→48 保持贴边
+
+## Session 97s · 2026-08-06 · 跳转气泡不挡更多按钮
+
+- 气泡固定右下与行更多按钮（右缘 8-48px）重叠
+- 改为条件显示：当前歌曲在视口（virtualRows 含 index）不显示；
+  滚动中（scroll 防抖 300ms）隐藏；跳转后自动消失
+- 模拟器验证四场景全过
