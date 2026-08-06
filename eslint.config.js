@@ -40,6 +40,9 @@ export default withVueTs(
       'no-console': isProduction ? 'warn' : 'off',
       'no-debugger': isProduction ? 'warn' : 'off',
       'vue/no-deprecated-slot-attribute': 'off',
+      // 防回归：模板使用未导入的组件会被渲染为原生自定义元素（子内容无条件显示，
+      // 曾导致歌单页弹层内容裸显在文档流，见 .trellis/tasks/08-06-playlist-page-fix）
+      'vue/no-undef-components': 'error',
       '@typescript-eslint/no-explicit-any': 'off',
       // 项目约定：统一使用 ref，禁用 reactive（见 .trellis/spec/frontend/state-management.md）
       'no-restricted-imports': ['error', {

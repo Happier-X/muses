@@ -15,7 +15,7 @@
           description="点右上角新建，或在歌曲页「更多」加入歌单。"
         />
 
-        <div v-else>
+        <div v-else class="pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg))] md:pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg)+env(safe-area-inset-bottom,0px))]">
           <div
             v-for="item in listRows"
             :key="item.id"
@@ -79,7 +79,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { addOutline, ellipsisVertical, list } from '@/icons'
-import { HButton, HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
+import { HBottomSheet, HButton, HDialog, HEmpty, HIcon, HInput, HNavBar, MCover } from '@/components/ui'
 import { actionSheetCancelClass, actionSheetDestructiveClass, actionSheetItemClass } from '@/theme/action-sheet'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {

@@ -74,7 +74,7 @@
 import { computed, nextTick, ref, type ComponentPublicInstance, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { close, trash } from '@/icons'
-import { HEmpty, HIcon, HNavBar, HPopup } from '@/components/ui'
+import { HButton, HEmpty, HIcon, HNavBar, HPopup } from '@/components/ui'
 import {
   clearQueue,
   playSong,

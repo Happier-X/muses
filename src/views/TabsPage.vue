@@ -49,7 +49,7 @@
 import { HIcon, HTabBar, type HTabBarItem } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
-import { useRoute, useRouter, RouterView } from 'vue-router'
+import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
 import { albums, list, musicalNotes, person, radio, settings } from '@/icons'
 
 const navItems = [

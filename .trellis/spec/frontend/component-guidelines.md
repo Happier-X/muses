@@ -174,6 +174,20 @@ Also prefer the `@/` alias for application imports from `src/`:
 - `import ExploreContainer from '@/components/ExploreContainer.vue'`
 - lazy route import `import('@/views/SongsPage.vue')`
 
+### 组件必须显式导入（禁止依赖全局注册）
+
+项目**没有全局组件注册**（`main.ts` 仅 `use(router)`，vue-router 只全局提供 `RouterLink`/`RouterView`）。模板中使用的每一个 `h-*` 组件都必须在 `<script setup>` 中从 `@/components/ui` **显式导入**：
+
+```ts
+// ✅ 正确：模板用到的组件全部导入
+import { HBottomSheet, HButton, HDialog, HEmpty, HIcon, HInput, HNavBar, MCover } from '@/components/ui'
+// ❌ 错误：漏导 HDialog/HInput/HBottomSheet 时，Vue 会把标签当作原生自定义元素渲染——
+//    子内容无条件显示在文档流（v-model 失效、无弹窗样式），曾导致歌单页裸显
+//    「确定删除该歌单」（见 .trellis/tasks/08-06-playlist-page-fix）
+```
+
+ESLint 已启用 `vue/no-undef-components`（error）防回归：模板使用未导入组件会直接报错。vue-tsc 对 kebab-case 未知标签不报错（视为自定义元素），因此**不能**依赖类型检查兜底。
+
 ---
 
 ## 图标约定（`@lucide/vue` + `HIcon`）
