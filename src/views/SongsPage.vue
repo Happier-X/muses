@@ -7,7 +7,7 @@
         </h-button>
       </template>
     </h-nav-bar>
-    <div class="flex-[0_0_48px] min-h-[48px] bg-[var(--muses-color-surface)]">
+    <div class="flex-[0_0_48px] min-h-[48px] bg-[var(--h-color-surface-secondary)]">
       <div class="box-border w-full px-[8px] py-[4px] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-button
           variant="ghost"

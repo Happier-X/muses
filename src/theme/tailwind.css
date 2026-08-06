@@ -9,7 +9,9 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: var(--h-color-ink);
-  background: var(--h-color-surface);
+  /* 页面级背景：用次表面色（#f4f4f5）凸显 surface 白卡片（HCellGroup variant=card）；
+   * 暗色模式由 tokens 自动切换（--h-color-surface-secondary）。 */
+  background: var(--h-color-surface-secondary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
