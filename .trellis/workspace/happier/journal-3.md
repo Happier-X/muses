@@ -252,3 +252,9 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 升级适配：PlayerPage h-toast 补 position="bottom"（0.1.0 HToast 重构默认居中，保持原行为）
 - spec 同步：依赖版本 0.1.1 + BottomSheet 全宽约定（component-guidelines.md / directory-structure.md / quality-guidelines.md）
 - 提交 9e96fdd
+
+## Session 97d · 2026-08-06 · 设置页卡片风格 cell
+
+- SettingsPage 两个 h-cell-group（关于/音频）加 variant="card"（happier-ui 0.1.1 支持）
+- 模拟器实测：body x=16 / 宽 328（视口 360）/ 圆角 12px / margin 0 16px
+- lint + build 通过；提交后归档
