@@ -305,3 +305,10 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 ### 沉淀
 - 虚拟列表首屏"精确滚到底" = sh-ch：优先排查 scrollToIndex/scroll anchoring/measure
 - TanStack Virtual 建议 scrollElement 设 overflow-anchor:none
+
+## Session 97j · 2026-08-06 · 列表最后一项与播放条间距
+
+- 歌曲页滚到底后最后一项距 MiniPlayer 顶部 15px（space-lg 视觉间距）
+- 用户要紧凑：padding 改为仅 mini-player-height（80→64px），最后一项紧贴播放条
+- SongsPage + PlaylistDetailPage 一致；实测 gap 15px → ~0px
+- spec 更新取值约定（去掉 space-lg）
