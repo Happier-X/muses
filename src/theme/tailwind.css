@@ -171,6 +171,9 @@ body.muses-overlay-open .m-content {
 .player-overlay .cover,
 .player-overlay .placeholder-cover {
   width: min(72vw, 100%, 340px, 52dvh);
+  /* 显式高度公式与宽度一致：aspect-ratio 在明确 width + max-height 下失效，
+     无封面占位（♪）会回落到内容行高被压扁；正方形封面强制成立 */
+  height: min(72vw, 340px, 52dvh);
   border-radius: var(--muses-radius-cover-immersive);
 }
 
@@ -410,6 +413,7 @@ body.muses-overlay-open .m-content {
   .player-overlay .cover,
   .player-overlay .placeholder-cover {
     width: min(40vw, 48dvh, 320px);
+    height: min(40vw, 48dvh, 320px);
   }
 
   .player-overlay .song-info {
@@ -453,6 +457,7 @@ body.muses-overlay-open .m-content {
   .player-overlay .cover,
   .player-overlay .placeholder-cover {
     width: min(72vw, 100%, 260px, 42dvh);
+    height: min(72vw, 260px, 42dvh);
   }
 
   .player-overlay .song-info h1 {

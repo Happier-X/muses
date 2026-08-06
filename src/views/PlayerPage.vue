@@ -47,8 +47,8 @@
         <section class="panel info-panel flex flex-col items-center justify-stretch text-center" aria-label="播放控制页">
           <div class="info-panel-inner flex flex-col items-center justify-center gap-[12px] w-[min(100%,420px)] h-full mx-auto min-h-0 overflow-hidden">
             <div class="cover-slot flex-[0_1_auto] flex items-center justify-center w-full min-h-0">
-              <img v-if="displayCoverSrc" class="cover aspect-1 h-auto max-w-full max-h-full object-cover" :src="displayCoverSrc" alt="歌曲封面" />
-              <div v-else class="cover placeholder-cover aspect-1 h-auto max-w-full max-h-full object-cover">♪</div>
+              <img v-if="displayCoverSrc" class="cover aspect-1 h-auto max-w-full object-cover" :src="displayCoverSrc" alt="歌曲封面" />
+              <div v-else class="cover placeholder-cover aspect-1 h-auto max-w-full object-cover">♪</div>
             </div>
 
             <div class="song-info flex-none w-full m-0 text-left min-w-0">
