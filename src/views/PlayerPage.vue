@@ -663,10 +663,11 @@ let lyricScrollBackTimer: ReturnType<typeof setTimeout> | null = null
 const getLyricPlayerInstance = ():
   | { resetScroll(): void; calcLayout(sync?: boolean, force?: boolean): Promise<void> }
   | null => {
+  // expose() 返回对象经 proxyRefs 自动解包：lyricPlayer 直接是 player 实例（非 Ref，无 .value）
   const comp = lyricPlayerRef.value as unknown as {
-    lyricPlayer?: { value?: { resetScroll(): void; calcLayout(sync?: boolean, force?: boolean): Promise<void> } }
+    lyricPlayer?: { resetScroll(): void; calcLayout(sync?: boolean, force?: boolean): Promise<void> }
   } | null
-  return comp?.lyricPlayer?.value ?? null
+  return comp?.lyricPlayer ?? null
 }
 const onLyricUserScroll = (): void => {
   if (lyricScrollBackTimer) clearTimeout(lyricScrollBackTimer)
