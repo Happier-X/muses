@@ -355,3 +355,5 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 用户要求翻译/取消翻译图标也 fill（与播放键实心一致）
 - Captions/CaptionsOff 加 variant="fill"（svg fill=currentColor，线框变实心色块）
 - 效果需真机确认（模拟器无歌词数据无法渲染）
+- 翻译按钮打开态 Captions fill 效果不佳（实心色块）→ 换 lucide Languages
+  （翻译图标），fill 后为"文"字符号实心；关闭态 CaptionsOff 保留
