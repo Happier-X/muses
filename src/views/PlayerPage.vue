@@ -194,7 +194,7 @@
             :aria-hidden="!lyricChromeVisible"
           >
             <h-button
-              v-if="hasLyricTranslation"
+              v-if="!isTabletLayout || hasLyricTranslation"
               variant="ghost"
               is-icon-only
               shape="circle"
@@ -1321,6 +1321,11 @@ const toggleLyricTranslation = () => {
 
 const onLyricTranslateClick = () => {
   revealLyricChrome()
+  // 播放前歌词未加载（无翻译数据），移动端按钮仍常显：点击时提示
+  if (!hasLyricTranslation.value) {
+    showToast('当前歌曲暂无翻译歌词', 'default')
+    return
+  }
   toggleLyricTranslation()
 }
 
