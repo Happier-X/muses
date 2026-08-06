@@ -318,18 +318,19 @@ body.muses-overlay-open .m-content {
 
   .player-overlay .h-button--ghost.is-active:not(:disabled):hover {
     color: #ffffff;
-    background: rgba(255, 255, 255, 0.28);
+    background: transparent;
   }
 }
 
+/* 激活态只提亮图标颜色，不加背景（翻译按钮打开时仍是纯图标） */
 .player-overlay .h-button--ghost.is-active {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.22);
+  background: transparent;
 }
 
 .player-overlay .h-button--ghost.is-active:not(:disabled):active {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.3);
+  background: transparent;
 }
 
 .player-overlay .h-button--ghost .h-icon {
