@@ -423,3 +423,15 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 改动：v-if "!isTabletLayout || hasLyricTranslation" → "hasLyricTranslation"
 - 在线匹配中按钮隐藏，匹配成功后自动出现
 - 模拟器验证：纯 lrc 歌 fab 仅播放键；带 tlyric 歌翻译+播放两键
+
+## Session 97w · 2026-08-06 · 沉浸页无封面占位压扁修复
+
+- 需求：无图片时封面占位也要正方形
+- 复现：placeholder 259×72（扁）；aspect-ratio:1 在明确 width + max-height:100%
+  下失效（max-height 优先），高度回落内容行高（♪）
+- 修复：height 显式公式 = width 公式（min(72vw,340px,52dvh)）；height 公式
+  不能含 100%（高度百分比依赖父容器高度→内容→循环，整个 min() 失效回 auto）；
+  模板去掉 max-h-full；三处媒体查询同步
+- 验证：占位 259×259 正方形；img 共用公式 + object-cover
+- 环境坑：无效 uri 歌播放失败会触发 stopPlayback → clearPlaybackSession，
+  注入会话会被 app 运行期清空（CDP 验证反复踩坑）
