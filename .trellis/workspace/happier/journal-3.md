@@ -435,3 +435,9 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 验证：占位 259×259 正方形；img 共用公式 + object-cover
 - 环境坑：无效 uri 歌播放失败会触发 stopPlayback → clearPlaybackSession，
   注入会话会被 app 运行期清空（CDP 验证反复踩坑）
+
+## Session 97x · 2026-08-06 · toast 恢复居中
+
+- 需求：toast 改回默认居中（此前 BottomSheet 全宽时改过 bottom）
+- 改动：PlayerPage/SettingsPage/SourcesPage 去掉 position="bottom"，
+  h-toast 默认 position='center'
