@@ -8,6 +8,13 @@
             title="Muses"
             :description="`应用版本 ${currentVersion}`"
           />
+          <h-cell
+            title="检查更新"
+            :description="checking ? '正在检查更新…' : undefined"
+            clickable
+            aria-label="检查更新"
+            @click="checkUpdate"
+          />
         </h-cell-group>
 
         <h-cell-group title="音频" variant="card">
@@ -23,17 +30,6 @@
             </template>
           </h-cell>
         </h-cell-group>
-
-        <div class="p-[var(--muses-space-lg)]">
-          <h-button
-            variant="primary"
-            size="lg"
-            :disabled="checking"
-            @click="checkUpdate"
-          >
-            {{ checking ? '检查中...' : '检查更新' }}
-          </h-button>
-        </div>
       </div>
     </div>
 
@@ -50,7 +46,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { HButton, HCell, HCellGroup, HNavBar, HSwitch, HToast } from '@/components/ui'
+import { HCell, HCellGroup, HNavBar, HSwitch, HToast } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,
@@ -99,6 +95,7 @@ const compareVersions = (a: string, b: string): number => {
 }
 
 const checkUpdate = async () => {
+  if (checking.value) return
   checking.value = true
   try {
     const res = await fetch('https://api.github.com/repos/Happier-X/muses/releases/latest')
