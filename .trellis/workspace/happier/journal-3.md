@@ -416,3 +416,10 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   + playback-session，写入后需等 ~2s 刷盘再 force-stop 才持久
 - PlayerPage 面板切换在模拟器 swipe 不可靠（命中封面按钮），用 JS 强制设置
   .panels transform 使歌词面板可见再测
+
+## Session 97v · 2026-08-06 · 翻译按钮无翻译不显示
+
+- 需求：歌曲没有翻译时不展示底部翻译按钮（此前移动端常显、无翻译点击 toast）
+- 改动：v-if "!isTabletLayout || hasLyricTranslation" → "hasLyricTranslation"
+- 在线匹配中按钮隐藏，匹配成功后自动出现
+- 模拟器验证：纯 lrc 歌 fab 仅播放键；带 tlyric 歌翻译+播放两键
