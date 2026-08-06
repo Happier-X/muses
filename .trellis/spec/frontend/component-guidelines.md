@@ -36,7 +36,7 @@ Examples:
 
 ## Muses 语义组件层 → `happier-ui`
 
-Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.9`**（不用 `^`），不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
+Muses 默认从 npm 使用**精确版本** **`happier-ui@0.1.1`**（不用 `^`），不得提交 `file:../happier-ui`，也不得配置指向相邻仓库源码的 Vite/TypeScript alias。应用通过 `src/components/ui` re-export 库真实导出与 app-only 组件。
 
 - **权威 token**：包内 `happier-ui/tokens.css` 的 **`--h-*`**；`--muses-*` 为兼容别名。0.0.5 起 tokens.css 已彻底去除 `var(--ion-*)` 反向依赖，改为自持有值，并内建双触发独立暗色态（`@media(prefers-color-scheme: dark) :root:not(.light)` 系统跟随 + `:root.dark`/`.dark` 手动强制）。暗色由 happier-ui 承接，**Muses 侧无需任何暗色 workaround**。
 - **样式管道（必需）**：宿主必须接入 **Tailwind CSS v4**（`tailwindcss` + `@tailwindcss/vite`）。全局入口 `src/theme/tailwind.css` 使用 `@import 'tailwindcss'` + `@import 'happier-ui/styles'`，由 Vite 的 `tailwindcss()` 插件解析 `@theme` / `@layer components`。**禁止**再直接 `import 'happier-ui/style.css'` 或把 `styles.css` 当普通预编译 CSS 跳过 Tailwind 管道。
@@ -47,7 +47,7 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.9`**（不用 `^`�
 
 ### 组件契约
 
-`src/components/ui/index.ts` 只转出 happier-ui@0.0.9 的真实导出，并附带 `MCover`、`MPage`、`MContent`。不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留业务实现并登记对应任务的 `gaps.md`，未来在 happier-ui 仓库开发后再回迁。
+`src/components/ui/index.ts` 只转出 happier-ui@0.1.1 的真实导出，并附带 `MCover`、`MPage`、`MContent`。不得恢复的历史平行组件为 `HEmptyState`、`HListRow`、`HSettingRow` 及 `MEmptyState`、`MIconButton`、`MListRow`、`MSettingRow`。Muses 不新造这些通用平行组件；库缺口保留业务实现并登记对应任务的 `gaps.md`，未来在 happier-ui 仓库开发后再回迁。
 
 ### 使用规则
 
@@ -86,10 +86,11 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.0.9`**（不用 `^`�
 - **列表滚动与下滑关闭隔离**：HPopup fullscreen 的手势监听在 rootEl，以 panel 自身 `scrollTop` 判断是否接管；虚拟列表在内部容器滚动时 panel 不滚（scrollTop 恒 0），会被误判为下滑关闭。已在虚拟列表容器加 `@touchstart.stop @touchmove.stop @touchend.stop @touchcancel.stop` 阻断冒泡，列表滚动完全原生；HNavBar 区域仍可下滑关闭。
 - **滚动锁双锁并存**：HPopup `useScrollLock` 锁 `documentElement` inline overflow；宿主 `html/body.muses-overlay-open` class 锁（!important，PlayerPage 用）仍保留。二者独立、均幂等；`hasGlobalOverlay`/`syncBodyOverlayLock` 逻辑不变。
 - **z-index**：HPopup fullscreen 默认 `var(--h-popup-z, 1200)`，与原 QueuePage `z-[1200]` 一致，高于 PlayerPage `--h-z-player: 1100`（queue 从 player 内打开叠在其上）。
+- **BottomSheet 全宽（#15 起修复）**：`HBottomSheet` / `HPopup position="bottom|top"` 面板默认占满容器宽——组件库 0.1.1 起 `.h-popup--position-bottom/top .h-popup__slot-anchor { width:100% }`（此前 slot-anchor 无布局样式，panel 的 `width:100%` 相对它解析为内容宽，面板过窄）。宽屏需桌面居中卡片时覆盖 `--h-bottom-sheet-max-width` 或传 `maxWidth` prop。
 
 ### 全屏浮层：PlayerPage 用 HPopup fullscreen（0.0.8+，keepAlive + swipeClose）
 
-`PlayerPage` 自 `08-03-player-hpopup-migration` 起完整迁移到 `HPopup position="fullscreen"`（happier-ui **0.0.9**，含 [Happier-X/happier-ui#13](https://github.com/Happier-X/happier-ui/issues/13) 的 `keepAlive` + `swipeClose`；[Happier-X/happier-ui#14](https://github.com/Happier-X/happier-ui/issues/14) 起 `HBottomSheet` 默认全宽）：
+`PlayerPage` 自 `08-03-player-hpopup-migration` 起完整迁移到 `HPopup position="fullscreen"`（happier-ui **0.1.1**，含 [Happier-X/happier-ui#13](https://github.com/Happier-X/happier-ui/issues/13) 的 `keepAlive` + `swipeClose`；[Happier-X/happier-ui#14](https://github.com/Happier-X/happier-ui/issues/14) 起 `HBottomSheet` 默认全宽）：
 
 - **双绑 v-model**：`v-model="playerOverlayVisible"`，`close-on-overlay` / `close-on-esc` 均关。纵向关闭仍走 PlayerPage 自建手势 → `closePlayerOverlay()`。
 - **常驻挂载**：`App.vue` 直接渲染 `<PlayerPage />`（无 `keepPlayerPageMounted` v-if / translate-y 保活）。HPopup 内部 `keep-alive` 控制 slot 显隐。
