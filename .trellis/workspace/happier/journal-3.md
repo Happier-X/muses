@@ -365,3 +365,9 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 歌词底栏播放/暂停按钮非激活色 0.58 → #fff（lyric-play-toggle 专属规则）
 - 封面 mode-bar 四按钮（repeat/shuffle/list/more）非激活 0.58 → #fff
 - 激活状态不依赖颜色：repeat/shuffle 用图标实心 vs 空心切换指示
+
+## Session 97p · 2026-08-06 · 翻译按钮播放前不显示
+
+- 原因：v-if=hasLyricTranslation 依赖歌词加载（播放后才拉取）→ 首次打开无按钮
+- 修复：移动端（!isTabletLayout）浮层显示即常显翻译按钮；无翻译点击 toast 提示
+- 平板保持仅 hasLyricTranslation（浮层本身逻辑）
