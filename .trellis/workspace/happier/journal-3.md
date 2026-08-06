@@ -451,3 +451,11 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - push main + tag v0.2.5；GitHub Actions 3m16s 构建通过
 - Release: https://github.com/Happier-X/muses/releases/tag/v0.2.5
   （muses-v0.2.5.apk 主包 + muses-v0.2.5-mi.apk MIUI 包）
+
+## Session 97z · 2026-08-06 · 扫描弹窗改居中 dialog
+
+- 需求：音源点击扫描时不用 bottom-sheet，换 modal
+- 改动：SourcesPage 扫描设置 + 扫描进度 h-bottom-sheet → h-dialog（居中）；
+  添加/编辑/WebDAV 仍 bottom-sheet
+- h-dialog API：modelValue/title/closeOnOverlay/closeOnEsc/close 事件/#title slot
+- 模拟器实测：扫描设置面板 y=202 h=211（屏幕 616 居中），非底部滑出
