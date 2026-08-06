@@ -395,3 +395,11 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 改为条件显示：当前歌曲在视口（virtualRows 含 index）不显示；
   滚动中（scroll 防抖 300ms）隐藏；跳转后自动消失
 - 模拟器验证四场景全过
+
+## Session 97t · 2026-08-06 · 歌词滚动后自动回高亮行
+
+- 需求：沉浸歌词滚动后等待片刻自动回高亮行
+- AMLL 0.5.2 自带 5 秒归位（beginScrollHandler 写死 5e3），仅播放中
+  时间更新驱动时生效；暂停滚动不归位
+- 实现：LyricPlayer @wheel/@touchmove（fallthrough 根元素）→ 停止
+  2 秒后 player.resetScroll() + calcLayout()（公开 API），暂停也生效
