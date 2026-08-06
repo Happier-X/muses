@@ -70,6 +70,8 @@ Muses 默认从 npm 使用**精确版本** **`happier-ui@0.1.1`**（不用 `^`�
 
 路由页面使用自建骨架，顶部导航栏统一使用 `HNavBar`：
 
+- **页面背景 token**：body 统一 `--h-color-surface-secondary`（灰底），surface 白留给卡片/导航/播放器表面（HCellGroup `variant="card"` 靠背景对比凸显）。显式需要 surface 块时用 `--h-color-surface-secondary` 或确认确属独立表面（navbar / tab-bar / MiniPlayer / 平板 sidebar 保持 surface 白）。暗色模式由 token 媒体查询自动适配，无额外代码。
+
 - **`MPage`**（`src/components/ui/MPage.vue`）：自建页壳 `<div class="m-page">`（flex 纵向 + `height: 100%` + `overflow: hidden`，**无 `contain`** 以免重建 fixed 包含块导致浮层偏移）。内含 `HNavBar :fixed="false"` + 可选 `#subnavbar` slot（SongsPage shuffle-bar）+ `MContent`。`title` / `start` / `end` 插槽映射到 `HNavBar` 的 `title` / `left` / `right`。
 - **`MContent`**（`src/components/ui/MContent.vue`）：自建滚动容器 `<div class="m-content">`（`flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain`，**无 `contain`**）。虚拟列表页可传 `overflow: hidden`（内部列表自管滚动）。
 - 简单滚动页（SettingsPage、PlaylistsPage、AlbumsPage、ArtistsPage）直接用 `<m-page>`；虚拟列表页（SongsPage、PlaylistDetailPage）用 `m-page` + 内部 `.m-content` 覆盖 `overflow: hidden`。

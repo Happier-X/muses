@@ -258,3 +258,12 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - SettingsPage 两个 h-cell-group（关于/音频）加 variant="card"（happier-ui 0.1.1 支持）
 - 模拟器实测：body x=16 / 宽 328（视口 360）/ 圆角 12px / margin 0 16px
 - lint + build 通过；提交后归档
+
+## Session 97e · 2026-08-06 · 全局页面背景改灰（凸显卡片）
+
+- 问题：卡片（surface 白）与 body 背景（surface 白）同色，设置页卡片不可见
+- 组件库 card 设计靠"灰底背景对比"凸显（playground 示例用 --h-color-bg-muted）
+- 方案 B（用户选）：body 背景改 --h-color-surface-secondary（#f4f4f5），全 app 统一灰底
+- SongsPage 顶部工具条同步改灰；navbar/tab-bar/MiniPlayer/平板 sidebar 保持 surface 白（独立表面）
+- 暗色模式 token 自动适配（#2c2c2e）；模拟器实测卡片对比可见
+- spec 补"页面背景 token"约定；提交并归档
