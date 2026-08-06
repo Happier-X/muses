@@ -592,3 +592,21 @@ body.muses-overlay-open .m-content {
     width: min(40vw, 38dvh, 200px);
   }
 }
+
+/*
+ * HFloatingBubble（歌曲页"跳转当前歌曲"）：默认实心主题蓝圆球突兀，
+ * 改浅色卡片风——surface 底 + 主题色图标 + 细边框 + 柔和投影（暗色自适应）。
+ * 组件 teleport 到 body，scoped 失效，故全局覆盖（仅 SongsPage 使用）。
+ */
+.h-floating-bubble {
+  --h-floating-bubble-bg: var(--h-color-surface);
+  --h-floating-bubble-color: var(--h-color-primary);
+  border: 1px solid var(--h-color-border-subtle);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .h-floating-bubble:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+  }
+}
