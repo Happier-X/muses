@@ -601,8 +601,17 @@ body.muses-overlay-open .m-content {
 .h-floating-bubble {
   --h-floating-bubble-bg: var(--h-color-surface);
   --h-floating-bubble-color: var(--h-color-primary);
+  --h-floating-bubble-size: 40px;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--h-color-border-subtle);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+}
+
+.h-floating-bubble .h-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
 }
 
 @media (hover: hover) and (pointer: fine) {

@@ -209,7 +209,7 @@ const currentPlayingInList = computed(() => {
 const fabOffset = computed<HFloatingBubbleOffset>(() => {
   const miniPlayerH = 64
   const tabBarH = 64
-  return { x: window.innerWidth - 56, y: window.innerHeight - miniPlayerH - tabBarH - 56 }
+  return { x: window.innerWidth - 48, y: window.innerHeight - miniPlayerH - tabBarH - 48 }
 })
 
 const refreshSongs = () => {
