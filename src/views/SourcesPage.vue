@@ -16,7 +16,7 @@
       />
 
       <div v-else class="h-full md:max-w-[var(--muses-content-max-width)] md:mx-auto">
-        <div ref="listParentRef" class="h-full overflow-auto pt-[8px] px-[12px] pb-[24px]">
+        <div ref="listParentRef" class="h-full overflow-auto box-border pt-[8px] px-[12px] pb-[calc(var(--muses-mini-player-height)+var(--muses-space-xl))] md:pb-[calc(var(--muses-mini-player-height)+var(--muses-space-xl)+env(safe-area-inset-bottom,0px))]">
           <div class="relative" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"

@@ -258,7 +258,12 @@ Also prefer the `@/` alias for application imports from `src/`:
 - 无歌曲时按钮仍出现且 `:disabled`，点击不产生副作用；保留 `aria-label="随机播放全部"`。
 - 点击语义：`clearQueue()` → `enqueueSongs(allSongs)` → 若 `!shuffleEnabled()` 则 `toggleShuffle()` → `selectSongAtIndex(0)` → `playSong(first)`。
 - `toggleShuffle` 会生成 `shuffleOrder`；`selectSongAtIndex(0)` 取乱序首曲。
-- 歌曲列表滚动容器的 `padding-bottom` 只需避让 MiniPlayer 和移动端 Tab Bar，不再为随机播放操作条额外留位；仍须确保最后一首歌曲滚动到底后完整可见。
+- 歌曲列表滚动容器的 `padding-bottom` 只需避让 **MiniPlayer**，不再为随机播放操作条额外留位；仍须确保最后一首歌曲滚动到底后完整可见。
+- **避让职责边界（勿双算）**：移动端 Tab Bar 与 safe-area 的空间已由 `TabsPage.vue` `<main>` 的 `padding-bottom: calc(var(--muses-tab-bar-height) + env(safe-area-inset-bottom))` 预留，列表自身 `padding-bottom` **不得**再加 `--muses-tab-bar-height`（历史 bug `08-06-songs-bottom-spacing`：曾双算 tab-bar 高度，导致滚到底多出约 64px 空白）。
+- **取值约定**（`SongsPage.vue` / `PlaylistDetailPage.vue` / `SourcesPage.vue` 的 `listParentRef`）：
+  - 移动端：`padding-bottom: calc(var(--muses-mini-player-height) + var(--muses-space-lg))`（≈80px = MiniPlayer 实际高度 64px + 余量；safe-area 已被 main 消化，**不再加**）；
+  - 平板端（`md:`）：`calc(var(--muses-mini-player-height) + var(--muses-space-lg) + env(safe-area-inset-bottom, 0px))`（main `pb-0`、MiniPlayer 贴视口底，需补 safe-area）；
+  - `SourcesPage` 保留卡片底部 24px 设计留白，余量用 `--muses-space-xl`（≈88px）。
 
 参考结构：
 
