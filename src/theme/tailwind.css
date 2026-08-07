@@ -624,3 +624,26 @@ body.muses-overlay-open .m-content {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
   }
 }
+
+/* 横屏沉浸页：封面缩小 + cover-slot 禁收缩 + 内容可滚动。
+   根因：横屏高度不足时 cover-slot（flex 0 1 auto）被压缩，
+   封面（显式 height）溢出槽位覆盖下方文字（实测 640x336 重叠 5px）。 */
+@media (orientation: landscape) {
+  .player-overlay .info-panel-inner {
+    justify-content: flex-start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px 0;
+  }
+
+  .player-overlay .cover-slot {
+    flex: 0 0 auto;
+    max-height: min(40dvh, 220px);
+  }
+
+  .player-overlay .cover,
+  .player-overlay .placeholder-cover {
+    width: min(34vw, 100%, 220px, 40dvh);
+    height: min(34vw, 100%, 220px, 40dvh);
+  }
+}
