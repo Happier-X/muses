@@ -491,3 +491,12 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   封面公式 min(34vw,100%,220px,40dvh) + info-panel-inner 可滚动兜底
 - 验证：横屏 640x336 封面 134x134 overlap 0；竖屏 259x259 overlap 0 无回归
 - 模拟器旋转命令：adb shell wm user-rotation lock 1（锁横屏）/ lock 0（回竖屏）
+
+## Session 97ad · 2026-08-06 · 播放队列改底部弹出 popup
+
+- 需求：播放队列改用 popup 组件实现（用户感知 fullscreen 形态像页面非弹层）
+- 现状：QueuePage 已是 HPopup（position=fullscreen，19a0096 迁移）
+- 改动：fullscreen → position=bottom + handle；navbar 换自定义 header
+  （标题+清空+关闭）；close-on-overlay/esc 恢复默认
+- 验证：面板 y=418 贴底 h=198 全宽、handle 存在、背景可见、
+  关闭按钮正常；可见面板选择器需过滤尺寸>50（多 popup keep-alive）
