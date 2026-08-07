@@ -500,3 +500,16 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   （标题+清空+关闭）；close-on-overlay/esc 恢复默认
 - 验证：面板 y=418 贴底 h=198 全宽、handle 存在、背景可见、
   关闭按钮正常；可见面板选择器需过滤尺寸>50（多 popup keep-alive）
+
+## Session 97ae · 2026-08-06 · 队列面板默认半屏 + bottom 面板 max-height 修复
+
+- 需求：队列面板默认打开半屏
+- 坑1：HPopup 类 fallthrough 不生效（teleport 根，queue-popup 类被吞）
+  → 改在 slot 内容根 div 加 queue-popup-panel（min-height 50vh）
+- 坑2：组件 max-height: min(88vh,100%) 的 100% 依赖父容器高度，
+  父高不确定时整个 min() 无效 → 面板被虚拟列表内容撑爆
+  （465 首实测 h=33606）→ tailwind.css 全局覆盖纯 88vh
+- 验证：min-height 308px 生效；465 首面板 542px clamp+滚动；
+  空态 430px（h-empty 撑高）；单首场景=50vh
+- 注：queue 注入后 force-stop 需等刷盘（queue-one 脚本写入后立即
+  force-stop 导致 queue 未恢复 rows=0——测试环境竞态非功能问题）
