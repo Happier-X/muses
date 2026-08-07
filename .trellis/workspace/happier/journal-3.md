@@ -480,3 +480,14 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   播放行 is-playing 可见、气泡自动隐藏
 - 坑：程序化 b.click()（无 pointer 序列）不触发 HFloatingBubble emit，
   真实触摸走 pointerdown→up→click 才有效——测试须 dispatch 完整序列
+
+## Session 97ac · 2026-08-06 · 横屏沉浸页封面重叠修复
+
+- 复现：模拟器 wm user-rotation lock 1 转横屏（640x336），
+  封面 128x141（非正方形）底部 148 与 song-info 顶部 143 重叠 5px
+- 根因：cover-slot flex 0 1 auto 可收缩；横屏高度不足时槽位被压扁，
+  封面显式 height 溢出槽位覆盖下方文字
+- 修复：orientation: landscape 媒体查询——cover-slot flex 0 0 auto +
+  封面公式 min(34vw,100%,220px,40dvh) + info-panel-inner 可滚动兜底
+- 验证：横屏 640x336 封面 134x134 overlap 0；竖屏 259x259 overlap 0 无回归
+- 模拟器旋转命令：adb shell wm user-rotation lock 1（锁横屏）/ lock 0（回竖屏）
