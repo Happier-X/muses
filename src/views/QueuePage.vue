@@ -1,24 +1,30 @@
 <template>
-  <h-popup
-    v-model="queueOverlayVisible"
-    position="fullscreen"
-    :close-on-overlay="false"
-    :close-on-esc="false"
-  >
+  <h-popup v-model="queueOverlayVisible" position="bottom" handle>
     <div class="flex flex-col h-full overflow-hidden overscroll-none">
-      <h-nav-bar
-        title="播放队列"
-        show-back
-        back-aria-label="返回"
-        :fixed="false"
-        @handle-left-click="goBack"
-      >
-        <template v-if="queueState.hasItems" #right>
-          <h-button variant="danger-soft" is-icon-only shape="square" aria-label="清空队列" @click="onClearQueue">
+      <div class="flex-none flex items-center justify-between gap-[var(--muses-space-sm)] px-[var(--muses-space-md)] pt-[var(--muses-space-md)] pb-[var(--muses-space-sm)]">
+        <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] font-bold text-[color:var(--muses-color-ink)]">播放队列</h2>
+        <div class="flex items-center gap-[var(--muses-space-xs)]">
+          <h-button
+            v-if="queueState.hasItems"
+            variant="danger-soft"
+            is-icon-only
+            shape="square"
+            aria-label="清空队列"
+            @click="onClearQueue"
+          >
             <h-icon :icon="trash" />
           </h-button>
-        </template>
-      </h-nav-bar>
+          <h-button
+            variant="ghost"
+            is-icon-only
+            shape="square"
+            aria-label="关闭队列"
+            @click="goBack"
+          >
+            <h-icon :icon="close" />
+          </h-button>
+        </div>
+      </div>
 
       <div class="flex-1 min-h-0 overflow-hidden">
         <h-empty
@@ -27,7 +33,7 @@
           description="从歌曲列表中添加歌曲即可开始播放。"
         />
 
-        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[calc(var(--muses-mini-player-height)+var(--muses-space-xl)+env(safe-area-inset-bottom,0px))] [overflow-anchor:none]" role="list" aria-label="播放队列歌曲" @touchstart.stop @touchmove.stop @touchend.stop @touchcancel.stop>
+        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[calc(var(--muses-space-xl)+env(safe-area-inset-bottom,0px))] [overflow-anchor:none]" role="list" aria-label="播放队列歌曲" @touchstart.stop @touchmove.stop @touchend.stop @touchcancel.stop>
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="row in visibleRows"
@@ -74,7 +80,7 @@
 import { computed, nextTick, ref, type ComponentPublicInstance, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { close, trash } from '@/icons'
-import { HButton, HEmpty, HIcon, HNavBar, HPopup } from '@/components/ui'
+import { HButton, HEmpty, HIcon, HPopup } from '@/components/ui'
 import {
   clearQueue,
   playSong,
