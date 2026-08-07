@@ -647,3 +647,14 @@ body.muses-overlay-open .m-content {
     height: min(34vw, 100%, 220px, 40dvh);
   }
 }
+
+/* 修复 bottom 面板 max-height 的 100% 失效：父容器高度不确定时
+   min(88vh, 100%) 整条无效，面板会被内容（如虚拟列表）撑出视口 */
+.h-popup--position-bottom .h-popup__panel {
+  max-height: 88vh;
+}
+
+/* 播放队列面板：默认半屏（内容少时也 50vh） */
+.queue-popup-panel {
+  min-height: 50vh;
+}

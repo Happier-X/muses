@@ -1,6 +1,6 @@
 <template>
   <h-popup v-model="queueOverlayVisible" position="bottom" handle>
-    <div class="flex flex-col h-full overflow-hidden overscroll-none">
+    <div class="queue-popup-panel flex flex-col h-full overflow-hidden overscroll-none">
       <div class="flex-none flex items-center justify-between gap-[var(--muses-space-sm)] px-[var(--muses-space-md)] pt-[var(--muses-space-md)] pb-[var(--muses-space-sm)]">
         <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] font-bold text-[color:var(--muses-color-ink)]">播放队列</h2>
         <div class="flex items-center gap-[var(--muses-space-xs)]">
