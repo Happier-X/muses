@@ -5,6 +5,12 @@ import type { TextMetaHit } from '@/features/metadata/types'
 /** 云端元信息来源平台（MusicTag 式选择） */
 export type CloudPlatformId = 'all' | 'wy' | 'tx' | 'kg' | 'kw' | 'mg' | 'itunes'
 
+/** 云端歌词来源平台（与元信息渠道不同：无 iTunes，有 LRCLIB） */
+export type CloudLyricsPlatformId = 'all' | 'wy' | 'tx' | 'kg' | 'kw' | 'mg' | 'lrclib'
+
+/** 云端搜索维度 */
+export type EditDimKey = 'text' | 'cover' | 'lyrics'
+
 /** 编辑页云端查询：以当前表单/种子字段为关键词，强制搜索 */
 export type EditCloudMetaQuery = {
   songId: string
@@ -46,6 +52,10 @@ export type SearchEditCloudMetaOptions = {
   signal?: AbortSignal
   /** 每维最多保留候选数，默认 8 */
   maxCandidates?: number
-  /** 限定来源平台；默认全部平台混合 */
+  /** 限定元信息来源平台（文本+封面）；默认全部平台混合 */
   platform?: CloudPlatformId
+  /** 限定歌词来源平台（独立渠道）；默认全部歌词平台 */
+  lyricsPlatform?: CloudLyricsPlatformId
+  /** 仅搜索指定维度；默认全部 */
+  dimensions?: EditDimKey[]
 }

@@ -21,6 +21,7 @@ import { wyTextMetaProvider } from '@/features/metadata/providers/wy'
 import type { OnlineTextQuery, TextMetaHit, TextMetaProvider } from '@/features/metadata/types'
 import { scoreTextHit } from '@/features/metadata/util'
 import type {
+  CloudLyricsPlatformId,
   CloudPlatformId,
   EditCloudMetaQuery,
   EditCloudMetaResult,
@@ -70,14 +71,14 @@ const platformCoverProviders: Record<Exclude<CloudPlatformId, 'all'>, CoverProvi
   itunes: [itunesCoverProvider],
 }
 
-/** 平台 → 歌词 provider id（tx 平台含 qrc；lrclib 仅全部时使用） */
-const platformLyricsIds: Record<Exclude<CloudPlatformId, 'all'>, string[]> = {
+/** 平台 → 歌词 provider id（tx 平台含 qrc；lrclib 独立；仅全部时含 amll 聚合） */
+const platformLyricsIds: Record<Exclude<CloudLyricsPlatformId, 'all'>, string[]> = {
   wy: ['wy'],
   tx: ['tx', 'qrc'],
   kg: ['kg'],
   kw: ['kw'],
   mg: ['mg'],
-  itunes: [],
+  lrclib: ['lrclib'],
 }
 
 const throwIfAborted = (signal?: AbortSignal): void => {
@@ -351,6 +352,8 @@ export const searchEditCloudMeta = async (
   const max = Math.max(1, options.maxCandidates ?? DEFAULT_MAX_CANDIDATES)
   const signal = options.signal
   const platform = options.platform ?? 'all'
+  const lyricsPlatform = options.lyricsPlatform ?? 'all'
+  const dims = new Set(options.dimensions ?? ['text', 'cover', 'lyrics'])
 
   if (!title || !songId) {
     return {
@@ -385,16 +388,26 @@ export const searchEditCloudMeta = async (
     : platformCoverProviders[platform]
   let lyricsProviders = getOnlineLyricsFallbackProviders()
   let includeAmll = true
-  if (platform !== 'all') {
-    const ids = new Set(platformLyricsIds[platform])
+  if (lyricsPlatform !== 'all') {
+    const ids = new Set(platformLyricsIds[lyricsPlatform])
     lyricsProviders = lyricsProviders.filter((provider) => ids.has(provider.id))
     includeAmll = false
   }
 
+  const textPromise = dims.has('text')
+    ? searchTextDimension(textQuery, max, textProviders, signal)
+    : Promise.resolve<EditDimResult<TextMetaHit>>(emptyDim())
+  const coverPromise = dims.has('cover')
+    ? searchCoverDimension(editQuery, max, coverProviders, signal)
+    : Promise.resolve<EditDimResult<EditCoverCandidate>>(emptyDim())
+  const lyricsPromise = dims.has('lyrics')
+    ? searchLyricsDimension(editQuery, max, lyricsProviders, includeAmll, signal)
+    : Promise.resolve<EditDimResult<EditLyricsCandidate>>(emptyDim())
+
   const [text, cover, lyrics] = await Promise.all([
-    searchTextDimension(textQuery, max, textProviders, signal),
-    searchCoverDimension(editQuery, max, coverProviders, signal),
-    searchLyricsDimension(editQuery, max, lyricsProviders, includeAmll, signal),
+    textPromise,
+    coverPromise,
+    lyricsPromise,
   ])
 
   // 顶层若已 abort，把仍为 no-match 的空维标成 aborted（可选一致性）

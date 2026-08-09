@@ -242,6 +242,33 @@
         class="flex flex-col gap-[var(--muses-space-md)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]"
         @submit.prevent="editForm.handleSubmit"
       >
+        <!-- tab：基础信息 / 歌词（渠道拆分） -->
+        <div class="flex rounded-[10px] bg-[rgba(128,128,128,0.14)] p-[3px]">
+          <button
+            type="button"
+            class="flex-1 h-[34px] rounded-[8px] text-[length:var(--muses-font-body-sm)] font-medium transition-colors"
+            :class="editMetaTab === 'basic'
+              ? 'bg-[var(--h-color-surface,#fff)] text-[color:var(--h-color-ink,#1f2329)] shadow-sm'
+              : 'bg-transparent text-[color:var(--h-color-ink-muted,#888)]'"
+            :aria-pressed="editMetaTab === 'basic'"
+            @click="editMetaTab = 'basic'"
+          >
+            基础信息
+          </button>
+          <button
+            type="button"
+            class="flex-1 h-[34px] rounded-[8px] text-[length:var(--muses-font-body-sm)] font-medium transition-colors"
+            :class="editMetaTab === 'lyrics'
+              ? 'bg-[var(--h-color-surface,#fff)] text-[color:var(--h-color-ink,#1f2329)] shadow-sm'
+              : 'bg-transparent text-[color:var(--h-color-ink-muted,#888)]'"
+            :aria-pressed="editMetaTab === 'lyrics'"
+            @click="editMetaTab = 'lyrics'"
+          >
+            歌词
+          </button>
+        </div>
+
+        <template v-if="editMetaTab === 'basic'">
         <!-- 云端强制搜：预览 + 勾选应用，不自动覆盖表单 -->
         <section
           class="flex flex-col gap-[var(--muses-space-sm)] rounded-[12px] border border-[color:var(--h-color-border,rgba(0,0,0,0.08))] p-[var(--muses-space-md)]"
@@ -358,45 +385,6 @@
                   <img class="w-12 h-12 object-cover" :src="item.remoteUrl" alt="">
                 </button>
               </div>
-
-              <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]">
-                歌词 · {{ dimStatusLabel(cloudResult.lyrics.status) }}
-                <template v-if="selectedLyricsHit">
-                  ：{{ cloudSourceLabel(selectedLyricsHit.source) }} / {{ selectedLyricsHit.format }}
-                  <span v-if="selectedLyricsHit.translationText">（含译文，应用仅主词）</span>
-                </template>
-              </p>
-              <p
-                v-if="selectedLyricsHit"
-                class="m-0 text-[length:var(--muses-font-body-sm)] whitespace-pre-wrap line-clamp-3 opacity-80"
-              >
-                {{ lyricsPreview(selectedLyricsHit.text) }}
-              </p>
-              <h-button
-                v-if="cloudResult.lyrics.items.length > 1"
-                variant="ghost"
-                type="button"
-                size="sm"
-                class="self-start"
-                :disabled="cloudFetching || cloudApplying"
-                aria-label="更换歌词候选"
-                @click="cloudExpandLyrics = !cloudExpandLyrics"
-              >
-                {{ cloudExpandLyrics ? '收起歌词候选' : '更换歌词' }}
-              </h-button>
-              <div v-if="cloudExpandLyrics" class="flex flex-col gap-[4px] max-h-36 overflow-y-auto">
-                <button
-                  v-for="(item, idx) in cloudResult.lyrics.items"
-                  :key="`lyrics-${idx}-${item.source}`"
-                  type="button"
-                  class="text-left text-[length:var(--muses-font-body-sm)] p-[6px] rounded-[8px] border-0 bg-transparent"
-                  :class="idx === cloudLyricsIndex ? 'bg-[rgba(0,0,0,0.06)]' : ''"
-                  @click="cloudLyricsIndex = idx"
-                >
-                  {{ cloudSourceLabel(item.source) }} · {{ item.format }}
-                  <span class="opacity-60">{{ lyricsPreview(item.text, 40) }}</span>
-                </button>
-              </div>
             </div>
 
             <div class="flex flex-col gap-[6px] pt-[var(--muses-space-xs)]">
@@ -437,15 +425,6 @@
                     @update:model-value="cloudChecks.cover = $event"
                   />
                   封面
-                </label>
-                <label class="inline-flex items-center gap-[6px] text-[length:var(--muses-font-body-sm)]">
-                  <h-checkbox
-                    :model-value="cloudChecks.lyrics"
-                    :disabled="!selectedLyricsHit || cloudFetching || cloudApplying"
-                    aria-label="应用歌词"
-                    @update:model-value="cloudChecks.lyrics = $event"
-                  />
-                  歌词
                 </label>
               </div>
               <h-button
@@ -553,19 +532,6 @@
           >
         </div>
 
-        <editForm.Field name="lyrics">
-          <template #default="{ field }">
-            <h-textarea
-              :model-value="field.state.value"
-              label="歌词文本"
-              :rows="6"
-              :disabled="isEditSubmitting"
-              @update:model-value="onEditLyricsInput(field, $event)"
-              @blur="field.handleBlur"
-            />
-          </template>
-        </editForm.Field>
-
         <editForm.Field
           name="replayGainDb"
           :validators="{
@@ -585,6 +551,105 @@
             />
           </template>
         </editForm.Field>
+        </template>
+
+        <template v-else>
+          <!-- 云端歌词：独立渠道 + 独立来源选择 -->
+          <section
+            class="flex flex-col gap-[var(--muses-space-sm)] rounded-[12px] border border-[color:var(--h-color-border,rgba(0,0,0,0.08))] p-[var(--muses-space-md)]"
+            aria-label="从云端获取歌词"
+          >
+            <div class="flex flex-col gap-[var(--muses-space-sm)]">
+              <p class="m-0 text-[length:var(--muses-font-body-sm)] font-medium">歌词来源</p>
+              <div class="flex flex-wrap gap-[6px]">
+                <button
+                  v-for="item in cloudLyricsPlatforms"
+                  :key="item.id"
+                  type="button"
+                  class="h-[30px] px-[12px] rounded-full text-[length:var(--muses-font-body-sm)] border transition-colors"
+                  :class="lyricsPlatform === item.id
+                    ? 'bg-[var(--h-color-primary,#0070f0)] text-white border-transparent'
+                    : 'bg-transparent text-[color:var(--h-color-ink-muted,#888)] border-[color:var(--h-color-border,rgba(0,0,0,0.08))]'"
+                  :aria-pressed="lyricsPlatform === item.id"
+                  :disabled="cloudFetching || cloudApplying"
+                  @click="lyricsPlatform = item.id"
+                >
+                  {{ item.label }}
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-[var(--muses-space-sm)]">
+              <p class="m-0 text-[length:var(--muses-font-body-sm)] font-medium">云端歌词</p>
+              <h-button
+                variant="ghost"
+                type="button"
+                size="sm"
+                :disabled="isEditSubmitting || cloudFetching || cloudApplying"
+                aria-label="从云端获取歌词"
+                @click="onFetchCloudMeta"
+              >
+                {{ cloudFetching ? '获取中…' : '获取歌词' }}
+              </h-button>
+            </div>
+
+            <p
+              v-if="lyricsStatusMessage"
+              class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]"
+            >
+              {{ lyricsStatusMessage }}
+            </p>
+
+            <template v-if="cloudResult?.lyrics?.items?.length">
+              <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]">
+                候选 · {{ cloudResult.lyrics.items.length }} 条
+              </p>
+              <div class="flex flex-col gap-[4px] max-h-36 overflow-y-auto">
+                <button
+                  v-for="(item, idx) in cloudResult.lyrics.items"
+                  :key="`lyrics-${idx}-${item.source}`"
+                  type="button"
+                  class="text-left text-[length:var(--muses-font-body-sm)] p-[6px] rounded-[8px] border-0 bg-transparent"
+                  :class="idx === cloudLyricsIndex ? 'bg-[rgba(0,0,0,0.06)]' : ''"
+                  @click="cloudLyricsIndex = idx"
+                >
+                  {{ cloudSourceLabel(item.source) }} · {{ item.format }}
+                  <span class="opacity-60">{{ lyricsPreview(item.text, 40) }}</span>
+                </button>
+              </div>
+              <p
+                v-if="selectedLyricsHit"
+                class="m-0 text-[length:var(--muses-font-body-sm)] whitespace-pre-wrap opacity-80 max-h-28 overflow-y-auto"
+              >
+                {{ selectedLyricsHit.text }}
+              </p>
+              <h-button
+                variant="primary"
+                type="button"
+                size="sm"
+                class="self-start"
+                :disabled="!selectedLyricsHit || cloudFetching || cloudApplying || isEditSubmitting"
+                aria-label="将所选云端歌词应用到歌词输入框"
+                @click="onApplyLyrics"
+              >
+                {{ cloudApplying ? '应用中…' : '应用所选歌词' }}
+              </h-button>
+            </template>
+          </section>
+
+          <editForm.Field name="lyrics">
+            <template #default="{ field }">
+              <h-textarea
+                :model-value="field.state.value"
+                label="歌词文本"
+                :rows="6"
+                :disabled="isEditSubmitting"
+                @update:model-value="onEditLyricsInput(field, $event)"
+                @blur="field.handleBlur"
+              />
+            </template>
+          </editForm.Field>
+        </template>
 
         <p v-if="editFormError" class="m-0 text-[length:var(--muses-font-body-sm)] text-[var(--h-color-danger,#f31260)]">
           {{ editFormError }}
@@ -628,9 +693,13 @@ import { useForm } from '@tanstack/vue-form'
 import { Capacitor } from '@capacitor/core'
 import {
   searchEditCloudMeta,
+  type CloudLyricsPlatformId,
   type CloudPlatformId,
   type EditCloudMetaResult,
+  type EditDimKey,
+  type EditDimResult,
   type EditDimStatus,
+  type SearchEditCloudMetaOptions,
 } from '@/features/editMeta'
 import { cacheRemoteCover } from '@/features/player/native'
 import {
@@ -952,8 +1021,10 @@ const closeSongEdit = () => {
   isSongEditOpen.value = false
 }
 
-// ── 云端元信息（强制搜 + 平台选择 + 勾选应用）────────────────────────
-/** 来源平台（MusicTag 式）；默认全部 */
+// ── 云端元信息（tab 拆分：基础信息=文本+封面 / 歌词独立渠道）────────
+/** 编辑弹窗 tab */
+const editMetaTab = ref<'basic' | 'lyrics'>('basic')
+/** 基础信息来源平台（MusicTag 式）；默认全部 */
 const cloudPlatform = ref<CloudPlatformId>('all')
 const cloudPlatforms: Array<{ id: CloudPlatformId; label: string }> = [
   { id: 'all', label: '全部' },
@@ -963,6 +1034,17 @@ const cloudPlatforms: Array<{ id: CloudPlatformId; label: string }> = [
   { id: 'kw', label: '酷我' },
   { id: 'mg', label: '咪咕' },
   { id: 'itunes', label: 'iTunes' },
+]
+/** 歌词来源平台（独立渠道：无 iTunes，有 LRCLIB） */
+const lyricsPlatform = ref<CloudLyricsPlatformId>('all')
+const cloudLyricsPlatforms: Array<{ id: CloudLyricsPlatformId; label: string }> = [
+  { id: 'all', label: '全部' },
+  { id: 'wy', label: '网易云' },
+  { id: 'tx', label: 'QQ音乐' },
+  { id: 'kg', label: '酷狗' },
+  { id: 'kw', label: '酷我' },
+  { id: 'mg', label: '咪咕' },
+  { id: 'lrclib', label: 'LRCLIB' },
 ]
 /** provider id → 中文平台名（候选列表展示） */
 const CLOUD_SOURCE_LABELS: Record<string, string> = {
@@ -982,18 +1064,17 @@ const cloudFetching = ref(false)
 const cloudApplying = ref(false)
 const cloudResult = ref<EditCloudMetaResult | null>(null)
 const cloudStatusMessage = ref('')
+const lyricsStatusMessage = ref('')
 const cloudTextIndex = ref(0)
 const cloudCoverIndex = ref(0)
 const cloudLyricsIndex = ref(0)
 const cloudExpandText = ref(false)
 const cloudExpandCover = ref(false)
-const cloudExpandLyrics = ref(false)
 const cloudChecks = ref({
   title: false,
   artist: false,
   album: false,
   cover: false,
-  lyrics: false,
 })
 let cloudAbort: AbortController | null = null
 let cloudFetchGeneration = 0
@@ -1011,18 +1092,17 @@ const resetCloudMetaState = (options?: { abort?: boolean }): void => {
   }
   cloudResult.value = null
   cloudStatusMessage.value = ''
+  lyricsStatusMessage.value = ''
   cloudTextIndex.value = 0
   cloudCoverIndex.value = 0
   cloudLyricsIndex.value = 0
   cloudExpandText.value = false
   cloudExpandCover.value = false
-  cloudExpandLyrics.value = false
   cloudChecks.value = {
     title: false,
     artist: false,
     album: false,
     cover: false,
-    lyrics: false,
   }
   cloudApplying.value = false
 }
@@ -1086,21 +1166,21 @@ const canApplyCloud = computed(() => {
   if (c.cover && selectedCoverHit.value) {
     return true
   }
-  if (c.lyrics && selectedLyricsHit.value) {
-    return true
-  }
   return false
 })
 
-const seedCloudChecksFromSelection = (): void => {
+const seedCloudChecksFromSelection = (dims: EditDimKey[]): void => {
   const text = selectedTextHit.value
-  cloudChecks.value = {
-    title: !!text?.title?.trim(),
-    artist: !!text?.artist?.trim(),
-    album: !!text?.album?.trim(),
-    cover: !!selectedCoverHit.value,
-    lyrics: !!selectedLyricsHit.value,
+  const next = { ...cloudChecks.value }
+  if (dims.includes('text')) {
+    next.title = !!text?.title?.trim()
+    next.artist = !!text?.artist?.trim()
+    next.album = !!text?.album?.trim()
   }
+  if (dims.includes('cover')) {
+    next.cover = !!selectedCoverHit.value
+  }
+  cloudChecks.value = next
 }
 
 const onFetchCloudMeta = async (): Promise<void> => {
@@ -1111,30 +1191,50 @@ const onFetchCloudMeta = async (): Promise<void> => {
 
   const title = String(editForm.getFieldValue('title') ?? '').trim() || song.title?.trim() || ''
   if (!title) {
-    cloudStatusMessage.value = '请先填写标题再获取'
-    showToast('请先填写标题再获取', 'warning')
+    const msg = '请先填写标题再获取'
+    cloudStatusMessage.value = msg
+    lyricsStatusMessage.value = msg
+    showToast(msg, 'warning')
     return
   }
 
   const artist = String(editForm.getFieldValue('artist') ?? '').trim() || undefined
   const album = String(editForm.getFieldValue('album') ?? '').trim() || undefined
 
+  const isLyricsTab = editMetaTab.value === 'lyrics'
+  const dims: EditDimKey[] = isLyricsTab ? ['lyrics'] : ['text', 'cover']
+  const platform = isLyricsTab ? lyricsPlatform.value : cloudPlatform.value
+  const platformLabel = isLyricsTab
+    ? (cloudLyricsPlatforms.find((p) => p.id === platform)?.label ?? '')
+    : (cloudPlatforms.find((p) => p.id === platform)?.label ?? '')
+
   abortCloudFetch()
   const controller = new AbortController()
   cloudAbort = controller
   const generation = cloudFetchGeneration
   const songId = song.id
-  const platform = cloudPlatform.value
   cloudFetching.value = true
-  cloudResult.value = null
-  cloudStatusMessage.value = platform === 'all'
-    ? '正在从多平台获取…'
-    : `正在从${cloudPlatforms.find((p) => p.id === platform)?.label ?? ''}获取…`
   cloudExpandText.value = false
   cloudExpandCover.value = false
-  cloudExpandLyrics.value = false
+  const statusMessage = platform === 'all'
+    ? (isLyricsTab ? '正在从多平台获取歌词…' : '正在从多平台获取…')
+    : `${isLyricsTab ? '正在从' : '正在从'}${platformLabel}${isLyricsTab ? '获取歌词…' : '获取…'}`
+  if (isLyricsTab) {
+    lyricsStatusMessage.value = statusMessage
+  } else {
+    cloudStatusMessage.value = statusMessage
+  }
 
   try {
+    const fetchOptions: SearchEditCloudMetaOptions = {
+      signal: controller.signal,
+      dimensions: dims,
+    }
+    if (isLyricsTab) {
+      fetchOptions.lyricsPlatform = lyricsPlatform.value
+    } else {
+      fetchOptions.platform = cloudPlatform.value
+    }
     const result = await searchEditCloudMeta(
       {
         songId,
@@ -1145,7 +1245,7 @@ const onFetchCloudMeta = async (): Promise<void> => {
           ? playerState.duration
           : undefined,
       },
-      { signal: controller.signal, platform },
+      fetchOptions,
     )
 
     if (
@@ -1157,40 +1257,78 @@ const onFetchCloudMeta = async (): Promise<void> => {
       return
     }
 
-    cloudResult.value = result
-    cloudTextIndex.value = result.text.defaultIndex
-    cloudCoverIndex.value = result.cover.defaultIndex
-    cloudLyricsIndex.value = result.lyrics.defaultIndex
-    seedCloudChecksFromSelection()
+    const cloudDim: Record<EditDimKey, EditDimResult<unknown>> = result
 
-    const anyOk =
-      result.text.status === 'ok'
-      || result.cover.status === 'ok'
-      || result.lyrics.status === 'ok'
-    const anyNetwork =
-      result.text.status === 'network'
-      || result.cover.status === 'network'
-      || result.lyrics.status === 'network'
+    // 合并结果：只更新本次搜索的维度，保留另一 tab 已获取内容
+    const prev = cloudResult.value
+    const merged: EditCloudMetaResult = {
+      text: prev?.text ?? { status: 'no-match', items: [], defaultIndex: 0 },
+      cover: prev?.cover ?? { status: 'no-match', items: [], defaultIndex: 0 },
+      lyrics: prev?.lyrics ?? { status: 'no-match', items: [], defaultIndex: 0 },
+    }
+    if (dims.includes('text')) {
+      merged.text = result.text
+    }
+    if (dims.includes('cover')) {
+      merged.cover = result.cover
+    }
+    if (dims.includes('lyrics')) {
+      merged.lyrics = result.lyrics
+    }
+    cloudResult.value = merged
+    if (dims.includes('text')) {
+      cloudTextIndex.value = result.text.defaultIndex
+    }
+    if (dims.includes('cover')) {
+      cloudCoverIndex.value = result.cover.defaultIndex
+    }
+    if (dims.includes('lyrics')) {
+      cloudLyricsIndex.value = result.lyrics.defaultIndex
+    }
+    seedCloudChecksFromSelection(dims)
+
+    const dimLabels: Record<EditDimKey, string> = { text: '文本', cover: '封面', lyrics: '歌词' }
+    const anyOk = dims.some((d) => cloudDim[d].status === 'ok')
+    const anyNetwork = dims.some((d) => cloudDim[d].status === 'network')
 
     if (anyOk) {
-      const parts = [
-        result.text.status === 'ok' ? `文本 ${result.text.items.length}` : null,
-        result.cover.status === 'ok' ? `封面 ${result.cover.items.length}` : null,
-        result.lyrics.status === 'ok' ? `歌词 ${result.lyrics.items.length}` : null,
-      ].filter(Boolean)
-      cloudStatusMessage.value = `已获取：${parts.join(' · ')}（勾选后应用到表单）`
+      const parts = dims
+        .filter((d) => cloudDim[d].status === 'ok')
+        .map((d) => `${dimLabels[d]} ${cloudDim[d].items.length}`)
+      const message = isLyricsTab
+        ? `已获取：${parts.join(' · ')}`
+        : `已获取：${parts.join(' · ')}（勾选后应用到表单）`
+      if (isLyricsTab) {
+        lyricsStatusMessage.value = message
+      } else {
+        cloudStatusMessage.value = message
+      }
     } else if (anyNetwork) {
-      cloudStatusMessage.value = '网络异常，请稍后重试'
+      const message = '网络异常，请稍后重试'
+      if (isLyricsTab) {
+        lyricsStatusMessage.value = message
+      } else {
+        cloudStatusMessage.value = message
+      }
       showToast('云端获取网络异常', 'warning')
     } else {
-      cloudStatusMessage.value = '未找到匹配结果'
+      const message = '未找到匹配结果'
+      if (isLyricsTab) {
+        lyricsStatusMessage.value = message
+      } else {
+        cloudStatusMessage.value = message
+      }
       showToast('未找到云端匹配', 'default')
     }
   } catch (error) {
     if (controller.signal.aborted || generation !== cloudFetchGeneration) {
       return
     }
-    cloudStatusMessage.value = '获取失败，请重试'
+    if (isLyricsTab) {
+      lyricsStatusMessage.value = '获取失败，请重试'
+    } else {
+      cloudStatusMessage.value = '获取失败，请重试'
+    }
     showToast('云端获取失败', 'danger')
     console.warn('[edit-cloud-meta] fetch failed', error)
   } finally {
@@ -1226,7 +1364,6 @@ const onApplyCloudMeta = async (): Promise<void> => {
   const checks = { ...cloudChecks.value }
   const text = selectedTextHit.value
   const cover = selectedCoverHit.value
-  const lyrics = selectedLyricsHit.value
   const applied: string[] = []
   const failed: string[] = []
 
@@ -1245,13 +1382,6 @@ const onApplyCloudMeta = async (): Promise<void> => {
     if (checks.album && text?.album?.trim()) {
       editForm.setFieldValue('album', text.album.trim())
       applied.push('专辑')
-    }
-    if (checks.lyrics && lyrics?.text?.trim()) {
-      editForm.setFieldValue('lyrics', lyrics.text)
-      const fmt = lyrics.format
-      editLyricsFormat.value =
-        fmt === 'ttml' || fmt === 'yrc' || fmt === 'qrc' || fmt === 'lrc' ? fmt : 'lrc'
-      applied.push('歌词')
     }
     if (checks.cover && cover?.remoteUrl) {
       const localUri = await cacheRemoteCover({
@@ -1290,6 +1420,19 @@ const onApplyCloudMeta = async (): Promise<void> => {
   } finally {
     cloudApplying.value = false
   }
+}
+
+/** 歌词 tab：应用所选云端歌词到表单 */
+const onApplyLyrics = (): void => {
+  const lyrics = selectedLyricsHit.value
+  if (!lyrics?.text?.trim() || cloudApplying.value || isEditSubmitting.value) {
+    return
+  }
+  editForm.setFieldValue('lyrics', lyrics.text)
+  const fmt = lyrics.format
+  editLyricsFormat.value =
+    fmt === 'ttml' || fmt === 'yrc' || fmt === 'qrc' || fmt === 'lrc' ? fmt : 'lrc'
+  showToast(`已应用歌词（${cloudSourceLabel(lyrics.source)}）`, 'success')
 }
 
 watch(isSongEditOpen, (open) => {
