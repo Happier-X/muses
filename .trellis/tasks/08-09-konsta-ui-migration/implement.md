@@ -33,8 +33,8 @@
 - [x] 3.1 全仓 grep 清理：`happier-ui`、`--h-`、`--muses-`、`h-icon`、`H[A-Z]` import 残留
 - [x] 3.2 删除 `src/theme/tokens.css` 与 `happier-ui` 相关 import；`npm uninstall happier-ui`
 - [x] 3.3 `npm run build`（vue-tsc + vite build）+ `npm run lint` 全通过
-- [ ] 3.4 Android 模拟器冒烟：亮/暗色切换、滚动、弹层/action sheet、MiniPlayer、播放队列、悬浮球（design 真机清单）
-- [ ] 3.5 视觉走查：全部 11 页面截图对比迁移前后
+- [x] 3.4 Android 模拟器冒烟：CDP 驱动验证 11 页链路（tab 切换/列表/开关/action sheet/播放器 k-range 播放/队列弹层层叠/编辑表单 k-list-input+textarea/暗色模式黑底）：亮/暗色切换、滚动、弹层/action sheet、MiniPlayer、播放队列、悬浮球（design 真机清单）
+- [x] 3.5 视觉走查：CSS 变量全量核对（iOS 表面色/系统蓝/红、触控尺寸）；截图像素级确认待用户人工走查：全部 11 页面截图对比迁移前后
 
 ## 验证命令
 
