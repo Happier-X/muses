@@ -233,7 +233,6 @@ const searchLyricsDimension = async (
   query: EditCloudMetaQuery,
   max: number,
   lyricsProviders: LyricsProvider[],
-  includeAmll: boolean,
   signal?: AbortSignal,
 ): Promise<EditDimResult<EditLyricsCandidate>> => {
   const lyricsQuery: OnlineLyricsQuery = {
@@ -268,31 +267,30 @@ const searchLyricsDimension = async (
     })
   }
 
-  if (includeAmll) {
-    try {
-      throwIfAborted(signal)
-      const amll = await matchAmllTtmlLyrics({
-        songId: lyricsQuery.songId,
-        title: lyricsQuery.title,
-        artist: lyricsQuery.artist,
-        album: lyricsQuery.album,
+  // amll 聚合库（TTML 逐行时间轴）始终参与：独立高质量来源，不随平台过滤
+  try {
+    throwIfAborted(signal)
+    const amll = await matchAmllTtmlLyrics({
+      songId: lyricsQuery.songId,
+      title: lyricsQuery.title,
+      artist: lyricsQuery.artist,
+      album: lyricsQuery.album,
+    })
+    throwIfAborted(signal)
+    if (amll.ok) {
+      pushHit({
+        text: amll.ttml,
+        format: 'ttml',
+        source: 'amll',
       })
-      throwIfAborted(signal)
-      if (amll.ok) {
-        pushHit({
-          text: amll.ttml,
-          format: 'ttml',
-          source: 'amll',
-        })
-      } else if (amll.reason === 'network') {
-        sawNetwork = true
-      }
-    } catch (error) {
-      if (isAbortError(error)) {
-        aborted = true
-      } else {
-        sawNetwork = true
-      }
+    } else if (amll.reason === 'network') {
+      sawNetwork = true
+    }
+  } catch (error) {
+    if (isAbortError(error)) {
+      aborted = true
+    } else {
+      sawNetwork = true
     }
   }
 
@@ -379,20 +377,18 @@ export const searchEditCloudMeta = async (
   }
 
   // 平台过滤：选具体平台时只用该平台 provider；
-  // 歌词限定平台时跳过 amll 聚合库（保持纯平台来源）
+  // amll 聚合库（TTML 高质量）始终参与，不随平台过滤
   const textProviders = platform === 'all'
     ? defaultTextProviders
     : platformTextProviders[platform]
   const coverProviders = platform === 'all'
     ? defaultCoverProviders
     : platformCoverProviders[platform]
-  let lyricsProviders = getOnlineLyricsFallbackProviders()
-  let includeAmll = true
-  if (lyricsPlatform !== 'all') {
-    const ids = new Set(platformLyricsIds[lyricsPlatform])
-    lyricsProviders = lyricsProviders.filter((provider) => ids.has(provider.id))
-    includeAmll = false
-  }
+  const lyricsProviders = lyricsPlatform === 'all'
+    ? getOnlineLyricsFallbackProviders()
+    : getOnlineLyricsFallbackProviders().filter(
+        (provider) => platformLyricsIds[lyricsPlatform].includes(provider.id),
+      )
 
   const textPromise = dims.has('text')
     ? searchTextDimension(textQuery, max, textProviders, signal)
@@ -401,7 +397,7 @@ export const searchEditCloudMeta = async (
     ? searchCoverDimension(editQuery, max, coverProviders, signal)
     : Promise.resolve<EditDimResult<EditCoverCandidate>>(emptyDim())
   const lyricsPromise = dims.has('lyrics')
-    ? searchLyricsDimension(editQuery, max, lyricsProviders, includeAmll, signal)
+    ? searchLyricsDimension(editQuery, max, lyricsProviders, signal)
     : Promise.resolve<EditDimResult<EditLyricsCandidate>>(emptyDim())
 
   const [text, cover, lyrics] = await Promise.all([
