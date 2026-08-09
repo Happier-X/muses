@@ -3,20 +3,21 @@
     <k-navbar center-title>
       <template #title>歌单</template>
       <template #right>
-        <h-button variant="ghost" is-icon-only shape="square" aria-label="新建歌单" @click="openCreateAlert">
-          <h-icon :icon="addOutline" />
-        </h-button>
+        <k-button component="button" clear rounded class="size-8" aria-label="新建歌单" @click="openCreateAlert">
+          <component :is="addOutline" aria-hidden="true" class="size-4" />
+        </k-button>
       </template>
     </k-navbar>
     <div class="m-content">
-      <div class="md:max-w-[var(--muses-content-max-width)] md:mx-auto">
-        <h-empty
+      <div class="md:max-w-[720px] md:mx-auto">
+        <m-empty
           v-if="playlists.length === 0"
           title="还没有歌单"
           description="点右上角新建，或在歌曲页「更多」加入歌单。"
+          :icon="list"
         />
 
-        <div v-else class="pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg))] md:pb-[calc(var(--muses-mini-player-height)+var(--muses-space-lg)+env(safe-area-inset-bottom,0px))]">
+        <div v-else class="pb-[calc(64px+16px)] md:pb-[calc(64px+16px+env(safe-area-inset-bottom,0px))]">
           <div
             v-for="item in listRows"
             :key="item.id"
@@ -28,50 +29,62 @@
           >
             <m-cover :size="48" radius="sm" alt="">
               <template #placeholder>
-                <h-icon :icon="list" aria-hidden="true" />
+                <component :is="list" aria-hidden="true" />
               </template>
             </m-cover>
             <div class="flex-1 min-w-0">
-              <h2 class="m-0 text-[length:var(--muses-font-title)] font-semibold truncate">{{ item.name }}</h2>
-              <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted)]">{{ item.validCount }} 首</p>
+              <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white truncate">{{ item.name }}</h2>
+              <p class="m-0 text-[13px] text-black/55 dark:text-white/55">{{ item.validCount }} 首</p>
             </div>
-            <h-button
-              variant="ghost"
-              is-icon-only
-              shape="square"
+            <k-button
+              component="button"
+              small
+              rounded
+              class="m-0 size-8"
               aria-label="更多歌单操作"
-              class="m-0"
               @click.stop="openPlaylistActions(item.id)"
             >
-              <h-icon :icon="ellipsisVertical" />
-            </h-button>
+              <component :is="ellipsisVertical" aria-hidden="true" class="size-4" />
+            </k-button>
           </div>
         </div>
       </div>
 
-      <h-bottom-sheet v-model="isActionsOpen" title="歌单操作" @close="onActionsDismiss">
-        <div class="flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
-          <button :class="actionSheetItemClass" type="button" @click="handleRename">重命名</button>
-          <button :class="[actionSheetItemClass, actionSheetDestructiveClass]" type="button" @click="handleDelete">删除</button>
-          <button :class="[actionSheetItemClass, actionSheetCancelClass]" type="button" @click="isActionsOpen = false">取消</button>
-        </div>
-      </h-bottom-sheet>
+      <k-actions :opened="isActionsOpen" @backdropclick="isActionsOpen = false">
+        <k-actions-group>
+          <k-actions-label>歌单操作</k-actions-label>
+          <k-actions-button @click="handleRename">重命名</k-actions-button>
+          <k-actions-button bold @click="handleDelete">删除</k-actions-button>
+        </k-actions-group>
+        <k-actions-group>
+          <k-actions-button @click="isActionsOpen = false">取消</k-actions-button>
+        </k-actions-group>
+      </k-actions>
 
-      <h-dialog v-model="isNameAlertOpen" :title="nameAlertHeader">
-        <h-input v-model="nameInput" placeholder="歌单名称" maxlength="80" />
-        <template #actions>
-          <h-button variant="ghost" @click="isNameAlertOpen = false">取消</h-button>
-          <h-button variant="primary" @click="onNameConfirm">确定</h-button>
+      <k-dialog :opened="isNameAlertOpen" :title="nameAlertHeader">
+        <k-list inset>
+          <k-list-input
+            label="歌单名称"
+            type="text"
+            :value="nameInput"
+            placeholder="歌单名称"
+            clear-button
+            @input="onNameInput"
+          />
+        </k-list>
+        <template #buttons>
+          <k-dialog-button @click="isNameAlertOpen = false">取消</k-dialog-button>
+          <k-dialog-button strong @click="onNameConfirm">确定</k-dialog-button>
         </template>
-      </h-dialog>
+      </k-dialog>
 
-      <h-dialog v-model="isDeleteAlertOpen" title="删除歌单">
-        <p>{{ deleteMessage }}</p>
-        <template #actions>
-          <h-button variant="ghost" @click="isDeleteAlertOpen = false">取消</h-button>
-          <h-button variant="danger" @click="onDeleteConfirm">删除</h-button>
+      <k-dialog :opened="isDeleteAlertOpen" title="删除歌单">
+        <p class="m-0 text-center text-black/55 dark:text-white/55 text-[15px] leading-[1.4]">{{ deleteMessage }}</p>
+        <template #buttons>
+          <k-dialog-button @click="isDeleteAlertOpen = false">取消</k-dialog-button>
+          <k-dialog-button strong @click="onDeleteConfirm">删除</k-dialog-button>
         </template>
-      </h-dialog>
+      </k-dialog>
     </div>
   </div>
 </template>
@@ -80,8 +93,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { addOutline, ellipsisVertical, list } from '@/icons'
-import { HBottomSheet, HButton, HDialog, HEmpty, HIcon, HInput, kNavbar, MCover } from '@/components/ui'
-import { actionSheetCancelClass, actionSheetDestructiveClass, actionSheetItemClass } from '@/theme/action-sheet'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kList, kListInput, kNavbar, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,
@@ -134,8 +146,8 @@ const openPlaylistActions = (id: string) => {
   isActionsOpen.value = true
 }
 
-const onActionsDismiss = () => {
-  isActionsOpen.value = false
+const onNameInput = (e: Event): void => {
+  nameInput.value = (e.target as HTMLInputElement).value
 }
 
 const handleRename = () => {

@@ -6,24 +6,24 @@
       </template>
       <template #title>{{ pageTitle }}</template>
     </k-navbar>
-    <div class="flex-[0_0_48px] min-h-[48px] bg-[var(--h-color-surface-secondary)]">
-      <div class="box-border w-full px-[8px] py-[4px] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
-        <h-button
-          variant="ghost"
-          size="sm"
+    <div class="flex-[0_0_48px] min-h-[48px] bg-white dark:bg-black">
+      <div class="box-border w-full px-[8px] py-[4px] md:max-w-[720px] md:mx-auto">
+        <k-button
+          component="button"
+          small
           class="m-0"
           aria-label="随机播放全部"
           :disabled="songs.length === 0"
           @click="onShuffleAll"
         >
-          <template #leading><h-icon :icon="shuffle" /></template>
+          <component :is="shuffle" aria-hidden="true" />
           随机播放全部
-        </h-button>
+        </k-button>
       </div>
     </div>
     <div class="m-content" style="overflow: hidden;">
-      <div class="h-full md:max-w-[var(--muses-content-max-width)] md:mx-auto">
-        <h-empty
+      <div class="h-full md:max-w-[720px] md:mx-auto">
+        <m-empty
           v-if="songs.length === 0"
           title="没有歌曲"
           description="没有找到相关歌曲。"
@@ -32,7 +32,7 @@
         <div
           v-else
           ref="listParentRef"
-          class="h-full overflow-auto overscroll-contain box-border pb-[var(--muses-mini-player-height)] md:pb-[calc(var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] [overflow-anchor:none]"
+          class="h-full overflow-auto overscroll-contain box-border pb-[64px] md:pb-[calc(64px+env(safe-area-inset-bottom,0px))] [overflow-anchor:none]"
           role="list"
           :aria-label="`${pageTitle} 歌曲`"
           @scroll="onListScroll"
@@ -42,22 +42,22 @@
               v-for="row in visibleRows"
               :key="row.song.id"
               :ref="measureVirtualRow"
-              class="absolute inset-x-0 top-0 box-border min-h-[var(--muses-song-row-height)]"
+              class="absolute inset-x-0 top-0 box-border min-h-[72px]"
               role="listitem"
               :data-index="row.virtualRow.index"
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
               <div
-                class="flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
+                class="flex items-center gap-[12px] p-[12px]"
                 :class="songItemClass(row.song.id)"
                 role="button"
                 tabindex="0"
                 @click="onPlaySong(row.song)"
               >
                 <m-cover class="!flex-none" :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
-                <div class="flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
-                  <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] truncate">{{ row.song.title }}</h2>
-                  <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
+                <div class="flex-1 min-w-0 flex flex-col gap-[2px]">
+                  <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white truncate">{{ row.song.title }}</h2>
+                  <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
                 </div>
               </div>
             </div>
@@ -66,15 +66,17 @@
       </div>
     </div>
 
-    <h-floating-bubble
+    <k-fab
       v-if="showJumpBubble"
-      axis="lock"
-      :offset="fabOffset"
-      :ariaLabel="'跳转到当前播放'"
+      class="z-40"
+      :style="{ position: 'fixed', left: `${fabOffset.x}px`, top: `${fabOffset.y}px` }"
+      aria-label="跳转到当前播放"
       @click="scrollToCurrentSong"
     >
-      <h-icon :icon="crosshair" aria-hidden="true" />
-    </h-floating-bubble>
+      <template #icon>
+        <component :is="crosshair" aria-hidden="true" />
+      </template>
+    </k-fab>
   </div>
 </template>
 
@@ -84,8 +86,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, shuffle } from '@/icons'
-import { HButton, HEmpty, HFloatingBubble, HIcon, kNavbar, kNavbarBackLink, MCover } from '@/components/ui'
-import type { HFloatingBubbleOffset } from '@/components/ui'
+import { kButton, kFab, kNavbar, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, groupSongsByAlbum, groupSongsByArtist } from '@/features/library/views'
@@ -148,10 +149,10 @@ let jumpHighlightTimer: ReturnType<typeof setTimeout> | null = null
 const songItemClass = (songId: string): string => {
   const classes: string[] = []
   if (playerState.currentSong?.id === songId) {
-    classes.push('is-playing bg-[var(--muses-color-playing-bg)]')
+    classes.push('is-playing bg-black/5 dark:bg-white/10')
   }
   if (highlightedSongId.value === songId) {
-    classes.push('bg-[var(--muses-color-jump-highlight)]')
+    classes.push('bg-primary/10')
   }
   return classes.join(' ')
 }
@@ -190,7 +191,7 @@ const showJumpBubble = computed(
   () => currentPlayingInList.value && !currentSongInViewport.value && !isListScrolling.value,
 )
 
-const fabOffset = computed<HFloatingBubbleOffset>(() => {
+const fabOffset = computed(() => {
   const miniPlayerH = 64
   return { x: window.innerWidth - 48, y: window.innerHeight - miniPlayerH - 48 }
 })

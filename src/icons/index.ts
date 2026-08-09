@@ -1,7 +1,7 @@
 /**
  * Muses 业务图标语义表。
  *
- * 所有导出均为 @lucide/vue 组件，交给 happier-ui 的 HIcon 渲染。
+ * 所有导出均为 @lucide/vue 组件，页面以 <component :is> 直接渲染。
  */
 export {
   Play as play,

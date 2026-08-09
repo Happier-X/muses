@@ -1,21 +1,14 @@
 <template>
-  <h-popup
-    v-model="playerOverlayVisible"
-    position="fullscreen"
-    :keep-alive="true"
-    :swipe-close="false"
-    :close-on-overlay="false"
-    :close-on-esc="false"
-  >
+  <k-popup :opened="playerOverlayVisible">
     <div
-      class="player-overlay h-full overflow-hidden overscroll-behavior-none touch-action-none text-[var(--muses-immersive-ink)]"
+      class="player-overlay h-full overflow-hidden overscroll-behavior-none touch-action-none text-[#ffffff]"
       @touchstart.passive="onTouchStart"
       @touchmove="onTouchMove"
       @touchend="onTouchEnd"
       @touchcancel="onTouchEnd"
     >
       <div
-        class="relative h-full overflow-hidden [background:var(--muses-immersive-void)] transition-[transform] duration-[var(--muses-duration-overlay)] ease-[var(--muses-ease-standard)]"
+        class="relative h-full overflow-hidden [background:#05070d] transition-[transform] duration-[220ms] ease-[ease]"
         :class="{ 'is-dragging': isDraggingVertically, '!transition-none': isDraggingVertically }"
         :style="{ transform: `translateY(${dragOffsetY}px)` }"
       >
@@ -41,7 +34,7 @@
 
       <div
         v-else
-        class="panels relative z-10 flex w-[200%] h-full max-h-full overflow-hidden transition-[transform] duration-[var(--muses-duration-overlay)] ease-[var(--muses-ease-standard)]"
+        class="panels relative z-10 flex w-[200%] h-full max-h-full overflow-hidden transition-[transform] duration-[220ms] ease-[ease]"
         :style="{ transform: `translateX(-${activePanel * 50}%)` }"
       >
         <section class="panel info-panel flex flex-col items-center justify-stretch text-center" aria-label="播放控制页">
@@ -66,19 +59,19 @@
               @pointerup.stop="onProgressGestureEnd"
               @pointercancel.stop="onProgressGestureEnd"
             >
-              <h-range
+              <k-range
                 ref="progressRangeRef"
                 class="progress-range w-full cursor-pointer touch-manipulation"
                 :min="0"
                 :max="durationForSlider"
                 :step="0.1"
-                :model-value="effectiveSeekPosition"
+                :value="effectiveSeekPosition"
                 :disabled="!canSeek"
                 aria-label="播放进度"
-                @update:model-value="onSeekInput"
-                @change="onSeek"
+                @input="onRangeInput"
+                @change="onRangeChange"
               />
-              <div class="time-row flex justify-between items-center mt-[2px] text-[12px] tabular-nums text-[var(--muses-immersive-ink-soft)]">
+              <div class="time-row flex justify-between items-center mt-[2px] text-[12px] tabular-nums text-[rgba(255,255,255,0.68)]">
                 <span>{{ formatTime(playerState.position) }}</span>
                 <span v-if="bufferHintVisible" class="text-[rgba(255,255,255,0.55)] text-[11px]">缓冲中</span>
                 <span>{{ playerState.duration ? formatTime(playerState.duration) : '--:--' }}</span>
@@ -86,66 +79,83 @@
             </div>
 
             <div class="controls flex-none flex items-center justify-center gap-[clamp(16px,5vw,28px)] w-full m-0 touch-manipulation">
-              <h-button variant="ghost" is-icon-only shape="circle" aria-label="上一曲" @click="onPrevious">
-                <h-icon :icon="previousIcon" variant="fill" />
-              </h-button>
-              <h-button
-                class="play-toggle"
-                variant="ghost"
-                is-icon-only
-                shape="circle"
+              <k-button
+                component="button"
+                clear
+                rounded-full
+                class="m-0 size-12 text-white/90"
+                aria-label="上一曲"
+                @click="onPrevious"
+              >
+                <component :is="previousIcon" aria-hidden="true" class="size-7 fill-current stroke-none" />
+              </k-button>
+              <k-button
+                component="button"
+                clear
+                rounded-full
+                class="play-toggle m-0 size-16 text-white"
                 :disabled="playerState.status === 'loading'"
                 aria-label="播放或暂停"
                 @click="togglePlayback"
               >
-                <h-icon :icon="isPlaying ? pause : play" variant="fill" />
-              </h-button>
-              <h-button variant="ghost" is-icon-only shape="circle" aria-label="下一曲" @click="onNext">
-                <h-icon :icon="nextIcon" variant="fill" />
-              </h-button>
+                <component :is="isPlaying ? pause : play" aria-hidden="true" class="size-10 fill-current stroke-none" />
+              </k-button>
+              <k-button
+                component="button"
+                clear
+                rounded-full
+                class="m-0 size-12 text-white/90"
+                aria-label="下一曲"
+                @click="onNext"
+              >
+                <component :is="nextIcon" aria-hidden="true" class="size-7 fill-current stroke-none" />
+              </k-button>
             </div>
 
             <div class="mode-bar flex-none flex justify-between items-center w-full max-w-[320px] m-0 touch-manipulation">
-              <h-button
-                variant="ghost"
-                is-icon-only
-                shape="circle"
+              <k-button
+                component="button"
+                clear
+                rounded-full
+                class="m-0 size-10 text-white/80"
                 :aria-label="repeatModeLabel"
                 @click="onToggleRepeat"
               >
-                <h-icon :icon="repeatIcon" />
-              </h-button>
+                <component :is="repeatIcon" aria-hidden="true" class="size-5" />
+              </k-button>
 
-              <h-button
-                variant="ghost"
-                is-icon-only
-                shape="circle"
+              <k-button
+                component="button"
+                clear
+                rounded-full
+                class="m-0 size-10 text-white/80"
                 :aria-label="shuffleModeLabel"
                 @click="onToggleShuffle"
               >
-                <h-icon :icon="shuffleIcon" />
-              </h-button>
+                <component :is="shuffleIcon" aria-hidden="true" class="size-5" />
+              </k-button>
 
-              <h-button
-                variant="ghost"
-                is-icon-only
-                shape="circle"
-
+              <k-button
+                component="button"
+                clear
+                rounded-full
+                class="m-0 size-10 text-white/80"
                 aria-label="播放队列"
                 @click="goToQueue"
               >
-                <h-icon :icon="listIcon" />
-              </h-button>
+                <component :is="listIcon" aria-hidden="true" class="size-5" />
+              </k-button>
 
-              <h-button
-                variant="ghost"
-                is-icon-only
-                shape="circle"
+              <k-button
+                component="button"
+                clear
+                rounded-full
+                class="m-0 size-10 text-white/80"
                 aria-label="更多"
                 @click="openPlayerActions"
               >
-                <h-icon :icon="moreIcon" />
-              </h-button>
+                <component :is="moreIcon" aria-hidden="true" class="size-5" />
+              </k-button>
             </div>
           </div>
         </section>
@@ -187,7 +197,7 @@
 
           <div
             v-if="showLyricFloatingActions"
-            class="lyric-floating-actions absolute left-[12px] right-[12px] bottom-[calc(8px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))] z-[3] flex items-center opacity-0 pointer-events-none transition-[opacity] duration-[var(--muses-duration-fab)] ease-[var(--muses-ease-standard)]"
+            class="lyric-floating-actions absolute left-[12px] right-[12px] bottom-[calc(8px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))] z-[3] flex items-center opacity-0 pointer-events-none transition-[opacity] duration-[200ms] ease-[ease]"
             :class="[
               { 'is-visible': lyricChromeVisible },
               hasLyricTranslation ? 'justify-between' : 'justify-end',
@@ -195,33 +205,33 @@
             aria-label="歌词快捷操作"
             :aria-hidden="!lyricChromeVisible"
           >
-            <h-button
+            <k-button
               v-if="hasLyricTranslation"
-              variant="ghost"
-              is-icon-only
-              shape="circle"
-              class="lyric-fab pointer-events-none"
+              component="button"
+              clear
+              rounded-full
+              class="lyric-fab pointer-events-none size-10 text-white/80"
               :class="{ 'is-active': showLyricTranslation }"
               :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
               :tabindex="lyricChromeVisible ? 0 : -1"
               @click.stop="onLyricTranslateClick"
             >
-              <h-icon :icon="translationIcon" aria-hidden="true" />
-            </h-button>
+              <component :is="translationIcon" aria-hidden="true" class="size-5" />
+            </k-button>
 
-            <h-button
+            <k-button
               v-if="!isTabletLayout"
-              variant="ghost"
-              is-icon-only
-              shape="circle"
-              class="lyric-fab lyric-play-toggle pointer-events-none"
+              component="button"
+              clear
+              rounded-full
+              class="lyric-fab lyric-play-toggle pointer-events-none size-12 text-white"
               :aria-label="isPlaying ? '暂停播放' : '继续播放'"
               :disabled="playerState.status === 'loading'"
               :tabindex="lyricChromeVisible ? 0 : -1"
               @click.stop="onLyricPlayClick"
             >
-              <h-icon :icon="isPlaying ? pause : play" variant="fill" />
-            </h-button>
+              <component :is="isPlaying ? pause : play" aria-hidden="true" class="size-7 fill-current stroke-none" />
+            </k-button>
           </div>
         </section>
       </div>
@@ -229,27 +239,31 @@
     </div>
 
     <!-- 歌曲操作：仅「编辑歌曲信息」（D2） -->
-    <h-bottom-sheet v-model="isPlayerActionsOpen" title="歌曲操作">
-      <div class="flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
-        <button :class="actionSheetItemClass" type="button" @click="onOpenSongEdit">编辑歌曲信息</button>
-        <button :class="[actionSheetItemClass, actionSheetCancelClass]" type="button" @click="isPlayerActionsOpen = false">取消</button>
-      </div>
-    </h-bottom-sheet>
+    <k-actions :opened="isPlayerActionsOpen" @backdropclick="isPlayerActionsOpen = false">
+      <k-actions-group>
+        <k-actions-label>歌曲操作</k-actions-label>
+        <k-actions-button @click="onOpenSongEdit">编辑歌曲信息</k-actions-button>
+      </k-actions-group>
+      <k-actions-group>
+        <k-actions-button @click="isPlayerActionsOpen = false">取消</k-actions-button>
+      </k-actions-group>
+    </k-actions>
 
     <!-- 编辑歌曲信息：title/artist/album/封面/歌词/RG + 云端获取 -->
-    <h-bottom-sheet v-model="isSongEditOpen" title="编辑歌曲信息">
+    <k-sheet :opened="isSongEditOpen">
+      <div class="text-[17px] font-semibold text-center pt-[16px] pb-[8px] text-black dark:text-white">编辑歌曲信息</div>
       <form
-        class="flex flex-col gap-[var(--muses-space-md)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]"
+        class="flex flex-col gap-[12px] pb-[16px] px-[16px]"
         @submit.prevent="editForm.handleSubmit"
       >
         <!-- tab：基础信息 / 歌词（渠道拆分） -->
-        <div class="flex rounded-[10px] bg-[rgba(128,128,128,0.14)] p-[3px]">
+        <div class="flex rounded-[10px] bg-black/10 dark:bg-white/10 p-[3px]">
           <button
             type="button"
-            class="flex-1 h-[34px] rounded-[8px] text-[length:var(--muses-font-body-sm)] font-medium transition-colors"
+            class="flex-1 h-[34px] rounded-[8px] text-[15px] font-medium transition-colors"
             :class="editMetaTab === 'basic'
-              ? 'bg-[var(--h-color-surface,#fff)] text-[color:var(--h-color-ink,#1f2329)] shadow-sm'
-              : 'bg-transparent text-[color:var(--h-color-ink-muted,#888)]'"
+              ? 'bg-white dark:bg-white/15 text-black dark:text-white shadow-sm'
+              : 'bg-transparent text-black/55 dark:text-white/55'"
             :aria-pressed="editMetaTab === 'basic'"
             @click="editMetaTab = 'basic'"
           >
@@ -257,10 +271,10 @@
           </button>
           <button
             type="button"
-            class="flex-1 h-[34px] rounded-[8px] text-[length:var(--muses-font-body-sm)] font-medium transition-colors"
+            class="flex-1 h-[34px] rounded-[8px] text-[15px] font-medium transition-colors"
             :class="editMetaTab === 'lyrics'
-              ? 'bg-[var(--h-color-surface,#fff)] text-[color:var(--h-color-ink,#1f2329)] shadow-sm'
-              : 'bg-transparent text-[color:var(--h-color-ink-muted,#888)]'"
+              ? 'bg-white dark:bg-white/15 text-black dark:text-white shadow-sm'
+              : 'bg-transparent text-black/55 dark:text-white/55'"
             :aria-pressed="editMetaTab === 'lyrics'"
             @click="editMetaTab = 'lyrics'"
           >
@@ -271,20 +285,20 @@
         <template v-if="editMetaTab === 'basic'">
         <!-- 云端强制搜：预览 + 勾选应用，不自动覆盖表单 -->
         <section
-          class="flex flex-col gap-[var(--muses-space-sm)] rounded-[12px] border border-[color:var(--h-color-border,rgba(0,0,0,0.08))] p-[var(--muses-space-md)]"
+          class="flex flex-col gap-[8px] rounded-[12px] border border-black/10 dark:border-white/15 p-[12px]"
           aria-label="从云端获取元信息"
         >
-          <div class="flex flex-col gap-[var(--muses-space-sm)]">
-            <p class="m-0 text-[length:var(--muses-font-body-sm)] font-medium">来源平台</p>
+          <div class="flex flex-col gap-[8px]">
+            <p class="m-0 text-[15px] font-medium">来源平台</p>
             <div class="flex flex-wrap gap-[6px]">
               <button
                 v-for="item in cloudPlatforms"
                 :key="item.id"
                 type="button"
-                class="h-[30px] px-[12px] rounded-full text-[length:var(--muses-font-body-sm)] border transition-colors"
+                class="h-[30px] px-[12px] rounded-full text-[15px] border transition-colors"
                 :class="cloudPlatform === item.id
-                  ? 'bg-[var(--h-color-primary,#0070f0)] text-white border-transparent'
-                  : 'bg-transparent text-[color:var(--h-color-ink-muted,#888)] border-[color:var(--h-color-border,rgba(0,0,0,0.08))]'"
+                  ? 'bg-primary text-white border-transparent'
+                  : 'bg-transparent text-black/55 dark:text-white/55 border-black/10 dark:border-white/15'"
                 :aria-pressed="cloudPlatform === item.id"
                 :disabled="cloudFetching || cloudApplying"
                 @click="cloudPlatform = item.id"
@@ -294,55 +308,55 @@
             </div>
           </div>
 
-          <div class="flex items-center justify-between gap-[var(--muses-space-sm)]">
-            <p class="m-0 text-[length:var(--muses-font-body-sm)] font-medium">云端元信息</p>
-            <h-button
-              variant="ghost"
-              type="button"
-              size="sm"
+          <div class="flex items-center justify-between gap-[8px]">
+            <p class="m-0 text-[15px] font-medium">云端元信息</p>
+            <k-button
+              component="button"
+              clear
+              small
               :disabled="isEditSubmitting || cloudFetching || cloudApplying"
               aria-label="从云端获取标题艺人专辑封面与歌词"
               @click="onFetchCloudMeta"
             >
               {{ cloudFetching ? '获取中…' : '从云端获取' }}
-            </h-button>
+            </k-button>
           </div>
 
           <p
             v-if="cloudStatusMessage"
-            class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]"
+            class="m-0 text-[15px] text-black/55 dark:text-white/55"
           >
             {{ cloudStatusMessage }}
           </p>
 
           <template v-if="cloudResult">
-            <div class="flex flex-col gap-[var(--muses-space-xs)]">
-              <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]">
+            <div class="flex flex-col gap-[2px]">
+              <p class="m-0 text-[15px] text-black/55 dark:text-white/55">
                 文本 · {{ dimStatusLabel(cloudResult.text.status) }}
                 <template v-if="selectedTextHit">
                   ：{{ selectedTextHit.title || '—' }} / {{ selectedTextHit.artist || '—' }} / {{ selectedTextHit.album || '—' }}
                   <span v-if="selectedTextHit.source">（{{ cloudSourceLabel(selectedTextHit.source) }}）</span>
                 </template>
               </p>
-              <h-button
+              <k-button
                 v-if="cloudResult.text.items.length > 1"
-                variant="ghost"
-                type="button"
-                size="sm"
+                component="button"
+                clear
+                small
                 class="self-start"
                 :disabled="cloudFetching || cloudApplying"
                 aria-label="更换文本候选"
                 @click="cloudExpandText = !cloudExpandText"
               >
                 {{ cloudExpandText ? '收起文本候选' : '更换文本' }}
-              </h-button>
+              </k-button>
               <div v-if="cloudExpandText" class="flex flex-col gap-[4px] max-h-36 overflow-y-auto">
                 <button
                   v-for="(item, idx) in cloudResult.text.items"
                   :key="`text-${idx}-${item.source}`"
                   type="button"
-                  class="text-left text-[length:var(--muses-font-body-sm)] p-[6px] rounded-[8px] border-0 bg-transparent"
-                  :class="idx === cloudTextIndex ? 'bg-[rgba(0,0,0,0.06)]' : ''"
+                  class="text-left text-[15px] p-[6px] rounded-[8px] border-0 bg-transparent"
+                  :class="idx === cloudTextIndex ? 'bg-black/5 dark:bg-white/10' : ''"
                   @click="cloudTextIndex = idx"
                 >
                   {{ item.title || '—' }} · {{ item.artist || '—' }} · {{ item.album || '—' }}
@@ -350,7 +364,7 @@
                 </button>
               </div>
 
-              <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]">
+              <p class="m-0 text-[15px] text-black/55 dark:text-white/55">
                 封面 · {{ dimStatusLabel(cloudResult.cover.status) }}
                 <template v-if="selectedCoverHit">（{{ cloudSourceLabel(selectedCoverHit.source) }}）</template>
               </p>
@@ -360,25 +374,25 @@
                 :src="selectedCoverHit.remoteUrl"
                 alt="云端封面预览"
               >
-              <h-button
+              <k-button
                 v-if="cloudResult.cover.items.length > 1"
-                variant="ghost"
-                type="button"
-                size="sm"
+                component="button"
+                clear
+                small
                 class="self-start"
                 :disabled="cloudFetching || cloudApplying"
                 aria-label="更换封面候选"
                 @click="cloudExpandCover = !cloudExpandCover"
               >
                 {{ cloudExpandCover ? '收起封面候选' : '更换封面' }}
-              </h-button>
+              </k-button>
               <div v-if="cloudExpandCover" class="flex flex-wrap gap-[8px] max-h-40 overflow-y-auto">
                 <button
                   v-for="(item, idx) in cloudResult.cover.items"
                   :key="`cover-${idx}-${item.source}`"
                   type="button"
                   class="p-0 border-0 bg-transparent rounded-[8px] overflow-hidden ring-offset-1"
-                  :class="idx === cloudCoverIndex ? 'ring-2 ring-[var(--h-color-primary,#0070f0)]' : ''"
+                  :class="idx === cloudCoverIndex ? 'ring-2 ring-primary' : ''"
                   :aria-label="`封面候选 ${idx + 1} ${cloudSourceLabel(item.source)}`"
                   @click="cloudCoverIndex = idx"
                 >
@@ -387,57 +401,56 @@
               </div>
             </div>
 
-            <div class="flex flex-col gap-[6px] pt-[var(--muses-space-xs)]">
-              <p class="m-0 text-[length:var(--muses-font-body-sm)]">应用到表单的字段</p>
+            <div class="flex flex-col gap-[6px] pt-[2px]">
+              <p class="m-0 text-[15px]">应用到表单的字段</p>
               <div class="flex flex-wrap gap-x-[12px] gap-y-[6px]">
-                <label class="inline-flex items-center gap-[6px] text-[length:var(--muses-font-body-sm)]">
-                  <h-checkbox
-                    :model-value="cloudChecks.title"
+                <label class="inline-flex items-center gap-[6px] text-[15px]">
+                  <k-checkbox
+                    :checked="cloudChecks.title"
                     :disabled="!selectedTextHit?.title?.trim() || cloudFetching || cloudApplying"
                     aria-label="应用标题"
-                    @update:model-value="cloudChecks.title = $event"
+                    @change="onCloudCheckChange('title', $event)"
                   />
                   标题
                 </label>
-                <label class="inline-flex items-center gap-[6px] text-[length:var(--muses-font-body-sm)]">
-                  <h-checkbox
-                    :model-value="cloudChecks.artist"
+                <label class="inline-flex items-center gap-[6px] text-[15px]">
+                  <k-checkbox
+                    :checked="cloudChecks.artist"
                     :disabled="!selectedTextHit?.artist?.trim() || cloudFetching || cloudApplying"
                     aria-label="应用艺术家"
-                    @update:model-value="cloudChecks.artist = $event"
+                    @change="onCloudCheckChange('artist', $event)"
                   />
                   艺术家
                 </label>
-                <label class="inline-flex items-center gap-[6px] text-[length:var(--muses-font-body-sm)]">
-                  <h-checkbox
-                    :model-value="cloudChecks.album"
+                <label class="inline-flex items-center gap-[6px] text-[15px]">
+                  <k-checkbox
+                    :checked="cloudChecks.album"
                     :disabled="!selectedTextHit?.album?.trim() || cloudFetching || cloudApplying"
                     aria-label="应用专辑"
-                    @update:model-value="cloudChecks.album = $event"
+                    @change="onCloudCheckChange('album', $event)"
                   />
                   专辑
                 </label>
-                <label class="inline-flex items-center gap-[6px] text-[length:var(--muses-font-body-sm)]">
-                  <h-checkbox
-                    :model-value="cloudChecks.cover"
+                <label class="inline-flex items-center gap-[6px] text-[15px]">
+                  <k-checkbox
+                    :checked="cloudChecks.cover"
                     :disabled="!selectedCoverHit || cloudFetching || cloudApplying"
                     aria-label="应用封面"
-                    @update:model-value="cloudChecks.cover = $event"
+                    @change="onCloudCheckChange('cover', $event)"
                   />
                   封面
                 </label>
               </div>
-              <h-button
-                variant="primary"
-                type="button"
-                size="sm"
+              <k-button
+                component="button"
+                small
                 class="self-start"
                 :disabled="!canApplyCloud || cloudFetching || cloudApplying || isEditSubmitting"
                 aria-label="将勾选的云端字段应用到表单"
                 @click="onApplyCloudMeta"
               >
                 {{ cloudApplying ? '应用中…' : '应用到表单' }}
-              </h-button>
+              </k-button>
             </div>
           </template>
         </section>
@@ -449,13 +462,12 @@
           }"
         >
           <template #default="{ field }">
-            <h-input
-              :model-value="field.state.value"
+            <k-list-input
+              :value="field.state.value"
               label="标题"
               :error="typeof field.state.meta.errors[0] === 'string' ? field.state.meta.errors[0] : undefined"
-              :invalid="field.state.meta.errors.length > 0"
               :disabled="isEditSubmitting"
-              @update:model-value="field.handleChange"
+              @input="onFormInput(field.handleChange)"
               @blur="field.handleBlur"
             />
           </template>
@@ -463,11 +475,11 @@
 
         <editForm.Field name="artist">
           <template #default="{ field }">
-            <h-input
-              :model-value="field.state.value"
+            <k-list-input
+              :value="field.state.value"
               label="艺术家"
               :disabled="isEditSubmitting"
-              @update:model-value="field.handleChange"
+              @input="onFormInput(field.handleChange)"
               @blur="field.handleBlur"
             />
           </template>
@@ -475,19 +487,19 @@
 
         <editForm.Field name="album">
           <template #default="{ field }">
-            <h-input
-              :model-value="field.state.value"
+            <k-list-input
+              :value="field.state.value"
               label="专辑"
               :disabled="isEditSubmitting"
-              @update:model-value="field.handleChange"
+              @input="onFormInput(field.handleChange)"
               @blur="field.handleBlur"
             />
           </template>
         </editForm.Field>
 
-        <div class="flex flex-col gap-[var(--muses-space-xs)]">
-          <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-immersive-ink-soft,#aaa)]">封面</p>
-          <div class="flex items-center gap-[var(--muses-space-md)]">
+        <div class="flex flex-col gap-[2px]">
+          <p class="m-0 text-[15px] text-black/55 dark:text-white/55">封面</p>
+          <div class="flex items-center gap-[12px]">
             <img
               v-if="editCoverPreviewSrc"
               class="w-16 h-16 rounded-[10px] object-cover flex-none"
@@ -496,31 +508,31 @@
             >
             <div
               v-else
-              class="w-16 h-16 rounded-[10px] flex-none flex items-center justify-center bg-[rgba(255,255,255,0.08)] text-[24px]"
+              class="w-16 h-16 rounded-[10px] flex-none flex items-center justify-center bg-black/5 dark:bg-white/10 text-[24px]"
               aria-hidden="true"
             >
               ♪
             </div>
-            <div class="flex flex-col gap-[var(--muses-space-xs)] min-w-0">
-              <h-button
-                variant="ghost"
-                type="button"
-                size="sm"
+            <div class="flex flex-col gap-[2px] min-w-0">
+              <k-button
+                component="button"
+                clear
+                small
                 :disabled="isEditSubmitting"
                 @click="onPickCover"
               >
                 选择图片
-              </h-button>
-              <h-button
+              </k-button>
+              <k-button
                 v-if="editCoverPreviewSrc"
-                variant="ghost"
-                type="button"
-                size="sm"
+                component="button"
+                clear
+                small
                 :disabled="isEditSubmitting"
                 @click="onClearCover"
               >
                 清除封面
-              </h-button>
+              </k-button>
             </div>
           </div>
           <input
@@ -539,14 +551,13 @@
           }"
         >
           <template #default="{ field }">
-            <h-input
-              :model-value="field.state.value"
+            <k-list-input
+              :value="field.state.value"
               label="音量均衡（ReplayGain dB）"
               placeholder="如 -6.5，空=清除"
               :error="typeof field.state.meta.errors[0] === 'string' ? field.state.meta.errors[0] : undefined"
-              :invalid="field.state.meta.errors.length > 0"
               :disabled="isEditSubmitting"
-              @update:model-value="field.handleChange"
+              @input="onFormInput(field.handleChange)"
               @blur="field.handleBlur"
             />
           </template>
@@ -556,20 +567,20 @@
         <template v-else>
           <!-- 云端歌词：独立渠道 + 独立来源选择 -->
           <section
-            class="flex flex-col gap-[var(--muses-space-sm)] rounded-[12px] border border-[color:var(--h-color-border,rgba(0,0,0,0.08))] p-[var(--muses-space-md)]"
+            class="flex flex-col gap-[8px] rounded-[12px] border border-black/10 dark:border-white/15 p-[12px]"
             aria-label="从云端获取歌词"
           >
-            <div class="flex flex-col gap-[var(--muses-space-sm)]">
-              <p class="m-0 text-[length:var(--muses-font-body-sm)] font-medium">歌词来源</p>
+            <div class="flex flex-col gap-[8px]">
+              <p class="m-0 text-[15px] font-medium">歌词来源</p>
               <div class="flex flex-wrap gap-[6px]">
                 <button
                   v-for="item in cloudLyricsPlatforms"
                   :key="item.id"
                   type="button"
-                  class="h-[30px] px-[12px] rounded-full text-[length:var(--muses-font-body-sm)] border transition-colors"
+                  class="h-[30px] px-[12px] rounded-full text-[15px] border transition-colors"
                   :class="lyricsPlatform === item.id
-                    ? 'bg-[var(--h-color-primary,#0070f0)] text-white border-transparent'
-                    : 'bg-transparent text-[color:var(--h-color-ink-muted,#888)] border-[color:var(--h-color-border,rgba(0,0,0,0.08))]'"
+                    ? 'bg-primary text-white border-transparent'
+                    : 'bg-transparent text-black/55 dark:text-white/55 border-black/10 dark:border-white/15'"
                   :aria-pressed="lyricsPlatform === item.id"
                   :disabled="cloudFetching || cloudApplying"
                   @click="lyricsPlatform = item.id"
@@ -579,29 +590,29 @@
               </div>
             </div>
 
-            <div class="flex items-center justify-between gap-[var(--muses-space-sm)]">
-              <p class="m-0 text-[length:var(--muses-font-body-sm)] font-medium">云端歌词</p>
-              <h-button
-                variant="ghost"
-                type="button"
-                size="sm"
+            <div class="flex items-center justify-between gap-[8px]">
+              <p class="m-0 text-[15px] font-medium">云端歌词</p>
+              <k-button
+                component="button"
+                clear
+                small
                 :disabled="isEditSubmitting || cloudFetching || cloudApplying"
                 aria-label="从云端获取歌词"
                 @click="onFetchCloudMeta"
               >
                 {{ cloudFetching ? '获取中…' : '获取歌词' }}
-              </h-button>
+              </k-button>
             </div>
 
             <p
               v-if="lyricsStatusMessage"
-              class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]"
+              class="m-0 text-[15px] text-black/55 dark:text-white/55"
             >
               {{ lyricsStatusMessage }}
             </p>
 
             <template v-if="cloudResult?.lyrics?.items?.length">
-              <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]">
+              <p class="m-0 text-[15px] text-black/55 dark:text-white/55">
                 候选 · {{ cloudResult.lyrics.items.length }} 条
               </p>
               <div class="flex flex-col gap-[4px] max-h-36 overflow-y-auto">
@@ -609,8 +620,8 @@
                   v-for="(item, idx) in cloudResult.lyrics.items"
                   :key="`lyrics-${idx}-${item.source}`"
                   type="button"
-                  class="text-left text-[length:var(--muses-font-body-sm)] p-[6px] rounded-[8px] border-0 bg-transparent"
-                  :class="idx === cloudLyricsIndex ? 'bg-[rgba(0,0,0,0.06)]' : ''"
+                  class="text-left text-[15px] p-[6px] rounded-[8px] border-0 bg-transparent"
+                  :class="idx === cloudLyricsIndex ? 'bg-black/5 dark:bg-white/10' : ''"
                   @click="cloudLyricsIndex = idx"
                 >
                   {{ cloudSourceLabel(item.source) }} · {{ item.format }}
@@ -619,74 +630,71 @@
               </div>
               <p
                 v-if="selectedLyricsHit"
-                class="m-0 text-[length:var(--muses-font-body-sm)] whitespace-pre-wrap opacity-80 max-h-28 overflow-y-auto"
+                class="m-0 text-[15px] whitespace-pre-wrap opacity-80 max-h-28 overflow-y-auto"
               >
                 {{ selectedLyricsHit.text }}
               </p>
-              <h-button
-                variant="primary"
-                type="button"
-                size="sm"
+              <k-button
+                component="button"
+                small
                 class="self-start"
                 :disabled="!selectedLyricsHit || cloudFetching || cloudApplying || isEditSubmitting"
                 aria-label="将所选云端歌词应用到歌词输入框"
                 @click="onApplyLyrics"
               >
                 {{ cloudApplying ? '应用中…' : '应用所选歌词' }}
-              </h-button>
+              </k-button>
             </template>
           </section>
 
           <editForm.Field name="lyrics">
             <template #default="{ field }">
-              <h-textarea
-                :model-value="field.state.value"
+              <k-list-input
+                type="textarea"
+                :value="field.state.value"
                 label="歌词文本"
-                :rows="6"
                 :disabled="isEditSubmitting"
-                @update:model-value="onEditLyricsInput(field, $event)"
+                @input="onEditLyricsTextareaInput(field, $event)"
                 @blur="field.handleBlur"
               />
             </template>
           </editForm.Field>
         </template>
 
-        <p v-if="editFormError" class="m-0 text-[length:var(--muses-font-body-sm)] text-[var(--h-color-danger,#f31260)]">
+        <p v-if="editFormError" class="m-0 text-[15px] text-[#ff3b30]">
           {{ editFormError }}
         </p>
 
-        <div class="flex justify-end gap-[var(--muses-space-sm)] pt-[var(--muses-space-sm)]">
-          <h-button variant="ghost" type="button" :disabled="isEditSubmitting" @click="closeSongEdit">
+        <div class="flex justify-end gap-[8px] pt-[8px]">
+          <k-button component="button" clear :disabled="isEditSubmitting" @click="closeSongEdit">
             取消
-          </h-button>
-          <h-button variant="primary" type="submit" :disabled="isEditSubmitting">
+          </k-button>
+          <k-button component="button" type="submit" :disabled="isEditSubmitting">
             {{ isEditSubmitting ? '保存中…' : '保存' }}
-          </h-button>
+          </k-button>
         </div>
       </form>
-    </h-bottom-sheet>
+    </k-sheet>
 
-    <h-toast
-      v-model="toast.visible"
-      :variant="toast.variant"
-      :duration="toast.duration"
-    >
+    <k-toast :opened="toast.visible" position="center">
       {{ toast.message }}
-    </h-toast>
-  </h-popup>
+    </k-toast>
+  </k-popup>
 </template>
 
 <script setup lang="ts">
 import {
-  HBottomSheet,
-  HButton,
-  HCheckbox,
-  HIcon,
-  HInput,
-  HPopup,
-  HRange,
-  HTextarea,
-  HToast,
+  kActions,
+  kActionsButton,
+  kActionsGroup,
+  kActionsLabel,
+  kButton,
+  kCheckbox,
+  kListInput,
+  kPopup,
+  kRange,
+  kSheet,
+  kToast,
 } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useForm } from '@tanstack/vue-form'
@@ -740,7 +748,6 @@ import {
   toggleShuffle,
 } from '@/features/player/controller'
 import { closePlayerOverlay, openQueueOverlay, playerOverlayVisible } from '@/features/player/overlay'
-import { actionSheetCancelClass, actionSheetItemClass } from '@/theme/action-sheet'
 
 const activePanel = ref(0)
 /** 手势落点判断用的 template ref（取代 closest / class 选择器查询）。 */
@@ -843,12 +850,46 @@ const toast = ref<{
   duration: 2200,
 })
 
+let toastTimer: number | undefined
+
 const showToast = (
   message: string,
   variant: 'default' | 'success' | 'warning' | 'danger' = 'default',
   duration = 2200,
 ): void => {
   toast.value = { visible: true, message, variant, duration }
+  window.clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => {
+    toast.value.visible = false
+  }, duration)
+}
+
+/** k-list-input 的 @input 事件适配 TanStack Form 的 handleChange */
+const onFormInput =
+  (handleChange: (value: string) => void) => (e: Event): void => {
+    handleChange((e.target as HTMLInputElement).value)
+  }
+
+/** k-range 的原生 input/change 事件适配 */
+const onRangeInput = (e: Event): void => {
+  onSeekInput(Number((e.target as HTMLInputElement).value))
+}
+
+const onRangeChange = (e: Event): void => {
+  void onSeek(Number((e.target as HTMLInputElement).value))
+}
+
+/** k-checkbox 的原生 change 事件适配 cloudChecks */
+const onCloudCheckChange = (key: keyof typeof cloudChecks.value, e: Event): void => {
+  cloudChecks.value[key] = (e.target as HTMLInputElement).checked
+}
+
+/** k-list-input textarea 的 input 事件适配 */
+const onEditLyricsTextareaInput = (
+  field: { handleChange: (value: string) => void },
+  e: Event,
+): void => {
+  onEditLyricsInput(field, (e.target as HTMLInputElement).value)
 }
 
 const validateReplayGainInput = (value: string): string | undefined => {

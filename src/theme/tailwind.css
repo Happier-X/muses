@@ -1,22 +1,22 @@
 /*
- * Tailwind v4 入口：happier-ui 的 styles 依赖宿主 Tailwind 管道解析
- * @theme / @layer components。必须经此入口，不能直接 import 'happier-ui/styles.css'。
+ * Tailwind v4 入口：Konsta UI v5 主题（iOS 默认）。
+ * 页面自绘结构经此入口解析 @theme / @layer components。
  */
 @import 'tailwindcss';
-@import 'happier-ui/styles';
-/* Konsta UI v5：与 happier-ui 共存（--k-* / --color-ios-* 与 --h-* 命名空间不冲突），
- * 页面逐批迁移完成后移除 happier-ui（阶段 3）。 */
 @import 'konsta/vue/theme.css';
 
-/* 应用默认字体与表面色（无第三方 UI 框架全局 CSS 时的宿主回退） */
+/* 应用默认字体与页面级背景（iOS 分组表面色，亮/暗由 .dark class 切换） */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: var(--h-color-ink);
-  /* 页面级背景：用次表面色（#f4f4f5）凸显 surface 白卡片（HCellGroup variant=card）；
-   * 暗色模式由 tokens 自动切换（--h-color-surface-secondary）。 */
-  background: var(--h-color-surface-secondary);
+  color: var(--color-ios-light-surface-1);
+  background: var(--color-ios-light-surface);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+  color: var(--color-ios-dark-surface-1);
+  background: var(--color-ios-dark-surface);
 }
 
 /*
@@ -34,8 +34,7 @@ body,
 /*
  * .m-page / .m-content 基础骨架样式（原 MPage.vue / MContent.vue 非 scoped 全局块）。
  * MPage/MContent 组件根节点已同时挂 Tailwind utility，此处保留供仍以原生
- * <div class="m-page"> / <div class="m-content"> 书写的页面（SongsPage / SourcesPage /
- * PlaylistsPage / PlaylistDetailPage / SettingsPage 等，待后续批次迁移）复用，避免回归。
+ * <div class="m-page"> / <div class="m-content"> 书写的页面复用，避免回归。
  */
 .m-page {
   display: flex;
@@ -45,14 +44,8 @@ body,
   /* ⚠️ 故意不加 contain，避免重建 fixed 包含块导致浮层偏移 */
 }
 
-/* 页面级导航栏与灰底页面背景协调（surface-secondary），并去掉底部分隔线；
- * 弹层内 navbar（HPopup/BottomSheet/Dialog 面板为 surface 白）不受影响。
- * 迁移期：k-navbar 为 Konsta iOS 主题，背景用 iOS 浅/深 surface 对齐页面底色。 */
-.m-page .h-nav-bar {
-  background: var(--h-color-surface-secondary);
-  border-bottom: none;
-}
-
+/* 页面内 k-navbar 背景与灰底页面背景协调（Konsta iOS 主题默认即 glass/表面色），
+ * 这里只统一非沉浸页面下的背景变量。 */
 .m-page .k-navbar {
   background: var(--color-ios-light-surface-2);
 }
@@ -93,41 +86,13 @@ body.muses-overlay-open .m-content {
 }
 
 /*
- * HPopup fullscreen 高度链：.h-popup__panel 是 fixed inset:0（有确定高度），
- * 但 .h-popup__body 组件库 CSS 仅 min-width:0（高度 auto），slot 内容的
- * h-full（100%）会解析失效。此处补 body 100%，使 slot 根 div 的 h-full 生效，
- * 虚拟列表容器才能得到确定高度（否则全展开、虚拟化失效）。
- */
-.h-popup--position-fullscreen .h-popup__body {
-  height: 100%;
-}
-
-/*
- * PlayerPage 专属 HPopup（immersive player）低于 QueuePage（fullscreen 默认
- * --h-popup-z: 1200）的层叠。HPopup 根是 <Teleport>，透传 class/style 会丢失，
- * 故用 .h-popup--swipe-disabled（:swipe-close="false" 时库自动加）作宿主侧区分。
- *
- * panel 默认 surface 白底：下滑关闭只 translate 内层沉浸内容，若 panel 仍为
- * --h-color-surface 会露纯白。透明化 panel，露顶区透过 .h-popup__overlay
- * 看到底层列表（Queue 无此 class，不受影响）。
- */
-.h-popup--swipe-disabled {
-  --h-popup-z: var(--muses-z-player, 1100);
-}
-
-.h-popup--swipe-disabled .h-popup__panel {
-  background: transparent;
-  overflow: hidden;
-}
-
-/*
  * PlayerPage 沉浸式播放器样式（原 scoped CSS，迁至此保持全局 cascade）。
  * ⚠️ 所有选择器以 .player-overlay 为前缀，避免与其他组件冲突。
  */
 .player-overlay .fallback-background {
   background:
-    radial-gradient(circle at 50% 18%, var(--muses-immersive-placeholder), transparent 42%),
-    linear-gradient(165deg, var(--muses-immersive-surface) 0%, var(--muses-immersive-deep) 48%, var(--muses-immersive-void) 100%);
+    radial-gradient(circle at 50% 18%, rgba(148, 120, 255, 0.28), transparent 42%),
+    linear-gradient(165deg, #171b2b 0%, #0a0c14 48%, #05070d 100%);
 }
 
 .player-overlay .empty-state,
@@ -172,7 +137,7 @@ body.muses-overlay-open .m-content {
 
 .player-overlay .song-info p {
   margin: 6px 0 0;
-  color: var(--muses-immersive-ink-soft, rgba(255, 255, 255, 0.68));
+  color: rgba(255, 255, 255, 0.68);
   font-size: clamp(13px, 3.6vw, 15px);
   line-height: 1.35;
   overflow: hidden;
@@ -186,7 +151,7 @@ body.muses-overlay-open .m-content {
   /* 显式高度公式与宽度一致：aspect-ratio 在明确 width + max-height 下失效，
      无封面占位（♪）会回落到内容行高被压扁；正方形封面强制成立 */
   height: min(72vw, 340px, 52dvh);
-  border-radius: var(--muses-radius-cover-immersive);
+  border-radius: clamp(18px, 4vw, 28px);
 }
 
 .player-overlay .placeholder-cover {
@@ -198,70 +163,24 @@ body.muses-overlay-open .m-content {
 }
 
 /*
- * 沉浸页 ghost 图标键统一交互（主控 / mode-bar / 歌词 FAB）。
- * 覆盖 happier-ui ghost 默认黑字 + 浅灰 hover/active；禁止只改 color。
- * 顺序：默认底色 → 尺寸/淡色差异 → hover/active/is-active（必须最后，否则同特异性会被 mode-bar/FAB 默认覆盖）。
+ * k-range 沉浸样式：细轨道（4px）+ 白色 thumb，覆盖 Konsta iOS 默认主题蓝。
+ * k-range 根节点即 .progress-range（class 透传），子结构固定：
+ *   span:nth-child(1) = 轨道底、span:nth-child(2) = 填充、最后 span = thumb 容器。
  */
-.player-overlay .h-button--ghost {
-  color: #ffffff;
-  background: transparent;
-  border-radius: var(--muses-radius-pill, 9999px);
+.player-overlay .progress-range > span:nth-child(1) {
+  background: rgba(255, 255, 255, 0.25);
 }
 
-.player-overlay .controls .h-button {
-  width: 52px;
-  height: 52px;
-  margin: 0;
-  font-size: 26px;
-  touch-action: manipulation;
+.player-overlay .progress-range > span:nth-child(2) {
+  background: #ffffff;
 }
 
-.player-overlay .controls .play-toggle {
-  width: 68px;
-  height: 68px;
-  font-size: 30px;
+.player-overlay .progress-range > span:last-child > span:last-child {
+  background: #ffffff;
 }
 
-.player-overlay .mode-bar .h-button {
-  width: 44px;
-  height: 44px;
-  margin: 0;
-  font-size: 20px;
-  touch-action: manipulation;
-}
-
-/* 仅非语义激活时更淡；:not(.is-active) 避免盖掉激活提亮 */
-.player-overlay .mode-bar .h-button:not(.is-active) {
-  color: #ffffff;
-}
-
-/* HRange 进度条：隐藏 knob，使用 4px 细轨道沉浸样式。
- * HRange 默认有 20px 圆球 knob 与 6px 轨道；此处用组件暴露的 CSS 变量覆盖：
- * 轨道 4px、pill 圆角、填充色 --muses-immersive-ink、底色 --muses-immersive-track。
- * thumb 伪元素同时置 0 尺寸/透明，确保 knob 不可见（WebKit + Firefox）。 */
-.player-overlay .progress-range {
-  --h-range-thumb: 0px;
-  --h-range-track-h: 4px;
-  --h-range-fill: var(--muses-immersive-ink);
-  --h-range-track-bg: var(--muses-immersive-track);
-  height: 24px;
-  min-height: 24px;
-}
-
-.player-overlay .progress-range::-webkit-slider-thumb {
-  width: 0;
-  height: 0;
-  border: none;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.player-overlay .progress-range::-moz-range-thumb {
-  width: 0;
-  height: 0;
-  border: none;
-  opacity: 0;
-  pointer-events: none;
+.player-overlay .progress-range > span:last-child > span:first-child {
+  box-shadow: 0 0 40px 10px rgba(255, 255, 255, 0.75);
 }
 
 .player-overlay .lyric-panel {
@@ -296,65 +215,6 @@ body.muses-overlay-open .m-content {
 
 .player-overlay .lyric-floating-actions.is-visible .lyric-fab {
   pointer-events: auto;
-}
-
-/* 歌词底栏：与封面 mode-bar 同系 ghost 图标键（尺寸/淡色），无 blur/实心底 */
-.player-overlay .lyric-fab.h-button--ghost {
-  width: 44px;
-  height: 44px;
-  margin: 0;
-  font-size: 20px;
-  touch-action: manipulation;
-  background: transparent;
-}
-
-.player-overlay .lyric-fab.h-button--ghost:not(.is-active) {
-  color: rgba(255, 255, 255, 0.58);
-}
-
-/* 歌词底栏播放/暂停按钮亮色（区别于翻译按钮的淡色，用户在沉浸页要求） */
-.player-overlay .lyric-fab.lyric-play-toggle:not(.is-active) {
-  color: #ffffff;
-}
-
-.player-overlay .lyric-fab .h-icon {
-  width: 20px;
-  height: 20px;
-  font-size: 20px;
-  margin: 0;
-}
-
-/* 交互态放在 mode-bar/FAB 默认覆盖之后，保证同特异性下 hover/active/is-active 生效 */
-.player-overlay .h-button--ghost:not(:disabled):active {
-  color: rgba(255, 255, 255, 0.92);
-  background: rgba(255, 255, 255, 0.2);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .player-overlay .h-button--ghost:not(:disabled):hover {
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.14);
-  }
-
-  .player-overlay .h-button--ghost.is-active:not(:disabled):hover {
-    color: #ffffff;
-    background: transparent;
-  }
-}
-
-/* 激活态只提亮图标颜色，不加背景（翻译按钮打开时仍是纯图标） */
-.player-overlay .h-button--ghost.is-active {
-  color: #ffffff;
-  background: transparent;
-}
-
-.player-overlay .h-button--ghost.is-active:not(:disabled):active {
-  color: #ffffff;
-  background: transparent;
-}
-
-.player-overlay .h-button--ghost .h-icon {
-  color: inherit;
 }
 
 /* AMLL 实际 player 挂在 wrapper 子节点；强制铺满 flex 槽位 */
@@ -485,27 +345,9 @@ body.muses-overlay-open .m-content {
     gap: clamp(12px, 4vw, 20px);
   }
 
-  .player-overlay .controls .h-button {
-    width: 46px;
-    height: 46px;
-    font-size: 22px;
-  }
-
-  .player-overlay .controls .play-toggle {
-    width: 58px;
-    height: 58px;
-    font-size: 26px;
-  }
-
   /* 四键 mode-bar：略放宽，避免更多键挤兑 */
   .player-overlay .mode-bar {
     max-width: 280px;
-  }
-
-  .player-overlay .mode-bar .h-button {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
   }
 }
 
@@ -572,27 +414,9 @@ body.muses-overlay-open .m-content {
     gap: clamp(10px, 3.5vw, 16px);
   }
 
-  .player-overlay .controls .h-button {
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-  }
-
-  .player-overlay .controls .play-toggle {
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
-  }
-
   /* 矮屏四键仍可用：不低于约 4×36 + 间距 */
   .player-overlay .mode-bar {
     max-width: 260px;
-  }
-
-  .player-overlay .mode-bar .h-button {
-    width: 36px;
-    height: 36px;
-    font-size: 16px;
   }
 }
 
@@ -607,33 +431,6 @@ body.muses-overlay-open .m-content {
   .player-overlay .cover,
   .player-overlay .placeholder-cover {
     width: min(40vw, 38dvh, 200px);
-  }
-}
-
-/*
- * HFloatingBubble（歌曲页"跳转当前歌曲"）：默认实心主题蓝圆球突兀，
- * 改浅色卡片风——surface 底 + 主题色图标 + 细边框 + 柔和投影（暗色自适应）。
- * 组件 teleport 到 body，scoped 失效，故全局覆盖（仅 SongsPage 使用）。
- */
-.h-floating-bubble {
-  --h-floating-bubble-bg: var(--h-color-surface);
-  --h-floating-bubble-color: var(--h-color-primary);
-  --h-floating-bubble-size: 40px;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--h-color-border-subtle);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
-}
-
-.h-floating-bubble .h-icon {
-  width: 18px;
-  height: 18px;
-  font-size: 18px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .h-floating-bubble:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
   }
 }
 
@@ -658,12 +455,6 @@ body.muses-overlay-open .m-content {
     width: min(34vw, 100%, 220px, 40dvh);
     height: min(34vw, 100%, 220px, 40dvh);
   }
-}
-
-/* 修复 bottom 面板 max-height 的 100% 失效：父容器高度不确定时
-   min(88vh, 100%) 整条无效，面板会被内容（如虚拟列表）撑出视口 */
-.h-popup--position-bottom .h-popup__panel {
-  max-height: 88vh;
 }
 
 /* 播放队列面板：默认半屏（内容少时也 50vh） */

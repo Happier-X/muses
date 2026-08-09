@@ -2,20 +2,21 @@
   <m-page>
     <template #title>艺术家</template>
 
-    <h-empty
+    <m-empty
       v-if="artists.length === 0"
       title="还没有艺术家"
       description="请先到音源页添加并扫描音源。"
+      :icon="person"
     />
 
     <div
       v-else
-      class="grid grid-cols-2 gap-[var(--muses-space-lg)] p-[var(--muses-space-lg)] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[var(--muses-content-max-width)] md:mx-auto"
+      class="grid grid-cols-2 gap-[16px] p-[16px] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[720px] md:mx-auto"
     >
       <article
         v-for="artist in artists"
         :key="artist.name"
-        class="flex flex-col gap-[var(--muses-space-sm)] min-w-0 cursor-pointer active:opacity-80"
+        class="flex flex-col gap-[8px] min-w-0 cursor-pointer active:opacity-80"
         role="button"
         tabindex="0"
         @click="openArtist(artist.name)"
@@ -25,10 +26,10 @@
           :src="getArtistCoverSrc(artist.songs)"
           alt=""
         />
-        <div class="flex flex-col gap-[var(--muses-space-xs)] min-w-0 text-center">
-          <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] line-clamp-2">{{ artist.name }}</h2>
-          <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ artist.songCount }} 首歌曲</p>
-          <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ artist.albumCount }} 张专辑</p>
+        <div class="flex flex-col gap-[2px] min-w-0 text-center">
+          <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white line-clamp-2">{{ artist.name }}</h2>
+          <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ artist.songCount }} 首歌曲</p>
+          <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ artist.albumCount }} 张专辑</p>
         </div>
       </article>
     </div>
@@ -37,9 +38,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { person } from '@/icons'
 import { useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { HEmpty, MCover, MPage } from '@/components/ui'
+import { MEmpty, MCover, MPage } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByArtist } from '@/features/library/views'

@@ -2,29 +2,30 @@
   <m-page>
     <template #title>专辑</template>
 
-    <h-empty
+    <m-empty
       v-if="albums.length === 0"
       title="还没有专辑"
       description="请先到音源页添加并扫描音源。"
+      :icon="albumsIcon"
     />
 
     <div
       v-else
-      class="grid grid-cols-2 gap-[var(--muses-space-lg)] p-[var(--muses-space-lg)] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[var(--muses-content-max-width)] md:mx-auto"
+      class="grid grid-cols-2 gap-[16px] p-[16px] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[720px] md:mx-auto"
     >
       <article
         v-for="album in albums"
         :key="album.name"
-        class="flex flex-col gap-[var(--muses-space-sm)] min-w-0 cursor-pointer active:opacity-80"
+        class="flex flex-col gap-[8px] min-w-0 cursor-pointer active:opacity-80"
         role="button"
         tabindex="0"
         @click="openAlbum(album.name)"
       >
         <m-cover class="!w-full !h-auto aspect-square !flex-none" :src="getAlbumCoverSrc(album.songs)" alt="" />
-        <div class="flex flex-col gap-[var(--muses-space-xs)] min-w-0">
-          <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] line-clamp-2">{{ album.name }}</h2>
-          <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ album.songCount }} 首歌曲</p>
-          <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ album.artistSummary }}</p>
+        <div class="flex flex-col gap-[2px] min-w-0">
+          <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white line-clamp-2">{{ album.name }}</h2>
+          <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ album.songCount }} 首歌曲</p>
+          <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ album.artistSummary }}</p>
         </div>
       </article>
     </div>
@@ -33,9 +34,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { albums as albumsIcon } from '@/icons'
 import { useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { MCover, HEmpty, MPage } from '@/components/ui'
+import { MCover, MEmpty, MPage } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByAlbum } from '@/features/library/views'

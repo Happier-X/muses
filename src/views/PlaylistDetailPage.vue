@@ -6,61 +6,62 @@
       </template>
       <template #title>{{ playlist?.name ?? '歌单' }}</template>
       <template #right>
-        <h-button
-          variant="ghost"
-          is-icon-only
-          shape="square"
+        <k-button
+          component="button"
+          clear
+          rounded
+          class="size-8"
           aria-label="播放全部"
           :disabled="resolvedSongs.length === 0"
           @click="onPlayAll"
         >
-          <h-icon :icon="playOutline" />
-        </h-button>
+          <component :is="playOutline" aria-hidden="true" class="size-4" />
+        </k-button>
       </template>
     </k-navbar>
     <div class="m-content" style="overflow: hidden;">
-      <div class="h-full md:max-w-[var(--muses-content-max-width)] md:mx-auto">
-        <h-empty v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
+      <div class="h-full md:max-w-[720px] md:mx-auto">
+        <m-empty v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
 
-        <h-empty
+        <m-empty
           v-else-if="resolvedSongs.length === 0"
           title="歌单是空的"
           description="在歌曲页点「更多」→「加入歌单」添加歌曲。"
         />
 
-        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[var(--muses-mini-player-height)] md:pb-[calc(var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] [overflow-anchor:none]" role="list" aria-label="歌单歌曲">
+        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[64px] md:pb-[calc(64px+env(safe-area-inset-bottom,0px))] [overflow-anchor:none]" role="list" aria-label="歌单歌曲">
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="row in visibleRows"
               :key="row.song.id"
               :ref="measureVirtualRow"
-              class="absolute inset-x-0 top-0 box-border min-h-[var(--muses-song-row-height)]"
+              class="absolute inset-x-0 top-0 box-border min-h-[72px]"
               role="listitem"
               :data-index="row.virtualRow.index"
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
               <div
-                class="flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
-                :class="playerState.currentSong?.id === row.song.id ? 'bg-[var(--muses-color-playing-bg)]' : ''"
+                class="flex items-center gap-[12px] p-[12px]"
+                :class="playerState.currentSong?.id === row.song.id ? 'bg-black/5 dark:bg-white/10' : ''"
                 role="button"
                 tabindex="0"
                 @click="onPlaySong(row.song)"
               >
                 <m-cover class="!flex-none" :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
-                <div class="flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
-                  <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] truncate">{{ row.song.title }}</h2>
-                  <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
+                <div class="flex-1 min-w-0 flex flex-col gap-[2px]">
+                  <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white truncate">{{ row.song.title }}</h2>
+                  <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
                 </div>
-                <h-button
-                  variant="ghost"
-                  is-icon-only
-                  shape="square"
-                  class="flex-none m-0 ml-auto"
+                <k-button
+                  component="button"
+                  small
+                  rounded
+                  class="flex-none m-0 ml-auto size-8"
                   :aria-label="`从歌单移除 ${row.song.title}`"
                   @click.stop="onRemove(row.song.id)"
                 >
-                  <h-icon :icon="removeCircleOutline" />
-                </h-button>
+                  <component :is="removeCircleOutline" aria-hidden="true" class="size-4" />
+                </k-button>
               </div>
             </div>
           </div>
@@ -76,7 +77,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { playOutline, removeCircleOutline } from '@/icons'
-import { HButton, HEmpty, HIcon, kNavbar, kNavbarBackLink, MCover } from '@/components/ui'
+import { kButton, kNavbar, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'

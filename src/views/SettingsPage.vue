@@ -4,50 +4,49 @@
       <template #title>设置</template>
     </k-navbar>
     <div class="m-content">
-      <div class="md:max-w-[var(--muses-content-max-width)] md:mx-auto space-y-[var(--muses-space-lg)]">
-        <h-cell-group title="关于" variant="card">
-          <h-cell
+      <div class="md:max-w-[720px] md:mx-auto">
+        <k-block-title>关于</k-block-title>
+        <k-list inset>
+          <k-list-item
             title="Muses"
-            :description="`应用版本 ${currentVersion}`"
+            :subtitle="`应用版本 ${currentVersion}`"
           />
-          <h-cell
+          <k-list-item
             title="检查更新"
-            :description="checking ? '正在检查更新…' : undefined"
-            clickable
+            :subtitle="checking ? '正在检查更新…' : undefined"
+            link
             aria-label="检查更新"
             @click="checkUpdate"
           />
-        </h-cell-group>
+        </k-list>
 
-        <h-cell-group title="音频" variant="card">
-          <h-cell
+        <k-block-title>音频</k-block-title>
+        <k-list inset>
+          <k-list-item
             title="音量均衡"
-            description="根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。"
+            subtitle="根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。"
           >
-            <template #suffix>
-              <h-switch
-                v-model="loudnessNormalizeEnabled"
+            <template #after>
+              <k-toggle
+                :checked="loudnessNormalizeEnabled"
                 aria-label="音量均衡"
+                @change="onLoudnessToggle"
               />
             </template>
-          </h-cell>
-        </h-cell-group>
+          </k-list-item>
+        </k-list>
       </div>
     </div>
 
-    <h-toast
-      v-model="toast.visible"
-      :variant="toast.variant"
-      :duration="toast.duration"
-    >
+    <k-toast :opened="toast.visible" position="center">
       {{ toast.message }}
-    </h-toast>
+    </k-toast>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { HCell, HCellGroup, HSwitch, HToast, kNavbar } from '@/components/ui'
+import { kBlockTitle, kList, kListItem, kNavbar, kToast, kToggle } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,
@@ -70,12 +69,22 @@ const toast = ref<{
   duration: 2000,
 })
 
+let toastTimer: number | undefined
+
 const showToast = (
   message: string,
   variant: 'default' | 'success' | 'warning' | 'danger' = 'default',
   duration = 2000,
 ): void => {
   toast.value = { visible: true, message, variant, duration }
+  window.clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => {
+    toast.value.visible = false
+  }, duration)
+}
+
+const onLoudnessToggle = (e: Event): void => {
+  loudnessNormalizeEnabled.value = (e.target as HTMLInputElement).checked
 }
 
 watch(loudnessNormalizeEnabled, (enabled) => {

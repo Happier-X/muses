@@ -2,11 +2,8 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router';
 
-/* Tailwind v4 管道：解析 happier-ui 与 Konsta UI 的 @theme / 组件层 */
+/* Tailwind v4 管道：解析 Konsta UI 的 @theme / 组件层 */
 import './theme/tailwind.css';
-
-/* Design tokens */
-import './theme/tokens.css';
 
 /* 跟随系统深浅色：同步 document.documentElement 的 .dark class（Konsta 暗色机制） */
 import { useSystemDark } from './composables/useSystemDark';

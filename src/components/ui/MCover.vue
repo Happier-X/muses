@@ -1,13 +1,13 @@
 <template>
   <span
-    class="w-[var(--m-cover-size)] h-[var(--m-cover-size)] flex-[0_0_var(--m-cover-size)] inline-grid place-items-center overflow-hidden bg-[var(--muses-color-cover-placeholder)] text-[var(--muses-color-ink-muted)] text-[calc(var(--m-cover-size)/2)] [&>img]:w-full [&>img]:h-full [&>img]:object-cover"
-    :class="radius === 'sm' ? 'rounded-[var(--muses-radius-cover-sm)]' : 'rounded-[var(--muses-radius-cover)]'"
+    class="w-[var(--m-cover-size)] h-[var(--m-cover-size)] flex-[0_0_var(--m-cover-size)] inline-grid place-items-center overflow-hidden bg-[rgba(146,148,156,0.16)] text-black/55 dark:text-white/55 text-[calc(var(--m-cover-size)/2)] [&>img]:w-full [&>img]:h-full [&>img]:object-cover"
+    :class="radius === 'sm' ? 'rounded-[8px]' : 'rounded-[10px]'"
     :style="coverStyle"
     :aria-hidden="alt ? undefined : 'true'"
   >
     <img v-if="src" :src="src" :alt="alt" />
     <slot v-else name="placeholder">
-      <h-icon :icon="musicalNotesOutline" />
+      <component :is="musicalNotesOutline" aria-hidden="true" class="size-[40%]" />
     </slot>
   </span>
 </template>
@@ -15,7 +15,6 @@
 <script setup lang="ts">
 /** APP-ONLY：音乐封面及稳定占位。 */
 import { computed, type CSSProperties } from 'vue'
-import { HIcon } from 'happier-ui'
 import { musicalNotesOutline } from '@/icons'
 
 const props = withDefaults(defineProps<{
@@ -33,7 +32,7 @@ const props = withDefaults(defineProps<{
 const coverStyle = computed<CSSProperties>(() => {
   const size = typeof props.size === 'number'
     ? `${props.size}px`
-    : props.size === 'sm' ? 'var(--muses-cover-size-sm)' : 'var(--muses-cover-size-md)'
+    : props.size === 'sm' ? '48px' : '52px'
   return { '--m-cover-size': size }
 })
 </script>

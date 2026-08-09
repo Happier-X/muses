@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed left-0 right-0 bottom-[calc(var(--muses-tab-bar-height)+env(safe-area-inset-bottom,0px))] z-[var(--muses-z-mini-player)] flex items-center gap-[var(--muses-space-md)] w-full min-h-[var(--muses-mini-player-height)] py-[var(--muses-space-sm)] px-[var(--muses-space-md)] border-t border-t-[rgba(0,0,0,0.08)] text-[color:var(--muses-color-ink)] bg-[var(--muses-color-surface)] dark:border-t-[rgba(255,255,255,0.12)] dark:bg-[var(--muses-color-surface-dark)] md:bottom-[env(safe-area-inset-bottom,0px)]"
+    class="fixed left-0 right-0 bottom-[calc(96px+env(safe-area-inset-bottom,0px))] z-[1000] flex items-center gap-[12px] w-full min-h-[64px] py-[8px] px-[12px] border-t border-t-black/10 text-black bg-white dark:border-t-white/15 dark:text-white dark:bg-[#1f1f1f] md:bottom-[env(safe-area-inset-bottom,0px)]"
     :class="{
       'cursor-pointer': !!playerState.currentSong,
       'cursor-default': !playerState.currentSong,
@@ -17,24 +17,32 @@
     <m-cover :src="coverSrc" :size="48" alt="" />
 
     <div class="min-w-0 flex flex-1 flex-col gap-[3px]">
-      <strong class="truncate text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)]">{{ titleText }}</strong>
-      <span class="truncate text-[color:var(--muses-color-ink-muted)] text-[length:var(--muses-font-body-sm)]">{{ subtitleText }}</span>
+      <strong class="truncate text-[15px] leading-[1.25] text-black dark:text-white">{{ titleText }}</strong>
+      <span class="truncate text-[13px] text-black/55 dark:text-white/55">{{ subtitleText }}</span>
     </div>
 
-    <div class="flex shrink-0 items-center gap-[var(--muses-space-xs)]">
-      <h-button
-        variant="ghost"
-        is-icon-only
-        shape="circle"
+    <div class="flex shrink-0 items-center gap-[2px]">
+      <k-button
+        component="button"
+        clear
+        rounded-full
+        class="m-0 size-10 shrink-0 text-black dark:text-white"
         :aria-label="isPlaying ? '暂停播放' : '继续播放'"
         :disabled="!playerState.currentSong || playerState.status === 'loading'"
         @click.stop="togglePlayback"
       >
-        <h-icon :icon="isPlaying ? pause : play" variant="fill" />
-      </h-button>
-      <h-button variant="ghost" is-icon-only shape="circle" aria-label="打开播放队列" @click.stop="openQueuePage">
-        <h-icon :icon="list" />
-      </h-button>
+        <component :is="isPlaying ? pause : play" aria-hidden="true" class="size-5 fill-current stroke-none" />
+      </k-button>
+      <k-button
+        component="button"
+        clear
+        rounded-full
+        class="m-0 size-10 shrink-0 text-black dark:text-white"
+        aria-label="打开播放队列"
+        @click.stop="openQueuePage"
+      >
+        <component :is="list" aria-hidden="true" class="size-5" />
+      </k-button>
     </div>
   </div>
 </template>
@@ -43,7 +51,7 @@
 import { computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { list, pause, play } from '@/icons'
-import { HButton, HIcon, MCover } from '@/components/ui'
+import { kButton, MCover } from '@/components/ui'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 

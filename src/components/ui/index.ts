@@ -1,53 +1,19 @@
-/** 通用组件来自 npm 包 happier-ui@0.1.1；这里只转出真实导出。 */
-export {
-  HBadge,
-  HButton,
-  HCard,
-  HCell,
-  HCellGroup,
-  HCheckbox,
-  HDialog,
-  HEmpty,
-  HFloatingBubble,
-  HIcon,
-  HImage,
-  HInput,
-  HNavBar,
-  HPagination,
-  HProgress,
-  HRange,
-  HSelect,
-  HSidebar,
-  HSwitch,
-  HTable,
-  HTabBar,
-  HTag,
-  HTextarea,
-  HToast,
-  HBottomSheet,
-  HPopup,
-} from 'happier-ui'
-export type {
-  HSelectOption,
-  HSidebarItem,
-  HTableColumn,
-  HTableSort,
-  HTabBarItem,
-  HFloatingBubbleOffset,
-  HFloatingBubbleAxis,
-  HFloatingBubbleMagnetic,
-  HFloatingBubbleGap,
-} from 'happier-ui'
+/** 组件出口：Konsta UI v5（iOS 主题）k* 组件 re-export + 自建组件收编。 */
 
 /** app-only：音乐封面 */
 export { default as MCover } from './MCover.vue'
+/** app-only：iOS 风格空状态（Konsta 无 empty 组件） */
+export { default as MEmpty } from './MEmpty.vue'
 /** 自定义页壳 */
 export { default as MPage } from './MPage.vue'
 export { default as MContent } from './MContent.vue'
 
-/** Konsta UI v5（迁移目标）：k* 组件 re-export，供页面按需引入 */
+/** Konsta UI v5：k* 组件 re-export，供页面按需引入 */
 export {
   kActions,
+  kActionsButton,
+  kActionsGroup,
+  kActionsLabel,
   kApp,
   kBlock,
   kBlockFooter,

@@ -3,21 +3,22 @@
     <k-navbar center-title>
       <template #title>音源</template>
       <template #right>
-        <h-button variant="ghost" is-icon-only shape="square" aria-label="添加音源" @click="isAddActionSheetOpen = true">
-          <h-icon :icon="add" />
-        </h-button>
+        <k-button component="button" clear rounded class="size-8" aria-label="添加音源" @click="isAddActionSheetOpen = true">
+          <component :is="add" aria-hidden="true" class="size-4" />
+        </k-button>
       </template>
     </k-navbar>
 
     <div class="m-content" id="source-page-content">
-      <h-empty
+      <m-empty
         v-if="sources.length === 0"
         title="还没有音源"
         description="点击右上角加号添加本地文件夹或 WebDAV 文件夹。"
+        :icon="radio"
       />
 
-      <div v-else class="h-full md:max-w-[var(--muses-content-max-width)] md:mx-auto">
-        <div ref="listParentRef" class="h-full overflow-auto box-border pt-[8px] px-[12px] pb-[calc(var(--muses-mini-player-height)+var(--muses-space-xl))] md:pb-[calc(var(--muses-mini-player-height)+var(--muses-space-xl)+env(safe-area-inset-bottom,0px))]">
+      <div v-else class="h-full md:max-w-[720px] md:mx-auto">
+        <div ref="listParentRef" class="h-full overflow-auto box-border pt-[8px] px-[12px] pb-[calc(64px+24px)] md:pb-[calc(64px+24px+env(safe-area-inset-bottom,0px))]">
           <div class="relative" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
@@ -29,44 +30,41 @@
                 transform: `translateY(${virtualRow.start}px)`,
               }"
             >
-              <h-card class="min-h-[100px] m-0">
-                <div class="text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] font-semibold">{{ sources[virtualRow.index].name }}</div>
-                <div class="mt-[2px] text-[color:var(--muses-color-ink-muted)] text-[length:var(--muses-font-body-sm)]">{{ getSourceSubtitle(sources[virtualRow.index]) }}</div>
-                <p class="truncate mt-[8px]">{{ sources[virtualRow.index].path }}</p>
+              <k-card class="min-h-[100px] m-0">
+                <div class="text-[17px] leading-[1.3] font-semibold text-black dark:text-white">{{ sources[virtualRow.index].name }}</div>
+                <div class="mt-[2px] text-black/55 dark:text-white/55 text-[13px]">{{ getSourceSubtitle(sources[virtualRow.index]) }}</div>
+                <p class="truncate mt-[8px] text-black/55 dark:text-white/55">{{ sources[virtualRow.index].path }}</p>
                 <div class="flex justify-end gap-[8px] mt-[8px]">
-                  <h-button size="sm" variant="outline" @click="openEditSource(sources[virtualRow.index])">编辑</h-button>
-                  <h-button size="sm" variant="danger-soft" @click="confirmDeleteSource(sources[virtualRow.index])">删除</h-button>
-                  <h-button size="sm" variant="primary" @click="openScanSettings(sources[virtualRow.index])">扫描</h-button>
+                  <k-button component="button" small outline @click="openEditSource(sources[virtualRow.index])">编辑</k-button>
+                  <k-button component="button" small class="text-[#ff3b30]" @click="confirmDeleteSource(sources[virtualRow.index])">删除</k-button>
+                  <k-button component="button" small @click="openScanSettings(sources[virtualRow.index])">扫描</k-button>
                 </div>
-              </h-card>
+              </k-card>
             </div>
           </div>
         </div>
       </div>
 
-      <h-bottom-sheet v-model="isAddActionSheetOpen" title="添加音源" :show-handle="true" @close="isAddActionSheetOpen = false">
-        <div class="flex flex-col gap-[var(--h-space-xs,2px)] pb-[env(safe-area-inset-bottom,0px)]">
-          <button :class="actionSheetItemClass" type="button" @click="handleAddLocal">
-            添加本地文件夹
-          </button>
-          <button :class="actionSheetItemClass" type="button" @click="handleAddWebDav">
-            添加 WebDAV 文件夹
-          </button>
-          <button :class="actionSheetCancelClass" type="button" @click="isAddActionSheetOpen = false">
-            取消
-          </button>
-        </div>
-      </h-bottom-sheet>
+      <k-actions :opened="isAddActionSheetOpen" @backdropclick="isAddActionSheetOpen = false">
+        <k-actions-group>
+          <k-actions-label>添加音源</k-actions-label>
+          <k-actions-button @click="handleAddLocal">添加本地文件夹</k-actions-button>
+          <k-actions-button @click="handleAddWebDav">添加 WebDAV 文件夹</k-actions-button>
+        </k-actions-group>
+        <k-actions-group>
+          <k-actions-button @click="isAddActionSheetOpen = false">取消</k-actions-button>
+        </k-actions-group>
+      </k-actions>
 
-      <h-dialog v-model="isDeleteAlertOpen" title="删除音源">
-        <p>{{ deleteAlertMessage }}</p>
-        <template #actions>
-          <h-button variant="ghost" @click="isDeleteAlertOpen = false">取消</h-button>
-          <h-button variant="danger" @click="onConfirmDeleteSource">删除</h-button>
+      <k-dialog :opened="isDeleteAlertOpen" title="删除音源">
+        <p class="m-0 text-center text-black/55 dark:text-white/55 text-[15px] leading-[1.4]">{{ deleteAlertMessage }}</p>
+        <template #buttons>
+          <k-dialog-button @click="isDeleteAlertOpen = false">取消</k-dialog-button>
+          <k-dialog-button strong @click="onConfirmDeleteSource">删除</k-dialog-button>
         </template>
-      </h-dialog>
+      </k-dialog>
 
-      <h-dialog v-model="isEditModalOpen" title="编辑音源" @close="closeEditSource">
+      <k-dialog :opened="isEditModalOpen" title="编辑音源" @backdropclick="closeEditSource">
 
         
         <div>
@@ -79,12 +77,11 @@
                 }"
               >
                 <template #default="{ field }">
-                  <h-input
-                    :model-value="field.state.value"
+                  <k-list-input
+                    :value="field.state.value"
                     label="显示名称"
                     :error="firstFieldError(field.state.meta.errors)"
-                    :invalid="field.state.meta.errors.length > 0"
-                    @update:model-value="field.handleChange"
+                    @input="onFormInput(field.handleChange)"
                     @blur="field.handleBlur"
                   />
                 </template>
@@ -97,13 +94,12 @@
                   }"
                 >
                   <template #default="{ field }">
-                    <h-input
-                      :model-value="field.state.value"
+                    <k-list-input
+                      :value="field.state.value"
                       label="服务器地址"
                       type="url"
                       :error="firstFieldError(field.state.meta.errors)"
-                      :invalid="field.state.meta.errors.length > 0"
-                      @update:model-value="field.handleChange"
+                      @input="onFormInput(field.handleChange)"
                       @blur="field.handleBlur"
                     />
                   </template>
@@ -115,26 +111,25 @@
                   }"
                 >
                   <template #default="{ field }">
-                    <h-input
-                      :model-value="field.state.value"
+                    <k-list-input
+                      :value="field.state.value"
                       label="用户名"
                       autocomplete="username"
                       :error="firstFieldError(field.state.meta.errors)"
-                      :invalid="field.state.meta.errors.length > 0"
-                      @update:model-value="field.handleChange"
+                      @input="onFormInput(field.handleChange)"
                       @blur="field.handleBlur"
                     />
                   </template>
                 </editSourceForm.Field>
                 <editSourceForm.Field name="password">
                   <template #default="{ field }">
-                    <h-input
-                      :model-value="field.state.value"
+                    <k-list-input
+                      :value="field.state.value"
                       label="新密码"
                       type="password"
                       autocomplete="new-password"
-                      description="留空则保留原密码"
-                      @update:model-value="field.handleChange"
+                      info="留空则保留原密码"
+                      @input="onFormInput(field.handleChange)"
                       @blur="field.handleBlur"
                     />
                   </template>
@@ -147,61 +142,72 @@
                 }"
               >
                 <template #default="{ field }">
-                  <h-input
-                    :model-value="field.state.value"
+                  <k-list-input
+                    :value="field.state.value"
                     label="目录"
                     :error="firstFieldError(field.state.meta.errors)"
-                    :invalid="field.state.meta.errors.length > 0"
-                    @update:model-value="field.handleChange"
+                    @input="onFormInput(field.handleChange)"
                     @blur="field.handleBlur"
                   />
                 </template>
               </editSourceForm.Field>
             </div>
 
-            <h-button
+            <k-button
               v-if="sourcePendingEdit?.type === 'local'"
-              variant="outline"
-              type="button"
+              component="button"
+              outline
               :disabled="isEditSaving"
               @click="pickEditedLocalDirectory"
             >
               重新选择目录
-            </h-button>
+            </k-button>
             <!-- editErrorMessage 已改为 showToast -->
-            <h-button variant="primary" type="submit" :disabled="isEditSaving">
+            <k-button component="button" type="submit" :disabled="isEditSaving">
               {{ isEditSaving ? '正在保存…' : '保存修改' }}
-            </h-button>
+            </k-button>
           </form>
         </div>
-      </h-dialog>
+      </k-dialog>
 
-      <h-dialog v-model="isScanSettingsOpen" @close="closeScanSettings">
+      <k-dialog :opened="isScanSettingsOpen" @backdropclick="closeScanSettings">
         <template #title>
           <span>扫描设置</span>
         </template>
-        <div class="flex items-center gap-[12px]">
-          <span>读取音乐标签</span>
-          <h-switch v-model="scanOptions.readTags" aria-label="读取音乐标签" />
-        </div>
-        <p class="text-[color:var(--h-color-ink-muted)] text-[14px] leading-[1.4]">开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。</p>
-        <h-button variant="primary" :disabled="!selectedScanSource" @click="startScan">开始扫描</h-button>
-      </h-dialog>
+        <k-list inset>
+          <k-list-item title="读取音乐标签">
+            <template #after>
+              <k-toggle
+                :checked="scanOptions.readTags"
+                aria-label="读取音乐标签"
+                @change="onScanReadTagsToggle"
+              />
+            </template>
+          </k-list-item>
+        </k-list>
+        <p class="m-0 text-center text-black/55 dark:text-white/55 text-[13px] leading-[1.4]">开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。</p>
+        <k-button component="button" :disabled="!selectedScanSource" class="mt-[8px]" @click="startScan">开始扫描</k-button>
+      </k-dialog>
 
-      <h-dialog v-model="isScanProgressOpen" @close="closeScanProgress">
+      <k-dialog :opened="isScanProgressOpen" @backdropclick="closeScanProgress">
         <template #title>
           <span>扫描进度</span>
-          <h-button
-            variant="ghost"
-            size="sm"
+          <k-button
+            component="button"
+            clear
+            small
             :disabled="scanProgress.stage === 'processing' || scanProgress.stage === 'discovering'"
             @click="closeScanProgress"
           >
             关闭
-          </h-button>
+          </k-button>
         </template>
 
-        <h-progress v-if="scanProgress.stage === 'discovering' || scanProgress.stage === 'processing'" indeterminate aria-label="扫描进行中" />
+        <k-preloader
+          v-if="scanProgress.stage === 'discovering' || scanProgress.stage === 'processing'"
+          class="mx-auto"
+          aria-label="扫描进行中"
+        />
         <section class="mt-[16px]">
           <h2>{{ getScanStageText(scanProgress.stage) }}</h2>
           <p v-if="scanProgress.message">{{ scanProgress.message }}</p>
@@ -225,9 +231,11 @@
             </div>
           </div>
         </section>
-      </h-dialog>
+      </k-dialog>
 
-      <h-bottom-sheet v-model="isWebDavModalOpen" title="添加 WebDAV" @close="closeWebDavModal">
+      <k-sheet :opened="isWebDavModalOpen" @backdropclick="closeWebDavModal">
+        <div class="px-[16px] pb-[env(safe-area-inset-bottom,0px)]">
+          <div class="text-[17px] font-semibold text-center pt-[16px] pb-[8px] text-black dark:text-white">添加 WebDAV</div>
           <form class="flex flex-col gap-[16px] mb-[16px]" @submit.prevent="webDavForm.handleSubmit">
             <div class="flex flex-col gap-[12px]">
               <webDavForm.Field
@@ -237,14 +245,13 @@
                 }"
               >
                 <template #default="{ field }">
-                  <h-input
-                    :model-value="field.state.value"
+                  <k-list-input
+                    :value="field.state.value"
                     label="服务器地址"
                     placeholder="https://example.com/dav"
                     type="url"
                     :error="firstFieldError(field.state.meta.errors)"
-                    :invalid="field.state.meta.errors.length > 0"
-                    @update:model-value="field.handleChange"
+                    @input="onFormInput(field.handleChange)"
                     @blur="field.handleBlur"
                   />
                 </template>
@@ -256,13 +263,12 @@
                 }"
               >
                 <template #default="{ field }">
-                  <h-input
-                    :model-value="field.state.value"
+                  <k-list-input
+                    :value="field.state.value"
                     label="用户名"
                     autocomplete="username"
                     :error="firstFieldError(field.state.meta.errors)"
-                    :invalid="field.state.meta.errors.length > 0"
-                    @update:model-value="field.handleChange"
+                    @input="onFormInput(field.handleChange)"
                     @blur="field.handleBlur"
                   />
                 </template>
@@ -274,70 +280,66 @@
                 }"
               >
                 <template #default="{ field }">
-                  <h-input
-                    :model-value="field.state.value"
+                  <k-list-input
+                    :value="field.state.value"
                     label="密码"
                     type="password"
                     autocomplete="current-password"
                     :error="firstFieldError(field.state.meta.errors)"
-                    :invalid="field.state.meta.errors.length > 0"
-                    @update:model-value="field.handleChange"
+                    @input="onFormInput(field.handleChange)"
                     @blur="field.handleBlur"
                   />
                 </template>
               </webDavForm.Field>
             </div>
 
-            <h-button variant="primary" type="submit" :disabled="isWebDavLoading || isWebDavSubmitting">
+            <k-button component="button" type="submit" :disabled="isWebDavLoading || isWebDavSubmitting">
               {{ isWebDavConnected ? '重新连接' : '连接并浏览' }}
-            </h-button>
+            </k-button>
           </form>
 
           <!-- errorMessage/successMessage 已改为 showToast -->
 
           <section v-if="isWebDavConnected" class="mt-[20px]">
             <div class="flex items-center gap-[8px] mb-[8px]">
-              <h-button variant="ghost" size="sm" :disabled="!parentWebDavPath || isWebDavLoading" @click="goToParentDirectory">
+              <k-button component="button" clear small :disabled="!parentWebDavPath || isWebDavLoading" @click="goToParentDirectory">
                 返回上级
-              </h-button>
-              <span class="truncate text-[color:var(--h-color-ink-muted)]">{{ currentWebDavPath }}</span>
+              </k-button>
+              <span class="truncate text-black/55 dark:text-white/55">{{ currentWebDavPath }}</span>
             </div>
 
             <div v-if="webDavDirectories.length > 0">
-              <div v-for="directory in webDavDirectories" :key="directory.path" class="flex items-center gap-[12px] py-[10px] border-b border-[var(--muses-color-border-subtle)]">
-                <h-checkbox
-                  :model-value="selectedWebDavPaths.has(directory.path)"
+              <div v-for="directory in webDavDirectories" :key="directory.path" class="flex items-center gap-[12px] py-[10px] border-b border-black/10 dark:border-white/15">
+                <k-checkbox
+                  :checked="selectedWebDavPaths.has(directory.path)"
                   :aria-label="`选择 ${directory.basename}`"
-                  @update:model-value="setWebDavSelection(directory.path, $event)"
+                  @change="setWebDavSelectionFromEvent(directory.path, $event)"
                 />
-                <button type="button" class="flex flex-1 min-w-0 flex-col gap-[2px] p-0 border-0 text-inherit bg-transparent text-left [&>span]:truncate [&>span]:text-[color:var(--h-color-ink-muted)]" @click="openWebDavDirectory(directory.path)">
+                <button type="button" class="flex flex-1 min-w-0 flex-col gap-[2px] p-0 border-0 text-inherit bg-transparent text-left [&>span]:truncate [&>span]:text-black/55 dark:[&>span]:text-white/55" @click="openWebDavDirectory(directory.path)">
                   <strong>{{ directory.basename }}</strong>
                   <span>{{ directory.path }}</span>
                 </button>
-                <h-button variant="ghost" size="sm" @click="openWebDavDirectory(directory.path)">进入</h-button>
+                <k-button component="button" clear small @click="openWebDavDirectory(directory.path)">进入</k-button>
               </div>
             </div>
 
-            <p v-else class="text-[color:var(--h-color-ink-muted)] text-center">当前目录没有可添加的子文件夹。</p>
+            <p v-else class="text-black/55 dark:text-white/55 text-center">当前目录没有可添加的子文件夹。</p>
 
-            <h-button
-              variant="primary"
+            <k-button
+              component="button"
               :disabled="selectedWebDavPaths.size === 0 || isWebDavLoading"
               @click="addSelectedWebDavSources"
             >
               添加选中的 {{ selectedWebDavPaths.size }} 个文件夹
-            </h-button>
+            </k-button>
           </section>
-      </h-bottom-sheet>
+        </div>
+      </k-sheet>
     </div>
 
-    <h-toast
-      v-model="toast.visible"
-      :variant="toast.variant"
-      :duration="toast.duration"
-    >
+    <k-toast :opened="toast.visible" position="center">
       {{ toast.message }}
-    </h-toast>
+    </k-toast>
   </div>
 </template>
 
@@ -346,8 +348,8 @@ import { computed, ref, type ComponentPublicInstance } from 'vue'
 import { useForm } from '@tanstack/vue-form'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
-import { add } from '@/icons'
-import { HBottomSheet, HButton, HCard, HCheckbox, HDialog, HEmpty, HIcon, HInput, HProgress, HSwitch, HToast, kNavbar } from '@/components/ui'
+import { add, radio } from '@/icons'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kCard, kCheckbox, kDialog, kDialogButton, kList, kListItem, kListInput, kNavbar, kPreloader, kSheet, kToast, kToggle, MEmpty } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,
@@ -364,7 +366,6 @@ import { scanSourceLibrary } from '@/features/library/scanner'
 import { reconcileSourceSongs } from '@/features/library/storage'
 import type { ScanOptions, ScanProgress, ScanStage } from '@/features/library/types'
 
-import { actionSheetCancelClass, actionSheetItemClass } from '@/theme/action-sheet'
 
 const sources = ref<SourceItem[]>(loadSources())
 const listParentRef = ref<HTMLElement | null>(null)
@@ -389,12 +390,18 @@ const toast = ref<{
   duration: 2000,
 })
 
+let toastTimer: number | undefined
+
 const showToast = (
   message: string,
   variant: 'default' | 'success' | 'warning' | 'danger' = 'default',
   duration = 2000,
 ): void => {
   toast.value = { visible: true, message, variant, duration }
+  window.clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => {
+    toast.value.visible = false
+  }, duration)
 }
 const currentWebDavPath = ref('/')
 const webDavDirectories = ref<WebDavDirectoryItem[]>([])
@@ -420,6 +427,16 @@ const requiredTrimmed = (value: string, message: string): string | undefined =>
 const firstFieldError = (errors: unknown[]): string | undefined => {
   const first = errors[0]
   return typeof first === 'string' ? first : undefined
+}
+
+/** k-list-input 的 @input 事件适配 TanStack Form 的 handleChange */
+const onFormInput =
+  (handleChange: (value: string) => void) => (e: Event): void => {
+    handleChange((e.target as HTMLInputElement).value)
+  }
+
+const onScanReadTagsToggle = (e: Event): void => {
+  scanOptions.value.readTags = (e.target as HTMLInputElement).checked
 }
 
 const webDavForm = useForm({
@@ -772,6 +789,10 @@ const setWebDavSelection = (path: string, selected: boolean): void => {
     nextSelectedPaths.delete(path)
   }
   selectedWebDavPaths.value = nextSelectedPaths
+}
+
+const setWebDavSelectionFromEvent = (path: string, e: Event): void => {
+  setWebDavSelection(path, (e.target as HTMLInputElement).checked)
 }
 
 const addSelectedWebDavSources = async (): Promise<void> => {

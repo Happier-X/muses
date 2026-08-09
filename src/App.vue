@@ -10,7 +10,7 @@
       :class="{ 'pointer-events-none': hasGlobalOverlay, 'is-overlay-active': hasGlobalOverlay }"
       :aria-hidden="hasGlobalOverlay"
     />
-    <!-- 常驻 PlayerPage：HPopup keep-alive 关闭时 v-show 保活，避免关再开重建 AMLL 背景闪默认底（#22） -->
+    <!-- 常驻 PlayerPage：k-popup 关闭时 v-show 保活，避免关再开重建 AMLL 背景闪默认底（#22） -->
     <PlayerPage />
     <QueuePage />
   </k-app>

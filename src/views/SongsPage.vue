@@ -3,45 +3,46 @@
     <k-navbar center-title>
       <template #title>歌曲</template>
       <template #right>
-        <h-button variant="ghost" is-icon-only shape="square" aria-label="搜索歌曲">
-          <h-icon :icon="searchOutline" />
-        </h-button>
+        <k-button component="button" clear rounded class="size-8" aria-label="搜索歌曲">
+          <component :is="searchOutline" aria-hidden="true" class="size-4" />
+        </k-button>
       </template>
     </k-navbar>
-    <div class="flex-[0_0_48px] min-h-[48px] bg-[var(--h-color-surface-secondary)]">
-      <div class="box-border w-full px-[8px] py-[4px] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
-        <h-button
-          variant="ghost"
-          size="sm"
+    <div class="flex-[0_0_48px] min-h-[48px] bg-white dark:bg-black">
+      <div class="box-border w-full px-[8px] py-[4px] md:max-w-[720px] md:mx-auto">
+        <k-button
+          component="button"
+          clear
+          small
           class="m-0"
           aria-label="随机播放全部"
           :disabled="songs.length === 0"
           @click="onShuffleAll"
         >
-          <template #leading><h-icon :icon="shuffle" /></template>
+          <template #icon><component :is="shuffle" aria-hidden="true" class="size-4" /></template>
           随机播放全部
-        </h-button>
+        </k-button>
       </div>
     </div>
     <div class="m-content" style="overflow: hidden;">
-      <h-empty
+      <m-empty
         v-if="songs.length === 0"
         title="还没有歌曲"
         description="请先到音源页添加并扫描音源。"
       />
 
-      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[var(--muses-mini-player-height)] md:pb-[calc(var(--muses-mini-player-height)+env(safe-area-inset-bottom,0px))] md:max-w-[var(--muses-content-max-width)] md:mx-auto [overflow-anchor:none]">
+      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[64px] md:pb-[calc(64px+env(safe-area-inset-bottom,0px))] md:max-w-[720px] md:mx-auto [overflow-anchor:none]">
         <div class="relative w-full" :style="{ height: `${totalSize}px` }">
           <div
             v-for="virtualRow in virtualRows"
             :key="songs[virtualRow.index].id"
             :ref="measureVirtualRow"
-            class="absolute top-0 left-0 right-0 box-border min-h-[var(--muses-song-row-height)]"
+            class="absolute top-0 left-0 right-0 box-border min-h-[72px]"
             :data-index="virtualRow.index"
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
             <div
-              class="flex items-center gap-[var(--muses-space-md)] p-[var(--muses-space-md)]"
+              class="flex items-center gap-[12px] p-[12px]"
               :class="songItemClass(songs[virtualRow.index].id)"
               :data-song-id="songs[virtualRow.index].id"
               role="button"
@@ -49,66 +50,80 @@
               @click="playSong(songs[virtualRow.index])"
             >
               <m-cover class="!w-12 !h-12 !flex-none !rounded-md" :src="getSongCoverSrc(songs[virtualRow.index])" alt="" />
-              <div class="flex-1 min-w-0 flex flex-col gap-[var(--muses-space-xs)]">
-                <h2 class="m-0 text-[length:var(--muses-font-title)] leading-[var(--muses-line-height-title)] text-[color:var(--muses-color-ink)] truncate">{{ songs[virtualRow.index].title }}</h2>
-                <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--muses-color-ink-muted)] truncate">{{ getSongArtistName(songs[virtualRow.index]) }} - {{ getSongAlbumName(songs[virtualRow.index]) }}</p>
+              <div class="flex-1 min-w-0 flex flex-col gap-[2px]">
+                <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white truncate">{{ songs[virtualRow.index].title }}</h2>
+                <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ getSongArtistName(songs[virtualRow.index]) }} - {{ getSongAlbumName(songs[virtualRow.index]) }}</p>
               </div>
-              <h-button
-                variant="ghost"
-                is-icon-only
-                shape="square"
-                class="flex-none m-0 ml-auto"
+              <k-button
+                component="button"
+                clear
+                rounded
+                class="flex-none m-0 ml-auto size-8"
                 aria-label="更多歌曲操作"
                 @click.stop="openSongActions(songs[virtualRow.index])"
               >
-                <h-icon :icon="ellipsisVertical" />
-              </h-button>
+                <component :is="ellipsisVertical" aria-hidden="true" class="size-4" />
+              </k-button>
             </div>
           </div>
         </div>
       </div>
 
-      <h-bottom-sheet v-model="isSongActionsOpen" title="歌曲操作">
-        <div class="flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
-          <button :class="actionSheetItemClass" type="button" @click="onAddToQueue">添加到队列</button>
-          <button :class="actionSheetItemClass" type="button" @click="onPickPlaylist">加入歌单…</button>
-          <button :class="[actionSheetItemClass, actionSheetCancelClass]" type="button" @click="isSongActionsOpen = false">取消</button>
-        </div>
-      </h-bottom-sheet>
+      <k-actions :opened="isSongActionsOpen" @backdropclick="isSongActionsOpen = false">
+        <k-actions-group>
+          <k-actions-label>歌曲操作</k-actions-label>
+          <k-actions-button @click="onAddToQueue">添加到队列</k-actions-button>
+          <k-actions-button @click="onPickPlaylist">加入歌单…</k-actions-button>
+        </k-actions-group>
+        <k-actions-group>
+          <k-actions-button @click="isSongActionsOpen = false">取消</k-actions-button>
+        </k-actions-group>
+      </k-actions>
 
-      <h-bottom-sheet v-model="isPlaylistPickOpen" title="加入歌单">
-        <div class="flex flex-col gap-[var(--muses-space-xs)] pb-[var(--muses-space-lg)] px-[var(--muses-space-lg)]">
-          <button
+      <k-actions :opened="isPlaylistPickOpen" @backdropclick="isPlaylistPickOpen = false">
+        <k-actions-group>
+          <k-actions-label>加入歌单</k-actions-label>
+          <k-actions-button
             v-for="pl in playlistList"
             :key="pl.id"
-            :class="actionSheetItemClass"
-            type="button"
             @click="onAddToPlaylist(pl.id)"
           >
             {{ pl.name }}
-          </button>
-          <button :class="actionSheetItemClass" type="button" @click="onCreateNewPlaylist">新建歌单</button>
-          <button :class="[actionSheetItemClass, actionSheetCancelClass]" type="button" @click="isPlaylistPickOpen = false">取消</button>
-        </div>
-      </h-bottom-sheet>
+          </k-actions-button>
+          <k-actions-button @click="onCreateNewPlaylist">新建歌单</k-actions-button>
+        </k-actions-group>
+        <k-actions-group>
+          <k-actions-button @click="isPlaylistPickOpen = false">取消</k-actions-button>
+        </k-actions-group>
+      </k-actions>
 
-      <h-dialog v-model="isCreatePlaylistOpen" title="新建歌单">
-        <h-input v-model="newPlaylistName" placeholder="歌单名称" maxlength="80" />
-        <template #actions>
-          <h-button variant="ghost" @click="isCreatePlaylistOpen = false">取消</h-button>
-          <h-button variant="primary" @click="onConfirmCreatePlaylist">创建并加入</h-button>
+      <k-dialog :opened="isCreatePlaylistOpen" title="新建歌单">
+        <k-list inset>
+          <k-list-input
+            label="歌单名称"
+            type="text"
+            :value="newPlaylistName"
+            placeholder="歌单名称"
+            maxlength="80"
+            clear-button
+            @input="onNewPlaylistNameInput"
+          />
+        </k-list>
+        <template #buttons>
+          <k-dialog-button @click="isCreatePlaylistOpen = false">取消</k-dialog-button>
+          <k-dialog-button strong @click="onConfirmCreatePlaylist">创建并加入</k-dialog-button>
         </template>
-      </h-dialog>
+      </k-dialog>
 
-      <h-floating-bubble
+      <k-fab
         v-if="showJumpBubble"
-        axis="lock"
-        :offset="fabOffset"
-        :ariaLabel="'跳转到当前播放'"
+        class="fixed z-40"
+        style="right: 16px; bottom: 176px"
+        aria-label="跳转到当前播放"
         @click="scrollToCurrentSong"
       >
-        <h-icon :icon="crosshair" aria-hidden="true" />
-      </h-floating-bubble>
+        <component :is="crosshair" aria-hidden="true" class="size-5" />
+      </k-fab>
     </div>
   </div>
 </template>
@@ -118,9 +133,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicIn
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, ellipsisVertical, searchOutline, shuffle } from '@/icons'
-import { HBottomSheet, HButton, HDialog, HEmpty, HFloatingBubble, HIcon, HInput, kNavbar, MCover } from '@/components/ui'
-import type { HFloatingBubbleOffset } from '@/components/ui'
-import { actionSheetCancelClass, actionSheetItemClass } from '@/theme/action-sheet'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kFab, kList, kListInput, kNavbar, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
@@ -155,10 +168,10 @@ let jumpHighlightTimer: ReturnType<typeof setTimeout> | null = null
 const songItemClass = (songId: string): string => {
   const classes: string[] = []
   if (playerState.currentSong?.id === songId) {
-    classes.push('is-playing bg-[var(--muses-color-playing-bg)]')
+    classes.push('is-playing bg-black/5 dark:bg-white/10')
   }
   if (highlightedSongId.value === songId) {
-    classes.push('bg-[var(--muses-color-jump-highlight)]')
+    classes.push('bg-primary/10')
   }
   return classes.join(' ')
 }
@@ -237,11 +250,9 @@ const showJumpBubble = computed(
   () => currentPlayingInList.value && !currentSongInViewport.value && !isListScrolling.value,
 )
 
-const fabOffset = computed<HFloatingBubbleOffset>(() => {
-  const miniPlayerH = 64
-  const tabBarH = 64
-  return { x: window.innerWidth - 48, y: window.innerHeight - miniPlayerH - tabBarH - 48 }
-})
+const onNewPlaylistNameInput = (e: Event): void => {
+  newPlaylistName.value = (e.target as HTMLInputElement).value
+}
 
 const refreshSongs = () => {
   songs.value = sortSongsForDisplay(loadSongs())

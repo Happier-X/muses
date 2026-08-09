@@ -3,7 +3,7 @@
     <div class="flex flex-1 flex-col min-h-0 md:block md:h-full">
       <aside
         v-if="isTablet && isTabsRoute"
-        class="hidden md:block md:fixed md:top-0 md:left-0 md:bottom-0 md:z-20 md:w-[var(--muses-sidebar-width)] md:overflow-auto md:border-r md:border-r-[var(--muses-color-border-subtle)] md:bg-[var(--h-color-surface)] md:pt-[calc(12px+env(safe-area-inset-top,0px))] md:box-border"
+        class="hidden md:block md:fixed md:top-0 md:left-0 md:bottom-0 md:z-20 md:w-[260px] md:overflow-auto md:border-r md:border-r-black/10 md:bg-white dark:md:border-r-white/15 dark:md:bg-black md:pt-[calc(12px+env(safe-area-inset-top,0px))] md:box-border"
         aria-label="主导航"
       >
         <nav aria-label="主导航">
@@ -11,10 +11,10 @@
             v-for="item in navItems"
             :key="item.to"
             :to="item.to"
-            class="flex items-center gap-[12px] px-[16px] py-[12px] no-underline text-[length:var(--muses-font-body)]"
+            class="flex items-center gap-[12px] px-[16px] py-[12px] no-underline text-[15px]"
             :class="isNavActive(item.to)
-              ? 'text-[color:var(--h-color-primary)] font-semibold'
-              : 'text-[color:var(--h-color-ink)]'"
+              ? 'text-primary font-semibold'
+              : 'text-black dark:text-white'"
           >
             <component :is="item.icon" aria-hidden="true" />
             <span>{{ item.label }}</span>
@@ -25,7 +25,7 @@
       <main
         class="flex-1 min-h-0"
         :class="isTabsRoute
-          ? 'pb-[calc(var(--muses-tab-bar-height)+env(safe-area-inset-bottom,0px))] md:pb-0 md:fixed md:top-0 md:right-0 md:bottom-0 md:left-[var(--muses-sidebar-width)] md:overflow-hidden'
+          ? 'pb-[calc(96px+env(safe-area-inset-bottom,0px))] md:pb-0 md:fixed md:top-0 md:right-0 md:bottom-0 md:left-[260px] md:overflow-hidden'
           : 'pb-0 md:min-w-0'"
       >
         <RouterView />
@@ -34,7 +34,7 @@
 
     <k-tabbar
       v-if="!isTablet && isTabsRoute"
-      class="z-[var(--muses-z-tab)] md:hidden"
+      class="z-[950] md:hidden"
       labels
       icons
       aria-label="底部导航"
