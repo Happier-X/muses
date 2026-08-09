@@ -549,3 +549,16 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   cloudDim: Record<EditDimKey, EditDimResult<unknown>> 映射；
   spread 对象里 Ref 未解包（lyricsPlatform）→ 显式赋值 options
 - 提交：b43aefa
+
+## 歌词云端获取：amll 始终参与（不再随平台过滤跳过）
+- 背景：用户质疑"选平台为什么跳过 amll"——当初为"纯平台语义"在
+  lyricsPlatform!=='all' 时设 includeAmll=false
+- 决策：amll 是质量最高的独立来源（TTML 逐行时间轴），平台 chips 只应过滤
+  各平台 provider，amll 始终参与候选
+- 实现：searchLyricsDimension 无条件执行 matchAmllTtmlLyrics；
+  删除 includeAmll 参数与分支；platformLyricsIds 加 lrclib:['lrclib']
+- 验证：模拟器实测——网易云/LRCLIB/全部模式获取行为一致（amll 均尝试）；
+  **环境限制**：jsdelivr 1.5MB 索引在模拟器下载 25s+（>ensureIndex 20s 超时）
+  → amll 在模拟器任何模式都无法加载索引（含"全部"），非本次改动引入；
+  负缓存（queryKey 变化自动失效）确认无阻塞
+- 提交：f243cf7
