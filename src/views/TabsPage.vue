@@ -16,7 +16,7 @@
               ? 'text-[color:var(--h-color-primary)] font-semibold'
               : 'text-[color:var(--h-color-ink)]'"
           >
-            <h-icon aria-hidden="true" :icon="item.icon" />
+            <component :is="item.icon" aria-hidden="true" />
             <span>{{ item.label }}</span>
           </RouterLink>
         </nav>
@@ -32,21 +32,29 @@
       </main>
     </div>
 
-    <h-tab-bar
+    <k-tabbar
       v-if="!isTablet && isTabsRoute"
       class="z-[var(--muses-z-tab)] md:hidden"
-      :model-value="activeTab"
-      :items="tabItems"
+      labels
+      icons
       aria-label="底部导航"
-      fixed
-      safe-area
-      @update:model-value="navigateTab"
-    />
+    >
+      <k-tabbar-link
+        v-for="item in navItems"
+        :key="item.to"
+        component="button"
+        :label="item.label"
+        :active="isNavActive(item.to)"
+        @click="navigateTab(item.to)"
+      >
+        <component :is="item.icon" aria-hidden="true" />
+      </k-tabbar-link>
+    </k-tabbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { HIcon, HTabBar, type HTabBarItem } from '@/components/ui'
+import { kTabbar, kTabbarLink } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
@@ -63,8 +71,6 @@ const navItems = [
 
 const route = useRoute()
 const router = useRouter()
-const tabItems: HTabBarItem[] = navItems.map((item) => ({ key: item.to, label: item.label, icon: item.icon }))
-const activeTab = computed(() => navItems.find((item) => isNavActive(item.to))?.to ?? '/tabs/songs')
 const navigateTab = (to: string) => {
   if (to !== route.path) void router.push(to)
 }

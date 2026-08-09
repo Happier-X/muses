@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full overflow-hidden">
+  <k-app theme="ios" class="flex flex-col h-full overflow-hidden">
     <div
       class="flex-1 relative overflow-hidden"
       :class="{ 'pointer-events-none': hasGlobalOverlay }"
@@ -13,12 +13,13 @@
     <!-- 常驻 PlayerPage：HPopup keep-alive 关闭时 v-show 保活，避免关再开重建 AMLL 背景闪默认底（#22） -->
     <PlayerPage />
     <QueuePage />
-  </div>
+  </k-app>
 </template>
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
 import { RouterView } from 'vue-router'
+import { kApp } from 'konsta/vue'
 import { App } from '@capacitor/app'
 import type { PluginListenerHandle } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'

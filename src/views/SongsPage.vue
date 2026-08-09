@@ -1,12 +1,13 @@
 <template>
   <div ref="pageRef" class="m-page">
-    <h-nav-bar title="歌曲" :fixed="false">
+    <k-navbar center-title>
+      <template #title>歌曲</template>
       <template #right>
         <h-button variant="ghost" is-icon-only shape="square" aria-label="搜索歌曲">
           <h-icon :icon="searchOutline" />
         </h-button>
       </template>
-    </h-nav-bar>
+    </k-navbar>
     <div class="flex-[0_0_48px] min-h-[48px] bg-[var(--h-color-surface-secondary)]">
       <div class="box-border w-full px-[8px] py-[4px] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-button
@@ -117,7 +118,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicIn
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, ellipsisVertical, searchOutline, shuffle } from '@/icons'
-import { HBottomSheet, HButton, HDialog, HEmpty, HFloatingBubble, HIcon, HInput, HNavBar, MCover } from '@/components/ui'
+import { HBottomSheet, HButton, HDialog, HEmpty, HFloatingBubble, HIcon, HInput, kNavbar, MCover } from '@/components/ui'
 import type { HFloatingBubbleOffset } from '@/components/ui'
 import { actionSheetCancelClass, actionSheetItemClass } from '@/theme/action-sheet'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'

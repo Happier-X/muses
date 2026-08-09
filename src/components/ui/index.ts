@@ -1,4 +1,4 @@
-/** 通用组件来自 npm 包 happier-ui@0.0.8；这里只转出真实导出。 */
+/** 通用组件来自 npm 包 happier-ui@0.1.1；这里只转出真实导出。 */
 export {
   HBadge,
   HButton,
@@ -44,3 +44,54 @@ export { default as MCover } from './MCover.vue'
 /** 自定义页壳 */
 export { default as MPage } from './MPage.vue'
 export { default as MContent } from './MContent.vue'
+
+/** Konsta UI v5（迁移目标）：k* 组件 re-export，供页面按需引入 */
+export {
+  kActions,
+  kApp,
+  kBlock,
+  kBlockFooter,
+  kBlockHeader,
+  kBlockTitle,
+  kButton,
+  kCard,
+  kCheckbox,
+  kChip,
+  kDialog,
+  kDialogButton,
+  kFab,
+  kGlass,
+  kIcon,
+  kLink,
+  kList,
+  kListButton,
+  kListGroup,
+  kListInput,
+  kListItem,
+  kNavbar,
+  kNavbarBackLink,
+  kPage,
+  kPopover,
+  kPopup,
+  kPreloader,
+  kProgressbar,
+  kRadio,
+  kRange,
+  kSearchbar,
+  kSegmented,
+  kSegmentedButton,
+  kSheet,
+  kStepper,
+  kTabbar,
+  kTabbarLink,
+  kTable,
+  kTableBody,
+  kTableCell,
+  kTableHead,
+  kTableRow,
+  kToast,
+  kToggle,
+  kToolbar,
+  kToolbarPane,
+  kProvider,
+} from 'konsta/vue'

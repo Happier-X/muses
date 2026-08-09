@@ -1,12 +1,13 @@
 <template>
   <div class="m-page">
-    <h-nav-bar title="音源" :fixed="false">
+    <k-navbar center-title>
+      <template #title>音源</template>
       <template #right>
         <h-button variant="ghost" is-icon-only shape="square" aria-label="添加音源" @click="isAddActionSheetOpen = true">
           <h-icon :icon="add" />
         </h-button>
       </template>
-    </h-nav-bar>
+    </k-navbar>
 
     <div class="m-content" id="source-page-content">
       <h-empty
@@ -346,7 +347,7 @@ import { useForm } from '@tanstack/vue-form'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
 import { add } from '@/icons'
-import { HBottomSheet, HButton, HCard, HCheckbox, HDialog, HEmpty, HIcon, HInput, HNavBar, HProgress, HSwitch, HToast } from '@/components/ui'
+import { HBottomSheet, HButton, HCard, HCheckbox, HDialog, HEmpty, HIcon, HInput, HProgress, HSwitch, HToast, kNavbar } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,

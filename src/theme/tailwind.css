@@ -4,6 +4,9 @@
  */
 @import 'tailwindcss';
 @import 'happier-ui/styles';
+/* Konsta UI v5：与 happier-ui 共存（--k-* / --color-ios-* 与 --h-* 命名空间不冲突），
+ * 页面逐批迁移完成后移除 happier-ui（阶段 3）。 */
+@import 'konsta/vue/theme.css';
 
 /* 应用默认字体与表面色（无第三方 UI 框架全局 CSS 时的宿主回退） */
 body {
@@ -43,10 +46,19 @@ body,
 }
 
 /* 页面级导航栏与灰底页面背景协调（surface-secondary），并去掉底部分隔线；
- * 弹层内 navbar（HPopup/BottomSheet/Dialog 面板为 surface 白）不受影响。 */
+ * 弹层内 navbar（HPopup/BottomSheet/Dialog 面板为 surface 白）不受影响。
+ * 迁移期：k-navbar 为 Konsta iOS 主题，背景用 iOS 浅/深 surface 对齐页面底色。 */
 .m-page .h-nav-bar {
   background: var(--h-color-surface-secondary);
   border-bottom: none;
+}
+
+.m-page .k-navbar {
+  background: var(--color-ios-light-surface-2);
+}
+
+.dark .m-page .k-navbar {
+  background: var(--color-ios-dark-surface-2);
 }
 
 .m-content {

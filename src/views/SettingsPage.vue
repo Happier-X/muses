@@ -1,6 +1,8 @@
 <template>
   <div class="m-page">
-    <h-nav-bar title="设置" :fixed="false" />
+    <k-navbar center-title>
+      <template #title>设置</template>
+    </k-navbar>
     <div class="m-content">
       <div class="md:max-w-[var(--muses-content-max-width)] md:mx-auto space-y-[var(--muses-space-lg)]">
         <h-cell-group title="关于" variant="card">
@@ -45,7 +47,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { HCell, HCellGroup, HNavBar, HSwitch, HToast } from '@/components/ui'
+import { HCell, HCellGroup, HSwitch, HToast, kNavbar } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,

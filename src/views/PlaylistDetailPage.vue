@@ -1,12 +1,10 @@
 <template>
   <div class="m-page">
-    <h-nav-bar
-      :title="playlist?.name ?? '歌单'"
-      show-back
-      back-aria-label="返回歌单"
-      :fixed="false"
-      @handle-left-click="goBack"
-    >
+    <k-navbar center-title>
+      <template #left>
+        <k-navbar-back-link text="返回" @click="goBack" />
+      </template>
+      <template #title>{{ playlist?.name ?? '歌单' }}</template>
       <template #right>
         <h-button
           variant="ghost"
@@ -19,7 +17,7 @@
           <h-icon :icon="playOutline" />
         </h-button>
       </template>
-    </h-nav-bar>
+    </k-navbar>
     <div class="m-content" style="overflow: hidden;">
       <div class="h-full md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-empty v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
@@ -78,7 +76,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { playOutline, removeCircleOutline } from '@/icons'
-import { HButton, HEmpty, HIcon, HNavBar, MCover } from '@/components/ui'
+import { HButton, HEmpty, HIcon, kNavbar, kNavbarBackLink, MCover } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'

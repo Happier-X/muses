@@ -1,12 +1,11 @@
 <template>
   <div class="m-page">
-    <h-nav-bar
-      :title="pageTitle"
-      show-back
-      back-aria-label="返回"
-      :fixed="false"
-      @handle-left-click="goBack"
-    />
+    <k-navbar center-title>
+      <template #left>
+        <k-navbar-back-link text="返回" @click="goBack" />
+      </template>
+      <template #title>{{ pageTitle }}</template>
+    </k-navbar>
     <div class="flex-[0_0_48px] min-h-[48px] bg-[var(--h-color-surface-secondary)]">
       <div class="box-border w-full px-[8px] py-[4px] md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-button
@@ -85,7 +84,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, shuffle } from '@/icons'
-import { HButton, HEmpty, HFloatingBubble, HIcon, HNavBar, MCover } from '@/components/ui'
+import { HButton, HEmpty, HFloatingBubble, HIcon, kNavbar, kNavbarBackLink, MCover } from '@/components/ui'
 import type { HFloatingBubbleOffset } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'

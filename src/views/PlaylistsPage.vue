@@ -1,12 +1,13 @@
 <template>
   <div class="m-page">
-    <h-nav-bar title="歌单" :fixed="false">
+    <k-navbar center-title>
+      <template #title>歌单</template>
       <template #right>
         <h-button variant="ghost" is-icon-only shape="square" aria-label="新建歌单" @click="openCreateAlert">
           <h-icon :icon="addOutline" />
         </h-button>
       </template>
-    </h-nav-bar>
+    </k-navbar>
     <div class="m-content">
       <div class="md:max-w-[var(--muses-content-max-width)] md:mx-auto">
         <h-empty
@@ -79,7 +80,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { addOutline, ellipsisVertical, list } from '@/icons'
-import { HBottomSheet, HButton, HDialog, HEmpty, HIcon, HInput, HNavBar, MCover } from '@/components/ui'
+import { HBottomSheet, HButton, HDialog, HEmpty, HIcon, HInput, kNavbar, MCover } from '@/components/ui'
 import { actionSheetCancelClass, actionSheetDestructiveClass, actionSheetItemClass } from '@/theme/action-sheet'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
