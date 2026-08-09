@@ -247,6 +247,26 @@
           class="flex flex-col gap-[var(--muses-space-sm)] rounded-[12px] border border-[color:var(--h-color-border,rgba(0,0,0,0.08))] p-[var(--muses-space-md)]"
           aria-label="从云端获取元信息"
         >
+          <div class="flex flex-col gap-[var(--muses-space-sm)]">
+            <p class="m-0 text-[length:var(--muses-font-body-sm)] font-medium">来源平台</p>
+            <div class="flex flex-wrap gap-[6px]">
+              <button
+                v-for="item in cloudPlatforms"
+                :key="item.id"
+                type="button"
+                class="h-[30px] px-[12px] rounded-full text-[length:var(--muses-font-body-sm)] border transition-colors"
+                :class="cloudPlatform === item.id
+                  ? 'bg-[var(--h-color-primary,#0070f0)] text-white border-transparent'
+                  : 'bg-transparent text-[color:var(--h-color-ink-muted,#888)] border-[color:var(--h-color-border,rgba(0,0,0,0.08))]'"
+                :aria-pressed="cloudPlatform === item.id"
+                :disabled="cloudFetching || cloudApplying"
+                @click="cloudPlatform = item.id"
+              >
+                {{ item.label }}
+              </button>
+            </div>
+          </div>
+
           <div class="flex items-center justify-between gap-[var(--muses-space-sm)]">
             <p class="m-0 text-[length:var(--muses-font-body-sm)] font-medium">云端元信息</p>
             <h-button
@@ -274,7 +294,7 @@
                 文本 · {{ dimStatusLabel(cloudResult.text.status) }}
                 <template v-if="selectedTextHit">
                   ：{{ selectedTextHit.title || '—' }} / {{ selectedTextHit.artist || '—' }} / {{ selectedTextHit.album || '—' }}
-                  <span v-if="selectedTextHit.source">（{{ selectedTextHit.source }}）</span>
+                  <span v-if="selectedTextHit.source">（{{ cloudSourceLabel(selectedTextHit.source) }}）</span>
                 </template>
               </p>
               <h-button
@@ -299,13 +319,13 @@
                   @click="cloudTextIndex = idx"
                 >
                   {{ item.title || '—' }} · {{ item.artist || '—' }} · {{ item.album || '—' }}
-                  <span class="opacity-60">（{{ item.source }}）</span>
+                  <span class="opacity-60">（{{ cloudSourceLabel(item.source) }}）</span>
                 </button>
               </div>
 
               <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]">
                 封面 · {{ dimStatusLabel(cloudResult.cover.status) }}
-                <template v-if="selectedCoverHit">（{{ selectedCoverHit.source }}）</template>
+                <template v-if="selectedCoverHit">（{{ cloudSourceLabel(selectedCoverHit.source) }}）</template>
               </p>
               <img
                 v-if="selectedCoverHit"
@@ -332,7 +352,7 @@
                   type="button"
                   class="p-0 border-0 bg-transparent rounded-[8px] overflow-hidden ring-offset-1"
                   :class="idx === cloudCoverIndex ? 'ring-2 ring-[var(--h-color-primary,#0070f0)]' : ''"
-                  :aria-label="`封面候选 ${idx + 1} ${item.source}`"
+                  :aria-label="`封面候选 ${idx + 1} ${cloudSourceLabel(item.source)}`"
                   @click="cloudCoverIndex = idx"
                 >
                   <img class="w-12 h-12 object-cover" :src="item.remoteUrl" alt="">
@@ -342,7 +362,7 @@
               <p class="m-0 text-[length:var(--muses-font-body-sm)] text-[color:var(--h-color-ink-muted,#888)]">
                 歌词 · {{ dimStatusLabel(cloudResult.lyrics.status) }}
                 <template v-if="selectedLyricsHit">
-                  ：{{ selectedLyricsHit.source }} / {{ selectedLyricsHit.format }}
+                  ：{{ cloudSourceLabel(selectedLyricsHit.source) }} / {{ selectedLyricsHit.format }}
                   <span v-if="selectedLyricsHit.translationText">（含译文，应用仅主词）</span>
                 </template>
               </p>
@@ -373,7 +393,7 @@
                   :class="idx === cloudLyricsIndex ? 'bg-[rgba(0,0,0,0.06)]' : ''"
                   @click="cloudLyricsIndex = idx"
                 >
-                  {{ item.source }} · {{ item.format }}
+                  {{ cloudSourceLabel(item.source) }} · {{ item.format }}
                   <span class="opacity-60">{{ lyricsPreview(item.text, 40) }}</span>
                 </button>
               </div>
@@ -608,6 +628,7 @@ import { useForm } from '@tanstack/vue-form'
 import { Capacitor } from '@capacitor/core'
 import {
   searchEditCloudMeta,
+  type CloudPlatformId,
   type EditCloudMetaResult,
   type EditDimStatus,
 } from '@/features/editMeta'
@@ -931,7 +952,32 @@ const closeSongEdit = () => {
   isSongEditOpen.value = false
 }
 
-// ── 云端元信息（强制搜 + 勾选应用）──────────────────────────────
+// ── 云端元信息（强制搜 + 平台选择 + 勾选应用）────────────────────────
+/** 来源平台（MusicTag 式）；默认全部 */
+const cloudPlatform = ref<CloudPlatformId>('all')
+const cloudPlatforms: Array<{ id: CloudPlatformId; label: string }> = [
+  { id: 'all', label: '全部' },
+  { id: 'wy', label: '网易云' },
+  { id: 'tx', label: 'QQ音乐' },
+  { id: 'kg', label: '酷狗' },
+  { id: 'kw', label: '酷我' },
+  { id: 'mg', label: '咪咕' },
+  { id: 'itunes', label: 'iTunes' },
+]
+/** provider id → 中文平台名（候选列表展示） */
+const CLOUD_SOURCE_LABELS: Record<string, string> = {
+  wy: '网易云',
+  tx: 'QQ音乐',
+  qrc: 'QQ音乐',
+  kg: '酷狗',
+  kw: '酷我',
+  mg: '咪咕',
+  itunes: 'iTunes',
+  amll: 'AMLL',
+  lrclib: 'LRCLIB',
+}
+const cloudSourceLabel = (source: string | undefined): string =>
+  (source && CLOUD_SOURCE_LABELS[source]) || source || ''
 const cloudFetching = ref(false)
 const cloudApplying = ref(false)
 const cloudResult = ref<EditCloudMetaResult | null>(null)
@@ -1078,9 +1124,12 @@ const onFetchCloudMeta = async (): Promise<void> => {
   cloudAbort = controller
   const generation = cloudFetchGeneration
   const songId = song.id
+  const platform = cloudPlatform.value
   cloudFetching.value = true
   cloudResult.value = null
-  cloudStatusMessage.value = '正在从多平台获取…'
+  cloudStatusMessage.value = platform === 'all'
+    ? '正在从多平台获取…'
+    : `正在从${cloudPlatforms.find((p) => p.id === platform)?.label ?? ''}获取…`
   cloudExpandText.value = false
   cloudExpandCover.value = false
   cloudExpandLyrics.value = false
@@ -1096,7 +1145,7 @@ const onFetchCloudMeta = async (): Promise<void> => {
           ? playerState.duration
           : undefined,
       },
-      { signal: controller.signal },
+      { signal: controller.signal, platform },
     )
 
     if (

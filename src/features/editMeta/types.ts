@@ -2,6 +2,9 @@ import type { OnlineCoverSource } from '@/features/cover/types'
 import type { OnlineLyricsFormat, OnlineLyricsSource } from '@/features/lyrics/providers/types'
 import type { TextMetaHit } from '@/features/metadata/types'
 
+/** 云端元信息来源平台（MusicTag 式选择） */
+export type CloudPlatformId = 'all' | 'wy' | 'tx' | 'kg' | 'kw' | 'mg' | 'itunes'
+
 /** 编辑页云端查询：以当前表单/种子字段为关键词，强制搜索 */
 export type EditCloudMetaQuery = {
   songId: string
@@ -43,4 +46,6 @@ export type SearchEditCloudMetaOptions = {
   signal?: AbortSignal
   /** 每维最多保留候选数，默认 8 */
   maxCandidates?: number
+  /** 限定来源平台；默认全部平台混合 */
+  platform?: CloudPlatformId
 }

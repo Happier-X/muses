@@ -12,7 +12,7 @@ import type { CoverProvider } from '@/features/cover/types'
 import { matchAmllTtmlLyrics } from '@/features/lyrics/amllTtmlDb'
 import { getOnlineLyricsFallbackProviders } from '@/features/lyrics/match'
 import { normalizeText } from '@/features/lyrics/normalize'
-import type { OnlineLyricsQuery } from '@/features/lyrics/providers/types'
+import type { OnlineLyricsQuery, LyricsProvider } from '@/features/lyrics/providers/types'
 import { kgTextMetaProvider } from '@/features/metadata/providers/kg'
 import { kwTextMetaProvider } from '@/features/metadata/providers/kw'
 import { mgTextMetaProvider } from '@/features/metadata/providers/mg'
@@ -21,6 +21,7 @@ import { wyTextMetaProvider } from '@/features/metadata/providers/wy'
 import type { OnlineTextQuery, TextMetaHit, TextMetaProvider } from '@/features/metadata/types'
 import { scoreTextHit } from '@/features/metadata/util'
 import type {
+  CloudPlatformId,
   EditCloudMetaQuery,
   EditCloudMetaResult,
   EditCoverCandidate,
@@ -48,6 +49,36 @@ const defaultCoverProviders: CoverProvider[] = [
   kgCoverProvider,
   mgCoverProvider,
 ]
+
+/** 平台 → 文本 provider（itunes 无文本） */
+const platformTextProviders: Record<Exclude<CloudPlatformId, 'all'>, TextMetaProvider[]> = {
+  wy: [wyTextMetaProvider],
+  tx: [txTextMetaProvider],
+  kg: [kgTextMetaProvider],
+  kw: [kwTextMetaProvider],
+  mg: [mgTextMetaProvider],
+  itunes: [],
+}
+
+/** 平台 → 封面 provider */
+const platformCoverProviders: Record<Exclude<CloudPlatformId, 'all'>, CoverProvider[]> = {
+  wy: [wyCoverProvider],
+  tx: [txCoverProvider],
+  kg: [kgCoverProvider],
+  kw: [kwCoverProvider],
+  mg: [mgCoverProvider],
+  itunes: [itunesCoverProvider],
+}
+
+/** 平台 → 歌词 provider id（tx 平台含 qrc；lrclib 仅全部时使用） */
+const platformLyricsIds: Record<Exclude<CloudPlatformId, 'all'>, string[]> = {
+  wy: ['wy'],
+  tx: ['tx', 'qrc'],
+  kg: ['kg'],
+  kw: ['kw'],
+  mg: ['mg'],
+  itunes: [],
+}
 
 const throwIfAborted = (signal?: AbortSignal): void => {
   if (signal?.aborted) {
@@ -122,13 +153,14 @@ const rankAndCapText = (
 const searchTextDimension = async (
   query: OnlineTextQuery,
   max: number,
+  providers: TextMetaProvider[],
   signal?: AbortSignal,
 ): Promise<EditDimResult<TextMetaHit>> => {
   const collected: TextMetaHit[] = []
   let sawNetwork = false
   let aborted = false
 
-  for (const provider of defaultTextProviders) {
+  for (const provider of providers) {
     try {
       throwIfAborted(signal)
       const hit = await provider.search(query)
@@ -152,6 +184,7 @@ const searchTextDimension = async (
 const searchCoverDimension = async (
   query: EditCloudMetaQuery,
   max: number,
+  providers: CoverProvider[],
   signal?: AbortSignal,
 ): Promise<EditDimResult<EditCoverCandidate>> => {
   const coverQuery = {
@@ -165,7 +198,7 @@ const searchCoverDimension = async (
   let sawNetwork = false
   let aborted = false
 
-  for (const provider of defaultCoverProviders) {
+  for (const provider of providers) {
     if (collected.length >= max) {
       break
     }
@@ -198,6 +231,8 @@ const searchCoverDimension = async (
 const searchLyricsDimension = async (
   query: EditCloudMetaQuery,
   max: number,
+  lyricsProviders: LyricsProvider[],
+  includeAmll: boolean,
   signal?: AbortSignal,
 ): Promise<EditDimResult<EditLyricsCandidate>> => {
   const lyricsQuery: OnlineLyricsQuery = {
@@ -232,34 +267,36 @@ const searchLyricsDimension = async (
     })
   }
 
-  try {
-    throwIfAborted(signal)
-    const amll = await matchAmllTtmlLyrics({
-      songId: lyricsQuery.songId,
-      title: lyricsQuery.title,
-      artist: lyricsQuery.artist,
-      album: lyricsQuery.album,
-    })
-    throwIfAborted(signal)
-    if (amll.ok) {
-      pushHit({
-        text: amll.ttml,
-        format: 'ttml',
-        source: 'amll',
+  if (includeAmll) {
+    try {
+      throwIfAborted(signal)
+      const amll = await matchAmllTtmlLyrics({
+        songId: lyricsQuery.songId,
+        title: lyricsQuery.title,
+        artist: lyricsQuery.artist,
+        album: lyricsQuery.album,
       })
-    } else if (amll.reason === 'network') {
-      sawNetwork = true
-    }
-  } catch (error) {
-    if (isAbortError(error)) {
-      aborted = true
-    } else {
-      sawNetwork = true
+      throwIfAborted(signal)
+      if (amll.ok) {
+        pushHit({
+          text: amll.ttml,
+          format: 'ttml',
+          source: 'amll',
+        })
+      } else if (amll.reason === 'network') {
+        sawNetwork = true
+      }
+    } catch (error) {
+      if (isAbortError(error)) {
+        aborted = true
+      } else {
+        sawNetwork = true
+      }
     }
   }
 
   if (!aborted) {
-    for (const provider of getOnlineLyricsFallbackProviders()) {
+    for (const provider of lyricsProviders) {
       if (collected.length >= max) {
         break
       }
@@ -313,6 +350,7 @@ export const searchEditCloudMeta = async (
   const songId = query.songId?.trim()
   const max = Math.max(1, options.maxCandidates ?? DEFAULT_MAX_CANDIDATES)
   const signal = options.signal
+  const platform = options.platform ?? 'all'
 
   if (!title || !songId) {
     return {
@@ -337,10 +375,26 @@ export const searchEditCloudMeta = async (
     durationSec: query.durationSec,
   }
 
+  // 平台过滤：选具体平台时只用该平台 provider；
+  // 歌词限定平台时跳过 amll 聚合库（保持纯平台来源）
+  const textProviders = platform === 'all'
+    ? defaultTextProviders
+    : platformTextProviders[platform]
+  const coverProviders = platform === 'all'
+    ? defaultCoverProviders
+    : platformCoverProviders[platform]
+  let lyricsProviders = getOnlineLyricsFallbackProviders()
+  let includeAmll = true
+  if (platform !== 'all') {
+    const ids = new Set(platformLyricsIds[platform])
+    lyricsProviders = lyricsProviders.filter((provider) => ids.has(provider.id))
+    includeAmll = false
+  }
+
   const [text, cover, lyrics] = await Promise.all([
-    searchTextDimension(textQuery, max, signal),
-    searchCoverDimension(editQuery, max, signal),
-    searchLyricsDimension(editQuery, max, signal),
+    searchTextDimension(textQuery, max, textProviders, signal),
+    searchCoverDimension(editQuery, max, coverProviders, signal),
+    searchLyricsDimension(editQuery, max, lyricsProviders, includeAmll, signal),
   ])
 
   // 顶层若已 abort，把仍为 no-match 的空维标成 aborted（可选一致性）

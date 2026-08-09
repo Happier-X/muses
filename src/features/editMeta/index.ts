@@ -1,5 +1,6 @@
 export { searchEditCloudMeta } from './searchEditCloudMeta'
 export type {
+  CloudPlatformId,
   EditCloudMetaQuery,
   EditCloudMetaResult,
   EditCoverCandidate,
