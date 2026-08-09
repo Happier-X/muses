@@ -529,3 +529,23 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 提交：0116d49
 - 坑：write 工具 /tmp 解析到 C:\tmp（git-bash /tmp 是 %TEMP%）——测试脚本
   写入后需 mv；adb server 会掉（emulator-5556 消失），kill-server 重启即可
+
+## 编辑歌曲信息：歌词渠道与元信息渠道拆分（tab）
+- 需求：歌词渠道（wy/tx/qrc/kg/kw/mg/lrclib）与文本/封面渠道不同，
+  用户要求用 tab 分开（MusicTag 式渠道管理）
+- 实现：
+  - 编辑弹窗顶部 segmented tab：基础信息 / 歌词
+  - 基础信息 tab：云端文本+封面（chips 含 iTunes 无 LRCLIB）+ 标题/艺术家/专辑/封面/RG
+  - 歌词 tab：独立歌词渠道（chips 含 LRCLIB 无 iTunes）+ 候选列表/预览/
+    应用所选歌词 + 歌词 textarea；歌词状态文案独立 lyricsStatusMessage
+  - searchEditCloudMeta 扩展：dimensions（按需搜索）+ lyricsPlatform（独立歌词平台）
+  - 结果按维度 merge（cloudResult 合并只覆盖本次 dims），切 tab 不丢结果
+  - 歌词 tab 简化交互：候选点击选中 → "应用所选歌词"（无需勾选）
+- 验证（CDP 实测）：基础 tab 获取="文本4·封面5"（无歌词）；
+  歌词 tab="歌词4"（无文本/封面）；LRCLIB pressed 切换；歌词候选中文来源
+  （酷我/QQ音乐/网易云/酷狗）；应用所选歌词填入 textarea 2332 字；
+  切 tab 双向保留结果
+- 坑：EditCloudMetaResult 用 EditDimKey 索引报 TS7053——改为
+  cloudDim: Record<EditDimKey, EditDimResult<unknown>> 映射；
+  spread 对象里 Ref 未解包（lyricsPlatform）→ 显式赋值 options
+- 提交：b43aefa
