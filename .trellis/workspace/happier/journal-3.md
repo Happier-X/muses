@@ -513,3 +513,19 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   空态 430px（h-empty 撑高）；单首场景=50vh
 - 注：queue 注入后 force-stop 需等刷盘（queue-one 脚本写入后立即
   force-stop 导致 queue 未恢复 rows=0——测试环境竞态非功能问题）
+
+## 编辑歌曲信息：来源平台选择（MusicTag 式）
+- 需求：用户希望像 MusicTag 一样在编辑弹窗里选择来源平台获取元信息
+- 实现：云端 section 顶部加平台 chips（全部/网易云/QQ音乐/酷狗/酷我/咪咕/iTunes）
+  - types.ts 新增 CloudPlatformId + SearchEditCloudMetaOptions.platform
+  - searchEditCloudMeta：platform 过滤文本/封面/歌词 provider；歌词限定平台时跳过
+    amll 聚合库；itunes 无文本/歌词（仅封面）
+  - PlayerPage：cloudPlatform ref + chips UI（aria-pressed 高亮）+ 获取中文案
+    "正在从酷狗获取…" + cloudSourceLabel 中文映射（kg→酷狗、tx/qrc→QQ音乐、
+    lrclib→LRCLIB、amll→AMLL、wy→网易云、kw→酷我、mg→咪咕、itunes→iTunes）
+- 验证：CDP 实测——chips 渲染 7 项、网易云/酷狗选中 aria-pressed 切换、
+  获取中文案"正在从酷狗获取…"、全部模式混合获取（文本4·封面5·歌词4）、
+  候选来源中文显示（酷我/iTunes）
+- 提交：0116d49
+- 坑：write 工具 /tmp 解析到 C:\tmp（git-bash /tmp 是 %TEMP%）——测试脚本
+  写入后需 mv；adb server 会掉（emulator-5556 消失），kill-server 重启即可
