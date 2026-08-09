@@ -34,7 +34,7 @@ If a composable becomes necessary:
 
 - Put it under `src/composables/`.
 - Name files and functions with `use*`，例如 `useExample.ts` exporting `useExample()`.
-- Keep it UI-framework agnostic（Vue / happier-ui / Capacitor 边界清晰）。
+- Keep it UI-framework agnostic（Vue / Konsta / Capacitor 边界清晰）。
 - Return named values and functions rather than a broad untyped object.
 
 ---

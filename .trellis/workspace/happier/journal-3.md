@@ -562,3 +562,22 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   → amll 在模拟器任何模式都无法加载索引（含"全部"），非本次改动引入；
   负缓存（queryKey 变化自动失效）确认无阻塞
 - 提交：f243cf7
+
+## 2026-08-09 Konsta UI 迁移完成（08-09-konsta-ui-migration）
+
+- **阶段 2 逐页迁移**（由简到难）：Settings → Albums/Artists → LibraryDetail → Playlists/PlaylistDetail → Sources → Songs → Queue → PlayerPage 全部完成
+- **关键 Konsta API 细节**：
+  - k-toggle/k-checkbox/k-range 无 v-model：`:checked`/`:value` + 原生 `@change`/`@input` 事件手动同步
+  - k-button 无 icon slot（只有默认 slot）；k-fab 有 icon slot；k-navbar 无 fixed prop（sticky 自带）
+  - k-popup 无 position prop（iOS 默认全屏底部滑入），层叠靠 DOM 顺序，关闭态 translate-y-full 移出屏幕
+  - k-tabbar 内部包一层 k-toolbar（选择器要用 .k-toolbar 或 .k-tabbar-link）
+  - k-list-input 支持 type="textarea"（替代 HTextarea）；:value + @input 适配 TanStack Form 的 handleChange
+  - k-progressbar 无 indeterminate → 扫描进度用 k-preloader 替代
+  - k-dialog 用 :opened + #buttons slot + k-dialog-button（strong 强调）
+  - k-actions（iOS action sheet）= k-actions-group + k-actions-label + k-actions-button
+  - k-range iOS thumb/track 默认主题蓝，沉浸区需 nth-child 后代覆盖为白色
+- **类冲突坑**：Konsta 组件 class 与自定义任意值（text-[#ff3b30]）可能被主题类覆盖 → 用 `!` important 前缀
+- **tokens 清理**（方案 A）：--h-*/--muses-* 全部内联（space-xs 2px/sm 8px/md 12px/lg 16px、mini-player 64px、tab-bar 96px、song-row 72px、content-max 720px、immersive 色板 #05070d/#0a0c14/#171b2b 等）
+- **自建组件**：MEmpty（iOS 空状态：72px 圆形图标底 + title + description）；MCover/MiniPlayer 样式同步 Konsta 体系
+- **验证**：build + lint + vue-tsc 全通过；happier-ui 卸载；Android 模拟器 CDP 冒烟通过（tab/列表/开关/action sheet/播放器 k-range 播放/队列层叠/编辑表单/暗色）
+- 提交：3869d83 / 031b03f / 8d081f7

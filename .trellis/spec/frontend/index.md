@@ -10,7 +10,7 @@ This repository is a Vue 3 music app built with:
 
 - Vue 3 SFCs
 - `vue-router`（`createRouter` + `createWebHistory`）
-- `happier-ui`（组件 + tokens + 暗色态）+ 自建 `MPage` / `MContent` 页面骨架
+- `konsta`（Konsta UI v5，iOS 主题，`k-*` 组件）+ 自建 `MPage` / `MContent` 页面骨架
 - Tailwind CSS v4（`@tailwindcss/vite`）
 - TypeScript with `strict: true`
 - Vite
