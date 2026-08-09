@@ -14,12 +14,12 @@
           component="button"
           clear
           small
-          class="m-0"
+          class="m-0 gap-[8px]"
           aria-label="随机播放全部"
           :disabled="songs.length === 0"
           @click="onShuffleAll"
         >
-          <template #icon><component :is="shuffle" aria-hidden="true" class="size-4" /></template>
+          <component :is="shuffle" aria-hidden="true" class="size-4" />
           随机播放全部
         </k-button>
       </div>

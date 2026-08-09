@@ -36,7 +36,7 @@
                 <p class="truncate mt-[8px] text-black/55 dark:text-white/55">{{ sources[virtualRow.index].path }}</p>
                 <div class="flex justify-end gap-[8px] mt-[8px]">
                   <k-button component="button" small outline @click="openEditSource(sources[virtualRow.index])">编辑</k-button>
-                  <k-button component="button" small class="text-[#ff3b30]" @click="confirmDeleteSource(sources[virtualRow.index])">删除</k-button>
+                  <k-button component="button" small class="!text-[#ff3b30]" @click="confirmDeleteSource(sources[virtualRow.index])">删除</k-button>
                   <k-button component="button" small @click="openScanSettings(sources[virtualRow.index])">扫描</k-button>
                 </div>
               </k-card>
