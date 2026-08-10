@@ -34,7 +34,7 @@
 
     <k-tabbar
       v-if="!isTablet && isTabsRoute"
-      class="z-[950] md:hidden"
+      class="fixed left-4 right-4 bottom-safe-3 z-[950] !w-auto !pb-4 rounded-[28px] overflow-hidden shadow-[0_8px_28px_rgba(0,0,0,0.15)] bg-white/75 dark:bg-[#1c1c1e]/75 tabbar-glass-blur md:hidden"
       labels
       icons
       aria-label="底部导航"

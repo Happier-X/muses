@@ -5,6 +5,13 @@
 @import 'tailwindcss';
 @import 'konsta/vue/theme.css';
 
+/* 悬浮 tabbar 磨砂：Tailwind v4 的 backdrop-blur-* 生成 var(--tw-backdrop-blur,) 组合语法，
+ * 含空逗号在 WebView<117 整条无效（Konsta bgBlur 层同理失效），这里用原生 backdrop-filter。 */
+.tabbar-glass-blur {
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+}
+
 /*
  * Konsta 安全区桥接：Capacitor 8 原生 SystemBars 插件（insetsHandling:'css'）在
  * WebView>=140 时把真实 insets 注入 --safe-area-inset-*（documentElement inline）。
