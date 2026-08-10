@@ -1,5 +1,5 @@
 <template>
-  <k-popup :opened="playerOverlayVisible">
+  <k-popup :opened="playerOverlayVisible" class="!w-screen !h-screen !rounded-none">
     <div
       class="player-overlay h-full overflow-hidden overscroll-behavior-none touch-action-none text-[#ffffff]"
       @touchstart.passive="onTouchStart"
