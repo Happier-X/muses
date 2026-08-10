@@ -164,16 +164,10 @@ const actionSong = ref<SongItem | null>(null)
 const isSongActionsOpen = ref(false)
 const isPlaylistPickOpen = ref(false)
 const isCreatePlaylistOpen = ref(false)
-const highlightedSongId = ref<string | null>(null)
-let jumpHighlightTimer: ReturnType<typeof setTimeout> | null = null
-
 const songItemClass = (songId: string): string => {
   const classes: string[] = []
   if (playerState.currentSong?.id === songId) {
     classes.push('is-playing bg-black/5 dark:bg-white/10')
-  }
-  if (highlightedSongId.value === songId) {
-    classes.push('bg-primary/10')
   }
   return classes.join(' ')
 }
@@ -346,15 +340,6 @@ const scrollToCurrentSong = async () => {
   })
   // measure 完成后兜底一次，仍不走 scrollIntoView
   rowVirtualizer.value.scrollToIndex(index, { align: 'start' })
-
-  highlightedSongId.value = currentId
-  if (jumpHighlightTimer) {
-    clearTimeout(jumpHighlightTimer)
-  }
-  jumpHighlightTimer = setTimeout(() => {
-    highlightedSongId.value = null
-    jumpHighlightTimer = null
-  }, 1200)
 }
 
 const toDisplayableUri = (uri: string): string => {
@@ -423,10 +408,6 @@ onUnmounted(() => {
   if (scrollIdleTimer) {
     clearTimeout(scrollIdleTimer)
     scrollIdleTimer = null
-  }
-  if (jumpHighlightTimer) {
-    clearTimeout(jumpHighlightTimer)
-    jumpHighlightTimer = null
   }
 })
 </script>
