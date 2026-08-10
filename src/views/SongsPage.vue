@@ -1,6 +1,6 @@
 <template>
   <div ref="pageRef" class="m-page">
-    <k-navbar>
+    <k-navbar rightClass="!h-8">
       <template #title>歌曲</template>
       <template #right>
         <k-button component="button" clear rounded class="size-8" aria-label="搜索歌曲">

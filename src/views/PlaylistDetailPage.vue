@@ -1,6 +1,6 @@
 <template>
   <div class="m-page">
-    <k-navbar>
+    <k-navbar rightClass="!h-8">
       <template #left>
         <k-navbar-back-link text="返回" @click="goBack" />
       </template>
