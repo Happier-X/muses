@@ -612,3 +612,12 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - **全部 action sheet 改 one group**（用户："都改成 one group"）：5 处（SongsPage 歌曲操作/加入歌单、PlayerPage 编辑、PlaylistsPage 歌单操作、SourcesPage 添加音源）原来是"内容组 + 取消组"两段（中间有空隙）→ 合并成单个 k-actions-group（label + 操作按钮 + 取消按钮连续），取消按钮加 `bold`（iOS 单组惯例加粗区分）。python 脚本按 state 变量名精确替换 5 处（断言各 1 处）。实测：文本连续"歌曲操作 添加到队列 加入歌单… 取消"、cancelBold ✓、每 sheet 1 group（DOM 中 3 = 3 个常驻 sheet）
 - **action sheet 取消按钮 bold 回滚**（用户指路官网 example https://konstaui.com/vue/action-sheet）：官网 one group 示例结构 = k-actions-label + k-actions-button(bold，操作按钮) + ... + 取消按钮（**不加粗**）。之前我自作主张给取消加 bold（iOS 惯例）与官网不符 → 5 处取消去掉 bold（fontWeight 400 验证）。**教训：官网 demo 是验收标准，别套别的惯例**
 - **沉浸播放页进度条去白色滑块**（用户："不想要进度条上面白色圆角矩形块"）：Konsta k-range iOS 的 thumbWrap 是白色圆角矩形（w-9.5 h-6 rounded-full bg-white + shadow-ios-thumb），无 thumbClass prop 且类名无 k- 前缀 → 用内联样式特征定位：k-range class 加 `[&_[style*='inset-inline-start']]:hidden`（thumbWrap 独有 insetInlineStart 内联样式）。实测：thumb display:none、input range 保留可拖、轨道从 0% 起（thumbOffset=0 更准）
+## Session · 2026-08-10 · 发布 v0.2.7
+
+- 版本：0.2.7 / versionCode 27（package.json / lock / build.gradle 同步；lock 之前停在 0.2.5 顺手修）
+- changelog/v0.2.7.md（自 v0.2.6 tag 起 25 提交：k-page/k-list 官方体系、tabbar k-toolbar-pane 玻璃胶囊、
+  MiniPlayer 玻璃、shuffle 吸顶系列、action sheet 单组、进度条去滑块等）
+- 本地 npm build + assembleDebug 通过 → commit chore(release): v0.2.7 (e614ee0)
+- push main + tag v0.2.7；GitHub Actions 3m54s 通过（release workflow 15）
+- Release: https://github.com/Happier-X/muses/releases/tag/v0.2.7
+  （muses-v0.2.7.apk 8.3MB + muses-v0.2.7-mi.apk 8.3MB）
