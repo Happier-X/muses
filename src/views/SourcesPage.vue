@@ -35,9 +35,9 @@
                 <div class="mt-[2px] text-black/55 dark:text-white/55 text-[13px]">{{ getSourceSubtitle(sources[virtualRow.index]) }}</div>
                 <p class="truncate mt-[8px] text-black/55 dark:text-white/55">{{ sources[virtualRow.index].path }}</p>
                 <div class="flex justify-end gap-[8px] mt-[8px]">
-                  <k-button component="button" small outline @click="openEditSource(sources[virtualRow.index])">编辑</k-button>
-                  <k-button component="button" small :colors="{ fillBgIos: 'bg-[#ff3b30] active:bg-[#e03428]' }" @click="confirmDeleteSource(sources[virtualRow.index])">删除</k-button>
-                  <k-button component="button" small @click="openScanSettings(sources[virtualRow.index])">扫描</k-button>
+                  <k-button component="button" small outline rounded @click="openEditSource(sources[virtualRow.index])">编辑</k-button>
+                  <k-button component="button" small rounded :colors="{ fillBgIos: 'bg-[#ff3b30] active:bg-[#e03428]' }" @click="confirmDeleteSource(sources[virtualRow.index])">删除</k-button>
+                  <k-button component="button" small rounded @click="openScanSettings(sources[virtualRow.index])">扫描</k-button>
                 </div>
               </k-card>
             </div>
@@ -157,13 +157,14 @@
               v-if="sourcePendingEdit?.type === 'local'"
               component="button"
               outline
+              rounded
               :disabled="isEditSaving"
               @click="pickEditedLocalDirectory"
             >
               重新选择目录
             </k-button>
             <!-- editErrorMessage 已改为 showToast -->
-            <k-button component="button" type="submit" :disabled="isEditSaving">
+            <k-button component="button" type="submit" rounded :disabled="isEditSaving">
               {{ isEditSaving ? '正在保存…' : '保存修改' }}
             </k-button>
           </form>
@@ -186,7 +187,7 @@
           </k-list-item>
         </k-list>
         <p class="m-0 text-center text-black/55 dark:text-white/55 text-[13px] leading-[1.4]">开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。</p>
-        <k-button component="button" :disabled="!selectedScanSource" class="mt-[8px]" @click="startScan">开始扫描</k-button>
+        <k-button component="button" rounded :disabled="!selectedScanSource" class="mt-[8px]" @click="startScan">开始扫描</k-button>
       </k-dialog>
 
       <k-dialog :opened="isScanProgressOpen" @backdropclick="closeScanProgress">
@@ -196,6 +197,7 @@
             component="button"
             clear
             small
+            rounded
             :disabled="scanProgress.stage === 'processing' || scanProgress.stage === 'discovering'"
             @click="closeScanProgress"
           >
@@ -293,7 +295,7 @@
               </webDavForm.Field>
             </div>
 
-            <k-button component="button" type="submit" :disabled="isWebDavLoading || isWebDavSubmitting">
+            <k-button component="button" type="submit" rounded :disabled="isWebDavLoading || isWebDavSubmitting">
               {{ isWebDavConnected ? '重新连接' : '连接并浏览' }}
             </k-button>
           </form>
@@ -302,7 +304,7 @@
 
           <section v-if="isWebDavConnected" class="mt-[20px]">
             <div class="flex items-center gap-[8px] mb-[8px]">
-              <k-button component="button" clear small :disabled="!parentWebDavPath || isWebDavLoading" @click="goToParentDirectory">
+              <k-button component="button" clear small rounded :disabled="!parentWebDavPath || isWebDavLoading" @click="goToParentDirectory">
                 返回上级
               </k-button>
               <span class="truncate text-black/55 dark:text-white/55">{{ currentWebDavPath }}</span>
@@ -319,7 +321,7 @@
                   <strong>{{ directory.basename }}</strong>
                   <span>{{ directory.path }}</span>
                 </button>
-                <k-button component="button" clear small @click="openWebDavDirectory(directory.path)">进入</k-button>
+                <k-button component="button" clear small rounded @click="openWebDavDirectory(directory.path)">进入</k-button>
               </div>
             </div>
 
@@ -327,6 +329,7 @@
 
             <k-button
               component="button"
+              rounded
               :disabled="selectedWebDavPaths.size === 0 || isWebDavLoading"
               @click="addSelectedWebDavSources"
             >

@@ -209,6 +209,7 @@
               v-if="hasLyricTranslation"
               component="button"
               clear
+              rounded
               rounded-full
               class="lyric-fab pointer-events-none size-10 text-white/80"
               :class="{ 'is-active': showLyricTranslation }"
@@ -314,6 +315,7 @@
               component="button"
               clear
               small
+              rounded
               :disabled="isEditSubmitting || cloudFetching || cloudApplying"
               aria-label="从云端获取标题艺人专辑封面与歌词"
               @click="onFetchCloudMeta"
@@ -342,6 +344,7 @@
                 v-if="cloudResult.text.items.length > 1"
                 component="button"
                 clear
+                rounded
                 small
                 class="self-start"
                 :disabled="cloudFetching || cloudApplying"
@@ -378,6 +381,7 @@
                 v-if="cloudResult.cover.items.length > 1"
                 component="button"
                 clear
+                rounded
                 small
                 class="self-start"
                 :disabled="cloudFetching || cloudApplying"
@@ -444,6 +448,7 @@
               <k-button
                 component="button"
                 small
+                rounded
                 class="self-start"
                 :disabled="!canApplyCloud || cloudFetching || cloudApplying || isEditSubmitting"
                 aria-label="将勾选的云端字段应用到表单"
@@ -518,6 +523,7 @@
                 component="button"
                 clear
                 small
+                rounded
                 :disabled="isEditSubmitting"
                 @click="onPickCover"
               >
@@ -596,6 +602,7 @@
                 component="button"
                 clear
                 small
+                rounded
                 :disabled="isEditSubmitting || cloudFetching || cloudApplying"
                 aria-label="从云端获取歌词"
                 @click="onFetchCloudMeta"
@@ -637,6 +644,7 @@
               <k-button
                 component="button"
                 small
+                rounded
                 class="self-start"
                 :disabled="!selectedLyricsHit || cloudFetching || cloudApplying || isEditSubmitting"
                 aria-label="将所选云端歌词应用到歌词输入框"
@@ -666,10 +674,10 @@
         </p>
 
         <div class="flex justify-end gap-[8px] pt-[8px]">
-          <k-button component="button" clear :disabled="isEditSubmitting" @click="closeSongEdit">
+          <k-button component="button" clear rounded :disabled="isEditSubmitting" @click="closeSongEdit">
             取消
           </k-button>
-          <k-button component="button" type="submit" :disabled="isEditSubmitting">
+          <k-button component="button" type="submit" rounded :disabled="isEditSubmitting">
             {{ isEditSubmitting ? '保存中…' : '保存' }}
           </k-button>
         </div>
