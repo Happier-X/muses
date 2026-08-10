@@ -1,6 +1,6 @@
 <template>
   <div class="m-page">
-    <k-navbar center-title>
+    <k-navbar>
       <template #title>音源</template>
       <template #right>
         <k-button component="button" clear rounded class="size-8" aria-label="添加音源" @click="isAddActionSheetOpen = true">

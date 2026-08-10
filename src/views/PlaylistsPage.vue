@@ -1,6 +1,6 @@
 <template>
   <div class="m-page">
-    <k-navbar center-title>
+    <k-navbar>
       <template #title>歌单</template>
       <template #right>
         <k-button component="button" clear rounded class="size-8" aria-label="新建歌单" @click="openCreateAlert">

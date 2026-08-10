@@ -1,6 +1,6 @@
 <template>
   <div class="m-page">
-    <k-navbar center-title>
+    <k-navbar>
       <template #title>设置</template>
     </k-navbar>
     <div class="m-content">

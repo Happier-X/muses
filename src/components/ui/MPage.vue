@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col h-full overflow-hidden m-page">
-    <k-navbar center-title>
+    <k-navbar>
       <template v-if="$slots.start" #left>
         <slot name="start" />
       </template>
