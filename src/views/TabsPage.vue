@@ -34,29 +34,31 @@
 
     <k-tabbar
       v-if="!isTablet && isTabsRoute"
-      class="fixed left-4 right-4 bottom-safe-3 z-[950] !w-auto !pb-4 rounded-[28px] overflow-hidden shadow-[0_8px_28px_rgba(0,0,0,0.15)] bg-white/75 dark:bg-[#1c1c1e]/75 tabbar-glass-blur md:hidden"
+      class="left-0 bottom-0 fixed z-[950] md:hidden"
       labels
       icons
       aria-label="底部导航"
     >
-      <k-tabbar-link
-        v-for="item in navItems"
-        :key="item.to"
-        component="button"
-        :label="item.label"
-        :active="isNavActive(item.to)"
-        @click="navigateTab(item.to)"
-      >
-        <template #icon>
-          <component :is="item.icon" aria-hidden="true" />
-        </template>
-      </k-tabbar-link>
+      <k-toolbar-pane class="tabbar-glass-blur">
+        <k-tabbar-link
+          v-for="item in navItems"
+          :key="item.to"
+          component="button"
+          :label="item.label"
+          :active="isNavActive(item.to)"
+          @click="navigateTab(item.to)"
+        >
+          <template #icon>
+            <component :is="item.icon" aria-hidden="true" />
+          </template>
+        </k-tabbar-link>
+      </k-toolbar-pane>
     </k-tabbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { kTabbar, kTabbarLink } from '@/components/ui'
+import { kTabbar, kTabbarLink, kToolbarPane } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
