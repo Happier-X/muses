@@ -53,6 +53,7 @@ Muses 自 `08-09-konsta-ui-migration` 起使用 npm **`konsta@5.3.0`**（精确�
 - 列表用 `k-list`（inset 分组）+ `k-list-item`；开关用 `k-toggle`（`:checked` + 原生 `@change` 手动同步，无 v-model）；输入用 `k-list-input`（`:value` + `@input`，textarea 用 `type="textarea"`）；操作菜单用 `k-actions`（iOS action sheet，取消按钮独立 `k-actions-group`）；对话框用 `k-dialog` + `k-dialog-button`（`strong` 强调）；提示用 `k-toast`（`:opened` 纯受控 + 手动 setTimeout 关闭）。
 - **`k-button` 无 icon slot**（只有默认 slot）；`k-fab` 有 `#icon` slot。图标按钮统一 `clear rounded-full class="size-8"` + lucide 图标。
 - **`k-tabbar-link` 图标必须放 `#icon` 命名 slot**：默认 slot 会被并入 label span 与文字并排（横向）。`#icon` 才有 `k-tabbar-link-icon` 容器（w-7 h-7 圆形激活底）。k-tabbar 容器实际渲染为 `k-toolbar`（选择器用 `.k-toolbar`）。
+- **iOS 26 玻璃 tabbar = `k-tabbar` + `k-toolbar-pane`（官方内置）**：k-tabbar 负责定位（`left-0 bottom-0 fixed`，自带 `px-safe-4 pb-safe-4` → 胶囊天然悬浮：宽=屏宽-32px、底=16px+安全区），k-toolbar-pane 即 k-glass 玻璃胶囊（`rounded-full` + `bg-ios-light-glass`/`shadow-ios-light-glass` + `backdrop-blur-lg`）并自带激活高亮滑条（useIosTabbarHighlight）。**禁止手写胶囊样式**（rounded/边距/背景/shadow 自绘曾走弯路，官方组件已内置）。
 - **虚拟列表行**（SongsPage/QueuePage/PlaylistDetailPage）继续用自定义 `<div>` 行（保留 `data-song-id`、`.is-playing` 高亮、`@tanstack/vue-virtual` 行高实测等约定）。
 - **可提交表单**统一用 `@tanstack/vue-form` + `k-list-input` 字段绑定（`@input="onFormInput(field.handleChange)"` 适配原生事件）；约定见 [forms.md](./forms.md)。
 
@@ -86,14 +87,6 @@ Muses 自 `08-09-konsta-ui-migration` 起使用 npm **`konsta@5.3.0`**（精确�
 - **高度链**：k-popup 自身 `w-screen h-screen`，slot 内容 `h-full` 直接生效（无旧 `.h-popup__body` 高度补丁需求）；`queue-popup-panel` 保留 `min-height: 50vh`。
 - **PlayerPage 手势**：自建纵向关闭 / 横向切面板手势原样保留；k-popup 无内置 swipe 处理，与宿主 `touch-action-none` 不冲突。
 - **滚动锁**：宿主 `html/body.muses-overlay-open` class 锁（`hasGlobalOverlay`/`syncBodyOverlayLock`）仍有效（状态驱动，与弹层实现无关）。
-
-### WebView < 111 兼容（oklab 渐变）
-
-Konsta navbar/tabbar 背景用 Tailwind v4 渐变类（`bg-gradient-to-b/t`），v4 生成 `to top/bottom in oklab` 插值语法，**Android WebView < 111（Chrome 111 之前，如模拟器镜像自带 110）不支持** → `linear-gradient` 声明整体无效（`background-image: none`），导航栏/底栏背景变透明。已在 `src/theme/tailwind.css` 用 `@supports not (linear-gradient(to top in oklab, red, blue))` 包住兼容层：`k-toolbar > div:first-child`（bg 层）/ `k-navbar > div:nth-child(2)`（ios 结构 div[0]=bgBlur）补 sRGB 等价渐变；新版浏览器仍用 Konsta 原生 oklab。
-
-- color-mix 半透明类（`bg-black/10`、`text-white/55` 等）Tailwind v4 自带 `@supports (color: color-mix(...))` fallback（预计算 rgba），**无需**额外兼容。
-- 手写 CSS 渐变（PlayerPage 沉浸背景等）不用 oklab，天然兼容。
-- 新增 Konsta 组件级背景时若依赖 v4 渐变类，旧 WebView 需要同样处理。
 
 ### 弹层层级阶梯（Konsta 默认 z-40 必须覆盖）
 

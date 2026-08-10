@@ -39,7 +39,7 @@
       icons
       aria-label="底部导航"
     >
-      <k-toolbar-pane class="tabbar-glass-blur">
+      <k-toolbar-pane>
         <k-tabbar-link
           v-for="item in navItems"
           :key="item.to"
