@@ -52,6 +52,7 @@ Muses 自 `08-09-konsta-ui-migration` 起使用 npm **`konsta@5.3.0`**（精确�
 - 文本色遵循 iOS 约定：主文字 `text-black dark:text-white`、次要 `text-black/55 dark:text-white/55`；危险操作红色 `!text-[#ff3b30]`（Konsta 主题类可能覆盖任意值，**必须加 `!` 前缀**）。
 - 列表用 `k-list`（inset 分组）+ `k-list-item`；开关用 `k-toggle`（`:checked` + 原生 `@change` 手动同步，无 v-model）；输入用 `k-list-input`（`:value` + `@input`，textarea 用 `type="textarea"`）；操作菜单用 `k-actions`（iOS action sheet，取消按钮独立 `k-actions-group`）；对话框用 `k-dialog` + `k-dialog-button`（`strong` 强调）；提示用 `k-toast`（`:opened` 纯受控 + 手动 setTimeout 关闭）。
 - **`k-button` 无 icon slot**（只有默认 slot）；`k-fab` 有 `#icon` slot。图标按钮统一 `clear rounded-full class="size-8"` + lucide 图标。
+- **`k-tabbar-link` 图标必须放 `#icon` 命名 slot**：默认 slot 会被并入 label span 与文字并排（横向）。`#icon` 才有 `k-tabbar-link-icon` 容器（w-7 h-7 圆形激活底）。k-tabbar 容器实际渲染为 `k-toolbar`（选择器用 `.k-toolbar`）。
 - **虚拟列表行**（SongsPage/QueuePage/PlaylistDetailPage）继续用自定义 `<div>` 行（保留 `data-song-id`、`.is-playing` 高亮、`@tanstack/vue-virtual` 行高实测等约定）。
 - **可提交表单**统一用 `@tanstack/vue-form` + `k-list-input` 字段绑定（`@input="onFormInput(field.handleChange)"` 适配原生事件）；约定见 [forms.md](./forms.md)。
 

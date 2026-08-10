@@ -581,3 +581,4 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - **自建组件**：MEmpty（iOS 空状态：72px 圆形图标底 + title + description）；MCover/MiniPlayer 样式同步 Konsta 体系
 - **验证**：build + lint + vue-tsc 全通过；happier-ui 卸载；Android 模拟器 CDP 冒烟通过（tab/列表/开关/action sheet/播放器 k-range 播放/队列层叠/编辑表单/暗色）
 - 提交：3869d83 / 031b03f / 8d081f7
+- **k-tabbar-link 图标槽位坑**：图标须放 `#icon` 命名 slot；放默认 slot 会被并入 label span → 图标左文字右（横向）。`#icon` 才有 icon 容器（w-7 h-7 圆形激活底）。k-tabbar 容器实际渲染为 k-toolbar。提交后模拟器 CDP 验证：图标 top 546 < 文字 top 574、同列居中 ✓

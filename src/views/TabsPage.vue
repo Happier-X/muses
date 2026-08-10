@@ -47,7 +47,9 @@
         :active="isNavActive(item.to)"
         @click="navigateTab(item.to)"
       >
-        <component :is="item.icon" aria-hidden="true" />
+        <template #icon>
+          <component :is="item.icon" aria-hidden="true" />
+        </template>
       </k-tabbar-link>
     </k-tabbar>
   </div>
