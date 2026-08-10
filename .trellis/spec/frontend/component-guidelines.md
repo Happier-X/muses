@@ -116,6 +116,7 @@ Konsta 全部弹层（k-popup/k-sheet/k-dialog/k-actions/k-toast）默认 **z-40
 - **safe-area 由 Konsta 接管**：k-app 自带 `safe-areas` class，k-navbar / k-tabbar 已内置三级回退（`var(--k-safe-area-*)`）。宿主**不得**再持有 `.h-nav-bar--safe-area` 等历史覆盖。
 - **Konsta ↔ Capacitor 变量桥接（必须）**：Konsta 的 `--k-safe-area-*` 源是 `env(safe-area-inset-*)`，Android 上恒为 0（非刘海不计入），而真实值在 Capacitor 注入的 `--safe-area-inset-*`。`src/theme/tailwind.css` 必须在 `@import 'konsta/vue/theme.css'` 之后**同 specificity 覆盖 `.safe-areas`**，把 `--k-safe-area-top/right/bottom/left` 桥接到 `var(--safe-area-inset-*, env(…, 0px))`，否则 Android 真机 navbar 顶部 / tabbar 底部安全区失效。宿主代码引用安全区一律用 `var(--safe-area-inset-*, env(…, 0px))`（含 md 断点），不直接写 `env(...)`。
 - **生效边界**：Capacitor 8 原生注入仅 WebView ≥ 140（`WEBVIEW_VERSION_WITH_SAFE_AREA_FIX`）且 viewport-fit=cover 时发生；模拟器 WebView 110 注入恒 0px，需用新 WebView 验证。
+- **宿主定位一律用 Konsta 工具类**：自定义元素（MiniPlayer / 列表底部 padding / 侧栏 / 歌词浮动层）的安全区避让用 `pt-safe-*` / `pb-safe-*` / `top-safe-*` / `bottom-safe-*` / `left-safe-*` / `right-safe-*`（值为 spacing 倍数，1 单位 = 4px，如 `pb-safe-16`=64px+inset；`bottom-safe-0`=纯 inset）。**不得**自写 `var(--safe-area-inset-*, env(…,0px))` 或裸 `env()`。
 - **无 k-navbar 的全屏内容页**（如 PlayerPage）：库不会自动避让，宿主必须自己写三级回退（`var(--safe-area-inset-*, env(…, 0px))`）；fullscreen 外壳不加 safe-area 是契约，不是 bug。
 
 参考文件：
