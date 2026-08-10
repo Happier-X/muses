@@ -87,6 +87,14 @@ Muses 自 `08-09-konsta-ui-migration` 起使用 npm **`konsta@5.3.0`**（精确�
 - **PlayerPage 手势**：自建纵向关闭 / 横向切面板手势原样保留；k-popup 无内置 swipe 处理，与宿主 `touch-action-none` 不冲突。
 - **滚动锁**：宿主 `html/body.muses-overlay-open` class 锁（`hasGlobalOverlay`/`syncBodyOverlayLock`）仍有效（状态驱动，与弹层实现无关）。
 
+### 弹层层级阶梯（Konsta 默认 z-40 必须覆盖）
+
+Konsta 全部弹层（k-popup/k-sheet/k-dialog/k-actions/k-toast）默认 **z-40**，低于 Muses 布局层，**必须**由 `src/theme/tailwind.css` 统一覆盖为阶梯（`08-10` 曾出现添加音源 action sheet 被 tabbar/MiniPlayer 盖住）：
+
+- `k-tabbar` z-[950] < MiniPlayer z-[1000] < **k-popup z-1100**（播放器/队列全屏）< **k-sheet/k-dialog/k-actions z-1200** < **k-toast z-1300**
+- backdrop 无独立标识 class（`fixed z-40 bg-black/50`），用 `div:has(+ .k-xxx)` 选中面板前一个兄弟 div 同步提升（组件渲染顺序：backdrop 在前、面板在后，同层级时面板盖 backdrop）
+- 新增弹层组件（或 Muses 侧 fixed 浮层）时对照此阶梯，不得使用低于 1000 的 z 值；k-fab 用 z-[1100]
+
 ### 高度链与 Tabs 视口滚动归属
 
 - **高度链**：`src/theme/tailwind.css` 必须保证 `html, body, #app { height: 100%; }`，否则 `.m-page { height: 100% }` 无确定高度的祖先，`overflow: hidden` 无法裁出内部滚动，顶栏会随外层滚动卷走。不引入 `100dvh`——移动浏览器视口工具栏由 `.m-content` 内部 `overflow` 消化，避免 `position: fixed` 浮层（MiniPlayer / k-tabbar / Player / Queue）错位。
