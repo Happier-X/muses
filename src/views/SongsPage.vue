@@ -49,7 +49,7 @@
               :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
               titleClass="min-w-0 truncate"
               subtitleClass="truncate"
-              class="h-full"
+              class="h-full relative"
               :class="songItemClass(songs[virtualRow.index].id)"
               :data-song-id="songs[virtualRow.index].id"
               role="button"
@@ -64,7 +64,7 @@
                   component="button"
                   clear
                   rounded
-                  class="flex-none m-0 ml-auto size-8"
+                  class="flex-none m-0 ml-auto size-8 !absolute !right-2 !top-1/2 !-translate-y-1/2"
                   aria-label="更多歌曲操作"
                   @click.stop="openSongActions(songs[virtualRow.index])"
                 >
