@@ -16,20 +16,17 @@
       />
 
       <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[64px] md:pb-safe-16 md:max-w-[720px] md:mx-auto [overflow-anchor:none]">
-        <k-list strong-ios outline-ios :dividers-ios="false" class="!my-0">
-          <k-list-item
-            link
-            :chevron="false"
-            title="随机播放全部"
-            :subtitle="`${songs.length} 首歌曲`"
-            class="sticky top-0 z-10 bg-ios-light-surface-1 dark:bg-ios-dark-surface-1"
-            @click="onShuffleAll"
-          >
-            <template #media>
-              <component :is="shuffle" aria-hidden="true" class="size-5" />
-            </template>
-          </k-list-item>
-          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+        <k-button
+          component="button"
+          clear
+          class="sticky top-0 z-10 flex items-center justify-start gap-[10px] w-full h-11 bg-ios-light-surface-1 dark:bg-ios-dark-surface-1 px-4 rounded-none text-[15px]"
+          aria-label="随机播放全部"
+          @click="onShuffleAll"
+        >
+          <component :is="shuffle" aria-hidden="true" class="size-4 flex-none" />
+          <span>{{ songs.length }} 首</span>
+        </k-button>
+        <k-list strong-ios outline-ios :dividers-ios="false" class="!my-0">          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
               :key="songs[virtualRow.index].id"
