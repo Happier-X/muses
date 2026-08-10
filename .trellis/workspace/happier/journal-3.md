@@ -635,3 +635,11 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 根因 2：App.vue 已有 backButton 监听但 overlay 未开时**直接 minimizeApp（退后台）**，无路由返回。修复：`router.options.history.state.back !== null` 时 `router.back()`，否则 minimizeApp
   - 旁证：原生 WebView.canGoBack() 对 SPA pushState 判定不可靠（CDP nav history 5 条但原生 canGoBack false）→ 用 Vue Router history state 判断更可靠
   - 实测：详情页→返回→专辑列表(albums)→返回→歌曲页(songs)→返回→桌面(进程存活 29735 不销毁)
+## Session · 2026-08-10 · 发布 v0.2.8
+
+- 版本：0.2.8 / versionCode 28（package.json / lock / build.gradle 同步）
+- changelog/v0.2.8.md（自 v0.2.7 tag 起 7 提交：手势返回修复、平板列表占满/播放页全屏/MiniPlayer 圆角、tabbar 半透明白渐变）
+- 本地 npm build + assembleDebug 通过 → commit chore(release): v0.2.8 (d7abc90)
+- push main + tag v0.2.8；GitHub Actions 通过
+- Release: https://github.com/Happier-X/muses/releases/tag/v0.2.8
+  （muses-v0.2.8.apk 8.3MB + muses-v0.2.8-mi.apk 8.3MB）
