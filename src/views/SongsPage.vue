@@ -32,7 +32,7 @@
       />
 
       <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[64px] md:pb-safe-16 md:max-w-[720px] md:mx-auto [overflow-anchor:none]">
-        <k-list strong-ios outline-ios class="!my-0">
+        <k-list strong-ios outline-ios :dividers-ios="false" class="!my-0">
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
