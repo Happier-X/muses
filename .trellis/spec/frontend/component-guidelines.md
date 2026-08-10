@@ -87,6 +87,14 @@ Muses 自 `08-09-konsta-ui-migration` 起使用 npm **`konsta@5.3.0`**（精确�
 - **PlayerPage 手势**：自建纵向关闭 / 横向切面板手势原样保留；k-popup 无内置 swipe 处理，与宿主 `touch-action-none` 不冲突。
 - **滚动锁**：宿主 `html/body.muses-overlay-open` class 锁（`hasGlobalOverlay`/`syncBodyOverlayLock`）仍有效（状态驱动，与弹层实现无关）。
 
+### WebView < 111 兼容（oklab 渐变）
+
+Konsta navbar/tabbar 背景用 Tailwind v4 渐变类（`bg-gradient-to-b/t`），v4 生成 `to top/bottom in oklab` 插值语法，**Android WebView < 111（Chrome 111 之前，如模拟器镜像自带 110）不支持** → `linear-gradient` 声明整体无效（`background-image: none`），导航栏/底栏背景变透明。已在 `src/theme/tailwind.css` 用 `@supports not (linear-gradient(to top in oklab, red, blue))` 包住兼容层：`k-toolbar > div:first-child`（bg 层）/ `k-navbar > div:nth-child(2)`（ios 结构 div[0]=bgBlur）补 sRGB 等价渐变；新版浏览器仍用 Konsta 原生 oklab。
+
+- color-mix 半透明类（`bg-black/10`、`text-white/55` 等）Tailwind v4 自带 `@supports (color: color-mix(...))` fallback（预计算 rgba），**无需**额外兼容。
+- 手写 CSS 渐变（PlayerPage 沉浸背景等）不用 oklab，天然兼容。
+- 新增 Konsta 组件级背景时若依赖 v4 渐变类，旧 WebView 需要同样处理。
+
 ### 弹层层级阶梯（Konsta 默认 z-40 必须覆盖）
 
 Konsta 全部弹层（k-popup/k-sheet/k-dialog/k-actions/k-toast）默认 **z-40**，低于 Muses 布局层，**必须**由 `src/theme/tailwind.css` 统一覆盖为阶梯（`08-10` 曾出现添加音源 action sheet 被 tabbar/MiniPlayer 盖住）：
