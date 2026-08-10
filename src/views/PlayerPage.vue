@@ -61,7 +61,7 @@
             >
               <k-range
                 ref="progressRangeRef"
-                class="progress-range w-full cursor-pointer touch-manipulation"
+                class="progress-range w-full cursor-pointer touch-manipulation [&_[style*='inset-inline-start']]:hidden"
                 :min="0"
                 :max="durationForSlider"
                 :step="0.1"
