@@ -495,3 +495,29 @@ div:has(+ .k-dialog),
 div:has(+ .k-actions) {
   z-index: 1200;
 }
+
+/* ============================================================
+   WebView < 111 渐变兼容层
+   Tailwind v4 的 bg-gradient-to-* 生成 `to top in oklab` 插值语法，
+   Android WebView 110（Chrome 111 之前）不支持 → linear-gradient
+   声明整体无效（background-image: none）。Konsta navbar / tabbar
+   的背景渐变因此消失（透明）。@supports not 仅旧内核启用，新版
+   浏览器继续用 Konsta 原生 oklab 渐变。
+   （color-mix 半透明类 Tailwind 自带 @supports fallback，无需处理。）
+   ============================================================ */
+@supports not (background-image: linear-gradient(to top in oklab, red, blue)) {
+  /* k-toolbar 结构：div[0]=bg 渐变层, div[1]=inner */
+  .k-toolbar > div:first-child {
+    background-image: linear-gradient(to top, var(--color-ios-light-surface), transparent);
+  }
+  /* k-navbar（ios）结构：div[0]=bgBlur, div[1]=bg 渐变层, div[2]=inner */
+  .k-navbar > div:nth-child(2) {
+    background-image: linear-gradient(to bottom, var(--color-ios-light-surface), transparent);
+  }
+  :where(.dark, .dark *) .k-toolbar > div:first-child {
+    background-image: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
+  }
+  :where(.dark, .dark *) .k-navbar > div:nth-child(2) {
+    background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
+  }
+}
