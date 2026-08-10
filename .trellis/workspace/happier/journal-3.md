@@ -621,3 +621,8 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - push main + tag v0.2.7；GitHub Actions 3m54s 通过（release workflow 15）
 - Release: https://github.com/Happier-X/muses/releases/tag/v0.2.7
   （muses-v0.2.7.apk 8.3MB + muses-v0.2.7-mi.apk 8.3MB）
+- **tabbar 背景不半透明修复**（用户指路官网文档 + "背景不是半透明"）：
+  - 根因 1：k-toolbar-pane 强制 k-glass = `bg-ios-light-glass`（#ffffffbf **白 75%**）盖住 k-tabbar 官方渐变背景 → 实心白。修复：k-toolbar-pane 加 `!bg-transparent`（露出渐变，真机保留 backdrop blur 毛玻璃）
+  - 根因 2：Tailwind v4 渐变默认 `--tw-gradient-position: to top in oklab`（oklab 插值语法），WebView 110 不支持 → 整条 linear-gradient 无效（backgroundImage: none）。修复：k-tabbar 加 `bg-class="[--tw-gradient-position:to_top]"` 强制老语法
+  - 实测：bgImage = `linear-gradient(to top, rgb(239,239,244) 0%, rgba(0,0,0,0) 100%)` ✓、pane 背景透明 ✓、blur 模拟器不支持预期（真机有）
+  - 官网 tabbar API 要点：k-tabbar > k-toolbar-pane > k-tabbar-link；bgIos 默认渐变背景由 bg 元素渲染（bgClass 可加类）；渐变高度 = calc(safe+16+64+16)

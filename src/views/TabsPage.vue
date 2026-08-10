@@ -35,11 +35,12 @@
     <k-tabbar
       v-if="!isTablet && isTabsRoute"
       class="left-0 bottom-0 fixed z-[950] md:hidden"
+      bg-class="[--tw-gradient-position:to_top]"
       labels
       icons
       aria-label="底部导航"
     >
-      <k-toolbar-pane>
+      <k-toolbar-pane class="!bg-transparent">
         <k-tabbar-link
           v-for="item in navItems"
           :key="item.to"
