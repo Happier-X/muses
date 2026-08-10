@@ -626,3 +626,4 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 根因 2：Tailwind v4 渐变默认 `--tw-gradient-position: to top in oklab`（oklab 插值语法），WebView 110 不支持 → 整条 linear-gradient 无效（backgroundImage: none）。修复：k-tabbar 加 `bg-class="[--tw-gradient-position:to_top]"` 强制老语法
   - 实测：bgImage = `linear-gradient(to top, rgb(239,239,244) 0%, rgba(0,0,0,0) 100%)` ✓、pane 背景透明 ✓、blur 模拟器不支持预期（真机有）
   - 官网 tabbar API 要点：k-tabbar > k-toolbar-pane > k-tabbar-link；bgIos 默认渐变背景由 bg 元素渲染（bgClass 可加类）；渐变高度 = calc(safe+16+64+16)
+- **tabbar 灰色背景 → 白色半透明渐变**（用户："看到的灰色背景，像布局问题"）：排查发现**页面 k-page 背景本来就是灰 rgb(239,239,244)**（iOS 分组灰），而 k-tabbar 默认渐变起点 ios-light-surface 也是 239,239,244 → tabbar 区域与页面同灰无层次 → 用户感觉"灰色块/布局错乱"。修复：colors 覆盖 `bgIos: 'bg-gradient-to-t from-white to-transparent dark:from-black/60'`（iOS 原生 tabbar = 白玻璃；暗色黑玻璃）。实测：渐变白→透明、tabbar 区白底 246-247 + 图标深色分明、渐变顶部列表文字透出。另确认 bg 元素 96px 比 tabbar 根高 16px 是官网设计（渐变向上延伸渐隐区）

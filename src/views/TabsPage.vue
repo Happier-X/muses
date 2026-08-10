@@ -36,6 +36,7 @@
       v-if="!isTablet && isTabsRoute"
       class="left-0 bottom-0 fixed z-[950] md:hidden"
       bg-class="[--tw-gradient-position:to_top]"
+      :colors="{ bgIos: 'bg-gradient-to-t from-white to-transparent dark:from-black/60' }"
       labels
       icons
       aria-label="底部导航"
