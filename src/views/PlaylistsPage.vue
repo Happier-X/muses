@@ -54,7 +54,7 @@
         <k-actions-group>
           <k-actions-label>歌单操作</k-actions-label>
           <k-actions-button @click="handleRename">重命名</k-actions-button>
-          <k-actions-button bold @click="handleDelete">删除</k-actions-button>
+          <k-actions-button bold :colors="{ textIos: 'text-[#ff3b30]', activeBgIos: 'active:bg-[#ff3b30]/10' }" @click="handleDelete">删除</k-actions-button>
         </k-actions-group>
         <k-actions-group>
           <k-actions-button @click="isActionsOpen = false">取消</k-actions-button>
@@ -82,7 +82,7 @@
         <p class="m-0 text-center text-black/55 dark:text-white/55 text-[15px] leading-[1.4]">{{ deleteMessage }}</p>
         <template #buttons>
           <k-dialog-button @click="isDeleteAlertOpen = false">取消</k-dialog-button>
-          <k-dialog-button strong @click="onDeleteConfirm">删除</k-dialog-button>
+          <k-dialog-button strong :colors="{ fillBgIos: 'bg-[#ff3b30] active:bg-[#e03428]' }" @click="onDeleteConfirm">删除</k-dialog-button>
         </template>
       </k-dialog>
     </div>

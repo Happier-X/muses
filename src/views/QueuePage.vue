@@ -10,6 +10,7 @@
             clear
             rounded
             class="size-8"
+            :colors="{ textIos: 'text-[#ff3b30]', clearBgIos: 'bg-transparent active:bg-[#ff3b30]/15' }"
             aria-label="清空队列"
             @click="onClearQueue"
           >
@@ -64,6 +65,7 @@
                   clear
                   rounded
                   class="flex-none m-0 size-8"
+                  :colors="{ textIos: 'text-[#ff3b30]', clearBgIos: 'bg-transparent active:bg-[#ff3b30]/15' }"
                   :aria-label="`从队列删除 ${row.song.title}`"
                   @click.stop="onRemoveSong(row.song.id)"
                 >

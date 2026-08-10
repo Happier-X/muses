@@ -36,7 +36,7 @@
                 <p class="truncate mt-[8px] text-black/55 dark:text-white/55">{{ sources[virtualRow.index].path }}</p>
                 <div class="flex justify-end gap-[8px] mt-[8px]">
                   <k-button component="button" small outline @click="openEditSource(sources[virtualRow.index])">编辑</k-button>
-                  <k-button component="button" small @click="confirmDeleteSource(sources[virtualRow.index])">删除</k-button>
+                  <k-button component="button" small :colors="{ fillBgIos: 'bg-[#ff3b30] active:bg-[#e03428]' }" @click="confirmDeleteSource(sources[virtualRow.index])">删除</k-button>
                   <k-button component="button" small @click="openScanSettings(sources[virtualRow.index])">扫描</k-button>
                 </div>
               </k-card>
@@ -60,7 +60,7 @@
         <p class="m-0 text-center text-black/55 dark:text-white/55 text-[15px] leading-[1.4]">{{ deleteAlertMessage }}</p>
         <template #buttons>
           <k-dialog-button @click="isDeleteAlertOpen = false">取消</k-dialog-button>
-          <k-dialog-button strong @click="onConfirmDeleteSource">删除</k-dialog-button>
+          <k-dialog-button strong :colors="{ fillBgIos: 'bg-[#ff3b30] active:bg-[#e03428]' }" @click="onConfirmDeleteSource">删除</k-dialog-button>
         </template>
       </k-dialog>
 
