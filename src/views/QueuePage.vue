@@ -1,6 +1,6 @@
 <template>
   <k-popup :opened="queueOverlayVisible">
-    <div class="queue-popup-panel flex flex-col h-full overflow-hidden overscroll-none">
+    <k-page class="queue-popup-panel flex flex-col overflow-hidden">
       <div class="flex-none flex items-center justify-between gap-[8px] px-[12px] pt-[12px] pb-[8px]">
         <h2 class="m-0 text-[17px] leading-[1.3] font-bold text-black dark:text-white">播放队列</h2>
         <div class="flex items-center gap-[2px]">
@@ -76,7 +76,7 @@
           </div>
         </div>
       </div>
-    </div>
+    </k-page>
   </k-popup>
 </template>
 
@@ -84,7 +84,7 @@
 import { computed, nextTick, ref, type ComponentPublicInstance, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { close, trash } from '@/icons'
-import { kButton, kPopup, MEmpty } from '@/components/ui'
+import { kButton, kPage, kPopup, MEmpty } from '@/components/ui'
 import {
   clearQueue,
   playSong,
