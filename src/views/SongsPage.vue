@@ -8,22 +8,6 @@
         </k-button>
       </template>
     </k-navbar>
-    <div class="flex-[0_0_48px] min-h-[48px] bg-white dark:bg-black">
-      <div class="box-border w-full px-[8px] py-[4px] md:max-w-[720px] md:mx-auto">
-        <k-button
-          component="button"
-          clear
-          small
-          class="m-0 gap-[8px]"
-          aria-label="随机播放全部"
-          :disabled="songs.length === 0"
-          @click="onShuffleAll"
-        >
-          <component :is="shuffle" aria-hidden="true" class="size-4" />
-          随机播放全部
-        </k-button>
-      </div>
-    </div>
     <div class="m-content" style="overflow: hidden;">
       <m-empty
         v-if="songs.length === 0"
@@ -33,6 +17,18 @@
 
       <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[64px] md:pb-safe-16 md:max-w-[720px] md:mx-auto [overflow-anchor:none]">
         <k-list strong-ios outline-ios :dividers-ios="false" class="!my-0">
+          <k-list-item
+            link
+            :chevron="false"
+            title="随机播放全部"
+            :subtitle="`${songs.length} 首歌曲`"
+            class="sticky top-0 z-10 bg-ios-light-surface-1 dark:bg-ios-dark-surface-1"
+            @click="onShuffleAll"
+          >
+            <template #media>
+              <component :is="shuffle" aria-hidden="true" class="size-5" />
+            </template>
+          </k-list-item>
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
