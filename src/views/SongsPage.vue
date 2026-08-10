@@ -76,9 +76,7 @@
           <k-actions-label>歌曲操作</k-actions-label>
           <k-actions-button @click="onAddToQueue">添加到队列</k-actions-button>
           <k-actions-button @click="onPickPlaylist">加入歌单…</k-actions-button>
-        </k-actions-group>
-        <k-actions-group>
-          <k-actions-button @click="isSongActionsOpen = false">取消</k-actions-button>
+          <k-actions-button bold @click="isSongActionsOpen = false">取消</k-actions-button>
         </k-actions-group>
       </k-actions>
 
@@ -93,9 +91,7 @@
             {{ pl.name }}
           </k-actions-button>
           <k-actions-button @click="onCreateNewPlaylist">新建歌单</k-actions-button>
-        </k-actions-group>
-        <k-actions-group>
-          <k-actions-button @click="isPlaylistPickOpen = false">取消</k-actions-button>
+          <k-actions-button bold @click="isPlaylistPickOpen = false">取消</k-actions-button>
         </k-actions-group>
       </k-actions>
 

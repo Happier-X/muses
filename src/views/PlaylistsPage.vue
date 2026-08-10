@@ -55,9 +55,7 @@
           <k-actions-label>歌单操作</k-actions-label>
           <k-actions-button @click="handleRename">重命名</k-actions-button>
           <k-actions-button bold :colors="{ textIos: 'text-[#ff3b30]', activeBgIos: 'active:bg-[#ff3b30]/10' }" @click="handleDelete">删除</k-actions-button>
-        </k-actions-group>
-        <k-actions-group>
-          <k-actions-button @click="isActionsOpen = false">取消</k-actions-button>
+          <k-actions-button bold @click="isActionsOpen = false">取消</k-actions-button>
         </k-actions-group>
       </k-actions>
 
