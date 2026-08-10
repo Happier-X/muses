@@ -20,7 +20,7 @@
       </template>
     </k-navbar>
     <div class="m-content" style="overflow: hidden;">
-      <div class="h-full md:max-w-[720px] md:mx-auto">
+      <div class="h-full ">
         <m-empty v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
 
         <m-empty

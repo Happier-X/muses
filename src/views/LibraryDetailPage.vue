@@ -7,7 +7,7 @@
       <template #title>{{ pageTitle }}</template>
     </k-navbar>
     <div class="flex-[0_0_48px] min-h-[48px] bg-white dark:bg-black">
-      <div class="box-border w-full px-[8px] py-[4px] md:max-w-[720px] md:mx-auto">
+      <div class="box-border w-full px-[8px] py-[4px] ">
         <k-button
           component="button"
           small
@@ -22,7 +22,7 @@
       </div>
     </div>
     <div class="m-content" style="overflow: hidden;">
-      <div class="h-full md:max-w-[720px] md:mx-auto">
+      <div class="h-full ">
         <m-empty
           v-if="songs.length === 0"
           title="没有歌曲"

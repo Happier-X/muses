@@ -11,7 +11,7 @@
 
     <div
       v-else
-      class="grid grid-cols-2 gap-[16px] p-[16px] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:max-w-[720px] md:mx-auto"
+      class="grid grid-cols-2 gap-[16px] p-[16px] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] "
     >
       <article
         v-for="album in albums"

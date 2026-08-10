@@ -17,7 +17,7 @@
         :icon="radio"
       />
 
-      <div v-else class="h-full md:max-w-[720px] md:mx-auto">
+      <div v-else class="h-full ">
         <div ref="listParentRef" class="h-full overflow-auto box-border pt-[8px] px-[12px] pb-[88px] md:pb-safe-22">
           <div class="relative" :style="{ height: `${totalSize}px` }">
             <div

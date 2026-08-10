@@ -4,7 +4,7 @@
       <template #title>设置</template>
     </k-navbar>
     <div class="m-content">
-      <div class="md:max-w-[720px] md:mx-auto">
+      <div class="">
         <k-block-title>关于</k-block-title>
         <k-list inset>
           <k-list-item

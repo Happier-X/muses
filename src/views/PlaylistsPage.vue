@@ -9,7 +9,7 @@
       </template>
     </k-navbar>
     <div class="m-content">
-      <div class="md:max-w-[720px] md:mx-auto">
+      <div class="">
         <m-empty
           v-if="playlists.length === 0"
           title="还没有歌单"
