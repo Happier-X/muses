@@ -43,6 +43,7 @@
               :style="{ transform: `translateY(${virtualRow.start}px)` }"
             >
               <k-list-item
+                :chevron="false"
                 link
                 :title="songs[virtualRow.index].title"
               :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
