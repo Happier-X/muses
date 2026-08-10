@@ -19,7 +19,7 @@
         <k-button
           component="button"
           clear
-          class="sticky top-0 z-10 flex items-center justify-start gap-[10px] w-full h-11 bg-ios-light-surface-1 dark:bg-ios-dark-surface-1 px-4 rounded-none text-[15px]"
+          class="sticky top-0 z-20 flex items-center justify-start gap-[10px] w-full h-11 bg-ios-light-surface-1 dark:bg-ios-dark-surface-1 px-4 rounded-none text-[15px]"
           aria-label="随机播放全部"
           @click="onShuffleAll"
         >
