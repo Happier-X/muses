@@ -47,31 +47,33 @@
               :data-index="row.virtualRow.index"
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
-              <div
-                class="flex items-center gap-[12px] p-[12px]"
+              <k-list-item
+                :title="row.song.title"
+                :subtitle="row.song.artist || '未知歌手'"
+                titleClass="min-w-0 truncate"
+                subtitleClass="truncate"
+                class="h-full"
                 :class="row.virtualRow.index === queueState.currentIndex ? 'is-playing bg-black/5 dark:bg-white/10' : ''"
                 :aria-current="row.virtualRow.index === queueState.currentIndex ? 'true' : undefined"
                 role="button"
                 tabindex="0"
                 @click="onSelectSong(row.virtualRow.index)"
               >
-                <div class="flex-1 min-w-0 flex flex-col gap-[2px]">
-                  <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white truncate">{{ row.song.title }}</h2>
-                  <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ row.song.artist || '未知歌手' }}</p>
-                </div>
-                <span class="flex-none text-[length:12px] opacity-60 me-[2px]">{{ row.virtualRow.index + 1 }}</span>
-                <k-button
-                  component="button"
-                  clear
-                  rounded
-                  class="flex-none m-0 size-8"
-                  :colors="{ textIos: 'text-[#ff3b30]', clearBgIos: 'bg-transparent active:bg-[#ff3b30]/15' }"
-                  :aria-label="`从队列删除 ${row.song.title}`"
-                  @click.stop="onRemoveSong(row.song.id)"
-                >
-                  <component :is="close" aria-hidden="true" class="size-4" />
-                </k-button>
-              </div>
+                <template #after>
+                  <span class="flex-none text-[length:12px] opacity-60 me-[2px]">{{ row.virtualRow.index + 1 }}</span>
+                  <k-button
+                    component="button"
+                    clear
+                    rounded
+                    class="flex-none m-0 size-8"
+                    :colors="{ textIos: 'text-[#ff3b30]', clearBgIos: 'bg-transparent active:bg-[#ff3b30]/15' }"
+                    :aria-label="`从队列删除 ${row.song.title}`"
+                    @click.stop="onRemoveSong(row.song.id)"
+                  >
+                    <component :is="close" aria-hidden="true" class="size-4" />
+                  </k-button>
+                </template>
+              </k-list-item>
             </div>
           </div>
         </div>
@@ -84,7 +86,7 @@
 import { computed, nextTick, ref, type ComponentPublicInstance, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { close, trash } from '@/icons'
-import { kButton, kPage, kPopup, MEmpty } from '@/components/ui'
+import { kButton, kListItem, kPage, kPopup, MEmpty } from '@/components/ui'
 import {
   clearQueue,
   playSong,

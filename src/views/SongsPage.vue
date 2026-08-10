@@ -41,30 +41,34 @@
             :data-index="virtualRow.index"
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
-            <div
-              class="flex items-center gap-[12px] p-[12px]"
+            <k-list-item
+              :title="songs[virtualRow.index].title"
+              :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
+              titleClass="min-w-0 truncate"
+              subtitleClass="truncate"
+              class="h-full"
               :class="songItemClass(songs[virtualRow.index].id)"
               :data-song-id="songs[virtualRow.index].id"
               role="button"
               tabindex="0"
               @click="playSong(songs[virtualRow.index])"
             >
-              <m-cover class="!w-12 !h-12 !flex-none !rounded-md" :src="getSongCoverSrc(songs[virtualRow.index])" alt="" />
-              <div class="flex-1 min-w-0 flex flex-col gap-[2px]">
-                <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white truncate">{{ songs[virtualRow.index].title }}</h2>
-                <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ getSongArtistName(songs[virtualRow.index]) }} - {{ getSongAlbumName(songs[virtualRow.index]) }}</p>
-              </div>
-              <k-button
-                component="button"
-                clear
-                rounded
-                class="flex-none m-0 ml-auto size-8"
-                aria-label="更多歌曲操作"
-                @click.stop="openSongActions(songs[virtualRow.index])"
-              >
-                <component :is="ellipsisVertical" aria-hidden="true" class="size-4" />
-              </k-button>
-            </div>
+              <template #media>
+                <m-cover :src="getSongCoverSrc(songs[virtualRow.index])" :size="48" radius="sm" alt="" />
+              </template>
+              <template #after>
+                <k-button
+                  component="button"
+                  clear
+                  rounded
+                  class="flex-none m-0 ml-auto size-8"
+                  aria-label="更多歌曲操作"
+                  @click.stop="openSongActions(songs[virtualRow.index])"
+                >
+                  <component :is="ellipsisVertical" aria-hidden="true" class="size-4" />
+                </k-button>
+              </template>
+            </k-list-item>
           </div>
         </div>
       </div>
@@ -133,7 +137,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicIn
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, ellipsisVertical, searchOutline, shuffle } from '@/icons'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kFab, kList, kListInput, kNavbar, kPage, MCover, MEmpty } from '@/components/ui'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kFab, kList, kListItem, kListInput, kNavbar, kPage, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'

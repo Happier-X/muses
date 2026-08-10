@@ -47,19 +47,21 @@
               :data-index="row.virtualRow.index"
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
-              <div
-                class="flex items-center gap-[12px] p-[12px]"
+              <k-list-item
+                :title="row.song.title"
+                :subtitle="`${getSongArtistName(row.song)} - ${getSongAlbumName(row.song)}`"
+                titleClass="min-w-0 truncate"
+                subtitleClass="truncate"
+                class="h-full"
                 :class="songItemClass(row.song.id)"
                 role="button"
                 tabindex="0"
                 @click="onPlaySong(row.song)"
               >
-                <m-cover class="!flex-none" :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
-                <div class="flex-1 min-w-0 flex flex-col gap-[2px]">
-                  <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white truncate">{{ row.song.title }}</h2>
-                  <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ getSongArtistName(row.song) }} - {{ getSongAlbumName(row.song) }}</p>
-                </div>
-              </div>
+                <template #media>
+                  <m-cover :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
+                </template>
+              </k-list-item>
             </div>
           </div>
         </div>
@@ -86,7 +88,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, shuffle } from '@/icons'
-import { kButton, kFab, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
+import { kButton, kFab, kListItem, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, groupSongsByAlbum, groupSongsByArtist } from '@/features/library/views'

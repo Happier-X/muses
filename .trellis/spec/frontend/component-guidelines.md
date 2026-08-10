@@ -54,7 +54,7 @@ Muses 自 `08-09-konsta-ui-migration` 起使用 npm **`konsta@5.3.0`**（精确�
 - **`k-button` 无 icon slot**（只有默认 slot）；`k-fab` 有 `#icon` slot。图标按钮统一 `clear rounded-full class="size-8"` + lucide 图标。
 - **`k-tabbar-link` 图标必须放 `#icon` 命名 slot**：默认 slot 会被并入 label span 与文字并排（横向）。`#icon` 才有 `k-tabbar-link-icon` 容器（w-7 h-7 圆形激活底）。k-tabbar 容器实际渲染为 `k-toolbar`（选择器用 `.k-toolbar`）。
 - **iOS 26 玻璃 tabbar = `k-tabbar` + `k-toolbar-pane`（官方内置）**：k-tabbar 负责定位（`left-0 bottom-0 fixed`，自带 `px-safe-4 pb-safe-4` → 胶囊天然悬浮：宽=屏宽-32px、底=16px+安全区），k-toolbar-pane 即 k-glass 玻璃胶囊（`rounded-full` + `bg-ios-light-glass`/`shadow-ios-light-glass` + `backdrop-blur-lg`）并自带激活高亮滑条（useIosTabbarHighlight）。**禁止手写胶囊样式**（rounded/边距/背景/shadow 自绘曾走弯路，官方组件已内置）。
-- **虚拟列表行**（SongsPage/QueuePage/PlaylistDetailPage）继续用自定义 `<div>` 行（保留 `data-song-id`、`.is-playing` 高亮、`@tanstack/vue-virtual` 行高实测等约定）。
+- **虚拟列表行**（SongsPage/QueuePage/PlaylistDetailPage/LibraryDetailPage）用 **`k-list-item`**（官方 iOS 列表行：`#media` 封面 / `title`+`subtitle` prop / `#after` 操作按钮；`titleClass="min-w-0 truncate"` + `subtitleClass="truncate"` 保证长文本截断）作为虚拟行内容，保留 `data-song-id`、`.is-playing` 高亮（class 透传）、`@tanstack/vue-virtual` `measureElement` 动态测量（行高由 k-list-item 布局决定，实测约 100px，禁止写死 estimateSize 之外的值）。k-list-item 独立使用（无 k-list 父）时 hairline 分割线不渲染，与原自绘行一致。QueuePage 序号放 `#after`；SourcesPage 音源卡片结构（多行文本）不适合 k-list-item，保留自绘 HCard。
 - **可提交表单**统一用 `@tanstack/vue-form` + `k-list-input` 字段绑定（`@input="onFormInput(field.handleChange)"` 适配原生事件）；约定见 [forms.md](./forms.md)。
 
 ### `k-range` 进度条（PlayerPage 沉浸区）
