@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed left-0 right-0 bottom-safe-24 z-[1000] flex items-center gap-[12px] w-full min-h-[64px] py-[8px] px-[12px] border-t border-t-black/10 text-black bg-white dark:border-t-white/15 dark:text-white dark:bg-[#1f1f1f] md:bottom-safe-0"
+    class="fixed left-4 right-4 bottom-safe-24 z-[1000] flex h-16 items-center gap-[12px] rounded-full bg-ios-light-glass shadow-ios-light-glass backdrop-blur-lg px-[12px] text-black dark:bg-ios-dark-glass dark:shadow-ios-dark-glass dark:text-white md:left-0 md:right-0 md:bottom-safe-0 md:rounded-none"
     :class="{
       'cursor-pointer': !!playerState.currentSong,
       'cursor-default': !playerState.currentSong,
