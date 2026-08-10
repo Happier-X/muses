@@ -50,7 +50,7 @@
           <k-actions-label>添加音源</k-actions-label>
           <k-actions-button @click="handleAddLocal">添加本地文件夹</k-actions-button>
           <k-actions-button @click="handleAddWebDav">添加 WebDAV 文件夹</k-actions-button>
-          <k-actions-button bold @click="isAddActionSheetOpen = false">取消</k-actions-button>
+          <k-actions-button @click="isAddActionSheetOpen = false">取消</k-actions-button>
         </k-actions-group>
       </k-actions>
 

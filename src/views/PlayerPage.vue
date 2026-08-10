@@ -244,7 +244,7 @@
       <k-actions-group>
         <k-actions-label>歌曲操作</k-actions-label>
         <k-actions-button @click="onOpenSongEdit">编辑歌曲信息</k-actions-button>
-        <k-actions-button bold @click="isPlayerActionsOpen = false">取消</k-actions-button>
+        <k-actions-button @click="isPlayerActionsOpen = false">取消</k-actions-button>
       </k-actions-group>
     </k-actions>
 
