@@ -630,3 +630,8 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - **平板模式 MiniPlayer 圆角回归**（用户："平板模式底部播放条怎么没圆角了"）：git 定位回归点 = d690d0f（玻璃胶囊改造）引入 `md:left-0 md:right-0 md:bottom-safe-0 md:rounded-none` 把平板模式改成全宽矩形条。修复：去掉 4 个 md: 覆盖，改为 `md:bottom-safe-2`（平板无 tabbar，距底 8px 悬浮）→ 平板与移动端一致悬浮胶囊。CDP 800px 视口实测：borderRadius 99999px、left16/right784/宽 768、距底 8px ✓
 - **平板下列表不占满修复**（用户："平板下歌曲列表没有占满屏幕"）：根因 = 9 个页面都带 `md:max-w-[720px] md:mx-auto`（iPad 内容列 720px 惯例）→ 平板（≥768）内容被限 720px 居中，大屏两侧大片留白。修复：全部移除（SongsPage 滚动容器、LibraryDetail×2、PlaylistDetail、Playlists、Settings、Sources、Albums/Artists 网格）。实测 800px：列表 540 占满 main；1280px：列表 1020 占满（侧边栏 260 保留）
 - **沉浸播放页平板不占满修复**（用户："沉浸式播放页面平板上不是全屏了"）：根因 = Konsta k-popup 平板模式默认 `md:w-160 md:h-160 md:rounded-4xl`（**640×640 圆角居中面板**，移动端才是 w-screen h-screen 全屏）→ 平板下沉浸播放页变 640px 面板。修复：PlayerPage k-popup 加 `class="!w-screen !h-screen !rounded-none"`（Tailwind v4 important 前缀类 `.\!w-screen`，覆盖 md 变体）。CSS 验证：`.\!w-screen{width:100vw!important}` 已生成；注 v4 important 类名感叹号在**开头**（`.\!w-screen` 非 `w-screen\!`）
+- **手势返回直接退出应用修复**（用户："专辑下一级手势返回退出应用"）：
+  - 根因 1：targetSdk 36（Android 16）+ Manifest 未 opt-in `android:enableOnBackInvokedCallback` → 预测性返回手势不走 Capacitor OnBackPressedCallback → 系统直接 finish。修复：Manifest `<application android:enableOnBackInvokedCallback="true">`
+  - 根因 2：App.vue 已有 backButton 监听但 overlay 未开时**直接 minimizeApp（退后台）**，无路由返回。修复：`router.options.history.state.back !== null` 时 `router.back()`，否则 minimizeApp
+  - 旁证：原生 WebView.canGoBack() 对 SPA pushState 判定不可靠（CDP nav history 5 条但原生 canGoBack false）→ 用 Vue Router history state 判断更可靠
+  - 实测：详情页→返回→专辑列表(albums)→返回→歌曲页(songs)→返回→桌面(进程存活 29735 不销毁)

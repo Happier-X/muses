@@ -18,7 +18,7 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
-import { RouterView } from 'vue-router'
+import { RouterView, useRouter } from 'vue-router'
 import { kApp } from 'konsta/vue'
 import { App } from '@capacitor/app'
 import type { PluginListenerHandle } from '@capacitor/core'
@@ -29,6 +29,7 @@ import { closePlayerOverlay, closeQueueOverlay, playerOverlayVisible, queueOverl
 
 const PlayerPage = defineAsyncComponent(() => import('@/views/PlayerPage.vue'))
 const QueuePage = defineAsyncComponent(() => import('@/views/QueuePage.vue'))
+const router = useRouter()
 const hasGlobalOverlay = computed(() => playerOverlayVisible.value || queueOverlayVisible.value)
 let statusBarRequestToken = 0
 let statusBarSyncQueue = Promise.resolve()
@@ -74,6 +75,12 @@ onMounted(() => {
 
     if (playerOverlayVisible.value) {
       closePlayerOverlay()
+      return
+    }
+
+    // 路由可后退时返回上一页（专辑/歌单等详情页手势返回），否则退到后台
+    if (router.options.history.state.back !== null) {
+      router.back()
       return
     }
 
