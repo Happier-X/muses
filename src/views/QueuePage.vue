@@ -9,7 +9,7 @@
             component="button"
             clear
             rounded
-            class="size-8 !text-[#ff3b30]"
+            class="size-8"
             aria-label="清空队列"
             @click="onClearQueue"
           >
@@ -63,7 +63,7 @@
                   component="button"
                   clear
                   rounded
-                  class="flex-none m-0 size-8 !text-[#ff3b30]"
+                  class="flex-none m-0 size-8"
                   :aria-label="`从队列删除 ${row.song.title}`"
                   @click.stop="onRemoveSong(row.song.id)"
                 >

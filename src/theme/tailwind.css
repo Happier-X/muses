@@ -44,16 +44,6 @@ body,
   /* ⚠️ 故意不加 contain，避免重建 fixed 包含块导致浮层偏移 */
 }
 
-/* 页面内 k-navbar 背景与灰底页面背景协调（Konsta iOS 主题默认即 glass/表面色），
- * 这里只统一非沉浸页面下的背景变量。 */
-.m-page .k-navbar {
-  background: var(--color-ios-light-surface-2);
-}
-
-.dark .m-page .k-navbar {
-  background: var(--color-ios-dark-surface-2);
-}
-
 .m-content {
   flex: 1;
   overflow-y: auto;

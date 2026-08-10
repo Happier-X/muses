@@ -68,7 +68,7 @@
 
     <k-fab
       v-if="showJumpBubble"
-      class="z-40"
+      class="z-[1100]"
       :style="{ position: 'fixed', left: `${fabOffset.x}px`, top: `${fabOffset.y}px` }"
       aria-label="跳转到当前播放"
       @click="scrollToCurrentSong"
