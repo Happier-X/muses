@@ -31,7 +31,7 @@
         description="请先到音源页添加并扫描音源。"
       />
 
-      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[64px] md:pb-[calc(64px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))] md:max-w-[720px] md:mx-auto [overflow-anchor:none]">
+      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[64px] md:pb-safe-16 md:max-w-[720px] md:mx-auto [overflow-anchor:none]">
         <div class="relative w-full" :style="{ height: `${totalSize}px` }">
           <div
             v-for="virtualRow in virtualRows"

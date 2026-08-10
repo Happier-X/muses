@@ -32,7 +32,7 @@
         <div
           v-else
           ref="listParentRef"
-          class="h-full overflow-auto overscroll-contain box-border pb-[64px] md:pb-[calc(64px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))] [overflow-anchor:none]"
+          class="h-full overflow-auto overscroll-contain box-border pb-[64px] md:pb-safe-16 [overflow-anchor:none]"
           role="list"
           :aria-label="`${pageTitle} 歌曲`"
           @scroll="onListScroll"

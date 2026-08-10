@@ -3,7 +3,7 @@
     <div class="flex flex-1 flex-col min-h-0 md:block md:h-full">
       <aside
         v-if="isTablet && isTabsRoute"
-        class="hidden md:block md:fixed md:top-0 md:left-0 md:bottom-0 md:z-20 md:w-[260px] md:overflow-auto md:border-r md:border-r-black/10 md:bg-white dark:md:border-r-white/15 dark:md:bg-black md:pt-[calc(12px+var(--safe-area-inset-top,env(safe-area-inset-top,0px)))] md:box-border"
+        class="hidden md:block md:fixed md:top-0 md:left-0 md:bottom-0 md:z-20 md:w-[260px] md:overflow-auto md:border-r md:border-r-black/10 md:bg-white dark:md:border-r-white/15 dark:md:bg-black md:pt-safe-3 md:box-border"
         aria-label="主导航"
       >
         <nav aria-label="主导航">
@@ -25,7 +25,7 @@
       <main
         class="flex-1 min-h-0"
         :class="isTabsRoute
-          ? 'pb-[calc(96px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))] md:pb-0 md:fixed md:top-0 md:right-0 md:bottom-0 md:left-[260px] md:overflow-hidden'
+          ? 'pb-safe-24 md:pb-0 md:fixed md:top-0 md:right-0 md:bottom-0 md:left-[260px] md:overflow-hidden'
           : 'pb-0 md:min-w-0'"
       >
         <RouterView />

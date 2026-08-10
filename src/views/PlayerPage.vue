@@ -197,7 +197,7 @@
 
           <div
             v-if="showLyricFloatingActions"
-            class="lyric-floating-actions absolute left-[12px] right-[12px] bottom-[calc(8px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))] z-[3] flex items-center opacity-0 pointer-events-none transition-[opacity] duration-[200ms] ease-[ease]"
+            class="lyric-floating-actions absolute left-[12px] right-[12px] bottom-safe-2 z-[3] flex items-center opacity-0 pointer-events-none transition-[opacity] duration-[200ms] ease-[ease]"
             :class="[
               { 'is-visible': lyricChromeVisible },
               hasLyricTranslation ? 'justify-between' : 'justify-end',

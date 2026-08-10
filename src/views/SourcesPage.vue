@@ -18,7 +18,7 @@
       />
 
       <div v-else class="h-full md:max-w-[720px] md:mx-auto">
-        <div ref="listParentRef" class="h-full overflow-auto box-border pt-[8px] px-[12px] pb-[calc(64px+24px)] md:pb-[calc(64px+24px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))]">
+        <div ref="listParentRef" class="h-full overflow-auto box-border pt-[8px] px-[12px] pb-[88px] md:pb-safe-22">
           <div class="relative" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
@@ -236,7 +236,7 @@
       </k-dialog>
 
       <k-sheet :opened="isWebDavModalOpen" @backdropclick="closeWebDavModal">
-        <div class="px-[16px] pb-[var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))]">
+        <div class="px-[16px] pb-safe-0">
           <div class="text-[17px] font-semibold text-center pt-[16px] pb-[8px] text-black dark:text-white">添加 WebDAV</div>
           <form class="flex flex-col gap-[16px] mb-[16px]" @submit.prevent="webDavForm.handleSubmit">
             <div class="flex flex-col gap-[12px]">
