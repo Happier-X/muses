@@ -461,3 +461,37 @@ body.muses-overlay-open .m-content {
 .queue-popup-panel {
   min-height: 50vh;
 }
+
+/* ============================================================
+   Konsta 弹层层级统一覆盖
+   Konsta 各弹层默认 z-40，低于 Muses 布局层（k-tabbar z-[950]、
+   MiniPlayer z-[1000]），曾导致 k-actions 等贴底浮层被盖住。
+   统一层级阶梯（低→高）：
+     tabbar(950) < MiniPlayer(1000) < 全屏 k-popup(1100)
+     < 页面浮层 k-sheet/k-dialog/k-actions(1200) < k-toast(1300)
+   弹层 backdrop 无独立标识 class，用 :has() 选中面板的前一兄弟
+   div 同步提升（面板 DOM 在后，同层级时自然盖住 backdrop）。
+   ============================================================ */
+.k-popup {
+  z-index: 1100;
+}
+
+.k-sheet,
+.k-dialog,
+.k-actions {
+  z-index: 1200;
+}
+
+.k-toast {
+  z-index: 1300;
+}
+
+div:has(+ .k-popup) {
+  z-index: 1100;
+}
+
+div:has(+ .k-sheet),
+div:has(+ .k-dialog),
+div:has(+ .k-actions) {
+  z-index: 1200;
+}

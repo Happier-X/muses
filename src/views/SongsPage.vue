@@ -117,7 +117,7 @@
 
       <k-fab
         v-if="showJumpBubble"
-        class="fixed z-40"
+        class="fixed z-[1100]"
         style="right: 16px; bottom: 176px"
         aria-label="跳转到当前播放"
         @click="scrollToCurrentSong"
