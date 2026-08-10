@@ -36,7 +36,7 @@
           description="从歌曲列表中添加歌曲即可开始播放。"
         />
 
-        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[calc(24px+env(safe-area-inset-bottom,0px))] [overflow-anchor:none]" role="list" aria-label="播放队列歌曲" @touchstart.stop @touchmove.stop @touchend.stop @touchcancel.stop>
+        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[calc(24px+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))] [overflow-anchor:none]" role="list" aria-label="播放队列歌曲" @touchstart.stop @touchmove.stop @touchend.stop @touchcancel.stop>
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="row in visibleRows"

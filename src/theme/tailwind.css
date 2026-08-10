@@ -5,6 +5,20 @@
 @import 'tailwindcss';
 @import 'konsta/vue/theme.css';
 
+/*
+ * Konsta 安全区桥接：Capacitor 8 原生 SystemBars 插件（insetsHandling:'css'）在
+ * WebView>=140 时把真实 insets 注入 --safe-area-inset-*（documentElement inline）。
+ * Konsta 组件用的是 --k-safe-area-*（源 env(safe-area-inset-*)，Android 上恒 0），
+ * 此处同 specificity 覆盖 .safe-areas，优先消费注入值、env 兜底（iOS/网页）。
+ * 层叠顺序：本块在 theme.css 之后，同优先级后定义者生效。
+ */
+.safe-areas {
+  --k-safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --k-safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --k-safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --k-safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+}
+
 /* 应用默认字体与页面级背景（iOS 分组表面色，亮/暗由 .dark class 切换） */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
