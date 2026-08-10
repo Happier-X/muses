@@ -30,6 +30,7 @@
         />
 
         <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[64px] md:pb-safe-16 [overflow-anchor:none]" role="list" aria-label="歌单歌曲">
+          <k-list strong-ios outline-ios class="!my-0">
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="row in visibleRows"
@@ -41,6 +42,7 @@
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
               <k-list-item
+                link
                 :title="row.song.title"
                 :subtitle="`${getSongArtistName(row.song)} - ${getSongAlbumName(row.song)}`"
                 titleClass="min-w-0 truncate"
@@ -69,6 +71,7 @@
               </k-list-item>
             </div>
           </div>
+        </k-list>
         </div>
       </div>
     </div>
@@ -81,7 +84,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { playOutline, removeCircleOutline } from '@/icons'
-import { kButton, kListItem, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
+import { kButton, kList, kListItem, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'

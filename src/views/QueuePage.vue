@@ -37,7 +37,8 @@
         />
 
         <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-safe-6 [overflow-anchor:none]" role="list" aria-label="播放队列歌曲" @touchstart.stop @touchmove.stop @touchend.stop @touchcancel.stop>
-          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+          <k-list strong-ios outline-ios class="!my-0">
+          <div class="relative w-full" :style="{ height: `${totalSize}px` }">>
             <div
               v-for="row in visibleRows"
               :key="row.song.id"
@@ -48,6 +49,7 @@
               :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
             >
               <k-list-item
+                link
                 :title="row.song.title"
                 :subtitle="row.song.artist || '未知歌手'"
                 titleClass="min-w-0 truncate"
@@ -76,6 +78,7 @@
               </k-list-item>
             </div>
           </div>
+        </k-list>
         </div>
       </div>
     </k-page>
@@ -86,7 +89,7 @@
 import { computed, nextTick, ref, type ComponentPublicInstance, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { close, trash } from '@/icons'
-import { kButton, kListItem, kPage, kPopup, MEmpty } from '@/components/ui'
+import { kButton, kList, kListItem, kPage, kPopup, MEmpty } from '@/components/ui'
 import {
   clearQueue,
   playSong,

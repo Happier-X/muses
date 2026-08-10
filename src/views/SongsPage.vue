@@ -32,17 +32,19 @@
       />
 
       <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[64px] md:pb-safe-16 md:max-w-[720px] md:mx-auto [overflow-anchor:none]">
-        <div class="relative w-full" :style="{ height: `${totalSize}px` }">
-          <div
-            v-for="virtualRow in virtualRows"
-            :key="songs[virtualRow.index].id"
-            :ref="measureVirtualRow"
-            class="absolute top-0 left-0 right-0 box-border min-h-[72px]"
-            :data-index="virtualRow.index"
-            :style="{ transform: `translateY(${virtualRow.start}px)` }"
-          >
-            <k-list-item
-              :title="songs[virtualRow.index].title"
+        <k-list strong-ios outline-ios class="!my-0">
+          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+            <div
+              v-for="virtualRow in virtualRows"
+              :key="songs[virtualRow.index].id"
+              :ref="measureVirtualRow"
+              class="absolute top-0 left-0 right-0 box-border min-h-[72px]"
+              :data-index="virtualRow.index"
+              :style="{ transform: `translateY(${virtualRow.start}px)` }"
+            >
+              <k-list-item
+                link
+                :title="songs[virtualRow.index].title"
               :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
               titleClass="min-w-0 truncate"
               subtitleClass="truncate"
@@ -71,6 +73,7 @@
             </k-list-item>
           </div>
         </div>
+        </k-list>
       </div>
 
       <k-actions :opened="isSongActionsOpen" @backdropclick="isSongActionsOpen = false">
