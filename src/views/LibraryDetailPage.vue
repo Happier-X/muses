@@ -1,5 +1,5 @@
 <template>
-  <div class="m-page">
+  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-safe-24 md:!bottom-0">
     <k-navbar rightClass="!h-8">
       <template #left>
         <k-navbar-back-link text="返回" @click="goBack" />
@@ -77,7 +77,7 @@
         <component :is="crosshair" aria-hidden="true" />
       </template>
     </k-fab>
-  </div>
+  </k-page>
 </template>
 
 <script setup lang="ts">
@@ -86,7 +86,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, shuffle } from '@/icons'
-import { kButton, kFab, kNavbar, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
+import { kButton, kFab, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, groupSongsByAlbum, groupSongsByArtist } from '@/features/library/views'

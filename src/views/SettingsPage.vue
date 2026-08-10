@@ -1,5 +1,5 @@
 <template>
-  <div class="m-page">
+  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-safe-24 md:!bottom-0">
     <k-navbar rightClass="!h-8">
       <template #title>设置</template>
     </k-navbar>
@@ -41,12 +41,12 @@
     <k-toast :opened="toast.visible" position="center">
       {{ toast.message }}
     </k-toast>
-  </div>
+  </k-page>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { kBlockTitle, kList, kListItem, kNavbar, kToast, kToggle } from '@/components/ui'
+import { kBlockTitle, kList, kListItem, kNavbar, kPage, kToast, kToggle } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,

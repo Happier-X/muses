@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full overflow-hidden m-page">
+  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-safe-24 md:!bottom-0">
     <k-navbar rightClass="!h-8">
       <template v-if="$slots.start" #left>
         <slot name="start" />
@@ -17,11 +17,11 @@
     <m-content :fullscreen="fullscreen">
       <slot />
     </m-content>
-  </div>
+  </k-page>
 </template>
 
 <script setup lang="ts">
-import { kNavbar } from 'konsta/vue'
+import { kNavbar, kPage } from 'konsta/vue'
 import MContent from './MContent.vue'
 
 withDefaults(defineProps<{

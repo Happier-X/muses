@@ -1,5 +1,5 @@
 <template>
-  <div ref="pageRef" class="m-page">
+  <k-page ref="pageRef" class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-safe-24 md:!bottom-0">
     <k-navbar rightClass="!h-8">
       <template #title>歌曲</template>
       <template #right>
@@ -125,7 +125,7 @@
         <component :is="crosshair" aria-hidden="true" class="size-5" />
       </k-fab>
     </div>
-  </div>
+  </k-page>
 </template>
 
 <script setup lang="ts">
@@ -133,7 +133,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicIn
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, ellipsisVertical, searchOutline, shuffle } from '@/icons'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kFab, kList, kListInput, kNavbar, MCover, MEmpty } from '@/components/ui'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kFab, kList, kListInput, kNavbar, kPage, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'

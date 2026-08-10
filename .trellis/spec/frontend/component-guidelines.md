@@ -71,9 +71,9 @@ Muses 自 `08-09-konsta-ui-migration` 起使用 npm **`konsta@5.3.0`**（精确�
 
 - **页面背景**：body 统一 iOS 表面色（亮 `--color-ios-light-surface` #efeff4 / 暗 `--color-ios-dark-surface` #000，在 tailwind.css 中定义），k-navbar 背景用 `--color-ios-light-surface-2` / `dark` 对应。显式需要独立表面时用 k 组件自带背景。
 
-- **`MPage`**（`src/components/ui/MPage.vue`）：自建页壳 `<div class="m-page">`（flex 纵向 + `height: 100%` + `overflow: hidden`，**无 `contain`** 以免重建 fixed 包含块导致浮层偏移）。内含 `k-navbar` + 可选 `#subnavbar` slot（SongsPage shuffle-bar）+ `MContent`。`title` / `left` / `right` 插槽映射到 `k-navbar` 的对应 slot；返回用 `k-navbar-back-link`。
+- **`MPage`**（`src/components/ui/MPage.vue`）：页壳用 **Konsta `k-page`**（官方页面容器：`absolute left-0 top-0` + iOS 表面色背景 `bg-ios-light-surface`），叠加 `m-page flex flex-col overflow-hidden !h-auto !bottom-safe-24 md:!bottom-0` class（flex 分区滚动；`!h-auto` 覆盖 k-page 自带 `h-full`，用 `bottom-safe-24` 精确避让 tabbar 预留区；md 下 tabbar 隐藏恢复 `bottom-0`）。**无 `contain`** 以免重建 fixed 包含块导致浮层偏移。内含 `k-navbar` + 可选 `#subnavbar` slot（SongsPage shuffle-bar）+ `MContent`。`title` / `left` / `right` 插槽映射到 `k-navbar` 的对应 slot；返回用 `k-navbar-back-link`。**k-page 是 absolute 定位，宿主（TabsPage `<main>`）必须 `relative`**。
 - **`MContent`**（`src/components/ui/MContent.vue`）：自建滚动容器 `<div class="m-content">`（`flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain`，**无 `contain`**）。虚拟列表页可传 `overflow: hidden`（内部列表自管滚动）。
-- 简单滚动页（SettingsPage、PlaylistsPage、AlbumsPage、ArtistsPage）直接用 `<m-page>`；虚拟列表页（SongsPage、PlaylistDetailPage）用 `m-page` + 内部 `.m-content` 覆盖 `overflow: hidden`。
+- 简单滚动页（SettingsPage、PlaylistsPage、AlbumsPage、ArtistsPage）直接用 `<k-page class="m-page ...">`；虚拟列表页（SongsPage、PlaylistDetailPage）同样用 k-page + 内部 `.m-content` 覆盖 `overflow: hidden`（虚拟列表容器在 .m-content 内 `h-full overflow-auto` 独立滚动）。
 - overlay 页（PlayerPage、QueuePage）不使用 MPage/MContent，自建骨架自管滚动。
 - 弹层内标题承载：`k-actions` 用 `k-actions-label`，`k-sheet` 自绘标题行，`k-dialog` 用 `title` prop。
 

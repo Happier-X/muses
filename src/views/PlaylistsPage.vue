@@ -1,5 +1,5 @@
 <template>
-  <div class="m-page">
+  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-safe-24 md:!bottom-0">
     <k-navbar rightClass="!h-8">
       <template #title>歌单</template>
       <template #right>
@@ -86,14 +86,14 @@
         </template>
       </k-dialog>
     </div>
-  </div>
+  </k-page>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { addOutline, ellipsisVertical, list } from '@/icons'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kList, kListInput, kNavbar, MCover, MEmpty } from '@/components/ui'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kList, kListInput, kNavbar, kPage, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,

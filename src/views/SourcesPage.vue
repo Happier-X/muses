@@ -1,5 +1,5 @@
 <template>
-  <div class="m-page">
+  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-safe-24 md:!bottom-0">
     <k-navbar rightClass="!h-8">
       <template #title>音源</template>
       <template #right>
@@ -343,7 +343,7 @@
     <k-toast :opened="toast.visible" position="center">
       {{ toast.message }}
     </k-toast>
-  </div>
+  </k-page>
 </template>
 
 <script setup lang="ts">
@@ -352,7 +352,7 @@ import { useForm } from '@tanstack/vue-form'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
 import { add, radio } from '@/icons'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kCard, kCheckbox, kDialog, kDialogButton, kList, kListItem, kListInput, kNavbar, kPreloader, kSheet, kToast, kToggle, MEmpty } from '@/components/ui'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kCard, kCheckbox, kDialog, kDialogButton, kList, kListItem, kListInput, kNavbar, kPage, kPreloader, kSheet, kToast, kToggle, MEmpty } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,
