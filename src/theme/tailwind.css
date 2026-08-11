@@ -515,3 +515,22 @@ html.muses-mini-visible {
   --content-pb: 160px;
   --content-pb-md: 96px;
 }
+
+/*
+ * Konsta iOS 玻璃层修复（Tailwind v4 + 老 WebView 兼容）：
+ * 1) Konsta navbar/toolbar 的 backdrop-blur-[2px] 任意值类未被 Tailwind 生成
+ *    （同文件的 mask-b-from-50% 等正常生成，仅含方括号的 backdrop-blur 任意值漏掉）
+ *    → 毛玻璃失效；@utility 显式补齐（含 -webkit 前缀，老 WebView 必需）。
+ * 2) Tailwind v4 渐变方向变量用 `to bottom in oklab`，WebView<111 不解析该插值语法
+ *    → k-navbar 背景渐变整体无效（computed background-image: none）；同 tabbar
+ *    先例（[--tw-gradient-position:to_top]），把 navbar 渐变方向覆盖为无插值写法。
+ */
+.backdrop-blur-\[2px\] {
+  --tw-backdrop-blur: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.k-navbar > .bg-gradient-to-b {
+  --tw-gradient-position: to bottom;
+}
