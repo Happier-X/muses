@@ -13,12 +13,12 @@
         />
       </div>
 
-      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]">
+      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]">
         <k-button
           component="button"
           clear
           :colors="{ textIos: 'text-black dark:text-white', clearBgIos: 'bg-transparent active:bg-black/10 dark:active:bg-white/10' }"
-          class="sticky top-[calc(max(16px,var(--k-safe-area-top))_+_44px)] z-10 flex items-center justify-start gap-[10px] w-full h-11 bg-ios-light-surface dark:bg-ios-dark-surface px-4 rounded-none text-[15px]"
+          class="sticky top-0 z-10 flex items-center justify-start gap-[10px] w-full h-11 bg-ios-light-glass dark:bg-ios-dark-glass backdrop-blur-lg px-4 rounded-none text-[15px]"
           aria-label="随机播放全部"
           @click="onShuffleAll"
         >

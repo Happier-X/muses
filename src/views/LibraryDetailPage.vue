@@ -20,12 +20,12 @@
         <div
           v-else
           ref="listParentRef"
-          class="h-full overflow-auto overscroll-contain box-border pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]"
+          class="h-full overflow-auto overscroll-contain box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]"
           role="list"
           :aria-label="`${pageTitle} 歌曲`"
           @scroll="onListScroll"
         >
-          <div class="sticky top-[calc(max(16px,var(--k-safe-area-top))_+_44px)] z-10 box-border w-full bg-white dark:bg-black px-[8px] py-[4px]">
+          <div class="sticky top-0 z-10 box-border w-full bg-ios-light-glass dark:bg-ios-dark-glass backdrop-blur-lg px-[8px] py-[4px]">
             <k-button
               component="button"
               small
