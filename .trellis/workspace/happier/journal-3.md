@@ -702,3 +702,7 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 修复：tailwind.css 补 `.backdrop-blur-\[2px\]`（含 -webkit 前缀）+ `.k-navbar > .bg-gradient-to-b { --tw-gradient-position: to bottom }`（tabbar to_top 先例）
   - 关键经验：判定浮层/渐变问题时用 CDP getComputedStyle 看实际值（如背景消失却无报错）；Tailwind v4 的 `in oklab` 插值语法要求 WebView>=111
   - 验证：bg 渐变 linear-gradient(239,239,244→transparent) + blur(2px) + mask 生效；附截图像素采样对比
+- **图标按钮规范 k-button+clear**（任务 08-11-fix-icon-button-clear，用户"可以"留档）：
+  - 用户指出"图标按钮应该是 k-button 配合 clear"——查 Konsta ButtonClasses 确认 5 种 style：fill(默认实心)/outline/clear(透明底+文字色)/tonal/segmentedStrong
+  - 纯图标按钮必须 clear，否则 fill 蓝底；带文字的主操作按钮保持 fill 合理
+  - 全项目扫描修 2 处漏网：PlaylistDetailPage 移除按钮、PlaylistsPage 更多操作按钮（small rounded 无 clear）——commit 2013a30
