@@ -734,3 +734,15 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 **关键认知**：① 结构上"内容经过 navbar 后"才是官方玻璃的前提（bg 渐变 239→transparent + blur2px + mask 上半实色，透出区 y38-76）；② 模拟器程序化滚动不产生合成帧 → backdrop 采样不更新 → 截图差分恒 0（工具限制，真实滚动正常）；③ CDP Input.dispatchTouchEvent 在此 WebView 无效（模拟器通道限制）；④ sticky 元素自然位置已在吸住线上方时立即吸住（无经过过程）
 **验证**：kpageH 616 锁定 ✓ shuffle 吸 y60 ✓ 行位置随滚动移动 ✓
 **提交**：a7a3d7a
+
+## 08-11 navbar 覆盖式布局统一推广（4 页）
+**背景**：歌曲页覆盖式布局确认后，用户选择统一推广（任务 08-11-unify-navbar-overlay，d6d0080）。
+**改造**（LibraryDetail/PlaylistDetail/Settings/Sources 4 页，同 SongsPage 模式）：
+- k-page 加 relative + 移除 !h-auto（否则 k-page 被内容撑高不能滚）
+- navbar 包 root-navbar-wrap absolute top-0 z-20
+- 无 sticky 行页面：滚动容器/empty 分支加 `pt-[calc(max(16px,var(--k-safe-area-top))+44px)]`（内容初始在 navbar 下、滚动经过其后方）
+- LibraryDetail：随机播放条从文档流移入列表容器 sticky（吸 navbar 下 z-10，empty 时不显示）
+- SourcesPage 原 8px 顶距保留：pt calc + 8px
+**不改**：CategoriesPage（subnavbar 分段需常驻吸顶，覆盖式收益低风险高）
+**验证**（CDP 真实点击导航）：4 页 wrap true + kpageH 616 + pt 生效 + 专辑详情 shuffle 吸顶 64 ✓ 返回/分段切换无回归 ✓ 歌曲页回归 ✓
+**经验**：① vue-router history 模式外部 popstate 导航不可靠（破坏 RouterView 状态），用 location.href 整页导航（会断 CDP 需重连）或真实 UI 点击；② 子路由完整路径带 /tabs 前缀（/tabs/playlists/:id）；③ tabbar 链接是 button（component="button"）非 a；④ QueuePage 全局挂载在 App.vue（.k-page 查询会先命中它，需按 top 过滤）
