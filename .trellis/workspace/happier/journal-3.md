@@ -670,3 +670,8 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - MusicPage 加 k-navbar 标题「音乐」+ 分段条移入 navbar subnavbar slot；子页面 4 个去各自 navbar（Songs 删标题+无功能搜索按钮、Albums/Artists m-page 改 k-page 直写无 navbar、Playlists 删 navbar）
   - 功能按钮上移：新建歌单（歌单段）→ MusicPage navbar right，ref 调 PlaylistsPage defineExpose openCreateAlert
   - 验证：navTitle=音乐+4 段、全页 1 个 navbar、新建弹窗正常
+- **音乐页分段改 Konsta 官方默认样式**（用户："太丑了，用 konsta 默认 iOS 样式"）：
+  - 根因 1：k-segmented 无 strong → iOS 默认态 = 灰底 + active 蓝字（老式 tab 观感）；官方 iOS 资料库 = strong+rounded（白色圆角滑块滑动）
+  - 根因 2：navbar subnavbar 容器是 flex（'relative flex items-center h-14 pl-safe-4 pr-safe-4'）→ 子 div 无 flex 撑开 → 分段条收缩到 219px（应占满 328）
+  - 修复：k-segmented 加 `strong rounded`；subnavbar 内容 div 改 `flex-1 min-w-0`（去掉自定义 px-4 pt-2 pb-3，subnavbar 自带 pl/pr-safe-4 + h-14 垂直居中）
+  - 实测：分段条 328/360 占满、滑块 bg-white、蓝字消失（之前 0 蓝像素）

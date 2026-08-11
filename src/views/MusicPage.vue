@@ -16,8 +16,8 @@
         </k-button>
       </template>
       <template #subnavbar>
-        <div class="px-4 pt-2 pb-3">
-          <k-segmented class="!my-0">
+        <div class="flex-1 min-w-0">
+          <k-segmented strong rounded class="!my-0">
             <k-segmented-button
               v-for="item in segments"
               :key="item.value"
