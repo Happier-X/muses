@@ -690,3 +690,8 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - spec：forms.md 新增 §0 k-list-input 必须 #input 槽受控（含完整样式类清单）
   - 实测：三轮输入+切字段全保留、提交失败后值保留、label 正常
   - 遗留（非本任务）：PlayerPage 编辑歌曲信息 5 字段同模式非受控（高风险，建议后续迁移）；PlaylistsPage k-button 未导入 lint 存量错
+- **PlayerPage 编辑歌曲信息表单受控化**（任务 08-11-fix-player-edit-form，用户"另开任务修复"）：
+  - 同 SourcesPage 根因：k-list-input 非受控 + TanStack Form 竞态丢值；按 forms.md §0 改 #input 槽受控
+  - 改 5 字段（title/artist/album/replayGainDb + lyrics textarea py-2 resize-none）；删 onFormInput/onEditLyricsTextareaInput；onEditLyricsInput 保留（format='lrc' 逻辑）
+  - 注意：fixed/transform 浮层 offsetParent 恒 null——CDP 判断浮层开关须用 class（-translate-y-full=closed / translate-y-0=opened）而非 offsetParent
+  - 验证：CDP 输入→blur→切字段 title/artist/album 全保留；trellis-check 通过（lint 仅 PlaylistsPage 存量错）；build 通过

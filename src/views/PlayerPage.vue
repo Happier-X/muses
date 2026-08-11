@@ -466,37 +466,61 @@
         >
           <template #default="{ field }">
             <k-list-input
-              :value="field.state.value"
               label="标题"
               :error="typeof field.state.meta.errors[0] === 'string' ? field.state.meta.errors[0] : undefined"
               :disabled="isEditSubmitting"
-              @input="onFormInput(field.handleChange)"
-              @blur="field.handleBlur"
-            />
+            >
+              <template #input>
+                <input
+                  :value="field.state.value"
+                  type="text"
+                  placeholder="标题"
+                  class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
+                  @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                  @blur="field.handleBlur"
+                />
+              </template>
+            </k-list-input>
           </template>
         </editForm.Field>
 
         <editForm.Field name="artist">
           <template #default="{ field }">
             <k-list-input
-              :value="field.state.value"
               label="艺术家"
               :disabled="isEditSubmitting"
-              @input="onFormInput(field.handleChange)"
-              @blur="field.handleBlur"
-            />
+            >
+              <template #input>
+                <input
+                  :value="field.state.value"
+                  type="text"
+                  placeholder="艺术家"
+                  class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
+                  @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                  @blur="field.handleBlur"
+                />
+              </template>
+            </k-list-input>
           </template>
         </editForm.Field>
 
         <editForm.Field name="album">
           <template #default="{ field }">
             <k-list-input
-              :value="field.state.value"
               label="专辑"
               :disabled="isEditSubmitting"
-              @input="onFormInput(field.handleChange)"
-              @blur="field.handleBlur"
-            />
+            >
+              <template #input>
+                <input
+                  :value="field.state.value"
+                  type="text"
+                  placeholder="专辑"
+                  class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
+                  @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                  @blur="field.handleBlur"
+                />
+              </template>
+            </k-list-input>
           </template>
         </editForm.Field>
 
@@ -556,14 +580,21 @@
         >
           <template #default="{ field }">
             <k-list-input
-              :value="field.state.value"
               label="音量均衡（ReplayGain dB）"
-              placeholder="如 -6.5，空=清除"
               :error="typeof field.state.meta.errors[0] === 'string' ? field.state.meta.errors[0] : undefined"
               :disabled="isEditSubmitting"
-              @input="onFormInput(field.handleChange)"
-              @blur="field.handleBlur"
-            />
+            >
+              <template #input>
+                <input
+                  :value="field.state.value"
+                  type="text"
+                  placeholder="如 -6.5，空=清除"
+                  class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
+                  @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                  @blur="field.handleBlur"
+                />
+              </template>
+            </k-list-input>
           </template>
         </editForm.Field>
         </template>
@@ -656,13 +687,20 @@
           <editForm.Field name="lyrics">
             <template #default="{ field }">
               <k-list-input
-                type="textarea"
-                :value="field.state.value"
                 label="歌词文本"
                 :disabled="isEditSubmitting"
-                @input="onEditLyricsTextareaInput(field, $event)"
-                @blur="field.handleBlur"
-              />
+              >
+                <template #input>
+                  <textarea
+                    :value="field.state.value"
+                    rows="4"
+                    placeholder="歌词文本"
+                    class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 py-2 placeholder-black/30 dark:placeholder-white/30 resize-none"
+                    @input="(e: Event) => onEditLyricsInput(field, (e.target as HTMLTextAreaElement).value)"
+                    @blur="field.handleBlur"
+                  />
+                </template>
+              </k-list-input>
             </template>
           </editForm.Field>
         </template>
@@ -870,12 +908,6 @@ const showToast = (
   }, duration)
 }
 
-/** k-list-input 的 @input 事件适配 TanStack Form 的 handleChange */
-const onFormInput =
-  (handleChange: (value: string) => void) => (e: Event): void => {
-    handleChange((e.target as HTMLInputElement).value)
-  }
-
 /** k-range 的原生 input/change 事件适配 */
 const onRangeInput = (e: Event): void => {
   onSeekInput(Number((e.target as HTMLInputElement).value))
@@ -888,14 +920,6 @@ const onRangeChange = (e: Event): void => {
 /** k-checkbox 的原生 change 事件适配 cloudChecks */
 const onCloudCheckChange = (key: keyof typeof cloudChecks.value, e: Event): void => {
   cloudChecks.value[key] = (e.target as HTMLInputElement).checked
-}
-
-/** k-list-input textarea 的 input 事件适配 */
-const onEditLyricsTextareaInput = (
-  field: { handleChange: (value: string) => void },
-  e: Event,
-): void => {
-  onEditLyricsInput(field, (e.target as HTMLInputElement).value)
 }
 
 const validateReplayGainInput = (value: string): string | undefined => {
