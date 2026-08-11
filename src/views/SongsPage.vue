@@ -1,21 +1,24 @@
 <template>
-  <k-page ref="pageRef" class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
-    <k-navbar rightClass="!h-8">
-      <template #title>歌曲</template>
-    </k-navbar>
+  <k-page ref="pageRef" class="k-page m-page relative flex flex-col overflow-hidden !bottom-0">
+    <div class="root-navbar-wrap absolute top-0 left-0 right-0 z-20">
+      <k-navbar rightClass="!h-8">
+        <template #title>歌曲</template>
+      </k-navbar>
+    </div>
     <div class="m-content" style="overflow: hidden;">
-      <m-empty
-        v-if="songs.length === 0"
-        title="还没有歌曲"
-        description="请先到音源页添加并扫描音源。"
-      />
+      <div v-if="songs.length === 0" class="h-full box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)]">
+        <m-empty
+          title="还没有歌曲"
+          description="请先到音源页添加并扫描音源。"
+        />
+      </div>
 
-      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[var(--content-pb)] md:pb-[var(--content-pb-md)]  [overflow-anchor:none]">
+      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]">
         <k-button
           component="button"
           clear
           :colors="{ textIos: 'text-black dark:text-white', clearBgIos: 'bg-transparent active:bg-black/10 dark:active:bg-white/10' }"
-          class="sticky top-0 z-20 flex items-center justify-start gap-[10px] w-full h-11 bg-ios-light-surface dark:bg-ios-dark-surface px-4 rounded-none text-[15px]"
+          class="sticky top-[calc(max(16px,var(--k-safe-area-top))_+_44px)] z-10 flex items-center justify-start gap-[10px] w-full h-11 bg-ios-light-surface dark:bg-ios-dark-surface px-4 rounded-none text-[15px]"
           aria-label="随机播放全部"
           @click="onShuffleAll"
         >
