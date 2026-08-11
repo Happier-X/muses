@@ -519,11 +519,14 @@ html.muses-mini-visible {
 /*
  * Konsta iOS 玻璃层修复（Tailwind v4 + 老 WebView 兼容）：
  * 1) Konsta navbar/toolbar 的 backdrop-blur-[2px] 任意值类未被 Tailwind 生成
- *    （同文件的 mask-b-from-50% 等正常生成，仅含方括号的 backdrop-blur 任意值漏掉）
  *    → 毛玻璃失效；@utility 显式补齐（含 -webkit 前缀，老 WebView 必需）。
  * 2) Tailwind v4 渐变方向变量用 `to bottom in oklab`，WebView<111 不解析该插值语法
  *    → k-navbar 背景渐变整体无效（computed background-image: none）；同 tabbar
  *    先例（[--tw-gradient-position:to_top]），把 navbar 渐变方向覆盖为无插值写法。
+ *    shuffle-glass（随机播放吸顶条）与 navbar 同构，一并覆盖。
+ * 3) mask-b-from-50% / mask-t-from-50% 等 mask 渐显类只在 Konsta 组件 class
+ *    字符串里（Tailwind v4 扫描不到源码 → 不生成）→ navbar/toolbar 玻璃下半
+ *     blur 无渐显。按 Tailwind 语义手写等价：上半实色遮 blur、下半渐隐到透明。
  */
 .backdrop-blur-\[2px\] {
   --tw-backdrop-blur: blur(2px);
@@ -531,9 +534,23 @@ html.muses-mini-visible {
   backdrop-filter: blur(2px);
 }
 
-.k-navbar > .bg-gradient-to-b {
+.k-navbar > .bg-gradient-to-b,
+.shuffle-glass > .bg-gradient-to-b {
   --tw-gradient-position: to bottom;
 }
+
+.mask-b-from-50\%,
+.mask-b-to-100\% {
+  -webkit-mask-image: linear-gradient(to bottom, #000 50%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 50%, transparent 100%);
+}
+
+.mask-t-from-50\%,
+.mask-t-to-100\% {
+  -webkit-mask-image: linear-gradient(to top, #000 50%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 50%, transparent 100%);
+}
+
 
 /*
  * k-toast 文字色修复：Konsta iOS textIos 为空 → toast 文字继承 body 默认色

@@ -14,17 +14,21 @@
       </div>
 
       <div v-else ref="listParentRef" class="h-full overflow-auto box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]">
-        <k-button
-          component="button"
-          clear
-          :colors="{ textIos: 'text-black dark:text-white', clearBgIos: 'bg-transparent active:bg-black/10 dark:active:bg-white/10' }"
-          class="sticky top-0 z-10 flex items-center justify-start gap-[10px] w-full h-11 bg-ios-light-glass dark:bg-ios-dark-glass backdrop-blur-lg px-4 rounded-none text-[15px]"
-          aria-label="随机播放全部"
-          @click="onShuffleAll"
-        >
-          <component :is="shuffle" aria-hidden="true" class="size-4 flex-none" />
-          <span>{{ songs.length }} 首</span>
-        </k-button>
+        <div class="shuffle-glass sticky top-0 z-10 box-border w-full h-11">
+          <div class="pointer-events-none absolute left-0 top-0 h-full w-full backdrop-blur-[2px] mask-b-from-50% mask-b-to-100%" aria-hidden="true" />
+          <div class="pointer-events-none absolute left-0 top-0 h-full w-full bg-gradient-to-b from-ios-light-surface to-transparent dark:from-ios-dark-surface/50" aria-hidden="true" />
+          <k-button
+            component="button"
+            clear
+            :colors="{ textIos: 'text-black dark:text-white', clearBgIos: 'bg-transparent active:bg-black/10 dark:active:bg-white/10' }"
+            class="relative flex items-center justify-start gap-[10px] w-full h-full px-4 rounded-none text-[15px]"
+            aria-label="随机播放全部"
+            @click="onShuffleAll"
+          >
+            <component :is="shuffle" aria-hidden="true" class="size-4 flex-none" />
+            <span>{{ songs.length }} 首</span>
+          </k-button>
+        </div>
         <k-list :dividers-ios="false" class="!my-0">          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"

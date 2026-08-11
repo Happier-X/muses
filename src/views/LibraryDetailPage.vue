@@ -25,11 +25,13 @@
           :aria-label="`${pageTitle} 歌曲`"
           @scroll="onListScroll"
         >
-          <div class="sticky top-0 z-10 box-border w-full bg-ios-light-glass dark:bg-ios-dark-glass backdrop-blur-lg px-[8px] py-[4px]">
+          <div class="shuffle-glass sticky top-0 z-10 box-border w-full px-[8px] py-[4px]">
+            <div class="pointer-events-none absolute left-0 top-0 h-full w-full backdrop-blur-[2px] mask-b-from-50% mask-b-to-100%" aria-hidden="true" />
+            <div class="pointer-events-none absolute left-0 top-0 h-full w-full bg-gradient-to-b from-ios-light-surface to-transparent dark:from-ios-dark-surface/50" aria-hidden="true" />
             <k-button
               component="button"
               small
-              class="m-0"
+              class="relative m-0"
               aria-label="随机播放全部"
               :disabled="songs.length === 0"
               @click="onShuffleAll"
