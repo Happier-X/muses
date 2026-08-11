@@ -12,6 +12,7 @@ export {
   Shuffle as shuffle,
   ListOrdered as listOutline,
   ListMusic as list,
+  Library as library,
   Repeat as repeatOutline,
   Repeat1 as repeat,
   Music as musicalNotes,
