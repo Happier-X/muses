@@ -76,12 +76,20 @@
               >
                 <template #default="{ field }">
                   <k-list-input
-                    :value="field.state.value"
                     label="显示名称"
                     :error="firstFieldError(field.state.meta.errors)"
-                    @input="onFormInput(field.handleChange)"
-                    @blur="field.handleBlur"
-                  />
+                  >
+                    <template #input>
+                      <input
+                        :value="field.state.value"
+                        type="text"
+                        placeholder="显示名称"
+                        class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                        @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                        @blur="field.handleBlur"
+                      />
+                    </template>
+                  </k-list-input>
                 </template>
               </editSourceForm.Field>
               <template v-if="sourcePendingEdit?.type === 'webdav'">
@@ -93,13 +101,20 @@
                 >
                   <template #default="{ field }">
                     <k-list-input
-                      :value="field.state.value"
                       label="服务器地址"
-                      type="url"
                       :error="firstFieldError(field.state.meta.errors)"
-                      @input="onFormInput(field.handleChange)"
-                      @blur="field.handleBlur"
-                    />
+                    >
+                      <template #input>
+                        <input
+                          :value="field.state.value"
+                          type="url"
+                          placeholder="https://example.com/dav"
+                          class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                          @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                          @blur="field.handleBlur"
+                        />
+                      </template>
+                    </k-list-input>
                   </template>
                 </editSourceForm.Field>
                 <editSourceForm.Field
@@ -110,26 +125,38 @@
                 >
                   <template #default="{ field }">
                     <k-list-input
-                      :value="field.state.value"
                       label="用户名"
-                      autocomplete="username"
                       :error="firstFieldError(field.state.meta.errors)"
-                      @input="onFormInput(field.handleChange)"
-                      @blur="field.handleBlur"
-                    />
+                    >
+                      <template #input>
+                        <input
+                          :value="field.state.value"
+                          type="text"
+                          placeholder="用户名"
+                          autocomplete="username"
+                          class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                          @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                          @blur="field.handleBlur"
+                        />
+                      </template>
+                    </k-list-input>
                   </template>
                 </editSourceForm.Field>
                 <editSourceForm.Field name="password">
                   <template #default="{ field }">
-                    <k-list-input
-                      :value="field.state.value"
-                      label="新密码"
-                      type="password"
-                      autocomplete="new-password"
-                      info="留空则保留原密码"
-                      @input="onFormInput(field.handleChange)"
-                      @blur="field.handleBlur"
-                    />
+                    <k-list-input label="新密码" info="留空则保留原密码">
+                      <template #input>
+                        <input
+                          :value="field.state.value"
+                          type="password"
+                          placeholder="新密码"
+                          autocomplete="new-password"
+                          class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                          @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                          @blur="field.handleBlur"
+                        />
+                      </template>
+                    </k-list-input>
                   </template>
                 </editSourceForm.Field>
               </template>
@@ -141,12 +168,20 @@
               >
                 <template #default="{ field }">
                   <k-list-input
-                    :value="field.state.value"
                     label="目录"
                     :error="firstFieldError(field.state.meta.errors)"
-                    @input="onFormInput(field.handleChange)"
-                    @blur="field.handleBlur"
-                  />
+                  >
+                    <template #input>
+                      <input
+                        :value="field.state.value"
+                        type="text"
+                        placeholder="目录"
+                        class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                        @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                        @blur="field.handleBlur"
+                      />
+                    </template>
+                  </k-list-input>
                 </template>
               </editSourceForm.Field>
             </div>
@@ -246,14 +281,20 @@
               >
                 <template #default="{ field }">
                   <k-list-input
-                    :value="field.state.value"
                     label="服务器地址"
-                    placeholder="https://example.com/dav"
-                    type="url"
                     :error="firstFieldError(field.state.meta.errors)"
-                    @input="onFormInput(field.handleChange)"
-                    @blur="field.handleBlur"
-                  />
+                  >
+                    <template #input>
+                      <input
+                        :value="field.state.value"
+                        type="url"
+                        placeholder="https://example.com/dav"
+                        class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                        @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                        @blur="field.handleBlur"
+                      />
+                    </template>
+                  </k-list-input>
                 </template>
               </webDavForm.Field>
               <webDavForm.Field
@@ -264,13 +305,21 @@
               >
                 <template #default="{ field }">
                   <k-list-input
-                    :value="field.state.value"
                     label="用户名"
-                    autocomplete="username"
                     :error="firstFieldError(field.state.meta.errors)"
-                    @input="onFormInput(field.handleChange)"
-                    @blur="field.handleBlur"
-                  />
+                  >
+                    <template #input>
+                      <input
+                        :value="field.state.value"
+                        type="text"
+                        placeholder="用户名"
+                        autocomplete="username"
+                        class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                        @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                        @blur="field.handleBlur"
+                      />
+                    </template>
+                  </k-list-input>
                 </template>
               </webDavForm.Field>
               <webDavForm.Field
@@ -281,14 +330,21 @@
               >
                 <template #default="{ field }">
                   <k-list-input
-                    :value="field.state.value"
                     label="密码"
-                    type="password"
-                    autocomplete="current-password"
                     :error="firstFieldError(field.state.meta.errors)"
-                    @input="onFormInput(field.handleChange)"
-                    @blur="field.handleBlur"
-                  />
+                  >
+                    <template #input>
+                      <input
+                        :value="field.state.value"
+                        type="password"
+                        placeholder="密码"
+                        autocomplete="current-password"
+                        class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                        @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                        @blur="field.handleBlur"
+                      />
+                    </template>
+                  </k-list-input>
                 </template>
               </webDavForm.Field>
             </div>
@@ -431,11 +487,6 @@ const firstFieldError = (errors: unknown[]): string | undefined => {
 }
 
 /** k-list-input 的 @input 事件适配 TanStack Form 的 handleChange */
-const onFormInput =
-  (handleChange: (value: string) => void) => (e: Event): void => {
-    handleChange((e.target as HTMLInputElement).value)
-  }
-
 const onScanReadTagsToggle = (e: Event): void => {
   scanOptions.value.readTags = (e.target as HTMLInputElement).checked
 }
