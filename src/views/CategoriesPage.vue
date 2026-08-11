@@ -1,7 +1,7 @@
 <template>
   <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
     <k-navbar rightClass="!h-8">
-      <template #title>分类</template>
+      <template #title>音乐库</template>
       <template #right>
         <k-button
           v-if="segment === 'playlists'"

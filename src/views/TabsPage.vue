@@ -68,7 +68,7 @@ import { home, list, musicalNotes, radio, settings } from '@/icons'
 
 const navItems = [
   { to: '/tabs/songs', label: '歌曲', icon: musicalNotes },
-  { to: '/tabs/categories', label: '分类', icon: list },
+  { to: '/tabs/categories', label: '音乐库', icon: list },
   { to: '/tabs/sources', label: '音源', icon: radio },
   { to: '/tabs/settings', label: '设置', icon: settings },
 ]
