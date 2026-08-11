@@ -4,7 +4,7 @@ import TabsPage from '../views/TabsPage.vue'
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect: '/tabs/home'
+    redirect: '/tabs/songs'
   },
   {
     path: '/tabs',
@@ -12,40 +12,15 @@ const routes: Array<RouteRecordRaw> = [
     children: [
       {
         path: '',
-        redirect: '/tabs/home'
+        redirect: '/tabs/songs'
       },
-      {
-        path: 'home',
-        component: () => import('@/views/HomePage.vue')
-      },
-      {
-        path: 'music',
-        component: () => import('@/views/MusicPage.vue')
-      },
-      // 旧独立 tab 路由收敛到 /tabs/music（分段切换），保留重定向兼容旧链接/深层链接
       {
         path: 'songs',
-        redirect: '/tabs/music'
+        component: () => import('@/views/SongsPage.vue')
       },
       {
-        path: 'albums',
-        redirect: '/tabs/music'
-      },
-      {
-        path: 'artists',
-        redirect: '/tabs/music'
-      },
-      {
-        path: 'playlists',
-        redirect: '/tabs/music'
-      },
-      {
-        path: 'playlists/:id',
-        component: () => import('@/views/PlaylistDetailPage.vue')
-      },
-      {
-        path: 'library/:kind/:name',
-        component: () => import('@/views/LibraryDetailPage.vue')
+        path: 'categories',
+        component: () => import('@/views/CategoriesPage.vue')
       },
       {
         path: 'sources',
@@ -54,6 +29,35 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: 'settings',
         component: () => import('@/views/SettingsPage.vue')
+      },
+      // 旧 tab 路由收敛重定向
+      {
+        path: 'home',
+        redirect: '/tabs/songs'
+      },
+      {
+        path: 'music',
+        redirect: '/tabs/songs'
+      },
+      {
+        path: 'albums',
+        redirect: '/tabs/categories'
+      },
+      {
+        path: 'artists',
+        redirect: '/tabs/categories'
+      },
+      {
+        path: 'playlists',
+        redirect: '/tabs/categories'
+      },
+      {
+        path: 'playlists/:id',
+        component: () => import('@/views/PlaylistDetailPage.vue')
+      },
+      {
+        path: 'library/:kind/:name',
+        component: () => import('@/views/LibraryDetailPage.vue')
       }
     ]
   }

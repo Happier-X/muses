@@ -675,3 +675,8 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 根因 2：navbar subnavbar 容器是 flex（'relative flex items-center h-14 pl-safe-4 pr-safe-4'）→ 子 div 无 flex 撑开 → 分段条收缩到 219px（应占满 328）
   - 修复：k-segmented 加 `strong rounded`；subnavbar 内容 div 改 `flex-1 min-w-0`（去掉自定义 px-4 pt-2 pb-3，subnavbar 自带 pl/pr-safe-4 + h-14 垂直居中）
   - 实测：分段条 328/360 占满、滑块 bg-white、蓝字消失（之前 0 蓝像素）
+- **tabbar 改为 歌曲/分类/音源/设置 4 项**（用户）：
+  - 路由：/tabs/songs（歌曲，恢复独立路由+navbar）、/tabs/categories（新 CategoriesPage，标题"分类"+ 分段 专辑|艺术家|歌单）、/tabs/sources（音源恢复独立 tab，去返回按钮）、/tabs/settings；删 home/music 路由重定向（home/music→songs，albums/artists/playlists→categories）
+  - 删 MusicPage/HomePage/musicSegment.ts；新建 CategoriesPage/categoriesSegment.ts（段类型 albums|artists|playlists）；LibraryDetail/PlaylistDetail goBack replace 目标 /tabs/music→/tabs/categories（原 /tabs/music 重定向 songs 导致返回跑错页）
+  - SettingsPage 去音源管理入口（音源已是 tab）；App.vue 一级白名单 4 tab
+  - 实测：4 tab ✓ 分类分段 328 占满 ✓ 详情返回分类专辑段 ✓ 一级返回退桌面 ✓

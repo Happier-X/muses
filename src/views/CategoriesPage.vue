@@ -1,7 +1,7 @@
 <template>
   <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
     <k-navbar rightClass="!h-8">
-      <template #title>音乐</template>
+      <template #title>分类</template>
       <template #right>
         <k-button
           v-if="segment === 'playlists'"
@@ -30,9 +30,8 @@
         </div>
       </template>
     </k-navbar>
-    <!-- 子页面区：四个列表页 v-show 切换（改造后各自无 navbar，仅内容） -->
+    <!-- 子页面区：三个分类页 v-show 切换（各自无 navbar，仅内容） -->
     <div class="relative min-h-0 flex-1">
-      <SongsPage v-show="segment === 'songs'" />
       <AlbumsPage v-show="segment === 'albums'" />
       <ArtistsPage v-show="segment === 'artists'" />
       <PlaylistsPage ref="playlistsRef" v-show="segment === 'playlists'" />
@@ -44,21 +43,19 @@
 import { ref, watch } from 'vue'
 import { kButton, kNavbar, kPage, kSegmented, kSegmentedButton } from '@/components/ui'
 import { add } from '@/icons'
-import { getMusicSegment, setMusicSegment, type MusicSegment } from '@/features/player/musicSegment'
-import SongsPage from './SongsPage.vue'
+import { getCategoriesSegment, setCategoriesSegment, type CategoriesSegment } from '@/features/player/categoriesSegment'
 import AlbumsPage from './AlbumsPage.vue'
 import ArtistsPage from './ArtistsPage.vue'
 import PlaylistsPage from './PlaylistsPage.vue'
 
-const segments: Array<{ value: MusicSegment; label: string }> = [
-  { value: 'songs', label: '全部' },
+const segments: Array<{ value: CategoriesSegment; label: string }> = [
   { value: 'albums', label: '专辑' },
   { value: 'artists', label: '艺术家' },
   { value: 'playlists', label: '歌单' },
 ]
 
-const segment = ref<MusicSegment>(getMusicSegment())
-watch(segment, (value) => setMusicSegment(value))
+const segment = ref<CategoriesSegment>(getCategoriesSegment())
+watch(segment, (value) => setCategoriesSegment(value))
 
 const playlistsRef = ref<InstanceType<typeof PlaylistsPage> | null>(null)
 </script>

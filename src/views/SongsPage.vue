@@ -1,5 +1,8 @@
 <template>
   <k-page ref="pageRef" class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
+    <k-navbar rightClass="!h-8">
+      <template #title>歌曲</template>
+    </k-navbar>
     <div class="m-content" style="overflow: hidden;">
       <m-empty
         v-if="songs.length === 0"
@@ -123,7 +126,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicIn
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, ellipsisVertical, shuffle } from '@/icons'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kFab, kList, kListItem, kListInput, kPage, MCover, MEmpty } from '@/components/ui'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kFab, kList, kListItem, kListInput, kNavbar, kPage, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'

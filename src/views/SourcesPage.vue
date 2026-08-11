@@ -1,9 +1,6 @@
 <template>
   <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
     <k-navbar rightClass="!h-8">
-      <template #left>
-        <k-navbar-back-link text="返回" @click="goBack" />
-      </template>
       <template #title>音源</template>
       <template #right>
         <k-button component="button" clear rounded class="size-8" aria-label="添加音源" @click="isAddActionSheetOpen = true">
@@ -353,8 +350,7 @@ import { useForm } from '@tanstack/vue-form'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
 import { add, radio } from '@/icons'
-import { useRouter } from 'vue-router'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kCard, kCheckbox, kDialog, kDialogButton, kList, kListItem, kListInput, kNavbar, kNavbarBackLink, kPage, kPreloader, kSheet, kToast, kToggle, MEmpty } from '@/components/ui'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kCard, kCheckbox, kDialog, kDialogButton, kList, kListItem, kListInput, kNavbar, kPage, kPreloader, kSheet, kToast, kToggle, MEmpty } from '@/components/ui'
 import {
   createSourceId,
   deleteSource,
@@ -373,11 +369,6 @@ import type { ScanOptions, ScanProgress, ScanStage } from '@/features/library/ty
 
 
 const sources = ref<SourceItem[]>(loadSources())
-const router = useRouter()
-
-const goBack = (): void => {
-  router.back()
-}
 const listParentRef = ref<HTMLElement | null>(null)
 const isAddActionSheetOpen = ref(false)
 const isDeleteAlertOpen = ref(false)

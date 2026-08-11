@@ -194,6 +194,6 @@ onUnmounted(() => {
   window.removeEventListener(SONGS_UPDATED_EVENT, refresh)
 })
 
-// 新建入口上移 MusicPage navbar（歌单段），暴露打开方法供父组件调用
+// 新建入口上移分类页 navbar（歌单段），暴露打开方法供父组件调用
 defineExpose({ openCreateAlert })
 </script>

@@ -94,7 +94,7 @@ import { Capacitor } from '@capacitor/core'
 import { crosshair, shuffle } from '@/icons'
 import { kButton, kFab, kList, kListItem, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
-import { setMusicSegment } from '@/features/player/musicSegment'
+import { setCategoriesSegment } from '@/features/player/categoriesSegment'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, groupSongsByAlbum, groupSongsByArtist } from '@/features/library/views'
 import {
@@ -270,10 +270,10 @@ const getSongCoverSrc = (song: SongItem): string => {
 
 const goBack = (): void => {
   // 专辑/艺术家详情属于「音乐」页分段，返回时恢复对应段
-  setMusicSegment(kind.value === 'artist' ? 'artists' : 'albums')
+  setCategoriesSegment(kind.value === 'artist' ? 'artists' : 'albums')
   router.back()
   window.setTimeout(() => {
-    router.replace('/tabs/music')
+    router.replace('/tabs/categories')
   }, 100)
 }
 
