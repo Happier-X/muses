@@ -706,3 +706,6 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 用户指出"图标按钮应该是 k-button 配合 clear"——查 Konsta ButtonClasses 确认 5 种 style：fill(默认实心)/outline/clear(透明底+文字色)/tonal/segmentedStrong
   - 纯图标按钮必须 clear，否则 fill 蓝底；带文字的主操作按钮保持 fill 合理
   - 全项目扫描修 2 处漏网：PlaylistDetailPage 移除按钮、PlaylistsPage 更多操作按钮（small rounded 无 clear）——commit 2013a30
+- **发布 v0.2.9**（chore(release)，版本号 package.json/lock 0.2.9 + build.gradle versionCode 29）：
+  - 自 v0.2.8 累计 30 提交：tabbar 4 项重组（歌曲/音乐库/音源/设置）、列表回归官方（去卡片/分割线/72px 无缝+contentInset）、WebDAV+PlayerPage 表单受控化、navbar 玻璃修复、图标按钮 clear 规范
+  - changelog/v0.2.9.md 新文件
