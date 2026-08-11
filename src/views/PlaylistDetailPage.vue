@@ -61,6 +61,7 @@
                   <k-button
                     component="button"
                     small
+                    clear
                     rounded
                     class="flex-none m-0 ml-auto size-8"
                     :aria-label="`从歌单移除 ${row.song.title}`"

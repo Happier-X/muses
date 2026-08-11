@@ -31,6 +31,7 @@
             <k-button
               component="button"
               small
+              clear
               rounded
               class="m-0 size-8"
               aria-label="更多歌单操作"
