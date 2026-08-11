@@ -718,3 +718,19 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 外层手写 div（bg-ios-light-glass+shadow+backdrop-blur-lg 6 个类）→ k-glass 组件（component/class/事件透传，默认即官方玻璃配方 bg+shadow+blur+dark 反色；需自留 rounded-full 圆角）
   - 验证：k-glass 渲染类/白 0.75 玻璃/blur16px/fixed/role=button/点击开播放页全正常；k-glass 默认 touch-none 不影响点击
   - 注意：querySelector('.k-glass') 会匹配到 k-actions 菜单里的玻璃，定位组件需用 aria-label 或业务类
+
+## 08-13 navbar 覆盖式布局修复（官方玻璃模糊）
+**用户问题**：顶部 navbar 没有官网 demo 的"内容滚到下方时半透明模糊"效果，猜测"顶上没有列表"。
+**根因链**（用户猜测成立）：
+1. k-navbar 在文档流（滚动容器外），滚动容器从 navbar 底部才开始 → 内容永远不经过 navbar 后方（y0-60 恒空）→ blur/渐变无内容可透
+2. tabbar 是 fixed 覆盖在列表上 → 内容从其后经过 → 有玻璃感（对比差异来源）
+3. 附带发现：SongsPage k-page 的 `!h-auto`（important）覆盖 `.m-page{height:100%}` → k-page 被内容撑高（20290px）→ 列表 h-full 失效不能滚（改覆盖式后暴露）
+**修复**（SongsPage 单页）：
+- k-navbar 包 `root-navbar-wrap absolute top-0 z-20`（覆盖式，k-page 加 relative）
+- 滚动容器（listParentRef）从屏幕顶开始（无 pt），内容滚动时从 navbar 后方经过 → 官方玻璃生效
+- 移除 `!h-auto`（k-page 锁定视口高）
+- shuffle 行 `sticky top-[calc(max(16px,var(--k-safe-area-top))+44px)]` z-10（吸 navbar 正下方，保持可点，不再挡内容）
+- empty 分支 pt 同 calc 避让 navbar
+**关键认知**：① 结构上"内容经过 navbar 后"才是官方玻璃的前提（bg 渐变 239→transparent + blur2px + mask 上半实色，透出区 y38-76）；② 模拟器程序化滚动不产生合成帧 → backdrop 采样不更新 → 截图差分恒 0（工具限制，真实滚动正常）；③ CDP Input.dispatchTouchEvent 在此 WebView 无效（模拟器通道限制）；④ sticky 元素自然位置已在吸住线上方时立即吸住（无经过过程）
+**验证**：kpageH 616 锁定 ✓ shuffle 吸 y60 ✓ 行位置随滚动移动 ✓
+**提交**：a7a3d7a
