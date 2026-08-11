@@ -695,3 +695,10 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 改 5 字段（title/artist/album/replayGainDb + lyrics textarea py-2 resize-none）；删 onFormInput/onEditLyricsTextareaInput；onEditLyricsInput 保留（format='lrc' 逻辑）
   - 注意：fixed/transform 浮层 offsetParent 恒 null——CDP 判断浮层开关须用 class（-translate-y-full=closed / translate-y-0=opened）而非 offsetParent
   - 验证：CDP 输入→blur→切字段 title/artist/album 全保留；trellis-check 通过（lint 仅 PlaylistsPage 存量错）；build 通过
+- **Konsta navbar 玻璃效果修复**（任务 08-11-fix-navbar-glass，用户"补一个"留档）：
+  - 用户反馈 navbar 与官网（konstaui.com/vue/navbar）不一致、无玻璃效果——CDP 实测两层背景均失效
+  - 根因 1：Tailwind v4 渐变用 `to bottom in oklab`，WebView<111 不解析 → bg 层 background-image:none（navbar 完全透明）
+  - 根因 2：backdrop-blur-[2px] 任意值类未生成（mask-* 正常）→ blur 失效
+  - 修复：tailwind.css 补 `.backdrop-blur-\[2px\]`（含 -webkit 前缀）+ `.k-navbar > .bg-gradient-to-b { --tw-gradient-position: to bottom }`（tabbar to_top 先例）
+  - 关键经验：判定浮层/渐变问题时用 CDP getComputedStyle 看实际值（如背景消失却无报错）；Tailwind v4 的 `in oklab` 插值语法要求 WebView>=111
+  - 验证：bg 渐变 linear-gradient(239,239,244→transparent) + blur(2px) + mask 生效；附截图像素采样对比
