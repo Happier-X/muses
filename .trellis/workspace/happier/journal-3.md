@@ -683,3 +683,10 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - **歌曲列表项恢复原样 + 滚动避开 tabbar/mini**（用户"每个列表项都让你改坏了，要一开始的那样，滚动到最后能避开 tabbar 和播放条"）：
   - 教训：别动列表项本体布局（行高 88/flex 居中/pb 都算改坏）——虚拟列表 estimateSize/行容器/item 高度必须一致 72 无缝
   - 真正需求 = 动态 contentInset（4a68df5 已实现）：播放中滚底行底=456 贴 MiniPlayer 顶、无播放完整可见；本次回滚 6a6ee2f/c3c7d07 的行布局改动
+- **修复 WebDAV 添加表单输入消失**（任务 08-11-fix-webdav-add，用户"填写了表单以后填写的内容又消失了"，时机=切字段时）：
+  - 根因：k-list-input 非受控（Konsta 源码 input 不绑 :value，值存 DOM；value prop 仅浮动 label 用）；tanstack vue-form 重渲染与非受控 DOM 竞态 → blur/切字段偶发丢值（CDP 实测复现）
+  - 修复：8 字段（WebDAV 添加 3 + 编辑音源 5）改 k-list-input #input 槽自定义受控 input（:value=field.state.value + @input=field.handleChange + @blur=field.handleBlur）；删废弃 onFormInput
+  - trellis-check 发现并修：自定义 input 漏 Konsta 默认类 h-10 + placeholder 色（视觉回归，16px 行高）→ 8 处补齐
+  - spec：forms.md 新增 §0 k-list-input 必须 #input 槽受控（含完整样式类清单）
+  - 实测：三轮输入+切字段全保留、提交失败后值保留、label 正常
+  - 遗留（非本任务）：PlayerPage 编辑歌曲信息 5 字段同模式非受控（高风险，建议后续迁移）；PlaylistsPage k-button 未导入 lint 存量错
