@@ -1,33 +1,49 @@
 <template>
   <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
-    <div class="flex min-h-0 flex-1 flex-col">
-      <!-- 资料库分段控制器 -->
-      <div class="z-10 shrink-0 px-4 pt-3 pb-2">
-        <k-segmented class="!my-0">
-          <k-segmented-button
-            v-for="item in segments"
-            :key="item.value"
-            :active="segment === item.value"
-            @click="segment = item.value"
-          >
-            {{ item.label }}
-          </k-segmented-button>
-        </k-segmented>
-      </div>
-      <!-- 子页面区：四个列表页 v-show 切换（每页自带 k-page/navbar） -->
-      <div class="relative min-h-0 flex-1">
-        <SongsPage v-show="segment === 'songs'" />
-        <AlbumsPage v-show="segment === 'albums'" />
-        <ArtistsPage v-show="segment === 'artists'" />
-        <PlaylistsPage v-show="segment === 'playlists'" />
-      </div>
+    <k-navbar rightClass="!h-8">
+      <template #title>音乐</template>
+      <template #right>
+        <k-button
+          v-if="segment === 'playlists'"
+          component="button"
+          clear
+          rounded
+          class="size-8"
+          aria-label="新建歌单"
+          @click="playlistsRef?.openCreateAlert()"
+        >
+          <component :is="add" aria-hidden="true" class="size-4" />
+        </k-button>
+      </template>
+      <template #subnavbar>
+        <div class="px-4 pt-2 pb-3">
+          <k-segmented class="!my-0">
+            <k-segmented-button
+              v-for="item in segments"
+              :key="item.value"
+              :active="segment === item.value"
+              @click="segment = item.value"
+            >
+              {{ item.label }}
+            </k-segmented-button>
+          </k-segmented>
+        </div>
+      </template>
+    </k-navbar>
+    <!-- 子页面区：四个列表页 v-show 切换（改造后各自无 navbar，仅内容） -->
+    <div class="relative min-h-0 flex-1">
+      <SongsPage v-show="segment === 'songs'" />
+      <AlbumsPage v-show="segment === 'albums'" />
+      <ArtistsPage v-show="segment === 'artists'" />
+      <PlaylistsPage ref="playlistsRef" v-show="segment === 'playlists'" />
     </div>
   </k-page>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { kPage, kSegmented, kSegmentedButton } from '@/components/ui'
+import { kButton, kNavbar, kPage, kSegmented, kSegmentedButton } from '@/components/ui'
+import { add } from '@/icons'
 import { getMusicSegment, setMusicSegment, type MusicSegment } from '@/features/player/musicSegment'
 import SongsPage from './SongsPage.vue'
 import AlbumsPage from './AlbumsPage.vue'
@@ -43,4 +59,6 @@ const segments: Array<{ value: MusicSegment; label: string }> = [
 
 const segment = ref<MusicSegment>(getMusicSegment())
 watch(segment, (value) => setMusicSegment(value))
+
+const playlistsRef = ref<InstanceType<typeof PlaylistsPage> | null>(null)
 </script>

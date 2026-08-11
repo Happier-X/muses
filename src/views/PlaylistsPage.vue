@@ -1,13 +1,5 @@
 <template>
   <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
-    <k-navbar rightClass="!h-8">
-      <template #title>歌单</template>
-      <template #right>
-        <k-button component="button" clear rounded class="size-8" aria-label="新建歌单" @click="openCreateAlert">
-          <component :is="addOutline" aria-hidden="true" class="size-4" />
-        </k-button>
-      </template>
-    </k-navbar>
     <div class="m-content">
       <div class="">
         <m-empty
@@ -90,8 +82,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { addOutline, ellipsisVertical, list } from '@/icons'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kList, kListInput, kNavbar, kPage, MCover, MEmpty } from '@/components/ui'
+import { ellipsisVertical, list } from '@/icons'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kDialog, kDialogButton, kList, kListInput, kPage, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,
@@ -201,4 +193,7 @@ onUnmounted(() => {
   window.removeEventListener(PLAYLISTS_UPDATED_EVENT, refresh)
   window.removeEventListener(SONGS_UPDATED_EVENT, refresh)
 })
+
+// 新建入口上移 MusicPage navbar（歌单段），暴露打开方法供父组件调用
+defineExpose({ openCreateAlert })
 </script>

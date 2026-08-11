@@ -666,3 +666,7 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - App.vue isTopLevelPage 改白名单（home/music/settings）；LibraryDetail/PlaylistDetail goBack 的 replace 目标改为 /tabs/music + setMusicSegment
   - 实测：3 tab ✓ 分段切换（navbar 标题随段）✓ 播放→最近播放→首页 ✓ 详情返回段恢复 ✓ 音源返回设置 ✓ 一级返回退桌面 ✓
   - 坑：installDebug 覆盖安装清了 localStorage（WebView 未 flush）→ 重扫音源恢复；wav 测试音频播放正常（0.8s 播放中→2s 播完消失）
+- **音乐页标题改为「音乐」+ subnavbar 分段**（用户："音乐页面标题就叫音乐，下面放 segment"）：
+  - MusicPage 加 k-navbar 标题「音乐」+ 分段条移入 navbar subnavbar slot；子页面 4 个去各自 navbar（Songs 删标题+无功能搜索按钮、Albums/Artists m-page 改 k-page 直写无 navbar、Playlists 删 navbar）
+  - 功能按钮上移：新建歌单（歌单段）→ MusicPage navbar right，ref 调 PlaylistsPage defineExpose openCreateAlert
+  - 验证：navTitle=音乐+4 段、全页 1 个 navbar、新建弹窗正常

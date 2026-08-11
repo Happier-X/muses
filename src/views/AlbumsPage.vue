@@ -1,9 +1,8 @@
 <template>
-  <m-page>
-    <template #title>专辑</template>
-
-    <m-empty
-      v-if="albums.length === 0"
+  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
+    <div class="m-content overflow-hidden">
+      <m-empty
+        v-if="albums.length === 0"
       title="还没有专辑"
       description="请先到音源页添加并扫描音源。"
       :icon="albumsIcon"
@@ -29,7 +28,8 @@
         </div>
       </article>
     </div>
-  </m-page>
+    </div>
+  </k-page>
 </template>
 
 <script setup lang="ts">
@@ -37,7 +37,7 @@ import { computed, onMounted, ref } from 'vue'
 import { albums as albumsIcon } from '@/icons'
 import { useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { MCover, MEmpty, MPage } from '@/components/ui'
+import { kPage, MCover, MEmpty } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByAlbum } from '@/features/library/views'

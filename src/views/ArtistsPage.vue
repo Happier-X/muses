@@ -1,8 +1,7 @@
 <template>
-  <m-page>
-    <template #title>艺术家</template>
-
-    <m-empty
+  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
+    <div class="m-content overflow-hidden">
+      <m-empty
       v-if="artists.length === 0"
       title="还没有艺术家"
       description="请先到音源页添加并扫描音源。"
@@ -33,7 +32,8 @@
         </div>
       </article>
     </div>
-  </m-page>
+    </div>
+  </k-page>
 </template>
 
 <script setup lang="ts">
@@ -41,7 +41,7 @@ import { computed, onMounted, ref } from 'vue'
 import { person } from '@/icons'
 import { useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { MEmpty, MCover, MPage } from '@/components/ui'
+import { kPage, MEmpty, MCover } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByArtist } from '@/features/library/views'
