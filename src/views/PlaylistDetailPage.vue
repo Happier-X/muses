@@ -1,5 +1,5 @@
 <template>
-  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-safe-24 md:!bottom-0">
+  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
     <k-navbar rightClass="!h-8">
       <template #left>
         <k-navbar-back-link text="返回" @click="goBack" />

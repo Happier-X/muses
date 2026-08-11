@@ -1,5 +1,5 @@
 <template>
-  <k-page ref="pageRef" class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-safe-24 md:!bottom-0">
+  <k-page ref="pageRef" class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
     <k-navbar rightClass="!h-8">
       <template #title>歌曲</template>
       <template #right>

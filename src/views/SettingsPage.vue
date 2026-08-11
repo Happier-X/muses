@@ -1,9 +1,9 @@
 <template>
-  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-safe-24 md:!bottom-0">
+  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
     <k-navbar rightClass="!h-8">
       <template #title>设置</template>
     </k-navbar>
-    <div class="m-content">
+    <div class="m-content pb-[64px]">
       <div class="">
         <k-block-title>关于</k-block-title>
         <k-list inset>

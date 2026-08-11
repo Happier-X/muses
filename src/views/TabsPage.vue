@@ -25,7 +25,7 @@
       <main
         class="flex-1 min-h-0 relative"
         :class="isTabsRoute
-          ? 'pb-safe-24 md:pb-0 md:fixed md:top-0 md:right-0 md:bottom-0 md:left-[260px] md:overflow-hidden'
+          ? 'md:fixed md:top-0 md:right-0 md:bottom-0 md:left-[260px] md:overflow-hidden'
           : 'pb-0 md:min-w-0'"
       >
         <RouterView />

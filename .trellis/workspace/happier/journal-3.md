@@ -644,3 +644,7 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - Release: https://github.com/Happier-X/muses/releases/tag/v0.2.8
   （muses-v0.2.8.apk 8.3MB + muses-v0.2.8-mi.apk 8.3MB）
 - **一级页面返回=退出应用**（用户："一级页面手势返回应该直接退出应用"）：之前 router.back() 对 tab 间切换也生效（tab 切换也是 push → 一级页返回回上一个 tab）。修复：按路径深度区分——`route.path.split('/').filter(Boolean).length <= 2`（/tabs/songs 等一级页）→ minimizeApp 退桌面；二级页（/tabs/library/... 详情）→ router.back()。实测：歌曲页/专辑列表返回→桌面（lawnchair，进程保留播放）；详情返回→专辑列表 ✓
+- **tabbar 灰底根因修复**（用户分析准确："列表只占除 tabbar 外的部分，玻璃透出灰色底"）：
+  - 根因：8 处 k-page `!bottom-safe-24`（absolute bottom 缩到 tabbar 上方）+ TabsPage main `pb-safe-24` → 列表高度止于 tabbar 之上 → tabbar 玻璃背后永远是 k-page 灰底（MiniPlayer 在列表区域内所以透出内容正常）
+  - 修复：7 处 k-page（6 view + MPage.vue）`!bottom-safe-24 md:!bottom-0` → `!bottom-0`；main 去 `pb-safe-24`；Settings m-content 加 pb-[64px]、Albums/Artists grid p-[16px] → px/pt/pb 拆分（pb-[64px]）；已有 pb 的页（Songs/Library/Playlist 滚动容器 64px、Playlists 80px、Sources 88px）保留
+  - 实测：滚动容器 bottom=616（视口底，延伸到 tabbar 背后）；tabbar 区像素灰色占比 0%（透出列表白底内容）
