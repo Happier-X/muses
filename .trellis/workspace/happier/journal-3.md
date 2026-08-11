@@ -714,3 +714,7 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 修复：.k-toast 显式文字色（浅黑 dark 白）+ 顺带修 backdrop-blur-lg 未生效（WebView 对 Tailwind var() 链规则 backdrop-filter 忽略，直接给值 blur(16px) 覆盖；MiniPlayer/k-glass 全受益）
   - 验证：CDP computed——toast 浅色 rgb(0,0,0)/深色 rgb(255,255,255)、glass+mini blur(16px)
   - 经验：Konsta iOS 部分组件（toast textIos）颜色为空会继承 body 默认色；项目 body color=白是历史设定，组件需显式设色
+- **MiniPlayer 改用 k-glass 组件**（用户"可以用konsta ui的glass组件呀"）：
+  - 外层手写 div（bg-ios-light-glass+shadow+backdrop-blur-lg 6 个类）→ k-glass 组件（component/class/事件透传，默认即官方玻璃配方 bg+shadow+blur+dark 反色；需自留 rounded-full 圆角）
+  - 验证：k-glass 渲染类/白 0.75 玻璃/blur16px/fixed/role=button/点击开播放页全正常；k-glass 默认 touch-none 不影响点击
+  - 注意：querySelector('.k-glass') 会匹配到 k-actions 菜单里的玻璃，定位组件需用 aria-label 或业务类

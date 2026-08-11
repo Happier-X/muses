@@ -1,6 +1,7 @@
 <template>
-  <div
-    class="fixed left-4 right-4 bottom-safe-24 z-[1000] flex h-16 items-center gap-[12px] rounded-full bg-ios-light-glass shadow-ios-light-glass backdrop-blur-lg px-[12px] text-black dark:bg-ios-dark-glass dark:shadow-ios-dark-glass dark:text-white md:bottom-safe-2"
+  <k-glass
+    component="div"
+    class="fixed left-4 right-4 bottom-safe-24 z-[1000] flex h-16 items-center gap-[12px] rounded-full px-[12px] text-black dark:text-white md:bottom-safe-2"
     :class="{
       'cursor-pointer': !!playerState.currentSong,
       'cursor-default': !playerState.currentSong,
@@ -44,14 +45,14 @@
         <component :is="list" aria-hidden="true" class="size-5" />
       </k-button>
     </div>
-  </div>
+  </k-glass>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { list, pause, play } from '@/icons'
-import { kButton, MCover } from '@/components/ui'
+import { kButton, kGlass, MCover } from '@/components/ui'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 
