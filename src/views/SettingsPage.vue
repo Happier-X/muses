@@ -3,7 +3,7 @@
     <k-navbar rightClass="!h-8">
       <template #title>设置</template>
     </k-navbar>
-    <div class="m-content pb-40">
+    <div class="m-content pb-[var(--content-pb)]">
       <div class="">
         <k-block-title>关于</k-block-title>
         <k-list inset>

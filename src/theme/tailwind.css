@@ -499,3 +499,19 @@ div:has(+ .k-dialog),
 div:has(+ .k-actions) {
   z-index: 1200;
 }
+
+/*
+ * 列表内容底部 padding（对齐 iOS contentInset 行为）：
+ * 滚动到底最后一行恰好停在上层悬浮元素上缘，不留多余灰带。
+ * html.muses-mini-visible 由 MiniPlayer 组件按 currentSong 切换。
+ * 移动端：无播放 80px(=tabbar 顶) / 有播放 160px(=MiniPlayer 顶)
+ * 平板（md）：无 tabbar，无播放 0 / 有播放 96px(盖过悬浮 MiniPlayer)
+ */
+:root {
+  --content-pb: 80px;
+  --content-pb-md: 0px;
+}
+html.muses-mini-visible {
+  --content-pb: 160px;
+  --content-pb-md: 96px;
+}

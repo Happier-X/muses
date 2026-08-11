@@ -29,7 +29,7 @@
           description="在歌曲页点「更多」→「加入歌单」添加歌曲。"
         />
 
-        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-40 md:pb-safe-24 [overflow-anchor:none]" role="list" aria-label="歌单歌曲">
+        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]" role="list" aria-label="歌单歌曲">
           <k-list strong-ios outline-ios class="!my-0">
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div

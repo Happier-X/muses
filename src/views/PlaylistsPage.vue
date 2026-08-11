@@ -17,7 +17,7 @@
           :icon="list"
         />
 
-        <div v-else class="pb-40 md:pb-safe-24">
+        <div v-else class="pb-[var(--content-pb)] md:pb-[var(--content-pb-md)]">
           <div
             v-for="item in listRows"
             :key="item.id"

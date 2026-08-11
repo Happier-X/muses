@@ -652,3 +652,8 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 计算：滚动到底行底 = 视口底(616) - 内容pb；原 pb-64 → 行底 552，被 tabbar(536+) 盖 16px；播放中 MiniPlayer 顶 456 → 需行底 ≤ 456
   - 修复：8 处滚动内容底部 padding 统一 `pb-40`（160px，行底=456=MiniPlayer 顶）+ 平板 `md:pb-safe-24`（96px，盖过平板 MiniPlayer 72px 遮挡）；Songs/Library/Playlist 滚动容器、Playlists 内容、Sources 滚动容器、Settings m-content、Albums/Artists 网格
   - 实测：滚动到底 lastRowBottom=456 < tabbarTop=536 ✓ 完整可见；像素确认最后一行在 456 上方
+- **tabbar 灰带修复升级：动态 contentInset 对齐 iOS**（用户："苹果上也是这么处理的吗，列表偏白最后一块灰不优雅"）：
+  - 查证：iOS 用 contentInset（=tabbar 高 + miniplayer 高），滚动到底最后一行恰好停在上层悬浮元素上缘，无大留白；固定 pb-160 无播放时多 80px 灰带
+  - 修复：CSS 变量方案——tailwind.css 定义 `:root{--content-pb:80px;--content-pb-md:0px}` + `html.muses-mini-visible{--content-pb:160px;--content-pb-md:96px}`；MiniPlayer.vue watch currentSong → 切 html.muses-mini-visible；8 处滚动容器 pb 改 `pb-[var(--content-pb)] md:pb-[var(--content-pb-md)]`
+  - 验证：无播放 pb=80（行底 536=tabbar 顶，无灰带）；播放中 pb=160（行底 456=MiniPlayer 顶）
+  - 测试环境恢复：模拟器无音频文件 → 生成 5 个 wav push /sdcard/Documents → SAF picker（adb 导航：Download 被 Android15 拒，Documents 通过）→ 扫描 5 首入库

@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { list, pause, play } from '@/icons'
 import { kButton, MCover } from '@/components/ui'
@@ -56,6 +56,16 @@ import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/feature
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 
 const titleText = computed(() => playerState.currentSong?.title || '暂无播放歌曲')
+
+// MiniPlayer 可见性 → html.muses-mini-visible → 各页列表内容底部 padding 动态调整（CSS 变量 --content-pb）
+// 对齐 iOS contentInset 做法：有播放 = MiniPlayer 顶(160px)，无播放 = tabbar 顶(80px)，无多余灰带
+const syncMiniVisible = (hasSong: boolean) =>
+  document.documentElement.classList.toggle('muses-mini-visible', hasSong)
+onMounted(() => syncMiniVisible(!!playerState.currentSong))
+watch(
+  () => !!playerState.currentSong,
+  (has) => syncMiniVisible(has),
+)
 const subtitleText = computed(() => {
   const song = playerState.currentSong
   if (!song) {
