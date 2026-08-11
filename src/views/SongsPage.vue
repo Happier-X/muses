@@ -15,7 +15,7 @@
         description="请先到音源页添加并扫描音源。"
       />
 
-      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-[64px] md:pb-safe-16  [overflow-anchor:none]">
+      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pb-40 md:pb-safe-24  [overflow-anchor:none]">
         <k-button
           component="button"
           clear

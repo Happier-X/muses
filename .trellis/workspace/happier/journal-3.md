@@ -648,3 +648,7 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 根因：8 处 k-page `!bottom-safe-24`（absolute bottom 缩到 tabbar 上方）+ TabsPage main `pb-safe-24` → 列表高度止于 tabbar 之上 → tabbar 玻璃背后永远是 k-page 灰底（MiniPlayer 在列表区域内所以透出内容正常）
   - 修复：7 处 k-page（6 view + MPage.vue）`!bottom-safe-24 md:!bottom-0` → `!bottom-0`；main 去 `pb-safe-24`；Settings m-content 加 pb-[64px]、Albums/Artists grid p-[16px] → px/pt/pb 拆分（pb-[64px]）；已有 pb 的页（Songs/Library/Playlist 滚动容器 64px、Playlists 80px、Sources 88px）保留
   - 实测：滚动容器 bottom=616（视口底，延伸到 tabbar 背后）；tabbar 区像素灰色占比 0%（透出列表白底内容）
+- **滚动到底最后一行被挡问题**（用户："注意列表滚动到底是否被挡住"）：
+  - 计算：滚动到底行底 = 视口底(616) - 内容pb；原 pb-64 → 行底 552，被 tabbar(536+) 盖 16px；播放中 MiniPlayer 顶 456 → 需行底 ≤ 456
+  - 修复：8 处滚动内容底部 padding 统一 `pb-40`（160px，行底=456=MiniPlayer 顶）+ 平板 `md:pb-safe-24`（96px，盖过平板 MiniPlayer 72px 遮挡）；Songs/Library/Playlist 滚动容器、Playlists 内容、Sources 滚动容器、Settings m-content、Albums/Artists 网格
+  - 实测：滚动到底 lastRowBottom=456 < tabbarTop=536 ✓ 完整可见；像素确认最后一行在 456 上方

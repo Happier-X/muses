@@ -18,7 +18,7 @@
       />
 
       <div v-else class="h-full ">
-        <div ref="listParentRef" class="h-full overflow-auto box-border pt-[8px] px-[12px] pb-[88px] md:pb-safe-22">
+        <div ref="listParentRef" class="h-full overflow-auto box-border pt-[8px] px-[12px] pb-40 md:pb-safe-24">
           <div class="relative" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"

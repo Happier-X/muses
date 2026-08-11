@@ -11,7 +11,7 @@
 
     <div
       v-else
-      class="grid grid-cols-2 gap-[16px] px-[16px] pt-[16px] pb-[64px] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] "
+      class="grid grid-cols-2 gap-[16px] px-[16px] pt-[16px] pb-40 md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] "
     >
       <article
         v-for="artist in artists"
