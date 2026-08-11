@@ -21,6 +21,38 @@
 
 ## 标准用法
 
+### 0. Konsta k-list-input：必须用 `#input` 槽受控绑定
+
+**坑（已踩）**：`k-list-input` 是非受控组件——Konsta 源码中 input 元素**不绑定 `:value`**（值存于 DOM，`value` prop 仅用于浮动 label 判断）。与 TanStack Form 的 `field.handleChange` 组合时，blur / 切字段等重渲染时机下**偶发丢失输入值**（实测复现：输入 → blur → focus 其它字段后值变空）。
+
+**正确姿势**：用 `k-list-input` 的 `#input` 槽自定义 `<input>`，值以 `field.state.value` 为唯一真源：
+
+```vue
+<form.Field name="serverUrl" :validators="{ onSubmit: ... }">
+  <template #default="{ field }">
+    <k-list-input label="服务器地址" :error="firstFieldError(field.state.meta.errors)">
+      <template #input>
+        <input
+          :value="field.state.value"
+          type="url"
+          placeholder="https://example.com/dav"
+          autocomplete="username"
+          class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
+          @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+          @blur="field.handleBlur"
+        />
+      </template>
+    </k-list-input>
+  </template>
+</form.Field>
+```
+
+要点：
+
+- 自定义 input 样式类必须**完整复制 Konsta iOS 默认 input 类**（`block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30`），漏掉 `h-10` 会让输入行退化成 24px、漏掉 placeholder 色会全黑——都是视觉回归。
+- `label` / `error` / `info` 留在外层 `k-list-input`；`placeholder` / `type` / `autocomplete` 放自定义 input。
+- 禁用 `@input="onFormInput(field.handleChange)"` 这种包一层再传 value 的老写法——它正是非受控丢值的来源。
+
 ### 1. 创建表单
 
 ```ts
@@ -39,7 +71,7 @@ const form = useForm({
 })
 ```
 
-### 2. 字段绑定 `HInput`
+### 2. 字段绑定（参考：HInput 已废弃，新代码用 k-list-input `#input` 槽）
 
 默认**仅**挂 `validators.onSubmit`；不要默认挂 `onChange` / `onBlur` 校验（避免输入过程中弹出红字）。
 
@@ -105,6 +137,7 @@ form.setFieldValue('path', nextPath)
 
 ## 禁止（新代码）
 
+- `k-list-input` 直接 `:value` + `@input` 非受控绑定 TanStack Form 字段（必须 `#input` 槽自定义受控 input，见 §0）
 - 用多个 `ref` / 对象 `ref` 充当可提交表单的字段状态，再在 submit handler 里手写必填判断（应迁到 `useForm` + 字段 `onSubmit` validator）。
 - 为表单引入 Zod / Valibot / yup 等 schema 库（除非任务明确批准）。
 - 在输入过程中默认弹出字段红字（`onChange` 校验）。

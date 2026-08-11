@@ -84,7 +84,7 @@
                         :value="field.state.value"
                         type="text"
                         placeholder="显示名称"
-                        class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                        class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
                         @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
                         @blur="field.handleBlur"
                       />
@@ -109,7 +109,7 @@
                           :value="field.state.value"
                           type="url"
                           placeholder="https://example.com/dav"
-                          class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                          class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
                           @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
                           @blur="field.handleBlur"
                         />
@@ -134,7 +134,7 @@
                           type="text"
                           placeholder="用户名"
                           autocomplete="username"
-                          class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                          class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
                           @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
                           @blur="field.handleBlur"
                         />
@@ -151,7 +151,7 @@
                           type="password"
                           placeholder="新密码"
                           autocomplete="new-password"
-                          class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                          class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
                           @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
                           @blur="field.handleBlur"
                         />
@@ -176,7 +176,7 @@
                         :value="field.state.value"
                         type="text"
                         placeholder="目录"
-                        class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                        class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
                         @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
                         @blur="field.handleBlur"
                       />
@@ -289,7 +289,7 @@
                         :value="field.state.value"
                         type="url"
                         placeholder="https://example.com/dav"
-                        class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                        class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
                         @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
                         @blur="field.handleBlur"
                       />
@@ -314,7 +314,7 @@
                         type="text"
                         placeholder="用户名"
                         autocomplete="username"
-                        class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                        class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
                         @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
                         @blur="field.handleBlur"
                       />
@@ -339,7 +339,7 @@
                         type="password"
                         placeholder="密码"
                         autocomplete="current-password"
-                        class="block text-base appearance-none w-full focus:outline-none bg-transparent"
+                        class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
                         @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
                         @blur="field.handleBlur"
                       />
