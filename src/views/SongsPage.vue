@@ -27,7 +27,7 @@
               v-for="virtualRow in virtualRows"
               :key="songs[virtualRow.index].id"
               :ref="measureVirtualRow"
-              class="absolute top-0 left-0 right-0 box-border min-h-[72px]"
+              class="absolute top-0 left-0 right-0 box-border min-h-[72px] flex items-center"
               :data-index="virtualRow.index"
               :style="{ transform: `translateY(${virtualRow.start}px)` }"
             >
@@ -38,7 +38,7 @@
               :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
               titleClass="min-w-0 truncate"
               subtitleClass="truncate"
-              class="h-full relative"
+              class="relative pb-3"
               :class="songItemClass(songs[virtualRow.index].id)"
               :data-song-id="songs[virtualRow.index].id"
               role="button"
