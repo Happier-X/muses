@@ -680,3 +680,6 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 删 MusicPage/HomePage/musicSegment.ts；新建 CategoriesPage/categoriesSegment.ts（段类型 albums|artists|playlists）；LibraryDetail/PlaylistDetail goBack replace 目标 /tabs/music→/tabs/categories（原 /tabs/music 重定向 songs 导致返回跑错页）
   - SettingsPage 去音源管理入口（音源已是 tab）；App.vue 一级白名单 4 tab
   - 实测：4 tab ✓ 分类分段 328 占满 ✓ 详情返回分类专辑段 ✓ 一级返回退桌面 ✓
+- **歌曲列表项恢复原样 + 滚动避开 tabbar/mini**（用户"每个列表项都让你改坏了，要一开始的那样，滚动到最后能避开 tabbar 和播放条"）：
+  - 教训：别动列表项本体布局（行高 88/flex 居中/pb 都算改坏）——虚拟列表 estimateSize/行容器/item 高度必须一致 72 无缝
+  - 真正需求 = 动态 contentInset（4a68df5 已实现）：播放中滚底行底=456 贴 MiniPlayer 顶、无播放完整可见；本次回滚 6a6ee2f/c3c7d07 的行布局改动
