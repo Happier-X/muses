@@ -64,14 +64,11 @@ import { kTabbar, kTabbarLink, kToolbarPane } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
-import { albums, list, musicalNotes, person, radio, settings } from '@/icons'
+import { home, musicalNotes, settings } from '@/icons'
 
 const navItems = [
-  { to: '/tabs/songs', label: '歌曲', icon: musicalNotes },
-  { to: '/tabs/albums', label: '专辑', icon: albums },
-  { to: '/tabs/artists', label: '艺术家', icon: person },
-  { to: '/tabs/playlists', label: '歌单', icon: list },
-  { to: '/tabs/sources', label: '音源', icon: radio },
+  { to: '/tabs/home', label: '首页', icon: home },
+  { to: '/tabs/music', label: '音乐', icon: musicalNotes },
   { to: '/tabs/settings', label: '设置', icon: settings },
 ]
 

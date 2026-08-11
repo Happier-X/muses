@@ -31,8 +31,9 @@ const PlayerPage = defineAsyncComponent(() => import('@/views/PlayerPage.vue'))
 const QueuePage = defineAsyncComponent(() => import('@/views/QueuePage.vue'))
 const router = useRouter()
 const route = useRoute()
-/** 一级 tab 页（/tabs/songs 等 2 段路径）返回 = 退出应用；二级页（详情）返回上一页 */
-const isTopLevelPage = computed(() => route.path.split('/').filter(Boolean).length <= 2)
+/** 一级 tab 页（首页/音乐/设置）返回 = 退出应用；二级页（详情/音源等）返回上一页 */
+const topLevelPaths = ['/tabs/home', '/tabs/music', '/tabs/settings']
+const isTopLevelPage = computed(() => topLevelPaths.includes(route.path))
 const hasGlobalOverlay = computed(() => playerOverlayVisible.value || queueOverlayVisible.value)
 let statusBarRequestToken = 0
 let statusBarSyncQueue = Promise.resolve()

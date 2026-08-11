@@ -87,6 +87,7 @@ import { Capacitor } from '@capacitor/core'
 import { playOutline, removeCircleOutline } from '@/icons'
 import { kButton, kList, kListItem, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
+import { setMusicSegment } from '@/features/player/musicSegment'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'
 import {
@@ -165,11 +166,12 @@ const getSongCoverSrc = (song: SongItem): string => {
 }
 
 const goBack = (): void => {
-  // 优先回退历史栈，没有历史则回到歌单列表
+  // 歌单详情属于「音乐」页歌单段，返回时恢复对应段
+  setMusicSegment('playlists')
   router.back()
   // vue-router 的 back() 在无历史时无操作，用超时兜底
   window.setTimeout(() => {
-    router.replace('/tabs/playlists')
+    router.replace('/tabs/music')
   }, 100)
 }
 

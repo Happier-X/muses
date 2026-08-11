@@ -657,3 +657,12 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
   - 修复：CSS 变量方案——tailwind.css 定义 `:root{--content-pb:80px;--content-pb-md:0px}` + `html.muses-mini-visible{--content-pb:160px;--content-pb-md:96px}`；MiniPlayer.vue watch currentSong → 切 html.muses-mini-visible；8 处滚动容器 pb 改 `pb-[var(--content-pb)] md:pb-[var(--content-pb-md)]`
   - 验证：无播放 pb=80（行底 536=tabbar 顶，无灰带）；播放中 pb=160（行底 456=MiniPlayer 顶）
   - 测试环境恢复：模拟器无音频文件 → 生成 5 个 wav push /sdcard/Documents → SAF picker（adb 导航：Download 被 Android15 拒，Documents 通过）→ 扫描 5 首入库
+- **tabbar 6→3 重组**（用户："6 个 tab 太多，改成首页/音乐/设置"）：
+  - 方案（用户确认）：首页=最近播放（后续按需添加）；音乐=分段控制器（全部|专辑|艺术家|歌单，iOS 资料库风格）；专辑/艺术家/歌单并入音乐段；音源并入设置
+  - 路由：/tabs/home（新 HomePage）、/tabs/music（新 MusicPage）；旧 songs/albums/artists/playlists 重定向 /tabs/music；/ 与 /tabs 重定向 home；playlists/:id、library/:kind/:name、sources、settings 保留
+  - MusicPage：k-segmented 分段 + 4 子页 v-show 切换；段状态存 module（musicSegment.ts），详情返回显示 setMusicSegment 恢复段（专辑详情返回→专辑段）
+  - HomePage：最近播放列表（recent.ts，playSong 时记录去重置顶上限 50；点击按 songId 从库解析播放）
+  - SourcesPage 变二级页（navbar 加返回）；SettingsPage 加「音乐库>音源管理」入口
+  - App.vue isTopLevelPage 改白名单（home/music/settings）；LibraryDetail/PlaylistDetail goBack 的 replace 目标改为 /tabs/music + setMusicSegment
+  - 实测：3 tab ✓ 分段切换（navbar 标题随段）✓ 播放→最近播放→首页 ✓ 详情返回段恢复 ✓ 音源返回设置 ✓ 一级返回退桌面 ✓
+  - 坑：installDebug 覆盖安装清了 localStorage（WebView 未 flush）→ 重扫音源恢复；wav 测试音频播放正常（0.8s 播放中→2s 播完消失）

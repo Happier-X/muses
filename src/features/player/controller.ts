@@ -15,6 +15,7 @@ import { writeWebDavAudioMetadata } from '@/features/sources/webdav'
 import type { WebDavSourceItem } from '@/features/sources/types'
 import { matchOnlineLyrics } from '@/features/lyrics'
 import { matchOnlineCoverRemote } from '@/features/cover'
+import { recordRecentPlay } from './recent'
 import {
   matchOnlineTextMeta,
   mergeTextMetaFillEmpty,
@@ -1148,6 +1149,7 @@ const playSongInternal = async (
 }
 
 export const playSong = async (song: SongItem): Promise<void> => {
+  recordRecentPlay(song)
   // 用户主动点播新曲：不继承冷启动续播点
   if (state.value.currentSong?.id !== song.id) {
     pendingResumePosition = null

@@ -5,6 +5,14 @@
     </k-navbar>
     <div class="m-content pb-[var(--content-pb)]">
       <div class="">
+        <k-block-title>音乐库</k-block-title>
+        <k-list inset>
+          <k-list-item title="音源管理" subtitle="添加、扫描或删除本地 / WebDAV 音源" link @click="openSources">
+            <template #after>
+              <chevron-right-icon class="size-4 text-black/40 dark:text-white/40" aria-hidden="true" />
+            </template>
+          </k-list-item>
+        </k-list>
         <k-block-title>关于</k-block-title>
         <k-list inset>
           <k-list-item
@@ -47,6 +55,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { kBlockTitle, kList, kListItem, kNavbar, kPage, kToast, kToggle } from '@/components/ui'
+import { ChevronRight as ChevronRightIcon } from '@lucide/vue'
+import { useRouter } from 'vue-router'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,
@@ -54,6 +64,11 @@ import {
 import pkg from '../../package.json'
 
 const currentVersion = pkg.version
+const router = useRouter()
+
+const openSources = (): void => {
+  void router.push('/tabs/sources')
+}
 const checking = ref(false)
 const loudnessNormalizeEnabled = ref(isLoudnessNormalizeEnabled())
 

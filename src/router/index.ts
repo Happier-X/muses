@@ -4,7 +4,7 @@ import TabsPage from '../views/TabsPage.vue'
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect: '/tabs/songs'
+    redirect: '/tabs/home'
   },
   {
     path: '/tabs',
@@ -12,23 +12,32 @@ const routes: Array<RouteRecordRaw> = [
     children: [
       {
         path: '',
-        redirect: '/tabs/songs'
+        redirect: '/tabs/home'
       },
       {
+        path: 'home',
+        component: () => import('@/views/HomePage.vue')
+      },
+      {
+        path: 'music',
+        component: () => import('@/views/MusicPage.vue')
+      },
+      // 旧独立 tab 路由收敛到 /tabs/music（分段切换），保留重定向兼容旧链接/深层链接
+      {
         path: 'songs',
-        component: () => import('@/views/SongsPage.vue')
+        redirect: '/tabs/music'
       },
       {
         path: 'albums',
-        component: () => import('@/views/AlbumsPage.vue')
+        redirect: '/tabs/music'
       },
       {
         path: 'artists',
-        component: () => import('@/views/ArtistsPage.vue')
+        redirect: '/tabs/music'
       },
       {
         path: 'playlists',
-        component: () => import('@/views/PlaylistsPage.vue')
+        redirect: '/tabs/music'
       },
       {
         path: 'playlists/:id',
