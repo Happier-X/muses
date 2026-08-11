@@ -709,3 +709,8 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - **发布 v0.2.9**（chore(release)，版本号 package.json/lock 0.2.9 + build.gradle versionCode 29）：
   - 自 v0.2.8 累计 30 提交：tabbar 4 项重组（歌曲/音乐库/音源/设置）、列表回归官方（去卡片/分割线/72px 无缝+contentInset）、WebDAV+PlayerPage 表单受控化、navbar 玻璃修复、图标按钮 clear 规范
   - changelog/v0.2.9.md 新文件
+- **toast 文字白色不可见修复**（任务 08-11-fix-toast-text，用户"新任务"）：
+  - 根因：项目 body { color: var(--color-ios-light-surface-1) } = #fff 白色；k-toast iOS textIos 为空 → 文字继承 body 白 → 白玻璃+白字
+  - 修复：.k-toast 显式文字色（浅黑 dark 白）+ 顺带修 backdrop-blur-lg 未生效（WebView 对 Tailwind var() 链规则 backdrop-filter 忽略，直接给值 blur(16px) 覆盖；MiniPlayer/k-glass 全受益）
+  - 验证：CDP computed——toast 浅色 rgb(0,0,0)/深色 rgb(255,255,255)、glass+mini blur(16px)
+  - 经验：Konsta iOS 部分组件（toast textIos）颜色为空会继承 body 默认色；项目 body color=白是历史设定，组件需显式设色

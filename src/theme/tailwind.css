@@ -534,3 +534,26 @@ html.muses-mini-visible {
 .k-navbar > .bg-gradient-to-b {
   --tw-gradient-position: to bottom;
 }
+
+/*
+ * k-toast 文字色修复：Konsta iOS textIos 为空 → toast 文字继承 body 默认色
+ * （项目 body color = ios-light-surface-1 = #fff 白色），浅色白玻璃 + 白字不可见。
+ * 显式设色：浅色黑字、深色白字（与 Konsta 组件 text-black dark:text-white 惯例一致）。
+ */
+.k-toast {
+  color: #000000;
+}
+
+.dark .k-toast {
+  color: #ffffff;
+}
+
+/*
+ * backdrop-blur-lg 修复：Tailwind 生成的 var() 链规则在 WebView 110 上
+ * backdrop-filter 未生效（与 navbar backdrop-blur-[2px] 同因，已单点修复）；
+ * 直接给值覆盖，MiniPlayer / k-glass（toast/dialog 玻璃）全受益。
+ */
+.backdrop-blur-lg {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
