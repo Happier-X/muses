@@ -643,3 +643,4 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - push main + tag v0.2.8；GitHub Actions 通过
 - Release: https://github.com/Happier-X/muses/releases/tag/v0.2.8
   （muses-v0.2.8.apk 8.3MB + muses-v0.2.8-mi.apk 8.3MB）
+- **一级页面返回=退出应用**（用户："一级页面手势返回应该直接退出应用"）：之前 router.back() 对 tab 间切换也生效（tab 切换也是 push → 一级页返回回上一个 tab）。修复：按路径深度区分——`route.path.split('/').filter(Boolean).length <= 2`（/tabs/songs 等一级页）→ minimizeApp 退桌面；二级页（/tabs/library/... 详情）→ router.back()。实测：歌曲页/专辑列表返回→桌面（lawnchair，进程保留播放）；详情返回→专辑列表 ✓

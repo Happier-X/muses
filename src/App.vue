@@ -18,7 +18,7 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
-import { RouterView, useRouter } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import { kApp } from 'konsta/vue'
 import { App } from '@capacitor/app'
 import type { PluginListenerHandle } from '@capacitor/core'
@@ -30,6 +30,9 @@ import { closePlayerOverlay, closeQueueOverlay, playerOverlayVisible, queueOverl
 const PlayerPage = defineAsyncComponent(() => import('@/views/PlayerPage.vue'))
 const QueuePage = defineAsyncComponent(() => import('@/views/QueuePage.vue'))
 const router = useRouter()
+const route = useRoute()
+/** 一级 tab 页（/tabs/songs 等 2 段路径）返回 = 退出应用；二级页（详情）返回上一页 */
+const isTopLevelPage = computed(() => route.path.split('/').filter(Boolean).length <= 2)
 const hasGlobalOverlay = computed(() => playerOverlayVisible.value || queueOverlayVisible.value)
 let statusBarRequestToken = 0
 let statusBarSyncQueue = Promise.resolve()
@@ -78,8 +81,8 @@ onMounted(() => {
       return
     }
 
-    // 路由可后退时返回上一页（专辑/歌单等详情页手势返回），否则退到后台
-    if (router.options.history.state.back !== null) {
+    // 二级页（专辑/歌单详情）返回上一页；一级 tab 页直接退出应用（退到桌面，不销毁进程保播放）
+    if (!isTopLevelPage.value) {
       router.back()
       return
     }
