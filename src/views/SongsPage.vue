@@ -22,7 +22,7 @@
           <component :is="shuffle" aria-hidden="true" class="size-4 flex-none" />
           <span>{{ songs.length }} 首</span>
         </k-button>
-        <k-list strong-ios outline-ios :dividers-ios="false" class="!my-0">          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+        <k-list dividers-ios class="!my-0">          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
               :key="songs[virtualRow.index].id"
