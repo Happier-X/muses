@@ -27,7 +27,7 @@
               v-for="virtualRow in virtualRows"
               :key="songs[virtualRow.index].id"
               :ref="measureVirtualRow"
-              class="absolute top-0 left-0 right-0 box-border min-h-[72px] flex items-center"
+              class="absolute top-0 left-0 right-0 box-border min-h-[88px] flex items-center"
               :data-index="virtualRow.index"
               :style="{ transform: `translateY(${virtualRow.start}px)` }"
             >
@@ -38,7 +38,7 @@
               :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
               titleClass="min-w-0 truncate"
               subtitleClass="truncate"
-              class="relative pb-3"
+              class="h-full flex items-center relative"
               :class="songItemClass(songs[virtualRow.index].id)"
               :data-song-id="songs[virtualRow.index].id"
               role="button"
@@ -168,7 +168,7 @@ const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: songs.value.length,
     getScrollElement: () => listParentRef.value,
-    estimateSize: () => 72,
+    estimateSize: () => 88,
     overscan: 8,
   })),
 )
@@ -185,9 +185,9 @@ const virtualRows = computed(() => {
 // 虚拟列表只剩可视行；首帧 / stub 退化逻辑保留（已无单测但为审美/强健性保留）
   return songs.value.map((_, index) => ({
     index,
-    start: index * 72,
-    size: 72,
-    end: (index + 1) * 72,
+    start: index * 88,
+    size: 88,
+    end: (index + 1) * 88,
     key: index,
   }))
 })
@@ -196,7 +196,7 @@ const totalSize = computed(() => {
   if (measured > 0) {
     return measured
   }
-  return songs.value.length * 72
+  return songs.value.length * 88
 })
 
 const currentPlayingInList = computed(() => {
