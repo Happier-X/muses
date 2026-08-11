@@ -534,6 +534,14 @@ html.muses-mini-visible {
   backdrop-filter: blur(2px);
 }
 
+/* k-glass 覆盖用的 !important 版（Tailwind 生成的 var() 链在 WebView<111 不解析
+ * → backdrop-filter 整体无效；手写直接给值 + !important 才能压过 var 链规则） */
+.\!backdrop-blur-\[2px\] {
+  --tw-backdrop-blur: blur(2px) !important;
+  -webkit-backdrop-filter: blur(2px) !important;
+  backdrop-filter: blur(2px) !important;
+}
+
 .k-navbar > .bg-gradient-to-b,
 .shuffle-glass > .bg-gradient-to-b {
   --tw-gradient-position: to bottom;

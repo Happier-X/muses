@@ -26,19 +26,19 @@
           @scroll="onListScroll"
         >
           <div class="shuffle-glass sticky top-0 z-10 box-border w-full px-[8px] py-[4px]">
-            <div class="pointer-events-none absolute left-0 top-0 h-full w-full backdrop-blur-[2px] mask-b-from-50% mask-b-to-100%" aria-hidden="true" />
-            <div class="pointer-events-none absolute left-0 top-0 h-full w-full bg-gradient-to-b from-ios-light-surface to-transparent dark:from-ios-dark-surface/50" aria-hidden="true" />
-            <k-button
-              component="button"
-              small
-              class="relative m-0"
-              aria-label="随机播放全部"
-              :disabled="songs.length === 0"
-              @click="onShuffleAll"
-            >
-              <component :is="shuffle" aria-hidden="true" />
-              随机播放全部
-            </k-button>
+            <k-glass class="!bg-transparent !shadow-none !backdrop-blur-[2px] mask-b-from-50% mask-b-to-100% bg-gradient-to-b from-ios-light-surface to-transparent dark:from-ios-dark-surface/50">
+              <k-button
+                component="button"
+                small
+                class="relative m-0"
+                aria-label="随机播放全部"
+                :disabled="songs.length === 0"
+                @click="onShuffleAll"
+              >
+                <component :is="shuffle" aria-hidden="true" />
+                随机播放全部
+              </k-button>
+            </k-glass>
           </div>
           <k-list strong-ios outline-ios class="!my-0">
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
@@ -95,7 +95,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, shuffle } from '@/icons'
-import { kButton, kFab, kList, kListItem, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
+import { kButton, kFab, kGlass, kList, kListItem, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import { setCategoriesSegment } from '@/features/player/categoriesSegment'
 import type { SongItem } from '@/features/library/types'
