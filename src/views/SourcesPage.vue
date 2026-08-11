@@ -1,24 +1,27 @@
 <template>
-  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
-    <k-navbar rightClass="!h-8">
-      <template #title>音源</template>
-      <template #right>
-        <k-button component="button" clear rounded class="size-8" aria-label="添加音源" @click="isAddActionSheetOpen = true">
-          <component :is="add" aria-hidden="true" class="size-4" />
-        </k-button>
-      </template>
-    </k-navbar>
+  <k-page class="k-page m-page relative flex flex-col overflow-hidden !bottom-0">
+    <div class="root-navbar-wrap absolute top-0 left-0 right-0 z-20">
+      <k-navbar rightClass="!h-8">
+        <template #title>音源</template>
+        <template #right>
+          <k-button component="button" clear rounded class="size-8" aria-label="添加音源" @click="isAddActionSheetOpen = true">
+            <component :is="add" aria-hidden="true" class="size-4" />
+          </k-button>
+        </template>
+      </k-navbar>
+    </div>
 
     <div class="m-content" id="source-page-content">
-      <m-empty
-        v-if="sources.length === 0"
-        title="还没有音源"
-        description="点击右上角加号添加本地文件夹或 WebDAV 文件夹。"
-        :icon="radio"
-      />
+      <div v-if="sources.length === 0" class="h-full box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)]">
+        <m-empty
+          title="还没有音源"
+          description="点击右上角加号添加本地文件夹或 WebDAV 文件夹。"
+          :icon="radio"
+        />
+      </div>
 
       <div v-else class="h-full ">
-        <div ref="listParentRef" class="h-full overflow-auto box-border pt-[8px] px-[12px] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)]">
+        <div ref="listParentRef" class="h-full overflow-auto box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px_+_8px)] px-[12px] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)]">
           <div class="relative" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"

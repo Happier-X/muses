@@ -1,9 +1,11 @@
 <template>
-  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
-    <k-navbar rightClass="!h-8">
-      <template #title>设置</template>
-    </k-navbar>
-    <div class="m-content pb-[var(--content-pb)]">
+  <k-page class="k-page m-page relative flex flex-col overflow-hidden !bottom-0">
+    <div class="root-navbar-wrap absolute top-0 left-0 right-0 z-20">
+      <k-navbar rightClass="!h-8">
+        <template #title>设置</template>
+      </k-navbar>
+    </div>
+    <div class="m-content pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)]">
       <div class="">
         <k-block-title>关于</k-block-title>
         <k-list inset>

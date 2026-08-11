@@ -1,35 +1,40 @@
 <template>
-  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
-    <k-navbar rightClass="!h-8">
-      <template #left>
-        <k-navbar-back-link text="返回" @click="goBack" />
-      </template>
-      <template #title>{{ playlist?.name ?? '歌单' }}</template>
-      <template #right>
-        <k-button
-          component="button"
-          clear
-          rounded
-          class="size-8"
-          aria-label="播放全部"
-          :disabled="resolvedSongs.length === 0"
-          @click="onPlayAll"
-        >
-          <component :is="playOutline" aria-hidden="true" class="size-4" />
-        </k-button>
-      </template>
-    </k-navbar>
+  <k-page class="k-page m-page relative flex flex-col overflow-hidden !bottom-0">
+    <div class="root-navbar-wrap absolute top-0 left-0 right-0 z-20">
+      <k-navbar rightClass="!h-8">
+        <template #left>
+          <k-navbar-back-link text="返回" @click="goBack" />
+        </template>
+        <template #title>{{ playlist?.name ?? '歌单' }}</template>
+        <template #right>
+          <k-button
+            component="button"
+            clear
+            rounded
+            class="size-8"
+            aria-label="播放全部"
+            :disabled="resolvedSongs.length === 0"
+            @click="onPlayAll"
+          >
+            <component :is="playOutline" aria-hidden="true" class="size-4" />
+          </k-button>
+        </template>
+      </k-navbar>
+    </div>
     <div class="m-content" style="overflow: hidden;">
       <div class="h-full ">
-        <m-empty v-if="!playlist" title="歌单不存在" description="可能已被删除。" />
+        <div v-if="!playlist" class="h-full box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)]">
+          <m-empty title="歌单不存在" description="可能已被删除。" />
+        </div>
 
-        <m-empty
-          v-else-if="resolvedSongs.length === 0"
-          title="歌单是空的"
-          description="在歌曲页点「更多」→「加入歌单」添加歌曲。"
-        />
+        <div v-else-if="resolvedSongs.length === 0" class="h-full box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)]">
+          <m-empty
+            title="歌单是空的"
+            description="在歌曲页点「更多」→「加入歌单」添加歌曲。"
+          />
+        </div>
 
-        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]" role="list" aria-label="歌单歌曲">
+        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]" role="list" aria-label="歌单歌曲">
           <k-list strong-ios outline-ios class="!my-0">
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div

@@ -1,33 +1,21 @@
 <template>
-  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
-    <k-navbar rightClass="!h-8">
-      <template #left>
-        <k-navbar-back-link text="返回" @click="goBack" />
-      </template>
-      <template #title>{{ pageTitle }}</template>
-    </k-navbar>
-    <div class="flex-[0_0_48px] min-h-[48px] bg-white dark:bg-black">
-      <div class="box-border w-full px-[8px] py-[4px] ">
-        <k-button
-          component="button"
-          small
-          class="m-0"
-          aria-label="随机播放全部"
-          :disabled="songs.length === 0"
-          @click="onShuffleAll"
-        >
-          <component :is="shuffle" aria-hidden="true" />
-          随机播放全部
-        </k-button>
-      </div>
+  <k-page class="k-page m-page relative flex flex-col overflow-hidden !bottom-0">
+    <div class="root-navbar-wrap absolute top-0 left-0 right-0 z-20">
+      <k-navbar rightClass="!h-8">
+        <template #left>
+          <k-navbar-back-link text="返回" @click="goBack" />
+        </template>
+        <template #title>{{ pageTitle }}</template>
+      </k-navbar>
     </div>
     <div class="m-content" style="overflow: hidden;">
       <div class="h-full ">
-        <m-empty
-          v-if="songs.length === 0"
-          title="没有歌曲"
-          description="没有找到相关歌曲。"
-        />
+        <div v-if="songs.length === 0" class="h-full box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)]">
+          <m-empty
+            title="没有歌曲"
+            description="没有找到相关歌曲。"
+          />
+        </div>
 
         <div
           v-else
@@ -37,6 +25,19 @@
           :aria-label="`${pageTitle} 歌曲`"
           @scroll="onListScroll"
         >
+          <div class="sticky top-[calc(max(16px,var(--k-safe-area-top))_+_44px)] z-10 box-border w-full bg-white dark:bg-black px-[8px] py-[4px]">
+            <k-button
+              component="button"
+              small
+              class="m-0"
+              aria-label="随机播放全部"
+              :disabled="songs.length === 0"
+              @click="onShuffleAll"
+            >
+              <component :is="shuffle" aria-hidden="true" />
+              随机播放全部
+            </k-button>
+          </div>
           <k-list strong-ios outline-ios class="!my-0">
           <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
