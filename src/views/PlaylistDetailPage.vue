@@ -22,7 +22,7 @@
       </m-navbar>
     </div>
     <div class="m-content playlist-detail-page__content">
-      <div class="h-full">
+      <div class="playlist-detail-page__fill">
         <div v-if="!playlist" class="playlist-detail-page__empty">
           <m-empty title="歌单不存在" description="可能已被删除。" />
         </div>
@@ -36,7 +36,7 @@
 
         <div v-else ref="listParentRef" class="playlist-detail-page__list" role="list" aria-label="歌单歌曲">
           <m-list strong outline class="playlist-detail-page__list-root">
-            <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+            <div class="playlist-detail-page__vlist" :style="{ height: `${totalSize}px` }">
               <div
                 v-for="row in visibleRows"
                 :key="row.song.id"
@@ -238,6 +238,8 @@ watch(playlistId, () => {
 
 <style scoped lang="scss">
 .playlist-detail-page {
+  &__fill { height: 100%; }
+  &__vlist { position: relative; width: 100%; }
   position: relative;
   display: flex;
   flex-direction: column;

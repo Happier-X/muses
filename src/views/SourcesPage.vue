@@ -20,9 +20,9 @@
         />
       </div>
 
-      <div v-else class="h-full">
+      <div v-else class="sources-page__fill">
         <div ref="listParentRef" class="sources-page__list">
-          <div class="relative" :style="{ height: `${totalSize}px` }">
+          <div class="sources-page__vlist" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
               :key="sources[virtualRow.index].id"
@@ -903,6 +903,8 @@ const handleAddWebDav = (): void => {
 
 <style scoped lang="scss">
 .sources-page {
+  &__fill { height: 100%; }
+  &__vlist { position: relative; }
   position: relative;
   display: flex;
   flex-direction: column;

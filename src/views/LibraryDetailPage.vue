@@ -9,7 +9,7 @@
       </m-navbar>
     </div>
     <div class="m-content library-detail-page__content">
-      <div class="h-full">
+      <div class="library-detail-page__fill">
         <div v-if="songs.length === 0" class="library-detail-page__empty">
           <m-empty
             title="没有歌曲"
@@ -26,7 +26,7 @@
           @scroll="onListScroll"
         >
           <div class="library-detail-page__shuffle-bar">
-            <div class="relative">
+            <div class="library-detail-page__shuffle-inner">
               <div class="library-detail-page__shuffle-blur" aria-hidden="true" />
               <div class="library-detail-page__shuffle-glass" aria-hidden="true" />
               <m-button
@@ -43,7 +43,7 @@
             </div>
           </div>
           <m-list strong outline class="library-detail-page__list-root">
-            <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+            <div class="library-detail-page__vlist" :style="{ height: `${totalSize}px` }">
               <div
                 v-for="row in visibleRows"
                 :key="row.song.id"
@@ -327,6 +327,9 @@ watch(groupName, () => {
 
 <style scoped lang="scss">
 .library-detail-page {
+  &__fill { height: 100%; }
+  &__shuffle-inner { position: relative; }
+  &__vlist { position: relative; width: 100%; }
   position: relative;
   display: flex;
   flex-direction: column;

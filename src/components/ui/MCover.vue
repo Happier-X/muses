@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-/** APP-ONLY：音乐封面及稳定占位（自研 scss 版，替代 tailwind class 实现）。 */
+/** APP-ONLY：音乐封面及稳定占位（自研 scss 版）。 */
 import { computed, type CSSProperties } from 'vue'
 import { musicalNotesOutline } from '@/icons'
 

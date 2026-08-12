@@ -1,6 +1,6 @@
 <template>
   <m-popup :opened="queueOverlayVisible">
-    <div ref="popupPanelRef" class="queue-popup-panel queue-page__panel flex flex-col overflow-hidden">
+    <div ref="popupPanelRef" class="queue-popup-panel queue-page__panel">
       <div class="queue-page__header">
         <h2 class="queue-page__title">播放队列</h2>
         <div class="queue-page__header-actions">
@@ -37,7 +37,7 @@
 
         <div v-else ref="listParentRef" class="queue-page__list" role="list" aria-label="播放队列歌曲" @touchstart.stop @touchmove.stop @touchend.stop @touchcancel.stop>
           <m-list strong outline class="queue-page__list-root">
-            <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+            <div class="queue-page__vlist" :style="{ height: `${totalSize}px` }">
               <div
                 v-for="row in visibleRows"
                 :key="row.song.id"
@@ -159,6 +159,7 @@ const onSelectSong = async (index: number): Promise<void> => {
 
 <style scoped lang="scss">
 .queue-page {
+  &__vlist { position: relative; width: 100%; }
   &__panel {
     flex-direction: column;
     overflow: hidden;

@@ -19,7 +19,7 @@
         class="songs-page__list"
       >
         <div class="songs-page__shuffle-bar">
-          <div class="relative h-full w-full">
+          <div class="songs-page__shuffle-wrap">
             <div class="songs-page__shuffle-blur" aria-hidden="true" />
             <div class="songs-page__shuffle-glass" aria-hidden="true" />
             <m-button
@@ -35,7 +35,7 @@
           </div>
         </div>
         <m-list :dividers="false" class="songs-page__list-root">
-          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+          <div class="songs-page__vlist" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
               :key="songs[virtualRow.index].id"
@@ -421,6 +421,8 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .songs-page {
+  &__shuffle-wrap { position: relative; height: 100%; width: 100%; }
+  &__vlist { position: relative; width: 100%; }
   position: relative;
   display: flex;
   flex-direction: column;
