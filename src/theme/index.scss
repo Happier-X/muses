@@ -21,6 +21,9 @@
   --m-text: #000;
   --m-text-2: rgba(60, 60, 67, 0.6); /* secondary */
   --m-text-3: rgba(60, 60, 67, 0.3); /* tertiary / placeholder */
+  /* 别名（页面 scoped 常用口径，0.55 对齐旧 tailwind black/55 值） */
+  --m-text-secondary: rgba(0, 0, 0, 0.55);
+  --m-text-tertiary: rgba(0, 0, 0, 0.3);
 
   /* 品牌与语义色 */
   --m-primary: #007aff;
@@ -127,6 +130,9 @@ html.muses-mini-visible {
   --m-text: #fff;
   --m-text-2: rgba(235, 235, 245, 0.6);
   --m-text-3: rgba(235, 235, 245, 0.3);
+  /* 别名（页面 scoped 常用口径，0.55 对齐旧 tailwind white/55 值） */
+  --m-text-secondary: rgba(255, 255, 255, 0.55);
+  --m-text-tertiary: rgba(255, 255, 255, 0.3);
   --m-hairline: rgba(255, 255, 255, 0.15);
   --m-glass-light: rgba(50, 50, 50, 0.5);
   --m-glass-dark: rgba(50, 50, 50, 0.5);
