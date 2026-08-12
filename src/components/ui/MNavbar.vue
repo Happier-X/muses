@@ -1,5 +1,8 @@
 <template>
-  <div class="m-navbar" :class="{ 'm-navbar--transparent': transparent }">
+  <div
+    class="m-navbar"
+    :class="{ 'm-navbar--transparent': transparent, 'm-navbar--has-subnavbar': $slots.subnavbar }"
+  >
     <!-- 玻璃底（blur 2px + surface 渐变 + 下半 mask 渐隐，WebView 110 兼容写法） -->
     <div class="m-navbar__bg" aria-hidden="true" />
     <div class="m-navbar__inner">
@@ -9,9 +12,12 @@
       <div class="m-navbar__title">
         <slot />
       </div>
-      <div v-if="$slots.right" class="m-navbar__right">
+      <div v-if="$slots.right" class="m-navbar__right" :class="rightClass">
         <slot name="right" />
       </div>
+    </div>
+    <div v-if="$slots.subnavbar" class="m-navbar__subnavbar">
+      <slot name="subnavbar" />
     </div>
   </div>
 </template>
@@ -26,9 +32,12 @@
 withDefaults(
   defineProps<{
     transparent?: boolean
+    /** 透传到右侧容器（Konsta rightClass 语义） */
+    rightClass?: string
   }>(),
   {
     transparent: false,
+    rightClass: undefined,
   },
 )
 </script>
@@ -55,6 +64,10 @@ withDefaults(
     backdrop-filter: blur(2px);
     -webkit-mask-image: linear-gradient(to bottom, #000 50%, transparent 100%);
     mask-image: linear-gradient(to bottom, #000 50%, transparent 100%);
+  }
+
+  &--has-subnavbar &__bg {
+    height: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px + 70px + 16px);
   }
 
   &--transparent &__bg {
@@ -100,6 +113,16 @@ withDefaults(
     overflow: hidden;
     text-overflow: ellipsis;
     text-align: start;
+  }
+
+  &__subnavbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 56px;
+    padding-left: calc(16px + var(--m-safe-area-left, 0px));
+    padding-right: calc(16px + var(--m-safe-area-right, 0px));
+    box-sizing: border-box;
   }
 }
 
