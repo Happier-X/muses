@@ -75,7 +75,7 @@ const props = withDefaults(
     error?: string | boolean
     info?: string
     clearButton?: boolean
-    maxlength?: number
+    maxlength?: string | number
     inputmode?: 'search' | 'text' | 'none' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal'
   }>(),
   {

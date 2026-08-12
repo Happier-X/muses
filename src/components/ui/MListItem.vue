@@ -11,14 +11,14 @@
     <div class="m-list-item__inner">
       <slot name="header">{{ header }}</slot>
       <div class="m-list-item__title-wrap">
-        <div class="m-list-item__title" :class="{ 'm-list-item__title--strong': strongTitle }">
+        <div class="m-list-item__title" :class="[titleClass, { 'm-list-item__title--strong': strongTitle }]">
           <slot>{{ title }}</slot>
         </div>
         <div class="m-list-item__after">
           <slot name="after" />
         </div>
       </div>
-      <div v-if="subtitle" class="m-list-item__subtitle">{{ subtitle }}</div>
+      <div v-if="subtitle" class="m-list-item__subtitle" :class="subtitleClass">{{ subtitle }}</div>
       <div v-if="text" class="m-list-item__text">{{ text }}</div>
       <slot name="footer">{{ footer }}</slot>
     </div>
@@ -66,6 +66,10 @@ const props = withDefaults(
     /** 标题加粗（Konsta strongTitle 语义） */
     strongTitle?: boolean
     dividers?: boolean
+    /** 透传标题元素 class（Konsta titleClass 语义） */
+    titleClass?: string
+    /** 透传副标题元素 class（Konsta subtitleClass 语义） */
+    subtitleClass?: string
   }>(),
   {
     title: undefined,
@@ -78,6 +82,8 @@ const props = withDefaults(
     strong: false,
     strongTitle: false,
     dividers: undefined,
+    titleClass: undefined,
+    subtitleClass: undefined,
   },
 )
 

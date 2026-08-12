@@ -1,107 +1,111 @@
 <template>
-  <k-page ref="pageRef" class="k-page m-page relative flex flex-col overflow-hidden !bottom-0">
-    <div class="root-navbar-wrap absolute top-0 left-0 right-0 z-20">
-      <k-navbar rightClass="!h-8">
+  <div ref="pageRef" class="m-page songs-page">
+    <div class="songs-page__navbar-wrap">
+      <m-navbar right-class="songs-page__right">
         <template #title>歌曲</template>
-      </k-navbar>
+      </m-navbar>
     </div>
-    <div class="m-content" style="overflow: hidden;">
-      <div v-if="songs.length === 0" class="h-full box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)]">
+    <div class="m-content songs-page__content">
+      <div v-if="songs.length === 0" class="songs-page__empty">
         <m-empty
           title="还没有歌曲"
           description="请先到音源页添加并扫描音源。"
         />
       </div>
 
-      <div v-else ref="listParentRef" class="h-full overflow-auto box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]">
-        <div class="shuffle-glass sticky top-0 z-10 box-border w-full h-11">
+      <div
+        v-else
+        ref="listParentRef"
+        class="songs-page__list"
+      >
+        <div class="songs-page__shuffle-bar">
           <div class="relative h-full w-full">
-            <div class="pointer-events-none absolute left-0 top-0 h-full w-full backdrop-blur-sm" aria-hidden="true" />
-            <div class="pointer-events-none absolute left-0 top-0 h-full w-full bg-gradient-to-b from-white via-[rgba(255,255,255,0.55)] to-transparent dark:from-[rgba(0,0,0,0.6)] dark:via-[rgba(0,0,0,0.35)]" aria-hidden="true" />
-            <k-button
+            <div class="songs-page__shuffle-blur" aria-hidden="true" />
+            <div class="songs-page__shuffle-glass" aria-hidden="true" />
+            <m-button
               component="button"
-              clear
-              :colors="{ textIos: 'text-black dark:text-white', clearBgIos: 'bg-transparent active:bg-black/10 dark:active:bg-white/10' }"
-              class="relative flex items-center justify-start gap-[10px] w-full h-full px-4 rounded-none text-[15px]"
+              variant="clear"
+              class="songs-page__shuffle-btn"
               aria-label="随机播放全部"
               @click="onShuffleAll"
             >
-              <component :is="shuffle" aria-hidden="true" class="size-4 flex-none" />
+              <component :is="shuffle" aria-hidden="true" class="songs-page__shuffle-icon" />
               <span>{{ songs.length }} 首</span>
-            </k-button>
+            </m-button>
           </div>
         </div>
-        <k-list :dividers-ios="false" class="!my-0">          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+        <m-list :dividers="false" class="songs-page__list-root">
+          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
               :key="songs[virtualRow.index].id"
               :ref="measureVirtualRow"
-              class="absolute top-0 left-0 right-0 box-border min-h-[72px]"
+              class="songs-page__virtual-row"
               :data-index="virtualRow.index"
               :style="{ transform: `translateY(${virtualRow.start}px)` }"
             >
-              <k-list-item
+              <m-list-item
                 :chevron="false"
                 link
                 :title="songs[virtualRow.index].title"
-              :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
-              titleClass="min-w-0 truncate"
-              subtitleClass="truncate"
-              class="h-full relative"
-              :class="songItemClass(songs[virtualRow.index].id)"
-              :data-song-id="songs[virtualRow.index].id"
-              role="button"
-              tabindex="0"
-              @click="playSong(songs[virtualRow.index])"
-            >
-              <template #media>
-                <m-cover :src="getSongCoverSrc(songs[virtualRow.index])" :size="48" radius="sm" alt="" />
-              </template>
-              <template #after>
-                <k-button
-                  component="button"
-                  clear
-                  rounded
-                  class="flex-none m-0 ml-auto size-8 !absolute !right-2 !top-1/2 !-translate-y-1/2"
-                  aria-label="更多歌曲操作"
-                  @click.stop="openSongActions(songs[virtualRow.index])"
-                >
-                  <component :is="ellipsisVertical" aria-hidden="true" class="size-4" />
-                </k-button>
-              </template>
-            </k-list-item>
+                :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
+                title-class="songs-page__row-title"
+                subtitle-class="songs-page__row-subtitle"
+                class="songs-page__row"
+                :class="songItemClass(songs[virtualRow.index].id)"
+                :data-song-id="songs[virtualRow.index].id"
+                role="button"
+                tabindex="0"
+                @click="playSong(songs[virtualRow.index])"
+              >
+                <template #media>
+                  <m-cover :src="getSongCoverSrc(songs[virtualRow.index])" :size="48" radius="sm" alt="" />
+                </template>
+                <template #after>
+                  <m-button
+                    component="button"
+                    variant="clear"
+                    rounded
+                    class="songs-page__more-btn"
+                    aria-label="更多歌曲操作"
+                    @click.stop="openSongActions(songs[virtualRow.index])"
+                  >
+                    <component :is="ellipsisVertical" aria-hidden="true" class="songs-page__more-icon" />
+                  </m-button>
+                </template>
+              </m-list-item>
+            </div>
           </div>
-        </div>
-        </k-list>
+        </m-list>
       </div>
 
-      <k-actions :opened="isSongActionsOpen" @backdropclick="isSongActionsOpen = false">
-        <k-actions-group>
-          <k-actions-label>歌曲操作</k-actions-label>
-          <k-actions-button @click="onAddToQueue">添加到队列</k-actions-button>
-          <k-actions-button @click="onPickPlaylist">加入歌单…</k-actions-button>
-          <k-actions-button @click="isSongActionsOpen = false">取消</k-actions-button>
-        </k-actions-group>
-      </k-actions>
+      <m-actions :opened="isSongActionsOpen" @backdropclick="isSongActionsOpen = false">
+        <m-actions-group>
+          <m-actions-label>歌曲操作</m-actions-label>
+          <m-actions-button @click="onAddToQueue">添加到队列</m-actions-button>
+          <m-actions-button @click="onPickPlaylist">加入歌单…</m-actions-button>
+          <m-actions-button @click="isSongActionsOpen = false">取消</m-actions-button>
+        </m-actions-group>
+      </m-actions>
 
-      <k-actions :opened="isPlaylistPickOpen" @backdropclick="isPlaylistPickOpen = false">
-        <k-actions-group>
-          <k-actions-label>加入歌单</k-actions-label>
-          <k-actions-button
+      <m-actions :opened="isPlaylistPickOpen" @backdropclick="isPlaylistPickOpen = false">
+        <m-actions-group>
+          <m-actions-label>加入歌单</m-actions-label>
+          <m-actions-button
             v-for="pl in playlistList"
             :key="pl.id"
             @click="onAddToPlaylist(pl.id)"
           >
             {{ pl.name }}
-          </k-actions-button>
-          <k-actions-button @click="onCreateNewPlaylist">新建歌单</k-actions-button>
-          <k-actions-button @click="isPlaylistPickOpen = false">取消</k-actions-button>
-        </k-actions-group>
-      </k-actions>
+          </m-actions-button>
+          <m-actions-button @click="onCreateNewPlaylist">新建歌单</m-actions-button>
+          <m-actions-button @click="isPlaylistPickOpen = false">取消</m-actions-button>
+        </m-actions-group>
+      </m-actions>
 
-      <k-dialog :opened="isCreatePlaylistOpen" title="新建歌单">
-        <k-list inset>
-          <k-list-input
+      <m-dialog :opened="isCreatePlaylistOpen" title="新建歌单">
+        <m-list inset>
+          <m-list-input
             label="歌单名称"
             type="text"
             :value="newPlaylistName"
@@ -110,24 +114,23 @@
             clear-button
             @input="onNewPlaylistNameInput"
           />
-        </k-list>
+        </m-list>
         <template #buttons>
-          <k-dialog-button @click="isCreatePlaylistOpen = false">取消</k-dialog-button>
-          <k-dialog-button strong @click="onConfirmCreatePlaylist">创建并加入</k-dialog-button>
+          <m-dialog-button @click="isCreatePlaylistOpen = false">取消</m-dialog-button>
+          <m-dialog-button strong @click="onConfirmCreatePlaylist">创建并加入</m-dialog-button>
         </template>
-      </k-dialog>
+      </m-dialog>
 
-      <k-fab
+      <m-fab
         v-if="showJumpBubble"
-        class="fixed z-[1100]"
-        style="right: 16px; bottom: 176px"
+        class="songs-page__jump-fab"
         aria-label="跳转到当前播放"
         @click="scrollToCurrentSong"
       >
-        <component :is="crosshair" aria-hidden="true" class="size-5" />
-      </k-fab>
+        <component :is="crosshair" aria-hidden="true" class="songs-page__jump-icon" />
+      </m-fab>
     </div>
-  </k-page>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -135,7 +138,11 @@ import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicIn
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, ellipsisVertical, shuffle } from '@/icons'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kFab, kList, kListItem, kListInput, kNavbar, kPage, MCover, MEmpty } from '@/components/ui'
+import {
+  MActions, MActionsButton, MActionsGroup, MActionsLabel,
+  MButton, MDialog, MDialogButton, MFab, MList, MListItem, MListInput,
+  MNavbar, MCover, MEmpty,
+} from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
@@ -167,7 +174,7 @@ const isCreatePlaylistOpen = ref(false)
 const songItemClass = (songId: string): string => {
   const classes: string[] = []
   if (playerState.currentSong?.id === songId) {
-    classes.push('is-playing bg-black/5 dark:bg-white/10')
+    classes.push('is-playing')
   }
   return classes.join(' ')
 }
@@ -411,3 +418,192 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style scoped lang="scss">
+.songs-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+
+  &__navbar-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+  }
+
+  &__right {
+    height: 32px;
+  }
+
+  &__content {
+    overflow: hidden;
+  }
+
+  &__empty {
+    height: 100%;
+    box-sizing: border-box;
+    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+  }
+
+  &__list {
+    height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-bottom: var(--m-content-pb);
+    overflow-anchor: none;
+
+    @media (min-width: 768px) {
+      padding-bottom: var(--m-content-pb-md);
+    }
+  }
+
+  /* 随机播放吸顶条（矮条玻璃：blur 8px + 白渐变 + 暗色黑渐变） */
+  &__shuffle-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-sizing: border-box;
+    width: 100%;
+    height: 44px;
+  }
+
+  &__shuffle-blur {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  &__shuffle-glass {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      #fff 0%,
+      rgba(255, 255, 255, 0.55) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  }
+
+  &__shuffle-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+    padding: 0 16px;
+    border-radius: 0;
+    font-size: 15px;
+    color: var(--m-text);
+    background-color: transparent;
+
+    &:active {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  &__shuffle-icon {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
+
+  &__list-root {
+    margin: 0;
+  }
+
+  &__virtual-row {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    box-sizing: border-box;
+    min-height: 72px;
+  }
+
+  &__row {
+    height: 100%;
+    position: relative;
+  }
+
+  &__row-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__row-subtitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__more-btn {
+    position: absolute !important;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    flex: none;
+    margin-left: auto;
+    color: var(--m-text);
+  }
+
+  &__more-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  &__jump-fab {
+    position: fixed;
+    z-index: 1100;
+    right: 16px;
+    bottom: 176px;
+  }
+
+  &__jump-icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* 正在播放行高亮 */
+.songs-page :deep(.is-playing) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+:global(.dark) .songs-page__shuffle-glass {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.6) 0%,
+    rgba(0, 0, 0, 0.35) 50%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+:global(.dark) .songs-page__shuffle-btn:active {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+:global(.dark) .songs-page :deep(.is-playing) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+</style>
