@@ -523,7 +523,6 @@ html.muses-mini-visible {
  * 2) Tailwind v4 渐变方向变量用 `to bottom in oklab`，WebView<111 不解析该插值语法
  *    → k-navbar 背景渐变整体无效（computed background-image: none）；同 tabbar
  *    先例（[--tw-gradient-position:to_top]），把 navbar 渐变方向覆盖为无插值写法。
- *    shuffle-glass（随机播放吸顶条）与 navbar 同构，一并覆盖。
  * 3) mask-b-from-50% / mask-t-from-50% 等 mask 渐显类只在 Konsta 组件 class
  *    字符串里（Tailwind v4 扫描不到源码 → 不生成）→ navbar/toolbar 玻璃下半
  *     blur 无渐显。按 Tailwind 语义手写等价：上半实色遮 blur、下半渐隐到透明。
@@ -534,16 +533,7 @@ html.muses-mini-visible {
   backdrop-filter: blur(2px);
 }
 
-/* k-glass 覆盖用的 !important 版（Tailwind 生成的 var() 链在 WebView<111 不解析
- * → backdrop-filter 整体无效；手写直接给值 + !important 才能压过 var 链规则） */
-.\!backdrop-blur-\[2px\] {
-  --tw-backdrop-blur: blur(2px) !important;
-  -webkit-backdrop-filter: blur(2px) !important;
-  backdrop-filter: blur(2px) !important;
-}
-
-.k-navbar > .bg-gradient-to-b,
-.shuffle-glass > .bg-gradient-to-b {
+.k-navbar > .bg-gradient-to-b {
   --tw-gradient-position: to bottom;
 }
 

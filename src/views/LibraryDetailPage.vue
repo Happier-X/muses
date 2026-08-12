@@ -26,7 +26,7 @@
           @scroll="onListScroll"
         >
           <div class="shuffle-glass sticky top-0 z-10 box-border w-full px-[8px] py-[4px]">
-            <k-glass class="!bg-transparent !shadow-none !backdrop-blur-[2px] mask-b-from-50% mask-b-to-100% bg-gradient-to-b from-ios-light-surface to-transparent dark:from-ios-dark-surface/50">
+            <k-glass>
               <k-button
                 component="button"
                 small

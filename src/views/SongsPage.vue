@@ -15,7 +15,7 @@
 
       <div v-else ref="listParentRef" class="h-full overflow-auto box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]">
         <div class="shuffle-glass sticky top-0 z-10 box-border w-full h-11">
-          <k-glass class="!bg-transparent !shadow-none !backdrop-blur-[2px] mask-b-from-50% mask-b-to-100% bg-gradient-to-b from-ios-light-surface to-transparent dark:from-ios-dark-surface/50 h-full w-full">
+          <k-glass class="h-full w-full">
             <k-button
               component="button"
               clear
