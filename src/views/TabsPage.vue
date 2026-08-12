@@ -1,9 +1,9 @@
 <template>
-  <div class="flex flex-col h-full">
-    <div class="flex flex-1 flex-col min-h-0 md:block md:h-full">
+  <div class="tabs-layout">
+    <div class="tabs-layout__body">
       <aside
         v-if="isTablet && isTabsRoute"
-        class="hidden md:block md:fixed md:top-0 md:left-0 md:bottom-0 md:z-20 md:w-[260px] md:overflow-auto md:border-r md:border-r-black/10 md:bg-white dark:md:border-r-white/15 dark:md:bg-black md:pt-safe-3 md:box-border"
+        class="tabs-layout__aside"
         aria-label="主导航"
       >
         <nav aria-label="主导航">
@@ -11,56 +11,47 @@
             v-for="item in navItems"
             :key="item.to"
             :to="item.to"
-            class="flex items-center gap-[12px] px-[16px] py-[12px] no-underline text-[15px]"
-            :class="isNavActive(item.to)
-              ? 'text-primary font-semibold'
-              : 'text-black dark:text-white'"
+            class="tabs-layout__nav-link"
+            :class="{ 'tabs-layout__nav-link--active': isNavActive(item.to) }"
           >
-            <component :is="item.icon" aria-hidden="true" />
+            <component :is="item.icon" aria-hidden="true" class="tabs-layout__nav-icon" />
             <span>{{ item.label }}</span>
           </RouterLink>
         </nav>
       </aside>
 
       <main
-        class="flex-1 min-h-0 relative"
-        :class="isTabsRoute
-          ? 'md:fixed md:top-0 md:right-0 md:bottom-0 md:left-[260px] md:overflow-hidden'
-          : 'pb-0 md:min-w-0'"
+        class="tabs-layout__main"
+        :class="{ 'tabs-layout__main--tabbed': isTabsRoute }"
       >
         <RouterView />
       </main>
     </div>
 
-    <k-tabbar
+    <m-tabbar
       v-if="!isTablet && isTabsRoute"
-      class="left-0 bottom-0 fixed z-[950] md:hidden"
-      bg-class="[--tw-gradient-position:to_top]"
-      :colors="{ bgIos: 'bg-gradient-to-t from-white to-transparent dark:from-black/60' }"
+      class="tabs-layout__tabbar"
       labels
       icons
       aria-label="底部导航"
     >
-      <k-toolbar-pane class="!bg-transparent">
-        <k-tabbar-link
-          v-for="item in navItems"
-          :key="item.to"
-          component="button"
-          :label="item.label"
-          :active="isNavActive(item.to)"
-          @click="navigateTab(item.to)"
-        >
-          <template #icon>
-            <component :is="item.icon" aria-hidden="true" />
-          </template>
-        </k-tabbar-link>
-      </k-toolbar-pane>
-    </k-tabbar>
+      <m-tabbar-link
+        v-for="item in navItems"
+        :key="item.to"
+        :label="item.label"
+        :active="isNavActive(item.to)"
+        @click="navigateTab(item.to)"
+      >
+        <template #icon>
+          <component :is="item.icon" aria-hidden="true" />
+        </template>
+      </m-tabbar-link>
+    </m-tabbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { kTabbar, kTabbarLink, kToolbarPane } from '@/components/ui'
+import { MTabbar, MTabbarLink } from '@/components/ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
@@ -103,3 +94,100 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateViewportWidth)
 })
 </script>
+
+<style scoped lang="scss">
+.tabs-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+
+    @media (min-width: 768px) {
+      display: block;
+      height: 100%;
+    }
+  }
+
+  &__aside {
+    display: none;
+
+    @media (min-width: 768px) {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 20;
+      width: 260px;
+      overflow-y: auto;
+      border-right: 1px solid rgba(0, 0, 0, 0.1);
+      background-color: #fff;
+      padding-top: calc(12px + var(--m-safe-area-top, 0px));
+      box-sizing: border-box;
+    }
+  }
+
+  &__nav-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    text-decoration: none;
+    font-size: 15px;
+    color: var(--m-text);
+
+    &--active {
+      color: var(--m-primary);
+      font-weight: 600;
+    }
+  }
+
+  &__nav-icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+  }
+
+  &__main {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+
+    &--tabbed {
+      @media (min-width: 768px) {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 260px;
+        overflow: hidden;
+      }
+    }
+  }
+
+  &__tabbar {
+    display: none;
+
+    @media (max-width: 767px) {
+      display: block;
+    }
+
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 950;
+  }
+}
+
+:global(.dark) .tabs-layout__aside {
+  border-right-color: rgba(255, 255, 255, 0.15);
+  background-color: #000;
+}
+</style>
