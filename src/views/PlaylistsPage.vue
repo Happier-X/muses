@@ -1,60 +1,58 @@
 <template>
-  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
+  <div class="m-page playlists-page">
     <div class="m-content">
-      <div class="">
-        <m-empty
-          v-if="playlists.length === 0"
-          title="还没有歌单"
-          description="点右上角新建，或在歌曲页「更多」加入歌单。"
-          :icon="list"
-        />
+      <m-empty
+        v-if="playlists.length === 0"
+        title="还没有歌单"
+        description="点右上角新建，或在歌曲页「更多」加入歌单。"
+        :icon="list"
+      />
 
-        <div v-else class="pb-[var(--content-pb)] md:pb-[var(--content-pb-md)]">
-          <div
-            v-for="item in listRows"
-            :key="item.id"
-            class="flex items-center gap-3 py-2 px-3 mb-1 cursor-pointer"
-            role="button"
-            tabindex="0"
-            @click="openDetail(item.id)"
-            @keyup.enter="openDetail(item.id)"
-          >
-            <m-cover :size="48" radius="sm" alt="">
-              <template #placeholder>
-                <component :is="list" aria-hidden="true" />
-              </template>
-            </m-cover>
-            <div class="flex-1 min-w-0">
-              <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white truncate">{{ item.name }}</h2>
-              <p class="m-0 text-[13px] text-black/55 dark:text-white/55">{{ item.validCount }} 首</p>
-            </div>
-            <k-button
-              component="button"
-              small
-              clear
-              rounded
-              class="m-0 size-8"
-              aria-label="更多歌单操作"
-              @click.stop="openPlaylistActions(item.id)"
-            >
-              <component :is="ellipsisVertical" aria-hidden="true" class="size-4" />
-            </k-button>
+      <div v-else class="playlists-page__list">
+        <div
+          v-for="item in listRows"
+          :key="item.id"
+          class="playlists-page__row"
+          role="button"
+          tabindex="0"
+          @click="openDetail(item.id)"
+          @keyup.enter="openDetail(item.id)"
+        >
+          <m-cover :size="48" radius="sm" alt="">
+            <template #placeholder>
+              <component :is="list" aria-hidden="true" />
+            </template>
+          </m-cover>
+          <div class="playlists-page__row-info">
+            <h2 class="playlists-page__row-title">{{ item.name }}</h2>
+            <p class="playlists-page__row-meta">{{ item.validCount }} 首</p>
           </div>
+          <m-button
+            component="button"
+            size="small"
+            variant="clear"
+            rounded
+            class="playlists-page__more-btn"
+            aria-label="更多歌单操作"
+            @click.stop="openPlaylistActions(item.id)"
+          >
+            <component :is="ellipsisVertical" aria-hidden="true" class="playlists-page__more-icon" />
+          </m-button>
         </div>
       </div>
 
-      <k-actions :opened="isActionsOpen" @backdropclick="isActionsOpen = false">
-        <k-actions-group>
-          <k-actions-label>歌单操作</k-actions-label>
-          <k-actions-button @click="handleRename">重命名</k-actions-button>
-          <k-actions-button bold :colors="{ textIos: 'text-[#ff3b30]', activeBgIos: 'active:bg-[#ff3b30]/10' }" @click="handleDelete">删除</k-actions-button>
-          <k-actions-button @click="isActionsOpen = false">取消</k-actions-button>
-        </k-actions-group>
-      </k-actions>
+      <m-actions :opened="isActionsOpen" @backdropclick="isActionsOpen = false">
+        <m-actions-group>
+          <m-actions-label>歌单操作</m-actions-label>
+          <m-actions-button @click="handleRename">重命名</m-actions-button>
+          <m-actions-button bold danger @click="handleDelete">删除</m-actions-button>
+          <m-actions-button @click="isActionsOpen = false">取消</m-actions-button>
+        </m-actions-group>
+      </m-actions>
 
-      <k-dialog :opened="isNameAlertOpen" :title="nameAlertHeader">
-        <k-list inset>
-          <k-list-input
+      <m-dialog :opened="isNameAlertOpen" :title="nameAlertHeader">
+        <m-list inset>
+          <m-list-input
             label="歌单名称"
             type="text"
             :value="nameInput"
@@ -62,29 +60,32 @@
             clear-button
             @input="onNameInput"
           />
-        </k-list>
+        </m-list>
         <template #buttons>
-          <k-dialog-button @click="isNameAlertOpen = false">取消</k-dialog-button>
-          <k-dialog-button strong @click="onNameConfirm">确定</k-dialog-button>
+          <m-dialog-button @click="isNameAlertOpen = false">取消</m-dialog-button>
+          <m-dialog-button strong @click="onNameConfirm">确定</m-dialog-button>
         </template>
-      </k-dialog>
+      </m-dialog>
 
-      <k-dialog :opened="isDeleteAlertOpen" title="删除歌单">
-        <p class="m-0 text-center text-black/55 dark:text-white/55 text-[15px] leading-[1.4]">{{ deleteMessage }}</p>
+      <m-dialog :opened="isDeleteAlertOpen" title="删除歌单">
+        <p class="playlists-page__delete-message">{{ deleteMessage }}</p>
         <template #buttons>
-          <k-dialog-button @click="isDeleteAlertOpen = false">取消</k-dialog-button>
-          <k-dialog-button strong :colors="{ fillBgIos: 'bg-[#ff3b30] active:bg-[#e03428]' }" @click="onDeleteConfirm">删除</k-dialog-button>
+          <m-dialog-button @click="isDeleteAlertOpen = false">取消</m-dialog-button>
+          <m-dialog-button strong danger @click="onDeleteConfirm">删除</m-dialog-button>
         </template>
-      </k-dialog>
+      </m-dialog>
     </div>
-  </k-page>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ellipsisVertical, list } from '@/icons'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kList, kListInput, kPage, MCover, MEmpty } from '@/components/ui'
+import {
+  MActions, MActionsButton, MActionsGroup, MActionsLabel,
+  MButton, MDialog, MDialogButton, MList, MListInput, MCover, MEmpty,
+} from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,
@@ -198,3 +199,76 @@ onUnmounted(() => {
 // 新建入口上移分类页 navbar（歌单段），暴露打开方法供父组件调用
 defineExpose({ openCreateAlert })
 </script>
+
+<style scoped lang="scss">
+.playlists-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+
+  &__list {
+    padding-bottom: var(--m-content-pb);
+
+    @media (min-width: 768px) {
+      padding-bottom: var(--m-content-pb-md);
+    }
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    margin-bottom: 4px;
+    cursor: pointer;
+
+    &:active {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+  }
+
+  &__row-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__row-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--m-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__row-meta {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--m-text-2);
+  }
+
+  &__more-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    flex: 0 0 32px;
+  }
+
+  &__more-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  &__delete-message {
+    margin: 0;
+    text-align: center;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--m-text-2);
+  }
+}
+</style>

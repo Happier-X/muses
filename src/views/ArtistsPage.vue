@@ -1,39 +1,32 @@
 <template>
-  <k-page class="k-page m-page flex flex-col overflow-hidden !h-auto !bottom-0">
-    <div class="m-content overflow-hidden">
+  <div class="m-page artists-page">
+    <div class="m-content artists-page__content">
       <m-empty
-      v-if="artists.length === 0"
-      title="还没有艺术家"
-      description="请先到音源页添加并扫描音源。"
-      :icon="person"
-    />
+        v-if="artists.length === 0"
+        title="还没有艺术家"
+        description="请先到音源页添加并扫描音源。"
+        :icon="person"
+      />
 
-    <div
-      v-else
-      class="grid grid-cols-2 gap-[16px] px-[16px] pt-[16px] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] "
-    >
-      <article
-        v-for="artist in artists"
-        :key="artist.name"
-        class="flex flex-col gap-[8px] min-w-0 cursor-pointer active:opacity-80"
-        role="button"
-        tabindex="0"
-        @click="openArtist(artist.name)"
-      >
-        <m-cover
-          class="!w-full !h-auto aspect-square !flex-none !rounded-full"
-          :src="getArtistCoverSrc(artist.songs)"
-          alt=""
-        />
-        <div class="flex flex-col gap-[2px] min-w-0 text-center">
-          <h2 class="m-0 text-[17px] font-semibold leading-[1.3] text-black dark:text-white line-clamp-2">{{ artist.name }}</h2>
-          <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ artist.songCount }} 首歌曲</p>
-          <p class="m-0 text-[13px] text-black/55 dark:text-white/55 truncate">{{ artist.albumCount }} 张专辑</p>
-        </div>
-      </article>
+      <div v-else class="artists-page__grid">
+        <article
+          v-for="artist in artists"
+          :key="artist.name"
+          class="artists-page__card"
+          role="button"
+          tabindex="0"
+          @click="openArtist(artist.name)"
+        >
+          <m-cover class="artists-page__cover" :src="getArtistCoverSrc(artist.songs)" alt="" />
+          <div class="artists-page__info">
+            <h2 class="artists-page__title">{{ artist.name }}</h2>
+            <p class="artists-page__meta">{{ artist.songCount }} 首歌曲</p>
+            <p class="artists-page__meta">{{ artist.albumCount }} 张专辑</p>
+          </div>
+        </article>
+      </div>
     </div>
-    </div>
-  </k-page>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -41,7 +34,7 @@ import { computed, onMounted, ref } from 'vue'
 import { person } from '@/icons'
 import { useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { kPage, MEmpty, MCover } from '@/components/ui'
+import { MEmpty, MCover } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByArtist } from '@/features/library/views'
@@ -78,5 +71,79 @@ const getArtistCoverSrc = (artistSongs: SongItem[]): string => {
 }
 
 onMounted(refreshSongs)
-onMounted(refreshSongs)
 </script>
+
+<style scoped lang="scss">
+.artists-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+
+  &__content {
+    overflow: hidden;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    padding: 16px 16px var(--m-content-pb);
+
+    @media (min-width: 768px) {
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      padding-bottom: var(--m-content-pb-md);
+    }
+  }
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    cursor: pointer;
+
+    &:active {
+      opacity: 0.8;
+    }
+  }
+
+  &__cover {
+    width: 100% !important;
+    height: auto !important;
+    flex: none;
+    aspect-ratio: 1;
+    border-radius: 50% !important;
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    text-align: center;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--m-text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  &__meta {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--m-text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+</style>
