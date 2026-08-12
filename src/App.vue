@@ -1,25 +1,24 @@
 <template>
-  <k-app theme="ios" class="flex flex-col h-full overflow-hidden">
+  <div class="m-app">
     <div
-      class="flex-1 relative overflow-hidden"
-      :class="{ 'pointer-events-none': hasGlobalOverlay }"
+      class="m-app__stage"
+      :class="{ 'm-app__stage--locked': hasGlobalOverlay }"
     >
       <RouterView />
     </div>
     <MiniPlayer
-      :class="{ 'pointer-events-none': hasGlobalOverlay, 'is-overlay-active': hasGlobalOverlay }"
+      :class="{ 'm-app__mini-locked': hasGlobalOverlay }"
       :aria-hidden="hasGlobalOverlay"
     />
-    <!-- 常驻 PlayerPage：k-popup 关闭时 v-show 保活，避免关再开重建 AMLL 背景闪默认底（#22） -->
+    <!-- 常驻 PlayerPage：m-popup 关闭时 v-show 保活，避免关再开重建 AMLL 背景闪默认底（#22） -->
     <PlayerPage />
     <QueuePage />
-  </k-app>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { kApp } from 'konsta/vue'
 import { App } from '@capacitor/app'
 import type { PluginListenerHandle } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
@@ -109,3 +108,28 @@ onUnmounted(() => {
   syncPlayerStatusBar(false)
 })
 </script>
+
+<style scoped lang="scss">
+.m-app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  color: var(--m-text);
+  background-color: var(--m-surface);
+
+  &__stage {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  &__stage--locked,
+  &__mini-locked {
+    pointer-events: none;
+  }
+}
+</style>

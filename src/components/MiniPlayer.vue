@@ -1,10 +1,8 @@
 <template>
   <div
-    class="mini-player-glass fixed left-4 right-4 bottom-safe-24 z-[1000] h-16 rounded-full text-black dark:text-white md:bottom-safe-2"
+    class="mini-player"
     :class="{
-      'cursor-pointer': !!playerState.currentSong,
-      'cursor-default': !playerState.currentSong,
-      'is-empty': !playerState.currentSong
+      'mini-player--empty': !playerState.currentSong,
     }"
     role="button"
     tabindex="0"
@@ -14,39 +12,39 @@
     @keyup.enter="openPlayerPage"
     @keyup.space="openPlayerPage"
   >
-    <div class="pointer-events-none absolute inset-0 rounded-full backdrop-blur-[2px]" aria-hidden="true" />
-    <div class="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-b from-ios-light-surface via-[rgba(239,239,244,0.4)] to-transparent dark:from-ios-dark-surface/50 dark:via-[rgba(0,0,0,0.4)]" aria-hidden="true" />
+    <div class="mini-player__blur" aria-hidden="true" />
+    <div class="mini-player__glass" aria-hidden="true" />
 
-    <div class="relative flex h-full items-center gap-[12px] px-[12px]">
+    <div class="mini-player__row">
       <m-cover :src="coverSrc" :size="48" alt="" />
 
-      <div class="min-w-0 flex flex-1 flex-col gap-[3px]">
-        <strong class="truncate text-[15px] leading-[1.25] text-black dark:text-white">{{ titleText }}</strong>
-        <span class="truncate text-[13px] text-black/55 dark:text-white/55">{{ subtitleText }}</span>
+      <div class="mini-player__info">
+        <strong class="mini-player__title">{{ titleText }}</strong>
+        <span class="mini-player__subtitle">{{ subtitleText }}</span>
       </div>
 
-      <div class="flex shrink-0 items-center gap-[2px]">
-        <k-button
+      <div class="mini-player__controls">
+        <m-button
           component="button"
-          clear
+          variant="clear"
           rounded-full
-          class="m-0 size-10 shrink-0 text-black dark:text-white"
+          class="mini-player__btn"
           :aria-label="isPlaying ? '暂停播放' : '继续播放'"
           :disabled="!playerState.currentSong || playerState.status === 'loading'"
           @click.stop="togglePlayback"
         >
-          <component :is="isPlaying ? pause : play" aria-hidden="true" class="size-5 fill-current stroke-none" />
-        </k-button>
-        <k-button
+          <component :is="isPlaying ? pause : play" aria-hidden="true" class="mini-player__icon" />
+        </m-button>
+        <m-button
           component="button"
-          clear
+          variant="clear"
           rounded-full
-          class="m-0 size-10 shrink-0 text-black dark:text-white"
+          class="mini-player__btn"
           aria-label="打开播放队列"
           @click.stop="openQueuePage"
         >
-          <component :is="list" aria-hidden="true" class="size-5" />
-        </k-button>
+          <component :is="list" aria-hidden="true" class="mini-player__icon" />
+        </m-button>
       </div>
     </div>
   </div>
@@ -56,7 +54,7 @@
 import { computed, onMounted, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { list, pause, play } from '@/icons'
-import { kButton, MCover } from '@/components/ui'
+import { MButton, MCover } from '@/components/ui'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 
@@ -118,3 +116,125 @@ const toDisplayableUri = (uri: string): string => {
     : Capacitor.convertFileSrc(uri)
 }
 </script>
+
+<style scoped lang="scss">
+/* 玻璃胶囊 MiniPlayer：白玻璃（blur 2px）+ surface 渐变 + 暗色黑玻璃（WebView 兼容值写法） */
+.mini-player {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(96px + var(--m-safe-area-bottom, 0px));
+  z-index: 1000;
+  height: 64px;
+  border-radius: 9999px;
+  color: var(--m-text);
+  background-color: transparent;
+  cursor: pointer;
+  box-sizing: border-box;
+
+  @media (min-width: 768px) {
+    bottom: calc(8px + var(--m-safe-area-bottom, 0px));
+  }
+
+  &--empty {
+    cursor: default;
+  }
+
+  &__blur,
+  &__glass {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    pointer-events: none;
+  }
+
+  &__blur {
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+  }
+
+  &__glass {
+    background: linear-gradient(
+      to bottom,
+      var(--m-surface) 0%,
+      rgba(239, 239, 244, 0.4) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  }
+
+  &__row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    gap: 12px;
+    padding: 0 12px;
+    box-sizing: border-box;
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    font-size: 15px;
+    line-height: 1.25;
+    font-weight: 600;
+    color: var(--m-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__subtitle {
+    font-size: 13px;
+    line-height: 1.3;
+    color: var(--m-text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  /* clear 变体按钮：MiniPlayer 场景用文字色而非主题色（覆盖 MButton 默认） */
+  &__btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    flex: 0 0 40px;
+    color: var(--m-text);
+
+    &:active {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  &__icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+:global(.dark) .mini-player__glass {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.5) 0%,
+    rgba(0, 0, 0, 0.4) 50%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+:global(.dark) .mini-player__btn:active {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+</style>

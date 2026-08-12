@@ -1,26 +1,16 @@
 <template>
-  <div class="flex flex-col items-center justify-center gap-[12px] px-[24px] py-[56px] text-center">
-    <div
-      v-if="icon || $slots.icon"
-      class="grid place-items-center w-[72px] h-[72px] rounded-full bg-black/5 dark:bg-white/15 text-black/40 dark:text-white/40"
-    >
+  <div class="m-empty">
+    <div v-if="icon || $slots.icon" class="m-empty__icon">
       <component
         :is="icon"
         v-if="icon"
         aria-hidden="true"
-        class="w-[32px] h-[32px]"
+        class="m-empty__icon-svg"
       />
       <slot v-else name="icon" />
     </div>
-    <h3 class="m-0 text-[17px] font-semibold leading-[1.35] text-black dark:text-white">
-      {{ title }}
-    </h3>
-    <p
-      v-if="description"
-      class="m-0 text-[15px] leading-[1.4] text-black/55 dark:text-white/55"
-    >
-      {{ description }}
-    </p>
+    <h3 class="m-empty__title">{{ title }}</h3>
+    <p v-if="description" class="m-empty__description">{{ description }}</p>
     <slot />
   </div>
 </template>
@@ -37,3 +27,50 @@ withDefaults(defineProps<{
   icon: undefined,
 })
 </script>
+
+<style scoped lang="scss">
+.m-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 56px 24px;
+  text-align: center;
+  box-sizing: border-box;
+
+  &__icon {
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--m-text-3);
+  }
+
+  &__icon-svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--m-text);
+  }
+
+  &__description {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--m-text-2);
+  }
+}
+
+:global(.dark) .m-empty__icon {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+</style>

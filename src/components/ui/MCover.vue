@@ -1,19 +1,19 @@
 <template>
   <span
-    class="w-[var(--m-cover-size)] h-[var(--m-cover-size)] flex-[0_0_var(--m-cover-size)] inline-grid place-items-center overflow-hidden bg-[rgba(146,148,156,0.16)] text-black/55 dark:text-white/55 text-[calc(var(--m-cover-size)/2)] [&>img]:w-full [&>img]:h-full [&>img]:object-cover"
-    :class="radius === 'sm' ? 'rounded-[8px]' : 'rounded-[10px]'"
+    class="m-cover"
+    :class="radius === 'sm' ? 'm-cover--sm-radius' : 'm-cover--md-radius'"
     :style="coverStyle"
     :aria-hidden="alt ? undefined : 'true'"
   >
     <img v-if="src" :src="src" :alt="alt" />
     <slot v-else name="placeholder">
-      <component :is="musicalNotesOutline" aria-hidden="true" class="size-[40%]" />
+      <component :is="musicalNotesOutline" aria-hidden="true" class="m-cover__placeholder-icon" />
     </slot>
   </span>
 </template>
 
 <script setup lang="ts">
-/** APP-ONLY：音乐封面及稳定占位。 */
+/** APP-ONLY：音乐封面及稳定占位（自研 scss 版，替代 tailwind class 实现）。 */
 import { computed, type CSSProperties } from 'vue'
 import { musicalNotesOutline } from '@/icons'
 
@@ -36,3 +36,38 @@ const coverStyle = computed<CSSProperties>(() => {
   return { '--m-cover-size': size }
 })
 </script>
+
+<style scoped lang="scss">
+.m-cover {
+  display: inline-grid;
+  place-items: center;
+  width: var(--m-cover-size);
+  height: var(--m-cover-size);
+  flex: 0 0 var(--m-cover-size);
+  box-sizing: border-box;
+  overflow: hidden;
+  background-color: rgba(146, 148, 156, 0.16);
+  color: var(--m-text-2);
+  font-size: calc(var(--m-cover-size) / 2);
+
+  &--sm-radius {
+    border-radius: 8px;
+  }
+
+  &--md-radius {
+    border-radius: 10px;
+  }
+
+  :deep(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__placeholder-icon {
+    width: 40%;
+    height: 40%;
+  }
+}
+</style>
