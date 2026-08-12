@@ -771,3 +771,11 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 **顺手修**：PlaylistsPage.vue 存量 lint 错误（用了 k-button 未导入）。
 
 **spec 更新**：component-guidelines k-glass 条目改为"全 app 统一灰玻璃双层结构"规范 + WebView<111 渐变选择器后代匹配要点。
+
+## 2026-08-12 吸顶条"透明"修复（ca95811 后用户反馈）
+
+**现象**：统一灰玻璃后吸顶条看起来透明。**根因**：mask-b 渐显 + 直渐变在 44px 矮条上失效——mask 裁掉下半 blur（内容锐利直透，方差 63 > 列表 44）、渐变 44px 内瞬间淡出（navbar 靠 76px 高度撑住灰感）。
+
+**修复**：blur 层去 mask（全高 blur2px）；bg 层加 via 三段渐变 `from-ios-light-surface via-[rgba(239,239,244,0.4)] to-transparent`。**关键坑**：`via-ios-light-surface/40` 透明度修饰符生成 color-mix（Chrome 111+），WebView 110 失效 → 必须用任意值 `via-[rgba(239,239,244,0.4)]`。验证：同位置截图对比，上半方差 30→0.6（实灰）、下半 63→40（磨砂）；computed 渐变三段正常。
+
+**经验**：官方 navbar/tabbar 的渐显配方不能无脑搬到矮条；玻璃条"实体感"由渐变 alpha 保持段提供（via 40% 是关键）。

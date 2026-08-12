@@ -15,7 +15,7 @@
     @keyup.space="openPlayerPage"
   >
     <div class="pointer-events-none absolute inset-0 rounded-full backdrop-blur-[2px]" aria-hidden="true" />
-    <div class="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-b from-ios-light-surface to-transparent dark:from-ios-dark-surface/50" aria-hidden="true" />
+    <div class="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-b from-ios-light-surface via-[rgba(239,239,244,0.4)] to-transparent dark:from-ios-dark-surface/50 dark:via-[rgba(0,0,0,0.4)]" aria-hidden="true" />
 
     <div class="relative flex h-full items-center gap-[12px] px-[12px]">
       <m-cover :src="coverSrc" :size="48" alt="" />
