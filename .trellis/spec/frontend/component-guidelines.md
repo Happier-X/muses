@@ -6,13 +6,13 @@
 
 ## Overview
 
-Components in this repository are Vue single-file components using the Composition API via `<script setup lang="ts">`. 应用**已完全脱离 Ionic 框架**：路由用 `vue-router`（`createRouter` + `createWebHistory`），页面骨架用自建 `MPage` / `MContent`，UI 基于 **Konsta UI v5（iOS 主题，`k-*` 组件）** + @lucide/vue 图标 + Tailwind v4。Capacitor 原生壳保持不变。
+Components in this repository are Vue single-file components using the Composition API via `<script setup lang="ts">`. 应用**已完全脱离 Ionic 与第三方 UI 组件库**：路由用 `vue-router`，页面骨架与 UI 组件全量由**自研 `m-*` 组件集**提供（Konsta iOS 视觉），样式架构使用**全量 scoped SCSS + 全局变量**（已移除 Tailwind CSS v4）。
 
 Reference files:
 
 - `src/App.vue`（自建 app shell + `<RouterView>`）
-- `src/components/ui/MPage.vue` / `src/components/ui/MContent.vue`（自建页面骨架）
-- `src/views/TabsPage.vue`
+- `src/components/ui/index.ts`（自研 m-* 组件出口）
+- `src/theme/index.scss`（全局样式、别名、阶梯覆盖）
 
 ---
 
@@ -22,19 +22,29 @@ Use the standard Vue SFC layout already present in the repo:
 
 1. `<template>` first
 2. `<script setup lang="ts">` second
-3. All styling uses Tailwind CSS v4 utility classes via `class`/`:class`. 禁止组件 `<style scoped>` 块；所有样式必须通过 Tailwind utility class 表达（含任意值 `[...]` 语法与 `dark:` / `md:` 等变体）。
-   - 对于复杂的多层级响应式布局或 `:deep()` 内部 DOM 选择器，可移至全局入口 `src/theme/tailwind.css` 作为作用域手写 CSS。
-   - JS 运行时计算的 `:style` 动态绑定（如 `MCover` 的 `--m-cover-size`）允许保留，不属于组件 scoped CSS。
+3. `<style scoped lang="scss">` third
 
-Examples:
-
-- `src/App.vue` shows a minimal shell component: `<div class="app-shell">` + `<RouterView>` + MiniPlayer/PlayerPage/QueuePage 兄弟层级。
-- `src/components/ui/MPage.vue` 用 `k-navbar` + `MContent` 组成自建页面骨架，样式全部为 Tailwind utility。
-- `src/views/SettingsPage.vue` 使用 `MPage` 原生列表结构，所有 class 使用 Tailwind utility。
+All component styling uses SCSS with BEM-like or scoped nested class names. **Tailwind 工具类已被彻底移除**。不再使用 `class="text-white bg-primary rounded-full"` 等写法，而是使用 `.my-component__button { color: #fff; background: var(--m-primary); border-radius: 9999px; }` 等原生 CSS。
 
 ---
 
-## Muses 语义组件层 → Konsta UI v5（iOS 主题）
+## 自研 m-* 组件集与 SCSS 样式体系（08-12 迁移后）
+
+自 `08-12-drop-konsta-tailwind-for-scss` 起，应用**彻底移除了 `konsta` 和 `tailwindcss`**。不再引入组件库黑盒，所有 UI 控件在 `src/components/ui/` 下自研。
+
+- **`m-*` 组件契约**：设计对齐了历史 Konsta 接口以最小化业务逻辑重构。包括 `MButton`, `MList`, `MToggle`（暴露原生 `@change` 和 `.checked`）, `MRange`（支持 `modelValue` 与兼容 `value`）, `MNavbar`, `MTabbar`, `MDialog`, `MToast` 等 28 个基础组件。
+- **全量 Motion 动画**：浮层显隐（Toast/Dialog/Popup）、滑块交互、进度条跟手，全部使用 `motion-v`（`AnimatePresence` + `motion.div`）。唯一的例外是：纯颜色渐变/opacity 渐隐可保留 `transition: background-color 0.2s` 等原生 CSS，避免小题大做。拖拽关页回弹也改用 `animate()` 命令式驱动。
+- **SCSS 变量架构**：`src/theme/index.scss` 定义了 `--m-*` 变量体系（如 `--m-primary`, `--m-text`, `--m-surface`）。组件和页面只需引用 `var(--m-text-secondary)` 等。深色模式通过 html 根元素的 `.dark` class 切换 `--m-*` 变量值，不依赖 `@media (prefers-color-scheme)`。
+- **全局玻璃修复**：iOS 双层灰玻璃（blur + mask）方案、WebView < 111 兼容等修复经验，已固化到 `index.scss` 的 `.m-glass-blur-*` 与 `.m-glass-mask-*` 等全局工具类或 Mixin 中。
+- **安全区处理**：Capacitor 8 注入的 `--safe-area-inset-*` 与 env() 兜底由 `index.scss` 的 `.m-app` 提供 `--m-safe-area-*` 桥接，**所有组件均使用 `--m-safe-area-*`** 避让，不再依赖框架封装。
+- **弹层 z-index 阶梯**：同样在 `index.scss` 控制：MTabbar (950) < MiniPlayer (1000) < MPopup (1100) < MSheet/MDialog/MActions (1200) < MToast (1300)。
+- **页面骨架 `MPage` / `MContent`**：保留自建页壳逻辑，内部用 scoped scss 实现。
+
+> 以下「历史引用参考」章节保留了我们在组件交互、虚拟列表、手势覆盖等业务面积累的设计决策与防坑经验，这些代码行为规范（如 PlayerPage 下滑隔离、大列表虚拟化、安全区逻辑）在组件更名与 SCSS 迁移后依然有效。阅读时请自行将提及的 `k-xxx` 脑内替换为 `m-xxx`，将 `tailwind class` 替换为 `scoped CSS`。
+
+---
+
+## 【历史参考】Konsta UI v5 与 Tailwind 时代的页面架构规则
 
 Muses 自 `08-09-konsta-ui-migration` 起使用 npm **`konsta@5.3.0`**（精确版本）。应用通过 `src/components/ui` re-export Konsta 真实导出与 app-only 组件；**不再依赖 `happier-ui`**（npm 已卸载）。
 

@@ -100,7 +100,7 @@ onBeforeUnmount(() => {
     font-size: 14px;
     line-height: 1.4;
     color: #000;
-    /* k-glass 白玻璃（Konsta iOS toast 同款） */
+    /* 白玻璃（iOS toast 同款） */
     background-color: rgba(255, 255, 255, 0.75);
     -webkit-backdrop-filter: blur(16px);
     backdrop-filter: blur(16px);

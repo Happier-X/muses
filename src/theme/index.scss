@@ -199,7 +199,7 @@ html.muses-mini-visible {
 /*
  * 安全区桥接：Capacitor 8 原生 SystemBars 插件（insetsHandling:'css'）在
  * WebView>=140 时把真实 insets 注入 --safe-area-inset-*（documentElement inline）。
- * 优先消费注入值、env 兜底（iOS/网页）。同时提供 --k-safe-area-* 兼容别名。
+ * 优先消费注入值、env 兜底（iOS/网页）。
  */
 .m-app {
   display: flex;
@@ -210,22 +210,14 @@ html.muses-mini-visible {
   --m-safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   --m-safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   --m-safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
-  --k-safe-area-top: var(--m-safe-area-top);
-  --k-safe-area-right: var(--m-safe-area-right);
-  --k-safe-area-bottom: var(--m-safe-area-bottom);
-  --k-safe-area-left: var(--m-safe-area-left);
 }
 
-/* 兼容：旧版 k-app 的 .safe-areas 宿主（双轨别名） */
+/* .safe-areas 宿主别名（保留供旧版 .k-app 兼容扩展外链引用） */
 .safe-areas {
   --m-safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   --m-safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   --m-safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   --m-safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
-  --k-safe-area-top: var(--m-safe-area-top);
-  --k-safe-area-right: var(--m-safe-area-right);
-  --k-safe-area-bottom: var(--m-safe-area-bottom);
-  --k-safe-area-left: var(--m-safe-area-left);
 }
 
 /* ============ 4. 基础（body / 高度链 / 滚动锁） ============ */
@@ -724,7 +716,7 @@ div:has(+ .m-actions) {
   backdrop-filter: blur(8px);
 }
 
-/* blur 16px（k-glass 类白玻璃） */
+/* blur 16px（自研白玻璃） */
 .m-glass-blur-16 {
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
@@ -742,12 +734,10 @@ div:has(+ .m-actions) {
 }
 
 /*
- * 渐变方向兼容：Tailwind v4 生成 `to bottom in oklab`（Chrome 111+ 插值语法），
- * 老 WebView 不解析 → 渐变 background-image 变 none。此处保留 konsta 双轨期
- * 选择器（.k-navbar），自研玻璃条（shuffle-glass / mini-player-glass）渐变为
- * 直接手写 linear-gradient，不再依赖 tailwind 类（选择器留作兜底，无碍）。
+ * 渐变方向兼容：旧版 Tailwind 生成 `to bottom in oklab`（Chrome 111+ 插值语法），
+ * 老 WebView 不解析 → 渐变 background-image 变 none。自研玻璃条
+ * （shuffle-glass / mini-player-glass）渐变已改为直接手写 linear-gradient。
  */
-.k-navbar > .bg-gradient-to-b,
 .shuffle-glass .bg-gradient-to-b,
 .mini-player-glass .bg-gradient-to-b {
   --tw-gradient-position: to bottom;
