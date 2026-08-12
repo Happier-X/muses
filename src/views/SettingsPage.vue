@@ -1,54 +1,52 @@
 <template>
-  <k-page class="k-page m-page relative flex flex-col overflow-hidden !bottom-0">
-    <div class="root-navbar-wrap absolute top-0 left-0 right-0 z-20">
-      <k-navbar rightClass="!h-8">
+  <div class="m-page settings-page">
+    <div class="settings-page__navbar-wrap">
+      <m-navbar right-class="settings-page__right">
         <template #title>设置</template>
-      </k-navbar>
+      </m-navbar>
     </div>
-    <div class="m-content pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)]">
-      <div class="">
-        <k-block-title>关于</k-block-title>
-        <k-list inset>
-          <k-list-item
-            title="Muses"
-            :subtitle="`应用版本 ${currentVersion}`"
-          />
-          <k-list-item
-            title="检查更新"
-            :subtitle="checking ? '正在检查更新…' : undefined"
-            link
-            aria-label="检查更新"
-            @click="checkUpdate"
-          />
-        </k-list>
+    <div class="m-content settings-page__content">
+      <m-block-title>关于</m-block-title>
+      <m-list inset>
+        <m-list-item
+          title="Muses"
+          :subtitle="`应用版本 ${currentVersion}`"
+        />
+        <m-list-item
+          title="检查更新"
+          :subtitle="checking ? '正在检查更新…' : undefined"
+          link
+          aria-label="检查更新"
+          @click="checkUpdate"
+        />
+      </m-list>
 
-        <k-block-title>音频</k-block-title>
-        <k-list inset>
-          <k-list-item
-            title="音量均衡"
-            subtitle="根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。"
-          >
-            <template #after>
-              <k-toggle
-                :checked="loudnessNormalizeEnabled"
-                aria-label="音量均衡"
-                @change="onLoudnessToggle"
-              />
-            </template>
-          </k-list-item>
-        </k-list>
-      </div>
+      <m-block-title>音频</m-block-title>
+      <m-list inset>
+        <m-list-item
+          title="音量均衡"
+          subtitle="根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。"
+        >
+          <template #after>
+            <m-toggle
+              :checked="loudnessNormalizeEnabled"
+              aria-label="音量均衡"
+              @change="onLoudnessToggle"
+            />
+          </template>
+        </m-list-item>
+      </m-list>
     </div>
 
-    <k-toast :opened="toast.visible" position="center">
+    <m-toast :opened="toast.visible" position="center">
       {{ toast.message }}
-    </k-toast>
-  </k-page>
+    </m-toast>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { kBlockTitle, kList, kListItem, kNavbar, kPage, kToast, kToggle } from '@/components/ui'
+import { MBlockTitle, MList, MListItem, MNavbar, MToast, MToggle } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
   setLoudnessNormalizeEnabled,
@@ -142,3 +140,33 @@ const checkUpdate = async () => {
 }
 </script>
 
+<style scoped lang="scss">
+.settings-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+
+  &__navbar-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+  }
+
+  &__right {
+    height: 32px;
+  }
+
+  &__content {
+    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-bottom: var(--m-content-pb);
+
+    @media (min-width: 768px) {
+      padding-bottom: var(--m-content-pb-md);
+    }
+  }
+}
+</style>
