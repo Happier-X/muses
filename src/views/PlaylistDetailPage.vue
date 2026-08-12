@@ -1,88 +1,88 @@
 <template>
-  <k-page class="k-page m-page relative flex flex-col overflow-hidden !bottom-0">
-    <div class="root-navbar-wrap absolute top-0 left-0 right-0 z-20">
-      <k-navbar rightClass="!h-8">
+  <div class="m-page playlist-detail-page">
+    <div class="playlist-detail-page__navbar-wrap">
+      <m-navbar right-class="playlist-detail-page__right">
         <template #left>
-          <k-navbar-back-link text="返回" @click="goBack" />
+          <m-navbar-back-link text="返回" @click="goBack" />
         </template>
         <template #title>{{ playlist?.name ?? '歌单' }}</template>
         <template #right>
-          <k-button
+          <m-button
             component="button"
-            clear
+            variant="clear"
             rounded
-            class="size-8"
+            class="playlist-detail-page__play-all-btn"
             aria-label="播放全部"
             :disabled="resolvedSongs.length === 0"
             @click="onPlayAll"
           >
-            <component :is="playOutline" aria-hidden="true" class="size-4" />
-          </k-button>
+            <component :is="playOutline" aria-hidden="true" class="playlist-detail-page__play-all-icon" />
+          </m-button>
         </template>
-      </k-navbar>
+      </m-navbar>
     </div>
-    <div class="m-content" style="overflow: hidden;">
-      <div class="h-full ">
-        <div v-if="!playlist" class="h-full box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)]">
+    <div class="m-content playlist-detail-page__content">
+      <div class="h-full">
+        <div v-if="!playlist" class="playlist-detail-page__empty">
           <m-empty title="歌单不存在" description="可能已被删除。" />
         </div>
 
-        <div v-else-if="resolvedSongs.length === 0" class="h-full box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)]">
+        <div v-else-if="resolvedSongs.length === 0" class="playlist-detail-page__empty">
           <m-empty
             title="歌单是空的"
             description="在歌曲页点「更多」→「加入歌单」添加歌曲。"
           />
         </div>
 
-        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]" role="list" aria-label="歌单歌曲">
-          <k-list strong-ios outline-ios class="!my-0">
-          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
-            <div
-              v-for="row in visibleRows"
-              :key="row.song.id"
-              :ref="measureVirtualRow"
-              class="absolute inset-x-0 top-0 box-border min-h-[72px]"
-              role="listitem"
-              :data-index="row.virtualRow.index"
-              :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
-            >
-              <k-list-item
-                :chevron="false"
-                link
-                :title="row.song.title"
-                :subtitle="`${getSongArtistName(row.song)} - ${getSongAlbumName(row.song)}`"
-                titleClass="min-w-0 truncate"
-                subtitleClass="truncate"
-                class="h-full"
-                :class="playerState.currentSong?.id === row.song.id ? 'bg-black/5 dark:bg-white/10' : ''"
-                role="button"
-                tabindex="0"
-                @click="onPlaySong(row.song)"
+        <div v-else ref="listParentRef" class="playlist-detail-page__list" role="list" aria-label="歌单歌曲">
+          <m-list strong outline class="playlist-detail-page__list-root">
+            <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+              <div
+                v-for="row in visibleRows"
+                :key="row.song.id"
+                :ref="measureVirtualRow"
+                class="playlist-detail-page__virtual-row"
+                role="listitem"
+                :data-index="row.virtualRow.index"
+                :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
               >
-                <template #media>
-                  <m-cover :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
-                </template>
-                <template #after>
-                  <k-button
-                    component="button"
-                    small
-                    clear
-                    rounded
-                    class="flex-none m-0 ml-auto size-8"
-                    :aria-label="`从歌单移除 ${row.song.title}`"
-                    @click.stop="onRemove(row.song.id)"
-                  >
-                    <component :is="removeCircleOutline" aria-hidden="true" class="size-4" />
-                  </k-button>
-                </template>
-              </k-list-item>
+                <m-list-item
+                  :chevron="false"
+                  link
+                  :title="row.song.title"
+                  :subtitle="`${getSongArtistName(row.song)} - ${getSongAlbumName(row.song)}`"
+                  title-class="playlist-detail-page__row-title"
+                  subtitle-class="playlist-detail-page__row-subtitle"
+                  class="playlist-detail-page__row"
+                  :class="playerState.currentSong?.id === row.song.id ? 'playlist-detail-page__row--playing' : ''"
+                  role="button"
+                  tabindex="0"
+                  @click="onPlaySong(row.song)"
+                >
+                  <template #media>
+                    <m-cover :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
+                  </template>
+                  <template #after>
+                    <m-button
+                      component="button"
+                      size="small"
+                      variant="clear"
+                      rounded
+                      class="playlist-detail-page__remove-btn"
+                      :aria-label="`从歌单移除 ${row.song.title}`"
+                      @click.stop="onRemove(row.song.id)"
+                    >
+                      <component :is="removeCircleOutline" aria-hidden="true" class="playlist-detail-page__remove-icon" />
+                    </m-button>
+                  </template>
+                </m-list-item>
+              </div>
             </div>
-          </div>
-        </k-list>
+          </m-list>
         </div>
       </div>
     </div>
-  </k-page>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -91,7 +91,9 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { playOutline, removeCircleOutline } from '@/icons'
-import { kButton, kList, kListItem, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
+import {
+  MButton, MList, MListItem, MNavbar, MNavbarBackLink, MCover, MEmpty,
+} from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import { setCategoriesSegment } from '@/features/player/categoriesSegment'
 import type { SongItem } from '@/features/library/types'
@@ -233,3 +235,114 @@ watch(playlistId, () => {
   refresh()
 })
 </script>
+
+<style scoped lang="scss">
+.playlist-detail-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+
+  &__navbar-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+  }
+
+  &__play-all-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+  }
+
+  &__play-all-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  &__content {
+    overflow: hidden;
+  }
+
+  &__empty {
+    height: 100%;
+    box-sizing: border-box;
+    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+  }
+
+  &__list {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-sizing: border-box;
+    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-bottom: var(--m-content-pb);
+    overflow-anchor: none;
+
+    @media (min-width: 768px) {
+      padding-bottom: var(--m-content-pb-md);
+    }
+  }
+
+  &__list-root {
+    margin: 0;
+  }
+
+  &__virtual-row {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    box-sizing: border-box;
+    min-height: 72px;
+  }
+
+  &__row {
+    height: 100%;
+  }
+
+  &__row-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__row-subtitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__remove-btn {
+    flex: none;
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+  }
+
+  &__remove-icon {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* 正在播放行高亮 */
+.playlist-detail-page :deep(.is-playing),
+.playlist-detail-page :deep(.playlist-detail-page__row--playing) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+:global(.dark) .playlist-detail-page :deep(.is-playing),
+:global(.dark) .playlist-detail-page :deep(.playlist-detail-page__row--playing) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+</style>

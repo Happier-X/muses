@@ -1,16 +1,16 @@
 <template>
-  <k-page class="k-page m-page relative flex flex-col overflow-hidden !bottom-0">
-    <div class="root-navbar-wrap absolute top-0 left-0 right-0 z-20">
-      <k-navbar rightClass="!h-8">
+  <div class="m-page library-detail-page">
+    <div class="library-detail-page__navbar-wrap">
+      <m-navbar right-class="library-detail-page__right">
         <template #left>
-          <k-navbar-back-link text="返回" @click="goBack" />
+          <m-navbar-back-link text="返回" @click="goBack" />
         </template>
         <template #title>{{ pageTitle }}</template>
-      </k-navbar>
+      </m-navbar>
     </div>
-    <div class="m-content" style="overflow: hidden;">
-      <div class="h-full ">
-        <div v-if="songs.length === 0" class="h-full box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)]">
+    <div class="m-content library-detail-page__content">
+      <div class="h-full">
+        <div v-if="songs.length === 0" class="library-detail-page__empty">
           <m-empty
             title="没有歌曲"
             description="没有找到相关歌曲。"
@@ -20,66 +20,66 @@
         <div
           v-else
           ref="listParentRef"
-          class="h-full overflow-auto overscroll-contain box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]"
+          class="library-detail-page__list"
           role="list"
           :aria-label="`${pageTitle} 歌曲`"
           @scroll="onListScroll"
         >
-          <div class="shuffle-glass sticky top-0 z-10 box-border w-full px-[8px] py-[4px]">
+          <div class="library-detail-page__shuffle-bar">
             <div class="relative">
-              <div class="pointer-events-none absolute left-0 top-0 h-full w-full backdrop-blur-sm" aria-hidden="true" />
-              <div class="pointer-events-none absolute left-0 top-0 h-full w-full bg-gradient-to-b from-white via-[rgba(255,255,255,0.55)] to-transparent dark:from-[rgba(0,0,0,0.6)] dark:via-[rgba(0,0,0,0.35)]" aria-hidden="true" />
-              <k-button
+              <div class="library-detail-page__shuffle-blur" aria-hidden="true" />
+              <div class="library-detail-page__shuffle-glass" aria-hidden="true" />
+              <m-button
                 component="button"
-                small
-                class="relative m-0"
+                size="small"
+                class="library-detail-page__shuffle-btn"
                 aria-label="随机播放全部"
                 :disabled="songs.length === 0"
                 @click="onShuffleAll"
               >
                 <component :is="shuffle" aria-hidden="true" />
                 随机播放全部
-              </k-button>
+              </m-button>
             </div>
           </div>
-          <k-list strong-ios outline-ios class="!my-0">
-          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
-            <div
-              v-for="row in visibleRows"
-              :key="row.song.id"
-              :ref="measureVirtualRow"
-              class="absolute inset-x-0 top-0 box-border min-h-[72px]"
-              role="listitem"
-              :data-index="row.virtualRow.index"
-              :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
-            >
-              <k-list-item
-                :chevron="false"
-                link
-                :title="row.song.title"
-                :subtitle="`${getSongArtistName(row.song)} - ${getSongAlbumName(row.song)}`"
-                titleClass="min-w-0 truncate"
-                subtitleClass="truncate"
-                class="h-full"
-                :class="songItemClass(row.song.id)"
-                role="button"
-                tabindex="0"
-                @click="onPlaySong(row.song)"
+          <m-list strong outline class="library-detail-page__list-root">
+            <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+              <div
+                v-for="row in visibleRows"
+                :key="row.song.id"
+                :ref="measureVirtualRow"
+                class="library-detail-page__virtual-row"
+                role="listitem"
+                :data-index="row.virtualRow.index"
+                :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
               >
-                <template #media>
-                  <m-cover :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
-                </template>
-              </k-list-item>
+                <m-list-item
+                  :chevron="false"
+                  link
+                  :title="row.song.title"
+                  :subtitle="`${getSongArtistName(row.song)} - ${getSongAlbumName(row.song)}`"
+                  title-class="library-detail-page__row-title"
+                  subtitle-class="library-detail-page__row-subtitle"
+                  class="library-detail-page__row"
+                  :class="songItemClass(row.song.id)"
+                  role="button"
+                  tabindex="0"
+                  @click="onPlaySong(row.song)"
+                >
+                  <template #media>
+                    <m-cover :src="getSongCoverSrc(row.song)" :size="48" radius="sm" alt="" />
+                  </template>
+                </m-list-item>
+              </div>
             </div>
-          </div>
-        </k-list>
+          </m-list>
         </div>
       </div>
     </div>
 
-    <k-fab
+    <m-fab
       v-if="showJumpBubble"
-      class="z-[1100]"
+      class="library-detail-page__jump-fab"
       :style="{ position: 'fixed', left: `${fabOffset.x}px`, top: `${fabOffset.y}px` }"
       aria-label="跳转到当前播放"
       @click="scrollToCurrentSong"
@@ -87,8 +87,8 @@
       <template #icon>
         <component :is="crosshair" aria-hidden="true" />
       </template>
-    </k-fab>
-  </k-page>
+    </m-fab>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -97,7 +97,9 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, shuffle } from '@/icons'
-import { kButton, kFab, kList, kListItem, kNavbar, kPage, kNavbarBackLink, MCover, MEmpty } from '@/components/ui'
+import {
+  MButton, MFab, MList, MListItem, MNavbar, MNavbarBackLink, MCover, MEmpty,
+} from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import { setCategoriesSegment } from '@/features/player/categoriesSegment'
 import type { SongItem } from '@/features/library/types'
@@ -161,10 +163,10 @@ let jumpHighlightTimer: ReturnType<typeof setTimeout> | null = null
 const songItemClass = (songId: string): string => {
   const classes: string[] = []
   if (playerState.currentSong?.id === songId) {
-    classes.push('is-playing bg-black/5 dark:bg-white/10')
+    classes.push('is-playing')
   }
   if (highlightedSongId.value === songId) {
-    classes.push('bg-primary/10')
+    classes.push('library-detail-page__jump-highlight')
   }
   return classes.join(' ')
 }
@@ -322,3 +324,144 @@ watch(groupName, () => {
   refresh()
 })
 </script>
+
+<style scoped lang="scss">
+.library-detail-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+
+  &__navbar-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+  }
+
+  &__right {
+    height: 32px;
+  }
+
+  &__content {
+    overflow: hidden;
+  }
+
+  &__empty {
+    height: 100%;
+    box-sizing: border-box;
+    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+  }
+
+  &__list {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-sizing: border-box;
+    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-bottom: var(--m-content-pb);
+    overflow-anchor: none;
+
+    @media (min-width: 768px) {
+      padding-bottom: var(--m-content-pb-md);
+    }
+  }
+
+  &__shuffle-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 4px 8px;
+  }
+
+  &__shuffle-blur {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  &__shuffle-glass {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      #fff 0%,
+      rgba(255, 255, 255, 0.55) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  }
+
+  &__shuffle-btn {
+    position: relative;
+    margin: 0;
+  }
+
+  &__list-root {
+    margin: 0;
+  }
+
+  &__virtual-row {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    box-sizing: border-box;
+    min-height: 72px;
+  }
+
+  &__row {
+    height: 100%;
+  }
+
+  &__row-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__row-subtitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__jump-fab {
+    z-index: 1100;
+  }
+
+  &__jump-highlight {
+    background-color: rgba(0, 122, 255, 0.1);
+  }
+}
+
+/* 正在播放行高亮 */
+.library-detail-page :deep(.is-playing) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+:global(.dark) .library-detail-page__shuffle-glass {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.6) 0%,
+    rgba(0, 0, 0, 0.35) 50%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+:global(.dark) .library-detail-page :deep(.is-playing) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+</style>
