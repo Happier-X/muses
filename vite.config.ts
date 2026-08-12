@@ -1,4 +1,3 @@
-import tailwindcss from '@tailwindcss/vite'
 import legacy from '@vitejs/plugin-legacy'
 import vue from '@vitejs/plugin-vue'
 import path from 'node:path'
@@ -11,8 +10,6 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   plugins: [
     vue(),
-    // happier-ui@0.0.2 的 styles.css 依赖 Tailwind v4 管道解析 @theme / @layer。
-    tailwindcss(),
     // legacy 只负责旧浏览器 chunk；modern chunk 使用插件内置较新基线，避免 modernTargets 警告。
     legacy({
       targets: ['Chrome >= 67', 'Edge >= 79', 'Firefox >= 68', 'Safari >= 14'],

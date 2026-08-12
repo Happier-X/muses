@@ -1,11 +1,10 @@
 /* ============================================================
    Muses 全局样式入口（SCSS）
    —— 自研样式体系：主题变量 / 共享 mixin / 全局修复样式。
-   双轨期（页面迁移中）与 tailwind.css 并存，类名不冲突；
-   页面全部迁移完成后删除 tailwind.css 与 konsta 依赖。
+   无组件库（Konsta）与 Tailwind，全量 m-* 组件 + scoped scss。
    ============================================================ */
 
-/* ============ 1. 主题变量（替代 tailwind @theme + konsta theme.css） ============ */
+/* ============ 1. 主题变量（原 tailwind @theme + konsta theme 值） ============ */
 
 :root {
   /* 表面色（Konsta iOS 主题原值） */
@@ -21,7 +20,7 @@
   --m-text: #000;
   --m-text-2: rgba(60, 60, 67, 0.6); /* secondary */
   --m-text-3: rgba(60, 60, 67, 0.3); /* tertiary / placeholder */
-  /* 别名（页面 scoped 常用口径，0.55 对齐旧 tailwind black/55 值） */
+  /* 别名（页面 scoped 常用口径，0.55 对齐原 black/55 值） */
   --m-text-secondary: rgba(0, 0, 0, 0.55);
   --m-text-tertiary: rgba(0, 0, 0, 0.3);
 
@@ -130,7 +129,7 @@ html.muses-mini-visible {
   --m-text: #fff;
   --m-text-2: rgba(235, 235, 245, 0.6);
   --m-text-3: rgba(235, 235, 245, 0.3);
-  /* 别名（页面 scoped 常用口径，0.55 对齐旧 tailwind white/55 值） */
+  /* 别名（页面 scoped 常用口径，0.55 对齐原 white/55 值） */
   --m-text-secondary: rgba(255, 255, 255, 0.55);
   --m-text-tertiary: rgba(255, 255, 255, 0.3);
   --m-hairline: rgba(255, 255, 255, 0.15);
@@ -183,7 +182,7 @@ html.muses-mini-visible {
   white-space: nowrap;
 }
 
-/* 设备像素比（原 konsta base.css） */
+/* 设备像素比（原 base.css） */
 :root {
   --m-device-pixel-ratio: 1;
 }
@@ -200,8 +199,7 @@ html.muses-mini-visible {
 /*
  * 安全区桥接：Capacitor 8 原生 SystemBars 插件（insetsHandling:'css'）在
  * WebView>=140 时把真实 insets 注入 --safe-area-inset-*（documentElement inline）。
- * 优先消费注入值、env 兜底（iOS/网页）。同时提供 --k-safe-area-* 兼容
- * （双轨期未迁移页面仍引用 var(--k-safe-area-top)）。
+ * 优先消费注入值、env 兜底（iOS/网页）。同时提供 --k-safe-area-* 兼容别名。
  */
 .m-app {
   display: flex;
@@ -218,7 +216,7 @@ html.muses-mini-visible {
   --k-safe-area-left: var(--m-safe-area-left);
 }
 
-/* 兼容：konsta k-app 的 .safe-areas（双轨期） */
+/* 兼容：旧版 k-app 的 .safe-areas 宿主（双轨别名） */
 .safe-areas {
   --m-safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   --m-safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
@@ -295,7 +293,7 @@ body.muses-overlay-open .m-content {
   --offset-bottom: 0px;
 }
 
-/* ============ 6. PlayerPage 沉浸式播放器（原 tailwind.css 迁移） ============ */
+/* ============ 6. PlayerPage 沉浸式播放器（原全局块迁移） ============ */
 
 .player-overlay .fallback-background {
   background:
@@ -672,7 +670,7 @@ body.muses-overlay-open .m-content {
   min-height: 50vh;
 }
 
-/* ============ 8. 弹层层级阶梯（自研 .m-*；konsta .k-* 版本在 tailwind.css） ============ */
+/* ============ 8. 弹层层级阶梯（自研 .m-*） ============ */
 
 /*
  * 统一层级阶梯（低→高）：
