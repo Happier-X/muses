@@ -13,6 +13,7 @@
       <motion.div
         key="panel"
         class="m-popup"
+        :class="{ 'm-popup--fullscreen': fullscreen }"
         :initial="{ x: '-50%', y: '100vh' }"
         :animate="{ x: '-50%', y: '-50%' }"
         :exit="{ x: '-50%', y: '100vh' }"
@@ -71,6 +72,15 @@ function onBackdropClick(event: MouseEvent) {
     width: 640px;
     height: 640px;
     border-radius: 32px;
+  }
+
+  /* fullscreen：md+ 仍全屏无圆角（PlayerPage 用法） */
+  &--fullscreen {
+    @media (min-width: 768px) {
+      width: 100vw;
+      height: 100vh;
+      border-radius: 0;
+    }
   }
 }
 </style>

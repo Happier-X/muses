@@ -35,7 +35,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = withDefaults(
   defineProps<{
-    modelValue: number
+    /** v-model（自研首选） */
+    modelValue?: number
+    /** Konsta k-range 兼容：:value="n" 只读受控 */
+    value?: number
     min?: number
     max?: number
     step?: number
@@ -43,6 +46,8 @@ const props = withDefaults(
     ariaLabel?: string
   }>(),
   {
+    modelValue: undefined,
+    value: undefined,
     min: 0,
     max: 100,
     step: 1,
@@ -61,10 +66,13 @@ const trackBgRef = ref<HTMLElement | null>(null)
 /** 拇指宽度占轨道宽度比例（Konsta 同款测量：位置 = value% × (1 - thumb/track)） */
 const thumbRatio = ref(0)
 
+/** 实际受控值：modelValue 优先，其次 k-range 兼容的 value */
+const modelValue = computed(() => props.modelValue ?? props.value ?? props.min)
+
 const valuePercent = computed(() => {
   const range = props.max - props.min
   if (range <= 0) return 0
-  return ((props.modelValue - props.min) / range) * 100
+  return ((modelValue.value - props.min) / range) * 100
 })
 
 const thumbOffsetPercent = computed(() => valuePercent.value * (1 - thumbRatio.value))

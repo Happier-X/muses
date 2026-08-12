@@ -1,268 +1,273 @@
 <template>
-  <k-popup :opened="playerOverlayVisible" class="!w-screen !h-screen !rounded-none">
+  <m-popup :opened="playerOverlayVisible" fullscreen>
     <div
-      class="player-overlay h-full overflow-hidden overscroll-behavior-none touch-action-none text-[#ffffff]"
+      ref="dragLayerRef"
+      class="player-page__overlay player-overlay"
       @touchstart.passive="onTouchStart"
       @touchmove="onTouchMove"
       @touchend="onTouchEnd"
       @touchcancel="onTouchEnd"
     >
       <div
-        class="relative h-full overflow-hidden [background:#05070d] transition-[transform] duration-[220ms] ease-[ease]"
-        :class="{ 'is-dragging': isDraggingVertically, '!transition-none': isDraggingVertically }"
+        class="player-page__drag-layer"
+        :class="{ 'is-dragging': isDraggingVertically }"
         :style="{ transform: `translateY(${dragOffsetY}px)` }"
       >
-      <!-- 背景与歌词解耦：切歌暂无词时不卸载，避免闪默认底（#20） -->
-      <div v-if="showAlbumBackground" class="absolute inset-0 z-0 overflow-hidden opacity-75">
-        <BackgroundRender
-          :key="backgroundAlbumSrc || 'no-album'"
-          class="absolute inset-0 block w-full h-full"
-          :album="backgroundAlbumSrc || undefined"
-          :album-is-video="false"
-          :flow-speed="2"
-          :has-lyric="hasLyrics"
-          :renderer="meshGradientRenderer"
+        <!-- 背景与歌词解耦：切歌暂无词时不卸载，避免闪默认底（#20） -->
+        <div v-if="showAlbumBackground" class="player-page__bg">
+          <BackgroundRender
+            :key="backgroundAlbumSrc || 'no-album'"
+            class="player-page__bg-render"
+            :album="backgroundAlbumSrc || undefined"
+            :album-is-video="false"
+            :flow-speed="2"
+            :has-lyric="hasLyrics"
+            :renderer="meshGradientRenderer"
+          />
+        </div>
+        <div
+          class="fallback-background player-page__fallback"
+          :class="{ 'player-page__fallback--hidden': showAlbumBackground }"
         />
-      </div>
-      <div class="fallback-background absolute inset-0 z-0" :class="{ 'opacity-0': showAlbumBackground }" />
 
-      <section v-if="!playerState.currentSong" class="empty-state flex flex-col items-center justify-center text-center">
-        <div class="placeholder-cover">♪</div>
-        <h1>暂无播放歌曲</h1>
-        <p>从歌曲列表选择一首音乐后，即可进入沉浸式播放。</p>
-      </section>
+        <section v-if="!playerState.currentSong" class="empty-state player-page__empty">
+          <div class="placeholder-cover player-page__empty-icon">♪</div>
+          <h1>暂无播放歌曲</h1>
+          <p>从歌曲列表选择一首音乐后，即可进入沉浸式播放。</p>
+        </section>
 
-      <div
-        v-else
-        class="panels relative z-10 flex w-[200%] h-full max-h-full overflow-hidden transition-[transform] duration-[220ms] ease-[ease]"
-        :style="{ transform: `translateX(-${activePanel * 50}%)` }"
-      >
-        <section class="panel info-panel flex flex-col items-center justify-stretch text-center" aria-label="播放控制页">
-          <div class="info-panel-inner flex flex-col items-center justify-center gap-[12px] w-[min(100%,420px)] h-full mx-auto min-h-0 overflow-hidden">
-            <div class="cover-slot flex-[0_1_auto] flex items-center justify-center w-full min-h-0">
-              <img v-if="displayCoverSrc" class="cover aspect-1 h-auto max-w-full object-cover" :src="displayCoverSrc" alt="歌曲封面" />
-              <div v-else class="cover placeholder-cover aspect-1 h-auto max-w-full object-cover">♪</div>
-            </div>
+        <motion.div
+          v-else
+          class="panels player-page__panels"
+          :animate="{ transform: `translateX(-${activePanel * 50}%)` }"
+          :transition="{ duration: 0.22, ease: 'easeOut' }"
+        >
+          <section class="panel info-panel player-page__info-panel" aria-label="播放控制页">
+            <div class="info-panel-inner player-page__info-inner">
+              <div class="cover-slot player-page__cover-slot">
+                <img v-if="displayCoverSrc" class="cover player-page__cover-img" :src="displayCoverSrc" alt="歌曲封面" />
+                <div v-else class="cover placeholder-cover player-page__cover-img player-page__cover-placeholder">♪</div>
+              </div>
 
-            <div class="song-info flex-none w-full m-0 text-left min-w-0">
-              <h1>{{ playerState.currentSong.title }}</h1>
-              <p>{{ subtitle }}</p>
-            </div>
+              <div class="song-info player-page__song-info">
+                <h1>{{ playerState.currentSong.title }}</h1>
+                <p>{{ subtitle }}</p>
+              </div>
 
-            <div
-              class="progress-area flex-none w-full"
-              @touchstart.stop="onProgressGestureStart"
-              @touchmove.stop
-              @touchend.stop="onProgressGestureEnd"
-              @touchcancel.stop="onProgressGestureEnd"
-              @pointerdown.stop="onProgressGestureStart"
-              @pointerup.stop="onProgressGestureEnd"
-              @pointercancel.stop="onProgressGestureEnd"
-            >
-              <k-range
-                ref="progressRangeRef"
-                class="progress-range w-full cursor-pointer touch-manipulation [&_[style*='inset-inline-start']]:hidden"
-                :min="0"
-                :max="durationForSlider"
-                :step="0.1"
-                :value="effectiveSeekPosition"
-                :disabled="!canSeek"
-                aria-label="播放进度"
-                @input="onRangeInput"
-                @change="onRangeChange"
-              />
-              <div class="time-row flex justify-between items-center mt-[2px] text-[12px] tabular-nums text-[rgba(255,255,255,0.68)]">
-                <span>{{ formatTime(playerState.position) }}</span>
-                <span v-if="bufferHintVisible" class="text-[rgba(255,255,255,0.55)] text-[11px]">缓冲中</span>
-                <span>{{ playerState.duration ? formatTime(playerState.duration) : '--:--' }}</span>
+              <div
+                class="player-page__progress-area"
+                @touchstart.stop="onProgressGestureStart"
+                @touchmove.stop
+                @touchend.stop="onProgressGestureEnd"
+                @touchcancel.stop="onProgressGestureEnd"
+                @pointerdown.stop="onProgressGestureStart"
+                @pointerup.stop="onProgressGestureEnd"
+                @pointercancel.stop="onProgressGestureEnd"
+              >
+                <m-range
+                  ref="progressRangeRef"
+                  class="progress-range player-page__progress-range"
+                  :min="0"
+                  :max="durationForSlider"
+                  :step="0.1"
+                  :value="effectiveSeekPosition"
+                  :disabled="!canSeek"
+                  aria-label="播放进度"
+                  @input="onRangeInput"
+                  @change="onRangeChange"
+                />
+                <div class="player-page__time-row">
+                  <span>{{ formatTime(playerState.position) }}</span>
+                  <span v-if="bufferHintVisible" class="player-page__buffer-hint">缓冲中</span>
+                  <span>{{ playerState.duration ? formatTime(playerState.duration) : '--:--' }}</span>
+                </div>
+              </div>
+
+              <div class="controls player-page__controls">
+                <m-button
+                  component="button"
+                  variant="clear"
+                  rounded-full
+                  class="player-page__side-btn"
+                  aria-label="上一曲"
+                  @click="onPrevious"
+                >
+                  <component :is="previousIcon" aria-hidden="true" class="player-page__icon-lg" />
+                </m-button>
+                <m-button
+                  component="button"
+                  variant="clear"
+                  rounded-full
+                  class="player-page__play-btn"
+                  :disabled="playerState.status === 'loading'"
+                  aria-label="播放或暂停"
+                  @click="togglePlayback"
+                >
+                  <component :is="isPlaying ? pause : play" aria-hidden="true" class="player-page__icon-xl" />
+                </m-button>
+                <m-button
+                  component="button"
+                  variant="clear"
+                  rounded-full
+                  class="player-page__side-btn"
+                  aria-label="下一曲"
+                  @click="onNext"
+                >
+                  <component :is="nextIcon" aria-hidden="true" class="player-page__icon-lg" />
+                </m-button>
+              </div>
+
+              <div class="mode-bar player-page__mode-bar">
+                <m-button
+                  component="button"
+                  variant="clear"
+                  rounded-full
+                  class="player-page__mode-btn"
+                  :aria-label="repeatModeLabel"
+                  @click="onToggleRepeat"
+                >
+                  <component :is="repeatIcon" aria-hidden="true" class="player-page__icon" />
+                </m-button>
+
+                <m-button
+                  component="button"
+                  variant="clear"
+                  rounded-full
+                  class="player-page__mode-btn"
+                  :aria-label="shuffleModeLabel"
+                  @click="onToggleShuffle"
+                >
+                  <component :is="shuffleIcon" aria-hidden="true" class="player-page__icon" />
+                </m-button>
+
+                <m-button
+                  component="button"
+                  variant="clear"
+                  rounded-full
+                  class="player-page__mode-btn"
+                  aria-label="播放队列"
+                  @click="goToQueue"
+                >
+                  <component :is="listIcon" aria-hidden="true" class="player-page__icon" />
+                </m-button>
+
+                <m-button
+                  component="button"
+                  variant="clear"
+                  rounded-full
+                  class="player-page__mode-btn"
+                  aria-label="更多"
+                  @click="openPlayerActions"
+                >
+                  <component :is="moreIcon" aria-hidden="true" class="player-page__icon" />
+                </m-button>
               </div>
             </div>
+          </section>
 
-            <div class="controls flex-none flex items-center justify-center gap-[clamp(16px,5vw,28px)] w-full m-0 touch-manipulation">
-              <k-button
-                component="button"
-                clear
-                rounded-full
-                class="m-0 size-12 text-white/90"
-                aria-label="上一曲"
-                @click="onPrevious"
-              >
-                <component :is="previousIcon" aria-hidden="true" class="size-7 fill-current stroke-none" />
-              </k-button>
-              <k-button
-                component="button"
-                clear
-                rounded-full
-                class="play-toggle m-0 size-16 text-white"
-                :disabled="playerState.status === 'loading'"
-                aria-label="播放或暂停"
-                @click="togglePlayback"
-              >
-                <component :is="isPlaying ? pause : play" aria-hidden="true" class="size-10 fill-current stroke-none" />
-              </k-button>
-              <k-button
-                component="button"
-                clear
-                rounded-full
-                class="m-0 size-12 text-white/90"
-                aria-label="下一曲"
-                @click="onNext"
-              >
-                <component :is="nextIcon" aria-hidden="true" class="size-7 fill-current stroke-none" />
-              </k-button>
-            </div>
-
-            <div class="mode-bar flex-none flex justify-between items-center w-full max-w-[320px] m-0 touch-manipulation">
-              <k-button
-                component="button"
-                clear
-                rounded-full
-                class="m-0 size-10 text-white/80"
-                :aria-label="repeatModeLabel"
-                @click="onToggleRepeat"
-              >
-                <component :is="repeatIcon" aria-hidden="true" class="size-5" />
-              </k-button>
-
-              <k-button
-                component="button"
-                clear
-                rounded-full
-                class="m-0 size-10 text-white/80"
-                :aria-label="shuffleModeLabel"
-                @click="onToggleShuffle"
-              >
-                <component :is="shuffleIcon" aria-hidden="true" class="size-5" />
-              </k-button>
-
-              <k-button
-                component="button"
-                clear
-                rounded-full
-                class="m-0 size-10 text-white/80"
-                aria-label="播放队列"
-                @click="goToQueue"
-              >
-                <component :is="listIcon" aria-hidden="true" class="size-5" />
-              </k-button>
-
-              <k-button
-                component="button"
-                clear
-                rounded-full
-                class="m-0 size-10 text-white/80"
-                aria-label="更多"
-                @click="openPlayerActions"
-              >
-                <component :is="moreIcon" aria-hidden="true" class="size-5" />
-              </k-button>
-            </div>
-          </div>
-        </section>
-
-        <section
-          ref="lyricPanelRef"
-          class="panel lyric-panel relative flex flex-col items-stretch justify-start overflow-hidden"
-          aria-label="歌词页"
-          @pointerup="onLyricPanelPointerUp"
-        >
-          <header v-if="playerState.currentSong" class="lyric-header flex-none w-full text-left min-w-0">
-            <h2 class="lyric-title m-0 font-bold tracking-[0.01em] truncate">{{ playerState.currentSong.title }}</h2>
-            <p v-if="lyricArtist" class="lyric-artist m-0 truncate">{{ lyricArtist }}</p>
-          </header>
-
-          <template v-if="hasLyrics">
-            <LyricPlayer
-              ref="lyricPlayerRef"
-              :key="lyricPlayerKey"
-              class="lyric-player block relative flex-[1_1_auto] w-full min-h-0 h-auto"
-              :data-translation-visible="showLyricTranslation ? 'true' : 'false'"
-              :lyric-lines="displayLyricLines"
-              :current-time="lyricRenderTime"
-              align-anchor="center"
-              :align-position="0.5"
-              :enable-spring="true"
-              :enable-blur="true"
-              :enable-scale="true"
-              :word-fade-width="0.5"
-              @line-click="onLyricLineClick"
-              @wheel="onLyricUserScroll"
-              @touchmove="onLyricUserScroll"
-            />
-          </template>
-          <div v-else class="flex flex-col items-center justify-center text-center flex-[1_1_auto] w-full min-h-0 overflow-hidden">
-            <h2>{{ lyricEmptyTitle }}</h2>
-            <p>{{ lyricEmptyDescription }}</p>
-          </div>
-
-          <div
-            v-if="showLyricFloatingActions"
-            class="lyric-floating-actions absolute left-[12px] right-[12px] bottom-safe-2 z-[3] flex items-center opacity-0 pointer-events-none transition-[opacity] duration-[200ms] ease-[ease]"
-            :class="[
-              { 'is-visible': lyricChromeVisible },
-              hasLyricTranslation ? 'justify-between' : 'justify-end',
-            ]"
-            aria-label="歌词快捷操作"
-            :aria-hidden="!lyricChromeVisible"
+          <section
+            ref="lyricPanelRef"
+            class="panel lyric-panel player-page__lyric-panel"
+            aria-label="歌词页"
+            @pointerup="onLyricPanelPointerUp"
           >
-            <k-button
-              v-if="hasLyricTranslation"
-              component="button"
-              clear
-              rounded
-              rounded-full
-              class="lyric-fab pointer-events-none size-10 text-white/80"
-              :class="{ 'is-active': showLyricTranslation }"
-              :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
-              :tabindex="lyricChromeVisible ? 0 : -1"
-              @click.stop="onLyricTranslateClick"
-            >
-              <component :is="translationIcon" aria-hidden="true" class="size-5" />
-            </k-button>
+            <header v-if="playerState.currentSong" class="lyric-header player-page__lyric-header">
+              <h2 class="player-page__lyric-title">{{ playerState.currentSong.title }}</h2>
+              <p v-if="lyricArtist" class="player-page__lyric-artist">{{ lyricArtist }}</p>
+            </header>
 
-            <k-button
-              v-if="!isTabletLayout"
-              component="button"
-              clear
-              rounded-full
-              class="lyric-fab lyric-play-toggle pointer-events-none size-12 text-white"
-              :aria-label="isPlaying ? '暂停播放' : '继续播放'"
-              :disabled="playerState.status === 'loading'"
-              :tabindex="lyricChromeVisible ? 0 : -1"
-              @click.stop="onLyricPlayClick"
+            <template v-if="hasLyrics">
+              <LyricPlayer
+                ref="lyricPlayerRef"
+                :key="lyricPlayerKey"
+                class="lyric-player player-page__lyric-player"
+                :data-translation-visible="showLyricTranslation ? 'true' : 'false'"
+                :lyric-lines="displayLyricLines"
+                :current-time="lyricRenderTime"
+                align-anchor="center"
+                :align-position="0.5"
+                :enable-spring="true"
+                :enable-blur="true"
+                :enable-scale="true"
+                :word-fade-width="0.5"
+                @line-click="onLyricLineClick"
+                @wheel="onLyricUserScroll"
+                @touchmove="onLyricUserScroll"
+              />
+            </template>
+            <div v-else class="player-page__lyric-empty">
+              <h2>{{ lyricEmptyTitle }}</h2>
+              <p>{{ lyricEmptyDescription }}</p>
+            </div>
+
+            <motion.div
+              v-if="showLyricFloatingActions"
+              class="lyric-floating-actions player-page__lyric-fabs"
+              :class="[
+                { 'is-visible': lyricChromeVisible },
+                hasLyricTranslation ? 'player-page__lyric-fabs--split' : 'player-page__lyric-fabs--end',
+              ]"
+              :initial="false"
+              :animate="{ opacity: lyricChromeVisible ? 1 : 0 }"
+              :transition="{ duration: 0.2 }"
+              aria-label="歌词快捷操作"
+              :aria-hidden="!lyricChromeVisible"
             >
-              <component :is="isPlaying ? pause : play" aria-hidden="true" class="size-7 fill-current stroke-none" />
-            </k-button>
-          </div>
-        </section>
+              <m-button
+                v-if="hasLyricTranslation"
+                component="button"
+                variant="clear"
+                rounded-full
+                class="lyric-fab player-page__lyric-fab"
+                :class="{ 'is-active': showLyricTranslation }"
+                :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
+                :tabindex="lyricChromeVisible ? 0 : -1"
+                @click.stop="onLyricTranslateClick"
+              >
+                <component :is="translationIcon" aria-hidden="true" class="player-page__icon" />
+              </m-button>
+
+              <m-button
+                v-if="!isTabletLayout"
+                component="button"
+                variant="clear"
+                rounded-full
+                class="lyric-fab player-page__lyric-play-fab"
+                :aria-label="isPlaying ? '暂停播放' : '继续播放'"
+                :disabled="playerState.status === 'loading'"
+                :tabindex="lyricChromeVisible ? 0 : -1"
+                @click.stop="onLyricPlayClick"
+              >
+                <component :is="isPlaying ? pause : play" aria-hidden="true" class="player-page__icon-lg" />
+              </m-button>
+            </motion.div>
+          </section>
+        </motion.div>
       </div>
-    </div>
     </div>
 
     <!-- 歌曲操作：仅「编辑歌曲信息」（D2） -->
-    <k-actions :opened="isPlayerActionsOpen" @backdropclick="isPlayerActionsOpen = false">
-      <k-actions-group>
-        <k-actions-label>歌曲操作</k-actions-label>
-        <k-actions-button @click="onOpenSongEdit">编辑歌曲信息</k-actions-button>
-        <k-actions-button @click="isPlayerActionsOpen = false">取消</k-actions-button>
-      </k-actions-group>
-    </k-actions>
+    <m-actions :opened="isPlayerActionsOpen" @backdropclick="isPlayerActionsOpen = false">
+      <m-actions-group>
+        <m-actions-label>歌曲操作</m-actions-label>
+        <m-actions-button @click="onOpenSongEdit">编辑歌曲信息</m-actions-button>
+        <m-actions-button @click="isPlayerActionsOpen = false">取消</m-actions-button>
+      </m-actions-group>
+    </m-actions>
 
     <!-- 编辑歌曲信息：title/artist/album/封面/歌词/RG + 云端获取 -->
-    <k-sheet :opened="isSongEditOpen">
-      <div class="text-[17px] font-semibold text-center pt-[16px] pb-[8px] text-black dark:text-white">编辑歌曲信息</div>
+    <m-sheet :opened="isSongEditOpen">
+      <div class="player-page__sheet-title">编辑歌曲信息</div>
       <form
-        class="flex flex-col gap-[12px] pb-[16px] px-[16px]"
+        class="player-page__edit-form"
         @submit.prevent="editForm.handleSubmit"
       >
         <!-- tab：基础信息 / 歌词（渠道拆分） -->
-        <div class="flex rounded-[10px] bg-black/10 dark:bg-white/10 p-[3px]">
+        <div class="player-page__seg">
           <button
             type="button"
-            class="flex-1 h-[34px] rounded-[8px] text-[15px] font-medium transition-colors"
-            :class="editMetaTab === 'basic'
-              ? 'bg-white dark:bg-white/15 text-black dark:text-white shadow-sm'
-              : 'bg-transparent text-black/55 dark:text-white/55'"
+            class="player-page__seg-btn"
+            :class="{ 'player-page__seg-btn--active': editMetaTab === 'basic' }"
             :aria-pressed="editMetaTab === 'basic'"
             @click="editMetaTab = 'basic'"
           >
@@ -270,10 +275,8 @@
           </button>
           <button
             type="button"
-            class="flex-1 h-[34px] rounded-[8px] text-[15px] font-medium transition-colors"
-            :class="editMetaTab === 'lyrics'
-              ? 'bg-white dark:bg-white/15 text-black dark:text-white shadow-sm'
-              : 'bg-transparent text-black/55 dark:text-white/55'"
+            class="player-page__seg-btn"
+            :class="{ 'player-page__seg-btn--active': editMetaTab === 'lyrics' }"
             :aria-pressed="editMetaTab === 'lyrics'"
             @click="editMetaTab = 'lyrics'"
           >
@@ -282,340 +285,336 @@
         </div>
 
         <template v-if="editMetaTab === 'basic'">
-        <!-- 云端强制搜：预览 + 勾选应用，不自动覆盖表单 -->
-        <section
-          class="flex flex-col gap-[8px] rounded-[12px] border border-black/10 dark:border-white/15 p-[12px]"
-          aria-label="从云端获取元信息"
-        >
-          <div class="flex flex-col gap-[8px]">
-            <p class="m-0 text-[15px] font-medium">来源平台</p>
-            <div class="flex flex-wrap gap-[6px]">
-              <button
-                v-for="item in cloudPlatforms"
-                :key="item.id"
-                type="button"
-                class="h-[30px] px-[12px] rounded-full text-[15px] border transition-colors"
-                :class="cloudPlatform === item.id
-                  ? 'bg-primary text-white border-transparent'
-                  : 'bg-transparent text-black/55 dark:text-white/55 border-black/10 dark:border-white/15'"
-                :aria-pressed="cloudPlatform === item.id"
-                :disabled="cloudFetching || cloudApplying"
-                @click="cloudPlatform = item.id"
-              >
-                {{ item.label }}
-              </button>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between gap-[8px]">
-            <p class="m-0 text-[15px] font-medium">云端元信息</p>
-            <k-button
-              component="button"
-              clear
-              small
-              rounded
-              :disabled="isEditSubmitting || cloudFetching || cloudApplying"
-              aria-label="从云端获取标题艺人专辑封面与歌词"
-              @click="onFetchCloudMeta"
-            >
-              {{ cloudFetching ? '获取中…' : '从云端获取' }}
-            </k-button>
-          </div>
-
-          <p
-            v-if="cloudStatusMessage"
-            class="m-0 text-[15px] text-black/55 dark:text-white/55"
+          <!-- 云端强制搜：预览 + 勾选应用，不自动覆盖表单 -->
+          <section
+            class="player-page__cloud-card"
+            aria-label="从云端获取元信息"
           >
-            {{ cloudStatusMessage }}
-          </p>
+            <div class="player-page__cloud-field">
+              <p class="player-page__label">来源平台</p>
+              <div class="player-page__pill-row">
+                <button
+                  v-for="item in cloudPlatforms"
+                  :key="item.id"
+                  type="button"
+                  class="player-page__pill"
+                  :class="{ 'player-page__pill--active': cloudPlatform === item.id }"
+                  :aria-pressed="cloudPlatform === item.id"
+                  :disabled="cloudFetching || cloudApplying"
+                  @click="cloudPlatform = item.id"
+                >
+                  {{ item.label }}
+                </button>
+              </div>
+            </div>
 
-          <template v-if="cloudResult">
-            <div class="flex flex-col gap-[2px]">
-              <p class="m-0 text-[15px] text-black/55 dark:text-white/55">
-                文本 · {{ dimStatusLabel(cloudResult.text.status) }}
-                <template v-if="selectedTextHit">
-                  ：{{ selectedTextHit.title || '—' }} / {{ selectedTextHit.artist || '—' }} / {{ selectedTextHit.album || '—' }}
-                  <span v-if="selectedTextHit.source">（{{ cloudSourceLabel(selectedTextHit.source) }}）</span>
+            <div class="player-page__row">
+              <p class="player-page__label">云端元信息</p>
+              <m-button
+                component="button"
+                variant="clear"
+                size="small"
+                rounded
+                :disabled="isEditSubmitting || cloudFetching || cloudApplying"
+                aria-label="从云端获取标题艺人专辑封面与歌词"
+                @click="onFetchCloudMeta"
+              >
+                {{ cloudFetching ? '获取中…' : '从云端获取' }}
+              </m-button>
+            </div>
+
+            <p
+              v-if="cloudStatusMessage"
+              class="player-page__muted"
+            >
+              {{ cloudStatusMessage }}
+            </p>
+
+            <template v-if="cloudResult">
+              <div class="player-page__cloud-result">
+                <p class="player-page__muted">
+                  文本 · {{ dimStatusLabel(cloudResult.text.status) }}
+                  <template v-if="selectedTextHit">
+                    ：{{ selectedTextHit.title || '—' }} / {{ selectedTextHit.artist || '—' }} / {{ selectedTextHit.album || '—' }}
+                    <span v-if="selectedTextHit.source">（{{ cloudSourceLabel(selectedTextHit.source) }}）</span>
+                  </template>
+                </p>
+                <m-button
+                  v-if="cloudResult.text.items.length > 1"
+                  component="button"
+                  variant="clear"
+                  rounded
+                  size="small"
+                  class="player-page__self-start"
+                  :disabled="cloudFetching || cloudApplying"
+                  aria-label="更换文本候选"
+                  @click="cloudExpandText = !cloudExpandText"
+                >
+                  {{ cloudExpandText ? '收起文本候选' : '更换文本' }}
+                </m-button>
+                <div v-if="cloudExpandText" class="player-page__cand-list">
+                  <button
+                    v-for="(item, idx) in cloudResult.text.items"
+                    :key="`text-${idx}-${item.source}`"
+                    type="button"
+                    class="player-page__cand-btn"
+                    :class="{ 'player-page__cand-btn--selected': idx === cloudTextIndex }"
+                    @click="cloudTextIndex = idx"
+                  >
+                    {{ item.title || '—' }} · {{ item.artist || '—' }} · {{ item.album || '—' }}
+                    <span class="player-page__cand-source">（{{ cloudSourceLabel(item.source) }}）</span>
+                  </button>
+                </div>
+
+                <p class="player-page__muted">
+                  封面 · {{ dimStatusLabel(cloudResult.cover.status) }}
+                  <template v-if="selectedCoverHit">（{{ cloudSourceLabel(selectedCoverHit.source) }}）</template>
+                </p>
+                <img
+                  v-if="selectedCoverHit"
+                  class="player-page__cover-thumb"
+                  :src="selectedCoverHit.remoteUrl"
+                  alt="云端封面预览"
+                >
+                <m-button
+                  v-if="cloudResult.cover.items.length > 1"
+                  component="button"
+                  variant="clear"
+                  rounded
+                  size="small"
+                  class="player-page__self-start"
+                  :disabled="cloudFetching || cloudApplying"
+                  aria-label="更换封面候选"
+                  @click="cloudExpandCover = !cloudExpandCover"
+                >
+                  {{ cloudExpandCover ? '收起封面候选' : '更换封面' }}
+                </m-button>
+                <div v-if="cloudExpandCover" class="player-page__cover-cands">
+                  <button
+                    v-for="(item, idx) in cloudResult.cover.items"
+                    :key="`cover-${idx}-${item.source}`"
+                    type="button"
+                    class="player-page__cover-cand"
+                    :class="{ 'player-page__cover-cand--selected': idx === cloudCoverIndex }"
+                    :aria-label="`封面候选 ${idx + 1} ${cloudSourceLabel(item.source)}`"
+                    @click="cloudCoverIndex = idx"
+                  >
+                    <img class="player-page__cover-cand-img" :src="item.remoteUrl" alt="">
+                  </button>
+                </div>
+              </div>
+
+              <div class="player-page__cloud-apply">
+                <p class="player-page__label">应用到表单的字段</p>
+                <div class="player-page__check-row">
+                  <label class="player-page__check-label">
+                    <m-checkbox
+                      :checked="cloudChecks.title"
+                      :disabled="!selectedTextHit?.title?.trim() || cloudFetching || cloudApplying"
+                      aria-label="应用标题"
+                      @change="onCloudCheckChange('title', $event)"
+                    />
+                    标题
+                  </label>
+                  <label class="player-page__check-label">
+                    <m-checkbox
+                      :checked="cloudChecks.artist"
+                      :disabled="!selectedTextHit?.artist?.trim() || cloudFetching || cloudApplying"
+                      aria-label="应用艺术家"
+                      @change="onCloudCheckChange('artist', $event)"
+                    />
+                    艺术家
+                  </label>
+                  <label class="player-page__check-label">
+                    <m-checkbox
+                      :checked="cloudChecks.album"
+                      :disabled="!selectedTextHit?.album?.trim() || cloudFetching || cloudApplying"
+                      aria-label="应用专辑"
+                      @change="onCloudCheckChange('album', $event)"
+                    />
+                    专辑
+                  </label>
+                  <label class="player-page__check-label">
+                    <m-checkbox
+                      :checked="cloudChecks.cover"
+                      :disabled="!selectedCoverHit || cloudFetching || cloudApplying"
+                      aria-label="应用封面"
+                      @change="onCloudCheckChange('cover', $event)"
+                    />
+                    封面
+                  </label>
+                </div>
+                <m-button
+                  component="button"
+                  size="small"
+                  rounded
+                  class="player-page__self-start"
+                  :disabled="!canApplyCloud || cloudFetching || cloudApplying || isEditSubmitting"
+                  aria-label="将勾选的云端字段应用到表单"
+                  @click="onApplyCloudMeta"
+                >
+                  {{ cloudApplying ? '应用中…' : '应用到表单' }}
+                </m-button>
+              </div>
+            </template>
+          </section>
+
+          <editForm.Field
+            name="title"
+            :validators="{
+              onSubmit: ({ value }) => (String(value ?? '').trim() ? undefined : '请填写歌曲标题'),
+            }"
+          >
+            <template #default="{ field }">
+              <m-list-input
+                label="标题"
+                :error="typeof field.state.meta.errors[0] === 'string' ? field.state.meta.errors[0] : undefined"
+                :disabled="isEditSubmitting"
+              >
+                <template #input>
+                  <input
+                    :value="field.state.value"
+                    type="text"
+                    placeholder="标题"
+                    class="player-page__field-input"
+                    @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                    @blur="field.handleBlur"
+                  />
                 </template>
-              </p>
-              <k-button
-                v-if="cloudResult.text.items.length > 1"
-                component="button"
-                clear
-                rounded
-                small
-                class="self-start"
-                :disabled="cloudFetching || cloudApplying"
-                aria-label="更换文本候选"
-                @click="cloudExpandText = !cloudExpandText"
-              >
-                {{ cloudExpandText ? '收起文本候选' : '更换文本' }}
-              </k-button>
-              <div v-if="cloudExpandText" class="flex flex-col gap-[4px] max-h-36 overflow-y-auto">
-                <button
-                  v-for="(item, idx) in cloudResult.text.items"
-                  :key="`text-${idx}-${item.source}`"
-                  type="button"
-                  class="text-left text-[15px] p-[6px] rounded-[8px] border-0 bg-transparent"
-                  :class="idx === cloudTextIndex ? 'bg-black/5 dark:bg-white/10' : ''"
-                  @click="cloudTextIndex = idx"
-                >
-                  {{ item.title || '—' }} · {{ item.artist || '—' }} · {{ item.album || '—' }}
-                  <span class="opacity-60">（{{ cloudSourceLabel(item.source) }}）</span>
-                </button>
-              </div>
+              </m-list-input>
+            </template>
+          </editForm.Field>
 
-              <p class="m-0 text-[15px] text-black/55 dark:text-white/55">
-                封面 · {{ dimStatusLabel(cloudResult.cover.status) }}
-                <template v-if="selectedCoverHit">（{{ cloudSourceLabel(selectedCoverHit.source) }}）</template>
-              </p>
+          <editForm.Field name="artist">
+            <template #default="{ field }">
+              <m-list-input
+                label="艺术家"
+                :disabled="isEditSubmitting"
+              >
+                <template #input>
+                  <input
+                    :value="field.state.value"
+                    type="text"
+                    placeholder="艺术家"
+                    class="player-page__field-input"
+                    @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                    @blur="field.handleBlur"
+                  />
+                </template>
+              </m-list-input>
+            </template>
+          </editForm.Field>
+
+          <editForm.Field name="album">
+            <template #default="{ field }">
+              <m-list-input
+                label="专辑"
+                :disabled="isEditSubmitting"
+              >
+                <template #input>
+                  <input
+                    :value="field.state.value"
+                    type="text"
+                    placeholder="专辑"
+                    class="player-page__field-input"
+                    @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                    @blur="field.handleBlur"
+                  />
+                </template>
+              </m-list-input>
+            </template>
+          </editForm.Field>
+
+          <div class="player-page__cover-edit">
+            <p class="player-page__label">封面</p>
+            <div class="player-page__cover-edit-row">
               <img
-                v-if="selectedCoverHit"
-                class="w-14 h-14 rounded-[8px] object-cover"
-                :src="selectedCoverHit.remoteUrl"
-                alt="云端封面预览"
-              >
-              <k-button
-                v-if="cloudResult.cover.items.length > 1"
-                component="button"
-                clear
-                rounded
-                small
-                class="self-start"
-                :disabled="cloudFetching || cloudApplying"
-                aria-label="更换封面候选"
-                @click="cloudExpandCover = !cloudExpandCover"
-              >
-                {{ cloudExpandCover ? '收起封面候选' : '更换封面' }}
-              </k-button>
-              <div v-if="cloudExpandCover" class="flex flex-wrap gap-[8px] max-h-40 overflow-y-auto">
-                <button
-                  v-for="(item, idx) in cloudResult.cover.items"
-                  :key="`cover-${idx}-${item.source}`"
-                  type="button"
-                  class="p-0 border-0 bg-transparent rounded-[8px] overflow-hidden ring-offset-1"
-                  :class="idx === cloudCoverIndex ? 'ring-2 ring-primary' : ''"
-                  :aria-label="`封面候选 ${idx + 1} ${cloudSourceLabel(item.source)}`"
-                  @click="cloudCoverIndex = idx"
-                >
-                  <img class="w-12 h-12 object-cover" :src="item.remoteUrl" alt="">
-                </button>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-[6px] pt-[2px]">
-              <p class="m-0 text-[15px]">应用到表单的字段</p>
-              <div class="flex flex-wrap gap-x-[12px] gap-y-[6px]">
-                <label class="inline-flex items-center gap-[6px] text-[15px]">
-                  <k-checkbox
-                    :checked="cloudChecks.title"
-                    :disabled="!selectedTextHit?.title?.trim() || cloudFetching || cloudApplying"
-                    aria-label="应用标题"
-                    @change="onCloudCheckChange('title', $event)"
-                  />
-                  标题
-                </label>
-                <label class="inline-flex items-center gap-[6px] text-[15px]">
-                  <k-checkbox
-                    :checked="cloudChecks.artist"
-                    :disabled="!selectedTextHit?.artist?.trim() || cloudFetching || cloudApplying"
-                    aria-label="应用艺术家"
-                    @change="onCloudCheckChange('artist', $event)"
-                  />
-                  艺术家
-                </label>
-                <label class="inline-flex items-center gap-[6px] text-[15px]">
-                  <k-checkbox
-                    :checked="cloudChecks.album"
-                    :disabled="!selectedTextHit?.album?.trim() || cloudFetching || cloudApplying"
-                    aria-label="应用专辑"
-                    @change="onCloudCheckChange('album', $event)"
-                  />
-                  专辑
-                </label>
-                <label class="inline-flex items-center gap-[6px] text-[15px]">
-                  <k-checkbox
-                    :checked="cloudChecks.cover"
-                    :disabled="!selectedCoverHit || cloudFetching || cloudApplying"
-                    aria-label="应用封面"
-                    @change="onCloudCheckChange('cover', $event)"
-                  />
-                  封面
-                </label>
-              </div>
-              <k-button
-                component="button"
-                small
-                rounded
-                class="self-start"
-                :disabled="!canApplyCloud || cloudFetching || cloudApplying || isEditSubmitting"
-                aria-label="将勾选的云端字段应用到表单"
-                @click="onApplyCloudMeta"
-              >
-                {{ cloudApplying ? '应用中…' : '应用到表单' }}
-              </k-button>
-            </div>
-          </template>
-        </section>
-
-        <editForm.Field
-          name="title"
-          :validators="{
-            onSubmit: ({ value }) => (String(value ?? '').trim() ? undefined : '请填写歌曲标题'),
-          }"
-        >
-          <template #default="{ field }">
-            <k-list-input
-              label="标题"
-              :error="typeof field.state.meta.errors[0] === 'string' ? field.state.meta.errors[0] : undefined"
-              :disabled="isEditSubmitting"
-            >
-              <template #input>
-                <input
-                  :value="field.state.value"
-                  type="text"
-                  placeholder="标题"
-                  class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
-                  @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
-                  @blur="field.handleBlur"
-                />
-              </template>
-            </k-list-input>
-          </template>
-        </editForm.Field>
-
-        <editForm.Field name="artist">
-          <template #default="{ field }">
-            <k-list-input
-              label="艺术家"
-              :disabled="isEditSubmitting"
-            >
-              <template #input>
-                <input
-                  :value="field.state.value"
-                  type="text"
-                  placeholder="艺术家"
-                  class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
-                  @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
-                  @blur="field.handleBlur"
-                />
-              </template>
-            </k-list-input>
-          </template>
-        </editForm.Field>
-
-        <editForm.Field name="album">
-          <template #default="{ field }">
-            <k-list-input
-              label="专辑"
-              :disabled="isEditSubmitting"
-            >
-              <template #input>
-                <input
-                  :value="field.state.value"
-                  type="text"
-                  placeholder="专辑"
-                  class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
-                  @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
-                  @blur="field.handleBlur"
-                />
-              </template>
-            </k-list-input>
-          </template>
-        </editForm.Field>
-
-        <div class="flex flex-col gap-[2px]">
-          <p class="m-0 text-[15px] text-black/55 dark:text-white/55">封面</p>
-          <div class="flex items-center gap-[12px]">
-            <img
-              v-if="editCoverPreviewSrc"
-              class="w-16 h-16 rounded-[10px] object-cover flex-none"
-              :src="editCoverPreviewSrc"
-              alt="封面预览"
-            >
-            <div
-              v-else
-              class="w-16 h-16 rounded-[10px] flex-none flex items-center justify-center bg-black/5 dark:bg-white/10 text-[24px]"
-              aria-hidden="true"
-            >
-              ♪
-            </div>
-            <div class="flex flex-col gap-[2px] min-w-0">
-              <k-button
-                component="button"
-                clear
-                small
-                rounded
-                :disabled="isEditSubmitting"
-                @click="onPickCover"
-              >
-                选择图片
-              </k-button>
-              <k-button
                 v-if="editCoverPreviewSrc"
-                component="button"
-                clear
-                small
-                :disabled="isEditSubmitting"
-                @click="onClearCover"
+                class="player-page__cover-edit-preview"
+                :src="editCoverPreviewSrc"
+                alt="封面预览"
               >
-                清除封面
-              </k-button>
+              <div
+                v-else
+                class="player-page__cover-edit-placeholder"
+                aria-hidden="true"
+              >
+                ♪
+              </div>
+              <div class="player-page__cover-edit-actions">
+                <m-button
+                  component="button"
+                  variant="clear"
+                  size="small"
+                  rounded
+                  :disabled="isEditSubmitting"
+                  @click="onPickCover"
+                >
+                  选择图片
+                </m-button>
+                <m-button
+                  v-if="editCoverPreviewSrc"
+                  component="button"
+                  variant="clear"
+                  size="small"
+                  :disabled="isEditSubmitting"
+                  @click="onClearCover"
+                >
+                  清除封面
+                </m-button>
+              </div>
             </div>
-          </div>
-          <input
-            ref="coverFileInputRef"
-            class="hidden"
-            type="file"
-            accept="image/*"
-            @change="onCoverFileChange"
-          >
-        </div>
-
-        <editForm.Field
-          name="replayGainDb"
-          :validators="{
-            onSubmit: ({ value }) => validateReplayGainInput(String(value ?? '')),
-          }"
-        >
-          <template #default="{ field }">
-            <k-list-input
-              label="音量均衡（ReplayGain dB）"
-              :error="typeof field.state.meta.errors[0] === 'string' ? field.state.meta.errors[0] : undefined"
-              :disabled="isEditSubmitting"
+            <input
+              ref="coverFileInputRef"
+              class="player-page__hidden-input"
+              type="file"
+              accept="image/*"
+              @change="onCoverFileChange"
             >
-              <template #input>
-                <input
-                  :value="field.state.value"
-                  type="text"
-                  placeholder="如 -6.5，空=清除"
-                  class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 placeholder-black/30 dark:placeholder-white/30"
-                  @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
-                  @blur="field.handleBlur"
-                />
-              </template>
-            </k-list-input>
-          </template>
-        </editForm.Field>
+          </div>
+
+          <editForm.Field
+            name="replayGainDb"
+            :validators="{
+              onSubmit: ({ value }) => validateReplayGainInput(String(value ?? '')),
+            }"
+          >
+            <template #default="{ field }">
+              <m-list-input
+                label="音量均衡（ReplayGain dB）"
+                :error="typeof field.state.meta.errors[0] === 'string' ? field.state.meta.errors[0] : undefined"
+                :disabled="isEditSubmitting"
+              >
+                <template #input>
+                  <input
+                    :value="field.state.value"
+                    type="text"
+                    placeholder="如 -6.5，空=清除"
+                    class="player-page__field-input"
+                    @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                    @blur="field.handleBlur"
+                  />
+                </template>
+              </m-list-input>
+            </template>
+          </editForm.Field>
         </template>
 
         <template v-else>
           <!-- 云端歌词：独立渠道 + 独立来源选择 -->
           <section
-            class="flex flex-col gap-[8px] rounded-[12px] border border-black/10 dark:border-white/15 p-[12px]"
+            class="player-page__cloud-card"
             aria-label="从云端获取歌词"
           >
-            <div class="flex flex-col gap-[8px]">
-              <p class="m-0 text-[15px] font-medium">歌词来源</p>
-              <div class="flex flex-wrap gap-[6px]">
+            <div class="player-page__cloud-field">
+              <p class="player-page__label">歌词来源</p>
+              <div class="player-page__pill-row">
                 <button
                   v-for="item in cloudLyricsPlatforms"
                   :key="item.id"
                   type="button"
-                  class="h-[30px] px-[12px] rounded-full text-[15px] border transition-colors"
-                  :class="lyricsPlatform === item.id
-                    ? 'bg-primary text-white border-transparent'
-                    : 'bg-transparent text-black/55 dark:text-white/55 border-black/10 dark:border-white/15'"
+                  class="player-page__pill"
+                  :class="{ 'player-page__pill--active': lyricsPlatform === item.id }"
                   :aria-pressed="lyricsPlatform === item.id"
                   :disabled="cloudFetching || cloudApplying"
                   @click="lyricsPlatform = item.id"
@@ -625,68 +624,68 @@
               </div>
             </div>
 
-            <div class="flex items-center justify-between gap-[8px]">
-              <p class="m-0 text-[15px] font-medium">云端歌词</p>
-              <k-button
+            <div class="player-page__row">
+              <p class="player-page__label">云端歌词</p>
+              <m-button
                 component="button"
-                clear
-                small
+                variant="clear"
+                size="small"
                 rounded
                 :disabled="isEditSubmitting || cloudFetching || cloudApplying"
                 aria-label="从云端获取歌词"
                 @click="onFetchCloudMeta"
               >
                 {{ cloudFetching ? '获取中…' : '获取歌词' }}
-              </k-button>
+              </m-button>
             </div>
 
             <p
               v-if="lyricsStatusMessage"
-              class="m-0 text-[15px] text-black/55 dark:text-white/55"
+              class="player-page__muted"
             >
               {{ lyricsStatusMessage }}
             </p>
 
             <template v-if="cloudResult?.lyrics?.items?.length">
-              <p class="m-0 text-[15px] text-black/55 dark:text-white/55">
+              <p class="player-page__muted">
                 候选 · {{ cloudResult.lyrics.items.length }} 条
               </p>
-              <div class="flex flex-col gap-[4px] max-h-36 overflow-y-auto">
+              <div class="player-page__cand-list">
                 <button
                   v-for="(item, idx) in cloudResult.lyrics.items"
                   :key="`lyrics-${idx}-${item.source}`"
                   type="button"
-                  class="text-left text-[15px] p-[6px] rounded-[8px] border-0 bg-transparent"
-                  :class="idx === cloudLyricsIndex ? 'bg-black/5 dark:bg-white/10' : ''"
+                  class="player-page__cand-btn"
+                  :class="{ 'player-page__cand-btn--selected': idx === cloudLyricsIndex }"
                   @click="cloudLyricsIndex = idx"
                 >
                   {{ cloudSourceLabel(item.source) }} · {{ item.format }}
-                  <span class="opacity-60">{{ lyricsPreview(item.text, 40) }}</span>
+                  <span class="player-page__cand-source">{{ lyricsPreview(item.text, 40) }}</span>
                 </button>
               </div>
               <p
                 v-if="selectedLyricsHit"
-                class="m-0 text-[15px] whitespace-pre-wrap opacity-80 max-h-28 overflow-y-auto"
+                class="player-page__lyrics-preview"
               >
                 {{ selectedLyricsHit.text }}
               </p>
-              <k-button
+              <m-button
                 component="button"
-                small
+                size="small"
                 rounded
-                class="self-start"
+                class="player-page__self-start"
                 :disabled="!selectedLyricsHit || cloudFetching || cloudApplying || isEditSubmitting"
                 aria-label="将所选云端歌词应用到歌词输入框"
                 @click="onApplyLyrics"
               >
                 {{ cloudApplying ? '应用中…' : '应用所选歌词' }}
-              </k-button>
+              </m-button>
             </template>
           </section>
 
           <editForm.Field name="lyrics">
             <template #default="{ field }">
-              <k-list-input
+              <m-list-input
                 label="歌词文本"
                 :disabled="isEditSubmitting"
               >
@@ -695,51 +694,52 @@
                     :value="field.state.value"
                     rows="4"
                     placeholder="歌词文本"
-                    class="block text-base appearance-none w-full focus:outline-none bg-transparent h-10 py-2 placeholder-black/30 dark:placeholder-white/30 resize-none"
+                    class="player-page__lyrics-input"
                     @input="(e: Event) => onEditLyricsInput(field, (e.target as HTMLTextAreaElement).value)"
                     @blur="field.handleBlur"
-                  />
+                  ></textarea>
                 </template>
-              </k-list-input>
+              </m-list-input>
             </template>
           </editForm.Field>
         </template>
 
-        <p v-if="editFormError" class="m-0 text-[15px] text-[#ff3b30]">
+        <p v-if="editFormError" class="player-page__error-text">
           {{ editFormError }}
         </p>
 
-        <div class="flex justify-end gap-[8px] pt-[8px]">
-          <k-button component="button" clear rounded :disabled="isEditSubmitting" @click="closeSongEdit">
+        <div class="player-page__form-actions">
+          <m-button component="button" variant="clear" rounded :disabled="isEditSubmitting" @click="closeSongEdit">
             取消
-          </k-button>
-          <k-button component="button" type="submit" rounded :disabled="isEditSubmitting">
+          </m-button>
+          <m-button component="button" type="submit" rounded :disabled="isEditSubmitting">
             {{ isEditSubmitting ? '保存中…' : '保存' }}
-          </k-button>
+          </m-button>
         </div>
       </form>
-    </k-sheet>
+    </m-sheet>
 
-    <k-toast :opened="toast.visible" position="center">
+    <m-toast :opened="toast.visible" position="center">
       {{ toast.message }}
-    </k-toast>
-  </k-popup>
+    </m-toast>
+  </m-popup>
 </template>
 
 <script setup lang="ts">
 import {
-  kActions,
-  kActionsButton,
-  kActionsGroup,
-  kActionsLabel,
-  kButton,
-  kCheckbox,
-  kListInput,
-  kPopup,
-  kRange,
-  kSheet,
-  kToast,
+  MActions,
+  MActionsButton,
+  MActionsGroup,
+  MActionsLabel,
+  MButton,
+  MCheckbox,
+  MListInput,
+  MPopup,
+  MRange,
+  MSheet,
+  MToast,
 } from '@/components/ui'
+import { animate, motion, type AnimationPlaybackControls } from 'motion-v'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useForm } from '@tanstack/vue-form'
 import { Capacitor } from '@capacitor/core'
@@ -820,6 +820,15 @@ const onLyricUserScroll = (): void => {
       void player.calcLayout()
     }
   }, 2000)
+}
+const dragLayerRef = ref<HTMLElement | null>(null)
+/** 松手回弹动画句柄（motion 命令式）；拖拽跟手由状态驱动（无过渡） */
+let reboundControls: AnimationPlaybackControls | null = null
+const stopRebound = (): void => {
+  if (reboundControls) {
+    reboundControls.stop()
+    reboundControls = null
+  }
 }
 const progressRangeRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
 /** 隐藏态冻结传给 AMLL 的时间输入；重新打开时由当前播放进度立即刷新。 */
@@ -1733,6 +1742,35 @@ watch(playerOverlayVisible, (visible) => {
   resetDragState()
 })
 
+/** 松手回弹（原 CSS transition 220ms）：dragOffsetY 归零后由 motion 命令式动画接管 */
+watch(
+  dragOffsetY,
+  (next, prev) => {
+    if (reboundControls || !dragLayerRef.value) {
+      return
+    }
+    const from = prev ?? 0
+    if (from <= 0 || next !== 0) {
+      return
+    }
+    const el = dragLayerRef.value
+    // Vue 已渲染 transform: translateY(0)；先锁回拖拽终点再交给 motion 动画
+    el.style.transform = `translateY(${from}px)`
+    reboundControls = animate(
+      el,
+      { transform: 'translateY(0px)' },
+      {
+        duration: 0.22,
+        ease: 'easeOut',
+        onComplete: () => {
+          reboundControls = null
+        },
+      },
+    )
+  },
+  { flush: 'post' },
+)
+
 watch(activePanel, (panel) => {
   if (panel !== 1) {
     hideLyricChromeImmediate()
@@ -2007,6 +2045,10 @@ const onTouchMove = (event: TouchEvent) => {
   }
 
   const nextOffset = Math.max(0, deltaY)
+  if (reboundControls) {
+    // 回弹动画未结束又起新拖拽：立即终止动画，恢复纯状态跟手
+    stopRebound()
+  }
   dragOffsetY.value = nextOffset
   isDraggingVertically.value = nextOffset > 0
 }
@@ -2158,7 +2200,671 @@ onUnmounted(() => {
     bufferHintTimer = null
   }
   seekGestureLocked.value = false
+  stopRebound()
   resetDragState()
 })
 </script>
+
+<style scoped lang="scss">
+/* ============ PlayerPage 沉浸式播放器（深色层） ============ */
+.player-page {
+  &__overlay {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+    color: #fff;
+  }
+
+  &__drag-layer {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    background: #05070d;
+    will-change: transform;
+  }
+
+  &__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    opacity: 0.75;
+  }
+
+  &__bg-render {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  &__fallback {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+
+    &--hidden {
+      opacity: 0;
+    }
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+
+    &-icon {
+      font-size: 48px;
+    }
+
+    h1 {
+      margin: 16px 0 8px;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      opacity: 0.75;
+    }
+  }
+
+  /* 面板横向滑动容器（md+ 由全局 .panels 断点规则接管 transform:none） */
+  &__panels {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    width: 200%;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  &__info-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: min(100%, 420px);
+    height: 100%;
+    margin: 0 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  &__cover-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+  }
+
+  &__cover-img {
+    aspect-ratio: 1;
+    height: auto;
+    max-width: 100%;
+    object-fit: cover;
+    border-radius: 12px;
+  }
+
+  &__cover-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 56px;
+  }
+
+  &__song-info {
+    flex: none;
+    width: 100%;
+    margin: 0;
+    text-align: left;
+    min-width: 0;
+  }
+
+  &__progress-area {
+    flex: none;
+    width: 100%;
+  }
+
+  &__progress-range {
+    width: 100%;
+    cursor: pointer;
+    touch-action: manipulation;
+
+    /* 隐藏 thumbWrap（原 [&_[style*='inset-inline-start']]:hidden） */
+    :deep([style*='inset-inline-start']) {
+      display: none;
+    }
+  }
+
+  &__time-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255, 255, 255, 0.68);
+  }
+
+  &__buffer-hint {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  &__controls {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(16px, 5vw, 28px);
+    width: 100%;
+    margin: 0;
+    touch-action: manipulation;
+  }
+
+  &__mode-bar {
+    flex: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 320px;
+    margin: 0;
+    touch-action: manipulation;
+  }
+
+  /* 播放器控制按钮（深底白字系；!important 压组件 clear 变体文字色） */
+  &__side-btn {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.9) !important;
+  }
+
+  &__play-btn {
+    width: 64px;
+    height: 64px;
+    padding: 0;
+    color: #fff !important;
+  }
+
+  &__mode-btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.8) !important;
+  }
+
+  &__icon-lg {
+    width: 28px;
+    height: 28px;
+    fill: currentColor;
+    stroke: none;
+  }
+
+  &__icon-xl {
+    width: 40px;
+    height: 40px;
+    fill: currentColor;
+    stroke: none;
+  }
+
+  &__icon {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    stroke: none;
+  }
+
+  /* 歌词页 */
+  &__lyric-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    overflow: hidden;
+  }
+
+  &__lyric-header {
+    flex: none;
+    width: 100%;
+    text-align: left;
+    min-width: 0;
+  }
+
+  &__lyric-title {
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__lyric-artist {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__lyric-player {
+    display: block;
+    position: relative;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+  }
+
+  &__lyric-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+      opacity: 0.65;
+    }
+  }
+
+  &__lyric-fabs {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: calc(8px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+
+    &--split {
+      justify-content: space-between;
+    }
+
+    &--end {
+      justify-content: flex-end;
+    }
+  }
+
+  &__lyric-fab {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.8) !important;
+  }
+
+  &__lyric-play-fab {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    color: #fff !important;
+  }
+}
+
+/* ============ 编辑歌曲信息（sheet 内，主题色系） ============ */
+.player-page {
+  &__sheet-title {
+    padding: 16px 0 8px;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--m-text);
+  }
+
+  &__edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 16px 16px;
+  }
+
+  &__seg {
+    display: flex;
+    border-radius: 10px;
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 3px;
+  }
+
+  &__seg-btn {
+    flex: 1;
+    height: 34px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 15px;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--m-text-secondary);
+    transition: background-color 0.2s, color 0.2s;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+
+    &--active {
+      background-color: #fff;
+      color: var(--m-text);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  &__cloud-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  &__cloud-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__label {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--m-text);
+  }
+
+  &__muted {
+    margin: 0;
+    font-size: 15px;
+    color: var(--m-text-secondary);
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__pill {
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 9999px;
+    background: transparent;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--m-text-secondary);
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+
+    &--active {
+      background-color: var(--m-primary);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  }
+
+  &__self-start {
+    align-self: flex-start;
+  }
+
+  &__cloud-result {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__cand-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 144px;
+    overflow-y: auto;
+  }
+
+  &__cand-btn {
+    padding: 6px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    text-align: left;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--m-text);
+
+    &--selected {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+  }
+
+  &__cand-source {
+    opacity: 0.6;
+  }
+
+  &__cover-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+
+  &__cover-cands {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  &__cover-cand {
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    overflow: hidden;
+    background: transparent;
+
+    &--selected {
+      box-shadow: 0 0 0 2px var(--m-primary);
+    }
+  }
+
+  &__cover-cand-img {
+    display: block;
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+  }
+
+  &__cloud-apply {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 2px;
+  }
+
+  &__check-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+
+  &__check-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    color: var(--m-text);
+  }
+
+  &__field-input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    height: 40px;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 16px;
+    color: var(--m-text);
+
+    &::placeholder {
+      color: var(--m-text-tertiary);
+    }
+  }
+
+  &__cover-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__cover-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__cover-edit-preview {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    object-fit: cover;
+  }
+
+  &__cover-edit-placeholder {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.05);
+    font-size: 24px;
+    color: var(--m-text);
+  }
+
+  &__cover-edit-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__hidden-input {
+    display: none;
+  }
+
+  &__lyrics-input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    height: 40px;
+    padding: 8px 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 16px;
+    font-family: inherit;
+    color: var(--m-text);
+    resize: none;
+
+    &::placeholder {
+      color: var(--m-text-tertiary);
+    }
+  }
+
+  &__lyrics-preview {
+    margin: 0;
+    max-height: 112px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    font-size: 15px;
+    color: var(--m-text);
+    opacity: 0.8;
+  }
+
+  &__error-text {
+    margin: 0;
+    font-size: 15px;
+    color: #ff3b30;
+  }
+
+  &__form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+  }
+}
+
+/* ============ 暗色主题变体（编辑弹窗内） ============ */
+:global(.dark) .player-page__seg {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+:global(.dark) .player-page__seg-btn {
+  color: var(--m-text-secondary);
+}
+
+:global(.dark) .player-page__seg-btn--active {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: var(--m-text);
+}
+
+:global(.dark) .player-page__cloud-card {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+:global(.dark) .player-page__pill {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--m-text-secondary);
+}
+
+:global(.dark) .player-page__pill--active {
+  background-color: var(--m-primary);
+  border-color: transparent;
+  color: #fff;
+}
+
+:global(.dark) .player-page__cand-btn--selected {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+:global(.dark) .player-page__cover-edit-placeholder {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+</style>
 
