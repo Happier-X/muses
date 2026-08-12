@@ -5,6 +5,9 @@ import router from './router';
 /* Tailwind v4 管道：解析 Konsta UI 的 @theme / 组件层 */
 import './theme/tailwind.css';
 
+/* 自研 SCSS 主题（双轨期与 tailwind.css 并存；页面迁移完成后移除 tailwind） */
+import './theme/index.scss';
+
 /* 跟随系统深浅色：同步 document.documentElement 的 .dark class（Konsta 暗色机制） */
 import { useSystemDark } from './composables/useSystemDark';
 

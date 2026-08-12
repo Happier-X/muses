@@ -1,0 +1,769 @@
+/* ============================================================
+   Muses 全局样式入口（SCSS）
+   —— 自研样式体系：主题变量 / 共享 mixin / 全局修复样式。
+   双轨期（页面迁移中）与 tailwind.css 并存，类名不冲突；
+   页面全部迁移完成后删除 tailwind.css 与 konsta 依赖。
+   ============================================================ */
+
+/* ============ 1. 主题变量（替代 tailwind @theme + konsta theme.css） ============ */
+
+:root {
+  /* 表面色（Konsta iOS 主题原值） */
+  --m-surface: #efeff4;              /* 页面底 */
+  --m-surface-1: #fff;               /* 卡片 / 导航底 */
+  --m-surface-1-shade: #f1f1f5;
+  --m-surface-1-tint: #fff;
+  --m-surface-2: #f7f7f8;
+  --m-surface-3: #fff;
+  --m-surface-variant: #f4f4f4;
+
+  /* 文字 */
+  --m-text: #000;
+  --m-text-2: rgba(60, 60, 67, 0.6); /* secondary */
+  --m-text-3: rgba(60, 60, 67, 0.3); /* tertiary / placeholder */
+
+  /* 品牌与语义色 */
+  --m-primary: #007aff;
+  --m-primary-tint: #2990ff;         /* Konsta ios-colors 算法 */
+  --m-primary-shade: #0067d6;
+  --m-danger: #ff3b30;
+  --m-success: #34c759;              /* toggle 开 */
+
+  /* 分隔线 */
+  --m-hairline: rgba(0, 0, 0, 0.2);
+
+  /* 玻璃 */
+  --m-glass-light: rgba(255, 255, 255, 0.75);
+  --m-glass-dark: rgba(50, 50, 50, 0.5);
+
+  /* 阴影（原 Konsta @theme shadow token；oklab 插值已改 rgba 等价，WebView<111 兼容） */
+  --m-shadow-ios-thumb:
+    0 0.5px 4px rgba(0, 0, 0, 0.12),
+    0 6px 13px rgba(0, 0, 0, 0.12);
+  --m-shadow-ios-light-glass-thumb:
+    inset -3px -3px 0px -3.5px rgba(255, 255, 255, 1),
+    inset 3px 3px 0px -3.5px rgba(255, 255, 255, 1),
+    inset 0px 0px 0px 0.5px rgba(255, 255, 255, 0.5),
+    inset 3px 3px 10px -2px #eee,
+    inset -3px -3px 10px -2px #eee,
+    inset 0 0 5px 1px #fff;
+  --m-shadow-ios-dark-glass-thumb:
+    inset 3px 3px 0px -3.5px rgba(255, 255, 255, 1),
+    inset -3px -3px 0px -3.5px rgba(255, 255, 255, 1),
+    inset -0.5px -0.5px 0px rgba(255, 255, 255, 0.5),
+    inset 0.5px 0.5px 0px rgba(255, 255, 255, 0.1),
+    inset -3px 3px 0px -3.5px rgba(255, 255, 255, 0.25),
+    inset 0px -5px 0px -3.5px rgba(255, 255, 255, 0.25),
+    inset 0px -5px 5px rgba(255, 255, 255, 0.25);
+  --m-shadow-ios-light-glass:
+    inset -1px -1px 0px -0.5px rgba(255, 255, 255, 1),
+    inset 1px 1px 0px -0.5px rgba(255, 255, 255, 1),
+    inset 3px 3px 10px -3px #ddd,
+    inset -3px -3px 10px -3px #ddd,
+    inset 0 0 5px 1px #fff,
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.25),
+    inset 0 0 24px 0 rgba(0, 0, 0, 0.1),
+    0 0 25px 0 rgba(0, 0, 0, 0.2);
+  --m-shadow-ios-dark-glass:
+    inset -2px -2px 0.5px -2.5px rgba(255, 255, 255, 0.4),
+    inset 3px 3px 0.5px -3.5px rgba(255, 255, 255, 0.4),
+    inset 2px 2px 0.5px -2px #262626,
+    inset -2px -2px 0.5px -2px #262626,
+    inset 0 0 5px 1px #141414,
+    inset 0 0 0 1px rgba(255, 255, 255, 0.15),
+    inset 0 0 10px 0 rgba(255, 255, 255, 0.075),
+    inset 0 0 24px 0 rgba(255, 255, 255, 0.05),
+    0 0 25px 0 rgba(0, 0, 0, 0.15);
+  --m-shadow-ios-light-glass-fab:
+    inset -3px -3px 0px -3.5px #fff,
+    inset 3px 3px 0px -3.5px #fff,
+    inset 0px 0px 0px 0.5px rgba(255, 255, 255, 0.5),
+    inset 3px 3px 10px -2px #007aff,
+    inset -3px -3px 10px -2px #007aff,
+    inset 0 0 5px 1px #fff,
+    0 0 15px 4px rgba(0, 0, 0, 0.2);
+  --m-shadow-ios-dark-glass-fab:
+    inset 3px 3px 0px -3.5px var(--m-primary),
+    inset -3px -3px 0px -3.5px var(--m-primary),
+    inset -0.5px -0.5px 0px rgba(255, 255, 255, 0.5),
+    inset 0.5px 0.5px 0px rgba(255, 255, 255, 0.1),
+    inset -3px 3px 0px -3.5px rgba(255, 255, 255, 0.25),
+    inset 0px -5px 0px -3.5px rgba(0, 122, 255, 0.5),
+    inset 0px -5px 5px rgba(0, 122, 255, 0.5),
+    0 0 15px 4px rgba(0, 0, 0, 0.2);
+
+  /* 安全区默认值（.m-app 桥接真实 inset，见 §3） */
+  --m-safe-area-top: 0px;
+  --m-safe-area-right: 0px;
+  --m-safe-area-bottom: 0px;
+  --m-safe-area-left: 0px;
+
+  /* 内容止位（原 --content-pb；页面迁移后改用 --m-* 名） */
+  --m-content-pb: 80px;
+  --m-content-pb-md: 0px;
+  --content-pb: var(--m-content-pb);
+  --content-pb-md: var(--m-content-pb-md);
+}
+
+html.muses-mini-visible {
+  --m-content-pb: 160px;
+  --m-content-pb-md: 96px;
+}
+
+.dark {
+  --m-surface: #000;
+  --m-surface-1: #1c1c1d;
+  --m-surface-1-shade: #060606;
+  --m-surface-1-tint: #444447;
+  --m-surface-2: #121212;
+  --m-surface-3: #1c1c1d;
+  --m-surface-variant: #232323;
+  --m-text: #fff;
+  --m-text-2: rgba(235, 235, 245, 0.6);
+  --m-text-3: rgba(235, 235, 245, 0.3);
+  --m-hairline: rgba(255, 255, 255, 0.15);
+  --m-glass-light: rgba(50, 50, 50, 0.5);
+  --m-glass-dark: rgba(50, 50, 50, 0.5);
+}
+
+/* ============ 2. 共享 mixin ============ */
+
+/* 物理 1px 分隔线（上/下），配合 --m-hairline 与设备像素比缩放 */
+@mixin hairline-b {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background-color: var(--m-hairline);
+    transform-origin: center bottom;
+    transform: scaleY(calc(1 / var(--m-device-pixel-ratio, 1)));
+    z-index: 10;
+  }
+}
+
+@mixin hairline-t {
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background-color: var(--m-hairline);
+    transform-origin: center top;
+    transform: scaleY(calc(1 / var(--m-device-pixel-ratio, 1)));
+    z-index: 10;
+  }
+}
+
+/* 单行省略 */
+@mixin ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 设备像素比（原 konsta base.css） */
+:root {
+  --m-device-pixel-ratio: 1;
+}
+@media (min-resolution: 1.25dppx) { :root { --m-device-pixel-ratio: 1.25; } }
+@media (min-resolution: 1.5dppx)  { :root { --m-device-pixel-ratio: 1.5; } }
+@media (min-resolution: 1.75dppx) { :root { --m-device-pixel-ratio: 1.75; } }
+@media (min-resolution: 2dppx)    { :root { --m-device-pixel-ratio: 2; } }
+@media (min-resolution: 2.25dppx) { :root { --m-device-pixel-ratio: 2.25; } }
+@media (min-resolution: 2.5dppx)  { :root { --m-device-pixel-ratio: 2.5; } }
+@media (min-resolution: 3dppx)    { :root { --m-device-pixel-ratio: 3; } }
+
+/* ============ 3. 应用根（.m-app，App.vue 用） ============ */
+
+/*
+ * 安全区桥接：Capacitor 8 原生 SystemBars 插件（insetsHandling:'css'）在
+ * WebView>=140 时把真实 insets 注入 --safe-area-inset-*（documentElement inline）。
+ * 优先消费注入值、env 兜底（iOS/网页）。同时提供 --k-safe-area-* 兼容
+ * （双轨期未迁移页面仍引用 var(--k-safe-area-top)）。
+ */
+.m-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  --m-safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --m-safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --m-safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --m-safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --k-safe-area-top: var(--m-safe-area-top);
+  --k-safe-area-right: var(--m-safe-area-right);
+  --k-safe-area-bottom: var(--m-safe-area-bottom);
+  --k-safe-area-left: var(--m-safe-area-left);
+}
+
+/* 兼容：konsta k-app 的 .safe-areas（双轨期） */
+.safe-areas {
+  --m-safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --m-safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --m-safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --m-safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --k-safe-area-top: var(--m-safe-area-top);
+  --k-safe-area-right: var(--m-safe-area-right);
+  --k-safe-area-bottom: var(--m-safe-area-bottom);
+  --k-safe-area-left: var(--m-safe-area-left);
+}
+
+/* ============ 4. 基础（body / 高度链 / 滚动锁） ============ */
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--m-text);
+  background: var(--m-surface);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  -webkit-text-size-adjust: 100%;
+}
+
+/*
+ * 高度链：宿主自持 document→#app 100% 高度，
+ * 否则 .m-page 的 height:100% 无确定高度的祖先，overflow:hidden 无法裁出内部滚动。
+ */
+html,
+body,
+#app {
+  height: 100%;
+}
+
+/*
+ * 全局 overlay 锁滚动（原 App.vue 非 scoped <style> 块）。
+ * 作用于 document 根元素（html/body）与远端 .m-content，不在任何组件模板范围内。
+ */
+html.muses-overlay-open,
+body.muses-overlay-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+/* 只锁路由页内容，不锁 overlay 自己的滚动。 */
+body.muses-overlay-open .m-content {
+  --overflow: hidden;
+  pointer-events: none;
+  overscroll-behavior: none;
+}
+
+/* ============ 5. 页面骨架（.m-page / .m-content） ============ */
+
+.m-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  /* ⚠️ 故意不加 contain，避免重建 fixed 包含块导致浮层偏移 */
+}
+
+.m-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  overscroll-behavior: contain;
+}
+
+.m-content--fullscreen {
+  --offset-top: 0px;
+  --offset-bottom: 0px;
+}
+
+/* ============ 6. PlayerPage 沉浸式播放器（原 tailwind.css 迁移） ============ */
+
+.player-overlay .fallback-background {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(148, 120, 255, 0.28), transparent 42%),
+    linear-gradient(165deg, #171b2b 0%, #0a0c14 48%, #05070d 100%);
+}
+
+.player-overlay .empty-state,
+.player-overlay .panel {
+  box-sizing: border-box;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  padding:
+    calc(16px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    24px
+    calc(16px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+.player-overlay .panel {
+  width: 50%;
+  min-width: 50%;
+  flex: 0 0 50%;
+}
+
+/* 竖屏方案 3：cover-slot 不 flex-grow，避免 justify-center 后槽位仍撑出上下空带 */
+.player-overlay .cover-slot {
+  flex: 0 1 auto;
+  max-height: min(52dvh, 340px);
+}
+
+.player-overlay .info-panel-inner {
+  justify-content: center;
+  gap: 12px;
+}
+
+.player-overlay .song-info h1 {
+  margin: 0;
+  font-size: clamp(20px, 5.4vw, 28px);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-overlay .song-info p {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: clamp(13px, 3.6vw, 15px);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-overlay .cover,
+.player-overlay .placeholder-cover {
+  width: min(72vw, 100%, 340px, 52dvh);
+  /* 显式高度公式与宽度一致：aspect-ratio 在明确 width + max-height 下失效，
+     无封面占位（♪）会回落到内容行高被压扁；正方形封面强制成立 */
+  height: min(72vw, 340px, 52dvh);
+  border-radius: clamp(18px, 4vw, 28px);
+}
+
+.player-overlay .placeholder-cover {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
+  color: rgba(255, 255, 255, 0.8);
+  font-size: clamp(48px, 12vw, 72px);
+}
+
+/*
+ * k-range 沉浸样式（双轨期保留；MRange 落地后按新结构清理）：
+ * 细轨道（4px）+ 白色 thumb。k-range 根节点即 .progress-range（class 透传），
+ * 子结构固定：span:nth-child(1) = 轨道底、span:nth-child(2) = 填充、最后 span = thumb 容器。
+ */
+.player-overlay .progress-range > span:nth-child(1) {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.player-overlay .progress-range > span:nth-child(2) {
+  background: #ffffff;
+}
+
+.player-overlay .progress-range > span:last-child > span:last-child {
+  background: #ffffff;
+}
+
+.player-overlay .progress-range > span:last-child > span:first-child {
+  box-shadow: 0 0 40px 10px rgba(255, 255, 255, 0.75);
+}
+
+.player-overlay .lyric-panel {
+  gap: 12px;
+}
+
+.player-overlay .lyric-title {
+  font-size: clamp(20px, 5.4vw, 28px);
+  line-height: 1.2;
+}
+
+.player-overlay .lyric-artist {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: clamp(13px, 3.6vw, 15px);
+  line-height: 1.35;
+}
+
+/* AMLL CSS 变量定义在宿主元素上 */
+.player-overlay .lyric-player {
+  --amll-lp-font-size: clamp(22px, 6.5vw, 32px);
+  --amll-lp-line-padding-x: 0;
+  --amll-lp-line-width-aspect: 1;
+  --lyric-line-padding-x: 0;
+}
+
+.player-overlay .lyric-floating-actions.is-visible {
+  opacity: 1;
+  /* 容器仍 none，仅子 fab 可点，避免透明热区吞歌词点击 */
+  pointer-events: none;
+}
+
+.player-overlay .lyric-floating-actions.is-visible .lyric-fab {
+  pointer-events: auto;
+}
+
+/* AMLL 实际 player 挂在 wrapper 子节点；强制铺满 flex 槽位 */
+.player-overlay .lyric-player .amll-lyric-player {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* AMLL 实际类名：激活状态同时挂在行容器和主行，副行需跟随行容器同步高亮（#27） */
+.player-overlay .lyric-player .FmKaba_lyricLine .FmKaba_lyricSubLine {
+  opacity: 0.3;
+}
+
+.player-overlay .lyric-player .FmKaba_lyricLine.FmKaba_active .FmKaba_lyricSubLine,
+.player-overlay .lyric-player .FmKaba_lyricLine .FmKaba_lyricMainLine.FmKaba_active ~ .FmKaba_lyricSubLine {
+  opacity: 0.72;
+}
+
+/* 去掉 AMLL 默认行左右 padding，使歌词左缘与顶部歌名对齐（panel 已有 24px 边距） */
+.player-overlay .lyric-player .FmKaba_lyricLine {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* 响应式断点：平板布局 ───────────────────────────────────────────── */
+
+@media (min-width: 768px) {
+  .player-overlay .panels {
+    width: auto;
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    overflow: hidden;
+    transform: none !important;
+  }
+
+  .player-overlay .panel {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .player-overlay .info-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding:
+      calc(24px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+      24px
+      calc(24px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .player-overlay .info-panel-inner {
+    height: 100%;
+    max-height: 100%;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .player-overlay .cover-slot {
+    max-height: min(48dvh, 320px);
+  }
+
+  .player-overlay .cover,
+  .player-overlay .placeholder-cover {
+    width: min(40vw, 48dvh, 320px);
+    height: min(40vw, 48dvh, 320px);
+  }
+
+  .player-overlay .song-info {
+    text-align: center;
+  }
+
+  .player-overlay .lyric-play-toggle {
+    display: none;
+  }
+
+  /* 宽屏左侧控制页已有歌名/歌手，右侧不重复顶部信息 */
+  .player-overlay .lyric-header {
+    display: none;
+  }
+
+  .player-overlay .lyric-player {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    --amll-lp-font-size: clamp(20px, 2.4vw, 30px);
+  }
+}
+
+/* 矮屏/横屏：收紧控制区占位，释放垂直空间给封面；不隐藏控件；不改 lyric-panel */
+@media (max-height: 720px) {
+  .player-overlay .info-panel {
+    padding:
+      calc(10px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+      24px
+      calc(10px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .player-overlay .info-panel-inner {
+    gap: 4px;
+  }
+
+  .player-overlay .cover-slot {
+    max-height: min(42dvh, 260px);
+  }
+
+  .player-overlay .cover,
+  .player-overlay .placeholder-cover {
+    width: min(72vw, 100%, 260px, 42dvh);
+    height: min(72vw, 260px, 42dvh);
+  }
+
+  .player-overlay .song-info h1 {
+    font-size: clamp(18px, 5vw, 24px);
+  }
+
+  .player-overlay .progress-range {
+    height: 20px;
+    min-height: 20px;
+  }
+
+  .player-overlay .controls {
+    gap: clamp(12px, 4vw, 20px);
+  }
+
+  /* 四键 mode-bar：略放宽，避免更多键挤兑 */
+  .player-overlay .mode-bar {
+    max-width: 280px;
+  }
+}
+
+/* 宽屏 + 矮屏：cover width 与更紧的 cover-slot max-height 对齐，避免 48dvh 仍超过 42dvh 时被 clamp */
+@media (min-width: 768px) and (max-height: 720px) {
+  .player-overlay .info-panel {
+    padding:
+      calc(16px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+      24px
+      calc(16px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .player-overlay .info-panel-inner {
+    gap: 8px;
+  }
+
+  .player-overlay .cover,
+  .player-overlay .placeholder-cover {
+    width: min(40vw, 42dvh, 260px);
+  }
+}
+
+/* 更矮（车机/横屏极限）：再收一档，仍保留全部控件 */
+@media (max-height: 520px) {
+  .player-overlay .info-panel {
+    padding:
+      calc(6px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+      20px
+      calc(6px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .player-overlay .info-panel-inner {
+    gap: 2px;
+  }
+
+  .player-overlay .cover-slot {
+    max-height: min(38dvh, 200px);
+  }
+
+  .player-overlay .cover,
+  .player-overlay .placeholder-cover {
+    width: min(72vw, 100%, 200px, 38dvh);
+  }
+
+  .player-overlay .song-info h1 {
+    font-size: clamp(16px, 4.5vw, 20px);
+    margin-bottom: 0;
+  }
+
+  .player-overlay .song-info p {
+    font-size: 12px;
+  }
+
+  .player-overlay .progress-range {
+    height: 18px;
+    min-height: 18px;
+  }
+
+  .player-overlay .time-row {
+    font-size: 11px;
+  }
+
+  .player-overlay .controls {
+    gap: clamp(10px, 3.5vw, 16px);
+  }
+
+  /* 矮屏四键仍可用：不低于约 4×36 + 间距 */
+  .player-overlay .mode-bar {
+    max-width: 260px;
+  }
+}
+
+@media (min-width: 768px) and (max-height: 520px) {
+  .player-overlay .info-panel {
+    padding:
+      calc(12px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+      20px
+      calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .player-overlay .cover,
+  .player-overlay .placeholder-cover {
+    width: min(40vw, 38dvh, 200px);
+  }
+}
+
+/* 横屏沉浸页：封面缩小 + cover-slot 禁收缩 + 内容可滚动。
+   根因：横屏高度不足时 cover-slot（flex 0 1 auto）被压缩，
+   封面（显式 height）溢出槽位覆盖下方文字（实测 640x336 重叠 5px）。 */
+@media (orientation: landscape) {
+  .player-overlay .info-panel-inner {
+    justify-content: flex-start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px 0;
+  }
+
+  .player-overlay .cover-slot {
+    flex: 0 0 auto;
+    max-height: min(40dvh, 220px);
+  }
+
+  .player-overlay .cover,
+  .player-overlay .placeholder-cover {
+    width: min(34vw, 100%, 220px, 40dvh);
+    height: min(34vw, 100%, 220px, 40dvh);
+  }
+}
+
+/* ============ 7. 播放队列面板 ============ */
+
+/* 播放队列面板：默认半屏（内容少时也 50vh） */
+.queue-popup-panel {
+  min-height: 50vh;
+}
+
+/* ============ 8. 弹层层级阶梯（自研 .m-*；konsta .k-* 版本在 tailwind.css） ============ */
+
+/*
+ * 统一层级阶梯（低→高）：
+ *   tabbar(950) < MiniPlayer(1000) < 全屏 popup(1100)
+ *   < 页面浮层 sheet/dialog/actions(1200) < toast(1300)
+ * 弹层 backdrop 与面板同级同 z（面板 DOM 在后，同层级时自然盖住 backdrop）。
+ */
+.m-popup {
+  z-index: 1100;
+}
+
+.m-sheet,
+.m-dialog,
+.m-actions {
+  z-index: 1200;
+}
+
+.m-toast {
+  z-index: 1300;
+}
+
+/* 与 .m-popup 面板同级的 backdrop 兄弟同步提升（DOM 在前一兄弟位置渲染时） */
+div:has(+ .m-popup) {
+  z-index: 1100;
+}
+
+div:has(+ .m-sheet),
+div:has(+ .m-dialog),
+div:has(+ .m-actions) {
+  z-index: 1200;
+}
+
+/* 浮层遮罩基座（静态样式；动画由 motion-v 驱动） */
+.m-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* ============ 9. 玻璃配方（WebView<111 兼容：直接给值 + -webkit- 前缀） ============ */
+
+/* blur 2px（系统灰玻璃层） */
+.m-glass-blur-2 {
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+/* blur 8px（矮条吸顶磨砂） */
+.m-glass-blur-8 {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* blur 16px（k-glass 类白玻璃） */
+.m-glass-blur-16 {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+/* mask 渐显：上半实色遮 blur、下半渐隐到透明（原 mask-b-from-50%/to-100% 语义） */
+.m-glass-mask-b {
+  -webkit-mask-image: linear-gradient(to bottom, #000 50%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 50%, transparent 100%);
+}
+
+.m-glass-mask-t {
+  -webkit-mask-image: linear-gradient(to top, #000 50%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 50%, transparent 100%);
+}
+
+/*
+ * 渐变方向兼容：Tailwind v4 生成 `to bottom in oklab`（Chrome 111+ 插值语法），
+ * 老 WebView 不解析 → 渐变 background-image 变 none。此处保留 konsta 双轨期
+ * 选择器（.k-navbar），自研玻璃条（shuffle-glass / mini-player-glass）渐变为
+ * 直接手写 linear-gradient，不再依赖 tailwind 类（选择器留作兜底，无碍）。
+ */
+.k-navbar > .bg-gradient-to-b,
+.shuffle-glass .bg-gradient-to-b,
+.mini-player-glass .bg-gradient-to-b {
+  --tw-gradient-position: to bottom;
+}
+
+/* ============ 10. Toast 文字色（自研 MToast） ============ */
+
+/*
+ * iOS textIos 为空 → 文字继承 body 默认色的问题不再存在（自研组件显式设色）：
+ * 浅色黑字、深色白字。
+ */
+.m-toast {
+  color: #000000;
+}
+
+.dark .m-toast {
+  color: #ffffff;
+}
+
+/* ============ 11. Preloader 结构基座（动画由 motion-v 驱动） ============ */
+
+.m-preloader {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+}
+
+.m-preloader > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
