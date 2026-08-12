@@ -533,7 +533,9 @@ html.muses-mini-visible {
   backdrop-filter: blur(2px);
 }
 
-.k-navbar > .bg-gradient-to-b {
+.k-navbar > .bg-gradient-to-b,
+.shuffle-glass .bg-gradient-to-b,
+.mini-player-glass .bg-gradient-to-b {
   --tw-gradient-position: to bottom;
 }
 

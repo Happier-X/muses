@@ -746,3 +746,28 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 **不改**：CategoriesPage（subnavbar 分段需常驻吸顶，覆盖式收益低风险高）
 **验证**（CDP 真实点击导航）：4 页 wrap true + kpageH 616 + pt 生效 + 专辑详情 shuffle 吸顶 64 ✓ 返回/分段切换无回归 ✓ 歌曲页回归 ✓
 **经验**：① vue-router history 模式外部 popstate 导航不可靠（破坏 RouterView 状态），用 location.href 整页导航（会断 CDP 需重连）或真实 UI 点击；② 子路由完整路径带 /tabs 前缀（/tabs/playlists/:id）；③ tabbar 链接是 button（component="button"）非 a；④ QueuePage 全局挂载在 App.vue（.k-page 查询会先命中它，需按 top 过滤）
+
+## 08-12 随机播放吸顶条改回 k-glass 默认玻璃（任务 08-12-fix-shuffle-glass-default，920e99a）
+**用户反馈**：navbar 有玻璃模糊，随机播放吸顶条没有（"下面的随机播放这一条不会，我也想要这样的效果"）。
+**根因链**（CDP 像素分析）：
+1. navbar = Konsta 双层：blur 层（blur2px + mask-b 渐显，无背景）+ bg 渐变层（无 blur 无 mask）→ 内容滚过时上半朦胧下半灰幕
+2. 吸顶条 = 单层 k-glass + 覆盖类（!bg-transparent + !backdrop-blur-[2px] + mask-b + 渐变）：mask 在单层上同时裁掉 blur 和渐变的下半 → 下半内容清晰透出（方差 62-68 vs navbar 24）、上半实心灰板 → "没模糊"
+3. 用户问"直接用 k-glass 就行吗"→ k-glass 默认（白0.75+blur16+阴影）确实自带完整玻璃，是覆盖类把它改没了
+**修复**（用户选定方案 A）：裸用 k-glass（去全部覆盖类），SongsPage + LibraryDetailPage 两处；清理 tailwind.css 死代码（.\!backdrop-blur-[2px] 手写规则、.shuffle-glass > .bg-gradient-to-b）
+**验证**：Edge 真实页面（注入 30 首种子歌曲 + reload）blur16 生效——滚动内容被模糊为纯白玻璃（y60-75 方差 4.7 vs 列表区 49）；模拟器 computed blur(16px)+白0.75 ✓；构建通过
+**经验**：① 运行时改 class/注入 DOM 会被 Vue 重置（无法验证变体，必须改代码构建）；② 模拟器程序化滚动 backdrop 采样不更新（截图不可靠），桌面 Edge headless 也会滞后——只有"位置变化后首帧"可靠；③ 采样玻璃区域须避开按钮文字（文字方差高会误判为"内容透出"）；④ 判断玻璃层是否渲染可用"背景改红色"决定性测试；⑤ cap sync 未跑时 APK 里是旧 assets（改代码后必须 npx cap sync android 再 assembleDebug）
+**spec**：component-guidelines.md 增 k-glass 条目（默认即完整玻璃；要 navbar 灰玻璃须双层结构，禁单层叠 mask）
+
+## 2026-08-12 任务 08-12-unify-glass-effects：全 app 玻璃统一
+
+**背景**：用户追问 k-glass 与 navbar/tabbar 玻璃差异 → 官方源码确认两套配方（k-glass 白0.75+blur16 单层 vs 系统栏灰渐变+blur2px+mask 双层）→ 用户拍板全统一（含底部播放条）。
+
+**方案**：navbar/tabbar 官方不动；随机播放条（Songs/LibraryDetail）+ MiniPlayer 改官方灰玻璃双层（blur 层 blur2px + mask 渐显 + bg 渐变层）。MiniPlayer 胶囊无 mask（悬浮不贴边），rounded-full 两层都要。
+
+**关键坑（WebView 110）**：Tailwind v4 渐变 `--tw-gradient-position: to bottom in oklab`（Chrome 111+ 插值语法）→ 老 WebView 解析失败 → bg 层 background-image: none！navbar 正常是因为早有手写覆盖规则。**修复：选择器必须是后代匹配 `.shuffle-glass .bg-gradient-to-b`**（不是 `>` 直接子级——双层结构后 bg 层在嵌套容器内，此前 `>` 选择器不匹配导致模拟器上渐变失效）。教训：Edge（Chrome 13x）验证通过 ≠ 模拟器 WebView 110 通过，渐变/backdrop 类必须实测 APK。
+
+**验证**：Edge 像素（shuffle 上半遮/下半渐显随滚动切换、MiniPlayer 滚动内容模糊透出 40→14.6 方差）；模拟器 computed（shuffle/MiniPlayer blur2px + 灰渐变 + mask 全绿，与 navbar 同配方）；构建/lint 通过。
+
+**顺手修**：PlaylistsPage.vue 存量 lint 错误（用了 k-button 未导入）。
+
+**spec 更新**：component-guidelines k-glass 条目改为"全 app 统一灰玻璃双层结构"规范 + WebView<111 渐变选择器后代匹配要点。

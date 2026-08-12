@@ -84,7 +84,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ellipsisVertical, list } from '@/icons'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kDialog, kDialogButton, kList, kListInput, kPage, MCover, MEmpty } from '@/components/ui'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kList, kListInput, kPage, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
   countValidSongs,

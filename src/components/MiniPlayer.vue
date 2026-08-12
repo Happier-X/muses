@@ -1,7 +1,6 @@
 <template>
-  <k-glass
-    component="div"
-    class="fixed left-4 right-4 bottom-safe-24 z-[1000] flex h-16 items-center gap-[12px] rounded-full px-[12px] text-black dark:text-white md:bottom-safe-2"
+  <div
+    class="mini-player-glass fixed left-4 right-4 bottom-safe-24 z-[1000] h-16 rounded-full text-black dark:text-white md:bottom-safe-2"
     :class="{
       'cursor-pointer': !!playerState.currentSong,
       'cursor-default': !playerState.currentSong,
@@ -15,44 +14,49 @@
     @keyup.enter="openPlayerPage"
     @keyup.space="openPlayerPage"
   >
-    <m-cover :src="coverSrc" :size="48" alt="" />
+    <div class="pointer-events-none absolute inset-0 rounded-full backdrop-blur-[2px]" aria-hidden="true" />
+    <div class="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-b from-ios-light-surface to-transparent dark:from-ios-dark-surface/50" aria-hidden="true" />
 
-    <div class="min-w-0 flex flex-1 flex-col gap-[3px]">
-      <strong class="truncate text-[15px] leading-[1.25] text-black dark:text-white">{{ titleText }}</strong>
-      <span class="truncate text-[13px] text-black/55 dark:text-white/55">{{ subtitleText }}</span>
-    </div>
+    <div class="relative flex h-full items-center gap-[12px] px-[12px]">
+      <m-cover :src="coverSrc" :size="48" alt="" />
 
-    <div class="flex shrink-0 items-center gap-[2px]">
-      <k-button
-        component="button"
-        clear
-        rounded-full
-        class="m-0 size-10 shrink-0 text-black dark:text-white"
-        :aria-label="isPlaying ? '暂停播放' : '继续播放'"
-        :disabled="!playerState.currentSong || playerState.status === 'loading'"
-        @click.stop="togglePlayback"
-      >
-        <component :is="isPlaying ? pause : play" aria-hidden="true" class="size-5 fill-current stroke-none" />
-      </k-button>
-      <k-button
-        component="button"
-        clear
-        rounded-full
-        class="m-0 size-10 shrink-0 text-black dark:text-white"
-        aria-label="打开播放队列"
-        @click.stop="openQueuePage"
-      >
-        <component :is="list" aria-hidden="true" class="size-5" />
-      </k-button>
+      <div class="min-w-0 flex flex-1 flex-col gap-[3px]">
+        <strong class="truncate text-[15px] leading-[1.25] text-black dark:text-white">{{ titleText }}</strong>
+        <span class="truncate text-[13px] text-black/55 dark:text-white/55">{{ subtitleText }}</span>
+      </div>
+
+      <div class="flex shrink-0 items-center gap-[2px]">
+        <k-button
+          component="button"
+          clear
+          rounded-full
+          class="m-0 size-10 shrink-0 text-black dark:text-white"
+          :aria-label="isPlaying ? '暂停播放' : '继续播放'"
+          :disabled="!playerState.currentSong || playerState.status === 'loading'"
+          @click.stop="togglePlayback"
+        >
+          <component :is="isPlaying ? pause : play" aria-hidden="true" class="size-5 fill-current stroke-none" />
+        </k-button>
+        <k-button
+          component="button"
+          clear
+          rounded-full
+          class="m-0 size-10 shrink-0 text-black dark:text-white"
+          aria-label="打开播放队列"
+          @click.stop="openQueuePage"
+        >
+          <component :is="list" aria-hidden="true" class="size-5" />
+        </k-button>
+      </div>
     </div>
-  </k-glass>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { list, pause, play } from '@/icons'
-import { kButton, kGlass, MCover } from '@/components/ui'
+import { kButton, MCover } from '@/components/ui'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 

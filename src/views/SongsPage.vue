@@ -15,7 +15,9 @@
 
       <div v-else ref="listParentRef" class="h-full overflow-auto box-border pt-[calc(max(16px,var(--k-safe-area-top))_+_44px)] pb-[var(--content-pb)] md:pb-[var(--content-pb-md)] [overflow-anchor:none]">
         <div class="shuffle-glass sticky top-0 z-10 box-border w-full h-11">
-          <k-glass class="h-full w-full">
+          <div class="relative h-full w-full">
+            <div class="pointer-events-none absolute left-0 top-0 h-full w-full backdrop-blur-[2px] mask-b-from-50% mask-b-to-100%" aria-hidden="true" />
+            <div class="pointer-events-none absolute left-0 top-0 h-full w-full bg-gradient-to-b from-ios-light-surface to-transparent dark:from-ios-dark-surface/50" aria-hidden="true" />
             <k-button
               component="button"
               clear
@@ -27,7 +29,7 @@
               <component :is="shuffle" aria-hidden="true" class="size-4 flex-none" />
               <span>{{ songs.length }} 首</span>
             </k-button>
-          </k-glass>
+          </div>
         </div>
         <k-list :dividers-ios="false" class="!my-0">          <div class="relative w-full" :style="{ height: `${totalSize}px` }">
             <div
@@ -133,7 +135,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicIn
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
 import { crosshair, ellipsisVertical, shuffle } from '@/icons'
-import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kFab, kGlass, kList, kListItem, kListInput, kNavbar, kPage, MCover, MEmpty } from '@/components/ui'
+import { kActions, kActionsButton, kActionsGroup, kActionsLabel, kButton, kDialog, kDialogButton, kFab, kList, kListItem, kListInput, kNavbar, kPage, MCover, MEmpty } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
