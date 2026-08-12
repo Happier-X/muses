@@ -27,7 +27,13 @@
   --m-primary-tint: #2990ff;         /* Konsta ios-colors 算法 */
   --m-primary-shade: #0067d6;
   --m-danger: #ff3b30;
+  --m-danger-shade: #d70015;
   --m-success: #34c759;              /* toggle 开 */
+
+  /* 禁用态（Konsta iOS 原值） */
+  --m-disabled-text: rgba(0, 0, 0, 0.3);
+  --m-disabled-bg: rgba(0, 0, 0, 0.1);
+  --m-disabled-border: rgba(0, 0, 0, 0.1);
 
   /* 分隔线 */
   --m-hairline: rgba(0, 0, 0, 0.2);
@@ -124,6 +130,9 @@ html.muses-mini-visible {
   --m-hairline: rgba(255, 255, 255, 0.15);
   --m-glass-light: rgba(50, 50, 50, 0.5);
   --m-glass-dark: rgba(50, 50, 50, 0.5);
+  --m-disabled-text: rgba(255, 255, 255, 0.3);
+  --m-disabled-bg: rgba(255, 255, 255, 0.1);
+  --m-disabled-border: rgba(255, 255, 255, 0.1);
 }
 
 /* ============ 2. 共享 mixin ============ */
