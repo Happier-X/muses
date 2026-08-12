@@ -27,8 +27,8 @@
         >
           <div class="shuffle-glass sticky top-0 z-10 box-border w-full px-[8px] py-[4px]">
             <div class="relative">
-              <div class="pointer-events-none absolute left-0 top-0 h-full w-full backdrop-blur-[2px]" aria-hidden="true" />
-              <div class="pointer-events-none absolute left-0 top-0 h-full w-full bg-gradient-to-b from-ios-light-surface via-[rgba(239,239,244,0.4)] to-transparent dark:from-ios-dark-surface/50 dark:via-[rgba(0,0,0,0.4)]" aria-hidden="true" />
+              <div class="pointer-events-none absolute left-0 top-0 h-full w-full backdrop-blur-sm" aria-hidden="true" />
+              <div class="pointer-events-none absolute left-0 top-0 h-full w-full bg-gradient-to-b from-white via-[rgba(255,255,255,0.55)] to-transparent dark:from-[rgba(0,0,0,0.6)] dark:via-[rgba(0,0,0,0.35)]" aria-hidden="true" />
               <k-button
                 component="button"
                 small

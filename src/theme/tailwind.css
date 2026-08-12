@@ -533,6 +533,13 @@ html.muses-mini-visible {
   backdrop-filter: blur(2px);
 }
 
+/* 吸顶条 blur 8px（矮条需要可见磨砂；var 链同 [2px] 问题，直接给值） */
+.backdrop-blur-sm {
+  --tw-backdrop-blur: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
 .k-navbar > .bg-gradient-to-b,
 .shuffle-glass .bg-gradient-to-b,
 .mini-player-glass .bg-gradient-to-b {
