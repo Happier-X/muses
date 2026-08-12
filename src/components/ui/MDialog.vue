@@ -19,7 +19,9 @@
         :transition="{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }"
       >
         <div class="m-dialog__content-wrap">
-          <div v-if="title" class="m-dialog__title">{{ title }}</div>
+          <div v-if="title || $slots.title" class="m-dialog__title">
+            <slot name="title">{{ title }}</slot>
+          </div>
           <div class="m-dialog__content">
             <slot />
           </div>
