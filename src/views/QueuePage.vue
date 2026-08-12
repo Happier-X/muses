@@ -1,96 +1,94 @@
 <template>
-  <k-popup :opened="queueOverlayVisible">
-    <k-page class="queue-popup-panel flex flex-col overflow-hidden">
-      <div class="flex-none flex items-center justify-between gap-[8px] px-[12px] pt-[12px] pb-[8px]">
-        <h2 class="m-0 text-[17px] leading-[1.3] font-bold text-black dark:text-white">播放队列</h2>
-        <div class="flex items-center gap-[2px]">
-          <k-button
+  <m-popup :opened="queueOverlayVisible">
+    <div ref="popupPanelRef" class="queue-popup-panel queue-page__panel flex flex-col overflow-hidden">
+      <div class="queue-page__header">
+        <h2 class="queue-page__title">播放队列</h2>
+        <div class="queue-page__header-actions">
+          <m-button
             v-if="queueState.hasItems"
             component="button"
-            clear
+            variant="clear"
             rounded
-            class="size-8"
-            :colors="{ textIos: 'text-[#ff3b30]', clearBgIos: 'bg-transparent active:bg-[#ff3b30]/15' }"
+            class="queue-page__clear-btn"
             aria-label="清空队列"
             @click="onClearQueue"
           >
-            <component :is="trash" aria-hidden="true" class="size-4" />
-          </k-button>
-          <k-button
+            <component :is="trash" aria-hidden="true" class="queue-page__icon" />
+          </m-button>
+          <m-button
             component="button"
-            clear
+            variant="clear"
             rounded
-            class="size-8"
+            class="queue-page__close-btn"
             aria-label="关闭队列"
             @click="goBack"
           >
-            <component :is="close" aria-hidden="true" class="size-4" />
-          </k-button>
+            <component :is="close" aria-hidden="true" class="queue-page__icon" />
+          </m-button>
         </div>
       </div>
 
-      <div class="flex-1 min-h-0 overflow-hidden">
+      <div class="queue-page__body">
         <m-empty
           v-if="!queueState.hasItems"
           title="队列为空"
           description="从歌曲列表中添加歌曲即可开始播放。"
         />
 
-        <div v-else ref="listParentRef" class="h-full overflow-auto overscroll-contain box-border pb-safe-6 [overflow-anchor:none]" role="list" aria-label="播放队列歌曲" @touchstart.stop @touchmove.stop @touchend.stop @touchcancel.stop>
-          <k-list strong-ios outline-ios class="!my-0">
-          <div class="relative w-full" :style="{ height: `${totalSize}px` }">>
-            <div
-              v-for="row in visibleRows"
-              :key="row.song.id"
-              :ref="measureVirtualRow"
-              class="absolute inset-x-0 top-0 box-border min-h-[72px]"
-              role="listitem"
-              :data-index="row.virtualRow.index"
-              :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
-            >
-              <k-list-item
-                :chevron="false"
-                link
-                :title="row.song.title"
-                :subtitle="row.song.artist || '未知歌手'"
-                titleClass="min-w-0 truncate"
-                subtitleClass="truncate"
-                class="h-full"
-                :class="row.virtualRow.index === queueState.currentIndex ? 'is-playing bg-black/5 dark:bg-white/10' : ''"
-                :aria-current="row.virtualRow.index === queueState.currentIndex ? 'true' : undefined"
-                role="button"
-                tabindex="0"
-                @click="onSelectSong(row.virtualRow.index)"
+        <div v-else ref="listParentRef" class="queue-page__list" role="list" aria-label="播放队列歌曲" @touchstart.stop @touchmove.stop @touchend.stop @touchcancel.stop>
+          <m-list strong outline class="queue-page__list-root">
+            <div class="relative w-full" :style="{ height: `${totalSize}px` }">
+              <div
+                v-for="row in visibleRows"
+                :key="row.song.id"
+                :ref="measureVirtualRow"
+                class="queue-page__virtual-row"
+                role="listitem"
+                :data-index="row.virtualRow.index"
+                :style="{ transform: `translateY(${row.virtualRow.start}px)` }"
               >
-                <template #after>
-                  <span class="flex-none text-[length:12px] opacity-60 me-[2px]">{{ row.virtualRow.index + 1 }}</span>
-                  <k-button
-                    component="button"
-                    clear
-                    rounded
-                    class="flex-none m-0 size-8"
-                    :colors="{ textIos: 'text-[#ff3b30]', clearBgIos: 'bg-transparent active:bg-[#ff3b30]/15' }"
-                    :aria-label="`从队列删除 ${row.song.title}`"
-                    @click.stop="onRemoveSong(row.song.id)"
-                  >
-                    <component :is="close" aria-hidden="true" class="size-4" />
-                  </k-button>
-                </template>
-              </k-list-item>
+                <m-list-item
+                  :chevron="false"
+                  link
+                  :title="row.song.title"
+                  :subtitle="row.song.artist || '未知歌手'"
+                  title-class="queue-page__row-title"
+                  subtitle-class="queue-page__row-subtitle"
+                  class="queue-page__row"
+                  :class="row.virtualRow.index === queueState.currentIndex ? 'queue-page__row--playing' : ''"
+                  :aria-current="row.virtualRow.index === queueState.currentIndex ? 'true' : undefined"
+                  role="button"
+                  tabindex="0"
+                  @click="onSelectSong(row.virtualRow.index)"
+                >
+                  <template #after>
+                    <span class="queue-page__row-index">{{ row.virtualRow.index + 1 }}</span>
+                    <m-button
+                      component="button"
+                      variant="clear"
+                      rounded
+                      class="queue-page__remove-btn"
+                      :aria-label="`从队列删除 ${row.song.title}`"
+                      @click.stop="onRemoveSong(row.song.id)"
+                    >
+                      <component :is="close" aria-hidden="true" class="queue-page__icon" />
+                    </m-button>
+                  </template>
+                </m-list-item>
+              </div>
             </div>
-          </div>
-        </k-list>
+          </m-list>
         </div>
       </div>
-    </k-page>
-  </k-popup>
+    </div>
+  </m-popup>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, type ComponentPublicInstance, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { close, trash } from '@/icons'
-import { kButton, kList, kListItem, kPage, kPopup, MEmpty } from '@/components/ui'
+import { MButton, MList, MListItem, MPopup, MEmpty } from '@/components/ui'
 import {
   clearQueue,
   playSong,
@@ -158,3 +156,134 @@ const onSelectSong = async (index: number): Promise<void> => {
   }
 }
 </script>
+
+<style scoped lang="scss">
+.queue-page {
+  &__panel {
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  &__header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 12px 8px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.3;
+    font-weight: 700;
+    color: var(--m-text);
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  &__clear-btn,
+  &__close-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+  }
+
+  &__clear-btn {
+    color: #ff3b30;
+
+    &:active {
+      background-color: rgba(255, 59, 48, 0.15);
+    }
+  }
+
+  &__close-btn {
+    color: var(--m-text);
+  }
+
+  &__icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  &__list {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-sizing: border-box;
+    padding-bottom: var(--m-safe-area-bottom, 0px);
+    overflow-anchor: none;
+  }
+
+  &__list-root {
+    margin: 0;
+  }
+
+  &__virtual-row {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    box-sizing: border-box;
+    min-height: 72px;
+  }
+
+  &__row {
+    height: 100%;
+  }
+
+  &__row-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__row-subtitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__row-index {
+    flex: none;
+    margin-right: 2px;
+    margin-left: 4px;
+    font-size: 12px;
+    opacity: 0.6;
+    color: var(--m-text-secondary);
+  }
+
+  &__remove-btn {
+    flex: none;
+    margin: 0;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    color: #ff3b30;
+
+    &:active {
+      background-color: rgba(255, 59, 48, 0.15);
+    }
+  }
+}
+
+/* 正在播放行高亮 */
+.queue-page :deep(.queue-page__row--playing) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+:global(.dark) .queue-page :deep(.queue-page__row--playing) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+</style>
