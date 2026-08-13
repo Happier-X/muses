@@ -40,7 +40,7 @@ All component styling uses SCSS with BEM-like or scoped nested class names. **Ta
 - **全量 Motion 动画**：浮层显隐、滑块交互、进度条跟手使用 `motion-v`（`AnimatePresence` + `motion.div`）。唯一例外是纯颜色、背景色或 opacity 过渡可保留原生 CSS transition。拖拽关页回弹使用 `animate()` 命令式驱动。
 - **SCSS 变量架构**：`src/theme/index.scss` 定义 `--m-*` 变量，深色模式通过 html 根元素 `.dark` 切换，不依赖 `@media (prefers-color-scheme)`。WebView < 111 环境禁止依赖 `color-mix()` 或 oklab 渐变插值。
 - **安全区处理**：Capacitor 8 注入的 `--safe-area-inset-*` 与 env() 兜底由 `index.scss` 的 `.m-app` 提供 `--m-safe-area-*` 桥接，所有组件均使用 `--m-safe-area-*` 避让。
-- **弹层 z-index 阶梯**：MiniPlayer (1000) < 移动端导航抽屉 (1050) < MPopup (1100) < MSheet/MDialog/MActions (1200) < MToast (1300)。
+- **弹层 z-index 阶梯**：移动端推屏导航位于普通页面层级；MiniPlayer (1000) < MPopup (1100) < MSheet/MDialog/MActions (1200) < MToast (1300)。
 - **页面骨架 `MPage` / `MContent`**：保留自建页壳逻辑，内部使用 scoped SCSS。
 
 > 以下「历史引用参考」章节保留了我们在组件交互、虚拟列表、手势覆盖等业务面积累的设计决策与防坑经验，这些代码行为规范（如 PlayerPage 下滑隔离、大列表虚拟化、安全区逻辑）在组件更名与 SCSS 迁移后依然有效。阅读时请自行将提及的 `k-xxx` 脑内替换为 `m-xxx`，将 `tailwind class` 替换为 `scoped CSS`。
@@ -139,7 +139,7 @@ Konsta 全部弹层（k-popup/k-sheet/k-dialog/k-actions/k-toast）默认 **z-40
 - `src/views/QueuePage.vue`
 - `src/views/SourcesPage.vue`
 
-`src/views/TabsPage.vue` 仅负责导航 chrome 和 `<RouterView />` 的父路由壳，使用普通 Vue 容器（`<nav>` / `<aside>` + `RouterLink`），不套 MPage。移动端抽屉状态只在 TabsPage 内维护，并通过 `navigationDrawerKey` 向 `MNavbar` 提供汉堡入口；`MNavbar` 仅在调用方没有显式 `#left` 时显示该入口，因此详情页返回键始终优先。抽屉手势仅在水平位移超过 8px 且横向位移大于纵向位移后接管，打开/关闭阈值为面板宽度 25% 或快速滑动；MuMu WebView 110 首次横移后会提前发出 `pointercancel`，故手势必须使用 `touchstart/move/end/cancel` 持续跟踪，不能仅依赖 Pointer Events。抽屉打开时内容设为 inert、焦点限制在菜单内，关闭后恢复到触发按钮。
+`src/views/TabsPage.vue` 仅负责导航 chrome 和 `<RouterView />` 的父路由壳，使用普通 Vue 容器（`<nav>` / `<aside>` + `RouterLink`），不套 MPage。移动端导航状态只在 TabsPage 内维护，并通过 `navigationDrawerKey` 向 `MNavbar` 提供汉堡入口；`MNavbar` 仅在调用方没有显式 `#left` 时显示该入口，因此详情页返回键始终优先。移动端使用 `50vw` 侧栏 + `100vw` 主页面的同层推屏轨道：关闭态轨道位移 `-50vw`，打开态位移 `0`，主页面保持原宽、不缩放、不重排，也不渲染覆盖式 backdrop。导航手势仅在水平位移超过 8px 且横向位移大于纵向位移后接管，打开/关闭阈值为面板宽度 25% 或快速滑动；MuMu WebView 110 首次横移后会提前发出 `pointercancel`，故手势必须使用 `touchstart/move/end/cancel` 持续跟踪，不能仅依赖 Pointer Events。导航打开时主内容设为 inert、焦点限制在菜单内，关闭后恢复到触发按钮。
 
 ---
 
@@ -265,7 +265,7 @@ ESLint 已启用 `vue/no-undef-components`（error）防回归：模板使用未
 ### 当前平板组件模式
 
 - **导航 Shell**：`src/views/TabsPage.vue` 使用普通 Vue 布局容器作为父级 shell；子页面使用自建 `MPage`/`MContent` 骨架。
-- **侧栏**：宽屏下由固定定位的普通 `<aside>` 提供左侧导航，右侧 `<main>` 渲染 `<RouterView />`；窄屏使用 `TabsPage` 所有的左侧抽屉，四项菜单与宽屏侧栏共用 `navItems`、路由高亮和 Salt 激活态。抽屉位于 z-index 1050，高于 MiniPlayer、低于 Popup；支持汉堡按钮、全页水平右滑打开、抽屉区域左滑关闭、遮罩与 Escape 关闭。
+- **侧栏**：宽屏下由固定定位的普通 `<aside>` 提供左侧导航，右侧 `<main>` 渲染 `<RouterView />`；窄屏使用 `TabsPage` 内的同层推屏轨道，`50vw` 侧栏与 `100vw` 主页面共用一个 transform 进度，打开时主页面整体右移并由视口自然裁切。四项菜单与宽屏侧栏共用 `navItems`、路由高亮和 Salt 激活态；移动端导航位于普通页面层级，不使用遮罩或 z-index 1050 覆盖主页面，支持汉堡按钮、全页水平右滑打开、侧栏或已推开的主页面左滑关闭和 Escape 关闭。
 - **避免 Split Pane**：当前 MuMu / Android WebView 环境中，早期 `ion-split-pane` + `ion-menu` 曾触发白屏；已彻底移除 Ionic，不得回归该结构。
 - **专辑卡片网格（Albums）**：`src/views/AlbumsPage.vue` 使用 `<div class="album-grid">` 直接渲染 `<article class="album-card">` 卡片（封面 + 专辑名 + 歌曲数 + 艺术家摘要），不再使用 `ion-list` / `ion-item`。窄屏固定 `grid-template-columns: repeat(2, minmax(0, 1fr))`；宽屏在内容宽度上限内 `repeat(auto-fill, minmax(180px, 1fr))` 自动增列。卡片封面复用 `MCover`，通过 `.album-card > .album-card__cover { --m-cover-size: 100% !important; height: auto; aspect-ratio: 1; flex: 0 0 auto }` 覆盖 MCover 内联默认尺寸；`height: auto` 必须保留，使 `aspect-ratio` 能按卡片宽度计算正方形高度（不改 MCover 全局契约）。
 - **艺术家卡片网格（Artists）**：`src/views/ArtistsPage.vue` 使用 `<div class="artist-grid">` 直接渲染 `<article class="artist-card">` 卡片（圆形头像 + 艺术家名 + 歌曲数 + 专辑数），不再使用 `ion-list` / `ion-item`。窄屏固定 `grid-template-columns: repeat(2, minmax(0, 1fr))`；宽屏在内容宽度上限内 `repeat(auto-fill, minmax(180px, 1fr))` 自动增列。头像复用 `MCover`，从艺术家歌曲中选择首张有效封面，无封面时保留占位；通过 `.artist-card > .artist-card__avatar { --m-cover-size: 100% !important; height: auto; aspect-ratio: 1; border-radius: 50% }` 保持正圆。

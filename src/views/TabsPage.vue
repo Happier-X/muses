@@ -27,43 +27,19 @@
         </nav>
       </aside>
 
-      <main
-        class="tabs-layout__main"
-        :class="{ 'tabs-layout__main--tabbed': isTabsRoute }"
-        :inert="drawerInteractive || undefined"
-        :aria-hidden="drawerInteractive ? 'true' : undefined"
+      <motion.div
+        ref="navigationTrackRef"
+        class="tabs-layout__track"
+        :animate="{ x: isTablet ? 0 : navigationTranslateX }"
+        :transition="drawerTransition"
       >
-        <RouterView />
-      </main>
-    </div>
-
-    <AnimatePresence @exit-complete="onDrawerExitComplete">
-      <template v-if="drawerRendered && !isTablet && isTabsRoute">
-        <motion.div
-          key="navigation-backdrop"
-          class="tabs-layout__backdrop"
-          :initial="{ opacity: 0 }"
-          :animate="{ opacity: backdropOpacity }"
-          :exit="{ opacity: 0 }"
-          :transition="drawerTransition"
-          aria-hidden="true"
-          @click.stop="closeDrawer"
-        />
-        <motion.aside
+        <aside
+          v-if="!isTablet && isTabsRoute"
           ref="drawerPanelRef"
-          key="navigation-drawer"
           class="tabs-layout__drawer"
-          :initial="{ x: '-100%' }"
-          :animate="{ x: drawerTranslateX }"
-          :exit="{ x: '-100%' }"
-          :transition="drawerTransition"
-          role="dialog"
-          aria-modal="true"
+          :inert="!drawerRendered || undefined"
+          :aria-hidden="!drawerRendered ? 'true' : undefined"
           aria-label="主导航"
-          @touchstart.stop="onDrawerTouchStart"
-          @touchmove.stop="onDrawerTouchMove"
-          @touchend.stop="onDrawerTouchEnd"
-          @touchcancel.stop="cancelTouchGesture"
         >
           <nav aria-label="主导航">
             <RouterLink
@@ -80,14 +56,22 @@
               <span>{{ item.label }}</span>
             </RouterLink>
           </nav>
-        </motion.aside>
-      </template>
-    </AnimatePresence>
+        </aside>
+        <main
+          class="tabs-layout__main"
+          :class="{ 'tabs-layout__main--tabbed': isTabsRoute }"
+          :inert="drawerInteractive || undefined"
+          :aria-hidden="drawerInteractive ? 'true' : undefined"
+        >
+          <RouterView />
+        </main>
+      </motion.div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { AnimatePresence, animate, motion } from 'motion-v'
+import { animate, motion } from 'motion-v'
 import { computed, nextTick, onMounted, onUnmounted, provide, readonly, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import type { ComponentPublicInstance } from 'vue'
@@ -122,7 +106,8 @@ const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
 const drawerOpen = ref(false)
 const drawerRendered = ref(false)
 const drawerDragging = ref(false)
-const drawerTranslateX = ref(0)
+const navigationTranslateX = ref(-viewportWidth.value * 0.5)
+const navigationTrackRef = ref<ComponentPublicInstance | HTMLElement | null>(null)
 const drawerPanelRef = ref<ComponentPublicInstance | HTMLElement | null>(null)
 const drawerLinkRefs = ref<ComponentPublicInstance[]>([])
 const drawerTrigger = ref<HTMLElement | null>(null)
@@ -130,11 +115,7 @@ const prefersReducedMotion = ref(false)
 const isTablet = computed(() => viewportWidth.value >= 768)
 const isTabsRoute = computed(() => route.path === '/tabs' || route.path.startsWith('/tabs/'))
 const drawerInteractive = computed(() => drawerOpen.value || drawerDragging.value)
-const drawerWidth = computed(() => Math.min(300, viewportWidth.value * 0.82))
-const backdropOpacity = computed(() => {
-  if (drawerOpen.value && !drawerDragging.value) return 1
-  return Math.max(0, Math.min(1, 1 + drawerTranslateX.value / drawerWidth.value))
-})
+const drawerWidth = computed(() => viewportWidth.value * 0.5)
 const drawerTransition = computed(() => ({
   duration: prefersReducedMotion.value ? 0 : drawerDragging.value ? 0 : 0.24,
   ease: [0.32, 0.72, 0, 1],
@@ -146,6 +127,7 @@ let touchStartY = 0
 let touchStartTime = 0
 let gestureMode: 'opening' | 'closing' | null = null
 let drawerGeneration = 0
+let drawerAnimation: ReturnType<typeof animate> | null = null
 let mediaQuery: MediaQueryList | null = null
 
 provide(navigationDrawerKey, {
@@ -158,32 +140,63 @@ const isNavActive = (item: NavigationItem) => {
   return item.childPrefixes?.some((prefix) => route.path.startsWith(prefix)) ?? false
 }
 
+function getElement(target: ComponentPublicInstance | HTMLElement | null) {
+  if (!target) return null
+  return target instanceof HTMLElement ? target : target.$el as HTMLElement
+}
+
 function getPanelElement() {
-  const panel = drawerPanelRef.value
-  if (!panel) return null
-  return panel instanceof HTMLElement ? panel : panel.$el as HTMLElement
+  return getElement(drawerPanelRef.value)
+}
+
+function getTrackElement() {
+  return getElement(navigationTrackRef.value)
+}
+
+function stopDrawerAnimation() {
+  drawerAnimation?.stop()
+  drawerAnimation = null
 }
 
 function openDrawer(trigger?: HTMLElement | null) {
   if (isTablet.value || !isTabsRoute.value || playerOverlayVisible.value || queueOverlayVisible.value) return
-  drawerGeneration += 1
+  const openGeneration = ++drawerGeneration
+  stopDrawerAnimation()
   drawerTrigger.value = trigger ?? drawerTrigger.value
   drawerRendered.value = true
   drawerOpen.value = true
   drawerDragging.value = false
-  drawerTranslateX.value = 0
-  void nextTick(() => drawerLinkRefs.value[0]?.$el?.focus())
+  navigationTranslateX.value = -drawerWidth.value
+  void nextTick(() => {
+    if (openGeneration !== drawerGeneration) return
+    navigationTranslateX.value = 0
+    drawerLinkRefs.value[0]?.$el?.focus()
+  })
 }
 
-function closeDrawer() {
+async function closeDrawer() {
   if (!drawerRendered.value) return
-  drawerGeneration += 1
+  const closeGeneration = ++drawerGeneration
   resetTouchGesture()
   drawerOpen.value = false
-  drawerRendered.value = false
-}
+  const targetX = -drawerWidth.value
+  const track = getTrackElement()
+  stopDrawerAnimation()
 
-function onDrawerExitComplete() {
+  if (track && !prefersReducedMotion.value && !isTablet.value) {
+    const animation = animate(
+      track,
+      { x: targetX },
+      { duration: 0.24, ease: [0.32, 0.72, 0, 1] },
+    )
+    drawerAnimation = animation
+    await animation
+    if (drawerAnimation === animation) drawerAnimation = null
+  }
+
+  if (closeGeneration !== drawerGeneration) return
+  navigationTranslateX.value = targetX
+  drawerRendered.value = false
   drawerTrigger.value?.focus()
 }
 
@@ -213,13 +226,12 @@ function beginTouchGesture(event: TouchEvent, mode: 'opening' | 'closing') {
 }
 
 function onPageTouchStart(event: TouchEvent) {
-  if (isTablet.value || !isTabsRoute.value || drawerRendered.value || playerOverlayVisible.value || queueOverlayVisible.value) return
-  beginTouchGesture(event, 'opening')
-}
-
-function onDrawerTouchStart(event: TouchEvent) {
-  if (!drawerOpen.value) return
-  beginTouchGesture(event, 'closing')
+  if (isTablet.value || !isTabsRoute.value || playerOverlayVisible.value || queueOverlayVisible.value) return
+  if (drawerOpen.value) {
+    beginTouchGesture(event, 'closing')
+  } else if (!drawerRendered.value) {
+    beginTouchGesture(event, 'opening')
+  }
 }
 
 function updateTouchGesture(event: TouchEvent) {
@@ -240,22 +252,20 @@ function updateTouchGesture(event: TouchEvent) {
       return
     }
 
+    stopDrawerAnimation()
+    drawerGeneration += 1
     drawerDragging.value = true
     drawerRendered.value = true
     drawerOpen.value = gestureMode === 'closing'
   }
 
   if (event.cancelable) event.preventDefault()
-  drawerTranslateX.value = gestureMode === 'opening'
+  navigationTranslateX.value = gestureMode === 'opening'
     ? Math.min(0, -drawerWidth.value + dx)
     : Math.max(-drawerWidth.value, dx)
 }
 
 function onPageTouchMove(event: TouchEvent) {
-  updateTouchGesture(event)
-}
-
-function onDrawerTouchMove(event: TouchEvent) {
   updateTouchGesture(event)
 }
 
@@ -278,36 +288,37 @@ async function finishTouchGesture(event: TouchEvent) {
     return
   }
 
-  const panel = getPanelElement()
+  const track = getTrackElement()
   const targetX = shouldOpen ? 0 : -drawerWidth.value
   const gestureGeneration = ++drawerGeneration
   resetTouchGesture(false)
 
-  if (panel && !prefersReducedMotion.value) {
-    await animate(
-      panel,
-      { transform: `translateX(${targetX}px)` },
+  stopDrawerAnimation()
+  if (track && !prefersReducedMotion.value) {
+    const animation = animate(
+      track,
+      { x: targetX },
       { duration: 0.24, ease: [0.32, 0.72, 0, 1] },
     )
+    drawerAnimation = animation
+    await animation
+    if (drawerAnimation === animation) drawerAnimation = null
   }
 
   if (gestureGeneration !== drawerGeneration) return
 
   drawerOpen.value = shouldOpen
   drawerDragging.value = false
-  drawerTranslateX.value = targetX
+  navigationTranslateX.value = targetX
   if (shouldOpen) {
     void nextTick(() => drawerLinkRefs.value[0]?.$el?.focus())
   } else {
     drawerRendered.value = false
+    drawerTrigger.value?.focus()
   }
 }
 
 function onPageTouchEnd(event: TouchEvent) {
-  void finishTouchGesture(event)
-}
-
-function onDrawerTouchEnd(event: TouchEvent) {
   void finishTouchGesture(event)
 }
 
@@ -324,9 +335,10 @@ function cancelTouchGesture() {
   }
   const wasOpening = gestureMode === 'opening'
   drawerGeneration += 1
+  stopDrawerAnimation()
   resetTouchGesture()
   drawerOpen.value = !wasOpening
-  drawerTranslateX.value = wasOpening ? -drawerWidth.value : 0
+  navigationTranslateX.value = wasOpening ? -drawerWidth.value : 0
   if (wasOpening) drawerRendered.value = false
 }
 
@@ -344,11 +356,25 @@ function onFocusIn(event: FocusEvent) {
 
 function updateViewportWidth() {
   viewportWidth.value = window.innerWidth
-  if (isTablet.value) closeDrawer()
+  drawerGeneration += 1
+  stopDrawerAnimation()
+  resetTouchGesture()
+
+  if (isTablet.value) {
+    drawerOpen.value = false
+    drawerRendered.value = false
+    navigationTranslateX.value = 0
+    drawerTrigger.value?.focus()
+    return
+  }
+
+  navigationTranslateX.value = drawerOpen.value ? 0 : -drawerWidth.value
+  if (!drawerOpen.value) drawerRendered.value = false
 }
 
 function updateReducedMotion() {
   prefersReducedMotion.value = mediaQuery?.matches ?? false
+  if (prefersReducedMotion.value) drawerAnimation?.complete()
 }
 
 watch(() => route.path, () => {
@@ -370,6 +396,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  stopDrawerAnimation()
   mediaQuery?.removeEventListener('change', updateReducedMotion)
   window.removeEventListener('resize', updateViewportWidth)
   window.removeEventListener('keydown', onKeydown)
@@ -386,14 +413,27 @@ onUnmounted(() => {
   touch-action: pan-y;
 
   &__body {
-    display: flex;
-    flex-direction: column;
+    position: relative;
     flex: 1;
     min-height: 0;
+    overflow: hidden;
 
     @media (min-width: 768px) {
-      display: block;
       height: 100%;
+    }
+  }
+
+  &__track {
+    display: flex;
+    width: 150vw;
+    height: 100%;
+    transform: translateX(-50vw);
+    will-change: transform;
+
+    @media (min-width: 768px) {
+      width: 100%;
+      transform: none !important;
+      will-change: auto;
     }
   }
 
@@ -442,7 +482,8 @@ onUnmounted(() => {
 
   &__main {
     position: relative;
-    flex: 1;
+    flex: 0 0 100vw;
+    width: 100vw;
     min-height: 0;
 
     &--tabbed {
@@ -452,26 +493,17 @@ onUnmounted(() => {
         right: 0;
         bottom: 0;
         left: 260px;
+        width: auto;
         overflow: hidden;
       }
     }
   }
 
-  &__backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1050;
-    background-color: rgba(0, 0, 0, 0.45);
-    touch-action: none;
-  }
-
   &__drawer {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 1050;
-    width: min(300px, 82vw);
+    position: relative;
+    flex: 0 0 50vw;
+    width: 50vw;
+    height: 100%;
     padding:
       calc(var(--m-spacing-sub) + var(--m-safe-area-top, 0px))
       var(--m-safe-area-right, 0px)
@@ -483,6 +515,10 @@ onUnmounted(() => {
     overflow-y: auto;
     touch-action: pan-y;
     outline: none;
+
+    @media (min-width: 768px) {
+      display: none;
+    }
   }
 
   &__drawer-link {
