@@ -24,6 +24,7 @@
           <m-button
             component="button"
             variant="clear"
+            inline
             class="songs-page__toolbar-left"
             :aria-label="isMultiSelect ? '全选' : '多选'"
             @click="isMultiSelect ? toggleSelectAll() : enterMultiSelect()"
@@ -31,10 +32,12 @@
             <component :is="checkCheck" aria-hidden="true" class="songs-page__toolbar-left-icon" />
             <span v-if="isMultiSelect" class="songs-page__toolbar-left-text">全选</span>
           </m-button>
+          <div v-if="isMultiSelect" class="songs-page__toolbar-count">已选中 {{ selectedCount }} 项</div>
           <div class="songs-page__toolbar-right">
             <m-button
               component="button"
               variant="clear"
+              inline
               rounded
               class="songs-page__toolbar-btn"
               aria-label="排序"
@@ -45,6 +48,7 @@
             <m-button
               component="button"
               variant="clear"
+              inline
               rounded
               class="songs-page__toolbar-btn"
               aria-label="多选"
@@ -70,6 +74,7 @@
           <m-button
             component="button"
             variant="clear"
+            inline
             class="songs-page__searchbar-cancel"
             @click="exitSearch"
           >
@@ -198,6 +203,7 @@
           <m-button
             component="button"
             variant="clear"
+            inline
             class="songs-page__multibar-btn songs-page__multibar-btn--danger"
             :disabled="selectedCount === 0"
             @click="onDeleteSelected"
@@ -207,6 +213,7 @@
           <m-button
             component="button"
             variant="clear"
+            inline
             class="songs-page__multibar-btn"
             :disabled="selectedCount === 0"
             @click="onPickPlaylistForSelected"
@@ -216,6 +223,7 @@
           <m-button
             component="button"
             variant="clear"
+            inline
             class="songs-page__multibar-btn"
             :disabled="selectedCount === 0"
             @click="onPlaySelected"
@@ -225,6 +233,7 @@
           <m-button
             component="button"
             variant="clear"
+            inline
             class="songs-page__multibar-btn"
             @click="exitMultiSelect"
           >
@@ -835,10 +844,10 @@ onUnmounted(() => {
     }
   }
 
-  /* 工具条：48dp 干净表面，sticky 吸 navbar 下方（对齐椒盐） */
+  /* 工具条：48dp 干净表面，sticky 吸 navbar 正下方（对齐椒盐） */
   &__toolbar {
     position: sticky;
-    top: 0;
+    top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
     z-index: 15;
     box-sizing: border-box;
     width: 100%;
@@ -876,6 +885,14 @@ onUnmounted(() => {
     font-size: 14px;
   }
 
+  &__toolbar-count {
+    flex: 1;
+    text-align: center;
+    font-size: 14px;
+    color: var(--m-text-2);
+    white-space: nowrap;
+  }
+
   &__toolbar-right {
     display: flex;
     align-items: center;
@@ -897,7 +914,7 @@ onUnmounted(() => {
   /* 搜索栏：替换工具条 */
   &__searchbar {
     position: sticky;
-    top: 0;
+    top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
     z-index: 15;
     box-sizing: border-box;
     width: 100%;
@@ -1083,18 +1100,19 @@ onUnmounted(() => {
     }
   }
 
-  /* 字母索引条：右侧 16dp 宽 */
+  /* 字母索引条：右侧 16dp 宽，从工具条下方延伸到列表底（对齐椒盐） */
   &__index-bar {
     position: fixed;
-    top: 50%;
+    top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px + 48px);
+    bottom: calc(64px + var(--m-safe-area-bottom, 0px));
     right: 4px;
-    transform: translateY(-50%);
     z-index: 15;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 2px;
     padding: 6px 2px;
+    justify-content: flex-start;
   }
 
   &__index-item {
