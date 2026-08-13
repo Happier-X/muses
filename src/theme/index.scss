@@ -7,40 +7,40 @@
 /* ============ 1. 主题变量 ============ */
 
 :root {
-  /* 表面色（Konsta iOS 主题原值） */
-  --m-surface: #efeff4;              /* 页面底 */
-  --m-surface-1: #fff;               /* 卡片 / 导航底 */
-  --m-surface-1-shade: #f1f1f5;
-  --m-surface-1-tint: #fff;
-  --m-surface-2: #f7f7f8;
-  --m-surface-3: #fff;
-  --m-surface-variant: #f4f4f4;
+  /* 表面色（Salt Player 主题：background #F3F3F3 / subBackground 80% 白叠加） */
+  --m-surface: #f3f3f3;            /* 页面底（Salt background） */
+  --m-surface-1: #f9f9f9;          /* 卡片/导航底（Salt subBackground：#80FFFFFF over #F3F3F3） */
+  --m-surface-1-shade: #eef0f2;
+  --m-surface-1-tint: #fdfdfd;
+  --m-surface-2: #ececec;          /* 略深于 surface-1 */
+  --m-surface-3: #f9f9f9;
+  --m-surface-variant: #ececec;
 
-  /* 文字 */
-  --m-text: #000;
-  --m-text-2: rgba(60, 60, 67, 0.6); /* secondary */
-  --m-text-3: rgba(60, 60, 67, 0.3); /* tertiary / placeholder */
-  /* 别名（页面 scoped 常用口径，0.55 对齐原 black/55 值） */
-  --m-text-secondary: rgba(0, 0, 0, 0.55);
-  --m-text-tertiary: rgba(0, 0, 0, 0.3);
+  /* 文字（Salt：text #1E1715 / subText #8C8C8C） */
+  --m-text: #1e1715;
+  --m-text-2: #8c8c8c;             /* secondary（Salt subText） */
+  --m-text-3: rgba(30, 23, 21, 0.3); /* tertiary / placeholder */
+  /* 别名（页面 scoped 常用口径） */
+  --m-text-secondary: #8c8c8c;
+  --m-text-tertiary: rgba(30, 23, 21, 0.3);
 
-  /* 品牌与语义色 */
-  --m-primary: #007aff;
-  --m-primary-tint: #2990ff;         /* Konsta ios-colors 算法 */
-  --m-primary-shade: #0067d6;
-  --m-danger: #ff3b30;
-  --m-danger-shade: #d70015;
-  --m-success: #34c759;              /* toggle 开 */
+  /* 品牌与语义色（Salt highlight #0470E6） */
+  --m-primary: #0470e6;
+  --m-primary-tint: #2f8af0;       /* highlight 亮化 */
+  --m-primary-shade: #035fc2;      /* highlight 暗化 */
+  --m-danger: #d93025;             /* Salt error 近似 */
+  --m-danger-shade: #b3261e;
+  --m-success: #188038;            /* Salt success 近似 */
 
-  /* 禁用态（Konsta iOS 原值） */
-  --m-disabled-text: rgba(0, 0, 0, 0.3);
-  --m-disabled-bg: rgba(0, 0, 0, 0.1);
-  --m-disabled-border: rgba(0, 0, 0, 0.1);
+  /* 禁用态 */
+  --m-disabled-text: rgba(30, 23, 21, 0.3);
+  --m-disabled-bg: rgba(30, 23, 21, 0.08);
+  --m-disabled-border: rgba(30, 23, 21, 0.1);
 
-  /* 分隔线 */
-  --m-hairline: rgba(0, 0, 0, 0.2);
+  /* 分隔线（Salt stroke：subText 15%） */
+  --m-hairline: rgba(140, 140, 140, 0.15);
 
-  /* 玻璃 */
+  /* 玻璃（保留；Salt 风格弱化玻璃但类保留） */
   --m-glass-light: rgba(255, 255, 255, 0.75);
   --m-glass-dark: rgba(50, 50, 50, 0.5);
 
@@ -111,6 +111,17 @@
   --m-content-pb-md: 0px;
   --content-pb: var(--m-content-pb);
   --content-pb-md: var(--m-content-pb-md);
+
+  /* Salt 设计 token（SaltShapes/Dimens：圆角/间距/列表行高） */
+  --m-radius-sm: 8px;               /* small */
+  --m-radius-md: 16px;              /* medium（按钮） */
+  --m-radius-lg: 24px;              /* large */
+  --m-radius-card: 12px;            /* 卡片 corner */
+  --m-radius-dialog: 20px;          /* dialogCorner */
+  --m-list-row-h: 56px;             /* item 行高（Android） */
+  --m-list-icon: 24px;              /* 行图标 */
+  --m-spacing: 16px;                /* padding */
+  --m-spacing-sub: 12px;            /* subPadding */
 }
 
 html.muses-mini-visible {
@@ -119,25 +130,28 @@ html.muses-mini-visible {
 }
 
 .dark {
-  --m-surface: #000;
-  --m-surface-1: #1c1c1d;
-  --m-surface-1-shade: #060606;
-  --m-surface-1-tint: #444447;
-  --m-surface-2: #121212;
-  --m-surface-3: #1c1c1d;
-  --m-surface-variant: #232323;
-  --m-text: #fff;
-  --m-text-2: rgba(235, 235, 245, 0.6);
-  --m-text-3: rgba(235, 235, 245, 0.3);
-  /* 别名（页面 scoped 常用口径，0.55 对齐原 white/55 值） */
-  --m-text-secondary: rgba(255, 255, 255, 0.55);
-  --m-text-tertiary: rgba(255, 255, 255, 0.3);
-  --m-hairline: rgba(255, 255, 255, 0.15);
+  /* 表面色（Salt Player 主题：background #202020 / subBackground 3% 白叠加） */
+  --m-surface: #202020;            /* 页面底（Salt background，非纯黑） */
+  --m-surface-1: #262626;          /* 卡片/导航底（Salt subBackground：#08FFFFFF over #202020） */
+  --m-surface-1-shade: #1a1a1a;
+  --m-surface-1-tint: #2e2e2e;
+  --m-surface-2: #2b2b2b;          /* 略深于 surface-1 */
+  --m-surface-3: #262626;
+  --m-surface-variant: #2b2b2b;
+  /* 文字（Salt：text #EBEEF1 / subText #BFE1E6EB） */
+  --m-text: #ebeef1;
+  --m-text-2: rgba(225, 230, 235, 0.75); /* secondary（Salt subText #BFE1E6EB） */
+  --m-text-3: rgba(225, 230, 235, 0.3);  /* tertiary / placeholder */
+  /* 别名 */
+  --m-text-secondary: rgba(225, 230, 235, 0.75);
+  --m-text-tertiary: rgba(225, 230, 235, 0.3);
+  /* 分隔线（Salt stroke：subText 10%） */
+  --m-hairline: rgba(225, 230, 235, 0.1);
   --m-glass-light: rgba(50, 50, 50, 0.5);
   --m-glass-dark: rgba(50, 50, 50, 0.5);
-  --m-disabled-text: rgba(255, 255, 255, 0.3);
-  --m-disabled-bg: rgba(255, 255, 255, 0.1);
-  --m-disabled-border: rgba(255, 255, 255, 0.1);
+  --m-disabled-text: rgba(225, 230, 235, 0.3);
+  --m-disabled-bg: rgba(225, 230, 235, 0.08);
+  --m-disabled-border: rgba(225, 230, 235, 0.1);
 }
 
 /* ============ 2. 共享 mixin ============ */
