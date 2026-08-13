@@ -95,7 +95,6 @@ import {
   MButton, MList, MListItem, MNavbar, MNavbarBackLink, MCover, MEmpty,
 } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
-import { setCategoriesSegment } from '@/features/player/categoriesSegment'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName } from '@/features/library/views'
 import {
@@ -174,12 +173,10 @@ const getSongCoverSrc = (song: SongItem): string => {
 }
 
 const goBack = (): void => {
-  // 歌单详情属于「音乐」页歌单段，返回时恢复对应段
-  setCategoriesSegment('playlists')
   router.back()
   // vue-router 的 back() 在无历史时无操作，用超时兜底
   window.setTimeout(() => {
-    router.replace('/tabs/categories')
+    router.replace('/tabs/playlists')
   }, 100)
 }
 

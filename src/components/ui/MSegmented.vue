@@ -22,7 +22,7 @@
 /**
  * APP-ONLY：MSegmented —— 分段控件（替代 k-segmented，iOS）
  * strong：灰底凹槽 + 白滑块（滑块走 motion-v animate left/width，量 active 按钮）。
- * rounded：全圆形态（CategoriesPage 用法）。outline 形态（主色描边分栏）也支持。
+ * rounded：全圆形态。outline 形态（主色描边分栏）也支持。
  */
 import { motion } from 'motion-v'
 import { nextTick, onMounted, provide, ref, watch } from 'vue'

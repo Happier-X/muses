@@ -19,8 +19,9 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/SongsPage.vue')
       },
       {
+        // 兼容旧书签/深层链接：不再作为导航入口
         path: 'categories',
-        component: () => import('@/views/CategoriesPage.vue')
+        redirect: '/tabs/albums'
       },
       {
         path: 'sources',
@@ -41,15 +42,15 @@ const routes: Array<RouteRecordRaw> = [
       },
       {
         path: 'albums',
-        redirect: '/tabs/categories'
+        component: () => import('@/views/AlbumsPage.vue')
       },
       {
         path: 'artists',
-        redirect: '/tabs/categories'
+        component: () => import('@/views/ArtistsPage.vue')
       },
       {
         path: 'playlists',
-        redirect: '/tabs/categories'
+        component: () => import('@/views/PlaylistsPage.vue')
       },
       {
         path: 'playlists/:id',

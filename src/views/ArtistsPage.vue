@@ -1,5 +1,10 @@
 <template>
   <div class="m-page artists-page">
+    <div class="artists-page__navbar-wrap">
+      <m-navbar>
+        <template #title>艺术家</template>
+      </m-navbar>
+    </div>
     <div class="m-content artists-page__content">
       <m-empty
         v-if="artists.length === 0"
@@ -34,7 +39,7 @@ import { computed, onMounted, ref } from 'vue'
 import { person } from '@/icons'
 import { useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { MEmpty, MCover } from '@/components/ui'
+import { MEmpty, MCover, MNavbar } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByArtist } from '@/features/library/views'
@@ -75,13 +80,22 @@ onMounted(refreshSongs)
 
 <style scoped lang="scss">
 .artists-page {
+  position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   height: 100%;
 
+  &__navbar-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+  }
+
   &__content {
-    overflow: hidden;
+    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
   }
 
   &__grid {

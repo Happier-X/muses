@@ -86,7 +86,7 @@ import { animate, motion } from 'motion-v'
 import { computed, nextTick, onMounted, onUnmounted, provide, readonly, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import type { ComponentPublicInstance } from 'vue'
-import { library, musicalNotes, radio, settings } from '@/icons'
+import { albums, list, musicalNotes, person, radio, settings } from '@/icons'
 import { navigationDrawerKey } from '@/features/navigation/drawer'
 import { playerOverlayVisible, queueOverlayVisible } from '@/features/player/overlay'
 
@@ -99,12 +99,9 @@ interface NavigationItem {
 
 const navItems: NavigationItem[] = [
   { to: '/tabs/songs', label: '歌曲', icon: musicalNotes },
-  {
-    to: '/tabs/categories',
-    label: '音乐库',
-    icon: library,
-    childPrefixes: ['/tabs/playlists/', '/tabs/library/'],
-  },
+  { to: '/tabs/albums', label: '专辑', icon: albums, childPrefixes: ['/tabs/library/album/'] },
+  { to: '/tabs/artists', label: '艺术家', icon: person, childPrefixes: ['/tabs/library/artist/'] },
+  { to: '/tabs/playlists', label: '歌单', icon: list, childPrefixes: ['/tabs/playlists/'] },
   { to: '/tabs/sources', label: '音源', icon: radio },
   { to: '/tabs/settings', label: '设置', icon: settings },
 ]

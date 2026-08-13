@@ -101,7 +101,6 @@ import {
   MButton, MFab, MList, MListItem, MNavbar, MNavbarBackLink, MCover, MEmpty,
 } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
-import { setCategoriesSegment } from '@/features/player/categoriesSegment'
 import type { SongItem } from '@/features/library/types'
 import { getSongAlbumName, getSongArtistName, groupSongsByAlbum, groupSongsByArtist } from '@/features/library/views'
 import {
@@ -276,11 +275,10 @@ const getSongCoverSrc = (song: SongItem): string => {
 }
 
 const goBack = (): void => {
-  // 专辑/艺术家详情属于「音乐」页分段，返回时恢复对应段
-  setCategoriesSegment(kind.value === 'artist' ? 'artists' : 'albums')
   router.back()
+  // vue-router 的 back() 在无历史时无操作，用超时兜底
   window.setTimeout(() => {
-    router.replace('/tabs/categories')
+    router.replace(kind.value === 'artist' ? '/tabs/artists' : '/tabs/albums')
   }, 100)
 }
 

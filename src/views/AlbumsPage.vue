@@ -1,5 +1,10 @@
 <template>
   <div class="m-page albums-page">
+    <div class="albums-page__navbar-wrap">
+      <m-navbar>
+        <template #title>专辑</template>
+      </m-navbar>
+    </div>
     <div class="m-content albums-page__content">
       <m-empty
         v-if="albums.length === 0"
@@ -34,7 +39,7 @@ import { computed, onMounted, ref } from 'vue'
 import { albums as albumsIcon } from '@/icons'
 import { useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { MCover, MEmpty } from '@/components/ui'
+import { MCover, MEmpty, MNavbar } from '@/components/ui'
 import { loadSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { groupSongsByAlbum } from '@/features/library/views'
@@ -67,13 +72,22 @@ onMounted(refreshSongs)
 
 <style scoped lang="scss">
 .albums-page {
+  position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   height: 100%;
 
+  &__navbar-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+  }
+
   &__content {
-    overflow: hidden;
+    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
   }
 
   &__grid {

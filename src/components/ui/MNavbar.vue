@@ -26,7 +26,7 @@
         </slot>
       </div>
       <div class="m-navbar__title">
-        <slot />
+        <slot name="title"><slot /></slot>
       </div>
       <div v-if="$slots.right" class="m-navbar__right" :class="rightClass">
         <slot name="right" />

@@ -1,6 +1,23 @@
 <template>
   <div class="m-page playlists-page">
-    <div class="m-content">
+    <div class="playlists-page__navbar-wrap">
+      <m-navbar right-class="playlists-page__right">
+        <template #title>歌单</template>
+        <template #right>
+          <m-button
+            component="button"
+            variant="clear"
+            rounded
+            class="playlists-page__add-btn"
+            aria-label="新建歌单"
+            @click="openCreateAlert"
+          >
+            <component :is="add" aria-hidden="true" class="playlists-page__add-icon" />
+          </m-button>
+        </template>
+      </m-navbar>
+    </div>
+    <div class="m-content playlists-page__content">
       <m-empty
         v-if="playlists.length === 0"
         title="还没有歌单"
@@ -81,10 +98,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ellipsisVertical, list } from '@/icons'
+import { add, ellipsisVertical, list } from '@/icons'
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
-  MButton, MDialog, MDialogButton, MList, MListInput, MCover, MEmpty,
+  MButton, MDialog, MDialogButton, MList, MListInput, MNavbar, MCover, MEmpty,
 } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import {
@@ -196,16 +213,48 @@ onUnmounted(() => {
   window.removeEventListener(SONGS_UPDATED_EVENT, refresh)
 })
 
-// 新建入口上移分类页 navbar（歌单段），暴露打开方法供父组件调用
-defineExpose({ openCreateAlert })
+// 新建歌单入口已直接绑定在页内 navbar 上，无需再暴露给父组件
 </script>
 
 <style scoped lang="scss">
 .playlists-page {
+  position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   height: 100%;
+
+  &__navbar-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+  }
+
+  &__right {
+    height: 32px;
+  }
+
+  &__add-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    flex: 0 0 32px;
+
+    &:active {
+      background-color: var(--m-surface-2);
+    }
+  }
+
+  &__add-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  &__content {
+    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+  }
 
   &__list {
     padding-bottom: var(--m-content-pb);
