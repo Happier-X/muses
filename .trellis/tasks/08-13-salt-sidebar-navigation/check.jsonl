@@ -1,0 +1,5 @@
+{"type":"check","path":"src/views/TabsPage.vue","reason":"确认移动端无底部 Tabbar，汉堡、遮罩、右滑打开、左滑关闭、菜单跳转和父路由高亮均可用。"}
+{"type":"check","path":"src/theme/index.scss","reason":"确认移动端无 Tabbar 底部预留，有播放时仅保留 MiniPlayer 止位，平板无底栏止位不回归。"}
+{"type":"check","path":"src/components/MiniPlayer.vue","reason":"确认 MiniPlayer 不再叠加失效的 Tabbar 高度，且安全区定位正确。"}
+{"type":"check","path":"package.json","reason":"运行 npm run build 和 npm run lint，验证类型、构建和 lint。"}
+{"type":"check","path":"android","reason":"npx cap sync android 后在 MuMu 启动并检查 logcat 无 JS/Vue 错误或崩溃。"}

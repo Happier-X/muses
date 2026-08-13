@@ -1,0 +1,5 @@
+{"type":"spec","path":".trellis/spec/frontend/component-guidelines.md","reason":"遵循自研 m-*、scoped SCSS、Salt token、motion-v、安全区和弹层层级规范。"}
+{"type":"code","path":"src/views/TabsPage.vue","reason":"现有一级导航、平板侧栏、移动端 Tabbar 和路由高亮实现边界。"}
+{"type":"code","path":"src/theme/index.scss","reason":"需要移除移动端 Tabbar 底部止位并保留 MiniPlayer/平板内容布局契约。"}
+{"type":"code","path":"src/components/MiniPlayer.vue","reason":"需要同步移动端 MiniPlayer bottom 定位和内容避让。"}
+{"type":"research","path":".trellis/tasks/08-13-salt-sidebar-navigation/design.md","reason":"执行侧滑抽屉状态机、层级、可访问性和兼容性设计。"}

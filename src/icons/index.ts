@@ -35,5 +35,6 @@ export {
   Locate as locateOutline,
   Crosshair as crosshair,
   EllipsisVertical as ellipsisVertical,
+  Menu as menu,
   CircleMinus as removeCircleOutline,
 } from '@lucide/vue'

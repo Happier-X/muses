@@ -108,9 +108,9 @@
   --m-safe-area-bottom: 0px;
   --m-safe-area-left: 0px;
 
-  /* 内容止位：移动端 tabbar 64px；平板无底栏 */
-  --m-content-pb: 64px;
-  --m-content-pb-md: 0px;
+  /* 内容止位：无底部导航；MiniPlayer 始终占 64px，再叠加底部安全区 */
+  --m-content-pb: calc(64px + var(--m-safe-area-bottom, 0px));
+  --m-content-pb-md: calc(64px + var(--m-safe-area-bottom, 0px));
   --content-pb: var(--m-content-pb);
   --content-pb-md: var(--m-content-pb-md);
 
@@ -131,8 +131,8 @@
 }
 
 html.muses-mini-visible {
-  --m-content-pb: 128px;            /* tabbar 64px + MiniPlayer 64px */
-  --m-content-pb-md: 64px;          /* 平板仅 MiniPlayer */
+  --m-content-pb: calc(64px + var(--m-safe-area-bottom, 0px));
+  --m-content-pb-md: calc(64px + var(--m-safe-area-bottom, 0px));
 }
 
 .dark {
@@ -691,7 +691,7 @@ body.muses-overlay-open .m-content {
 
 /*
  * 统一层级阶梯（低→高）：
- *   tabbar(950) < MiniPlayer(1000) < 全屏 popup(1100)
+ *   MiniPlayer(1000) < 导航抽屉(1050) < 全屏 popup(1100)
  *   < 页面浮层 sheet/dialog/actions(1200) < toast(1300)
  * 弹层 backdrop 与面板同级同 z（面板 DOM 在后，同层级时自然盖住 backdrop）。
  */

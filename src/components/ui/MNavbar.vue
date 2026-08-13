@@ -6,8 +6,24 @@
     <!-- 玻璃底（blur 2px + surface 渐变 + 下半 mask 渐隐，WebView 110 兼容写法） -->
     <div class="m-navbar__bg" aria-hidden="true" />
     <div class="m-navbar__inner">
-      <div v-if="$slots.left" class="m-navbar__left">
-        <slot name="left" />
+      <div
+        v-if="$slots.left || navigationDrawer"
+        class="m-navbar__left"
+        :class="{ 'm-navbar__left--drawer': navigationDrawer && !$slots.left }"
+      >
+        <slot name="left">
+          <button
+            v-if="navigationDrawer"
+            type="button"
+            class="m-navbar__menu-button"
+            aria-label="打开导航菜单"
+            title="打开导航菜单"
+            :aria-expanded="navigationDrawer.expanded.value"
+            @click="openNavigationDrawer"
+          >
+            <component :is="menu" aria-hidden="true" class="m-navbar__menu-icon" />
+          </button>
+        </slot>
       </div>
       <div class="m-navbar__title">
         <slot />
@@ -23,6 +39,10 @@
 </template>
 
 <script setup lang="ts">
+import { inject } from 'vue'
+import { navigationDrawerKey } from '@/features/navigation/drawer'
+import { menu } from '@/icons'
+
 /**
  * APP-ONLY：MNavbar —— 吸顶导航栏（替代 k-navbar，iOS）
  * 安全区顶部 + 44px 内容行；玻璃底 = blur(2px) + surface→透明渐变 + mask 渐显
@@ -40,6 +60,12 @@ withDefaults(
     rightClass: undefined,
   },
 )
+
+const navigationDrawer = inject(navigationDrawerKey, null)
+
+const openNavigationDrawer = (event: MouseEvent) => {
+  navigationDrawer?.open(event.currentTarget as HTMLElement)
+}
 </script>
 
 <style scoped lang="scss">
@@ -97,6 +123,38 @@ withDefaults(
 
   &__right { margin-left: auto; }
   &__left { margin-right: var(--m-spacing-sub); }
+
+  &__menu-button {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--m-text);
+    background-color: transparent;
+    cursor: pointer;
+
+    &:active {
+      background-color: rgba(var(--m-primary-rgb), 0.15);
+    }
+
+    @media (min-width: 768px) {
+      display: none;
+    }
+  }
+
+  &__menu-icon {
+    width: var(--m-list-icon);
+    height: var(--m-list-icon);
+  }
+
+  @media (min-width: 768px) {
+    &__left--drawer {
+      display: none;
+    }
+  }
 
   &__title {
     flex: 1 1 auto;

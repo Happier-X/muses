@@ -36,11 +36,11 @@ All component styling uses SCSS with BEM-like or scoped nested class names. **Ta
 - **Salt 颜色契约**：亮色 `--m-primary/#0470E6`、`--m-surface/#F3F3F3`、`--m-text/#1E1715`；暗色 `--m-primary/#0088FF`、`--m-surface/#202020`、`--m-text/#EBEEF1`。透明主色背景必须使用 `rgba(var(--m-primary-rgb), alpha)`，禁止把亮色 RGB 写死，否则暗色 highlight 不会切换。
 - **Salt 尺寸契约**：圆角使用 `--m-radius-sm/md/lg/card/dialog`（8/16/24/12/20px）；列表行高 `--m-list-row-h: 56px`，列表图标 `--m-list-icon: 24px`，间距 `--m-spacing/--m-spacing-sub`（16/12px），字号 `--m-font-size-sm/md/lg`（12/16/24px）。组件和页面不得另造相同语义的硬编码值。
 - **常驻导航表面**：`MNavbar`、`MTabbar`、`MiniPlayer` 和列表吸顶操作条使用 `--m-surface-1` + `--m-hairline` 的干净表面，不使用 iOS 玻璃渐变、mask 或 `backdrop-filter`。`.m-glass-*` 兼容工具仍可保留，但不得用于常驻导航。
-- **底部几何契约**：移动端 Tabbar 高 64px，MiniPlayer 高 64px 且位于 `bottom: calc(64px + safe-area)`；内容止位无 MiniPlayer 为 64px、有 MiniPlayer 为 128px。平板无 Tabbar，内容止位分别为 0/64px。改变任一高度时必须同步检查另外三处，禁止留下空带或重复避让。
+- **底部几何契约**：移动端与平板均无底部 Tabbar；MiniPlayer 高 64px，固定在 `bottom: var(--m-safe-area-bottom)`。MiniPlayer 无歌曲时仍显示空状态，内容止位始终为 `64px + 底部安全区`。改变 MiniPlayer 高度或安全区算法时必须同步检查 `--m-content-pb`、`--m-content-pb-md` 与 MiniPlayer 定位，禁止留下空带或重复避让。
 - **全量 Motion 动画**：浮层显隐、滑块交互、进度条跟手使用 `motion-v`（`AnimatePresence` + `motion.div`）。唯一例外是纯颜色、背景色或 opacity 过渡可保留原生 CSS transition。拖拽关页回弹使用 `animate()` 命令式驱动。
 - **SCSS 变量架构**：`src/theme/index.scss` 定义 `--m-*` 变量，深色模式通过 html 根元素 `.dark` 切换，不依赖 `@media (prefers-color-scheme)`。WebView < 111 环境禁止依赖 `color-mix()` 或 oklab 渐变插值。
 - **安全区处理**：Capacitor 8 注入的 `--safe-area-inset-*` 与 env() 兜底由 `index.scss` 的 `.m-app` 提供 `--m-safe-area-*` 桥接，所有组件均使用 `--m-safe-area-*` 避让。
-- **弹层 z-index 阶梯**：MTabbar (950) < MiniPlayer (1000) < MPopup (1100) < MSheet/MDialog/MActions (1200) < MToast (1300)。
+- **弹层 z-index 阶梯**：MiniPlayer (1000) < 移动端导航抽屉 (1050) < MPopup (1100) < MSheet/MDialog/MActions (1200) < MToast (1300)。
 - **页面骨架 `MPage` / `MContent`**：保留自建页壳逻辑，内部使用 scoped SCSS。
 
 > 以下「历史引用参考」章节保留了我们在组件交互、虚拟列表、手势覆盖等业务面积累的设计决策与防坑经验，这些代码行为规范（如 PlayerPage 下滑隔离、大列表虚拟化、安全区逻辑）在组件更名与 SCSS 迁移后依然有效。阅读时请自行将提及的 `k-xxx` 脑内替换为 `m-xxx`，将 `tailwind class` 替换为 `scoped CSS`。
@@ -139,7 +139,7 @@ Konsta 全部弹层（k-popup/k-sheet/k-dialog/k-actions/k-toast）默认 **z-40
 - `src/views/QueuePage.vue`
 - `src/views/SourcesPage.vue`
 
-`src/views/TabsPage.vue` 仅负责导航 chrome 和 `<RouterView />` 的父路由壳，使用普通 Vue 容器（`<nav>` / `<aside>` + `RouterLink`），不套 MPage。
+`src/views/TabsPage.vue` 仅负责导航 chrome 和 `<RouterView />` 的父路由壳，使用普通 Vue 容器（`<nav>` / `<aside>` + `RouterLink`），不套 MPage。移动端抽屉状态只在 TabsPage 内维护，并通过 `navigationDrawerKey` 向 `MNavbar` 提供汉堡入口；`MNavbar` 仅在调用方没有显式 `#left` 时显示该入口，因此详情页返回键始终优先。抽屉手势仅在水平位移超过 8px 且横向位移大于纵向位移后接管，打开/关闭阈值为面板宽度 25% 或快速滑动；MuMu WebView 110 首次横移后会提前发出 `pointercancel`，故手势必须使用 `touchstart/move/end/cancel` 持续跟踪，不能仅依赖 Pointer Events。抽屉打开时内容设为 inert、焦点限制在菜单内，关闭后恢复到触发按钮。
 
 ---
 
@@ -265,7 +265,7 @@ ESLint 已启用 `vue/no-undef-components`（error）防回归：模板使用未
 ### 当前平板组件模式
 
 - **导航 Shell**：`src/views/TabsPage.vue` 使用普通 Vue 布局容器作为父级 shell；子页面使用自建 `MPage`/`MContent` 骨架。
-- **侧栏**：宽屏下由固定定位的普通 `<aside>` 提供左侧导航，右侧 `<main>` 渲染 `<RouterView />`；窄屏回落为普通 `<nav>` + `RouterLink` 底部导航。
+- **侧栏**：宽屏下由固定定位的普通 `<aside>` 提供左侧导航，右侧 `<main>` 渲染 `<RouterView />`；窄屏使用 `TabsPage` 所有的左侧抽屉，四项菜单与宽屏侧栏共用 `navItems`、路由高亮和 Salt 激活态。抽屉位于 z-index 1050，高于 MiniPlayer、低于 Popup；支持汉堡按钮、全页水平右滑打开、抽屉区域左滑关闭、遮罩与 Escape 关闭。
 - **避免 Split Pane**：当前 MuMu / Android WebView 环境中，早期 `ion-split-pane` + `ion-menu` 曾触发白屏；已彻底移除 Ionic，不得回归该结构。
 - **专辑卡片网格（Albums）**：`src/views/AlbumsPage.vue` 使用 `<div class="album-grid">` 直接渲染 `<article class="album-card">` 卡片（封面 + 专辑名 + 歌曲数 + 艺术家摘要），不再使用 `ion-list` / `ion-item`。窄屏固定 `grid-template-columns: repeat(2, minmax(0, 1fr))`；宽屏在内容宽度上限内 `repeat(auto-fill, minmax(180px, 1fr))` 自动增列。卡片封面复用 `MCover`，通过 `.album-card > .album-card__cover { --m-cover-size: 100% !important; height: auto; aspect-ratio: 1; flex: 0 0 auto }` 覆盖 MCover 内联默认尺寸；`height: auto` 必须保留，使 `aspect-ratio` 能按卡片宽度计算正方形高度（不改 MCover 全局契约）。
 - **艺术家卡片网格（Artists）**：`src/views/ArtistsPage.vue` 使用 `<div class="artist-grid">` 直接渲染 `<article class="artist-card">` 卡片（圆形头像 + 艺术家名 + 歌曲数 + 专辑数），不再使用 `ion-list` / `ion-item`。窄屏固定 `grid-template-columns: repeat(2, minmax(0, 1fr))`；宽屏在内容宽度上限内 `repeat(auto-fill, minmax(180px, 1fr))` 自动增列。头像复用 `MCover`，从艺术家歌曲中选择首张有效封面，无封面时保留占位；通过 `.artist-card > .artist-card__avatar { --m-cover-size: 100% !important; height: auto; aspect-ratio: 1; border-radius: 50% }` 保持正圆。
@@ -398,8 +398,7 @@ Do not duplicate Ionic core or utility CSS imports inside page components.
 ### 样式约定
 
 - 底栏占满屏幕宽度，固定在移动端底部导航栏上方。
-- **窄屏**（`<768px`）：`bottom: calc(64px + env(safe-area-inset-bottom, 0px))`，为底部 Tab Bar 留位。
-- **宽屏**（`@media (min-width: 768px)`）：平板侧栏布局已隐藏 `.mobile-tab-bar`，底栏贴底，仅保留安全区：`bottom: env(safe-area-inset-bottom, 0px)`；禁止继续抬高 64px，否则会悬空。
+- **窄屏与宽屏**：均贴近视口底部，仅保留安全区：`bottom: var(--m-safe-area-bottom, 0px)`；移动端导航为侧边抽屉，不得再为底部 Tabbar 抬高 64px，否则会悬空。
 - 底栏本身不使用圆角和阴影，仅保留顶部边线分隔内容。
 - 封面容器圆角与歌曲列表一致，使用 `border-radius: 10px`。
 - 无当前歌曲或无封面时展示稳定占位封面与占位文案，避免播放状态为空时底栏跳动或消失。
