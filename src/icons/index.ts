@@ -37,4 +37,8 @@ export {
   EllipsisVertical as ellipsisVertical,
   Menu as menu,
   CircleMinus as removeCircleOutline,
+  ArrowUpDown as arrowUpDown,
+  ListChecks as listChecks,
+  CheckCheck as checkCheck,
+  Volume2 as volume2,
 } from '@lucide/vue'

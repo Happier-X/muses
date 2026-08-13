@@ -3,9 +3,81 @@
     <div class="songs-page__navbar-wrap">
       <m-navbar right-class="songs-page__right">
         <template #title>歌曲</template>
+        <template #right>
+          <m-button
+            component="button"
+            variant="clear"
+            rounded
+            class="songs-page__search-btn"
+            aria-label="搜索歌曲"
+            @click="enterSearch"
+          >
+            <component :is="searchOutline" aria-hidden="true" class="songs-page__search-icon" />
+          </m-button>
+        </template>
       </m-navbar>
     </div>
     <div class="m-content songs-page__content">
+      <!-- 工具条：排序 / 多选 / 全选（椒盐结构） -->
+      <div v-if="songs.length > 0 && !isSearching" class="songs-page__toolbar">
+        <div class="songs-page__toolbar-wrap">
+          <m-button
+            component="button"
+            variant="clear"
+            class="songs-page__toolbar-left"
+            :aria-label="isMultiSelect ? '全选' : '多选'"
+            @click="isMultiSelect ? toggleSelectAll() : enterMultiSelect()"
+          >
+            <component :is="checkCheck" aria-hidden="true" class="songs-page__toolbar-left-icon" />
+            <span v-if="isMultiSelect" class="songs-page__toolbar-left-text">全选</span>
+          </m-button>
+          <div class="songs-page__toolbar-right">
+            <m-button
+              component="button"
+              variant="clear"
+              rounded
+              class="songs-page__toolbar-btn"
+              aria-label="排序"
+              @click="openSortMenu"
+            >
+              <component :is="arrowUpDown" aria-hidden="true" class="songs-page__toolbar-icon" />
+            </m-button>
+            <m-button
+              component="button"
+              variant="clear"
+              rounded
+              class="songs-page__toolbar-btn"
+              aria-label="多选"
+              @click="enterMultiSelect"
+            >
+              <component :is="listChecks" aria-hidden="true" class="songs-page__toolbar-icon" />
+            </m-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 搜索栏（替换工具条） -->
+      <div v-if="songs.length > 0 && isSearching" class="songs-page__searchbar">
+        <div class="songs-page__searchbar-wrap">
+          <component :is="searchOutline" aria-hidden="true" class="songs-page__searchbar-icon" />
+          <input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            class="songs-page__searchbar-input"
+            :placeholder="`在 ${songs.length} 首歌曲中搜索`"
+            @input="onSearchInput"
+          />
+          <m-button
+            component="button"
+            variant="clear"
+            class="songs-page__searchbar-cancel"
+            @click="exitSearch"
+          >
+            取消
+          </m-button>
+        </div>
+      </div>
+
       <div v-if="songs.length === 0" class="songs-page__empty">
         <m-empty
           title="还没有歌曲"
@@ -18,27 +90,11 @@
         ref="listParentRef"
         class="songs-page__list"
       >
-        <div class="songs-page__shuffle-bar">
-          <div class="songs-page__shuffle-wrap">
-            <div class="songs-page__shuffle-blur" aria-hidden="true" />
-            <div class="songs-page__shuffle-glass" aria-hidden="true" />
-            <m-button
-              component="button"
-              variant="clear"
-              class="songs-page__shuffle-btn"
-              aria-label="随机播放全部"
-              @click="onShuffleAll"
-            >
-              <component :is="shuffle" aria-hidden="true" class="songs-page__shuffle-icon" />
-              <span>{{ songs.length }} 首</span>
-            </m-button>
-          </div>
-        </div>
         <m-list :dividers="false" class="songs-page__list-root">
           <div class="songs-page__vlist" :style="{ height: `${totalSize}px` }">
             <div
               v-for="virtualRow in virtualRows"
-              :key="songs[virtualRow.index].id"
+              :key="visibleSongs[virtualRow.index].id"
               :ref="measureVirtualRow"
               class="songs-page__virtual-row"
               :data-index="virtualRow.index"
@@ -47,36 +103,134 @@
               <m-list-item
                 :chevron="false"
                 link
-                :title="songs[virtualRow.index].title"
-                :subtitle="`${getSongArtistName(songs[virtualRow.index])} - ${getSongAlbumName(songs[virtualRow.index])}`"
+                :title="visibleSongs[virtualRow.index].title"
+                :subtitle="`${getSongArtistName(visibleSongs[virtualRow.index])} - ${getSongAlbumName(visibleSongs[virtualRow.index])}`"
                 title-class="songs-page__row-title"
                 subtitle-class="songs-page__row-subtitle"
                 class="songs-page__row"
-                :class="songItemClass(songs[virtualRow.index].id)"
-                :data-song-id="songs[virtualRow.index].id"
+                :class="songItemClass(visibleSongs[virtualRow.index].id)"
+                :data-song-id="visibleSongs[virtualRow.index].id"
                 role="button"
                 tabindex="0"
-                @click="playSong(songs[virtualRow.index])"
+                @click="onRowClick(visibleSongs[virtualRow.index])"
               >
                 <template #media>
-                  <m-cover :src="getSongCoverSrc(songs[virtualRow.index])" :size="48" radius="sm" alt="" />
+                  <!-- 多选时媒体区变选择框；否则封面 -->
+                  <button
+                    v-if="isMultiSelect"
+                    type="button"
+                    class="songs-page__select-box"
+                    :class="{ 'is-checked': selectedIds.has(visibleSongs[virtualRow.index].id) }"
+                    :aria-label="selectedIds.has(visibleSongs[virtualRow.index].id) ? '取消选择' : '选择'"
+                    @click.stop="toggleSelectOne(visibleSongs[virtualRow.index].id)"
+                  >
+                    <component :is="checkCheck" aria-hidden="true" class="songs-page__select-check" />
+                  </button>
+                  <m-cover
+                    v-else
+                    :src="getSongCoverSrc(visibleSongs[virtualRow.index])"
+                    :size="50"
+                    radius="sm"
+                    alt=""
+                  />
                 </template>
                 <template #after>
-                  <m-button
-                    component="button"
-                    variant="clear"
-                    rounded
-                    class="songs-page__more-btn"
-                    aria-label="更多歌曲操作"
-                    @click.stop="openSongActions(songs[virtualRow.index])"
-                  >
-                    <component :is="ellipsisVertical" aria-hidden="true" class="songs-page__more-icon" />
-                  </m-button>
+                  <div class="songs-page__row-actions">
+                    <!-- 椒盐式圆形按钮：普通=加入队列；播放中行=播放指示 -->
+                    <button
+                      v-if="!isMultiSelect"
+                      type="button"
+                      class="songs-page__round-btn"
+                      :class="{ 'is-playing': playerState.currentSong?.id === visibleSongs[virtualRow.index].id }"
+                      :aria-label="playerState.currentSong?.id === visibleSongs[virtualRow.index].id ? '正在播放' : '加入队列'"
+                      @click.stop="onRowActionClick(visibleSongs[virtualRow.index])"
+                    >
+                      <component
+                        :is="playerState.currentSong?.id === visibleSongs[virtualRow.index].id ? volume2 : add"
+                        aria-hidden="true"
+                        class="songs-page__round-icon"
+                      />
+                    </button>
+                    <m-button
+                      component="button"
+                      variant="clear"
+                      rounded
+                      class="songs-page__more-btn"
+                      aria-label="更多歌曲操作"
+                      @click.stop="openSongActions(visibleSongs[virtualRow.index])"
+                    >
+                      <component :is="ellipsisVertical" aria-hidden="true" class="songs-page__more-icon" />
+                    </m-button>
+                  </div>
                 </template>
               </m-list-item>
             </div>
           </div>
         </m-list>
+      </div>
+
+      <!-- 字母索引条（仅字母序排序） -->
+      <div v-if="isAlphabeticalSort && songs.length > 0 && !isSearching" class="songs-page__index-bar">
+        <button
+          type="button"
+          class="songs-page__index-item"
+          aria-label="回到顶部"
+          @click="scrollToIndexGroup(null)"
+        >
+          0
+        </button>
+        <button
+          v-for="letter in indexLetters"
+          :key="letter"
+          type="button"
+          class="songs-page__index-item"
+          :class="{ 'is-empty': !indexGroups[letter] }"
+          :aria-label="`跳转到 ${letter}`"
+          @click="scrollToIndexGroup(letter)"
+        >
+          {{ letter }}
+        </button>
+      </div>
+
+      <!-- 多选底部操作条 -->
+      <div v-if="isMultiSelect" class="songs-page__multibar">
+        <div class="songs-page__multibar-wrap">
+          <m-button
+            component="button"
+            variant="clear"
+            class="songs-page__multibar-btn songs-page__multibar-btn--danger"
+            :disabled="selectedCount === 0"
+            @click="onDeleteSelected"
+          >
+            永久删除
+          </m-button>
+          <m-button
+            component="button"
+            variant="clear"
+            class="songs-page__multibar-btn"
+            :disabled="selectedCount === 0"
+            @click="onPickPlaylistForSelected"
+          >
+            添加到歌单
+          </m-button>
+          <m-button
+            component="button"
+            variant="clear"
+            class="songs-page__multibar-btn"
+            :disabled="selectedCount === 0"
+            @click="onPlaySelected"
+          >
+            播放选中队列
+          </m-button>
+          <m-button
+            component="button"
+            variant="clear"
+            class="songs-page__multibar-btn"
+            @click="exitMultiSelect"
+          >
+            取消
+          </m-button>
+        </div>
       </div>
 
       <m-actions :opened="isSongActionsOpen" @backdropclick="isSongActionsOpen = false">
@@ -88,13 +242,37 @@
         </m-actions-group>
       </m-actions>
 
+      <!-- 排序菜单 -->
+      <m-actions :opened="isSortMenuOpen" @backdropclick="isSortMenuOpen = false">
+        <m-actions-group>
+          <m-actions-label>排序</m-actions-label>
+          <m-actions-button
+            v-for="item in SONG_SORT_MENU"
+            :key="item.key"
+            :class="{ 'songs-page__sort-item--disabled': !item.available }"
+            @click="item.available && setSortMode(item.key as SongSortMode)"
+          >
+            <span class="songs-page__sort-label">
+              {{ item.label }}
+              <component
+                v-if="sortMode === item.key"
+                :is="checkCheck"
+                aria-hidden="true"
+                class="songs-page__sort-check"
+              />
+            </span>
+          </m-actions-button>
+          <m-actions-button @click="isSortMenuOpen = false">取消</m-actions-button>
+        </m-actions-group>
+      </m-actions>
+
       <m-actions :opened="isPlaylistPickOpen" @backdropclick="isPlaylistPickOpen = false">
         <m-actions-group>
           <m-actions-label>加入歌单</m-actions-label>
           <m-actions-button
             v-for="pl in playlistList"
             :key="pl.id"
-            @click="onAddToPlaylist(pl.id)"
+            @click="isMultiSelect ? onAddSelectedToPlaylist(pl.id) : onAddToPlaylist(pl.id)"
           >
             {{ pl.name }}
           </m-actions-button>
@@ -137,7 +315,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
-import { crosshair, ellipsisVertical, shuffle } from '@/icons'
+import { arrowUpDown, add, checkCheck, crosshair, ellipsisVertical, listChecks, searchOutline, volume2 } from '@/icons'
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
   MButton, MDialog, MDialogButton, MFab, MList, MListItem, MListInput,
@@ -145,7 +323,10 @@ import {
 } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
-import { getSongAlbumName, getSongArtistName, sortSongsForDisplay } from '@/features/library/views'
+import {
+  getSongAlbumName, getSongArtistName, SONG_SORT_MENU, sortSongsByMode,
+  type SongSortMode,
+} from '@/features/library/views'
 import {
   addSongToPlaylist,
   createPlaylist,
@@ -157,32 +338,173 @@ import {
   enqueueSongs,
   playerState,
   playSong,
-  selectSongAtIndex,
-  shuffleEnabled,
-  toggleShuffle,
 } from '@/features/player/controller'
 
 const songs = ref<SongItem[]>([])
 const listParentRef = ref<HTMLElement | null>(null)
 /** tab 切换时的滚动位置保留（sessionStorage 持久，组件卸载/重挂载与懒加载 chunk 重执行均安全） */
 const SCROLL_SAVE_KEY = 'muses:songs-scroll-top'
+const SORT_SAVE_KEY = 'muses:songs-sort-mode'
 let savedSongsScrollTop = Number(sessionStorage.getItem(SCROLL_SAVE_KEY) || 0)
 const actionSong = ref<SongItem | null>(null)
 const isSongActionsOpen = ref(false)
 const isPlaylistPickOpen = ref(false)
 const isCreatePlaylistOpen = ref(false)
+
+/** 排序模式（sessionStorage 持久）；椒盐默认自定义顺序 */
+const sortMode = ref<SongSortMode>((sessionStorage.getItem(SORT_SAVE_KEY) as SongSortMode | null) ?? 'custom')
+const isSortMenuOpen = ref(false)
+
+/** 多选模式 */
+const isMultiSelect = ref(false)
+const selectedIds = ref<Set<string>>(new Set())
+
+/** 搜索 */
+const isSearching = ref(false)
+const searchQuery = ref('')
+const searchInputRef = ref<HTMLInputElement | null>(null)
+
+/** 列表排序是否字母序（决定索引条显示） */
+const isAlphabeticalSort = computed(() => ['title', 'fileName', 'artist', 'album', 'folder'].includes(sortMode.value))
+
+/** 索引分组：字母 -> 该组首行在 visibleSongs 中的 index */
+const indexGroups = computed<Record<string, number>>(() => {
+  const groups: Record<string, number> = {}
+  visibleSongs.value.forEach((song, index) => {
+    const letter = getTitleIndexLetter(song.title)
+    if (letter && groups[letter] === undefined) {
+      groups[letter] = index
+    }
+  })
+  return groups
+})
+
+/** 索引条字母：A-Z + #，有歌的在前（保持 A-Z 顺序） */
+const indexLetters = computed<string[]>(() => {
+  return ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '#']
+})
+
+/** 标题首字符 -> 索引字母；数字/其他（含中文按 localeCompare 归属 # 组） */
+const getTitleIndexLetter = (title: string): string | null => {
+  const first = title.trim().charAt(0)
+  if (!first) {
+    return null
+  }
+  if (/[a-zA-Z]/.test(first)) {
+    return first.toUpperCase()
+  }
+  if (/[0-9]/.test(first)) {
+    return '#'
+  }
+  // 中文与其他字符：localeCompare 排序在字母后，归 # 组
+  return '#'
+}
+
+const scrollToIndexGroup = (letter: string | null): void => {
+  if (letter === null) {
+    rowVirtualizer.value.scrollToIndex(0, { align: 'start' })
+    return
+  }
+  const index = indexGroups.value[letter]
+  if (index !== undefined) {
+    rowVirtualizer.value.scrollToIndex(index, { align: 'start' })
+  }
+}
+
+/** 过滤后的歌曲（搜索命中 title/artist/album） */
+const visibleSongs = computed<SongItem[]>(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) {
+    return songs.value
+  }
+  return songs.value.filter((song) => {
+    return (
+      song.title.toLowerCase().includes(query) ||
+      (song.artist ?? '').toLowerCase().includes(query) ||
+      (song.album ?? '').toLowerCase().includes(query)
+    )
+  })
+})
+
 const songItemClass = (songId: string): string => {
   const classes: string[] = []
   if (playerState.currentSong?.id === songId) {
     classes.push('is-playing')
   }
+  if (isMultiSelect.value && selectedIds.value.has(songId)) {
+    classes.push('is-selected')
+  }
   return classes.join(' ')
 }
 
-/** 大曲库只渲染可视行，降低滚动/卡顿（#50） */
+const selectedCount = computed(() => selectedIds.value.size)
+const allSelected = computed(() => visibleSongs.value.length > 0 && selectedIds.value.size === visibleSongs.value.length)
+
+const toggleSelectAll = (): void => {
+  if (allSelected.value) {
+    selectedIds.value = new Set()
+  } else {
+    selectedIds.value = new Set(visibleSongs.value.map((song) => song.id))
+  }
+}
+
+const toggleSelectOne = (songId: string): void => {
+  const next = new Set(selectedIds.value)
+  if (next.has(songId)) {
+    next.delete(songId)
+  } else {
+    next.add(songId)
+  }
+  selectedIds.value = next
+}
+
+const enterMultiSelect = (): void => {
+  isMultiSelect.value = true
+  selectedIds.value = new Set()
+}
+
+const exitMultiSelect = (): void => {
+  isMultiSelect.value = false
+  selectedIds.value = new Set()
+}
+
+const openSortMenu = (): void => {
+  isSortMenuOpen.value = true
+}
+
+const setSortMode = (mode: SongSortMode | 'durationDesc'): void => {
+  sortMode.value = mode as SongSortMode
+  sessionStorage.setItem(SORT_SAVE_KEY, String(sortMode.value))
+  isSortMenuOpen.value = false
+  // 排序变化后回到顶部，避免错位
+  if (listParentRef.value) {
+    listParentRef.value.scrollTop = 0
+  }
+  refreshSongs()
+}
+
+const enterSearch = (): void => {
+  isSearching.value = true
+  searchQuery.value = ''
+  // 搜索激活时退出多选
+  if (isMultiSelect.value) {
+    exitMultiSelect()
+  }
+  void nextTick(() => {
+    searchInputRef.value?.focus()
+  })
+}
+
+const exitSearch = (): void => {
+  isSearching.value = false
+  searchQuery.value = ''
+}
+
+
+/** 大曲库只渲染可视行，降低滚动/卡顿（#50）；搜索/排序变化后列表基于 visibleSongs */
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
-    count: songs.value.length,
+    count: visibleSongs.value.length,
     getScrollElement: () => listParentRef.value,
     estimateSize: () => 72,
     overscan: 8,
@@ -199,7 +521,7 @@ const virtualRows = computed(() => {
     return items
   }
 // 虚拟列表只剩可视行；首帧 / stub 退化逻辑保留（已无单测但为审美/强健性保留）
-  return songs.value.map((_, index) => ({
+  return visibleSongs.value.map((_, index) => ({
     index,
     start: index * 72,
     size: 72,
@@ -212,7 +534,7 @@ const totalSize = computed(() => {
   if (measured > 0) {
     return measured
   }
-  return songs.value.length * 72
+  return visibleSongs.value.length * 72
 })
 
 const currentPlayingInList = computed(() => {
@@ -258,7 +580,7 @@ const onNewPlaylistNameInput = (e: Event): void => {
 }
 
 const refreshSongs = () => {
-  songs.value = sortSongsForDisplay(loadSongs())
+  songs.value = sortSongsByMode(loadSongs(), sortMode.value)
 }
 
 const openSongActions = (song: SongItem) => {
@@ -312,20 +634,70 @@ const onConfirmCreatePlaylist = () => {
   isCreatePlaylistOpen.value = false
 }
 
-const onShuffleAll = () => {
-  if (songs.value.length === 0) {
+/** 行点击：多选时切换选择，否则播放 */
+const onRowClick = (song: SongItem): void => {
+  if (isMultiSelect.value) {
+    toggleSelectOne(song.id)
+    return
+  }
+  void playSong(song)
+}
+
+/** 行内圆形按钮：播放中行=无操作（视觉指示），否则加入队列 */
+const onRowActionClick = (song: SongItem): void => {
+  if (playerState.currentSong?.id === song.id) {
+    return
+  }
+  enqueueSong(song)
+}
+
+/** 多选：播放选中队列（按当前排序顺序，不清空已有队列） */
+const onPlaySelected = (): void => {
+  const selectedSongs = visibleSongs.value.filter((song) => selectedIds.value.has(song.id))
+  if (selectedSongs.length === 0) {
     return
   }
 
   clearQueue()
-  enqueueSongs(songs.value)
-  if (!shuffleEnabled()) {
-    toggleShuffle()
-  }
-  const first = selectSongAtIndex(0)
+  enqueueSongs(selectedSongs)
+  const first = selectedSongs[0]
   if (first) {
     void playSong(first)
   }
+  exitMultiSelect()
+}
+
+/** 多选：永久删除（移除库记录；文件本体不动，弹确认） */
+const onDeleteSelected = async (): Promise<void> => {
+  const selectedSongs = visibleSongs.value.filter((song) => selectedIds.value.has(song.id))
+  if (selectedSongs.length === 0) {
+    return
+  }
+  if (window.confirm(`确定从音乐库删除选中的 ${selectedSongs.length} 首歌曲吗？（文件不会被删除）`)) {
+    const { loadSongs: loadSongsNow, saveSongs } = await import('@/features/library/storage')
+    const removedIds = new Set(selectedSongs.map((song) => song.id))
+    saveSongs(loadSongsNow().filter((song) => !removedIds.has(song.id)))
+    exitMultiSelect()
+    refreshSongs()
+  }
+}
+
+/** 多选：添加到歌单（复用单曲加入逻辑） */
+const onPickPlaylistForSelected = (): void => {
+  isPlaylistPickOpen.value = true
+}
+
+const onAddSelectedToPlaylist = (playlistId: string): void => {
+  const selectedIdsArray = Array.from(selectedIds.value)
+  for (const songId of selectedIdsArray) {
+    addSongToPlaylist(playlistId, songId)
+  }
+  isPlaylistPickOpen.value = false
+  exitMultiSelect()
+}
+
+const onSearchInput = (e: Event): void => {
+  searchQuery.value = (e.target as HTMLInputElement).value
 }
 
 const scrollToCurrentSong = async () => {
@@ -421,7 +793,6 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .songs-page {
-  &__shuffle-wrap { position: relative; height: 100%; width: 100%; }
   &__vlist { position: relative; width: 100%; }
   position: relative;
   display: flex;
@@ -464,46 +835,108 @@ onUnmounted(() => {
     }
   }
 
-  /* 随机播放入口使用干净表面，避免常驻玻璃材质。 */
-  &__shuffle-bar {
+  /* 工具条：48dp 干净表面，sticky 吸 navbar 下方（对齐椒盐） */
+  &__toolbar {
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 15;
     box-sizing: border-box;
     width: 100%;
-    height: 44px;
-    background: var(--m-surface);
-    border-bottom: 1px solid var(--m-hairline);
+    height: 48px;
+    background: var(--m-surface-1);
   }
 
-  &__shuffle-blur,
-  &__shuffle-glass {
-    display: none;
-  }
-
-  &__shuffle-btn {
-    position: relative;
+  &__toolbar-wrap {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: var(--m-spacing-sub);
-    width: 100%;
+    justify-content: space-between;
     height: 100%;
-    padding: 0 var(--m-spacing);
-    border-radius: 0;
-    font-size: 15px;
-    color: var(--m-text);
-    background-color: transparent;
-
-    &:active {
-      background-color: rgba(0, 0, 0, 0.1);
-    }
+    padding: 0 8px;
   }
 
-  &__shuffle-icon {
-    width: 16px;
-    height: 16px;
+  &__toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 12px;
+    color: var(--m-text);
+    background: var(--m-surface-2);
+    border-radius: var(--m-radius-lg);
+    font-size: 14px;
+  }
+
+  &__toolbar-left-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--m-text-2);
+  }
+
+  &__toolbar-left-text {
+    font-size: 14px;
+  }
+
+  &__toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__toolbar-btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    color: var(--m-text-2);
+  }
+
+  &__toolbar-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* 搜索栏：替换工具条 */
+  &__searchbar {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    box-sizing: border-box;
+    width: 100%;
+    height: 48px;
+    background: var(--m-surface-1);
+  }
+
+  &__searchbar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+    padding: 0 var(--m-spacing);
+  }
+
+  &__searchbar-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--m-text-2);
     flex: none;
+  }
+
+  &__searchbar-input {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    padding: 0 12px;
+    border: none;
+    border-radius: var(--m-radius-card);
+    background: var(--m-surface-2);
+    color: var(--m-text);
+    font-size: 15px;
+    outline: none;
+  }
+
+  &__searchbar-cancel {
+    flex: none;
+    color: var(--m-primary);
+    font-size: 15px;
   }
 
   &__list-root {
@@ -537,22 +970,156 @@ onUnmounted(() => {
     white-space: nowrap;
   }
 
+  /* 行内右侧操作区：圆形按钮 + 菜单 */
+  &__row-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    margin-left: auto;
+  }
+
+  &__round-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--m-surface-2);
+    color: var(--m-text-2);
+    cursor: pointer;
+    flex: none;
+
+    &:active {
+      background: var(--m-surface-3);
+    }
+
+    &.is-playing {
+      background: rgba(var(--m-primary-rgb), 0.12);
+      color: var(--m-primary);
+    }
+  }
+
+  &__round-icon {
+    width: 22px;
+    height: 22px;
+  }
+
   &__more-btn {
-    position: absolute !important;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
     width: 32px;
     height: 32px;
     padding: 0;
     flex: none;
-    margin-left: auto;
     color: var(--m-text);
   }
 
   &__more-icon {
     width: var(--m-list-icon);
     height: var(--m-list-icon);
+  }
+
+  /* 多选选择框 */
+  &__select-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1.5px solid var(--m-text-3);
+    border-radius: 50%;
+    background: transparent;
+    color: transparent;
+    cursor: pointer;
+    flex: none;
+
+    &.is-checked {
+      border-color: var(--m-primary);
+      background: var(--m-primary);
+      color: var(--m-on-primary);
+    }
+  }
+
+  &__select-check {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* 多选底部操作条 */
+  &__multibar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(64px + var(--m-safe-area-bottom, 0px));
+    z-index: 25;
+    background: var(--m-surface-1);
+    border-top: 1px solid var(--m-hairline);
+  }
+
+  &__multibar-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    height: 52px;
+    padding: 0 8px;
+  }
+
+  &__multibar-btn {
+    height: 36px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: var(--m-primary);
+
+    &:disabled {
+      color: var(--m-text-3);
+      cursor: default;
+    }
+
+    &--danger {
+      color: var(--m-danger);
+    }
+  }
+
+  /* 字母索引条：右侧 16dp 宽 */
+  &__index-bar {
+    position: fixed;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 2px;
+  }
+
+  &__index-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--m-text-3);
+    font-size: 12px;
+    line-height: 18px;
+    cursor: pointer;
+    border-radius: 4px;
+
+    &:active {
+      background: rgba(var(--m-primary-rgb), 0.12);
+      color: var(--m-primary);
+    }
+
+    &.is-empty {
+      color: rgba(140, 140, 140, 0.35);
+    }
   }
 
   &__jump-fab {
@@ -566,18 +1133,40 @@ onUnmounted(() => {
     width: 20px;
     height: 20px;
   }
+
+  &__sort-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+  }
+
+  &__sort-check {
+    width: 18px;
+    height: 18px;
+    color: var(--m-primary);
+  }
 }
 
-/* 正在播放行高亮与 Salt 分割线 */
+/* 列表行 Salt 分割线 */
 .songs-page :deep(.songs-page__row) {
   border-bottom: 1px solid var(--m-hairline);
 }
 
-.songs-page :deep(.is-playing) {
-  background-color: rgba(var(--m-primary-rgb), 0.1);
+/* 行高对齐椒盐 72dp（覆盖全局 56px） */
+.songs-page :deep(.m-list-item) {
+  --m-list-row-h: 72px;
+  min-height: 72px;
 }
 
-.songs-page__shuffle-btn {
-  color: var(--m-primary);
+/* 排序菜单不可用项置灰 */
+.songs-page :deep(.songs-page__sort-item--disabled) {
+  opacity: 0.4;
+}
+
+/* 多选时行不加分割线高亮 */
+.songs-page :deep(.songs-page__row.is-selected) {
+  background-color: rgba(var(--m-primary-rgb), 0.08);
 }
 </style>
