@@ -43,3 +43,9 @@ function onClick(event: MouseEvent) {
   emit('click', event)
 }
 </script>
+
+<style scoped lang="scss">
+:deep(.m-button) {
+  border-radius: var(--m-radius-md);
+}
+</style>

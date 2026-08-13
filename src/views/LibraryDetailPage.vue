@@ -328,7 +328,10 @@ watch(groupName, () => {
 <style scoped lang="scss">
 .library-detail-page {
   &__fill { height: 100%; }
-  &__shuffle-inner { position: relative; }
+  &__shuffle-inner {
+    position: relative;
+    background: var(--m-surface);
+  }
   &__vlist { position: relative; width: 100%; }
   position: relative;
   display: flex;
@@ -378,33 +381,14 @@ watch(groupName, () => {
     z-index: 10;
     box-sizing: border-box;
     width: 100%;
-    padding: 4px 8px;
+    padding: 4px var(--m-spacing-sub);
+    background: var(--m-surface);
+    border-bottom: 1px solid var(--m-hairline);
   }
 
-  &__shuffle-blur {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-  }
-
+  &__shuffle-blur,
   &__shuffle-glass {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    background: linear-gradient(
-      to bottom,
-      #fff 0%,
-      rgba(255, 255, 255, 0.55) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
+    display: none;
   }
 
   &__shuffle-btn {
@@ -421,7 +405,7 @@ watch(groupName, () => {
     inset-inline: 0;
     top: 0;
     box-sizing: border-box;
-    min-height: 72px;
+    min-height: var(--m-list-row-h);
   }
 
   &__row {
@@ -446,25 +430,16 @@ watch(groupName, () => {
   }
 
   &__jump-highlight {
-    background-color: rgba(0, 122, 255, 0.1);
+    background-color: rgba(var(--m-primary-rgb), 0.1);
   }
 }
 
-/* 正在播放行高亮 */
+/* 正在播放行高亮与 Salt 分割线 */
+.library-detail-page :deep(.library-detail-page__row) {
+  border-bottom: 1px solid var(--m-hairline);
+}
+
 .library-detail-page :deep(.is-playing) {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-:global(.dark) .library-detail-page__shuffle-glass {
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.6) 0%,
-    rgba(0, 0, 0, 0.35) 50%,
-    rgba(0, 0, 0, 0) 100%
-  );
-}
-
-:global(.dark) .library-detail-page :deep(.is-playing) {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(var(--m-primary-rgb), 0.1);
 }
 </style>

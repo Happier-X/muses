@@ -42,8 +42,8 @@ function onClick(event: MouseEvent) {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 56px;
-  padding: 0 16px;
+  min-height: var(--m-list-row-h);
+  padding: 0 var(--m-spacing);
   box-sizing: border-box;
   border: none;
   outline: none;
@@ -54,14 +54,14 @@ function onClick(event: MouseEvent) {
   overflow: hidden;
   position: relative;
   font-family: inherit;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.3;
   color: var(--m-primary);
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 
   &:active {
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(var(--m-primary-rgb), 0.15);
   }
 
   &--bold {
@@ -71,10 +71,6 @@ function onClick(event: MouseEvent) {
   &--danger {
     color: var(--m-danger);
   }
-}
-
-:global(.dark) .m-actions-button:active {
-  background-color: rgba(255, 255, 255, 0.05);
 }
 
 :global(.dark) .m-actions-button--danger {

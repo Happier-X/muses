@@ -51,23 +51,23 @@ withDefaults(
   box-sizing: border-box;
   color: var(--m-text);
   padding-top: max(16px, var(--m-safe-area-top, 0px));
+  background-color: var(--m-surface-1);
+  border-bottom: 1px solid var(--m-hairline);
 
   &__bg {
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px + 16px);
+    inset: 0;
     pointer-events: none;
-    background: linear-gradient(to bottom, var(--m-surface) 0%, transparent 100%);
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
-    -webkit-mask-image: linear-gradient(to bottom, #000 50%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 50%, transparent 100%);
+    background-color: var(--m-surface-1);
   }
 
   &--has-subnavbar &__bg {
-    height: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px + 70px + 16px);
+    height: 100%;
+  }
+
+  &--transparent {
+    background-color: transparent;
+    border-bottom-color: transparent;
   }
 
   &--transparent &__bg {
@@ -81,8 +81,8 @@ withDefaults(
     justify-content: space-between;
     width: 100%;
     height: 44px;
-    padding-left: calc(16px + var(--m-safe-area-left, 0px));
-    padding-right: calc(16px + var(--m-safe-area-right, 0px));
+    padding-left: calc(var(--m-spacing) + var(--m-safe-area-left, 0px));
+    padding-right: calc(var(--m-spacing) + var(--m-safe-area-right, 0px));
     box-sizing: border-box;
   }
 
@@ -95,13 +95,8 @@ withDefaults(
     flex: 0 0 auto;
   }
 
-  &__right {
-    margin-left: auto;
-  }
-
-  &__left {
-    margin-right: 8px;
-  }
+  &__right { margin-left: auto; }
+  &__left { margin-right: var(--m-spacing-sub); }
 
   &__title {
     flex: 1 1 auto;
@@ -119,18 +114,10 @@ withDefaults(
     position: relative;
     display: flex;
     align-items: center;
-    height: 56px;
-    padding-left: calc(16px + var(--m-safe-area-left, 0px));
-    padding-right: calc(16px + var(--m-safe-area-right, 0px));
+    height: var(--m-list-row-h);
+    padding-left: calc(var(--m-spacing) + var(--m-safe-area-left, 0px));
+    padding-right: calc(var(--m-spacing) + var(--m-safe-area-right, 0px));
     box-sizing: border-box;
   }
-}
-
-:global(.dark) .m-navbar__bg {
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.5) 0%,
-    rgba(0, 0, 0, 0) 100%
-  );
 }
 </style>

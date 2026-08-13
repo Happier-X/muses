@@ -59,7 +59,8 @@ function onBackdropClick(event: MouseEvent) {
   max-width: 28rem;
   width: 100%;
   box-sizing: border-box;
-  padding: 16px 16px calc(16px + var(--m-safe-area-bottom, 0px));
+  padding: var(--m-spacing) var(--m-spacing)
+    calc(var(--m-spacing) + var(--m-safe-area-bottom, 0px));
   z-index: 1200;
 }
 </style>

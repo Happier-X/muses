@@ -303,7 +303,7 @@ watch(playlistId, () => {
     inset-inline: 0;
     top: 0;
     box-sizing: border-box;
-    min-height: 72px;
+    min-height: var(--m-list-row-h);
   }
 
   &__row {
@@ -332,19 +332,18 @@ watch(playlistId, () => {
   }
 
   &__remove-icon {
-    width: 16px;
-    height: 16px;
+    width: var(--m-list-icon);
+    height: var(--m-list-icon);
   }
 }
 
-/* 正在播放行高亮 */
-.playlist-detail-page :deep(.is-playing),
-.playlist-detail-page :deep(.playlist-detail-page__row--playing) {
-  background-color: rgba(0, 0, 0, 0.05);
+/* 正在播放行高亮与 Salt 分割线 */
+.playlist-detail-page :deep(.playlist-detail-page__row) {
+  border-bottom: 1px solid var(--m-hairline);
 }
 
-:global(.dark) .playlist-detail-page :deep(.is-playing),
-:global(.dark) .playlist-detail-page :deep(.playlist-detail-page__row--playing) {
-  background-color: rgba(255, 255, 255, 0.1);
+.playlist-detail-page :deep(.is-playing),
+.playlist-detail-page :deep(.playlist-detail-page__row--playing) {
+  background-color: rgba(var(--m-primary-rgb), 0.1);
 }
 </style>

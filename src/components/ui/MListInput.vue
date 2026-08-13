@@ -136,6 +136,9 @@ function onClear() {
   width: 100%;
   padding: 12px calc(16px + var(--m-safe-area-right, 0px)) 12px
     calc(16px + var(--m-safe-area-left, 0px));
+  border: 1px solid var(--m-hairline);
+  border-radius: var(--m-radius-card);
+  background-color: var(--m-surface-1);
   color: var(--m-text);
 
   &__label {
@@ -187,7 +190,7 @@ function onClear() {
   &__error {
     position: relative;
     z-index: 10;
-    color: #ef4444;
+    color: var(--m-danger);
   }
 
   &__info {

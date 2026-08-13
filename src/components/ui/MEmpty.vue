@@ -34,8 +34,8 @@ withDefaults(defineProps<{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 56px 24px;
+  gap: var(--m-spacing-sub);
+  padding: 56px var(--m-spacing);
   text-align: center;
   box-sizing: border-box;
 
@@ -45,13 +45,13 @@ withDefaults(defineProps<{
     width: 72px;
     height: 72px;
     border-radius: 50%;
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: var(--m-surface-2);
     color: var(--m-text-3);
   }
 
   &__icon-svg {
-    width: 32px;
-    height: 32px;
+    width: var(--m-list-icon);
+    height: var(--m-list-icon);
   }
 
   &__title {
@@ -70,7 +70,4 @@ withDefaults(defineProps<{
   }
 }
 
-:global(.dark) .m-empty__icon {
-  background-color: rgba(255, 255, 255, 0.15);
-}
 </style>

@@ -1,5 +1,7 @@
 # Implement: 复刻 Salt Player UI（视觉风格层）
 
+> 实施状态：阶段 1-4 代码工作已完成；build/lint、静态检查和 MuMu APK 启动验证通过。MuMu 逐页视觉与完整业务流程需要在设备上继续人工走查。
+
 ## 执行顺序（每阶段独立提交，可单独回滚）
 
 ### 阶段 1：主题 token 迁移（`src/theme/index.scss`）

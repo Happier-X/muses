@@ -218,13 +218,14 @@ defineExpose({ openCreateAlert })
   &__row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
-    margin-bottom: 4px;
+    gap: var(--m-spacing-sub);
+    min-height: var(--m-list-row-h);
+    padding: 0 var(--m-spacing);
+    border-bottom: 1px solid var(--m-hairline);
     cursor: pointer;
 
     &:active {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: var(--m-surface-2);
     }
   }
 
@@ -252,10 +253,10 @@ defineExpose({ openCreateAlert })
   }
 
   &__more-btn {
-    width: 32px;
-    height: 32px;
+    width: var(--m-list-row-h);
+    height: var(--m-list-row-h);
     padding: 0;
-    flex: 0 0 32px;
+    flex: 0 0 var(--m-list-row-h);
   }
 
   &__more-icon {

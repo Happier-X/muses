@@ -2312,7 +2312,7 @@ onUnmounted(() => {
     height: auto;
     max-width: 100%;
     object-fit: cover;
-    border-radius: 12px;
+    border-radius: var(--m-radius-card);
   }
 
   &__cover-placeholder {
@@ -2337,6 +2337,8 @@ onUnmounted(() => {
 
   &__progress-range {
     width: 100%;
+    color: var(--m-primary);
+    accent-color: var(--m-primary);
     cursor: pointer;
     touch-action: manipulation;
 
@@ -2395,7 +2397,7 @@ onUnmounted(() => {
     width: 64px;
     height: 64px;
     padding: 0;
-    color: #fff !important;
+    color: var(--m-primary) !important;
   }
 
   &__mode-btn {
@@ -2545,8 +2547,8 @@ onUnmounted(() => {
 
   &__seg {
     display: flex;
-    border-radius: 10px;
-    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: var(--m-radius-sm);
+    background-color: var(--m-surface-2);
     padding: 3px;
   }
 
@@ -2554,7 +2556,7 @@ onUnmounted(() => {
     flex: 1;
     height: 34px;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--m-radius-sm);
     background: transparent;
     font-size: 15px;
     font-weight: 500;
@@ -2564,8 +2566,8 @@ onUnmounted(() => {
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 
     &--active {
-      background-color: #fff;
-      color: var(--m-text);
+      background-color: var(--m-primary);
+      color: #fff;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
   }
@@ -2573,9 +2575,9 @@ onUnmounted(() => {
   &__cloud-card {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 12px;
+    gap: var(--m-spacing-sub);
+    border: 1px solid var(--m-hairline);
+    border-radius: var(--m-radius-card);
     padding: 12px;
   }
 
@@ -2613,9 +2615,9 @@ onUnmounted(() => {
 
   &__pill {
     height: 30px;
-    padding: 0 12px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 9999px;
+    padding: 0 var(--m-spacing-sub);
+    border: 1px solid var(--m-hairline);
+    border-radius: var(--m-radius-md);
     background: transparent;
     font-size: 15px;
     font-family: inherit;
@@ -2675,7 +2677,7 @@ onUnmounted(() => {
   &__cover-thumb {
     width: 56px;
     height: 56px;
-    border-radius: 8px;
+    border-radius: var(--m-radius-sm);
     object-fit: cover;
   }
 
@@ -2690,7 +2692,7 @@ onUnmounted(() => {
   &__cover-cand {
     padding: 0;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--m-radius-sm);
     overflow: hidden;
     background: transparent;
 
@@ -2825,7 +2827,7 @@ onUnmounted(() => {
   &__form-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: var(--m-spacing-sub);
     padding-top: 8px;
   }
 }

@@ -23,8 +23,10 @@ withDefaults(
 <style scoped lang="scss">
 .m-actions-group {
   position: relative;
-  border-radius: 32px;
+  border-radius: var(--m-radius-dialog);
   overflow: hidden;
+  background-color: var(--m-surface-1);
+  border: 1px solid var(--m-hairline);
 
   & + & {
     margin-top: 8px;

@@ -79,7 +79,7 @@ const playlistsRef = ref<InstanceType<typeof PlaylistsPage> | null>(null)
     flex: 0 0 32px;
 
     &:active {
-      background-color: rgba(0, 122, 255, 0.15);
+      background-color: var(--m-surface-2);
     }
   }
 

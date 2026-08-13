@@ -62,7 +62,7 @@ function onClick(event: Event) {
   gap: 3px;
   cursor: pointer;
   user-select: none;
-  color: var(--m-primary);
+  color: var(--m-text);
   font-size: 17px;
   font-weight: 500;
   line-height: 1;

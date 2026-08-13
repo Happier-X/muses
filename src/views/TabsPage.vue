@@ -126,9 +126,9 @@ onUnmounted(() => {
       z-index: 20;
       width: 260px;
       overflow-y: auto;
-      border-right: 1px solid rgba(0, 0, 0, 0.1);
-      background-color: #fff;
-      padding-top: calc(12px + var(--m-safe-area-top, 0px));
+      border-right: 1px solid var(--m-hairline);
+      background-color: var(--m-surface-1);
+      padding-top: calc(var(--m-spacing-sub) + var(--m-safe-area-top, 0px));
       box-sizing: border-box;
     }
   }
@@ -136,8 +136,9 @@ onUnmounted(() => {
   &__nav-link {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    gap: var(--m-spacing-sub);
+    min-height: var(--m-list-row-h);
+    padding: 0 var(--m-spacing);
     text-decoration: none;
     font-size: 15px;
     color: var(--m-text);
@@ -149,9 +150,9 @@ onUnmounted(() => {
   }
 
   &__nav-icon {
-    width: 20px;
-    height: 20px;
-    flex: 0 0 20px;
+    width: var(--m-list-icon);
+    height: var(--m-list-icon);
+    flex: 0 0 var(--m-list-icon);
   }
 
   &__main {
@@ -187,7 +188,7 @@ onUnmounted(() => {
 }
 
 :global(.dark) .tabs-layout__aside {
-  border-right-color: rgba(255, 255, 255, 0.15);
-  background-color: #000;
+  border-right-color: var(--m-hairline);
+  background-color: var(--m-surface-1);
 }
 </style>

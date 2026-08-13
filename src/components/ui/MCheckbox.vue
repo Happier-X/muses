@@ -101,8 +101,8 @@ function onChange(event: Event) {
     height: 22px;
     flex: 0 0 22px;
     border-radius: 50%;
-    border: 1px solid rgba(0, 0, 0, 0.3);
-    color: #fff;
+    border: 1px solid var(--m-hairline);
+    color: var(--m-on-primary);
     /* 勾选底色的颜色过渡（纯颜色例外） */
     transition:
       background-color 0.1s ease,
@@ -126,6 +126,6 @@ function onChange(event: Event) {
 }
 
 :global(.dark) .m-checkbox__icon {
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: var(--m-hairline);
 }
 </style>

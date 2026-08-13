@@ -71,7 +71,7 @@ function onBackdropClick(event: MouseEvent) {
   @media (min-width: 768px) {
     width: 640px;
     height: 640px;
-    border-radius: 32px;
+    border-radius: var(--m-radius-lg);
   }
 
   /* fullscreen：md+ 仍全屏无圆角（PlayerPage 用法） */

@@ -63,7 +63,7 @@ provide('m-list-state', state)
   &--inset {
     margin-left: calc(16px + var(--m-safe-area-left, 0px));
     margin-right: calc(16px + var(--m-safe-area-right, 0px));
-    border-radius: 32px;
+    border-radius: var(--m-radius-card);
     overflow: hidden;
   }
 

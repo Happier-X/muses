@@ -59,8 +59,8 @@ function onClick(event: MouseEvent) {
   justify-content: center;
   box-sizing: border-box;
   min-width: 0;
-  height: 32px;
-  padding: 0 8px;
+  height: 40px;
+  padding: 0 var(--m-spacing-sub);
   border: none;
   outline: none;
   appearance: none;
@@ -68,7 +68,7 @@ function onClick(event: MouseEvent) {
   cursor: pointer;
   user-select: none;
   font-family: inherit;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.2;
   color: var(--m-text-2);
@@ -79,7 +79,7 @@ function onClick(event: MouseEvent) {
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 
   &--active {
-    color: var(--m-text);
+    color: var(--m-primary);
     font-weight: 600;
   }
 }

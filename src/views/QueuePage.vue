@@ -171,7 +171,7 @@ const onSelectSong = async (index: number): Promise<void> => {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 12px 12px 8px;
+    padding: var(--m-spacing-sub) var(--m-spacing) 8px;
   }
 
   &__title {
@@ -236,7 +236,7 @@ const onSelectSong = async (index: number): Promise<void> => {
     inset-inline: 0;
     top: 0;
     box-sizing: border-box;
-    min-height: 72px;
+    min-height: var(--m-list-row-h);
   }
 
   &__row {
@@ -279,12 +279,12 @@ const onSelectSong = async (index: number): Promise<void> => {
   }
 }
 
-/* 正在播放行高亮 */
-.queue-page :deep(.queue-page__row--playing) {
-  background-color: rgba(0, 0, 0, 0.05);
+/* 正在播放行高亮与 Salt 分割线 */
+.queue-page :deep(.queue-page__row) {
+  border-bottom: 1px solid var(--m-hairline);
 }
 
-:global(.dark) .queue-page :deep(.queue-page__row--playing) {
-  background-color: rgba(255, 255, 255, 0.1);
+.queue-page :deep(.queue-page__row--playing) {
+  background-color: rgba(var(--m-primary-rgb), 0.1);
 }
 </style>

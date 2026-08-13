@@ -91,12 +91,15 @@ onMounted(refreshSongs)
   &__card {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--m-spacing-sub);
+    padding: var(--m-spacing-sub);
+    border-radius: var(--m-radius-card);
+    background-color: var(--m-surface-1);
     min-width: 0;
     cursor: pointer;
 
     &:active {
-      opacity: 0.8;
+      background-color: var(--m-surface-2);
     }
   }
 

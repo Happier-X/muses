@@ -17,12 +17,12 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 56px;
-  padding: 0 16px;
+  min-height: var(--m-list-row-h);
+  padding: 0 var(--m-spacing);
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.3;
   color: var(--m-text-2);

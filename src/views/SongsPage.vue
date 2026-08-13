@@ -464,7 +464,7 @@ onUnmounted(() => {
     }
   }
 
-  /* 随机播放吸顶条（矮条玻璃：blur 8px + 白渐变 + 暗色黑渐变） */
+  /* 随机播放入口使用干净表面，避免常驻玻璃材质。 */
   &__shuffle-bar {
     position: sticky;
     top: 0;
@@ -472,32 +472,13 @@ onUnmounted(() => {
     box-sizing: border-box;
     width: 100%;
     height: 44px;
+    background: var(--m-surface);
+    border-bottom: 1px solid var(--m-hairline);
   }
 
-  &__shuffle-blur {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-  }
-
+  &__shuffle-blur,
   &__shuffle-glass {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    background: linear-gradient(
-      to bottom,
-      #fff 0%,
-      rgba(255, 255, 255, 0.55) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
+    display: none;
   }
 
   &__shuffle-btn {
@@ -505,10 +486,10 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 10px;
+    gap: var(--m-spacing-sub);
     width: 100%;
     height: 100%;
-    padding: 0 16px;
+    padding: 0 var(--m-spacing);
     border-radius: 0;
     font-size: 15px;
     color: var(--m-text);
@@ -535,7 +516,7 @@ onUnmounted(() => {
     left: 0;
     right: 0;
     box-sizing: border-box;
-    min-height: 72px;
+    min-height: var(--m-list-row-h);
   }
 
   &__row {
@@ -570,8 +551,8 @@ onUnmounted(() => {
   }
 
   &__more-icon {
-    width: 16px;
-    height: 16px;
+    width: var(--m-list-icon);
+    height: var(--m-list-icon);
   }
 
   &__jump-fab {
@@ -587,25 +568,16 @@ onUnmounted(() => {
   }
 }
 
-/* 正在播放行高亮 */
+/* 正在播放行高亮与 Salt 分割线 */
+.songs-page :deep(.songs-page__row) {
+  border-bottom: 1px solid var(--m-hairline);
+}
+
 .songs-page :deep(.is-playing) {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(var(--m-primary-rgb), 0.1);
 }
 
-:global(.dark) .songs-page__shuffle-glass {
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.6) 0%,
-    rgba(0, 0, 0, 0.35) 50%,
-    rgba(0, 0, 0, 0) 100%
-  );
-}
-
-:global(.dark) .songs-page__shuffle-btn:active {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-:global(.dark) .songs-page :deep(.is-playing) {
-  background-color: rgba(255, 255, 255, 0.1);
+.songs-page__shuffle-btn {
+  color: var(--m-primary);
 }
 </style>

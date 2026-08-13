@@ -6,7 +6,7 @@
 
 ## Overview
 
-Components in this repository are Vue single-file components using the Composition API via `<script setup lang="ts">`. 应用**已完全脱离 Ionic 与第三方 UI 组件库**：路由用 `vue-router`，页面骨架与 UI 组件全量由**自研 `m-*` 组件集**提供（Konsta iOS 视觉），样式架构使用**全量 scoped SCSS + 全局变量**（已移除 Tailwind CSS v4）。
+Components in this repository are Vue single-file components using the Composition API via `<script setup lang="ts">`. 应用**已完全脱离 Ionic 与第三方 UI 组件库**：路由用 `vue-router`，页面骨架与 UI 组件全量由**自研 `m-*` 组件集**提供，视觉语言采用 **Salt Player / SaltUI token**，样式架构使用**全量 scoped SCSS + 全局变量**（已移除 Tailwind CSS v4）。
 
 Reference files:
 
@@ -28,17 +28,20 @@ All component styling uses SCSS with BEM-like or scoped nested class names. **Ta
 
 ---
 
-## 自研 m-* 组件集与 SCSS 样式体系（08-12 迁移后）
+## 自研 m-* 组件集与 Salt SCSS 样式体系（08-13 视觉迁移后）
 
-自 `08-12-drop-konsta-tailwind-for-scss` 起，应用**彻底移除了 `konsta` 和 `tailwindcss`**。不再引入组件库黑盒，所有 UI 控件在 `src/components/ui/` 下自研。
+自 `08-12-drop-konsta-tailwind-for-scss` 起，应用**彻底移除了 `konsta` 和 `tailwindcss`**；自 `08-13-salt-player-replica` 起，组件契约保持不变，视觉 token 改为 Salt Player / SaltUI 口径。所有 UI 控件仍在 `src/components/ui/` 下自研。
 
-- **`m-*` 组件契约**：设计对齐了历史 Konsta 接口以最小化业务逻辑重构。包括 `MButton`, `MList`, `MToggle`（暴露原生 `@change` 和 `.checked`）, `MRange`（支持 `modelValue` 与兼容 `value`）, `MNavbar`, `MTabbar`, `MDialog`, `MToast` 等 28 个基础组件。
-- **全量 Motion 动画**：浮层显隐（Toast/Dialog/Popup）、滑块交互、进度条跟手，全部使用 `motion-v`（`AnimatePresence` + `motion.div`）。唯一的例外是：纯颜色渐变/opacity 渐隐可保留 `transition: background-color 0.2s` 等原生 CSS，避免小题大做。拖拽关页回弹也改用 `animate()` 命令式驱动。
-- **SCSS 变量架构**：`src/theme/index.scss` 定义了 `--m-*` 变量体系（如 `--m-primary`, `--m-text`, `--m-surface`）。组件和页面只需引用 `var(--m-text-secondary)` 等。深色模式通过 html 根元素的 `.dark` class 切换 `--m-*` 变量值，不依赖 `@media (prefers-color-scheme)`。
-- **全局玻璃修复**：iOS 双层灰玻璃（blur + mask）方案、WebView < 111 兼容等修复经验，已固化到 `index.scss` 的 `.m-glass-blur-*` 与 `.m-glass-mask-*` 等全局工具类或 Mixin 中。
-- **安全区处理**：Capacitor 8 注入的 `--safe-area-inset-*` 与 env() 兜底由 `index.scss` 的 `.m-app` 提供 `--m-safe-area-*` 桥接，**所有组件均使用 `--m-safe-area-*`** 避让，不再依赖框架封装。
-- **弹层 z-index 阶梯**：同样在 `index.scss` 控制：MTabbar (950) < MiniPlayer (1000) < MPopup (1100) < MSheet/MDialog/MActions (1200) < MToast (1300)。
-- **页面骨架 `MPage` / `MContent`**：保留自建页壳逻辑，内部用 scoped scss 实现。
+- **`m-*` 组件契约**：设计对齐了历史接口以避免业务逻辑重构。包括 `MButton`, `MList`, `MToggle`（暴露原生 `@change` 和 `.checked`）, `MRange`（支持 `modelValue` 与兼容 `value`）, `MNavbar`, `MTabbar`, `MDialog`, `MToast` 等 28 个基础组件。
+- **Salt 颜色契约**：亮色 `--m-primary/#0470E6`、`--m-surface/#F3F3F3`、`--m-text/#1E1715`；暗色 `--m-primary/#0088FF`、`--m-surface/#202020`、`--m-text/#EBEEF1`。透明主色背景必须使用 `rgba(var(--m-primary-rgb), alpha)`，禁止把亮色 RGB 写死，否则暗色 highlight 不会切换。
+- **Salt 尺寸契约**：圆角使用 `--m-radius-sm/md/lg/card/dialog`（8/16/24/12/20px）；列表行高 `--m-list-row-h: 56px`，列表图标 `--m-list-icon: 24px`，间距 `--m-spacing/--m-spacing-sub`（16/12px），字号 `--m-font-size-sm/md/lg`（12/16/24px）。组件和页面不得另造相同语义的硬编码值。
+- **常驻导航表面**：`MNavbar`、`MTabbar`、`MiniPlayer` 和列表吸顶操作条使用 `--m-surface-1` + `--m-hairline` 的干净表面，不使用 iOS 玻璃渐变、mask 或 `backdrop-filter`。`.m-glass-*` 兼容工具仍可保留，但不得用于常驻导航。
+- **底部几何契约**：移动端 Tabbar 高 64px，MiniPlayer 高 64px 且位于 `bottom: calc(64px + safe-area)`；内容止位无 MiniPlayer 为 64px、有 MiniPlayer 为 128px。平板无 Tabbar，内容止位分别为 0/64px。改变任一高度时必须同步检查另外三处，禁止留下空带或重复避让。
+- **全量 Motion 动画**：浮层显隐、滑块交互、进度条跟手使用 `motion-v`（`AnimatePresence` + `motion.div`）。唯一例外是纯颜色、背景色或 opacity 过渡可保留原生 CSS transition。拖拽关页回弹使用 `animate()` 命令式驱动。
+- **SCSS 变量架构**：`src/theme/index.scss` 定义 `--m-*` 变量，深色模式通过 html 根元素 `.dark` 切换，不依赖 `@media (prefers-color-scheme)`。WebView < 111 环境禁止依赖 `color-mix()` 或 oklab 渐变插值。
+- **安全区处理**：Capacitor 8 注入的 `--safe-area-inset-*` 与 env() 兜底由 `index.scss` 的 `.m-app` 提供 `--m-safe-area-*` 桥接，所有组件均使用 `--m-safe-area-*` 避让。
+- **弹层 z-index 阶梯**：MTabbar (950) < MiniPlayer (1000) < MPopup (1100) < MSheet/MDialog/MActions (1200) < MToast (1300)。
+- **页面骨架 `MPage` / `MContent`**：保留自建页壳逻辑，内部使用 scoped SCSS。
 
 > 以下「历史引用参考」章节保留了我们在组件交互、虚拟列表、手势覆盖等业务面积累的设计决策与防坑经验，这些代码行为规范（如 PlayerPage 下滑隔离、大列表虚拟化、安全区逻辑）在组件更名与 SCSS 迁移后依然有效。阅读时请自行将提及的 `k-xxx` 脑内替换为 `m-xxx`，将 `tailwind class` 替换为 `scoped CSS`。
 

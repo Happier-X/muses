@@ -60,7 +60,7 @@ withDefaults(
   width: 44px;
   height: 44px;
   border-radius: 9999px;
-  color: #fff;
+  color: var(--m-on-primary);
   background-color: var(--m-primary);
   box-shadow: var(--m-shadow-ios-light-glass-fab);
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
@@ -92,7 +92,7 @@ withDefaults(
 }
 
 :global(.dark) .m-fab {
-  background-color: rgba(0, 103, 214, 0.5);
+  background-color: rgba(var(--m-primary-rgb), 0.5);
   box-shadow: var(--m-shadow-ios-dark-glass-fab);
 }
 </style>

@@ -75,7 +75,6 @@ function onChange(event: Event) {
   user-select: none;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   box-sizing: border-box;
-  /* 轨道底色纯颜色过渡（例外保留） */
   transition: background-color 0.2s ease;
 
   &--checked {
@@ -110,7 +109,7 @@ function onChange(event: Event) {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    box-shadow: var(--m-shadow-ios-thumb);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
   }
 
   &__thumb-core {

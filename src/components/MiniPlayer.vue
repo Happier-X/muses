@@ -118,22 +118,21 @@ const toDisplayableUri = (uri: string): string => {
 </script>
 
 <style scoped lang="scss">
-/* 玻璃胶囊 MiniPlayer：白玻璃（blur 2px）+ surface 渐变 + 暗色黑玻璃（WebView 兼容值写法） */
 .mini-player {
   position: fixed;
-  left: 16px;
-  right: 16px;
-  bottom: calc(96px + var(--m-safe-area-bottom, 0px));
+  left: 0;
+  right: 0;
+  bottom: calc(64px + var(--m-safe-area-bottom, 0px));
   z-index: 1000;
   height: 64px;
-  border-radius: 9999px;
   color: var(--m-text);
-  background-color: transparent;
+  background-color: var(--m-surface-1);
+  border-top: 1px solid var(--m-hairline);
   cursor: pointer;
   box-sizing: border-box;
 
   @media (min-width: 768px) {
-    bottom: calc(8px + var(--m-safe-area-bottom, 0px));
+    bottom: var(--m-safe-area-bottom, 0px);
   }
 
   &--empty {
@@ -142,24 +141,7 @@ const toDisplayableUri = (uri: string): string => {
 
   &__blur,
   &__glass {
-    position: absolute;
-    inset: 0;
-    border-radius: 9999px;
-    pointer-events: none;
-  }
-
-  &__blur {
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
-  }
-
-  &__glass {
-    background: linear-gradient(
-      to bottom,
-      var(--m-surface) 0%,
-      rgba(239, 239, 244, 0.4) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
+    display: none;
   }
 
   &__row {
@@ -167,8 +149,8 @@ const toDisplayableUri = (uri: string): string => {
     display: flex;
     align-items: center;
     height: 100%;
-    gap: 12px;
-    padding: 0 12px;
+    gap: var(--m-spacing-sub);
+    padding: 0 var(--m-spacing);
     box-sizing: border-box;
   }
 
@@ -215,7 +197,7 @@ const toDisplayableUri = (uri: string): string => {
     color: var(--m-text);
 
     &:active {
-      background-color: rgba(0, 0, 0, 0.1);
+      background-color: var(--m-surface-2);
     }
   }
 
@@ -225,16 +207,7 @@ const toDisplayableUri = (uri: string): string => {
   }
 }
 
-:global(.dark) .mini-player__glass {
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.5) 0%,
-    rgba(0, 0, 0, 0.4) 50%,
-    rgba(0, 0, 0, 0) 100%
-  );
-}
-
 :global(.dark) .mini-player__btn:active {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--m-surface-2);
 }
 </style>

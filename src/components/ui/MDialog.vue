@@ -71,7 +71,7 @@ function onBackdropClick(event: MouseEvent) {
   max-height: 100%;
   width: 300px;
   box-sizing: border-box;
-  border-radius: 32px;
+  border-radius: var(--m-radius-dialog);
   overflow: hidden;
   background-color: var(--m-surface-1);
   color: var(--m-text);
@@ -82,15 +82,15 @@ function onBackdropClick(event: MouseEvent) {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px;
-    gap: 12px;
+    padding: var(--m-spacing);
+    gap: var(--m-spacing-sub);
     position: relative;
     box-sizing: border-box;
   }
 
   &__title {
     width: 100%;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 600;
     line-height: 1.3;
     text-align: center;
@@ -99,7 +99,7 @@ function onBackdropClick(event: MouseEvent) {
 
   &__content {
     width: 100%;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.45;
   }
 
@@ -108,7 +108,7 @@ function onBackdropClick(event: MouseEvent) {
     align-items: center;
     justify-content: center;
     width: 100%;
-    padding: 14px 0 0;
+    padding: var(--m-spacing-sub) 0 0;
     gap: 8px;
     box-sizing: border-box;
   }

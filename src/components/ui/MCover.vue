@@ -46,16 +46,16 @@ const coverStyle = computed<CSSProperties>(() => {
   flex: 0 0 var(--m-cover-size);
   box-sizing: border-box;
   overflow: hidden;
-  background-color: rgba(146, 148, 156, 0.16);
+  background-color: var(--m-surface-2);
   color: var(--m-text-2);
   font-size: calc(var(--m-cover-size) / 2);
 
   &--sm-radius {
-    border-radius: 8px;
+    border-radius: var(--m-radius-sm);
   }
 
   &--md-radius {
-    border-radius: 10px;
+    border-radius: var(--m-radius-card);
   }
 
   :deep(img) {
@@ -66,8 +66,8 @@ const coverStyle = computed<CSSProperties>(() => {
   }
 
   &__placeholder-icon {
-    width: 40%;
-    height: 40%;
+    width: var(--m-list-icon);
+    height: var(--m-list-icon);
   }
 }
 </style>

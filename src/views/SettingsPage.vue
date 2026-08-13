@@ -161,12 +161,16 @@ const checkUpdate = async () => {
   }
 
   &__content {
-    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-top: calc(max(var(--m-spacing), var(--m-safe-area-top, 0px)) + 44px);
     padding-bottom: var(--m-content-pb);
 
     @media (min-width: 768px) {
       padding-bottom: var(--m-content-pb-md);
     }
+  }
+
+  :deep(.m-list-item) {
+    min-height: var(--m-list-row-h);
   }
 }
 </style>

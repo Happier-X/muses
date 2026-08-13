@@ -50,6 +50,7 @@ withDefaults(
 <style scoped lang="scss">
 .m-preloader {
   display: inline-block;
+  color: var(--m-primary);
   width: 32px;
   height: 32px;
   box-sizing: border-box;

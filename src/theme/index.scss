@@ -26,11 +26,13 @@
 
   /* 品牌与语义色（Salt highlight #0470E6） */
   --m-primary: #0470e6;
+  --m-primary-rgb: 4, 112, 230;     /* Salt highlight RGB（rgba 取色用，WebView<111 无 color-mix） */
   --m-primary-tint: #2f8af0;       /* highlight 亮化 */
   --m-primary-shade: #035fc2;      /* highlight 暗化 */
-  --m-danger: #d93025;             /* Salt error 近似 */
-  --m-danger-shade: #b3261e;
-  --m-success: #188038;            /* Salt success 近似 */
+  --m-on-primary: #fff;            /* highlight 上文字/图标（Salt onHighlight） */
+  --m-danger: #ff3b30;             /* 保留既有危险语义色 */
+  --m-danger-shade: #d70015;
+  --m-success: #34c759;            /* 保留既有成功语义色 */
 
   /* 禁用态 */
   --m-disabled-text: rgba(30, 23, 21, 0.3);
@@ -86,8 +88,8 @@
     inset -3px -3px 0px -3.5px #fff,
     inset 3px 3px 0px -3.5px #fff,
     inset 0px 0px 0px 0.5px rgba(255, 255, 255, 0.5),
-    inset 3px 3px 10px -2px #007aff,
-    inset -3px -3px 10px -2px #007aff,
+    inset 3px 3px 10px -2px var(--m-primary),
+    inset -3px -3px 10px -2px var(--m-primary),
     inset 0 0 5px 1px #fff,
     0 0 15px 4px rgba(0, 0, 0, 0.2);
   --m-shadow-ios-dark-glass-fab:
@@ -96,8 +98,8 @@
     inset -0.5px -0.5px 0px rgba(255, 255, 255, 0.5),
     inset 0.5px 0.5px 0px rgba(255, 255, 255, 0.1),
     inset -3px 3px 0px -3.5px rgba(255, 255, 255, 0.25),
-    inset 0px -5px 0px -3.5px rgba(0, 122, 255, 0.5),
-    inset 0px -5px 5px rgba(0, 122, 255, 0.5),
+    inset 0px -5px 0px -3.5px rgba(var(--m-primary-rgb), 0.5),
+    inset 0px -5px 5px rgba(var(--m-primary-rgb), 0.5),
     0 0 15px 4px rgba(0, 0, 0, 0.2);
 
   /* 安全区默认值（.m-app 桥接真实 inset，见 §3） */
@@ -106,8 +108,8 @@
   --m-safe-area-bottom: 0px;
   --m-safe-area-left: 0px;
 
-  /* 内容止位（原 --content-pb；页面迁移后改用 --m-* 名） */
-  --m-content-pb: 80px;
+  /* 内容止位：移动端 tabbar 64px；平板无底栏 */
+  --m-content-pb: 64px;
   --m-content-pb-md: 0px;
   --content-pb: var(--m-content-pb);
   --content-pb-md: var(--m-content-pb-md);
@@ -122,11 +124,15 @@
   --m-list-icon: 24px;              /* 行图标 */
   --m-spacing: 16px;                /* padding */
   --m-spacing-sub: 12px;            /* subPadding */
+  --m-font-size-sm: 12px;           /* small */
+  --m-font-size-md: 16px;           /* body */
+  --m-font-size-lg: 24px;           /* title */
+  --m-stroke: var(--m-hairline);    /* Salt stroke 语义别名 */
 }
 
 html.muses-mini-visible {
-  --m-content-pb: 160px;
-  --m-content-pb-md: 96px;
+  --m-content-pb: 128px;            /* tabbar 64px + MiniPlayer 64px */
+  --m-content-pb-md: 64px;          /* 平板仅 MiniPlayer */
 }
 
 .dark {
@@ -140,6 +146,11 @@ html.muses-mini-visible {
   --m-surface-variant: #2b2b2b;
   /* 文字（Salt：text #EBEEF1 / subText #BFE1E6EB） */
   --m-text: #ebeef1;
+  --m-primary: #0088ff;
+  --m-primary-rgb: 0, 136, 255;   /* Salt highlight RGB（dark） */
+  --m-primary-tint: #2b9cff;
+  --m-primary-shade: #0070d6;
+  --m-on-primary: #fff;
   --m-text-2: rgba(225, 230, 235, 0.75); /* secondary（Salt subText #BFE1E6EB） */
   --m-text-3: rgba(225, 230, 235, 0.3);  /* tertiary / placeholder */
   /* 别名 */

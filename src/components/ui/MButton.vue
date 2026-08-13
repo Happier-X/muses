@@ -81,7 +81,7 @@ const isRounded = computed(() => props.rounded || props.roundedFull)
   display: flex;
   width: 100%;
   padding: 0 8px;
-  border-radius: 4px;
+  border-radius: var(--m-radius-md);
   /* 纯颜色过渡（Project Rule：动画唯一例外保留 CSS transition） */
   transition:
     color 0.1s ease,
@@ -115,7 +115,7 @@ const isRounded = computed(() => props.rounded || props.roundedFull)
   }
 
   &--fill {
-    color: #fff;
+    color: var(--m-on-primary);
     background-color: var(--m-primary);
 
     &:active {
@@ -136,7 +136,7 @@ const isRounded = computed(() => props.rounded || props.roundedFull)
     background-color: transparent;
 
     &:active {
-      background-color: rgba(0, 122, 255, 0.15);
+      background-color: rgba(var(--m-primary-rgb), 0.15);
     }
   }
 
@@ -147,17 +147,17 @@ const isRounded = computed(() => props.rounded || props.roundedFull)
     padding: 0 6px; /* 2px 边框抵消，保持内容区 8px */
 
     &:active {
-      background-color: rgba(0, 122, 255, 0.15);
+      background-color: rgba(var(--m-primary-rgb), 0.15);
     }
   }
 
   /* Dialog 按钮用（Konsta tonal）：主色 15% 底 + 主色字 */
   &--tonal {
     color: var(--m-primary);
-    background-color: rgba(0, 122, 255, 0.15);
+    background-color: rgba(var(--m-primary-rgb), 0.15);
 
     &:active {
-      background-color: rgba(0, 122, 255, 0.25);
+      background-color: rgba(var(--m-primary-rgb), 0.25);
     }
   }
 

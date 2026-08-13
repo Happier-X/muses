@@ -949,8 +949,8 @@ const handleAddWebDav = (): void => {
     overflow-y: auto;
     box-sizing: border-box;
     padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px + 8px);
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: var(--m-spacing-sub);
+    padding-right: var(--m-spacing-sub);
     padding-bottom: var(--m-content-pb);
 
     @media (min-width: 768px) {
@@ -961,15 +961,18 @@ const handleAddWebDav = (): void => {
   &__virtual-row {
     position: absolute;
     top: 0;
-    left: 12px;
-    right: 12px;
+    left: var(--m-spacing-sub);
+    right: var(--m-spacing-sub);
     box-sizing: border-box;
-    padding: 8px 0;
+    padding: var(--m-spacing-sub) 0;
   }
 
   &__card {
     min-height: 100px;
     margin: 0;
+    border-radius: var(--m-radius-card);
+    border: 1px solid var(--m-hairline);
+    background: var(--m-surface-1);
   }
 
   &__card-name {
@@ -997,8 +1000,8 @@ const handleAddWebDav = (): void => {
   &__card-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
-    margin-top: 8px;
+    gap: var(--m-spacing-sub);
+    margin-top: var(--m-spacing-sub);
   }
 
   &__dialog-text {
@@ -1127,8 +1130,9 @@ const handleAddWebDav = (): void => {
   &__webdav-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 0;
+    gap: var(--m-spacing-sub);
+    min-height: var(--m-list-row-h);
+    padding: 8px 0;
     border-bottom: 1px solid var(--m-hairline);
   }
 

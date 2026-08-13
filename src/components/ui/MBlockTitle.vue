@@ -31,7 +31,7 @@ withDefaults(
   font-family: inherit;
 
   &--default {
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 600;
     line-height: 1.4;
     color: var(--m-text-2);
@@ -45,7 +45,7 @@ withDefaults(
   }
 
   &--large {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 600;
     line-height: 1.3;
     color: var(--m-text);

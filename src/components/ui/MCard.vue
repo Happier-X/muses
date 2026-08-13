@@ -26,7 +26,7 @@ defineProps<{
 <style scoped lang="scss">
 .m-card {
   box-sizing: border-box;
-  border-radius: 24px;
+  border-radius: var(--m-radius-card);
   background-color: var(--m-surface-1);
   color: var(--m-text);
   overflow: hidden;

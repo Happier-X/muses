@@ -101,31 +101,40 @@ watch(
   }
 
   &:not(&--rounded) {
-    border-radius: 4px;
+    border-radius: var(--m-radius-sm);
   }
 
   &--outline {
-    border: 2px solid var(--m-primary);
-    border-radius: 4px;
+    border: 1px solid var(--m-primary);
+    border-radius: var(--m-radius-sm);
   }
 
   &--strong {
     position: relative;
     gap: 4px;
     padding: 2px;
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: var(--m-surface-2);
 
     &:not(.m-segmented--rounded) {
-      border-radius: 4px;
+      border-radius: var(--m-radius-sm);
     }
+  }
+
+  &:not(&--strong) :deep(.m-segmented-button--active) {
+    color: var(--m-on-primary);
+    background-color: var(--m-primary);
+  }
+
+  &--strong :deep(.m-segmented-button--active) {
+    color: var(--m-on-primary);
+    background-color: var(--m-primary);
   }
 
   &__highlight {
     position: absolute;
     top: 2px;
     bottom: 2px;
-    background-color: var(--m-surface-1);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    background-color: var(--m-primary);
     pointer-events: none;
 
     &--rounded {
@@ -135,6 +144,6 @@ watch(
 }
 
 :global(.dark) .m-segmented--strong {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--m-surface-2);
 }
 </style>

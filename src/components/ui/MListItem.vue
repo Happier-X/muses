@@ -99,6 +99,7 @@ const dividers = computed(() => props.dividers ?? listState?.value?.dividers ?? 
   align-items: center;
   box-sizing: border-box;
   width: 100%;
+  min-height: var(--m-list-row-h);
   position: relative;
   color: var(--m-text);
   padding-left: calc(16px + var(--m-safe-area-left, 0px));

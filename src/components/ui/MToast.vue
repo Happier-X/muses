@@ -95,22 +95,18 @@ onBeforeUnmount(() => {
 
   &__inner {
     max-width: 32rem;
-    border-radius: 16px;
-    padding: 12px 16px;
+    border-radius: var(--m-radius-md);
+    padding: var(--m-spacing-sub) var(--m-spacing);
     font-size: 14px;
     line-height: 1.4;
-    color: #000;
-    /* 白玻璃（iOS toast 同款） */
-    background-color: rgba(255, 255, 255, 0.75);
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
-    box-shadow: var(--m-shadow-ios-light-glass);
+    color: var(--m-text);
+    background-color: var(--m-surface-1);
+    border: 1px solid var(--m-hairline);
   }
 }
 
 :global(.dark) .m-toast__inner {
-  color: #fff;
-  background-color: rgba(50, 50, 50, 0.5);
-  box-shadow: var(--m-shadow-ios-dark-glass);
+  color: var(--m-text);
+  background-color: var(--m-surface-1);
 }
 </style>

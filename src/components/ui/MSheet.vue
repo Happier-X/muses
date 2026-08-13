@@ -57,7 +57,7 @@ function onBackdropClick(event: MouseEvent) {
   right: 0;
   bottom: 0;
   box-sizing: border-box;
-  border-radius: 32px 32px 0 0;
+  border-radius: var(--m-radius-lg) var(--m-radius-lg) 0 0;
   overflow: hidden;
   background-color: var(--m-surface-1);
   color: var(--m-text);

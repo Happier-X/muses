@@ -56,7 +56,7 @@ function onClick(event: MouseEvent) {
   font-family: inherit;
   gap: 2px;
   color: var(--m-text);
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  -webkit-tap-highlight-color: transparent;
 
   &--active {
     color: var(--m-primary);
@@ -66,8 +66,8 @@ function onClick(event: MouseEvent) {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: var(--m-list-icon);
+    height: var(--m-list-icon);
 
     :deep(svg) {
       width: 100%;

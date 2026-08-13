@@ -128,7 +128,7 @@ watch(
     width: 100%;
     height: 6px;
     border-radius: 9999px;
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: var(--m-hairline);
     transform: translateY(-50%);
   }
 
@@ -181,7 +181,7 @@ watch(
     margin-top: -12px;
     border-radius: 9999px;
     background-color: #fff;
-    box-shadow: var(--m-shadow-ios-thumb);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
     pointer-events: none;
     user-select: none;
     /* 定位与 Konsta 一致：左边缘 = 值百分比（hack 与测量依赖此语义） */
@@ -200,11 +200,11 @@ watch(
   }
 
   &__thumb-shadow {
-    box-shadow: 0 0 40px 10px rgba(0, 122, 255, 0.75);
+    box-shadow: 0 0 16px 4px rgba(var(--m-primary-rgb), 0.25);
   }
 
   &__thumb {
-    box-shadow: var(--m-shadow-ios-light-glass-thumb);
+    background-color: rgba(var(--m-primary-rgb), 0.15);
   }
 
   &:has(input:active) &__thumb-wrap {
@@ -219,12 +219,11 @@ watch(
 
 :global(.dark) .m-range {
   &__track-bg {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: var(--m-hairline);
   }
 
   &__thumb {
-    background-color: rgba(255, 255, 255, 0.1);
-    box-shadow: var(--m-shadow-ios-dark-glass-thumb);
+    background-color: rgba(var(--m-primary-rgb), 0.15);
   }
 }
 </style>

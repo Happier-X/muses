@@ -26,20 +26,15 @@ defineProps<{
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  padding-bottom: calc(16px + var(--m-safe-area-bottom, 0px));
+  padding-bottom: var(--m-safe-area-bottom, 0px);
+  background-color: var(--m-surface-1);
+  border-top: 1px solid var(--m-hairline);
 
   &__bg {
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: calc(var(--m-safe-area-bottom, 0px) + 16px + 64px + 16px);
+    inset: 0;
     pointer-events: none;
-    background: linear-gradient(to top, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 100%);
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
-    -webkit-mask-image: linear-gradient(to top, #000 50%, transparent 100%);
-    mask-image: linear-gradient(to top, #000 50%, transparent 100%);
+    background-color: var(--m-surface-1);
   }
 
   &__inner {
@@ -47,19 +42,11 @@ defineProps<{
     display: flex;
     justify-content: space-between;
     align-items: stretch;
-    gap: 16px;
+    gap: var(--m-spacing);
     height: 64px;
-    padding-left: calc(16px + var(--m-safe-area-left, 0px));
-    padding-right: calc(16px + var(--m-safe-area-right, 0px));
+    padding-left: calc(var(--m-spacing) + var(--m-safe-area-left, 0px));
+    padding-right: calc(var(--m-spacing) + var(--m-safe-area-right, 0px));
     box-sizing: border-box;
   }
-}
-
-:global(.dark) .m-tabbar__bg {
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.6) 0%,
-    rgba(0, 0, 0, 0) 100%
-  );
 }
 </style>
