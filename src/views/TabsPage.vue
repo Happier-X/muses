@@ -67,6 +67,17 @@
         </main>
       </motion.div>
     </div>
+
+    <!-- 透明关闭交互区（仅移动端抽屉打开态）：主页面被推开后 inert，汉堡按钮
+         位于其内无法再点击；此层覆盖被推开的可视主页面区域（侧栏 0..50vw 之外），
+         承接关闭点击，点击即关闭抽屉。无背景色不影响推屏视觉，层级低于
+         MiniPlayer(1000) 与全局弹层，不拦截 touch 事件以保留左滑关闭手势。 -->
+    <div
+      v-if="!isTablet && isTabsRoute && drawerOpen"
+      class="tabs-layout__drawer-dismiss"
+      aria-hidden="true"
+      @click="closeDrawer"
+    />
   </div>
 </template>
 
@@ -524,6 +535,20 @@ onUnmounted(() => {
   &__drawer-link {
     width: 100%;
     border-radius: var(--m-radius-sm);
+  }
+
+  // 透明关闭交互区：承接被推开主页面（inert）的关闭点击。
+  // 仅覆盖 50vw 右侧可视区，不遮挡侧栏左滑关闭；无 touch 监听，
+  // 左滑手势照常冒泡到 .tabs-layout 处理。层级高于 MNavbar(20)、
+  // 低于 MiniPlayer(1000) 与全局弹层。
+  &__drawer-dismiss {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 50vw;
+    z-index: 30;
+    background: transparent;
   }
 }
 
