@@ -316,6 +316,10 @@
       >
         <component :is="crosshair" aria-hidden="true" class="songs-page__jump-icon" />
       </m-fab>
+
+      <m-toast :opened="toast.visible" position="center">
+        {{ toast.message }}
+      </m-toast>
     </div>
   </div>
 </template>
@@ -328,7 +332,7 @@ import { arrowUpDown, add, checkCheck, crosshair, ellipsisVertical, listChecks, 
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
   MButton, MDialog, MDialogButton, MFab, MList, MListItem, MListInput,
-  MNavbar, MCover, MEmpty,
+  MNavbar, MCover, MEmpty, MToast,
 } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
@@ -658,6 +662,22 @@ const onRowActionClick = (song: SongItem): void => {
     return
   }
   enqueueSong(song)
+  showToast('已加入队列')
+}
+
+const toast = ref<{ visible: boolean; message: string }>({
+  visible: false,
+  message: '',
+})
+
+let toastTimer: ReturnType<typeof setTimeout> | undefined
+
+const showToast = (message: string): void => {
+  toast.value = { visible: true, message }
+  window.clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => {
+    toast.value.visible = false
+  }, 1500)
 }
 
 /** 多选：播放选中队列（按当前排序顺序，不清空已有队列） */
@@ -852,7 +872,7 @@ onUnmounted(() => {
     box-sizing: border-box;
     width: 100%;
     height: 48px;
-    background: var(--m-surface-1);
+    background: var(--m-surface);
   }
 
   &__toolbar-wrap {
@@ -870,8 +890,6 @@ onUnmounted(() => {
     height: 40px;
     padding: 0 12px;
     color: var(--m-text);
-    background: var(--m-surface-2);
-    border-radius: var(--m-radius-lg);
     font-size: 14px;
   }
 
