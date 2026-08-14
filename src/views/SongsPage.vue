@@ -1092,7 +1092,7 @@ onUnmounted(() => {
     border: none;
     border-radius: 50%;
     background: transparent;
-    color: var(--m-text);
+    color: #949fab; /* 椒盐 ⋮ 实心点蓝灰 (148,159,171)，与加号图标同色系 */
     cursor: pointer;
     flex: none;
 
@@ -1297,7 +1297,8 @@ onUnmounted(() => {
 }
 
 /* 深色主题：圆形按钮图标颜色对齐椒盐深色系 */
-:global(.dark) .songs-page__round-btn {
+:global(.dark) .songs-page__round-btn,
+:global(.dark) .songs-page__more-btn {
   color: rgba(225, 230, 235, 0.75); /* 椒盐深色 subText #BFE1E6EB */
 }
 
