@@ -2518,12 +2518,7 @@ onUnmounted(() => {
   &__icon {
     width: 20px;
     height: 20px;
-    /* 关键修复：fill-only + stroke:none 会让 lucide 线条图标（repeat/shuffle/list/pause 竖条）碎裂 */
-    fill: currentColor;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    /* lucide 默认渲染：svg 自带 fill=none + stroke=currentColor，无需 CSS 覆盖 */
   }
 
   /* 歌词页 */
