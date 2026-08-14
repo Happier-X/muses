@@ -137,6 +137,7 @@
                     :size="50"
                     radius="sm"
                     alt=""
+                    class="songs-page__cover"
                   />
                 </template>
                 <template #after>
@@ -835,6 +836,11 @@ onUnmounted(() => {
     left: 0;
     right: 0;
     z-index: 20;
+
+    /* 对齐椒盐：navbar 含状态栏感知，标题中心对齐 52dp 位置 */
+    :deep(.m-navbar) {
+      padding-top: 22px;
+    }
   }
 
   &__right {
@@ -848,14 +854,14 @@ onUnmounted(() => {
   &__empty {
     height: 100%;
     box-sizing: border-box;
-    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-top: calc(max(22px, var(--m-safe-area-top, 0px)) + 44px);
   }
 
   &__list {
     height: 100%;
     overflow-y: auto;
     box-sizing: border-box;
-    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-top: calc(max(22px, var(--m-safe-area-top, 0px)) + 44px);
     padding-bottom: var(--m-content-pb);
     overflow-anchor: none;
 
@@ -867,7 +873,7 @@ onUnmounted(() => {
   /* 工具条：48dp 干净表面，sticky 吸 navbar 正下方（对齐椒盐） */
   &__toolbar {
     position: sticky;
-    top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    top: calc(max(22px, var(--m-safe-area-top, 0px)) + 44px);
     z-index: 15;
     box-sizing: border-box;
     width: 100%;
@@ -932,7 +938,7 @@ onUnmounted(() => {
   /* 搜索栏：替换工具条 */
   &__searchbar {
     position: sticky;
-    top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    top: calc(max(22px, var(--m-safe-area-top, 0px)) + 44px);
     z-index: 15;
     box-sizing: border-box;
     width: 100%;
@@ -1185,20 +1191,46 @@ onUnmounted(() => {
   }
 }
 
-/* 列表行 Salt 分割线 */
-.songs-page :deep(.songs-page__row) {
-  border-bottom: 1px solid var(--m-hairline);
-}
-
-/* 行高对齐椒盐 72dp（覆盖全局 56px） */
+/* 行高对齐椒盐 72dp（覆盖全局 56px）；无行间分割线（椒盐列表无分割线） */
 .songs-page :deep(.m-list-item) {
   --m-list-row-h: 72px;
   min-height: 72px;
+
+  .m-list-item__inner {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .m-list-item__title-wrap {
+    min-height: 24px;
+  }
+
+  .m-list-item__title {
+    font-size: 16px;
+    line-height: 1.3;
+  }
+
+  .m-list-item__subtitle {
+    font-size: 12px;
+    line-height: 1.3;
+    margin-top: 1px;
+  }
 }
 
 /* 排序菜单不可用项置灰 */
 .songs-page :deep(.songs-page__sort-item--disabled) {
   opacity: 0.4;
+}
+
+/* 无封面时对齐椒盐：透明底 32dp 小占位图标（不显示 50dp 大框） */
+.songs-page :deep(.songs-page__cover) {
+  background-color: transparent;
+
+  .m-cover__placeholder-icon {
+    width: 32px;
+    height: 32px;
+    opacity: 0.45;
+  }
 }
 
 /* 多选时行不加分割线高亮 */
