@@ -807,6 +807,14 @@ onUnmounted(() => {
       width: 36px;
       height: 36px;
       margin-left: 4px;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+
+      &:active {
+        transform: scale(0.85);
+        opacity: 0.6;
+        background-color: transparent; /* 覆盖 MNavbar 浅蓝 active 底 */
+      }
+
       svg {
         width: 20px;
         height: 20px;
@@ -818,6 +826,14 @@ onUnmounted(() => {
       min-width: 36px;
       height: 36px;
       color: var(--m-text); /* 对齐椒盐：搜索图标深灰近黑（椒盐 #0d0d0d），非主色蓝 */
+      transition: transform 0.15s ease, opacity 0.15s ease;
+
+      &:active {
+        transform: scale(0.85);
+        opacity: 0.6;
+        background-color: transparent; /* 覆盖 MButton clear 浅蓝 active 底 */
+      }
+
       svg {
         width: 20px;
         height: 20px;
@@ -1034,9 +1050,11 @@ onUnmounted(() => {
     color: #949fab; /* 椒盐 ⋮ 实心点蓝灰 (148,159,171) */
     cursor: pointer;
     flex: none;
+    transition: transform 0.15s ease, opacity 0.15s ease;
 
     &:active {
-      background: rgba(0, 0, 0, 0.06);
+      transform: scale(0.85);
+      opacity: 0.6;
     }
   }
 
@@ -1144,10 +1162,11 @@ onUnmounted(() => {
     line-height: 15px;
     cursor: pointer;
     border-radius: 2px;
+    transition: transform 0.15s ease, opacity 0.15s ease;
 
     &:active {
-      background: rgba(var(--m-primary-rgb), 0.12);
-      color: var(--m-primary);
+      transform: scale(1.4);
+      color: var(--m-text);
     }
 
     &.is-empty {

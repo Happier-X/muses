@@ -21,13 +21,13 @@
       </div>
 
       <div class="mini-player__controls">
-        <m-button
-          component="button"
-          variant="clear"
-          rounded-full
+        <motion.button
+          type="button"
           class="mini-player__btn"
           :aria-label="isPlaying ? '暂停播放' : '继续播放'"
           :disabled="!playerState.currentSong || playerState.status === 'loading'"
+          :while-tap="{ scale: 0.86 }"
+          :transition="{ type: 'spring', stiffness: 500, damping: 22 }"
           @click.stop="togglePlayback"
         >
           <!-- lucide 实心图标（fill=currentColor 填充，对齐椒盐实心三角） -->
@@ -37,13 +37,13 @@
             class="mini-player__icon"
             fill="currentColor"
           />
-        </m-button>
-        <m-button
-          component="button"
-          variant="clear"
-          rounded-full
+        </motion.button>
+        <motion.button
+          type="button"
           class="mini-player__btn"
           aria-label="打开播放队列"
+          :while-tap="{ scale: 0.86 }"
+          :transition="{ type: 'spring', stiffness: 500, damping: 22 }"
           @click.stop="openQueuePage"
         >
           <!-- lucide 实心队列图标 -->
@@ -53,7 +53,7 @@
             class="mini-player__icon"
             fill="currentColor"
           />
-        </m-button>
+        </motion.button>
       </div>
     </div>
   </div>
@@ -62,8 +62,9 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
+import { motion } from 'motion-v'
 import { list as listMusic, pause, play } from '@/icons'
-import { MButton, MCover } from '@/components/ui'
+import { MCover } from '@/components/ui'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 
@@ -196,29 +197,30 @@ const toDisplayableUri = (uri: string): string => {
   /* clear 变体按钮：MiniPlayer 场景用文字色而非主题色（覆盖 MButton 默认） */
   &__btn {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 40px;
     height: 40px;
     padding: 0;
     flex: 0 0 40px;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
     /* 对齐椒盐：透明底，图标为深色实心（椒盐播放三角/队列图标无圆底） */
     color: #211715;
 
-    /* 覆盖 MButton clear 的浅蓝 active 底：统一为透明度反馈 */
-    &:active {
-      opacity: 0.6;
-      background-color: transparent !important;
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
     }
   }
 
   &__icon {
     width: 18px;
     height: 18px;
-    z-index: 1;
   }
-}
-
-:global(.dark) .mini-player__btn:active {
-  opacity: 0.6;
-  background-color: transparent !important;
 }
 </style>
