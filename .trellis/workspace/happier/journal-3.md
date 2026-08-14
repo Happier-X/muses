@@ -800,3 +800,42 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - AC6 行内布局 ✓（08-14 CDP 实测覆盖）；AC7 搜索 ✓（placeholder「在 465 首歌曲中搜索」、KOKIA 过滤剩 1 行、取消恢复工具条）
 - AC8 零回归 ✓（加队列 toast / 更多菜单实测正常）
 **经验**：验收探针类名注意前缀——本项目自研组件类是 `m-*`（m-actions/m-toast），不是 Konsta 的 `k-*`；搜索输入用原生 value setter + input 事件才能触发 v-model。
+
+
+## Session 96: 歌曲页 1:1 复刻椒盐 + 全局 MIconButton 图标按钮
+
+**Date**: 2026-08-14
+**Task**: 歌曲页 1:1 复刻椒盐 + 全局 MIconButton 图标按钮
+**Branch**: `main`
+
+### Summary
+
+基于用户椒盐截图 1:1 复刻歌曲页：移除行内圆按钮/HQ 标识、MiniPlayer 胶囊液态玻璃+fill 实心图标、FAB 玻璃定位按钮、navbar/工具条对齐、MActions Teleport 修复 fixed 定位、新增 MIconButton 统一图标按钮涟漪反馈、文字颜色改中性深灰
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ad85bd2` | (see git log) |
+| `f6daf14` | (see git log) |
+| `9dbaddf` | (see git log) |
+| `122b001` | (see git log) |
+| `6ce9058` | (see git log) |
+| `bb83744` | (see git log) |
+| `50e5dd4` | (see git log) |
+| `2e74068` | (see git log) |
+| `d7633a9` | (see git log) |
+| `5e79433` | (see git log) |
+| `e138d6d` | (see git log) |
+| `2aabb65` | (see git log) |
+| `5e33aaf` | (see git log) |
+| `91222ad` | (see git log) |
+| `25dd0a6` | (see git log) |
+| `30bc7b1` | (see git log) |
+| `3aeb3e5` | (see git log) |
+| `9256533` | (see git log) |
+| `194f851` | (see git log) |
+
+### Status
+
+[OK] **Completed**

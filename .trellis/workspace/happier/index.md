@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 95
-- **Last Active**: 2026-08-06
+- **Total Sessions**: 96
+- **Last Active**: 2026-08-14
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~185 | Active |
+| `journal-3.md` | ~841 | Active |
 | `journal-2.md` | ~1993 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 96 | 2026-08-14 | 歌曲页 1:1 复刻椒盐 + 全局 MIconButton 图标按钮 | `ad85bd2`, `f6daf14`, `9dbaddf`, `122b001`, `6ce9058`, `bb83744`, `50e5dd4`, `2e74068`, `d7633a9`, `5e79433`, `e138d6d`, `2aabb65`, `5e33aaf`, `91222ad`, `25dd0a6`, `30bc7b1`, `3aeb3e5`, `9256533`, `194f851` | `main` |
 | 95 | 2026-08-06 | 修复歌曲页滚动到底部多余空白（底部 padding 双算 tab-bar） | `7312c40` | `main` |
 | 96 | 2026-08-05 | 依赖升级 npm+Android（TS pin 6 / AGP9 / OkHttp5） | `d024eb3`, `aaedc84` | `main` |
 | 95 | 2026-08-05 | 清除 Ionic 脚手架残留 | `a0ef82b` | `main` |
