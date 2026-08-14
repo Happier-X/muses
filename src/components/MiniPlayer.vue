@@ -203,8 +203,10 @@ const toDisplayableUri = (uri: string): string => {
     /* 对齐椒盐：透明底，图标为深色实心（椒盐播放三角/队列图标无圆底） */
     color: #211715;
 
+    /* 覆盖 MButton clear 的浅蓝 active 底：统一为透明度反馈 */
     &:active {
       opacity: 0.6;
+      background-color: transparent !important;
     }
   }
 
@@ -217,5 +219,6 @@ const toDisplayableUri = (uri: string): string => {
 
 :global(.dark) .mini-player__btn:active {
   opacity: 0.6;
+  background-color: transparent !important;
 }
 </style>
