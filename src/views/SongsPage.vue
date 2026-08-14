@@ -29,7 +29,12 @@
             :aria-label="isMultiSelect ? '全选' : '多选'"
             @click="isMultiSelect ? toggleSelectAll() : enterMultiSelect()"
           >
-            <component :is="checkCheck" aria-hidden="true" class="songs-page__toolbar-left-icon" />
+            <component
+              v-if="!isMultiSelect"
+              :is="checkCheck"
+              aria-hidden="true"
+              class="songs-page__toolbar-left-icon"
+            />
             <span v-if="isMultiSelect" class="songs-page__toolbar-left-text">全选</span>
           </m-button>
           <div v-if="isMultiSelect" class="songs-page__toolbar-count">已选中 {{ selectedCount }} 项</div>
@@ -897,6 +902,8 @@ onUnmounted(() => {
     padding: 0 12px;
     color: var(--m-text);
     font-size: 14px;
+    background: var(--m-surface-2);
+    border-radius: 9999px;
   }
 
   &__toolbar-left-icon {
