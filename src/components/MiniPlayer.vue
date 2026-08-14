@@ -30,26 +30,13 @@
           :disabled="!playerState.currentSong || playerState.status === 'loading'"
           @click.stop="togglePlayback"
         >
-          <!-- 实心图标（对齐椒盐 fill 风格：实心三角播放 / 实心双竖条暂停） -->
-          <svg
-            v-if="isPlaying"
+          <!-- lucide 实心图标（fill=currentColor 填充，对齐椒盐实心三角） -->
+          <component
+            :is="isPlaying ? pause : play"
             aria-hidden="true"
             class="mini-player__icon"
-            viewBox="0 0 24 24"
             fill="currentColor"
-          >
-            <rect x="6" y="4" width="4" height="16" rx="1" />
-            <rect x="14" y="4" width="4" height="16" rx="1" />
-          </svg>
-          <svg
-            v-else
-            aria-hidden="true"
-            class="mini-player__icon"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <path d="M8 5.14v13.72c0 .8.87 1.3 1.56.9l11.1-6.86a1.05 1.05 0 0 0 0-1.8L9.56 4.24A1.05 1.05 0 0 0 8 5.14z" />
-          </svg>
+          />
         </m-button>
         <m-button
           component="button"
@@ -59,17 +46,13 @@
           aria-label="打开播放队列"
           @click.stop="openQueuePage"
         >
-          <!-- 实心队列图标（对齐椒盐：两横条列表） -->
-          <svg
+          <!-- lucide 实心队列图标 -->
+          <component
+            :is="listMusic"
             aria-hidden="true"
             class="mini-player__icon"
-            viewBox="0 0 24 24"
             fill="currentColor"
-          >
-            <rect x="4" y="5" width="16" height="3" rx="1" />
-            <rect x="4" y="10.5" width="16" height="3" rx="1" />
-            <rect x="4" y="16" width="10" height="3" rx="1" />
-          </svg>
+          />
         </m-button>
       </div>
     </div>
@@ -79,6 +62,7 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
+import { list as listMusic, pause, play } from '@/icons'
 import { MButton, MCover } from '@/components/ui'
 import { isPlaying, pausePlayback, playerState, resumePlayback } from '@/features/player/controller'
 import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
