@@ -779,3 +779,16 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 **修复**：blur 层去 mask（全高 blur2px）；bg 层加 via 三段渐变 `from-ios-light-surface via-[rgba(239,239,244,0.4)] to-transparent`。**关键坑**：`via-ios-light-surface/40` 透明度修饰符生成 color-mix（Chrome 111+），WebView 110 失效 → 必须用任意值 `via-[rgba(239,239,244,0.4)]`。验证：同位置截图对比，上半方差 30→0.6（实灰）、下半 63→40（磨砂）；computed 渐变三段正常。
 
 **经验**：官方 navbar/tabbar 的渐显配方不能无脑搬到矮条；玻璃条"实体感"由渐变 alpha 保持段提供（via 40% 是关键）。
+
+## 08-14 歌曲页行内细节尺寸对齐椒盐（任务 08-14-songs-page-row-scale-fix）
+**用户反馈**：歌曲页跟椒盐差距大——行内圆形按钮/更多按钮太小。
+**依据**：SaltUI 源码（.tmp/saltui/，Apache-2.0）+ 椒盐 APK 模拟器实测（uiautomator bounds + PIL 像素 + CDP DOM），交叉验证。
+**修复**（SongsPage.vue + theme/index.scss，逐项提交）：
+- D1 body margin 0（全局 bug：默认 8px 使页面右移 8px 窄 16px）
+- D2 圆按钮交互区 14→44x48px，::before 视觉圆 14px 居中 #ECECEC，图标 stroke-width 3 + #949fab（椒盐蓝灰 148,159,171）
+- D3 ⋮ 按钮 32x32 细线 lucide → 36x48px 实心三点（点 3.5px、gap 2px、总高 ~14px）
+- D4 圆/⋮ gap 0 紧挨（实测 x264-308 / x308-344），封面 x16
+- D5 标题-副文字间距 1→2px（SaltUI Item 源码 2dp）
+**验证**：lint/vue-tsc/build 全绿；CDP 实测 bodyMargin=0、app x0 w360、round 44x48+视觉圆14、more 36x48+dots h15、gap0、间距2px；点击 round→「已加入队列」toast ✓、more→m-actions 菜单 ✓（注意类名前缀是 m- 不是 k-）；专辑页导航无回归 ✓
+**提交**：ae1c846（主体）+ 2798e1d（⋮ 颜色收尾）
+**spec**：component-guidelines.md Salt 尺寸契约补 body margin:0 + 行内按钮契约（44x48/36x48/实心三点/紧挨）
