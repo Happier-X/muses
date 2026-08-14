@@ -18,7 +18,7 @@
       </m-navbar>
     </div>
     <div class="m-content songs-page__content">
-      <!-- 工具条：随机播放 + 歌曲数 / 排序 / 多选（椒盐结构） -->
+      <!-- 工具条：随机播放 + 歌曲数（先只保留左侧，对齐椒盐） -->
       <div v-if="songs.length > 0 && !isSearching" class="songs-page__toolbar">
         <div class="songs-page__toolbar-wrap">
           <!-- 左侧：随机播放图标 + 歌曲总数 -->
@@ -35,30 +35,6 @@
           </div>
           <!-- 多选模式计数 -->
           <div v-if="isMultiSelect" class="songs-page__toolbar-count">已选中 {{ selectedCount }} 项</div>
-          <div class="songs-page__toolbar-right">
-            <m-button
-              component="button"
-              variant="clear"
-              inline
-              rounded
-              class="songs-page__toolbar-btn"
-              aria-label="排序"
-              @click="openSortMenu"
-            >
-              <component :is="arrowUpDown" aria-hidden="true" class="songs-page__toolbar-icon" />
-            </m-button>
-            <m-button
-              component="button"
-              variant="clear"
-              inline
-              rounded
-              class="songs-page__toolbar-btn"
-              :aria-label="isMultiSelect ? '取消多选' : '多选'"
-              @click="isMultiSelect ? exitMultiSelect() : enterMultiSelect()"
-            >
-              <component :is="listChecks" aria-hidden="true" class="songs-page__toolbar-icon" />
-            </m-button>
-          </div>
         </div>
       </div>
 
@@ -318,7 +294,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
-import { arrowUpDown, checkCheck, crosshair, listChecks, searchOutline, shuffle } from '@/icons'
+import { checkCheck, crosshair, searchOutline, shuffle } from '@/icons'
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
   MButton, MDialog, MDialogButton, MFab, MList, MListItem, MListInput,
@@ -454,11 +430,6 @@ const toggleSelectOne = (songId: string): void => {
   selectedIds.value = next
 }
 
-const enterMultiSelect = (): void => {
-  isMultiSelect.value = true
-  selectedIds.value = new Set()
-}
-
 const exitMultiSelect = (): void => {
   isMultiSelect.value = false
   selectedIds.value = new Set()
@@ -474,10 +445,6 @@ const onShuffleAll = (): void => {
   }
   selectSongAtIndex(0)
   void playSong(visibleSongs.value[0])
-}
-
-const openSortMenu = (): void => {
-  isSortMenuOpen.value = true
 }
 
 const setSortMode = (mode: SongSortMode | 'durationDesc'): void => {
@@ -833,6 +800,27 @@ onUnmounted(() => {
     :deep(.m-navbar__bg) {
       background-color: #F3F3F3;
     }
+
+    /* 对齐椒盐：汉堡图标更小巧（椒盐 ~20dp 宽图标），距左 20dp */
+    :deep(.m-navbar__menu-button) {
+      width: 36px;
+      height: 36px;
+      margin-left: 4px;
+      svg {
+        width: 20px;
+        height: 20px;
+      }
+    }
+
+    /* 对齐椒盐：搜索图标更小巧（椒盐 ~16dp 宽），距右 24dp */
+    :deep(.songs-page__search-btn) {
+      min-width: 36px;
+      height: 36px;
+      svg {
+        width: 20px;
+        height: 20px;
+      }
+    }
   }
 
   &__right {
@@ -878,7 +866,7 @@ onUnmounted(() => {
     align-items: center;
     justify-content: space-between;
     height: 100%;
-    padding: 0 8px;
+    padding: 0 8px 0 20px; /* 左对齐椒盐：工具条内容从 20dp 开始 */
   }
 
   &__toolbar-left {
