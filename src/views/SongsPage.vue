@@ -1024,8 +1024,8 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
+    width: 14px;
+    height: 14px;
     padding: 0;
     border: none;
     border-radius: 50%;
@@ -1045,8 +1045,8 @@ onUnmounted(() => {
   }
 
   &__round-icon {
-    width: 22px;
-    height: 22px;
+    width: 10px;
+    height: 10px;
   }
 
   &__more-btn {
@@ -1124,19 +1124,17 @@ onUnmounted(() => {
     }
   }
 
-  /* 字母索引条：右侧 16dp 宽，从工具条下方延伸到列表底（对齐椒盐） */
+  /* 字母索引条：右侧窄条，从工具条下方延伸到列表底（对齐椒盐：15dp 字母、密集排列） */
   &__index-bar {
     position: fixed;
-    top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px + 48px);
+    top: calc(max(22px, var(--m-safe-area-top, 0px)) + 44px + 48px);
     bottom: calc(64px + var(--m-safe-area-bottom, 0px));
-    right: 4px;
+    right: 2px;
     z-index: 15;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    padding: 6px 2px;
-    justify-content: flex-start;
+    padding: 4px 0;
   }
 
   &__index-item {
@@ -1144,15 +1142,15 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     width: 24px;
-    height: 18px;
+    height: 15px;
     padding: 0;
     border: none;
     background: transparent;
     color: var(--m-text-3);
-    font-size: 12px;
-    line-height: 18px;
+    font-size: 10px;
+    line-height: 15px;
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: 2px;
 
     &:active {
       background: rgba(var(--m-primary-rgb), 0.12);
