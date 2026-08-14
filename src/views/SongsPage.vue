@@ -18,25 +18,22 @@
       </m-navbar>
     </div>
     <div class="m-content songs-page__content">
-      <!-- 工具条：排序 / 多选 / 全选（椒盐结构） -->
+      <!-- 工具条：随机播放 + 歌曲数 / 排序 / 多选（椒盐结构） -->
       <div v-if="songs.length > 0 && !isSearching" class="songs-page__toolbar">
         <div class="songs-page__toolbar-wrap">
-          <m-button
-            component="button"
-            variant="clear"
-            inline
-            class="songs-page__toolbar-left"
-            :aria-label="isMultiSelect ? '全选' : '多选'"
-            @click="isMultiSelect ? toggleSelectAll() : enterMultiSelect()"
-          >
-            <component
-              v-if="!isMultiSelect"
-              :is="checkCheck"
-              aria-hidden="true"
-              class="songs-page__toolbar-left-icon"
-            />
-            <span v-if="isMultiSelect" class="songs-page__toolbar-left-text">全选</span>
-          </m-button>
+          <!-- 左侧：随机播放图标 + 歌曲总数 -->
+          <div class="songs-page__toolbar-left">
+            <button
+              type="button"
+              class="songs-page__toolbar-left-btn"
+              aria-label="随机播放全部"
+              @click="onShuffleAll"
+            >
+              <component :is="shuffle" aria-hidden="true" class="songs-page__toolbar-left-icon" />
+            </button>
+            <span class="songs-page__toolbar-count">{{ songs.length }}</span>
+          </div>
+          <!-- 多选模式计数 -->
           <div v-if="isMultiSelect" class="songs-page__toolbar-count">已选中 {{ selectedCount }} 项</div>
           <div class="songs-page__toolbar-right">
             <m-button
@@ -56,8 +53,8 @@
               inline
               rounded
               class="songs-page__toolbar-btn"
-              aria-label="多选"
-              @click="enterMultiSelect"
+              :aria-label="isMultiSelect ? '取消多选' : '多选'"
+              @click="isMultiSelect ? exitMultiSelect() : enterMultiSelect()"
             >
               <component :is="listChecks" aria-hidden="true" class="songs-page__toolbar-icon" />
             </m-button>
@@ -139,7 +136,7 @@
                   <m-cover
                     v-else
                     :src="getSongCoverSrc(visibleSongs[virtualRow.index])"
-                    :size="50"
+                    :size="54"
                     radius="sm"
                     alt=""
                     class="songs-page__cover"
@@ -321,7 +318,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
-import { arrowUpDown, checkCheck, crosshair, listChecks, searchOutline } from '@/icons'
+import { arrowUpDown, checkCheck, crosshair, listChecks, searchOutline, shuffle } from '@/icons'
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
   MButton, MDialog, MDialogButton, MFab, MList, MListItem, MListInput,
@@ -344,6 +341,9 @@ import {
   enqueueSongs,
   playerState,
   playSong,
+  selectSongAtIndex,
+  shuffleEnabled,
+  toggleShuffle,
 } from '@/features/player/controller'
 
 const songs = ref<SongItem[]>([])
@@ -444,16 +444,6 @@ const songItemClass = (songId: string): string => {
 }
 
 const selectedCount = computed(() => selectedIds.value.size)
-const allSelected = computed(() => visibleSongs.value.length > 0 && selectedIds.value.size === visibleSongs.value.length)
-
-const toggleSelectAll = (): void => {
-  if (allSelected.value) {
-    selectedIds.value = new Set()
-  } else {
-    selectedIds.value = new Set(visibleSongs.value.map((song) => song.id))
-  }
-}
-
 const toggleSelectOne = (songId: string): void => {
   const next = new Set(selectedIds.value)
   if (next.has(songId)) {
@@ -472,6 +462,18 @@ const enterMultiSelect = (): void => {
 const exitMultiSelect = (): void => {
   isMultiSelect.value = false
   selectedIds.value = new Set()
+}
+
+/** 随机播放全部（椒盐工具条左侧按钮） */
+const onShuffleAll = (): void => {
+  if (songs.value.length === 0) return
+  clearQueue()
+  enqueueSongs(songs.value)
+  if (!shuffleEnabled()) {
+    toggleShuffle()
+  }
+  selectSongAtIndex(0)
+  void playSong(visibleSongs.value[0])
 }
 
 const openSortMenu = (): void => {
@@ -867,18 +869,28 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     gap: 6px;
-    height: 40px;
-    padding: 0 12px;
     color: var(--m-text);
     font-size: 14px;
-    background: var(--m-surface-2);
-    border-radius: 9999px;
+  }
+
+  &__toolbar-left-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--m-text);
+    cursor: pointer;
   }
 
   &__toolbar-left-icon {
     width: 20px;
     height: 20px;
-    color: var(--m-text-2);
+    color: var(--m-text);
   }
 
   &__toolbar-left-text {
