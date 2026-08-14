@@ -2459,6 +2459,19 @@ onUnmounted(() => {
     color: rgba(255, 255, 255, 0.92);
   }
 
+  /* 上下太窄（横屏/车机极限）：三行歌词自动收成一行（只显示当前行） */
+  @media (max-height: 520px) {
+    &__song-meta {
+      .player-page__meta-line:not(.player-page__meta-current) {
+        display: none;
+      }
+    }
+
+    &__cover-hero-img {
+      width: min(34vw, 150px);
+    }
+  }
+
   &__progress-area {
     flex: none;
     width: 100%;
