@@ -116,7 +116,7 @@
                   aria-label="播放或暂停"
                   @click="togglePlayback"
                 >
-                  <component :is="isPlaying ? pause : play" aria-hidden="true" class="player-page__icon-xl" />
+                  <component :is="isPlaying ? pause : play" aria-hidden="true" class="player-page__icon-lg" />
                 </m-button>
                 <m-button
                   component="button"
@@ -2467,10 +2467,10 @@ onUnmounted(() => {
     color: rgba(255, 255, 255, 0.9) !important;
   }
 
-  /* 播放按钮：无圆底（用户要求），白色图标直接置于背景 */
+  /* 播放按钮：无圆底，与侧边按钮同尺寸（用户要求统一大小） */
   &__play-btn {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     padding: 0;
     border-radius: 50%;
     background: transparent;
@@ -2479,11 +2479,6 @@ onUnmounted(() => {
     &:disabled {
       opacity: 0.5;
     }
-  }
-
-  &__play-btn &__icon-xl {
-    width: 26px;
-    height: 26px;
   }
 
   &__mode-btn {
