@@ -813,9 +813,13 @@ onUnmounted(() => {
     right: 0;
     z-index: 20;
 
-    /* 对齐椒盐：navbar 含状态栏感知，标题中心对齐 52dp 位置 */
+    /* 对齐椒盐：navbar 背景与页面同色 #F3F3F3，含状态栏感知 */
     :deep(.m-navbar) {
       padding-top: 22px;
+      background-color: #F3F3F3;
+    }
+    :deep(.m-navbar__bg) {
+      background-color: #F3F3F3;
     }
   }
 
@@ -1015,17 +1019,17 @@ onUnmounted(() => {
   /* 椒盐歌曲页只保留 ⋮，移除圆按钮 round-btn/round-icon */
 
   &__more-btn {
-    /* 交互区 36x48dp（椒盐实测 uiautomator [924,396][1032,540]），实心三点视觉 */
+    /* 椒盐 ⋮ 三点按钮：小尺寸，紧贴右缘 */
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
+    width: 24px;
     height: 48px;
     padding: 0;
     border: none;
     border-radius: 50%;
     background: transparent;
-    color: #949fab; /* 椒盐 ⋮ 实心点蓝灰 (148,159,171)，与加号图标同色系 */
+    color: #949fab; /* 椒盐 ⋮ 实心点蓝灰 (148,159,171) */
     cursor: pointer;
     flex: none;
 
@@ -1184,6 +1188,7 @@ onUnmounted(() => {
   .m-list-item__inner {
     padding-top: 6px;
     padding-bottom: 6px;
+    padding-left: 12px; /* 封面-标题间距对齐椒盐（~12dp） */
   }
 
   .m-list-item__title-wrap {
