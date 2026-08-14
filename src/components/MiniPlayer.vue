@@ -126,19 +126,30 @@ const toDisplayableUri = (uri: string): string => {
   z-index: 1000;
   height: 64px;
   color: var(--m-text);
-  background-color: var(--m-surface-1);
+  background-color: transparent; /* 液态玻璃：透明底，由 blur+glass 层提供 */
   border-top: 1px solid var(--m-hairline);
   cursor: pointer;
   box-sizing: border-box;
+  overflow: hidden; /* 确保玻璃层不溢出 */
 
 
   &--empty {
     cursor: default;
   }
 
-  &__blur,
+  &__blur {
+    position: absolute;
+    inset: 0;
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    z-index: 0;
+  }
+
   &__glass {
-    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.72); /* 液态玻璃：白 72% 底 */
+    z-index: 0;
   }
 
   &__row {
