@@ -337,9 +337,9 @@ body.muses-overlay-open .m-content {
   flex: 0 0 50%;
 }
 
-/* 竖屏方案 3：封面槽位固定高度不撑满，避免内容块顶到歌名/留白失真 */
-.player-overlay .cover-rotator {
-  flex: 0 0 auto;
+/* 竖屏方案 3：大封面占满上部（flex:1 弹性），避免内容块撑顶/留白失真 */
+.player-overlay .cover-hero {
+  flex: 1 1 auto;
   min-height: 0;
 }
 

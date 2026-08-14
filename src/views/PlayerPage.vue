@@ -55,16 +55,22 @@
             </header>
 
             <div class="info-panel-inner player-page__info-inner">
-              <!-- 歌曲信息（椒盐：顶部歌手小字 + 歌名大字） -->
-              <div class="player-page__song-head">
-                <p v-if="lyricArtist" class="player-page__song-artist">{{ lyricArtist }}</p>
-                <h1 class="player-page__song-title">{{ playerState.currentSong.title }}</h1>
+              <!-- 大封面（椒盐：铺满上部，歌名/歌手浮层） -->
+              <div class="player-page__cover-hero">
+                <img
+                  v-if="displayCoverSrc"
+                  class="player-page__cover-hero-img"
+                  :src="displayCoverSrc"
+                  alt="歌曲封面"
+                />
+                <div v-else class="player-page__cover-hero-img player-page__cover-hero-placeholder">♪</div>
+                <p v-if="lyricArtist" class="player-page__hero-artist">{{ lyricArtist }}</p>
+                <h1 class="player-page__hero-title">{{ playerState.currentSong.title }}</h1>
               </div>
 
-              <!-- 旋转方形封面（椒盐：倾斜放置） -->
-              <div class="player-page__cover-rotator">
-                <img v-if="displayCoverSrc" class="player-page__cover-img" :src="displayCoverSrc" alt="歌曲封面" />
-                <div v-else class="player-page__cover-img player-page__cover-placeholder">♪</div>
+              <!-- 当前歌词行（椒盐：封面下方信息区） -->
+              <div v-if="currentLyricText" class="player-page__song-meta">
+                <p class="player-page__meta-line">{{ currentLyricText }}</p>
               </div>
 
               <div
@@ -1720,6 +1726,24 @@ const onNext = () => {
 
 const lyricArtist = computed(() => playerState.currentSong?.artist?.trim() || '')
 
+/** 当前歌词行文本（椒盐：封面下方信息区展示） */
+const currentLyricText = computed(() => {
+  if (!hasLyrics.value) {
+    return ''
+  }
+  const targetMs = lyricRenderTime.value
+  let current = ''
+  for (const line of displayLyricLines.value) {
+    const start = line.startTime ?? 0
+    if (start <= targetMs) {
+      current = (line.words ?? []).map((w) => w.word).join('')
+    } else {
+      break
+    }
+  }
+  return current
+})
+
 const toDisplayableUri = (uri: string): string => {
   if (!uri) {
     return ''
@@ -2301,6 +2325,7 @@ onUnmounted(() => {
   }
 
   &__info-inner {
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2309,6 +2334,7 @@ onUnmounted(() => {
     width: min(100%, 420px);
     height: 100%;
     margin: 0 auto;
+    padding-top: 64px; /* 椒盐：封面从导航下方开始（~12% 屏高） */
     min-height: 0;
     overflow: hidden;
   }
@@ -2343,65 +2369,81 @@ onUnmounted(() => {
     height: 22px;
   }
 
-  /* 歌曲信息（椒盐：顶部居中，歌手小字 + 歌名大字） */
-  &__song-head {
-    flex: none;
+  /* 大封面（椒盐：铺满上部约 49% 屏高，歌名/歌手浮层） */
+  &__cover-hero {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: min(50vh, 420px);
     width: 100%;
-    margin: 0;
-    text-align: center;
-    min-width: 0;
+    overflow: hidden;
+    border-radius: var(--m-radius-card);
   }
 
-  &__song-artist {
-    margin: 0 0 6px;
+  &__cover-hero-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &__cover-hero-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 56px;
+  }
+
+  &__hero-artist {
+    position: absolute;
+    top: 10px;
+    left: 16px;
+    margin: 0;
     font-size: 14px;
     line-height: 1.4;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 70%;
   }
 
-  &__song-title {
+  &__hero-title {
+    position: absolute;
+    top: 32%;
+    left: 16px;
+    right: 16px;
     margin: 0;
     font-size: clamp(30px, 11vw, 44px);
     line-height: 1.15;
     font-weight: 600;
     letter-spacing: 0.01em;
-    color: rgba(255, 255, 255, 0.95);
+    color: #ecd6ce; /* 椒盐实测暖白 */
+    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  /* 旋转方形封面（椒盐：贴左缘逆时针 ~45° 倾斜） */
-  &__cover-rotator {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    margin-left: 7px; /* 封面中心 x≈106dp，旋转包围盒左缘≈0（椒盐实测贴左） */
-    width: calc(100% - 7px);
-    min-height: 0;
-    flex: 0 0 auto;
-    height: clamp(170px, 32vh, 230px);
-    overflow: visible;
+  /* 当前歌词行（椒盐：封面下方信息区，左对齐） */
+  &__song-meta {
+    flex: none;
+    width: 100%;
+    margin: 0;
+    text-align: left;
+    min-width: 0;
   }
 
-  &__cover-rotator &__cover-img {
-    width: min(42vw, 170px);
-    height: auto;
-    aspect-ratio: 1;
-    object-fit: cover;
-    transform: rotate(-45deg);
-    border-radius: 18px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-  }
-
-  &__cover-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 56px;
+  &__meta-line {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.72);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__progress-area {
