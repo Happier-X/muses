@@ -147,28 +147,14 @@
                 </template>
                 <template #after>
                   <div class="songs-page__row-actions">
-                    <!-- 椒盐式圆形按钮：普通=加入队列；播放中行=播放指示 -->
+                    <!-- 椒盐式实心三点菜单（椒盐歌曲页只保留 ⋮，无圆按钮） -->
                     <button
                       v-if="!isMultiSelect"
-                      type="button"
-                      class="songs-page__round-btn"
-                      :class="{ 'is-playing': playerState.currentSong?.id === visibleSongs[virtualRow.index].id }"
-                      :aria-label="playerState.currentSong?.id === visibleSongs[virtualRow.index].id ? '正在播放' : '加入队列'"
-                      @click.stop="onRowActionClick(visibleSongs[virtualRow.index])"
-                    >
-                      <component
-                        :is="playerState.currentSong?.id === visibleSongs[virtualRow.index].id ? volume2 : add"
-                        aria-hidden="true"
-                        class="songs-page__round-icon"
-                      />
-                    </button>
-                    <button
                       type="button"
                       class="songs-page__more-btn"
                       aria-label="更多歌曲操作"
                       @click.stop="openSongActions(visibleSongs[virtualRow.index])"
                     >
-                      <!-- 椒盐式实心三点（对齐源码视觉：点 ~3.3dp、总高 14dp） -->
                       <span class="songs-page__more-dots" aria-hidden="true">
                         <i></i><i></i><i></i>
                       </span>
@@ -335,7 +321,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
-import { arrowUpDown, add, checkCheck, crosshair, listChecks, searchOutline, volume2 } from '@/icons'
+import { arrowUpDown, checkCheck, crosshair, listChecks, searchOutline } from '@/icons'
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
   MButton, MDialog, MDialogButton, MFab, MList, MListItem, MListInput,
@@ -663,29 +649,11 @@ const onRowClick = (song: SongItem): void => {
   void playSong(song)
 }
 
-/** 行内圆形按钮：播放中行=无操作（视觉指示），否则加入队列 */
-const onRowActionClick = (song: SongItem): void => {
-  if (playerState.currentSong?.id === song.id) {
-    return
-  }
-  enqueueSong(song)
-  showToast('已加入队列')
-}
-
+/** toast 通知（保留供其他功能使用） */
 const toast = ref<{ visible: boolean; message: string }>({
   visible: false,
   message: '',
 })
-
-let toastTimer: ReturnType<typeof setTimeout> | undefined
-
-const showToast = (message: string): void => {
-  toast.value = { visible: true, message }
-  window.clearTimeout(toastTimer)
-  toastTimer = window.setTimeout(() => {
-    toast.value.visible = false
-  }, 1500)
-}
 
 /** 多选：播放选中队列（按当前排序顺序，不清空已有队列） */
 const onPlaySelected = (): void => {
@@ -1032,54 +1000,7 @@ onUnmounted(() => {
     margin-bottom: -10px;
   }
 
-  &__round-btn {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* 交互区 44x48dp（椒盐实测 uiautomator [792,396][924,540]），视觉圆 14dp 内嵌居中 */
-    width: 44px;
-    height: 48px;
-    padding: 0;
-    border: none;
-    border-radius: 50%;
-    background: transparent;
-    color: #949fab; /* 椒盐加号图标蓝灰 (148,159,171) */
-    cursor: pointer;
-    flex: none;
-
-    /* 视觉圆 14dp（椒盐实测 42px 物理），居中于 44x48 交互区 */
-    &::before {
-      content: '';
-      position: absolute;
-      inset: 50% auto auto 50%;
-      transform: translate(-50%, -50%);
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: var(--m-surface-2); /* ≈ 椒盐 #EDEDED */
-      transition: background 0.15s ease;
-    }
-
-    &:active::before {
-      background: var(--m-surface-3);
-    }
-
-    &.is-playing {
-      color: var(--m-primary);
-
-      &::before {
-        background: rgba(var(--m-primary-rgb), 0.12);
-      }
-    }
-  }
-
-  &__round-icon {
-    position: relative; /* 叠在视觉圆上层 */
-    width: 10px;
-    height: 10px;
-    stroke-width: 3; /* 加粗对齐椒盐图标视觉重量 */
-  }
+  /* 椒盐歌曲页只保留 ⋮，移除圆按钮 round-btn/round-icon */
 
   &__more-btn {
     /* 交互区 36x48dp（椒盐实测 uiautomator [924,396][1032,540]），实心三点视觉 */
@@ -1296,8 +1217,15 @@ onUnmounted(() => {
   background-color: rgba(var(--m-primary-rgb), 0.08);
 }
 
-/* 深色主题：圆形按钮图标颜色对齐椒盐深色系 */
-:global(.dark) .songs-page__round-btn,
+/* 播放行文字蓝色高亮（对齐椒盐：标题+副文字变蓝，无背景高亮） */
+.songs-page :deep(.songs-page__row.is-playing) {
+  .m-list-item__title,
+  .m-list-item__subtitle {
+    color: var(--m-primary) !important;
+  }
+}
+
+/* 深色主题：⋮ 按钮颜色 */
 :global(.dark) .songs-page__more-btn {
   color: rgba(225, 230, 235, 0.75); /* 椒盐深色 subText #BFE1E6EB */
 }
