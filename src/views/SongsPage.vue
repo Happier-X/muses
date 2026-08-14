@@ -550,21 +550,33 @@ const currentPlayingInList = computed(() => {
   if (!currentId) {
     return false
   }
-  return songs.value.some((song) => song.id === currentId)
+  // 与 currentSongIndex 同源（visibleSongs），搜索过滤后索引一致
+  return visibleSongs.value.some((song) => song.id === currentId)
 })
 
-/** 当前歌曲在 songs 中的下标（-1 表示不在列表） */
+/** 当前歌曲在 visibleSongs 中的下标（-1 表示不在列表；virtualRows 基于 visibleSongs，必须同源） */
 const currentSongIndex = computed(() => {
   const currentId = playerState.currentSong?.id
   if (!currentId) return -1
-  return songs.value.findIndex((song) => song.id === currentId)
+  return visibleSongs.value.findIndex((song) => song.id === currentId)
 })
 
-/** 当前歌曲行是否在可视区（渲染行含 overscan） */
+/** 当前歌曲行是否在真实可视区（不含 overscan：用行位置与滚动容器视口矩形相交判断） */
 const currentSongInViewport = computed(() => {
   const idx = currentSongIndex.value
   if (idx < 0) return false
-  return virtualRows.value.some((item) => item.index === idx)
+  const listEl = listParentRef.value
+  if (!listEl) return false
+  // 从 virtualRows 找当前歌曲行（含 overscan 渲染）
+  const row = virtualRows.value.find((item) => item.index === idx)
+  if (!row) return false
+  // 行顶部/底部相对滚动容器的位置
+  const rowTop = row.start - listEl.scrollTop
+  const rowBottom = row.end - listEl.scrollTop
+  const viewTop = 0
+  const viewBottom = listEl.clientHeight
+  // 行与可视区矩形有交集即可（overscan 行不视为在视口）
+  return rowBottom > viewTop && rowTop < viewBottom
 })
 
 /** 列表滚动中（防抖 300ms）：滚动时隐藏气泡，避免遮挡行的更多按钮 */
@@ -712,7 +724,7 @@ const scrollToCurrentSong = async () => {
     return
   }
 
-  const index = songs.value.findIndex((song) => song.id === currentId)
+  const index = visibleSongs.value.findIndex((song) => song.id === currentId)
   if (index < 0) {
     return
   }
