@@ -4,16 +4,13 @@
       <m-navbar right-class="songs-page__right">
         <template #title>歌曲</template>
         <template #right>
-          <m-button
-            component="button"
-            variant="clear"
-            rounded
+          <m-icon-button
             class="songs-page__search-btn"
             aria-label="搜索歌曲"
             @click="enterSearch"
           >
             <component :is="searchOutline" aria-hidden="true" class="songs-page__search-icon" />
-          </m-button>
+          </m-icon-button>
         </template>
       </m-navbar>
     </div>
@@ -121,9 +118,9 @@
                 <template #after>
                   <div class="songs-page__row-actions">
                     <!-- 椒盐式实心三点菜单（椒盐歌曲页只保留 ⋮，无圆按钮） -->
-                    <button
+                    <m-icon-button
                       v-if="!isMultiSelect"
-                      type="button"
+                      size="sm"
                       class="songs-page__more-btn"
                       aria-label="更多歌曲操作"
                       @click.stop="openSongActions(visibleSongs[virtualRow.index])"
@@ -131,7 +128,7 @@
                       <span class="songs-page__more-dots" aria-hidden="true">
                         <i></i><i></i><i></i>
                       </span>
-                    </button>
+                    </m-icon-button>
                   </div>
                 </template>
               </m-list-item>
@@ -297,7 +294,7 @@ import { Capacitor } from '@capacitor/core'
 import { checkCheck, crosshair, searchOutline, shuffle } from '@/icons'
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
-  MButton, MDialog, MDialogButton, MFab, MList, MListItem, MListInput,
+  MButton, MDialog, MDialogButton, MFab, MIconButton, MList, MListItem, MListInput,
   MNavbar, MCover, MEmpty, MToast,
 } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
@@ -807,13 +804,6 @@ onUnmounted(() => {
       width: 36px;
       height: 36px;
       margin-left: 4px;
-      transition: transform 0.15s ease, opacity 0.15s ease;
-
-      &:active {
-        transform: scale(0.85);
-        opacity: 0.6;
-        background-color: transparent; /* 覆盖 MNavbar 浅蓝 active 底 */
-      }
 
       svg {
         width: 20px;
@@ -826,13 +816,6 @@ onUnmounted(() => {
       min-width: 36px;
       height: 36px;
       color: var(--m-text); /* 对齐椒盐：搜索图标深灰近黑（椒盐 #0d0d0d），非主色蓝 */
-      transition: transform 0.15s ease, opacity 0.15s ease;
-
-      &:active {
-        transform: scale(0.85);
-        opacity: 0.6;
-        background-color: transparent; /* 覆盖 MButton clear 浅蓝 active 底 */
-      }
 
       svg {
         width: 20px;
@@ -1037,25 +1020,11 @@ onUnmounted(() => {
   /* 椒盐歌曲页只保留 ⋮，移除圆按钮 round-btn/round-icon */
 
   &__more-btn {
-    /* 椒盐 ⋮ 三点按钮：小尺寸，紧贴右缘 */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
+    /* 椒盐 ⋮ 三点按钮：小尺寸，紧贴右缘（涟漪反馈由 MIconButton 提供） */
+    width: 36px;
     height: 48px;
-    padding: 0;
-    border: none;
-    border-radius: 50%;
-    background: transparent;
-    color: #949fab; /* 椒盐 ⋮ 实心点蓝灰 (148,159,171) */
-    cursor: pointer;
     flex: none;
-    transition: transform 0.15s ease, opacity 0.15s ease;
-
-    &:active {
-      transform: scale(0.85);
-      opacity: 0.6;
-    }
+    color: #949fab; /* 椒盐 ⋮ 实心点蓝灰 (148,159,171) */
   }
 
   &__more-dots {
@@ -1289,10 +1258,6 @@ onUnmounted(() => {
 /* 深色主题：⋮ 按钮颜色 */
 :global(.dark) .songs-page__more-btn {
   color: rgba(225, 230, 235, 0.75); /* 椒盐深色 subText #BFE1E6EB */
-}
-
-:global(.dark) .songs-page__more-btn:active {
-  background: rgba(255, 255, 255, 0.08);
 }
 
 </style>

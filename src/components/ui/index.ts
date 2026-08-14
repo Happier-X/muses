@@ -7,6 +7,7 @@ export { default as MEmpty } from './MEmpty.vue'
 
 /** 基础 */
 export { default as MButton } from './MButton.vue'
+export { default as MIconButton } from './MIconButton.vue'
 export { default as MBlockTitle } from './MBlockTitle.vue'
 export { default as MCard } from './MCard.vue'
 export { default as MFab } from './MFab.vue'

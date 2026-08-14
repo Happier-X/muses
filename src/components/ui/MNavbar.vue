@@ -12,9 +12,8 @@
         :class="{ 'm-navbar__left--drawer': navigationDrawer && !$slots.left }"
       >
         <slot name="left">
-          <button
+          <m-icon-button
             v-if="navigationDrawer"
-            type="button"
             class="m-navbar__menu-button"
             aria-label="打开导航菜单"
             title="打开导航菜单"
@@ -22,7 +21,7 @@
             @click="openNavigationDrawer"
           >
             <component :is="menu" aria-hidden="true" class="m-navbar__menu-icon" />
-          </button>
+          </m-icon-button>
         </slot>
       </div>
       <div class="m-navbar__title">
@@ -42,6 +41,7 @@
 import { inject } from 'vue'
 import { navigationDrawerKey } from '@/features/navigation/drawer'
 import { menu } from '@/icons'
+import { MIconButton } from '@/components/ui'
 
 /**
  * APP-ONLY：MNavbar —— 吸顶导航栏（替代 k-navbar，iOS）
@@ -125,20 +125,7 @@ const openNavigationDrawer = (event: MouseEvent) => {
   &__left { margin-right: var(--m-spacing-sub); }
 
   &__menu-button {
-    display: grid;
-    place-items: center;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
     color: var(--m-text);
-    background-color: transparent;
-    cursor: pointer;
-
-    &:active {
-      background-color: rgba(var(--m-primary-rgb), 0.15);
-    }
 
     @media (min-width: 768px) {
       display: none;
