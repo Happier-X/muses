@@ -117,14 +117,14 @@ const toDisplayableUri = (uri: string): string => {
 <style scoped lang="scss">
 .mini-player {
   position: fixed;
-  left: 12px;
-  right: 12px;
+  left: 18px;
+  right: 18px;
   bottom: calc(var(--m-safe-area-bottom, 0px) + 8px);
   z-index: 1000;
   height: 64px;
   color: var(--m-text);
   background: rgba(255, 255, 255, 0.72); /* 液态玻璃：白色 72% 底 */
-  border-radius: 20px; /* 胶囊圆角 */
+  border-radius: 40px; /* 大圆角胶囊（椒盐实测圆角 ~24dp，视觉近满圆） */
   cursor: pointer;
   box-sizing: border-box;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); /* 悬浮阴影 */
