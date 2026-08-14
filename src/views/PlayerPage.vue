@@ -2374,12 +2374,13 @@ onUnmounted(() => {
     white-space: nowrap;
   }
 
-  /* 旋转方形封面（椒盐：逆时针 ~45° 倾斜，固定高度不撑满） */
+  /* 旋转方形封面（椒盐：贴左缘逆时针 ~45° 倾斜） */
   &__cover-rotator {
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 100%;
+    justify-content: flex-start;
+    margin-left: 7px; /* 封面中心 x≈106dp，旋转包围盒左缘≈0（椒盐实测贴左） */
+    width: calc(100% - 7px);
     min-height: 0;
     flex: 0 0 auto;
     height: clamp(170px, 32vh, 230px);
