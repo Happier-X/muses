@@ -2433,7 +2433,7 @@ onUnmounted(() => {
     min-width: 0;
   }
 
-  /* 三行歌词上下文（椒盐：前一行/当前行/后一行，当前行高亮） */
+  /* 三行歌词上下文（AMLL 风格：当前行高亮放大、前后行淡化缩小） */
   &__meta-line {
     margin: 0;
     font-size: 13px;
@@ -2442,6 +2442,7 @@ onUnmounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    transform-origin: left center; /* 缩放从左缘开始，三行保持左对齐不偏移 */
   }
 
   &__meta-line + &__meta-line {
