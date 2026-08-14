@@ -112,7 +112,9 @@ const dividers = computed(() => props.dividers ?? listState?.value?.dividers ?? 
       background-color: rgba(0, 0, 0, 0.1);
     }
 
-    &:active:has(.m-toggle:active) {
+    /* 内部控件激活（开关/图标按钮）时不触发行高亮 */
+    &:active:has(.m-toggle:active),
+    &:active:has(.m-icon-button:active) {
       background-color: transparent;
     }
   }
@@ -211,7 +213,8 @@ const dividers = computed(() => props.dividers ?? listState?.value?.dividers ?? 
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-:global(.dark) .m-list-item--link:active:has(.m-toggle:active) {
+:global(.dark) .m-list-item--link:active:has(.m-toggle:active),
+:global(.dark) .m-list-item--link:active:has(.m-icon-button:active) {
   background-color: transparent;
 }
 </style>
