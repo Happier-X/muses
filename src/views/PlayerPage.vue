@@ -43,15 +43,28 @@
           :transition="{ duration: 0.22, ease: 'easeOut' }"
         >
           <section class="panel info-panel player-page__info-panel" aria-label="播放控制页">
+            <!-- 顶部导航（椒盐：返回 + 右侧更多） -->
+            <header class="player-page__topbar">
+              <m-icon-button aria-label="返回" @click="goBack">
+                <component :is="chevronBack" class="player-page__topbar-icon" />
+              </m-icon-button>
+              <span class="player-page__topbar-title">正在播放</span>
+              <m-icon-button aria-label="更多" @click="openPlayerActions">
+                <component :is="moreIcon" class="player-page__topbar-icon" />
+              </m-icon-button>
+            </header>
+
             <div class="info-panel-inner player-page__info-inner">
-              <div class="cover-slot player-page__cover-slot">
-                <img v-if="displayCoverSrc" class="cover player-page__cover-img" :src="displayCoverSrc" alt="歌曲封面" />
-                <div v-else class="cover placeholder-cover player-page__cover-img player-page__cover-placeholder">♪</div>
+              <!-- 歌曲信息（椒盐：顶部歌手小字 + 歌名大字） -->
+              <div class="player-page__song-head">
+                <p v-if="lyricArtist" class="player-page__song-artist">{{ lyricArtist }}</p>
+                <h1 class="player-page__song-title">{{ playerState.currentSong.title }}</h1>
               </div>
 
-              <div class="song-info player-page__song-info">
-                <h1>{{ playerState.currentSong.title }}</h1>
-                <p>{{ subtitle }}</p>
+              <!-- 旋转方形封面（椒盐：倾斜放置） -->
+              <div class="player-page__cover-rotator">
+                <img v-if="displayCoverSrc" class="player-page__cover-img" :src="displayCoverSrc" alt="歌曲封面" />
+                <div v-else class="player-page__cover-img player-page__cover-placeholder">♪</div>
               </div>
 
               <div
@@ -733,6 +746,7 @@ import {
   MActionsLabel,
   MButton,
   MCheckbox,
+  MIconButton,
   MListInput,
   MPopup,
   MRange,
@@ -756,6 +770,7 @@ import {
 import { cacheRemoteCover } from '@/features/player/native'
 import {
   ellipsisVertical,
+  chevronBack,
   languageOffOutline,
   languageOutline,
   list,
@@ -1703,11 +1718,6 @@ const onNext = () => {
   void playNextFromQueue()
 }
 
-const subtitle = computed(() => {
-  const song = playerState.currentSong
-  return [song?.artist, song?.album].filter(Boolean).join(' · ') || '未知歌手'
-})
-
 const lyricArtist = computed(() => playerState.currentSong?.artist?.trim() || '')
 
 const toDisplayableUri = (uri: string): string => {
@@ -2286,12 +2296,16 @@ onUnmounted(() => {
     overflow: hidden;
   }
 
+  &__info-panel {
+    position: relative; /* topbar 绝对定位锚点 */
+  }
+
   &__info-inner {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 12px;
+    justify-content: flex-end; /* 椒盐：内容块底部对齐 */
+    gap: 14px;
     width: min(100%, 420px);
     height: 100%;
     margin: 0 auto;
@@ -2299,20 +2313,87 @@ onUnmounted(() => {
     overflow: hidden;
   }
 
-  &__cover-slot {
+  /* 顶部导航（椒盐：左上返回 ← + 右上更多） */
+  &__topbar {
+    position: absolute;
+    top: calc(6px + var(--m-safe-area-top, 0px));
+    left: 12px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 30;
+    pointer-events: none;
+
+    :deep(.m-icon-button) {
+      pointer-events: auto;
+      color: rgba(255, 255, 255, 0.92);
+    }
+  }
+
+  &__topbar-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  &__topbar-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* 歌曲信息（椒盐：顶部居中，歌手小字 + 歌名大字） */
+  &__song-head {
+    flex: none;
+    width: 100%;
+    margin: 0;
+    text-align: center;
+    min-width: 0;
+  }
+
+  &__song-artist {
+    margin: 0 0 6px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.7);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__song-title {
+    margin: 0;
+    font-size: clamp(30px, 11vw, 44px);
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: rgba(255, 255, 255, 0.95);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 旋转方形封面（椒盐：逆时针 ~45° 倾斜，固定高度不撑满） */
+  &__cover-rotator {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
     min-height: 0;
+    flex: 0 0 auto;
+    height: clamp(170px, 32vh, 230px);
+    overflow: visible;
   }
 
-  &__cover-img {
-    aspect-ratio: 1;
+  &__cover-rotator &__cover-img {
+    width: min(42vw, 170px);
     height: auto;
-    max-width: 100%;
+    aspect-ratio: 1;
     object-fit: cover;
-    border-radius: var(--m-radius-card);
+    transform: rotate(-45deg);
+    border-radius: 18px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
   }
 
   &__cover-placeholder {
@@ -2320,14 +2401,6 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     font-size: 56px;
-  }
-
-  &__song-info {
-    flex: none;
-    width: 100%;
-    margin: 0;
-    text-align: left;
-    min-width: 0;
   }
 
   &__progress-area {

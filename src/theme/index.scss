@@ -337,26 +337,15 @@ body.muses-overlay-open .m-content {
   flex: 0 0 50%;
 }
 
-/* 竖屏方案 3：cover-slot 不 flex-grow，避免 justify-center 后槽位仍撑出上下空带 */
-.player-overlay .cover-slot {
-  flex: 0 1 auto;
-  max-height: min(52dvh, 340px);
+/* 竖屏方案 3：封面槽位固定高度不撑满，避免内容块顶到歌名/留白失真 */
+.player-overlay .cover-rotator {
+  flex: 0 0 auto;
+  min-height: 0;
 }
 
 .player-overlay .info-panel-inner {
-  justify-content: center;
-  gap: 12px;
-}
-
-.player-overlay .song-info h1 {
-  margin: 0;
-  font-size: clamp(20px, 5.4vw, 28px);
-  line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  justify-content: flex-end; /* 椒盐：内容块底部对齐（进度/控制贴底，歌名上方留白） */
+  gap: 14px;
 }
 
 .player-overlay .song-info p {
