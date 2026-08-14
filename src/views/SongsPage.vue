@@ -1202,21 +1202,6 @@ onUnmounted(() => {
     font-size: 12px;
     line-height: 1.3;
     margin-top: 2px; /* 标题-副文字间距 2dp（SaltUI Item 源码） */
-
-    /* HQ 品质标签（椒盐：副标题前橙色小标签） */
-    &::before {
-      content: 'HQ';
-      display: inline-block;
-      font-size: 9px;
-      font-weight: 600;
-      line-height: 1;
-      padding: 1px 3px;
-      border-radius: 2px;
-      background: #F5A623; /* 橙色（椒盐实测） */
-      color: #fff;
-      margin-right: 4px;
-      vertical-align: middle;
-    }
   }
 
   /* 按钮区紧贴文字区（椒盐：文字 x66-264 → 圆交互区 x264-308 无空隙） */
