@@ -2497,22 +2497,33 @@ onUnmounted(() => {
   &__icon-lg {
     width: 28px;
     height: 28px;
+    /* lucide 双轨：闭合图形（skip 三角）fill 实心 + 线条（skip 竖条）stroke 描边 */
     fill: currentColor;
-    stroke: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   &__icon-xl {
     width: 40px;
     height: 40px;
     fill: currentColor;
-    stroke: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   &__icon {
     width: 20px;
     height: 20px;
+    /* 关键修复：fill-only + stroke:none 会让 lucide 线条图标（repeat/shuffle/list/pause 竖条）碎裂 */
     fill: currentColor;
-    stroke: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   /* 歌词页 */
