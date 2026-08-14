@@ -61,12 +61,23 @@
                 <div v-else class="player-page__cover-hero-img player-page__cover-hero-placeholder">♪</div>
               </div>
 
-              <!-- 三行歌词上下文（椒盐：前一行/当前行/后一行，当前行高亮） -->
-              <div v-if="lyricContext.current" class="player-page__song-meta">
-                <p v-if="lyricContext.prev" class="player-page__meta-line">{{ lyricContext.prev }}</p>
-                <p class="player-page__meta-line player-page__meta-current">{{ lyricContext.current }}</p>
-                <p v-if="lyricContext.next" class="player-page__meta-line">{{ lyricContext.next }}</p>
-              </div>
+              <!-- 三行歌词（AMLL 风格动画：当前行放大高亮、前后行淡化缩小） -->
+              <motion.div v-if="lyricRows.length > 0" class="player-page__song-meta">
+                <motion.p
+                  v-for="row in lyricRows"
+                  :key="row.key"
+                  class="player-page__meta-line"
+                  :class="{ 'player-page__meta-current': row.isCurrent }"
+                  :animate="{
+                    opacity: row.isCurrent ? 1 : 0.55,
+                    scale: row.isCurrent ? 1.05 : 0.92,
+                    filter: row.isCurrent ? 'blur(0px)' : 'blur(0.6px)',
+                  }"
+                  :transition="{ type: 'spring', stiffness: 240, damping: 26 }"
+                >
+                  {{ row.text }}
+                </motion.p>
+              </motion.div>
 
               <div
                 class="player-page__progress-area"
@@ -1745,6 +1756,20 @@ const lyricContext = computed(() => {
     current,
     next: currentIdx >= 0 && currentIdx < lines.length - 1 ? textOf(lines[currentIdx + 1]) : '',
   }
+})
+
+/** 三行渲染数组（AMLL 风格：当前行高亮放大、前后行淡化缩小） */
+const lyricRows = computed(() => {
+  const { prev, current, next } = lyricContext.value
+  const rows: { key: string; text: string; isCurrent: boolean }[] = []
+  if (prev) {
+    rows.push({ key: 'prev', text: prev, isCurrent: false })
+  }
+  rows.push({ key: 'current', text: current || '', isCurrent: true })
+  if (next) {
+    rows.push({ key: 'next', text: next, isCurrent: false })
+  }
+  return rows
 })
 
 const toDisplayableUri = (uri: string): string => {
