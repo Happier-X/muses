@@ -796,6 +796,7 @@ onUnmounted(() => {
     :deep(.m-navbar) {
       padding-top: 22px;
       background-color: #F3F3F3;
+      border-bottom: none; /* 对齐椒盐：navbar 与工具条之间无分割线 */
     }
     :deep(.m-navbar__bg) {
       background-color: #F3F3F3;
