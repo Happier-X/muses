@@ -139,6 +139,7 @@ const dividers = computed(() => props.dividers ?? listState?.value?.dividers ?? 
   &__inner {
     position: relative;
     width: 100%;
+    min-width: 0; /* flex 子项（与 media 并排）必须可收缩：min-width:auto 时长文本会撑宽容器，把 after 按钮区推出右侧（歌曲页行按钮错位根因） */
     padding: 12px calc(16px + var(--m-safe-area-right, 0px)) 12px 0;
   }
 
