@@ -120,17 +120,18 @@ const toDisplayableUri = (uri: string): string => {
 <style scoped lang="scss">
 .mini-player {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: var(--m-safe-area-bottom, 0px);
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--m-safe-area-bottom, 0px) + 8px);
   z-index: 1000;
   height: 64px;
   color: var(--m-text);
   background-color: transparent; /* 液态玻璃：透明底，由 blur+glass 层提供 */
-  border-top: 1px solid var(--m-hairline);
+  border-radius: 16px; /* 胶囊圆角 */
   cursor: pointer;
   box-sizing: border-box;
   overflow: hidden; /* 确保玻璃层不溢出 */
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); /* 悬浮阴影 */
 
 
   &--empty {
@@ -142,6 +143,7 @@ const toDisplayableUri = (uri: string): string => {
     inset: 0;
     -webkit-backdrop-filter: blur(16px);
     backdrop-filter: blur(16px);
+    border-radius: 16px;
     z-index: 0;
   }
 
@@ -149,6 +151,7 @@ const toDisplayableUri = (uri: string): string => {
     position: absolute;
     inset: 0;
     background: var(--m-glass-light); /* 液态玻璃：使用主题变量 */
+    border-radius: 16px;
     z-index: 0;
   }
 
