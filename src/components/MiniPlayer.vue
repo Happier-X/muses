@@ -127,11 +127,12 @@ const toDisplayableUri = (uri: string): string => {
   height: 64px;
   color: var(--m-text);
   background-color: transparent; /* 液态玻璃：透明底，由 blur+glass 层提供 */
-  border-radius: 16px; /* 胶囊圆角 */
+  border-radius: 20px; /* 胶囊圆角（椒盐更圆润） */
   cursor: pointer;
   box-sizing: border-box;
   overflow: hidden; /* 确保玻璃层不溢出 */
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); /* 悬浮阴影 */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); /* 悬浮阴影 */
+  border: 1px solid rgba(255, 255, 255, 0.5); /* 微妙白边 */
 
 
   &--empty {
@@ -141,17 +142,17 @@ const toDisplayableUri = (uri: string): string => {
   &__blur {
     position: absolute;
     inset: 0;
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
-    border-radius: 16px;
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
     z-index: 0;
   }
 
   &__glass {
     position: absolute;
     inset: 0;
-    background: var(--m-glass-light); /* 液态玻璃：使用主题变量 */
-    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.72); /* 液态玻璃：白色 72% 底 */
+    border-radius: 20px;
     z-index: 0;
   }
 
