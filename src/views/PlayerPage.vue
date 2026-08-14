@@ -2441,7 +2441,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(16px, 5vw, 28px);
+    gap: clamp(24px, 10vw, 44px);
     width: 100%;
     margin: 0;
     touch-action: manipulation;
@@ -2466,11 +2466,24 @@ onUnmounted(() => {
     color: rgba(255, 255, 255, 0.9) !important;
   }
 
+  /* 播放按钮：白色圆底 + 深色图标（椒盐：白色实心圆钮） */
   &__play-btn {
-    width: 64px;
-    height: 64px;
+    width: 56px;
+    height: 56px;
     padding: 0;
-    color: var(--m-primary) !important;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #1b1b1b !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+
+  &__play-btn &__icon-xl {
+    width: 26px;
+    height: 26px;
   }
 
   &__mode-btn {
