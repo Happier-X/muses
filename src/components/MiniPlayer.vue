@@ -183,24 +183,40 @@ const toDisplayableUri = (uri: string): string => {
 
   /* clear 变体按钮：MiniPlayer 场景用文字色而非主题色（覆盖 MButton 默认） */
   &__btn {
+    position: relative;
     width: 40px;
     height: 40px;
     padding: 0;
     flex: 0 0 40px;
-    color: var(--m-text);
+    color: #fff;
 
-    &:active {
-      background-color: var(--m-surface-2);
+    /* 对齐椒盐：fill 风格深色圆底 ~18-20dp（椒盐实测播放 #22171A、队列 #161616） */
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 50% auto auto 50%;
+      transform: translate(-50%, -50%);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #22171a;
+      z-index: 0;
+    }
+
+    &:active::before {
+      opacity: 0.8;
     }
   }
 
   &__icon {
-    width: 20px;
-    height: 20px;
+    position: relative; /* 叠在深色圆上 */
+    width: 16px;
+    height: 16px;
+    z-index: 1;
   }
 }
 
-:global(.dark) .mini-player__btn:active {
-  background-color: var(--m-surface-2);
+:global(.dark) .mini-player__btn:active::before {
+  opacity: 0.8;
 }
 </style>
