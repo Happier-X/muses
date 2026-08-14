@@ -1266,4 +1266,10 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* MiniPlayer 背景对齐椒盐（白色 + 阴影） */
+:global(.mini-player) {
+  background-color: #fff !important;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
 </style>
