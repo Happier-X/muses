@@ -1157,7 +1157,12 @@ onUnmounted(() => {
     position: fixed;
     z-index: 1100;
     right: 16px;
-    bottom: 176px;
+    bottom: 96px; /* 对齐椒盐：FAB 底距播放条顶 ~24dp（椒盐实测） */
+
+    /* 对齐椒盐：白色圆底 + 深灰定位图标（非主色底） */
+    background-color: #f9f9f9;
+    color: #666;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   }
 
   &__jump-icon {
