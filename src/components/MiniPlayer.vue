@@ -209,8 +209,8 @@ const toDisplayableUri = (uri: string): string => {
   }
 
   &__icon {
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
     z-index: 1;
   }
 }
