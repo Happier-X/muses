@@ -812,10 +812,11 @@ onUnmounted(() => {
       }
     }
 
-    /* 对齐椒盐：搜索图标更小巧（椒盐 ~16dp 宽），距右 24dp */
+    /* 对齐椒盐：搜索图标更小巧（椒盐 ~16dp 宽），距右 24dp，颜色深灰近黑 */
     :deep(.songs-page__search-btn) {
       min-width: 36px;
       height: 36px;
+      color: var(--m-text); /* 对齐椒盐：搜索图标深灰近黑（椒盐 #0d0d0d），非主色蓝 */
       svg {
         width: 20px;
         height: 20px;
@@ -905,7 +906,7 @@ onUnmounted(() => {
     flex: 1;
     text-align: center;
     font-size: 14px;
-    color: var(--m-text-2);
+    color: var(--m-text); /* 对齐椒盐：计数深灰近黑（椒盐 #1a1a1a），非灰色 */
     white-space: nowrap;
   }
 
