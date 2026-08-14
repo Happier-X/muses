@@ -2467,15 +2467,14 @@ onUnmounted(() => {
     color: rgba(255, 255, 255, 0.9) !important;
   }
 
-  /* 播放按钮：白色圆底 + 深色图标（椒盐：白色实心圆钮） */
+  /* 播放按钮：无圆底（用户要求），白色图标直接置于背景 */
   &__play-btn {
     width: 56px;
     height: 56px;
     padding: 0;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.95) !important;
-    color: #1b1b1b !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.92) !important;
 
     &:disabled {
       opacity: 0.5;
