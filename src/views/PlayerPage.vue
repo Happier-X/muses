@@ -2403,23 +2403,24 @@ onUnmounted(() => {
     white-space: nowrap;
   }
 
-  /* 大封面（椒盐：铺满上部约 49% 屏高） */
+  /* 大封面（椒盐：铺满上部约 49% 屏高，歌名/歌手浮层） */
   &__cover-hero {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex: 1 1 auto;
     min-height: 0;
     max-height: min(50vh, 420px);
     width: 100%;
     overflow: hidden;
-    border-radius: var(--m-radius-card);
   }
 
   &__cover-hero-img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    width: min(52vw, 280px);
+    aspect-ratio: 1;
     object-fit: cover;
+    border-radius: var(--m-radius-card);
   }
 
   &__cover-hero-placeholder {
