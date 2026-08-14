@@ -792,3 +792,11 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 **验证**：lint/vue-tsc/build 全绿；CDP 实测 bodyMargin=0、app x0 w360、round 44x48+视觉圆14、more 36x48+dots h15、gap0、间距2px；点击 round→「已加入队列」toast ✓、more→m-actions 菜单 ✓（注意类名前缀是 m- 不是 k-）；专辑页导航无回归 ✓
 **提交**：ae1c846（主体）+ 2798e1d（⋮ 颜色收尾）
 **spec**：component-guidelines.md Salt 尺寸契约补 body margin:0 + 行内按钮契约（44x48/36x48/实心三点/紧挨）
+
+## 08-13 歌曲页椒盐深仿任务收尾验收（任务 08-13-songs-page-salt-alignment）
+**实现**：b268120/d260ef7 主体（工具条/排序/多选/索引条/搜索/行内布局）+ 多轮 fix（行高72dp/navbar/无分割线/索引条尺寸/工具条按钮/行内按钮复刻），实现早已完成，本次补全量验收：
+- AC2 工具条 ✓（多选/排序按钮）；AC3 排序菜单 ✓（自定义/标题/专辑(音轨)/大小/文件夹(标题)/文件名/艺术家(专辑)/年份…13 项）
+- AC4 多选 ✓（进入后左按钮变「全选」）；AC5 索引条 ✓（标题排序显示 0+A-Z+# 28 项，自定义排序隐藏）
+- AC6 行内布局 ✓（08-14 CDP 实测覆盖）；AC7 搜索 ✓（placeholder「在 465 首歌曲中搜索」、KOKIA 过滤剩 1 行、取消恢复工具条）
+- AC8 零回归 ✓（加队列 toast / 更多菜单实测正常）
+**经验**：验收探针类名注意前缀——本项目自研组件类是 `m-*`（m-actions/m-toast），不是 Konsta 的 `k-*`；搜索输入用原生 value setter + input 事件才能触发 v-model。
