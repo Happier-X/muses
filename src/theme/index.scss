@@ -16,13 +16,13 @@
   --m-surface-3: #f9f9f9;
   --m-surface-variant: #ececec;
 
-  /* 文字（Salt：text #1E1715 / subText #8C8C8C） */
-  --m-text: #1e1715;
+  /* 文字（椒盐截图实测：标题中性深灰 #191919，非暖棕；subText #8C8C8C） */
+  --m-text: #191919;
   --m-text-2: #8c8c8c;             /* secondary（Salt subText） */
-  --m-text-3: rgba(30, 23, 21, 0.3); /* tertiary / placeholder */
+  --m-text-3: rgba(25, 25, 25, 0.3); /* tertiary / placeholder */
   /* 别名（页面 scoped 常用口径） */
   --m-text-secondary: #8c8c8c;
-  --m-text-tertiary: rgba(30, 23, 21, 0.3);
+  --m-text-tertiary: rgba(25, 25, 25, 0.3);
 
   /* 品牌与语义色（Salt highlight #0470E6） */
   --m-primary: #0470e6;
