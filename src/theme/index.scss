@@ -248,6 +248,7 @@ html.muses-mini-visible {
 /* ============ 4. 基础（body / 高度链 / 滚动锁） ============ */
 
 body {
+  margin: 0; /* 重置浏览器默认 8px，页面满屏对齐椒盐 */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: var(--m-text);
   background: var(--m-surface);

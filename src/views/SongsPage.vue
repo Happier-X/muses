@@ -162,16 +162,17 @@
                         class="songs-page__round-icon"
                       />
                     </button>
-                    <m-button
-                      component="button"
-                      variant="clear"
-                      rounded
+                    <button
+                      type="button"
                       class="songs-page__more-btn"
                       aria-label="更多歌曲操作"
                       @click.stop="openSongActions(visibleSongs[virtualRow.index])"
                     >
-                      <component :is="ellipsisVertical" aria-hidden="true" class="songs-page__more-icon" />
-                    </m-button>
+                      <!-- 椒盐式实心三点（对齐源码视觉：点 ~3.3dp、总高 14dp） -->
+                      <span class="songs-page__more-dots" aria-hidden="true">
+                        <i></i><i></i><i></i>
+                      </span>
+                    </button>
                   </div>
                 </template>
               </m-list-item>
@@ -334,7 +335,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
-import { arrowUpDown, add, checkCheck, crosshair, ellipsisVertical, listChecks, searchOutline, volume2 } from '@/icons'
+import { arrowUpDown, add, checkCheck, crosshair, listChecks, searchOutline, volume2 } from '@/icons'
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
   MButton, MDialog, MDialogButton, MFab, MList, MListItem, MListInput,
@@ -1018,55 +1019,101 @@ onUnmounted(() => {
     white-space: nowrap;
   }
 
-  /* 行内右侧操作区：圆形按钮 + 菜单 */
+  /* 行内右侧操作区：圆形按钮 + 菜单（圆/⋮ 紧挨，对齐椒盐 x264-308 / x308-344） */
   &__row-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 0;
     flex: none;
     margin-left: auto;
+    /* 48px 交互区在 28px 标题行内垂直溢出（负 margin 不撑高 72px 行；
+       按钮中心仍对齐标题中心，与椒盐实测一致） */
+    margin-top: -10px;
+    margin-bottom: -10px;
   }
 
   &__round-btn {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 14px;
-    height: 14px;
+    /* 交互区 44x48dp（椒盐实测 uiautomator [792,396][924,540]），视觉圆 14dp 内嵌居中 */
+    width: 44px;
+    height: 48px;
     padding: 0;
     border: none;
     border-radius: 50%;
-    background: var(--m-surface-2);
-    color: var(--m-text-2);
+    background: transparent;
+    color: #949fab; /* 椒盐加号图标蓝灰 (148,159,171) */
     cursor: pointer;
     flex: none;
 
-    &:active {
+    /* 视觉圆 14dp（椒盐实测 42px 物理），居中于 44x48 交互区 */
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 50% auto auto 50%;
+      transform: translate(-50%, -50%);
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--m-surface-2); /* ≈ 椒盐 #EDEDED */
+      transition: background 0.15s ease;
+    }
+
+    &:active::before {
       background: var(--m-surface-3);
     }
 
     &.is-playing {
-      background: rgba(var(--m-primary-rgb), 0.12);
       color: var(--m-primary);
+
+      &::before {
+        background: rgba(var(--m-primary-rgb), 0.12);
+      }
     }
   }
 
   &__round-icon {
+    position: relative; /* 叠在视觉圆上层 */
     width: 10px;
     height: 10px;
+    stroke-width: 3; /* 加粗对齐椒盐图标视觉重量 */
   }
 
   &__more-btn {
-    width: 32px;
-    height: 32px;
+    /* 交互区 36x48dp（椒盐实测 uiautomator [924,396][1032,540]），实心三点视觉 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 48px;
     padding: 0;
-    flex: none;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
     color: var(--m-text);
+    cursor: pointer;
+    flex: none;
+
+    &:active {
+      background: rgba(0, 0, 0, 0.06);
+    }
   }
 
-  &__more-icon {
-    width: var(--m-list-icon);
-    height: var(--m-list-icon);
+  &__more-dots {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px; /* 椒盐点中心距 5.3dp - 点径 3.3dp */
+
+    i {
+      display: block;
+      width: 3.5px; /* 椒盐实心点 ~3.3dp */
+      height: 3.5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
   }
 
   /* 多选选择框 */
@@ -1218,7 +1265,13 @@ onUnmounted(() => {
   .m-list-item__subtitle {
     font-size: 12px;
     line-height: 1.3;
-    margin-top: 1px;
+    margin-top: 2px; /* 标题-副文字间距 2dp（SaltUI Item 源码） */
+  }
+
+  /* 按钮区紧贴文字区（椒盐：文字 x66-264 → 圆交互区 x264-308 无空隙） */
+  .m-list-item__after {
+    padding-left: 0;
+    gap: 0;
   }
 }
 
@@ -1242,4 +1295,14 @@ onUnmounted(() => {
 .songs-page :deep(.songs-page__row.is-selected) {
   background-color: rgba(var(--m-primary-rgb), 0.08);
 }
+
+/* 深色主题：圆形按钮图标颜色对齐椒盐深色系 */
+:global(.dark) .songs-page__round-btn {
+  color: rgba(225, 230, 235, 0.75); /* 椒盐深色 subText #BFE1E6EB */
+}
+
+:global(.dark) .songs-page__more-btn:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 </style>
