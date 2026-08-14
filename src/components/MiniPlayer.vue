@@ -148,7 +148,7 @@ const toDisplayableUri = (uri: string): string => {
   &__glass {
     position: absolute;
     inset: 0;
-    background: rgba(255, 255, 255, 0.72); /* 液态玻璃：白 72% 底 */
+    background: var(--m-glass-light); /* 液态玻璃：使用主题变量 */
     z-index: 0;
   }
 
