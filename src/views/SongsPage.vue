@@ -1159,10 +1159,13 @@ onUnmounted(() => {
     right: 16px;
     bottom: 96px; /* 对齐椒盐：FAB 底距播放条顶 ~24dp（椒盐实测） */
 
-    /* 对齐椒盐：白色圆底 + 深灰定位图标（非主色底） */
-    background-color: #f9f9f9;
+    /* 对齐椒盐：液态玻璃圆底（与播放条同质感）+ 深灰定位图标 */
+    background: rgba(255, 255, 255, 0.72);
     color: #666;
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.5);
   }
 
   &__jump-icon {

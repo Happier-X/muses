@@ -37,7 +37,7 @@ withDefaults(
   }>(),
   {
     text: undefined,
-    textPosition: 'after',
+    textPosition: undefined, /* 纯图标 FAB 时默认 slot 才渲染；带文字才需要 textPosition */
     disabled: false,
   },
 )
