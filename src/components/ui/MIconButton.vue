@@ -108,6 +108,7 @@ defineEmits<{
     align-items: center;
     justify-content: center;
     z-index: 1;
+    pointer-events: none; /* 点击穿透到按钮（motion whileTap / click 统一在按钮上） */
   }
 
   &--disabled {
