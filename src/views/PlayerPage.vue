@@ -61,11 +61,11 @@
                 <div v-else class="player-page__cover-hero-img player-page__cover-hero-placeholder">♪</div>
               </div>
 
-              <!-- 歌曲信息三行（椒盐：作曲/编曲/歌词；Muses 用 专辑/时长/歌词替代） -->
-              <div class="player-page__song-meta">
-                <p class="player-page__meta-line">{{ metaAlbumLine }}</p>
-                <p v-if="metaDurationLine" class="player-page__meta-line">{{ metaDurationLine }}</p>
-                <p v-if="currentLyricText" class="player-page__meta-line player-page__meta-lyric">{{ currentLyricText }}</p>
+              <!-- 三行歌词上下文（椒盐：前一行/当前行/后一行，当前行高亮） -->
+              <div v-if="lyricContext.current" class="player-page__song-meta">
+                <p v-if="lyricContext.prev" class="player-page__meta-line">{{ lyricContext.prev }}</p>
+                <p class="player-page__meta-line player-page__meta-current">{{ lyricContext.current }}</p>
+                <p v-if="lyricContext.next" class="player-page__meta-line">{{ lyricContext.next }}</p>
               </div>
 
               <div
@@ -1720,40 +1720,31 @@ const onNext = () => {
 const lyricArtist = computed(() => playerState.currentSong?.artist?.trim() || '')
 
 /** 当前歌词行文本（椒盐：封面下方信息区展示） */
-const currentLyricText = computed(() => {
+/** 三行歌词上下文：上一行 / 当前行（高亮）/ 下一行 */
+const lyricContext = computed(() => {
   if (!hasLyrics.value) {
-    return ''
+    return { prev: '', current: '', next: '' }
   }
   const targetMs = lyricRenderTime.value
+  const lines = displayLyricLines.value
+  const textOf = (line: LyricLine | undefined): string =>
+    line ? (line.words ?? []).map((w) => w.word).join('') : ''
   let current = ''
-  for (const line of displayLyricLines.value) {
-    const start = line.startTime ?? 0
+  let currentIdx = -1
+  for (let i = 0; i < lines.length; i += 1) {
+    const start = lines[i].startTime ?? 0
     if (start <= targetMs) {
-      current = (line.words ?? []).map((w) => w.word).join('')
+      current = textOf(lines[i])
+      currentIdx = i
     } else {
       break
     }
   }
-  return current
-})
-
-/** 信息区行 1（椒盐：作曲/编曲无数据源，用专辑替代） */
-const metaAlbumLine = computed(() => {
-  const song = playerState.currentSong
-  const album = song?.album?.trim()
-  return album ? album : '单曲'
-})
-
-/** 信息区行 2（椒盐：编曲无数据源，用时长替代） */
-const metaDurationLine = computed(() => {
-  const d = playerState.duration
-  if (!d || !Number.isFinite(d) || d <= 0) {
-    return ''
+  return {
+    prev: currentIdx > 0 ? textOf(lines[currentIdx - 1]) : '',
+    current,
+    next: currentIdx >= 0 && currentIdx < lines.length - 1 ? textOf(lines[currentIdx + 1]) : '',
   }
-  const total = Math.round(d)
-  const mm = Math.floor(total / 60)
-  const ss = total % 60
-  return `时长 ${mm}:${String(ss).padStart(2, '0')}`
 })
 
 const toDisplayableUri = (uri: string): string => {
@@ -2417,11 +2408,12 @@ onUnmounted(() => {
     min-width: 0;
   }
 
+  /* 三行歌词上下文（椒盐：前一行/当前行/后一行，当前行高亮） */
   &__meta-line {
     margin: 0;
     font-size: 13px;
     line-height: 1.5;
-    color: rgba(255, 255, 255, 0.72);
+    color: rgba(255, 255, 255, 0.6);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2431,8 +2423,8 @@ onUnmounted(() => {
     margin-top: 10px; /* 椒盐三行行距 ~24dp，此处 10px 视觉接近 */
   }
 
-  &__meta-lyric {
-    color: rgba(255, 255, 255, 0.88);
+  &__meta-current {
+    color: rgba(255, 255, 255, 0.92);
   }
 
   &__progress-area {
