@@ -216,23 +216,22 @@ const toDisplayableUri = (uri: string): string => {
     height: 40px;
     padding: 0;
     flex: 0 0 40px;
-    color: #fff;
-    /* 对齐椒盐：fill 风格——深色实心圆底（按钮本身圆角 9999px）+ 白色实心图标 */
-    background-color: #22171a;
+    /* 对齐椒盐：透明底，图标为深色实心（椒盐播放三角/队列图标无圆底） */
+    color: #211715;
 
     &:active {
-      opacity: 0.8;
+      opacity: 0.6;
     }
   }
 
   &__icon {
-    width: 16px;
-    height: 16px;
+    width: 22px;
+    height: 22px;
     z-index: 1;
   }
 }
 
 :global(.dark) .mini-player__btn:active {
-  opacity: 0.8;
+  opacity: 0.6;
 }
 </style>
