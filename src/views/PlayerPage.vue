@@ -61,9 +61,11 @@
                 <div v-else class="player-page__cover-hero-img player-page__cover-hero-placeholder">♪</div>
               </div>
 
-              <!-- 当前歌词行（椒盐：封面下方信息区） -->
-              <div v-if="currentLyricText" class="player-page__song-meta">
-                <p class="player-page__meta-line">{{ currentLyricText }}</p>
+              <!-- 歌曲信息三行（椒盐：作曲/编曲/歌词；Muses 用 专辑/时长/歌词替代） -->
+              <div class="player-page__song-meta">
+                <p class="player-page__meta-line">{{ metaAlbumLine }}</p>
+                <p v-if="metaDurationLine" class="player-page__meta-line">{{ metaDurationLine }}</p>
+                <p v-if="currentLyricText" class="player-page__meta-line player-page__meta-lyric">{{ currentLyricText }}</p>
               </div>
 
               <div
@@ -1735,6 +1737,25 @@ const currentLyricText = computed(() => {
   return current
 })
 
+/** 信息区行 1（椒盐：作曲/编曲无数据源，用专辑替代） */
+const metaAlbumLine = computed(() => {
+  const song = playerState.currentSong
+  const album = song?.album?.trim()
+  return album ? album : '单曲'
+})
+
+/** 信息区行 2（椒盐：编曲无数据源，用时长替代） */
+const metaDurationLine = computed(() => {
+  const d = playerState.duration
+  if (!d || !Number.isFinite(d) || d <= 0) {
+    return ''
+  }
+  const total = Math.round(d)
+  const mm = Math.floor(total / 60)
+  const ss = total % 60
+  return `时长 ${mm}:${String(ss).padStart(2, '0')}`
+})
+
 const toDisplayableUri = (uri: string): string => {
   if (!uri) {
     return ''
@@ -2387,7 +2408,7 @@ onUnmounted(() => {
     font-size: 56px;
   }
 
-  /* 当前歌词行（椒盐：封面下方信息区，左对齐） */
+  /* 歌曲信息三行（椒盐：作曲/编曲/歌词，左对齐小字） */
   &__song-meta {
     flex: none;
     width: 100%;
@@ -2404,6 +2425,14 @@ onUnmounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  &__meta-line + &__meta-line {
+    margin-top: 10px; /* 椒盐三行行距 ~24dp，此处 10px 视觉接近 */
+  }
+
+  &__meta-lyric {
+    color: rgba(255, 255, 255, 0.88);
   }
 
   &__progress-area {
