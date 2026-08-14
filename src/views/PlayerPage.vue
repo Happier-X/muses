@@ -43,19 +43,14 @@
           :transition="{ duration: 0.22, ease: 'easeOut' }"
         >
           <section class="panel info-panel player-page__info-panel" aria-label="播放控制页">
-            <!-- 顶部导航（椒盐：返回 + 右侧更多） -->
-            <header class="player-page__topbar">
-              <m-icon-button aria-label="返回" @click="goBack">
-                <component :is="chevronBack" class="player-page__topbar-icon" />
-              </m-icon-button>
-              <span class="player-page__topbar-title">正在播放</span>
-              <m-icon-button aria-label="更多" @click="openPlayerActions">
-                <component :is="moreIcon" class="player-page__topbar-icon" />
-              </m-icon-button>
-            </header>
-
             <div class="info-panel-inner player-page__info-inner">
-              <!-- 大封面（椒盐：铺满上部，歌名/歌手浮层） -->
+              <!-- 顶部歌名/歌手（椒盐：左上竖排小字，无返回/正在播放/更多） -->
+              <div class="player-page__song-head">
+                <h1 class="player-page__song-title">{{ playerState.currentSong.title }}</h1>
+                <p v-if="lyricArtist" class="player-page__song-artist">{{ lyricArtist }}</p>
+              </div>
+
+              <!-- 大封面（椒盐：铺满上部） -->
               <div class="player-page__cover-hero">
                 <img
                   v-if="displayCoverSrc"
@@ -64,8 +59,6 @@
                   alt="歌曲封面"
                 />
                 <div v-else class="player-page__cover-hero-img player-page__cover-hero-placeholder">♪</div>
-                <p v-if="lyricArtist" class="player-page__hero-artist">{{ lyricArtist }}</p>
-                <h1 class="player-page__hero-title">{{ playerState.currentSong.title }}</h1>
               </div>
 
               <!-- 当前歌词行（椒盐：封面下方信息区） -->
@@ -752,7 +745,6 @@ import {
   MActionsLabel,
   MButton,
   MCheckbox,
-  MIconButton,
   MListInput,
   MPopup,
   MRange,
@@ -776,7 +768,6 @@ import {
 import { cacheRemoteCover } from '@/features/player/native'
 import {
   ellipsisVertical,
-  chevronBack,
   languageOffOutline,
   languageOutline,
   list,
@@ -2334,42 +2325,43 @@ onUnmounted(() => {
     width: min(100%, 420px);
     height: 100%;
     margin: 0 auto;
-    padding-top: 64px; /* 椒盐：封面从导航下方开始（~12% 屏高） */
+    padding-top: 16px; /* 椒盐：顶部歌名/歌手区占位 */
     min-height: 0;
     overflow: hidden;
   }
 
-  /* 顶部导航（椒盐：左上返回 ← + 右上更多） */
-  &__topbar {
-    position: absolute;
-    top: calc(6px + var(--m-safe-area-top, 0px));
-    left: 12px;
-    right: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    z-index: 30;
-    pointer-events: none;
-
-    :deep(.m-icon-button) {
-      pointer-events: auto;
-      color: rgba(255, 255, 255, 0.92);
-    }
+  /* 顶部歌名/歌手（椒盐：左上竖排小字，无返回/正在播放/更多） */
+  &__song-head {
+    flex: none;
+    width: 100%;
+    margin: 0;
+    text-align: left;
+    min-width: 0;
   }
 
-  &__topbar-title {
-    font-size: 15px;
+  &__song-title {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.3;
     font-weight: 600;
-    letter-spacing: 0.02em;
-    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.01em;
+    color: rgba(255, 255, 255, 0.95);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  &__topbar-icon {
-    width: 22px;
-    height: 22px;
+  &__song-artist {
+    margin: 2px 0 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.6);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  /* 大封面（椒盐：铺满上部约 49% 屏高，歌名/歌手浮层） */
+  /* 大封面（椒盐：铺满上部约 49% 屏高） */
   &__cover-hero {
     position: relative;
     flex: 1 1 auto;
@@ -2393,38 +2385,6 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     font-size: 56px;
-  }
-
-  &__hero-artist {
-    position: absolute;
-    top: 10px;
-    left: 16px;
-    margin: 0;
-    font-size: 14px;
-    line-height: 1.4;
-    color: rgba(255, 255, 255, 0.85);
-    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 70%;
-  }
-
-  &__hero-title {
-    position: absolute;
-    top: 32%;
-    left: 16px;
-    right: 16px;
-    margin: 0;
-    font-size: clamp(30px, 11vw, 44px);
-    line-height: 1.15;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: #ecd6ce; /* 椒盐实测暖白 */
-    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   /* 当前歌词行（椒盐：封面下方信息区，左对齐） */
