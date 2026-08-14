@@ -108,6 +108,18 @@ Muses 自 `08-09-konsta-ui-migration` 起使用 npm **`konsta@5.3.0`**（精确�
 - **PlayerPage 手势**：自建纵向关闭 / 横向切面板手势原样保留；k-popup 无内置 swipe 处理，与宿主 `touch-action-none` 不冲突。
 - **滚动锁**：宿主 `html/body.muses-overlay-open` class 锁（`hasGlobalOverlay`/`syncBodyOverlayLock`）仍有效（状态驱动，与弹层实现无关）。
 
+### PlayerPage 信息面板椒盐复刻契约（08-14 salt-player-immersive）
+
+信息面板（info-panel）已按椒盐沉浸式播放页截图重构，**任何改动不得打破以下布局契约**：
+
+- **布局顺序（从上到下）**：topbar（返回 ← + 「正在播放」+ ⋮）→ song-head（歌手小字 14px + 歌名大字 `clamp(30px, 11vw, 44px)` 暖白 `rgba(255,255,255,.95)`）→ cover-rotator（旋转封面）→ progress-area → controls（上/播/下）→ mode-bar（repeat/shuffle/list/more 四键）。
+- **内容底部对齐**：`.info-panel-inner { justify-content: flex-end }`（椒盐：进度/控制贴底、歌名上方留白）。**scoped 与全局 index.scss 两处都要是 flex-end**——scoped 的 `justify-content: center` 会覆盖全局规则（实测）。
+- **封面旋转**：`.cover-rotator` 固定高度 `clamp(170px, 32vh, 230px)`（**不 flex-grow**，避免内容块撑满顶到歌名）；封面 `width: min(42vw, 170px)` + `transform: rotate(-45deg)` + 圆角 18px + 阴影；`justify-content: flex-start` + `margin-left: 7px` 使旋转包围盒左缘≈0（椒盐封面贴左缘）。
+- **播放按钮**：白色圆底 `rgba(255,255,255,.95)` + 深色图标 #1b1b1b（椒盐白色实心圆钮），尺寸 56px、图标 26px，`!important` 压 MButton clear 变体；三按钮等距居中（播放钮中心 = 屏幕中心）。
+- **顶部导航**：返回 ←（`goBack` → `closePlayerOverlay()`）+ 右侧 ⋮（`openPlayerActions()`），用 MIconButton（半透明涟漪），topbar 绝对定位在 info-panel 内（`position: relative` 锚点），z-index 30。
+- **背景**：AMLL `BackgroundRender` + `MeshGradientRenderer` 保持（用户指定不换）。
+- **防坑**：歌名大字必须 `white-space: nowrap; overflow: hidden; text-overflow: ellipsis`（长标题不换行）；`subtitle` computed 已删除（模板改用 `lyricArtist`）；旋转封面溢出用 `overflow: visible` 而非隐藏；进度/控制/模式栏 `flex: none` 防压缩。
+
 ### 弹层层级阶梯（Konsta 默认 z-40 必须覆盖）
 
 Konsta 全部弹层（k-popup/k-sheet/k-dialog/k-actions/k-toast）默认 **z-40**，低于 Muses 布局层，**必须**由 `src/theme/tailwind.css` 统一覆盖为阶梯（`08-10` 曾出现添加音源 action sheet 被 tabbar/MiniPlayer 盖住）：
