@@ -2464,7 +2464,7 @@ onUnmounted(() => {
   &__song-meta {
     flex: none;
     width: 100%;
-    margin: 0;
+    margin: 0 0 18px; /* 与进度条拉开间距（椒盐歌词区与进度条分离） */
     text-align: left;
     min-width: 0;
     min-height: 79px; /* 固定三行高度，空行占位不跳动 */
