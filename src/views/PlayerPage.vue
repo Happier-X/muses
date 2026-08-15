@@ -2601,15 +2601,21 @@ onUnmounted(() => {
 
   &__lyric-title {
     margin: 0;
-    font-weight: 700;
+    font-size: 20px;
+    line-height: 1.3;
+    font-weight: 600;
     letter-spacing: 0.01em;
+    color: rgba(255, 255, 255, 0.95);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   &__lyric-artist {
-    margin: 0;
+    margin: 2px 0 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.6);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
