@@ -61,27 +61,22 @@
                 <div v-else class="player-page__cover-hero-img player-page__cover-hero-placeholder">♪</div>
               </div>
 
-              <!-- 三行歌词（AMLL 风格：向上滚动 + 当前行放大高亮） -->
+              <!-- 三行歌词（固定位置，切行时原地 scale/opacity 平滑过渡，无进出位移不跳动） -->
               <motion.div v-if="lyricRows.length > 0" class="player-page__song-meta">
-                <AnimatePresence mode="popLayout">
-                  <motion.p
-                    v-for="row in lyricRows"
-                    :key="`${row.key}:${row.text}`"
-                    class="player-page__meta-line"
-                    :class="{ 'player-page__meta-current': row.isCurrent }"
-                    :initial="{ y: 20, opacity: 0 }"
-                    :animate="{
-                      y: 0,
-                      opacity: row.isCurrent ? 1 : 0.55,
-                      scale: row.isCurrent ? 1.05 : 0.92,
-                      filter: row.isCurrent ? 'blur(0px)' : 'blur(0.6px)',
-                    }"
-                    :exit="{ y: -20, opacity: 0 }"
-                    :transition="{ type: 'spring', stiffness: 240, damping: 26 }"
-                  >
-                    {{ row.text }}
-                  </motion.p>
-                </AnimatePresence>
+                <motion.p
+                  v-for="row in lyricRows"
+                  :key="row.key"
+                  class="player-page__meta-line"
+                  :class="{ 'player-page__meta-current': row.isCurrent }"
+                  :animate="{
+                    opacity: row.isCurrent ? 1 : 0.55,
+                    scale: row.isCurrent ? 1.05 : 0.92,
+                    filter: row.isCurrent ? 'blur(0px)' : 'blur(0.6px)',
+                  }"
+                  :transition="{ type: 'spring', stiffness: 240, damping: 26 }"
+                >
+                  {{ row.text }}
+                </motion.p>
               </motion.div>
 
               <div
@@ -769,7 +764,7 @@ import {
   MSheet,
   MToast,
 } from '@/components/ui'
-import { AnimatePresence, animate, motion, type AnimationPlaybackControls } from 'motion-v'
+import { animate, motion, type AnimationPlaybackControls } from 'motion-v'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useForm } from '@tanstack/vue-form'
 import { Capacitor } from '@capacitor/core'
