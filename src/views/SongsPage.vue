@@ -862,10 +862,10 @@ onUnmounted(() => {
     box-sizing: border-box;
     width: 100%;
     height: 48px;
-    /* 液态玻璃（与 navbar/播放条同款）：半透明白 + 模糊 + 内高光 */
+    /* 液态玻璃（与 navbar/播放条同款）：半透明白 + 模糊；
+     * 无顶部内高光/分割线（与 navbar 融为一体），仅底部 hairline 区分列表 */
     background: rgba(255, 255, 255, 0.65);
     border-bottom: 1px solid var(--m-hairline);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
     -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
   }
@@ -1267,7 +1267,6 @@ onUnmounted(() => {
 /* 深色主题：工具条液态玻璃深色配方 */
 :global(.dark .songs-page__toolbar) {
   background: rgba(30, 30, 30, 0.65);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* 深色主题：navbar 液态玻璃深色配方。
