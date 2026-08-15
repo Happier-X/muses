@@ -1149,13 +1149,10 @@ onUnmounted(() => {
     right: 16px;
     bottom: 96px; /* 对齐椒盐：FAB 底距播放条顶 ~24dp（椒盐实测） */
 
-    /* 对齐椒盐：液态玻璃圆底（与播放条同质感）+ 深灰定位图标 */
-    background: rgba(255, 255, 255, 0.72);
-    color: #666;
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
+    /* 对齐椒盐：实心圆底（与播放条同质感，浅色纯白 / 深色 #1e1e1e）+ 主题图标色 */
+    background: #fff;
+    color: var(--m-text-2);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.5);
   }
 
   &__jump-icon {
@@ -1243,6 +1240,11 @@ onUnmounted(() => {
 /* 深色主题：⋮ 按钮颜色 */
 :global(.dark) .songs-page__more-btn {
   color: rgba(225, 230, 235, 0.75); /* 椒盐深色 subText #BFE1E6EB */
+}
+
+/* 深色主题：跳转 FAB 与播放条同质感（椒盐深色 #1e1e1e） */
+:global(.dark) .songs-page__jump-fab {
+  background: #1e1e1e;
 }
 
 </style>

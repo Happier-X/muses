@@ -129,14 +129,12 @@ const toDisplayableUri = (uri: string): string => {
   z-index: 1000;
   height: 64px;
   color: var(--m-text);
-  background: rgba(255, 255, 255, 0.72); /* 液态玻璃：白色 72% 底 */
+  /* 椒盐实测（08-15）：实心胶囊，非玻璃——浅色纯白 #fff / 深色 #1e1e1e（比页面深色亮一档） */
+  background: #fff;
   border-radius: 40px; /* 大圆角胶囊（椒盐实测圆角 ~24dp，视觉近满圆） */
   cursor: pointer;
   box-sizing: border-box;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); /* 悬浮阴影 */
-  border: 1px solid rgba(255, 255, 255, 0.5); /* 微妙白边 */
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); /* 悬浮阴影（轻） */
 
 
   &--empty {
@@ -187,14 +185,20 @@ const toDisplayableUri = (uri: string): string => {
     flex-shrink: 0;
   }
 
-  /* 播放/队列按钮：对齐椒盐透明底 + 深色实心图标（按下变暗反馈由 MIconButton 统一提供） */
+  /* 播放/队列按钮：对齐椒盐图标色（浅色深棕 / 深色浅灰，随主题变量） */
   &__btn {
-    color: #211715; /* 对齐椒盐：图标深棕 */
+    color: var(--m-text);
   }
 
   &__icon {
     width: 18px;
     height: 18px;
   }
+}
+
+/* 深色主题：椒盐实测 #1e1e1e 实心胶囊 */
+:global(.dark) .mini-player {
+  background: #1e1e1e;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 </style>

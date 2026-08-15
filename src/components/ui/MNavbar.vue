@@ -45,8 +45,7 @@ import { MIconButton } from '@/components/ui'
 
 /**
  * APP-ONLY：MNavbar —— 吸顶导航栏（替代 k-navbar，iOS）
- * 安全区顶部 + 44px 内容行；玻璃底 = blur(2px) + surface→透明渐变 + mask 渐显
- * （渐变不用 oklab 插值、直接给 backdrop-filter 值，WebView<111/110 兼容）。
+ * 安全区顶部 + 44px 内容行；干净表面底 = --m-surface-1 + --m-hairline 分隔线（非玻璃）。
  * 默认 slot = 标题（17px 半粗）。
  */
 withDefaults(
