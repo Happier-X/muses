@@ -1020,7 +1020,7 @@ onUnmounted(() => {
   /* 椒盐歌曲页只保留 ⋮，移除圆按钮 round-btn/round-icon */
 
   &__more-btn {
-    /* 椒盐 ⋮ 三点按钮：小尺寸，紧贴右缘（涟漪反馈由 MIconButton 提供） */
+    /* 椒盐 ⋮ 三点按钮：小尺寸，紧贴右缘（按下变暗反馈由 MIconButton 提供） */
     width: 36px;
     height: 48px;
     flex: none;

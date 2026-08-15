@@ -187,7 +187,7 @@ const toDisplayableUri = (uri: string): string => {
     flex-shrink: 0;
   }
 
-  /* 播放/队列按钮：对齐椒盐透明底 + 深色实心图标（涟漪反馈由 MIconButton 统一提供） */
+  /* 播放/队列按钮：对齐椒盐透明底 + 深色实心图标（按下变暗反馈由 MIconButton 统一提供） */
   &__btn {
     color: #211715; /* 对齐椒盐：图标深棕 */
   }

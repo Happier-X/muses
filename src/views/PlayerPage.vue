@@ -2593,7 +2593,7 @@ onUnmounted(() => {
     touch-action: manipulation;
   }
 
-  /* 播放器控制按钮（深底白字系；MIconButton 透明底 + currentColor 白涟漪反馈） */
+  /* 播放器控制按钮（深底白字系；MIconButton 透明底 + currentColor，按下图标变暗） */
   &__side-btn {
     color: rgba(255, 255, 255, 0.9);
   }
