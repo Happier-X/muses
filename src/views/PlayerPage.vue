@@ -1919,6 +1919,11 @@ watch(
     if (!prev || next === prev || lyricScrolling) {
       return
     }
+    /* 窄高屏单行模式（max-height: 520px）：仅当前行可见，滚动动画无意义，直接换窗口 */
+    if (window.matchMedia('(max-height: 520px)').matches) {
+      displayedWindow.value = lyricWindow.value
+      return
+    }
     const el = metaScrollEl.value
     if (!el) {
       return
@@ -1936,9 +1941,9 @@ watch(
         duration: 0.4,
         ease: [0.32, 0.72, 0, 1],
         onComplete: () => {
-          // 窗口数据上移一位（与滚动后视觉一致），复位定位
+          // 窗口数据上移一位（与滚动后视觉一致）；清内联复位，回落 CSS --meta-window-offset（与动画终值一致，无跳变）
           displayedWindow.value = lyricWindow.value
-          el.style.transform = 'translateY(-19.5px)'
+          el.style.transform = ''
           lyricScrollControls = null
           lyricScrolling = false
         },
@@ -2473,7 +2478,11 @@ onUnmounted(() => {
   }
 
   &__cover-hero-img {
-    width: min(52vw, 280px);
+    /* 正方形封面：宽高均 auto + aspect-ratio 1:1，max 约束按比例 contain（边长 = min(容器宽, 容器高)），空间越大封面越大且恒为正方形 */
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
     aspect-ratio: 1;
     object-fit: cover;
     border-radius: var(--m-radius-card);
@@ -2500,11 +2509,14 @@ onUnmounted(() => {
   }
 
   &__meta-window {
+    /* 稳态偏移 token：三行模式 -29.5px（= 一行 19.5px + 行距 10px，当前行居中视口、三行完整可见）；窄高屏单行模式由 media query 覆盖 */
+    --meta-window-offset: -29.5px;
+
     display: flex;
     flex-direction: column;
     width: 100%;
-    /* 初始定位：当前行（第 3 位）居中于视口；切行由 animate 驱动上移 */
-    transform: translateY(-19.5px);
+    /* 初始定位：当前行（第 3 位）居中于视口；切行由 animate 驱动上移；JS 动画结束清内联后回落此值 */
+    transform: translateY(var(--meta-window-offset));
     will-change: transform;
   }
 
@@ -2531,6 +2543,13 @@ onUnmounted(() => {
   /* 上下太窄（横屏/车机极限）：三行歌词自动收成一行（只显示当前行） */
   @media (max-height: 520px) {
     &__song-meta {
+      height: 19.5px; /* 单行视口（覆盖三行 79px） */
+
+      .player-page__meta-window {
+        /* 仅当前行可见：抵消其 margin-top 10px，让当前行对齐视口（否则被推出视口） */
+        --meta-window-offset: -10px;
+      }
+
       .player-page__meta-line:not(.player-page__meta-current) {
         display: none;
       }
