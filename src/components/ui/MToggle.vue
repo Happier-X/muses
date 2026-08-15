@@ -13,20 +13,18 @@
     />
     <motion.span
       class="m-toggle__thumb"
-      :animate="{ x: isOn ? 22 : 0 }"
+      :animate="{ x: isOn ? 20 : 0 }"
       :transition="{ type: 'spring', stiffness: 600, damping: 32, mass: 0.6 }"
-    >
-      <span class="m-toggle__thumb-core" />
-    </motion.span>
+    />
   </label>
 </template>
 
 <script setup lang="ts">
 /**
- * APP-ONLY：MToggle —— iOS 开关（替代 k-toggle）
- * 64×28 轨道 + p-0.5 + 24px 白拇指；选中主色底、拇指位移 22px（Konsta iOS 原值）。
- * 拇指位移走 motion-v spring；轨道底色为纯颜色过渡（CSS 例外保留）。
- * 事件契约：原生 change（e.target.checked 可用，与 Konsta 一致）+ update:modelValue。
+ * APP-ONLY：MToggle —— 椒盐风格开关（Salt Player 12.2.0 实测复刻，08-15-salt-toggle-replica）
+ * 46×26dp 胶囊轨道 + 16dp 白色圆环拇指（4dp 白边 + 中心 8dp 露轨道色圆点，
+ * 与 SaltUI Switcher 源码 border 方案一致）；开启拇指右移 20dp、轨道色 300ms 渐变。
+ * 事件契约：原生 change（e.target.checked 可用）+ update:modelValue（与 Konsta 时代一致）。
  */
 import { computed } from 'vue'
 import { motion } from 'motion-v'
@@ -64,18 +62,20 @@ function onChange(event: Event) {
 
 <style scoped lang="scss">
 .m-toggle {
+  /* 关闭态轨道色 = subText @ 10% 叠表面（浅 #E9E9E9 / 深约 #333435），深色由 :global(.dark) 覆盖 */
+  --m-toggle-track-off: #e9e9e9;
+
   display: inline-block;
   position: relative;
-  width: 64px;
-  height: 28px;
-  padding: 2px;
+  width: 46px;
+  height: 26px;
   border-radius: 9999px;
-  background-color: var(--m-surface-1-shade);
+  background-color: var(--m-toggle-track-off);
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   box-sizing: border-box;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.3s ease; /* 轨道色 300ms 渐变（SaltUI tween 300） */
 
   &--checked {
     background-color: var(--m-primary);
@@ -98,26 +98,25 @@ function onChange(event: Event) {
     white-space: nowrap;
   }
 
-  &:active .m-toggle__thumb-core {
-    transform: scale(1.15);
+  &:active .m-toggle__thumb {
+    scale: 1.08;
   }
 
+  /* 白色圆环拇指：16dp 圆 + 4dp 白边 + 透明中心 → 中心 8dp 露轨道色（开启蓝点/关闭灰点） */
   &__thumb {
     position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 24px;
-    height: 24px;
+    top: 5px;
+    left: 5px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    border: 4px solid #fff;
+    box-sizing: border-box;
+    background-color: transparent;
   }
+}
 
-  &__thumb-core {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background-color: #fff;
-  }
+:global(.dark) .m-toggle {
+  --m-toggle-track-off: #333435;
 }
 </style>
