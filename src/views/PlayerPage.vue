@@ -1902,6 +1902,12 @@ watch(
       displayedWindow.value = lyricWindow.value
       return
     }
+    /* 窗口整体重置（切歌/翻译显隐/seek 大跳）：新窗口 prev 行 ≠ 旧 current（prev），
+     * 不是相邻切行——直接换窗口，避免误触滚动动画导致窗口下跳、第一行被裁切 */
+    if (lyricWindow.value[1]?.text !== prev) {
+      displayedWindow.value = lyricWindow.value
+      return
+    }
     const el = metaScrollEl.value
     if (!el) {
       return
