@@ -125,7 +125,7 @@ function onChange(event: Event) {
   }
 }
 
-:global(.dark) .m-checkbox__icon {
+:global(.dark .m-checkbox__icon) {
   border-color: var(--m-hairline);
 }
 </style>

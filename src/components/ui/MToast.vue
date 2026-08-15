@@ -131,7 +131,7 @@ onBeforeUnmount(() => {
   }
 }
 
-:global(.dark) .m-toast__inner {
+:global(.dark .m-toast__inner) {
   color: var(--m-text);
   background-color: var(--m-surface-1);
 }

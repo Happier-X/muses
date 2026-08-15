@@ -792,11 +792,14 @@ onUnmounted(() => {
     /* 对齐椒盐：navbar 背景与页面同色 #F3F3F3，含状态栏感知 */
     :deep(.m-navbar) {
       padding-top: calc(var(--m-navbar-pt, 16px) + 6px); /* 16+6=22px 保持椒盐基准 */
-      background-color: #F3F3F3;
+      background: rgba(255, 255, 255, 0.65); /* 液态玻璃（与播放条同款） */
       border-bottom: none; /* 对齐椒盐：navbar 与工具条之间无分割线 */
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
     }
     :deep(.m-navbar__bg) {
-      background-color: #F3F3F3;
+      background-color: transparent;
     }
 
     /* 对齐椒盐：汉堡图标更小巧（椒盐 ~20dp 宽图标），距左 20dp */
@@ -859,7 +862,12 @@ onUnmounted(() => {
     box-sizing: border-box;
     width: 100%;
     height: 48px;
-    background: var(--m-surface);
+    /* 液态玻璃（与 navbar/播放条同款）：半透明白 + 模糊 + 内高光 */
+    background: rgba(255, 255, 255, 0.65);
+    border-bottom: 1px solid var(--m-hairline);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
   }
 
   &__toolbar-wrap {
@@ -1149,13 +1157,15 @@ onUnmounted(() => {
     right: 16px;
     bottom: 96px; /* 对齐椒盐：FAB 底距播放条顶 ~24dp（椒盐实测） */
 
-    /* 液态玻璃圆底（与播放条同质感：高白底 + 强模糊 + 高光边）+ 主题图标色 */
-    background: rgba(255, 255, 255, 0.85);
+    /* 液态玻璃圆底（与播放条同质感：半透明白底 + 模糊 + 内高光 + 高光边）+ 主题图标色 */
+    background: rgba(255, 255, 255, 0.65);
     color: var(--m-text-2);
-    -webkit-backdrop-filter: blur(30px);
-    backdrop-filter: blur(30px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.45);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.65),
+      0 2px 8px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.5);
   }
 
   &__jump-icon {
@@ -1241,14 +1251,33 @@ onUnmounted(() => {
 }
 
 /* 深色主题：⋮ 按钮颜色 */
-:global(.dark) .songs-page__more-btn {
+:global(.dark .songs-page__more-btn) {
   color: rgba(225, 230, 235, 0.75); /* 椒盐深色 subText #BFE1E6EB */
 }
 
 /* 深色主题：跳转 FAB 与播放条同质感（液态玻璃深色配方） */
-:global(.dark) .songs-page__jump-fab {
-  background: rgba(30, 30, 30, 0.85);
+:global(.dark .songs-page__jump-fab) {
+  background: rgba(30, 30, 30, 0.65);
   border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 深色主题：工具条液态玻璃深色配方 */
+:global(.dark .songs-page__toolbar) {
+  background: rgba(30, 30, 30, 0.65);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* 深色主题：navbar 液态玻璃深色配方。
+ * 必须 :global(.dark .songs-page .m-navbar)（无 scope 属性、特异性 (0,3,0)）：
+ * MNavbar 组件深色规则 .dark .m-navbar[data-v] 与页面 :deep(.m-navbar) 浅色规则同为
+ * (0,2,0)，异步 chunk 后注入会覆盖组件深色规则，导致深色下 navbar 白雾。
+ * 注意：不得写 :global(.dark) + :deep 组合——compiler-sfc 会丢弃 :global 之后的选择器。 */
+:global(.dark .songs-page .m-navbar) {
+  background: rgba(30, 30, 30, 0.65);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 </style>

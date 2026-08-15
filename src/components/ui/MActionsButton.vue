@@ -73,7 +73,7 @@ function onClick(event: MouseEvent) {
   }
 }
 
-:global(.dark) .m-actions-button--danger {
+:global(.dark .m-actions-button--danger) {
   color: var(--m-danger);
 }
 </style>

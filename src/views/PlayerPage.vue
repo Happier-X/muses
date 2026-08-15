@@ -3051,39 +3051,39 @@ onUnmounted(() => {
 }
 
 /* ============ 暗色主题变体（编辑弹窗内） ============ */
-:global(.dark) .player-page__seg {
+:global(.dark .player-page__seg) {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-:global(.dark) .player-page__seg-btn {
+:global(.dark .player-page__seg-btn) {
   color: var(--m-text-secondary);
 }
 
-:global(.dark) .player-page__seg-btn--active {
+:global(.dark .player-page__seg-btn--active) {
   background-color: rgba(255, 255, 255, 0.15);
   color: var(--m-text);
 }
 
-:global(.dark) .player-page__cloud-card {
+:global(.dark .player-page__cloud-card) {
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-:global(.dark) .player-page__pill {
+:global(.dark .player-page__pill) {
   border-color: rgba(255, 255, 255, 0.15);
   color: var(--m-text-secondary);
 }
 
-:global(.dark) .player-page__pill--active {
+:global(.dark .player-page__pill--active) {
   background-color: var(--m-primary);
   border-color: transparent;
   color: #fff;
 }
 
-:global(.dark) .player-page__cand-btn--selected {
+:global(.dark .player-page__cand-btn--selected) {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-:global(.dark) .player-page__cover-edit-placeholder {
+:global(.dark .player-page__cover-edit-placeholder) {
   background-color: rgba(255, 255, 255, 0.1);
 }
 </style>

@@ -549,8 +549,8 @@ onUnmounted(() => {
   }
 }
 
-:global(.dark) .tabs-layout__aside,
-:global(.dark) .tabs-layout__drawer {
+:global(.dark .tabs-layout__aside),
+:global(.dark .tabs-layout__drawer) {
   border-right-color: var(--m-hairline);
   background-color: var(--m-surface-1);
 }

@@ -129,16 +129,20 @@ const toDisplayableUri = (uri: string): string => {
   z-index: 1000;
   height: 64px;
   color: var(--m-text);
-  /* 液态玻璃（椒盐 Liquid Glass 同款，08-15）：高白底 + 强模糊，底下列表模糊可见；
-   * 白 alpha 0.85（比旧 0.72 更实，接近系统液态玻璃质感） */
-  background: rgba(255, 255, 255, 0.85);
+  /* 液态玻璃（椒盐 Liquid Glass 同款，08-15）：半透明白底 + 强模糊 + 内高光边缘。
+   * 注意：MuMu WebView 110 backdrop-filter 失效（fixed 元素采样不到背景），
+   * 因此 alpha 与内高光承担主要玻璃观感（内容透出可见），blur 在真机系统 WebView 生效。 */
+  background: rgba(255, 255, 255, 0.65);
   border-radius: 40px; /* 大圆角胶囊（椒盐实测圆角 ~24dp，视觉近满圆） */
   cursor: pointer;
   box-sizing: border-box;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); /* 悬浮阴影（轻） */
-  border: 1px solid rgba(255, 255, 255, 0.45); /* 边缘高光（液态玻璃质感） */
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px); /* 强模糊：底下列表内容模糊透出 */
+  /* 顶部内高光（液态玻璃光泽）+ 悬浮阴影 */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.5); /* 边缘高光（液态玻璃质感） */
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px); /* 强模糊：底下列表内容模糊透出（真机生效） */
 
 
   &--empty {
@@ -201,9 +205,11 @@ const toDisplayableUri = (uri: string): string => {
 }
 
 /* 深色主题：液态玻璃深色配方（高深灰底 + 强模糊 + 微光边） */
-:global(.dark) .mini-player {
-  background: rgba(30, 30, 30, 0.85);
+:global(.dark .mini-player) {
+  background: rgba(30, 30, 30, 0.65);
   border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.35);
 }
 </style>

@@ -116,7 +116,7 @@ function onChange(event: Event) {
   }
 }
 
-:global(.dark) .m-toggle {
+:global(.dark .m-toggle) {
   --m-toggle-track-off: #333435;
 }
 </style>

@@ -91,7 +91,7 @@ withDefaults(
   }
 }
 
-:global(.dark) .m-fab {
+:global(.dark .m-fab) {
   background-color: rgba(var(--m-primary-rgb), 0.5);
   box-shadow: var(--m-shadow-ios-dark-glass-fab);
 }

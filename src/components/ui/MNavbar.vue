@@ -45,7 +45,7 @@ import { MIconButton } from '@/components/ui'
 
 /**
  * APP-ONLY：MNavbar —— 吸顶导航栏（替代 k-navbar，iOS）
- * 安全区顶部 + 44px 内容行；干净表面底 = --m-surface-1 + --m-hairline 分隔线（非玻璃）。
+ * 安全区顶部 + 44px 内容行；液态玻璃底（半透明白 + blur(20px) + 内高光，与 MiniPlayer 同款）。
  * 默认 slot = 标题（17px 半粗）。
  */
 withDefaults(
@@ -76,14 +76,18 @@ const openNavigationDrawer = (event: MouseEvent) => {
   box-sizing: border-box;
   color: var(--m-text);
   padding-top: var(--m-navbar-pt, 16px);
-  background-color: var(--m-surface-1);
+  /* 液态玻璃（与播放条同款，08-15）：半透明白 + 模糊 + 内高光；内容滚动从其后经过时透出模糊 */
+  background: rgba(255, 255, 255, 0.65);
   border-bottom: 1px solid var(--m-hairline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
 
   &__bg {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background-color: var(--m-surface-1);
+    background-color: transparent;
   }
 
   &--has-subnavbar &__bg {
@@ -93,6 +97,9 @@ const openNavigationDrawer = (event: MouseEvent) => {
   &--transparent {
     background-color: transparent;
     border-bottom-color: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   &--transparent &__bg {
@@ -163,5 +170,13 @@ const openNavigationDrawer = (event: MouseEvent) => {
     padding-right: calc(var(--m-spacing) + var(--m-safe-area-right, 0px));
     box-sizing: border-box;
   }
+}
+
+/* 深色主题：液态玻璃深色配方。
+ * :not(.m-navbar--transparent) 必须保留：与 --transparent 变体同特异性 (0,2,0)，
+ * 本规则靠后定义会覆盖 transparent 的透明背景（PlayerPage 沉浸式无回归）。 */
+:global(.dark .m-navbar:not(.m-navbar--transparent)) {
+  background: rgba(30, 30, 30, 0.65);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 </style>

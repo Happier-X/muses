@@ -217,13 +217,11 @@ watch(
   }
 }
 
-:global(.dark) .m-range {
-  &__track-bg {
-    background-color: var(--m-hairline);
-  }
+:global(.dark .m-range__track-bg) {
+  background-color: var(--m-hairline);
+}
 
-  &__thumb {
-    background-color: rgba(var(--m-primary-rgb), 0.15);
-  }
+:global(.dark .m-range__thumb) {
+  background-color: rgba(var(--m-primary-rgb), 0.15);
 }
 </style>

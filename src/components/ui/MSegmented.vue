@@ -143,7 +143,7 @@ watch(
   }
 }
 
-:global(.dark) .m-segmented--strong {
+:global(.dark .m-segmented--strong) {
   background-color: var(--m-surface-2);
 }
 </style>

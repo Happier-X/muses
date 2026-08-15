@@ -209,12 +209,12 @@ const dividers = computed(() => props.dividers ?? listState?.value?.dividers ?? 
   }
 }
 
-:global(.dark) .m-list-item--link:active {
+:global(.dark .m-list-item--link:active) {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-:global(.dark) .m-list-item--link:active:has(.m-toggle:active),
-:global(.dark) .m-list-item--link:active:has(.m-icon-button:active) {
+:global(.dark .m-list-item--link:active:has(.m-toggle:active)),
+:global(.dark .m-list-item--link:active:has(.m-icon-button:active)) {
   background-color: transparent;
 }
 </style>
