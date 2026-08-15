@@ -791,7 +791,7 @@ onUnmounted(() => {
 
     /* 对齐椒盐：navbar 背景与页面同色 #F3F3F3，含状态栏感知 */
     :deep(.m-navbar) {
-      padding-top: 22px;
+      padding-top: calc(var(--m-navbar-pt, 16px) + 6px); /* 16+6=22px 保持椒盐基准 */
       background-color: #F3F3F3;
       border-bottom: none; /* 对齐椒盐：navbar 与工具条之间无分割线 */
     }
@@ -835,14 +835,14 @@ onUnmounted(() => {
   &__empty {
     height: 100%;
     box-sizing: border-box;
-    padding-top: calc(max(22px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-top: calc(var(--m-navbar-pt, 16px) + 6px + 44px);
   }
 
   &__list {
     height: 100%;
     overflow-y: auto;
     box-sizing: border-box;
-    padding-top: calc(max(22px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-top: calc(var(--m-navbar-pt, 16px) + 6px + 44px);
     padding-bottom: var(--m-content-pb);
     overflow-anchor: none;
 
@@ -854,7 +854,7 @@ onUnmounted(() => {
   /* 工具条：48dp 干净表面，sticky 吸 navbar 正下方（对齐椒盐） */
   &__toolbar {
     position: sticky;
-    top: calc(max(22px, var(--m-safe-area-top, 0px)) + 44px);
+    top: calc(var(--m-navbar-pt, 16px) + 6px + 44px);
     z-index: 15;
     box-sizing: border-box;
     width: 100%;
@@ -931,7 +931,7 @@ onUnmounted(() => {
   /* 搜索栏：替换工具条 */
   &__searchbar {
     position: sticky;
-    top: calc(max(22px, var(--m-safe-area-top, 0px)) + 44px);
+    top: calc(var(--m-navbar-pt, 16px) + 6px + 44px);
     z-index: 15;
     box-sizing: border-box;
     width: 100%;
@@ -1107,7 +1107,7 @@ onUnmounted(() => {
   /* 字母索引条：右侧窄条，从工具条下方延伸到列表底（对齐椒盐：15dp 字母、密集排列） */
   &__index-bar {
     position: fixed;
-    top: calc(max(22px, var(--m-safe-area-top, 0px)) + 44px + 48px);
+    top: calc(var(--m-navbar-pt, 16px) + 6px + 44px + 48px);
     bottom: calc(64px + var(--m-safe-area-bottom, 0px));
     right: 2px;
     z-index: 15;

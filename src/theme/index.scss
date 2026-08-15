@@ -235,6 +235,9 @@ html.muses-mini-visible {
   --m-safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   --m-safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   --m-safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  /* navbar 顶部避让 token：状态栏之外保留 8px 呼吸间距；浏览器（safe-area=0）回落 16px。
+     全项目内容避让公式统一消费此 token（SongsPage 例外 +6px 差值），见 component-guidelines.md */
+  --m-navbar-pt: max(16px, calc(var(--m-safe-area-top, 0px) + 8px));
 }
 
 /* .safe-areas 宿主别名（保留供旧版 .k-app 兼容扩展外链引用） */

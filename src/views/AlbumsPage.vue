@@ -87,7 +87,7 @@ onMounted(refreshSongs)
   }
 
   &__content {
-    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-top: calc(var(--m-navbar-pt, 16px) + 44px);
   }
 
   &__grid {

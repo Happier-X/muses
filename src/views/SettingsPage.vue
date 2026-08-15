@@ -161,7 +161,7 @@ const checkUpdate = async () => {
   }
 
   &__content {
-    padding-top: calc(max(var(--m-spacing), var(--m-safe-area-top, 0px)) + 44px);
+    padding-top: calc(var(--m-navbar-pt, 16px) + 44px);
     padding-bottom: var(--m-content-pb);
 
     @media (min-width: 768px) {

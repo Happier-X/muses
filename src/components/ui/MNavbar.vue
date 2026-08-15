@@ -76,7 +76,7 @@ const openNavigationDrawer = (event: MouseEvent) => {
   width: 100%;
   box-sizing: border-box;
   color: var(--m-text);
-  padding-top: max(16px, var(--m-safe-area-top, 0px));
+  padding-top: var(--m-navbar-pt, 16px);
   background-color: var(--m-surface-1);
   border-bottom: 1px solid var(--m-hairline);
 

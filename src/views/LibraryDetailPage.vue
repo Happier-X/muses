@@ -356,7 +356,7 @@ watch(groupName, () => {
   &__empty {
     height: 100%;
     box-sizing: border-box;
-    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-top: calc(var(--m-navbar-pt, 16px) + 44px);
   }
 
   &__list {
@@ -364,7 +364,7 @@ watch(groupName, () => {
     overflow-y: auto;
     overscroll-behavior: contain;
     box-sizing: border-box;
-    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-top: calc(var(--m-navbar-pt, 16px) + 44px);
     padding-bottom: var(--m-content-pb);
     overflow-anchor: none;
 

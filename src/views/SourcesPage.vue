@@ -941,14 +941,14 @@ const handleAddWebDav = (): void => {
   &__empty {
     height: 100%;
     box-sizing: border-box;
-    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px);
+    padding-top: calc(var(--m-navbar-pt, 16px) + 44px);
   }
 
   &__list {
     height: 100%;
     overflow-y: auto;
     box-sizing: border-box;
-    padding-top: calc(max(16px, var(--m-safe-area-top, 0px)) + 44px + 8px);
+    padding-top: calc(var(--m-navbar-pt, 16px) + 44px + 8px);
     padding-left: var(--m-spacing-sub);
     padding-right: var(--m-spacing-sub);
     padding-bottom: var(--m-content-pb);
