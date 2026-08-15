@@ -1763,18 +1763,15 @@ const lyricContext = computed(() => {
   }
 })
 
-/** 三行渲染数组（AMLL 风格：当前行高亮放大、前后行淡化缩小） */
+/** 三行渲染数组（AMLL 风格：当前行高亮放大、前后行淡化缩小）
+ * 始终固定三行（空行占位），避免行数变化导致页面跳动 */
 const lyricRows = computed(() => {
   const { prev, current, next } = lyricContext.value
-  const rows: { key: string; text: string; isCurrent: boolean }[] = []
-  if (prev) {
-    rows.push({ key: 'prev', text: prev, isCurrent: false })
-  }
-  rows.push({ key: 'current', text: current || '', isCurrent: true })
-  if (next) {
-    rows.push({ key: 'next', text: next, isCurrent: false })
-  }
-  return rows
+  return [
+    { key: 'prev', text: prev || '', isCurrent: false },
+    { key: 'current', text: current || '', isCurrent: true },
+    { key: 'next', text: next || '', isCurrent: false },
+  ]
 })
 
 const toDisplayableUri = (uri: string): string => {
@@ -2437,6 +2434,7 @@ onUnmounted(() => {
     margin: 0;
     text-align: left;
     min-width: 0;
+    min-height: 79px; /* 固定三行高度，空行占位不跳动 */
   }
 
   /* 三行歌词上下文（AMLL 风格：当前行高亮放大、前后行淡化缩小） */
