@@ -76,8 +76,8 @@ const openNavigationDrawer = (event: MouseEvent) => {
   box-sizing: border-box;
   color: var(--m-text);
   padding-top: var(--m-navbar-pt, 16px);
-  /* 液态玻璃（与播放条同款，08-15）：半透明白 + 模糊 + 内高光；内容滚动从其后经过时透出模糊 */
-  background: rgba(255, 255, 255, 0.65);
+  /* 液态玻璃（08-15，navbar 0.8 配方）：半透明白 + 模糊 + 内高光；内容滚动从其后经过时透出模糊 */
+  background: rgba(255, 255, 255, 0.8);
   border-bottom: 1px solid var(--m-hairline);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
   -webkit-backdrop-filter: blur(20px);
@@ -176,7 +176,7 @@ const openNavigationDrawer = (event: MouseEvent) => {
  * :not(.m-navbar--transparent) 必须保留：与 --transparent 变体同特异性 (0,2,0)，
  * 本规则靠后定义会覆盖 transparent 的透明背景（PlayerPage 沉浸式无回归）。 */
 :global(.dark .m-navbar:not(.m-navbar--transparent)) {
-  background: rgba(30, 30, 30, 0.65);
+  background: rgba(30, 30, 30, 0.8);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 </style>

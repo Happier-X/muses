@@ -12,51 +12,54 @@
             <component :is="searchOutline" aria-hidden="true" class="songs-page__search-icon" />
           </m-icon-button>
         </template>
+        <!-- 工具条/搜索栏并入 navbar subnavbar：与 navbar 同一块玻璃（无交界分界） -->
+        <template #subnavbar>
+          <!-- 工具条：随机播放 + 歌曲数（先只保留左侧，对齐椒盐） -->
+          <div v-if="songs.length > 0 && !isSearching" class="songs-page__toolbar">
+            <div class="songs-page__toolbar-wrap">
+              <!-- 左侧：随机播放图标 + 歌曲总数 -->
+              <div class="songs-page__toolbar-left">
+                <button
+                  type="button"
+                  class="songs-page__toolbar-left-btn"
+                  aria-label="随机播放全部"
+                  @click="onShuffleAll"
+                >
+                  <component :is="shuffle" aria-hidden="true" class="songs-page__toolbar-left-icon" />
+                </button>
+                <span class="songs-page__toolbar-count">{{ songs.length }}</span>
+              </div>
+              <!-- 多选模式计数 -->
+              <div v-if="isMultiSelect" class="songs-page__toolbar-count">已选中 {{ selectedCount }} 项</div>
+            </div>
+          </div>
+
+          <!-- 搜索栏（替换工具条） -->
+          <div v-else-if="songs.length > 0 && isSearching" class="songs-page__searchbar">
+            <div class="songs-page__searchbar-wrap">
+              <component :is="searchOutline" aria-hidden="true" class="songs-page__searchbar-icon" />
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                class="songs-page__searchbar-input"
+                :placeholder="`在 ${songs.length} 首歌曲中搜索`"
+                @input="onSearchInput"
+              />
+              <m-button
+                component="button"
+                variant="clear"
+                inline
+                class="songs-page__searchbar-cancel"
+                @click="exitSearch"
+              >
+                取消
+              </m-button>
+            </div>
+          </div>
+        </template>
       </m-navbar>
     </div>
     <div class="m-content songs-page__content">
-      <!-- 工具条：随机播放 + 歌曲数（先只保留左侧，对齐椒盐） -->
-      <div v-if="songs.length > 0 && !isSearching" class="songs-page__toolbar">
-        <div class="songs-page__toolbar-wrap">
-          <!-- 左侧：随机播放图标 + 歌曲总数 -->
-          <div class="songs-page__toolbar-left">
-            <button
-              type="button"
-              class="songs-page__toolbar-left-btn"
-              aria-label="随机播放全部"
-              @click="onShuffleAll"
-            >
-              <component :is="shuffle" aria-hidden="true" class="songs-page__toolbar-left-icon" />
-            </button>
-            <span class="songs-page__toolbar-count">{{ songs.length }}</span>
-          </div>
-          <!-- 多选模式计数 -->
-          <div v-if="isMultiSelect" class="songs-page__toolbar-count">已选中 {{ selectedCount }} 项</div>
-        </div>
-      </div>
-
-      <!-- 搜索栏（替换工具条） -->
-      <div v-if="songs.length > 0 && isSearching" class="songs-page__searchbar">
-        <div class="songs-page__searchbar-wrap">
-          <component :is="searchOutline" aria-hidden="true" class="songs-page__searchbar-icon" />
-          <input
-            ref="searchInputRef"
-            v-model="searchQuery"
-            class="songs-page__searchbar-input"
-            :placeholder="`在 ${songs.length} 首歌曲中搜索`"
-            @input="onSearchInput"
-          />
-          <m-button
-            component="button"
-            variant="clear"
-            inline
-            class="songs-page__searchbar-cancel"
-            @click="exitSearch"
-          >
-            取消
-          </m-button>
-        </div>
-      </div>
 
       <div v-if="songs.length === 0" class="songs-page__empty">
         <m-empty
@@ -792,7 +795,7 @@ onUnmounted(() => {
     /* 对齐椒盐：navbar 背景与页面同色 #F3F3F3，含状态栏感知 */
     :deep(.m-navbar) {
       padding-top: calc(var(--m-navbar-pt, 16px) + 6px); /* 16+6=22px 保持椒盐基准 */
-      background: rgba(255, 255, 255, 0.65); /* 液态玻璃（与播放条同款） */
+      background: rgba(255, 255, 255, 0.8); /* 液态玻璃（navbar 0.8 配方，08-15） */
       border-bottom: none; /* 对齐椒盐：navbar 与工具条之间无分割线 */
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
       -webkit-backdrop-filter: blur(20px);
@@ -800,6 +803,11 @@ onUnmounted(() => {
     }
     :deep(.m-navbar__bg) {
       background-color: transparent;
+    }
+    /* 工具条 subnavbar：48px 与 navbar 同玻璃 */
+    :deep(.m-navbar__subnavbar) {
+      height: 48px;
+      padding: 0;
     }
 
     /* 对齐椒盐：汉堡图标更小巧（椒盐 ~20dp 宽图标），距左 20dp */
@@ -838,14 +846,14 @@ onUnmounted(() => {
   &__empty {
     height: 100%;
     box-sizing: border-box;
-    padding-top: calc(var(--m-navbar-pt, 16px) + 6px + 44px);
+    padding-top: calc(var(--m-navbar-pt, 16px) + 6px + 44px + 48px); /* navbar + subnavbar(工具条) */
   }
 
   &__list {
     height: 100%;
     overflow-y: auto;
     box-sizing: border-box;
-    padding-top: calc(var(--m-navbar-pt, 16px) + 6px + 44px);
+    padding-top: calc(var(--m-navbar-pt, 16px) + 6px + 44px + 48px); /* navbar + subnavbar(工具条) */
     padding-bottom: var(--m-content-pb);
     overflow-anchor: none;
 
@@ -854,20 +862,11 @@ onUnmounted(() => {
     }
   }
 
-  /* 工具条：48dp 干净表面，sticky 吸 navbar 正下方（对齐椒盐） */
+  /* 工具条：48dp，位于 navbar subnavbar 内——与 navbar 同一块玻璃（无独立背景/边框，消除交界分界） */
   &__toolbar {
-    position: sticky;
-    top: calc(var(--m-navbar-pt, 16px) + 6px + 44px);
-    z-index: 15;
     box-sizing: border-box;
     width: 100%;
     height: 48px;
-    /* 液态玻璃（与 navbar/播放条同款）：半透明白 + 模糊；
-     * 无顶部内高光/分割线（与 navbar 融为一体），仅底部 hairline 区分列表 */
-    background: rgba(255, 255, 255, 0.65);
-    border-bottom: 1px solid var(--m-hairline);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
   }
 
   &__toolbar-wrap {
@@ -936,15 +935,11 @@ onUnmounted(() => {
     height: 22px;
   }
 
-  /* 搜索栏：替换工具条 */
+  /* 搜索栏：替换工具条（同样位于 subnavbar 内，共享 navbar 玻璃） */
   &__searchbar {
-    position: sticky;
-    top: calc(var(--m-navbar-pt, 16px) + 6px + 44px);
-    z-index: 15;
     box-sizing: border-box;
     width: 100%;
     height: 48px;
-    background: var(--m-surface-1);
   }
 
   &__searchbar-wrap {
@@ -1157,8 +1152,8 @@ onUnmounted(() => {
     right: 16px;
     bottom: 96px; /* 对齐椒盐：FAB 底距播放条顶 ~24dp（椒盐实测） */
 
-    /* 液态玻璃圆底（与播放条同质感：半透明白底 + 模糊 + 内高光 + 高光边）+ 主题图标色 */
-    background: rgba(255, 255, 255, 0.65);
+    /* 液态玻璃圆底（0.8 配方，与深色 0.8 一致；半透明白底 + 模糊 + 内高光 + 高光边）+ 主题图标色 */
+    background: rgba(255, 255, 255, 0.8);
     color: var(--m-text-2);
     -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
@@ -1257,17 +1252,14 @@ onUnmounted(() => {
 
 /* 深色主题：跳转 FAB 与播放条同质感（液态玻璃深色配方） */
 :global(.dark .songs-page__jump-fab) {
-  background: rgba(30, 30, 30, 0.65);
+  background: rgba(30, 30, 30, 0.8);
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* 深色主题：工具条液态玻璃深色配方 */
-:global(.dark .songs-page__toolbar) {
-  background: rgba(30, 30, 30, 0.65);
-}
+/* 深色主题：工具条随 navbar 玻璃（subnavbar 内无独立背景，无需单独覆盖） */
 
 /* 深色主题：navbar 液态玻璃深色配方。
  * 必须 :global(.dark .songs-page .m-navbar)（无 scope 属性、特异性 (0,3,0)）：
@@ -1275,7 +1267,7 @@ onUnmounted(() => {
  * (0,2,0)，异步 chunk 后注入会覆盖组件深色规则，导致深色下 navbar 白雾。
  * 注意：不得写 :global(.dark) + :deep 组合——compiler-sfc 会丢弃 :global 之后的选择器。 */
 :global(.dark .songs-page .m-navbar) {
-  background: rgba(30, 30, 30, 0.65);
+  background: rgba(30, 30, 30, 0.8);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
