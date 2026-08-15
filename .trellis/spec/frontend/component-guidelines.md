@@ -112,13 +112,14 @@ Muses 自 `08-09-konsta-ui-migration` 起使用 npm **`konsta@5.3.0`**（精确�
 
 信息面板（info-panel）已按椒盐沉浸式播放页截图重构，**任何改动不得打破以下布局契约**：
 
-- **布局顺序（从上到下）**：topbar（返回 ← + 「正在播放」+ ⋮）→ song-head（歌手小字 14px + 歌名大字 `clamp(30px, 11vw, 44px)` 暖白 `rgba(255,255,255,.95)`）→ cover-rotator（旋转封面）→ progress-area → controls（上/播/下）→ mode-bar（repeat/shuffle/list/more 四键）。
-- **内容底部对齐**：`.info-panel-inner { justify-content: flex-end }`（椒盐：进度/控制贴底、歌名上方留白）。**scoped 与全局 index.scss 两处都要是 flex-end**——scoped 的 `justify-content: center` 会覆盖全局规则（实测）。
-- **封面旋转**：`.cover-rotator` 固定高度 `clamp(170px, 32vh, 230px)`（**不 flex-grow**，避免内容块撑满顶到歌名）；封面 `width: min(42vw, 170px)` + `transform: rotate(-45deg)` + 圆角 18px + 阴影；`justify-content: flex-start` + `margin-left: 7px` 使旋转包围盒左缘≈0（椒盐封面贴左缘）。
-- **播放按钮**：白色圆底 `rgba(255,255,255,.95)` + 深色图标 #1b1b1b（椒盐白色实心圆钮），尺寸 56px、图标 26px，`!important` 压 MButton clear 变体；三按钮等距居中（播放钮中心 = 屏幕中心）。
-- **顶部导航**：返回 ←（`goBack` → `closePlayerOverlay()`）+ 右侧 ⋮（`openPlayerActions()`），用 MIconButton（半透明涟漪），topbar 绝对定位在 info-panel 内（`position: relative` 锚点），z-index 30。
+- **布局顺序（从上到下）**：song-head（歌名 20px 白 + 歌手 13px 白 0.6，左上竖排）→ cover-hero（大封面正方形）→ song-meta（五行歌词窗口）→ progress-area → controls（上/播/下）→ mode-bar（repeat/shuffle/list/more 四键）。**无顶部导航**（椒盐无返回/正在播放/更多按钮）。
+- **内容底部对齐**：`.info-panel-inner { box-sizing: border-box; justify-content: flex-end; padding-top: 16px }`（椒盐：进度/控制贴底）。**scoped 与全局 index.scss 两处都要是 flex-end**——scoped 的 `justify-content: center` 会覆盖全局规则（实测）。
+- **大封面正方形**：`.cover-hero` 弹性区（`flex: 1 1 auto`、`max-height: min(50vh, 420px)`）flex 居中；封面 img `width: min(52vw, 280px)` + `aspect-ratio: 1` + `object-fit: cover` + 圆角。
+- **五行歌词窗口（AMLL 式连续滚动）**：`.song-meta` 高 79px（三行视口）+ `overflow: hidden`；`.meta-window` 内五行（prev2/prev/current/next/next2）flex 排列，初始 `translateY(-19.5px)` 使当前行居中；切行时 watch `lyricContext.current` 单段 animate `translateY(-29.5px)`（0.4s ease `[0.32,0.72,0,1]`），完成后换窗口数据+复位（视觉连续）。当前行 scale 1.05 高亮、前后行 scale 0.92+blur 淡化；`transform-origin: left center` 保持左对齐。**矮屏（max-height: 520px）隐藏 prev/next 只显当前行**。
+- **播放按钮**：无圆底（用户要求），透明背景 + 白色图标，与侧边按钮同尺寸（48px + 28px 图标）——三按钮等距居中。
+- **MPopup transparent**：PlayerPage 用 `<m-popup fullscreen transparent>`（面板+backdrop 透明），下滑关闭时露出底下歌曲列表；QueuePage 不用 transparent 保持 surface 底。
 - **背景**：AMLL `BackgroundRender` + `MeshGradientRenderer` 保持（用户指定不换）。
-- **防坑**：歌名大字必须 `white-space: nowrap; overflow: hidden; text-overflow: ellipsis`（长标题不换行）；`subtitle` computed 已删除（模板改用 `lyricArtist`）；旋转封面溢出用 `overflow: visible` 而非隐藏；进度/控制/模式栏 `flex: none` 防压缩。
+- **防坑**：`lyricContext`/`lyricRows` 等 computed 必须定义在 `displayLyricLines`/`hasLyrics` 之后（否则 TDZ 报错导致整个面板渲染中断）；歌词行 `white-space: nowrap` + ellipsis；`subtitle` computed 已删除（模板用 `lyricArtist`）；进度/控制/模式栏 `flex: none` 防压缩；歌词滚动动画用 `metaScrollEl` ref + 命令式 animate（transform 不影响布局不跳动）。
 
 ### 弹层层级阶梯（Konsta 默认 z-40 必须覆盖）
 
