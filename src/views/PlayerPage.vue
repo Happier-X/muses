@@ -1,5 +1,5 @@
 <template>
-  <m-popup :opened="playerOverlayVisible" fullscreen>
+  <m-popup :opened="playerOverlayVisible" fullscreen transparent>
     <div
       ref="dragLayerRef"
       class="player-page__overlay player-overlay"
@@ -2332,6 +2332,11 @@ onUnmounted(() => {
     overscroll-behavior: none;
     touch-action: none;
     color: #fff;
+  }
+
+  /* MPopup 面板背景透明：下滑关闭时露出底下歌曲列表（而非 surface 白底） */
+  &__popup {
+    background: transparent !important;
   }
 
   &__drag-layer {

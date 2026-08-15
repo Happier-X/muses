@@ -5,7 +5,7 @@
         key="backdrop"
         class="m-overlay-backdrop m-popup-backdrop"
         :initial="{ opacity: 0 }"
-        :animate="{ opacity: 1 }"
+        :animate="{ opacity: transparent ? 0 : 1 }"
         :exit="{ opacity: 0 }"
         :transition="{ duration: 0.3 }"
         @click="onBackdropClick"
@@ -13,7 +13,7 @@
       <motion.div
         key="panel"
         class="m-popup"
-        :class="{ 'm-popup--fullscreen': fullscreen }"
+        :class="{ 'm-popup--fullscreen': fullscreen, 'm-popup--transparent': transparent }"
         :initial="{ x: '-50%', y: '100vh' }"
         :animate="{ x: '-50%', y: '-50%' }"
         :exit="{ x: '-50%', y: '100vh' }"
@@ -37,10 +37,13 @@ withDefaults(
   defineProps<{
     opened?: boolean
     fullscreen?: boolean
+    /** 面板背景透明（PlayerPage 沉浸式用 AMLL 背景，下滑关闭需露出底下内容） */
+    transparent?: boolean
   }>(),
   {
     opened: false,
     fullscreen: true,
+    transparent: false,
   },
 )
 
@@ -81,6 +84,11 @@ function onBackdropClick(event: MouseEvent) {
       height: 100vh;
       border-radius: 0;
     }
+  }
+
+  /* transparent：面板背景透明（PlayerPage 沉浸式，下滑关闭露出底下） */
+  &--transparent {
+    background-color: transparent;
   }
 }
 </style>
