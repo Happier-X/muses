@@ -839,3 +839,49 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 ### Status
 
 [OK] **Completed**
+
+
+## Session 97: 沉浸式播放页 1:1 复刻椒盐（AMLL 背景 + 五行歌词窗口）
+
+**Date**: 2026-08-15
+**Task**: 沉浸式播放页 1:1 复刻椒盐（AMLL 背景 + 五行歌词窗口）
+**Branch**: `main`
+
+### Summary
+
+复刻椒盐沉浸式播放页：移除顶部导航、歌名+歌手左上、大封面正方形、五行歌词窗口（AMLL 式连续滚动+缩放淡化动画）、三行歌词上下文、播放按钮统一尺寸无圆底、MPopup transparent 下滑露出底下、修复 TDZ/图标碎裂/页面跳动等；背景继续用 AMLL MeshGradientRenderer
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1679dd4` | (see git log) |
+| `095d668` | (see git log) |
+| `de3e2d3` | (see git log) |
+| `eb6c646` | (see git log) |
+| `45ea951` | (see git log) |
+| `d226210` | (see git log) |
+| `6a3d2ef` | (see git log) |
+| `839a489` | (see git log) |
+| `619a052` | (see git log) |
+| `fadf96d` | (see git log) |
+| `ece164d` | (see git log) |
+| `5469eb0` | (see git log) |
+| `da565b0` | (see git log) |
+| `929d6b7` | (see git log) |
+| `7c619c4` | (see git log) |
+| `610d60d` | (see git log) |
+| `e85d9d0` | (see git log) |
+| `095a56f` | (see git log) |
+| `2cfc3e3` | (see git log) |
+| `8119ce6` | (see git log) |
+| `e87f41a` | (see git log) |
+| `9bed8ae` | (see git log) |
+| `42dbaed` | (see git log) |
+| `5caadbc` | (see git log) |
+| `3ad8b5d` | (see git log) |
+| `1715d46` | (see git log) |
+
+### Status
+
+[OK] **Completed**
