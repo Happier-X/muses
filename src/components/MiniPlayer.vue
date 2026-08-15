@@ -132,7 +132,7 @@ const toDisplayableUri = (uri: string): string => {
   /* 液态玻璃（椒盐 Liquid Glass 同款，08-15）：半透明白底 + 强模糊 + 内高光边缘。
    * 注意：MuMu WebView 110 backdrop-filter 失效（fixed 元素采样不到背景），
    * 因此 alpha 与内高光承担主要玻璃观感（内容透出可见），blur 在真机系统 WebView 生效。 */
-  background: rgba(255, 255, 255, 0.65);
+  background: var(--m-glass-bg);
   border-radius: 40px; /* 大圆角胶囊（椒盐实测圆角 ~24dp，视觉近满圆） */
   cursor: pointer;
   box-sizing: border-box;
@@ -206,7 +206,7 @@ const toDisplayableUri = (uri: string): string => {
 
 /* 深色主题：液态玻璃深色配方（高深灰底 + 强模糊 + 微光边） */
 :global(.dark .mini-player) {
-  background: rgba(30, 30, 30, 0.65);
+  background: var(--m-glass-bg);
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),

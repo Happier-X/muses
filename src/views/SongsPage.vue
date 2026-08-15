@@ -795,7 +795,7 @@ onUnmounted(() => {
     /* 对齐椒盐：navbar 背景与页面同色 #F3F3F3，含状态栏感知 */
     :deep(.m-navbar) {
       padding-top: calc(var(--m-navbar-pt, 16px) + 6px); /* 16+6=22px 保持椒盐基准 */
-      background: rgba(255, 255, 255, 0.8); /* 液态玻璃（navbar 0.8 配方，08-15） */
+      background: var(--m-glass-bg); /* 液态玻璃（navbar 配方，08-15） */
       border-bottom: none; /* 对齐椒盐：navbar 与工具条之间无分割线 */
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
       -webkit-backdrop-filter: blur(20px);
@@ -1153,7 +1153,7 @@ onUnmounted(() => {
     bottom: 96px; /* 对齐椒盐：FAB 底距播放条顶 ~24dp（椒盐实测） */
 
     /* 液态玻璃圆底（0.8 配方，与深色 0.8 一致；半透明白底 + 模糊 + 内高光 + 高光边）+ 主题图标色 */
-    background: rgba(255, 255, 255, 0.8);
+    background: var(--m-glass-bg);
     color: var(--m-text-2);
     -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
@@ -1252,7 +1252,7 @@ onUnmounted(() => {
 
 /* 深色主题：跳转 FAB 与播放条同质感（液态玻璃深色配方） */
 :global(.dark .songs-page__jump-fab) {
-  background: rgba(30, 30, 30, 0.8);
+  background: var(--m-glass-bg);
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
@@ -1267,7 +1267,7 @@ onUnmounted(() => {
  * (0,2,0)，异步 chunk 后注入会覆盖组件深色规则，导致深色下 navbar 白雾。
  * 注意：不得写 :global(.dark) + :deep 组合——compiler-sfc 会丢弃 :global 之后的选择器。 */
 :global(.dark .songs-page .m-navbar) {
-  background: rgba(30, 30, 30, 0.8);
+  background: var(--m-glass-bg);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
