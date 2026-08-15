@@ -2775,6 +2775,53 @@ onUnmounted(() => {
     padding: 0;
     color: #fff !important;
   }
+
+  /* 播放器图标按钮按下反馈（椒盐 ripple 复刻：白色半透明涟漪扩散 + 按住保持浅白底，
+   * 覆盖 MButton clear 变体的主色蓝底，深色播放页上呈现椒盐同款点击效果） */
+  &__side-btn,
+  &__play-btn,
+  &__mode-btn,
+  &__lyric-fab,
+  &__lyric-play-fab {
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 120%;
+      height: 120%;
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      background: radial-gradient(
+        circle,
+        rgba(255, 255, 255, 0.32) 0%,
+        rgba(255, 255, 255, 0.12) 45%,
+        transparent 68%
+      );
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &:active {
+      /* 按住保持的浅白底（涟漪扩散后的驻留态）；!important 压过 MButton clear 蓝底 */
+      background-color: rgba(255, 255, 255, 0.18) !important;
+
+      &::after {
+        opacity: 1;
+        animation: player-page-ripple 0.42s ease-out forwards;
+      }
+    }
+  }
+}
+
+@keyframes player-page-ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
 }
 
 /* ============ 编辑歌曲信息（sheet 内，主题色系） ============ */
