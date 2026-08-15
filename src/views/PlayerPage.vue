@@ -111,83 +111,65 @@
               </div>
 
               <div class="controls player-page__controls">
-                <m-button
-                  component="button"
-                  variant="clear"
-                  rounded-full
+                <m-icon-button
+                  size="lg"
                   class="player-page__side-btn"
                   aria-label="上一曲"
                   @click="onPrevious"
                 >
                   <component :is="previousIcon" aria-hidden="true" class="player-page__icon-lg" />
-                </m-button>
-                <m-button
-                  component="button"
-                  variant="clear"
-                  rounded-full
+                </m-icon-button>
+                <m-icon-button
+                  size="lg"
                   class="player-page__play-btn"
                   :disabled="playerState.status === 'loading'"
                   aria-label="播放或暂停"
                   @click="togglePlayback"
                 >
                   <component :is="isPlaying ? pause : play" aria-hidden="true" class="player-page__icon-lg" />
-                </m-button>
-                <m-button
-                  component="button"
-                  variant="clear"
-                  rounded-full
+                </m-icon-button>
+                <m-icon-button
+                  size="lg"
                   class="player-page__side-btn"
                   aria-label="下一曲"
                   @click="onNext"
                 >
                   <component :is="nextIcon" aria-hidden="true" class="player-page__icon-lg" />
-                </m-button>
+                </m-icon-button>
               </div>
 
               <div class="mode-bar player-page__mode-bar">
-                <m-button
-                  component="button"
-                  variant="clear"
-                  rounded-full
+                <m-icon-button
                   class="player-page__mode-btn"
                   :aria-label="repeatModeLabel"
                   @click="onToggleRepeat"
                 >
                   <component :is="repeatIcon" aria-hidden="true" class="player-page__icon" />
-                </m-button>
+                </m-icon-button>
 
-                <m-button
-                  component="button"
-                  variant="clear"
-                  rounded-full
+                <m-icon-button
                   class="player-page__mode-btn"
                   :aria-label="shuffleModeLabel"
                   @click="onToggleShuffle"
                 >
                   <component :is="shuffleIcon" aria-hidden="true" class="player-page__icon" />
-                </m-button>
+                </m-icon-button>
 
-                <m-button
-                  component="button"
-                  variant="clear"
-                  rounded-full
+                <m-icon-button
                   class="player-page__mode-btn"
                   aria-label="播放队列"
                   @click="goToQueue"
                 >
                   <component :is="listIcon" aria-hidden="true" class="player-page__icon" />
-                </m-button>
+                </m-icon-button>
 
-                <m-button
-                  component="button"
-                  variant="clear"
-                  rounded-full
+                <m-icon-button
                   class="player-page__mode-btn"
                   aria-label="更多"
                   @click="openPlayerActions"
                 >
                   <component :is="moreIcon" aria-hidden="true" class="player-page__icon" />
-                </m-button>
+                </m-icon-button>
               </div>
             </div>
           </section>
@@ -240,11 +222,8 @@
               aria-label="歌词快捷操作"
               :aria-hidden="!lyricChromeVisible"
             >
-              <m-button
+              <m-icon-button
                 v-if="hasLyricTranslation"
-                component="button"
-                variant="clear"
-                rounded-full
                 class="lyric-fab player-page__lyric-fab"
                 :class="{ 'is-active': showLyricTranslation }"
                 :aria-label="showLyricTranslation ? '隐藏翻译' : '显示翻译'"
@@ -252,13 +231,11 @@
                 @click.stop="onLyricTranslateClick"
               >
                 <component :is="translationIcon" aria-hidden="true" class="player-page__icon" />
-              </m-button>
+              </m-icon-button>
 
-              <m-button
+              <m-icon-button
                 v-if="!isTabletLayout"
-                component="button"
-                variant="clear"
-                rounded-full
+                size="lg"
                 class="lyric-fab player-page__lyric-play-fab"
                 :aria-label="isPlaying ? '暂停播放' : '继续播放'"
                 :disabled="playerState.status === 'loading'"
@@ -266,7 +243,7 @@
                 @click.stop="onLyricPlayClick"
               >
                 <component :is="isPlaying ? pause : play" aria-hidden="true" class="player-page__icon-lg" />
-              </m-button>
+              </m-icon-button>
             </motion.div>
           </section>
         </motion.div>
@@ -760,6 +737,7 @@ import {
   MActionsLabel,
   MButton,
   MCheckbox,
+  MIconButton,
   MListInput,
   MPopup,
   MRange,
@@ -2615,33 +2593,18 @@ onUnmounted(() => {
     touch-action: manipulation;
   }
 
-  /* 播放器控制按钮（深底白字系；!important 压组件 clear 变体文字色） */
+  /* 播放器控制按钮（深底白字系；MIconButton 透明底 + currentColor 白涟漪反馈） */
   &__side-btn {
-    width: 48px;
-    height: 48px;
-    padding: 0;
-    color: rgba(255, 255, 255, 0.9) !important;
+    color: rgba(255, 255, 255, 0.9);
   }
 
   /* 播放按钮：无圆底，与侧边按钮同尺寸（用户要求统一大小） */
   &__play-btn {
-    width: 48px;
-    height: 48px;
-    padding: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.92) !important;
-
-    &:disabled {
-      opacity: 0.5;
-    }
+    color: rgba(255, 255, 255, 0.92);
   }
 
   &__mode-btn {
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    color: rgba(255, 255, 255, 0.8) !important;
+    color: rgba(255, 255, 255, 0.8);
   }
 
   &__icon-lg {
@@ -2763,64 +2726,11 @@ onUnmounted(() => {
   }
 
   &__lyric-fab {
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    color: rgba(255, 255, 255, 0.8) !important;
+    color: rgba(255, 255, 255, 0.8);
   }
 
   &__lyric-play-fab {
-    width: 48px;
-    height: 48px;
-    padding: 0;
-    color: #fff !important;
-  }
-
-  /* 播放器图标按钮按下反馈（椒盐 ripple 复刻：白色半透明涟漪扩散 + 按住保持浅白底，
-   * 覆盖 MButton clear 变体的主色蓝底，深色播放页上呈现椒盐同款点击效果） */
-  &__side-btn,
-  &__play-btn,
-  &__mode-btn,
-  &__lyric-fab,
-  &__lyric-play-fab {
-    &::after {
-      content: '';
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 120%;
-      height: 120%;
-      border-radius: 50%;
-      transform: translate(-50%, -50%) scale(0);
-      background: radial-gradient(
-        circle,
-        rgba(255, 255, 255, 0.32) 0%,
-        rgba(255, 255, 255, 0.12) 45%,
-        transparent 68%
-      );
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    &:active {
-      /* 按住保持的浅白底（涟漪扩散后的驻留态）；!important 压过 MButton clear 蓝底 */
-      background-color: rgba(255, 255, 255, 0.18) !important;
-
-      &::after {
-        opacity: 1;
-        animation: player-page-ripple 0.42s ease-out forwards;
-      }
-    }
-  }
-}
-
-@keyframes player-page-ripple {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.6);
-    opacity: 0;
+    color: #fff;
   }
 }
 

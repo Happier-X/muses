@@ -5,6 +5,7 @@
     :class="{
       'm-icon-button--disabled': disabled,
       'm-icon-button--size-sm': size === 'sm',
+      'm-icon-button--size-lg': size === 'lg',
     }"
     :disabled="disabled"
     :aria-label="ariaLabel"
@@ -29,7 +30,8 @@
  * - 透明底，图标使用继承文字色（由调用方通过 color 控制）
  * - 点击反馈 = 半透明圆形背景淡入 + 轻微缩放（motion 弹簧动画），
  *   替代 MButton clear 的浅蓝底 / 各页面手写 active 背景色，全局统一
- * - 常用尺寸：默认 40px 触控区（图标 20px）；sm 36px 触控区（图标 18px）
+ * - 常用尺寸：默认 40px 触控区（图标 20px）；sm 36px 触控区（图标 18px）；
+ *   lg 48px 触控区（图标 28px，播放页主控用）
  *
  * 用法：
  * ```vue
@@ -45,7 +47,7 @@ withDefaults(
     /** 无障碍标签（必传：纯图标按钮） */
     ariaLabel?: string
     disabled?: boolean
-    size?: 'md' | 'sm'
+    size?: 'md' | 'sm' | 'lg'
   }>(),
   {
     ariaLabel: undefined,
@@ -77,6 +79,19 @@ defineEmits<{
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   overflow: visible;
+
+  &--size-sm {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  /* lg：48px 触控区（播放页主控/浮动播放键） */
+  &--size-lg {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+  }
 
   &:disabled {
     opacity: 0.4;
