@@ -61,8 +61,12 @@
                 <div v-else class="player-page__cover-hero-img player-page__cover-hero-placeholder">♪</div>
               </div>
 
-              <!-- 三行歌词（固定位置，切行时原地 scale/opacity 平滑过渡，无进出位移不跳动） -->
-              <motion.div v-if="lyricRows.length > 0" class="player-page__song-meta">
+              <!-- 三行歌词（切行时容器从下方滑入，transform 动画不影响布局不跳动） -->
+              <div
+                v-if="lyricRows.length > 0"
+                ref="metaScrollEl"
+                class="player-page__song-meta"
+              >
                 <motion.p
                   v-for="row in lyricRows"
                   :key="row.key"
@@ -77,7 +81,7 @@
                 >
                   {{ row.text }}
                 </motion.p>
-              </motion.div>
+              </div>
 
               <div
                 class="player-page__progress-area"
@@ -1730,45 +1734,7 @@ const onNext = () => {
 
 const lyricArtist = computed(() => playerState.currentSong?.artist?.trim() || '')
 
-/** 当前歌词行文本（椒盐：封面下方信息区展示） */
 /** 三行歌词上下文：上一行 / 当前行（高亮）/ 下一行 */
-const lyricContext = computed(() => {
-  if (!hasLyrics.value) {
-    return { prev: '', current: '', next: '' }
-  }
-  const targetMs = lyricRenderTime.value
-  const lines = displayLyricLines.value
-  const textOf = (line: LyricLine | undefined): string =>
-    line ? (line.words ?? []).map((w) => w.word).join('') : ''
-  let current = ''
-  let currentIdx = -1
-  for (let i = 0; i < lines.length; i += 1) {
-    const start = lines[i].startTime ?? 0
-    if (start <= targetMs) {
-      current = textOf(lines[i])
-      currentIdx = i
-    } else {
-      break
-    }
-  }
-  return {
-    prev: currentIdx > 0 ? textOf(lines[currentIdx - 1]) : '',
-    current,
-    next: currentIdx >= 0 && currentIdx < lines.length - 1 ? textOf(lines[currentIdx + 1]) : '',
-  }
-})
-
-/** 三行渲染数组（AMLL 风格：当前行高亮放大、前后行淡化缩小）
- * 始终固定三行（空行占位），避免行数变化导致页面跳动 */
-const lyricRows = computed(() => {
-  const { prev, current, next } = lyricContext.value
-  return [
-    { key: 'prev', text: prev || '', isCurrent: false },
-    { key: 'current', text: current || '', isCurrent: true },
-    { key: 'next', text: next || '', isCurrent: false },
-  ]
-})
-
 const toDisplayableUri = (uri: string): string => {
   if (!uri) {
     return ''
@@ -1888,6 +1854,78 @@ const displayLyricLines = computed<LyricLine[]>(() => {
 const lyricPlayerKey = computed(() => `${playerState.currentSong?.id ?? 'none'}:${playerState.lyricsFormat ?? 'lrc'}:${showLyricTranslation.value ? 'translation-on' : 'translation-off'}`)
 
 const hasLyrics = computed(() => lyricLines.value.length > 0)
+
+/** 三行歌词上下文：上一行 / 当前行（高亮）/ 下一行 */
+const lyricContext = computed(() => {
+  if (!hasLyrics.value) {
+    return { prev: '', current: '', next: '' }
+  }
+  const targetMs = lyricRenderTime.value
+  const lines = displayLyricLines.value
+  const textOf = (line: LyricLine | undefined): string =>
+    line ? (line.words ?? []).map((w) => w.word).join('') : ''
+  let current = ''
+  let currentIdx = -1
+  for (let i = 0; i < lines.length; i += 1) {
+    const start = lines[i].startTime ?? 0
+    if (start <= targetMs) {
+      current = textOf(lines[i])
+      currentIdx = i
+    } else {
+      break
+    }
+  }
+  return {
+    prev: currentIdx > 0 ? textOf(lines[currentIdx - 1]) : '',
+    current,
+    next: currentIdx >= 0 && currentIdx < lines.length - 1 ? textOf(lines[currentIdx + 1]) : '',
+  }
+})
+
+/** 三行渲染数组（AMLL 风格：当前行高亮放大、前后行淡化缩小）
+ * 始终固定三行（空行占位），避免行数变化导致页面跳动 */
+const lyricRows = computed(() => {
+  const { prev, current, next } = lyricContext.value
+  return [
+    { key: 'prev', text: prev || '', isCurrent: false },
+    { key: 'current', text: current || '', isCurrent: true },
+    { key: 'next', text: next || '', isCurrent: false },
+  ]
+})
+
+/** 歌词滚动进入动画：切行时容器从下方滑入（transform 动画，不影响布局） */
+const metaScrollEl = ref<HTMLElement | null>(null)
+let lyricScrollControls: AnimationPlaybackControls | null = null
+watch(
+  () => lyricContext.value.current,
+  (next, prev) => {
+    if (!prev || next === prev) {
+      return
+    }
+    const el = metaScrollEl.value
+    if (!el) {
+      return
+    }
+    if (lyricScrollControls) {
+      lyricScrollControls.stop()
+    }
+    // 新内容先定位在下方，再平滑滑入（模拟向上滚动推进）
+    el.style.transform = 'translateY(24px)'
+    lyricScrollControls = animate(
+      el,
+      { transform: 'translateY(0px)' },
+      {
+        duration: 0.32,
+        ease: [0.22, 0.8, 0.36, 1],
+        onComplete: () => {
+          lyricScrollControls = null
+          el.style.transform = ''
+        },
+      },
+    )
+  },
+  { flush: 'post' },
+)
 
 /** 有译文/音译才出翻译键；prepare 后的行或独立 tlyric 任一即可 */
 const hasLyricTranslation = computed(() => {
