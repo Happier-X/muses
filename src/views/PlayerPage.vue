@@ -2390,6 +2390,13 @@ onUnmounted(() => {
     height: 100%;
     max-height: 100%;
     overflow: hidden;
+
+    /* 平板（≥768px）左右分栏：容器收缩回 100%，两面板各占 50% 并排。
+       全局 index.scss md 断点的 `width: auto` 与本规则同特异性，但 scoped 后注入恒覆盖全局，
+       必须在此重申覆盖，否则容器保持 200% 宽、右侧歌词面板被裁出视口（08-15-tablet-player-layout） */
+    @media (min-width: 768px) {
+      width: 100%;
+    }
   }
 
   &__info-panel {
@@ -2484,6 +2491,11 @@ onUnmounted(() => {
     height: 79px; /* 三行视口高度，固定不跳动 */
     overflow: hidden;
     position: relative;
+
+    /* 平板（≥768px）左侧不展示三行歌词：左右分栏时歌词由右侧歌词页承担（08-15-tablet-player-layout） */
+    @media (min-width: 768px) {
+      display: none;
+    }
   }
 
   &__meta-window {
