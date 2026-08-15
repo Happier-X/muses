@@ -61,26 +61,24 @@
                 <div v-else class="player-page__cover-hero-img player-page__cover-hero-placeholder">♪</div>
               </div>
 
-              <!-- 三行歌词（两段滚动：旧内容上移 + 新内容从底部进入，transform 不影响布局） -->
-              <div
-                v-if="displayedRows.length > 0"
-                ref="metaScrollEl"
-                class="player-page__song-meta"
-              >
-                <motion.p
-                  v-for="row in displayedRows"
-                  :key="row.key"
-                  class="player-page__meta-line"
-                  :class="{ 'player-page__meta-current': row.isCurrent }"
-                  :animate="{
-                    opacity: row.isCurrent ? 1 : 0.55,
-                    scale: row.isCurrent ? 1.05 : 0.92,
-                    filter: row.isCurrent ? 'blur(0px)' : 'blur(0.6px)',
-                  }"
-                  :transition="{ type: 'spring', stiffness: 240, damping: 26 }"
-                >
-                  {{ row.text }}
-                </motion.p>
+              <!-- 五行歌词窗口（AMLL 式连续滚动：当前行居中，切行整体上移） -->
+              <div v-if="displayedWindow.length > 0" class="player-page__song-meta">
+                <div ref="metaScrollEl" class="player-page__meta-window">
+                  <motion.p
+                    v-for="row in displayedWindow"
+                    :key="row.key"
+                    class="player-page__meta-line"
+                    :class="{ 'player-page__meta-current': row.isCurrent }"
+                    :animate="{
+                      opacity: row.isCurrent ? 1 : 0.55,
+                      scale: row.isCurrent ? 1.05 : 0.92,
+                      filter: row.isCurrent ? 'blur(0px)' : 'blur(0.6px)',
+                    }"
+                    :transition="{ type: 'spring', stiffness: 240, damping: 26 }"
+                  >
+                    {{ row.text }}
+                  </motion.p>
+                </div>
               </div>
 
               <div
@@ -1858,60 +1856,63 @@ const hasLyrics = computed(() => lyricLines.value.length > 0)
 /** 三行歌词上下文：上一行 / 当前行（高亮）/ 下一行 */
 const lyricContext = computed(() => {
   if (!hasLyrics.value) {
-    return { prev: '', current: '', next: '' }
+    return { prev2: '', prev: '', current: '', next: '', next2: '' }
   }
   const targetMs = lyricRenderTime.value
   const lines = displayLyricLines.value
   const textOf = (line: LyricLine | undefined): string =>
     line ? (line.words ?? []).map((w) => w.word).join('') : ''
-  let current = ''
   let currentIdx = -1
   for (let i = 0; i < lines.length; i += 1) {
     const start = lines[i].startTime ?? 0
     if (start <= targetMs) {
-      current = textOf(lines[i])
       currentIdx = i
     } else {
       break
     }
   }
+  const get = (i: number): string => (i >= 0 && i < lines.length ? textOf(lines[i]) : '')
   return {
-    prev: currentIdx > 0 ? textOf(lines[currentIdx - 1]) : '',
-    current,
-    next: currentIdx >= 0 && currentIdx < lines.length - 1 ? textOf(lines[currentIdx + 1]) : '',
+    prev2: get(currentIdx - 2),
+    prev: get(currentIdx - 1),
+    current: get(currentIdx),
+    next: get(currentIdx + 1),
+    next2: get(currentIdx + 2),
   }
 })
 
-/** 三行渲染数组（AMLL 风格：当前行高亮放大、前后行淡化缩小）
- * 始终固定三行（空行占位），避免行数变化导致页面跳动 */
-const lyricRows = computed(() => {
-  const { prev, current, next } = lyricContext.value
+/** 五行滚动窗口（AMLL 式：当前行居中，切行时整体上移一行）
+ * 始终固定五行（空行占位），避免行数变化导致页面跳动 */
+const lyricWindow = computed(() => {
+  const { prev2, prev, current, next, next2 } = lyricContext.value
   return [
-    { key: 'prev', text: prev || '', isCurrent: false },
-    { key: 'current', text: current || '', isCurrent: true },
-    { key: 'next', text: next || '', isCurrent: false },
+    { key: 'prev2', text: prev2, isCurrent: false },
+    { key: 'prev', text: prev, isCurrent: false },
+    { key: 'current', text: current, isCurrent: true },
+    { key: 'next', text: next, isCurrent: false },
+    { key: 'next2', text: next2, isCurrent: false },
   ]
 })
 
-/** 歌词滚动动画（AMLL 式两段滚动：旧内容上移出 + 新内容从底部进入）
- * displayedRows 独立控制渲染，动画期间保持旧行，完成后换新行 */
+/** 歌词滚动动画（AMLL 式连续滚动：窗口整体上移一行，新行从底部自然进入）
+ * displayedWindow 独立控制渲染，动画期间保持旧窗口，完成后换新窗口（视觉连续） */
 const metaScrollEl = ref<HTMLElement | null>(null)
-const displayedRows = ref<{ key: string; text: string; isCurrent: boolean }[]>([])
+const displayedWindow = ref<{ key: string; text: string; isCurrent: boolean }[]>([])
 let lyricScrollControls: AnimationPlaybackControls | null = null
 let lyricScrolling = false
 
-/* 非切行同步（初始/换歌/显隐）：直接更新显示行 */
+/* 非切行同步（初始/换歌/显隐）：直接更新显示窗口 */
 watch(
-  () => lyricRows.value,
-  (rows) => {
+  () => lyricWindow.value,
+  (windowRows) => {
     if (!lyricScrolling) {
-      displayedRows.value = rows
+      displayedWindow.value = windowRows
     }
   },
   { immediate: true },
 )
 
-/* 切行：两段滚动（旧内容上移 → 新内容从下方进入） */
+/* 切行：单段连续上移（丝滑缓动），完成后窗口上移一位 + 复位（视觉无跳） */
 watch(
   () => lyricContext.value.current,
   (next, prev) => {
@@ -1926,31 +1927,20 @@ watch(
     if (lyricScrollControls) {
       lyricScrollControls.stop()
     }
-    // 第一段：旧内容上移一行（滚出顶部）
+    // 窗口整体上移一行：next 行滚到当前行位，next2 从底部进入
     el.style.transform = 'translateY(0px)'
     lyricScrollControls = animate(
       el,
-      { transform: 'translateY(-26px)' },
+      { transform: 'translateY(-29.5px)' },
       {
-        duration: 0.18,
-        ease: 'easeIn',
+        duration: 0.4,
+        ease: [0.32, 0.72, 0, 1],
         onComplete: () => {
-          // 第二段：换新内容 + 从底部进入
-          displayedRows.value = lyricRows.value
-          el.style.transform = 'translateY(26px)'
-          lyricScrollControls = animate(
-            el,
-            { transform: 'translateY(0px)' },
-            {
-              duration: 0.26,
-              ease: 'easeOut',
-              onComplete: () => {
-                lyricScrollControls = null
-                lyricScrolling = false
-                el.style.transform = ''
-              },
-            },
-          )
+          // 窗口数据上移一位（与滚动后视觉一致），复位定位
+          displayedWindow.value = lyricWindow.value
+          el.style.transform = 'translateY(-19.5px)'
+          lyricScrollControls = null
+          lyricScrolling = false
         },
       },
     )
@@ -2492,13 +2482,25 @@ onUnmounted(() => {
   }
 
   /* 歌曲信息三行（椒盐：作曲/编曲/歌词，左对齐小字） */
+  /* 五行歌词窗口（AMLL 式连续滚动） */
   &__song-meta {
     flex: none;
     width: 100%;
-    margin: 0 0 18px; /* 与进度条拉开间距（椒盐歌词区与进度条分离） */
+    margin: 0 0 18px; /* 与进度条拉开间距 */
     text-align: left;
     min-width: 0;
-    min-height: 79px; /* 固定三行高度，空行占位不跳动 */
+    height: 79px; /* 三行视口高度，固定不跳动 */
+    overflow: hidden;
+    position: relative;
+  }
+
+  &__meta-window {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    /* 初始定位：当前行（第 3 位）居中于视口；切行由 animate 驱动上移 */
+    transform: translateY(-19.5px);
+    will-change: transform;
   }
 
   /* 三行歌词上下文（AMLL 风格：当前行高亮放大、前后行淡化缩小） */
