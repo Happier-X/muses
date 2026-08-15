@@ -61,14 +61,14 @@
                 <div v-else class="player-page__cover-hero-img player-page__cover-hero-placeholder">♪</div>
               </div>
 
-              <!-- 三行歌词（切行时容器从下方滑入，transform 动画不影响布局不跳动） -->
+              <!-- 三行歌词（两段滚动：旧内容上移 + 新内容从底部进入，transform 不影响布局） -->
               <div
-                v-if="lyricRows.length > 0"
+                v-if="displayedRows.length > 0"
                 ref="metaScrollEl"
                 class="player-page__song-meta"
               >
                 <motion.p
-                  v-for="row in lyricRows"
+                  v-for="row in displayedRows"
                   :key="row.key"
                   class="player-page__meta-line"
                   :class="{ 'player-page__meta-current': row.isCurrent }"
@@ -1893,33 +1893,64 @@ const lyricRows = computed(() => {
   ]
 })
 
-/** 歌词滚动进入动画：切行时容器从下方滑入（transform 动画，不影响布局） */
+/** 歌词滚动动画（AMLL 式两段滚动：旧内容上移出 + 新内容从底部进入）
+ * displayedRows 独立控制渲染，动画期间保持旧行，完成后换新行 */
 const metaScrollEl = ref<HTMLElement | null>(null)
+const displayedRows = ref<{ key: string; text: string; isCurrent: boolean }[]>([])
 let lyricScrollControls: AnimationPlaybackControls | null = null
+let lyricScrolling = false
+
+/* 非切行同步（初始/换歌/显隐）：直接更新显示行 */
+watch(
+  () => lyricRows.value,
+  (rows) => {
+    if (!lyricScrolling) {
+      displayedRows.value = rows
+    }
+  },
+  { immediate: true },
+)
+
+/* 切行：两段滚动（旧内容上移 → 新内容从下方进入） */
 watch(
   () => lyricContext.value.current,
   (next, prev) => {
-    if (!prev || next === prev) {
+    if (!prev || next === prev || lyricScrolling) {
       return
     }
     const el = metaScrollEl.value
     if (!el) {
       return
     }
+    lyricScrolling = true
     if (lyricScrollControls) {
       lyricScrollControls.stop()
     }
-    // 新内容先定位在下方，再平滑滑入（模拟向上滚动推进）
-    el.style.transform = 'translateY(24px)'
+    // 第一段：旧内容上移一行（滚出顶部）
+    el.style.transform = 'translateY(0px)'
     lyricScrollControls = animate(
       el,
-      { transform: 'translateY(0px)' },
+      { transform: 'translateY(-26px)' },
       {
-        duration: 0.32,
-        ease: [0.22, 0.8, 0.36, 1],
+        duration: 0.18,
+        ease: 'easeIn',
         onComplete: () => {
-          lyricScrollControls = null
-          el.style.transform = ''
+          // 第二段：换新内容 + 从底部进入
+          displayedRows.value = lyricRows.value
+          el.style.transform = 'translateY(26px)'
+          lyricScrollControls = animate(
+            el,
+            { transform: 'translateY(0px)' },
+            {
+              duration: 0.26,
+              ease: 'easeOut',
+              onComplete: () => {
+                lyricScrollControls = null
+                lyricScrolling = false
+                el.style.transform = ''
+              },
+            },
+          )
         },
       },
     )
