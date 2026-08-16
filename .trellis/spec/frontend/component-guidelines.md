@@ -346,6 +346,7 @@ ESLint 已启用 `vue/no-undef-components`（error）防回归：模板使用未
 - 组件：`<k-fab class="fixed z-40" :style="{ right: '16px', bottom: '176px' }" aria-label="跳转到当前播放" @click="scrollToCurrentSong">`；`176px = MiniPlayer(64) + tabbar(96) + 16`。图标用 `@/icons` 的 `crosshair` 直渲染。
 - 可见性：`v-if="showJumpBubble"` —— 当前播放歌曲在列表但不在可视区且非滚动中；跳转后自动隐藏。
 - **行定位（虚拟列表）**：`findIndex` 后只调用 `rowVirtualizer.scrollToIndex(index, { align: 'start' })`（可 smooth 一次，layout 后再瞬时兜底一次）。**禁止**再对行做 `scrollIntoView`，也**禁止**给虚拟行加 `scroll-margin-top` / `scroll-mt-*` 去「扣 navbar」。
+- **防漂移 guard 互斥（08-16-navbar-top-gap-salt 后同批修复，根因 08-16-jump-fab-first-click）**：`onMounted` 的 4 秒防漂移 guard（冷启动/重挂载时把 scrollTop 拉回期望位置）会与 FAB 跳转打架——挂载后 4 秒内点击跳转，跳转后的 scrollTop 会被 guard 拉回，表现为「第一次点击跳不过去，第二次（guard 已停）正常」。交互标记 `mountInteracted` 必须是**组件级变量**，`scrollToCurrentSong` 开头置位（FAB 在列表容器外，点 FAB 不触发列表容器 touchstart，仅靠列表监听会漏）；新增任何「主动改变 scrollTop 的入口」都必须同步置位，否则会被 guard 吞掉。
 - **为何不用 scroll-margin**：列表滚动容器是 navbar + shuffle-bar **下方**的 `listParentRef`，顶栏不在滚动端口内；`align: 'start'` 已对齐列表可视区顶。历史 108px `scroll-mt` + `scrollIntoView` 会在**第二次及之后** FAB 点击时把当前行再往下挪（`08-03-songs-jump-current-second-click`）。
 - 行上可保留 `data-song-id` 供样式/调试；跳转**不得**依赖查询 DOM 再 `scrollIntoView`。
 - 列表末尾无法再滚时停在容器允许的最大位置（不必强行置顶）。宽屏单列同样适用。

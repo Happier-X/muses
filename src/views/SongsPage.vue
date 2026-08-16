@@ -324,6 +324,11 @@ import {
 
 const songs = ref<SongItem[]>([])
 const listParentRef = ref<HTMLElement | null>(null)
+/** 挂载后防漂移 guard 的交互标记（touchstart/wheel/FAB 跳转都会置位，停止拉回 scrollTop） */
+let mountInteracted = false
+const stopMountGuard = (): void => {
+  mountInteracted = true
+}
 /** tab 切换时的滚动位置保留（sessionStorage 持久，组件卸载/重挂载与懒加载 chunk 重执行均安全） */
 const SCROLL_SAVE_KEY = 'muses:songs-scroll-top'
 const SORT_SAVE_KEY = 'muses:songs-sort-mode'
@@ -686,6 +691,8 @@ const onSearchInput = (e: Event): void => {
 }
 
 const scrollToCurrentSong = async () => {
+  // 用户主动跳转 = 交互：停止挂载后 4s 防漂移 guard（否则跳转后的 scrollTop 会被 guard 拉回期望位置，首次点击失效）
+  stopMountGuard()
   const currentId = playerState.currentSong?.id
   if (!currentId) {
     return
@@ -727,21 +734,16 @@ onMounted(() => {
     window.addEventListener(SONGS_UPDATED_EVENT, refreshSongs)
   }
   const mountAt = Date.now()
-  let interacted = false
-  const stop = () => { interacted = true }
-  // 挂载后 4 秒防漂移 + 挂滚动位置保存。
-  // 背景：WebView 首屏布局未稳时虚拟列表可能被误滚到底（scrollToCurrentSong 未调用、
-  // overflow-anchor:none 无效；疑 TanStack Virtual measure 期间布局漂移），冷启动与
-  // tab 切回（重新挂载）均会触发。统一处理：期望位置 = 保存值（有则恢复）或 0（顶部），
-  // 4 秒内无用户交互且 scrollTop 漂移远离期望位置时拉回；用户一交互（touchstart/wheel）
-  // 立即停止，避免打断手动滚动。
+  // 挂载后 4 秒防漂移 + 挂滚动位置保存。背景：WebView 首屏布局未稳时虚拟列表可能被误滚到底
+  // （冷启动与 tab 切回重新挂载均会触发）；4 秒内无用户交互且 scrollTop 漂移远离期望位置时拉回，
+  // 用户一交互立即停止（touchstart/wheel/FAB 跳转均置位 mountInteracted，见组件级变量）。
   let attached = false
   const attachScrollSave = () => {
     const cur = listParentRef.value
     if (!cur || attached) return
     attached = true
-    cur.addEventListener('touchstart', stop, { once: true, passive: true })
-    cur.addEventListener('wheel', stop, { once: true, passive: true })
+    cur.addEventListener('touchstart', stopMountGuard, { once: true, passive: true })
+    cur.addEventListener('wheel', stopMountGuard, { once: true, passive: true })
     cur.addEventListener('scroll', onListScroll, { passive: true })
     cur.addEventListener('scroll', () => {
       if (Date.now() - mountAt < 4000) return
@@ -751,7 +753,7 @@ onMounted(() => {
   }
   const guard = () => {
     const cur = listParentRef.value
-    if (!cur || interacted || Date.now() - mountAt > 4000) return
+    if (!cur || mountInteracted || Date.now() - mountAt > 4000) return
     const max = cur.scrollHeight - cur.clientHeight
     if (max <= 0) return
     // 期望位置：有保存值恢复（clamp 到当前列表范围），否则顶部
