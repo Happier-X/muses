@@ -922,3 +922,19 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | Hash | Message |
 |------|---------|
 | `ff75700` | fix(ui): navbar 与工具条对齐椒盐——液态玻璃改实心表面（与列表同色） |
+
+## Session 100: fix(ui): navbar 背景修正为列表底色（--m-surface）
+
+**Date**: 2026-08-16
+**Task**: 08-16-navbar-bg-match-list-surface
+**Branch**: `main`
+
+### Summary
+
+用户反馈上轮实心化后"navbar 和工具条还不是灰色"。排查：源码已改但用户看的是旧产物——dist 22:31 旧构建 + android assets 停留在 8月15 20:52（比源码修复还旧）。cap sync + assembleDebug + 安装 MuMu 后截图采样发现**真正根因**：navbar 用了 `--m-surface-1`（#f9f9f9，MList 卡片色），而 SongsPage 自建虚拟列表（非 MList）底色直接透出 body 的 `--m-surface`（#f3f3f3）——navbar 偏白，肉眼色差。修正：MNavbar 默认/深色、SongsPage navbar 覆盖/深色全部 `--m-surface-1` → `--m-surface`。MuMu 截图像素验证：navbar/工具条/列表区域全部 (243,243,243) 一致（状态栏区域除外）。流程验证闭环：改源码 → build → cap sync → assembleDebug → 安装 → screencap 像素采样。教训：与「下面列表」对齐时须以列表区域实际渲染色为准（列表组件与页面底可能不同 token）。spec 常驻导航表面契约已修正并记录。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `(see git log)` | fix(ui): navbar 背景修正为列表底色 --m-surface（#f3f3f3） |
