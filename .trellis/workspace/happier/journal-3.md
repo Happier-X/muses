@@ -1010,3 +1010,25 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | Hash | Message |
 |------|---------|
 | `(see git log)` | feat(ui): 侧边栏对齐椒盐——header+分组+64dp行高+77dp文字距+去蓝底激活；主题三态 |
+
+## Session 105: feat(ui): 侧边栏改灰色卡片样式（二版迭代）
+
+**Date**: 2026-08-16
+**Task**: 08-16-sidebar-card-style
+**Branch**: `main`
+
+### Summary
+
+用户对昨日 side-bar-salt-polish 反馈三点：① 不要顶部三按钮（header 删除）；② 图标不要蓝色；③ 只改侧边栏、改成卡片、背景灰色（明确不改推屏交互）。另用 MuMu 四帧实验（关→开→关→开，s1/s3 完全相同）证实椒盐抽屉为覆盖式、主内容不动，且抽屉是悬浮圆角卡片（左缘 x48 空隙 18dp、右缘 552、四边 1px #e9e9e9、顶部 y96→119 圆角渐宽）；与 Muses 推屏式的差异主要靠卡片视觉拉近（用户要求保留推屏）。
+
+改动（仅 TabsPage.vue）：① 删除 aside/drawer 的 `.tabs-layout__panel-header` 及三按钮（✕/主题/⚙️）+ themeIcon/themeActionLabel/navigateToSettings 与相关 imports（useSystemDark 三态保留无入口，spec 已注明设区页后续可接）；② drawer 槽位透明化（去 surface-1/border-right，padding 左右 0）→ `.tabs-layout__panel` 卡片化：`margin 0 12px 0 18px`、background `--m-surface-1`、`border-radius 24px`、`border 1px hairline`、阴影 `0 8px 24px rgba(0,0,0,0.08)`（深色 0.35），`overflow hidden`；③ 图标去蓝：删除 `--active` 图标 primary 覆盖，图标恒 `--m-text-2`（浅 #8c8c8c / 深 token），激活仅文字加粗；④ drawer 内 nav-link padding-left 0 → 文字起点 = 18 空隙 + 60 图标列 = 78px（椒盐 204px@2.625 = 77.7dp ✓）；⑤ 平板 aside 不卡片化（保持现状）。
+
+验证：vue-tsc/eslint/build 过；Edge CDP（480 视口）量得 panelBg #f9f9f9 / radius 24 / border 1px hairline / margin 18+12 / hasHeader false / iconColor+activeIcon 均 rgb(140,140,140)（无蓝）/ 文字起点 79 / 行高 64 / 深色面板 #262626；MuMu 真机 1080x1920 截图：卡片 x60..525 灰色表面、左缘阴影渐化、顶部圆角 y~100、第一行菜单 y175（无 header占位）、图标区纯 #8c8c8c 灰（无 #0470e6）、modlens 确认 6 项菜单+主列表正常。spec 侧边栏视觉契约与主题三态契约同步更新（header 已弃用禁止加回）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `(see git log)` | feat(ui): 侧边栏改灰色悬浮卡片——删 header 三按钮、图标去蓝、24px 圆角+描边+空隙 |
+
+## Session 106: (planned) 真机回归：卡片抽屉关闭/手势/暗色待用户验收

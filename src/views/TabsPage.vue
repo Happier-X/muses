@@ -13,24 +13,6 @@
         aria-label="主导航"
       >
         <div class="tabs-layout__panel">
-          <div class="tabs-layout__panel-header" role="toolbar" aria-label="快捷操作">
-            <m-icon-button
-              class="tabs-layout__header-btn"
-              :aria-label="themeActionLabel"
-              :title="themeActionLabel"
-              @click="cycleThemeMode"
-            >
-              <component :is="themeIcon" aria-hidden="true" class="tabs-layout__header-icon" />
-            </m-icon-button>
-            <m-icon-button
-              class="tabs-layout__header-btn"
-              aria-label="设置"
-              title="设置"
-              @click="navigateToSettings"
-            >
-              <settings aria-hidden="true" class="tabs-layout__header-icon" />
-            </m-icon-button>
-          </div>
           <nav aria-label="主导航" class="tabs-layout__nav tabs-layout__nav--primary">
             <RouterLink
               v-for="item in primaryNavItems"
@@ -79,32 +61,6 @@
           aria-label="主导航"
         >
           <div class="tabs-layout__panel">
-            <div class="tabs-layout__panel-header" role="toolbar" aria-label="快捷操作">
-              <m-icon-button
-                class="tabs-layout__header-btn"
-                aria-label="关闭导航菜单"
-                title="关闭导航菜单"
-                @click="closeDrawer"
-              >
-                <close aria-hidden="true" class="tabs-layout__header-icon" />
-              </m-icon-button>
-              <m-icon-button
-                class="tabs-layout__header-btn"
-                :aria-label="themeActionLabel"
-                :title="themeActionLabel"
-                @click="cycleThemeMode"
-              >
-                <component :is="themeIcon" aria-hidden="true" class="tabs-layout__header-icon" />
-              </m-icon-button>
-              <m-icon-button
-                class="tabs-layout__header-btn"
-                aria-label="设置"
-                title="设置"
-                @click="navigateToSettings"
-              >
-                <settings aria-hidden="true" class="tabs-layout__header-icon" />
-              </m-icon-button>
-            </div>
             <nav aria-label="主导航" class="tabs-layout__nav tabs-layout__nav--primary">
               <RouterLink
                 v-for="item in primaryNavItems"
@@ -168,13 +124,11 @@
 <script setup lang="ts">
 import { animate, motion } from 'motion-v'
 import { computed, nextTick, onMounted, onUnmounted, provide, readonly, ref, watch } from 'vue'
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
 import type { ComponentPublicInstance } from 'vue'
-import { albums, close, list, monitor, moon, musicalNotes, person, radio, settings, sun } from '@/icons'
+import { albums, list, musicalNotes, person, radio, settings } from '@/icons'
 import { navigationDrawerKey } from '@/features/navigation/drawer'
 import { playerOverlayVisible, queueOverlayVisible } from '@/features/player/overlay'
-import { cycleThemeMode, themeMode } from '@/composables/useSystemDark'
-import { MIconButton } from '@/components/ui'
 
 interface NavigationItem {
   to: string
@@ -201,7 +155,6 @@ const HORIZONTAL_LOCK_PX = 8
 const SETTLE_RATIO = 0.25
 const FAST_SWIPE_PX_PER_MS = 0.5
 const route = useRoute()
-const router = useRouter()
 const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
 const drawerOpen = ref(false)
 const drawerRendered = ref(false)
@@ -220,18 +173,6 @@ const drawerTransition = computed(() => ({
   duration: prefersReducedMotion.value ? 0 : drawerDragging.value ? 0 : 0.24,
   ease: [0.32, 0.72, 0, 1],
 }))
-
-/** 外观按钮图标：跟随系统→monitor / 亮→sun / 暗→moon（对应 useSystemDark 三态） */
-const themeIcon = computed(() =>
-  themeMode.value === 'dark' ? moon : themeMode.value === 'light' ? sun : monitor,
-)
-const themeActionLabel = computed(() =>
-  themeMode.value === 'dark'
-    ? '外观：暗色'
-    : themeMode.value === 'light'
-      ? '外观：亮色'
-      : '外观：跟随系统',
-)
 
 let activeTouchId: number | null = null
 let touchStartX = 0
@@ -314,12 +255,6 @@ async function closeDrawer() {
 
 function onDrawerNavigation() {
   closeDrawer()
-}
-
-/** header 设置按钮：关闭抽屉并跳转设置页（已在设置页则仅关闭） */
-function navigateToSettings() {
-  void closeDrawer()
-  if (route.path !== '/tabs/settings') void router.push('/tabs/settings')
 }
 
 function isGestureBlocked(target: EventTarget | null) {
@@ -581,25 +516,16 @@ onUnmounted(() => {
     box-sizing: border-box;
   }
 
-  /* 椒盐侧边栏 Header：64dp 高，功能按钮均分整行（移动端 ✕/外观/设置），底部分隔线 */
-  &__panel-header {
-    display: flex;
-    align-items: center;
-    flex: 0 0 auto;
-    height: 64px;
-    box-sizing: border-box;
-    border-bottom: 1px solid var(--m-hairline);
-  }
-
-  &__header-btn {
-    flex: 1 1 0;
-    min-width: 0;
-    color: var(--m-text-2);
-  }
-
-  &__header-icon {
-    width: 20px;
-    height: 20px;
+  /* 移动端抽屉内 panel = 椒盐式悬浮灰色卡片（08-16 用户定案）：
+     左 18dp 空隙 + 右 12dp 空隙（椒盐实测 x48/右缘 552）、24px 圆角、1px 描边、轻阴影 */
+  &__drawer &__panel {
+    margin-right: 12px;
+    margin-left: 18px;
+    background-color: var(--m-surface-1);
+    border: 1px solid var(--m-hairline);
+    border-radius: 24px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
   }
 
   &__nav {
@@ -638,7 +564,13 @@ onUnmounted(() => {
     }
   }
 
-  /* 图标区固定 60dp（16dp 内边距 + 60dp 图标列 → 文字自 ~77dp 起，对齐椒盐 x204px 实测） */
+  /* 卡片内菜单项左侧不额外 padding：18px 卡片空隙 + 60px 图标列 → 文字自 ~78px 起，
+     对齐椒盐文字 x204px 实测（78px ≈ 204px@2.625） */
+  &__drawer &__nav-link {
+    padding-left: 0;
+  }
+
+  /* 图标区固定 60px（图标 24px 居中于 30px 处，对齐椒盐图标中心 ~x126px） */
   &__nav-icon-shell {
     flex: 0 0 60px;
     display: flex;
@@ -646,15 +578,12 @@ onUnmounted(() => {
     justify-content: center;
   }
 
+  /* 图标恒灰色（用户定案：激活项图标不变蓝），激活标识仅文字加粗 */
   &__nav-icon {
     width: var(--m-list-icon);
     height: var(--m-list-icon);
     flex: 0 0 var(--m-list-icon);
     color: var(--m-text-2);
-  }
-
-  &__nav-link--active &__nav-icon {
-    color: var(--m-primary);
   }
 
   &__main {
@@ -676,6 +605,7 @@ onUnmounted(() => {
     }
   }
 
+  /* 抽屉槽位：透明（卡片由 panel 呈现），保持推屏轨道几何与滚动 */
   &__drawer {
     position: relative;
     flex: 0 0 50vw;
@@ -683,11 +613,11 @@ onUnmounted(() => {
     height: 100%;
     padding:
       var(--m-safe-area-top, 0px)
-      var(--m-safe-area-right, 0px)
+      0
       calc(var(--m-spacing-sub) + var(--m-safe-area-bottom, 0px))
-      var(--m-safe-area-left, 0px);
-    border-right: 1px solid var(--m-hairline);
-    background-color: var(--m-surface-1);
+      0;
+    background: transparent;
+    border: none;
     box-sizing: border-box;
     overflow-y: auto;
     touch-action: pan-y;
@@ -718,9 +648,13 @@ onUnmounted(() => {
   }
 }
 
-:global(.dark .tabs-layout__aside),
-:global(.dark .tabs-layout__drawer) {
+:global(.dark .tabs-layout__aside) {
   border-right-color: var(--m-hairline);
   background-color: var(--m-surface-1);
+}
+
+/* 深色卡片：背景/描边走 token 自动切换；阴影加沉（卡片悬浮质感） */
+:global(.dark .tabs-layout__drawer .tabs-layout__panel) {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 </style>
