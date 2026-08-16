@@ -970,3 +970,23 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | Hash | Message |
 |------|---------|
 | `(see git log)` | feat(ui): navbar 去底部横线，全部页面统一（对齐歌曲页） |
+
+## Session 103: fix(player): 沉浸播放页下滑回弹卡住
+
+**Date**: 2026-08-16
+**Task**: 08-16-fix-player-drag-stuck
+**Branch**: `main`
+
+### Summary
+
+用户反馈：真机沉浸式播放页，只下滑一点距离松手后页面卡在半屏不回弹。根因三条：① 回弹只依赖 watch(dragOffsetY) 单次机会，回弹动画(220ms)进行中再次松手被 `if (reboundControls) return` 早退吞掉；且 motion stop() = commitStyles + cancel 会把中间值写进 style 且不触发 onComplete，残留无人纠正。② 真机触摸序列被系统打断（通知栏下拉/多指/低端机丢事件）时 touchend/touchcancel 不至，dragOffsetY 残留。③ 回弹 animate 作用在外层 overlay，拖拽 :style 绑定在内层 drag-layer，元素分离导致松手瞬间内层先归 0、外层再动画（抖动 + 隐晦链路）。
+
+修复（仅 PlayerPage.vue，+77/-25）：ref="dragLayerRef" 从外层移到内层统一动画元素；新增 startRebound(from) 显式回弹（stopRebound → 锁回起点 translateY(from) → animate 0.22s easeOut → onComplete 写死 translateY(0px)）；watch 删除早退改兜底（仅跳过「播放页已关闭」与「新触摸会话已开始」）；clearDragOffsetImmediate（stopRebound + DOM 写 0 + dragOffsetY=0）覆盖进度条/歌词点击/onTouchStart 残留/resetDragState；clearDragOnWindowHide 挂 blur + visibilitychange 兜底打断残留（成对注册/移除）。保留：阈值收起、goBack、歌词区手势隔离、seekGestureLocked、露底透明。
+
+验证：vue-tsc/eslint/build 全过；trellis-check 通过（逐条核对所有 dragOffsetY 归零路径闭环，无阻断项）。spec features-player.md 补充「拖拽/回弹必须闭环，禁止残留半屏」契约。真机复测待做：多次只下滑一点松手逐次回弹、回弹中再拖再松、快速连滑、超阈值收起、重开无残留。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0528c8f` | fix(player): 沉浸播放页下滑回弹卡住——显式回弹+兜底清零 |
