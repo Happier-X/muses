@@ -621,7 +621,7 @@ onUnmounted(() => {
     width: 50vw;
     height: 100%;
     padding:
-      var(--m-safe-area-top, 0px)
+      calc(var(--m-navbar-pt, 16px) + var(--m-spacing, 16px))
       0
       calc(var(--m-spacing-sub) + var(--m-safe-area-bottom, 0px))
       0;

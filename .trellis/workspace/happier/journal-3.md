@@ -1052,3 +1052,19 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | `(see git log)` | fix(ui): 侧边栏拆整卡为椒盐分段卡片——16px圆角、无阴影、段间18dp |
 
 ## Session 107: (planned) 分段卡片观感验收
+
+## Session 107: feat(ui): 侧边栏卡片顶部留间距（四版微调）
+
+**Date**: 2026-08-16
+**Task**: 08-16-sidebar-card-top-gap
+**Branch**: `main`
+
+### Summary
+
+用户反馈：卡片距离上面应该有一个距离，就像 navbar 一样。drawer padding-top 从 `var(--m-safe-area-top, 0px)`（卡片贴状态栏下沿）改为 `calc(var(--m-navbar-pt, 16px) + var(--m-spacing, 16px))`：navbar 避让 token 口径 + 16px 悬浮空隙（浏览器 32px、真机状态栏下 16px）。MuMu 验证：卡片顶描边 y96 → y168（+32 CSS px 空隙），主卡 y172..960 / 段间隙 y992..1068 / 次卡 y1068..1476 结构无回归。spec 顶部 padding 契约更新。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `(see git log)` | feat(ui): 侧边栏卡片顶部留 navbar 式避让间距（navbar-pt + 16px） |
