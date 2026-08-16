@@ -954,3 +954,19 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | Hash | Message |
 |------|---------|
 | `(see git log)` | feat(ui): navbar 灰底磨砂玻璃——列表灰 0.8 alpha + blur 恢复滚动磨砂 |
+
+## Session 102: feat(ui): navbar 去底部横线，全部页面统一
+
+**Date**: 2026-08-16
+**Task**: 08-16-navbar-no-bottom-border
+**Branch**: `main`
+
+### Summary
+
+用户要求专辑/艺术家/歌单/音源/设置页 navbar 去掉底部横线，与歌曲页一致。MNavbar 默认样式删除 border-bottom；SongsPage 冗余的 border-bottom: none 覆盖清理（默认已无）；--transparent 变体清理冗余 border-bottom-color。验证：MuMu 安装后歌曲页 navbar 底部 y370-418 全 243 无突变（无回归）；导航抽屉切到专辑页，navbar 区 y100-160 全 243 无 hairline 突变，y166 起列表内容。全部页面共用 MNavbar 默认样式（此前 grep 确认仅 SongsPage 有 :deep(.m-navbar) 覆盖），统一生效。spec 常驻导航表面契约补充任务记录。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `(see git log)` | feat(ui): navbar 去底部横线，全部页面统一（对齐歌曲页） |
