@@ -36,16 +36,22 @@
           <p>从歌曲列表选择一首音乐后，即可进入沉浸式播放。</p>
         </section>
 
-        <motion.div
-          v-else
-          class="panels player-page__panels"
-          :animate="{ transform: `translateX(-${activePanel * 50}%)` }"
-          :transition="{ duration: 0.22, ease: 'easeOut' }"
-        >
+        <template v-else>
+          <!-- 固定头部（椒盐式：歌名/艺术家常驻，左右滑切面板不移动；平板由面板内头部承担） -->
+          <div class="player-page__song-head player-page__song-head--fixed">
+            <h1 class="player-page__song-title">{{ playerState.currentSong.title }}</h1>
+            <p v-if="lyricArtist" class="player-page__song-artist">{{ lyricArtist }}</p>
+          </div>
+
+          <motion.div
+            class="panels player-page__panels"
+            :animate="{ transform: `translateX(-${activePanel * 50}%)` }"
+            :transition="{ duration: 0.22, ease: 'easeOut' }"
+          >
           <section class="panel info-panel player-page__info-panel" aria-label="播放控制页">
             <div class="info-panel-inner player-page__info-inner">
-              <!-- 顶部歌名/歌手（椒盐：左上竖排小字，无返回/正在播放/更多） -->
-              <div class="player-page__song-head">
+              <!-- 顶部歌名/歌手（仅平板 ≥768px 显示；手机由固定头部承担，避免重复） -->
+              <div class="player-page__song-head player-page__song-head--in-panel">
                 <h1 class="player-page__song-title">{{ playerState.currentSong.title }}</h1>
                 <p v-if="lyricArtist" class="player-page__song-artist">{{ lyricArtist }}</p>
               </div>
@@ -246,7 +252,8 @@
               </m-icon-button>
             </motion.div>
           </section>
-        </motion.div>
+          </motion.div>
+        </template>
       </div>
     </div>
 
@@ -2386,6 +2393,9 @@ onUnmounted(() => {
     overflow: hidden;
     background: #05070d;
     will-change: transform;
+    /* 椒盐式：固定头部 + 下方滑动区纵向排布；transform 拖拽不受 flex 影响 */
+    display: flex;
+    flex-direction: column;
   }
 
   &__bg {
@@ -2449,6 +2459,13 @@ onUnmounted(() => {
     max-height: 100%;
     overflow: hidden;
 
+    /* 手机（<768px）：固定头部占顶部，滑动区收缩占剩余空间（椒盐式） */
+    @media (max-width: 767.98px) {
+      height: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
     /* 平板（≥768px）左右分栏：容器收缩回 100%，两面板各占 50% 并排。
        全局 index.scss md 断点的 `width: auto` 与本规则同特异性，但 scoped 后注入恒覆盖全局，
        必须在此重申覆盖，否则容器保持 200% 宽、右侧歌词面板被裁出视口（08-15-tablet-player-layout） */
@@ -2483,6 +2500,27 @@ onUnmounted(() => {
     margin: 0;
     text-align: left;
     min-width: 0;
+
+    /* 固定头部（手机 <768px）：位于滑动区上方，左右切面板不移动；
+       顶部避让与 panel 一致（safe-area + 16px），左右 24px 与面板内容对齐 */
+    &--fixed {
+      box-sizing: border-box;
+      padding: calc(16px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 24px 0;
+
+      /* 平板（≥768px）：固定头部隐藏，由两面板各自的头部承担 */
+      @media (min-width: 768px) {
+        display: none;
+      }
+    }
+
+    /* 面板内头部（仅平板 ≥768px 显示；手机隐藏，避免与固定头部重复） */
+    &--in-panel {
+      display: none;
+
+      @media (min-width: 768px) {
+        display: block;
+      }
+    }
   }
 
   &__song-title {
@@ -2718,6 +2756,14 @@ onUnmounted(() => {
     width: 100%;
     text-align: left;
     min-width: 0;
+
+    /* 手机（<768px）：头部由固定头部承担，面板内不再重复显示 */
+    display: none;
+
+    /* 平板（≥768px）：左右分栏，歌词面板独立显示自己的头部 */
+    @media (min-width: 768px) {
+      display: block;
+    }
   }
 
   &__lyric-title {
