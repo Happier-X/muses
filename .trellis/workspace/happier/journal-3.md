@@ -906,3 +906,19 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 ### Status
 
 [OK] **Completed**
+
+## Session 99: fix(ui): navbar 与工具条对齐椒盐——液态玻璃改实心表面
+
+**Date**: 2026-08-16
+**Task**: 08-16-navbar-toolbar-solid-surface
+**Branch**: `main`
+
+### Summary
+
+用户要求顶部 navbar 和工具条与椒盐音乐一致：灰的、跟列表同色（此前是半透明白液态玻璃 + blur(20px) + 内高光，滚动时透出列表糊影）。根因：08-15 的"液态玻璃"决策（半透明 alpha + 顶部内高光承担玻璃观感）与椒盐实际顶栏（纯色 subBackground，默认关 Liquid Glass）不符，且 MuMu WebView 上 sticky 定位 navbar 的 blur 会透出滚动内容。修复：MNavbar 背景 `--m-glass-bg` → `--m-surface-1`（浅 #f9f9f9 / 深 #262626，与 MList 列表同色），去 blur 与内高光；SongsPage `:deep(.m-navbar)` 与深色 `:global(.dark .songs-page .m-navbar)` 覆盖同步实心化；深色规则只留 background 赋值。边界：FAB/MiniPlayer 保持液态玻璃、`--m-glass-bg` 变量不动、MTabbar 本就是实心；`--transparent` 变体（PlayerPage）无回归。lint + vue-tsc 通过。spec(component-guidelines) 更新：常驻导航表面条目 MNavbar 回归干净表面，液态玻璃契约范围收窄至 MiniPlayer/FAB。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ff75700` | fix(ui): navbar 与工具条对齐椒盐——液态玻璃改实心表面（与列表同色） |
