@@ -794,10 +794,10 @@ onUnmounted(() => {
     right: 0;
     z-index: 20;
 
-    /* 对齐椒盐：navbar 背景与列表同色（酒吧下列表均为 --m-surface-1，08-16 实心化） */
+    /* 对齐椒盐：navbar 背景与列表同色（两者均为 --m-surface，08-16 实心化） */
     :deep(.m-navbar) {
       padding-top: var(--m-navbar-pt, 16px); /* 紧贴状态栏（椒盐实测 0 间距，不再 +6px） */
-      background: var(--m-surface-1); /* 实心表面（08-16 对齐椒盐）：与列表同色，无玻璃模糊/内高光 */
+      background: var(--m-surface); /* 实心表面（08-16 修正对齐列表底色）：与列表同色 --m-surface，无玻璃模糊/内高光 */
       border-bottom: none; /* 对齐椒盐：navbar 与工具条之间无分割线 */
     }
     :deep(.m-navbar__bg) {
@@ -1266,7 +1266,7 @@ onUnmounted(() => {
  * (0,2,0)，异步 chunk 后注入会覆盖组件深色规则，导致深色下 navbar 色差。
  * 注意：不得写 :global(.dark) + :deep 组合——compiler-sfc 会丢弃 :global 之后的选择器。 */
 :global(.dark .songs-page .m-navbar) {
-  background: var(--m-surface-1);
+  background: var(--m-surface);
 }
 
 </style>

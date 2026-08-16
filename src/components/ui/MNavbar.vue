@@ -76,8 +76,8 @@ const openNavigationDrawer = (event: MouseEvent) => {
   box-sizing: border-box;
   color: var(--m-text);
   padding-top: var(--m-navbar-pt, 16px);
-  /* 实心表面（08-16 对齐椒盐）：与下方列表同色 --m-surface-1，无模糊、无内高光（玻璃观感已撤） */
-  background: var(--m-surface-1);
+  /* 实心表面（08-16 对齐椒盐）：与下方列表/页面底同色 --m-surface，无模糊、无内高光（玻璃观感已撤） */
+  background: var(--m-surface);
   border-bottom: 1px solid var(--m-hairline);
 
   &__bg {
@@ -169,10 +169,10 @@ const openNavigationDrawer = (event: MouseEvent) => {
   }
 }
 
-/* 深色主题：背景随 --m-surface-1 深色值自动切换（#262626），无需高光。
+/* 深色主题：背景随 --m-surface 深色值自动切换（#202020），无需高光。
  * :not(.m-navbar--transparent) 必须保留：与 --transparent 变体同特异性 (0,2,0)，
  * 本规则靠后定义会覆盖 transparent 的透明背景（PlayerPage 沉浸式无回归）。 */
 :global(.dark .m-navbar:not(.m-navbar--transparent)) {
-  background: var(--m-surface-1);
+  background: var(--m-surface);
 }
 </style>
