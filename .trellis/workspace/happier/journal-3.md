@@ -885,3 +885,24 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 ### Status
 
 [OK] **Completed**
+
+
+## Session 98: fix(ui): 列表底部被 MiniPlayer 胶囊遮挡——内容止位 64px → 72px
+
+**Date**: 2026-08-16
+**Task**: fix(ui): 列表底部被 MiniPlayer 胶囊遮挡——内容止位 64px → 72px
+**Branch**: `main`
+
+### Summary
+
+用户反馈真机上歌曲/专辑/艺术家页列表滚到底时最后一项被底部 MiniPlayer 遮挡。根因：08-14 MiniPlayer 胶囊化后 bottom=safe-area+8px（悬浮空隙），实际占 72px+safe-area，而 --m-content-pb 仍按 64px 止位，漏算 8px。修复：theme/index.scss 4 处 content-pb token 64px→72px；SongsPage 多选条/字母索引条 bottom 同步 72px（同源被盖）；MiniPlayer 注释与 spec 底部几何契约同步。lint+build 通过，真机待验证。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7448833` | (see git log) |
+
+### Status
+
+[OK] **Completed**
