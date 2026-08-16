@@ -559,12 +559,6 @@ onUnmounted(() => {
     color: var(--m-text);
     border-radius: var(--m-radius-sm);
     box-sizing: border-box;
-    transition: background-color 0.15s ease;
-
-    /* 按压瞬时反馈（非常驻高亮；椒盐激活项无蓝底背景） */
-    &:active {
-      background-color: rgba(var(--m-primary-rgb), 0.08);
-    }
 
     &--active {
       color: var(--m-text);

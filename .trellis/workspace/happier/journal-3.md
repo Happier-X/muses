@@ -1068,3 +1068,19 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | Hash | Message |
 |------|---------|
 | `(see git log)` | feat(ui): 侧边栏卡片顶部留 navbar 式避让间距（navbar-pt + 16px） |
+
+## Session 108: fix(ui): 侧边栏菜单取消点击背景效果
+
+**Date**: 2026-08-16
+**Task**: 08-16-sidebar-remove-active-feedback
+**Branch**: `main`
+
+### Summary
+
+用户反馈：专辑/艺术家/歌单点击有蓝色按压背景，歌曲（激活项）没有，要求统一取消。根因：nav-link `&:active { background-color: rgba(primary, 0.08) }` 与 `&--active { background-color: transparent }` 同特异性（0,2,0）且 --active 定义在后，激活项覆盖了 :active、非激活项保留 → 表现不一致。修复：删除 `&:active` 规则与 transition。验证：MuMu 真机按住专辑行 600ms 截图，行区域无任何蓝色调像素（仅 #8c8c8c 图标/#191919 文字/#e9e9e9 描边）。spec 侧边栏契约更新（禁止按压蓝底）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `(see git log)` | fix(ui): 侧边栏菜单取消按压背景，统一无点击效果 |
