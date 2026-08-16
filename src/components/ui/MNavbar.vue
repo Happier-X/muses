@@ -80,7 +80,7 @@ const openNavigationDrawer = (event: MouseEvent) => {
   /* 灰底磨砂玻璃（08-16 三轮迭代定案）：--m-navbar-glass-bg = 列表灰的 0.8 alpha + blur；
      静止与列表同色，滚动内容经其后透出磨砂（椒盐 Liquid Glass 观感） */
   background: var(--m-navbar-glass-bg);
-  border-bottom: 1px solid var(--m-hairline);
+  /* 无底部横线（08-16 对齐歌曲页，全部页面统一）：navbar 底直接衔接内容，无 hairline */
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
@@ -98,7 +98,6 @@ const openNavigationDrawer = (event: MouseEvent) => {
 
   &--transparent {
     background-color: transparent;
-    border-bottom-color: transparent;
     box-shadow: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;

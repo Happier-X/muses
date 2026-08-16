@@ -798,7 +798,6 @@ onUnmounted(() => {
     :deep(.m-navbar) {
       padding-top: var(--m-navbar-pt, 16px); /* 紧贴状态栏（椒盐实测 0 间距，不再 +6px） */
       background: var(--m-navbar-glass-bg); /* 灰底磨砂：列表中经透 blur，无白色玻璃雾 */
-      border-bottom: none; /* 对齐椒盐：navbar 与工具条之间无分割线 */
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
       -webkit-backdrop-filter: blur(20px);
       backdrop-filter: blur(20px);
