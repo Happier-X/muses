@@ -64,7 +64,7 @@ import { openPlayerOverlay, openQueueOverlay } from '@/features/player/overlay'
 const titleText = computed(() => playerState.currentSong?.title || '暂无播放歌曲')
 
 // 保留 MiniPlayer 播放态标记供现有样式/扩展使用；组件无歌曲时仍显示空状态。
-// 页面内容始终避让 64px MiniPlayer + 底部安全区，不再预留底部导航高度。
+// 页面内容始终避让 72px（64px MiniPlayer + 8px 悬浮空隙）+ 底部安全区，不再预留底部导航高度。
 const syncMiniVisible = (hasSong: boolean) =>
   document.documentElement.classList.toggle('muses-mini-visible', hasSong)
 onMounted(() => syncMiniVisible(!!playerState.currentSong))

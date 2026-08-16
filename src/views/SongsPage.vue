@@ -1074,12 +1074,12 @@ onUnmounted(() => {
     height: 14px;
   }
 
-  /* 多选底部操作条 */
+  /* 多选底部操作条：悬浮在 MiniPlayer 胶囊上方（胶囊顶距底 72px = 64px 高 + 8px 悬浮空隙） */
   &__multibar {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(64px + var(--m-safe-area-bottom, 0px));
+    bottom: calc(72px + var(--m-safe-area-bottom, 0px));
     z-index: 25;
     background: var(--m-surface-1);
     border-top: 1px solid var(--m-hairline);
@@ -1113,7 +1113,7 @@ onUnmounted(() => {
   &__index-bar {
     position: fixed;
     top: calc(var(--m-navbar-pt, 16px) + 44px + 48px);
-    bottom: calc(64px + var(--m-safe-area-bottom, 0px));
+    bottom: calc(72px + var(--m-safe-area-bottom, 0px));
     right: 2px;
     z-index: 15;
     display: flex;

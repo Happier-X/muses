@@ -110,9 +110,9 @@
   --m-safe-area-bottom: 0px;
   --m-safe-area-left: 0px;
 
-  /* 内容止位：无底部导航；MiniPlayer 始终占 64px，再叠加底部安全区 */
-  --m-content-pb: calc(64px + var(--m-safe-area-bottom, 0px));
-  --m-content-pb-md: calc(64px + var(--m-safe-area-bottom, 0px));
+  /* 内容止位：无底部导航；MiniPlayer 悬浮胶囊占 64px + 底部 8px 悬浮空隙（08-14 胶囊化），再叠加底部安全区 */
+  --m-content-pb: calc(72px + var(--m-safe-area-bottom, 0px));
+  --m-content-pb-md: calc(72px + var(--m-safe-area-bottom, 0px));
   --content-pb: var(--m-content-pb);
   --content-pb-md: var(--m-content-pb-md);
 
@@ -133,8 +133,8 @@
 }
 
 html.muses-mini-visible {
-  --m-content-pb: calc(64px + var(--m-safe-area-bottom, 0px));
-  --m-content-pb-md: calc(64px + var(--m-safe-area-bottom, 0px));
+  --m-content-pb: calc(72px + var(--m-safe-area-bottom, 0px));
+  --m-content-pb-md: calc(72px + var(--m-safe-area-bottom, 0px));
 }
 
 .dark {
