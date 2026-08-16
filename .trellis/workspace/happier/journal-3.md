@@ -1032,3 +1032,23 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | `(see git log)` | feat(ui): 侧边栏改灰色悬浮卡片——删 header 三按钮、图标去蓝、24px 圆角+描边+空隙 |
 
 ## Session 106: (planned) 真机回归：卡片抽屉关闭/手势/暗色待用户验收
+
+## Session 106: fix(ui): 侧边栏卡片改椒盐分段样式（三版迭代）
+
+**Date**: 2026-08-16
+**Task**: 08-16-sidebar-segmented-cards
+**Branch**: `main`
+
+### Summary
+
+用户反馈二版卡片"圆角和阴影跟椒盐不一样"。重新用椒盐干净打开态 s2.png 线性扫描（非 4px 采样）发现**二版做错了**：椒盐抽屉不是整张大卡，而是**分段圆角面板**——主菜单段 y312..1152（圆角 ~15dp：y1130 左缘 x56 → y1148 x80；左右缘 x48..551 + 1px #e9e9e9 描边）、次菜单段 y1200..1700，段间 48px(18dp) 空隙纯 #f3f3f3 **无投影**；二版的 24px 大圆角 + `0 8px 24px rgba(0,0,0,0.08)` 阴影是臆造。
+
+修复（仅 TabsPage.vue 样式）：`&__drawer &__panel` 整卡样式删除 → `&__drawer &__nav` 主/次菜单各自成卡：`margin 0 12px 0 18px` + surface-1 + `border-radius 16px` + `border 1px hairline` + **无阴影**；次卡 `margin-top 18px` + `border-top none`（aside 分组线仅平板用）。验证：MuMu 真机 y 结构扫描确认两卡分离（主卡 y96..864、空隙 y896..948、次卡 y972..1384、各卡顶底描边/圆角渐变），空隙区纯 #f3f3f3 无阴影；菜单文字/行高/图标灰不变。spec 侧边栏视觉契约更新为三版最终形态（分段卡 + 16px 圆角 + 无阴影）。教训：**像素分析必须用线性逐像素扫描定边界**，4px 步进色块图会产生渐变假象（此前误判为阴影/大圆角）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `(see git log)` | fix(ui): 侧边栏拆整卡为椒盐分段卡片——16px圆角、无阴影、段间18dp |
+
+## Session 107: (planned) 分段卡片观感验收

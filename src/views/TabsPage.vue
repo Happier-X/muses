@@ -516,16 +516,25 @@ onUnmounted(() => {
     box-sizing: border-box;
   }
 
-  /* 移动端抽屉内 panel = 椒盐式悬浮灰色卡片（08-16 用户定案）：
-     左 18dp 空隙 + 右 12dp 空隙（椒盐实测 x48/右缘 552）、24px 圆角、1px 描边、轻阴影 */
-  &__drawer &__panel {
+  /* 椒盐分段卡片（08-16 三版迭代定案，s2 像素线性扫描）：主/次菜单各为一张圆角卡，
+     左 18dp + 右 12dp 空隙（椒盐 x48/x551）、16px 圆角（椒盐 ~15dp）、1px 描边、
+     **无阴影**（椒盐实测空隙区纯 #f3f3f3 无投影，08-16 二版 8px24px 阴影系臆造已撤） */
+  &__drawer &__nav {
     margin-right: 12px;
     margin-left: 18px;
     background-color: var(--m-surface-1);
     border: 1px solid var(--m-hairline);
-    border-radius: 24px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    padding-top: 8px;
+    padding-bottom: 8px;
     overflow: hidden;
+  }
+
+  /* 次菜单卡与主菜单卡之间 18dp 空隙（椒盐段间 y1152..1200 = 48px = 18dp）；
+     卡片自带描边，去 aside 分组线的 border-top */
+  &__drawer &__nav--secondary {
+    margin-top: 18px;
+    border-top: none;
   }
 
   &__nav {
@@ -533,7 +542,7 @@ onUnmounted(() => {
     padding-top: 8px;
   }
 
-  /* 主/次分组：18dp 留白 + 物理 hairline（椒盐实测主区与次区间有空隙 + #e9e9e9 分隔线） */
+  /* 平板 aside 的分组（非卡片形态）：18dp 留白 + hairline */
   &__nav--secondary {
     margin-top: 9px;
     padding-top: 9px;
@@ -653,8 +662,5 @@ onUnmounted(() => {
   background-color: var(--m-surface-1);
 }
 
-/* 深色卡片：背景/描边走 token 自动切换；阴影加沉（卡片悬浮质感） */
-:global(.dark .tabs-layout__drawer .tabs-layout__panel) {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-}
+/* 分段卡片深色：背景/描边走 token 自动切换（--m-surface-1 深 #262626），无阴影无需覆盖 */
 </style>
