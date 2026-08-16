@@ -45,7 +45,8 @@ import { MIconButton } from '@/components/ui'
 
 /**
  * APP-ONLY：MNavbar —— 吸顶导航栏（替代 k-navbar，iOS）
- * 安全区顶部 + 44px 内容行；实心表面底（与列表同色 --m-surface-1，对齐椒盐顶栏，08-16 起）。
+ * 安全区顶部 + 44px 内容行；灰底磨砂玻璃（基底与列表同色 --m-surface 灰的 0.8 alpha + blur(20px)，
+ * 08-16 三轮迭代定案：静止同列表色、滚动透出磨砂，对齐椒盐 Liquid Glass）。
  * 默认 slot = 标题（17px 半粗）。
  */
 withDefaults(
@@ -76,9 +77,13 @@ const openNavigationDrawer = (event: MouseEvent) => {
   box-sizing: border-box;
   color: var(--m-text);
   padding-top: var(--m-navbar-pt, 16px);
-  /* 实心表面（08-16 对齐椒盐）：与下方列表/页面底同色 --m-surface，无模糊、无内高光（玻璃观感已撤） */
-  background: var(--m-surface);
+  /* 灰底磨砂玻璃（08-16 三轮迭代定案）：--m-navbar-glass-bg = 列表灰的 0.8 alpha + blur；
+     静止与列表同色，滚动内容经其后透出磨砂（椒盐 Liquid Glass 观感） */
+  background: var(--m-navbar-glass-bg);
   border-bottom: 1px solid var(--m-hairline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
 
   &__bg {
     position: absolute;
@@ -169,10 +174,11 @@ const openNavigationDrawer = (event: MouseEvent) => {
   }
 }
 
-/* 深色主题：背景随 --m-surface 深色值自动切换（#202020），无需高光。
+/* 深色主题：灰底磨砂玻璃深色配方（基底 --m-surface 深色 #202020）。
  * :not(.m-navbar--transparent) 必须保留：与 --transparent 变体同特异性 (0,2,0)，
  * 本规则靠后定义会覆盖 transparent 的透明背景（PlayerPage 沉浸式无回归）。 */
 :global(.dark .m-navbar:not(.m-navbar--transparent)) {
-  background: var(--m-surface);
+  background: var(--m-navbar-glass-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 </style>

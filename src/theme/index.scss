@@ -8,8 +8,11 @@
 
 :root {
   /* 表面色（Salt Player 主题：background #F3F3F3 / subBackground 80% 白叠加） */
-  /* 液态玻璃背景（统一 alpha：navbar/工具条/FAB/MiniPlayer 共用，08-15） */
+  /* 液态玻璃背景（统一 alpha：MiniPlayer/FAB 共用，08-15） */
   --m-glass-bg: rgba(255, 255, 255, 0.6);
+  /* navbar 灰底磨砂玻璃（08-16 三轮迭代定案）：基底 = --m-surface 灰的 0.8 alpha + blur，
+     静止时与列表同色 #F3F3F3，滚动时内容透出磨砂；MiniPlayer/FAB 白色玻璃继续用 --m-glass-bg */
+  --m-navbar-glass-bg: rgba(243, 243, 243, 0.8);
   --m-surface: #f3f3f3;            /* 页面底（Salt background） */
   --m-surface-1: #f9f9f9;          /* 卡片/导航底（Salt subBackground：#80FFFFFF over #F3F3F3） */
   --m-surface-1-shade: #eef0f2;
@@ -141,6 +144,8 @@ html.muses-mini-visible {
   /* 表面色（Salt Player 主题：background #202020 / subBackground 3% 白叠加） */
   /* 液态玻璃深色背景（统一 alpha） */
   --m-glass-bg: rgba(30, 30, 30, 0.6);
+  /* navbar 灰底磨砂玻璃深色：--m-surface 深色（#202020）的 0.8 alpha */
+  --m-navbar-glass-bg: rgba(32, 32, 32, 0.8);
   --m-surface: #202020;            /* 页面底（Salt background，非纯黑） */
   --m-surface-1: #262626;          /* 卡片/导航底（Salt subBackground：#08FFFFFF over #202020） */
   --m-surface-1-shade: #1a1a1a;
