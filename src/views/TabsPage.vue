@@ -560,9 +560,10 @@ onUnmounted(() => {
     border-radius: var(--m-radius-sm);
     box-sizing: border-box;
 
+    /* 选中态与普通项完全一致（08-16 用户定案：无深黑加粗、无背景、无颜色差）
+       仅保留 --active 类供 aria-current 语义使用 */
     &--active {
       color: var(--m-text);
-      font-weight: 600;
       background-color: transparent;
     }
   }

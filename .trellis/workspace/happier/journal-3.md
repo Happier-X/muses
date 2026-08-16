@@ -1084,3 +1084,19 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | Hash | Message |
 |------|---------|
 | `(see git log)` | fix(ui): 侧边栏菜单取消按压背景，统一无点击效果 |
+
+## Session 109: fix(ui): 侧边栏选中项去深黑加粗
+
+**Date**: 2026-08-16
+**Task**: 08-16-sidebar-remove-active-bold
+**Branch**: `main`
+
+### Summary
+
+用户反馈：选中项深黑效果去掉。删除 nav-link `&--active` 的 `font-weight: 600`（此前激活项文字加粗显深黑），与普通项完全一致（对齐椒盐激活无视觉区分）。验证：Edge CDP 六项 font-weight 全 400、颜色 rgb(25,25,25) 一致；MuMu 真机文字行像素密度对比（歌曲 787 vs 专辑 674 = 1.17x）与笔画数比例（20:17 = 1.18x）吻合，属字形差异非加粗；初次检测的大差异系旧进程 CSS 缓存，force-stop 重启后正常。spec 更新：激活项无任何视觉区分（仅保留 --active 类与 aria-current 语义）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `(see git log)` | fix(ui): 侧边栏选中项去深黑加粗，与普通项完全一致 |
