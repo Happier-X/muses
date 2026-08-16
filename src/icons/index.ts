@@ -41,4 +41,7 @@ export {
   ListChecks as listChecks,
   CheckCheck as checkCheck,
   Volume2 as volume2,
+  Sun as sun,
+  Moon as moon,
+  Monitor as monitor,
 } from '@lucide/vue'

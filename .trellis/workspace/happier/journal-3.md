@@ -990,3 +990,23 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | Hash | Message |
 |------|---------|
 | `0528c8f` | fix(player): 沉浸播放页下滑回弹卡住——显式回弹+兜底清零 |
+
+## Session 104: feat(ui): 侧边栏对齐椒盐音乐并美化
+
+**Date**: 2026-08-16
+**Task**: 08-16-sidebar-salt-polish
+**Branch**: `main`
+
+### Summary
+
+用户反馈侧边栏与椒盐音乐不一致。实机调研（MuMu 12.2.0，`com.salt.music` 汉堡抽屉）：uiautomator dump 得菜单 8 项（歌曲/专辑/艺术家/文件夹/歌单/扫描文件/音乐库/统计）+ header 三按钮（退出/用户界面/音频效果）；像素实测 header y96..264、行高 168px(64dp)、'歌曲' text x204(77dp)、主次组间留白+线、激活项无蓝底（文字统一 #1E1715）、图标为 23dp 彩色圆角方块、背景 #f9f9f9。
+
+落地（TabsPage.vue + useSystemDark.ts + icons）：① 新增 `.tabs-layout__panel` 结构（移动端 drawer 与平板 aside 共用）：header 64px（移动端 ✕关闭/主题切换/⚙️设置 三格均分 + 底部 hairline；平板 主题切换/⚙️设置）；② 菜单行高 56→64、字号 16、图标区固定 60px → 文字左距 76px（≈椒盐 77dp）；③ 主（歌曲/专辑/艺术家/歌单）+ 次（音源/设置）分组：9+9px 留白 + hairline；④ 激活态去蓝底 0.12 背景 → 文字加粗 600 + 图标 primary，保留 :active 瞬态微反馈；⑤ 主题三态：useSystemDark 扩展 themeMode + cycleThemeMode（system→light→dark 循环，localStorage['muses-theme'] 持久化，手动模式解绑系统监听）；⑥ 图标保持 lucide 线性（用户确认不改彩色方块）；⑦ 侧边栏顶部 padding 改紧贴状态栏下沿（对齐椒盐 header y100 起）。
+
+验证闭环：vue-tsc/eslint/build 全过；Edge headless CDP（504px 视口）量得 drawer 252px/header 64/行高 64×6/label 起点 76/激活背景 rgba(0,0,0,0)/分组 margin+padding 9/三态循环+持久化；平板 1248px 视口 aside 260px 同结构；MuMu 安装后真机截图（1080x1920）：抽屉 544px、header 图标 #8c8c8c、菜单文字 #191919、分组线 y1084、modlens 摘要确认 header 三图标+两组菜单+激活项蓝色图标。注：MuMu WebView viewport ≈364 CSS px（缩放 2.97，非 dp 2.625），故物理行距 190px = 64 CSS px × 2.97，比例与椒盐近似。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `(see git log)` | feat(ui): 侧边栏对齐椒盐——header+分组+64dp行高+77dp文字距+去蓝底激活；主题三态 |

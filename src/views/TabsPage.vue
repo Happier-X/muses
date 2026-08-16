@@ -12,19 +12,56 @@
         class="tabs-layout__aside"
         aria-label="主导航"
       >
-        <nav aria-label="主导航">
-          <RouterLink
-            v-for="item in navItems"
-            :key="item.to"
-            :to="item.to"
-            class="tabs-layout__nav-link"
-            :class="{ 'tabs-layout__nav-link--active': isNavActive(item) }"
-            :aria-current="isNavActive(item) ? 'page' : undefined"
-          >
-            <component :is="item.icon" aria-hidden="true" class="tabs-layout__nav-icon" />
-            <span>{{ item.label }}</span>
-          </RouterLink>
-        </nav>
+        <div class="tabs-layout__panel">
+          <div class="tabs-layout__panel-header" role="toolbar" aria-label="快捷操作">
+            <m-icon-button
+              class="tabs-layout__header-btn"
+              :aria-label="themeActionLabel"
+              :title="themeActionLabel"
+              @click="cycleThemeMode"
+            >
+              <component :is="themeIcon" aria-hidden="true" class="tabs-layout__header-icon" />
+            </m-icon-button>
+            <m-icon-button
+              class="tabs-layout__header-btn"
+              aria-label="设置"
+              title="设置"
+              @click="navigateToSettings"
+            >
+              <settings aria-hidden="true" class="tabs-layout__header-icon" />
+            </m-icon-button>
+          </div>
+          <nav aria-label="主导航" class="tabs-layout__nav tabs-layout__nav--primary">
+            <RouterLink
+              v-for="item in primaryNavItems"
+              :key="item.to"
+              :to="item.to"
+              class="tabs-layout__nav-link"
+              :class="{ 'tabs-layout__nav-link--active': isNavActive(item) }"
+              :aria-current="isNavActive(item) ? 'page' : undefined"
+            >
+              <span class="tabs-layout__nav-icon-shell" aria-hidden="true">
+                <component :is="item.icon" class="tabs-layout__nav-icon" />
+              </span>
+              <span class="tabs-layout__nav-label">{{ item.label }}</span>
+            </RouterLink>
+          </nav>
+          <nav aria-label="辅助导航" class="tabs-layout__nav tabs-layout__nav--secondary">
+            <RouterLink
+              v-for="item in secondaryNavItems"
+              :key="item.to"
+              :to="item.to"
+              class="tabs-layout__nav-link"
+              :class="{ 'tabs-layout__nav-link--active': isNavActive(item) }"
+              :aria-current="isNavActive(item) ? 'page' : undefined"
+            >
+              <span class="tabs-layout__nav-icon-shell" aria-hidden="true">
+                <component :is="item.icon" class="tabs-layout__nav-icon" />
+              </span>
+              <span class="tabs-layout__nav-label">{{ item.label }}</span>
+            </RouterLink>
+          </nav>
+        </div>
       </aside>
 
       <motion.div
@@ -41,21 +78,68 @@
           :aria-hidden="!drawerRendered ? 'true' : undefined"
           aria-label="主导航"
         >
-          <nav aria-label="主导航">
-            <RouterLink
-              v-for="item in navItems"
-              :key="item.to"
-              ref="drawerLinkRefs"
-              :to="item.to"
-              class="tabs-layout__nav-link tabs-layout__drawer-link"
-              :class="{ 'tabs-layout__nav-link--active': isNavActive(item) }"
-              :aria-current="isNavActive(item) ? 'page' : undefined"
-              @click="onDrawerNavigation"
-            >
-              <component :is="item.icon" aria-hidden="true" class="tabs-layout__nav-icon" />
-              <span>{{ item.label }}</span>
-            </RouterLink>
-          </nav>
+          <div class="tabs-layout__panel">
+            <div class="tabs-layout__panel-header" role="toolbar" aria-label="快捷操作">
+              <m-icon-button
+                class="tabs-layout__header-btn"
+                aria-label="关闭导航菜单"
+                title="关闭导航菜单"
+                @click="closeDrawer"
+              >
+                <close aria-hidden="true" class="tabs-layout__header-icon" />
+              </m-icon-button>
+              <m-icon-button
+                class="tabs-layout__header-btn"
+                :aria-label="themeActionLabel"
+                :title="themeActionLabel"
+                @click="cycleThemeMode"
+              >
+                <component :is="themeIcon" aria-hidden="true" class="tabs-layout__header-icon" />
+              </m-icon-button>
+              <m-icon-button
+                class="tabs-layout__header-btn"
+                aria-label="设置"
+                title="设置"
+                @click="navigateToSettings"
+              >
+                <settings aria-hidden="true" class="tabs-layout__header-icon" />
+              </m-icon-button>
+            </div>
+            <nav aria-label="主导航" class="tabs-layout__nav tabs-layout__nav--primary">
+              <RouterLink
+                v-for="item in primaryNavItems"
+                :key="item.to"
+                ref="drawerLinkRefs"
+                :to="item.to"
+                class="tabs-layout__nav-link tabs-layout__drawer-link"
+                :class="{ 'tabs-layout__nav-link--active': isNavActive(item) }"
+                :aria-current="isNavActive(item) ? 'page' : undefined"
+                @click="onDrawerNavigation"
+              >
+                <span class="tabs-layout__nav-icon-shell" aria-hidden="true">
+                  <component :is="item.icon" class="tabs-layout__nav-icon" />
+                </span>
+                <span class="tabs-layout__nav-label">{{ item.label }}</span>
+              </RouterLink>
+            </nav>
+            <nav aria-label="辅助导航" class="tabs-layout__nav tabs-layout__nav--secondary">
+              <RouterLink
+                v-for="item in secondaryNavItems"
+                :key="item.to"
+                ref="drawerLinkRefs"
+                :to="item.to"
+                class="tabs-layout__nav-link tabs-layout__drawer-link"
+                :class="{ 'tabs-layout__nav-link--active': isNavActive(item) }"
+                :aria-current="isNavActive(item) ? 'page' : undefined"
+                @click="onDrawerNavigation"
+              >
+                <span class="tabs-layout__nav-icon-shell" aria-hidden="true">
+                  <component :is="item.icon" class="tabs-layout__nav-icon" />
+                </span>
+                <span class="tabs-layout__nav-label">{{ item.label }}</span>
+              </RouterLink>
+            </nav>
+          </div>
         </aside>
         <main
           class="tabs-layout__main"
@@ -84,11 +168,13 @@
 <script setup lang="ts">
 import { animate, motion } from 'motion-v'
 import { computed, nextTick, onMounted, onUnmounted, provide, readonly, ref, watch } from 'vue'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import type { ComponentPublicInstance } from 'vue'
-import { albums, list, musicalNotes, person, radio, settings } from '@/icons'
+import { albums, close, list, monitor, moon, musicalNotes, person, radio, settings, sun } from '@/icons'
 import { navigationDrawerKey } from '@/features/navigation/drawer'
 import { playerOverlayVisible, queueOverlayVisible } from '@/features/player/overlay'
+import { cycleThemeMode, themeMode } from '@/composables/useSystemDark'
+import { MIconButton } from '@/components/ui'
 
 interface NavigationItem {
   to: string
@@ -106,10 +192,16 @@ const navItems: NavigationItem[] = [
   { to: '/tabs/settings', label: '设置', icon: settings },
 ]
 
+/** 主菜单（曲库）：歌曲/专辑/艺术家/歌单（椒盐侧边栏主区 5 项的口径，Muses 取自有页面） */
+const primaryNavItems = navItems.slice(0, 4)
+/** 次菜单（工具）：音源/设置（对齐椒盐主区与次区分组的视觉） */
+const secondaryNavItems = navItems.slice(4)
+
 const HORIZONTAL_LOCK_PX = 8
 const SETTLE_RATIO = 0.25
 const FAST_SWIPE_PX_PER_MS = 0.5
 const route = useRoute()
+const router = useRouter()
 const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
 const drawerOpen = ref(false)
 const drawerRendered = ref(false)
@@ -128,6 +220,18 @@ const drawerTransition = computed(() => ({
   duration: prefersReducedMotion.value ? 0 : drawerDragging.value ? 0 : 0.24,
   ease: [0.32, 0.72, 0, 1],
 }))
+
+/** 外观按钮图标：跟随系统→monitor / 亮→sun / 暗→moon（对应 useSystemDark 三态） */
+const themeIcon = computed(() =>
+  themeMode.value === 'dark' ? moon : themeMode.value === 'light' ? sun : monitor,
+)
+const themeActionLabel = computed(() =>
+  themeMode.value === 'dark'
+    ? '外观：暗色'
+    : themeMode.value === 'light'
+      ? '外观：亮色'
+      : '外观：跟随系统',
+)
 
 let activeTouchId: number | null = null
 let touchStartX = 0
@@ -210,6 +314,12 @@ async function closeDrawer() {
 
 function onDrawerNavigation() {
   closeDrawer()
+}
+
+/** header 设置按钮：关闭抽屉并跳转设置页（已在设置页则仅关闭） */
+function navigateToSettings() {
+  void closeDrawer()
+  if (route.path !== '/tabs/settings') void router.push('/tabs/settings')
 }
 
 function isGestureBlocked(target: EventTarget | null) {
@@ -459,33 +569,92 @@ onUnmounted(() => {
       overflow-y: auto;
       border-right: 1px solid var(--m-hairline);
       background-color: var(--m-surface-1);
-      padding-top: calc(var(--m-spacing-sub) + var(--m-safe-area-top, 0px));
+      padding-top: var(--m-safe-area-top, 0px);
       box-sizing: border-box;
     }
+  }
+
+  &__panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 椒盐侧边栏 Header：64dp 高，功能按钮均分整行（移动端 ✕/外观/设置），底部分隔线 */
+  &__panel-header {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    height: 64px;
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--m-hairline);
+  }
+
+  &__header-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    color: var(--m-text-2);
+  }
+
+  &__header-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  &__nav {
+    flex: 0 0 auto;
+    padding-top: 8px;
+  }
+
+  /* 主/次分组：18dp 留白 + 物理 hairline（椒盐实测主区与次区间有空隙 + #e9e9e9 分隔线） */
+  &__nav--secondary {
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px solid var(--m-hairline);
   }
 
   &__nav-link {
     display: flex;
     align-items: center;
-    gap: var(--m-spacing-sub);
-    min-height: var(--m-list-row-h);
+    min-height: 64px;
     padding: 0 var(--m-spacing);
     text-decoration: none;
-    font-size: 15px;
+    font-size: 16px;
     color: var(--m-text);
+    border-radius: var(--m-radius-sm);
     box-sizing: border-box;
+    transition: background-color 0.15s ease;
+
+    /* 按压瞬时反馈（非常驻高亮；椒盐激活项无蓝底背景） */
+    &:active {
+      background-color: rgba(var(--m-primary-rgb), 0.08);
+    }
 
     &--active {
-      color: var(--m-primary);
+      color: var(--m-text);
       font-weight: 600;
-      background-color: rgba(var(--m-primary-rgb), 0.12);
+      background-color: transparent;
     }
+  }
+
+  /* 图标区固定 60dp（16dp 内边距 + 60dp 图标列 → 文字自 ~77dp 起，对齐椒盐 x204px 实测） */
+  &__nav-icon-shell {
+    flex: 0 0 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   &__nav-icon {
     width: var(--m-list-icon);
     height: var(--m-list-icon);
     flex: 0 0 var(--m-list-icon);
+    color: var(--m-text-2);
+  }
+
+  &__nav-link--active &__nav-icon {
+    color: var(--m-primary);
   }
 
   &__main {
@@ -513,7 +682,7 @@ onUnmounted(() => {
     width: 50vw;
     height: 100%;
     padding:
-      calc(var(--m-spacing-sub) + var(--m-safe-area-top, 0px))
+      var(--m-safe-area-top, 0px)
       var(--m-safe-area-right, 0px)
       calc(var(--m-spacing-sub) + var(--m-safe-area-bottom, 0px))
       var(--m-safe-area-left, 0px);
