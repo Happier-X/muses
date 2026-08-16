@@ -1,7 +1,6 @@
 <template>
   <m-popup :opened="playerOverlayVisible" fullscreen transparent>
     <div
-      ref="dragLayerRef"
       class="player-page__overlay player-overlay"
       @touchstart.passive="onTouchStart"
       @touchmove="onTouchMove"
@@ -9,6 +8,7 @@
       @touchcancel="onTouchEnd"
     >
       <div
+        ref="dragLayerRef"
         class="player-page__drag-layer"
         :class="{ 'is-dragging': isDraggingVertically }"
         :style="{ transform: `translateY(${dragOffsetY}px)` }"
@@ -826,11 +826,15 @@ const onLyricUserScroll = (): void => {
     }
   }, 2000)
 }
+/** 拖拽位移绑定元素（内层 drag-layer）。拖拽跟手由 Vue :style 写 transform，
+ * 回弹动画也作用在同一元素，避免旧实现「内层先归 0、外层再动画」引起的松手抖动与中途残留。 */
 const dragLayerRef = ref<HTMLElement | null>(null)
 /** 松手回弹动画句柄（motion 命令式）；拖拽跟手由状态驱动（无过渡） */
 let reboundControls: AnimationPlaybackControls | null = null
 const stopRebound = (): void => {
   if (reboundControls) {
+    // motion stop() = commitStyles + cancel（不触发 onComplete）：
+    // transform 停留在当前中间值，由调用方紧接着锁回起点或兜底清零，不留无人纠正的残留。
     reboundControls.stop()
     reboundControls = null
   }
@@ -843,6 +847,39 @@ const touchStartX = ref<number | null>(null)
 const touchStartY = ref<number | null>(null)
 const dragOffsetY = ref(0)
 const gestureDirection = ref<'horizontal' | 'vertical' | null>(null)
+
+/** 显式回弹：终止旧动画 → 锁回拖拽终点 → 0.22s easeOut 动画回顶（全量 Motion 命令式） */
+const startRebound = (from: number): void => {
+  stopRebound()
+  const el = dragLayerRef.value
+  if (!el || from <= 0) {
+    return
+  }
+  // 锁回起点（覆盖旧动画 commit 的中间值；也为「Vue 已 patch 成 0」锁回正确动画起点）
+  el.style.transform = `translateY(${from}px)`
+  reboundControls = animate(
+    el,
+    { transform: 'translateY(0px)' },
+    {
+      duration: 0.22,
+      ease: 'easeOut',
+      onComplete: () => {
+        // 动画完成：确保内联 transform 与目标态一致（防 fill 行为差异残留中间值）
+        el.style.transform = 'translateY(0px)'
+        reboundControls = null
+      },
+    },
+  )
+}
+/** 终止回弹并立即清零位移（不播回弹动画）：用于触摸会话重建/打断兜底、
+ * 进度条与歌词点击等非拖拽手势上下文、打开/关闭播放页的状态重置。 */
+const clearDragOffsetImmediate = (): void => {
+  stopRebound()
+  if (dragLayerRef.value) {
+    dragLayerRef.value.style.transform = 'translateY(0px)'
+  }
+  dragOffsetY.value = 0
+}
 const isDraggingVertically = ref(false)
 const canDragDown = ref(false)
 const showLyricTranslation = ref(true)
@@ -1687,7 +1724,7 @@ const onProgressGestureStart = () => {
   gestureDirection.value = null
   canDragDown.value = false
   isDraggingVertically.value = false
-  dragOffsetY.value = 0
+  clearDragOffsetImmediate()
 }
 
 const onProgressGestureEnd = () => {
@@ -1743,31 +1780,25 @@ watch(playerOverlayVisible, (visible) => {
   resetDragState()
 })
 
-/** 松手回弹（原 CSS transition 220ms）：dragOffsetY 归零后由 motion 命令式动画接管 */
+/** 松手回弹（原 CSS transition 220ms）：dragOffsetY 归零由 motion 命令式动画接管。
+ * watch 仅承担兜底角色——任何路径把 dragOffsetY 归零（from>0）都会触发回弹，
+ * 不再因「回弹动画进行中」而静默吞掉新的回弹请求（此前停止动画 commit 的中间值会残留半屏）。 */
 watch(
   dragOffsetY,
   (next, prev) => {
-    if (reboundControls || !dragLayerRef.value) {
-      return
-    }
     const from = prev ?? 0
     if (from <= 0 || next !== 0) {
       return
     }
-    const el = dragLayerRef.value
-    // Vue 已渲染 transform: translateY(0)；先锁回拖拽终点再交给 motion 动画
-    el.style.transform = `translateY(${from}px)`
-    reboundControls = animate(
-      el,
-      { transform: 'translateY(0px)' },
-      {
-        duration: 0.22,
-        ease: 'easeOut',
-        onComplete: () => {
-          reboundControls = null
-        },
-      },
-    )
+    // 播放页已关闭：归零已由关闭路径的 resetDragState 兜底，不播回弹动画
+    if (!playerOverlayVisible.value) {
+      return
+    }
+    // 新触摸会话已开始（onTouchStart 主动清零残留）：回弹交给本次跟手，不播动画
+    if (touchStartX.value !== null) {
+      return
+    }
+    startRebound(from)
   },
   { flush: 'post' },
 )
@@ -1999,12 +2030,14 @@ const showBufferHint = () => {
 }
 
 const resetDragState = () => {
+  // 打开/关闭播放页（保活重置）与卸载：终止回弹动画并把 DOM 残留位移一并清零，
+  // 避免上一轮 stopRebound commit 的中间值在重开播放页时残留半屏（#25 / drag stuck）。
+  clearDragOffsetImmediate()
   touchStartX.value = null
   touchStartY.value = null
   gestureDirection.value = null
   canDragDown.value = false
   isDraggingVertically.value = false
-  dragOffsetY.value = 0
 }
 
 const goBack = () => {
@@ -2083,7 +2116,7 @@ const onLyricLineClick = async (event: LyricLineMouseEvent) => {
   gestureDirection.value = null
   canDragDown.value = false
   isDraggingVertically.value = false
-  dragOffsetY.value = 0
+  clearDragOffsetImmediate()
 
   // LyricLineBase 通过 getLine() 暴露 LyricLine；startTime 单位为毫秒。
   const startMs = event.line?.getLine?.()?.startTime
@@ -2099,17 +2132,21 @@ const onLyricLineClick = async (event: LyricLineMouseEvent) => {
 }
 
 const onTouchStart = (event: TouchEvent) => {
-  // 原生控件（进度条）或 seek 锁定期内，不启动 overlay 面板/下滑手势。
+  // 原生控件（进度条）或 seek 锁定期内，不启动 overlay 面板/下滑手势；
+  // 一并终止在途回弹/残留位移，避免与控件交互打架。
   if (seekGestureLocked.value || isNativeInteractiveEvent(event)) {
+    clearDragOffsetImmediate()
     touchStartX.value = null
     touchStartY.value = null
     gestureDirection.value = null
     isDraggingVertically.value = false
     canDragDown.value = false
-    dragOffsetY.value = 0
     return
   }
 
+  // 上一轮触摸序列可能被系统打断（touchcancel 丢失/多指/通知栏抢占）导致 dragOffsetY 残留：
+  // 立即兜底清零（不播回弹动画），本次拖拽从 0 开始跟手。
+  clearDragOffsetImmediate()
   const touch = event.changedTouches[0]
   touchStartX.value = touch?.clientX ?? null
   touchStartY.value = touch?.clientY ?? null
@@ -2219,12 +2256,15 @@ const onTouchEnd = (event: TouchEvent) => {
   isDraggingVertically.value = false
 
   if (shouldDismiss) {
-    dragOffsetY.value = 0
+    // 超过阈值：直接收起关闭（原行为不变）
+    clearDragOffsetImmediate()
     goBack()
     return
   }
 
   if (dragOffsetY.value > 0) {
+    // 松手回弹：显式驱动（同步锁回拖拽终点 → 0.22s easeOut 回顶），watch 兜底再保一道。
+    startRebound(dragOffsetY.value)
     dragOffsetY.value = 0
     return
   }
@@ -2289,13 +2329,25 @@ const formatTime = (value: number): string => {
   return `${minutes}:${seconds}`
 }
 
+/** 真机触摸序列被系统打断（通知栏下拉/多指/低端机事件丢失）时，touchend/touchcancel 可能不来：
+ * 窗口失焦/页面隐藏兜底清零，避免 dragOffsetY 残留半屏。 */
+const clearDragOnWindowHide = (): void => {
+  if (dragOffsetY.value > 0 || reboundControls) {
+    clearDragOffsetImmediate()
+  }
+}
+
 onMounted(() => {
   updateViewportWidth()
   window.addEventListener('resize', updateViewportWidth)
+  window.addEventListener('blur', clearDragOnWindowHide)
+  document.addEventListener('visibilitychange', clearDragOnWindowHide)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateViewportWidth)
+  window.removeEventListener('blur', clearDragOnWindowHide)
+  document.removeEventListener('visibilitychange', clearDragOnWindowHide)
   clearSeekUnlockTimer()
   clearLyricChromeIdleTimer()
   if (lyricScrollBackTimer) {
