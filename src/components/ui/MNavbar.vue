@@ -3,7 +3,7 @@
     class="m-navbar"
     :class="{ 'm-navbar--transparent': transparent, 'm-navbar--has-subnavbar': $slots.subnavbar }"
   >
-    <!-- 玻璃底（blur 2px + surface 渐变 + 下半 mask 渐隐，WebView 110 兼容写法） -->
+    <!-- 背景壳：透明占位（has-subnavbar 时撑满整根高度；实色背景在根元素上） -->
     <div class="m-navbar__bg" aria-hidden="true" />
     <div class="m-navbar__inner">
       <div
@@ -45,7 +45,7 @@ import { MIconButton } from '@/components/ui'
 
 /**
  * APP-ONLY：MNavbar —— 吸顶导航栏（替代 k-navbar，iOS）
- * 安全区顶部 + 44px 内容行；液态玻璃底（半透明白 + blur(20px) + 内高光，与 MiniPlayer 同款）。
+ * 安全区顶部 + 44px 内容行；实心表面底（与列表同色 --m-surface-1，对齐椒盐顶栏，08-16 起）。
  * 默认 slot = 标题（17px 半粗）。
  */
 withDefaults(
@@ -76,12 +76,9 @@ const openNavigationDrawer = (event: MouseEvent) => {
   box-sizing: border-box;
   color: var(--m-text);
   padding-top: var(--m-navbar-pt, 16px);
-  /* 液态玻璃（08-15，navbar 0.8 配方）：半透明白 + 模糊 + 内高光；内容滚动从其后经过时透出模糊 */
-  background: var(--m-glass-bg);
+  /* 实心表面（08-16 对齐椒盐）：与下方列表同色 --m-surface-1，无模糊、无内高光（玻璃观感已撤） */
+  background: var(--m-surface-1);
   border-bottom: 1px solid var(--m-hairline);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
 
   &__bg {
     position: absolute;
@@ -172,11 +169,10 @@ const openNavigationDrawer = (event: MouseEvent) => {
   }
 }
 
-/* 深色主题：液态玻璃深色配方。
+/* 深色主题：背景随 --m-surface-1 深色值自动切换（#262626），无需高光。
  * :not(.m-navbar--transparent) 必须保留：与 --transparent 变体同特异性 (0,2,0)，
  * 本规则靠后定义会覆盖 transparent 的透明背景（PlayerPage 沉浸式无回归）。 */
 :global(.dark .m-navbar:not(.m-navbar--transparent)) {
-  background: var(--m-glass-bg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: var(--m-surface-1);
 }
 </style>

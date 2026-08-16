@@ -794,14 +794,11 @@ onUnmounted(() => {
     right: 0;
     z-index: 20;
 
-    /* 对齐椒盐：navbar 背景与页面同色 #F3F3F3，含状态栏感知 */
+    /* 对齐椒盐：navbar 背景与列表同色（酒吧下列表均为 --m-surface-1，08-16 实心化） */
     :deep(.m-navbar) {
       padding-top: var(--m-navbar-pt, 16px); /* 紧贴状态栏（椒盐实测 0 间距，不再 +6px） */
-      background: var(--m-glass-bg); /* 液态玻璃（navbar 配方，08-15） */
+      background: var(--m-surface-1); /* 实心表面（08-16 对齐椒盐）：与列表同色，无玻璃模糊/内高光 */
       border-bottom: none; /* 对齐椒盐：navbar 与工具条之间无分割线 */
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-      -webkit-backdrop-filter: blur(20px);
-      backdrop-filter: blur(20px);
     }
     :deep(.m-navbar__bg) {
       background-color: transparent;
@@ -864,7 +861,7 @@ onUnmounted(() => {
     }
   }
 
-  /* 工具条：48dp，位于 navbar subnavbar 内——与 navbar 同一块玻璃（无独立背景/边框，消除交界分界） */
+  /* 工具条：48dp，位于 navbar subnavbar 内——与 navbar 同一块实心表面（无独立背景/边框，消除交界分界） */
   &__toolbar {
     box-sizing: border-box;
     width: 100%;
@@ -937,7 +934,7 @@ onUnmounted(() => {
     height: 22px;
   }
 
-  /* 搜索栏：替换工具条（同样位于 subnavbar 内，共享 navbar 玻璃） */
+  /* 搜索栏：替换工具条（同样位于 subnavbar 内，共享 navbar 实心表面） */
   &__searchbar {
     box-sizing: border-box;
     width: 100%;
@@ -1261,16 +1258,15 @@ onUnmounted(() => {
     0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* 深色主题：工具条随 navbar 玻璃（subnavbar 内无独立背景，无需单独覆盖） */
+/* 深色主题：工具条随 navbar 实心表面（subnavbar 内无独立背景，无需单独覆盖） */
 
-/* 深色主题：navbar 液态玻璃深色配方。
+/* 深色主题：navbar 实心表面深色配方（随 --m-surface-1 dark 值，无高光）。
  * 必须 :global(.dark .songs-page .m-navbar)（无 scope 属性、特异性 (0,3,0)）：
  * MNavbar 组件深色规则 .dark .m-navbar[data-v] 与页面 :deep(.m-navbar) 浅色规则同为
- * (0,2,0)，异步 chunk 后注入会覆盖组件深色规则，导致深色下 navbar 白雾。
+ * (0,2,0)，异步 chunk 后注入会覆盖组件深色规则，导致深色下 navbar 色差。
  * 注意：不得写 :global(.dark) + :deep 组合——compiler-sfc 会丢弃 :global 之后的选择器。 */
 :global(.dark .songs-page .m-navbar) {
-  background: var(--m-glass-bg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: var(--m-surface-1);
 }
 
 </style>
