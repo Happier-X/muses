@@ -2502,8 +2502,11 @@ onUnmounted(() => {
     min-width: 0;
 
     /* 固定头部（手机 <768px）：位于滑动区上方，左右切面板不移动；
-       顶部避让与 panel 一致（safe-area + 16px），左右 24px 与面板内容对齐 */
+       顶部避让与 panel 一致（safe-area + 16px），左右 24px 与面板内容对齐。
+       position/z-index 必须高于背景层（bg z-0 absolute），否则被封面背景蒙住变暗 */
     &--fixed {
+      position: relative;
+      z-index: 10;
       box-sizing: border-box;
       padding: calc(16px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 24px 0;
 
