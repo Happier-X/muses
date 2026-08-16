@@ -794,7 +794,7 @@ onUnmounted(() => {
 
     /* 对齐椒盐：navbar 背景与页面同色 #F3F3F3，含状态栏感知 */
     :deep(.m-navbar) {
-      padding-top: calc(var(--m-navbar-pt, 16px) + 6px); /* 16+6=22px 保持椒盐基准 */
+      padding-top: var(--m-navbar-pt, 16px); /* 紧贴状态栏（椒盐实测 0 间距，不再 +6px） */
       background: var(--m-glass-bg); /* 液态玻璃（navbar 配方，08-15） */
       border-bottom: none; /* 对齐椒盐：navbar 与工具条之间无分割线 */
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
@@ -846,14 +846,14 @@ onUnmounted(() => {
   &__empty {
     height: 100%;
     box-sizing: border-box;
-    padding-top: calc(var(--m-navbar-pt, 16px) + 6px + 44px + 48px); /* navbar + subnavbar(工具条) */
+    padding-top: calc(var(--m-navbar-pt, 16px) + 44px + 48px); /* navbar + subnavbar(工具条) */
   }
 
   &__list {
     height: 100%;
     overflow-y: auto;
     box-sizing: border-box;
-    padding-top: calc(var(--m-navbar-pt, 16px) + 6px + 44px + 48px); /* navbar + subnavbar(工具条) */
+    padding-top: calc(var(--m-navbar-pt, 16px) + 44px + 48px); /* navbar + subnavbar(工具条) */
     padding-bottom: var(--m-content-pb);
     overflow-anchor: none;
 
@@ -1110,7 +1110,7 @@ onUnmounted(() => {
   /* 字母索引条：右侧窄条，从工具条下方延伸到列表底（对齐椒盐：15dp 字母、密集排列） */
   &__index-bar {
     position: fixed;
-    top: calc(var(--m-navbar-pt, 16px) + 6px + 44px + 48px);
+    top: calc(var(--m-navbar-pt, 16px) + 44px + 48px);
     bottom: calc(64px + var(--m-safe-area-bottom, 0px));
     right: 2px;
     z-index: 15;
