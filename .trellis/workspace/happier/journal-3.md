@@ -938,3 +938,19 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | Hash | Message |
 |------|---------|
 | `(see git log)` | fix(ui): navbar 背景修正为列表底色 --m-surface（#f3f3f3） |
+
+## Session 101: feat(ui): navbar 灰底磨砂玻璃（三轮迭代定案）
+
+**Date**: 2026-08-16
+**Task**: 08-16-navbar-gray-frosted-glass
+**Branch**: `main`
+
+### Summary
+
+用户三连反馈收敛为完整期望：顶栏 = 灰（与列表同色）+ 滚动磨砂（椒盐 Liquid Glass）。首轮实心 surface-1（偏白）、二轮实心 --m-surface（灰但对，去掉 blur 失去磨砂），三轮将两者结合：新增 `--m-navbar-glass-bg`（浅 rgba(243,243,243,0.8) / 深 rgba(32,32,32,0.8)，基底 = --m-surface 灰）与 --m-glass-bg（白玻璃，MiniPlayer/FAB 专属）分离；MNavbar + SongsPage 覆盖恢复 blur(20px) + 顶部内高光（浅 0.65 / 深 0.1）。验证闭环：cap sync + assembleDebug + 安装 MuMu → 滚动列表截图采样（navbar 区域出现 234..242 内容透出渐变 + 深色文字模糊痕迹 = 磨砂恢复）→ 滚回顶部采样（navbar/工具条/列表全 #f3f3f3 一致）。alpha=0.8 静止叠于 #f3f3f3 上视觉恒等列表色，滚动时内容透磨砂。spec 常驻导航表面契约记录最终形态与三轮教训。另发现 android assets 停留在 8月15（cap sync 后已最新）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `(see git log)` | feat(ui): navbar 灰底磨砂玻璃——列表灰 0.8 alpha + blur 恢复滚动磨砂 |
