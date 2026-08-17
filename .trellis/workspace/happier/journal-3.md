@@ -1190,3 +1190,24 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - **typescript 保持 6.0.3**（调研结论：TS7 Go 原生编译器无 programmatic API，7.1 才有；vue-tsc/typescript-eslint 依赖 JS API，Vue 项目暂不能升）
 - Android 升 4 个：okhttp 5.5.0、appcompat 1.8.0、fragment 1.9.0、webkit 1.17.0；AGP 9.3.1/Kotlin 2.4.10/core 1.19.0 已最新
 - 验证：lint/build/gradle 全绿，APK 重建；业务代码零改动
+
+
+## Session 101: 所有依赖升级到最新版（TS7 保留 6.x）
+
+**Date**: 2026-08-17
+**Task**: 所有依赖升级到最新版（TS7 保留 6.x）
+**Branch**: `main`
+
+### Summary
+
+npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1、vue 3.5.41、vue-tsc 3.3.10 等），Android 升级 4 个（okhttp 5.5.0、appcompat 1.8.0、fragment 1.9.0、webkit 1.17.0）。typescript 有意保留 6.0.3：调研确认 TS7（Go 原生编译器）无 programmatic API（7.1 才有），vue-tsc/typescript-eslint 依赖 JS API，Vue 项目暂不能升级。AGP 9.3.1/Kotlin 2.4.10 等已最新。验证：lint（src 0 错）/ build / gradle 编译 + assembleDebug 全绿，业务代码零改动，APK 已重建。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bf90517` | (see git log) |
+
+### Status
+
+[OK] **Completed**

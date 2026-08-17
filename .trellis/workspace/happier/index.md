@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 100
+- **Total Sessions**: 101
 - **Last Active**: 2026-08-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1185 | Active |
+| `journal-3.md` | ~1213 | Active |
 | `journal-2.md` | ~1993 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 101 | 2026-08-17 | 所有依赖升级到最新版（TS7 保留 6.x） | `bf90517` | `main` |
 | 100 | 2026-08-17 | AMLL 歌词播完后保持最后一句高亮 | `c113199` | `main` |
 | 99 | 2026-08-17 | 锁屏/后台自动切歌修复：原生预案兜底 + JS 对账 + 心跳（方案 C） | `6c9a6bf`, `aeeb13b` | `main` |
 | 98 | 2026-08-16 | fix(ui): 列表底部被 MiniPlayer 胶囊遮挡——内容止位 64px → 72px | `7448833` | `main` |
