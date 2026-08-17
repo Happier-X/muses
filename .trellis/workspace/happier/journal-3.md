@@ -1152,3 +1152,13 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 ### Status
 
 [OK] **Completed**
+
+## 2026-08-17 AMLL 歌词播完保持最后一句高亮（amll-last-line-highlight）
+
+**问题**：歌曲播到最后一句后，AMLL 歌词全部失活变模糊。
+
+**根因**：PlayerPage.lyricRenderTime = position*1000，播完/暂停在末尾时超过最后一句歌词 endTime，AMLL 找不到活动行。
+
+**修复**：lyricRenderTime 钳制上限到最后一句 endTime（无 endTime 回退 startTime）；无歌词不钳制。播放中不受影响（正常时间线），只有越界时收敛到最后一句，保持完成高亮。
+
+提交 c113199；lint/build 全绿；debug APK 已重建。
