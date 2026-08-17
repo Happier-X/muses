@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 99
+- **Total Sessions**: 100
 - **Last Active**: 2026-08-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1154 | Active |
+| `journal-3.md` | ~1185 | Active |
 | `journal-2.md` | ~1993 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 100 | 2026-08-17 | AMLL 歌词播完后保持最后一句高亮 | `c113199` | `main` |
 | 99 | 2026-08-17 | 锁屏/后台自动切歌修复：原生预案兜底 + JS 对账 + 心跳（方案 C） | `6c9a6bf`, `aeeb13b` | `main` |
 | 98 | 2026-08-16 | fix(ui): 列表底部被 MiniPlayer 胶囊遮挡——内容止位 64px → 72px | `7448833` | `main` |
 | 97 | 2026-08-15 | 沉浸式播放页 1:1 复刻椒盐（AMLL 背景 + 五行歌词窗口） | `1679dd4`, `095d668`, `de3e2d3`, `eb6c646`, `45ea951`, `d226210`, `6a3d2ef`, `839a489`, `619a052`, `fadf96d`, `ece164d`, `5469eb0`, `da565b0`, `929d6b7`, `7c619c4`, `610d60d`, `e85d9d0`, `095a56f`, `2cfc3e3`, `8119ce6`, `e87f41a`, `9bed8ae`, `42dbaed`, `5caadbc`, `3ad8b5d`, `1715d46` | `main` |
