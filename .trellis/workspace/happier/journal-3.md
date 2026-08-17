@@ -1211,3 +1211,33 @@ npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1
 ### Status
 
 [OK] **Completed**
+
+## Session 102: 复刻椒盐沉浸式播放页平板模式（tablet-immersive-player）
+
+**Date**: 2026-08-17
+**Task**: 复刻椒盐沉浸式播放页平板模式
+**Branch**: `main`
+
+### Summary
+
+将 muses 播放页平板（横屏 ≥768px 且宽>高）从占位双栏升级为**双栏 + 全宽底部控制条**；竖屏（含竖屏平板）保持手机式全屏沉浸。
+
+**调研**：模拟器实测椒盐 12.2.0 平板横屏（1280x800dp）播放页 = 内容限宽偏左 + 右侧音乐厅氛围区（非双栏）；竖屏 = 手机式全屏。用户决策：保留双栏（B）+ 控制全下移底部 + 竖屏手机式 + 保持 AMLL 背景。参考图存任务 refs/。
+
+**实现**（改动 2 文件）：
+- `src/views/PlayerPage.vue`：断点从 `viewportWidth>=768` 改 `>=768 && height<width`（isTabletLayout）；容器挂 `.player-page--tablet` class；模板控件区包 `.player-page__info-controls`（手机 display:contents / 平板 display:none）；新增底部条 `bottom-bar`（v-if isTabletLayout：进度条+时间一行 + 三段式按钮左 repeat/shuffle 中 prev/play/next 右 queue/more）；平板样式全部 media query → `.player-page--tablet &` class 驱动。
+- `src/theme/index.scss`：`@media (min-width:768px)` 平板块 → `.player-overlay--tablet` 后代选择器（含矮屏组合块）。
+
+**关键决策**：断点改 class 驱动避免竖屏平板（800px 宽 ≥768 但不横屏）落进 media query 缝隙；info-controls 用 `display: contents` 保证手机 flex 子项展开零回归；右栏 lyric-header 平板保持全局隐藏（左栏头部承担）。
+
+**验证**：模拟器 WebView CDP 实测——1280x776 平板：panels 双栏 50/50、bottomBar 1280x110 全宽、进度条 1232 全宽、三段按钮中组中心 640dp 正好居中、封面 388x388 居中；进度 seek 01:40 ✓ 循环切换 ✓ 更多菜单 ✓；800x1256 竖屏 tabletClass=false 手机式全恢复 ✓；640x336 横屏窄高不双栏+矮屏单行 ✓；412x708 手机零回归 ✓。lint/vue-tsc/build 全绿；debug APK 已重建安装。spec（features-player/component-guidelines）平板契约已更新；changelog v0.3.6。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| (see git log) | feat(player): 平板沉浸页双栏+底部全宽控制条，断点改 class 驱动（竖屏保持手机式） |
+
+### Status
+
+[OK] **Completed**
