@@ -116,9 +116,15 @@
 - **歌词解析 vs 翻译适配（AMLL 边界）**：
   - 主词格式解析**只**用 `@applemusic-like-lyrics/lyric`（`parseLrc` / `parseYrc` / `parseQrc` / `parseTTML` 等），禁止自研平行格式解析器。
   - `parseLrc` **不会**把同时间戳双行 plain LRC 自动收成主行+`translatedLyric`；独立 tlyric 也需业务挂载。
-  - 展示前 `prepareLyricLinesForDisplay`（`mergeTranslation.ts`）仅做：挂 `lyricsTranslation`（tlyric）→ 合并仍无译的同时间戳双主行 → 供翻译开关使用；**不是**第二套 LRC 引擎。
+  - 展示前 `prepareLyricLinesForDisplay`（`mergeTranslation.ts`）仅做：挂 `lyricsTranslation`（tlyric）→ 合并仍无译的双语主行 → 供翻译开关使用；**不是**第二套 LRC 引擎。
   - 已有非空 `translatedLyric`（TTML/库结果或已 attach）禁止再双行合并或覆盖。
-- **双语主译判定**：同时间戳双主行合并时不得只靠文件顺序。若一对中一行是 Han、另一行是非 Han（Latin / 假名 / Hangul 等），**非 Han 为主行**、Han 为 `translatedLyric`。合并结果 `endTime = max(两行 endTime)`，避免活跃窗口过短导致高亮只闪一下。关翻译后主行须仍为原文。
+- **双语主译判定**：合并双语主行时不得只靠文件顺序。若一对中一行是 Han、另一行是非 Han（Latin / 假名 / Hangul 等），**非 Han 为主行**、Han 为 `translatedLyric`。合并结果 `endTime = max(两行 endTime)`，避免活跃窗口过短导致高亮只闪一下。关翻译后主行须仍为原文。
+- **双语合并的两条路径（08-17-fix-lyric-translation-offset 后）**：
+  - **同时间戳相邻配对**（既有）：译文与原文同一时间戳（或 ≤50ms）时按相邻行合并；仅文字体系明显不同才合并，禁止吞同时间的两句独立歌词（同脚本相邻行绝不合并）。
+  - **交替结构感知配对**（新增，修复译文整体后移一行）：当主词 LRC 中译文行时间戳打在**下一句原文时间戳**上（`C_i.startTime ≈ E_{i+1}.startTime`）时，按**文件顺序固定窗口**（0,1)(2,3)... 把译文并回前一行原文（修复后每句译文落到自己的原文行，结尾不再多出孤立中文行）。
+  - 交替结构判定必须**整歌成立**才激活：配对数 ≥2、覆盖率 ≥60%（`SHIFTED_PAIR_MIN_RATIO`）、且满足**结构一致性**（所有配对的主行同属一种脚本、译文侧为互补脚本）+ **时间定义属性**（译文行时间戳贴近下一窗口原文行时间戳，`SHIFTED_CROSS_WINDOW_TOLERANCE_MS`）；任何一条不满足（如垫词行打断交替、零星中文行、错位窗口）则整体回退到「同时间戳相邻配对」，保持不误吞。
+  - shifted 合并后会再跑一遍同时间戳相邻配对（收敛混合形态文件中残留的对齐对），两端译文守卫保证不重复合并。
+- **tlyric 挂载（网易 yrc 场景，08-17-fix-lyric-translation-offset）**：先按 80ms 容差逐行就近挂载；挂载率不足且呈系统性时间偏移（yrc 行时间与 lrc/tlyric 普遍偏差数百 ms）时，退化为序列感知顺序对齐（双指针按行序匹配，宽容差 ≤2000ms，匹配率 ≥60%）。**边界防误判**：若「首条待挂行无可用 stamp」且「末 stamp 无主行承接」同时成立（tlyric 自身整句错移一段），判定为结构错移，放弃回退，避免在 tlyric 层复现同类错位。第一遍已消费的 stamp 从回退池精确剔除，避免同一译文重复挂两条主行。
 - 快速切歌：`playSong` 用 generation 丢弃被 supersede 的 play 回写；native 状态有当前曲时必须 `currentSongId` 精确匹配；loading 期间忽略无关 paused/stopped（#28/#29）。
 - **运行时缓存必须有界**：AMLL TTML 命中缓存、AMLL/在线封面/在线文本负缓存使用共享轻量 LRU helper，默认最多保留 256 个近期条目；命中刷新近期顺序，负缓存原有 TTL 与 reset 语义保持。不得新增无限增长的按 songId Map。
 - **App 根级监听器必须卸载**：`App.vue` 注册 Capacitor `backButton` listener 时必须保存异步返回的 handle，并在组件卸载时调用 `remove()`；若 handle 在卸载后才 resolve，应立即移除，避免重复回调。
