@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "验收核对：背景契约（AMLL 不卸载）、歌词 chrome 显隐路径（isTabletLayout 相关）"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "验收核对：信息面板布局顺序契约、k-range 沉浸白色、MPopup transparent、平板断点"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "验收核对：lint/type-check/build 质量标准与验证命令"}

@@ -467,10 +467,10 @@ body.muses-overlay-open .m-content {
   padding-right: 0;
 }
 
-/* 响应式断点：平板布局 ───────────────────────────────────────────── */
+/* 响应式断点：横屏平板（≥768px 且宽>高，class 驱动；竖屏/手机不加此 class）播放页双栏 ──────── */
 
-@media (min-width: 768px) {
-  .player-overlay .panels {
+.player-overlay.player-overlay--tablet {
+  .panels {
     width: auto;
     display: flex;
     flex-direction: row;
@@ -479,14 +479,14 @@ body.muses-overlay-open .m-content {
     transform: none !important;
   }
 
-  .player-overlay .panel {
+  .panel {
     flex: 1;
     width: auto;
     min-width: 0;
     min-height: 0;
   }
 
-  .player-overlay .info-panel {
+  .info-panel {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -497,37 +497,19 @@ body.muses-overlay-open .m-content {
       calc(24px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   }
 
-  .player-overlay .info-panel-inner {
+  .info-panel-inner {
     height: 100%;
     max-height: 100%;
     justify-content: center;
     gap: 12px;
   }
 
-  .player-overlay .cover-slot {
-    max-height: min(48dvh, 320px);
-  }
-
-  .player-overlay .cover,
-  .player-overlay .placeholder-cover {
-    width: min(40vw, 48dvh, 320px);
-    height: min(40vw, 48dvh, 320px);
-  }
-
-  .player-overlay .song-info {
-    text-align: center;
-  }
-
-  .player-overlay .lyric-play-toggle {
+  /* 右侧歌词面板头部隐藏：左栏 in-panel 头部承担歌名/歌手，避免左右重复（08-15 契约延续） */
+  .lyric-header {
     display: none;
   }
 
-  /* 宽屏左侧控制页已有歌名/歌手，右侧不重复顶部信息 */
-  .player-overlay .lyric-header {
-    display: none;
-  }
-
-  .player-overlay .lyric-player {
+  .lyric-player {
     flex: 1;
     min-height: 0;
     height: auto;
@@ -577,22 +559,24 @@ body.muses-overlay-open .m-content {
   }
 }
 
-/* 宽屏 + 矮屏：cover width 与更紧的 cover-slot max-height 对齐，避免 48dvh 仍超过 42dvh 时被 clamp */
-@media (min-width: 768px) and (max-height: 720px) {
-  .player-overlay .info-panel {
-    padding:
-      calc(16px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
-      24px
-      calc(16px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
-  }
+/* 横屏平板 + 矮屏：cover width 与更紧的 cover-slot max-height 对齐，避免 48dvh 仍超过 42dvh 时被 clamp */
+@media (max-height: 720px) {
+  .player-overlay.player-overlay--tablet {
+    .info-panel {
+      padding:
+        calc(16px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+        24px
+        calc(16px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    }
 
-  .player-overlay .info-panel-inner {
-    gap: 8px;
-  }
+    .info-panel-inner {
+      gap: 8px;
+    }
 
-  .player-overlay .cover,
-  .player-overlay .placeholder-cover {
-    width: min(40vw, 42dvh, 260px);
+    .cover,
+    .placeholder-cover {
+      width: min(40vw, 42dvh, 260px);
+    }
   }
 }
 
@@ -646,17 +630,19 @@ body.muses-overlay-open .m-content {
   }
 }
 
-@media (min-width: 768px) and (max-height: 520px) {
-  .player-overlay .info-panel {
-    padding:
-      calc(12px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
-      20px
-      calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
-  }
+@media (max-height: 520px) {
+  .player-overlay.player-overlay--tablet {
+    .info-panel {
+      padding:
+        calc(12px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+        20px
+        calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    }
 
-  .player-overlay .cover,
-  .player-overlay .placeholder-cover {
-    width: min(40vw, 38dvh, 200px);
+    .cover,
+    .placeholder-cover {
+      width: min(40vw, 38dvh, 200px);
+    }
   }
 }
 

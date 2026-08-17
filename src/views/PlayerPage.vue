@@ -2,6 +2,7 @@
   <m-popup :opened="playerOverlayVisible" fullscreen transparent>
     <div
       class="player-page__overlay player-overlay"
+      :class="{ 'player-page--tablet': isTabletLayout, 'player-overlay--tablet': isTabletLayout }"
       @touchstart.passive="onTouchStart"
       @touchmove="onTouchMove"
       @touchend="onTouchEnd"
@@ -87,6 +88,8 @@
                 </div>
               </div>
 
+              <!-- 手机控件区（平板移入底部控制条后隐藏） -->
+              <div class="player-page__info-controls">
               <div
                 class="player-page__progress-area"
                 @touchstart.stop="onProgressGestureStart"
@@ -177,6 +180,7 @@
                   <component :is="moreIcon" aria-hidden="true" class="player-page__icon" />
                 </m-icon-button>
               </div>
+              </div>
             </div>
           </section>
 
@@ -253,6 +257,102 @@
             </motion.div>
           </section>
           </motion.div>
+
+          <!-- 平板底部全宽控制条（仅横屏平板 ≥768px 且宽>高；手机/竖屏由 info-panel 内控件承担） -->
+          <div v-if="isTabletLayout" class="player-page__bottom-bar">
+            <div
+              class="player-page__bottom-progress"
+              @touchstart.stop="onProgressGestureStart"
+              @touchmove.stop
+              @touchend.stop="onProgressGestureEnd"
+              @touchcancel.stop="onProgressGestureEnd"
+              @pointerdown.stop="onProgressGestureStart"
+              @pointerup.stop="onProgressGestureEnd"
+              @pointercancel.stop="onProgressGestureEnd"
+            >
+              <m-range
+                ref="progressRangeRef"
+                class="progress-range player-page__progress-range"
+                :min="0"
+                :max="durationForSlider"
+                :step="0.1"
+                :value="effectiveSeekPosition"
+                :disabled="!canSeek"
+                aria-label="播放进度"
+                @input="onRangeInput"
+                @change="onRangeChange"
+              />
+              <div class="player-page__time-row">
+                <span>{{ formatTime(playerState.position) }}</span>
+                <span v-if="bufferHintVisible" class="player-page__buffer-hint">缓冲中</span>
+                <span>{{ playerState.duration ? formatTime(playerState.duration) : '--:--' }}</span>
+              </div>
+            </div>
+
+            <div class="player-page__bottom-row">
+              <div class="mode-bar player-page__bottom-mode">
+                <m-icon-button
+                  class="player-page__mode-btn"
+                  :aria-label="repeatModeLabel"
+                  @click="onToggleRepeat"
+                >
+                  <component :is="repeatIcon" aria-hidden="true" class="player-page__icon" />
+                </m-icon-button>
+                <m-icon-button
+                  class="player-page__mode-btn"
+                  :aria-label="shuffleModeLabel"
+                  @click="onToggleShuffle"
+                >
+                  <component :is="shuffleIcon" aria-hidden="true" class="player-page__icon" />
+                </m-icon-button>
+              </div>
+
+              <div class="controls player-page__bottom-controls">
+                <m-icon-button
+                  size="lg"
+                  class="player-page__side-btn"
+                  aria-label="上一曲"
+                  @click="onPrevious"
+                >
+                  <component :is="previousIcon" aria-hidden="true" class="player-page__icon-lg" />
+                </m-icon-button>
+                <m-icon-button
+                  size="lg"
+                  class="player-page__play-btn"
+                  :disabled="playerState.status === 'loading'"
+                  aria-label="播放或暂停"
+                  @click="togglePlayback"
+                >
+                  <component :is="isPlaying ? pause : play" aria-hidden="true" class="player-page__icon-lg" />
+                </m-icon-button>
+                <m-icon-button
+                  size="lg"
+                  class="player-page__side-btn"
+                  aria-label="下一曲"
+                  @click="onNext"
+                >
+                  <component :is="nextIcon" aria-hidden="true" class="player-page__icon-lg" />
+                </m-icon-button>
+              </div>
+
+              <div class="mode-bar player-page__bottom-mode">
+                <m-icon-button
+                  class="player-page__mode-btn"
+                  aria-label="播放队列"
+                  @click="goToQueue"
+                >
+                  <component :is="listIcon" aria-hidden="true" class="player-page__icon" />
+                </m-icon-button>
+                <m-icon-button
+                  class="player-page__mode-btn"
+                  aria-label="更多"
+                  @click="openPlayerActions"
+                >
+                  <component :is="moreIcon" aria-hidden="true" class="player-page__icon" />
+                </m-icon-button>
+              </div>
+            </div>
+          </div>
         </template>
       </div>
     </div>
@@ -909,6 +1009,7 @@ const lyricChromeVisible = ref(false)
 let lyricChromeIdleTimer: ReturnType<typeof setTimeout> | null = null
 const LYRIC_FAB_IDLE_MS = 3000
 const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
+const viewportHeight = ref(typeof window === 'undefined' ? 0 : window.innerHeight)
 /** 进度条交互中或结束后的短保护期，防止松手穿透到上一曲/下一曲或横向切面板。 */
 const seekGestureLocked = ref(false)
 let seekUnlockTimer: ReturnType<typeof setTimeout> | null = null
@@ -924,7 +1025,10 @@ const moreIcon = ellipsisVertical
 const translationIcon = computed(() => showLyricTranslation.value ? languageOutline : languageOffOutline)
 const previousIcon = playSkipBack
 const nextIcon = playSkipForward
-const isTabletLayout = computed(() => viewportWidth.value >= 768)
+/** 横屏平板（≥768px 且宽>高）才启用双栏 + 底部控制条；竖屏（含竖屏平板）保持手机式全屏沉浸。 */
+const isTabletLayout = computed(
+  () => viewportWidth.value >= 768 && viewportHeight.value < viewportWidth.value,
+)
 
 // ── 更多 / 编辑歌曲信息 ──────────────────────────────────────────
 const isPlayerActionsOpen = ref(false)
@@ -1643,8 +1747,9 @@ const onCoverFileChange = async (event: Event) => {
   }
 }
 
-const updateViewportWidth = () => {
+const updateViewportSize = () => {
   viewportWidth.value = window.innerWidth
+  viewportHeight.value = window.innerHeight
 }
 
 const clearLyricChromeIdleTimer = () => {
@@ -2359,14 +2464,14 @@ const clearDragOnWindowHide = (): void => {
 }
 
 onMounted(() => {
-  updateViewportWidth()
-  window.addEventListener('resize', updateViewportWidth)
+  updateViewportSize()
+  window.addEventListener('resize', updateViewportSize)
   window.addEventListener('blur', clearDragOnWindowHide)
   document.addEventListener('visibilitychange', clearDragOnWindowHide)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', updateViewportWidth)
+  window.removeEventListener('resize', updateViewportSize)
   window.removeEventListener('blur', clearDragOnWindowHide)
   document.removeEventListener('visibilitychange', clearDragOnWindowHide)
   clearSeekUnlockTimer()
@@ -2480,11 +2585,14 @@ onUnmounted(() => {
       min-height: 0;
     }
 
-    /* 平板（≥768px）左右分栏：容器收缩回 100%，两面板各占 50% 并排。
-       全局 index.scss md 断点的 `width: auto` 与本规则同特异性，但 scoped 后注入恒覆盖全局，
+    /* 平板（横屏 ≥768px 且宽>高，class 驱动）左右分栏：容器收缩回 100%、占剩余高度（底部控制条占位）。
+       全局 index.scss 的 `width: auto` 与本规则同特异性，但 scoped 后注入恒覆盖全局，
        必须在此重申覆盖，否则容器保持 200% 宽、右侧歌词面板被裁出视口（08-15-tablet-player-layout） */
-    @media (min-width: 768px) {
+    .player-page--tablet & {
       width: 100%;
+      height: auto;
+      flex: 1 1 auto;
+      min-height: 0;
     }
   }
 
@@ -2505,6 +2613,11 @@ onUnmounted(() => {
     padding-top: 16px; /* 椒盐：顶部歌名/歌手区占位 */
     min-height: 0;
     overflow: hidden;
+
+    /* 平板（横屏 ≥768px 且宽>高）：控制下移底部条后，封面垂直居中 */
+    .player-page--tablet & {
+      justify-content: center;
+    }
   }
 
   /* 顶部歌名/歌手（椒盐：左上竖排小字，无返回/正在播放/更多） */
@@ -2524,17 +2637,17 @@ onUnmounted(() => {
       box-sizing: border-box;
       padding: calc(16px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 24px 0;
 
-      /* 平板（≥768px）：固定头部隐藏，由两面板各自的头部承担 */
-      @media (min-width: 768px) {
+      /* 平板（横屏 ≥768px 且宽>高，class 驱动）：固定头部隐藏，由两面板各自的头部承担 */
+      .player-page--tablet & {
         display: none;
       }
     }
 
-    /* 面板内头部（仅平板 ≥768px 显示；手机隐藏，避免与固定头部重复） */
+    /* 面板内头部（仅平板显示；手机隐藏，避免与固定头部重复） */
     &--in-panel {
       display: none;
 
-      @media (min-width: 768px) {
+      .player-page--tablet & {
         display: block;
       }
     }
@@ -2605,8 +2718,8 @@ onUnmounted(() => {
     overflow: hidden;
     position: relative;
 
-    /* 平板（≥768px）左侧不展示三行歌词：左右分栏时歌词由右侧歌词页承担（08-15-tablet-player-layout） */
-    @media (min-width: 768px) {
+    /* 平板（横屏 ≥768px 且宽>高，class 驱动）左侧不展示三行歌词：左右分栏时歌词由右侧歌词页承担（08-15-tablet-player-layout） */
+    .player-page--tablet & {
       display: none;
     }
   }
@@ -2718,6 +2831,56 @@ onUnmounted(() => {
     touch-action: manipulation;
   }
 
+  /* 平板底部全宽控制条（仅横屏平板 ≥768px 且宽>高渲染；手机/竖屏由 info-panel 内控件承担） */
+  &__bottom-bar {
+    flex: none;
+    position: relative;
+    z-index: 10;
+    box-sizing: border-box;
+    padding: 6px 24px
+      calc(8px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    /* 半透明渐变叠加 AMLL 背景，保证控件可读且保持沉浸 */
+    background: linear-gradient(
+      180deg,
+      rgba(5, 7, 13, 0) 0%,
+      rgba(5, 7, 13, 0.55) 100%
+    );
+    touch-action: manipulation;
+  }
+
+  &__bottom-progress {
+    width: 100%;
+  }
+
+  &__bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 2px;
+  }
+
+  /* 底部条按钮组：覆盖 controls/mode-bar 的全宽布局为自适应三段式 */
+  &__bottom-mode {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: auto;
+    max-width: none;
+    margin: 0;
+  }
+
+  &__bottom-controls {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(20px, 5vw, 44px);
+    width: auto;
+    margin: 0;
+  }
+
   /* 播放器控制按钮（深底白字系；MIconButton 透明底 + currentColor，按下图标变暗） */
   &__side-btn {
     color: rgba(255, 255, 255, 0.9);
@@ -2774,12 +2937,18 @@ onUnmounted(() => {
     text-align: left;
     min-width: 0;
 
-    /* 手机（<768px）：头部由固定头部承担，面板内不再重复显示 */
+    /* 手机（<768px）：头部由固定头部承担，面板内不再重复显示；
+       平板（横屏 ≥768px 且宽>高）：仍由全局 `.player-overlay--tablet .lyric-header { display: none }` 隐藏
+       （左栏 in-panel 头部承担，避免左右重复；见 index.scss） */
     display: none;
+  }
 
-    /* 平板（≥768px）：左右分栏，歌词面板独立显示自己的头部 */
-    @media (min-width: 768px) {
-      display: block;
+  /* 手机控件区（info-panel 内）：平板下由底部控制条承担，隐藏 */
+  &__info-controls {
+    display: contents; /* 手机保持现有 flex 布局子项展开，不改变 info-inner 结构 */
+
+    .player-page--tablet & {
+      display: none;
     }
   }
 
