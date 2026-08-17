@@ -170,6 +170,22 @@ let queueData = loadQueueData()
 const config = loadConfig()
 let currentIndex = -1
 
+// --------------- 队列变更通知（播放器预案挂钩） ---------------
+
+type QueueChangedListener = () => void
+const queueChangedListeners = new Set<QueueChangedListener>()
+
+export const onQueueChanged = (listener: QueueChangedListener): (() => void) => {
+  queueChangedListeners.add(listener)
+  return () => {
+    queueChangedListeners.delete(listener)
+  }
+}
+
+const notifyQueueChanged = (): void => {
+  queueChangedListeners.forEach((listener) => listener())
+}
+
 const queueStateRaw = ref<QueueState>({
   items: resolveSongsFromQueue(queueData.shuffleOrder ?? queueData.items),
   currentIndex: -1,
@@ -222,6 +238,7 @@ export const enqueueSongs = (songs: SongItem[]): void => {
 
   saveQueueData(queueData)
   refreshQueueState()
+  notifyQueueChanged()
 }
 
 export const enqueueSong = (song: SongItem): void => {
@@ -250,6 +267,7 @@ export const removeSongFromQueue = (songId: string): void => {
 
   saveQueueData(queueData)
   refreshQueueState()
+  notifyQueueChanged()
 }
 
 export const clearQueue = (): void => {
@@ -257,6 +275,7 @@ export const clearQueue = (): void => {
   queueData = { items: [], originalOrder: [], shuffleOrder: null }
   saveQueueData(queueData)
   refreshQueueState()
+  notifyQueueChanged()
 }
 
 export const selectSongAtIndex = (index: number): SongItem | null => {
@@ -401,6 +420,7 @@ export const setRepeatMode = (mode: RepeatMode): void => {
   config.repeatMode = mode
   saveConfig(config)
   refreshQueueState()
+  notifyQueueChanged()
 }
 
 export const toggleShuffle = (): void => {
@@ -430,6 +450,7 @@ export const toggleShuffle = (): void => {
   saveQueueData(queueData)
   saveConfig(config)
   refreshQueueState()
+  notifyQueueChanged()
 }
 
 // --------------- 只读导出 ---------------

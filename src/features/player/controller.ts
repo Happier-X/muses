@@ -22,6 +22,13 @@ import {
   needsOnlineTextMeta,
 } from '@/features/metadata'
 import { AudioPlayerNative, cacheRemoteCover, prefetchWebDavAudioFile } from './native'
+import {
+  addAutoNextEventListeners,
+  clearNativeAutoNextPlan,
+  setNativeAutoNextPlan,
+  syncCurrentAsset as syncNativeCurrentAsset,
+  toAssetId,
+} from './native'
 import { prefetchNextMetadata, shouldPrefetchNextMetadata } from './prefetchMetadata'
 import { dbToPlaybackVolume } from './loudness'
 import type { AudioPlayerNativeState, PlaybackStatus, PlayOptions, PlayerState } from './types'
@@ -47,6 +54,7 @@ import {
   setRepeatMode as setRepeatModeInternal,
   syncCurrentIndex,
   toggleShuffle as toggleShuffleInternal,
+  onQueueChanged,
   type RepeatMode,
 } from './queue'
 import {
@@ -109,6 +117,13 @@ let allowNativeClearCurrentSong = false
 /** 会话 position 节流写入 */
 const SESSION_POSITION_THROTTLE_MS = 3000
 let lastSessionPersistAt = 0
+
+/** 自动切歌/对账防重入：心跳与回前台对账可能并发触发 handlePlaybackFinished */
+let advanceInFlight = false
+
+/** 后台心跳间隔；hidden 时浏览器会节流到约 1 次/分钟，作为原生兜底失败的最后防线 */
+const AUTO_NEXT_HEARTBEAT_MS = 1000
+let autoNextHeartbeatTimer: ReturnType<typeof setInterval> | null = null
 
 const LOCAL_METADATA_SCAN_TIMEOUT_MS = 15_000
 const WEBDAV_METADATA_SCAN_TIMEOUT_MS = 120_000
@@ -382,6 +397,86 @@ const restorePlaybackSessionIfNeeded = (): void => {
   syncMediaSessionState()
 }
 
+/**
+ * 同步 UI 到原生已在播的曲目（原生预案兜底成功后 JS 恢复时调用）。
+ * 走 playSongInternal 的 nativeAlreadyPlaying 模式：不重复调原生 play。
+ */
+const syncUiToNativeSong = async (songId: string): Promise<void> => {
+  if (!songId || songId === state.value.currentSong?.id) {
+    return
+  }
+  const song = loadSongs().find((item) => item.id === songId)
+  if (!song) {
+    return
+  }
+  recordRecentPlay(song)
+  pendingResumePosition = null
+  clearResumeSeekGuard()
+  // 对齐原生模块内部 asset 状态，避免旧 assetId 过滤掉新曲的事件/轮询
+  syncNativeCurrentAsset(song.id, song.sourceType)
+  await playSongInternal(song, undefined, { nativeAlreadyPlaying: true })
+}
+
+/**
+ * 后台心跳兜底（方案 B）：hidden 且应播放时检查原生状态，
+ * complete 事件丢失时也能在浏览器节流窗口（约 1 次/分钟）内补切歌。
+ */
+const runBackgroundHeartbeat = async (): Promise<void> => {
+  if (!document.hidden || state.value.status !== 'playing' || advanceInFlight) {
+    return
+  }
+  try {
+    const nativeState = await AudioPlayerNative.getState()
+    if (nativeState.status !== 'playing') {
+      advanceInFlight = true
+      try {
+        await handlePlaybackFinished()
+      } finally {
+        advanceInFlight = false
+      }
+    }
+  } catch {
+    // 心跳失败静默，不打断播放
+  }
+}
+
+const startAutoNextHeartbeat = (): void => {
+  if (autoNextHeartbeatTimer) {
+    return
+  }
+  autoNextHeartbeatTimer = setInterval(() => {
+    void runBackgroundHeartbeat()
+  }, AUTO_NEXT_HEARTBEAT_MS)
+}
+
+/**
+ * 回前台对账：
+ * 1. 原生已在播新曲（预案成功但事件丢失）→ 同步 UI；
+ * 2. 原生已停止而 JS 仍以为在播（complete 丢失）→ 立即切歌。
+ */
+export const reconcileAfterBackground = async (): Promise<void> => {
+  try {
+    const nativeState = await AudioPlayerNative.getState()
+    if (nativeState.status === 'playing' && nativeState.currentSongId && nativeState.currentSongId !== state.value.currentSong?.id) {
+      await syncUiToNativeSong(nativeState.currentSongId)
+      return
+    }
+    if (advanceInFlight) {
+      return
+    }
+    if (nativeState.status !== 'playing' && (state.value.status === 'playing' || state.value.status === 'finished')) {
+      advanceInFlight = true
+      try {
+        await handlePlaybackFinished()
+      } finally {
+        advanceInFlight = false
+      }
+    }
+  } catch {
+    // 对账失败静默
+  }
+}
+
 export const initializePlayer = async (): Promise<void> => {
   if (!nativeListenerReady) {
     nativeListenerReady = true
@@ -396,6 +491,26 @@ export const initializePlayer = async (): Promise<void> => {
     nexttrack: playNextFromQueue,
     seekto: seekPlayback,
   })
+
+  // 原生预案兜底事件：JS 恢复后同步 UI（原生已在播，不重复起播）
+  await addAutoNextEventListeners({
+    onStarted: (songId) => {
+      if (songId && songId !== state.value.currentSong?.id) {
+        void syncUiToNativeSong(songId)
+      }
+    },
+    onFailed: () => {
+      // 预案播放失败：回前台对账/心跳兜底继续处理
+    },
+  })
+
+  // 队列/模式变化后重算预案（有当前播放时）
+  onQueueChanged(() => {
+    void registerAutoNextPlan()
+  })
+
+  // 后台心跳：complete 事件丢失时兜底补切歌
+  startAutoNextHeartbeat()
 
   try {
     applyNativeState(await AudioPlayerNative.getState())
@@ -1028,10 +1143,48 @@ interface PlaybackRecoveryContext {
   attemptedSongIds: Set<string>
 }
 
+/**
+ * 注册「下一首预案」到原生：JS 冻结时由原生兜底播放（方案 C）。
+ * 幂等、静默；预案更新说明 JS 活跃，切歌仍由 JS 主导。
+ */
+const registerAutoNextPlan = async (): Promise<void> => {
+  const currentSong = state.value.currentSong
+  const nextSong = currentSong ? peekNext() : null
+  if (!currentSong || !nextSong) {
+    await clearNativeAutoNextPlan()
+    return
+  }
+  try {
+    const options = await buildPlayOptions(nextSong)
+    await setNativeAutoNextPlan({
+      songId: nextSong.id,
+      assetId: toAssetId(nextSong.id),
+      assetPath: options.sourceType === 'webdav' ? options.url : options.uri,
+      isUrl: options.sourceType === 'webdav' || options.uri.startsWith('file://'),
+      username: options.sourceType === 'webdav' ? options.username : undefined,
+      password: options.sourceType === 'webdav' ? options.password : undefined,
+      volume: options.volume ?? 1,
+      currentAssetId: toAssetId(currentSong.id),
+      title: options.title,
+      artist: options.artist,
+    })
+  } catch {
+    // 预案注册失败静默：原生兜底不可用时，JS 心跳/回前台对账仍在
+    await clearNativeAutoNextPlan().catch(() => undefined)
+  }
+}
+
+/** 清空预案：停止播放 / 队列尾 / 播放失败链终止。 */
+const clearAutoNextPlan = async (): Promise<void> => {
+  await clearNativeAutoNextPlan()
+}
+
 const playSongInternal = async (
   song: SongItem,
   recoveryContext?: PlaybackRecoveryContext,
+  options?: { nativeAlreadyPlaying?: boolean },
 ): Promise<void> => {
+  const nativeAlreadyPlaying = options?.nativeAlreadyPlaying === true
   const latestSong = getLatestSongSnapshot(song)
 
   syncCurrentIndex(latestSong.id)
@@ -1079,19 +1232,26 @@ const playSongInternal = async (
   void matchOnlineLyricsForSong(latestSong, matchToken)
 
   try {
-    try {
-      await AudioPlayerNative.ensureNotificationPermission()
-    } catch {
-      // 权限请求失败（非 Android / 插件不可用）静默忽略，不阻塞播放。
+    if (!nativeAlreadyPlaying) {
+      // 切歌窗口先清预案：原生兜底轮询不得触发上一首的旧预案
+      await clearAutoNextPlan()
+      try {
+        await AudioPlayerNative.ensureNotificationPermission()
+      } catch {
+        // 权限请求失败（非 Android / 插件不可用）静默忽略，不阻塞播放。
+      }
+      await AudioPlayerNative.play(await buildPlayOptions(latestSong))
     }
-    await AudioPlayerNative.play(await buildPlayOptions(latestSong))
     // 快速连切：被 supersede 的 play 不得回写 status（#28/#29）
     if (generation !== playGeneration || state.value.currentSong?.id !== latestSong.id) {
       return
     }
     state.value.status = 'playing'
-    // 冷启动续播：play 默认从 0，成功后 seek 到恢复进度（#49）
-    if (
+    if (nativeAlreadyPlaying) {
+      // 原生已兜底起播：无续播点、无 seek 恢复
+      pendingResumePosition = null
+      clearResumeSeekGuard()
+    } else if (
       pendingResumePosition != null
       && pendingResumePosition > 0
       && state.value.currentSong?.id === latestSong.id
@@ -1118,6 +1278,8 @@ const playSongInternal = async (
     void scanSongMetadata(latestSong)
     // 播放成功后后台预取下一首 WebDAV（失败静默）
     void prefetchNextTrack(latestSong.id)
+    // 注册「下一首预案」：锁屏/后台 JS 冻结时由原生兜底自动切歌
+    void registerAutoNextPlan()
   } catch (error) {
     if (generation !== playGeneration || state.value.currentSong?.id !== latestSong.id) {
       return
@@ -1143,6 +1305,8 @@ const playSongInternal = async (
       return
     }
 
+    // 恢复链终止：清预案，避免原生兜底播放不存在的下一首
+    await clearAutoNextPlan()
     // loading 会乐观映射为 playing；仅恢复链终止时清掉媒体会话。
     void clearMediaSession().catch(() => undefined)
   }
@@ -1255,6 +1419,7 @@ export const stopPlayback = async (): Promise<void> => {
     // 显式 stop：允许随后 native stopped 事件清空（自身也会同步清空）
     allowNativeClearCurrentSong = true
     await AudioPlayerNative.stop()
+    await clearAutoNextPlan()
     clearSeekGuard()
     pendingResumePosition = null
     clearResumeSeekGuard()

@@ -23,7 +23,7 @@ import { App } from '@capacitor/app'
 import type { PluginListenerHandle } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
 import MiniPlayer from '@/components/MiniPlayer.vue'
-import { initializePlayer } from '@/features/player/controller'
+import { initializePlayer, reconcileAfterBackground } from '@/features/player/controller'
 import { closePlayerOverlay, closeQueueOverlay, playerOverlayVisible, queueOverlayVisible } from '@/features/player/overlay'
 
 const PlayerPage = defineAsyncComponent(() => import('@/views/PlayerPage.vue'))
@@ -37,6 +37,8 @@ const hasGlobalOverlay = computed(() => playerOverlayVisible.value || queueOverl
 let statusBarRequestToken = 0
 let statusBarSyncQueue = Promise.resolve()
 let backButtonListener: PluginListenerHandle | null = null
+let appStateListener: PluginListenerHandle | null = null
+let visibilityCleanup: (() => void) | null = null
 let appUnmounted = false
 
 const syncPlayerStatusBar = (visible: boolean) => {
@@ -98,12 +100,38 @@ onMounted(() => {
     }
     backButtonListener = handle
   }).catch(() => undefined)
+
+  // 回前台对账：原生预案兜底自动切歌 / complete 事件丢失时，同步 UI 并补切歌
+  void App.addListener('appStateChange', ({ isActive }) => {
+    if (isActive) {
+      void reconcileAfterBackground()
+    }
+  }).then((handle) => {
+    if (appUnmounted) {
+      void handle.remove()
+      return
+    }
+    appStateListener = handle
+  }).catch(() => undefined)
+
+  // WebView 可见性兜底（部分场景 Activity 未变化但页面恢复可见）
+  const onVisibilityChange = () => {
+    if (!document.hidden) {
+      void reconcileAfterBackground()
+    }
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  visibilityCleanup = () => document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
 onUnmounted(() => {
   appUnmounted = true
   void backButtonListener?.remove()
   backButtonListener = null
+  void appStateListener?.remove()
+  appStateListener = null
+  visibilityCleanup?.()
+  visibilityCleanup = null
   syncBodyOverlayLock(false)
   syncPlayerStatusBar(false)
 })

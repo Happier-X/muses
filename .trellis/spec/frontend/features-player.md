@@ -264,6 +264,14 @@
 
 ## 常见错误
 
+- **锁屏/后台时当前曲播完不自动切下一首（JS 冻结）**  
+  根因：播放/切歌链路依赖 WebView JS；锁屏后 Chromium 对不可见 WebView 节流甚至冻结 JS，原生 complete 事件到达不了 JS，前端无兜底。  
+  修复（方案 C，不改 node_modules/@capgo/*）：  
+  1. **原生预案兜底**：`AudioPlayerPlugin` 新增 `setAutoNext`/`clearAutoNext`/`reportPlaybackStatus`；JS 每次起播成功注册「下一首预案」（`controller.registerAutoNextPlan`，含 assetPath/认证/volume/currentAssetId）；原生 1s 轮询 `AudioManager.isMusicActive()` + JS 上报的期望播放状态（`jsExpectedPlaying`），静音 2.5s 防抖后经 `Bridge.callPluginMethod("NativeAudio", ...)` 驱动 capgo 插件 preload/play；旧 asset 先播后卸；起播经 15s 验证窗口确认（`autoNextStarted`/`autoNextFailed` 事件）。  
+  2. **JS 侧对账**：`syncUiToNativeSong`（`playSongInternal` 的 `nativeAlreadyPlaying` 模式，跳过原生 play 只同步 UI/媒体会话/新预案）+ `reconcileAfterBackground`（App.vue `appStateChange`/visibilitychange 回前台时：原生在播新曲→同步；原生已停→补切歌）。  
+  3. **心跳兜底**：hidden 且 playing 时 1s 心跳 `getState()` 检原生状态（后台节流后约 1 次/分钟），complete 事件丢失时补切歌。  
+  关键约束：切歌窗口（playSongInternal 调原生 play 前）必须先 `clearAutoNextPlan()`，否则原生兜底可能触发上一首的旧预案；预案/轮询全部 try/catch 静默，失败自动降级到心跳/对账。
+
 - **manifest 中缺少 MediaButtonReceiver 声明**：导致通知栏按钮显示但点击没反应  
   修复：在 `AndroidManifest.xml` 的 `<application>` 中添加形如  
   `<receiver android:name="androidx.media.session.MediaButtonReceiver" android:exported="true"> ... </receiver>`。

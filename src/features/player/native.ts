@@ -12,6 +12,29 @@ interface BufferProgressEvent {
   bufferedRatio?: number
 }
 
+/** 后台自动切歌预案（JS 冻结时由原生兜底播放） */
+export interface AutoNextOptions {
+  songId: string
+  assetId: string
+  assetPath: string
+  isUrl: boolean
+  username?: string
+  password?: string
+  volume: number
+  currentAssetId?: string
+  title?: string
+  artist?: string
+}
+
+export interface AutoNextStartedEvent {
+  songId?: string
+}
+
+export interface AutoNextFailedEvent {
+  songId?: string
+  reason?: string
+}
+
 interface AudioPlayerPermissionBridge {
   ensureNotificationPermission(): Promise<{ granted: boolean }>
   prepareLocalAudioFile?(options: { uri: string; songId: string }): Promise<{ uri: string }>
@@ -40,6 +63,15 @@ interface AudioPlayerPermissionBridge {
     eventName: 'bufferProgress',
     listenerFunc: (event: BufferProgressEvent) => void,
   ): Promise<PluginListenerHandle>
+  addListener?(
+    eventName: 'autoNextStarted' | 'autoNextFailed',
+    listenerFunc: (event: AutoNextStartedEvent | AutoNextFailedEvent) => void,
+  ): Promise<PluginListenerHandle>
+  /** 注册下一首预案；原生在 JS 冻结时兜底播放 */
+  setAutoNext?(options: AutoNextOptions): Promise<void>
+  clearAutoNext?(): Promise<void>
+  /** 上报 JS 期望播放状态，原生据此区分暂停与播完 */
+  reportPlaybackStatus?(options: { status: 'playing' | 'paused' | 'stopped' }): Promise<void>
 }
 
 interface NativePlaybackStateEvent {
@@ -357,6 +389,70 @@ const cancelActiveBufferSession = async (songId?: string | null): Promise<void> 
 
 const toAssetId = (songId: string): string => `song-${songId.replace(/[^a-zA-Z0-9_-]/g, '-')}`
 
+export { toAssetId }
+
+const reportBridgePlaybackStatus = (status: 'playing' | 'paused' | 'stopped'): void => {
+  if (!AudioPlayerBridge.reportPlaybackStatus) {
+    return
+  }
+  void AudioPlayerBridge.reportPlaybackStatus({ status }).catch(() => undefined)
+}
+
+/**
+ * 原生侧已兜底播放新曲（预案触发成功）后，对齐本模块内部状态。
+ * 由 controller 在 syncUiToNativeSong 时调用，避免后续事件/轮询用旧 assetId 过滤。
+ */
+export const syncCurrentAsset = (songId: string, sourceType: PlayOptions['sourceType']): void => {
+  currentAssetId = toAssetId(songId)
+  currentSongId = songId
+  currentSourceType = sourceType
+  currentStatus = 'playing'
+  currentPosition = 0
+  currentDuration = 0
+  currentBufferedPosition = null
+  lastBufferedRatio = null
+  fullyBufferedPending = false
+  emitCurrentState('playing')
+  startPositionPolling()
+  reportBridgePlaybackStatus('playing')
+}
+
+/** 注册下一首预案到原生（controller 层使用；失败静默，原生兜底不可用时 JS 心跳仍在） */
+export const setNativeAutoNextPlan = async (options: AutoNextOptions): Promise<void> => {
+  if (!AudioPlayerBridge.setAutoNext) {
+    return
+  }
+  await AudioPlayerBridge.setAutoNext(options).catch(() => undefined)
+}
+
+export const clearNativeAutoNextPlan = async (): Promise<void> => {
+  if (!AudioPlayerBridge.clearAutoNext) {
+    return
+  }
+  await AudioPlayerBridge.clearAutoNext().catch(() => undefined)
+}
+
+export const addAutoNextEventListeners = async (handlers: {
+  onStarted?: (songId: string | undefined) => void
+  onFailed?: (songId: string | undefined, reason: string | undefined) => void
+}): Promise<PluginListenerHandle[]> => {
+  const handles: PluginListenerHandle[] = []
+  if (!AudioPlayerBridge.addListener) {
+    return handles
+  }
+  try {
+    handles.push(await AudioPlayerBridge.addListener('autoNextStarted', (event: AutoNextStartedEvent) => {
+      handlers.onStarted?.(event.songId)
+    }))
+    handles.push(await AudioPlayerBridge.addListener('autoNextFailed', (event: AutoNextFailedEvent) => {
+      handlers.onFailed?.(event.songId, event.reason)
+    }))
+  } catch {
+    // 监听失败静默；回前台对账仍是兜底
+  }
+  return handles
+}
+
 /**
  * 查询 WebDAV 完整缓存。仅完整文件可本地播放；partial / 失败一律 null。
  * 禁止调用 prepareWebDavAudioFile 作为播放路径。
@@ -540,8 +636,11 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
       logNativeAudio('play:done', { assetId, volume })
       emitCurrentState('playing')
       startPositionPolling()
+      reportBridgePlaybackStatus('playing')
     } catch (error) {
       stopPositionPolling()
+      // 播放失败：期望状态置为停止，防止原生兜底轮询触发旧预案
+      reportBridgePlaybackStatus('stopped')
       logNativeAudio('play:error', error instanceof Error ? { message: error.message, stack: error.stack } : error)
       throw error
     }
@@ -564,6 +663,7 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     stopPositionPolling()
     await NativeAudio.pause({ assetId: currentAssetId })
     emitCurrentState('paused')
+    reportBridgePlaybackStatus('paused')
   },
 
   async resume() {
@@ -573,6 +673,7 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     await NativeAudio.resume({ assetId: currentAssetId })
     emitCurrentState('playing')
     startPositionPolling()
+    reportBridgePlaybackStatus('playing')
   },
 
   async stop() {
@@ -588,6 +689,7 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     lastBufferedRatio = null
     fullyBufferedPending = false
     emitCurrentState('stopped')
+    reportBridgePlaybackStatus('stopped')
   },
 
   async seek(options) {

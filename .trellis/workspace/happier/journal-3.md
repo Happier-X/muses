@@ -1100,3 +1100,22 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 | Hash | Message |
 |------|---------|
 | `(see git log)` | fix(ui): 侧边栏选中项去深黑加粗，与普通项完全一致 |
+
+## 2026-08-17 后台不自动切歌修复（bg-auto-next-fix）
+
+**问题**：小米 15 锁屏时当前曲播完不自动切下一首。
+
+**根因**：切歌链路全依赖 WebView JS（complete 事件 → JS 处理 → 原生 preload/play）。锁屏后 Chromium 对不可见 WebView 节流/冻结 JS，complete 事件投递（evaluateJavascript）无法被处理；前端 position 轮询后台被节流且不检测播完，无兜底。
+
+**方案（用户选定 C）**：
+1. 原生预案兜底（AudioPlayerPlugin.kt）：JS 注册下一首预案（setAutoNext），原生 1s 轮询 isMusicActive + jsExpectedPlaying，静音 2.5s 防抖后经 Bridge.callPluginMethod 驱动 capgo preload/play，15s 验证窗口发 autoNextStarted/Failed；旧 asset 先播后卸。
+2. JS 对账：syncUiToNativeSong（playSongInternal nativeAlreadyPlaying 模式）+ reconcileAfterBackground（appStateChange/visibilitychange）。
+3. 心跳兜底：hidden+playing 时 getState 检查，后台节流约 1 次/分钟。
+
+**关键决策**：
+- 不 patch node_modules/@capgo/*（spec 约束）：用反射读 Bridge.msgHandler 构造 PluginCall + CALLBACK_ID_DANGLING 调 capgo 公共方法；反射失败静默降级。
+- 切歌窗口先 clearAutoNextPlan，防止旧预案误触发。
+- 播放失败（native.ts play catch）上报 stopped，防止兜底轮询触发旧预案。
+- 验证窗口 4s→15s（WebDAV 远程缓冲慢会误报失败）。
+
+**产物**：muses-bg-auto-next-debug.apk（debug 签名，需卸载正式版后安装验证）。

@@ -1,11 +1,17 @@
 package com.muses.player
 
 import android.Manifest
+import android.content.Context
 import android.graphics.BitmapFactory
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Base64
 import com.getcapacitor.JSObject
+import com.getcapacitor.MessageHandler
 import com.getcapacitor.PermissionState
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -33,6 +39,15 @@ import okhttp3.Request
     ],
 )
 class AudioPlayerPlugin : Plugin() {
+    private companion object {
+        /** 后台自动切歌轮询间隔 */
+        const val AUTO_NEXT_POLL_MS = 1000L
+        /** 静音防抖窗口：JS 正常切歌 preload 通常在 complete 后数百 ms 内发起 */
+        const val AUTO_NEXT_DEBOUNCE_MS = 2500L
+        /** 预案触发后的起播确认超时：WebDAV 远程缓冲可能较慢，放宽到 15s */
+        const val AUTO_NEXT_VERIFY_MS = 15000L
+    }
+
     private val httpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(15_000L, TimeUnit.MILLISECONDS)
@@ -53,6 +68,250 @@ class AudioPlayerPlugin : Plugin() {
 
     private val activeProgressiveCancel = AtomicReference<(() -> Unit)?>(null)
     private val activeBufferSongId = AtomicReference<String?>(null)
+
+    // --------------- 后台自动切歌预案（JS 冻结兜底） ---------------
+
+    private data class AutoNextPlan(
+        val songId: String,
+        val assetId: String,
+        val assetPath: String,
+        val isUrl: Boolean,
+        val username: String?,
+        val password: String?,
+        val volume: Double,
+        val currentAssetId: String?,
+    )
+
+    private data class ResolvedAutoNext(val assetPath: String, val isUrl: Boolean, val remoteUrl: Boolean)
+
+    private var autoNextPlan: AutoNextPlan? = null
+    /** 预案已触发、等待 isMusicActive 确认成功；成功发 autoNextStarted，超时发 autoNextFailed */
+    private var verifyingPlan: AutoNextPlan? = null
+    private var verifyingStartedAt = 0L
+    /** JS 上报的期望播放状态；false（暂停/停止）时轮询不触发预案 */
+    private var jsExpectedPlaying = false
+    /** 防抖起点；0 = 无待确认的静音窗口 */
+    private var pendingAutoNextAt = 0L
+    private var autoNextHandler: Handler? = null
+    private var autoNextTickPosted = false
+
+    override fun load() {
+        super.load()
+        startAutoNextLoop()
+    }
+
+    private fun startAutoNextLoop() {
+        if (autoNextHandler != null) {
+            return
+        }
+        autoNextHandler = Handler(Looper.getMainLooper())
+        scheduleAutoNextTick()
+    }
+
+    private fun scheduleAutoNextTick() {
+        val handler = autoNextHandler ?: return
+        if (autoNextTickPosted) {
+            return
+        }
+        autoNextTickPosted = true
+        handler.postDelayed(
+            {
+                autoNextTickPosted = false
+                tickAutoNext()
+            },
+            AUTO_NEXT_POLL_MS,
+        )
+    }
+
+    private fun isMusicActive(): Boolean {
+        return try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            audioManager?.isMusicActive == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * 后台兜底轮询：
+     * - 预案已触发（verifying）：isMusicActive 恢复 = 起播成功；超时仍静音 = 失败。
+     * - 预案待命且 JS 期望播放：静音进入 2.5s 防抖（给 JS 正常切歌留窗口），仍静音则执行预案。
+     * - JS 活跃时正常切歌会让 isMusicActive 恢复或预案被更新，防抖自然重置。
+     */
+    private fun tickAutoNext() {
+        try {
+            val now = SystemClock.elapsedRealtime()
+            val verifying = verifyingPlan
+            if (verifying != null) {
+                if (isMusicActive()) {
+                    notifyListeners("autoNextStarted", JSObject().put("songId", verifying.songId))
+                    verifyingPlan = null
+                    verifyingStartedAt = 0L
+                } else if (now - verifyingStartedAt >= AUTO_NEXT_VERIFY_MS) {
+                    notifyListeners(
+                        "autoNextFailed",
+                        JSObject().put("songId", verifying.songId).put("reason", "startFailed"),
+                    )
+                    verifyingPlan = null
+                    verifyingStartedAt = 0L
+                }
+            } else {
+                val plan = autoNextPlan
+                if (plan != null && jsExpectedPlaying) {
+                    if (isMusicActive()) {
+                        pendingAutoNextAt = 0L
+                    } else {
+                        if (pendingAutoNextAt == 0L) {
+                            pendingAutoNextAt = now
+                        } else if (now - pendingAutoNextAt >= AUTO_NEXT_DEBOUNCE_MS) {
+                            pendingAutoNextAt = 0L
+                            executeAutoNext(plan)
+                        }
+                    }
+                } else {
+                    pendingAutoNextAt = 0L
+                }
+            }
+        } catch (_: Exception) {
+            // 轮询异常不打断播放
+        }
+        scheduleAutoNextTick()
+    }
+
+    /** 解析预案播放路径：content:// 拷贝到私有缓存；WebDAV 优先完整缓存，否则远程直链。 */
+    private fun resolveAutoNextAsset(plan: AutoNextPlan): ResolvedAutoNext? {
+        return try {
+            when {
+                plan.assetPath.startsWith("content://") -> {
+                    val copied = copyContentUriToPlaybackCache(Uri.parse(plan.assetPath), plan.songId)
+                    ResolvedAutoNext(copied, true, false)
+                }
+                plan.username != null &&
+                    plan.password != null &&
+                    (plan.assetPath.startsWith("http://") || plan.assetPath.startsWith("https://")) -> {
+                    val cached = audioCache.getCachedFile(plan.assetPath)
+                    if (cached != null) {
+                        ResolvedAutoNext(Uri.fromFile(cached).toString(), true, false)
+                    } else {
+                        ResolvedAutoNext(plan.assetPath, true, true)
+                    }
+                }
+                else -> ResolvedAutoNext(plan.assetPath, plan.isUrl, false)
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun executeAutoNext(plan: AutoNextPlan) {
+        autoNextPlan = null
+        pendingAutoNextAt = 0L
+
+        val resolved = resolveAutoNextAsset(plan)
+        if (resolved == null) {
+            notifyListeners("autoNextFailed", JSObject().put("songId", plan.songId).put("reason", "resolveFailed"))
+            return
+        }
+
+        val headers = JSObject()
+        if (resolved.remoteUrl && plan.username != null && plan.password != null) {
+            headers.put("Authorization", "Basic ${encodeBasicAuth(plan.username, plan.password)}")
+        }
+
+        // 顺序调用 capgo 插件：preload（同 asset 已存在时 capgo reject，随后 play 复用现有 asset）→ play
+        callNativeAudio(
+            "preload",
+            JSObject().apply {
+                put("assetId", plan.assetId)
+                put("assetPath", resolved.assetPath)
+                put("isUrl", resolved.isUrl)
+                put("audioChannelNum", 1)
+                put("volume", plan.volume)
+                if (headers.length() > 0) {
+                    put("headers", headers)
+                }
+            },
+        )
+        callNativeAudio(
+            "play",
+            JSObject().apply {
+                put("assetId", plan.assetId)
+                put("volume", plan.volume)
+            },
+        )
+        // 旧 asset 回收：先播后卸；单曲循环（同 assetId）跳过
+        if (plan.currentAssetId != null && plan.currentAssetId != plan.assetId) {
+            callNativeAudio("unload", JSObject().put("assetId", plan.currentAssetId))
+        }
+
+        // 进入验证态：下一轮 tick 用 isMusicActive 确认起播
+        verifyingPlan = plan
+        verifyingStartedAt = SystemClock.elapsedRealtime()
+    }
+
+    /**
+     * 原生侧调用 capgo 插件公共方法（@PluginMethod）。
+     * 通过反射读取 Bridge.msgHandler 构造 PluginCall（Capacitor 内部字段，异常时静默降级）。
+     */
+    private fun callNativeAudio(method: String, data: JSObject) {
+        try {
+            val bridge = getBridge() ?: return
+            val msgHandlerField = bridge.javaClass.getDeclaredField("msgHandler")
+            msgHandlerField.isAccessible = true
+            val msgHandler = msgHandlerField.get(bridge) as? MessageHandler ?: return
+            val call = PluginCall(msgHandler, "NativeAudio", PluginCall.CALLBACK_ID_DANGLING, method, data)
+            bridge.callPluginMethod("NativeAudio", method, call)
+        } catch (_: Exception) {
+            // 桥接不可用：放弃预案，JS 心跳 / 回前台对账兜底
+            autoNextPlan = null
+            verifyingPlan = null
+            verifyingStartedAt = 0L
+            pendingAutoNextAt = 0L
+        }
+    }
+
+    /**
+     * JS 每次成功起播后注册「下一首预案」；预案更新说明 JS 活跃，切歌由 JS 主导。
+     * 密码仅保存在内存，不写日志。
+     */
+    @PluginMethod
+    fun setAutoNext(call: PluginCall) {
+        val songId = call.getString("songId") ?: return call.resolve()
+        val assetId = call.getString("assetId") ?: return call.resolve()
+        val assetPath = call.getString("assetPath") ?: return call.resolve()
+        val plan = AutoNextPlan(
+            songId = songId,
+            assetId = assetId,
+            assetPath = assetPath,
+            isUrl = call.getBoolean("isUrl", false) == true,
+            username = call.getString("username"),
+            password = call.getString("password"),
+            volume = call.getDouble("volume", 1.0) ?: 1.0,
+            currentAssetId = call.getString("currentAssetId"),
+        )
+        autoNextPlan = plan
+        pendingAutoNextAt = 0L
+        call.resolve()
+    }
+
+    /** 清空预案（停止播放 / 队列尾 / 无下一首）。 */
+    @PluginMethod
+    fun clearAutoNext(call: PluginCall) {
+        autoNextPlan = null
+        pendingAutoNextAt = 0L
+        call.resolve()
+    }
+
+    /** JS 上报期望播放状态；非 playing（暂停/停止）时轮询不触发预案。 */
+    @PluginMethod
+    fun reportPlaybackStatus(call: PluginCall) {
+        val status = call.getString("status")
+        jsExpectedPlaying = status == "playing"
+        if (!jsExpectedPlaying) {
+            pendingAutoNextAt = 0L
+        }
+        call.resolve()
+    }
 
     @PluginMethod
     fun ensureNotificationPermission(call: PluginCall) {
@@ -330,6 +589,10 @@ class AudioPlayerPlugin : Plugin() {
     private fun sha256(value: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { byte -> "%02x".format(byte) }
+    }
+
+    private fun encodeBasicAuth(username: String, password: String): String {
+        return Base64.encodeToString("$username:$password".toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
     }
 
     /**
