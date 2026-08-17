@@ -1261,3 +1261,36 @@ npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1
 ### Status
 
 [OK] **Completed** — Release: https://github.com/Happier-X/muses/releases/tag/v0.3.6（assets: muses-v0.3.6.apk / muses-v0.3.6-mi.apk）
+
+## Session 104: 修复双语译文整体后移一行（08-17-fix-lyric-translation-offset）
+
+**Date**: 2026-08-17
+**Task**: `.trellis/tasks/08-17-fix-lyric-translation-offset`（归档 `archive/2026-08/`）
+**Branch**: `main`
+
+### Summary
+
+用户反馈：英文歌翻译行整体后移一行——第一条歌词的翻译显示在第二条上，结尾多出孤立中文行。调研定位 `src/features/lyrics/mergeTranslation.ts` 的 `mergeDuplicateTimestampTranslations`：主词双语 LRC 中译文行时间戳打在**下一句原文**的时间上（而非自己的原文行），旧「同时间戳相邻配对」把译文配给下一句 → 整体后移 + 尾部落单。
+
+**验证路径**：esbuild 转译 + 临时脚本（.tmp-mergeTest）复现 8 组场景；真实网易 Faded lrc/yrc+tlyric 双管道抽查；trellis-check 两轮审查。
+
+**实现**（`mergeTranslation.ts` +244）：
+- 交替结构感知配对：文件顺序固定窗口 (0,1)(2,3)...，译文并回前一行原文；同时间戳相邻配对保留为回退。
+- 防误配双校验（check F1）：结构一致性（配对主行同脚本族/译文互补）+ 时间定义属性（译文时间戳贴近下一窗口原文行时间戳，cross-window ≤1000ms），垫词行打断交替结构时整体拒绝激活。
+- yrc+tlyric 序列感知回退（check F2）：yrc 行时间与 tlyric 偏差数百 ms 时按行序双指针对齐（宽容差 2000ms、匹配率 ≥60%），Faded yrc 从 0/58 → 54/58；边界防误判（首行无译+末 stamp 无承接）挡住 tlyric 自身错移一句。
+- 首遍 80ms 挂载消费的 stamp 精确剔除（避免序列回退重复挂同一译文）；pending 过滤补 isBG；wordsText 与 linePlainText 合并去重。
+
+**测试基础设施**：恢复最小 vitest（spec frontend 技术栈声称存在但仓库 6043084 曾 drop tests；本次仅装 vitest ^4.1.10，不装 jsdom/cypress）——`tests/unit/mergeTranslation.spec.ts` 13 用例（bug 验收 a/b + 回归 c..k + 对抗 l/m）全绿；`npm run test:unit` 挂 package.json scripts。
+
+**质量**：lint（src+tests）exit 0；build（vue-tsc+vite）exit 0；spec `features-player.md` 双语合并两条路径 + tlyric 序列回退契约已更新。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5a63bee` | fix(lyrics): 修复双语译文整体后移一行（译文时间戳打在下一句时错配） |
+| `1469144` | chore(task): archive 08-17-fix-lyric-translation-offset |
+
+### Status
+
+[OK] **Completed** — 遗留提醒：用户实际歌曲若是本地/酷我/酷狗来源且仍可复现，提供 LRC 原文再核对（本次验证覆盖网易真实数据 + 构造用例，来源差异可能有边界）。
