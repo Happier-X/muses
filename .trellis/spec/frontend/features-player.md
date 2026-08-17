@@ -264,6 +264,10 @@
 
 ## 常见错误
 
+- **AMLL 歌词播完后全部失活变模糊**  
+  根因：`PlayerPage.lyricRenderTime` 直接用 `position * 1000`，播完/暂停在末尾时超过最后一句歌词 endTime，AMLL 找不到活动行。  
+  修复：钳制上限到最后一句 `endTime`（无 endTime 时 fallback `startTime`），最后一行保持完成高亮；无歌词时不钳制。
+
 - **锁屏/后台时当前曲播完不自动切下一首（JS 冻结）**  
   根因：播放/切歌链路依赖 WebView JS；锁屏后 Chromium 对不可见 WebView 节流甚至冻结 JS，原生 complete 事件到达不了 JS，前端无兜底。  
   修复（方案 C，不改 node_modules/@capgo/*）：  

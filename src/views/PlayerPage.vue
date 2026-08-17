@@ -849,7 +849,21 @@ const stopRebound = (): void => {
 const progressRangeRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
 /** 隐藏态冻结传给 AMLL 的时间输入；重新打开时由当前播放进度立即刷新。 */
 const hiddenLyricTime = ref(0)
-const lyricRenderTime = computed(() => playerOverlayVisible.value ? playerState.position * 1000 : hiddenLyricTime.value)
+/**
+ * 传给 AMLL 的当前时间（毫秒）。
+ * 播完/暂停在末尾时 position 会超出最后一句歌词的结束时间，AMLL 找不到活动行导致全部歌词失活模糊；
+ * 钳制上限到最后一句 endTime，让最后一行保持完成高亮（对齐主流播放器行为）。
+ */
+const lyricRenderTime = computed(() => {
+  const ms = playerOverlayVisible.value ? playerState.position * 1000 : hiddenLyricTime.value
+  const lines = lyricLines.value
+  if (lines.length > 0) {
+    const last = lines[lines.length - 1]
+    const lastEnd = Number.isFinite(last.endTime) && last.endTime > 0 ? last.endTime : last.startTime
+    return Math.min(ms, Math.max(lastEnd, 0))
+  }
+  return ms
+})
 const touchStartX = ref<number | null>(null)
 const touchStartY = ref<number | null>(null)
 const dragOffsetY = ref(0)
