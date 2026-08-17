@@ -1241,3 +1241,23 @@ npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1
 ### Status
 
 [OK] **Completed**
+
+## Session 103: 发布 v0.3.6（平板沉浸播放页）
+
+**Date**: 2026-08-17
+**Task**: 发布新版本
+**Branch**: `main`
+
+### Summary
+
+发布 v0.3.6（含平板沉浸播放页双栏+底部控制条改动）。版本号同步：package.json / package-lock.json 0.3.6 + android build.gradle versionCode 36。本地 npm build + cap copy + assembleDebug 全绿 → commit chore(release): v0.3.6 (b08c0ae) → push main + tag v0.3.6 → GitHub Actions release workflow 构建成功（4 分内）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b08c0ae` | chore(release): v0.3.6 |
+
+### Status
+
+[OK] **Completed** — Release: https://github.com/Happier-X/muses/releases/tag/v0.3.6（assets: muses-v0.3.6.apk / muses-v0.3.6-mi.apk）
