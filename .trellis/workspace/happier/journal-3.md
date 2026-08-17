@@ -1183,3 +1183,10 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 ### Status
 
 [OK] **Completed**
+
+## 2026-08-17 依赖升级到最新版（deps-upgrade-all）
+
+- npm 升 10 个：@lucide/vue 1.31.0、@tanstack/vue-form 1.33.5、@vitejs/plugin-legacy 8.2.3、esbuild 0.28.2、eslint 10.8.1、motion-v 2.4.0、terser 5.50.0、vite 8.2.1、vue 3.5.41、vue-tsc 3.3.10
+- **typescript 保持 6.0.3**（调研结论：TS7 Go 原生编译器无 programmatic API，7.1 才有；vue-tsc/typescript-eslint 依赖 JS API，Vue 项目暂不能升）
+- Android 升 4 个：okhttp 5.5.0、appcompat 1.8.0、fragment 1.9.0、webkit 1.17.0；AGP 9.3.1/Kotlin 2.4.10/core 1.19.0 已最新
+- 验证：lint/build/gradle 全绿，APK 重建；业务代码零改动
