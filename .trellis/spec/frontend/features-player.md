@@ -270,7 +270,10 @@
   1. **原生预案兜底**：`AudioPlayerPlugin` 新增 `setAutoNext`/`clearAutoNext`/`reportPlaybackStatus`；JS 每次起播成功注册「下一首预案」（`controller.registerAutoNextPlan`，含 assetPath/认证/volume/currentAssetId）；原生 1s 轮询 `AudioManager.isMusicActive()` + JS 上报的期望播放状态（`jsExpectedPlaying`），静音 2.5s 防抖后经 `Bridge.callPluginMethod("NativeAudio", ...)` 驱动 capgo 插件 preload/play；旧 asset 先播后卸；起播经 15s 验证窗口确认（`autoNextStarted`/`autoNextFailed` 事件）。  
   2. **JS 侧对账**：`syncUiToNativeSong`（`playSongInternal` 的 `nativeAlreadyPlaying` 模式，跳过原生 play 只同步 UI/媒体会话/新预案）+ `reconcileAfterBackground`（App.vue `appStateChange`/visibilitychange 回前台时：原生在播新曲→同步；原生已停→补切歌）。  
   3. **心跳兜底**：hidden 且 playing 时 1s 心跳 `getState()` 检原生状态（后台节流后约 1 次/分钟），complete 事件丢失时补切歌。  
-  关键约束：切歌窗口（playSongInternal 调原生 play 前）必须先 `clearAutoNextPlan()`，否则原生兜底可能触发上一首的旧预案；预案/轮询全部 try/catch 静默，失败自动降级到心跳/对账。
+  关键约束：切歌窗口（playSongInternal 调原生 play 前）必须先 `clearAutoNextPlan()`，否则原生兜底可能触发上一首的旧预案；预案/轮询全部 try/catch 静默，失败自动降级到心跳/对账。  
+  另两个坑（check 阶段发现）：
+  - **preload 遇 `already exists` 必须复用而非失败**：锁屏预案已 preload 的曲目，回前台自动切歌再次 preload 会 reject；若当作失败会误进恢复链跳曲且可能双声。处理：检测到 `already exists` 时复用 asset，`isPlaying` 为 true 则保留进度不重启。
+  - **getState() 的 isPlaying 查询失败不能回退到 JS 缓存状态**：预案 unload 旧 asset 后查询失败，若 fallback 为 `currentStatus==='playing'` 会让回前台对账/心跳永远误判原生在播。应 fallback `false`（asset 不存在视为不在播）。
 
 - **manifest 中缺少 MediaButtonReceiver 声明**：导致通知栏按钮显示但点击没反应  
   修复：在 `AndroidManifest.xml` 的 `<application>` 中添加形如  

@@ -617,20 +617,40 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
       ? Math.min(PLAYBACK_VOLUME_MAX, Math.max(PLAYBACK_VOLUME_MIN, options.volume))
       : PLAYBACK_VOLUME_MAX
 
+    let assetReused = false
     try {
-      await NativeAudio.preload({
-        assetId,
-        assetPath,
-        isUrl,
-        audioChannelNum: 1,
-        headers,
-        volume,
-      })
-      logNativeAudio('preload:done', { assetId, volume })
+      try {
+        await NativeAudio.preload({
+          assetId,
+          assetPath,
+          isUrl,
+          audioChannelNum: 1,
+          headers,
+          volume,
+        })
+      } catch (error) {
+        // 原生预案兜底可能已 preload 同一 asset（锁屏自动切歌）：复用，不视为失败，
+        // 否则回前台自动切歌的 preload 会被判失败而误进恢复链（跳过正在播放的曲目）。
+        const message = error instanceof Error ? error.message : String(error)
+        if (!message.toLowerCase().includes('already exists')) {
+          throw error
+        }
+        assetReused = true
+      }
+      logNativeAudio(assetReused ? 'preload:reuse (auto-next already loaded)' : 'preload:done', { assetId, volume })
       currentDuration = normalizePlaybackTime((await NativeAudio.getDuration({ assetId }).catch(() => ({ duration: 0 }))).duration)
       reconcileBufferedWithDuration()
       logNativeAudio('duration:done', { assetId, currentDuration, buffered: currentBufferedPosition })
-      await NativeAudio.play({ assetId, volume })
+      if (assetReused) {
+        // 复用 asset：预案若仍在播放则保留进度不重启（回前台不重播锁屏期间的内容）；
+        // 已静音/播完（如用户手动重播同曲）则从头播放。
+        const playing = await NativeAudio.isPlaying({ assetId }).catch(() => ({ isPlaying: false }))
+        if (!playing.isPlaying) {
+          await NativeAudio.play({ assetId, volume })
+        }
+      } else {
+        await NativeAudio.play({ assetId, volume })
+      }
       // 成功路径再 setVolume，确保部分平台 preload volume 未生效时仍应用
       await NativeAudio.setVolume({ assetId, volume }).catch(() => undefined)
       logNativeAudio('play:done', { assetId, volume })
@@ -716,7 +736,9 @@ export const AudioPlayerNative: AudioPlayerNativePlugin = {
     const [position, duration, playing] = await Promise.all([
       NativeAudio.getCurrentTime({ assetId: currentAssetId }).catch(() => ({ currentTime: currentPosition })),
       NativeAudio.getDuration({ assetId: currentAssetId }).catch(() => ({ duration: currentDuration })),
-      NativeAudio.isPlaying({ assetId: currentAssetId }).catch(() => ({ isPlaying: currentStatus === 'playing' })),
+      // 查询失败（asset 已被预案 unload / 从未加载）视为「原生已不在播该 asset」，
+      // 不能回退到 JS 缓存状态，否则回前台对账/心跳永远误判为 playing。
+      NativeAudio.isPlaying({ assetId: currentAssetId }).catch(() => ({ isPlaying: false })),
     ])
     currentPosition = normalizePlaybackTime(position.currentTime)
     currentDuration = normalizePlaybackTime(duration.duration)
