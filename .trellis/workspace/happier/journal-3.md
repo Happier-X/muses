@@ -1119,3 +1119,36 @@ BottomSheet 面板不占满宽度（视口 360px 时仅 ~133px，内容宽）。
 - 验证窗口 4s→15s（WebDAV 远程缓冲慢会误报失败）。
 
 **产物**：muses-bg-auto-next-debug.apk（debug 签名，需卸载正式版后安装验证）。
+
+### check 阶段（2.2 子代理）修复
+
+1. **preload already exists 复用**（native.ts play()）：锁屏预案已 preload 曲目 N+1，回前台积压 complete(N) → 自动切歌 preload(N+1) reject already exists → 原逻辑误进失败恢复链跳 N+2 且可能双声。修复：检测 already exists 复用 asset，isPlaying 时保留锁屏进度不重启。
+2. **getState isPlaying fallback**（native.ts）：预案 unload 旧 asset 后 isPlaying 查询失败，原 fallback `currentStatus==='playing'` 导致对账/心跳永远误判在播。修复：fallback false。
+
+提交：6c9a6bf。三项验证（lint/build/gradle）全绿，debug APK 已重建（muses-bg-auto-next-debug.apk，gitignore 不入库）。
+
+### 待办
+- [ ] 小米 15 真机验证（锁屏自动切歌/回前台一致性/单曲循环/暂停不切）
+- [ ] 验证通过后 task.py archive 归档
+
+
+## Session 99: 锁屏/后台自动切歌修复：原生预案兜底 + JS 对账 + 心跳（方案 C）
+
+**Date**: 2026-08-17
+**Task**: 锁屏/后台自动切歌修复：原生预案兜底 + JS 对账 + 心跳（方案 C）
+**Branch**: `main`
+
+### Summary
+
+修复小米 15 锁屏时当前曲播完不自动切下一首。根因：切歌链路依赖 WebView JS，锁屏后 Chromium 冻结/节流 JS，原生 complete 事件无法被处理。方案 C（用户选定）：1) 原生 AudioPlayerPlugin 新增 setAutoNext/clearAutoNext/reportPlaybackStatus + 1s 轮询 isMusicActive 防抖 2.5s，经 Bridge.callPluginMethod（反射 msgHandler + CALLBACK_ID_DANGLING）驱动 capgo 播放预案曲，15s 验证窗口发 autoNextStarted/Failed，旧 asset 先播后卸；2) JS 侧 registerAutoNextPlan（播放成功/队列变化时注册）、syncUiToNativeSong（playSongInternal nativeAlreadyPlaying 模式）、reconcileAfterBackground（appStateChange/visibilitychange 回前台对账）、hidden 心跳兜底；3) queue onQueueChanged 挂钩。check 阶段修复 2 个缺陷：preload already exists 复用（防误跳曲+双声）、getState isPlaying 查询失败 fallback false（修复对账误判）。验证：lint/build/gradle 全绿；debug APK 已构建待真机验证。spec 已更新 features-player.md。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6c9a6bf` | (see git log) |
+| `aeeb13b` | (see git log) |
+
+### Status
+
+[OK] **Completed**
