@@ -1389,3 +1389,15 @@ npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1
 经验沉淀：
 - CarWith/锁屏后台「JS 冻结」是统一根因：complete 事件与媒体按钮命令都链到 WebView JS。三条可选路径按成本排序：A 保活 JS（WebAudio 轨）→ B 通知按钮原生直控 → C 车机按钮 patch capgo。本次 A 生效即解决，未走 B/C。
 - 「断开即暂停」不能依赖系统音频焦点事件（CarWith 断开不发 focus 变化）；AudioDeviceCallback 设备移除检测 + 500ms 去抖 + pause 前先置 jsExpectedPlaying=false（阻断 auto-next 预案误触发）是可靠实现。
+
+---
+
+## 2026-08-18 — 修复侧边栏首次打开菜单项黄圈（焦点环）并归档
+
+用户反馈：冷启动后第一次打开侧边栏，菜单项周围有黄圈。
+
+根因：抽屉焦点陷阱 openDrawer() 在 nextTick 调 drawerLinkRefs.value[0]?.$el?.focus() 把焦点主动移入首个菜单项；.tabs-layout__nav-link 未设 outline:none，Android WebView 渲染默认聚焦环。
+
+修复（3eef724）：nav-link 加 outline:none（与其他交互组件惯例一致），补 &:focus-visible 用 --m-primary 2px 描边保留键盘/无障碍焦点指示（触摸/JS focus 不触发 focus-visible）。焦点陷阱逻辑未动。
+
+验证：vue-tsc build ✓ / TabsPage eslint 零错误 / vitest 19 例 ✓。spec 已在 component-guidelines Styling Gotchas 记录该坑。任务已归档。
