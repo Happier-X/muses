@@ -559,6 +559,15 @@ onUnmounted(() => {
     color: var(--m-text);
     border-radius: var(--m-radius-sm);
     box-sizing: border-box;
+    /* 隐藏浏览器默认焦点环（抽屉首次打开 JS focus 首个菜单项时 Android WebView 的黄圈）
+       ——与 MButton/MFab/MIconButton 等交互组件统一；键盘导航由 :focus-visible 另行呈现 */
+    outline: none;
+
+    /* 键盘/无障碍焦点指示：触摸聚焦（JS focus）不触发 focus-visible，仅 Tab 键可见 */
+    &:focus-visible {
+      outline: 2px solid var(--m-primary);
+      outline-offset: -2px;
+    }
 
     /* 选中态与普通项完全一致（08-16 用户定案：无深黑加粗、无背景、无颜色差）
        仅保留 --active 类供 aria-current 语义使用 */

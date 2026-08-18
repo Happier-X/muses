@@ -360,6 +360,15 @@ ESLint 已启用 `vue/no-undef-components`（error）防回归：模板使用未
 
 ## Styling Gotchas
 
+### 侧边栏导航链接默认焦点环（黄圈）必须处理（08-18-fix-drawer-first-focus-ring）
+
+**Symptom**：TabsPage 移动端抽屉首次打开时，「歌曲」菜单项周围出现浏览器默认聚焦环（Android WebView 渲染为黄圈）。
+
+**Cause**：抽屉焦点陷阱会在 nextTick 调用 `drawerLinkRefs.value[0]?.$el?.focus()` 把焦点主动移入第一个菜单项；`.tabs-layout__nav-link` 未设 `outline: none`，浏览器为刚获得焦点的元素绘制默认 outline。首次打开时最显眼（随后焦点移走/触摸态后不再感知）。
+
+**Fix**：`.tabs-layout__nav-link` 统一 `outline: none`（与 MButton/MFab/MIconButton 等其他交互组件惯例一致），键盘无障碍由 `&:focus-visible { outline: 2px solid var(--m-primary); outline-offset: -2px; }` 保留——触摸/JS focus 不触发 focus-visible，仅 Tab 键可见。**禁止**给抽屉链接单独加 `outline` 或移除 `focus()` 焦点陷阱逻辑（无障碍回退会失效）。
+
+**Prevention**：新增交互组件统一在 scoped 样式中写 `outline: none`，需要键盘可感知处补 `:focus-visible`，不要依赖浏览器默认 outline。
 ### navbar 标题统一使用 k-navbar 居中契约
 
 页面与 modal 的顶部导航栏统一使用 `k-navbar`（`center-title` 时标题相对完整 navbar 居中）。业务页面不再维护标题绝对定位补丁。
