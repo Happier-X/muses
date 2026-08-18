@@ -113,11 +113,12 @@
   --m-safe-area-bottom: 0px;
   --m-safe-area-left: 0px;
 
-  /* 内容止位：无底部导航；MiniPlayer 悬浮胶囊占 64px + 底部 8px 悬浮空隙（08-14 胶囊化），再叠加底部安全区 */
-  --m-content-pb: calc(72px + var(--m-safe-area-bottom, 0px));
-  --m-content-pb-md: calc(72px + var(--m-safe-area-bottom, 0px));
-  --content-pb: var(--m-content-pb);
-  --content-pb-md: var(--m-content-pb-md);
+  /* 内容止位 token 不在 :root 定义：若在这里定义 --m-content-pb，Chromium 会在 :root 上
+     立即展开其 var(--m-safe-area-bottom)（:root 默认 0px），把 calc(72px + 0px) 冻结为
+     常量向下继承，.m-app 桥接出的真实安全区值（手势导航时的手势条高度）再也无法影响它，
+     列表滚到底时末项被 MiniPlayer 胶囊盖住一整个手势条高度（08-18 实测复现，见
+     08-18-fix-content-pb-safe-area-freeze）。该 token 定义在 .m-app（§3），与
+     --m-navbar-pt 同模式；此处不再提供会冻结的默认值。 */
 
   /* Salt 设计 token（SaltShapes/Dimens：圆角/间距/列表行高） */
   --m-radius-sm: 8px;               /* small */
@@ -248,6 +249,16 @@ html.muses-mini-visible {
      状态栏 24dp / navbar 行 56dp 无缝衔接）；浏览器（safe-area=0）回落 16px。
      全项目内容避让公式统一消费此 token，见 component-guidelines.md */
   --m-navbar-pt: max(16px, var(--m-safe-area-top, 0px));
+  /* 内容止位 token 必须定义在桥接作用域（08-18-fix-content-pb-safe-area-freeze）：
+     若定义在 :root（或 html.muses-mini-visible），Chromium 计算 :root 的 custom property
+     时会立即展开 var(--m-safe-area-bottom)（:root 默认 0px），将 calc(72px + 0px) 冻结为
+     常量继承，.m-app 桥接出的真实安全区（手势导航时的手势条高度）无法再影响列表止位，
+     导致列表滚到底时末项被 MiniPlayer 胶囊盖住约一整个手势条高度（已实测复现：
+     注入 --safe-area-inset-bottom=24px 时列表 padding 仍为 72px，MiniPlayer 却上移到
+     bottom 32px，重叠 24px）。此处定义后，var(--m-safe-area-bottom) 在该作用域立即
+     解析为真实安全区值，全项目列表消费 --m-content-pb / --m-content-pb-md 统一受益。 */
+  --m-content-pb: calc(72px + var(--m-safe-area-bottom, 0px));
+  --m-content-pb-md: calc(72px + var(--m-safe-area-bottom, 0px));
 }
 
 /* .safe-areas 宿主别名（保留供旧版 .k-app 兼容扩展外链引用） */

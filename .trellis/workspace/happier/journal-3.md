@@ -1294,3 +1294,33 @@ npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1
 ### Status
 
 [OK] **Completed** — 遗留提醒：用户实际歌曲若是本地/酷我/酷狗来源且仍可复现，提供 LRC 原文再核对（本次验证覆盖网易真实数据 + 构造用例，来源差异可能有边界）。
+
+## Session 105: 手势导航时列表底部被 MiniPlayer 遮挡（08-18-fix-content-pb-safe-area-freeze)
+
+**Date**: 2026-08-18
+**Task**: `.trellis/tasks/08-18-fix-content-pb-safe-area-freeze`（归档 `archive/2026-08/`）
+**Branch**: `main`
+
+### Summary
+
+用户反馈：启用系统手势导航（底部手势提示线）时，歌曲列表滚动到底后最后一项仍有一小块被 MiniPlayer 胶囊盖住；三键导航正常。猜测：MiniPlayer 适配了底部安全区而上移，其它部位（列表/背景）没适配。
+
+**根因定位（headless Edge + CDP 实测复现）**：全局内容止位 token `--m-content-pb: calc(72px + var(--m-safe-area-bottom, 0px))` 定义在 `:root`，而 `:root` 同时定义了 `--m-safe-area-bottom: 0px`——Chromium 计算根元素 custom property 时会在同一元素作用域内**立即展开 var() 依赖，把 `--m-content-pb` 冻结为字面常量 `calc(72px + 0px)` 向下继承**。`.m-app` 上桥接出的真实 `--m-safe-area-bottom`（手势导航时 = 手势条高度，实测 24px）再也无法影响它 → 列表 padding-bottom 恒为 72px；而 MiniPlayer **直接**消费 `var(--m-safe-area-bottom)`（在自身作用域解析，能拿到 24px）→ 正确上移。一边上移一边冻结不动，底部漏出一整个手势条高度的内容被胶囊盖住。`html.muses-mini-visible` 里同款重复定义是同一冻结源。
+
+**复现实验**：CDP 注入 `--safe-area-inset-bottom: 24px` 模拟手势导航 → 修复前列表 padding=72px、MiniPlayer bottom=32px、最后一行与胶囊重叠 24px；把 `--m-content-pb` 重定义到 `.m-app` 后 padding=96px、重叠归零。三键导航（0px）两场景均不受影响（72px / overlap 0）。
+
+**实现**（`src/theme/index.scss`）：删除 `:root`（§1）与 `html.muses-mini-visible` 块中的 `--m-content-pb`/`--m-content-pb-md`/`--content-pb*` 定义，改为注释说明冻结陷阱；在 `.m-app`（§3 桥接作用域，与 `--m-navbar-pt` 同模式）新增 `--m-content-pb` / `--m-content-pb-md`（`calc(72px + var(--m-safe-area-bottom, 0px))`）。一处改动覆盖全部 7 个消费页（歌曲/专辑/艺术家/歌单/歌单详情/专辑详情/设置/音源）；其它直接消费 `--m-safe-area-bottom` 的位置（多选条/索引条/抽屉/QueuePage）不经中间 token，不在影响范围。
+
+**验证**：headless CDP 回归（safe=24 → padding 96px / overlap 0；safe=0 → 72px / overlap 0）；`npm run build`（vue-tsc+vite）exit 0；`npm run test:unit` 13/13 通过；lint 与 `src/theme/index.scss` 无关（scss 不在 eslint 扫描范围）。 spec `frontend/component-guidelines.md`「底部几何契约」「安全区处理」两条补充冻结陷阱与「含安全区计算的 token 必须定义在 .m-app」的约定。
+
+**技术备注**：Chromium 对 custom property 的「立即展开」是标准行为（变量定义元素与其 var() 依赖同作用域时可提前 resolve）；`.m-app` 中 `--m-navbar-pt` 一直是「定义在桥接作用域」模式所以从未踩坑，本次只是把内容止位 token 归入同一模式。08-16（7448833）修的是漏算 8px 悬浮空隙，safe-area=0 场景两处一致故未暴露本缺陷。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| （本 session 待提交） | fix(ui): 手势导航下列表底部被 MiniPlayer 遮挡——内容止位 token 移入 .m-app 桥接作用域 |
+
+### Status
+
+[OK] **Completed** — 待真机手势导航回归；遗留提醒：`--safe-area-inset-*` 桥接在 teleport 出 `.m-app` 的浮层中失效属既有行为（见 spec 侧边栏条目），本次不涉及。
