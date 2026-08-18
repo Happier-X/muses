@@ -1376,3 +1376,16 @@ npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1
 
 ### 待办
 - carwith-bg-ctrl-fix 真机验证（V1-V8）未回；本任务真机验证（D1-D7）未做——同一次装车可合验
+
+---
+
+## 2026-08-18 — 两个 CarWith 相关任务验收通过并归档
+
+用户小米 15 + CarWith + 蓝牙耳机真机实测全部通过：
+
+1. **08-18-carwith-bg-ctrl-fix**（b3fd7b0）：CarWith 下播完自动切歌不暂停（本地+WebDAV）、媒体通知按钮全部可用、快速连点无串曲；普通锁屏/前台/音量条/媒体卡片无回归；keepalive（静音 Web Audio 保活）未引入副作用。
+2. **08-18-bt-car-disconnect-pause**（3cc46e5）：播放中拔蓝牙耳机/断开 CarWith 均立即暂停且通知保留可恢复；已暂停拔出无抖动；重连不自动恢复；切换设备不误暂停。
+
+经验沉淀：
+- CarWith/锁屏后台「JS 冻结」是统一根因：complete 事件与媒体按钮命令都链到 WebView JS。三条可选路径按成本排序：A 保活 JS（WebAudio 轨）→ B 通知按钮原生直控 → C 车机按钮 patch capgo。本次 A 生效即解决，未走 B/C。
+- 「断开即暂停」不能依赖系统音频焦点事件（CarWith 断开不发 focus 变化）；AudioDeviceCallback 设备移除检测 + 500ms 去抖 + pause 前先置 jsExpectedPlaying=false（阻断 auto-next 预案误触发）是可靠实现。
