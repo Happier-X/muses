@@ -69,6 +69,7 @@ import {
   updateMediaSessionPosition,
   clearMediaSession,
 } from './mediaSession'
+import { startKeepAlive, stopKeepAlive } from './keepalive'
 
 const state = ref<PlayerState>({
   status: 'idle',
@@ -129,8 +130,6 @@ const LOCAL_METADATA_SCAN_TIMEOUT_MS = 15_000
 const WEBDAV_METADATA_SCAN_TIMEOUT_MS = 120_000
 /** seek 后短保护窗：此期间 finished 一律视为伪结束，不自动切歌 */
 const SEEK_FINISH_GUARD_MS = 1500
-/** 判定自然播完的进度容差（秒） */
-const NATURAL_END_EPSILON_SEC = 1.25
 /** 冷启动恢复窗内，早于恢复点这一容差以上的同曲原生 position 视为启动初始位置并屏蔽（#53） */
 const RESUME_SEEK_GUARD_EPSILON_SEC = 1
 
@@ -147,20 +146,10 @@ const isWithinSeekGuard = (): boolean => {
   return lastSeekAt > 0 && Date.now() - lastSeekAt < SEEK_FINISH_GUARD_MS
 }
 
-const isNearNaturalEnd = (position: number, duration: number): boolean => {
-  // duration 未知时保守：不视为自然结束，避免远程未就绪时误切歌
-  return duration > 0 && position >= duration - NATURAL_END_EPSILON_SEC
-}
-
 const shouldGuardResumeSeekPosition = (songId: string | undefined, position: number): boolean => {
   return resumeSeekGuardPosition != null
     && resumeSeekGuardSongId === songId
     && position < resumeSeekGuardPosition - RESUME_SEEK_GUARD_EPSILON_SEC
-}
-
-/** 非自然结束的 finished 不得 advance（seek 保护窗优先，即便目标靠近结尾） */
-const shouldIgnoreFinished = (position: number, duration: number): boolean => {
-  return isWithinSeekGuard() || !isNearNaturalEnd(position, duration)
 }
 
 const setUserSafeError = (message: string) => {
@@ -190,7 +179,9 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
     return
   }
 
-  // finished 需先做「自然结束」判定：seek 到未缓冲区间时插件可能伪报 complete/ENDED。
+  // finished 处理：complete/STATE_ENDED 的唯一合法来源是播放器真正播完，
+  // 不再依赖 position 做「接近结尾」佐证——JS 冻结期间 position 滞后会误判为伪结束而不切歌
+  //（08-18-carwith-bg-ctrl-fix）。仅保留 seek 保护窗：seek 到未缓冲区间时插件可能伪报 finished。
   if (nativeState.status === 'finished') {
     const nativePosition = normalizePlaybackTime(nativeState.position)
     const nativeDuration = normalizePlaybackTime(nativeState.duration) || state.value.duration
@@ -201,27 +192,22 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
       syncMediaSessionState()
       return
     }
-    // 保护窗内保留 seek 目标进度；窗外取 native/state 较大值，
-    // 避免 complete 事件 position 回 0 时误判「未接近结尾」而吞掉真实播完。
-    const effectivePosition = isWithinSeekGuard()
-      ? state.value.position
-      : Math.max(nativePosition, state.value.position)
     const effectiveDuration = nativeDuration
 
-    if (shouldIgnoreFinished(effectivePosition, effectiveDuration)) {
-      if (!isWithinSeekGuard() && nativePosition > 0) {
-        state.value.position = nativePosition
-      }
+    // 保护窗内：视为 seek 触发的伪 finished，保留 seek 目标进度并恢复先前状态。
+    if (isWithinSeekGuard()) {
       state.value.duration = effectiveDuration
-      state.value.status = isWithinSeekGuard() ? statusBeforeSeek : 'paused'
+      state.value.status = statusBeforeSeek
       state.value.errorMessage = null
       syncMediaSessionState()
       return
     }
 
+    // 窗口外：complete 即自然播完，无条件切下一首。展示位置取 native/state 较大值，
+    // 避免 complete 事件 position 回 0 时进度条闪回。
     state.value.status = 'finished'
     state.value.errorMessage = null
-    state.value.position = effectivePosition
+    state.value.position = Math.max(nativePosition, state.value.position)
     state.value.duration = effectiveDuration
     syncMediaSessionState()
     void handlePlaybackFinished()
@@ -1247,6 +1233,7 @@ const playSongInternal = async (
       return
     }
     state.value.status = 'playing'
+    startKeepAlive()
     if (nativeAlreadyPlaying) {
       // 原生已兜底起播：无续播点、无 seek 恢复
       pendingResumePosition = null
@@ -1308,6 +1295,7 @@ const playSongInternal = async (
     // 恢复链终止：清预案，避免原生兜底播放不存在的下一首
     await clearAutoNextPlan()
     // loading 会乐观映射为 playing；仅恢复链终止时清掉媒体会话。
+    stopKeepAlive()
     void clearMediaSession().catch(() => undefined)
   }
 }
@@ -1328,6 +1316,7 @@ export const pausePlayback = async (): Promise<void> => {
     state.value.status = 'paused'
     state.value.errorMessage = null
     persistPlaybackSessionNow()
+    stopKeepAlive()
   } catch {
     setUserSafeError('暂停失败，请稍后重试。')
   }
@@ -1355,6 +1344,7 @@ export const resumePlayback = async (): Promise<void> => {
     state.value.status = 'playing'
     state.value.errorMessage = null
     persistPlaybackSessionNow()
+    startKeepAlive()
   } catch {
     // resume 失败时若有当前曲，回退 play 路径
     const song = state.value.currentSong
@@ -1443,6 +1433,7 @@ export const stopPlayback = async (): Promise<void> => {
     state.value.coverUri = null
     state.value.metadataStatus = 'idle'
     allowNativeClearCurrentSong = false
+    stopKeepAlive()
     syncMediaSessionState()
   } catch {
     allowNativeClearCurrentSong = false

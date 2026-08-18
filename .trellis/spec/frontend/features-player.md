@@ -59,13 +59,13 @@
 6. **前台服务/通知 ID 冲突**  
    capacitor-media-session 使用自己的通知 ID（`id=1, channel=playback`），但我们的旧 `AudioPlaybackService`（当前已清理为空服务）不再产生第二个媒体通知，避免前台服务通知冲突。
 
-7. **finished 自动切歌必须判定自然结束**（`controller.ts`）  
+7. **finished 自动切歌：complete 即自然播完**（`controller.ts`，08-18-carwith-bg-ctrl-fix 语义变更）  
    - 进度条 / 歌词点击 / 媒体会话 `seekto` 均走 `seekPlayback`；成功后记录 `lastSeekAt`（保护窗约 1500ms）。
-   - 仅当「不在 seek 保护窗」且「`duration > 0` 且 `position >= duration - epsilon`（epsilon≈1.25s）」时，才把 `finished` 当作自然播完并 `handlePlaybackFinished` → `advanceToNext`。
-   - **非自然结束的 finished 不得 advance**：保护窗内或未接近结尾（含 `duration=0`）时丢弃伪 finished，恢复 `playing`/`paused`，保留 `currentSong` 与 seek 目标进度。
-   - seek 保护窗优先于 near-end：即便 seek 到最后 1s 歌词，保护窗内 finished 也不切歌。
+   - **complete/STATE_ENDED 的唯一合法来源是播放器真正播完**，不再依赖 position 的「接近结尾」判定：JS 冻结期间 `state.position` 滞后，会误判为伪 finished 而不切歌（CarWith/锁屏播放完暂停的直接原因）。窗口外（`isWithinSeekGuard() === false`）的 finished **无条件** `handlePlaybackFinished` → `advanceToNext`；`duration=0` 不例外。
+   - **仅保留 seek 保护窗**：`isWithinSeekGuard()` 内的 finished 视为 seek 到未缓冲区触发的伪结束，恢复 `statusBeforeSeek`、保留 seek 目标进度，不 advance；seek 保护窗优先于一切。
+   - 展示位置取 `max(nativePosition, state.position)`，避免 complete 事件 position 回 0 时进度条闪回。
    - `playSong` / `stopPlayback` 必须清理 seek guard，避免新歌首帧误吞真实 finished 或卡住队列。
-   - 不修改 capgo 插件源码；远程/未缓冲 seek 触发的 `STATE_ENDED`/`complete` 在前端边界消化。
+   - 不修改 capgo 插件源码；远程/未缓冲 seek 触发的 `STATE_ENDED`/`complete` 由 seek 保护窗 + `seekPlayback` 的缓冲上限双保险在前端边界消化。
 
 8. **播放失败自动恢复与有界跳过**
    - `controller.ts` 在 `AudioPlayerNative.play` 失败且 generation 仍匹配时，沿当前 active order 自动尝试未尝试过的下一首；active order 使用 `shuffleOrder ?? items`。
@@ -275,6 +275,13 @@
 - **AMLL 歌词播完后全部失活变模糊**  
   根因：`PlayerPage.lyricRenderTime` 直接用 `position * 1000`，播完/暂停在末尾时超过最后一句歌词 endTime，AMLL 找不到活动行。  
   修复：钳制上限到最后一句 `endTime`（无 endTime 时 fallback `startTime`），最后一行保持完成高亮；无歌词时不钳制。
+
+- **CarWith 连接时播完不切歌 / 媒体通知按钮失效（JS 冻结，08-18-carwith-bg-ctrl-fix）**  
+  根因：CarWith 连接后手机 WebView 页面不可见，Chromium 冻结/深度节流 JS，complete 事件与媒体按钮命令（MediaSession callback → JS keepAlive handler）全部无人处理；JS 晚处理 complete 时又依赖滞后的 `state.position` 做自然结束判定，误判为伪 finished 而置 paused。
+  修复（方案 A，不改 node_modules / manifest / 无原生直控）：  
+  1. **WebView JS 保活**（`src/features/player/keepalive.ts`）：播放中常驻 gain=0 静音 Web Audio 轨（ConstantSource → gain 0），让隐藏页面携带「ongoing media」标签阻止 Chromium 冻结；仅 Android 且播放会话存在时运行；暂停/停止即停；任何异常静默降级；`muses:debug-keepalive=1` 开日志。
+  2. **finished 判定语义变更**：complete 即自然播完（见第 7 点），不再依赖 position 佐证；仅 seek 保护窗内的 finished 才视为伪结束。  
+  实测结论：预案在 CarWith 音频重定向下的 `isMusicActive()` 判定是否失真尚未确认（插件间无同步返回值通道，A 边界内无法换用 capgo isPlaying）；预案/心跳/对账保持为保活失效时的最终防线。
 
 - **锁屏/后台时当前曲播完不自动切下一首（JS 冻结）**  
   根因：播放/切歌链路依赖 WebView JS；锁屏后 Chromium 对不可见 WebView 节流甚至冻结 JS，原生 complete 事件到达不了 JS，前端无兜底。  
