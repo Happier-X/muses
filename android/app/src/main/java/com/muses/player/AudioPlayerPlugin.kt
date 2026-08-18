@@ -3,6 +3,8 @@ package com.muses.player
 import android.Manifest
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
@@ -39,14 +41,39 @@ import okhttp3.Request
     ],
 )
 class AudioPlayerPlugin : Plugin() {
-    private companion object {
+    companion object {
         /** 后台自动切歌轮询间隔 */
         const val AUTO_NEXT_POLL_MS = 1000L
         /** 静音防抖窗口：JS 正常切歌 preload 通常在 complete 后数百 ms 内发起 */
         const val AUTO_NEXT_DEBOUNCE_MS = 2500L
         /** 预案触发后的起播确认超时：WebDAV 远程缓冲可能较慢，放宽到 15s */
         const val AUTO_NEXT_VERIFY_MS = 15000L
+        /** 解除设备后暂停的去抖窗口：合并拔出-插入顺序颠倒 / 多设备同时断开等瞬时事件 */
+        const val DEVICE_REMOVAL_PAUSE_DEBOUNCE_MS = 500L
+
+        /** 输出设备中「拔出即应暂停」的类型集合（蓝牙/有线/USB/车机底座） */
+        val DISRUPTIVE_OUTPUT_TYPES = setOf(
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_USB_DEVICE,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+            AudioDeviceInfo.TYPE_USB_ACCESSORY,
+            AudioDeviceInfo.TYPE_DOCK,
+        )
+
+        /**
+         * 判定移除的设备中是否包含「应暂停」的输出设备。
+         * 纯函数：入参为抽象数据（隐去 Android 类型差异），便于 JVM 单测。
+         */
+        fun isDisruptiveDeviceRemoved(
+            removed: Iterable<RemovedOutputDevice>,
+        ): Boolean = removed.any { it.isSink && it.type in DISRUPTIVE_OUTPUT_TYPES }
     }
+
+    /** 移除设备的抽象描述（供设备移除判定纯函数使用） */
+    data class RemovedOutputDevice(val type: Int, val isSink: Boolean)
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
@@ -90,14 +117,73 @@ class AudioPlayerPlugin : Plugin() {
     private var verifyingStartedAt = 0L
     /** JS 上报的期望播放状态；false（暂停/停止）时轮询不触发预案 */
     private var jsExpectedPlaying = false
+    /** JS 上报的当前 assetId（capgo 暂停/恢复需显式指定 asset） */
+    private var jsCurrentAssetId: String? = null
     /** 防抖起点；0 = 无待确认的静音窗口 */
     private var pendingAutoNextAt = 0L
     private var autoNextHandler: Handler? = null
     private var autoNextTickPosted = false
 
+    // --------------- 音频输出设备移除 → 暂停（蓝牙/车机/有线/USB 拔出兜底） ---------------
+
+    private var deviceCallbackRegistered = false
+    private var pendingRemovalPauseTask: Runnable? = null
+    private val removalDebounceHandler = Handler(Looper.getMainLooper())
+
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
+            try {
+                val simplified = removedDevices.map { RemovedOutputDevice(type = it.type, isSink = it.isSink) }
+                if (!isDisruptiveDeviceRemoved(simplified)) return
+                // 非播放中不动作（已暂停/停止时拔出设备无副作用）
+                if (!jsExpectedPlaying) return
+                // 去抖：合并瞬时事件，避免拔出-插入抖动/多设备同断触发多次
+                pendingRemovalPauseTask?.let { removalDebounceHandler.removeCallbacks(it) }
+                pendingRemovalPauseTask = Runnable {
+                    pendingRemovalPauseTask = null
+                    executeDeviceRemovalPause()
+                }
+                removalDebounceHandler.postDelayed(
+                    pendingRemovalPauseTask!!,
+                    DEVICE_REMOVAL_PAUSE_DEBOUNCE_MS,
+                )
+            } catch (_: Exception) {
+                // 回调异常静默，不影响播放
+            }
+        }
+    }
+
     override fun load() {
         super.load()
         startAutoNextLoop()
+        registerDeviceRemovalCallback()
+    }
+
+    private fun registerDeviceRemovalCallback() {
+        if (deviceCallbackRegistered) {
+            return
+        }
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        runCatching {
+            audioManager.registerAudioDeviceCallback(audioDeviceCallback, removalDebounceHandler)
+            deviceCallbackRegistered = true
+        }
+    }
+
+    /**
+     * 输出设备已移除且确认窗口过后执行暂停。
+     * 关键顺序：先上报 jsExpectedPlaying=false 阻断预案——否则 pause 后 isMusicActive
+     * 转 false，`tickAutoNext` 的 2.5s 防抖会误触发自动播放下一首（静音输出继续"播"）。
+     */
+    private fun executeDeviceRemovalPause() {
+        jsExpectedPlaying = false
+        pendingAutoNextAt = 0L
+
+        val assetId = jsCurrentAssetId ?: autoNextPlan?.currentAssetId
+        if (assetId.isNullOrBlank()) {
+            return
+        }
+        callNativeAudio("pause", JSObject().put("assetId", assetId))
     }
 
     private fun startAutoNextLoop() {
@@ -302,11 +388,12 @@ class AudioPlayerPlugin : Plugin() {
         call.resolve()
     }
 
-    /** JS 上报期望播放状态；非 playing（暂停/停止）时轮询不触发预案。 */
+    /** JS 上报期望播放状态；非 playing（暂停/停止）时轮询不触发预案。assetId 供原生直控（设备移除暂停等）指定目标。 */
     @PluginMethod
     fun reportPlaybackStatus(call: PluginCall) {
         val status = call.getString("status")
         jsExpectedPlaying = status == "playing"
+        jsCurrentAssetId = call.getString("assetId") ?: jsCurrentAssetId
         if (!jsExpectedPlaying) {
             pendingAutoNextAt = 0L
         }

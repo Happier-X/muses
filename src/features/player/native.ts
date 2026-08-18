@@ -70,8 +70,8 @@ interface AudioPlayerPermissionBridge {
   /** 注册下一首预案；原生在 JS 冻结时兜底播放 */
   setAutoNext?(options: AutoNextOptions): Promise<void>
   clearAutoNext?(): Promise<void>
-  /** 上报 JS 期望播放状态，原生据此区分暂停与播完 */
-  reportPlaybackStatus?(options: { status: 'playing' | 'paused' | 'stopped' }): Promise<void>
+  /** 上报 JS 期望播放状态，原生据此区分暂停与播完；assetId 供原生直控（设备移除暂停）指定目标 */
+  reportPlaybackStatus?(options: { status: 'playing' | 'paused' | 'stopped'; assetId?: string }): Promise<void>
 }
 
 interface NativePlaybackStateEvent {
@@ -395,7 +395,7 @@ const reportBridgePlaybackStatus = (status: 'playing' | 'paused' | 'stopped'): v
   if (!AudioPlayerBridge.reportPlaybackStatus) {
     return
   }
-  void AudioPlayerBridge.reportPlaybackStatus({ status }).catch(() => undefined)
+  void AudioPlayerBridge.reportPlaybackStatus({ status, assetId: currentAssetId ?? undefined }).catch(() => undefined)
 }
 
 /**

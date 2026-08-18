@@ -1324,3 +1324,55 @@ npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1
 ### Status
 
 [OK] **Completed** — 待真机手势导航回归；遗留提醒：`--safe-area-inset-*` 桥接在 teleport 出 `.m-app` 的浮层中失效属既有行为（见 spec 侧边栏条目），本次不涉及。
+
+---
+
+## 2026-08-18 — 08-18-carwith-bg-ctrl-fix（CarWith 后台播放修复，方案 A）
+
+### 任务
+小米手机连 CarWith 时：播完不自动切下一曲直接暂停；媒体通知卡片上一曲/下一曲/播放/暂停按钮全失效。
+
+### 根因（三处收敛到同一事实：CarWith 连接后 WebView JS 冻结/深度节流）
+1. complete 事件（原生 → evaluateJavascript）与媒体按钮命令（MediaSession cb → JS keepAlive handler）都依赖 JS 存活；
+2. JS 晚处理 complete 时 `shouldIgnoreFinished` 拿冻结的 `state.position` 误判「未接近结尾」→ 置 paused（播完暂停的直接原因之一）；
+3. 原生预案 `tickAutoNext` 用 `isMusicActive()` 判定播完——CarWith 音频重定向下可能恒 true，预案永不触发（未实测确认）。
+
+### 方案（用户选定 A：源头保活 JS，不 patch 第三方/manifest/原生直控）
+- **新增 `src/features/player/keepalive.ts`**：播放中常驻 gain=0 静音 Web Audio 轨（ConstantSource → gain0 → destination），让隐藏页面携带 ongoing media 标签阻止 Chromium 冻结；仅 Android 且播放中运行；暂停/停即停；异常静默；`muses:debug-keepalive` 日志开关。挂接：playSongInternal 成功 / resume 成功 → start；pause / stop / 恢复链终止 → stop。
+- **finished 判定语义变更**：complete/STATE_ENDED 唯一合法来源 = 播放器真正播完，移除 near-end（position ≥ duration-1.25）判定，仅保留 seek 保护窗（1.5s）丢弃 seek 后伪 complete。删除 `shouldIgnoreFinished`/`isNearNaturalEnd`/`NATURAL_END_EPSILON_SEC`。
+- **预案第三项（isPlaying 判定）调研后不做**：capgo 插件方法返回值经 `PluginCall.resolve()` 异步发 WebView（`CALLBACK_ID_DANGLING` 丢弃），插件间无同步返回值通道，A 边界内无法实现；列为实测项，确定失效再升级方案 B。
+
+### 验证
+- lint（src+新测试 0 错）/ vitest 19 通过（新增 keepalive.spec.ts 6 例）/ vue-tsc build ✓ / `gradlew assembleDebug` ✓（app-debug.apk 11.4MB）
+- 待用户真机：CarWith 自动切歌（本地+WebDAV）、通知按钮、保活生效性（V5）、锁屏/前台回归（design §7 V1-V8）
+- 风险记录：keepalive 可能令 `isMusicActive()` 恒 true → 预案在保活生效期间本就不需要；若保活失效其副作用存在但被心跳/对账兜底。
+
+### 遗留
+- spec features-player.md 已更新：finished 语义变更（第 7 点）+ CarWith 常见错误条目（保留方案 C 原记录）
+- diff 仅 2 个前端文件 + 测试 + spec；无 node_modules/manifest/原生改动
+
+---
+
+## 2026-08-18 — 08-18-bt-car-disconnect-pause（蓝牙/车机断开时暂停播放）
+
+### 背景
+用户发现 CarWith 断开后播放不暂停（继续播）。排查：代码无任何蓝牙/音频设备监听；蓝牙耳机断开能暂停/停止是系统焦点机制在起作用（capgo OnAudioFocusChangeListener：LOSS→stop/LOSS_TRANSIENT→pause）；CarWith 断开时系统不发焦点变化。
+
+### 方案（用户确认「开」；默认决策 D1 暂停/D2 全量覆盖/D3 待真机确认）
+原生 `AudioPlayerPlugin.kt`：
+- 注册 `AudioDeviceCallback`（API 23+，minSdk 24 OK，无新权限/manifest）
+- `onAudioDevicesRemoved` 过滤：isSink && type ∈ {A2DP, SCO, 有线, USB_DEVICE/HEADSET/ACCESSORY, DOCK} && jsExpectedPlaying → 500ms 去抖 → callNativeAudio pause
+- **关键顺序**：pause 前必须 jsExpectedPlaying=false，否则 pause 后 isMusicActive=false 会触发 auto-next 预案 2.5s 后自动播下一首
+- reportPlaybackStatus 扩展记录 jsCurrentAssetId（capgo pause 需 assetId）
+- 判定抽成纯函数 isDisruptiveDeviceRemoved + RemovedOutputDevice 数据类，JVM 单测 9 例
+
+前端 native.ts：reportBridgePlaybackStatus 携带 currentAssetId（JS 状态同步零改动，走 capgo playbackState 事件）
+
+### 验证
+- ./gradlew :app:testDebugUnitTest ✓（9 例）
+- npm run lint（native.ts）✓ / vue-tsc build ✓
+- ./gradlew :app:assembleDebug ✓（app-debug.apk 11.5MB，含 carwith-bg-ctrl-fix + 本任务全部改动）
+- 待真机：蓝牙拔线暂停 / CarWith 断开暂停 / 已暂停拔出无副作用 / 重连不自动恢复 / 切换设备不误暂停（design §7 D1-D7）
+
+### 待办
+- carwith-bg-ctrl-fix 真机验证（V1-V8）未回；本任务真机验证（D1-D7）未做——同一次装车可合验

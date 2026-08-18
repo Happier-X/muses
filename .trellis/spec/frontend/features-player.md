@@ -283,6 +283,10 @@
   2. **finished 判定语义变更**：complete 即自然播完（见第 7 点），不再依赖 position 佐证；仅 seek 保护窗内的 finished 才视为伪结束。  
   实测结论：预案在 CarWith 音频重定向下的 `isMusicActive()` 判定是否失真尚未确认（插件间无同步返回值通道，A 边界内无法换用 capgo isPlaying）；预案/心跳/对账保持为保活失效时的最终防线。
 
+- **播放中拔出蓝牙耳机/有线耳机/断开 CarWith 车机不暂停**（08-18-bt-car-disconnect-pause）  
+  根因：蓝牙耳机断开时的暂停/停止依赖系统音频焦点机制（capgo `OnAudioFocusChangeListener` 的 `AUDIOFOCUS_LOSS`→stop / `LOSS_TRANSIENT`→pause）；CarWith 车机断开时系统不发焦点变化，播放继续。  
+  修复（`AudioPlayerPlugin.kt`）：原生注册 `AudioManager.registerAudioDeviceCallback`（API 23+，无需新权限），`onAudioDevicesRemoved` 过滤「输出且为破坏性类型」（蓝牙 A2DP/SCO、有线耳机、USB 音频、DOCK 底座）且 `jsExpectedPlaying==true` 时，500ms 去抖后调 capgo `pause`；**必须在 pause 前把 `jsExpectedPlaying=false`**，否则 pause 后 isMusicActive 转 false 会误触发 auto-next 预案自动播放下一首（静音输出继续"播"）。JS 状态同步零改动：capgo pause 发 `playbackState(paused)` → `native.ts` → controller 自动暂停。前端 `reportBridgePlaybackStatus` 需携带 `currentAssetId`（capgo pause 必须指定 asset）。纯判定逻辑抽成 companion 函数 `isDisruptiveDeviceRemoved` + JUnit 单测。
+
 - **锁屏/后台时当前曲播完不自动切下一首（JS 冻结）**  
   根因：播放/切歌链路依赖 WebView JS；锁屏后 Chromium 对不可见 WebView 节流甚至冻结 JS，原生 complete 事件到达不了 JS，前端无兜底。  
   修复（方案 C，不改 node_modules/@capgo/*）：  
