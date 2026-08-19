@@ -1,5 +1,5 @@
 import { LocalLibraryNative } from './native'
-import type { AudioFileEntry, AudioTags } from './types'
+import type { AudioFileEntry, AudioTags, MetaSources } from './types'
 import { WebDavNative, buildWebDavUrl } from '@/features/sources/webdav'
 import type { WebDavSourceItem } from '@/features/sources/types'
 
@@ -13,6 +13,20 @@ const normalizeReplayGainTrackDb = (value: unknown): number | undefined => {
 const normalizeTags = (tags: AudioTags): Omit<AudioTags, 'metadataDiagnostic'> => {
   const coverUri = tags.coverUri?.trim()
   const replayGainTrackDb = normalizeReplayGainTrackDb(tags.replayGainTrackDb)
+  // 扫描读内置 tag：有值的字段标 embedded 来源（R1-2）
+  const metaSources: MetaSources = {}
+  if (tags.title?.trim()) {
+    metaSources.title = 'embedded'
+  }
+  if (tags.artist?.trim()) {
+    metaSources.artist = 'embedded'
+  }
+  if (tags.album?.trim()) {
+    metaSources.album = 'embedded'
+  }
+  if (coverUri) {
+    metaSources.cover = 'embedded'
+  }
   return {
     title: tags.title?.trim() || undefined,
     artist: tags.artist?.trim() || undefined,
@@ -41,6 +55,7 @@ const normalizeTags = (tags: AudioTags): Omit<AudioTags, 'metadataDiagnostic'> =
       ? coverUri
       : undefined,
     ...(replayGainTrackDb !== undefined ? { replayGainTrackDb } : {}),
+    ...(Object.keys(metaSources).length > 0 ? { metaSources } : {}),
     tagsScanned: tags.tagsScanned,
     tagsScannedAt: tags.tagsScannedAt,
     metadataVersion: tags.metadataVersion,

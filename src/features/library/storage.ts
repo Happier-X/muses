@@ -1,6 +1,9 @@
 import type {
   AudioTags,
+  FieldSource,
   LyricsSource,
+  MetaFieldKey,
+  MetaSources,
   SongItem,
   SongLyricsFormat,
   UserEditedField,
@@ -9,8 +12,8 @@ import { USER_EDITED_FIELDS } from './types'
 
 const SONGS_STORAGE_KEY = 'muses:songs'
 export const SONGS_UPDATED_EVENT = 'muses:songs-updated'
-/** v3：增加 track ReplayGain 读取；旧 v2 曲在播放时会懒扫补增益 */
-export const CURRENT_METADATA_VERSION = 3
+/** v4：新增字段来源追踪 metaSources；旧 v3 曲在播放时懒扫自然升级补齐来源 */
+export const CURRENT_METADATA_VERSION = 4
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null
@@ -54,6 +57,40 @@ const isUserEditedFieldValue = (value: unknown): value is UserEditedField => {
     || value === 'cover'
     || value === 'lyrics'
     || value === 'replayGain'
+  )
+}
+
+const isMetaFieldKeyValue = (value: unknown): value is MetaFieldKey => {
+  return value === 'title' || value === 'artist' || value === 'album' || value === 'cover'
+}
+
+const isFieldSourceValue = (value: unknown): value is FieldSource => {
+  return value === 'embedded' || value === 'cloud' || value === 'manual'
+}
+
+/** 校验并裁剪 metaSources；非法/空 → undefined */
+const sanitizeMetaSources = (value: unknown): MetaSources | undefined => {
+  if (!isRecord(value)) {
+    return undefined
+  }
+  const next: MetaSources = {}
+  for (const [key, src] of Object.entries(value)) {
+    if (isMetaFieldKeyValue(key) && isFieldSourceValue(src)) {
+      next[key] = src
+    }
+  }
+  return Object.keys(next).length > 0 ? next : undefined
+}
+
+const isOptionalMetaSources = (value: unknown): boolean => {
+  if (value === undefined) {
+    return true
+  }
+  if (!isRecord(value)) {
+    return false
+  }
+  return Object.entries(value).every(
+    ([key, src]) => isMetaFieldKeyValue(key) && isFieldSourceValue(src),
   )
 }
 
@@ -131,6 +168,7 @@ const isSongItem = (value: unknown): value is SongItem => {
     isOptionalString(value.coverUri) &&
     isLoadableCoverUri(value.coverUri) &&
     isOptionalNumber(value.replayGainTrackDb) &&
+    isOptionalMetaSources(value.metaSources) &&
     isOptionalUserEditedFields(value.userEditedFields) &&
     isOptionalBoolean(value.tagsScanned) &&
     isOptionalString(value.tagsScannedAt) &&
@@ -144,6 +182,25 @@ export const isUserEditedField = (
   field: UserEditedField,
 ): boolean => {
   return !!song?.userEditedFields?.includes(field)
+}
+
+/**
+ * 读取字段来源（R1-4）：manual 由 userEditedFields 派生；缺省视为 embedded（存量兼容）。
+ * cover 字段映射到 userEditedFields 的 'cover'。
+ */
+export const getFieldSource = (
+  song: Pick<SongItem, 'metaSources' | 'userEditedFields'> | null | undefined,
+  field: MetaFieldKey,
+): FieldSource => {
+  if (!song) {
+    return 'embedded'
+  }
+  // manual 优先：用户手改字段永久视为 manual，不读 metaSources
+  const editedKey: UserEditedField = field === 'cover' ? 'cover' : field
+  if (song.userEditedFields?.includes(editedKey)) {
+    return 'manual'
+  }
+  return song.metaSources?.[field] ?? 'embedded'
 }
 
 /**
@@ -179,6 +236,23 @@ export const applyTagsRespectingUserEdits = (
   }
   if (protectedFields.includes('replayGain')) {
     delete next.replayGainTrackDb
+  }
+  // 手改字段的来源标记一并剥离：manual 由 userEditedFields 派生，不写 metaSources
+  if (next.metaSources) {
+    const filtered: MetaSources = { ...next.metaSources }
+    if (protectedFields.includes('title')) {
+      delete filtered.title
+    }
+    if (protectedFields.includes('artist')) {
+      delete filtered.artist
+    }
+    if (protectedFields.includes('album')) {
+      delete filtered.album
+    }
+    if (protectedFields.includes('cover')) {
+      delete filtered.cover
+    }
+    next.metaSources = Object.keys(filtered).length > 0 ? filtered : undefined
   }
   return next
 }
@@ -248,15 +322,17 @@ const sanitizeReplayGainTrackDb = (value: number | undefined): number | undefine
 }
 
 const sanitizeSongForStorage = (song: SongItem): SongItem => {
-  const { coverUri, replayGainTrackDb, userEditedFields, ...rest } = song
+  const { coverUri, replayGainTrackDb, userEditedFields, metaSources, ...rest } = song
   const safeCover = sanitizeCoverUri(coverUri)
   const safeGain = sanitizeReplayGainTrackDb(replayGainTrackDb)
   const safeEdited = sanitizeUserEditedFields(userEditedFields)
+  const safeMetaSources = sanitizeMetaSources(metaSources)
   return {
     ...rest,
     ...(safeCover ? { coverUri: safeCover } : {}),
     ...(safeGain !== undefined ? { replayGainTrackDb: safeGain } : {}),
     ...(safeEdited ? { userEditedFields: safeEdited } : {}),
+    ...(safeMetaSources ? { metaSources: safeMetaSources } : {}),
   }
 }
 
@@ -296,6 +372,21 @@ export interface StorageMutationOptions {
   persist?: boolean
 }
 
+const sameMetaSources = (
+  left: MetaSources | undefined,
+  right: MetaSources | undefined,
+): boolean => {
+  const a = left ?? {}
+  const b = right ?? {}
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+  for (const key of keys) {
+    if ((a[key as MetaFieldKey] ?? 'embedded') !== (b[key as MetaFieldKey] ?? 'embedded')) {
+      return false
+    }
+  }
+  return true
+}
+
 const hasSongChanged = (left: SongItem, right: SongItem): boolean => {
   return (
     left.uri !== right.uri ||
@@ -309,10 +400,31 @@ const hasSongChanged = (left: SongItem, right: SongItem): boolean => {
     left.coverUri !== right.coverUri ||
     left.replayGainTrackDb !== right.replayGainTrackDb ||
     !sameUserEditedFields(left.userEditedFields, right.userEditedFields) ||
+    !sameMetaSources(left.metaSources, right.metaSources) ||
     left.tagsScanned !== right.tagsScanned ||
     left.tagsScannedAt !== right.tagsScannedAt ||
     left.metadataVersion !== right.metadataVersion
   )
+}
+
+/**
+ * 合并字段来源（R1-2）：保留旧来源，仅当 tags 带了新来源且非空才覆盖对应 key。
+ * 来源不写空；手改字段来源已在 applyTagsRespectingUserEdits 剥离。
+ */
+const mergeMetaSources = (
+  previous: MetaSources | undefined,
+  incoming: MetaSources | undefined,
+): MetaSources | undefined => {
+  if (!incoming || Object.keys(incoming).length === 0) {
+    return previous
+  }
+  const next: MetaSources = { ...(previous ?? {}) }
+  for (const [key, src] of Object.entries(incoming)) {
+    if (isMetaFieldKeyValue(key) && isFieldSourceValue(src)) {
+      next[key] = src
+    }
+  }
+  return Object.keys(next).length > 0 ? next : undefined
 }
 
 export const upsertSong = (
@@ -341,6 +453,7 @@ export const upsertSong = (
       lyricsFormat: tags.lyricsFormat,
       coverUri: sanitizeCoverUri(tags.coverUri),
       replayGainTrackDb: sanitizeReplayGainTrackDb(tags.replayGainTrackDb),
+      metaSources: sanitizeMetaSources(tags.metaSources),
       tagsScanned: tags.tagsScanned,
       tagsScannedAt: tags.tagsScannedAt,
       metadataVersion: tags.metadataVersion,
@@ -377,6 +490,7 @@ export const upsertSong = (
     replayGainTrackDb: safeTags.replayGainTrackDb === undefined
       ? sanitizeReplayGainTrackDb(previousSong.replayGainTrackDb)
       : sanitizeReplayGainTrackDb(safeTags.replayGainTrackDb),
+    metaSources: mergeMetaSources(previousSong.metaSources, safeTags.metaSources),
     // 自动路径不得清除或改写 userEditedFields
     userEditedFields: previousSong.userEditedFields,
     tagsScanned: safeTags.tagsScanned ?? previousSong.tagsScanned,
@@ -500,6 +614,27 @@ export const updateSongUserEdit = (
     edited.push('replayGain')
   }
 
+  // 手改字段从 metaSources 移除对应 key：manual 由 userEditedFields 派生，不双写
+  const nextMetaSources: MetaSources | undefined = (() => {
+    if (!previous.metaSources) {
+      return undefined
+    }
+    const filtered: MetaSources = { ...previous.metaSources }
+    if (edited.includes('title')) {
+      delete filtered.title
+    }
+    if (edited.includes('artist')) {
+      delete filtered.artist
+    }
+    if (edited.includes('album')) {
+      delete filtered.album
+    }
+    if (edited.includes('cover')) {
+      delete filtered.cover
+    }
+    return Object.keys(filtered).length > 0 ? filtered : undefined
+  })()
+
   const nextSong: SongItem = {
     ...previous,
     title,
@@ -510,6 +645,7 @@ export const updateSongUserEdit = (
     lyricsSource,
     lyricsFormat,
     replayGainTrackDb: sanitizeReplayGainTrackDb(replayGainTrackDb),
+    metaSources: nextMetaSources,
     userEditedFields: unionUserEditedFields(previous.userEditedFields, edited),
     updatedAt: now,
   }

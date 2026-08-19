@@ -362,6 +362,7 @@
       <m-actions-group>
         <m-actions-label>歌曲操作</m-actions-label>
         <m-actions-button @click="onOpenSongEdit">编辑歌曲信息</m-actions-button>
+        <m-actions-button @click="toggleCurrentSongScrapeQueue">{{ isCurrentSongInScrapeQueue ? '取消待刮削' : '标记待刮削' }}</m-actions-button>
         <m-actions-button @click="isPlayerActionsOpen = false">取消</m-actions-button>
       </m-actions-group>
     </m-actions>
@@ -889,6 +890,7 @@ import { applyLyricTranslationVisibility } from '@/features/lyrics/display'
 import { prepareLyricLinesForDisplay } from '@/features/lyrics/mergeTranslation'
 import { loadSongs } from '@/features/library/storage'
 import { cacheCoverBytes } from '@/features/library/native'
+import { enqueueScrapeSongs, isInScrapeQueue, removeScrapeSongs, onScrapeQueueChanged } from '@/features/scrape/queue'
 import type { SongLyricsFormat } from '@/features/library/types'
 import {
   isPlaying,
@@ -1033,6 +1035,30 @@ const isTabletLayout = computed(
 // ── 更多 / 编辑歌曲信息 ──────────────────────────────────────────
 const isPlayerActionsOpen = ref(false)
 const isSongEditOpen = ref(false)
+
+// ── child2：待刮削队列标记 ───────────────────────
+const isCurrentSongInScrapeQueue = ref(false)
+const refreshCurrentSongScrapeState = (): void => {
+  const id = playerState.currentSong?.id
+  isCurrentSongInScrapeQueue.value = id ? isInScrapeQueue(id) : false
+}
+const toggleCurrentSongScrapeQueue = (): void => {
+  const song = playerState.currentSong
+  if (!song) {
+    return
+  }
+  if (isCurrentSongInScrapeQueue.value) {
+    removeScrapeSongs([song.id])
+    showToast('已取消待刮削', 'default')
+  } else {
+    enqueueScrapeSongs([song.id])
+    showToast('已加入待刮削队列', 'success')
+  }
+  isPlayerActionsOpen.value = false
+}
+const unsubscribeScrapeQueue = onScrapeQueueChanged(() => {
+  refreshCurrentSongScrapeState()
+})
 const editFormError = ref('')
 const coverFileInputRef = ref<HTMLInputElement | null>(null)
 /** 编辑中的安全封面 URI；null + cleared 表示用户清除 */
@@ -2468,9 +2494,11 @@ onMounted(() => {
   window.addEventListener('resize', updateViewportSize)
   window.addEventListener('blur', clearDragOnWindowHide)
   document.addEventListener('visibilitychange', clearDragOnWindowHide)
+  refreshCurrentSongScrapeState()
 })
 
 onUnmounted(() => {
+  unsubscribeScrapeQueue()
   window.removeEventListener('resize', updateViewportSize)
   window.removeEventListener('blur', clearDragOnWindowHide)
   document.removeEventListener('visibilitychange', clearDragOnWindowHide)

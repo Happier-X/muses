@@ -57,6 +57,7 @@ export const matchOnlineLyrics = async (
     title,
     artist: query.artist,
     album: query.album,
+    duration: query.duration,
   })
 
   if (amll.ok) {
@@ -65,6 +66,7 @@ export const matchOnlineLyrics = async (
       text: amll.ttml,
       format: 'ttml',
       source: 'amll',
+      confidence: amll.confidence,
     }
   }
 

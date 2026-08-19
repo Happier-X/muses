@@ -6,6 +6,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/',
     redirect: '/tabs/songs'
   },
+  // child2/child3：刮削中心
+  {
+    path: '/scrape',
+    component: () => import('@/views/ScrapePage.vue')
+  },
   {
     path: '/tabs',
     component: TabsPage,

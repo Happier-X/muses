@@ -1,5 +1,6 @@
 export { matchOnlineTextMeta, resetOnlineTextMetaCache, setOnlineTextMetaProvidersForTest } from './match'
 export {
+  classifyTextMetaConfidence,
   hitFillsMissing,
   isWeakTitle,
   mergeTextMetaFillEmpty,

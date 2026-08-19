@@ -318,6 +318,7 @@ export const matchAmllTtmlLyrics = async (query: AmllMatchQuery): Promise<AmllMa
       title: query.title,
       artist: query.artist,
       album: query.album,
+      duration: query.duration,
     },
     candidates,
   )
@@ -342,6 +343,7 @@ export const matchAmllTtmlLyrics = async (query: AmllMatchQuery): Promise<AmllMa
       ttml: hit.ttml,
       rawLyricFile: hit.rawLyricFile,
       score: hit.score,
+      confidence: best.confidence,
     }
   } catch (error) {
     const reason = error instanceof Error && error.message === 'parse' ? 'parse' : 'network'

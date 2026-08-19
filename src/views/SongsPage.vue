@@ -27,6 +27,15 @@
                 >
                   <component :is="shuffle" aria-hidden="true" class="songs-page__toolbar-left-icon" />
                 </button>
+                <button
+                  type="button"
+                  class="songs-page__toolbar-left-btn"
+                  aria-label="筛选可疑歌曲批量入队"
+                  :disabled="suspiciousCount === 0"
+                  @click="onOpenSuspiciousBatch"
+                >
+                  <component :is="crosshair" aria-hidden="true" class="songs-page__toolbar-left-icon" />
+                </button>
                 <span class="songs-page__toolbar-count">{{ songs.length }}</span>
               </div>
               <!-- 多选模式计数 -->
@@ -201,6 +210,16 @@
             variant="clear"
             inline
             class="songs-page__multibar-btn"
+            :disabled="selectedCount === 0"
+            @click="onMarkSelectedForScrape"
+          >
+            标记待刮削
+          </m-button>
+          <m-button
+            component="button"
+            variant="clear"
+            inline
+            class="songs-page__multibar-btn"
             @click="exitMultiSelect"
           >
             取消
@@ -212,6 +231,7 @@
         <m-actions-group>
           <m-actions-label>歌曲操作</m-actions-label>
           <m-actions-button @click="onAddToQueue">添加到队列</m-actions-button>
+          <m-actions-button @click="onAddToScrapeQueue">加入待刮削</m-actions-button>
           <m-actions-button @click="onPickPlaylist">加入歌单…</m-actions-button>
           <m-actions-button @click="isSongActionsOpen = false">取消</m-actions-button>
         </m-actions-group>
@@ -238,6 +258,15 @@
             </span>
           </m-actions-button>
           <m-actions-button @click="isSortMenuOpen = false">取消</m-actions-button>
+        </m-actions-group>
+      </m-actions>
+
+      <!-- 筛选可疑歌曲批量入队确认框（child2 R2-3） -->
+      <m-actions :opened="isSuspiciousConfirmOpen" @backdropclick="isSuspiciousConfirmOpen = false">
+        <m-actions-group>
+          <m-actions-label>筛选可疑歌曲</m-actions-label>
+          <m-actions-button @click="onConfirmSuspiciousBatch">加入 {{ suspiciousCount }} 首到待刮削队列</m-actions-button>
+          <m-actions-button @click="isSuspiciousConfirmOpen = false">取消</m-actions-button>
         </m-actions-group>
       </m-actions>
 
@@ -302,6 +331,8 @@ import {
 } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
+import { enqueueScrapeSongs } from '@/features/scrape/queue'
+import { pickSuspiciousSongs } from '@/features/scrape/suspicious'
 import {
   getSongAlbumName, getSongArtistName, SONG_SORT_MENU, sortSongsByMode,
   type SongSortMode,
@@ -341,6 +372,10 @@ const isCreatePlaylistOpen = ref(false)
 /** 排序模式（sessionStorage 持久）；椒盐默认自定义顺序 */
 const sortMode = ref<SongSortMode>((sessionStorage.getItem(SORT_SAVE_KEY) as SongSortMode | null) ?? 'custom')
 const isSortMenuOpen = ref(false)
+
+/** child2：筛选可疑歌曲批量入队 */
+const isSuspiciousConfirmOpen = ref(false)
+const suspiciousCount = computed(() => pickSuspiciousSongs(songs.value).length)
 
 /** 多选模式 */
 const isMultiSelect = ref(false)
@@ -589,6 +624,48 @@ const onAddToQueue = () => {
   isSongActionsOpen.value = false
 }
 
+/** child2：长按菜单——加入待刮削 */
+const onAddToScrapeQueue = (): void => {
+  const song = actionSong.value
+  isSongActionsOpen.value = false
+  if (!song) {
+    return
+  }
+  enqueueScrapeSongs([song.id])
+  showToast('已加入待刮削队列')
+}
+
+/** child2：多选条——标记选中项为待刮削 */
+const onMarkSelectedForScrape = (): void => {
+  const ids = Array.from(selectedIds.value)
+  if (ids.length === 0) {
+    return
+  }
+  enqueueScrapeSongs(ids)
+  showToast(`已标记 ${ids.length} 首为待刮削`)
+  exitMultiSelect()
+}
+
+/** child2：顶部筛选按钮——打开确认框 */
+const onOpenSuspiciousBatch = (): void => {
+  if (suspiciousCount.value === 0) {
+    showToast('未发现可疑歌曲')
+    return
+  }
+  isSuspiciousConfirmOpen.value = true
+}
+
+/** child2：确认框——批量入队 */
+const onConfirmSuspiciousBatch = (): void => {
+  const picked = pickSuspiciousSongs(songs.value)
+  isSuspiciousConfirmOpen.value = false
+  if (picked.length === 0) {
+    return
+  }
+  enqueueScrapeSongs(picked.map((song) => song.id))
+  showToast(`已加入 ${picked.length} 首到待刮削队列`)
+}
+
 const onPickPlaylist = () => {
   isSongActionsOpen.value = false
   // 等主 sheet 关闭后再开，避免叠层冲突
@@ -640,6 +717,14 @@ const toast = ref<{ visible: boolean; message: string }>({
   visible: false,
   message: '',
 })
+let toastTimer: number | undefined
+const showToast = (message: string): void => {
+  toast.value = { visible: true, message }
+  window.clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => {
+    toast.value.visible = false
+  }, 1800)
+}
 
 /** 多选：播放选中队列（按当前排序顺序，不清空已有队列） */
 const onPlaySelected = (): void => {

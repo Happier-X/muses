@@ -6,6 +6,17 @@ export type LyricsSource = 'embedded' | 'sidecar' | 'online'
 export type SongLyricsFormat = 'lrc' | 'ttml' | 'yrc' | 'qrc'
 
 /**
+ * 字段来源追踪（R1）：title/artist/album/cover 的最近一次写入方。
+ * - embedded：值来自音频文件内置 tag（扫描/懒扫/刮削写回文件成功）
+ * - cloud：值来自在线补缺/刮削且尚未写回文件（或写回失败）
+ * - manual：用户手改；派生自 userEditedFields，不单独存储（见 storage.getFieldSource）
+ * 歌词沿用既有 lyricsSource，不在此建模。
+ */
+export type MetaFieldKey = 'title' | 'artist' | 'album' | 'cover'
+export type FieldSource = 'embedded' | 'cloud' | 'manual'
+export type MetaSources = Partial<Record<MetaFieldKey, FieldSource>>
+
+/**
  * 用户手改字段保护键。
  * 凡在数组内的字段，扫描 / 在线补缺 / 预取写库均不得覆盖（含清空也保护，避免扫描写回旧值）。
  */
@@ -37,6 +48,11 @@ export interface SongItem {
   coverUri?: string
   /** track 级 ReplayGain（dB）；缺省/非法表示无标签，播放不调整 */
   replayGainTrackDb?: number
+  /**
+   * 字段来源标记（R1）：title/artist/album/cover 的最近一次写入方。
+   * 旧数据缺省视为全部 embedded（存量兼容，见 storage.getFieldSource）。
+   */
+  metaSources?: MetaSources
   /**
    * 用户手改字段集；旧数据缺省视为 []。
    * 仅用户编辑保存路径写入；自动 upsert 不得清除。
@@ -74,6 +90,12 @@ export interface AudioTags {
   tagsScannedAt?: string
   metadataVersion?: number
   metadataDiagnostic?: AudioMetadataDiagnostic
+  /**
+   * 写入方携带的字段来源标记（R1）：扫描传 embedded、在线补缺/预取传 cloud。
+   * upsert 据此更新 SongItem.metaSources；受 applyTagsRespectingUserEdits 保护
+   * （手改字段来源被剥离，避免覆盖 manual 派生语义）。
+   */
+  metaSources?: MetaSources
 }
 
 export interface ScanOptions {

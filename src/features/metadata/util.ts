@@ -1,3 +1,4 @@
+import type { MatchConfidence } from '@/features/lyrics/score'
 import { getTitleFromPath } from '@/features/library/audio'
 import { normalizeText } from '@/features/lyrics/normalize'
 import type { OnlineTextQuery, TextMetaHit } from './types'
@@ -37,6 +38,13 @@ export const titlesRelated = (
 export type OnlineTextNeedQuery = Pick<OnlineTextQuery, 'title' | 'artist' | 'album' | 'path'> & {
   /** 可选：用户手改保护；全保护时早退 */
   userEditedFields?: Array<'title' | 'artist' | 'album' | string>
+  /**
+   * 可选：现字段来源标记（child4 R4-2）。
+   * 当被补字段来源已是 'cloud'（上次低质量补缺）时，要求 query 齐备 duration+artist 才再补，避免低质量循环重写。
+   */
+  metaSources?: { title?: 'embedded' | 'cloud' | 'manual'; artist?: 'embedded' | 'cloud' | 'manual'; album?: 'embedded' | 'cloud' | 'manual' }
+  /** 查询时长（秒）；可选，参与 cloud 来源字段的再补约束（child4 R4-2） */
+  duration?: number
 }
 
 /** artist/album 空，或 title 为弱标签时需要匹配；手改字段不参与缺口判定 */
@@ -52,7 +60,10 @@ export const needsOnlineTextMeta = (query: OnlineTextNeedQuery): boolean => {
   const needArtist = !artistProtected && isBlank(query.artist)
   const needAlbum = !albumProtected && isBlank(query.album)
   const needWeakTitle = !titleProtected && isWeakTitle(query.title, query.path)
-  return needArtist || needAlbum || needWeakTitle
+  // child4 R4-2：weak title 来源已是 cloud（上次低质量补缺）时，要求齐备 duration+artist 才再补，避免低质量循环重写
+  const titleFromCloud = query.metaSources?.title === 'cloud'
+  const cloudTitleBlocked = needWeakTitle && titleFromCloud && (!query.duration || isBlank(query.artist))
+  return needArtist || needAlbum || (needWeakTitle && !cloudTitleBlocked)
 }
 
 export const buildKeyword = (query: OnlineTextQuery): string =>
@@ -167,4 +178,36 @@ export const pickBestHit = (hits: TextMetaHit[], query: OnlineTextQuery): TextMe
   }
   const ranked = [...hits].sort((a, b) => scoreTextHit(b, query) - scoreTextHit(a, query))
   return ranked[0] ?? null
+}
+
+/**
+ * 判定文本命中置信度（child4 R4-2）：
+ * - title exact（normalize 相等）且（artist 命中 或 无查询歌手信息）→ high
+ * - title contains 且 artist 命中 → high
+ * - 其余（contains 无 artist 信息、artist 不命中）→ low
+ * 文本命中不含 duration 字段，时长约束在服务层列用 track 信息时再校验（本函数不强制）。
+ */
+export const classifyTextMetaConfidence = (
+  hit: Pick<TextMetaHit, 'title' | 'artist' | 'album'>,
+  query: Pick<OnlineTextQuery, 'title' | 'artist'>,
+): MatchConfidence => {
+  const qTitle = normalizeText(query.title)
+  const hTitle = normalizeText(hit.title)
+  if (!qTitle || !hTitle) {
+    return 'low'
+  }
+  const titleExact = qTitle === hTitle
+  const titleContains = !titleExact && (qTitle.includes(hTitle) || hTitle.includes(qTitle))
+  if (!titleExact && !titleContains) {
+    return 'low'
+  }
+  const qArtist = normalizeText(query.artist)
+  const hArtist = normalizeText(hit.artist)
+  const queryHasArtist = !!qArtist
+  const artistHit = !!qArtist && !!hArtist && (qArtist === hArtist || qArtist.includes(hArtist) || hArtist.includes(qArtist))
+  if (titleExact) {
+    return queryHasArtist && !artistHit ? 'low' : 'high'
+  }
+  // contains
+  return artistHit ? 'high' : 'low'
 }

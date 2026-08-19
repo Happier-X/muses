@@ -326,3 +326,39 @@
   修复：`playSong` / `stopPlayback` / 播放失败均 `resetBufferState()`；继续调用原生 `cancelBufferSession`，清理旧 APK 或遗留会话启动的渐进下载。
 - **没有 `npx cap sync android` 就部署**：前端代码改动不会反映到 APK  
   修复：每次前端改完后执行 `npm run build && npx cap copy android && cd android && ./gradlew :app:assembleDebug`。
+
+---
+
+## 6. 数据来源追踪（child1 + child4）
+
+### 字段来源模型
+
+每个 `SongItem` 的 title/artist/album/cover 字段都有一个来源标记 `metaSources[key]`：
+
+```typescript
+type FieldSource = 'embedded' | 'cloud' | 'manual'
+```
+
+| 来源 | 含义 | 写入场景 |
+|------|------|----------|
+| `embedded` | 值来自音频文件内置 tag | 扫描/懒扫/刮削写回文件成功 |
+| `cloud` | 值来自在线补缺/刮削写回文件失败 | 在线补缺自动写库 |
+| `manual` | 用户手改 | `updateSongUserEdit` |
+
+### 来源读取
+
+`getFieldSource(song, key)` 从 `metaSources` 读取来源；`manual` 由 `userEditedFields` 派生（不单独存储）。
+
+### 存量兼容
+
+旧 SongItem 无 `metaSources` → 读取时默认 `embedded`（保守默认）。`CURRENT_METADATA_VERSION` 从 3 升至 4，懒扫时自动触发重读补齐来源。
+
+### 置信度分级
+
+匹配质量分级（child4）定义 `MatchConfidence = 'high' | 'low'`：
+- `classifyMatch`：歌词匹配（title exact+artist → high；contains+artist → high；其余 → low）
+- `classifyTextMetaConfidence`：文本匹配（同理）
+- `findBestMatch` 默认 `minConfidence='high'`：自动写库仅采纳高置信
+- `shouldPersistOnlineLyrics` 新增 `confidence` 参数：`'low'` 仅可补空库
+
+详见 `features-scrape.md` 的完整合约。

@@ -89,7 +89,7 @@ export const prefetchLyricsForLibrary = async (
 
     await enqueueLibraryWrite(isActive, () => {
       const latest = getLatestSongSnapshot(song)
-      if (!shouldPersistOnlineLyrics(latest, result.format, result.text)) {
+      if (!shouldPersistOnlineLyrics(latest, result.format, result.text, result.confidence)) {
         return
       }
       upsertSong({
@@ -104,6 +104,7 @@ export const prefetchLyricsForLibrary = async (
           lyricsFormat: result.format,
         },
       }, loadSongs())
+      // 歌词来源沿用 lyricsSource，不进 metaSources
     })
   } catch {
     // 预取失败静默
@@ -161,6 +162,7 @@ export const prefetchCoverForLibrary = async (
         title: again.title,
         tags: {
           coverUri: safeUri,
+          metaSources: { cover: 'cloud' },
         },
       }, loadSongs())
     })
@@ -190,8 +192,14 @@ export const prefetchTextMetaForLibrary = async (
       path: latestBefore.path,
       artist: latestBefore.artist,
       album: latestBefore.album,
+      duration: latestBefore.duration,
+      metaSources: latestBefore.metaSources,
     })
     if (!isActive() || !remote.ok) {
+      return
+    }
+    // child4 R4-4：预取自动补缺同样仅保留高置信写库；低置信不写
+    if (remote.confidence === 'low') {
       return
     }
 
@@ -214,6 +222,11 @@ export const prefetchTextMetaForLibrary = async (
           title: next.title,
           artist: next.artist,
           album: next.album,
+          metaSources: {
+            ...(next.title !== latest.title ? { title: 'cloud' } : {}),
+            ...(next.artist !== latest.artist ? { artist: 'cloud' } : {}),
+            ...(next.album !== latest.album ? { album: 'cloud' } : {}),
+          },
         },
       }, loadSongs())
     })

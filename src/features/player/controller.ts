@@ -662,7 +662,7 @@ const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<
 
       // 按质量写回曲库（严格更优才 upsert）
       const latest = latestAfterMatch
-      if (shouldPersistOnlineLyrics(latest, result.format, result.text)) {
+      if (shouldPersistOnlineLyrics(latest, result.format, result.text, result.confidence)) {
         const written = upsertSong({
           sourceId: latest.sourceId,
           sourceType: latest.sourceType,
@@ -842,12 +842,18 @@ const matchOnlineTextMetaForSong = async (song: SongItem, token: number): Promis
       path: latest.path,
       artist: latest.artist,
       album: latest.album,
+      duration: latest.duration,
+      metaSources: latest.metaSources,
     })
 
     if (token !== onlineTextToken || state.value.currentSong?.id !== song.id) {
       return
     }
     if (!remote.ok) {
+      return
+    }
+    // child4 R4-4：播放时自动补缺路径仅保留高置信自动写；低置信不写库（进候选供刮削页）
+    if (remote.confidence === 'low') {
       return
     }
 
@@ -866,6 +872,11 @@ const matchOnlineTextMetaForSong = async (song: SongItem, token: number): Promis
         title: next.title,
         artist: next.artist,
         album: next.album,
+        metaSources: {
+          ...(next.title !== latest.title ? { title: 'cloud' } : {}),
+          ...(next.artist !== latest.artist ? { artist: 'cloud' } : {}),
+          ...(next.album !== latest.album ? { album: 'cloud' } : {}),
+        },
       },
     }, loadSongs())
 
@@ -944,6 +955,7 @@ const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<v
       title: latest.title,
       tags: {
         coverUri: safeUri,
+        metaSources: { cover: 'cloud' },
       },
     }, loadSongs())
 
@@ -1577,6 +1589,16 @@ export const playerState = readonly(state.value)
 export const isPlaying = computed(() => state.value.status === 'playing')
 export const hasActiveSong = computed(() => Boolean(state.value.currentSong))
 export const isPlaybackFinished = computed(() => state.value.status === 'finished')
+
+/**
+ * 作废在线匹配 token：刮削写回后调用，防止播放器在线补缺覆盖刮削值。
+ * child3 D4：刮削写回 → invalidateOnlineTokens → 播放器不再用旧候选写库。
+ */
+export const invalidateOnlineTokens = (): void => {
+  onlineTextToken += 1
+  onlineCoverToken += 1
+  lyricsMatchToken += 1
+}
 
 export {
   advanceToNext,

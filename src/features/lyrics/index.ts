@@ -13,7 +13,8 @@ export {
   prepareLyricLinesForDisplay,
 } from './mergeTranslation'
 export { applyLyricTranslationVisibility } from './display'
-export { findBestMatch, scoreEntry, scoreTitle, scoreArtists, scoreAlbum, MIN_ACCEPT_SCORE, SCORE_WEIGHTS } from './score'
+export { findBestMatch, scoreEntry, scoreTitle, scoreArtists, scoreAlbum, classifyMatch, MIN_ACCEPT_SCORE, SCORE_WEIGHTS, DURATION_TOLERANCE_SEC } from './score'
+export type { MatchConfidence, FindBestMatchOptions, BestMatch, TitleMatchLevel } from './score'
 export type { AmllIndexEntry, AmllMatchQuery, AmllMatchResult, AmllMatchFailReason } from './types'
 export type {
   LyricsProvider,

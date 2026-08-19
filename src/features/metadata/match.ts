@@ -4,7 +4,7 @@ import { mgTextMetaProvider } from './providers/mg'
 import { txTextMetaProvider } from './providers/tx'
 import { wyTextMetaProvider } from './providers/wy'
 import type { OnlineTextMatchResult, OnlineTextQuery, TextMetaProvider } from './types'
-import { hitFillsMissing, needsOnlineTextMeta } from './util'
+import { classifyTextMetaConfidence, hitFillsMissing, needsOnlineTextMeta } from './util'
 import { getBoundedCache, setBoundedCache } from '@/features/runtime/boundedCache'
 
 const NEGATIVE_CACHE_TTL_MS = 45 * 60 * 1000
@@ -71,7 +71,12 @@ export const matchOnlineTextMeta = async (
     try {
       const hit = await provider.search(query)
       if (hit && hitFillsMissing(hit, query)) {
-        return { ok: true, hit: { ...hit, source: provider.id } }
+        const finalHit = { ...hit, source: provider.id }
+        return {
+          ok: true,
+          hit: finalHit,
+          confidence: classifyTextMetaConfidence(finalHit, query),
+        }
       }
     } catch {
       sawNetworkError = true

@@ -156,11 +156,17 @@ export const lyricsFormatRank = (format: LyricsFormat | SongItem['lyricsFormat']
   return 1
 }
 
-/** 在线结果是否应写回库（严格更优；手改歌词永久不写） */
+/** 在线结果是否应写回库（严格更优；手改歌词永久不写；child4 低置信受限） */
 export const shouldPersistOnlineLyrics = (
   existing: Pick<SongItem, 'lyrics' | 'lyricsFormat' | 'userEditedFields'>,
   incomingFormat: Exclude<LyricsFormat, null>,
   incomingText: string,
+  /**
+   * 命中置信度（child4 R4-3）：
+   * - 'low' 时仅可写入「当前无歌词」的空库，不得覆盖现有 lrc/ttml
+   * - 缺省 / 'high' 时沿质严格更优规则（向后兼容，不让平台 LRC 默认失效）
+   */
+  confidence?: 'high' | 'low',
 ): boolean => {
   // 用户手改歌词：在线质量写回整段跳过
   if (existing.userEditedFields?.includes('lyrics')) {
@@ -171,6 +177,10 @@ export const shouldPersistOnlineLyrics = (
     return false
   }
   const existingText = existing.lyrics?.trim() || ''
+  // 低置信仅可补空库，不得覆盖现有词（child4）
+  if (confidence === 'low' && existingText) {
+    return false
+  }
   const existingRank = lyricsFormatRank(
     existing.lyricsFormat ?? (existingText ? 'lrc' : null),
     !!existingText,

@@ -1,3 +1,5 @@
+import type { MatchConfidence } from '@/features/lyrics/score'
+
 /** 在线歌词查询（编排层 / 各 provider 共用） */
 export type OnlineLyricsQuery = {
   songId: string
@@ -41,6 +43,11 @@ export type OnlineLyricsMatchOk = {
   format: OnlineLyricsFormat
   source: OnlineLyricsSource
   translationText?: string
+  /**
+   * 命中置信度（child4 R4-3）：amll 路径由 findBestMatch 产出；平台 LRC 缺省
+   * 视为 'high'（向后兼容）。低置信命中在 shouldPersistOnlineLyrics 阶段被受限。
+   */
+  confidence?: MatchConfidence
 }
 
 export type OnlineLyricsMatchFail = {
