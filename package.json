@@ -22,7 +22,6 @@
     "@capacitor/keyboard": "^8.0.5",
     "@capacitor/status-bar": "^8.0.3",
     "@capawesome/capacitor-file-picker": "^8.0.4",
-    "@capgo/capacitor-media-session": "^8.0.29",
     "@lucide/vue": "^1.31.0",
     "@pixi/app": "^7.4.3",
     "@pixi/core": "^7.4.3",

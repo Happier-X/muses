@@ -19,6 +19,3 @@ project(':capacitor-status-bar').projectDir = new File('../node_modules/.pnpm/@c
 
 include ':capawesome-capacitor-file-picker'
 project(':capawesome-capacitor-file-picker').projectDir = new File('../node_modules/.pnpm/@capawesome+capacitor-file-_534f93c3d08f7cc47eb347939297375b/node_modules/@capawesome/capacitor-file-picker/android')
-
-include ':capgo-capacitor-media-session'
-project(':capgo-capacitor-media-session').projectDir = new File('../node_modules/.pnpm/@capgo+capacitor-media-session@8.0.29_@capacitor+core@8.5.0/node_modules/@capgo/capacitor-media-session/android')
