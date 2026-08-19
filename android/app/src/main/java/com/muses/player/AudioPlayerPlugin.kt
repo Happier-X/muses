@@ -17,6 +17,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -143,20 +144,27 @@ class AudioPlayerPlugin : Plugin() {
         }
     }
 
+    private var currentDataSourceFactory: DefaultDataSource.Factory? = null
+
     @androidx.annotation.OptIn(UnstableApi::class)
-    private fun initExoPlayer() {
-        if (exoPlayer != null) return
+    private fun initExoPlayer(dataSourceFactory: DefaultDataSource.Factory? = null) {
+        val factory = dataSourceFactory ?: DefaultDataSource.Factory(context)
+        currentDataSourceFactory = factory
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
 
+        exoPlayer?.release()
         exoPlayer = ExoPlayer.Builder(context)
             .setAudioAttributes(audioAttributes, handleAudioFocus)
             .setHandleAudioBecomingNoisy(true)
             .setSeekBackIncrementMs(5000)
             .setSeekForwardIncrementMs(5000)
+            .setMediaSourceFactory(
+                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(factory)
+            )
             .build()
             .apply {
                 addListener(playerListener)
@@ -169,7 +177,7 @@ class AudioPlayerPlugin : Plugin() {
         val currentMediaItem = exoPlayer?.currentMediaItem
         
         releaseExoPlayer()
-        initExoPlayer()
+        initExoPlayer(currentDataSourceFactory)
         
         // 恢复状态
         if (currentMediaItem != null) {
@@ -192,11 +200,14 @@ class AudioPlayerPlugin : Plugin() {
 
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
+            android.util.Log.d("AudioPlayer", "onPlaybackStateChanged: $playbackState")
             when (playbackState) {
                 Player.STATE_READY -> {
+                    android.util.Log.d("AudioPlayer", "STATE_READY: position=${exoPlayer?.currentPosition}, duration=${exoPlayer?.duration}")
                     emitState()
                 }
                 Player.STATE_ENDED -> {
+                    android.util.Log.d("AudioPlayer", "STATE_ENDED: position=${exoPlayer?.currentPosition}, duration=${exoPlayer?.duration}")
                     emitState(status = "finished")
                     // 通知 JS 切下一首
                     notifyPlaybackComplete()
@@ -205,6 +216,7 @@ class AudioPlayerPlugin : Plugin() {
                     emitState(status = "loading")
                 }
                 Player.STATE_IDLE -> {
+                    android.util.Log.d("AudioPlayer", "STATE_IDLE")
                     emitState(status = "idle")
                 }
             }
@@ -228,26 +240,30 @@ class AudioPlayerPlugin : Plugin() {
         val volume = call.getDouble("volume", 1.0) ?: 1.0
         val headers = call.getObject("audioHeaders")
 
-        // 音频焦点设置在 load 时不变，需要通过 setAudioFocus 方法单独设置
-
-        bridge.execute {
+        bridge.activity.runOnUiThread {
             try {
                 currentSongId = songId
 
-                // 构建 DataSource.Factory
-                val dataSourceFactory = if (headers != null && headers.length() > 0) {
+                // 构建 DataSource.Factory（带认证头）
+                val hasHeaders = headers != null && headers.length() > 0
+                
+                if (hasHeaders) {
+                    // 有 Header：检查是否需要重建 factory（首次或 Header 变化）
                     val httpHeaders = mutableMapOf<String, String>()
                     for (key in headers.keys()) {
                         headers.getString(key)?.let { httpHeaders[key] = it }
                     }
-                    DefaultHttpDataSource.Factory()
-                        .setDefaultRequestProperties(httpHeaders)
-                        .setConnectTimeoutMs(15_000)
-                        .setReadTimeoutMs(0)
-                } else {
-                    DefaultHttpDataSource.Factory()
-                        .setConnectTimeoutMs(15_000)
-                        .setReadTimeoutMs(0)
+                    // 如果还没有 factory 或者是 HTTP 请求，初始化带 Header 的 factory
+                    if (currentDataSourceFactory == null || uri.startsWith("http")) {
+                        val httpDataSource = DefaultHttpDataSource.Factory()
+                            .setDefaultRequestProperties(httpHeaders)
+                            .setConnectTimeoutMs(15_000)
+                            .setReadTimeoutMs(0)
+                        val factory = DefaultDataSource.Factory(context, httpDataSource)
+                        initExoPlayer(factory)
+                    }
+                } else if (currentDataSourceFactory == null) {
+                    initExoPlayer()
                 }
 
                 // 构建 MediaItem
@@ -274,56 +290,70 @@ class AudioPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun play(call: PluginCall) {
-        exoPlayer?.play()
-        emitState()
-        call.resolve()
+        bridge.activity.runOnUiThread {
+            exoPlayer?.play()
+            emitState()
+            call.resolve()
+        }
     }
 
     @PluginMethod
     fun pause(call: PluginCall) {
-        exoPlayer?.pause()
-        emitState()
-        call.resolve()
+        bridge.activity.runOnUiThread {
+            exoPlayer?.pause()
+            emitState()
+            call.resolve()
+        }
     }
 
     @PluginMethod
     fun stop(call: PluginCall) {
-        exoPlayer?.stop()
-        currentSongId = null
-        emitState(status = "stopped")
-        call.resolve()
+        bridge.activity.runOnUiThread {
+            exoPlayer?.stop()
+            currentSongId = null
+            emitState(status = "stopped")
+            call.resolve()
+        }
     }
 
     @PluginMethod
     fun seek(call: PluginCall) {
         val position = call.getDouble("position", 0.0) ?: 0.0
-        exoPlayer?.seekTo((position * 1000).toLong())
-        emitState()
-        call.resolve()
+        bridge.activity.runOnUiThread {
+            exoPlayer?.seekTo((position * 1000).toLong())
+            emitState()
+            call.resolve()
+        }
     }
 
     @PluginMethod
     fun setVolume(call: PluginCall) {
         val volume = call.getDouble("volume", 1.0) ?: 1.0
-        exoPlayer?.setVolume(volume.toFloat().coerceIn(0f, 1f))
-        call.resolve()
+        bridge.activity.runOnUiThread {
+            exoPlayer?.setVolume(volume.toFloat().coerceIn(0f, 1f))
+            call.resolve()
+        }
     }
 
     @PluginMethod
     fun getState(call: PluginCall) {
-        val state = buildState()
-        call.resolve(state)
+        bridge.activity.runOnUiThread {
+            val state = buildState()
+            call.resolve(state)
+        }
     }
 
     @PluginMethod
     fun setAudioFocus(call: PluginCall) {
         val enabled = call.getBoolean("enabled", true) ?: true
-        if (enabled != handleAudioFocus) {
-            handleAudioFocus = enabled
-            // ExoPlayer 的 audioFocus 设置只能在构建时指定，需要重建
-            rebuildExoPlayer()
+        bridge.activity.runOnUiThread {
+            if (enabled != handleAudioFocus) {
+                handleAudioFocus = enabled
+                // ExoPlayer 的 audioFocus 设置只能在构建时指定，需要重建
+                rebuildExoPlayer()
+            }
+            call.resolve()
         }
-        call.resolve()
     }
 
     @PluginMethod
