@@ -125,16 +125,48 @@ class AudioPlayerPlugin : Plugin() {
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying) {
+                    startPositionPolling()
+                } else {
+                    stopPositionPolling()
+                }
                 emitState()
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                stopPositionPolling()
                 emitState(status = "error", errorMessage = error.message ?: "播放失败")
             }
         })
     }
 
+    // --------------- 位置轮询 ---------------
+    private var positionPollTimer: android.os.Handler? = null
+    private var positionPollRunnable: Runnable? = null
+    private val POSITION_POLL_MS = 500L
+
+    private fun startPositionPolling() {
+        stopPositionPolling()
+        positionPollTimer = android.os.Handler(android.os.Looper.getMainLooper())
+        positionPollRunnable = object : Runnable {
+            override fun run() {
+                if (mediaController?.isPlaying == true) {
+                    emitState()
+                    positionPollTimer?.postDelayed(this, POSITION_POLL_MS)
+                }
+            }
+        }
+        positionPollTimer?.postDelayed(positionPollRunnable!!, POSITION_POLL_MS)
+    }
+
+    private fun stopPositionPolling() {
+        positionPollRunnable?.let { positionPollTimer?.removeCallbacks(it) }
+        positionPollTimer = null
+        positionPollRunnable = null
+    }
+
     private fun disconnectMediaController() {
+        stopPositionPolling()
         mediaController?.release()
         mediaController = null
         controllerFuture?.cancel(true)
