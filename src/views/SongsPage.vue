@@ -36,6 +36,17 @@
                 >
                   <component :is="crosshair" aria-hidden="true" class="songs-page__toolbar-left-icon" />
                 </button>
+                <button
+                  type="button"
+                  class="songs-page__toolbar-left-btn songs-page__toolbar-left-btn--scrape"
+                  aria-label="刮削队列"
+                  @click="router.push('/scrape')"
+                >
+                  <component :is="listChecks" aria-hidden="true" class="songs-page__toolbar-left-icon" />
+                  <span v-if="scrapeQueueCount > 0" class="songs-page__scrape-badge">
+                    {{ scrapeQueueCount > 99 ? '99+' : scrapeQueueCount }}
+                  </span>
+                </button>
                 <span class="songs-page__toolbar-count">{{ songs.length }}</span>
               </div>
               <!-- 多选模式计数 -->
@@ -321,9 +332,10 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
+import { useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
-import { checkCheck, crosshair, searchOutline, shuffle } from '@/icons'
+import { checkCheck, crosshair, listChecks, searchOutline, shuffle } from '@/icons'
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
   MButton, MDialog, MDialogButton, MFab, MIconButton, MList, MListItem, MListInput,
@@ -331,7 +343,7 @@ import {
 } from '@/components/ui'
 import { loadSongs, SONGS_UPDATED_EVENT } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
-import { enqueueScrapeSongs } from '@/features/scrape/queue'
+import { enqueueScrapeSongs, loadScrapeQueue, onScrapeQueueChanged } from '@/features/scrape/queue'
 import { pickSuspiciousSongs } from '@/features/scrape/suspicious'
 import {
   getSongAlbumName, getSongArtistName, SONG_SORT_MENU, sortSongsByMode,
@@ -353,6 +365,7 @@ import {
   toggleShuffle,
 } from '@/features/player/controller'
 
+const router = useRouter()
 const songs = ref<SongItem[]>([])
 const listParentRef = ref<HTMLElement | null>(null)
 /** 挂载后防漂移 guard 的交互标记（touchstart/wheel/FAB 跳转都会置位，停止拉回 scrollTop） */
@@ -376,6 +389,12 @@ const isSortMenuOpen = ref(false)
 /** child2：筛选可疑歌曲批量入队 */
 const isSuspiciousConfirmOpen = ref(false)
 const suspiciousCount = computed(() => pickSuspiciousSongs(songs.value).length)
+
+/** 刮削队列计数 */
+const scrapeQueueCount = ref(loadScrapeQueue().items.length)
+const refreshScrapeQueueCount = (): void => {
+  scrapeQueueCount.value = loadScrapeQueue().items.length
+}
 
 /** 多选模式 */
 const isMultiSelect = ref(false)
@@ -852,10 +871,16 @@ onMounted(() => {
   window.setTimeout(() => window.clearInterval(iv), 4000)
 })
 
+let scrapeQueueUnsubscribe: (() => void) | null = null
+onMounted(() => {
+  scrapeQueueUnsubscribe = onScrapeQueueChanged(refreshScrapeQueueCount)
+})
+
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener(SONGS_UPDATED_EVENT, refreshSongs)
   }
+  scrapeQueueUnsubscribe?.()
   if (scrollIdleTimer) {
     clearTimeout(scrollIdleTimer)
     scrollIdleTimer = null
@@ -989,6 +1014,27 @@ onUnmounted(() => {
     width: 20px;
     height: 20px;
     color: var(--m-text);
+  }
+
+  &__toolbar-left-btn--scrape {
+    position: relative;
+  }
+
+  &__scrape-badge {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--m-primary);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+    pointer-events: none;
   }
 
   &__toolbar-left-text {
