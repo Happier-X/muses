@@ -39,6 +39,12 @@ dependencies {
     implementation "androidx.documentfile:documentfile:$documentFileVersion"
     implementation "com.squareup.okhttp3:okhttp:$okhttpVersion"
     implementation 'net.jthink:jaudiotagger:3.0.1'
+    
+    // ExoPlayer Media3
+    implementation "androidx.media3:media3-exoplayer:1.5.0"
+    implementation "androidx.media3:media3-common:1.5.0"
+    implementation "androidx.media3:media3-datasource-okhttp:1.5.0"
+    
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"

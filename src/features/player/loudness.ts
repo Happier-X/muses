@@ -1,4 +1,4 @@
-/** capgo NativeAudio 文档约定的音量范围 */
+/** 音量范围：0.1 - 1.0 */
 export const PLAYBACK_VOLUME_MIN = 0.1
 export const PLAYBACK_VOLUME_MAX = 1.0
 

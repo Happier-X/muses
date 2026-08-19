@@ -15,8 +15,9 @@
 ### 前端播放器封装
 
 - 业务层通过 `src/features/player/controller.ts` 调用统一的 `AudioPlayerNative` 抽象接口（`native.ts` 导出）。
-- **永远不要**在 controller 层直接引入或调用原生播放器插件（Capacitor Plugin / NativeAudio）；播放器插件只存在于 `native.ts` 的封装层。
-- `AudioPlayerNative` 现在底层实际使用 `@capgo/capacitor-native-audio`（播放引擎）和 `@capgo/capacitor-media-session`（系统媒体通知与按键映射）两个 Capacitor 插件。
+- **永远不要**在 controller 层直接引入或调用原生播放器插件；播放器插件只存在于 `native.ts` 的封装层。
+- `AudioPlayerNative` 现在底层实际使用 ExoPlayer Media3（播放引擎）和 `@capgo/capacitor-media-session`（系统媒体通知与按键映射）。
+- ExoPlayer 通过自定义 `AudioPlayer` Capacitor 插件封装，JS 层通过 `AudioPlayerBridge` 接口调用。
 
 ### 通知架构（整理版）
 
@@ -26,9 +27,9 @@
    该项目历史上曾尝试使用 media3 的 `MediaSessionService + DefaultMediaNotificationProvider` 机制，但在自定义 `ACTION_PLAY` Intent 通道下，`DefaultMediaNotificationProvider` 的 `shouldShowNotification` 条件一直未完全满足，导致通知无法稳定显示官方媒体卡片。  
    **因此**：不再使用 media3 的 MediaSessionService 作为媒体通知创建者。
 
-2. **`@capgo/capacitor-native-audio` 负责播放**  
-   配置文件内 `showNotification: false`（因为通知已由 media-session 单独管理）。  
-   配置内容：`focus: true`、`background: true`、`backgroundPlayback: true`。
+2. **ExoPlayer Media3 负责播放**  
+   通过自定义 `AudioPlayer` Capacitor 插件封装 ExoPlayer。  
+   音频焦点默认开启（`handleAudioFocus=true`），可通过 `setAudioFocus` 方法关闭。
 
 3. **`@capgo/capacitor-media-session` 负责通知**  
    - 通知栏使用 `MediaStyle + MediaSessionCompat`，官方模板 `Notification$MediaStyle`。

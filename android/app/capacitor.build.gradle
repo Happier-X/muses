@@ -16,7 +16,6 @@ dependencies {
     implementation project(':capacitor-status-bar')
     implementation project(':capawesome-capacitor-file-picker')
     implementation project(':capgo-capacitor-media-session')
-    implementation project(':capgo-capacitor-native-audio')
 
 }
 
