@@ -32,7 +32,7 @@ All component styling uses SCSS with BEM-like or scoped nested class names. **Ta
 
 自 `08-12-drop-konsta-tailwind-for-scss` 起，应用**彻底移除了 `konsta` 和 `tailwindcss`**；自 `08-13-salt-player-replica` 起，组件契约保持不变，视觉 token 改为 Salt Player / SaltUI 口径。所有 UI 控件仍在 `src/components/ui/` 下自研。
 
-- **`m-*` 组件契约**：设计对齐了历史接口以避免业务逻辑重构。包括 `MButton`, `MList`, `MToggle`（暴露原生 `@change` 和 `.checked`）, `MRange`（支持 `modelValue` 与兼容 `value`）, `MNavbar`, `MTabbar`, `MDialog`, `MToast` 等 28 个基础组件。
+- **`m-*` 组件契约**：设计对齐了历史接口以避免业务逻辑重构。包括 `MButton`, `MList`, `MToggle`（暴露原生 `@change` 和 `.checked`）, `MRange`（支持 `modelValue` 与兼容 `value`）, `MNavbar`, `MTabbar`, `MDialog`, `MToast` 等 28 个基础组件。**防坑（08-21-fix-webdav-browser-row-layout）**：`MButton` 默认 `width: 100%`（块级撑满，`--inline` 修饰符才是 auto）；在 flex 行内与其它元素并排时必须用 `:deep(.m-button) { width: auto; flex: 0 0 auto; }` 约束，否则它会以整行宽度参与 flex 分配，把 `flex: 1` 的兄弟挤成 0 宽、文字竖排错位。
 - **Salt 颜色契约**：亮色 `--m-primary/#0470E6`、`--m-surface/#F3F3F3`、`--m-text/#1E1715`；暗色 `--m-primary/#0088FF`、`--m-surface/#202020`、`--m-text/#EBEEF1`。透明主色背景必须使用 `rgba(var(--m-primary-rgb), alpha)`，禁止把亮色 RGB 写死，否则暗色 highlight 不会切换。
 - **Salt 尺寸契约**：圆角使用 `--m-radius-sm/md/lg/card/dialog`（8/16/24/12/20px）；列表行高 `--m-list-row-h: 56px`，列表图标 `--m-list-icon: 24px`，间距 `--m-spacing/--m-spacing-sub`（16/12px），字号 `--m-font-size-sm/md/lg`（12/16/24px）。组件和页面不得另造相同语义的硬编码值。
 - **body 必须 `margin: 0`**（`src/theme/index.scss`）：重置浏览器默认 8px，否则 #app 右移 8px、窄 16px，所有页面与椒盐对齐失败。全局影响面已验证无回归（MiniPlayer bottom 定位、浮层 inset:0、safe-area 变量均基于视口，不受 body margin 影响）。
