@@ -41,12 +41,34 @@ interface AudioPlayerBridgePlugin {
   }): Promise<{ cached: boolean; started: boolean }>
   prepareArtworkDataUrl(options: { uri: string }): Promise<{ dataUrl: string | null }>
   cacheRemoteCover(options: { url: string; cacheKey: string }): Promise<{ uri: string | null }>
+  updateQueueContext(options: {
+    windowTracks: Array<{
+      songId: string
+      url: string
+      title: string
+      artist: string
+      album: string
+      coverUrl: string
+      durationMs: number
+      playListIndex: number
+    }>
+    windowCurrentIndex: number
+    repeatMode: string
+    hasPreviousOutsideWindow: boolean
+    hasNextOutsideWindow: boolean
+    shuffleEnabled?: boolean
+    windowResetFromWrap?: boolean
+  }): Promise<void>
   addListener(
     eventName: 'stateChange',
     listenerFunc: (state: PlayerState) => void,
   ): Promise<PluginListenerHandle>
   addListener(
     eventName: 'playbackComplete',
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>
+  addListener(
+    eventName: 'requestUrls',
     listenerFunc: () => void,
   ): Promise<PluginListenerHandle>
 }
@@ -97,6 +119,11 @@ const notifyState = (state: AudioPlayerNativeState): void => {
   stateListeners.forEach((listener) => listener(state))
 }
 
+const requestUrlsListeners = new Set<() => void>()
+const notifyRequestUrls = (): void => {
+  requestUrlsListeners.forEach((listener) => listener())
+}
+
 const emitCurrentState = (status: PlaybackStatus = currentStatus): void => {
   currentStatus = status
   notifyState({
@@ -143,7 +170,16 @@ const ensureNativeListeners = async (): Promise<void> => {
       emitCurrentState('finished')
     })
 
-    nativeListenerHandles = [handle1, handle2]
+    let handle3: PluginListenerHandle | null = null
+    try {
+      handle3 = await AudioPlayerBridge.addListener('requestUrls', () => {
+        notifyRequestUrls()
+      })
+    } catch {
+      // 旧原生包无此事件，静默降级
+    }
+
+    nativeListenerHandles = handle3 ? [handle1, handle2, handle3] : [handle1, handle2]
   } catch {
     // 监听失败静默
   }
@@ -285,12 +321,51 @@ export const AudioPlayerNative = {
     return {
       remove: async () => {
         stateListeners.delete(listenerFunc)
-        if (stateListeners.size === 0) {
+        if (stateListeners.size === 0 && requestUrlsListeners.size === 0) {
           await Promise.all(nativeListenerHandles.map((handle) => handle.remove()))
           nativeListenerHandles = []
           nativeListenersReady = false
         }
       },
+    }
+  },
+
+  async addRequestUrlsListener(listener: () => void): Promise<PluginListenerHandle> {
+    requestUrlsListeners.add(listener)
+    await ensureNativeListeners().catch(() => undefined)
+    return {
+      remove: async () => {
+        requestUrlsListeners.delete(listener)
+        if (stateListeners.size === 0 && requestUrlsListeners.size === 0) {
+          await Promise.all(nativeListenerHandles.map((handle) => handle.remove()))
+          nativeListenerHandles = []
+          nativeListenersReady = false
+        }
+      },
+    }
+  },
+
+  async updateQueueContext(options: {
+    windowTracks: Array<{
+      songId: string
+      url: string
+      title: string
+      artist: string
+      album: string
+      coverUrl: string
+      durationMs: number
+      playListIndex: number
+    }>
+    windowCurrentIndex: number
+    repeatMode: string
+    hasPreviousOutsideWindow: boolean
+    hasNextOutsideWindow: boolean
+    windowResetFromWrap?: boolean
+  }): Promise<void> {
+    try {
+      await AudioPlayerBridge.updateQueueContext(options)
+    } catch {
+      // 非 Android 或旧包，静默忽略
     }
   },
 }

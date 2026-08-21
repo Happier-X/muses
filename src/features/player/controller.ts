@@ -22,14 +22,8 @@ import {
   needsOnlineTextMeta,
 } from '@/features/metadata'
 import { AudioPlayerNative, cacheRemoteCover, prefetchWebDavAudioFile } from './native'
-import {
-  addAutoNextEventListeners,
-  clearNativeAutoNextPlan,
-  setNativeAutoNextPlan,
-  syncCurrentAsset as syncNativeCurrentAsset,
-  toAssetId,
-} from './native'
 import { prefetchNextMetadata, shouldPrefetchNextMetadata } from './prefetchMetadata'
+import { setupNativeQueueSyncListener, syncQueueToNative } from './nativeQueueSync'
 import { dbToPlaybackVolume } from './loudness'
 import type { AudioPlayerNativeState, PlaybackStatus, PlayOptions, PlayerState } from './types'
 import {
@@ -168,6 +162,15 @@ const isCurrentNativeState = (nativeState: AudioPlayerNativeState): boolean => {
 
 const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
   if (!isCurrentNativeState(nativeState)) {
+    // 原生队列自治：后台已切到新歌（JS冻结期间），前端收到 playing 新歌事件需同步UI
+    if (
+      nativeState.status === 'playing'
+      && nativeState.currentSongId
+      && state.value.currentSong
+      && nativeState.currentSongId !== state.value.currentSong.id
+    ) {
+      void syncUiToNativeSong(nativeState.currentSongId)
+    }
     return
   }
 
@@ -291,6 +294,25 @@ const applyNativeState = (nativeState: AudioPlayerNativeState): void => {
 }
 
 const handlePlaybackFinished = async (): Promise<void> => {
+  // 原生自治已切歌去重：后台 STATE_ENDED 由原生直接 advance+play，JS冻结时不会执行到此；
+  // 前台时原生也会自治切歌，JS需检测原生已切则跳过重复 advance，避免跳过一首。
+  try {
+    const nativeState = await AudioPlayerNative.getState()
+    if (nativeState.currentSongId && nativeState.currentSongId !== state.value.currentSong?.id) {
+      const idx = findQueueIndexBySongId(nativeState.currentSongId)
+      if (idx >= 0) {
+        syncCurrentIndex(nativeState.currentSongId)
+        const song = loadSongs().find((s) => s.id === nativeState.currentSongId)
+        if (song) {
+          await syncUiToNativeSong(nativeState.currentSongId)
+        }
+      }
+      void syncQueueToNative()
+      return
+    }
+  } catch {
+    // getState 失败则按原逻辑推进
+  }
   const nextSong = advanceToNext()
   if (nextSong) {
     await playSong(nextSong)
@@ -384,10 +406,10 @@ const restorePlaybackSessionIfNeeded = (): void => {
 }
 
 /**
- * 同步 UI 到原生已在播的曲目（原生预案兜底成功后 JS 恢复时调用）。
+ * 同步 UI 到原生已在播的曲目（原生自治切歌后 JS 恢复时调用）。
  * 走 playSongInternal 的 nativeAlreadyPlaying 模式：不重复调原生 play。
  */
-const syncUiToNativeSong = async (songId: string): Promise<void> => {
+async function syncUiToNativeSong(songId: string): Promise<void> {
   if (!songId || songId === state.value.currentSong?.id) {
     return
   }
@@ -398,8 +420,6 @@ const syncUiToNativeSong = async (songId: string): Promise<void> => {
   recordRecentPlay(song)
   pendingResumePosition = null
   clearResumeSeekGuard()
-  // 对齐原生模块内部 asset 状态，避免旧 assetId 过滤掉新曲的事件/轮询
-  syncNativeCurrentAsset(song.id, song.sourceType)
   await playSongInternal(song, undefined, { nativeAlreadyPlaying: true })
 }
 
@@ -478,21 +498,13 @@ export const initializePlayer = async (): Promise<void> => {
     seekto: seekPlayback,
   })
 
-  // 原生预案兜底事件：JS 恢复后同步 UI（原生已在播，不重复起播）
-  await addAutoNextEventListeners({
-    onStarted: (songId) => {
-      if (songId && songId !== state.value.currentSong?.id) {
-        void syncUiToNativeSong(songId)
-      }
-    },
-    onFailed: () => {
-      // 预案播放失败：回前台对账/心跳兜底继续处理
-    },
-  })
+  // 原生队列自治：监听 requestUrls 补窗，并同步队列窗口
+  await setupNativeQueueSyncListener()
 
-  // 队列/模式变化后重算预案（有当前播放时）
+  // 队列/模式变化后同步原生窗口 + 重调度预取
   onQueueChanged(() => {
-    void registerAutoNextPlan()
+    void syncQueueToNative()
+    reschedulePrefetchAfterQueueChange()
   })
 
   // 后台心跳：complete 事件丢失时兜底补切歌
@@ -506,6 +518,9 @@ export const initializePlayer = async (): Promise<void> => {
 
   // 原生无活跃播放时恢复上次会话为暂停展示（#49）
   restorePlaybackSessionIfNeeded()
+
+  // 初始化同步一次窗口到原生，确保后台自治可用
+  void syncQueueToNative()
 }
 
 const normalizePlaybackTime = (value: unknown): number => {
@@ -1094,31 +1109,37 @@ const reschedulePrefetchAfterQueueChange = (): void => {
 
 export const enqueueSongs = (songs: SongItem[]): void => {
   enqueueSongsInternal(songs)
+  void syncQueueToNative()
   reschedulePrefetchAfterQueueChange()
 }
 
 export const enqueueSong = (song: SongItem): void => {
   enqueueSongInternal(song)
+  void syncQueueToNative()
   reschedulePrefetchAfterQueueChange()
 }
 
 export const removeSongFromQueue = (songId: string): void => {
   removeSongFromQueueInternal(songId)
+  void syncQueueToNative()
   reschedulePrefetchAfterQueueChange()
 }
 
 export const clearQueue = (): void => {
   clearQueueInternal()
+  void syncQueueToNative()
   reschedulePrefetchAfterQueueChange()
 }
 
 export const setRepeatMode = (mode: RepeatMode): void => {
   setRepeatModeInternal(mode)
+  void syncQueueToNative()
   reschedulePrefetchAfterQueueChange()
 }
 
 export const toggleShuffle = (): void => {
   toggleShuffleInternal()
+  void syncQueueToNative()
   reschedulePrefetchAfterQueueChange()
 }
 
@@ -1139,42 +1160,6 @@ const isSafePlaybackError = (message: string): boolean => {
 
 interface PlaybackRecoveryContext {
   attemptedSongIds: Set<string>
-}
-
-/**
- * 注册「下一首预案」到原生：JS 冻结时由原生兜底播放（方案 C）。
- * 幂等、静默；预案更新说明 JS 活跃，切歌仍由 JS 主导。
- */
-const registerAutoNextPlan = async (): Promise<void> => {
-  const currentSong = state.value.currentSong
-  const nextSong = currentSong ? peekNext() : null
-  if (!currentSong || !nextSong) {
-    await clearNativeAutoNextPlan()
-    return
-  }
-  try {
-    const options = await buildPlayOptions(nextSong)
-    await setNativeAutoNextPlan({
-      songId: nextSong.id,
-      assetId: toAssetId(nextSong.id),
-      assetPath: options.sourceType === 'webdav' ? options.url : options.uri,
-      isUrl: options.sourceType === 'webdav' || options.uri.startsWith('file://'),
-      username: options.sourceType === 'webdav' ? options.username : undefined,
-      password: options.sourceType === 'webdav' ? options.password : undefined,
-      volume: options.volume ?? 1,
-      currentAssetId: toAssetId(currentSong.id),
-      title: options.title,
-      artist: options.artist,
-    })
-  } catch {
-    // 预案注册失败静默：原生兜底不可用时，JS 心跳/回前台对账仍在
-    await clearNativeAutoNextPlan().catch(() => undefined)
-  }
-}
-
-/** 清空预案：停止播放 / 队列尾 / 播放失败链终止。 */
-const clearAutoNextPlan = async (): Promise<void> => {
-  await clearNativeAutoNextPlan()
 }
 
 const playSongInternal = async (
@@ -1231,8 +1216,6 @@ const playSongInternal = async (
 
   try {
     if (!nativeAlreadyPlaying) {
-      // 切歌窗口先清预案：原生兜底轮询不得触发上一首的旧预案
-      await clearAutoNextPlan()
       try {
         await AudioPlayerNative.ensureNotificationPermission()
       } catch {
@@ -1277,8 +1260,8 @@ const playSongInternal = async (
     void scanSongMetadata(latestSong)
     // 播放成功后后台预取下一首 WebDAV（失败静默）
     void prefetchNextTrack(latestSong.id)
-    // 注册「下一首预案」：锁屏/后台 JS 冻结时由原生兜底自动切歌
-    void registerAutoNextPlan()
+    // 同步原生队列窗口：原生自治切歌依赖此窗口
+    void syncQueueToNative()
   } catch (error) {
     if (generation !== playGeneration || state.value.currentSong?.id !== latestSong.id) {
       return
@@ -1304,8 +1287,8 @@ const playSongInternal = async (
       return
     }
 
-    // 恢复链终止：清预案，避免原生兜底播放不存在的下一首
-    await clearAutoNextPlan()
+    // 恢复链终止：通知原生窗口为空，避免兜底播放不存在的下一首
+    void syncQueueToNative().catch(() => undefined)
     // loading 会乐观映射为 playing；仅恢复链终止时清掉媒体会话。
     stopKeepAlive()
     void clearMediaSession().catch(() => undefined)
@@ -1421,7 +1404,7 @@ export const stopPlayback = async (): Promise<void> => {
     // 显式 stop：允许随后 native stopped 事件清空（自身也会同步清空）
     allowNativeClearCurrentSong = true
     await AudioPlayerNative.stop()
-    await clearAutoNextPlan()
+    void syncQueueToNative().catch(() => undefined)
     clearSeekGuard()
     pendingResumePosition = null
     clearResumeSeekGuard()

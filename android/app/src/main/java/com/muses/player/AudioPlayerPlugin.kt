@@ -74,21 +74,33 @@ class AudioPlayerPlugin : Plugin() {
 
     override fun load() {
         super.load()
-        startPlaybackService()
+        // 播放时再启动前台服务，避免空载 FGS 导致的 ANR（startForegroundService 未及时 startForeground）
         connectMediaController()
+        PlaybackService.requestUrlsListener = {
+            notifyListeners("requestUrls", JSObject())
+        }
     }
 
     override fun handleOnDestroy() {
+        if (PlaybackService.requestUrlsListener != null) {
+            PlaybackService.requestUrlsListener = null
+        }
         disconnectMediaController()
         super.handleOnDestroy()
     }
 
-    private fun startPlaybackService() {
+    private fun startPlaybackServiceIfNeeded() {
+        if (PlaybackService.instance != null) return
         val intent = Intent(context, PlaybackService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (_: Exception) {
+            // 忽略 ForegroundServiceStartNotAllowed 等异常，MediaController 绑定仍可拉起 Service
+            try { context.startService(intent) } catch (_: Exception) {}
         }
     }
 
@@ -184,6 +196,7 @@ class AudioPlayerPlugin : Plugin() {
 
         bridge.activity.runOnUiThread {
             try {
+                startPlaybackServiceIfNeeded()
                 currentSongId = songId
 
                 // 构建 DataSource.Factory（带认证头）
@@ -290,6 +303,41 @@ class AudioPlayerPlugin : Plugin() {
             return
         }
         requestPermissionForAlias("notifications", call, "onNotificationPermissionResult")
+    }
+
+    @PluginMethod
+    fun updateQueueContext(call: PluginCall) {
+        try {
+            val windowTracks = call.getArray("windowTracks")
+            val windowCurrentIndex = call.getInt("windowCurrentIndex", -1) ?: -1
+            val repeatMode = call.getString("repeatMode") ?: "all"
+            val hasPrev = call.getBoolean("hasPreviousOutsideWindow", false) ?: false
+            val hasNext = call.getBoolean("hasNextOutsideWindow", false) ?: false
+            val windowResetFromWrap = call.getBoolean("windowResetFromWrap", false) ?: false
+            val tracks = mutableListOf<PlaybackQueue.Track>()
+            if (windowTracks != null) {
+                for (i in 0 until windowTracks.length()) {
+                    val obj = windowTracks.optJSONObject(i) ?: continue
+                    val track = PlaybackQueue.Track()
+                    track.songId = obj.optString("songId", "")
+                    track.url = obj.optString("url", null)
+                    track.authHeader = obj.optString("authHeader", null)?.takeIf { it.isNotBlank() }
+                    track.title = obj.optString("title", "")
+                    track.artist = obj.optString("artist", "")
+                    track.album = obj.optString("album", "")
+                    track.coverUrl = obj.optString("coverUrl", "")
+                    track.durationMs = obj.optLong("durationMs", 0L)
+                    track.playListIndex = obj.optInt("playListIndex", -1)
+                    if (track.songId.isNotBlank()) {
+                        tracks.add(track)
+                    }
+                }
+            }
+            PlaybackService.instance?.updateQueueContext(tracks, windowCurrentIndex, repeatMode, hasPrev, hasNext, windowResetFromWrap)
+            call.resolve()
+        } catch (e: Exception) {
+            call.reject("更新队列失败: ${e.message}", "updateQueueFailed", e)
+        }
     }
 
     @PermissionCallback
@@ -467,12 +515,18 @@ class AudioPlayerPlugin : Plugin() {
         val controller = mediaController
         val state = JSObject()
 
-        if (controller == null || currentSongId == null) {
+        // 优先使用 MediaController 的真实 mediaId，兼容原生队列自治场景（Service直接切歌时 currentSongId 未更新）
+        val actualSongId = controller?.currentMediaItem?.mediaId ?: currentSongId
+        if (controller == null || actualSongId == null) {
             state.put("status", "idle")
             state.put("position", 0)
             state.put("duration", 0)
             state.put("currentSongId", null as String?)
             return state
+        }
+        // 同步缓存的 currentSongId，避免后续不一致
+        if (actualSongId != currentSongId) {
+            currentSongId = actualSongId
         }
 
         val status = when {
@@ -484,7 +538,7 @@ class AudioPlayerPlugin : Plugin() {
         }
 
         state.put("status", status)
-        state.put("currentSongId", currentSongId)
+        state.put("currentSongId", actualSongId)
         state.put("position", controller.currentPosition / 1000.0)
         state.put("duration", controller.duration / 1000.0)
         state.put("bufferedPosition", controller.bufferedPosition / 1000.0)
