@@ -1,28 +1,32 @@
 <template>
-  <AnimatePresence>
-    <template v-if="opened">
-      <motion.div
-        key="backdrop"
-        class="m-overlay-backdrop m-popup-backdrop"
-        :initial="{ opacity: 0 }"
-        :animate="{ opacity: transparent ? 0 : 1 }"
-        :exit="{ opacity: 0 }"
-        :transition="{ duration: 0.3 }"
-        @click="onBackdropClick"
-      />
-      <motion.div
-        key="panel"
-        class="m-popup"
-        :class="{ 'm-popup--fullscreen': fullscreen, 'm-popup--transparent': transparent }"
-        :initial="{ x: '-50%', y: '100vh' }"
-        :animate="{ x: '-50%', y: '-50%' }"
-        :exit="{ x: '-50%', y: '100vh' }"
-        :transition="{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }"
-      >
-        <slot />
-      </motion.div>
-    </template>
-  </AnimatePresence>
+  <!-- Teleport to body：TabsPage 推屏轨道带 transform，会成为 fixed 后代的包含块，
+       不脱离的话全屏弹层相对轨道而非视口定位（08-21-fix-overlay-fixed-containing-block）。 -->
+  <Teleport to="body">
+    <AnimatePresence>
+      <template v-if="opened">
+        <motion.div
+          key="backdrop"
+          class="m-overlay-backdrop m-popup-backdrop"
+          :initial="{ opacity: 0 }"
+          :animate="{ opacity: transparent ? 0 : 1 }"
+          :exit="{ opacity: 0 }"
+          :transition="{ duration: 0.3 }"
+          @click="onBackdropClick"
+        />
+        <motion.div
+          key="panel"
+          class="m-popup"
+          :class="{ 'm-popup--fullscreen': fullscreen, 'm-popup--transparent': transparent }"
+          :initial="{ x: '-50%', y: '100vh' }"
+          :animate="{ x: '-50%', y: '-50%' }"
+          :exit="{ x: '-50%', y: '100vh' }"
+          :transition="{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }"
+        >
+          <slot />
+        </motion.div>
+      </template>
+    </AnimatePresence>
+  </Teleport>
 </template>
 
 <script setup lang="ts">

@@ -1,37 +1,41 @@
 <template>
-  <AnimatePresence>
-    <template v-if="opened">
-      <motion.div
-        key="backdrop"
-        class="m-overlay-backdrop m-dialog-backdrop"
-        :initial="{ opacity: 0 }"
-        :animate="{ opacity: 1 }"
-        :exit="{ opacity: 0 }"
-        :transition="{ duration: 0.3 }"
-        @click="onBackdropClick"
-      />
-      <motion.div
-        key="panel"
-        class="m-dialog"
-        :initial="{ x: '-50%', y: '-50%', scale: 0.85, opacity: 0 }"
-        :animate="{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }"
-        :exit="{ x: '-50%', y: '-50%', scale: 0.85, opacity: 0 }"
-        :transition="{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }"
-      >
-        <div class="m-dialog__content-wrap">
-          <div v-if="title || $slots.title" class="m-dialog__title">
-            <slot name="title">{{ title }}</slot>
+  <!-- Teleport to body：TabsPage 推屏轨道带 transform，会成为 fixed 后代的包含块，
+       不脱离的话对话框相对轨道而非视口定位（08-21-fix-overlay-fixed-containing-block）。 -->
+  <Teleport to="body">
+    <AnimatePresence>
+      <template v-if="opened">
+        <motion.div
+          key="backdrop"
+          class="m-overlay-backdrop m-dialog-backdrop"
+          :initial="{ opacity: 0 }"
+          :animate="{ opacity: 1 }"
+          :exit="{ opacity: 0 }"
+          :transition="{ duration: 0.3 }"
+          @click="onBackdropClick"
+        />
+        <motion.div
+          key="panel"
+          class="m-dialog"
+          :initial="{ x: '-50%', y: '-50%', scale: 0.85, opacity: 0 }"
+          :animate="{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }"
+          :exit="{ x: '-50%', y: '-50%', scale: 0.85, opacity: 0 }"
+          :transition="{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }"
+        >
+          <div class="m-dialog__content-wrap">
+            <div v-if="title || $slots.title" class="m-dialog__title">
+              <slot name="title">{{ title }}</slot>
+            </div>
+            <div class="m-dialog__content">
+              <slot />
+            </div>
+            <div v-if="$slots.buttons" class="m-dialog__buttons">
+              <slot name="buttons" />
+            </div>
           </div>
-          <div class="m-dialog__content">
-            <slot />
-          </div>
-          <div v-if="$slots.buttons" class="m-dialog__buttons">
-            <slot name="buttons" />
-          </div>
-        </div>
-      </motion.div>
-    </template>
-  </AnimatePresence>
+        </motion.div>
+      </template>
+    </AnimatePresence>
+  </Teleport>
 </template>
 
 <script setup lang="ts">

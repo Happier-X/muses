@@ -1,27 +1,31 @@
 <template>
-  <AnimatePresence>
-    <template v-if="opened">
-      <motion.div
-        key="backdrop"
-        class="m-overlay-backdrop m-sheet-backdrop"
-        :initial="{ opacity: 0 }"
-        :animate="{ opacity: 1 }"
-        :exit="{ opacity: 0 }"
-        :transition="{ duration: 0.3 }"
-        @click="onBackdropClick"
-      />
-      <motion.div
-        key="panel"
-        class="m-sheet"
-        :initial="{ y: '100%' }"
-        :animate="{ y: 0 }"
-        :exit="{ y: '100%' }"
-        :transition="{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }"
-      >
-        <slot />
-      </motion.div>
-    </template>
-  </AnimatePresence>
+  <!-- Teleport to body：TabsPage 推屏轨道带 transform，会成为 fixed 后代的包含块，
+       不脱离的话底部面板相对轨道而非视口定位（08-21-fix-overlay-fixed-containing-block）。 -->
+  <Teleport to="body">
+    <AnimatePresence>
+      <template v-if="opened">
+        <motion.div
+          key="backdrop"
+          class="m-overlay-backdrop m-sheet-backdrop"
+          :initial="{ opacity: 0 }"
+          :animate="{ opacity: 1 }"
+          :exit="{ opacity: 0 }"
+          :transition="{ duration: 0.3 }"
+          @click="onBackdropClick"
+        />
+        <motion.div
+          key="panel"
+          class="m-sheet"
+          :initial="{ y: '100%' }"
+          :animate="{ y: 0 }"
+          :exit="{ y: '100%' }"
+          :transition="{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }"
+        >
+          <slot />
+        </motion.div>
+      </template>
+    </AnimatePresence>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
