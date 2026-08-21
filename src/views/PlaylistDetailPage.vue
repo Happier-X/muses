@@ -3,7 +3,7 @@
     <div class="playlist-detail-page__navbar-wrap">
       <m-navbar right-class="playlist-detail-page__right">
         <template #left>
-          <m-navbar-back-link text="返回" @click="goBack" />
+          <m-navbar-back-link aria-label="返回" @click="goBack" />
         </template>
         <template #title>{{ playlist?.name ?? '歌单' }}</template>
         <template #right>

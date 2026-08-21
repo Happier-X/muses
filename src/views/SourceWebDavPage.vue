@@ -3,7 +3,7 @@
     <div class="source-webdav-page__navbar-wrap">
       <m-navbar>
         <template #left>
-          <m-navbar-back-link text="返回" @click="goBack" />
+          <m-navbar-back-link aria-label="返回" @click="goBack" />
         </template>
         <template #title>{{ isEditMode ? '编辑 WebDAV' : '添加 WebDAV' }}</template>
       </m-navbar>
