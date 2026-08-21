@@ -212,6 +212,13 @@ defineExpose({
     min-height: var(--m-list-row-h);
     padding: 8px 0;
     border-bottom: 1px solid var(--m-hairline);
+
+    /* MButton 默认 width:100% 会以整行宽度参与 flex 分配，
+       把 flex:1 的行按钮挤成 0 宽（08-21-fix-webdav-browser-row-layout） */
+    :deep(.m-button) {
+      width: auto;
+      flex: 0 0 auto;
+    }
   }
 
   &__row-btn {
