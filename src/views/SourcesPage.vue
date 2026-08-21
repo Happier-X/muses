@@ -173,14 +173,26 @@
                     :error="firstFieldError(field.state.meta.errors)"
                   >
                     <template #input>
-                      <input
-                        :value="field.state.value"
-                        type="text"
-                        placeholder="目录"
-                        class="sources-page__input"
-                        @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
-                        @blur="field.handleBlur"
-                      />
+                      <div class="sources-page__path-row">
+                        <input
+                          :value="field.state.value"
+                          type="text"
+                          placeholder="目录"
+                          class="sources-page__input"
+                          @input="(e: Event) => field.handleChange((e.target as HTMLInputElement).value)"
+                          @blur="field.handleBlur"
+                        />
+                        <m-button
+                          v-if="sourcePendingEdit?.type === 'webdav'"
+                          component="button"
+                          variant="clear"
+                          size="small"
+                          rounded
+                          @click="openWebDavBrowser"
+                        >
+                          浏览
+                        </m-button>
+                      </div>
                     </template>
                   </m-list-input>
                 </template>
@@ -204,6 +216,21 @@
           </form>
         </div>
       </m-dialog>
+
+      <!-- 编辑流程的 WebDAV 目录浏览器：DOM 上位于编辑对话框之后，teleport 后自然叠在其上 -->
+      <m-sheet :opened="isWebDavBrowserOpen" @backdropclick="closeWebDavBrowser">
+        <div class="sources-page__sheet-body">
+          <div class="sources-page__sheet-title">浏览 WebDAV 目录</div>
+          <WebDavDirectoryBrowser
+            ref="editBrowserRef"
+            mode="single"
+            :connection="editBrowserConnection"
+            :initial-path="editBrowserInitialPath"
+            @confirm="onEditBrowserConfirm"
+            @error="showToast($event, 'danger')"
+          />
+        </div>
+      </m-sheet>
 
       <m-dialog :opened="isScanSettingsOpen" @backdropclick="closeScanSettings">
         <template #title>
@@ -358,38 +385,13 @@
           <!-- errorMessage/successMessage 已改为 showToast -->
 
           <section v-if="isWebDavConnected" class="sources-page__webdav-section">
-            <div class="sources-page__webdav-nav">
-              <m-button component="button" variant="clear" size="small" rounded :disabled="!parentWebDavPath || isWebDavLoading" @click="goToParentDirectory">
-                返回上级
-              </m-button>
-              <span class="sources-page__webdav-path">{{ currentWebDavPath }}</span>
-            </div>
-
-            <div v-if="webDavDirectories.length > 0">
-              <div v-for="directory in webDavDirectories" :key="directory.path" class="sources-page__webdav-row">
-                <m-checkbox
-                  :checked="selectedWebDavPaths.has(directory.path)"
-                  :aria-label="`选择 ${directory.basename}`"
-                  @change="setWebDavSelectionFromEvent(directory.path, $event)"
-                />
-                <button type="button" class="sources-page__webdav-row-btn" @click="openWebDavDirectory(directory.path)">
-                  <strong>{{ directory.basename }}</strong>
-                  <span>{{ directory.path }}</span>
-                </button>
-                <m-button component="button" variant="clear" size="small" rounded @click="openWebDavDirectory(directory.path)">进入</m-button>
-              </div>
-            </div>
-
-            <p v-else class="sources-page__webdav-empty">当前目录没有可添加的子文件夹。</p>
-
-            <m-button
-              component="button"
-              rounded
-              :disabled="selectedWebDavPaths.size === 0 || isWebDavLoading"
-              @click="addSelectedWebDavSources"
-            >
-              添加选中的 {{ selectedWebDavPaths.size }} 个文件夹
-            </m-button>
+            <WebDavDirectoryBrowser
+              ref="addBrowserRef"
+              mode="multiple"
+              :connection="addWebDavConnection"
+              @confirm="onAddBrowserConfirm"
+              @error="showToast($event, 'danger')"
+            />
           </section>
         </div>
       </m-sheet>
@@ -402,16 +404,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, type ComponentPublicInstance } from 'vue'
+import { computed, nextTick, ref, type ComponentPublicInstance } from 'vue'
 import { useForm } from '@tanstack/vue-form'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
 import { add, radio } from '@/icons'
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
-  MButton, MCard, MCheckbox, MDialog, MDialogButton, MList, MListItem, MListInput,
+  MButton, MCard, MDialog, MDialogButton, MList, MListItem, MListInput,
   MNavbar, MPreloader, MSheet, MToast, MToggle, MEmpty,
 } from '@/components/ui'
+import WebDavDirectoryBrowser from '@/components/webdav/WebDavDirectoryBrowser.vue'
 import {
   createSourceId,
   deleteSource,
@@ -422,7 +425,7 @@ import {
   saveWebDavPassword,
   updateSource,
 } from '@/features/sources/storage'
-import type { SourceItem, WebDavConnectionInput, WebDavDirectoryItem } from '@/features/sources/types'
+import type { SourceItem, WebDavConnectionInput } from '@/features/sources/types'
 import { getParentWebDavPath, getWebDavDisplayName, listWebDavDirectories, normalizeWebDavPath } from '@/features/sources/webdav'
 import { scanSourceLibrary } from '@/features/library/scanner'
 import { reconcileSourceSongs } from '@/features/library/storage'
@@ -440,6 +443,13 @@ const isEditModalOpen = ref(false)
 const isWebDavModalOpen = ref(false)
 const isWebDavLoading = ref(false)
 const isWebDavConnected = ref(false)
+// 编辑流程的 WebDAV 目录浏览器（single 模式，回填 path 字段）
+const isWebDavBrowserOpen = ref(false)
+const editBrowserRef = ref<InstanceType<typeof WebDavDirectoryBrowser> | null>(null)
+const editBrowserConnection = ref<WebDavConnectionInput>({ serverUrl: '', username: '', password: '' })
+const editBrowserInitialPath = ref('/')
+// 添加流程的 WebDAV 目录浏览器（multiple 模式，批量建源）
+const addBrowserRef = ref<InstanceType<typeof WebDavDirectoryBrowser> | null>(null)
 const toast = ref<{
   visible: boolean
   message: string
@@ -465,10 +475,6 @@ const showToast = (
     toast.value.visible = false
   }, duration)
 }
-const currentWebDavPath = ref('/')
-const webDavDirectories = ref<WebDavDirectoryItem[]>([])
-const selectedWebDavPaths = ref(new Set<string>())
-
 const emptyWebDavFormValues = (): WebDavConnectionInput => ({
   serverUrl: '',
   username: '',
@@ -496,24 +502,39 @@ const onScanReadTagsToggle = (e: Event): void => {
   scanOptions.value.readTags = (e.target as HTMLInputElement).checked
 }
 
-const webDavForm = useForm({
-  defaultValues: emptyWebDavFormValues(),
-  onSubmit: async ({ value }) => {
-    selectedWebDavPaths.value = new Set<string>()
-    // 写回 trim 后的连接信息，供后续浏览/添加复用
-    webDavForm.setFieldValue('serverUrl', value.serverUrl.trim())
-    webDavForm.setFieldValue('username', value.username.trim())
-    await loadWebDavDirectories('/')
-  },
-})
-
-const isWebDavSubmitting = webDavForm.useSelector((state) => state.isSubmitting)
-
 const getWebDavConnectionFromForm = (): WebDavConnectionInput => ({
   serverUrl: String(webDavForm.getFieldValue('serverUrl') ?? '').trim(),
   username: String(webDavForm.getFieldValue('username') ?? '').trim(),
   password: String(webDavForm.getFieldValue('password') ?? ''),
 })
+
+/** 添加流程浏览器的连接信息（随表单输入实时变化，由 open() 驱动重新加载） */
+const addWebDavConnection = computed<WebDavConnectionInput>(() => getWebDavConnectionFromForm())
+
+const webDavForm = useForm({
+  defaultValues: emptyWebDavFormValues(),
+  onSubmit: async ({ value }) => {
+    // 写回 trim 后的连接信息，供后续浏览/添加复用
+    webDavForm.setFieldValue('serverUrl', value.serverUrl.trim())
+    webDavForm.setFieldValue('username', value.username.trim())
+    // 先验证连接（列根目录），成功后再展示浏览器并加载首屏
+    isWebDavLoading.value = true
+    try {
+      await listWebDavDirectories(getWebDavConnectionFromForm(), '/')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '读取 WebDAV 目录失败。', 'danger')
+      return
+    } finally {
+      isWebDavLoading.value = false
+    }
+
+    isWebDavConnected.value = true
+    await nextTick()
+    await addBrowserRef.value?.open()
+  },
+})
+
+const isWebDavSubmitting = webDavForm.useSelector((state) => state.isSubmitting)
 
 const editSourceForm = useForm({
   defaultValues: emptyEditSourceFormValues(),
@@ -612,7 +633,6 @@ const measureVirtualRow = (element: Element | ComponentPublicInstance | null): v
 
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
-const parentWebDavPath = computed(() => getParentWebDavPath(currentWebDavPath.value))
 
 const persistSources = (): void => {
   saveSources(sources.value)
@@ -806,54 +826,60 @@ const closeWebDavModal = (): void => {
   isWebDavModalOpen.value = false
   isWebDavConnected.value = false
   isWebDavLoading.value = false
-  currentWebDavPath.value = '/'
-  webDavDirectories.value = []
-  selectedWebDavPaths.value = new Set<string>()
   webDavForm.reset(emptyWebDavFormValues())
 }
 
-const loadWebDavDirectories = async (path: string): Promise<void> => {
-  isWebDavLoading.value = true
-  try {
-    const normalizedPath = normalizeWebDavPath(path)
-    webDavDirectories.value = await listWebDavDirectories(getWebDavConnectionFromForm(), normalizedPath)
-    currentWebDavPath.value = normalizedPath
-    isWebDavConnected.value = true
-  } catch (error) {
-    showToast(error instanceof Error ? error.message : '读取 WebDAV 目录失败。', 'danger')
-  } finally {
-    isWebDavLoading.value = false
+// ===== 编辑流程：WebDAV 目录浏览器（single 模式）=====
+
+const closeWebDavBrowser = (): void => {
+  isWebDavBrowserOpen.value = false
+}
+
+const onEditBrowserConfirm = ({ paths }: { paths: string[] }): void => {
+  if (paths.length > 0) {
+    editSourceForm.setFieldValue('path', paths[0])
   }
+  closeWebDavBrowser()
 }
 
-const openWebDavDirectory = async (path: string): Promise<void> => {
-  await loadWebDavDirectories(path)
-}
-
-const goToParentDirectory = async (): Promise<void> => {
-  if (!parentWebDavPath.value) {
+const openWebDavBrowser = async (): Promise<void> => {
+  const source = sourcePendingEdit.value
+  if (!source || source.type !== 'webdav') {
     return
   }
 
-  await loadWebDavDirectories(parentWebDavPath.value)
-}
-
-const setWebDavSelection = (path: string, selected: boolean): void => {
-  const nextSelectedPaths = new Set(selectedWebDavPaths.value)
-  if (selected) {
-    nextSelectedPaths.add(path)
-  } else {
-    nextSelectedPaths.delete(path)
+  const serverUrl = String(editSourceForm.getFieldValue('serverUrl') ?? '').trim()
+  const username = String(editSourceForm.getFieldValue('username') ?? '').trim()
+  let password = String(editSourceForm.getFieldValue('password') ?? '')
+  if (!password) {
+    // 密码留空表示保留原密码，从安全存储读取
+    try {
+      password = (await getWebDavPassword(source.credentialKey)) ?? ''
+    } catch {
+      password = ''
+    }
   }
-  selectedWebDavPaths.value = nextSelectedPaths
+  if (!password) {
+    showToast('WebDAV 密码不存在，请输入新密码。', 'danger')
+    return
+  }
+
+  editBrowserConnection.value = { serverUrl, username, password }
+  // 从当前目录的上级开始浏览，可直接改选同级或进入子级
+  const formPath = String(editSourceForm.getFieldValue('path') ?? '').trim()
+  editBrowserInitialPath.value = formPath ? getParentWebDavPath(formPath) ?? normalizeWebDavPath(formPath) : '/'
+  isWebDavBrowserOpen.value = true
+  await nextTick()
+  await editBrowserRef.value?.open()
 }
 
-const setWebDavSelectionFromEvent = (path: string, e: Event): void => {
-  setWebDavSelection(path, (e.target as HTMLInputElement).checked)
+const onAddBrowserConfirm = async ({ paths }: { paths: string[] }): Promise<void> => {
+  await addSelectedWebDavSources(paths)
 }
 
-const addSelectedWebDavSources = async (): Promise<void> => {
-  if (selectedWebDavPaths.value.size === 0) {
+const addSelectedWebDavSources = async (paths: string[]): Promise<void> => {
+  // paths 为空或上一批仍在保存中直接忽略（对齐迁移前按钮的 isWebDavLoading 禁用语义，防双击重复建源）
+  if (paths.length === 0 || isWebDavLoading.value) {
     return
   }
 
@@ -863,7 +889,7 @@ const addSelectedWebDavSources = async (): Promise<void> => {
     const newSources: SourceItem[] = []
 
     const connection = getWebDavConnectionFromForm()
-    for (const path of selectedWebDavPaths.value) {
+    for (const path of paths) {
       const id = createSourceId()
       const credentialKey = getWebDavPasswordKey(id)
       await saveWebDavPassword(credentialKey, connection.password)
@@ -1112,57 +1138,18 @@ const handleAddWebDav = (): void => {
     margin-top: 20px;
   }
 
-  &__webdav-nav {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  &__webdav-path {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-    color: var(--m-text-secondary);
-  }
-
-  &__webdav-row {
-    display: flex;
-    align-items: center;
-    gap: var(--m-spacing-sub);
-    min-height: var(--m-list-row-h);
-    padding: 8px 0;
-    border-bottom: 1px solid var(--m-hairline);
-  }
-
-  &__webdav-row-btn {
+  &__path-row {
     display: flex;
     flex: 1;
+    align-items: center;
+    gap: 4px;
     min-width: 0;
-    flex-direction: column;
-    gap: 2px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    text-align: left;
-    font-family: inherit;
 
-    > span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 13px;
-      color: var(--m-text-secondary);
+    .sources-page__input {
+      flex: 1;
+      width: auto;
+      min-width: 0;
     }
-  }
-
-  &__webdav-empty {
-    margin: 0;
-    text-align: center;
-    font-size: 13px;
-    color: var(--m-text-secondary);
   }
 }
 </style>

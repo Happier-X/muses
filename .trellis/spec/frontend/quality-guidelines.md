@@ -66,6 +66,19 @@ It runs:
 
 Use this after TypeScript, routing, component, or dependency changes.
 
+**防坑（08-21-webdav-directory-browser）**：验证命令禁止写成 `npm run build 2>&1 | tail` 这类管道形式——管道退出码取自最后一个命令（tail），vite build 失败（如 sass 报错，错误摘要呈现为 `errors: [Getter/Setter]`）会被吞掉导致后续 `cap sync`/打包继续用旧 dist。必须用 `npm run build; echo $?` 或分开执行并显式检查退出码。
+
+**MuMu 模拟器 WebView 真机验证配方**：debug 构建的 Capacitor WebView 默认开启远程调试，可免视觉通道直接驱动 UI 验证：
+
+```bash
+adb forward tcp:9222 localabstract:webview_devtools_remote_$(adb shell pidof com.muses.player)
+curl http://localhost:9222/json   # 拿 page target 的 webSocketDebuggerUrl
+# Node ≥22 自带全局 WebSocket，写 ~15 行脚本发 Runtime.evaluate（awaitPromise+returnByValue）
+# 即可在页面内查 DOM、点击按钮、读表单状态；原生 SAF 选择器则用 uiautomator dump 观察
+```
+
+注意 `loggingBehavior: 'none'` 会屏蔽前端 console 到 logcat，CDP 是唯一的前端运行时观测通道。
+
 ---
 
 ## Unit Tests
