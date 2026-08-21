@@ -2,10 +2,7 @@
   <div class="scrape-page">
     <div class="scrape-page__navbar-wrap">
       <m-navbar>
-        <template #left>
-          <m-navbar-back-link text="返回" @click="goBack" />
-        </template>
-        <template #title>批量刮削</template>
+        <template #title>刮削</template>
         <template #right>
           <span v-if="pageState === 'queue' && queueSnapshot.items.length > 0" class="scrape-page__count">
             {{ queueSnapshot.items.length }}
@@ -335,7 +332,7 @@ import { Capacitor } from '@capacitor/core'
 import { trash } from '@/icons'
 import {
   MButton, MCheckbox, MCover, MDialog, MDialogButton, MEmpty,
-  MIconButton, MList, MListItem, MNavbar, MNavbarBackLink,
+  MIconButton, MList, MListItem, MNavbar,
   MPreloader, MToast,
 } from '@/components/ui'
 import {
@@ -347,16 +344,6 @@ import {
 import { loadSongs } from '@/features/library/storage'
 import { matchScrapeQueue, type ScrapeCandidate, type ScrapeMatchError, type MatchProgress } from '@/features/scrape/matcher'
 import { applyScrapeChanges, revertScrapeJournal, type ScrapeChanges, type WritebackResult } from '@/features/scrape/writeback'
-
-// ── 路由导航 ──────────────────────────────────────────────
-
-const goBack = (): void => {
-  if (typeof window !== 'undefined' && window.history.length > 1) {
-    window.history.back()
-  } else {
-    window.location.hash = '#/'
-  }
-}
 
 // ── 页面状态机 ────────────────────────────────────────────
 
