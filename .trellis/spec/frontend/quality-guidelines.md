@@ -256,6 +256,7 @@ Avoid:
 - Skipping `npm run build` after TypeScript or Vue SFC changes.
 - Adding tests that only assert framework implementation details.
 - 重新引入 `@ionic/*` 依赖、`ion-*` 标签或 Ionic 全局 CSS（应用已完全脱离 Ionic）。
+- toast 提示后立即 `router.replace/back` 离开页面——页面卸载会连带卸载 Teleport 到 body 的 toast，提示根本来不及展示（08-21-webdav-add-edit-page：无效 id 深链兜底）。需要跳转时先延迟返回（如 `scheduleLeave()` 800ms）或改用目标页展示提示。
 - 移除路由页的自建 `MPage` / `MContent` 骨架而回退到裸 `<div>` 无滚动容器。
 - Introducing architecture not reflected by current requirements.
 

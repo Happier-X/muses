@@ -33,6 +33,14 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/SourcesPage.vue')
       },
       {
+        path: 'sources/webdav',
+        component: () => import('@/views/SourceWebDavPage.vue')
+      },
+      {
+        path: 'sources/webdav/:id',
+        component: () => import('@/views/SourceWebDavPage.vue')
+      },
+      {
         path: 'settings',
         component: () => import('@/views/SettingsPage.vue')
       },
