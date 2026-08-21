@@ -6,10 +6,10 @@ const routes: Array<RouteRecordRaw> = [
     path: '/',
     redirect: '/tabs/songs'
   },
-  // child2/child3：刮削中心
+  // child2/child3：刮削中心（旧路径重定向兼容）
   {
     path: '/scrape',
-    component: () => import('@/views/ScrapePage.vue')
+    redirect: '/tabs/scrape'
   },
   {
     path: '/tabs',
@@ -64,6 +64,10 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: 'library/:kind/:name',
         component: () => import('@/views/LibraryDetailPage.vue')
+      },
+      {
+        path: 'scrape',
+        component: () => import('@/views/ScrapePage.vue')
       }
     ]
   }

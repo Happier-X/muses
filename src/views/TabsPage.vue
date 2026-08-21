@@ -142,7 +142,7 @@ const navItems: NavigationItem[] = [
   { to: '/tabs/albums', label: '专辑', icon: albums, childPrefixes: ['/tabs/library/album/'] },
   { to: '/tabs/artists', label: '艺术家', icon: person, childPrefixes: ['/tabs/library/artist/'] },
   { to: '/tabs/playlists', label: '歌单', icon: list, childPrefixes: ['/tabs/playlists/'] },
-  { to: '/scrape', label: '刮削', icon: listChecks },
+  { to: '/tabs/scrape', label: '刮削', icon: listChecks },
   { to: '/tabs/sources', label: '音源', icon: radio },
   { to: '/tabs/settings', label: '设置', icon: settings },
 ]
