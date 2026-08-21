@@ -17,7 +17,7 @@
           <!-- 工具条：随机播放 + 歌曲数（先只保留左侧，对齐椒盐） -->
           <div v-if="songs.length > 0 && !isSearching" class="songs-page__toolbar">
             <div class="songs-page__toolbar-wrap">
-              <!-- 左侧：随机播放图标 + 歌曲总数 -->
+              <!-- 左侧：随机播放图标 + 歌曲总数 + 刮削菜单 -->
               <div class="songs-page__toolbar-left">
                 <button
                   type="button"
@@ -27,27 +27,19 @@
                 >
                   <component :is="shuffle" aria-hidden="true" class="songs-page__toolbar-left-icon" />
                 </button>
+                <span class="songs-page__toolbar-count">{{ songs.length }}</span>
                 <button
                   type="button"
-                  class="songs-page__toolbar-left-btn"
-                  aria-label="筛选可疑歌曲批量入队"
-                  :disabled="suspiciousCount === 0"
-                  @click="onOpenSuspiciousBatch"
+                  class="songs-page__toolbar-scrape-btn"
+                  aria-label="刮削菜单"
+                  @click="isScrapeMenuOpen = true"
                 >
-                  <component :is="crosshair" aria-hidden="true" class="songs-page__toolbar-left-icon" />
-                </button>
-                <button
-                  type="button"
-                  class="songs-page__toolbar-left-btn songs-page__toolbar-left-btn--scrape"
-                  aria-label="刮削队列"
-                  @click="router.push('/scrape')"
-                >
-                  <component :is="listChecks" aria-hidden="true" class="songs-page__toolbar-left-icon" />
+                  <component :is="listChecks" aria-hidden="true" class="songs-page__toolbar-scrape-icon" />
+                  <span class="songs-page__toolbar-scrape-text">刮削</span>
                   <span v-if="scrapeQueueCount > 0" class="songs-page__scrape-badge">
                     {{ scrapeQueueCount > 99 ? '99+' : scrapeQueueCount }}
                   </span>
                 </button>
-                <span class="songs-page__toolbar-count">{{ songs.length }}</span>
               </div>
               <!-- 多选模式计数 -->
               <div v-if="isMultiSelect" class="songs-page__toolbar-count">已选中 {{ selectedCount }} 项</div>
@@ -281,6 +273,16 @@
         </m-actions-group>
       </m-actions>
 
+      <!-- 刮削菜单：聚合筛选可疑 + 刮削队列 -->
+      <m-actions :opened="isScrapeMenuOpen" @backdropclick="isScrapeMenuOpen = false">
+        <m-actions-group>
+          <m-actions-label>刮削</m-actions-label>
+          <m-actions-button :disabled="suspiciousCount === 0" @click="onScrapeMenuPickSuspicious">筛选可疑歌曲（{{ suspiciousCount }}）</m-actions-button>
+          <m-actions-button @click="onScrapeMenuGoQueue">刮削队列<span v-if="scrapeQueueCount > 0" style="margin-left: 6px; opacity: .7">（{{ scrapeQueueCount > 99 ? '99+' : scrapeQueueCount }}）</span></m-actions-button>
+          <m-actions-button @click="isScrapeMenuOpen = false">取消</m-actions-button>
+        </m-actions-group>
+      </m-actions>
+
       <m-actions :opened="isPlaylistPickOpen" @backdropclick="isPlaylistPickOpen = false">
         <m-actions-group>
           <m-actions-label>加入歌单</m-actions-label>
@@ -388,6 +390,7 @@ const isSortMenuOpen = ref(false)
 
 /** child2：筛选可疑歌曲批量入队 */
 const isSuspiciousConfirmOpen = ref(false)
+const isScrapeMenuOpen = ref(false)
 const suspiciousCount = computed(() => pickSuspiciousSongs(songs.value).length)
 
 /** 刮削队列计数 */
@@ -683,6 +686,17 @@ const onConfirmSuspiciousBatch = (): void => {
   }
   enqueueScrapeSongs(picked.map((song) => song.id))
   showToast(`已加入 ${picked.length} 首到待刮削队列`)
+}
+
+/** 刮削菜单：筛选可疑 */
+const onScrapeMenuPickSuspicious = (): void => {
+  isScrapeMenuOpen.value = false
+  onOpenSuspiciousBatch()
+}
+/** 刮削菜单：跳转队列 */
+const onScrapeMenuGoQueue = (): void => {
+  isScrapeMenuOpen.value = false
+  router.push('/scrape')
 }
 
 const onPickPlaylist = () => {
@@ -1018,6 +1032,30 @@ onUnmounted(() => {
 
   &__toolbar-left-btn--scrape {
     position: relative;
+  }
+
+  &__toolbar-scrape-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 36px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 18px;
+    background: var(--m-surface-2);
+    color: var(--m-text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  &__toolbar-scrape-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  &__toolbar-scrape-text {
+    font-weight: 500;
   }
 
   &__scrape-badge {
