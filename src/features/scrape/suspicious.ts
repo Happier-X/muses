@@ -7,12 +7,12 @@
  * - album 缺失
  * - cover 缺失
  * - lyrics 缺失
- * - 来源 cloud 且 lyricsSource 为 'online'（低可信在线歌词）
- * - title/artist/album 来源为 cloud（历史上是低质量补缺）
+ * - lyricsSource 为 'scrape'（刮削写回但未入文件）或历史遗留 'online'
+ * - title/artist/album 来源为 'scrape' 或历史遗留 'cloud'（未写入文件的值值得重刮）
  *
  * 可疑判定规则集合用于单测与 UI 共用；不写库。
  */
-import type { SongItem } from '@/features/library/types'
+import type { FieldSource, SongItem } from '@/features/library/types'
 import { isBlank, isWeakTitle } from '@/features/metadata/util'
 
 export interface SuspiciousSongOptions {
@@ -20,13 +20,14 @@ export interface SuspiciousSongOptions {
   includeCloudSources?: boolean
 }
 
-/** 是否存在 cloud 来源字段（被在线补缺过） */
-const hasCloudSource = (song: SongItem): boolean => {
+/** 是否存在 scrape/cloud 来源字段（刮削写回未入文件 / 历史在线补缺） */
+const hasUnfiledSource = (song: SongItem): boolean => {
   const sources = song.metaSources
   if (!sources) {
     return false
   }
-  return sources.title === 'cloud' || sources.artist === 'cloud' || sources.album === 'cloud'
+  const isUnfiled = (src: FieldSource | undefined): boolean => src === 'scrape' || src === 'cloud'
+  return isUnfiled(sources.title) || isUnfiled(sources.artist) || isUnfiled(sources.album)
 }
 
 /**
@@ -54,12 +55,12 @@ export const isSuspiciousSongForScrape = (
     return true
   }
   // 2. 弱 title（=文件名占位）本身不是问题，需配合其他可疑信号才计入（避免库中常态告警）
-  // 3. 来源 cloud + 在线歌词（低可信）
-  if (includeCloud && song.lyricsSource === 'online') {
+  // 3. 歌词来源 scrape（写回失败仅库内展示）或历史遗留 online → 低可信，值得重刮
+  if (includeCloud && (song.lyricsSource === 'scrape' || song.lyricsSource === 'online')) {
     return true
   }
-  // 4. 历史 cloud 补缺字段（任意字段来源 cloud 即视作可改进）
-  if (includeCloud && hasCloudSource(song)) {
+  // 4. scrape/cloud 补缺字段（任意字段命中即视作可改进）
+  if (includeCloud && hasUnfiledSource(song)) {
     return true
   }
   // 5. 弱 title + 其他弱信号（缺 cover 或缺 lyrics）才视为可疑

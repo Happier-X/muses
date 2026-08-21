@@ -135,7 +135,7 @@ describe('applyScrapeChanges (child3)', () => {
     expect(mockSongs.find((s) => s.id === 's2')!.title).toBe('track02') // 未变
   })
 
-  it('写文件失败时 metaSources 标记 cloud', async () => {
+  it('写文件失败时 metaSources 标记 scrape', async () => {
     const { writeLocalAudioMetadata } = await import('@/features/library/native')
     vi.mocked(writeLocalAudioMetadata).mockResolvedValueOnce({ ok: false, code: 'write_failed' })
 
@@ -147,7 +147,25 @@ describe('applyScrapeChanges (child3)', () => {
 
     expect(results[0].status).toBe('file-failed')
     const updated = mockSongs.find((s) => s.id === 's1')
-    expect(updated!.metaSources).toEqual({ title: 'cloud' })
+    expect(updated!.metaSources).toEqual({ title: 'scrape' })
+  })
+
+  it('歌词写回文件成功 → lyricsSource=embedded；失败 → lyricsSource=scrape', async () => {
+    const { writeLocalAudioMetadata } = await import('@/features/library/native')
+    const candidates = [makeCandidate('s1'), makeCandidate('s2')]
+    const checkedIds = new Set(['s1', 's2'])
+    const changes = new Map<string, ScrapeChanges>([
+      ['s1', { lyrics: '[00:00]新歌词' }],
+      ['s2', { lyrics: '[00:00]失败歌词' }],
+    ])
+    vi.mocked(writeLocalAudioMetadata)
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: false, code: 'write_failed' })
+
+    await applyScrapeChanges(candidates, checkedIds, changes)
+
+    expect(mockSongs.find((s) => s.id === 's1')!.lyricsSource).toBe('embedded')
+    expect(mockSongs.find((s) => s.id === 's2')!.lyricsSource).toBe('scrape')
   })
 
   it('revertScrapeJournal 恢复曲库旧值', async () => {

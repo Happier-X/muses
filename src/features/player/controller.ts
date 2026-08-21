@@ -2,7 +2,6 @@ import { computed, readonly, ref } from 'vue'
 import type { SongItem } from '@/features/library/types'
 import {
   CURRENT_METADATA_VERSION,
-  isUserEditedField,
   loadSongs,
   updateSongUserEdit,
   upsertSong,
@@ -13,24 +12,14 @@ import { readLocalAudioTags, readWebDavAudioTags } from '@/features/library/tags
 import { getWebDavPassword, loadSources } from '@/features/sources/storage'
 import { writeWebDavAudioMetadata } from '@/features/sources/webdav'
 import type { WebDavSourceItem } from '@/features/sources/types'
-import { matchOnlineLyrics } from '@/features/lyrics'
-import { matchOnlineCoverRemote } from '@/features/cover'
 import { recordRecentPlay } from './recent'
-import {
-  matchOnlineTextMeta,
-  mergeTextMetaFillEmpty,
-  needsOnlineTextMeta,
-} from '@/features/metadata'
-import { AudioPlayerNative, cacheRemoteCover, prefetchWebDavAudioFile } from './native'
-import { prefetchNextMetadata, shouldPrefetchNextMetadata } from './prefetchMetadata'
+import { AudioPlayerNative, prefetchWebDavAudioFile } from './native'
 import { setupNativeQueueSyncListener, syncQueueToNative } from './nativeQueueSync'
 import { dbToPlaybackVolume } from './loudness'
 import type { AudioPlayerNativeState, PlaybackStatus, PlayOptions, PlayerState } from './types'
 import {
   createPlayerSongSnapshot,
   resolveStoredLyricsFormat,
-  shouldApplyStoredLyricsOverRuntime,
-  shouldPersistOnlineLyrics,
   toSafeCoverUri,
 } from './types'
 import {
@@ -82,14 +71,6 @@ const state = ref<PlayerState>({
 
 let nativeListenerReady = false
 let metadataScanToken = 0
-/** 在线歌词匹配 token：切歌递增，回调仅当 token + songId 仍匹配时写 state */
-let lyricsMatchToken = 0
-/** 在线封面匹配 token：切歌递增，回调仅当 token + songId 仍匹配时写 state */
-let onlineCoverToken = 0
-/** 在线文本元信息 token：与封面分开，防串曲 */
-let onlineTextToken = 0
-/** WebDAV 下一首元信息预取 token：与当前曲 match token 隔离，过期丢弃写库 */
-let metadataPrefetchToken = 0
 /** playSong 代际：快速连切时仅最新一代可写 playing/error */
 let playGeneration = 0
 /** 用户主动 seek 后的时间戳；用于忽略 seek 到未缓冲区间触发的伪 finished */
@@ -392,10 +373,8 @@ const restorePlaybackSessionIfNeeded = (): void => {
   state.value.lyrics = song.lyrics || null
   state.value.lyricsFormat = resolveStoredLyricsFormat(song)
   state.value.lyricsTranslation = null
-  state.value.onlineLyricsStatus = 'idle'
-  // 打开播放页（未播放）也异步匹配在线歌词：翻译/歌词尽快可用，不等点击播放
-  const restoreMatchToken = ++lyricsMatchToken
-  void matchOnlineLyricsForSong(song, restoreMatchToken)
+  // 本地来源化：歌词仅来自内嵌/sidecar，有词 ready / 无词 miss，不再发起在线匹配
+  state.value.onlineLyricsStatus = song.lyrics?.trim() ? 'ready' : 'miss'
   state.value.coverUri = toSafeCoverUri(song.coverUri) || null
   state.value.metadataStatus = song.tagsScanned === true ? 'ready' : 'idle'
   // 续播起点记在 state.value.position；点播放时 resumePlayback 再起 native
@@ -616,9 +595,9 @@ const syncDisplayStateFromSong = (song: SongItem, options?: { forceLyrics?: bool
     state.value.lyrics = song.lyrics?.trim() ? song.lyrics : null
     state.value.lyricsFormat = resolveStoredLyricsFormat(song)
     state.value.lyricsTranslation = null
-  } else if (shouldApplyStoredLyricsOverRuntime(state.value.lyrics, state.value.lyricsFormat, song)) {
-    // 库内词仅在「有文且质量更优」时覆盖运行时；库空绝不抹掉在线已展示词（#21）
-    state.value.lyrics = song.lyrics || null
+  } else if (song.lyrics?.trim()) {
+    // 本地词是唯一来源：库内有词即采用（懒扫描补词场景）；库内无词不覆盖运行时
+    state.value.lyrics = song.lyrics
     state.value.lyricsFormat = resolveStoredLyricsFormat(song)
   }
   state.value.coverUri = nextCover
@@ -626,114 +605,6 @@ const syncDisplayStateFromSong = (song: SongItem, options?: { forceLyrics?: bool
 
   if (mediaFieldsChanged || options?.forceLyrics) {
     syncMediaSessionSong(song)
-  }
-}
-
-/**
- * 切歌后异步匹配在线歌词：amll → 平台 → LRCLIB。
- * 成功写 playerState；按质量写回 muses:songs；token 防串曲。
- */
-const matchOnlineLyricsForSong = async (song: SongItem, token: number): Promise<void> => {
-  const localLyrics = song.lyrics || null
-  const localFormat = resolveStoredLyricsFormat(song)
-
-  // 用户手改歌词：不请求在线、不覆盖运行时展示（AC5 / R7）
-  if (isUserEditedField(song, 'lyrics') || isUserEditedField(getLatestSongSnapshot(song), 'lyrics')) {
-    state.value.onlineLyricsStatus = localLyrics?.trim() ? 'ready' : 'miss'
-    return
-  }
-
-  state.value.onlineLyricsStatus = 'matching'
-
-  try {
-    const result = await matchOnlineLyrics({
-      songId: song.id,
-      title: song.title,
-      artist: song.artist,
-      album: song.album,
-      duration: song.duration,
-    })
-
-    // 快速切歌：过期 token 或已不是当前曲，丢弃结果
-    if (token !== lyricsMatchToken || state.value.currentSong?.id !== song.id) {
-      return
-    }
-
-    // 匹配期间用户可能已手改歌词：再读库，禁止覆盖
-    const latestAfterMatch = getLatestSongSnapshot(song)
-    if (isUserEditedField(latestAfterMatch, 'lyrics')) {
-      state.value.lyrics = latestAfterMatch.lyrics?.trim() ? latestAfterMatch.lyrics : null
-      state.value.lyricsFormat = resolveStoredLyricsFormat(latestAfterMatch)
-      state.value.lyricsTranslation = null
-      state.value.onlineLyricsStatus = state.value.lyrics ? 'ready' : 'miss'
-      return
-    }
-
-    if (result.ok) {
-      state.value.lyrics = result.text
-      state.value.lyricsFormat = result.format
-      state.value.lyricsTranslation = result.translationText?.trim() || null
-      state.value.onlineLyricsStatus = 'ready'
-
-      // 按质量写回曲库（严格更优才 upsert）
-      const latest = latestAfterMatch
-      if (shouldPersistOnlineLyrics(latest, result.format, result.text, result.confidence)) {
-        const written = upsertSong({
-          sourceId: latest.sourceId,
-          sourceType: latest.sourceType,
-          path: latest.path,
-          uri: latest.uri,
-          title: latest.title,
-          tags: {
-            title: latest.title,
-            artist: latest.artist,
-            album: latest.album,
-            duration: latest.duration,
-            lyrics: result.text,
-            lyricsSource: 'online',
-            lyricsFormat: result.format,
-            coverUri: latest.coverUri,
-            tagsScanned: latest.tagsScanned,
-            tagsScannedAt: latest.tagsScannedAt,
-            metadataVersion: latest.metadataVersion,
-          },
-        })
-        if (token === lyricsMatchToken && state.value.currentSong?.id === song.id) {
-          // 不整表替换 snapshot，避免 upsert 新建条目时 id 与播放态不一致
-          state.value.currentSong = {
-            ...state.value.currentSong,
-            lyrics: written.song.lyrics,
-            lyricsSource: written.song.lyricsSource,
-            lyricsFormat: written.song.lyricsFormat,
-          }
-        }
-      }
-      return
-    }
-
-    // 失败回退库内/本地；匹配期间标签补扫可能刚补到词
-    const stateHasLyrics = !!(state.value.lyrics?.trim())
-    const fallbackLyrics = stateHasLyrics ? state.value.lyrics : localLyrics
-    const fallbackFormat = stateHasLyrics
-      ? (state.value.lyricsFormat ?? localFormat)
-      : localFormat
-    state.value.lyrics = fallbackLyrics
-    state.value.lyricsFormat = fallbackLyrics ? (fallbackFormat || 'lrc') : null
-    state.value.lyricsTranslation = null
-    state.value.onlineLyricsStatus = result.reason === 'network' || result.reason === 'parse' ? 'error' : 'miss'
-  } catch {
-    if (token !== lyricsMatchToken || state.value.currentSong?.id !== song.id) {
-      return
-    }
-    const stateHasLyrics = !!(state.value.lyrics?.trim())
-    const fallbackLyrics = stateHasLyrics ? state.value.lyrics : localLyrics
-    const fallbackFormat = stateHasLyrics
-      ? (state.value.lyricsFormat ?? localFormat)
-      : localFormat
-    state.value.lyrics = fallbackLyrics
-    state.value.lyricsFormat = fallbackLyrics ? (fallbackFormat || 'lrc') : null
-    state.value.lyricsTranslation = null
-    state.value.onlineLyricsStatus = 'error'
   }
 }
 
@@ -836,162 +707,10 @@ const withMetadataScanTimeout = async <T>(operation: Promise<T>, timeoutMs: numb
   }
 }
 
-/**
- * 在线补文本元信息：artist/album 仅补缺；弱 title（=文件名）可写相关在线 title。
- * 源：kw → tx → wy → kg → mg；失败静默。
- */
-const matchOnlineTextMetaForSong = async (song: SongItem, token: number): Promise<void> => {
-  try {
-    if (token !== onlineTextToken || state.value.currentSong?.id !== song.id) {
-      return
-    }
-
-    const latest = getLatestSongSnapshot(song)
-    if (!needsOnlineTextMeta(latest)) {
-      return
-    }
-
-    const remote = await matchOnlineTextMeta({
-      songId: latest.id,
-      title: latest.title,
-      path: latest.path,
-      artist: latest.artist,
-      album: latest.album,
-      duration: latest.duration,
-      metaSources: latest.metaSources,
-    })
-
-    if (token !== onlineTextToken || state.value.currentSong?.id !== song.id) {
-      return
-    }
-    if (!remote.ok) {
-      return
-    }
-    // child4 R4-4：播放时自动补缺路径仅保留高置信自动写；低置信不写库（进候选供刮削页）
-    if (remote.confidence === 'low') {
-      return
-    }
-
-    const { next, changed } = mergeTextMetaFillEmpty(latest, remote.hit)
-    if (!changed) {
-      return
-    }
-
-    const result = upsertSong({
-      sourceId: next.sourceId,
-      sourceType: next.sourceType,
-      path: next.path,
-      uri: next.uri,
-      title: next.title,
-      tags: {
-        title: next.title,
-        artist: next.artist,
-        album: next.album,
-        metaSources: {
-          ...(next.title !== latest.title ? { title: 'cloud' } : {}),
-          ...(next.artist !== latest.artist ? { artist: 'cloud' } : {}),
-          ...(next.album !== latest.album ? { album: 'cloud' } : {}),
-        },
-      },
-    }, loadSongs())
-
-    if (token === onlineTextToken && state.value.currentSong?.id === song.id) {
-      syncDisplayStateFromSong(result.song)
-    }
-  } catch {
-    // 在线文本匹配失败静默，不影响播放
-  }
-}
-
-/**
- * 在线补封面：仅当当前曲仍无安全 coverUri。
- * iTunes → kw → tx → wy → kg → mg；下载到 cache/covers 后 upsert；失败静默。
- */
-const matchOnlineCoverForSong = async (song: SongItem, token: number): Promise<void> => {
-  try {
-    if (token !== onlineCoverToken || state.value.currentSong?.id !== song.id) {
-      return
-    }
-    // 封面已手改：永久跳过在线补封面
-    if (isUserEditedField(song, 'cover') || isUserEditedField(getLatestSongSnapshot(song), 'cover')) {
-      return
-    }
-    if (toSafeCoverUri(state.value.coverUri || song.coverUri)) {
-      return
-    }
-
-    const latest = getLatestSongSnapshot(song)
-    if (toSafeCoverUri(latest.coverUri)) {
-      if (token === onlineCoverToken && state.value.currentSong?.id === song.id) {
-        syncDisplayStateFromSong(latest)
-      }
-      return
-    }
-
-    const remote = await matchOnlineCoverRemote({
-      songId: latest.id,
-      title: latest.title,
-      artist: latest.artist,
-      album: latest.album,
-    })
-
-    if (token !== onlineCoverToken || state.value.currentSong?.id !== song.id) {
-      return
-    }
-    // 网络返回后再次确认：用户可能已手改/清除封面
-    if (isUserEditedField(getLatestSongSnapshot(song), 'cover')) {
-      return
-    }
-    if (!remote.ok) {
-      return
-    }
-
-    const localUri = await cacheRemoteCover({
-      url: remote.remoteUrl,
-      cacheKey: `online:${latest.id}`,
-    })
-    const safeUri = toSafeCoverUri(localUri || undefined)
-    if (!safeUri) {
-      return
-    }
-    if (token !== onlineCoverToken || state.value.currentSong?.id !== song.id) {
-      return
-    }
-    // 下载完成后最终闸门：手改封面不得 upsert
-    if (isUserEditedField(getLatestSongSnapshot(song), 'cover')) {
-      return
-    }
-
-    const result = upsertSong({
-      sourceId: latest.sourceId,
-      sourceType: latest.sourceType,
-      path: latest.path,
-      uri: latest.uri,
-      title: latest.title,
-      tags: {
-        coverUri: safeUri,
-        metaSources: { cover: 'cloud' },
-      },
-    }, loadSongs())
-
-    if (token === onlineCoverToken && state.value.currentSong?.id === song.id) {
-      syncDisplayStateFromSong(result.song)
-    }
-  } catch {
-    // 在线封面失败静默，不影响播放
-  }
-}
-
 const scanSongMetadata = async (song: SongItem): Promise<void> => {
-  const coverToken = ++onlineCoverToken
-  const textToken = ++onlineTextToken
-
   if (!shouldRefreshMetadata(song)) {
     syncDisplayStateFromSong(song)
     state.value.metadataStatus = 'ready'
-    // 本地已扫描但仍可能缺封面/文本 → 在线补
-    void matchOnlineCoverForSong(song, coverToken)
-    void matchOnlineTextMetaForSong(song, textToken)
     return
   }
 
@@ -1031,14 +750,9 @@ const scanSongMetadata = async (song: SongItem): Promise<void> => {
     ) {
       void AudioPlayerNative.setVolume(resolvePlaybackVolume(result.song))
     }
-    void matchOnlineCoverForSong(result.song, coverToken)
-    void matchOnlineTextMetaForSong(result.song, textToken)
   } catch {
     if (token === metadataScanToken && state.value.currentSong?.id === song.id) {
       state.value.metadataStatus = 'failed'
-      // 本地扫描失败仍尝试在线补封面/文本（仅补缺）
-      void matchOnlineCoverForSong(song, coverToken)
-      void matchOnlineTextMetaForSong(song, textToken)
     }
   }
 }
@@ -1053,40 +767,28 @@ const requireWebDavPassword = async (song: SongItem): Promise<string> => {
 }
 
 /**
- * 当前曲进入 playing 后调度下一首 WebDAV：音频完整预取 + 元信息写库预取。
+ * 当前曲进入 playing 后调度下一首 WebDAV 音频完整预取。
  * 跳过：空队列 / 单曲循环自身 / 本地 / 非 webdav。
- * 元信息不依赖 WebDAV 密码；音频缺密码时仍可跑元信息。
  * 密码仅传到 bridge；失败静默，不阻塞播放。
  */
 const prefetchNextTrack = async (currentSongId: string): Promise<void> => {
   try {
     const next = peekNext()
-    if (!shouldPrefetchNextMetadata(next, currentSongId)) {
-      // 非 WebDAV 下一首：作废进行中的元信息预取，避免旧 next 晚到写库
-      metadataPrefetchToken += 1
+    if (!next || next.id === currentSongId || next.sourceType !== 'webdav') {
       return
     }
 
-    const token = ++metadataPrefetchToken
-    const isActive = () => token === metadataPrefetchToken
-    // 元信息与音频并行；不写 playerState，不碰当前曲 match token
-    void prefetchNextMetadata(next, isActive)
-
-    try {
-      const source = getWebDavSource(next)
-      const password = await getWebDavPassword(source.credentialKey)
-      if (!password || !isActive()) {
-        return
-      }
-      await prefetchWebDavAudioFile({
-        url: next.uri,
-        username: source.username,
-        password,
-        songId: next.id,
-      })
-    } catch {
-      // 音频预取失败不得影响元信息或当前播放
+    const source = getWebDavSource(next)
+    const password = await getWebDavPassword(source.credentialKey)
+    if (!password) {
+      return
     }
+    await prefetchWebDavAudioFile({
+      url: next.uri,
+      username: source.username,
+      password,
+      songId: next.id,
+    })
   } catch {
     // 预取失败不得影响当前播放或切歌
   }
@@ -1187,12 +889,6 @@ const playSongInternal = async (
   const generation = ++playGeneration
   state.value.status = 'loading'
   metadataScanToken += 1
-  const matchToken = ++lyricsMatchToken
-  // 切歌即作废进行中的在线封面/文本匹配，避免上一首结果串到新曲
-  onlineCoverToken += 1
-  onlineTextToken += 1
-  // 作废下一首元信息预取（新 playing 成功后再为新的 peekNext 调度）
-  metadataPrefetchToken += 1
   state.value.currentSong = createPlayerSongSnapshot(latestSong)
   state.value.errorMessage = null
   // 续播时保留待恢复进度展示，避免 play 前 UI 闪回 0（#49）
@@ -1202,17 +898,14 @@ const playSongInternal = async (
   state.value.duration = normalizePlaybackTime(latestSong.duration)
   // 切歌先清缓冲，禁止继承上一首（R7）；本地 full / 远程增长由 native 再写入
   resetBufferState()
-  // 先展示库内歌词（含 format），再异步在线匹配（可按质量升级写回）
+  // 歌词仅取库内本地来源（内嵌/sidecar）：有词 ready / 无词 miss，不再发起在线匹配
   state.value.lyrics = latestSong.lyrics || null
   state.value.lyricsFormat = resolveStoredLyricsFormat(latestSong)
   state.value.lyricsTranslation = null
-  state.value.onlineLyricsStatus = 'matching'
+  state.value.onlineLyricsStatus = latestSong.lyrics?.trim() ? 'ready' : 'miss'
   state.value.coverUri = toSafeCoverUri(latestSong.coverUri) || null
   state.value.metadataStatus = latestSong.tagsScanned === true ? 'ready' : 'idle'
   syncMediaSessionSong(latestSong)
-
-  // 无论是否有本地歌词，都自动尝试在线匹配（不阻塞播放）
-  void matchOnlineLyricsForSong(latestSong, matchToken)
 
   try {
     if (!nativeAlreadyPlaying) {
@@ -1266,10 +959,6 @@ const playSongInternal = async (
     if (generation !== playGeneration || state.value.currentSong?.id !== latestSong.id) {
       return
     }
-    lyricsMatchToken += 1
-    onlineCoverToken += 1
-    onlineTextToken += 1
-    metadataPrefetchToken += 1
     state.value.onlineLyricsStatus = 'idle'
     // 播放失败：结束恢复 seek 保护且不让自动跳过的下一曲继承旧恢复点（#53）
     pendingResumePosition = null
@@ -1411,10 +1100,6 @@ export const stopPlayback = async (): Promise<void> => {
     restoredSessionUiOnly = false
     clearPlaybackSession()
     metadataScanToken += 1
-    lyricsMatchToken += 1
-    onlineCoverToken += 1
-    onlineTextToken += 1
-    metadataPrefetchToken += 1
     state.value.status = 'stopped'
     state.value.currentSong = null
     state.value.errorMessage = null
@@ -1472,17 +1157,6 @@ export const saveCurrentSongUserEdit = async (
   // 用户歌词强制替换运行时；媒体会话/封面随 sync
   const forceLyrics = patch.lyrics !== undefined
   syncDisplayStateFromSong(written, { forceLyrics })
-
-  // 作废进行中的在线补缺，避免保存后异步结果冲掉手改展示/写库
-  if (forceLyrics) {
-    lyricsMatchToken += 1
-  }
-  if (patch.coverUri !== undefined) {
-    onlineCoverToken += 1
-  }
-  if (patch.title !== undefined || patch.artist !== undefined || patch.album !== undefined) {
-    onlineTextToken += 1
-  }
 
   // RG 变化且正在播/暂停：立即重设音量
   if (
@@ -1572,16 +1246,6 @@ export const playerState = readonly(state.value)
 export const isPlaying = computed(() => state.value.status === 'playing')
 export const hasActiveSong = computed(() => Boolean(state.value.currentSong))
 export const isPlaybackFinished = computed(() => state.value.status === 'finished')
-
-/**
- * 作废在线匹配 token：刮削写回后调用，防止播放器在线补缺覆盖刮削值。
- * child3 D4：刮削写回 → invalidateOnlineTokens → 播放器不再用旧候选写库。
- */
-export const invalidateOnlineTokens = (): void => {
-  onlineTextToken += 1
-  onlineCoverToken += 1
-  lyricsMatchToken += 1
-}
 
 export {
   advanceToNext,

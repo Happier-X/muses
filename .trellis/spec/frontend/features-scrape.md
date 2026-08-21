@@ -134,8 +134,7 @@ interface ScrapeChanges {
 
 1. **写前快照**：旧值 → `muses:scrape-rollback`（回滚 journal，上限 200 条）
 2. **写文件**：本地并行 / WebDAV 串行（避免单连接压力）
-3. **写库**：`upsertSong` + `metaSources[key]` 按文件结果标记 `'embedded'`（成功）或 `'cloud'`（文件失败）
-4. **作废 token**：调用 `invalidateOnlineTokens()` 防止在线补缺并发覆盖
+3. **写库**：`upsertSong` + `metaSources[key]` 按文件结果标记 `'embedded'`（成功）或 `'scrape'`（文件失败，仅库内展示、值得重刮）；歌词同理（成功 `lyricsSource: 'embedded'` / 失败 `'scrape'`）
 
 ### 回滚 journal
 
@@ -164,7 +163,7 @@ interface RollbackEntry {
 
 ### 设计决策：文件失败仍入库
 
-当文件写入失败（如 WebDAV 密码缺失）时，值仍写入曲库（来源标记 `'cloud'`），保证播放器可读。失败行可后续重试。
+当文件写入失败（如 WebDAV 密码缺失）时，值仍写入曲库（来源标记 `'scrape'`），保证播放器可读；`'scrape'` 同时进入可疑判定，值得重刮。失败行可后续重试。
 
 ---
 
@@ -176,8 +175,8 @@ interface RollbackEntry {
 |------|------|
 | artist/album/coverUri/lyrics 缺失 | 补缺基本字段 |
 | 弱标题 + 缺 cover/lyrics | 文件名占位 + 其他弱信号 |
-| lyricsSource=online | 在线歌词低可信 |
-| metaSources.*=cloud | 历史低质量补缺 |
+| lyricsSource=scrape 或遗留 online | 未入文件的歌词低可信 |
+| metaSources.*=scrape 或遗留 cloud | 未入文件/历史低质量补缺 |
 
 ### 注意事项
 
@@ -188,20 +187,16 @@ interface RollbackEntry {
 
 ## 5. 在线补缺联动
 
-### 联动机制
-
-1. 刮削写回后调用 `invalidateOnlineTokens()` 作废在线补缺 token
-2. 在线补缺写库字段已带 `'cloud'` 来源标记（child1 实现）
-3. 播放时在线歌词自动写库受 `shouldPersistOnlineLyrics` 门槛（child4 实现）
+> 08-21-local-first-meta-lyrics 后：播放器自动在线补缺已完全移除，刮削页是唯一在线补全入口。写回后无需再作废播放器在线 token（`invalidateOnlineTokens` 已删除）。
 
 ### 来源追踪完整链路
 
 ```
 扫描/懒扫 → metaSources[key] = 'embedded'
-在线补缺 → metaSources[key] = 'cloud'
-刮削写回(文件成功) → metaSources[key] = 'embedded'
-刮削写回(文件失败) → metaSources[key] = 'cloud'
+刮削写回(文件成功) → metaSources[key] = 'embedded'（lyricsSource 同）
+刮削写回(文件失败) → metaSources[key] = 'scrape'（lyricsSource 同）
 用户手改 → metaSources[key] = 'manual'（由 userEditedFields 派生）
+历史遗留 'cloud'/'online' → 由 local-first-v1 迁移清除，新代码禁止写入
 ```
 
 ---
@@ -217,10 +212,6 @@ const state = reactive({ queue: [] })
 // ✅ 用 ref
 const queue = ref<ScrapeQueueItem[]>([])
 ```
-
-### Don't: 在写回时忽略 token 作废
-
-刮削写回后必须调用 `invalidateOnlineTokens()`，否则在线补缺会在下次播放时覆盖刮削值。
 
 ### Gotcha: WebDAV 写回需要串行
 

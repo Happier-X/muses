@@ -3,7 +3,7 @@
  *
  * 1. 写前快照旧值到回滚 journal
  * 2. 写文件（本地并行/WebDAV 串行）
- * 3. 写库（upsertSong，来源按文件结果标记 embedded/cloud）
+ * 3. 写库（upsertSong，来源按文件结果标记 embedded/scrape）
  * 4. 逐行返回成功/失败状态
  * 5. 撤销恢复曲库旧值（文件不可逆）
  */
@@ -189,17 +189,19 @@ const updateSongInLibrary = (
   }
   const song = songs[index]
   const metaSources = { ...song.metaSources }
+  // 文件写入成功 → embedded（已入文件）；失败 → scrape（仅库内展示，值得重刮）
+  const fieldSource = fileOk ? 'embedded' : 'scrape'
   if (changes.title !== undefined) {
-    metaSources.title = fileOk ? 'embedded' : 'cloud'
+    metaSources.title = fieldSource
   }
   if (changes.artist !== undefined) {
-    metaSources.artist = fileOk ? 'embedded' : 'cloud'
+    metaSources.artist = fieldSource
   }
   if (changes.album !== undefined) {
-    metaSources.album = fileOk ? 'embedded' : 'cloud'
+    metaSources.album = fieldSource
   }
   if (changes.coverUri !== undefined) {
-    metaSources.cover = fileOk ? 'embedded' : 'cloud'
+    metaSources.cover = fieldSource
   }
 
   songs[index] = {
@@ -210,7 +212,7 @@ const updateSongInLibrary = (
     coverUri: changes.coverUri !== undefined ? (changes.coverUri || undefined) : song.coverUri,
     lyrics: changes.lyrics !== undefined ? changes.lyrics : song.lyrics,
     lyricsFormat: changes.lyricsFormat !== undefined ? (changes.lyricsFormat as SongItem['lyricsFormat']) : song.lyricsFormat,
-    lyricsSource: changes.lyrics !== undefined ? 'online' : song.lyricsSource,
+    lyricsSource: changes.lyrics !== undefined ? fieldSource : song.lyricsSource,
     metaSources,
     updatedAt: new Date().toISOString(),
   }
@@ -261,7 +263,6 @@ export const applyScrapeChanges = async (
   const results: WritebackResult[] = []
   const webdavQueue: ScrapeCandidate[] = []
   const localQueue: ScrapeCandidate[] = []
-  let anyLibraryWritten = false
 
   for (const candidate of candidates) {
     if (!checkedIds.has(candidate.songId)) {
@@ -281,7 +282,6 @@ export const applyScrapeChanges = async (
       try {
         const fileResult = await writeFile(candidate.song, changes)
         updateSongInLibrary(candidate.songId, changes, fileResult.ok)
-        anyLibraryWritten = true
         return {
           songId: candidate.songId,
           status: fileResult.ok ? 'success' as const : 'file-failed' as const,
@@ -307,7 +307,6 @@ export const applyScrapeChanges = async (
     try {
       const fileResult = await writeFile(candidate.song, changes)
       updateSongInLibrary(candidate.songId, changes, fileResult.ok)
-      anyLibraryWritten = true
       results.push({
         songId: candidate.songId,
         status: fileResult.ok ? 'success' : 'file-failed',
@@ -323,12 +322,6 @@ export const applyScrapeChanges = async (
         error: error instanceof Error ? error.message : '写回失败',
       })
     }
-  }
-
-  // D4：有库写入即作废在线匹配 token，防止播放器在线补缺覆盖刮削值
-  if (anyLibraryWritten) {
-    const { invalidateOnlineTokens } = await import('@/features/player/controller')
-    invalidateOnlineTokens()
   }
 
   return { journalId, results }

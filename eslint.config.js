@@ -11,6 +11,7 @@ export default withVueTs(
   {
     ignores: [
       'dist/**',
+      '.tmp/**',
       'android/**',
       'ios/**',
       'coverage/**',
@@ -44,6 +45,11 @@ export default withVueTs(
       // 曾导致歌单页弹层内容裸显在文档流，见 .trellis/tasks/08-06-playlist-page-fix）
       'vue/no-undef-components': 'error',
       '@typescript-eslint/no-explicit-any': 'off',
+      // 惯例：`_` 前缀参数为有意保留的占位（如 mediaSession 桩函数），不算未使用
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+      }],
       // 项目约定：统一使用 ref，禁用 reactive（见 .trellis/spec/frontend/state-management.md）
       'no-restricted-imports': ['error', {
         paths: [{

@@ -312,10 +312,9 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
-import { useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Capacitor } from '@capacitor/core'
-import { checkCheck, crosshair, listChecks, searchOutline, shuffle } from '@/icons'
+import { checkCheck, crosshair, searchOutline, shuffle } from '@/icons'
 import {
   MActions, MActionsButton, MActionsGroup, MActionsLabel,
   MButton, MDialog, MDialogButton, MFab, MIconButton, MList, MListItem, MListInput,
@@ -345,7 +344,6 @@ import {
   toggleShuffle,
 } from '@/features/player/controller'
 
-const router = useRouter()
 const songs = ref<SongItem[]>([])
 const listParentRef = ref<HTMLElement | null>(null)
 /** 挂载后防漂移 guard 的交互标记（touchstart/wheel/FAB 跳转都会置位，停止拉回 scrollTop） */
@@ -643,15 +641,6 @@ const onMarkSelectedForScrape = (): void => {
   enqueueScrapeSongs(ids)
   showToast(`已标记 ${ids.length} 首为待刮削`)
   exitMultiSelect()
-}
-
-/** child2：顶部筛选按钮——打开确认框 */
-const onOpenSuspiciousBatch = (): void => {
-  if (suspiciousCount.value === 0) {
-    showToast('未发现可疑歌曲')
-    return
-  }
-  isSuspiciousConfirmOpen.value = true
 }
 
 /** child2：确认框——批量入队 */

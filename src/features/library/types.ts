@@ -1,6 +1,13 @@
 import type { SourceType } from '@/features/sources/types'
 
-export type LyricsSource = 'embedded' | 'sidecar' | 'online'
+/**
+ * 歌词来源：
+ * - embedded：音频内嵌歌词（含用户手改粘贴）
+ * - sidecar：同目录同名 .lrc 文件
+ * - scrape：刮削页写回但文件写入失败（仅库内展示）
+ * - online：历史遗留值；播放器已不再产生，存量由 local-first-v1 迁移清除
+ */
+export type LyricsSource = 'embedded' | 'sidecar' | 'scrape' | 'online'
 
 /** 持久化歌词格式；与 playerState.lyricsFormat 对齐（不含 null） */
 export type SongLyricsFormat = 'lrc' | 'ttml' | 'yrc' | 'qrc'
@@ -8,12 +15,13 @@ export type SongLyricsFormat = 'lrc' | 'ttml' | 'yrc' | 'qrc'
 /**
  * 字段来源追踪（R1）：title/artist/album/cover 的最近一次写入方。
  * - embedded：值来自音频文件内置 tag（扫描/懒扫/刮削写回文件成功）
- * - cloud：值来自在线补缺/刮削且尚未写回文件（或写回失败）
+ * - scrape：刮削页写回但尚未写入文件（或写回失败），值得重刮
  * - manual：用户手改；派生自 userEditedFields，不单独存储（见 storage.getFieldSource）
+ * - cloud：历史遗留值；播放器自动在线补缺已移除，存量由 local-first-v1 迁移清除
  * 歌词沿用既有 lyricsSource，不在此建模。
  */
 export type MetaFieldKey = 'title' | 'artist' | 'album' | 'cover'
-export type FieldSource = 'embedded' | 'cloud' | 'manual'
+export type FieldSource = 'embedded' | 'scrape' | 'manual' | 'cloud'
 export type MetaSources = Partial<Record<MetaFieldKey, FieldSource>>
 
 /**

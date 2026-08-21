@@ -7,8 +7,6 @@ import {
 } from '@/features/lyrics/score'
 import type { AmllIndexEntry, AmllMatchQuery } from '@/features/lyrics/types'
 import { classifyTextMetaConfidence, needsOnlineTextMeta } from '@/features/metadata/util'
-import { shouldPersistOnlineLyrics } from '@/features/player/types'
-import type { SongItem } from '@/features/library/types'
 
 const makeEntry = (overrides: Partial<AmllIndexEntry> = {}): AmllIndexEntry => ({
   musicName: '晴天',
@@ -23,13 +21,6 @@ const makeQuery = (overrides: Partial<AmllMatchQuery> = {}): AmllMatchQuery => (
   title: '晴天',
   artist: '周杰伦',
   album: '叶惠美',
-  ...overrides,
-})
-
-const makeSong = (overrides: Partial<Pick<SongItem, 'lyrics' | 'lyricsFormat' | 'userEditedFields'>> = {}): Pick<SongItem, 'lyrics' | 'lyricsFormat' | 'userEditedFields'> => ({
-  lyrics: undefined,
-  lyricsFormat: undefined,
-  userEditedFields: undefined,
   ...overrides,
 })
 
@@ -143,28 +134,7 @@ describe('classifyTextMetaConfidence 文本命中置信度 (child4)', () => {
   })
 })
 
-describe('shouldPersistOnlineLyrics 低置信受限 (child4)', () => {
-  it('手改歌词永久不写', () => {
-    expect(shouldPersistOnlineLyrics(makeSong({ userEditedFields: ['lyrics'] }), 'ttml', 'text', 'high')).toBe(false)
-  })
-  it('空歌词不写', () => {
-    expect(shouldPersistOnlineLyrics(makeSong(), 'ttml', '  ', 'high')).toBe(false)
-  })
-  it('高置信 ttml 覆盖空库 → true', () => {
-    expect(shouldPersistOnlineLyrics(makeSong(), 'ttml', 'text', 'high')).toBe(true)
-  })
-  it('低置信 + 空库 → true（仅补缺）', () => {
-    expect(shouldPersistOnlineLyrics(makeSong(), 'ttml', 'text', 'low')).toBe(true)
-  })
-  it('低置信 + 现有 lrc → false（不覆盖现有词）', () => {
-    expect(shouldPersistOnlineLyrics(makeSong({ lyrics: '现有词', lyricsFormat: 'lrc' }), 'ttml', '新词', 'low')).toBe(false)
-  })
-  it('缺省 confidence（平台 LRC 向后兼容）+ 现有 lrc 升级 ttml → true', () => {
-    expect(shouldPersistOnlineLyrics(makeSong({ lyrics: '现有词', lyricsFormat: 'lrc' }), 'ttml', '新词')).toBe(true)
-  })
-})
-
-describe('needsOnlineTextMeta cloud 来源再补约束 (child4 R4-2)', () => {
+describe('needsOnlineTextMeta cloud 来源再补约束 (child4 R4-2，仅刮削页消费)', () => {
   const base = { songId: 's1', title: 'track', path: '/a/track.mp3' }
   it('artist 空且未保护 → 需要（补空安全）', () => {
     expect(needsOnlineTextMeta({ ...base, artist: undefined, album: 'x' })).toBe(true)

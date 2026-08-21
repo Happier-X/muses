@@ -437,7 +437,6 @@ export const getState = AudioPlayerNative.getState
 // --------------- 移除的接口（预案机制） ---------------
 
 /** @deprecated ExoPlayer 不再需要预案机制 */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const setNativeAutoNextPlan = async (_options?: {
   songId: string
   assetId: string
@@ -459,7 +458,6 @@ export const clearNativeAutoNextPlan = async (): Promise<void> => {
 }
 
 /** @deprecated ExoPlayer 不再需要预案事件监听 */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const addAutoNextEventListeners = async (_handlers?: {
   onStarted?: (songId: string | undefined) => void
   onFailed?: (songId: string | undefined, reason: string | undefined) => void
@@ -469,7 +467,6 @@ export const addAutoNextEventListeners = async (_handlers?: {
 }
 
 /** @deprecated ExoPlayer 不再需要同步 asset 状态 */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const syncCurrentAsset = (_songId?: string, _sourceType?: string): void => {
   // ExoPlayer 直接管理状态，不再需要手动同步
 }

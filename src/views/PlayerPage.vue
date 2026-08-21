@@ -2135,27 +2135,10 @@ const showLyricFloatingActions = computed(
   () => !!playerState.currentSong && (hasLyricTranslation.value || !isTabletLayout.value),
 )
 
-/** 匹配中且无本地词：显示匹配中；失败/无匹配且无本地：区分空态文案 */
-const lyricEmptyTitle = computed(() => {
-  if (playerState.onlineLyricsStatus === 'matching' && !currentLyrics.value) {
-    return '正在匹配歌词'
-  }
-  return '暂无歌词'
-})
+/** 本地来源化：无内嵌/sidecar 歌词即空态，引导去刮削页获取 */
+const lyricEmptyTitle = computed(() => '暂无歌词')
 
-const lyricEmptyDescription = computed(() => {
-  if (playerState.onlineLyricsStatus === 'matching' && !currentLyrics.value) {
-    return '正在匹配在线歌词…'
-  }
-  if (
-    playerState.onlineLyricsStatus === 'miss'
-    || playerState.onlineLyricsStatus === 'error'
-    || (playerState.lyricsFormat === 'ttml' && !hasLyrics.value)
-  ) {
-    return '未匹配到可用的在线歌词，当前歌曲也没有内嵌歌词或同目录同名 .lrc 文件。'
-  }
-  return '当前歌曲没有内嵌歌词，也没有找到同目录同名 .lrc 文件。'
-})
+const lyricEmptyDescription = computed(() => '未找到内嵌歌词或同目录同名 .lrc 文件，可在刮削页获取。')
 const canSeek = computed(() => playerState.duration > 0)
 const durationForSlider = computed(() => playerState.duration || 1)
 const seekPreviewPosition = ref<number | null>(null)

@@ -70,6 +70,20 @@ describe('isSuspiciousSongForScrape (child2 R2-3)', () => {
     expect(isSuspiciousSongForScrape(makeSong({ metaSources: { album: 'cloud' } }))).toBe(true)
   })
 
+  it('lyricsSource=scrape（刮削写回未入文件）→ true', () => {
+    expect(isSuspiciousSongForScrape(makeSong({ lyricsSource: 'scrape' }))).toBe(true)
+  })
+
+  it('metaSources.title=scrape → true', () => {
+    expect(isSuspiciousSongForScrape(makeSong({ metaSources: { title: 'scrape' } }))).toBe(true)
+  })
+
+  it('includeCloudSources=false 时同样跳过 scrape 来源规则', () => {
+    const song = makeSong({ lyricsSource: 'scrape', metaSources: { title: 'scrape' } })
+    expect(isSuspiciousSongForScrape(song)).toBe(true)
+    expect(isSuspiciousSongForScrape(song, { includeCloudSources: false })).toBe(false)
+  })
+
   it('includeCloudSources=false 时跳过来源 cloud 规则', () => {
     const song = makeSong({ metaSources: { title: 'cloud' } })
     expect(isSuspiciousSongForScrape(song)).toBe(true)

@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "检查 lint/type-check/test 是否达标、单测覆盖是否同步更新"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "核对存储层改动符合曲库 upsert/迁移/手改保护契约，spec 优先级描述已同步"}
+{"file": ".trellis/spec/frontend/features-scrape.md", "reason": "核对刮削写回来源标记改动与 suspicious 判定一致性"}

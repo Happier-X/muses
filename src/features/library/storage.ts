@@ -9,6 +9,7 @@ import type {
   UserEditedField,
 } from './types'
 import { USER_EDITED_FIELDS } from './types'
+import { getTitleFromPath } from './audio'
 
 const SONGS_STORAGE_KEY = 'muses:songs'
 export const SONGS_UPDATED_EVENT = 'muses:songs-updated'
@@ -36,7 +37,14 @@ const isOptionalBoolean = (value: unknown): value is boolean | undefined => {
 }
 
 const isOptionalLyricsSource = (value: unknown): value is LyricsSource | undefined => {
-  return value === undefined || value === 'embedded' || value === 'sidecar' || value === 'online'
+  return (
+    value === undefined
+    || value === 'embedded'
+    || value === 'sidecar'
+    || value === 'scrape'
+    // 历史遗留值：播放器已不再产生，读入后由 local-first-v1 迁移清除
+    || value === 'online'
+  )
 }
 
 const isOptionalLyricsFormat = (value: unknown): value is SongLyricsFormat | undefined => {
@@ -65,7 +73,13 @@ const isMetaFieldKeyValue = (value: unknown): value is MetaFieldKey => {
 }
 
 const isFieldSourceValue = (value: unknown): value is FieldSource => {
-  return value === 'embedded' || value === 'cloud' || value === 'manual'
+  return (
+    value === 'embedded'
+    || value === 'scrape'
+    || value === 'manual'
+    // 历史遗留值：播放器自动补缺已移除，读入后由 local-first-v1 迁移清除
+    || value === 'cloud'
+  )
 }
 
 /** 校验并裁剪 metaSources；非法/空 → undefined */
@@ -290,7 +304,92 @@ export const createSongId = (sourceId: string, path: string): string => {
   return `song:${encodeStablePart(sourceId)}:${encodeStablePart(path)}`
 }
 
-export const loadSongs = (): SongItem[] => {
+/** local-first-v1 一次性迁移标记：清除存量自动在线数据后打标，不重复执行 */
+const LOCAL_FIRST_MIGRATION_KEY = 'muses:migration:local-first-v1'
+
+/**
+ * 单曲清洗（R6）：清除播放器自动在线匹配的存量数据。
+ * - lyricsSource === 'online' 且歌词未被手改 → 清除 lyrics/lyricsFormat/lyricsSource
+ * - metaSources[field] === 'cloud' 且字段未被手改 → 清除字段值与标记（cover 同时清 coverUri；
+ *   title 为必填字段，回退到文件名兜底标题，与扫描无内嵌标题时的语义一致）
+ * userEditedFields 命中的字段跳过（manual 保护优先于清理）；无变化返回原对象。
+ */
+const migrateSongForLocalFirst = (song: SongItem): SongItem => {
+  const edited = song.userEditedFields ?? []
+  let next = song
+  let changed = false
+
+  if (song.lyricsSource === 'online' && !edited.includes('lyrics')) {
+    next = { ...next, lyrics: undefined, lyricsFormat: undefined, lyricsSource: undefined }
+    changed = true
+  }
+
+  const metaSources = next.metaSources
+  if (metaSources) {
+    const rest: MetaSources = { ...metaSources }
+    const valuePatch: Partial<Pick<SongItem, 'title' | 'artist' | 'album' | 'coverUri'>> = {}
+    let metaChanged = false
+    for (const field of ['title', 'artist', 'album', 'cover'] as const) {
+      if (rest[field] !== 'cloud' || edited.includes(field)) {
+        continue
+      }
+      delete rest[field]
+      if (field === 'cover') {
+        valuePatch.coverUri = undefined
+      } else if (field === 'title') {
+        // title 必填：回退文件名兜底标题，避免整条记录因缺 title 被丢弃
+        valuePatch.title = getTitleFromPath(song.path)
+      } else {
+        valuePatch[field] = undefined
+      }
+      metaChanged = true
+    }
+    if (metaChanged) {
+      next = {
+        ...next,
+        ...valuePatch,
+        metaSources: Object.keys(rest).length > 0 ? rest : undefined,
+      }
+      changed = true
+    }
+  }
+
+  return changed ? next : song
+}
+
+/**
+ * 存量清理迁移（R6 / design §3）：首次 loadSongs 时执行一次。
+ * 清理不可逆（无备份）；manual 保护字段保留；有变化才写库并广播 SONGS_UPDATED_EVENT。
+ */
+const runLocalFirstMigrationIfNeeded = (): void => {
+  if (typeof localStorage === 'undefined') {
+    return
+  }
+  let done: string | null = null
+  try {
+    done = localStorage.getItem(LOCAL_FIRST_MIGRATION_KEY)
+  } catch {
+    return
+  }
+  if (done === 'done') {
+    return
+  }
+
+  const songs = parseStoredSongs()
+  const cleaned = songs.map(migrateSongForLocalFirst)
+  const changed = cleaned.some((song, index) => song !== songs[index])
+  if (changed) {
+    saveSongs(cleaned)
+  }
+  try {
+    localStorage.setItem(LOCAL_FIRST_MIGRATION_KEY, 'done')
+  } catch {
+    // 打标失败：下次启动会重跑一次；清洗是幂等的，重复执行无害
+  }
+}
+
+/** 从 localStorage 解析曲库（校验 + 封面 URI 消毒），不做迁移 */
+const parseStoredSongs = (): SongItem[] => {
   const rawValue = localStorage.getItem(SONGS_STORAGE_KEY)
   if (!rawValue) {
     return []
@@ -312,6 +411,11 @@ export const loadSongs = (): SongItem[] => {
   } catch {
     return []
   }
+}
+
+export const loadSongs = (): SongItem[] => {
+  runLocalFirstMigrationIfNeeded()
+  return parseStoredSongs()
 }
 
 const sanitizeReplayGainTrackDb = (value: number | undefined): number | undefined => {

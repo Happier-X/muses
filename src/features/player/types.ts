@@ -9,8 +9,8 @@ export type PlayerMetadataStatus = 'idle' | 'scanning' | 'ready' | 'failed'
 /** 当前展示歌词格式：本地 LRC / 在线 TTML / 平台逐字 yrc·qrc / 无 */
 export type LyricsFormat = 'lrc' | 'ttml' | 'yrc' | 'qrc' | null
 
-/** 在线 amll-ttml-db 匹配状态 */
-export type OnlineLyricsStatus = 'idle' | 'matching' | 'ready' | 'miss' | 'error'
+/** 歌词展示状态：本地来源化后仅 idle（无当前曲）/ ready（库内有词）/ miss（无本地词） */
+export type OnlineLyricsStatus = 'idle' | 'ready' | 'miss'
 
 export interface PlayerSongSnapshot {
   id: string
@@ -43,7 +43,7 @@ export interface PlayerState {
   lyricsFormat: LyricsFormat
   /** 独立 timed LRC 译文（如网易 tlyric）；切歌重置 */
   lyricsTranslation: string | null
-  /** 在线歌词匹配状态；命中可按质量写回 SongItem */
+  /** 本地歌词就绪状态；命中内嵌/sidecar 为 ready，无本地词为 miss */
   onlineLyricsStatus: OnlineLyricsStatus
   coverUri: string | null
   metadataStatus: PlayerMetadataStatus
@@ -143,74 +143,4 @@ export const resolveStoredLyricsFormat = (song: Pick<SongItem, 'lyrics' | 'lyric
     return format
   }
   return 'lrc'
-}
-
-/** 质量序：ttml/yrc/qrc=2，lrc=1，空=0 */
-export const lyricsFormatRank = (format: LyricsFormat | SongItem['lyricsFormat'] | undefined, hasText: boolean): number => {
-  if (!hasText) {
-    return 0
-  }
-  if (format === 'ttml' || format === 'yrc' || format === 'qrc') {
-    return 2
-  }
-  return 1
-}
-
-/** 在线结果是否应写回库（严格更优；手改歌词永久不写；child4 低置信受限） */
-export const shouldPersistOnlineLyrics = (
-  existing: Pick<SongItem, 'lyrics' | 'lyricsFormat' | 'userEditedFields'>,
-  incomingFormat: Exclude<LyricsFormat, null>,
-  incomingText: string,
-  /**
-   * 命中置信度（child4 R4-3）：
-   * - 'low' 时仅可写入「当前无歌词」的空库，不得覆盖现有 lrc/ttml
-   * - 缺省 / 'high' 时沿质严格更优规则（向后兼容，不让平台 LRC 默认失效）
-   */
-  confidence?: 'high' | 'low',
-): boolean => {
-  // 用户手改歌词：在线质量写回整段跳过
-  if (existing.userEditedFields?.includes('lyrics')) {
-    return false
-  }
-  const text = incomingText.trim()
-  if (!text) {
-    return false
-  }
-  const existingText = existing.lyrics?.trim() || ''
-  // 低置信仅可补空库，不得覆盖现有词（child4）
-  if (confidence === 'low' && existingText) {
-    return false
-  }
-  const existingRank = lyricsFormatRank(
-    existing.lyricsFormat ?? (existingText ? 'lrc' : null),
-    !!existingText,
-  )
-  const incomingRank = lyricsFormatRank(incomingFormat, true)
-  return incomingRank > existingRank
-}
-
-/**
- * 懒扫描/封面写回 sync 时是否采用库内歌词覆盖运行时。
- * - 库内无词：绝不覆盖运行时已有词（避免在线 LRC 被空库抹掉 #21）
- * - 仅库内质量严格更优时替换
- */
-export const shouldApplyStoredLyricsOverRuntime = (
-  runtimeLyrics: string | null | undefined,
-  runtimeFormat: LyricsFormat,
-  stored: Pick<SongItem, 'lyrics' | 'lyricsFormat'>,
-): boolean => {
-  const storedText = stored.lyrics?.trim() || ''
-  if (!storedText) {
-    return false
-  }
-  const runtimeText = runtimeLyrics?.trim() || ''
-  if (!runtimeText) {
-    return true
-  }
-  const storedRank = lyricsFormatRank(
-    stored.lyricsFormat ?? 'lrc',
-    true,
-  )
-  const runtimeRank = lyricsFormatRank(runtimeFormat, true)
-  return storedRank > runtimeRank
 }

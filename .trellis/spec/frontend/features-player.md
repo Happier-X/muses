@@ -86,14 +86,12 @@
    - 不改 `node_modules/@capgo/*`；缓冲由项目自有 `AudioPlayer` 插件上报，经 `native.ts` 合并进 `stateChange`。
    - 保留 seek 保护窗 + 自然结尾判定作为第二道防线。
 
-9. **下一首 WebDAV 完整预取**（`peekNext` + 音频 + 元信息）  
+9. **下一首 WebDAV 完整音频预取**（`peekNext`；08-21-local-first-meta-lyrics 后元信息预取已移除）  
    - `queue.ts` 提供无副作用 `peekNext()`：按当前 repeat/shuffle 规则解析下一首，**不**改 `currentIndex`。
-   - `playSong` 成功进入 `playing` 后调度 `prefetchNextTrack()`：`next = peekNext()`；仅当 next 为 WebDAV 且 `next.id !== current.id` 时：
-     1. **元信息写库预取**（`prefetchMetadata.ts`）：并行在线歌词 / 封面 / 文本补缺，成功则 `upsertSong`；**禁止**写当前 `playerState`，**禁止**动 `lyricsMatchToken` / `onlineCoverToken` / `onlineTextToken`。使用独立 `metadataPrefetchToken`，过期丢弃写库。
-     2. **音频完整预取**：解析密码并调用 `prefetchWebDavAudioFile`（经 `native.ts` → `AudioPlayerBridge`）。缺密码时仍可跑元信息，不得因无密码整段跳过。
-   - 写库策略对齐当前曲：歌词 `shouldPersistOnlineLyrics`；封面仅无安全 `coverUri` 时 `cacheRemoteCover` 后写安全 URI；文本 `needsOnlineTextMeta` + `mergeTextMetaFillEmpty`。
-   - 队列变更 / `setRepeatMode` / `toggleShuffle` 后，若当前仍在 `playing`/`paused`，controller 包装的 queue API 会重新 `peekNext` 并调度预取；旧音频下载不取消；元信息以新 token 作废旧写库。
-   - 跳过：空队列、单曲循环自身、本地下一首、非 WebDAV（本地下一首**不**做元信息预取，MVP 范围 C）。
+   - `playSong` 成功进入 `playing` 后调度 `prefetchNextTrack()`：`next = peekNext()`；仅当 next 为 WebDAV 且 `next.id !== current.id` 时解析密码并调用 `prefetchWebDavAudioFile`（经 `native.ts` → `AudioPlayerBridge`）。
+   - **元信息三路在线预取已删除**（`prefetchMetadata.ts` 已删）：播放器不再自动请求在线歌词/封面/文本；在线补全收敛到刮削页。
+   - 队列变更 / `setRepeatMode` / `toggleShuffle` 后，若当前仍在 `playing`/`paused`，controller 包装的 queue API 会重新 `peekNext` 并调度音频预取；旧音频下载不取消。
+   - 跳过：空队列、单曲循环自身、本地下一首、非 WebDAV。
    - **禁止**下一首 `scanSongMetadata` 预扫；内嵌标签仍等真正切歌后扫描。
    - 原生音频：`getCachedFile` 命中完整缓存 → `{ cached: true, started: false }` no-op；否则 `downloadInBackground` 完整下载 → `{ cached: false, started: true }`。同 URL 复用进行中会话，不重复写。
    - 旧音频预取不取消；新下一首可并行启动。预取失败静默，不得阻塞当前播放或切歌。
@@ -130,42 +128,16 @@
 - **运行时缓存必须有界**：AMLL TTML 命中缓存、AMLL/在线封面/在线文本负缓存使用共享轻量 LRU helper，默认最多保留 256 个近期条目；命中刷新近期顺序，负缓存原有 TTL 与 reset 语义保持。不得新增无限增长的按 songId Map。
 - **App 根级监听器必须卸载**：`App.vue` 注册 Capacitor `backButton` listener 时必须保存异步返回的 handle，并在组件卸载时调用 `remove()`；若 handle 在卸载后才 resolve，应立即移除，避免重复回调。
 
-## 在线歌词匹配（多源回退）
+## 歌词与元信息本地来源化（08-21-local-first-meta-lyrics）
 
-- `playSong(song)` 无论歌曲是否已有本地歌词，均异步调用 `src/features/lyrics` 的 `matchOnlineLyrics`；匹配不得阻塞音频播放。
-- 在线串行优先级：**amll TTML** → 平台歌词（kw→tx→wy→kg→mg）→ **LRCLIB** LRC → 本地内嵌/同名 `.lrc` → 空态。匹配期间已有本地词先展示本地 LRC。
-- 平台源内 **逐字优先**（AMLL 原生仅 yrc/qrc；krc/mrc/lyricx 不做）：
-  - **QQ**：`GetPlayLyricInfo` 加密串 → `decryptQrcHex` → 提取 `LyricContent` → `format: 'qrc'`；失败降级 `fcg_query_lyric_new` LRC。
-  - **网易**：eapi `/api/song/lyric/v1` 优先 `yrc`，否则公开 API / LRC；UI 用 `parseYrc` / `parseQrc` / `parseLrc` / `parseTTML`。
-- LRCLIB：`/api/get`（含 duration）→ `/api/search`；**仅** `syncedLyrics`；合规 `User-Agent`；MVP 不用 plainLyrics。
-- `lyricsFormat`：`ttml | lrc | yrc | qrc | null`（运行时）；库内 `SongItem.lyricsFormat` 可选同枚举。
-- **按质量写回曲库**：在线命中后若优于库内则 `upsertSong` 写 `lyrics` + `lyricsSource: 'online'` + `lyricsFormat`。质量序 `ttml|yrc|qrc` > `lrc` > 空；同级不覆盖。旧数据无 format 有词视为 `lrc`。
-- 播放初始化用库内 `lyrics`+`lyricsFormat`；有词仍跑在线匹配以便升级。
-- `httpGetText`：CapacitorHttp 返回的 4xx/5xx 直接抛出，**不**再回退 fetch（避免双请求与 404 误走实网）。
-- `PlayerState.lyricsFormat` 为 `'lrc' | 'ttml' | 'yrc' | 'qrc' | null`，决定 `PlayerPage` 解析器；`onlineLyricsStatus` 为 `'idle' | 'matching' | 'ready' | 'miss' | 'error'`。
-- amll 索引与 TTML 正文请求缓存仍可在进程内存；**匹配成功的歌词正文**可按质量持久化到 `SongItem`（见上）。不得把整库 amll 索引打包进 APK。
-- 切歌递增歌词匹配 token；异步结果仅在 token 与 `currentSong.id` 同时匹配时写入，禁止上一首歌词串到当前歌曲。
-- CDN/解析失败静默回退，不弹播放错误，也不得改变音频播放状态。
+> 播放器已**完全禁用**自动在线匹配（R1）：切歌/播放/预取不再请求在线歌词、在线封面、在线文本元信息；`matchOnlineLyricsForSong` / `matchOnlineCoverForSong` / `matchOnlineTextMetaForSong` 及相关 token（`lyricsMatchToken` / `onlineCoverToken` / `onlineTextToken` / `metadataPrefetchToken`）、`invalidateOnlineTokens` 均已删除。在线补全能力统一收敛到刮削页（用户主动操作）。
 
-## 在线封面匹配（仅补缺）
-
-- 触发：`playSong` 成功后 `scanSongMetadata` 结束（或本地已扫描仍无封面）时，若当前曲仍无安全 `coverUri`，异步调用 `src/features/cover` 匹配；不得阻塞播放。
-- 源顺序：iTunes Search → kw 酷我 → tx QQ → wy 网易云 → kg 酷狗 → mg 咪咕（国内段对齐 any-listen sources；结构预留更多源）；任一源返回可用 HTTP(S) 图 URL 即停止。
-- 落盘：`AudioPlayerPlugin.cacheRemoteCover` 下载到 `cache/covers/{sha}.jpg`，返回 `file://`；`upsertSong` 仅写安全 URI。
-- **禁止**把 `data:` / base64 / 裸远程 URL 写入 `muses:songs`。
-- **禁止**覆盖已有安全 `coverUri`（本地内嵌/扫描结果优先）。
-- 切歌递增 `onlineCoverToken`；结果仅在 token 与 `currentSong.id` 同时匹配时写回并 `syncDisplayStateFromSong` + 媒体会话封面。
-- 失败/无命中/超时静默；进程内负缓存避免同曲短时间反复请求；不影响歌词与播放状态机。
-
-## 在线文本元信息（artist / album 仅补缺；弱 title 可写）
-
-- 触发：与封面并列，`scanSongMetadata` 结束后若 `artist`/`album` 仍空，或 `title` 为弱标签，异步调用 `src/features/metadata`；不得阻塞播放。
-- **弱 title**：`normalizeText(title) === normalizeText(getTitleFromPath(path))`（扫描无内嵌标题时的文件名兜底）。
-- 字段：artist/album **仅补空**；弱 title 且 hit.title 与当前 title **相关**（normalize 相等或互相包含）时可写 title；**强 title 禁止覆盖**。
-- 写回：`upsertSong` 顶层 title + tags；已有非空 artist/album 不覆盖。
-- 源顺序：kw → tx → wy → kg → mg（对齐 any-listen 国内段；不含 iTunes）；与封面并行、独立 token（`onlineTextToken`）与负缓存。
-- 切歌递增 token；结果仅在 token 与当前曲 id 匹配时写回并 `syncDisplayStateFromSong` + 媒体会话文本。
-- 失败静默；不影响封面、歌词与播放状态机。
+- 歌词展示仅来自本地：内嵌歌词 / 同目录同名 `.lrc`（sidecar，原生层扫描链路不变）；无本地词显示空态，文案引导去刮削页。
+- 切歌后直接取库内值：`song.lyrics` 有词 → `state.lyrics` + `onlineLyricsStatus = 'ready'`；无词 → `null` + `'miss'`。`OnlineLyricsStatus` 收敛为 `'idle' | 'ready' | 'miss'`。
+- `syncDisplayStateFromSong` 以库内值为唯一来源：库内有词即采用（懒扫描补词场景）；仅用户手改（`forceLyrics`）可强制替换/清空运行时词。
+- 来源标记：`LyricsSource = 'embedded' | 'sidecar' | 'scrape' | 'online'(遗留)`；`FieldSource = 'embedded' | 'scrape' | 'manual' | 'cloud'(遗留)`。刮削页写回文件成功标 `embedded`，失败标 `scrape`。
+- 存量清理迁移（一次性，`muses:migration:local-first-v1` 打标）：清除 `lyricsSource === 'online'` 的歌词与 `metaSources.* === 'cloud'` 字段；`userEditedFields` 保护字段跳过；title 回退文件名兜底标题。新代码禁止写入 `'online'`/`'cloud'`。
+- `src/features/lyrics/*`、`src/features/metadata/*`、`src/features/cover/*` 保留：刮削页 `editMeta/searchEditCloudMeta` 仍在使用；但播放器链路禁止 import 其匹配入口。
 
 ## 编辑页云端强制搜（`searchEditCloudMeta`，`08-05-edit-cloud-meta-api`）
 

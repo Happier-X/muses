@@ -45,7 +45,7 @@ export type OnlineLyricsMatchOk = {
   translationText?: string
   /**
    * 命中置信度（child4 R4-3）：amll 路径由 findBestMatch 产出；平台 LRC 缺省
-   * 视为 'high'（向后兼容）。低置信命中在 shouldPersistOnlineLyrics 阶段被受限。
+   * 视为 'high'（向后兼容）。低置信命中仅供刮削页候选排序参考。
    */
   confidence?: MatchConfidence
 }
