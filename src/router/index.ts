@@ -37,6 +37,11 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/SourceWebDavPage.vue')
       },
       {
+        // 全屏目录浏览页（会话经内存服务传递，深链直达无会话时兜底回表单页）
+        path: 'sources/webdav/browse',
+        component: () => import('@/views/SourceWebDavBrowsePage.vue')
+      },
+      {
         path: 'sources/webdav/:id',
         component: () => import('@/views/SourceWebDavPage.vue')
       },

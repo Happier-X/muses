@@ -154,6 +154,16 @@ form.setFieldValue('path', nextPath)
 
 ---
 
+## 跨页表单草稿快照（08-22-webdav-browse-page）
+
+vue-router 跳转且无 keep-alive 时，来源页会被卸载重建——表单页跳去其它页（如目录浏览页）再返回，`onMounted` 的 `reset()` 会把用户**未保存的输入静默回滚**。防坑契约：
+
+- 跳转前把表单字段快照进模块级内存服务（如 `webdavBrowseSession.ts` 的 formDraft，取走即清空）；返回页 `onMounted` 无条件先取快照再 reset/恢复。
+- 跨页回传的选择结果同理走会话服务带回、在消费页挂载后读取；**禁止**依赖跨页面卸载存活的 Promise resolve，也**禁止**把凭据类敏感值放进 URL/query。
+- 设置新会话时必须同步清空上一轮的 result/draft，防止 add/edit 混用时上一次流程的残留被误消费。
+
+---
+
 ## 验证
 
 改动表单相关代码后至少：

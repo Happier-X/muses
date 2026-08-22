@@ -184,17 +184,6 @@
         </div>
       </form>
 
-      <!-- 目录浏览区：连接成功后展开，占满剩余高度（本任务核心目的） -->
-      <section v-if="isBrowserOpen" class="source-webdav-page__browser">
-        <WebDavDirectoryBrowser
-          ref="browserRef"
-          :mode="isEditMode ? 'single' : 'multiple'"
-          :connection="browserConnection"
-          :initial-path="browserInitialPath"
-          @confirm="onBrowserConfirm"
-          @error="showToast($event, 'danger')"
-        />
-      </section>
     </div>
 
     <m-toast :opened="toast.visible" position="center">
@@ -204,13 +193,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useForm } from '@tanstack/vue-form'
 import { useRoute, useRouter } from 'vue-router'
 import {
   MButton, MListInput, MNavbar, MNavbarBackLink, MToast,
 } from '@/components/ui'
-import WebDavDirectoryBrowser from '@/components/webdav/WebDavDirectoryBrowser.vue'
+import {
+  setWebDavBrowseSession,
+  setWebDavFormDraft,
+  takeWebDavBrowseResult,
+  takeWebDavFormDraft,
+  type WebDavBrowseSession,
+  type WebDavFormDraft,
+} from '@/features/sources/webdavBrowseSession'
 import {
   createSourceId,
   getWebDavPassword,
@@ -286,13 +282,40 @@ const showToast = (
   }, duration)
 }
 
-// ===== 目录浏览器 =====
+// ===== 目录浏览跨页会话 =====
 
-const browserRef = ref<InstanceType<typeof WebDavDirectoryBrowser> | null>(null)
-const isBrowserOpen = ref(false)
-const browserConnection = ref<WebDavConnectionInput>({ serverUrl: '', username: '', password: '' })
-const browserInitialPath = ref('/')
 const isVerifying = ref(false)
+
+const toFormDraft = (): WebDavFormDraft => ({
+  name: String(webDavForm.getFieldValue('name') ?? ''),
+  serverUrl: String(webDavForm.getFieldValue('serverUrl') ?? ''),
+  username: String(webDavForm.getFieldValue('username') ?? ''),
+  password: String(webDavForm.getFieldValue('password') ?? ''),
+  path: String(webDavForm.getFieldValue('path') ?? ''),
+})
+
+/** 打开全屏目录浏览页（快照表单草稿 + set 会话后跳转）；结果经会话服务带回，onMounted 消费 */
+const openBrowseSession = (session: WebDavBrowseSession): void => {
+  // 跳转会卸载本页，先快照未保存的表单输入，返回挂载时恢复
+  setWebDavFormDraft(toFormDraft())
+  setWebDavBrowseSession(session)
+  void router.push('/tabs/sources/webdav/browse')
+}
+
+/** 消费浏览页带回的结果：edit 单选回填目录，add 批量建源（须在表单 reset 之后调用） */
+const consumeBrowseResult = (): void => {
+  const result = takeWebDavBrowseResult()
+  if (!result) {
+    return
+  }
+  if (result.mode === 'single') {
+    if (result.paths.length > 0) {
+      webDavForm.setFieldValue('path', result.paths[0])
+    }
+    return
+  }
+  void addSelectedWebDavSources(result.paths, result.connection)
+}
 /** 批量建源进行中（防双击重复建源） */
 const isSavingSources = ref(false)
 
@@ -306,7 +329,7 @@ const webDavForm = useForm({
       return
     }
 
-    // add 模式：先验证连接（列根目录），成功后展开全屏目录浏览区
+    // add 模式：先验证连接（列根目录），成功后跳转全屏目录浏览页多选
     const connection: WebDavConnectionInput = {
       serverUrl: value.serverUrl.trim(),
       username: value.username.trim(),
@@ -322,17 +345,14 @@ const webDavForm = useForm({
       isVerifying.value = false
     }
 
-    browserConnection.value = connection
-    browserInitialPath.value = '/'
-    isBrowserOpen.value = true
-    await nextTick()
-    await browserRef.value?.open()
+    // 结果经会话服务带回，onMounted 消费后批量建源
+    openBrowseSession({ mode: 'multiple', initialPath: '/', connection })
   },
 })
 
 const isSubmitting = webDavForm.useSelector((state) => state.isSubmitting)
 
-const connectLabel = computed(() => (isBrowserOpen.value ? '重新连接' : '连接并浏览'))
+const connectLabel = '连接并浏览'
 
 /** 编辑态提交：verify 连接、更新名称/路径/密码（密码留空保留原密码） */
 const submitWebDavEdit = async (value: WebDavFormValues): Promise<void> => {
@@ -382,55 +402,41 @@ const submitWebDavEdit = async (value: WebDavFormValues): Promise<void> => {
   }
 }
 
-/** 编辑态打开目录浏览器：解析密码（留空读安全存储原密码），从当前目录上级开始浏览 */
+/** 编辑态打开目录浏览：解析密码（留空读安全存储原密码），单选确认后回填目录字段 */
 const openBrowser = async (): Promise<void> => {
-  if (isEditMode.value) {
-    const source = pendingSource.value
-    if (!source) {
-      return
-    }
-
-    const serverUrl = String(webDavForm.getFieldValue('serverUrl') ?? '').trim()
-    const username = String(webDavForm.getFieldValue('username') ?? '').trim()
-    let password = String(webDavForm.getFieldValue('password') ?? '')
-    if (!password) {
-      // 密码留空表示保留原密码，从安全存储读取
-      try {
-        password = (await getWebDavPassword(source.credentialKey)) ?? ''
-      } catch {
-        password = ''
-      }
-    }
-    if (!password) {
-      showToast('WebDAV 密码不存在，请输入新密码。', 'danger')
-      return
-    }
-
-    browserConnection.value = { serverUrl, username, password }
-    // 从当前目录的上级开始浏览，可直接改选同级或进入子级
-    const formPath = String(webDavForm.getFieldValue('path') ?? '').trim()
-    browserInitialPath.value = formPath ? getParentWebDavPath(formPath) ?? normalizeWebDavPath(formPath) : '/'
-  }
-
-  isBrowserOpen.value = true
-  await nextTick()
-  await browserRef.value?.open()
-}
-
-const onBrowserConfirm = ({ paths }: { paths: string[] }): void => {
-  if (isEditMode.value) {
-    // single 模式：回填目录字段并收起浏览区
-    if (paths.length > 0) {
-      webDavForm.setFieldValue('path', paths[0])
-    }
-    isBrowserOpen.value = false
+  const source = pendingSource.value
+  if (!source) {
     return
   }
-  void addSelectedWebDavSources(paths)
+
+  const serverUrl = String(webDavForm.getFieldValue('serverUrl') ?? '').trim()
+  const username = String(webDavForm.getFieldValue('username') ?? '').trim()
+  let password = String(webDavForm.getFieldValue('password') ?? '')
+  if (!password) {
+    // 密码留空表示保留原密码，从安全存储读取
+    try {
+      password = (await getWebDavPassword(source.credentialKey)) ?? ''
+    } catch {
+      password = ''
+    }
+  }
+  if (!password) {
+    showToast('WebDAV 密码不存在，请输入新密码。', 'danger')
+    return
+  }
+
+  // 从当前目录的上级开始浏览，可直接改选同级或进入子级；结果由 onMounted 消费回填
+  const formPath = String(webDavForm.getFieldValue('path') ?? '').trim()
+  const initialPath = formPath ? getParentWebDavPath(formPath) ?? normalizeWebDavPath(formPath) : '/'
+  openBrowseSession({
+    mode: 'single',
+    initialPath,
+    connection: { serverUrl, username, password },
+  })
 }
 
 /** add 模式批量建源（自 SourcesPage 平移，基础列表改为即时读取存储） */
-const addSelectedWebDavSources = async (paths: string[]): Promise<void> => {
+const addSelectedWebDavSources = async (paths: string[], connection: WebDavConnectionInput): Promise<void> => {
   // paths 为空或上一批仍在保存中直接忽略（防双击重复建源）
   if (paths.length === 0 || isSavingSources.value) {
     return
@@ -442,7 +448,6 @@ const addSelectedWebDavSources = async (paths: string[]): Promise<void> => {
     const currentSources = loadSources()
     const newSources: SourceItem[] = []
 
-    const connection = browserConnection.value
     for (const path of paths) {
       const id = createSourceId()
       const credentialKey = getWebDavPasswordKey(id)
@@ -492,7 +497,12 @@ const goBack = (): void => {
 // ===== 初始化 =====
 
 onMounted(() => {
+  // 跳转浏览页会卸载本页；无论从哪个分支返回都先取走草稿（避免残留影响后续进入）
+  const draft = takeWebDavFormDraft()
   if (!isEditMode.value) {
+    // add 模式：恢复跳转前的表单输入，再消费浏览页带回的多选结果（批量建源）
+    webDavForm.reset({ ...emptyWebDavFormValues(), ...draft })
+    consumeBrowseResult()
     return
   }
 
@@ -509,13 +519,18 @@ onMounted(() => {
   }
 
   pendingSource.value = found
-  webDavForm.reset({
-    name: found.name,
-    serverUrl: found.serverUrl,
-    username: found.username,
-    password: '',
-    path: found.path,
-  })
+  // 有草稿（从浏览页返回）时恢复用户未保存的输入，否则用存储值初始化
+  webDavForm.reset(
+    draft ?? {
+      name: found.name,
+      serverUrl: found.serverUrl,
+      username: found.username,
+      password: '',
+      path: found.path,
+    },
+  )
+  // 返回重新挂载后在此消费浏览结果（回填目录；须在 reset 之后）
+  consumeBrowseResult()
 })
 
 onUnmounted(() => {
@@ -581,17 +596,6 @@ onUnmounted(() => {
     }
   }
 
-  /* 目录浏览区占满剩余高度，内部自滚动，保证路径导航与目录列表完整可见 */
-  &__browser {
-    flex: 1 1 0;
-    min-height: 0;
-    overflow-y: auto;
-    box-sizing: border-box;
-    margin-top: 8px;
-    padding-top: var(--m-spacing-sub);
-    border-top: 1px solid var(--m-hairline);
-  }
-
   &__input {
     display: block;
     box-sizing: border-box;
@@ -619,6 +623,12 @@ onUnmounted(() => {
       flex: 1;
       width: auto;
       min-width: 0;
+    }
+
+    /* MButton 默认 width:100% 会把 flex:1 的目录输入框挤成 0 宽（防坑契约） */
+    :deep(.m-button) {
+      width: auto;
+      flex: 0 0 auto;
     }
   }
 }
