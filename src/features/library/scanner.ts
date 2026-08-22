@@ -4,6 +4,7 @@ import { listWebDavAudioFiles } from '@/features/sources/webdav'
 import { getTitleFromPath, isSupportedAudioFile } from './audio'
 import { scanLocalAudioFiles } from './native'
 import { loadSongs, reconcileSourceSongs, saveSongs, upsertSong } from './storage'
+import type { UpsertSongInput } from './storage'
 import { readLocalAudioTags, readWebDavAudioTags } from './tags'
 import type { AudioFileEntry, AudioTags, ScanOptions, ScanProgress, ScanProgressCallback, ScanResult, ScanSummary } from './types'
 
@@ -103,9 +104,8 @@ export const scanSourceLibrary = async (
     const keepPaths = new Set(files.map((file) => file.path))
     emitProgress({ stage: 'processing', message: '正在入库音频文件…' })
 
-    const originalSongs = loadSongs()
-    let songs = originalSongs
-    let hasChanges = false
+    // 循环阶段只收集每个文件的 upsert 输入，不基于快照累积内存曲库。
+    const upsertInputs: UpsertSongInput[] = []
     for (const file of files) {
       const fallbackTitle = getTitleFromPath(file.name || file.path)
       emitProgress({ stage: 'processing', currentItem: file.path })
@@ -115,19 +115,25 @@ export const scanSourceLibrary = async (
         summary.degraded += 1
       }
 
+      upsertInputs.push({
+        sourceId: source.id,
+        sourceType: source.type,
+        path: file.path,
+        uri: file.uri,
+        title: fallbackTitle,
+        tags: tagResult.tags,
+      })
+      summary.processed += 1
+    }
+
+    // 提交阶段 rebase：重新读取最新曲库，把本次扫描收集的输入逐个重放到其上。
+    // 扫描期间其他写入者（播放器懒扫描、用户编辑等）的变更得以保留；
+    // 同一首歌双方都写过时由 upsert 的非破坏性字段合并（?? previous）兜底。
+    let songs = loadSongs()
+    let hasChanges = false
+    for (const input of upsertInputs) {
       try {
-        const upsertResult = upsertSong(
-          {
-            sourceId: source.id,
-            sourceType: source.type,
-            path: file.path,
-            uri: file.uri,
-            title: fallbackTitle,
-            tags: tagResult.tags,
-          },
-          songs,
-          { persist: false },
-        )
+        const upsertResult = upsertSong(input, songs, { persist: false })
         songs = upsertResult.songs
         summary[upsertResult.status] += 1
         if (upsertResult.status !== 'skipped') {
@@ -135,8 +141,6 @@ export const scanSourceLibrary = async (
         }
       } catch {
         summary.failed += 1
-      } finally {
-        summary.processed += 1
       }
     }
 
