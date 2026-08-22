@@ -7,7 +7,7 @@
     </div>
     <div class="m-content settings-page__content">
       <m-block-title>关于</m-block-title>
-      <m-list inset>
+      <m-list inset strong>
         <m-list-item
           title="Muses"
           :subtitle="`应用版本 ${currentVersion}`"
@@ -34,7 +34,7 @@
       </m-list>
 
       <m-block-title>音频</m-block-title>
-      <m-list inset>
+      <m-list inset strong>
         <m-list-item
           title="音量均衡"
           subtitle="根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。"
