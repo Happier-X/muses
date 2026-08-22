@@ -224,7 +224,7 @@ function openDrawer(trigger?: HTMLElement | null) {
   void nextTick(() => {
     if (openGeneration !== drawerGeneration) return
     navigationTranslateX.value = 0
-    drawerLinkRefs.value[0]?.$el?.focus()
+    focusFirstDrawerLink()
   })
 }
 
@@ -365,7 +365,7 @@ async function finishTouchGesture(event: TouchEvent) {
   drawerDragging.value = false
   navigationTranslateX.value = targetX
   if (shouldOpen) {
-    void nextTick(() => drawerLinkRefs.value[0]?.$el?.focus())
+    void nextTick(() => focusFirstDrawerLink())
   } else {
     drawerRendered.value = false
     drawerTrigger.value?.focus()
@@ -400,11 +400,22 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && drawerRendered.value) closeDrawer()
 }
 
+/** 程序化聚焦首个抽屉菜单项：加自动聚焦标记，避免 WebView 对 JS focus 判定
+ *  :focus-visible 而显示蓝色描边框（08-22-fix-drawer-autofocus-ring）。
+ *  标记随 blur 移除——真实键盘 Tab 移动焦点后焦点环照常呈现，无障碍不受损。 */
+function focusFirstDrawerLink(): void {
+  const el = drawerLinkRefs.value[0]?.$el as HTMLElement | null | undefined
+  if (!el) return
+  el.classList.add('tabs-layout__nav-link--auto-focus')
+  el.addEventListener('blur', () => el.classList.remove('tabs-layout__nav-link--auto-focus'), { once: true })
+  el.focus()
+}
+
 function onFocusIn(event: FocusEvent) {
   if (!drawerInteractive.value || !(event.target instanceof Node)) return
   const panel = getPanelElement()
   if (panel && !panel.contains(event.target)) {
-    drawerLinkRefs.value[0]?.$el?.focus()
+    focusFirstDrawerLink()
   }
 }
 
@@ -564,8 +575,10 @@ onUnmounted(() => {
        ——与 MButton/MFab/MIconButton 等交互组件统一；键盘导航由 :focus-visible 另行呈现 */
     outline: none;
 
-    /* 键盘/无障碍焦点指示：触摸聚焦（JS focus）不触发 focus-visible，仅 Tab 键可见 */
-    &:focus-visible {
+    /* 键盘/无障碍焦点指示：仅真实键盘导航可见；程序化 focus（JS focus 首个菜单项）
+       打 --auto-focus 标记排除——部分 WebView 会对 JS focus 判定 focus-visible
+       显示蓝色描边框（08-22-fix-drawer-autofocus-ring），标记随 blur 移除后恢复 */
+    &:focus-visible:not(&--auto-focus) {
       outline: 2px solid var(--m-primary);
       outline-offset: -2px;
     }
