@@ -189,9 +189,18 @@ defineExpose({
     display: flex;
     align-items: center;
     gap: 8px;
+
+    /* 同 __row：MButton 默认 width:100% 会把路径挤到只剩零头
+     （08-22-fix-webdav-browser-nav-layout） */
+    :deep(.m-button) {
+      width: auto;
+      flex: 0 0 auto;
+    }
   }
 
   &__path {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
