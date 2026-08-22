@@ -11,14 +11,26 @@
         <m-list-item
           title="Muses"
           :subtitle="`应用版本 ${currentVersion}`"
-        />
+        >
+          <template #media>
+            <span class="settings-page__item-icon" aria-hidden="true">
+              <Info :size="20" />
+            </span>
+          </template>
+        </m-list-item>
         <m-list-item
           title="检查更新"
           :subtitle="checking ? '正在检查更新…' : undefined"
           link
           aria-label="检查更新"
           @click="checkUpdate"
-        />
+        >
+          <template #media>
+            <span class="settings-page__item-icon" aria-hidden="true">
+              <RefreshCw :size="20" />
+            </span>
+          </template>
+        </m-list-item>
       </m-list>
 
       <m-block-title>音频</m-block-title>
@@ -27,6 +39,11 @@
           title="音量均衡"
           subtitle="根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。"
         >
+          <template #media>
+            <span class="settings-page__item-icon" aria-hidden="true">
+              <Volume2 :size="20" />
+            </span>
+          </template>
           <template #after>
             <m-toggle
               :checked="loudnessNormalizeEnabled"
@@ -46,6 +63,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { Info, RefreshCw, Volume2 } from '@lucide/vue'
 import { MBlockTitle, MList, MListItem, MNavbar, MToast, MToggle } from '@/components/ui'
 import {
   isLoudnessNormalizeEnabled,
@@ -171,6 +189,30 @@ const checkUpdate = async () => {
 
   :deep(.m-list-item) {
     min-height: var(--m-list-row-h);
+  }
+
+  /* 列表项左侧图标容器：统一规格圆角方形 + 主色调浅底（rgba 主色 RGB，明暗主题自动跟随） */
+  &__item-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin-right: var(--m-spacing-sub);
+    border-radius: var(--m-radius-sm);
+    background-color: rgba(var(--m-primary-rgb), 0.12);
+    color: var(--m-primary);
+  }
+
+  /* 分组标题层次微调：缩小字号拉开与行标题（17px）的层级差，仅本页生效 */
+  :deep(.m-block-title--default) {
+    padding-top: 16px;
+    font-size: var(--m-font-size-sm);
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    color: var(--m-text-2);
   }
 }
 </style>
