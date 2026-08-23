@@ -9,6 +9,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import org.jaudiotagger.audio.AudioFile
 import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.tag.TagOptionSingleton
 import org.jaudiotagger.tag.FieldKey
 import org.jaudiotagger.tag.Tag
 import org.jaudiotagger.tag.images.ArtworkFactory
@@ -34,6 +35,9 @@ class AudioMetadataWriter(private val context: Context) {
     )
 
     fun writeToFile(file: File, request: WriteRequest) {
+        // Android 上无 javax.imageio，必须走 AndroidArtwork/AndroidImageHandler（BitmapFactory 实现），
+        // 否则 FLAC/OGG 封面写入会因 NoClassDefFoundError 闪退。
+        TagOptionSingleton.getInstance().setAndroid(true)
         if (!file.exists() || file.length() <= 0L) {
             throw AudioMetadataException("empty_file", "音频文件为空，无法写入标签。")
         }
@@ -114,9 +118,19 @@ class AudioMetadataWriter(private val context: Context) {
                 if (!coverFile.exists() || coverFile.length() <= 0L) {
                     throw AudioMetadataException("cover_not_found", "封面文件不存在。")
                 }
-                runCatching { tag.deleteArtworkField() }
-                val artwork = ArtworkFactory.createArtworkFromFile(coverFile)
-                tag.setField(artwork)
+                try {
+                    runCatching { tag.deleteArtworkField() }
+                    val artwork = ArtworkFactory.createArtworkFromFile(coverFile)
+                    tag.setField(artwork)
+                } catch (exception: AudioMetadataException) {
+                    throw exception
+                } catch (t: Throwable) {
+                    // NoClassDefFoundError 等 Error 也可能击穿插件线程，统一转成受控异常
+                    throw AudioMetadataException(
+                        "write_failed",
+                        "写入封面失败：${t.message ?: t::class.java.simpleName}",
+                    )
+                }
             }
         }
 
