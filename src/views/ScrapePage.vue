@@ -231,6 +231,7 @@
             component="button"
             variant="clear"
             class="scrape-page__action-btn"
+            :disabled="isWritebackBusy"
             @click="onBackToQueue"
           >
             返回队列
@@ -239,10 +240,11 @@
             component="button"
             variant="fill"
             class="scrape-page__action-btn scrape-page__action-btn--primary"
-            :disabled="checkedIds.size === 0"
+            :disabled="checkedIds.size === 0 || isWritebackBusy"
             @click="onWriteback"
           >
-            确认写回（{{ checkedIds.size }} 首）
+            <span v-if="isWritebackBusy" class="scrape-page__btn-spinner" aria-hidden="true" />
+            {{ isWritebackBusy ? '写回中…' : `确认写回（${checkedIds.size} 首）` }}
           </m-button>
         </div>
       </template>
@@ -290,23 +292,27 @@
             component="button"
             variant="clear"
             class="scrape-page__action-btn"
+            :disabled="resultBusy"
             @click="onRetryFailed"
           >
-            重试失败项
+            <span v-if="isRetryBusy" class="scrape-page__btn-spinner" aria-hidden="true" />
+            {{ isRetryBusy ? '重试中…' : '重试失败项' }}
           </m-button>
           <m-button
             v-if="resultSummary.success > 0 || resultSummary.fileFailed > 0"
             component="button"
             variant="clear"
             class="scrape-page__action-btn scrape-page__action-btn--danger"
+            :disabled="resultBusy"
             @click="onRevert"
           >
-            撤销本次刮削
+            {{ isRevertBusy ? '撤销中…' : '撤销本次刮削' }}
           </m-button>
           <m-button
             component="button"
             variant="fill"
             class="scrape-page__action-btn scrape-page__action-btn--primary"
+            :disabled="resultBusy"
             @click="onBackToQueue"
           >
             返回队列
@@ -321,7 +327,9 @@
         </p>
         <template #buttons>
           <m-dialog-button @click="isRevertConfirmOpen = false">取消</m-dialog-button>
-          <m-dialog-button strong @click="onConfirmRevert">确认撤销</m-dialog-button>
+          <m-dialog-button strong :disabled="isRevertBusy" @click="onConfirmRevert">
+            {{ isRevertBusy ? '撤销中…' : '确认撤销' }}
+          </m-dialog-button>
         </template>
       </m-dialog>
 
@@ -602,6 +610,12 @@ const buildChangesMap = (): Map<string, ScrapeChanges> => {
 
 const writebackResults = ref<WritebackResult[]>([])
 const currentJournalId = ref<string | null>(null)
+/** 写回/重试/撤销进行中的加载态（防重复点击 + 按钮反馈） */
+const isWritebackBusy = ref(false)
+const isRetryBusy = ref(false)
+const isRevertBusy = ref(false)
+/** 结果态任一操作进行中：期间禁用结果区全部按钮（防中途跳转） */
+const resultBusy = computed(() => isWritebackBusy.value || isRetryBusy.value || isRevertBusy.value)
 
 const resultSummary = computed(() => {
   let success = 0
@@ -634,11 +648,15 @@ const failureGroups = computed(() => {
 })
 
 const onWriteback = async (): Promise<void> => {
+  if (isWritebackBusy.value) return
   const changesMap = buildChangesMap()
   if (changesMap.size === 0) {
     showToast('请至少勾选一首歌曲')
     return
   }
+  // 预期管理：写回含下载+写标签+PUT，云端歌曲可能耗时数分钟
+  showToast('开始写回，云端歌曲可能需要较长时间…', 4000)
+  isWritebackBusy.value = true
   try {
     const { journalId, results } = await applyScrapeChanges(
       candidates.value,
@@ -653,12 +671,15 @@ const onWriteback = async (): Promise<void> => {
     removeScrapeSongs(processedIds)
   } catch {
     showToast('写回过程出错，请重试')
+  } finally {
+    isWritebackBusy.value = false
   }
 }
 
 // ── 重试 ──────────────────────────────────────────────────
 
 const onRetryFailed = async (): Promise<void> => {
+  if (isRetryBusy.value) return
   // 全量可重试：failed（写库前异常）与 file-failed（最常见=网络抖动，值仍已入库）都纳入
   const failedIds = new Set(
     writebackResults.value
@@ -680,6 +701,7 @@ const onRetryFailed = async (): Promise<void> => {
     }
   }
 
+  isRetryBusy.value = true
   try {
     const { journalId, results } = await applyScrapeChanges(
       retryCandidates,
@@ -700,6 +722,8 @@ const onRetryFailed = async (): Promise<void> => {
     writebackResults.value = merged
   } catch {
     showToast('重试过程出错')
+  } finally {
+    isRetryBusy.value = false
   }
 }
 
@@ -712,14 +736,20 @@ const onRevert = (): void => {
   isRevertConfirmOpen.value = true
 }
 
-const onConfirmRevert = (): void => {
+const onConfirmRevert = async (): Promise<void> => {
+  if (isRevertBusy.value) return
   if (!currentJournalId.value) return
-  const { reverted } = revertScrapeJournal(currentJournalId.value)
-  isRevertConfirmOpen.value = false
-  if (reverted > 0) {
-    showToast(`已恢复 ${reverted} 首歌曲的曲库值（文件标签不可逆）`)
-  } else {
-    showToast('未找到可恢复的记录')
+  isRevertBusy.value = true
+  try {
+    const { reverted } = revertScrapeJournal(currentJournalId.value)
+    isRevertConfirmOpen.value = false
+    if (reverted > 0) {
+      showToast(`已恢复 ${reverted} 首歌曲的曲库值（文件标签不可逆）`)
+    } else {
+      showToast('未找到可恢复的记录')
+    }
+  } finally {
+    isRevertBusy.value = false
   }
 }
 
@@ -727,12 +757,12 @@ const onConfirmRevert = (): void => {
 
 const toast = ref<{ visible: boolean; message: string }>({ visible: false, message: '' })
 let toastTimer: ReturnType<typeof setTimeout> | null = null
-const showToast = (message: string): void => {
+const showToast = (message: string, duration = 2000): void => {
   toast.value = { visible: true, message }
   if (toastTimer) clearTimeout(toastTimer)
   toastTimer = setTimeout(() => {
     toast.value = { visible: false, message: '' }
-  }, 2000)
+  }, duration)
 }
 
 // ── 工具函数 ──────────────────────────────────────────────
@@ -1038,6 +1068,19 @@ onUnmounted(() => {
     }
   }
 
+  // ── 按钮内转圈指示（busy 态）──
+  &__btn-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 6px;
+    vertical-align: -2px;
+    border: 2px solid rgba(var(--m-primary-rgb), 0.3);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: scrape-btn-spin 0.8s linear infinite;
+  }
+
   // ── 结果态 ──
   &__result-summary {
     display: flex;
@@ -1105,6 +1148,12 @@ onUnmounted(() => {
     color: var(--m-text);
     margin: 0;
     padding: 0 16px;
+  }
+}
+
+@keyframes scrape-btn-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
