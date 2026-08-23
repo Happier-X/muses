@@ -79,6 +79,8 @@ curl http://localhost:9222/json   # 拿 page target 的 webSocketDebuggerUrl
 
 注意 `loggingBehavior: 'none'` 会屏蔽前端 console 到 logcat，CDP 是唯一的前端运行时观测通道。
 
+**⛔ 防坑（08-23 CDP 导航污染生产 WebView）**：CDP 验证 dev server 页面用的 `Page.navigate` 会把**生产安装包的 WebView** 一起劫持到 http 源；验证完必须重启 App（`adb shell am force-stop com.muses.player && adb shell am start -n com.muses.player/.MainActivity`）。否则 WebView 停留在非 Capacitor 源上，所有原生插件不可用，用户侧表现为任意原生能力报 `"Xxx" plugin is not implemented on web`（如添加 WebDAV 时点连接并浏览）。诊断特征：`location.origin` 不是 `https://localhost`。验证插件是否可用应查 `Object.keys(window.Capacitor.Plugins)` + `window.Capacitor.getPlatform() === 'android'`。
+
 ---
 
 ## Unit Tests
