@@ -12,7 +12,12 @@ import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.TagOptionSingleton
 import org.jaudiotagger.tag.FieldKey
 import org.jaudiotagger.tag.Tag
-import org.jaudiotagger.tag.images.ArtworkFactory
+import org.jaudiotagger.audio.flac.metadatablock.MetadataBlockDataPicture
+import org.jaudiotagger.tag.flac.FlacTag
+import org.jaudiotagger.tag.images.AndroidArtwork
+import org.jaudiotagger.tag.vorbiscomment.VorbisCommentFieldKey
+import org.jaudiotagger.tag.vorbiscomment.VorbisCommentTag
+import org.jaudiotagger.tag.vorbiscomment.util.Base64Coder
 
 /**
  * 音频内嵌标签写入（jaudiotagger）。
@@ -120,8 +125,55 @@ class AudioMetadataWriter(private val context: Context) {
                 }
                 try {
                     runCatching { tag.deleteArtworkField() }
-                    val artwork = ArtworkFactory.createArtworkFromFile(coverFile)
-                    tag.setField(artwork)
+                    // AndroidArtwork.setImageFromData/getImage 无条件抛 UnsupportedOperationException，
+                    // FlacTag.createField(artwork) 内部依赖该解码判断，Vorbis 系（FLAC/OGG）必须直接构造字段。
+                    val bytes = coverFile.readBytes()
+                    if (bytes.isEmpty()) {
+                        throw AudioMetadataException("cover_not_found", "封面文件为空。")
+                    }
+                    val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeFile(coverFile.absolutePath, opts)
+                    val mime = opts.outMimeType ?: guessCoverMime(coverFile.name)
+                    when (tag) {
+                        // FLAC：Picture 元数据块，createArtworkField 直接构造，不经 Artwork 解码
+                        is FlacTag -> tag.setField(
+                            tag.createArtworkField(
+                                bytes,
+                                3, /* PictureTypes.PICTURE_TYPE_FRONT_COVER */
+                                mime,
+                                "",
+                                opts.outWidth,
+                                opts.outHeight,
+                                0,
+                                0,
+                            ),
+                        )
+                        // OGG：METADATA_BLOCK_PICTURE = base64(picture block)，镜像库内部 createField(Artwork) 逻辑但绕开 setImageFromData
+                        is VorbisCommentTag -> {
+                            val picture = MetadataBlockDataPicture(
+                                bytes,
+                                3,
+                                mime,
+                                "",
+                                opts.outWidth,
+                                opts.outHeight,
+                                0,
+                                0,
+                            )
+                            val encoded = String(Base64Coder.encode(picture.rawContent))
+                            tag.setField(
+                                tag.createField(VorbisCommentFieldKey.METADATA_BLOCK_PICTURE, encoded),
+                            )
+                        }
+                        else -> {
+                            val artwork = AndroidArtwork()
+                            artwork.binaryData = bytes
+                            artwork.mimeType = mime
+                            artwork.pictureType = 3
+                            artwork.description = ""
+                            tag.setField(artwork)
+                        }
+                    }
                 } catch (exception: AudioMetadataException) {
                     throw exception
                 } catch (t: Throwable) {
@@ -213,6 +265,16 @@ class AudioMetadataWriter(private val context: Context) {
             }
             trimmed.startsWith("/") -> File(trimmed)
             else -> File(trimmed)
+        }
+    }
+
+    /** BitmapFactory 解不出 mime 时按扩展名兜底。 */
+    private fun guessCoverMime(name: String): String {
+        return when (name.substringAfterLast('.', "").lowercase()) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            else -> "image/jpeg"
         }
     }
 
