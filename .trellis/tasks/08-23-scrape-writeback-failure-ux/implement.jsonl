@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/features-scrape.md", "reason": "刮削模块规范：写回编排、回滚 journal、文件失败仍入库契约"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Salt token 与组件约定"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "验证命令规范"}
+{"file": ".trellis/tasks/08-23-scrape-writeback-failure-ux/prd.md", "reason": "本任务需求与验收标准"}

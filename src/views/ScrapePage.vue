@@ -259,6 +259,12 @@
           <div class="scrape-page__result-stat scrape-page__result-stat--error" v-if="resultSummary.failed > 0">
             ✗ {{ resultSummary.failed }} 失败
           </div>
+          <template v-if="resultSummary.fileFailed + resultSummary.failed > 0">
+            <span class="scrape-page__failure-group scrape-page__failure-group--network" v-if="failureGroups.network > 0">网络问题 {{ failureGroups.network }}</span>
+            <span class="scrape-page__failure-group scrape-page__failure-group--auth" v-if="failureGroups.auth > 0">认证问题 {{ failureGroups.auth }}</span>
+            <span class="scrape-page__failure-group scrape-page__failure-group--upload" v-if="failureGroups.upload > 0">上传失败 {{ failureGroups.upload }}</span>
+            <span class="scrape-page__failure-group" v-if="failureGroups.other > 0">其他 {{ failureGroups.other }}</span>
+          </template>
         </div>
         <div class="scrape-page__list scrape-page__list--scrollable">
           <m-list :dividers="true">
@@ -280,7 +286,7 @@
         </div>
         <div class="scrape-page__actions">
           <m-button
-            v-if="resultSummary.failed > 0"
+            v-if="resultSummary.failed + resultSummary.fileFailed > 0"
             component="button"
             variant="clear"
             class="scrape-page__action-btn"
@@ -344,6 +350,7 @@ import {
 import { loadSongs } from '@/features/library/storage'
 import { matchScrapeQueue, type ScrapeCandidate, type ScrapeMatchError, type MatchProgress } from '@/features/scrape/matcher'
 import { applyScrapeChanges, revertScrapeJournal, type ScrapeChanges, type WritebackResult } from '@/features/scrape/writeback'
+import { classifyWritebackFailure, describeWritebackFailure } from '@/features/scrape/failure-copy'
 
 // ── 页面状态机 ────────────────────────────────────────────
 
@@ -610,9 +617,21 @@ const resultSummary = computed(() => {
 
 const getResultSubtitle = (result: WritebackResult): string => {
   if (result.status === 'success') return '写回成功'
-  if (result.status === 'file-failed') return '文件写入失败，值已入库（来源：云端）'
-  return result.error || '写回失败'
+  const reason = describeWritebackFailure(result)
+  // file-failed 时值仍已入库（来源标 scrape），在具体原因前补充入库语义
+  if (result.status === 'file-failed') return `值已入库：${reason}`
+  return reason
 }
+
+/** 失败原因分组计数（网络/认证/上传/其他），仅统计失败行 */
+const failureGroups = computed(() => {
+  const groups = { network: 0, auth: 0, upload: 0, other: 0 }
+  for (const r of writebackResults.value) {
+    if (r.status === 'success') continue
+    groups[classifyWritebackFailure(r.fileResult.code)]++
+  }
+  return groups
+})
 
 const onWriteback = async (): Promise<void> => {
   const changesMap = buildChangesMap()
@@ -640,9 +659,10 @@ const onWriteback = async (): Promise<void> => {
 // ── 重试 ──────────────────────────────────────────────────
 
 const onRetryFailed = async (): Promise<void> => {
+  // 全量可重试：failed（写库前异常）与 file-failed（最常见=网络抖动，值仍已入库）都纳入
   const failedIds = new Set(
     writebackResults.value
-      .filter((r) => r.status === 'failed')
+      .filter((r) => r.status === 'failed' || r.status === 'file-failed')
       .map((r) => r.songId),
   )
   if (failedIds.size === 0) return
@@ -1034,6 +1054,22 @@ onUnmounted(() => {
     &--success { color: #34c759; }
     &--warning { color: #ff9500; }
     &--error { color: var(--m-danger, #ff3b30); }
+  }
+
+  &__failure-group {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--m-text-2);
+    padding: 2px 8px;
+    border-radius: var(--m-radius-sm);
+    background: var(--m-surface-2);
+
+    &--network,
+    &--auth,
+    &--upload {
+      color: #ff9500;
+      background: rgba(255, 149, 0, 0.12);
+    }
   }
 
   &__result-icon {

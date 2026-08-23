@@ -165,6 +165,13 @@ interface RollbackEntry {
 
 当文件写入失败（如 WebDAV 密码缺失）时，值仍写入曲库（来源标记 `'scrape'`），保证播放器可读；`'scrape'` 同时进入可疑判定，值得重刮。失败行可后续重试。
 
+### 失败原因透传与全量重试（08-23-scrape-writeback-failure-ux）
+
+- **失败文案统一走 `src/features/scrape/failure-copy.ts`**：`describeWritebackFailure(result)` 按失败码映射人话文案（`no_password`/`missingCredentials` → 引导补密码；`download_failed` → 网络提示；`put_failed`/`empty_file`/`write_failed` 及原生诊断码透传原始 message），未知 code 兜底 `message || error || '写回失败'`。页面行详情**禁止**回退到笼统的「文件写入失败」一刀切文案——原生层已细分错误码，UI 必须透传具体原因。
+- **重试集合必须含 `'failed' | 'file-failed'` 两种状态**：file-failed（库已更新、文件未写入）是最常见的网络抖动场景，不允许只重试 failed。重试是幂等覆盖写（writeFile + updateSongInLibrary）。
+- **已知边界（有意权衡）**：journal 为单 key 存储，重试会生成新 journalId 覆盖旧快照——file-failed 行重试后，「撤销」恢复的是首次写回后的库值而非刮削前原值。不视为缺陷，但改动撤销/journal 逻辑时须保持此语义一致性。
+- `classifyWritebackFailure(code)` 提供汇总分组（network/auth/upload/other）；`missingUrl` 归 other 而非 auth 是有意选择（地址缺失与凭据无关）。
+
 ---
 
 ## 4. 可疑歌曲判定（suspicious.ts）
