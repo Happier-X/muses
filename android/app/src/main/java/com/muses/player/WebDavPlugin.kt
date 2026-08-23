@@ -2,6 +2,7 @@ package com.muses.player
 
 import android.net.Uri
 import android.util.Base64
+import android.util.Log
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -117,6 +118,25 @@ class WebDavPlugin : Plugin() {
                     cachedFile.copyTo(workFile, overwrite = true)
                     val request = parseWriteRequest(call)
                     AudioMetadataWriter(context).writeToFile(workFile, request)
+
+                    // 先删后传：夸克等不支持覆盖上传的网盘经网关转传时，PUT 会被网盘侧自动改名
+                    // 出「(1)」重名新文件；先 DELETE 原地址（404=本来就不存在，视为正常）。
+                    // 其他失败仅记录、不阻断——部分网关可能拒绝删除，此时退回纯 PUT 行为，
+                    // 最终结果仍以 PUT 为准。
+                    try {
+                        val deleteRequest = Request.Builder()
+                            .url(url)
+                            .delete()
+                            .header("Authorization", "Basic ${encodeBasicAuth(username, password)}")
+                            .build()
+                        httpClient.newCall(deleteRequest).execute().use { response ->
+                            if (!response.isSuccessful && response.code != 404) {
+                                Log.w(TAG, "writeMetadata 预删除未成功（HTTP ${response.code}），继续执行 PUT。")
+                            }
+                        }
+                    } catch (exception: Exception) {
+                        Log.w(TAG, "writeMetadata 预删除请求异常，继续执行 PUT。", exception)
+                    }
 
                     val bodyBytes = workFile.readBytes()
                     val putRequest = Request.Builder()
@@ -364,7 +384,8 @@ class WebDavPlugin : Plugin() {
         return runCatching { Charset.forName(name.trim()) }.getOrNull()
     }
 
-    private companion object {
+        private companion object {
+        const val TAG = "WebDavPlugin"
         const val CONNECT_TIMEOUT_MS = 15_000
         const val READ_TIMEOUT_MS = 30_000
         const val PROPFIND_BODY = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><d:propfind xmlns:d=\"DAV:\"><d:allprop /></d:propfind>"
