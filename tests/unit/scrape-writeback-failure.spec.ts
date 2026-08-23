@@ -30,8 +30,13 @@ describe('describeWritebackFailure（失败码 → 人话文案）', () => {
       .toBe('WebDAV 地址缺失，请到音源设置补全后重试')
   })
 
-  it('download_failed → 网络下载失败提示', () => {
-    expect(describeWritebackFailure(makeResult('download_failed', '下载缓存失败。')))
+  it('download_failed → 有原生 message 时透传具体原因', () => {
+    const msg = '下载 WebDAV 音频失败（HTTP 401），请检查网络或密码后重试。'
+    expect(describeWritebackFailure(makeResult('download_failed', msg))).toBe(msg)
+  })
+
+  it('download_failed → 无原生 message 时回落固定文案', () => {
+    expect(describeWritebackFailure(makeResult('download_failed')))
       .toBe('下载 WebDAV 音频失败，请检查网络后重试')
   })
 

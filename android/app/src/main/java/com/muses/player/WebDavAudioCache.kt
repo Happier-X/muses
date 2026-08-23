@@ -6,6 +6,7 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import okhttp3.Credentials
 import okhttp3.OkHttpClient
@@ -49,7 +50,29 @@ class WebDavAudioCache(
     }
 
     fun getOrDownload(url: String, username: String, password: String): File {
-        return getCachedFile(url) ?: download(url, username, password)
+        getCachedFile(url)?.let { return it }
+        // R4：同 URL 有进行中的渐进下载时先等它完成，避免并发双下载；超时则照旧自行下载
+        waitForProgressiveDownload(url)?.let { return it }
+        return download(url, username, password)
+    }
+
+    /**
+     * 同 URL 存在活跃渐进会话时等待其完成（带上限），完成后返回完整缓存文件。
+     * 无会话或等待超时返回 null。
+     */
+    fun waitForProgressiveDownload(
+        url: String,
+        timeoutMs: Long = PROGRESSIVE_WAIT_TIMEOUT_MS,
+    ): File? {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (!progressiveSessions.containsKey(url)) {
+                // 会话已结束（成功固化或失败移除）：以缓存实际状态为准
+                return getCachedFile(url)
+            }
+            Thread.sleep(PROGRESSIVE_POLL_INTERVAL_MS)
+        }
+        return null
     }
 
     /**
@@ -130,7 +153,7 @@ class WebDavAudioCache(
         } else {
             Thread {
                 runCatching {
-                    session.run(httpClient, readyBytesThreshold)
+                    session.run(downloadClient, readyBytesThreshold)
                 }.onFailure { error ->
                     session.markFailed(error)
                 }.also {
@@ -167,7 +190,7 @@ class WebDavAudioCache(
             .header("Authorization", Credentials.basic(username, password))
             .build()
 
-        httpClient.newCall(request).execute().use { response ->
+        downloadClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 throw IllegalStateException("webdavCacheDownloadFailed:${response.code}")
             }
@@ -261,6 +284,13 @@ class WebDavAudioCache(
         val fileUri: String,
         val cancel: () -> Unit,
     )
+
+    /** 音频文件下载专用客户端（R3）：读超时加长到 60s，不影响 propfind/PUT 等。 */
+    private val downloadClient: OkHttpClient by lazy {
+        httpClient.newBuilder()
+            .readTimeout(DOWNLOAD_READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            .build()
+    }
 
     private inner class ProgressiveDownloadSession(
         private val url: String,
@@ -425,5 +455,8 @@ class WebDavAudioCache(
         const val DEFAULT_READY_BYTES = 256L * 1024L
         private const val DOWNLOAD_BUFFER_BYTES = 64 * 1024
         private const val READY_WAIT_TIMEOUT_MS = 60_000L
+        private const val DOWNLOAD_READ_TIMEOUT_MS = 60_000L
+        private const val PROGRESSIVE_WAIT_TIMEOUT_MS = 120_000L
+        private const val PROGRESSIVE_POLL_INTERVAL_MS = 500L
     }
 }

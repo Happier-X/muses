@@ -9,6 +9,7 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import java.io.File
+import java.net.SocketTimeoutException
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
@@ -95,8 +96,10 @@ class WebDavPlugin : Plugin() {
             try {
                 val cachedFile = try {
                     audioCache.getOrDownload(url, username, password)
-                } catch (_: Exception) {
-                    call.resolve(AudioMetadataWriter.failureResult("download_failed", "下载 WebDAV 音频失败，无法写标签。"))
+                } catch (exception: Exception) {
+                    call.resolve(
+                        AudioMetadataWriter.failureResult("download_failed", describeDownloadFailure(exception)),
+                    )
                     return@execute
                 }
 
@@ -152,6 +155,20 @@ class WebDavPlugin : Plugin() {
                     ),
                 )
             }
+        }
+    }
+
+    /**
+     * 按异常类型生成下载失败的具体文案（R1）。
+     * 密码不参与任何 message 构造。
+     */
+    private fun describeDownloadFailure(exception: Exception): String {
+        val rawMessage = exception.message.orEmpty()
+        return when {
+            exception is SocketTimeoutException -> "下载 WebDAV 音频超时，请检查网络后重试。"
+            rawMessage.startsWith("webdavCacheDownloadFailed:") ->
+                "下载 WebDAV 音频失败（HTTP ${rawMessage.substringAfter("webdavCacheDownloadFailed:")}），请检查网络或密码后重试。"
+            else -> "下载 WebDAV 音频失败：${exception.message ?: "未知错误"}"
         }
     }
 

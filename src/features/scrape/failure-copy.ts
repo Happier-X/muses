@@ -56,13 +56,17 @@ export const classifyWritebackFailure = (
 /**
  * 写回结果 → 行详情人话文案。
  *
- * - 已知 code 映射固定文案；put_failed 透传含 HTTP 码的 message
+ * - 已知 code 映射固定文案；put_failed 与 download_failed 透传含 HTTP 码/超时原因的 message
  * - 未知 code 兜底 message || error || 「写回失败」
  * - file-failed（值仍入库）由调用方在前面补充「值已入库：」语义，
  *   本函数只负责具体原因，不感知 status
  */
 export const describeWritebackFailure = (result: WritebackFailureInput): string => {
   const { fileResult, error } = result
+  // download_failed：原生已透传具体原因（HTTP 码/超时等），优先使用原生 message，为空才用固定文案
+  if (fileResult.code === 'download_failed') {
+    return fileResult.message || FIXED_COPY.download_failed
+  }
   const fixed = fileResult.code ? FIXED_COPY[fileResult.code] : undefined
   if (fixed) {
     return fixed

@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/features-scrape.md", "reason": "刮削写回契约与失败文案规范（failure-copy 透传原则）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "验证命令、MuMu CDP 配方与防坑"}
+{"file": ".trellis/tasks/08-23-webdav-writeback-download-robust/prd.md", "reason": "本任务需求与验收标准"}
