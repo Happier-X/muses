@@ -108,8 +108,11 @@ class WebDavPlugin : Plugin() {
                     return@execute
                 }
 
-                // 在缓存副本上写 tag，避免半写入污染；写成功后再覆盖缓存并 PUT
-                val workFile = File(cachedFile.parentFile, "${cachedFile.name}.write-tmp")
+                // 在缓存副本上写 tag，避免半写入污染；写成功后再覆盖缓存并 PUT。
+                // 工作副本名须把真实扩展名放在最后（<name>.write-tmp.<ext>），
+                // 否则 AudioMetadataWriter.isLikelySupportedExtension 取到 write-tmp 会误判为不支持的格式。
+                val workExt = cachedFile.extension.ifEmpty { "audio" }
+                val workFile = File(cachedFile.parentFile, "${cachedFile.nameWithoutExtension}.write-tmp.$workExt")
                 try {
                     cachedFile.copyTo(workFile, overwrite = true)
                     val request = parseWriteRequest(call)

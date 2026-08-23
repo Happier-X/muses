@@ -209,7 +209,15 @@ class AudioMetadataWriter(private val context: Context) {
     }
 
     private fun isLikelySupportedExtension(name: String): Boolean {
-        val ext = name.substringAfterLast('.', "").lowercase()
+        // 剥离已知临时后缀，避免工作副本命名（如 <name>.write-tmp.mp3）被误判为不支持的格式
+        var stripped = name
+        for (suffix in listOf(".write-tmp", ".tmp", ".partial")) {
+            if (stripped.endsWith(suffix, ignoreCase = true)) {
+                stripped = stripped.removeSuffix(suffix)
+                break
+            }
+        }
+        val ext = stripped.substringAfterLast('.', "").lowercase()
         // 无扩展名时仍尝试（临时文件可能是 .audio）
         if (ext.isEmpty() || ext == "audio") {
             return true
