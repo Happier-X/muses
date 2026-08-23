@@ -10,7 +10,7 @@
 import { loadSongs, saveSongs } from '@/features/library/storage'
 import type { SongItem } from '@/features/library/types'
 import { writeLocalAudioMetadata, type WriteMetadataResult } from '@/features/library/native'
-import { writeWebDavAudioMetadata } from '@/features/sources/webdav'
+import { buildWebDavUrl, writeWebDavAudioMetadata } from '@/features/sources/webdav'
 import type { ScrapeCandidate } from './matcher'
 
 // ── 回滚 journal ──────────────────────────────────────────
@@ -138,11 +138,10 @@ const writeWebDavFile = async (
 
   const { loadSources, getWebDavPassword } = await import('@/features/sources/storage')
   const sources = loadSources()
-  const webdavSource = sources.find(
-    (s): s is Extract<typeof s, { type: 'webdav' }> => s.type === 'webdav',
-  )
-  if (!webdavSource?.credentialKey || !webdavSource?.serverUrl) {
-    return { ok: false, code: 'no_password', message: 'WebDAV 配置不完整（缺 url 或 credentialKey）。' }
+  // 按歌曲所属音源精确查找（多 WebDAV 音源时读写目标必须一致）
+  const webdavSource = sources.find((s) => s.id === song.sourceId)
+  if (!webdavSource || webdavSource.type !== 'webdav' || !webdavSource.credentialKey || !webdavSource.serverUrl) {
+    return { ok: false, code: 'no_password', message: '未找到歌曲所属的 WebDAV 音源，请重新扫描后重试。' }
   }
 
   const password = await getWebDavPassword(webdavSource.credentialKey)
@@ -150,8 +149,9 @@ const writeWebDavFile = async (
     return { ok: false, code: 'no_password', message: 'WebDAV 密码未配置。' }
   }
 
+  // 完整文件地址 = serverUrl + encodePath(song.path)，与读取链路 readWebDavAudioTags 一致
   return writeWebDavAudioMetadata({
-    url: webdavSource.serverUrl,
+    url: buildWebDavUrl(webdavSource.serverUrl, song.path),
     username: webdavSource.username,
     password,
     title: changes.title,
