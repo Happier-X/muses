@@ -3,6 +3,7 @@ import type { SongItem } from '@/features/library/types'
 import {
   CURRENT_METADATA_VERSION,
   loadSongs,
+  SONGS_UPDATED_EVENT,
   updateSongUserEdit,
   upsertSong,
   type SongUserEditPatch,
@@ -16,6 +17,7 @@ import { recordRecentPlay } from './recent'
 import { AudioPlayerNative, prefetchWebDavAudioFile } from './native'
 import { setupNativeQueueSyncListener, syncQueueToNative } from './nativeQueueSync'
 import { dbToPlaybackVolume } from './loudness'
+import { resolvePurgeOnSongsUpdate } from './purge'
 import type { AudioPlayerNativeState, PlaybackStatus, PlayOptions, PlayerState } from './types'
 import {
   createPlayerSongSnapshot,
@@ -26,6 +28,7 @@ import {
   advanceToNext,
   advanceToNextRecoveryCandidate as selectRecoveryCandidate,
   advanceToPrevious,
+  queueState,
   clearQueue as clearQueueInternal,
   enqueueSong as enqueueSongInternal,
   enqueueSongs as enqueueSongsInternal,
@@ -1119,6 +1122,44 @@ export const stopPlayback = async (): Promise<void> => {
     allowNativeClearCurrentSong = false
     setUserSafeError('停止播放失败，请稍后重试。')
   }
+}
+
+/**
+ * 删除音源/歌曲后的失效曲目对账：
+ * 事件可能由任意写库触发（扫描/编辑等），先比对再动作，无失效项 no-op；
+ * 对账过程包 try/catch，失败不影响播放。
+ */
+const handleSongsUpdatedForPurge = (): void => {
+  try {
+    const songIds = new Set(loadSongs().map((song) => song.id))
+    const resolution = resolvePurgeOnSongsUpdate({
+      librarySongIds: songIds,
+      currentSongId: state.value.currentSong?.id ?? null,
+      queueSongIds: queueState.items.map((song) => song.id),
+    })
+
+    if (!resolution.shouldStop && resolution.queueIdsToRemove.length === 0) {
+      return
+    }
+
+    for (const songId of resolution.queueIdsToRemove) {
+      removeSongFromQueueInternal(songId)
+    }
+
+    // 当前曲已从曲库消失：走完整 stopPlayback 清理链（原生停止/清状态/清媒体会话/#52 守卫语义）
+    if (resolution.shouldStop) {
+      void stopPlayback()
+    }
+  } catch {
+    // 对账失败静默，不影响播放
+  }
+}
+
+/** controller 为模块级单例：window 事件仅注册一次 */
+let songsUpdatedPurgeListenerReady = false
+if (!songsUpdatedPurgeListenerReady && typeof window !== 'undefined') {
+  songsUpdatedPurgeListenerReady = true
+  window.addEventListener(SONGS_UPDATED_EVENT, handleSongsUpdatedForPurge)
 }
 
 export interface SaveCurrentSongUserEditResult {

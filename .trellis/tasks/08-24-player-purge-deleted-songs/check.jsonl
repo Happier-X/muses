@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "检查播放器守卫语义不被破坏"}
+{"file": ".trellis/tasks/08-24-player-purge-deleted-songs/prd.md", "reason": "验收标准对照"}
