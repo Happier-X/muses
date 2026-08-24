@@ -119,33 +119,22 @@ class WebDavPlugin : Plugin() {
                     val request = parseWriteRequest(call)
                     AudioMetadataWriter(context).writeToFile(workFile, request)
 
-                    // 先删后传：夸克等不支持覆盖上传的网盘经网关转传时，PUT 会被网盘侧自动改名
-                    // 出「(1)」重名新文件；先 DELETE 原地址（404=本来就不存在，视为正常）。
-                    // 其他失败仅记录、不阻断——部分网关可能拒绝删除，此时退回纯 PUT 行为，
-                    // 最终结果仍以 PUT 为准。
-                    try {
-                        val deleteRequest = Request.Builder()
-                            .url(url)
-                            .delete()
-                            .header("Authorization", "Basic ${encodeBasicAuth(username, password)}")
-                            .build()
-                        httpClient.newCall(deleteRequest).execute().use { response ->
-                            if (!response.isSuccessful && response.code != 404) {
-                                Log.w(TAG, "writeMetadata 预删除未成功（HTTP ${response.code}），继续执行 PUT。")
-                            }
-                        }
-                    } catch (exception: Exception) {
-                        Log.w(TAG, "writeMetadata 预删除请求异常，继续执行 PUT。", exception)
-                    }
-
+                    // 三段式上传（08-24-webdav-put-move-atomic）：
+                    // ① PUT 到临时地址（不碰原文件，失败零损失）
+                    // ② MOVE 原子覆盖原地址（Overwrite: T）
+                    // ③ MOVE 不被网关支持时回退先删后传
                     val bodyBytes = workFile.readBytes()
-                    val putRequest = Request.Builder()
-                        .url(url)
-                        .put(bodyBytes.toRequestBody("application/octet-stream".toMediaType()))
-                        .header("Authorization", "Basic ${encodeBasicAuth(username, password)}")
-                        .build()
+                    val requestBody = bodyBytes.toRequestBody("application/octet-stream".toMediaType())
+                    val authHeader = "Basic ${encodeBasicAuth(username, password)}"
+                    val tmpUrl = "$url.muses-tmp"
 
-                    httpClient.newCall(putRequest).execute().use { response ->
+                    httpClient.newCall(
+                        Request.Builder()
+                            .url(tmpUrl)
+                            .put(requestBody)
+                            .header("Authorization", authHeader)
+                            .build(),
+                    ).execute().use { response ->
                         if (!response.isSuccessful) {
                             call.resolve(
                                 AudioMetadataWriter.failureResult(
@@ -154,6 +143,66 @@ class WebDavPlugin : Plugin() {
                                 ),
                             )
                             return@execute
+                        }
+                        Log.i(TAG, "writeMetadata 临时上传完成（HTTP ${response.code}）。")
+                    }
+
+                    var moved = false
+                    try {
+                        httpClient.newCall(
+                            Request.Builder()
+                                .url(tmpUrl)
+                                .method("MOVE", null)
+                                .header("Destination", url)
+                                .header("Overwrite", "T")
+                                .header("Authorization", authHeader)
+                                .build(),
+                        ).execute().use { response ->
+                            Log.i(TAG, "writeMetadata MOVE 结果（HTTP ${response.code}）。")
+                            moved = response.isSuccessful
+                        }
+                    } catch (exception: Exception) {
+                        Log.w(TAG, "writeMetadata MOVE 请求异常，将回退先删后传。", exception)
+                    }
+
+                    if (!moved) {
+                        // 回退：先删后传（夸克等不支持覆盖上传的网盘经网关转传时，
+                        // 直接 PUT 会被网盘侧改名出「(1)」重名新文件）。
+                        // 边界：DELETE 成功后 PUT 失败时本地缓存仍持有完整副本，重试即可恢复。
+                        for (cleanupUrl in listOf(url, tmpUrl)) {
+                            try {
+                                httpClient.newCall(
+                                    Request.Builder()
+                                        .url(cleanupUrl)
+                                        .delete()
+                                        .header("Authorization", authHeader)
+                                        .build(),
+                                ).execute().use { response ->
+                                    if (!response.isSuccessful && response.code != 404) {
+                                        Log.w(TAG, "writeMetadata 回退预删除未成功（HTTP ${response.code}），继续执行 PUT。")
+                                    }
+                                }
+                            } catch (exception: Exception) {
+                                Log.w(TAG, "writeMetadata 回退预删除请求异常，继续执行 PUT。", exception)
+                            }
+                        }
+
+                        httpClient.newCall(
+                            Request.Builder()
+                                .url(url)
+                                .put(requestBody)
+                                .header("Authorization", authHeader)
+                                .build(),
+                        ).execute().use { response ->
+                            if (!response.isSuccessful) {
+                                call.resolve(
+                                    AudioMetadataWriter.failureResult(
+                                        "put_failed",
+                                        "上传修改后的音频失败（HTTP ${response.code}）。",
+                                    ),
+                                )
+                                return@execute
+                            }
                         }
                     }
 
