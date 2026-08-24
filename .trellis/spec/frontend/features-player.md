@@ -103,6 +103,7 @@
 ## 沉浸式播放页背景
 
 - AMLL `BackgroundRender` **不得**仅因「当前无歌词」而卸载；有当前曲且有可展示封面（含粘性封面）即渲染。
+- **背景渲染生命周期治理（08-24-perf-investigation）**：BackgroundRender（PIXI WebGL 网格渐变）可见时渲染成本高（MuMu 实测进程 CPU 40-71%），且 MPopup 关闭时 v-if 卸载组件、不存在「关闭后渲染」场景——真正的热源是**播放页开着时 App 切后台/熄屏**，渲染循环在后台满速跑。必须持有 BackgroundRender 模板 ref，watch playerOverlayVisible + visibilitychange 同步渲染器 pause/resume（隐藏或弹层关闭即 pause；恢复可见且弹层开着才 resume），onMounted/onUnmounted 成对注册移除，初始挂载同步一次。**禁止**用 AMLL vue 包的 `playing` prop 控制暂停——其内部逻辑写反（playing=true→pause，见 amll-vue 源码 watchEffect），上游修复后升级会反向。
 - 切歌若新曲暂无 `coverUri`，UI 可短时**粘性**使用上一首可用封面作背景与封面槽，待新封面写入后再更新；无当前曲时清空粘性封面。避免闪回默认 `fallback-background`（#20）。
 - 封面晚到时 `BackgroundRender` 须用 `key` 绑定封面 URI 以重建；`syncDisplayStateFromSong` **禁止**用库内空歌词清空运行时已有词，仅库内质量严格更优时才替换（#21）。
 - `PlayerPage` 用 `k-popup :opened="playerOverlayVisible"`（iOS 全屏底部滑入，关闭态 `translate-y-full` 移出屏幕；无 keep-alive 概念，关闭时内容仍在 DOM 由自绘手势隐藏，AMLL 背景不重建）。App.vue 常驻挂载 `<PlayerPage />`（无 `keepPlayerPageMounted` / translate-y）。打开/关闭必须 `resetDragState()`，下滑关闭前也要清零 `dragOffsetY`，避免再打开半屏（#25）。
