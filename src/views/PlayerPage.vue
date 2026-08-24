@@ -17,6 +17,7 @@
         <!-- 背景与歌词解耦：切歌暂无词时不卸载，避免闪默认底（#20） -->
         <div v-if="showAlbumBackground" class="player-page__bg">
           <BackgroundRender
+            ref="backgroundRenderRef"
             :key="backgroundAlbumSrc || 'no-album'"
             class="player-page__bg-render"
             :album="backgroundAlbumSrc || undefined"
@@ -881,7 +882,7 @@ import {
   repeatOutline,
   shuffle,
 } from '@/icons'
-import { BackgroundRender, LyricPlayer } from '@applemusic-like-lyrics/vue'
+import { BackgroundRender, LyricPlayer, type BackgroundRenderRef } from '@applemusic-like-lyrics/vue'
 import { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
 import { parseLrc, parseQrc, parseTTML, parseYrc } from '@applemusic-like-lyrics/lyric'
@@ -1930,6 +1931,8 @@ watch(playerOverlayVisible, (visible) => {
     hideLyricChromeImmediate()
   }
   resetDragState()
+  // 打开→恢复渲染循环；关闭→立即暂停（PIXI 循环与弹层可见性解耦是发烫根因）
+  syncBackgroundRenderLoop()
 })
 
 /** 松手回弹（原 CSS transition 220ms）：dragOffsetY 归零由 motion 命令式动画接管。
@@ -1980,6 +1983,38 @@ const backgroundAlbumSrc = computed(() => displayCoverSrc.value)
 const showAlbumBackground = computed(
   () => !!playerState.currentSong && !!backgroundAlbumSrc.value,
 )
+
+/** BackgroundRender 模板 ref：用于播放页不可见时暂停 PIXI 渲染循环（MeshGradientRenderer 默认 30fps 持续渲染，
+ * 与弹层可见性无关；关闭播放页后仍常驻挂载会持续吃 GPU/CPU，是发烫卡顿根因）。
+ * 注意 AMLL vue 包的 playing prop 逻辑写反（playing=true→pause），不能依赖该 prop。 */
+const backgroundRenderRef = ref<BackgroundRenderRef | null>(null)
+
+/** 统一同步背景渲染循环：仅「播放页打开且页面可见」时运行；其余一律 pause。
+ * bgRender 是 Ref，取值需 .value；渲染器可能尚未初始化，pause/resume 包 try/catch 防御。 */
+const syncBackgroundRenderLoop = (): void => {
+  // 模板 ref 经组件实例代理后 Ref 已被解包，直接拿到渲染器实例
+  const renderer = backgroundRenderRef.value?.bgRender
+  if (!renderer) return
+  const shouldRun = playerOverlayVisible.value && !document.hidden
+  try {
+    if (shouldRun) {
+      renderer.resume()
+    } else {
+      renderer.pause()
+    }
+  } catch {
+    // 渲染器未初始化/销毁中，忽略
+  }
+}
+
+// 封面变化触发 :key 重建时，新渲染器实例默认恢复跑循环；若播放页不可见须立即暂停。
+// flush:'post' 确保 bgRender 已指向新实例后再同步。
+watch(showAlbumBackground, () => syncBackgroundRenderLoop(), { flush: 'post' })
+
+/** 页面隐藏（切后台/锁屏）时暂停；恢复可见且播放页打开时再恢复。 */
+const onBackgroundVisibilityChange = (): void => {
+  syncBackgroundRenderLoop()
+}
 
 const lyricLines = computed<LyricLine[]>(() => {
   if (!currentLyrics.value) {
@@ -2477,7 +2512,10 @@ onMounted(() => {
   window.addEventListener('resize', updateViewportSize)
   window.addEventListener('blur', clearDragOnWindowHide)
   document.addEventListener('visibilitychange', clearDragOnWindowHide)
+  document.addEventListener('visibilitychange', onBackgroundVisibilityChange)
   refreshCurrentSongScrapeState()
+  // 冷启动恢复会话时可能已有当前曲+封面而弹层关闭：初始即暂停渲染循环
+  syncBackgroundRenderLoop()
 })
 
 onUnmounted(() => {
@@ -2485,6 +2523,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateViewportSize)
   window.removeEventListener('blur', clearDragOnWindowHide)
   document.removeEventListener('visibilitychange', clearDragOnWindowHide)
+  document.removeEventListener('visibilitychange', onBackgroundVisibilityChange)
   clearSeekUnlockTimer()
   clearLyricChromeIdleTimer()
   if (lyricScrollBackTimer) {

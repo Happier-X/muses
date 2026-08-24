@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放页 AMLL/背景渲染契约，排查时不可破坏"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件与动画约定"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "CDP 测量配方与验证命令"}
+{"file": ".trellis/tasks/08-24-perf-investigation/prd.md", "reason": "本任务需求与验收标准"}
