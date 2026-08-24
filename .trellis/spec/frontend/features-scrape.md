@@ -174,8 +174,17 @@ interface RollbackEntry {
 
 ---
 
-## 4. 可疑歌曲判定（suspicious.ts）
+## 3.5 刮削历史（history.ts，08-24-scrape-history）
 
+- 存储 key `muses:scrape-history`；版本化 snapshot `{ version: 1, entries }`，模式对齐 queue.ts（坏 JSON/非法条目忽略）
+- 每首歌一条 `ScrapeHistoryEntry`：id/journalId/songId/**songTitle+songArtist 快照**（防删歌后无法展示）/at/status/failureReason?/changedFields[]
+- API：`loadScrapeHistory()`（时间倒序）、`appendScrapeHistory()`（补 id/at → 追加 → 按 at 滚动保留最新 **200 条** → 写库并广播 `muses:scrape-history-updated`）、`clearScrapeHistory()`、`onScrapeHistoryChanged()`
+- **落史收口在 writeback.ts `applyScrapeChanges` 返回前**（recordHistory，try/catch 静默）：确认写回与重试都经过它不漏记；撤销不产生历史。failureReason 复用 describeWritebackFailure；changedFields 从 changesMap keys 归并（coverRemoteUrl→cover、lyricsFormat→lyrics）
+- 落史失败不得影响写回主流程；新增写回路径时必须检查是否经过该收口
+
+---
+
+## 4. 可疑歌曲判定（suspicious.ts）
 ### 规则
 
 | 规则 | 说明 |

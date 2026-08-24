@@ -12,6 +12,8 @@ import type { SongItem } from '@/features/library/types'
 import { writeLocalAudioMetadata, type WriteMetadataResult } from '@/features/library/native'
 import { buildWebDavUrl, writeWebDavAudioMetadata } from '@/features/sources/webdav'
 import type { ScrapeCandidate } from './matcher'
+import { appendScrapeHistory } from './history'
+import { describeWritebackFailure } from './failure-copy'
 
 // ── 回滚 journal ──────────────────────────────────────────
 
@@ -219,6 +221,53 @@ const updateSongInLibrary = (
   saveSongs(songs)
 }
 
+/**
+ * 写回结果落历史（08-24-scrape-history）。
+ * 旁路收口：确认写回与重试都经过 applyScrapeChanges，在此统一落史不漏记。
+ * 歌名/艺术家从 candidate.song 快照；失败原因复用 describeWritebackFailure；
+ * changedFields 从 changesMap keys 归并（coverRemoteUrl→cover、lyricsFormat→lyrics）。
+ * 落史失败不影响写回主流程。
+ */
+const recordHistory = (
+  candidates: ScrapeCandidate[],
+  results: WritebackResult[],
+  changesMap: Map<string, ScrapeChanges>,
+  journalId: string,
+): void => {
+  try {
+    const candidateMap = new Map(candidates.map((c) => [c.songId, c]))
+    const entries = results.map((result) => {
+      const song = candidateMap.get(result.songId)?.song
+      const changes = changesMap.get(result.songId) ?? {}
+      // ScrapeChanges key → 可读字段名归并：coverRemoteUrl 与 coverUri 同属 cover
+      const changedFields = new Set<string>()
+      for (const key of Object.keys(changes)) {
+        if (key === 'coverUri' || key === 'coverRemoteUrl') {
+          changedFields.add('cover')
+        } else if (key === 'lyrics' || key === 'lyricsFormat') {
+          changedFields.add('lyrics')
+        } else if (key === 'title' || key === 'artist' || key === 'album') {
+          changedFields.add(key)
+        }
+      }
+      return {
+        journalId,
+        songId: result.songId,
+        songTitle: song?.title ?? result.songId,
+        songArtist: song?.artist,
+        status: result.status,
+        ...(result.status !== 'success'
+          ? { failureReason: describeWritebackFailure(result) }
+          : {}),
+        changedFields: [...changedFields],
+      }
+    })
+    appendScrapeHistory(entries)
+  } catch {
+    // 历史记录为旁路能力，失败静默，不影响写回主流程
+  }
+}
+
 // ── 公开 API ──────────────────────────────────────────────
 
 /**
@@ -323,6 +372,9 @@ export const applyScrapeChanges = async (
       })
     }
   }
+
+  // 旁路落历史（确认写回与重试都经过此处，不漏记）
+  recordHistory(candidates, results, changesMap, journalId)
 
   return { journalId, results }
 }

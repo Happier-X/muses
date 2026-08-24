@@ -4,6 +4,12 @@
       <m-navbar>
         <template #title>刮削</template>
         <template #right>
+          <button
+            v-if="pageState === 'queue'"
+            type="button"
+            class="scrape-page__history-btn"
+            @click="onOpenHistory"
+          >历史</button>
           <span v-if="pageState === 'queue' && queueSnapshot.items.length > 0" class="scrape-page__count">
             {{ queueSnapshot.items.length }}
           </span>
@@ -320,6 +326,55 @@
         </div>
       </template>
 
+      <!-- ========== 历史弹层 ========== -->
+      <m-sheet :opened="isHistoryOpen" @backdropclick="isHistoryOpen = false">
+        <div class="scrape-page__history">
+          <div class="scrape-page__history-header">刮削历史</div>
+          <div v-if="historyEntries.length === 0" class="scrape-page__history-empty">暂无刮削记录</div>
+          <div v-else class="scrape-page__history-list">
+            <div
+              v-for="entry in historyEntries"
+              :key="entry.id"
+              class="scrape-page__history-row"
+            >
+              <span
+                class="scrape-page__result-icon scrape-page__result-icon--sm"
+                :class="`scrape-page__result-icon--${entry.status}`"
+              >
+                {{ entry.status === 'success' ? '✓' : entry.status === 'file-failed' ? '⚠' : '✗' }}
+              </span>
+              <div class="scrape-page__history-main">
+                <div class="scrape-page__history-title">{{ entry.songTitle }}</div>
+                <div
+                  v-if="entry.songArtist || entry.status !== 'success'"
+                  class="scrape-page__history-sub"
+                >{{ getHistoryRowSub(entry) }}</div>
+              </div>
+              <span class="scrape-page__history-time">{{ formatRelativeTime(entry.at) }}</span>
+            </div>
+          </div>
+          <div class="scrape-page__history-footer">
+            <m-button
+              component="button"
+              variant="clear"
+              inline
+              class="scrape-page__history-clear"
+              :disabled="historyEntries.length === 0"
+              @click="isHistoryClearConfirmOpen = true"
+            >清空历史</m-button>
+          </div>
+        </div>
+      </m-sheet>
+
+      <!-- 清空历史确认 -->
+      <m-dialog :opened="isHistoryClearConfirmOpen" title="清空刮削历史">
+        <p class="scrape-page__revert-notice">所有刮削记录将被删除，且不可恢复。</p>
+        <template #buttons>
+          <m-dialog-button @click="isHistoryClearConfirmOpen = false">取消</m-dialog-button>
+          <m-dialog-button strong @click="onConfirmClearHistory">清空</m-dialog-button>
+        </template>
+      </m-dialog>
+
       <!-- 撤销确认提示 -->
       <m-dialog :opened="isRevertConfirmOpen" title="撤销本次刮削">
         <p class="scrape-page__revert-notice">
@@ -347,8 +402,14 @@ import { trash } from '@/icons'
 import {
   MButton, MCheckbox, MCover, MDialog, MDialogButton, MEmpty,
   MIconButton, MList, MListItem, MNavbar,
-  MPreloader, MToast,
+  MPreloader, MSheet, MToast,
 } from '@/components/ui'
+import {
+  loadScrapeHistory,
+  clearScrapeHistory,
+  onScrapeHistoryChanged,
+  type ScrapeHistoryEntry,
+} from '@/features/scrape/history'
 import {
   loadScrapeQueue,
   removeScrapeSongs,
@@ -753,6 +814,58 @@ const onConfirmRevert = async (): Promise<void> => {
   }
 }
 
+// ── 历史 ──────────────────────────────────────────────
+
+const isHistoryOpen = ref(false)
+const isHistoryClearConfirmOpen = ref(false)
+const historyEntries = ref<ScrapeHistoryEntry[]>([])
+let historyUnsubscribe: (() => void) | null = null
+
+const refreshHistory = (): void => {
+  if (isHistoryOpen.value) {
+    historyEntries.value = loadScrapeHistory()
+  }
+}
+
+// 打开时拉取最新；写回落史后事件驱动刷新
+historyUnsubscribe = onScrapeHistoryChanged(refreshHistory)
+
+const onOpenHistory = (): void => {
+  historyEntries.value = loadScrapeHistory()
+  isHistoryOpen.value = true
+}
+
+const getHistoryRowSub = (entry: ScrapeHistoryEntry): string => {
+  const parts: string[] = []
+  if (entry.songArtist) parts.push(entry.songArtist)
+  if (entry.status !== 'success') {
+    const prefix = entry.status === 'file-failed' ? '值已入库：' : ''
+    parts.push(`${prefix}${entry.failureReason ?? '写回失败'}`)
+  }
+  return parts.join(' · ')
+}
+
+/** 相对时间：刚刚/N 分钟前/N 小时前/N 天前/日期 */
+const formatRelativeTime = (iso: string): string => {
+  const time = new Date(iso).getTime()
+  if (Number.isNaN(time)) return ''
+  const diffMs = Date.now() - time
+  const minute = 60 * 1000
+  const hour = 60 * minute
+  const day = 24 * hour
+  if (diffMs < minute) return '刚刚'
+  if (diffMs < hour) return `${Math.floor(diffMs / minute)} 分钟前`
+  if (diffMs < day) return `${Math.floor(diffMs / hour)} 小时前`
+  if (diffMs < 7 * day) return `${Math.floor(diffMs / day)} 天前`
+  return new Date(iso).toLocaleDateString()
+}
+
+const onConfirmClearHistory = (): void => {
+  isHistoryClearConfirmOpen.value = false
+  clearScrapeHistory()
+  historyEntries.value = []
+}
+
 // ── Toast ─────────────────────────────────────────────────
 
 const toast = ref<{ visible: boolean; message: string }>({ visible: false, message: '' })
@@ -796,6 +909,7 @@ const setupQueueListener = (): void => {
 setupQueueListener()
 onUnmounted(() => {
   queueUnsubscribe?.()
+  historyUnsubscribe?.()
   if (toastTimer) clearTimeout(toastTimer)
 })
 </script>
@@ -837,6 +951,103 @@ onUnmounted(() => {
     font-size: 14px;
     color: var(--m-primary);
     font-weight: 500;
+  }
+
+  // ── 历史按钮（navbar 右侧文字按钮）──
+  &__history-btn {
+    appearance: none;
+    border: none;
+    background: none;
+    padding: 4px 8px;
+    margin-right: 4px;
+    font-size: 14px;
+    color: var(--m-primary);
+    cursor: pointer;
+  }
+
+  // ── 历史弹层 ──
+  &__history {
+    display: flex;
+    flex-direction: column;
+    max-height: 70vh;
+    box-sizing: border-box;
+  }
+
+  &__history-header {
+    padding: 20px 16px 12px;
+    font-size: var(--m-font-size-lg);
+    font-weight: 600;
+    text-align: center;
+  }
+
+  &__history-empty {
+    padding: 32px 16px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--m-text-2);
+  }
+
+  &__history-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 16px;
+  }
+
+  &__history-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+
+    & + & {
+      border-top: 1px solid var(--m-hairline);
+    }
+  }
+
+  &__history-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__history-title {
+    font-size: 15px;
+    color: var(--m-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__history-sub {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--m-text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__history-time {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--m-text-3, #999);
+  }
+
+  &__history-footer {
+    padding: 8px 16px calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    border-top: 1px solid var(--m-hairline);
+    display: flex;
+    justify-content: center;
+  }
+
+  &__history-clear {
+    color: var(--m-danger, #ff3b30);
+  }
+
+  &__result-icon--sm {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
   }
 
   // ── 空态 ──
@@ -1124,6 +1335,21 @@ onUnmounted(() => {
     border-radius: 50%;
     font-size: 14px;
     font-weight: 600;
+  }
+
+  &__result-icon--success {
+    background: rgba(52, 199, 89, 0.12);
+    color: #34c759;
+  }
+
+  &__result-icon--file-failed {
+    background: rgba(255, 149, 0, 0.12);
+    color: #ff9500;
+  }
+
+  &__result-icon--failed {
+    background: rgba(255, 59, 48, 0.12);
+    color: var(--m-danger, #ff3b30);
   }
 
   &__result-row--success &__result-icon {
