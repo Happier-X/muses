@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/08-24-native-compose-rewrite/prd.md", "reason": "验收标准来源：M1 核心（WebDAV 可播、媒体通知可控、后台播放）"}
+{"file": ".trellis/tasks/08-24-native-compose-rewrite/design.md", "reason": "检查实现是否偏离既定架构决策（MediaSessionService 回归、模块分层、Salt 主题层）"}

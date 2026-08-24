@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Muses</string>
+    <string name="nav_songs">歌曲</string>
+    <string name="nav_albums">专辑</string>
+    <string name="nav_artists">艺术家</string>
+    <string name="nav_sources">音源</string>
+    <string name="nav_playlists">播放列表</string>
+    <string name="nav_now_playing">正在播放</string>
+    <string name="nav_queue">播放队列</string>
+    <string name="cd_open_drawer">打开侧边栏</string>
+    <string name="cd_open_player">打开播放页</string>
+    <string name="cd_play_pause">播放/暂停</string>
+    <string name="cd_skip_next">下一首</string>
+    <string name="cd_skip_previous">上一首</string>
+    <string name="cd_shuffle">随机播放</string>
+    <string name="cd_repeat">循环播放</string>
+</resources>

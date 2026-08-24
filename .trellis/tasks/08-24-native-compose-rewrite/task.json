@@ -1,0 +1,29 @@
+{
+  "id": "native-compose-rewrite",
+  "name": "native-compose-rewrite",
+  "title": "纯原生 Kotlin + Jetpack Compose 重写 Android 端",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "happier",
+  "assignee": "happier",
+  "createdAt": "2026-08-24",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-24-native-m1-core-playback",
+    "08-24-native-m2-lyrics-playlist"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

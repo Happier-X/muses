@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/08-24-native-compose-rewrite/design.md", "reason": "M1 架构设计：模块结构、技术栈定版、播放/WebDAV/Salt 主题方案"}
+{"file": ".trellis/tasks/08-24-native-m1-core-playback/prd.md", "reason": "M1 范围、验收标准与环境事实（Java/SDK 路径）"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "现有播放器契约与踩坑记录；原生实现对照评估（WebDAV 完整缓存优先、seek 保护、失败恢复等语义需保留）"}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 占位图标：播放三角形，后续里程碑替换正式图标 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF7FB5FF"
+        android:pathData="M44,36 L76,54 L44,72 Z" />
+</vector>

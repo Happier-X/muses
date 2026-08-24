@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Salt 风格深色基底；状态栏/导航栏由 enableEdgeToEdge 接管 -->
+    <style name="Theme.Muses" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/salt_window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

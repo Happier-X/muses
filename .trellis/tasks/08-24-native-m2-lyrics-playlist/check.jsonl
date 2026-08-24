@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/08-24-native-m2-lyrics-playlist/prd.md", "reason": "验收清单：逐项核对歌词渲染/背景治理/播放列表/响度均衡与构建命令"}
+{"file": ".trellis/tasks/08-24-native-m2-lyrics-playlist/design.md", "reason": "检查实现是否符合设计契约：依赖方向（feature 不碰 Room/OkHttp）、SyncedLyrics 不泄漏到 data 层、Room 迁移只追加不改旧表"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "对照 spec 契约核查背景生命周期实现是否等价继承"}

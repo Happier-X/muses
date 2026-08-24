@@ -1,0 +1,22 @@
+{
+	"name": "@muses/amll-web",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"description": "AMLL 歌词 + 流体背景 WebView 前端（供 Android Compose 包装，evaluateJavascript 桥接）",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"typecheck": "tsc --noEmit",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@applemusic-like-lyrics/core": "^0.5.2"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3",
+		"vite": "^7.3.0",
+		"vite-plugin-top-level-await": "^1.6.0",
+		"vite-plugin-wasm": "^3.6.0"
+	}
+}

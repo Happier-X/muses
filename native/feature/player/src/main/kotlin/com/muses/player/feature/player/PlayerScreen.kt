@@ -1,0 +1,352 @@
+package com.muses.player.feature.player
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.media3.common.Player
+import coil3.compose.AsyncImage
+import com.muses.player.core.model.Song
+
+/** 播放页基础形态：全屏封面 + 控制按钮 + 进度条 */
+@Composable
+fun PlayerScreen(
+    modifier: Modifier = Modifier,
+    viewModel: PlayerViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    onOpenQueue: () -> Unit = {},
+) {
+    val isPlaying by viewModel.isPlaying.collectAsState()
+    val currentMediaItem by viewModel.currentMediaItem.collectAsState()
+    val position by viewModel.position.collectAsState()
+    val duration by viewModel.duration.collectAsState()
+    val repeatMode by viewModel.repeatMode.collectAsState()
+    val shuffleModeEnabled by viewModel.shuffleModeEnabled.collectAsState()
+    val isSeeking by viewModel.isSeeking.collectAsState()
+
+    // 从 MediaItem 提取歌曲信息
+    val song = currentMediaItem?.let { item ->
+        Song(
+            id = item.mediaId,
+            sourceId = "",
+            path = item.localConfiguration?.uri?.toString() ?: "",
+            title = item.mediaMetadata.title?.toString() ?: "未知歌曲",
+            artist = item.mediaMetadata.artist?.toString(),
+            album = item.mediaMetadata.albumTitle?.toString(),
+            durationMs = if (duration > 0) duration else 0L,
+            coverUri = item.mediaMetadata.artworkUri?.toString(),
+        )
+    }
+
+    // 拖拽中的临时位置
+    var seekPosition by remember { mutableFloatStateOf(0f) }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        // 封面背景（渐变模糊效果简化版）
+        if (song?.coverUri != null) {
+            AsyncImage(
+                model = song.coverUri,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.3f)),
+                contentScale = ContentScale.Crop,
+                alpha = 0.4f,
+            )
+        }
+
+        // 主内容
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            // 封面
+            AsyncImage(
+                model = song?.coverUri,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow),
+                contentScale = ContentScale.Crop,
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            // 歌曲标题
+            Text(
+                text = song?.title ?: "未在播放",
+                style = MaterialTheme.typography.headlineMedium,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            // 艺术家
+            Text(
+                text = song?.artist ?: "",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            // 进度条
+            Slider(
+                value = if (isSeeking) seekPosition else if (duration > 0) position.toFloat() / duration else 0f,
+                onValueChange = { value ->
+                    seekPosition = value
+                    viewModel.onSeekStart()
+                },
+                onValueChangeFinished = {
+                    viewModel.onSeekEnd((seekPosition * duration).toLong())
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.White,
+                    activeTrackColor = Color.White,
+                    inactiveTrackColor = Color.White.copy(alpha = 0.3f),
+                ),
+            )
+
+            // 时间显示
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = formatDuration(if (isSeeking) (seekPosition * duration).toLong() else position),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.7f),
+                )
+                Text(
+                    text = formatDuration(duration),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.7f),
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // 控制按钮
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // 随机播放
+                IconButton(
+                    onClick = { viewModel.setShuffleModeEnabled(!shuffleModeEnabled) },
+                ) {
+                    Icon(
+                        Icons.Filled.Shuffle,
+                        contentDescription = if (shuffleModeEnabled) "关闭随机播放" else "开启随机播放",
+                        tint = if (shuffleModeEnabled) Color.White else Color.White.copy(alpha = 0.5f),
+                    )
+                }
+
+                // 上一首
+                IconButton(onClick = { viewModel.skipToPrevious() }) {
+                    Icon(
+                        Icons.Filled.SkipPrevious,
+                        contentDescription = "上一首",
+                        tint = Color.White,
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
+
+                // 播放/暂停
+                IconButton(
+                    onClick = { viewModel.playPause() },
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (isPlaying) "暂停" else "播放",
+                        tint = Color.White,
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
+
+                // 下一首
+                IconButton(onClick = { viewModel.skipToNext() }) {
+                    Icon(
+                        Icons.Filled.SkipNext,
+                        contentDescription = "下一首",
+                        tint = Color.White,
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
+
+                // 播放模式
+                IconButton(
+                    onClick = {
+                        val nextMode = when (repeatMode) {
+                            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                            else -> Player.REPEAT_MODE_OFF
+                        }
+                        viewModel.setRepeatMode(nextMode)
+                    },
+                ) {
+                    Icon(
+                        imageVector = when (repeatMode) {
+                            Player.REPEAT_MODE_ONE -> Icons.Filled.RepeatOne
+                            else -> Icons.Filled.Repeat
+                        },
+                        contentDescription = when (repeatMode) {
+                            Player.REPEAT_MODE_OFF -> "顺序播放"
+                            Player.REPEAT_MODE_ALL -> "列表循环"
+                            Player.REPEAT_MODE_ONE -> "单曲循环"
+                            else -> "播放模式"
+                        },
+                        tint = if (repeatMode != Player.REPEAT_MODE_OFF) Color.White else Color.White.copy(alpha = 0.5f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 队列页 */
+@Composable
+fun QueueScreen(
+    modifier: Modifier = Modifier,
+    viewModel: QueueViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+) {
+    val queue by viewModel.queue.collectAsState()
+    val currentMediaItem by viewModel.currentMediaItem.collectAsState()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+    ) {
+        Text(
+            text = "播放队列",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(vertical = 16.dp),
+        )
+
+        if (queue.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "队列为空",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            androidx.compose.foundation.lazy.LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                items(queue.size, key = { queue[it].mediaId }) { index ->
+                    val item = queue[index]
+                    val isCurrent = item.mediaId == currentMediaItem?.mediaId
+
+                    androidx.compose.material3.ListItem(
+                        headlineContent = {
+                            Text(
+                                item.mediaMetadata.title?.toString() ?: "未知歌曲",
+                                color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                item.mediaMetadata.artist?.toString() ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        leadingContent = {
+                            if (isCurrent) {
+                                Icon(
+                                    Icons.Filled.MusicNote,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 格式化时长为 mm:ss */
+private fun formatDuration(durationMs: Long): String {
+    if (durationMs <= 0) return "0:00"
+    val totalSeconds = durationMs / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%d:%02d".format(minutes, seconds)
+}
