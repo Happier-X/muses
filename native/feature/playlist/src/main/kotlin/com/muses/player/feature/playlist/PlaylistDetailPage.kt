@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -69,6 +70,12 @@ fun PlaylistDetailPage(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { viewModel.playAll() },
+                        enabled = detail?.songs?.isNotEmpty() == true,
+                    ) {
+                        Icon(Icons.Filled.PlayCircle, contentDescription = "播放全部")
+                    }
                     var menuExpanded by remember { mutableStateOf(false) }
                     IconButton(onClick = { menuExpanded = true }) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "更多操作")

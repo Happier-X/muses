@@ -14,17 +14,33 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.muses.player.core.data.dao.SongDao
+import com.muses.player.core.data.repository.SettingsRepository
+import com.muses.player.core.media.loudness.LoudnessController
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import okhttp3.OkHttpClient
+import javax.inject.Inject
 
 /**
  * 播放服务：Media3 MediaSessionService。
  * 持有 ExoPlayer，自动处理通知/媒体按钮/音频焦点/蓝牙断连暂停。
  */
 @UnstableApi
+@AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
     private val okHttpClient by lazy { OkHttpClient.Builder().build() }
+
+    @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var songDao: SongDao
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var loudnessController: LoudnessController? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -51,6 +67,10 @@ class PlaybackService : MediaSessionService() {
         val notificationProvider = DefaultMediaNotificationProvider(this)
         notificationProvider.setSmallIcon(android.R.drawable.ic_media_play)
         setMediaNotificationProvider(notificationProvider)
+
+        // 响度均衡：挂在服务侧 ExoPlayer 上（MediaController 无 volume 能力）
+        loudnessController = LoudnessController(player, settingsRepository, songDao, serviceScope)
+            .also { it.start() }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -65,6 +85,10 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        // 响度均衡先停，避免释放中的 player 还被回调
+        loudnessController?.stop()
+        loudnessController = null
+        serviceScope.cancel()
         mediaSession?.run {
             player.release()
             release()

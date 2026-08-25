@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muses.player.core.media.playback.PlayerConnection
 import com.muses.player.core.data.repository.PlaylistRepository
 import com.muses.player.core.model.Playlist
 import com.muses.player.core.model.PlaylistWithSongs
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class PlaylistDetailViewModel @Inject constructor(
     private val repository: PlaylistRepository,
+    private val playerConnection: PlayerConnection,
 ) : ViewModel() {
 
     private val playlistId = MutableStateFlow<String?>(null)
@@ -37,6 +39,15 @@ class PlaylistDetailViewModel @Inject constructor(
     /** 导航参数到达后绑定目标播放列表（幂等） */
     fun bind(id: String) {
         if (playlistId.value != id) playlistId.value = id
+    }
+
+    /** 整体入队播放：从首曲开始按当前顺序播放 */
+    fun playAll() {
+        val id = playlistId.value ?: return
+        viewModelScope.launch {
+            val songs = repository.getSongs(id)
+            if (songs.isNotEmpty()) playerConnection.play(songs.first().id, songs)
+        }
     }
 
     fun move(fromPosition: Int, toPosition: Int) {

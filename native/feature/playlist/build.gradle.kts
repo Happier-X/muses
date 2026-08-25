@@ -31,6 +31,8 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
+    // 播放全部需经 PlayerConnection 入队（唯一分层例外，见 PlaylistDetailViewModel 注释）
+    implementation(project(":core:media"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

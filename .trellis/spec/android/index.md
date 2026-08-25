@@ -2,6 +2,10 @@
 
 > 适用于 `native/` 纯原生 Kotlin + Jetpack Compose 工程。
 
+## 特征规范索引
+
+- [features-lyrics-playlist.md](features-lyrics-playlist.md) — AMLL WebView 歌词渲染 / 播放列表 / 响度均衡（M2）
+
 ---
 
 ## 架构分层

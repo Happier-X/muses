@@ -9,6 +9,7 @@ import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.model.Playlist
 import com.muses.player.core.model.PlaylistWithSongs
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -27,6 +28,9 @@ interface PlaylistRepository {
 
     /** 入队播放接口预留：按播放顺序返回 songIds */
     fun observePlaylistSongIds(id: String): Flow<List<String>>
+
+    /** 按播放顺序返回歌曲领域模型（供整体入队播放） */
+    suspend fun getSongs(id: String): List<com.muses.player.core.model.Song>
 
     suspend fun createPlaylist(name: String): String
 
@@ -65,8 +69,9 @@ class RoomPlaylistRepository @Inject constructor(
     override fun observePlaylistSongIds(id: String): Flow<List<String>> =
         dao.observeSongIds(id)
 
-    // TODO(M2 阶段 1 之后)：入队播放接线 —— getSongs(id) → PlaybackController.playQueue(songs)
-    //  当前 core:media 仍是 NoOpPlaybackController 占位，本次不实现。
+    override suspend fun getSongs(id: String): List<com.muses.player.core.model.Song> =
+        dao.observeSongsWithSong(id).first().mapNotNull { it.song?.toDomain() }
+
 
     override suspend fun createPlaylist(name: String): String {
         val id = UUID.randomUUID().toString()

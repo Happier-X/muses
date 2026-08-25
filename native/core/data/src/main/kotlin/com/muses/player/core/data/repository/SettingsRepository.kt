@@ -18,9 +18,14 @@ interface SettingsRepository {
     /** 上次完成扫描的时间戳（epoch millis，0 = 从未扫描） */
     val lastScanTimestamp: Flow<Long>
 
+    /** 响度均衡开关（默认关；语义见 spec/frontend/features-player.md 响度均衡小节） */
+    val loudnessEnabled: Flow<Boolean>
+
     suspend fun completeFirstLaunch()
 
     suspend fun updateLastScanTimestamp(timestampMillis: Long)
+
+    suspend fun setLoudnessEnabled(enabled: Boolean)
 }
 
 @Singleton
@@ -34,6 +39,9 @@ class DataStoreSettingsRepository @Inject constructor(
     override val lastScanTimestamp: Flow<Long>
         get() = dataStore.data.map { prefs -> prefs[LAST_SCAN_TIMESTAMP] ?: 0L }
 
+    override val loudnessEnabled: Flow<Boolean>
+        get() = dataStore.data.map { prefs -> prefs[LOUDNESS_ENABLED] == true }
+
     override suspend fun completeFirstLaunch() {
         dataStore.edit { prefs -> prefs[FIRST_LAUNCH_DONE] = true }
     }
@@ -42,8 +50,13 @@ class DataStoreSettingsRepository @Inject constructor(
         dataStore.edit { prefs -> prefs[LAST_SCAN_TIMESTAMP] = timestampMillis }
     }
 
+    override suspend fun setLoudnessEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[LOUDNESS_ENABLED] = enabled }
+    }
+
     private companion object {
         val FIRST_LAUNCH_DONE = booleanPreferencesKey("first_launch_done")
         val LAST_SCAN_TIMESTAMP = longPreferencesKey("last_scan_timestamp")
+        val LOUDNESS_ENABLED = booleanPreferencesKey("loudness_enabled")
     }
 }

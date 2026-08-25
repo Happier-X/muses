@@ -27,6 +27,8 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
+    // 「加入播放列表」长按菜单复用 AddToPlaylistSheet（feature→feature 例外，后续如需解耦可下沉共享模块）
+    implementation(project(":feature:playlist"))
     implementation(project(":core:media"))
 
     implementation(platform(libs.compose.bom))

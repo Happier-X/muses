@@ -1,6 +1,8 @@
 package com.muses.player.feature.library
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,6 +63,15 @@ fun SongsScreen(
     val songs by viewModel.songs.collectAsState()
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    // 非 null 时弹出「加入播放列表」底部弹层（M2）
+    var addToPlaylistTarget by remember { mutableStateOf<List<String>?>(null) }
+
+    addToPlaylistTarget?.let { songIds ->
+        com.muses.player.feature.playlist.AddToPlaylistSheet(
+            songIds = songIds,
+            onDismiss = { addToPlaylistTarget = null },
+        )
+    }
 
     Column(modifier = modifier) {
         if (showSearch) {
@@ -107,6 +118,7 @@ fun SongsScreen(
                         onClick = {
                             playerConnection?.play(song.id, songs)
                         },
+                        onLongClick = { addToPlaylistTarget = listOf(song.id) },
                     )
                 }
             }
@@ -114,6 +126,7 @@ fun SongsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SongListItem(
     song: Song,
@@ -121,11 +134,15 @@ fun SongListItem(
     modifier: Modifier = Modifier,
     showIndex: Boolean = false,
     index: Int = 0,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

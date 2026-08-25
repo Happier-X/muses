@@ -25,6 +25,7 @@ fun SongEntity.toDomain(): Song = Song(
     durationSec = durationSec,
     coverUri = coverUri,
     lyrics = lyrics,
+    replayGainTrackDb = replayGainTrackDb,
     sourceType = runCatching { SourceType.valueOf(sourceType) }.getOrDefault(SourceType.LOCAL),
     tagsVersion = tagsVersion,
 )
@@ -41,6 +42,7 @@ fun Song.toEntity(): SongEntity = SongEntity(
     durationSec = durationSec,
     coverUri = coverUri,
     lyrics = lyrics,
+    replayGainTrackDb = replayGainTrackDb,
     tagsVersion = tagsVersion,
 )
 

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import coil3.compose.AsyncImage
 import com.muses.player.core.model.Song
+import com.muses.player.feature.player.lyric.AmllWebView
 
 /** 播放页基础形态：全屏封面 + 控制按钮 + 进度条 */
 @Composable
@@ -65,6 +67,10 @@ fun PlayerScreen(
     val repeatMode by viewModel.repeatMode.collectAsState()
     val shuffleModeEnabled by viewModel.shuffleModeEnabled.collectAsState()
     val isSeeking by viewModel.isSeeking.collectAsState()
+    val lyricsJson by viewModel.lyricsJson.collectAsState()
+    val lyricPosition by viewModel.lyricPosition.collectAsState()
+    val hasTranslation by viewModel.hasTranslation.collectAsState()
+    val translationEnabled by viewModel.translationEnabled.collectAsState()
 
     // 从 MediaItem 提取歌曲信息
     val song = currentMediaItem?.let { item ->
@@ -86,19 +92,32 @@ fun PlayerScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(Color.Black),
     ) {
-        // 封面背景（渐变模糊效果简化版）
-        if (song?.coverUri != null) {
-            AsyncImage(
-                model = song.coverUri,
-                contentDescription = null,
+        // AMLL 底层：歌词 + 流体背景（无词时背景照常渲染，spec 契约）
+        AmllWebView(
+            payloadJson = lyricsJson,
+            positionMsFlow = viewModel.lyricPosition,
+            isPlaying = viewModel.isPlaying,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        // 左下翻译 FAB：仅当歌词含译文/音译时渲染；白字低视觉权重，激活态高亮
+        if (hasTranslation) {
+            IconButton(
+                onClick = { viewModel.toggleTranslation() },
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.3f)),
-                contentScale = ContentScale.Crop,
-                alpha = 0.4f,
-            )
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp)
+                    .size(40.dp)
+                    .background(Color.White.copy(alpha = 0.15f), CircleShape),
+            ) {
+                Icon(
+                    Icons.Filled.Translate,
+                    contentDescription = if (translationEnabled) "隐藏翻译" else "显示翻译",
+                    tint = if (translationEnabled) Color.White else Color.White.copy(alpha = 0.5f),
+                )
+            }
         }
 
         // 主内容

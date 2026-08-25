@@ -13,6 +13,7 @@ import com.muses.player.core.data.dao.SourceDao
  *
  * - v1：songs / albums / artists / song_album_cross_ref / song_artist_cross_ref / sources
  * - v2：playlists / playlist_songs（M2 阶段 2，迁移见 [MIGRATION_1_2]）
+ * - v3：songs.replayGainTrackDb（M2 阶段 3 响度均衡，迁移见 [MIGRATION_2_3]）
  */
 @Database(
     entities = [
@@ -25,7 +26,7 @@ import com.muses.player.core.data.dao.SourceDao
         PlaylistEntity::class,
         PlaylistSongEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class MusesDatabase : RoomDatabase() {

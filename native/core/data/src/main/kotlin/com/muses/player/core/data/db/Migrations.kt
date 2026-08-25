@@ -30,3 +30,10 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
         )
     }
 }
+
+/** v2 → v3：songs 表新增 ReplayGain 列（向前追加，不改既有表） */
+val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `songs` ADD COLUMN `replayGainTrackDb` REAL DEFAULT NULL")
+    }
+}

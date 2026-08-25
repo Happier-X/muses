@@ -28,6 +28,7 @@ data class SongEntity(
     @ColumnInfo(name = "durationSec") val durationSec: Long = 0L,
     @ColumnInfo(name = "coverUri") val coverUri: String? = null,
     @ColumnInfo(name = "lyrics") val lyrics: String? = null,
+    @ColumnInfo(name = "replayGainTrackDb") val replayGainTrackDb: Double? = null,
     @ColumnInfo(name = "tagsVersion") val tagsVersion: Int = 0,
 )
 
