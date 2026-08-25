@@ -51,7 +51,12 @@
         <service
             android:name="com.muses.player.core.media.playback.PlaybackService"
             android:foregroundServiceType="mediaPlayback"
-            android:exported="false" />
+            android:exported="false">
+            <!-- media3 SessionToken 解析必需：缺失会 IllegalArgumentException 崩溃 -->
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>
