@@ -35,7 +35,7 @@ import com.muses.player.feature.library.AlbumDetailScreen
 import com.muses.player.feature.library.AlbumsScreen
 import com.muses.player.feature.library.ArtistDetailScreen
 import com.muses.player.feature.library.ArtistsScreen
-import com.muses.player.feature.library.SongsScreen
+import com.muses.player.feature.library.SongsPage
 import com.muses.player.feature.player.PlayerScreen
 import com.muses.player.feature.player.QueueScreen
 import com.muses.player.feature.playlist.PlaylistDetailPage
@@ -225,12 +225,8 @@ private fun AppNavHost(navController: NavHostController) {
         modifier = Modifier.fillMaxSize(),
     ) {
         composable(NavDestination.Songs.route) {
-            val viewModel: com.muses.player.feature.library.SongsViewModel = hiltViewModel()
             val playerConnection = androidx.hilt.navigation.compose.hiltViewModel<com.muses.player.feature.player.PlayerViewModel>().playerConnection
-            SongsScreen(
-                viewModel = viewModel,
-                playerConnection = playerConnection,
-            )
+            SongsPage(playerConnection = playerConnection)
         }
         composable(NavDestination.Albums.route) {
             AlbumsScreen(

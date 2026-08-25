@@ -2,6 +2,7 @@ package com.muses.player.feature.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import com.muses.player.core.data.db.AlbumWithSongs
 import com.muses.player.core.data.db.ArtistWithSongs
 import com.muses.player.core.data.mapper.toDomain
@@ -23,6 +24,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SongsViewModel @Inject constructor(
     songRepository: SongRepository,
+    private val songDao: com.muses.player.core.data.dao.SongDao,
 ) : ViewModel() {
 
     private val _allSongs: StateFlow<List<Song>> = songRepository.observeSongs()
@@ -41,6 +43,13 @@ class SongsViewModel @Inject constructor(
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
+    }
+
+    /** 批量删除歌曲（Room 外键 CASCADE 同步清理播放列表引用，语义对齐 653e466） */
+    fun deleteByIds(ids: Collection<String>) {
+        viewModelScope.launch {
+            ids.forEach { runCatching { songDao.deleteById(it) } }
+        }
     }
 }
 

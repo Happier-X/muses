@@ -51,6 +51,8 @@ fun SaltTextButton(
     modifier: Modifier = Modifier,
     size: SaltTextButtonSize = SaltTextButtonSize.MD,
     enabled: Boolean = true,
+    /** 危险动作（多选条「永久删除」）：文字用 --m-danger */
+    destructive: Boolean = false,
 ) {
     val salt = LocalSaltColors.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -81,7 +83,11 @@ fun SaltTextButton(
     ) {
         Text(
             text = text,
-            color = if (enabled) salt.primary else salt.disabledText,
+            color = when {
+                !enabled -> salt.disabledText
+                destructive -> salt.danger
+                else -> salt.primary
+            },
             fontSize = size.fontSize.sp,
             fontWeight = size.fontWeight,
             lineHeight = (size.fontSize + 3).sp, // 近似 Web 默认行高观感
