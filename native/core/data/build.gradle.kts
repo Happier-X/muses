@@ -17,6 +17,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    sourceSets {
+        // MigrationTestHelper 读取导出的 room schema json
+        getByName("test") {
+            assets.srcDir("$projectDir/schemas")
+        }
+    }
+
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
@@ -44,6 +51,7 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
     implementation(libs.datastore.preferences)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
