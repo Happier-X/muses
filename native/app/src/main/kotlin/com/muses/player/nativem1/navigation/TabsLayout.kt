@@ -58,9 +58,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.muses.player.nativem1.theme.LocalSaltColors
-import com.muses.player.nativem1.theme.SaltRadius
-import com.muses.player.nativem1.theme.SaltSpacing
+import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.theme.SaltRadius
+import com.muses.player.core.ui.theme.SaltSpacing
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch

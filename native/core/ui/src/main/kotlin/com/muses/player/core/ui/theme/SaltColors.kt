@@ -1,4 +1,4 @@
-package com.muses.player.nativem1.theme
+package com.muses.player.core.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme

@@ -1,4 +1,4 @@
-package com.muses.player.nativem1.ui
+package com.muses.player.core.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -21,8 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.muses.player.nativem1.theme.LocalSaltColors
-import com.muses.player.nativem1.theme.SaltRadius
+import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.theme.SaltRadius
 
 /** MButton 尺寸档位（`.m-button--small/--md/--large`） */
 enum class SaltTextButtonSize(val height: Dp, val fontSize: Int, val fontWeight: FontWeight) {

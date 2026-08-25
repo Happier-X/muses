@@ -1,4 +1,4 @@
-package com.muses.player.nativem1.theme
+package com.muses.player.core.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.BorderStroke

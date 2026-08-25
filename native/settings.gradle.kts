@@ -25,6 +25,7 @@ rootProject.name = "muses-native"
 
 include(":app")
 include(":core:model")
+include(":core:ui")
 include(":core:data")
 include(":core:webdav")
 include(":core:media")

@@ -43,8 +43,8 @@ import com.muses.player.feature.playlist.PlaylistsPage
 import com.muses.player.feature.sources.SourcesScreen
 import com.muses.player.nativem1.R
 import com.muses.player.nativem1.onboarding.OnboardingScreen
-import com.muses.player.nativem1.ui.MiniPlayerBar
-import com.muses.player.nativem1.ui.SaltEmpty
+import com.muses.player.core.ui.components.MiniPlayerBar
+import com.muses.player.core.ui.components.SaltEmpty
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted

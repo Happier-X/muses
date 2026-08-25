@@ -1,4 +1,4 @@
-package com.muses.player.nativem1.ui
+package com.muses.player.core.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -17,9 +17,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.muses.player.nativem1.theme.LocalSaltColors
-import com.muses.player.nativem1.theme.SaltRadius
-import com.muses.player.nativem1.theme.SaltSpacing
+import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.theme.SaltRadius
+import com.muses.player.core.ui.theme.SaltSpacing
 
 /** MCover 圆角档位：sm → `--m-radius-sm`(8) / md → `--m-radius-card`(12) */
 enum class SaltCoverRadius(val value: androidx.compose.ui.unit.Dp) {

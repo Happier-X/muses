@@ -1,4 +1,4 @@
-package com.muses.player.nativem1.ui
+package com.muses.player.core.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,8 +29,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.muses.player.nativem1.theme.LocalSaltColors
-import com.muses.player.nativem1.theme.SaltSpacing
+import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.theme.SaltSpacing
 
 /**
  * `.m-list-item` —— 列表行（MListItem.vue 一比一翻译；MList 容器在 Compose 中
@@ -64,7 +64,7 @@ fun SaltListItem(
     after: @Composable RowScope.() -> Unit = {},
 ) {
     val salt = LocalSaltColors.current
-    val isDark = salt === com.muses.player.nativem1.theme.SaltDarkColors
+    val isDark = salt === com.muses.player.core.ui.theme.SaltDarkColors
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val isLink = onClick != null

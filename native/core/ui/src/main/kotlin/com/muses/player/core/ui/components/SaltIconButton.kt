@@ -1,4 +1,4 @@
-package com.muses.player.nativem1.ui
+package com.muses.player.core.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween

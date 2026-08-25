@@ -44,6 +44,7 @@ android {
 dependencies {
     // 模块依赖：app 聚合全部 core/feature
     implementation(project(":core:model"))
+    implementation(project(":core:ui"))
     implementation(project(":core:data"))
     implementation(project(":core:webdav"))
     implementation(project(":core:media"))

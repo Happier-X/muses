@@ -1,4 +1,4 @@
-package com.muses.player.nativem1.ui
+package com.muses.player.core.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,9 +25,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.muses.player.nativem1.theme.LocalSaltColors
-import com.muses.player.nativem1.theme.SaltDarkColors
-import com.muses.player.nativem1.theme.SaltSpacing
+import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.theme.SaltDarkColors
+import com.muses.player.core.ui.theme.SaltSpacing
 
 /**
  * `.m-navbar` —— 吸顶导航栏（MNavbar.vue 一比一翻译）。
