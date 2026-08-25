@@ -23,18 +23,6 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-
       - name: Extract version from tag
         id: version
         run: |
@@ -47,37 +35,23 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/muses-release.keystore
 
-      - name: Build muses APK (com.muses.player)
+      - name: Build native APK (Kotlin + Jetpack Compose)
         run: |
-          npx cap sync android
-          cd android
+          cd native
           chmod +x gradlew
-          ./gradlew assembleRelease \
+          # versionCode 取提交总数（单调递增）；versionName 取 tag
+          VERSION_CODE=$(git rev-list --count HEAD)
+          ./gradlew :app:assembleRelease \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/muses-release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
-            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }} \
+            -Pandroid.injected.versionName=${{ steps.version.outputs.version }} \
+            -Pandroid.injected.versionCode=$VERSION_CODE
 
-      - name: Rename muses APK
+      - name: Rename APK
         run: |
-          mv android/app/build/outputs/apk/release/app-release.apk muses-v${{ steps.version.outputs.version }}.apk
-
-      - name: Build miui APK (com.miui.player)
-        env:
-          CAPACITOR_APP_ID: com.miui.player
-        run: |
-          npx cap sync android
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleRelease -PappId=com.miui.player \
-            -Pandroid.injected.signing.store.file=${{ github.workspace }}/muses-release.keystore \
-            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
-            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
-            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
-
-      - name: Rename miui APK
-        run: |
-          mv android/app/build/outputs/apk/release/app-release.apk muses-v${{ steps.version.outputs.version }}-mi.apk
+          mv native/app/build/outputs/apk/release/app-release.apk muses-v${{ steps.version.outputs.version }}.apk
 
       - name: Read changelog
         id: changelog
@@ -91,8 +65,7 @@ jobs:
           echo "---" >> release_body.md
           echo "" >> release_body.md
           echo "### 构建产物" >> release_body.md
-          echo "- \`muses-v${{ steps.version.outputs.version }}.apk\` — 包名 \`com.muses.player\`" >> release_body.md
-          echo "- \`muses-v${{ steps.version.outputs.version }}-mi.apk\` — 包名 \`com.miui.player\`" >> release_body.md
+          echo "- \`muses-v${{ steps.version.outputs.version }}.apk\` — 原生 Kotlin + Jetpack Compose（包名 \`com.muses.player.nativem1\`，可与旧版共存）" >> release_body.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -102,4 +75,3 @@ jobs:
           body_path: release_body.md
           files: |
             muses-v${{ steps.version.outputs.version }}.apk
-            muses-v${{ steps.version.outputs.version }}-mi.apk
