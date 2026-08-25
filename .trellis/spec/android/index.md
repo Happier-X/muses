@@ -5,6 +5,7 @@
 ## 特征规范索引
 
 - [features-lyrics-playlist.md](features-lyrics-playlist.md) — AMLL WebView 歌词渲染 / 播放列表 / 响度均衡（M2）
+- [features-scrape-engine.md](features-scrape-engine.md) — 刮削引擎数据层：五源匹配链 / 写回编排 / 回滚 journal（M3）
 
 ---
 
