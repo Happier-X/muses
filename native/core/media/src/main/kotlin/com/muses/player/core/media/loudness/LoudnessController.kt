@@ -33,6 +33,9 @@ class LoudnessController(
     /** 单飞写入：快速连点切歌时取消在途查询，避免旧曲增益乱序覆盖新曲 volume */
     private var applyJob: Job? = null
 
+    /** ExoPlayer 要求在其创建线程（主线程）上调用；DB 查询在后台完成后投递主线程写 volume */
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
             applyForCurrentItem()
@@ -55,11 +58,18 @@ class LoudnessController(
         settingsJob = null
         applyJob?.cancel()
         applyJob = null
-        // 停止时恢复满幅，避免残留增益影响后续会话
-        player.volume = LoudnessCalculator.PLAYBACK_VOLUME_MAX.toFloat()
+        // 停止时恢复满幅，避免残留增益影响后续会话（主线程写）
+        mainHandler.post {
+            player.volume = LoudnessCalculator.PLAYBACK_VOLUME_MAX.toFloat()
+        }
     }
 
     private fun applyForCurrentItem() {
+        // player 的读取与写入都必须在其创建线程（主线程）：任何线程调用都投递主线程执行
+        mainHandler.post { applyOnMainThread() }
+    }
+
+    private fun applyOnMainThread() {
         val mediaId = player.currentMediaItem?.mediaId ?: return
         applyJob?.cancel()
         applyJob = scope.launch {
@@ -67,7 +77,8 @@ class LoudnessController(
             val normalized = gainDb?.let { LoudnessCalculator.normalizeReplayGainDbValue(it) }
             // 取消后不再落笔，避免 stop() 复位 1.0 后又被旧任务覆盖
             if (isActive) {
-                player.volume = LoudnessCalculator.dbToPlaybackVolume(normalized, enabled).toFloat()
+                val volume = LoudnessCalculator.dbToPlaybackVolume(normalized, enabled).toFloat()
+                mainHandler.post { player.volume = volume }
             }
         }
     }

@@ -29,6 +29,7 @@ class PlayerConnection @Inject constructor(
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -83,12 +84,21 @@ class PlayerConnection @Inject constructor(
             ComponentName(context, PlaybackService::class.java),
         )
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
-        controllerFuture?.addListener({
-            controller = controllerFuture?.get()?.also { player ->
-                player.addListener(playerListener)
-                syncState(player)
-            }
-        }, java.util.concurrent.Executors.newSingleThreadExecutor())
+        // MediaController 所有方法必须在主线程调用：Future 回调也需投递主线程，
+        // 否则 syncState 里的 isPlaying 等直接抛 IllegalStateException（MuMu 实测崩溃）
+        controllerFuture?.addListener(
+            { mainHandler.post { connectOnMainThread() } },
+            java.util.concurrent.Executors.newSingleThreadExecutor(),
+        )
+    }
+
+    private fun connectOnMainThread() {
+        val future = controllerFuture ?: return // disconnect 已发生，丢弃迟到回调
+        val connected = runCatching { future.get() }.getOrNull() ?: return
+        controller = connected.also { player ->
+            player.addListener(playerListener)
+            syncState(player)
+        }
     }
 
     fun disconnect() {
