@@ -28,6 +28,13 @@ data class SongEntity(
     @ColumnInfo(name = "durationSec") val durationSec: Long = 0L,
     @ColumnInfo(name = "coverUri") val coverUri: String? = null,
     @ColumnInfo(name = "lyrics") val lyrics: String? = null,
+    @ColumnInfo(name = "lyricsFormat") val lyricsFormat: String? = null,
+    @ColumnInfo(name = "lyricsSource") val lyricsSource: String? = null,
+    /** 字段来源标记平铺列（writeback metaSources；M3 v4 新增） */
+    @ColumnInfo(name = "metaTitle") val metaTitle: String? = null,
+    @ColumnInfo(name = "metaArtist") val metaArtist: String? = null,
+    @ColumnInfo(name = "metaAlbum") val metaAlbum: String? = null,
+    @ColumnInfo(name = "metaCover") val metaCover: String? = null,
     @ColumnInfo(name = "replayGainTrackDb") val replayGainTrackDb: Double? = null,
     @ColumnInfo(name = "tagsVersion") val tagsVersion: Int = 0,
 )

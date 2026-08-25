@@ -24,6 +24,10 @@ interface SongRepository {
     fun observeSongs(): Flow<List<Song>>
     /** 按 sourceId 替换该音源下全部歌曲（扫描完成后调用） */
     suspend fun replaceSourceSongs(sourceId: String, songs: List<Song>)
+    /** 按 id 取单曲（M3 刮削写回链路） */
+    suspend fun getSong(id: String): Song?
+    /** 单曲写入/更新（M3 刮削写回链路，对齐 Web upsertSong） */
+    suspend fun upsert(song: Song)
 }
 
 @Singleton
@@ -35,6 +39,12 @@ class RoomSongRepository @Inject constructor(
 
     override suspend fun replaceSourceSongs(sourceId: String, songs: List<Song>) {
         songDao.replaceSourceSongs(sourceId, songs.map { it.toEntity() })
+    }
+
+    override suspend fun getSong(id: String): Song? = songDao.getById(id)?.toDomain()
+
+    override suspend fun upsert(song: Song) {
+        songDao.upsert(song.toEntity())
     }
 }
 

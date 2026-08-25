@@ -37,3 +37,15 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
         db.execSQL("ALTER TABLE `songs` ADD COLUMN `replayGainTrackDb` REAL DEFAULT NULL")
     }
 }
+
+/** v3 → v4：songs 表新增刮削写回列：歌词格式/来源 + 字段来源平铺（向前追加，不改既有表） */
+val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `songs` ADD COLUMN `lyricsFormat` TEXT DEFAULT NULL")
+        db.execSQL("ALTER TABLE `songs` ADD COLUMN `lyricsSource` TEXT DEFAULT NULL")
+        db.execSQL("ALTER TABLE `songs` ADD COLUMN `metaTitle` TEXT DEFAULT NULL")
+        db.execSQL("ALTER TABLE `songs` ADD COLUMN `metaArtist` TEXT DEFAULT NULL")
+        db.execSQL("ALTER TABLE `songs` ADD COLUMN `metaAlbum` TEXT DEFAULT NULL")
+        db.execSQL("ALTER TABLE `songs` ADD COLUMN `metaCover` TEXT DEFAULT NULL")
+    }
+}

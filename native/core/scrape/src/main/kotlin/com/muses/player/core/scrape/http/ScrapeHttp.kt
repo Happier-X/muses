@@ -36,6 +36,18 @@ class ScrapeHttp(private val client: OkHttpClient = OkHttpClient()) {
         return Json.parseToJsonElement(text)
     }
 
+    /** 二进制 GET（远程封面字节）；非 2xx 抛 IOException，不重试 */
+    suspend fun getBytes(url: String, headers: Map<String, String> = emptyMap()): ByteArray =
+        withContext(Dispatchers.IO) {
+            val request = buildRequest(url, headers)
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("http ${response.code}")
+                }
+                response.body?.bytes() ?: ByteArray(0)
+            }
+        }
+
     private fun buildRequest(url: String, headers: Map<String, String>): Request {
         val builder = Request.Builder().url(url)
         for ((name, value) in headers) {

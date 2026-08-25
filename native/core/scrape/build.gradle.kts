@@ -25,6 +25,10 @@ android {
 
 dependencies {
     api(project(":core:model"))
+    // 写回编排：曲库/音源/凭据仓库 + WebDAV 客户端接口 + TagWriter（分层规则见 spec/android/index.md）
+    implementation(project(":core:data"))
+    implementation(project(":core:webdav"))
+    implementation(project(":core:media"))
 
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)

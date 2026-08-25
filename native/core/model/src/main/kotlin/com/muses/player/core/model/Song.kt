@@ -1,5 +1,9 @@
 package com.muses.player.core.model
 
+import com.muses.player.core.model.scrape.LyricsFormat
+import com.muses.player.core.model.scrape.LyricsSource
+import com.muses.player.core.model.scrape.MetaSources
+
 /**
  * 歌曲。
  * id 为稳定 ID（sourceId + 路径哈希），供队列/播放列表引用；
@@ -19,6 +23,12 @@ data class Song(
     val coverUri: String? = null,
     /** 内嵌歌词原文（M1 仅存储，渲染在 M2 接入） */
     val lyrics: String? = null,
+    /** 歌词格式（M3 刮削写回链路；null = 未标记） */
+    val lyricsFormat: LyricsFormat? = null,
+    /** 歌词来源（M3 刮削写回链路；null = 未标记） */
+    val lyricsSource: LyricsSource? = null,
+    /** 各字段来源标记（M3 刮削写回链路；null = 全部未标记） */
+    val metaSources: MetaSources? = null,
     /** ReplayGain track gain（dB），非法标签不入库（null = 无增益） */
     val replayGainTrackDb: Double? = null,
     val sourceType: SourceType = SourceType.LOCAL,

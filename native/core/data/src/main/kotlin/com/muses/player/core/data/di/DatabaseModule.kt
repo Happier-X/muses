@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
 import com.muses.player.core.data.db.MIGRATION_1_2
 import com.muses.player.core.data.db.MIGRATION_2_3
+import com.muses.player.core.data.db.MIGRATION_3_4
 import com.muses.player.core.data.db.MusesDatabase
 import dagger.Module
 import dagger.Provides
@@ -27,7 +28,7 @@ internal object DatabaseModule {
     @Singleton
     fun provideMusesDatabase(@ApplicationContext context: Context): MusesDatabase =
         Room.databaseBuilder(context, MusesDatabase::class.java, DB_NAME)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
 
     @Provides

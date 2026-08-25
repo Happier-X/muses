@@ -30,11 +30,13 @@ enum class OnlineTextSource(val wire: String) {
     MG("mg"),
 }
 
-/** 元数据字段来源标记（writeback.ts metaSources 语义） */
+/** 元数据字段来源标记（library/types.ts FieldSource 四值对齐） */
 enum class MetaFieldSource(val wire: String) {
     EMBEDDED("embedded"),
-    CLOUD("cloud"),
+    /** 在线补得、仅库内展示（写回文件失败时标记，值得重刮） */
+    SCRAPE("scrape"),
     MANUAL("manual"),
+    CLOUD("cloud"),
 }
 
 /** 各字段的来源标记（Web 为 Partial<Record>，此处逐字段可空对齐） */
@@ -174,6 +176,12 @@ data class ScrapeChanges(
 )
 
 // ── 待刮削队列（scrape/queue.ts）───────────────────────────
+
+/** 刮削候选：歌曲 + 待选变更（matcher.ts ScrapeCandidate 对齐；song 快照供历史/写回用） */
+data class ScrapeCandidate(
+    val songId: String,
+    val song: com.muses.player.core.model.Song,
+)
 
 data class ScrapeQueueItem(
     val songId: String,
