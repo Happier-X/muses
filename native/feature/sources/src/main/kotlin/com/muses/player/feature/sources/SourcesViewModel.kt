@@ -1,5 +1,8 @@
 package com.muses.player.feature.sources
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.repository.CredentialsRepository
@@ -67,6 +70,61 @@ class SourcesViewModel @Inject constructor(
 
     private val _browseState = MutableStateFlow<WebDavBrowseState?>(null)
     val browseState: StateFlow<WebDavBrowseState?> = _browseState
+
+    // ── Salt 复刻交互状态（SourcesPage.vue ref 组）──────────
+
+    /** m-actions：添加音源面板开关 */
+    var isAddActionSheetOpen by mutableStateOf(false)
+        private set
+
+    /** m-dialog：删除确认目标 */
+    var pendingDelete by mutableStateOf<Source?>(null)
+        private set
+
+    /** m-dialog：本地音源编辑目标 */
+    var pendingEdit by mutableStateOf<Source?>(null)
+        private set
+
+    fun openAddActionSheet() {
+        isAddActionSheetOpen = true
+    }
+
+    fun closeAddActionSheet() {
+        isAddActionSheetOpen = false
+    }
+
+    /** 按类型预填并打开添加表单（action sheet 两个入口） */
+    fun showAddFormForType(type: SourceType) {
+        updateFormType(type)
+        showAddForm()
+    }
+
+    fun confirmDelete(source: Source) {
+        pendingDelete = source
+    }
+
+    fun dismissDelete() {
+        pendingDelete = null
+    }
+
+    /** 本地音源编辑（WebDAV 走浏览页） */
+    fun openEditForm(source: Source) {
+        pendingEdit = source
+    }
+
+    fun dismissEdit() {
+        pendingEdit = null
+    }
+
+    /** 编辑保存：upsert + touch updatedAt（Web updateSource 同语义） */
+    fun updateEditedSource(source: Source, name: String, path: String) {
+        if (name.isBlank() || path.isBlank()) return
+        viewModelScope.launch {
+            sourceRepository.upsert(
+                source.copy(name = name, path = path, updatedAt = System.currentTimeMillis()),
+            )
+        }
+    }
 
     fun showAddForm() {
         _showAddForm.value = true

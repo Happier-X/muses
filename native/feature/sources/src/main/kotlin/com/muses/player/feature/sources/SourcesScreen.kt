@@ -1,9 +1,12 @@
 package com.muses.player.feature.sources
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -59,6 +62,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.muses.player.core.model.Source
+import androidx.compose.material.icons.filled.Radio
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.muses.player.core.ui.components.SaltActionsSheet
+import com.muses.player.core.ui.components.SaltActionItem
+import com.muses.player.core.ui.components.SaltEmpty
+import com.muses.player.core.ui.components.SaltIconButton
+import com.muses.player.core.ui.components.SaltIconButtonSize
+import com.muses.player.core.ui.components.SaltNavbar
+import com.muses.player.core.ui.components.SaltTextButton
+import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.theme.SaltRadius
+import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.webdav.WebDavItem
 
@@ -70,11 +87,12 @@ fun SourcesScreen(
     modifier: Modifier = Modifier,
     viewModel: SourcesViewModel = hiltViewModel(),
 ) {
+    val salt = LocalSaltColors.current
     val sources by viewModel.sources.collectAsState()
     val showAddForm by viewModel.showAddForm.collectAsState()
     val browseState by viewModel.browseState.collectAsState()
 
-    // 浏览态优先展示
+    // 浏览态优先展示（WebDAV 独立页）
     if (browseState != null) {
         WebDavBrowseScreen(
             state = browseState!!,
@@ -91,45 +109,137 @@ fun SourcesScreen(
         return
     }
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("音源管理") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { viewModel.showAddForm() },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("添加音源") },
-            )
-        },
-    ) { innerPadding ->
+    // ---- .sources-page__navbar-wrap ----
+    Column(modifier = modifier.fillMaxSize()) {
+        SaltNavbar(
+            title = "音源",
+            right = {
+                // .sources-page__add-btn：32dp clear rounded + add 图标 16px
+                SaltIconButton(
+                    onClick = { viewModel.openAddActionSheet() },
+                    size = SaltIconButtonSize.SM,
+                    contentDescription = "添加音源",
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+            },
+        )
+
+        // ---- .sources-page__content ----
         if (sources.isEmpty()) {
-            EmptySourcesHint(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                onAddClick = { viewModel.showAddForm() },
+            // m-empty：还没有音源（icon=radio）
+            SaltEmpty(
+                title = "还没有音源",
+                description = "点击右上角加号添加本地文件夹或 WebDAV 文件夹。",
+                icon = Icons.Filled.Radio,
+                modifier = Modifier.weight(1f),
             )
         } else {
-            SourceList(
+            SourceCardList(
                 sources = sources,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                onDelete = { viewModel.deleteSource(it) },
-                onBrowse = { viewModel.openBrowse(it) },
+                modifier = Modifier.fillMaxSize(),
+                onEdit = { source ->
+                    // WebDAV：跳独立浏览页编辑；本地：打开编辑表单（预填由表单层处理）
+                    if (source.type == SourceType.WEBDAV) {
+                        viewModel.openBrowse(source)
+                    } else {
+                        viewModel.openEditForm(source)
+                    }
+                },
+                onDelete = { source -> viewModel.confirmDelete(source) },
             )
         }
     }
 
-    // 添加音源底部弹窗
+    // ---- m-actions：添加音源 ----
+    if (viewModel.isAddActionSheetOpen) {
+        SaltActionsSheet(
+            opened = true,
+            onDismiss = { viewModel.closeAddActionSheet() },
+            label = "添加音源",
+            items = listOf(
+                SaltActionItem(label = "添加本地文件夹", onClick = {
+                    viewModel.closeAddActionSheet()
+                    viewModel.showAddFormForType(SourceType.LOCAL)
+                }),
+                SaltActionItem(label = "添加 WebDAV 文件夹", onClick = {
+                    viewModel.closeAddActionSheet()
+                    viewModel.showAddFormForType(SourceType.WEBDAV)
+                }),
+                SaltActionItem(label = "取消", onClick = { viewModel.closeAddActionSheet() }),
+            ),
+        )
+    }
+
+    // ---- m-dialog：删除确认（deleteAlertMessage 文案逐字对齐）----
+    viewModel.pendingDelete?.let { source ->
+        val credentialNote = if (source.type == SourceType.WEBDAV) "与安全存储凭据" else ""
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissDelete() },
+            title = { Text("删除音源") },
+            text = {
+                Text(
+                    "确定删除「${source.name}」吗？将同时清理该音源下的歌曲$credentialNote。",
+                    color = salt.text2,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteSource(source)
+                    viewModel.dismissDelete()
+                }) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissDelete() }) { Text("取消") }
+            },
+        )
+    }
+
+    // ---- 编辑音源表单（m-dialog：显示名称 / 目录）----
+    viewModel.pendingEdit?.let { source ->
+        var editName by remember(source.id) { mutableStateOf(source.name) }
+        var editPath by remember(source.id) { mutableStateOf(source.path.orEmpty()) }
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissEdit() },
+            title = { Text("编辑音源") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = editName,
+                        onValueChange = { editName = it },
+                        singleLine = true,
+                        label = { Text("显示名称") },
+                        placeholder = { Text("显示名称") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = editPath,
+                        onValueChange = { editPath = it },
+                        singleLine = true,
+                        label = { Text("目录") },
+                        placeholder = { Text("目录") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = editName.isNotBlank() && editPath.isNotBlank(),
+                    onClick = {
+                        viewModel.updateEditedSource(source, editName.trim(), editPath.trim())
+                        viewModel.dismissEdit()
+                    },
+                ) { Text("保存修改") }
+            },
+            dismissButton = {
+                TextButton(enabled = true, onClick = { viewModel.dismissEdit() }) { Text("取消") }
+            },
+        )
+    }
+
+    // ---- AddSourceSheet（保留既有底部弹窗表单）----
     if (showAddForm) {
         AddSourceSheet(
             form = viewModel.addForm.collectAsState().value,
@@ -146,126 +256,83 @@ fun SourcesScreen(
     }
 }
 
-// ── 空态提示 ──────────────────────────────────────────
+// ── 音源卡片列表（.sources-page__list / __card）──────────────
 
+/**
+ * 卡片：surface-1 背景 + radius-card + hairline 边框，min-height 100；
+ * name 17/600 → subtitle 13 text2（「本地文件夹」/「WebDAV · user@server」）→
+ * path 单行省略 → actions 右对齐（编辑 outline / 删除 danger / 扫描）。
+ */
 @Composable
-private fun EmptySourcesHint(modifier: Modifier = Modifier, onAddClick: () -> Unit) {
-    Column(
-        modifier = modifier.padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Folder,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-        )
-        Spacer(Modifier.height(16.dp))
-        Text("尚未添加任何音源", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "添加本地目录或 WebDAV 服务器来开始浏览音乐",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Button(onClick = onAddClick, modifier = Modifier.padding(top = 24.dp)) {
-            Text("添加音源")
-        }
-    }
-}
-
-// ── 音源列表 ──────────────────────────────────────────
-
-@Composable
-private fun SourceList(
+private fun SourceCardList(
     sources: List<Source>,
     modifier: Modifier = Modifier,
+    onEdit: (Source) -> Unit,
     onDelete: (Source) -> Unit,
-    onBrowse: (Source) -> Unit,
 ) {
-    var sourceToDelete by remember { mutableStateOf<Source?>(null) }
-
+    val salt = LocalSaltColors.current
     LazyColumn(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        contentPadding = PaddingValues(
+            start = SaltSpacing.spacingSub,
+            end = SaltSpacing.spacingSub,
+            top = 8.dp,
+            bottom = 96.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(sources, key = { it.id }) { source ->
-            SourceItem(
-                source = source,
-                onClick = { onBrowse(source) },
-                onDelete = { sourceToDelete = source },
-            )
-        }
-    }
-
-    // 删除确认弹窗
-    sourceToDelete?.let { source ->
-        AlertDialog(
-            onDismissRequest = { sourceToDelete = null },
-            title = { Text("删除音源") },
-            text = { Text("确定要删除音源「${source.name}」吗？关联的歌曲将从曲库中移除。") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDelete(source)
-                    sourceToDelete = null
-                }) { Text("删除") }
-            },
-            dismissButton = {
-                TextButton(onClick = { sourceToDelete = null }) { Text("取消") }
-            },
-        )
-    }
-}
-
-@Composable
-private fun SourceItem(
-    source: Source,
-    onClick: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = when (source.type) {
-                SourceType.LOCAL -> Icons.Filled.Folder
-                SourceType.WEBDAV -> Icons.Filled.Cloud
-            },
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(32.dp),
-        )
-        Spacer(Modifier.width(16.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = source.name,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = when (source.type) {
-                    SourceType.LOCAL -> source.path ?: ""
-                    SourceType.WEBDAV -> source.url ?: ""
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        IconButton(onClick = onDelete) {
-            Icon(
-                Icons.Filled.Delete,
-                contentDescription = "删除",
-                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
+                    .border(1.dp, salt.hairline, RoundedCornerShape(SaltRadius.card))
+                    .padding(16.dp),
+            ) {
+                Text(
+                    text = source.name,
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = salt.text,
+                )
+                Text(
+                    text = when (source.type) {
+                        SourceType.LOCAL -> "本地文件夹"
+                        SourceType.WEBDAV -> source.username?.let { "WebDAV · $it@${source.url.orEmpty().removePrefix("https://").removePrefix("http://")}" }
+                            ?: ("WebDAV · " + source.url.orEmpty())
+                    },
+                    fontSize = 13.sp,
+                    color = salt.text2,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                Text(
+                    text = source.path ?: source.url.orEmpty(),
+                    fontSize = 13.sp,
+                    color = salt.text2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = SaltSpacing.spacingSub),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SaltTextButton(text = "编辑", onClick = { onEdit(source) })
+                    Spacer(Modifier.width(SaltSpacing.spacingSub))
+                    SaltTextButton(
+                        text = "删除",
+                        onClick = { onDelete(source) },
+                        destructive = true,
+                    )
+                    Spacer(Modifier.width(SaltSpacing.spacingSub))
+                    // 扫描入口：M1 扫描为全库 MediaStore 流程；此处保留浏览入口占位
+                    SaltTextButton(text = "浏览", onClick = { })
+                }
+            }
         }
     }
 }
