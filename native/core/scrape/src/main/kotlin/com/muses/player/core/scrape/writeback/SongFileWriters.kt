@@ -88,8 +88,7 @@ class LocalAudioTagFileWriter : AudioTagFileWriter {
  * 4. 下载到临时文件 → TagWriter 写标签 → put 上传
  * 5. 各阶段失败映射 code：download_failed / write_failed / put_failed
  *
- * 注意：M1 原生 Source 模型暂无 username 字段（既有缺口），认证用户名由调用方
- * 在装配 [webDavClientFactory] 时处理；接线前需先补 username 持久化。
+ * 认证用户名取自 source.username（Room v5 起持久化）。
  */
 class WebDavAudioTagFileWriter(
     private val sourceRepository: SourceRepository,
@@ -117,8 +116,7 @@ class WebDavAudioTagFileWriter(
             ?: return FileWriteResult(ok = false, code = "no_password", message = "WebDAV 密码未配置。")
 
         val client = webDavClientFactory()
-        // M1 缺口：username 未持久化，暂以空串认证（接线前修复）
-        client.authenticate(username = "", password = password)
+        client.authenticate(username = source.username ?: "", password = password)
 
         // 3. 完整文件地址与读取链路一致
         val url = buildWebDavUrl(serverUrl = serverUrl, path = song.path)
