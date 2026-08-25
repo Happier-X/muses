@@ -119,6 +119,7 @@ fun Source.toEntity(): SourceEntity = SourceEntity(
     type = type.name,
     url = url,
     path = path,
+    username = username,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )

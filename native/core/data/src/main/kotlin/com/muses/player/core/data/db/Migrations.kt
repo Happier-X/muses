@@ -49,3 +49,10 @@ val MIGRATION_3_4: Migration = object : Migration(3, 4) {
         db.execSQL("ALTER TABLE `songs` ADD COLUMN `metaCover` TEXT DEFAULT NULL")
     }
 }
+
+/** v4 → v5：sources 表新增 WebDAV 登录名 username（歌词任务 L4，向前追加，不改既有表） */
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `sources` ADD COLUMN `username` TEXT DEFAULT NULL")
+    }
+}

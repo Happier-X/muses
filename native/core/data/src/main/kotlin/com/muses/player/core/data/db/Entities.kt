@@ -108,7 +108,7 @@ data class SongArtistCrossRef(
     val artistId: String,
 )
 
-/** 音源配置（密码经 CredentialsRepository 单独加密存储，不入库明文） */
+/** 音源配置（密码经 CredentialsRepository 单独加密存储，不入库明文；username 为 WebDAV 登录名） */
 @Entity(tableName = "sources")
 data class SourceEntity(
     @PrimaryKey val id: String,
@@ -116,6 +116,7 @@ data class SourceEntity(
     @ColumnInfo(name = "type") val type: String,
     @ColumnInfo(name = "url") val url: String? = null,
     @ColumnInfo(name = "path") val path: String? = null,
+    @ColumnInfo(name = "username") val username: String? = null,
     @ColumnInfo(name = "createdAt") val createdAt: Long,
     @ColumnInfo(name = "updatedAt") val updatedAt: Long,
 )

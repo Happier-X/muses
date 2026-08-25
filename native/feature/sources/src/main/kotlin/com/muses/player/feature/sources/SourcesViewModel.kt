@@ -140,6 +140,7 @@ class SourcesViewModel @Inject constructor(
                 type = form.type,
                 url = if (form.type == SourceType.WEBDAV) form.webdavUrl.trim() else null,
                 path = if (form.type == SourceType.LOCAL) form.localPath.trim() else null,
+                username = if (form.type == SourceType.WEBDAV) form.webdavUsername.trim().ifEmpty { null } else null,
                 createdAt = now,
                 updatedAt = now,
             )

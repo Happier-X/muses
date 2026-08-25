@@ -20,6 +20,8 @@ data class Source(
     val type: SourceType,
     val url: String? = null,
     val path: String? = null,
+    /** WebDAV 登录名（type=WEBDAV；密码仍走 CredentialsRepository） */
+    val username: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
 )
