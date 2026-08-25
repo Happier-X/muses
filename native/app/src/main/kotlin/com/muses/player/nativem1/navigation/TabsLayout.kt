@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -331,7 +332,9 @@ private fun PhoneLayout(
         // （初版两节点各自 offset 的写法会让关态抽屉右半截留在屏内——已废弃）
         Row(
             Modifier
-                .width(drawerWidth + containerWidth)
+                // requiredWidth：轨道 150vw 必须无视父级 100vw 约束，
+                // 否则被压缩后主内容只剩 50vw 宽（实测踩坑）
+                .requiredWidth(drawerWidth + containerWidth)
                 .fillMaxHeight()
                 .offsetX {
                     val v = trackOffsetX.value
@@ -350,7 +353,7 @@ private fun PhoneLayout(
             Box(
                 Modifier
                     .width(containerWidth)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
             ) {
                 content()
             }
