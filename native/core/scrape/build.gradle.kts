@@ -33,4 +33,6 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // M3-S1：kw provider JSON 解析测试（catalog 已有 okhttp-mockwebserver 条目）
+    testImplementation(libs.okhttp.mockwebserver)
 }
