@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/08-25-native-lyrics-online/prd.md", "reason": "验收清单：常量对齐 Web 值、门禁命令、隔离自检"}
+{"file": ".trellis/tasks/08-25-native-lyrics-online/design.md", "reason": "检查模块依赖方向（scrape→lyrics→model 无环）与缓存契约"}

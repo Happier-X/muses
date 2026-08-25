@@ -32,14 +32,14 @@
 
 ## Acceptance Criteria
 
-- [ ] `native/core/lyrics` 存在且仅依赖 core:model / OkHttp / kotlinx-serialization / coroutines，无 Compose/Room/Media3
-- [ ] wyCrypto：MD5 实现对 RFC 1321 测试向量全过；eapi 加密结果可被 wy provider 往返验证（MockWebServer 回环）
-- [ ] 五源链顺序 kw→tx→wy→kg→mg、fallback 末位 LRCLIB 与 Web 一致；AMLL 永远最优先
-- [ ] AMLL：jsonl 索引行 metadata `[key, values[]]` 结构宽松解析；findBestMatch 评分权重/时长容差 ±5s/MIN_ACCEPT_SCORE 对齐 score.ts；负缓存 TTL 5min、歌曲缓存上限 256、索引/TTML 超时 20s/12s
-- [ ] mergeTranslation 对齐 Web 合并规则（时间轴对齐、逐字→逐行降级等，以 .ts 为准）
-- [ ] 单测覆盖：MD5 测试向量、各 provider JSON/QRC 解析（MockWebServer 固定样本）、findBestMatch 分级、mergeTranslation 关键分支、matchOnlineLyrics 四种结局
-- [ ] `cd native && ./gradlew :app:assembleDebug :core:lyrics:lintDebug testDebugUnitTest` 全绿
-- [ ] `git diff --stat` 不含 `feature/*` 与 `nativem1` 下已有文件的修改（新增文件除外）
+- [x] `native/core/lyrics` 存在且仅依赖 core:model / OkHttp / kotlinx-serialization / coroutines，无 Compose/Room/Media3
+- [x] wyCrypto：MD5 实现对 RFC 1321 测试向量全过；eapi 加密结果可被 wy provider 往返验证（MockWebServer 回环）
+- [x] 五源链顺序 kw→tx→wy→kg→mg、fallback 末位 LRCLIB 与 Web 一致；AMLL 永远最优先
+- [x] AMLL：jsonl 索引行 metadata `[key, values[]]` 结构宽松解析；findBestMatch 评分权重/时长容差 ±5s/MIN_ACCEPT_SCORE 对齐 score.ts；负缓存 TTL 5min、歌曲缓存上限 256、索引/TTML 超时 20s/12s
+- [x] mergeTranslation 对齐 Web 合并规则（时间轴对齐、逐字→逐行降级等，以 .ts 为准）
+- [x] 单测覆盖：MD5 测试向量、各 provider JSON/QRC 解析（MockWebServer 固定样本）、findBestMatch 分级、mergeTranslation 关键分支、matchOnlineLyrics 四种结局
+- [x] `cd native && ./gradlew :app:assembleDebug :core:lyrics:lintDebug testDebugUnitTest` 全绿
+- [x] `git diff --stat` 不含 `feature/*` 与 `nativem1` 下已有文件的修改（新增文件除外）
 
 ## Out of Scope
 
