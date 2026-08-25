@@ -29,7 +29,7 @@
   长按多选+底部操作条、⋮ 动作单（加入歌单已接 AddToPlaylistSheet）、空态
 - [x] AlbumsPage / ArtistsPage：两列网格卡片（满宽 1:1 封面 radius-sm / 圆形居中排版）、
   封面投影 DAO 查询（cross-ref JOIN，零 schema 变更）
-- [ ] LibraryDetailPage（442 行）——待做
+- [x] LibraryDetailPage：AlbumDetailScreen/ArtistDetailScreen Salt 化（SaltNavbar 返回栏+SaltEmpty，4c3bfda）
 
 **验证**：逐页 MuMu 并排对比
 
@@ -50,9 +50,11 @@
 
 **验证**：MuMu 全流程回归 + M2 真机回归项一并过
 
-## P5：音源/设置域（可并入 M3）
+## P5：音源/设置域 🔄 进行中
 
-- [x] SourcesPage（dc80ce4 并行会话交付）；SourceWebDav*/SettingsPage 待做
+- [x] SourcesPage（dc80ce4 并行会话交付）
+- [ ] SourceWebDavPage（635 行）/ SourceWebDavBrowsePage（188 行）/ SettingsPage（217 行）
+      —— 待新会话继续：翻译方法论与组件映射见 design.md，参照 P2/P3 已交付页面模式
 
 ## 收尾
 
