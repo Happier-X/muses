@@ -2,6 +2,9 @@ package com.muses.player.feature.library
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,11 +16,15 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
@@ -25,18 +32,29 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.muses.player.core.media.playback.PlayerConnection
 import com.muses.player.core.model.Song
 import com.muses.player.core.ui.components.SaltActionsSheet
@@ -50,6 +68,9 @@ import com.muses.player.core.ui.components.SaltListItem
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
 import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.theme.SaltDarkColors
+import com.muses.player.core.ui.theme.SaltShadowLayer
+import com.muses.player.core.ui.theme.saltShadow
 
 /**
  * 歌曲页 —— SongsPage.vue 一比一翻译。
@@ -80,6 +101,44 @@ fun SongsPage(
     val salt = LocalSaltColors.current
     val songs by viewModel.songs.collectAsState()
 
+    // ---- 跳转到当前播放（SongsPage.vue scrollToCurrentSong/jump-fab 组）----
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    // 当前播放歌曲 id（playerState.currentSong.id；null = 未播放）
+    val currentSongId: String? = playerConnection?.currentMediaItem?.let { flow ->
+        flow.collectAsState().value?.mediaId
+    }
+
+    // 列表滚动中防抖 300ms（对照 onListScroll/isListScrolling：滚动时隐藏气泡不挡更多按钮）
+    var scrollSettled by remember { mutableStateOf(true) }
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            scrollSettled = false
+        } else {
+            delay(300)
+            scrollSettled = true
+        }
+    }
+
+    // 当前歌曲「在列表 / 在可视区」（snapshotFlow 响应滚动帧；visibleItemsInfo 即真实可视区，无 overscan）
+    val (currentInList, currentInViewport) = remember(currentSongId, songs) {
+        snapshotFlow {
+            if (currentSongId == null) return@snapshotFlow false to false
+            val idx = songs.indexOfFirst { it.id == currentSongId }
+            if (idx < 0) return@snapshotFlow false to false
+            val info = listState.layoutInfo
+            val item = info.visibleItemsInfo.find { it.index == idx }
+                ?: return@snapshotFlow true to false
+            val visible = item.offset < info.viewportEndOffset &&
+                item.offset + item.size > info.viewportStartOffset
+            true to visible
+        }
+    }.collectAsState(Pair(false, false)).value
+
+    // showJumpBubble：在列表 && 滚出可视区 && 非滚动中
+    val showJumpBubble = currentInList && !currentInViewport && scrollSettled
+
     // ---- 页面状态 ----
     var isSearching by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -98,7 +157,8 @@ fun SongsPage(
         selectedIds = emptySet()
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
         // ---- navbar + subnavbar（同一块玻璃）----
         SaltNavbar(
             title = "歌曲",
@@ -200,6 +260,7 @@ fun SongsPage(
         } else {
             LazyColumn(
                 Modifier.fillMaxSize(),
+                state = listState,
                 // MiniPlayerBar 叠加时底部留白（Web 层 --m-content-pb 同语义）
                 contentPadding = PaddingValues(bottom = 96.dp),
             ) {
@@ -319,6 +380,80 @@ fun SongsPage(
                 exitMultiSelect()
             },
             onCancel = { exitMultiSelect() },
+        )
+    }
+
+    // ---- m-fab.songs-page__jump-fab：跳转到当前播放 ----
+    if (showJumpBubble) {
+        JumpToCurrentFab(
+            onClick = {
+                val idx = songs.indexOfFirst { it.id == currentSongId }
+                if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
+            },
+            // fixed right 16px / bottom 96px（对齐椒盐：底距 MiniPlayer 顶 ~24dp）
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 96.dp),
+        )
+    }
+    }
+}
+
+/**
+ * 跳转当前播放 FAB（`.songs-page__jump-fab` 一比一翻译）：
+ * MFab 44px 圆底被页面样式覆盖为液态玻璃配方 —— glass-bg 半透明圆底（blur 由
+ * 半透明底承担，同 navbar 策略）+ 顶部内高光 1px + 白色高光描边 + text-2 图标；
+ * :active 底色 rgba(primary, 0.5)。
+ */
+@Composable
+private fun JumpToCurrentFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val salt = LocalSaltColors.current
+    val isDark = salt === SaltDarkColors
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .saltShadow(
+                CircleShape,
+                // __jump-fab 自身覆盖的 box-shadow：0 2px 8px rgba(0,0,0,.12)（暗色 .3）；
+                // 内高光由下方 drawBehind 画（inset 0 1px 0 white .65/.1）
+                listOf(
+                    SaltShadowLayer(
+                        offsetY = 2.dp,
+                        blurRadius = 8.dp,
+                        color = if (isDark) Color(0x4D000000) else Color(0x1F000000),
+                    ),
+                ),
+            )
+            .background(salt.glassBg)
+            .drawBehind {
+                // inset 0 1px 0 rgba(255,255,255,.65)（暗色 .1）顶部内高光
+                drawRect(
+                    color = Color.White.copy(alpha = if (isDark) 0.1f else 0.65f),
+                    topLeft = Offset.Zero,
+                    size = Size(size.width, 1f),
+                )
+                // border 1px rgba(255,255,255,.5)（暗色 .12）
+                drawCircle(
+                    color = Color.White.copy(alpha = if (isDark) 0.12f else 0.5f),
+                    style = Stroke(width = 1.dp.toPx()),
+                )
+            }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Filled.MyLocation,
+            contentDescription = "跳转到当前播放",
+            tint = salt.text2,
+            modifier = Modifier.size(20.dp),
         )
     }
 }

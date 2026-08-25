@@ -72,10 +72,20 @@ object DetailRoutes {
     const val ALBUM_DETAIL = "album/{albumId}"
     const val ARTIST_DETAIL = "artist/{artistId}"
 
+    // ---- P5 音源域子路由（对照 Web 层 /tabs/sources/webdav*）----
+    /** WebDAV 添加表单 */
+    const val SOURCE_WEBDAV_ADD = "sources/webdav"
+    /** WebDAV 编辑表单（sourceId 定位音源） */
+    const val SOURCE_WEBDAV_EDIT = "sources/webdav/{sourceId}"
+    /** WebDAV 目录浏览页（连接信息经导航参数传入） */
+    const val SOURCE_WEBDAV_BROWSE = "sources/webdav/browse"
+
     /** NavDestination.childPrefixes 激活判定用（不带参数占位的前缀） */
     const val ALBUM_DETAIL_PREFIX = "album/"
     const val ARTIST_DETAIL_PREFIX = "artist/"
 
     fun albumDetail(albumId: String) = "album/$albumId"
     fun artistDetail(artistId: String) = "artist/$artistId"
+
+    fun sourceWebdavEdit(sourceId: String) = "sources/webdav/$sourceId"
 }

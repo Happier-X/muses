@@ -10,7 +10,6 @@ import com.muses.player.core.data.repository.SourceRepository
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.webdav.WebDavClient
-import com.muses.player.core.webdav.WebDavItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
@@ -41,17 +40,6 @@ sealed class TestState {
     data class Failure(val message: String) : TestState()
 }
 
-/** WebDAV 目录浏览状态 */
-data class WebDavBrowseState(
-    val currentUrl: String,
-    val currentPath: String = "/",
-    val items: List<WebDavItem> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val sourceId: String = "",
-    val sourceName: String = "",
-)
-
 @HiltViewModel
 class SourcesViewModel @Inject constructor(
     private val sourceRepository: SourceRepository,
@@ -67,9 +55,6 @@ class SourcesViewModel @Inject constructor(
 
     private val _showAddForm = MutableStateFlow(false)
     val showAddForm: StateFlow<Boolean> = _showAddForm
-
-    private val _browseState = MutableStateFlow<WebDavBrowseState?>(null)
-    val browseState: StateFlow<WebDavBrowseState?> = _browseState
 
     // ── Salt 复刻交互状态（SourcesPage.vue ref 组）──────────
 
@@ -218,66 +203,6 @@ class SourcesViewModel @Inject constructor(
         viewModelScope.launch {
             sourceRepository.deleteById(source.id)
             credentialsRepository.clearPassword(source.id)
-        }
-    }
-
-    // ── WebDAV 目录浏览 ──────────────────────────────────
-
-    /** 打开 WebDAV 目录浏览 */
-    fun openBrowse(source: Source) {
-        val url = source.url ?: return
-        _browseState.value = WebDavBrowseState(
-            currentUrl = url,
-            currentPath = "/",
-            sourceId = source.id,
-            sourceName = source.name,
-        )
-        browseDirectory(url, source.id)
-    }
-
-    fun closeBrowse() {
-        _browseState.value = null
-    }
-
-    fun browseUp() {
-        val state = _browseState.value ?: return
-        if (state.currentPath == "/") return
-        val parentPath = state.currentPath.trimEnd('/').substringBeforeLast('/') + "/"
-        val baseUrl = state.currentUrl.substringBeforeLast('/')
-        val parentUrl = "$baseUrl$parentPath"
-        _browseState.value = state.copy(currentPath = parentPath)
-        browseDirectory(parentUrl, state.sourceId)
-    }
-
-    fun browseTo(item: WebDavItem) {
-        if (!item.isDirectory) return
-        val state = _browseState.value ?: return
-        _browseState.value = state.copy(currentPath = item.url.substringAfter(state.sourceName, "/"))
-        browseDirectory(item.url, state.sourceId)
-    }
-
-    private fun browseDirectory(url: String, sourceId: String) {
-        val state = _browseState.value ?: return
-        _browseState.value = state.copy(isLoading = true, error = null)
-
-        viewModelScope.launch {
-            try {
-                // 用存储的密码认证
-                val password = credentialsRepository.getPassword(sourceId)
-                if (password != null) {
-                    webDavClient.authenticate(state.sourceName, password)
-                }
-                val items = webDavClient.list(url)
-                _browseState.value = _browseState.value?.copy(
-                    items = items,
-                    isLoading = false,
-                )
-            } catch (e: Exception) {
-                _browseState.value = _browseState.value?.copy(
-                    isLoading = false,
-                    error = e.message ?: "加载失败",
-                )
-            }
         }
     }
 }

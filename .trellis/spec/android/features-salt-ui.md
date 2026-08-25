@@ -21,6 +21,7 @@
 | SaltCover | MCover | radius SM(8)/MD(12)，占位 MusicNote |
 | SaltEmpty | MEmpty | 圆形图标壳+标题+描述 |
 | SaltActionsSheet | m-actions 系 | 底部操作单；**SaltActionItem 的 onClick 必须是最后参数**（支持尾随 lambda） |
+| SaltToggle | MToggle | iOS 开关 51×31/滑块 27；轨道未选 surface3/选中 primary；disabled 0.4 opacity |
 | MiniPlayerBar | MiniPlayer.vue | 数据全参数传入不接 VM |
 
 ## 设计令牌
@@ -38,3 +39,9 @@
 4. Hilt **禁止 ViewModel 互注入**——需要共享数据时各自注入 Repository/DAO 自行组合
 5. Room KSP 对 DAO 文件内的顶层 data class 投影类会报 MissingType——投影类放 db 包单独文件
 6. Media3 铁律：Player/MediaController 所有方法仅限创建线程（主线程）调用——后台协程查库后必须 post 回主线程再操作 player
+7. **Web margin-right → Compose `padding(end)` 必须放链最外层**（先留间距再画背景）：放 size/background 之后会把背景壳本身收缩（08-25 设置页图标壳 36→24dp）
+8. **页面级样式覆盖组件默认阴影时禁止套用组件阴影令牌**——`.songs-page__jump-fab` 覆盖了 MFab 默认 `--m-shadow-ios-*-glass-fab`（那套含 primary 色 inset 层，是给 primary 实心底设计的）为自己的「内高光+0 2px 8px 黑12%」；复用时若直接套 `SaltShadowTokens.*GlassFab` 会整圆泛蓝。逐层抄页面自己的 box-shadow
+9. **Navigation Compose 固定段路由必须声明在参数路由之前**——`sources/webdav/browse` 会被 `sources/webdav/{sourceId}` 吞掉（按声明顺序匹配）
+10. **跨页内存会话用 take 语义 Holder**（对照 Web webdavBrowseSession）：浏览页确认后 `set()`，返回页重组时 `take()`（读走即清空）；密码等敏感信息仅内存不进 URL/日志
+11. **LazyListState.layoutInfo 不触发重组**——需要响应滚动的派生状态用 `snapshotFlow { listState.layoutInfo... }` + collectAsState；滚动防抖用 `LaunchedEffect(listState.isScrollInProgress)` + delay
+12. **app 模块用 BuildConfig 需显式 `buildFeatures { buildConfig = true }`**（AGP 8+ 默认关闭）

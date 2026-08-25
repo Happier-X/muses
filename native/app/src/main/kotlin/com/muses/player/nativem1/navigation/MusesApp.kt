@@ -41,8 +41,11 @@ import com.muses.player.feature.player.QueueScreen
 import com.muses.player.feature.playlist.PlaylistDetailPage
 import com.muses.player.feature.playlist.PlaylistsPage
 import com.muses.player.feature.sources.SourcesScreen
+import com.muses.player.feature.sources.WebDavBrowseScreen
+import com.muses.player.feature.sources.WebDavFormScreen
 import com.muses.player.nativem1.R
 import com.muses.player.nativem1.onboarding.OnboardingScreen
+import com.muses.player.nativem1.settings.SettingsScreen
 import com.muses.player.core.ui.components.MiniPlayerBar
 import com.muses.player.core.ui.components.SaltEmpty
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -271,11 +274,68 @@ private fun AppNavHost(navController: NavHostController) {
                 onBack = { navController.popBackStack() },
             )
         }
-        // 刮削/设置页随 P5 批次复刻，当前为占位空态
+        // 刮削页随 M3 复刻，当前为占位空态
         composable(NavDestination.Scrape.route) { PlaceholderScreen() }
-        composable(NavDestination.Sources.route) { SourcesScreen() }
-        composable(NavDestination.Settings.route) { PlaceholderScreen() }
+        composable(NavDestination.Sources.route) { SourcesScreen(
+            onOpenWebdavAdd = { navController.navigate(DetailRoutes.SOURCE_WEBDAV_ADD) },
+            onOpenWebdavEdit = { sourceId ->
+                navController.navigate(DetailRoutes.sourceWebdavEdit(sourceId))
+            },
+        ) }
+        // 注意顺序：browse 是固定段，必须在 {sourceId} 参数路由之前声明，
+        // 否则会被参数匹配吞掉（Navigation Compose 按声明顺序匹配）
+        composable(
+            route = "${DetailRoutes.SOURCE_WEBDAV_BROWSE}?mode={mode}" +
+                "&initialPath={initialPath}&serverUrl={serverUrl}" +
+                "&username={username}&password={password}",
+            arguments = listOf(
+                androidx.navigation.navArgument("mode") { defaultValue = "multiple" },
+                androidx.navigation.navArgument("initialPath") { defaultValue = "/" },
+                androidx.navigation.navArgument("serverUrl") { defaultValue = "" },
+                androidx.navigation.navArgument("username") { defaultValue = "" },
+                androidx.navigation.navArgument("password") { defaultValue = "" },
+            ),
+        ) { backStackEntry ->
+            val args = checkNotNull(backStackEntry.arguments)
+            WebDavBrowseScreen(
+                mode = args.getString("mode") ?: "multiple",
+                initialPath = args.getString("initialPath") ?: "/",
+                serverUrl = args.getString("serverUrl") ?: "",
+                username = args.getString("username") ?: "",
+                password = args.getString("password") ?: "",
+                onBack = { navController.popBackStack() },
+                onConfirm = { paths ->
+                    // 结果已由浏览页写入 WebDavBrowseResultHolder，这里只回退
+                    navController.popBackStack()
+                },
+            )
+        }
+        composable(DetailRoutes.SOURCE_WEBDAV_ADD) {
+            WebDavFormScreen(
+                sourceId = null,
+                onBack = { navController.popBackStack() },
+                onBrowse = { mode, initialPath, serverUrl, username, password ->
+                    navigateToWebdavBrowse(
+                        navController, mode, initialPath, serverUrl, username, password,
+                    )
+                },
+            )
+        }
+        composable(DetailRoutes.SOURCE_WEBDAV_EDIT) { backStackEntry ->
+            val sourceId = backStackEntry.arguments?.getString("sourceId")
+            WebDavFormScreen(
+                sourceId = sourceId,
+                onBack = { navController.popBackStack() },
+                onBrowse = { mode, initialPath, serverUrl, username, password ->
+                    navigateToWebdavBrowse(
+                        navController, mode, initialPath, serverUrl, username, password,
+                    )
+                },
+            )
+        }
+        composable(NavDestination.Settings.route) { SettingsScreen() }
         composable(NavDestination.NowPlaying.route) { PlayerScreen(
+            onClose = { navController.popBackStack() },
             onOpenQueue = { navController.navigate(NavDestination.Queue.route) },
         ) }
         composable(NavDestination.Queue.route) {
@@ -284,7 +344,7 @@ private fun AppNavHost(navController: NavHostController) {
     }
 }
 
-/** P5 前的占位页（刮削/设置）：Salt 空态观感 */
+/** P5 前的占位页（刮削）：Salt 空态观感 */
 @Composable
 private fun PlaceholderScreen() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -293,6 +353,27 @@ private fun PlaceholderScreen() {
             description = stringResource(R.string.placeholder_page_description),
         )
     }
+}
+
+/** 跳转目录浏览页：连接信息经 URL query 传参（含密码，不落日志） */
+private fun navigateToWebdavBrowse(
+    navController: NavHostController,
+    mode: String,
+    initialPath: String,
+    serverUrl: String,
+    username: String,
+    password: String,
+) {
+    val encoded = { value: String ->
+        java.net.URLEncoder.encode(value, "UTF-8")
+    }
+    navController.navigate(
+        "${DetailRoutes.SOURCE_WEBDAV_BROWSE}?mode=$mode" +
+            "&initialPath=${encoded(initialPath)}" +
+            "&serverUrl=${encoded(serverUrl)}" +
+            "&username=${encoded(username)}" +
+            "&password=${encoded(password)}",
+    )
 }
 
 private fun navigateTo(navController: NavHostController, destination: NavDestination) {

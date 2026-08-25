@@ -46,15 +46,24 @@
 - [x] P4.0 结构骨架：AMLL WebView 全屏底层 + 固定头部（标题/关闭/队列）
 - [x] P4.1 info 面板：封面 hero+进度条 Slider+时间行+三键控制+mode-bar（随机/循环）
 - [x] P4.2 歌词面板 Crossfade 切换（透出 WebView 完整歌词）；翻译 FAB 左下
-- [ ] 精修：横滑动画替代 Crossfade、下滑关闭手势+回弹闭环、5 行歌词小窗、平板断点
+- [ ] P4.3 精修（2026-08-25 用户确认与旧 WebView 版观感差距过大，按 PlayerPage.vue 手机形态重做）：
+  - [ ] 固定头部改为椒盐式：歌名 h1 + 艺术家 p 常驻顶部（居中），**去掉关闭按钮**（关闭靠下滑手势）；队列入口移入 mode-bar
+  - [ ] 面板切换改为同容器位移：双面板并排 `translateX(-activePanel * 50%)`，0.22s easeOut（替代 AnimatedContent 进出场）
+  - [ ] info 面板对齐：大封面铺满上部 → 五行歌词小窗（当前行居中，spring 缩放 1.05/0.92 + blur 0.6px + opacity 1/0.55）→ 进度区（**无白色 thumb**，轨道从 0% 起）→ 时间行（含「缓冲中」提示位）→ 三键控制（prev/play/next，lg 图标**无圆底**）→ mode-bar 四键（循环/随机/队列/更多）
+  - [ ] 歌词面板对齐：头部歌名/歌手 + AMLL 歌词（翻译开关保留）；用户滚动歌词后浮现 FAB 组（翻译+播放），3s 无操作淡出（LYRIC_FAB_IDLE_MS=3000）
+  - [ ] 手势系统：方向锁定（水平切面板 / 竖直下拉互斥）；下拉拖拽实时跟手，松手过阈值关闭否则回弹（220ms easeOut 回弹闭环，参照 journal Session 103 三条踩坑）
+  - [ ] 空态：未播放时 ♪ 占位封面 + 「暂无播放歌曲」文案
+  - [ ] 平板断点后置（PRD：先保证手机形态一比一）
 
 **验证**：MuMu 全流程回归 + M2 真机回归项一并过
 
-## P5：音源/设置域 🔄 进行中
+## P5：音源/设置域 ✅ 2026-08-25 完成
 
 - [x] SourcesPage（dc80ce4 并行会话交付）
-- [ ] SourceWebDavPage（635 行）/ SourceWebDavBrowsePage（188 行）/ SettingsPage（217 行）
-      —— 待新会话继续：翻译方法论与组件映射见 design.md，参照 P2/P3 已交付页面模式
+- [x] SourceWebDavPage（WebDavFormScreen：添加/编辑双模式表单 + 连接验证 + 批量建源）
+- [x] SourceWebDavBrowsePage（WebDavBrowseScreen：single 单选/multiple 多选 + WebDavBrowseResultHolder 跨页会话）
+- [x] SettingsPage（关于/检查更新 + 音量均衡 SaltToggle）
+- [x] 补齐 P2 漏项：歌曲页跳转当前播放 FAB（showJumpBubble 三条件 + 液态玻璃配方）
 
 ## 收尾
 

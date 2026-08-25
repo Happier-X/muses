@@ -19,12 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
@@ -33,19 +29,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -77,7 +69,6 @@ import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.model.SourceType
-import com.muses.player.core.webdav.WebDavItem
 
 // ── 主入口 ──────────────────────────────────────────
 
@@ -85,29 +76,15 @@ import com.muses.player.core.webdav.WebDavItem
 @Composable
 fun SourcesScreen(
     modifier: Modifier = Modifier,
+    /** 跳转 WebDAV 添加表单页（P5：对照 Web 层 /tabs/sources/webdav） */
+    onOpenWebdavAdd: () -> Unit = {},
+    /** 跳转 WebDAV 编辑表单页（对照 /tabs/sources/webdav/:id） */
+    onOpenWebdavEdit: (sourceId: String) -> Unit = {},
     viewModel: SourcesViewModel = hiltViewModel(),
 ) {
     val salt = LocalSaltColors.current
     val sources by viewModel.sources.collectAsState()
     val showAddForm by viewModel.showAddForm.collectAsState()
-    val browseState by viewModel.browseState.collectAsState()
-
-    // 浏览态优先展示（WebDAV 独立页）
-    if (browseState != null) {
-        WebDavBrowseScreen(
-            state = browseState!!,
-            onBack = { viewModel.closeBrowse() },
-            onRefresh = { viewModel.openBrowse(Source(
-                id = browseState!!.sourceId,
-                name = browseState!!.sourceName,
-                type = SourceType.WEBDAV,
-                url = browseState!!.currentUrl,
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis(),
-            )) },
-        )
-        return
-    }
 
     // ---- .sources-page__navbar-wrap ----
     Column(modifier = modifier.fillMaxSize()) {
@@ -139,9 +116,9 @@ fun SourcesScreen(
                 sources = sources,
                 modifier = Modifier.fillMaxSize(),
                 onEdit = { source ->
-                    // WebDAV：跳独立浏览页编辑；本地：打开编辑表单（预填由表单层处理）
+                    // WebDAV：跳独立编辑表单页；本地：打开编辑表单弹窗
                     if (source.type == SourceType.WEBDAV) {
-                        viewModel.openBrowse(source)
+                        onOpenWebdavEdit(source.id)
                     } else {
                         viewModel.openEditForm(source)
                     }
@@ -164,7 +141,7 @@ fun SourcesScreen(
                 }),
                 SaltActionItem(label = "添加 WebDAV 文件夹", onClick = {
                     viewModel.closeAddActionSheet()
-                    viewModel.showAddFormForType(SourceType.WEBDAV)
+                    onOpenWebdavAdd()
                 }),
                 SaltActionItem(label = "取消", onClick = { viewModel.closeAddActionSheet() }),
             ),
@@ -496,158 +473,3 @@ private fun AddSourceSheet(
     }
 }
 
-// ── WebDAV 目录浏览页 ──────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun WebDavBrowseScreen(
-    state: WebDavBrowseState,
-    onBack: () -> Unit,
-    onRefresh: () -> Unit,
-) {
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(state.sourceName, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            state.currentPath,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.NavigateBefore, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onRefresh) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "刷新")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
-    ) { innerPadding ->
-        when {
-            state.isLoading -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    CircularProgressIndicator()
-                    Spacer(Modifier.height(16.dp))
-                    Text("正在加载…", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-            state.error != null -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        "加载失败",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        state.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    OutlinedButton(onClick = onRefresh, modifier = Modifier.padding(top = 16.dp)) {
-                        Text("重试")
-                    }
-                }
-            }
-            state.items.isEmpty() -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.FolderOpen,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text("目录为空", style = MaterialTheme.typography.titleMedium)
-                }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    items(state.items, key = { it.url }) { item ->
-                        WebDavItemRow(item = item)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WebDavItemRow(item: WebDavItem) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = if (item.isDirectory) Icons.Filled.Folder else Icons.Filled.Cloud,
-            contentDescription = null,
-            tint = if (item.isDirectory) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(28.dp),
-        )
-        Spacer(Modifier.width(16.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = item.name,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (!item.isDirectory && item.contentLength > 0) {
-                Text(
-                    text = formatFileSize(item.contentLength),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-private fun formatFileSize(bytes: Long): String {
-    return when {
-        bytes < 1024 -> "$bytes B"
-        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-        bytes < 1024 * 1024 * 1024 -> "${"%.1f".format(bytes / (1024.0 * 1024))} MB"
-        else -> "${"%.2f".format(bytes / (1024.0 * 1024 * 1024))} GB"
-    }
-}
