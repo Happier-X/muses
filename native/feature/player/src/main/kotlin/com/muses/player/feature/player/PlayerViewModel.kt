@@ -61,6 +61,12 @@ class PlayerViewModel @Inject constructor(
 
     fun playPause() = playerConnection.playPause()
 
+    fun clearQueue() = playerConnection.clearQueueItems()
+
+    fun playAtIndex(index: Int) = playerConnection.playAtIndex(index)
+
+    fun removeQueueItemAt(index: Int) = playerConnection.removeQueueItemAt(index)
+
     fun skipToNext() = playerConnection.skipToNext()
 
     fun skipToPrevious() = playerConnection.skipToPrevious()
