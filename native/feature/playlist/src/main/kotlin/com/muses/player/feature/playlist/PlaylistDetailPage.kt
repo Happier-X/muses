@@ -1,47 +1,47 @@
 package com.muses.player.feature.playlist
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.muses.player.core.model.PlaylistWithSongs
+import com.muses.player.core.model.Song
+import com.muses.player.core.ui.components.SaltCover
+import com.muses.player.core.ui.components.SaltCoverRadius
+import com.muses.player.core.ui.components.SaltEmpty
+import com.muses.player.core.ui.components.SaltIconButton
+import com.muses.player.core.ui.components.SaltListItem
+import com.muses.player.core.ui.components.SaltNavbar
+import com.muses.player.core.ui.theme.LocalSaltColors
 
 /**
- * 播放列表详情：歌曲按播放顺序展示。
- * 排序先用上移/下移按钮保证功能闭环，拖拽排序后置（implement.md 阶段 2）。
+ * 歌单详情页 —— PlaylistDetailPage.vue 一比一翻译。
+ *
+ * 结构对照（BEM 类名见各段注释）：
+ * - navbar：back 返回 + 标题=歌单名（缺省「歌单」）+ 右侧播放全部按钮
+ *   （resolvedSongs 为空时 disabled）
+ * - 三态：歌单不存在 / 歌单是空的 / 虚拟列表
+ * - 行 `.playlist-detail-page__row`：m-cover 48/radius-sm + 标题 +
+ *   「artist - album」副标题 + 当前播放行 primary 10% 高亮 + 移除按钮(#ff3b30)
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistDetailPage(
     playlistId: String,
@@ -50,115 +50,90 @@ fun PlaylistDetailPage(
     viewModel: PlaylistDetailViewModel = hiltViewModel(),
 ) {
     viewModel.bind(playlistId)
+    val salt = LocalSaltColors.current
     val detail by viewModel.detail.collectAsState()
+    val currentSongId by viewModel.currentSongId.collectAsState()
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        detail?.playlist?.name ?: "播放列表",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.playAll() },
-                        enabled = detail?.songs?.isNotEmpty() == true,
-                    ) {
-                        Icon(Icons.Filled.PlayCircle, contentDescription = "播放全部")
-                    }
-                    var menuExpanded by remember { mutableStateOf(false) }
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "更多操作")
-                    }
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        DropdownMenuItem(text = { Text("重命名") }, onClick = {
-                            menuExpanded = false
-                            viewModel.showRename()
-                        })
-                        DropdownMenuItem(text = { Text("删除播放列表") }, onClick = {
-                            menuExpanded = false
-                            viewModel.deletePlaylist()
-                            onBack()
-                        })
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
-        val songs = detail?.songs.orEmpty()
-        if (detail == null || songs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (detail == null) "加载中…" else "播放列表为空",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    val playlist = detail?.playlist
+    val songs = detail?.songs.orEmpty()
+
+    Column(modifier = modifier.fillMaxSize()) {
+        // ---- navbar：back + title + playAll ----
+        SaltNavbar(
+            title = playlist?.name ?: "歌单",
+            left = {
+                SaltIconButton(
+                    onClick = onBack,
+                    contentDescription = "返回",
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                }
+            },
+            right = {
+                SaltIconButton(
+                    onClick = { viewModel.playAll() },
+                    enabled = songs.isNotEmpty(),
+                    contentDescription = "播放全部",
+                ) {
+                    Icon(Icons.Filled.PlayCircle, contentDescription = null)
+                }
+            },
+        )
+
+        // ---- .playlist-detail-page__content 三态 ----
+        when {
+            playlist == null -> {
+                SaltEmpty(
+                    title = "歌单不存在",
+                    description = "可能已被删除。",
+                    modifier = Modifier.weight(1f),
                 )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-            ) {
-                items(songs.size, key = { songs[it].id }) { index ->
-                    val song = songs[index]
-                    ListItem(
-                        headlineContent = {
-                            Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        },
-                        supportingContent = {
-                            Text(
-                                listOfNotNull(song.artist, song.album).joinToString(" · ")
-                                    .ifEmpty { "未知艺术家" },
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+            songs.isEmpty() -> {
+                SaltEmpty(
+                    title = "歌单是空的",
+                    description = "在歌曲页点「更多」→「加入歌单」添加歌曲。",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 96.dp),
+                ) {
+                    items(songs.size, key = { songs[it].id }) { index ->
+                        val song = songs[index]
+                        val isPlaying = currentSongId == song.id
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (isPlaying) {
+                                        Modifier.background(salt.primary.copy(alpha = 0.1f))
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
+                        ) {
+                            DetailSongRow(
+                                song = song,
+                                isPlaying = isPlaying,
+                                onPlay = { viewModel.playSongFromList(song.id) },
+                                onRemove = { viewModel.remove(song.id) },
                             )
-                        },
-                        trailingContent = {
-                            Row(modifier = Modifier.padding(end = 4.dp)) {
-                                IconButton(
-                                    enabled = index > 0,
-                                    onClick = { viewModel.move(index, index - 1) },
-                                ) {
-                                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上移")
-                                }
-                                IconButton(
-                                    enabled = index < songs.lastIndex,
-                                    onClick = { viewModel.move(index, index + 1) },
-                                ) {
-                                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下移")
-                                }
-                                IconButton(onClick = { viewModel.remove(song.id) }) {
-                                    Icon(Icons.Filled.Close, contentDescription = "移除歌曲")
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                        }
+                    }
                 }
             }
         }
     }
 
+    // 重命名入口在列表页操作面板；详情页保留对话框状态以防外部触发
     if (viewModel.renameVisible) {
         NameEditDialog(
-            title = "重命名播放列表",
-            initialName = detail?.playlist?.name.orEmpty(),
+            title = "重命名歌单",
+            initialName = playlist?.name.orEmpty(),
+            label = "歌单名称",
             onDismiss = { viewModel.dismissRename() },
             onConfirm = {
                 viewModel.rename(it)
@@ -166,4 +141,40 @@ fun PlaylistDetailPage(
             },
         )
     }
+}
+
+/** 单行：封面 48/sm + 标题/「artist - album」+ 移除按钮（#ff3b30） */
+@Composable
+private fun DetailSongRow(
+    song: Song,
+    isPlaying: Boolean,
+    onPlay: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val salt = LocalSaltColors.current
+    SaltListItem(
+        title = song.title,
+        subtitle = listOfNotNull(song.artist, song.album)
+            .filter { it.isNotBlank() }
+            .joinToString(" - ")
+            .ifEmpty { null },
+        strongTitle = true,
+        onClick = onPlay,
+        leading = {
+            SaltCover(uri = song.coverUri, size = 48.dp, radius = SaltCoverRadius.SM)
+        },
+        after = {
+            SaltIconButton(
+                onClick = onRemove,
+                contentDescription = "从歌单移除 ${song.title}",
+            ) {
+                Icon(
+                    Icons.Filled.RemoveCircleOutline,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Color(0xFFFF3B30),
+                )
+            }
+        },
+    )
 }

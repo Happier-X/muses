@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -39,6 +40,22 @@ class PlaylistDetailViewModel @Inject constructor(
     /** 导航参数到达后绑定目标播放列表（幂等） */
     fun bind(id: String) {
         if (playlistId.value != id) playlistId.value = id
+    }
+
+    /** 当前播放中的歌曲 id（行高亮用，row--playing） */
+    val currentSongId: StateFlow<String?> = playerConnection.currentMediaItem
+        .map { it?.mediaId }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** 单曲点击：以整个歌单为队列从该曲开始播（Web onPlaySong → playSong 内部以列表入队） */
+    fun playSongFromList(songId: String) {
+        val id = playlistId.value ?: return
+        viewModelScope.launch {
+            val songs = repository.getSongs(id)
+            if (songs.any { it.id == songId }) {
+                playerConnection.play(songId, songs)
+            }
+        }
     }
 
     /** 整体入队播放：从首曲开始按当前顺序播放 */
