@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/08-25-native-salt-ui/prd.md", "reason": "验收清单：逐批次并排对比、明暗主题、门禁命令"}
+{"file": ".trellis/tasks/08-25-native-salt-ui/design.md", "reason": "检查实现是否遵循组件映射与令牌体系，页面无 Material 默认观感残留"}

@@ -20,7 +20,12 @@
   "subtasks": [],
   "children": [
     "08-24-native-m1-core-playback",
-    "08-24-native-m2-lyrics-playlist"
+    "08-24-native-m2-lyrics-playlist",
+    "08-25-native-salt-ui",
+    "08-25-native-m3-scrape-engine",
+    "08-25-native-lyrics-online",
+    "08-25-native-playback-persistence",
+    "08-25-native-playback-recovery"
   ],
   "parent": null,
   "relatedFiles": [],
