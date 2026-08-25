@@ -31,6 +31,8 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:webdav"))
     implementation(project(":core:media"))
+    // editmeta 歌词维度的 Port 适配（L3）：scrape(编排) → lyrics(实现) 无环
+    implementation(project(":core:lyrics"))
 
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)

@@ -122,3 +122,13 @@ suspend fun searchLrclibLyrics(http: LyricsHttp, query: OnlineLyricsQuery): Onli
     }
     return null
 }
+
+/** LyricsProvider 接口适配（id=lrclib） */
+class LrclibProvider(private val http: LyricsHttp) :
+    com.muses.player.core.model.lyrics.LyricsProvider {
+
+    override val id = com.muses.player.core.model.lyrics.OnlineLyricsSource.LRCLIB
+
+    override suspend fun searchLyrics(query: OnlineLyricsQuery): OnlineLyricsProviderHit? =
+        searchLrclibLyrics(http, query)
+}

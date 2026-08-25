@@ -5,7 +5,11 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SongRepository
+import com.muses.player.core.lyrics.provider.PlatformLyricsProvider
 import com.muses.player.core.scrape.cover.CoverMatcher
+import com.muses.player.core.scrape.editmeta.AmllLyricsPort
+import com.muses.player.core.scrape.editmeta.EditCloudMetaSearch
+import com.muses.player.core.scrape.editmeta.ProviderLyricsPort
 import com.muses.player.core.scrape.http.ScrapeHttp
 import com.muses.player.core.scrape.queue.ScrapeHistoryStore
 import com.muses.player.core.scrape.queue.ScrapeQueueStore
@@ -68,6 +72,41 @@ internal object ScrapeModule {
     @Provides
     @Singleton
     fun provideCoverMatcher(http: ScrapeHttp): CoverMatcher = CoverMatcher.withDefaultProviders(http)
+
+    // ── editMeta 歌词维度端口（L3 接线）───────────────────
+
+    @Provides
+    @Singleton
+    fun provideEditCloudMetaSearch(
+        http: ScrapeHttp,
+        lyricsHttp: com.muses.player.core.lyrics.http.LyricsHttp,
+        amllClient: com.muses.player.core.lyrics.amll.AmllTtmlDbClient,
+        lrclibProvider: com.muses.player.core.lyrics.lrclib.LrclibProvider,
+    ): EditCloudMetaSearch {
+        // 文本五源链（metadata/match.ts defaultProviders）
+        val textProviders = listOf(
+            com.muses.player.core.scrape.text.provider.KwProvider(http),
+            com.muses.player.core.scrape.text.provider.TxProvider(http),
+            com.muses.player.core.scrape.text.provider.WyProvider(http),
+            com.muses.player.core.scrape.text.provider.KgProvider(http),
+            com.muses.player.core.scrape.text.provider.MgProvider(http),
+        )
+        // 封面六源链（cover/match.ts defaultProviders）
+        val coverProviders = CoverMatcher.defaultProviders(http)
+        // 歌词端口：AMLL 始终参与 + 平台五源 + LRCLIB（match.ts 组合顺序）
+        val lyricsPorts = buildList {
+            add(AmllLyricsPort(amllClient))
+            PlatformLyricsProvider.defaultChain(lyricsHttp).forEach { p ->
+                add(ProviderLyricsPort(p))
+            }
+            add(ProviderLyricsPort(lrclibProvider))
+        }
+        return EditCloudMetaSearch(
+            textProviders = textProviders,
+            coverProviders = coverProviders,
+            lyricsPorts = lyricsPorts,
+        )
+    }
 
     // ── 存储 ──────────────────────────────────────────────
 

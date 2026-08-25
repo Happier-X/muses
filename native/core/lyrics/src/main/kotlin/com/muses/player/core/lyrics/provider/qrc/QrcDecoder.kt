@@ -222,6 +222,9 @@ object QrcDecoder {
 
     // ── 3DES 编解码器（eqrc/index.ts QqMusicCodec）────────
 
+    init {
+    }
+
     private val DECRYPT_SCHEDULE: List<IntArray> = listOf(
         keySchedule(KEY_3, 1),
         keySchedule(KEY_2, 0),
@@ -229,12 +232,13 @@ object QrcDecoder {
     )
 
     /** 解密一个 8 字节块：D(K3) ∘ E'(K2) ∘ D(K1) 三段串联 */
-    private fun decryptBlock(input: ByteArray, offset: Int, output: ByteArray) {
+    private fun decryptBlock(input: ByteArray, inOffset: Int, output: ByteArray, outOffset: Int) {
         val temp1 = ByteArray(8)
         val temp2 = ByteArray(8)
-        desCrypt(input, offset, temp1, DECRYPT_SCHEDULE[0])
+        desCrypt(input, inOffset, temp1, DECRYPT_SCHEDULE[0])
         desCrypt(temp1, 0, temp2, DECRYPT_SCHEDULE[1])
-        desCrypt(temp2, 0, output, DECRYPT_SCHEDULE[2])
+        desCrypt(temp2, 0, temp1, DECRYPT_SCHEDULE[2])
+        System.arraycopy(temp1, 0, output, outOffset, 8)
     }
 
     /** zlib inflate + 去头部 UTF-8 BOM（eqrc/index.ts decompress；pako.inflate 为 zlib 格式 → Java Inflater 默认即 zlib） */
@@ -279,7 +283,7 @@ object QrcDecoder {
         val decrypted = ByteArray(encryptedBytes.size)
         var offset = 0
         while (offset < encryptedBytes.size) {
-            decryptBlock(encryptedBytes, offset, decrypted)
+            decryptBlock(encryptedBytes, offset, decrypted, offset)
             offset += 8
         }
         return try {

@@ -16,7 +16,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * - 索引内存缓存；TTML 按 songId 缓存（容量 256）；负缓存短时（TTL 5min）
  * - 失败不抛到 UI 层，统一返回 Fail(reason)
  */
-class AmllTtmlDbClient(
+open class AmllTtmlDbClient(
     private val http: LyricsHttp,
     private val indexRepository: AmllIndexRepository,
     private val nowMs: () -> Long = System::currentTimeMillis,
@@ -94,7 +94,7 @@ class AmllTtmlDbClient(
     /**
      * 从 amll-ttml-db 为歌曲匹配 TTML 歌词（matchAmllTtmlLyrics 主流程）。
      */
-    suspend fun match(query: AmllMatchQuery): AmllMatchResult {
+    open suspend fun match(query: AmllMatchQuery): AmllMatchResult {
         val songId = query.songId.trim()
         if (songId.isEmpty() || query.title.isBlank()) {
             return AmllMatchResult.Fail(AmllFailReason.NO_MATCH)
