@@ -23,6 +23,8 @@ import javax.inject.Singleton
  */
 interface PlaylistRepository {
     fun observePlaylists(): Flow<List<Playlist>>
+    /** 各歌单有效歌曲数（playlistId → count；曲库删除实时联动） */
+    fun observeValidCounts(): Flow<Map<String, Int>>
 
     fun observePlaylist(id: String): Flow<PlaylistWithSongs?>
 
@@ -52,6 +54,9 @@ class RoomPlaylistRepository @Inject constructor(
 ) : PlaylistRepository {
 
     private val dao: PlaylistDao = db.playlistDao()
+
+    override fun observeValidCounts(): Flow<Map<String, Int>> =
+        dao.observeValidCounts().map { list -> list.associate { it.playlistId to it.validCount } }
 
     override fun observePlaylists(): Flow<List<Playlist>> =
         dao.observePlaylists().map { list -> list.map { it.toDomain() } }

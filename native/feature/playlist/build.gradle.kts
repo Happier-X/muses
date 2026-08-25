@@ -30,7 +30,9 @@ android {
 // feature:* 只依赖 core:* 接口与 core:model，禁止直接依赖 Room/OkHttp
 dependencies {
     implementation(project(":core:model"))
+    implementation(project(":core:ui"))
     implementation(project(":core:data"))
+    implementation(project(":core:ui"))
     // 播放全部需经 PlayerConnection 入队（唯一分层例外，见 PlaylistDetailViewModel 注释）
     implementation(project(":core:media"))
 

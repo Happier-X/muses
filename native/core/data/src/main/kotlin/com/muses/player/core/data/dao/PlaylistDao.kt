@@ -49,6 +49,14 @@ interface PlaylistDao {
     @Query("DELETE FROM playlists WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    /** 各歌单的有效歌曲数（songId 仍在 songs 表中的条目；Web countValidSongs 同语义） */
+    @Query(
+        "SELECT ps.playlistId AS playlistId, COUNT(*) AS validCount " +
+            "FROM playlist_songs ps INNER JOIN songs s ON s.id = ps.songId " +
+            "GROUP BY ps.playlistId",
+    )
+    fun observeValidCounts(): Flow<List<PlaylistValidCount>>
+
     // ---- 关联行读取 ----
 
     @Transaction
@@ -124,3 +132,6 @@ interface PlaylistDao {
         }
     }
 }
+
+/** 歌单有效歌曲数投影（countValidSongs） */
+data class PlaylistValidCount(val playlistId: String, val validCount: Int)
