@@ -151,6 +151,22 @@ class PlayerConnection @Inject constructor(
         controller?.seekTo(positionMs)
     }
 
+    /** 选中并播放队列中第 index 项 */
+    fun playAtIndex(index: Int) {
+        controller?.seekTo(index, 0)
+        controller?.playWhenReady = true
+    }
+
+    /** 移除队列中第 index 项 */
+    fun removeQueueItemAt(index: Int) {
+        controller?.removeMediaItem(index)
+    }
+
+    /** 清空队列 */
+    fun clearQueueItems() {
+        controller?.clearMediaItems()
+    }
+
     fun skipToNext() {
         controller?.let {
             if (it.hasNextMediaItem()) it.seekToNext()

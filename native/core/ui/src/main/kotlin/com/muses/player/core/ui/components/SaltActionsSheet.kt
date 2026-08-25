@@ -31,9 +31,9 @@ import com.muses.player.core.ui.theme.LocalSaltColors
  */
 data class SaltActionItem(
     val label: String,
-    val onClick: () -> Unit,
     /** 危险动作（如删除）：红色文字 */
     val destructive: Boolean = false,
+    val onClick: () -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

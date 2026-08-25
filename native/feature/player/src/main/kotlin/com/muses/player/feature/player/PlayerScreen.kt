@@ -2,7 +2,21 @@ package com.muses.player.feature.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
+import com.muses.player.core.ui.theme.SaltSpacing
+import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.components.SaltListItem
+import com.muses.player.core.ui.components.SaltIconButton
+import com.muses.player.core.ui.components.SaltIconButtonSize
+import com.muses.player.core.ui.components.SaltEmpty
+import com.muses.player.core.ui.components.SaltActionsSheet
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -287,78 +301,101 @@ fun PlayerScreen(
     }
 }
 
-/** 队列页 */
+/** 队列页 —— QueuePage.vue 一比一翻译 */
 @Composable
 fun QueueScreen(
+    onClose: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: QueueViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
 ) {
+    val salt = com.muses.player.core.ui.theme.LocalSaltColors.current
     val queue by viewModel.queue.collectAsState()
     val currentMediaItem by viewModel.currentMediaItem.collectAsState()
+    val currentIndex = queue.indexOfFirst { it.mediaId == currentMediaItem?.mediaId }
+    val playerConnection = viewModel.playerConnection
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp),
+            .background(salt.surface),
     ) {
-        Text(
-            text = "播放队列",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(vertical = 16.dp),
-        )
+        // __header：标题 + 清空/关闭按钮
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = SaltSpacing.spacing)
+                .padding(top = SaltSpacing.spacingSub),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "播放队列",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = salt.text,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (queue.isNotEmpty()) {
+                    SaltIconButton(onClick = { playerConnection.clearQueueItems() }) {
+                        Icon(Icons.Filled.Delete, contentDescription = "清空队列", tint = salt.text2)
+                    }
+                }
+                SaltIconButton(onClick = onClose) {
+                    Icon(Icons.Filled.Close, contentDescription = "关闭队列", tint = salt.text2)
+                }
+            }
+        }
 
+        // __body：空态 / 列表
         if (queue.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "队列为空",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                SaltEmpty(
+                    title = "队列为空",
+                    description = "从歌曲列表中添加歌曲即可开始播放。",
                 )
             }
         } else {
-            androidx.compose.foundation.lazy.LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 96.dp),
             ) {
-                items(queue.size, key = { queue[it].mediaId }) { index ->
-                    val item = queue[index]
-                    val isCurrent = item.mediaId == currentMediaItem?.mediaId
-
-                    androidx.compose.material3.ListItem(
-                        headlineContent = {
-                            Text(
-                                item.mediaMetadata.title?.toString() ?: "未知歌曲",
-                                color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
-                        supportingContent = {
-                            Text(
-                                item.mediaMetadata.artist?.toString() ?: "",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
-                        leadingContent = {
-                            if (isCurrent) {
-                                Icon(
-                                    Icons.Filled.MusicNote,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp),
+                itemsIndexed(queue, key = { _, item -> item.mediaId }) { index, item ->
+                    val isCurrent = index == currentIndex
+                    Box(
+                        Modifier.background(
+                            color = if (isCurrent) salt.primary.copy(alpha = 0.1f) else Color.Transparent,
+                        ),
+                    ) {
+                        SaltListItem(
+                            title = item.mediaMetadata.title?.toString() ?: "未知歌曲",
+                            subtitle = item.mediaMetadata.artist?.toString() ?: "未知歌手",
+                            onClick = { playerConnection.playAtIndex(index) },
+                            after = {
+                                // __row-index：序号 + 移除按钮
+                                Text(
+                                    text = (index + 1).toString(),
+                                    fontSize = 13.sp,
+                                    color = salt.text2,
                                 )
-                            }
-                        },
-                    )
+                                SaltIconButton(
+                                    size = SaltIconButtonSize.SM,
+                                    onClick = { playerConnection.removeQueueItemAt(index) },
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Close,
+                                        contentDescription = "从队列删除",
+                                        tint = salt.text2,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
     }
+
 }
 
 /** 格式化时长为 mm:ss */

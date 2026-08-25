@@ -278,7 +278,9 @@ private fun AppNavHost(navController: NavHostController) {
         composable(NavDestination.NowPlaying.route) { PlayerScreen(
             onOpenQueue = { navController.navigate(NavDestination.Queue.route) },
         ) }
-        composable(NavDestination.Queue.route) { QueueScreen() }
+        composable(NavDestination.Queue.route) {
+            QueueScreen(onClose = { navController.popBackStack() })
+        }
     }
 }
 

@@ -28,6 +28,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
+    implementation(project(":core:ui"))
     implementation(project(":core:media"))
     // M2：歌词解析（仅解析不渲染；0.4.7 无 Android target，以 JVM 变体解析）
     implementation(libs.accompanist.lyrics.core)
