@@ -1,6 +1,7 @@
 package com.muses.player.feature.library
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -253,43 +254,26 @@ fun AlbumDetailScreen(
     viewModel.bind(albumId)
     val albumWithSongs by viewModel.albumWithSongs.collectAsState()
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text(albumWithSongs?.album?.title ?: "专辑") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
-    ) { innerPadding ->
+    val salt = com.muses.player.core.ui.theme.LocalSaltColors.current
+    androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxSize().background(salt.surface)) {
+        // SaltNavbar：左返回箭头（对照 Web LibraryDetailPage navbar）
+        com.muses.player.core.ui.components.SaltNavbar(
+            title = albumWithSongs?.album?.title ?: "专辑",
+            left = {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "返回",
+                    modifier = Modifier.clickable(onClick = onBack),
+                )
+            },
+        )
         val songs = albumWithSongs?.songs?.map { it.toDomain() }.orEmpty()
         if (songs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "专辑中暂无歌曲",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                com.muses.player.core.ui.components.SaltEmpty(title = "专辑中暂无歌曲")
             }
         } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-            ) {
+            LazyColumn(Modifier.fillMaxSize()) {
                 itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
                     SongListItem(
                         song = song,
@@ -368,31 +352,21 @@ fun ArtistDetailScreen(
     viewModel.bind(artistId)
     val artistWithSongs by viewModel.artistWithSongs.collectAsState()
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text(artistWithSongs?.artist?.name ?: "艺术家") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
-    ) { innerPadding ->
+    val salt = com.muses.player.core.ui.theme.LocalSaltColors.current
+    androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxSize().background(salt.surface)) {
+        com.muses.player.core.ui.components.SaltNavbar(
+            title = artistWithSongs?.artist?.name ?: "艺术家",
+            left = {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "返回",
+                    modifier = Modifier.clickable(onClick = onBack),
+                )
+            },
+        )
         val songs = artistWithSongs?.songs?.map { it.toDomain() }.orEmpty()
         if (songs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = "艺术家暂无歌曲",
                     style = MaterialTheme.typography.bodyMedium,
@@ -400,11 +374,7 @@ fun ArtistDetailScreen(
                 )
             }
         } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-            ) {
+            LazyColumn(Modifier.fillMaxSize()) {
                 itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
                     SongListItem(
                         song = song,
