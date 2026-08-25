@@ -57,10 +57,16 @@ class SongsViewModel @Inject constructor(
 @HiltViewModel
 class AlbumsViewModel @Inject constructor(
     albumRepository: AlbumRepository,
+    albumDao: com.muses.player.core.data.dao.AlbumDao,
 ) : ViewModel() {
 
     val albums: StateFlow<List<Album>> = albumRepository.observeAlbums()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 专辑封面（albumId → 首个可用 coverUri），供网格卡片使用 */
+    val covers: StateFlow<Map<String, String>> = albumDao.observeAlbumCovers()
+        .map { list -> list.associate { it.albumId to it.coverUri } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 }
 
 /** 专辑详情 ViewModel */
@@ -89,10 +95,16 @@ class AlbumDetailViewModel @Inject constructor(
 @HiltViewModel
 class ArtistsViewModel @Inject constructor(
     artistRepository: ArtistRepository,
+    artistDao: com.muses.player.core.data.dao.ArtistDao,
 ) : ViewModel() {
 
     val artists: StateFlow<List<Artist>> = artistRepository.observeArtists()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 艺术家封面（artistId → 首个可用 coverUri） */
+    val covers: StateFlow<Map<String, String>> = artistDao.observeArtistCovers()
+        .map { list -> list.associate { it.artistId to it.coverUri } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 }
 
 /** 艺术家详情 ViewModel */

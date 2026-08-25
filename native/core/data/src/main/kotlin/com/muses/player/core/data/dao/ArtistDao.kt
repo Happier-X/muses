@@ -5,6 +5,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import com.muses.player.core.data.db.ArtistEntity
+import com.muses.player.core.data.db.ArtistCoverProjection
 import com.muses.player.core.data.db.ArtistWithSongs
 import kotlinx.coroutines.flow.Flow
 
@@ -30,4 +31,12 @@ interface ArtistDao {
 
     @Query("DELETE FROM artists")
     suspend fun deleteAll()
+
+    /** 艺术家封面投影：每位艺术家任取一首有封面的歌 */
+    @Query(
+        "SELECT ref.artistId AS artistId, s.coverUri AS coverUri " +
+            "FROM song_artist_cross_ref ref INNER JOIN songs s ON s.id = ref.songId " +
+            "WHERE s.coverUri IS NOT NULL",
+    )
+    fun observeArtistCovers(): Flow<List<ArtistCoverProjection>>
 }
