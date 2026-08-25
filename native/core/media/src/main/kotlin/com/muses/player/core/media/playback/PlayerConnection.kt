@@ -25,7 +25,11 @@ import javax.inject.Singleton
 @Singleton
 class PlayerConnection @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val recoveryController: PlaybackRecoveryController,
 ) {
+
+    /** 最近一次播放失败的安全文案；用户主动操作后清空（P4 播放页消费） */
+    val playbackError: StateFlow<String?> = recoveryController.playbackError
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
@@ -113,6 +117,9 @@ class PlayerConnection @Inject constructor(
      * WebDAV 曲目需提前调用 [setWebDavAuthorization] 设置 header。
      */
     fun play(songId: String, songs: List<com.muses.player.core.model.Song>) {
+        // 用户主动切歌：重置恢复链与错误状态（controller.ts 语义）
+        recoveryController.reset()
+        recoveryController.clearError()
         val player = controller ?: return
         val mediaItems = songs.map { song ->
             MediaItem.Builder()

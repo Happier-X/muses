@@ -47,6 +47,7 @@ class PlaybackService : MediaSessionService() {
     @Inject lateinit var songDao: SongDao
     @Inject lateinit var playbackStateRepository: PlaybackStateRepository
     @Inject lateinit var recentPlaysRepository: RecentPlaysRepository
+    @Inject lateinit var recoveryController: PlaybackRecoveryController
 
     private var saveJob: kotlinx.coroutines.Job? = null
 
@@ -85,7 +86,13 @@ class PlaybackService : MediaSessionService() {
 
         // 播放持久化（任务 08-25-native-playback-persistence / P1）
         player.addListener(persistenceListener)
-        serviceScope.launch { restoreFromSnapshot(player) }
+        // ExoPlayer 只能在主线程访问：恢复流程在后台查库，player 操作投递主线程
+        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        serviceScope.launch {
+            val config = playbackStateRepository.readConfig()
+            mainHandler.post { applyRestoredConfig(player, config) }
+            restoreFromSnapshot(player) { block -> mainHandler.post { block() } }
+        }
     }
 
     /**
@@ -93,15 +100,22 @@ class PlaybackService : MediaSessionService() {
      * 应用配置 → 按快照重建队列（已被曲库删除的歌曲自然过滤）→ seekTo 上次进度。
      * 只恢复不自动播放（playWhenReady 保持 false）。
      */
-    private suspend fun restoreFromSnapshot(player: Player) {
-        val config = playbackStateRepository.readConfig()
+    /** 主线程应用恢复的播放配置 */
+    private fun applyRestoredConfig(player: Player, config: com.muses.player.core.model.playback.PlayerConfig) {
         player.repeatMode = if (config.repeatMode == com.muses.player.core.model.playback.RepeatMode.ONE) {
             Player.REPEAT_MODE_ONE
         } else {
             Player.REPEAT_MODE_ALL
         }
         player.shuffleModeEnabled = config.shuffleEnabled
+    }
 
+    /**
+     * 冷启动恢复（后台读库；[onMain] 把 ExoPlayer 调用投递回主线程）：
+     * 按快照重建队列（已被曲库删除的歌曲自然过滤）→ seekTo 上次进度。
+     * 只恢复不自动播放（playWhenReady 保持 false）。
+     */
+    private suspend fun restoreFromSnapshot(player: Player, onMain: (() -> Unit) -> Unit) {
         val snapshot = playbackStateRepository.readSnapshot() ?: return
         if (snapshot.items.isEmpty()) return
 
@@ -111,8 +125,10 @@ class PlaybackService : MediaSessionService() {
         val startIndex = resolved.indexOfFirst { it.id == snapshot.currentSongId }
             .let { if (it >= 0) it else 0 }
         val mediaItems = resolved.map { song -> buildRestoreMediaItem(song) }
-        player.setMediaItems(mediaItems, startIndex, snapshot.positionMs.coerceAtLeast(0))
-        player.prepare()
+        onMain {
+            player.setMediaItems(mediaItems, startIndex, snapshot.positionMs.coerceAtLeast(0))
+            player.prepare()
+        }
     }
 
     private fun buildRestoreMediaItem(song: com.muses.player.core.model.Song): MediaItem =
@@ -155,6 +171,32 @@ class PlaybackService : MediaSessionService() {
 
     /** 持久化监听：转场/播放态切换/seek 触发节流保存；转场登记最近播放 */
     private val persistenceListener = object : Player.Listener {
+
+        /**
+         * 播放失败自动恢复（规格书 = controller.ts 播放失败分支）：
+         * 登记失败曲 → 沿 active order 回绕查找未尝试候选 → seek+prepare+play；
+         * 无候选才停止并暴露安全文案。
+         */
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            val player = mediaSession?.player ?: return
+            val failedId = player.currentMediaItem?.mediaId
+            if (failedId != null) {
+                recoveryController.markAttempted(failedId)
+            }
+            val order = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+            val candidateIndex = recoveryController.selectNextCandidate(order, player.currentMediaItemIndex)
+            if (candidateIndex != null) {
+                recoveryController.recordAttempt(order[candidateIndex])
+                recoveryController.clearError()
+                // 继续恢复时不清媒体会话，避免异步 clear 覆盖下一首刚写入的 metadata
+                player.seekTo(candidateIndex, 0)
+                player.prepare()
+                player.playWhenReady = true
+            } else {
+                recoveryController.setError(PlaybackErrorCopy.copyFor(error))
+            }
+        }
+
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
                 scheduleSnapshotSave(player)
