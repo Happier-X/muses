@@ -32,9 +32,9 @@ import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.media.playback.PlayerConnection
 import com.muses.player.feature.library.AlbumDetailScreen
-import com.muses.player.feature.library.AlbumsScreen
+import com.muses.player.feature.library.AlbumsPage
 import com.muses.player.feature.library.ArtistDetailScreen
-import com.muses.player.feature.library.ArtistsScreen
+import com.muses.player.feature.library.ArtistsPage
 import com.muses.player.feature.library.SongsPage
 import com.muses.player.feature.player.PlayerScreen
 import com.muses.player.feature.player.QueueScreen
@@ -229,14 +229,14 @@ private fun AppNavHost(navController: NavHostController) {
             SongsPage(playerConnection = playerConnection)
         }
         composable(NavDestination.Albums.route) {
-            AlbumsScreen(
+            AlbumsPage(
                 onAlbumClick = { albumId ->
                     navController.navigate(DetailRoutes.albumDetail(albumId))
                 },
             )
         }
         composable(NavDestination.Artists.route) {
-            ArtistsScreen(
+            ArtistsPage(
                 onArtistClick = { artistId ->
                     navController.navigate(DetailRoutes.artistDetail(artistId))
                 },
