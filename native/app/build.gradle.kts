@@ -12,11 +12,23 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.muses.player.nativem1"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-m1"
+    }
+
+    // 渠道维度：主包 com.muses.player（覆盖安装旧 Web 版）+ MIUI 定制包
+    flavorDimensions += "channel"
+    productFlavors {
+        create("muses") {
+            dimension = "channel"
+            applicationId = "com.muses.player"
+        }
+        create("miui") {
+            dimension = "channel"
+            applicationId = "com.miui.player"
+        }
     }
 
     buildTypes {
