@@ -5,60 +5,30 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.MediaItem
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.media.playback.PlayerConnection
 import com.muses.player.feature.library.AlbumDetailScreen
@@ -73,28 +43,54 @@ import com.muses.player.feature.playlist.PlaylistsPage
 import com.muses.player.feature.sources.SourcesScreen
 import com.muses.player.nativem1.R
 import com.muses.player.nativem1.onboarding.OnboardingScreen
-import com.muses.player.nativem1.theme.GlassLevel
-import com.muses.player.nativem1.theme.GlassSurface
+import com.muses.player.nativem1.ui.MiniPlayerBar
+import com.muses.player.nativem1.ui.SaltEmpty
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-/** 主界面 ViewModel：管理权限和播放连接 */
+/** MiniPlayerBar 的数据快照（对照 MiniPlayer.vue 的 playerState.currentSong 消费口径） */
+data class NowPlayingUiState(
+    val title: String,
+    /** 「{artist} - {album}」，空值回退「未知艺术家/未知专辑」 */
+    val subtitle: String,
+    val coverUri: String?,
+)
+
+/** 主界面 ViewModel：管理权限、播放连接与 MiniPlayer 数据 */
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val playerConnection: PlayerConnection,
-    private val settingsRepository: SettingsRepository,
+    private val songDao: SongDao,
+    settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     val isFirstLaunch: StateFlow<Boolean> = settingsRepository.isFirstLaunch
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
-    val currentMediaItem: StateFlow<MediaItem?> = playerConnection.currentMediaItem
     val isPlaying: StateFlow<Boolean> = playerConnection.isPlaying
+
+    /**
+     * 当前曲信息：currentMediaItem.mediaId（= song.id）反查 Room。
+     * null = 无当前曲（MiniPlayer 显示空态整条，对照 `.mini-player--empty`）。
+     */
+    val nowPlaying: StateFlow<NowPlayingUiState?> = playerConnection.currentMediaItem
+        .map { it?.mediaId }
+        .distinctUntilChanged()
+        .map { songId ->
+            songId?.let { runCatching { songDao.getById(it) }.getOrNull() }?.let { song ->
+                NowPlayingUiState(
+                    title = song.title,
+                    subtitle = "${song.artist ?: "未知艺术家"} - ${song.albumTitle ?: "未知专辑"}",
+                    coverUri = song.coverUri,
+                )
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun connectPlayer() {
         playerConnection.connect()
@@ -105,27 +101,16 @@ class MainViewModel @Inject constructor(
     }
 
     fun playPause() = playerConnection.playPause()
-
-    fun skipToNext() = playerConnection.skipToNext()
 }
 
-private fun NavDestination.icon(): ImageVector = when (this) {
-    NavDestination.Songs -> Icons.Filled.MusicNote
-    NavDestination.Albums -> Icons.Filled.PlayArrow
-    NavDestination.Artists -> Icons.Filled.Person
-    NavDestination.Sources -> Icons.Filled.Settings
-    NavDestination.Playlists -> Icons.Filled.QueueMusic
-    NavDestination.NowPlaying -> Icons.Filled.PlayArrow
-    NavDestination.Queue -> Icons.Filled.QueueMusic
-}
-
-/** 主界面骨架：抽屉导航 + NavHost + MiniPlayer */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 主框架入口 —— P1 复刻版：TabsLayout 双形态导航（aside/drawer）+ NavHost +
+ * MiniPlayer 叠加。原 M1 的 ModalNavigationDrawer/Scaffold/TopAppBar 骨架已由
+ * TabsPage.vue 对照实现整体替换。
+ */
 @Composable
 fun MusesApp() {
     val navController = rememberNavController()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     val viewModel: MainViewModel = hiltViewModel()
@@ -178,64 +163,66 @@ fun MusesApp() {
     val currentRoute = backStackEntry?.destination?.route
     val current = NavDestination.fromRoute(currentRoute) ?: NavDestination.Songs
 
-    // 收集当前播放歌曲
-    val currentMediaItem by viewModel.currentMediaItem.collectAsState()
+    // 播放页/队列页为覆盖路由形态：无导航 chrome（Web 层 popup 盖住 tabs-layout）
+    val overlayRoute = current == NavDestination.NowPlaying || current == NavDestination.Queue
+
+    // 导航项组装（map 为 inline 函数，lambda 内可直接调 Composable 取 string 资源）
+    val primaryItems = NavDestination.Primary.map { dest -> dest.toNavItem(currentRoute, navController) }
+    val secondaryItems = NavDestination.Secondary.map { dest -> dest.toNavItem(currentRoute, navController) }
+
+    val nowPlaying by viewModel.nowPlaying.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            DrawerContent(
-                current = current,
-                onNavigate = { destination ->
-                    navigateTo(navController, destination)
-                    scope.launch { drawerState.close() }
-                },
-            )
-        },
-    ) {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(current.labelRes)) },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.cd_open_drawer))
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                    ),
-                )
-            },
-            bottomBar = {
-                if (current != NavDestination.NowPlaying && current != NavDestination.Queue) {
-                    MiniPlayer(
-                        currentMediaItem = currentMediaItem,
+    TabsLayout(
+        primaryItems = primaryItems,
+        secondaryItems = secondaryItems,
+        navVisible = !overlayRoute,
+        bottomBar = {
+            // MiniPlayer：覆盖路由上隐藏（对照 Web 层 popup 盖过 mini-player z 序）
+            if (!overlayRoute) {
+                Box(Modifier.navigationBarsPadding()) {
+                    MiniPlayerBar(
+                        title = nowPlaying?.title ?: stringResource(R.string.mini_empty_title),
+                        subtitle = nowPlaying?.subtitle ?: stringResource(
+                            R.string.mini_unknown_artist,
+                        ) + " - " + stringResource(R.string.mini_unknown_album),
+                        coverUri = nowPlaying?.coverUri,
                         isPlaying = isPlaying,
+                        hasSong = nowPlaying != null,
                         onOpenPlayer = { navigateTo(navController, NavDestination.NowPlaying) },
-                        onPlayPause = { viewModel.playPause() },
+                        onTogglePlayback = { viewModel.playPause() },
+                        onOpenQueue = { navigateTo(navController, NavDestination.Queue) },
+                        modifier = Modifier
+                            // .mini-player 定位：left/right 18px / bottom safe-bottom+8px
+                            .padding(horizontal = 18.dp, vertical = 8.dp)
+                            .fillMaxWidth(),
                     )
                 }
-            },
-        ) { innerPadding ->
-            AppNavHost(
-                navController = navController,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-            )
-        }
+            }
+        },
+    ) {
+        AppNavHost(navController)
     }
 }
 
+/** 导航项组装（图标/文案/激活判定均来自 NavDestination 的 Web 层映射） */
 @Composable
-private fun AppNavHost(navController: NavHostController, modifier: Modifier = Modifier) {
+private fun NavDestination.toNavItem(
+    currentRoute: String?,
+    navController: NavHostController,
+): SaltNavItem = SaltNavItem(
+    icon = icon,
+    label = stringResource(labelRes),
+    active = isActive(currentRoute),
+    onClick = { navigateTo(navController, this) },
+)
+
+@Composable
+private fun AppNavHost(navController: NavHostController) {
     NavHost(
         navController = navController,
         startDestination = NavDestination.Songs.route,
-        modifier = modifier,
+        modifier = Modifier.fillMaxSize(),
     ) {
         composable(NavDestination.Songs.route) {
             val viewModel: com.muses.player.feature.library.SongsViewModel = hiltViewModel()
@@ -288,11 +275,25 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier = Mo
                 onBack = { navController.popBackStack() },
             )
         }
+        // 刮削/设置页随 P5 批次复刻，当前为占位空态
+        composable(NavDestination.Scrape.route) { PlaceholderScreen() }
         composable(NavDestination.Sources.route) { SourcesScreen() }
+        composable(NavDestination.Settings.route) { PlaceholderScreen() }
         composable(NavDestination.NowPlaying.route) { PlayerScreen(
             onOpenQueue = { navController.navigate(NavDestination.Queue.route) },
         ) }
         composable(NavDestination.Queue.route) { QueueScreen() }
+    }
+}
+
+/** P5 前的占位页（刮削/设置）：Salt 空态观感 */
+@Composable
+private fun PlaceholderScreen() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        SaltEmpty(
+            title = stringResource(R.string.placeholder_page_title),
+            description = stringResource(R.string.placeholder_page_description),
+        )
     }
 }
 
@@ -305,82 +306,5 @@ private fun navigateTo(navController: NavHostController, destination: NavDestina
         popUpTo(NavDestination.Songs.route) { saveState = true }
         launchSingleTop = true
         restoreState = true
-    }
-}
-
-@Composable
-private fun DrawerContent(
-    current: NavDestination,
-    onNavigate: (NavDestination) -> Unit,
-) {
-    ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Spacer(Modifier.padding(top = 24.dp))
-        Column(Modifier.padding(horizontal = 12.dp)) {
-            NavDestination.entries.filter { it != NavDestination.Queue }.forEach { destination ->
-                NavigationDrawerItem(
-                    label = { Text(stringResource(destination.labelRes)) },
-                    icon = { Icon(destination.icon(), contentDescription = null) },
-                    selected = destination == current,
-                    onClick = { onNavigate(destination) },
-                    modifier = Modifier.padding(vertical = 2.dp),
-                )
-            }
-        }
-    }
-}
-
-/** MiniPlayer：显示当前播放歌曲信息和控制按钮 */
-@Composable
-private fun MiniPlayer(
-    currentMediaItem: MediaItem?,
-    isPlaying: Boolean,
-    onOpenPlayer: () -> Unit,
-    onPlayPause: () -> Unit,
-) {
-    GlassSurface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        shape = MaterialTheme.shapes.large,
-        level = GlassLevel.Medium,
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 8.dp),
-            ) {
-                Text(
-                    text = currentMediaItem?.mediaMetadata?.title?.toString() ?: "未在播放",
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (currentMediaItem != null) {
-                    Text(
-                        text = currentMediaItem.mediaMetadata.artist?.toString() ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            IconButton(onClick = onPlayPause) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isPlaying) "暂停" else "播放",
-                )
-            }
-            IconButton(onClick = onOpenPlayer) {
-                Icon(Icons.Filled.MusicNote, contentDescription = stringResource(R.string.cd_open_player))
-            }
-        }
     }
 }

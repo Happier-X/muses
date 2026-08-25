@@ -5,7 +5,10 @@
     <string name="nav_albums">专辑</string>
     <string name="nav_artists">艺术家</string>
     <string name="nav_sources">音源</string>
-    <string name="nav_playlists">播放列表</string>
+    <!-- Web 层 TabsPage.vue 的 label 为「歌单」 -->
+    <string name="nav_playlists">歌单</string>
+    <string name="nav_scrape">刮削</string>
+    <string name="nav_settings">设置</string>
     <string name="nav_now_playing">正在播放</string>
     <string name="nav_queue">播放队列</string>
     <string name="cd_open_drawer">打开侧边栏</string>
@@ -15,4 +18,10 @@
     <string name="cd_skip_previous">上一首</string>
     <string name="cd_shuffle">随机播放</string>
     <string name="cd_repeat">循环播放</string>
+    <!-- P5 前的占位页文案（刮削/设置页随 M3 交付） -->
+    <string name="placeholder_page_title">页面建设中</string>
+    <string name="placeholder_page_description">该页面将在后续批次按 Web 版复刻</string>
+    <string name="mini_empty_title">暂无播放歌曲</string>
+    <string name="mini_unknown_artist">未知艺术家</string>
+    <string name="mini_unknown_album">未知专辑</string>
 </resources>
