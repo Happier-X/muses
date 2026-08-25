@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -15,6 +16,9 @@ import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.muses.player.core.data.dao.SongDao
+import com.muses.player.core.data.mapper.toDomain
+import com.muses.player.core.data.repository.PlaybackStateRepository
+import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.media.loudness.LoudnessController
 import dagger.hilt.android.AndroidEntryPoint
@@ -22,6 +26,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import javax.inject.Inject
 
@@ -38,6 +45,10 @@ class PlaybackService : MediaSessionService() {
 
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var songDao: SongDao
+    @Inject lateinit var playbackStateRepository: PlaybackStateRepository
+    @Inject lateinit var recentPlaysRepository: RecentPlaysRepository
+
+    private var saveJob: kotlinx.coroutines.Job? = null
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var loudnessController: LoudnessController? = null
@@ -71,6 +82,107 @@ class PlaybackService : MediaSessionService() {
         // 响度均衡：挂在服务侧 ExoPlayer 上（MediaController 无 volume 能力）
         loudnessController = LoudnessController(player, settingsRepository, songDao, serviceScope)
             .also { it.start() }
+
+        // 播放持久化（任务 08-25-native-playback-persistence / P1）
+        player.addListener(persistenceListener)
+        serviceScope.launch { restoreFromSnapshot(player) }
+    }
+
+    /**
+     * 冷启动恢复（规格书 = queue.ts loadQueueData + session.ts loadPlaybackSession）：
+     * 应用配置 → 按快照重建队列（已被曲库删除的歌曲自然过滤）→ seekTo 上次进度。
+     * 只恢复不自动播放（playWhenReady 保持 false）。
+     */
+    private suspend fun restoreFromSnapshot(player: Player) {
+        val config = playbackStateRepository.readConfig()
+        player.repeatMode = if (config.repeatMode == com.muses.player.core.model.playback.RepeatMode.ONE) {
+            Player.REPEAT_MODE_ONE
+        } else {
+            Player.REPEAT_MODE_ALL
+        }
+        player.shuffleModeEnabled = config.shuffleEnabled
+
+        val snapshot = playbackStateRepository.readSnapshot() ?: return
+        if (snapshot.items.isEmpty()) return
+
+        val resolved = snapshot.items.mapNotNull { songDao.getById(it.songId)?.toDomain() }
+        if (resolved.isEmpty()) return
+
+        val startIndex = resolved.indexOfFirst { it.id == snapshot.currentSongId }
+            .let { if (it >= 0) it else 0 }
+        val mediaItems = resolved.map { song -> buildRestoreMediaItem(song) }
+        player.setMediaItems(mediaItems, startIndex, snapshot.positionMs.coerceAtLeast(0))
+        player.prepare()
+    }
+
+    private fun buildRestoreMediaItem(song: com.muses.player.core.model.Song): MediaItem =
+        MediaItem.Builder()
+            .setMediaId(song.id)
+            .setUri(song.path.toUri())
+            .setMediaMetadata(
+                androidx.media3.common.MediaMetadata.Builder()
+                    .setTitle(song.title)
+                    .setArtist(song.artist)
+                    .setAlbumTitle(song.album)
+                    .build(),
+            )
+            .build()
+
+    /** 变更节流保存：500ms debounce，避免 seek 拖动高频写盘 */
+    private fun scheduleSnapshotSave(player: Player) {
+        saveJob?.cancel()
+        saveJob = serviceScope.launch {
+            kotlinx.coroutines.delay(500)
+            saveSnapshotNow(player)
+        }
+    }
+
+    private suspend fun saveSnapshotNow(player: Player) {
+        val items = (0 until player.mediaItemCount).map {
+            com.muses.player.core.model.playback.QueueItem(player.getMediaItemAt(it).mediaId)
+        }
+        playbackStateRepository.writeSnapshot(
+            PlaybackStateRepository.PlaybackSnapshot(
+                items = items,
+                originalOrder = items,
+                shuffleOrder = null, // shuffle 序由 Media3 内部管理，恢复时按开关重洗
+                currentIndex = player.currentMediaItemIndex,
+                positionMs = player.currentPosition.coerceAtLeast(0),
+                currentSongId = player.currentMediaItem?.mediaId,
+            ),
+        )
+    }
+
+    /** 持久化监听：转场/播放态切换/seek 触发节流保存；转场登记最近播放 */
+    private val persistenceListener = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                scheduleSnapshotSave(player)
+                val currentId = player.currentMediaItem?.mediaId
+                if (currentId != null) {
+                    serviceScope.launch {
+                        songDao.getById(currentId)?.toDomain()?.let { song ->
+                            recentPlaysRepository.record(
+                                com.muses.player.core.model.playback.RecentPlayEntry(
+                                    songId = song.id,
+                                    title = song.title,
+                                    subtitle = listOfNotNull(song.artist, song.album)
+                                        .filter { it.isNotBlank() }.joinToString(" - "),
+                                    coverUri = song.coverUri,
+                                    playedAt = System.currentTimeMillis(),
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+            if (events.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED) ||
+                events.contains(Player.EVENT_POSITION_DISCONTINUITY) ||
+                events.contains(Player.EVENT_TIMELINE_CHANGED)
+            ) {
+                scheduleSnapshotSave(player)
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -85,6 +197,12 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        // 销毁前强制落盘一次快照（runBlocking 短超时；服务销毁路径可接受）
+        mediaSession?.player?.let { player ->
+            runBlocking {
+                withTimeoutOrNull(2_000) { saveSnapshotNow(player) }
+            }
+        }
         // 响度均衡先停，避免释放中的 player 还被回调
         loudnessController?.stop()
         loudnessController = null
