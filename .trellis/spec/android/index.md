@@ -50,6 +50,14 @@ app (UI 宿主、导航、引导)
 - 音频焦点由 ExoPlayer 默认处理（handleAudioFocus=true）
 - `onTaskRemoved` → `stopSelf()`（后台播放安全）
 
+## 播放持久化契约（任务 08-25-native-playback-persistence）
+
+- `PlaybackStateRepository`（core:data）：队列快照+会话合并 key `playback_snapshot`、配置 key `playback_config`；JSON schema 带 version，宽松解析回退默认值
+- 默认值：repeat=all / shuffle=false / loudnessNormalize=true（仅显式 false 关闭）
+- `PlaybackService`：onCreate 恢复队列+seekTo（不自动播放）；转场/暂停/seek 500ms debounce 保存；onDestroy runBlocking(2s 超时) 强制落盘
+- `RecentPlaysRepository`：同曲去重置顶、上限 50，MEDIA_ITEM_TRANSITION 时登记
+- 队列操作算法不移植（Media3 shuffle/repeat 承担）；shuffleOrder 恢复时按开关重洗
+
 ## WebDAV 客户端
 
 - `OkHttpWebDavClient`：PROPFIND XML 用 XmlPullParser 解析（不用 DOM）
