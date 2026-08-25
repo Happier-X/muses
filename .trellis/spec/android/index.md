@@ -58,6 +58,13 @@ app (UI 宿主、导航、引导)
 - `RecentPlaysRepository`：同曲去重置顶、上限 50，MEDIA_ITEM_TRANSITION 时登记
 - 队列操作算法不移植（Media3 shuffle/repeat 承担）；shuffleOrder 恢复时按开关重洗
 
+## 播放失败恢复链（任务 08-25-native-playback-recovery）
+
+- `PlaybackService` 的 persistenceListener.onPlayerError：登记失败曲 → `PlaybackRecoveryController.selectNextCandidate` 沿 active order 回绕一次跳过 attempted → seekTo+prepare+play；无候选才停止
+- 安全文案白名单 8 条（`PlaybackErrorCopy`）：IO_FILE_NOT_FOUND→文件失效、网络类→检查网络、AUTH_EXPIRED/BAD_HTTP→WebDAV 认证失败；未知统一「播放失败，请稍后重试。」不泄露内部信息
+- `PlayerConnection.playbackError: StateFlow<String?>` 供播放页消费；用户主动 play() 重置恢复链与错误
+- #53 resume-seek-guard 不移植：`setMediaItems(items,index,pos)` 原子定位天然无中间态
+
 ## WebDAV 客户端
 
 - `OkHttpWebDavClient`：PROPFIND XML 用 XmlPullParser 解析（不用 DOM）
