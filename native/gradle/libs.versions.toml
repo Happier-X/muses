@@ -25,6 +25,8 @@ robolectric = "4.16"
 androidxTestCore = "1.7.0"
 accompanistLyricsCore = "0.4.7"
 androidxWebkit = "1.14.0"
+# M3 刮削引擎：DataStore JSON snapshot 序列化
+kotlinxSerialization = "1.9.0"
 
 [libraries]
 # M2：仅解析用（TTML/LRC → SyncedLyrics），不引入 lyrics-ui 渲染层
@@ -79,6 +81,9 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref = "androidxTestCore" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+
+# M3 刮削引擎：localStorage snapshot → DataStore JSON（S3/S4 使用）
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
