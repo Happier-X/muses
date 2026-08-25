@@ -1,6 +1,8 @@
 package com.muses.player.core.data.repository
 
 import androidx.datastore.core.DataStore
+import javax.inject.Inject
+import javax.inject.Singleton
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -27,7 +29,8 @@ import kotlinx.serialization.json.jsonObject
  * - 配置独立 key `playback_config`
  * - schema 带 version；宽松解析回退默认值（对齐 Web isRecord/isQueueItem 校验风格）
  */
-class PlaybackStateRepository(private val dataStore: DataStore<Preferences>) {
+@Singleton
+class PlaybackStateRepository @Inject constructor(private val dataStore: DataStore<Preferences>) {
 
     companion object {
         private val SNAPSHOT_KEY = stringPreferencesKey("playback_snapshot")

@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,12 +21,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -71,18 +69,14 @@ import kotlinx.coroutines.launch
  *
  * 结构对照：
  * - 宽屏（≥768px，Web 断点口径）→ `.tabs-layout__aside`：固定左侧栏，宽 260px，
- *   surface-1 底、右侧 1px hairline；分组为非卡片形态（次组 border-top 分隔）；
- * - 窄屏 → `.tabs-layout__track` 推屏轨道：抽屉面板（50vw）+ 主内容（100vw）整体平移，
- *   开 = translateX(0)、关 = translateX(-50vw)，动画 240ms cubic-bezier(0.32,0.72,0,1)；
- *   抽屉内主/次菜单各为一张圆角卡（surface-1 + 1px hairline 描边、16px 圆角、**无阴影**，
- *   08-16 三版迭代定案）；透明关闭交互区覆盖被推开的主页面承接点击关闭；
- * - 导航项 `.tabs-layout__nav-link`：min-height 64px、水平 padding --m-spacing、
- *   图标壳固定 60px（图标 24px 居中）、文字 16px/--m-text；
- *   **激活态与普通项完全一致**（08-16 用户定案：无加粗、无背景色差），active 仅作语义。
+ *   surface-1 底、右侧 1px hairline；
+ * - 窄屏 → 推屏：抽屉面板（50vw）+ 主内容（100vw），开合进度驱动两者独立偏移，
+ *   动画 240ms cubic-bezier(0.32,0.72,0,1)；透明关闭交互区覆盖被推开的主页面；
+ * - 导航项 `.tabs-layout__nav-link`：min-height 64px、图标壳固定 60px、文字 16px；
+ *   **激活态与普通项完全一致**（08-16 用户定案）。
  *
- * 手势对照（onPageTouchStart/Move/End）：任意位置右滑开抽屉、开态左滑关抽屉；
- * 水平位移锁 8px（Compose detectHorizontalDragGestures 的 touch slop 天然承担垂直让位）；
- * 结算阈值：位移 ≥ 抽屉宽 25%（SETTLE_RATIO）或快扫速度 ≥ 0.5 px/ms（FAST_SWIPE_PX_PER_MS）。
+ * 手势：任意位置右滑开抽屉、开态左滑关抽屉；结算阈值 = 位移 ≥ 抽屉宽 25%
+ * 或快扫 ≥ 0.5 px/ms。
  */
 
 /** Web 断点口径：viewportWidth >= 768 即平板形态 */
@@ -94,17 +88,13 @@ private val AsideWidth = 260.dp
 /** 抽屉宽度 = 视口 50vw（`__drawer { flex: 0 0 50vw }`） */
 private const val DrawerWidthFraction = 0.5f
 
-/** 关闭态轨道位移系数：Web 为 translateX(-50vw)，位移相对视口宽；
-    抽屉宽本身即 50vw，故对抽屉宽度而言系数为 -1 */
-private const val TrackClosedFraction = -1f
-
 /** drawerTransition duration 0.24 / ease [0.32, 0.72, 0, 1] */
 private val DrawerEasing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
 private const val DrawerAnimMs = 240
 
-/** HORIZONTAL_LOCK_PX = 8（方向锁，由触摸滑动阈值近似承担） */
-private const val SettleRatio = 0.25f          // SETTLE_RATIO
-private const val FastSwipePxPerMs = 0.5f      // FAST_SWIPE_PX_PER_MS
+/** SETTLE_RATIO 与 FAST_SWIPE_PX_PER_MS */
+private const val SettleRatio = 0.25f
+private const val FastSwipePxPerMs = 0.5f
 
 /** 导航项（RouterLink 的 Compose 对应物入参） */
 data class SaltNavItem(
@@ -117,9 +107,8 @@ data class SaltNavItem(
 /**
  * 双形态主框架。
  *
- * @param navVisible false 时隐藏侧边栏/抽屉（播放页/队列页等覆盖路由全屏呈现，
- *   对照 Web 层 popup 盖住 tabs-layout 的观感）
- * @param bottomBar 叠加在内容区之上的底部悬浮层（MiniPlayer，z 序高于抽屉关闭区）
+ * @param navVisible false 时隐藏侧边栏/抽屉（播放页/队列页等覆盖路由全屏呈现）
+ * @param bottomBar 叠加在内容区之上的底部悬浮层（MiniPlayer）
  */
 @Composable
 fun TabsLayout(
@@ -166,39 +155,26 @@ private fun TabletLayout(
 ) {
     val salt = LocalSaltColors.current
     Row(modifier.background(salt.surface)) {
-        // __aside：fixed top/left/bottom，width 260px，bg surface-1，border-right hairline
         Column(
             Modifier
                 .width(AsideWidth)
                 .fillMaxHeight()
                 .background(salt.surface1),
         ) {
-            // padding-top: var(--m-safe-area-top)（原生取状态栏 inset）
             Spacer(Modifier.statusBarsPadding())
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                // __nav--primary（aside 非卡片形态）：仅 padding-top 8px
-                NavGroup(
-                    items = primaryItems,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                // __nav--secondary（aside）：margin-top 9px + padding-top 9px + border-top hairline
+                NavGroup(items = primaryItems, modifier = Modifier.padding(top = 8.dp))
                 SecondaryGroupDivider()
-                NavGroup(
-                    items = secondaryItems,
-                    modifier = Modifier.padding(top = 9.dp),
-                )
-                // 底部安全区留白（aside 可滚动）
+                NavGroup(items = secondaryItems, modifier = Modifier.padding(top = 9.dp))
                 Spacer(Modifier.navigationBarsPadding())
             }
         }
-        // aside 的 border-right：1px hairline 竖线
         Box(
             Modifier
                 .width(1.dp)
                 .fillMaxHeight()
                 .background(salt.hairline),
         )
-        // __main--tabbed：left 260px 起铺满
         Box(Modifier.weight(1f).fillMaxHeight()) {
             content()
         }
@@ -209,7 +185,7 @@ private fun TabletLayout(
 // 窄屏抽屉推屏形态
 // ---------------------------------------------------------------------------
 
-/** 推屏轨道手势会话（对照 onPageTouchStart/Move/End 的局部变量） */
+/** 推屏手势会话（对照 onPageTouchStart/Move/End 的局部变量） */
 private class DragSession {
     var mode: Mode? = null
     var totalDx = 0f
@@ -232,7 +208,6 @@ private fun PhoneLayout(
     bottomBar: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val salt = LocalSaltColors.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
 
@@ -240,37 +215,22 @@ private fun PhoneLayout(
     val drawerWidthPx = with(density) { drawerWidth.roundToPx() }.toFloat()
 
     var drawerOpen by rememberSaveable { mutableStateOf(false) }
-    // NaN = 尚未初始化（offset lambda 按关态兜底），首个 effect snap 到真实位置
-    val trackOffsetX = remember { Animatable(Float.NaN) }
 
-    // 尺寸变化时同步轨道位置（updateViewportWidth 的对应处理）
-    LaunchedEffect(drawerWidthPx) {
-        val target = if (drawerOpen) 0f else drawerWidthPx * TrackClosedFraction
-        if (trackOffsetX.value.isNaN() || trackOffsetX.value != target) {
-            trackOffsetX.snapTo(target)
-        }
-    }
-    // 覆盖路由切入时强制复位（Web 层 watch playerOverlayVisible → closeDrawer）
+    // 开合进度：0=关（抽屉全藏、主内容原位） 1=开（抽屉入屏、主内容右推）
+    val openFraction = remember { Animatable(0f) }
+
     LaunchedEffect(drawerOpen) {
-        if (!drawerOpen) trackOffsetX.snapTo(drawerWidthPx * TrackClosedFraction)
+        openFraction.animateTo(if (drawerOpen) 1f else 0f, tween(DrawerAnimMs, easing = DrawerEasing))
     }
-
-    suspend fun animateTrack(targetX: Float) =
-        trackOffsetX.animateTo(targetX, tween(DrawerAnimMs, easing = DrawerEasing))
 
     fun closeDrawer() {
-        scope.launch {
-            animateTrack(drawerWidthPx * TrackClosedFraction)
-            drawerOpen = false
-        }
+        drawerOpen = false
     }
 
     fun openDrawer() {
         drawerOpen = true
-        scope.launch { animateTrack(0f) }
     }
 
-    // Escape 关抽屉的等价物：系统返回键优先用于关抽屉
     BackHandler(enabled = drawerOpen) { closeDrawer() }
 
     val drag = remember { DragSession() }
@@ -278,11 +238,7 @@ private fun PhoneLayout(
     Box(
         Modifier
             .fillMaxSize()
-            .background(salt.surface)
-            // onPageTouchStart/Move/End：任意位置右滑开 / 开态左滑关；
-            // 垂直滚动让位由 detectHorizontalDragGestures 的水平 touch slop 承担
-            // （≈ HORIZONTAL_LOCK_PX 方向锁）。播放/队列覆盖路由打开时不挂手势
-            // （isGestureBlocked 对 .m-popup/.m-sheet 的拦截语义）。
+            .background(LocalSaltColors.current.surface)
             .pointerInput(drawerOpen) {
                 detectHorizontalDragGestures(
                     onDragStart = { _ ->
@@ -295,7 +251,7 @@ private fun PhoneLayout(
                         val mode = drag.mode ?: return@detectHorizontalDragGestures
                         val velocity = drag.tracker?.calculateVelocity()?.x ?: 0f
                         val crossedDistance = abs(drag.totalDx) >= drawerWidthPx * SettleRatio
-                        val crossedVelocity = abs(velocity) / 1000f >= FastSwipePxPerMs
+                        val crossedVelocity = abs(velocity) >= FastSwipePxPerMs * 1000f
                         val shouldOpen = if (mode == DragSession.Mode.OPENING) {
                             crossedDistance || crossedVelocity
                         } else {
@@ -305,7 +261,6 @@ private fun PhoneLayout(
                         if (shouldOpen) openDrawer() else closeDrawer()
                     },
                     onDragCancel = {
-                        // cancelTouchGesture：回弹到拖拽前状态
                         val wasOpening = drag.mode == DragSession.Mode.OPENING
                         drag.reset(null)
                         if (wasOpening != drawerOpen) {
@@ -316,50 +271,46 @@ private fun PhoneLayout(
                     change.consume()
                     drag.tracker?.addPosition(change.uptimeMillis, change.position)
                     drag.totalDx += dragAmount
-                    val raw = when (drag.mode) {
-                        DragSession.Mode.OPENING ->
-                            drawerWidthPx * TrackClosedFraction + drag.totalDx
-                        DragSession.Mode.CLOSING -> drag.totalDx
-                        null -> return@detectHorizontalDragGestures
-                    }
-                    val clamped = raw.coerceIn(drawerWidthPx * TrackClosedFraction, 0f)
-                    scope.launch { trackOffsetX.snapTo(clamped) }
+                    // 拖拽直接驱动开合进度（关态右滑为正、开态左滑为负）
+                    val delta = if (drag.mode == DragSession.Mode.CLOSING) -dragAmount else dragAmount
+                    val raw = (openFraction.value + delta / drawerWidthPx).coerceIn(0f, 1f)
+                    scope.launch { openFraction.snapTo(raw) }
                 }
             },
     ) {
-        // __track：150vw 轨道 = 抽屉(50vw) + 主内容(100vw) 首尾相连，整体平移。
-        // 关态 offset=-50vw → 抽屉全出屏、主内容恰落 x=0；开态 offset=0。
-        // （初版两节点各自 offset 的写法会让关态抽屉右半截留在屏内——已废弃）
-        Row(
-            Modifier
-                // requiredWidth：轨道 150vw 必须无视父级 100vw 约束，
-                // 否则被压缩后主内容只剩 50vw 宽（实测踩坑）
-                .requiredWidth(drawerWidth + containerWidth)
+        // __drawer：关态整体左移自身宽度藏出屏。
+        // 菜单点击后自动关抽屉（对照 Web 层 onDrawerNavigation）
+        val drawerPrimary = primaryItems.map { item ->
+            item.copy(onClick = { item.onClick(); closeDrawer() })
+        }
+        val drawerSecondary = secondaryItems.map { item ->
+            item.copy(onClick = { item.onClick(); closeDrawer() })
+        }
+        DrawerPanel(
+            primaryItems = drawerPrimary,
+            secondaryItems = drawerSecondary,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .width(drawerWidth)
                 .fillMaxHeight()
-                .offsetX {
-                    val v = trackOffsetX.value
-                    // 初值 NaN 时按关态取位，避免首帧闪现打开态
-                    (if (v.isNaN()) -drawerWidthPx else v).roundToInt()
-                },
-        ) {
-            DrawerPanel(
-                primaryItems = primaryItems,
-                secondaryItems = secondaryItems,
-                modifier = Modifier
-                    .width(drawerWidth)
-                    .fillMaxHeight(),
-            )
+                .offsetX { ((openFraction.value - 1f) * drawerWidthPx).roundToInt() },
+        )
 
-            Box(
-                Modifier
-                    .width(containerWidth)
-                    .fillMaxHeight()
+        // __main：开态右移一个抽屉宽；向页内 SaltNavbar 提供汉堡打开回调
+        Box(
+            Modifier
+                .align(Alignment.TopStart)
+                .fillMaxSize()
+                .offsetX { (openFraction.value * drawerWidthPx).roundToInt() },
+        ) {
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.muses.player.core.ui.components.LocalSaltOpenDrawer provides { openDrawer() },
             ) {
                 content()
             }
         }
 
-        // __drawer-dismiss：透明关闭交互区，覆盖被推开主页面可视区域（50vw..100vw）
+        // __drawer-dismiss：透明关闭交互区，覆盖被推开的主页面
         if (drawerOpen) {
             Box(
                 Modifier
@@ -372,7 +323,7 @@ private fun PhoneLayout(
             )
         }
 
-        // MiniPlayer（z-index 1000）：层级高于 drawer-dismiss(30)
+        // MiniPlayer（z-index 1000）：层级高于 drawer-dismiss
         Box(Modifier.align(Alignment.BottomCenter)) { bottomBar() }
     }
 }
@@ -464,14 +415,12 @@ private fun SecondaryGroupDivider() {
 }
 
 /**
- * `.tabs-layout__nav-link`：min-height 64px、padding 0 --m-spacing、radius-sm 圆角、
- * 无涟漪（浏览器默认焦点环/高亮已隐藏的对应处理）；图标壳 flex 0 0 60px 居中、
- * 图标恒灰（--m-text-2，用户定案：激活项图标不变蓝）、文字 16px --m-text。
- * **激活态视觉与普通项完全一致**（08-16 定案），[SaltNavItem.active] 仅保留语义用途。
+ * `.tabs-layout__nav-link`：min-height 64px、radius-sm 圆角、无涟漪；
+ * 图标壳 flex 0 0 60px 居中、图标恒灰（--m-text-2）、文字 16px --m-text。
+ * **激活态视觉与普通项完全一致**（08-16 定案）。
  *
- * [inDrawer] = `.tabs-layout__drawer-link` 变体：width 100% + **padding-left 0**
- * （`.tabs-layout__drawer &__nav-link { padding-left: 0 }` —— 18px 卡片空隙 +
- * 60px 图标列使文字自 ~78px 起，对齐椒盐文字 x204px 实测）。
+ * [inDrawer] = `.tabs-layout__drawer-link` 变体：width 100% + padding-left 0
+ * （18px 卡片空隙 + 60px 图标列使文字自 ~78px 起，对齐椒盐 x204px 实测）。
  */
 @Composable
 private fun SaltNavLink(

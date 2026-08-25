@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -98,6 +101,9 @@ fun SaltNavbar(
                     .padding(horizontal = SaltSpacing.spacing),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // 内建汉堡按钮：对照 MNavbar——navigationDrawer 注入存在且
+                // 未提供自定义 left 插槽时自动渲染（打开导航抽屉）
+                val openDrawer = LocalSaltOpenDrawer.current
                 if (left != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -105,6 +111,15 @@ fun SaltNavbar(
                         modifier = Modifier.padding(end = SaltSpacing.spacingSub),
                     ) {
                         left()
+                    }
+                } else if (openDrawer != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(end = SaltSpacing.spacingSub),
+                    ) {
+                        SaltIconButton(onClick = openDrawer) {
+                            Icon(Icons.Filled.Menu, contentDescription = "打开导航菜单")
+                        }
                     }
                 }
                 // __title
