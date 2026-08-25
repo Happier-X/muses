@@ -45,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -58,6 +59,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.nativem1.theme.LocalSaltColors
+import com.muses.player.nativem1.theme.SaltRadius
 import com.muses.player.nativem1.theme.SaltSpacing
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -91,8 +93,9 @@ private val AsideWidth = 260.dp
 /** 抽屉宽度 = 视口 50vw（`__drawer { flex: 0 0 50vw }`） */
 private const val DrawerWidthFraction = 0.5f
 
-/** 关闭态轨道位移 = -50vw */
-private const val TrackClosedFraction = -0.5f
+/** 关闭态轨道位移系数：Web 为 translateX(-50vw)，位移相对视口宽；
+    抽屉宽本身即 50vw，故对抽屉宽度而言系数为 -1 */
+private const val TrackClosedFraction = -1f
 
 /** drawerTransition duration 0.24 / ease [0.32, 0.72, 0, 1] */
 private val DrawerEasing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
@@ -236,11 +239,15 @@ private fun PhoneLayout(
     val drawerWidthPx = with(density) { drawerWidth.roundToPx() }.toFloat()
 
     var drawerOpen by rememberSaveable { mutableStateOf(false) }
-    val trackOffsetX = remember { Animatable(0f) }
+    // NaN = 尚未初始化（offset lambda 按关态兜底），首个 effect snap 到真实位置
+    val trackOffsetX = remember { Animatable(Float.NaN) }
 
     // 尺寸变化时同步轨道位置（updateViewportWidth 的对应处理）
     LaunchedEffect(drawerWidthPx) {
-        trackOffsetX.snapTo(if (drawerOpen) 0f else drawerWidthPx * TrackClosedFraction)
+        val target = if (drawerOpen) 0f else drawerWidthPx * TrackClosedFraction
+        if (trackOffsetX.value.isNaN() || trackOffsetX.value != target) {
+            trackOffsetX.snapTo(target)
+        }
     }
     // 覆盖路由切入时强制复位（Web 层 watch playerOverlayVisible → closeDrawer）
     LaunchedEffect(drawerOpen) {
@@ -319,24 +326,34 @@ private fun PhoneLayout(
                 }
             },
     ) {
-        // __drawer：透明底槽位（卡片由 panel 呈现），随轨道平移
-        DrawerPanel(
-            primaryItems = primaryItems,
-            secondaryItems = secondaryItems,
-            modifier = Modifier
-                .width(drawerWidth)
-                .fillMaxHeight()
-                .offsetX { trackOffsetX.value.roundToInt() },
-        )
-
-        // __main：100vw，随轨道平移（关 = 屏内原位，开 = 被推到右半屏外）
-        Box(
+        // __track：150vw 轨道 = 抽屉(50vw) + 主内容(100vw) 首尾相连，整体平移。
+        // 关态 offset=-50vw → 抽屉全出屏、主内容恰落 x=0；开态 offset=0。
+        // （初版两节点各自 offset 的写法会让关态抽屉右半截留在屏内——已废弃）
+        Row(
             Modifier
-                .width(containerWidth)
+                .width(drawerWidth + containerWidth)
                 .fillMaxHeight()
-                .offsetX { (drawerWidthPx + trackOffsetX.value).roundToInt() },
+                .offsetX {
+                    val v = trackOffsetX.value
+                    // 初值 NaN 时按关态取位，避免首帧闪现打开态
+                    (if (v.isNaN()) -drawerWidthPx else v).roundToInt()
+                },
         ) {
-            content()
+            DrawerPanel(
+                primaryItems = primaryItems,
+                secondaryItems = secondaryItems,
+                modifier = Modifier
+                    .width(drawerWidth)
+                    .fillMaxHeight(),
+            )
+
+            Box(
+                Modifier
+                    .width(containerWidth)
+                    .fillMaxHeight(),
+            ) {
+                content()
+            }
         }
 
         // __drawer-dismiss：透明关闭交互区，覆盖被推开主页面可视区域（50vw..100vw）
@@ -384,7 +401,7 @@ private fun NavGroupCard(
             .border(1.dp, salt.hairline, cardShape)
             .padding(vertical = 8.dp),
     ) {
-        items.forEach { item -> SaltNavLink(item) }
+        items.forEach { item -> SaltNavLink(item, inDrawer = true) }
     }
 }
 
@@ -448,20 +465,32 @@ private fun SecondaryGroupDivider() {
  * 无涟漪（浏览器默认焦点环/高亮已隐藏的对应处理）；图标壳 flex 0 0 60px 居中、
  * 图标恒灰（--m-text-2，用户定案：激活项图标不变蓝）、文字 16px --m-text。
  * **激活态视觉与普通项完全一致**（08-16 定案），[SaltNavItem.active] 仅保留语义用途。
+ *
+ * [inDrawer] = `.tabs-layout__drawer-link` 变体：width 100% + **padding-left 0**
+ * （`.tabs-layout__drawer &__nav-link { padding-left: 0 }` —— 18px 卡片空隙 +
+ * 60px 图标列使文字自 ~78px 起，对齐椒盐文字 x204px 实测）。
  */
 @Composable
-private fun SaltNavLink(item: SaltNavItem) {
+private fun SaltNavLink(
+    item: SaltNavItem,
+    inDrawer: Boolean = false,
+) {
     val salt = LocalSaltColors.current
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         Modifier
+            .then(if (inDrawer) Modifier.fillMaxWidth() else Modifier)
             .heightIn(min = 64.dp)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = item.onClick,
             )
-            .padding(horizontal = SaltSpacing.spacing),
+            .clip(RoundedCornerShape(SaltRadius.sm))
+            .padding(
+                start = if (inDrawer) 0.dp else SaltSpacing.spacing,
+                end = SaltSpacing.spacing,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // __nav-icon-shell：flex 0 0 60px，图标居中于 30px 处
