@@ -47,6 +47,16 @@ data class OnlineLyricsProviderHit(
     val translationText: String? = null,
 )
 
+/**
+ * 可插拔回退源（平台 / LRCLIB）；amll 在编排层单独调用（providers/types.ts LyricsProvider）。
+ * id 不应为 AMLL（Web 类型层面排除，此处运行时约束）。
+ */
+interface LyricsProvider {
+    val id: OnlineLyricsSource
+
+    suspend fun searchLyrics(query: OnlineLyricsQuery): OnlineLyricsProviderHit?
+}
+
 /** 匹配失败原因 */
 enum class OnlineLyricsFailReason {
     NO_MATCH,
