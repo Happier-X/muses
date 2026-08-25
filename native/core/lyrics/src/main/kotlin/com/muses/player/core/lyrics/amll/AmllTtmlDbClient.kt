@@ -55,7 +55,7 @@ open class AmllTtmlDbClient(
             ),
         )
 
-    private fun getNegative(songId: String, queryKey: String): NegativeEntry? {
+    private fun getNegative(songId: String, queryKey: String): NegativeEntry? = synchronized(negativeBySongId) {
         val entry = negativeBySongId[songId] ?: return null
         if (entry.queryKey != queryKey || nowMs() > entry.expiresAt) {
             negativeBySongId.remove(songId)
