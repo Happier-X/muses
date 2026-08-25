@@ -1,7 +1,11 @@
 package com.muses.player.feature.player
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -115,9 +119,22 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
-        Crossfade(
+        androidx.compose.animation.AnimatedContent(
             targetState = showLyricsPanel,
-            modifier = Modifier.fillMaxSize(),
+            transitionSpec = {
+                // 横滑方向语义：切到歌词=新页从右入、旧页向左出；反向反之
+                if (targetState > initialState) {
+                    (androidx.compose.animation.slideInHorizontally { it } +
+                        androidx.compose.animation.fadeIn()) togetherWith
+                        (androidx.compose.animation.slideOutHorizontally { -it } +
+                            androidx.compose.animation.fadeOut())
+                } else {
+                    (androidx.compose.animation.slideInHorizontally { -it } +
+                        androidx.compose.animation.fadeIn()) togetherWith
+                        (androidx.compose.animation.slideOutHorizontally { it } +
+                            androidx.compose.animation.fadeOut())
+                }
+            },
             label = "player-panels",
         ) { panel ->
             when (panel) {
@@ -129,11 +146,24 @@ fun PlayerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     // 固定头部：标题 + 关闭 + 队列
+                    var closeDrag by remember { mutableFloatStateOf(0f) }
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .statusBarsPadding()
-                            .padding(horizontal = SaltSpacing.spacing, vertical = 8.dp),
+                            .padding(horizontal = SaltSpacing.spacing, vertical = 8.dp)
+                            // 下滑关闭手势：累计下拉超 120dp 触发 onClose（Web 层拖拽系统简化版）
+                            .pointerInput(Unit) {
+                                detectVerticalDragGestures(
+                                    onVerticalDrag = { _, dy ->
+                                        closeDrag += dy
+                                        // 下拉超阈值即关闭播放页（简化版，完整回弹闭环待 P4.3）
+                                        if (closeDrag > 400f) {
+                                            onClose()
+                                        }
+                                    },
+                                )
+                            },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(

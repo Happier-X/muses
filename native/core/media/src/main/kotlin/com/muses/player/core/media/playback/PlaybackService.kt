@@ -51,7 +51,9 @@ class PlaybackService : MediaSessionService() {
 
     private var saveJob: kotlinx.coroutines.Job? = null
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // ExoPlayer 强制主线程访问（player-accessed-on-wrong-thread 崩溃防护），
+    // 服务生命周期本就在主线程；Room/DataStore 挂起调用内部自行切 IO
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var loudnessController: LoudnessController? = null
 
     override fun onCreate() {
