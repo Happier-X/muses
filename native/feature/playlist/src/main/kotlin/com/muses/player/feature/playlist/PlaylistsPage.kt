@@ -1,5 +1,6 @@
 package com.muses.player.feature.playlist
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -146,12 +148,16 @@ fun PlaylistsPage(
 
         // ---- .playlists-page__content ----
         if (rows.isEmpty()) {
-            SaltEmpty(
-                title = "还没有歌单",
-                description = "点右上角新建，或在歌曲页「更多」加入歌单。",
-                icon = Icons.Filled.QueueMusic,
-                modifier = Modifier.weight(1f),
-            )
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                SaltEmpty(
+                    title = "还没有歌单",
+                    description = "点右上角新建，或在歌曲页「更多」加入歌单。",
+                    icon = Icons.Filled.QueueMusic,
+                )
+            }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),

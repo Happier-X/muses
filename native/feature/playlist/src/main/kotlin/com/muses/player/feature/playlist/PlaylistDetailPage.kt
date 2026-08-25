@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -83,18 +84,23 @@ fun PlaylistDetailPage(
         // ---- .playlist-detail-page__content 三态 ----
         when {
             playlist == null -> {
-                SaltEmpty(
-                    title = "歌单不存在",
-                    description = "可能已被删除。",
-                    modifier = Modifier.weight(1f),
-                )
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SaltEmpty(title = "歌单不存在", description = "可能已被删除。")
+                }
             }
             songs.isEmpty() -> {
-                SaltEmpty(
-                    title = "歌单是空的",
-                    description = "在歌曲页点「更多」→「加入歌单」添加歌曲。",
-                    modifier = Modifier.weight(1f),
-                )
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SaltEmpty(
+                        title = "歌单是空的",
+                        description = "在歌曲页点「更多」→「加入歌单」添加歌曲。",
+                    )
+                }
             }
             else -> {
                 LazyColumn(
