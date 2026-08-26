@@ -4,15 +4,87 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 		<title>AMLL</title>
-		<script type="module" crossorigin src="./assets/index-CNpaITZg.js"></script>
-		<link rel="stylesheet" crossorigin href="./assets/index-C0bonFNP.css">
+		<script type="module" crossorigin src="./assets/index-BQP8VRyM.js"></script>
+		<link rel="stylesheet" crossorigin href="./assets/index-KasbERnu.css">
 	</head>
 	<body>
+		<!-- 底层：PIXI 流体背景 + AMLL 歌词层（歌词元素由 main.ts 移入歌词面板槽位） -->
 		<div id="background-layer"></div>
 		<div id="lyric-layer"></div>
+
+		<!-- 播放页 UI（P4.4 全 WebView 方案：结构对照 src/views/PlayerPage.vue 手机形态） -->
+		<div id="player-ui">
+			<!-- 固定头部：歌名 h1 + 艺术家 p 左上常驻（__song-head--fixed） -->
+			<header class="pp-head">
+				<h1 class="pp-title" id="pp-title"></h1>
+				<p class="pp-artist" id="pp-artist" hidden></p>
+			</header>
+
+			<!-- 双面板滑动容器：width 200% + translateX(-activePanel*50%)，0.22s easeOut -->
+			<div class="pp-panels" id="pp-panels">
+				<!-- ===== info 面板 ===== -->
+				<section class="pp-panel pp-info">
+					<div class="pp-info-inner">
+						<!-- 大封面 hero：正方形 contain，无封面 ♪ 占位 -->
+						<div class="pp-cover-hero">
+							<img class="pp-cover-img" id="pp-cover" alt="" hidden />
+							<div class="pp-cover-placeholder" id="pp-cover-placeholder">♪</div>
+						</div>
+
+						<!-- 五行歌词小窗（当前行高亮；无词时占位提示） -->
+						<div class="pp-song-meta" id="pp-meta">
+							<div class="pp-meta-window" id="pp-meta-window"></div>
+							<div class="pp-meta-empty" id="pp-meta-empty" hidden>暂无歌词</div>
+						</div>
+
+						<!-- 进度区：自绘双轨无 thumb 进度条 + 时间行 -->
+						<div class="pp-progress-area">
+							<div class="pp-progress-range" id="pp-progress">
+								<div class="pp-track-bg"></div>
+								<div class="pp-track-value" id="pp-track-value"></div>
+							</div>
+							<div class="pp-time-row">
+								<span id="pp-time-cur">0:00</span>
+								<span class="pp-buffer-hint" id="pp-buffer-hint" hidden>缓冲中</span>
+								<span id="pp-time-dur">--:--</span>
+							</div>
+						</div>
+
+						<!-- 三键控制：prev / play / next（无圆底） -->
+						<div class="pp-controls">
+							<button class="pp-icon-btn" id="pp-btn-prev" aria-label="上一曲"></button>
+							<button class="pp-icon-btn pp-play-btn" id="pp-btn-play" aria-label="播放"></button>
+							<button class="pp-icon-btn" id="pp-btn-next" aria-label="下一曲"></button>
+						</div>
+
+						<!-- mode-bar 四键：循环 / 随机 / 队列 / 更多 -->
+						<div class="pp-mode-bar">
+							<button class="pp-icon-btn pp-mode-btn" id="pp-btn-repeat" aria-label="循环模式"></button>
+							<button class="pp-icon-btn pp-mode-btn" id="pp-btn-shuffle" aria-label="随机播放"></button>
+							<button class="pp-icon-btn pp-mode-btn" id="pp-btn-queue" aria-label="播放队列"></button>
+							<button class="pp-icon-btn pp-mode-btn" id="pp-btn-more" aria-label="更多"></button>
+						</div>
+					</div>
+				</section>
+
+				<!-- ===== 歌词面板：AMLL 全区 + 翻译 FAB ===== -->
+				<section class="pp-panel pp-lyric">
+					<!-- AMLL LyricPlayer 元素由 main.ts 挂载到此槽位 -->
+					<div class="pp-lyric-slot" id="lyric-slot"></div>
+					<div class="pp-lyric-empty" id="pp-lyric-empty" hidden>
+						<h2>暂无歌词</h2>
+						<p>未找到内嵌歌词或同目录同名 .lrc 文件，可在刮削页获取。</p>
+					</div>
+					<button class="pp-fab" id="pp-fab-translate" aria-label="翻译" hidden></button>
+				</section>
+			</div>
+		</div>
+
+		<!-- 无播放歌曲空态（♪ 占位 + 引导文案） -->
 		<div id="empty-state" hidden>
-			<div style="font-size: 17px; font-weight: 600; color: rgba(255, 255, 255, 0.95)">暂无歌词</div>
-			<div>未找到内嵌歌词或同目录同名 .lrc 文件，可在刮削页获取。</div>
+			<div class="pp-empty-icon">♪</div>
+			<h1>暂无播放歌曲</h1>
+			<p>从歌曲列表选择一首音乐后，即可进入沉浸式播放。</p>
 		</div>
 	</body>
 </html>

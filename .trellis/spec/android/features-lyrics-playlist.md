@@ -29,6 +29,9 @@
 | `updateLyrics(payload: string)` | JSON 字符串 `{lines, coverUrl, songId}` | 页面 ready 后首次 + 每次切歌 |
 | `updatePosition(positionMs: number)` | ms 数值 | VM 侧 ~100ms 轮询节流，仅 isPlaying 时发射 |
 | `pauseRender()` / `resumeRender()` | 无 | Lifecycle ON_STOP / ON_START |
+| `updatePlayerState(payload: string)`（P4.4） | JSON `{title, artist, coverUrl, isPlaying, positionMs, durationMs, buffering, repeatMode:'off'\|'one'\|'all', shuffleEnabled, hasTranslation, translationEnabled, insetTopPx?, insetBottomPx?}` | 页面 ready / 任一状态变化（title 空串 = 无播放歌曲，前端显空态；coverUrl=null 粘性沿用） |
+
+JS→Native（P4.4）：前端经 `window.nativeBridge.onAction(json)` 发动作 `{action:'playPause'|'next'|'previous'|'seekTo'(positionMs)|'setRepeatMode'(mode)|'setShuffle'(enabled)|'toggleTranslation'|'openQueue'|'close'}`；Kotlin 侧 `NativeBridge` 回调在 JS 线程，AmllWebView 内部统一 post 主线程后再分派。seek 为一次性语义：拖动 preview 由前端本地完成，抬起才发。
 
 - **payload 注入必须经 `AmllMapper.quote()` 包成 JS 字符串字面量**——前端内部做 `JSON.parse`，直接内插对象会被 ToString 成 `[object Object]`。
 - `songId` token：前端校验过期注入丢弃。

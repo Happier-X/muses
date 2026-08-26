@@ -2,6 +2,9 @@ package com.muses.player.feature.player.lyric
 
 import android.annotation.SuppressLint
 import android.graphics.Color as AndroidColor
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -75,7 +78,19 @@ private class CacheDirPathHandler(private val root: File) : WebViewAssetLoader.P
 }
 
 /**
+ * JS→Native 动作桥：前端经 window.nativeBridge.onAction(json) 调用。
+ * 回调发生在 WebView 的 JS 线程，[onAction] 内部自行 post 主线程后再触碰 Compose 状态。
+ */
+private class NativeBridge(private val onAction: (String) -> Unit) {
+    @JavascriptInterface
+    fun onAction(json: String) {
+        onAction(json)
+    }
+}
+
+/**
  * AMLL 歌词 + 流体背景宿主：一个 WebView 页面承担双职责（design.md §3.1/§3.2）。
+ * P4.4 起同时是沉浸式播放页的全屏容器（播放页 UI DOM 由同一页面承载）。
  *
  * 生命周期契约（继承 spec/frontend/features-player.md，原生等价实现）：
  * - 与歌词状态解耦：无词时 payload.lines 为空数组，BackgroundRender 照常渲染；
@@ -94,11 +109,19 @@ fun AmllWebView(
     payloadJson: String?,
     positionMsFlow: StateFlow<Long>,
     isPlaying: StateFlow<Boolean>,
+    /** 非空时页面 ready / 载荷变化即注入 window.updatePlayerState(<json>)（P4.4 播放页状态下行） */
+    playerStateJson: String? = null,
+    /** 前端 nativeBridge.onAction 原始 JSON（已在内部 post 主线程），由调用方解析分派 */
+    onBridgeAction: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val webViewHolder = remember { mutableStateOf<WebView?>(null) }
     var pageReady by remember { mutableStateOf(false) }
+
+    // 桥回调经 ref 转发：factory 闭包只捕获一次，后续重组更新 lambda 不重建 WebView
+    val onBridgeActionRef = remember { mutableStateOf(onBridgeAction) }
+    onBridgeActionRef.value = onBridgeAction
 
     AndroidView(
         modifier = modifier,
@@ -118,6 +141,14 @@ fun AmllWebView(
                     .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(ctx))
                     .addPathHandler("/cache/", CacheDirPathHandler(ctx.cacheDir))
                     .build()
+
+                // JS→Native 动作桥：NativeBridge 回调在 WebView JS 线程，此处统一 post 主线程，
+                // 保证调用方 lambda 可安全触碰 Compose 状态 / ViewModel
+                val mainHandler = Handler(Looper.getMainLooper())
+                addJavascriptInterface(
+                    NativeBridge { json -> mainHandler.post { onBridgeActionRef.value(json) } },
+                    "nativeBridge",
+                )
 
                 webViewClient = object : WebViewClientCompat() {
                     override fun shouldInterceptRequest(
@@ -160,6 +191,14 @@ fun AmllWebView(
                     wv.evaluateJavascript("window.updatePosition($posMs)", null)
                 }
             }
+    }
+
+    // 播放页状态下行（P4.4）：页面 ready 或载荷变化即注入；JSON 由调用方构建，
+    // 此处同样以 JS 字符串字面量嵌入（quote()），前端内部 JSON.parse
+    LaunchedEffect(webViewHolder.value, pageReady, playerStateJson) {
+        val wv = webViewHolder.value ?: return@LaunchedEffect
+        if (!pageReady || playerStateJson == null) return@LaunchedEffect
+        wv.evaluateJavascript("window.updatePlayerState(${AmllMapper.quote(playerStateJson)})", null)
     }
 
     // 渲染循环生命周期治理：切后台 pause / 恢复 resume，WebView 不销毁重建
