@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import '@applemusic-like-lyrics/core/style.css'
+import './style.css'
 import {
 	BackgroundRender,
 	LyricPlayer,
@@ -59,12 +60,15 @@ function frame(now: number) {
 requestAnimationFrame(frame)
 
 // ---------- 窗口尺寸自适应 ----------
-// LyricPlayer 内部用 ResizeObserver 自适应；仅需手动同步背景 canvas 像素尺寸
+// LyricPlayer 内部用 ResizeObserver 自适应；仅需手动同步背景 canvas 像素尺寸。
+// 注意：不能用 window.resize——Android WebView 初始布局时高度为 0（canvas 412x0），
+// 后续 AndroidView 获得真实尺寸不派发 resize，背景永远不可见；改用 ResizeObserver。
 function resize() {
 	backgroundRender.getElement().width = window.innerWidth
 	backgroundRender.getElement().height = window.innerHeight
 }
 window.addEventListener('resize', resize)
+new ResizeObserver(resize).observe(document.body)
 resize()
 
 // ---------- 桥接实现 ----------

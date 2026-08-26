@@ -108,6 +108,11 @@ fun AmllWebView(
                 settings.domStorageEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = false
                 setBackgroundColor(AndroidColor.TRANSPARENT)
+                // CDP 远程调试（chrome://inspect / adb forward），排查渲染问题后可关
+                WebView.setWebContentsDebuggingEnabled(true)
+                // MuMu 等模拟器 GPU 合成下 WebGL 表面可能整层不上屏（DOM 改色不可见）；
+                // 软件层强制 SwiftShader 渲染，真机可移除换回硬件加速
+                setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
 
                 val assetLoader = WebViewAssetLoader.Builder()
                     .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(ctx))

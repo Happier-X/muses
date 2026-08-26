@@ -103,6 +103,16 @@ class PlayerViewModel @Inject constructor(
     private val _hasTranslation = MutableStateFlow(false)
     val hasTranslation: StateFlow<Boolean> = _hasTranslation.asStateFlow()
 
+    /** 已解析 AMLL 行集：info 面板五行歌词小窗数据源（与 lyricsJson 同源同生命周期） */
+    private val _parsedLines = MutableStateFlow<List<AmllLyricLine>>(emptyList())
+    val parsedLines: StateFlow<List<AmllLyricLine>> = _parsedLines.asStateFlow()
+
+    /** 缓冲中提示位（时间行中央）：Media3 STATE_BUFFERING 直映。
+     * 与 Web 层「seek 目标超缓冲区弹 1200ms 提示」语义近似但更简单——原生无 bufferedPosition 上报链路 */
+    val isBuffering: StateFlow<Boolean> = playerConnection.playbackState
+        .map { it == androidx.media3.common.Player.STATE_BUFFERING }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     /** 翻译开关：切换时置空 translated/roman 后重新 toJson 注入（复刻 Web 层 #25 语义） */
     private val _translationEnabled = MutableStateFlow(true)
     val translationEnabled: StateFlow<Boolean> = _translationEnabled.asStateFlow()
@@ -151,6 +161,7 @@ class PlayerViewModel @Inject constructor(
             synced?.let { AmllMapper.toAmllLines(it) } ?: emptyList()
         }
         lastLineEndMs = currentLines.maxOfOrNull { it.endTime.toLong() } ?: Long.MAX_VALUE
+        _parsedLines.value = currentLines
         _hasTranslation.value = currentLines.any {
             it.translatedLyric.isNotEmpty() || it.romanLyric.isNotEmpty()
         }

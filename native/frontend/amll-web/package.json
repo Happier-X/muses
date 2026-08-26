@@ -14,6 +14,13 @@
 		"@applemusic-like-lyrics/core": "^0.5.2"
 	},
 	"devDependencies": {
+		"@pixi/app": "^7.4.3",
+		"@pixi/core": "^7.4.3",
+		"@pixi/display": "^7.4.3",
+		"@pixi/filter-blur": "^7.4.3",
+		"@pixi/filter-bulge-pinch": "^5.1.1",
+		"@pixi/filter-color-matrix": "^7.4.3",
+		"@pixi/sprite": "^7.4.3",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.0",
 		"vite-plugin-top-level-await": "^1.6.0",

@@ -21,6 +21,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets {
+        getByName("main") {
+            // AMLL 歌词 WebView 前端（amll/index.html + assets/*）经 WebViewAssetLoader
+            // 以 https://appassets.androidplatform.net/assets/amll/ 加载；
+            // 自定义目录名 androidAssets 需显式注册，否则不打进 APK（
+            // WebView 报 net::ERR_INVALID_RESPONSE，歌词面板白屏错误页）
+            assets.srcDir("src/main/androidAssets")
+        }
+    }
 }
 
 // AGP 9 内置 Kotlin：jvmTarget 默认取 compileOptions.targetCompatibility
