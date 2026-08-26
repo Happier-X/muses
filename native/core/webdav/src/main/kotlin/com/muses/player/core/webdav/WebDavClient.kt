@@ -72,7 +72,8 @@ internal class OkHttpWebDavClient @Inject constructor(
     private var authHeader: String? = null
 
     override fun authenticate(username: String, password: String) {
-        authHeader = Credentials.basic(username, password)
+        // 显式 UTF-8：与 WebDavAuthRegistry 一致（OkHttp 默认 ISO-8859-1，非 ASCII 用户名双轨不一致）
+        authHeader = Credentials.basic(username, password, Charsets.UTF_8)
     }
 
     /** 请求认证头：显式优先，否则经 [WebDavAuthRegistry] 按目标 URL 匹配音源凭据 */

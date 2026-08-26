@@ -113,11 +113,13 @@ class DiskWebDavAudioCache @Inject constructor(
         var totalSize = files.sumOf { it.length() }
         if (totalSize <= MAX_CACHE_BYTES) return
 
-        // 按 lastAccess（meta 文件中记录的时间）升序排列，最久未访问的先删
+        // 按 lastAccess（meta 文件中记录的时间）升序排列，最久未访问的先删。
+        // 注意：meta 与 cache 共享同一文件名前缀（sha256），直接同名 + .meta 后缀关联，
+        // 严禁再经 metaFile(urlFromCacheFile(...)) 二次哈希（会指向不存在的文件，LRU 退化为任意序）
         val sorted = files.sortedBy { file ->
-            val metaFile = metaFile(urlFromCacheFile(file))
-            runCatching { metaFile.readLines().getOrNull(2)?.toLongOrNull() ?: 0L }
-                .getOrDefault(0L)
+            runCatching {
+                File(cacheDir, file.nameWithoutExtension + ".meta").readLines().getOrNull(2)?.toLongOrNull() ?: 0L
+            }.getOrDefault(0L)
         }
 
         for (file in sorted) {
@@ -127,7 +129,8 @@ class DiskWebDavAudioCache @Inject constructor(
                 totalSize -= fileSize
             }
             // 同步删除 meta 文件
-            metaFile(urlFromCacheFile(file)).delete()
+            // 同步清理对应 meta（同名前缀 + .meta 后缀）
+            File(cacheDir, file.nameWithoutExtension + ".meta").delete()
         }
     }
 
@@ -151,15 +154,6 @@ class DiskWebDavAudioCache @Inject constructor(
         return digest.joinToString("") { "%02x".format(it) }
     }
 
-    /**
-     * 从缓存文件反向推导出 URL 的 sha256（用于 LRU 排序时关联 meta 文件）。
-     * 实际无法反推，但 meta 文件名与 cache 文件名一致，通过列表交集匹配。
-     */
-    private fun urlFromCacheFile(file: File): String {
-        // meta 文件名与 cache 文件名共享同一 sha256 前缀
-        // 但这里我们不需要反推 URL——直接用 meta 文件名
-        return file.nameWithoutExtension // sha256 prefix without extension
-    }
 
     // ── Meta 文件读写 ──────────────────────────────────────────
 
