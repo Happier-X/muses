@@ -324,6 +324,49 @@ class SourcesViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 从 SAF tree uri 建本地源：解析出物理绝对路径前缀存入 Source.path，
+     * 供 LocalLibraryScanner 的 MediaStore DATA 前缀过滤直接使用。
+     * primary:Music → /storage/emulated/0/Music；XXXX-XXXX:dir → /storage/XXXX-XXXX/dir
+     */
+    fun saveLocalSourceFromTreeUri(treeUri: android.net.Uri, context: android.content.Context) {
+        viewModelScope.launch {
+            try {
+                val physicalPath = resolvePhysicalPath(treeUri, context)
+                    ?: return@launch
+                val displayName = treeUri.lastPathSegment
+                    ?.substringAfterLast(':')
+                    ?.substringAfterLast('/')
+                    ?: "本地文件夹"
+                val now = System.currentTimeMillis()
+                sourceRepository.upsert(
+                    Source(
+                        id = UUID.randomUUID().toString(),
+                        name = displayName,
+                        type = SourceType.LOCAL,
+                        path = physicalPath,
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                )
+            } catch (_: Exception) {
+                // 选择器取消或解析失败静默（对齐 Web FilePicker 取消语义）
+            }
+        }
+    }
+
+    /** DocumentsContract 文档 id → 物理路径（externalstorage provider 标准格式） */
+    private fun resolvePhysicalPath(treeUri: android.net.Uri, context: android.content.Context): String? =
+        runCatching {
+            val docId = android.provider.DocumentsContract.getTreeDocumentId(treeUri)
+            val (volume, subPath) = docId.split(':', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+            when {
+                volume.equals("primary", ignoreCase = true) ->
+                    "/storage/emulated/0" + if (subPath.isNotEmpty()) "/$subPath" else ""
+                else -> "/storage/$volume" + if (subPath.isNotEmpty()) "/$subPath" else ""
+            }
+        }.getOrNull()
+
     /** 删除音源 */
     fun deleteSource(source: Source) {
         viewModelScope.launch {
