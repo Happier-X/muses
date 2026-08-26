@@ -1,0 +1,214 @@
+package com.muses.player.feature.scrape
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.muses.player.core.model.scrape.OnlineTextQuery
+import com.muses.player.core.model.scrape.ScrapeCandidate
+import com.muses.player.core.model.scrape.ScrapeChanges
+import com.muses.player.core.model.scrape.WritebackResult
+import com.muses.player.core.data.repository.SongRepository
+import com.muses.player.core.scrape.cover.CoverMatcher
+import com.muses.player.core.scrape.cover.OnlineCoverQuery
+import com.muses.player.core.scrape.queue.ScrapeQueueStore
+import com.muses.player.core.scrape.text.TextMetaMatcher
+import com.muses.player.core.scrape.writeback.WritebackOrchestrator
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+/** 页面四态（对照 ScrapePage.vue pageState: queue/matching/preview/result） */
+sealed interface ScrapePageState {
+    /** 待刮削队列 */
+    data object Queue : ScrapePageState
+
+    /** 匹配中：currentItem 为正在匹配的歌名 */
+    data class Matching(val current: Int, val total: Int, val currentItem: String) : ScrapePageState
+
+    /** 候选预览确认（checkedIds 默认空 = 全不选，写回安全红线） */
+    data class Preview(val items: List<PreviewCandidate>) : ScrapePageState
+
+    /** 写回结果 + 可撤销 journalId */
+    data class Result(val results: List<WritebackResult>, val journalId: String) : ScrapePageState
+}
+
+/** 预览行：歌曲 + 匹配到的变更 + 封面候选 + 勾选态 */
+data class PreviewCandidate(
+    val songId: String,
+    val songTitle: String,
+    val currentArtist: String?,
+    val matchedTitle: String?,
+    val matchedArtist: String?,
+    val matchedAlbum: String?,
+    /** 匹配置信度展示（HIGH/MEDIUM/LOW），null = 文本链未命中 */
+    val confidence: String?,
+    val coverUrl: String?,
+    val checked: Boolean = false,
+)
+
+@HiltViewModel
+class ScrapeViewModel @Inject constructor(
+    private val queueStore: ScrapeQueueStore,
+    private val textMetaMatcher: TextMetaMatcher,
+    private val coverMatcher: CoverMatcher,
+    private val writebackOrchestrator: WritebackOrchestrator,
+    private val songRepository: SongRepository,
+) : ViewModel() {
+
+    // ---- queue 态数据 ----
+    private val _queueSongIds = MutableStateFlow<List<String>>(emptyList())
+    val queueSongIds: StateFlow<List<String>> = _queueSongIds.asStateFlow()
+
+    // ---- 四态机 ----
+    private val _pageState = MutableStateFlow<ScrapePageState>(ScrapePageState.Queue)
+    val pageState: StateFlow<ScrapePageState> = _pageState.asStateFlow()
+
+    /** 撤销入口可用性（最近一次写回的 journalId） */
+    var lastJournalId: String? = null
+        private set
+
+    init {
+        reloadQueue()
+        // 队列存储变化（入队/移除）自动刷新列表
+        viewModelScope.launch {
+            queueStore.updated.collect { reloadQueue() }
+        }
+    }
+
+    fun reloadQueue() {
+        viewModelScope.launch {
+            _queueSongIds.value = queueStore.load().map { it.songId }
+        }
+    }
+
+    /** 单曲移除（queue 态行内按钮） */
+    fun removeFromQueue(songIds: List<String>) {
+        viewModelScope.launch { queueStore.remove(songIds) }
+    }
+
+    /** 清空队列 */
+    fun clearQueue() {
+        viewModelScope.launch { queueStore.clear() }
+    }
+
+    /**
+     * 「全部开始」：逐曲跑文本+封面匹配 → 聚合候选进 preview 态。
+     * 匹配失败的歌不进预览（Web 语义：仅命中的进入人工确认）。
+     */
+    fun startMatching() {
+        val ids = _queueSongIds.value
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            val items = mutableListOf<PreviewCandidate>()
+            var index = 0
+            for (songId in ids) {
+                index++
+                val song = songRepository.getSong(songId)
+                if (song == null) {
+                    // 已不在库（懒清理竞态）：直接出队
+                    queueStore.remove(listOf(songId))
+                    continue
+                }
+                _pageState.value = ScrapePageState.Matching(index, ids.size, song.title)
+
+                val textOk = textMetaMatcher.match(
+                    OnlineTextQuery(
+                        songId = song.id,
+                        title = song.title,
+                        path = song.path,
+                        artist = song.artist,
+                        album = song.album,
+                        durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(),
+                        metaSources = song.metaSources,
+                    ),
+                )
+                val coverOk = coverMatcher.match(
+                    OnlineCoverQuery(songId = song.id, title = song.title, artist = song.artist, album = song.album),
+                )
+
+                val hit = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.hit
+                val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
+                if (hit == null && coverUrl == null) continue // 双链均未命中：跳过
+
+                val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
+                items += PreviewCandidate(
+                    songId = song.id,
+                    songTitle = song.title,
+                    currentArtist = song.artist,
+                    matchedTitle = hit?.title,
+                    matchedArtist = hit?.artist,
+                    matchedAlbum = hit?.album,
+                    confidence = confidence,
+                    coverUrl = coverUrl,
+                    checked = false,
+                )
+            }
+            _pageState.value = ScrapePageState.Preview(items)
+        }
+    }
+
+    /** 预览行勾选切换 */
+    fun toggleChecked(songId: String) {
+        val state = _pageState.value as? ScrapePageState.Preview ?: return
+        _pageState.value = state.copy(
+            items = state.items.map { if (it.songId == songId) it.copy(checked = !it.checked) else it },
+        )
+    }
+
+    /** 全选 / 全不选 */
+    fun setAllChecked(checked: Boolean) {
+        val state = _pageState.value as? ScrapePageState.Preview ?: return
+        _pageState.value = state.copy(items = state.items.map { it.copy(checked = checked) })
+    }
+
+    /** 确认写回：仅勾选项；逐曲结果进 result 态 */
+    fun confirmWriteback() {
+        val state = _pageState.value as? ScrapePageState.Preview ?: return
+        val checkedItems = state.items.filter { it.checked }
+        if (checkedItems.isEmpty()) return
+        viewModelScope.launch {
+            val candidates = mutableListOf<ScrapeCandidate>()
+            val changesMap = mutableMapOf<String, ScrapeChanges>()
+            for (item in checkedItems) {
+                val song = songRepository.getSong(item.songId) ?: continue
+                candidates += ScrapeCandidate(songId = song.id, song = song)
+                changesMap[song.id] = ScrapeChanges(
+                    title = item.matchedTitle,
+                    artist = item.matchedArtist,
+                    album = item.matchedAlbum,
+                    coverRemoteUrl = item.coverUrl,
+                )
+            }
+            val applyResult = writebackOrchestrator.applyScrapeChanges(
+                candidates = candidates,
+                checkedIds = changesMap.keys,
+                changesMap = changesMap,
+            )
+            lastJournalId = applyResult.journalId
+            // 写回完成后出队已处理歌曲并刷新
+            queueStore.remove(changesMap.keys.toList())
+            reloadQueue()
+            _pageState.value = ScrapePageState.Result(applyResult.results, applyResult.journalId)
+        }
+    }
+
+    /** 撤销上次写回：journal 回放恢复库旧值（文件不动，对齐 Web 撤销语义） */
+    fun undoLastWriteback() {
+        val journalId = lastJournalId ?: return
+        viewModelScope.launch {
+            writebackOrchestrator.revertScrapeJournal(journalId)
+            reloadQueue()
+            _pageState.value = ScrapePageState.Queue
+        }
+    }
+
+    /** 返回队列态 */
+    fun backToQueue() {
+        _pageState.value = ScrapePageState.Queue
+        reloadQueue()
+    }
+}

@@ -69,6 +69,8 @@ fun PlayerScreen(
     onClose: () -> Unit = {},
     viewModel: PlayerViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onOpenQueue: () -> Unit = {},
+    /** M3：打开编辑歌曲信息弹窗（宿主在 MusesApp 层承载全局 EditMetaSheet） */
+    onOpenEditMeta: () -> Unit = {},
 ) {
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val currentMediaItem by viewModel.currentMediaItem.collectAsStateWithLifecycle()
@@ -124,7 +126,12 @@ fun PlayerScreen(
             positionMsFlow = viewModel.lyricPosition,
             isPlaying = viewModel.isPlaying,
             playerStateJson = playerStateJson,
-            onBridgeAction = { json -> handleBridgeAction(json, viewModel, onClose, onOpenQueue) },
+            onBridgeAction = { json ->
+                handleBridgeAction(
+                    json, viewModel, onClose, onOpenQueue,
+                    onOpenEditMeta,
+                )
+            }
         )
     }
 }
@@ -180,6 +187,7 @@ private fun handleBridgeAction(
     viewModel: PlayerViewModel,
     onClose: () -> Unit,
     onOpenQueue: () -> Unit,
+    onOpenEditMeta: () -> Unit = {},
 ) {
     val action = runCatching { JSONObject(json) }.getOrNull() ?: return
     when (action.optString("action")) {
@@ -196,6 +204,8 @@ private fun handleBridgeAction(
         "toggleTranslation" -> viewModel.toggleTranslation()
         // 队列页保持原生命航：跳转原生 Queue 路由
         "openQueue" -> onOpenQueue()
+        // M3：编辑歌曲信息（原生 EditMetaSheet 三维云搜）
+        "openEditMeta" -> onOpenEditMeta()
         "close" -> onClose()
     }
 }

@@ -50,6 +50,12 @@ internal object LyricsModule {
         return LyricsMatcher(amllClient, fallbacks)
     }
 
+    /** M3：全局绑定供 ScrapeModule.provideEditCloudMetaSearch 消费（此前仅手动构造无绑定） */
+    @Provides
+    @Singleton
+    fun provideLrclibProvider(http: LyricsHttp): com.muses.player.core.lyrics.lrclib.LrclibProvider =
+        com.muses.player.core.lyrics.lrclib.LrclibProvider(http)
+
     private const val AMLL_INDEX_URL = com.muses.player.core.lyrics.amll.AMLL_INDEX_URL
     private const val AMLL_INDEX_TIMEOUT_SEC = com.muses.player.core.lyrics.amll.AMLL_INDEX_TIMEOUT_SEC
 }

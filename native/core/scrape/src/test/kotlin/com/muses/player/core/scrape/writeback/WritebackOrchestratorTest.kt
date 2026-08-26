@@ -39,6 +39,8 @@ class WritebackOrchestratorTest {
             songs.entries.removeIf { it.value.sourceId == sourceId }
         }
 
+        override suspend fun rebuildDerivedIndexes() = Unit
+
         override suspend fun getSong(id: String): Song? = songs[id]
         override suspend fun upsert(song: Song) {
             songs[song.id] = song

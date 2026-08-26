@@ -399,8 +399,9 @@ btnPlay.addEventListener('click', () => postAction({ action: 'playPause' }))
 btnPrev.addEventListener('click', () => postAction({ action: 'previous' }))
 btnNext.addEventListener('click', () => postAction({ action: 'next' }))
 btnQueue.addEventListener('click', () => postAction({ action: 'openQueue' }))
+// M3：「更多」→ 原生编辑歌曲信息弹窗（EditMetaSheet 三维云搜）
+btnMore.addEventListener('click', () => postAction({ action: 'openEditMeta' }))
 // 「更多」仅入口占位：编辑歌曲信息等动作单属 M3 范围
-btnMore.addEventListener('click', () => undefined)
 fabTranslate.addEventListener('click', () => postAction({ action: 'toggleTranslation' }))
 // 对齐 Vue onToggleRepeat 语义：one ↔ all 二态切换
 btnRepeat.addEventListener('click', () => {

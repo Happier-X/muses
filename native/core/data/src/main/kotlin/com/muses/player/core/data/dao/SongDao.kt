@@ -24,6 +24,10 @@ interface SongDao {
     @Query("SELECT * FROM songs")
     suspend fun getAll(): List<SongEntity>
 
+    /** M3 自动补缺：未读过标签的歌（文件名建库 tagsVersion=0 或本地未扫） */
+    @Query("SELECT id FROM songs WHERE tagsVersion < 1")
+    suspend fun getUntaggedSongIds(): List<String>
+
     @Query("SELECT * FROM songs WHERE id = :id")
     suspend fun getById(id: String): SongEntity?
 

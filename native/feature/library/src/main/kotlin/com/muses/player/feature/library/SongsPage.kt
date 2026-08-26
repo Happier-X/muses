@@ -91,6 +91,8 @@ import com.muses.player.core.ui.theme.saltShadow
 @Composable
 fun SongsPage(
     playerConnection: PlayerConnection?,
+    /** M3：加入待刮削队列（经回调注入，feature:library 不直接依赖 core:scrape） */
+    onEnqueueScrape: (List<String>) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SongsViewModel = hiltViewModel(),
 ) {
@@ -376,7 +378,7 @@ fun SongsPage(
                 actionSong = null
             }),
             SaltActionItem(label = "加入待刮削", onClick = {
-                // TODO(M3)：接刮削队列 UI（引擎已在 core:scrape 就绪）
+                currentId?.let { onEnqueueScrape(listOf(it)) }
                 actionSong = null
             }),
             SaltActionItem(label = "加入歌单…", onClick = {
@@ -403,6 +405,10 @@ fun SongsPage(
             onPlaySelected = {
                 val picked = songs.filter { it.id in selectedIds }
                 if (picked.isNotEmpty()) playerConnection?.play(picked.first().id, picked)
+                exitMultiSelect()
+            },
+            onEnqueueScrape = {
+                if (selectedIds.isNotEmpty()) onEnqueueScrape(selectedIds.toList())
                 exitMultiSelect()
             },
             onCancel = { exitMultiSelect() },
@@ -492,6 +498,7 @@ private fun MultiselectBottomBar(
     onAddToPlaylist: () -> Unit,
     onPlaySelected: () -> Unit,
     onCancel: () -> Unit,
+    onEnqueueScrape: () -> Unit = {},
 ) {
     val salt = LocalSaltColors.current
     val disabled = selectedCount == 0

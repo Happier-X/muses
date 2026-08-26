@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** 添加音源表单状态 */
@@ -53,6 +54,9 @@ class SourcesViewModel @Inject constructor(
     private val songRepository: SongRepository,
     private val scanner: LocalLibraryScanner,
     private val webDavScanner: WebDavLibraryScanner,
+    private val settingsRepository: com.muses.player.core.data.repository.SettingsRepository,
+    private val songDao: com.muses.player.core.data.dao.SongDao,
+    private val scrapeQueueStore: com.muses.player.core.scrape.queue.ScrapeQueueStore,
     private val credentialsRepository: CredentialsRepository,
     private val webDavClient: WebDavClient,
     private val webDavAuthRegistry: WebDavAuthRegistry,
@@ -201,6 +205,11 @@ class SourcesViewModel @Inject constructor(
                 }
                 songRepository.replaceSourceSongs(source.id, songs)
                 scanResultMessage = "扫描完成：共 ${songs.size} 首。"
+                // M3 自动补缺：扫描后把无标签歌曲排进刮削队列（开关默认关）
+                if (settingsRepository.autoScrapeEnabled.first()) {
+                    val untagged = songDao.getUntaggedSongIds()
+                    if (untagged.isNotEmpty()) scrapeQueueStore.enqueue(untagged)
+                }
             } catch (e: CancellationException) {
                 // VM 销毁导致的协程取消：原样抛出交回结构化并发，不误报「扫描失败」
                 throw e

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -226,7 +227,12 @@ private fun AppNavHost(navController: NavHostController) {
     ) {
         composable(NavDestination.Songs.route) {
             val playerConnection = androidx.hilt.navigation.compose.hiltViewModel<com.muses.player.feature.player.PlayerViewModel>().playerConnection
-            SongsPage(playerConnection = playerConnection)
+            // M3：刮削队列入队（ScrapeQueueStore 为 @Singleton，经 hiltViewModel 载体注入）
+            val scrapeVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            SongsPage(
+                playerConnection = playerConnection,
+                onEnqueueScrape = { ids -> scrapeVm.enqueue(ids) },
+            )
         }
         composable(NavDestination.Albums.route) {
             AlbumsPage(
@@ -272,7 +278,9 @@ private fun AppNavHost(navController: NavHostController) {
             )
         }
         // 刮削页随 M3 复刻，当前为占位空态
-        composable(NavDestination.Scrape.route) { PlaceholderScreen() }
+        composable(NavDestination.Scrape.route) {
+            com.muses.player.feature.scrape.ScrapeScreen()
+        }
         composable(NavDestination.Sources.route) { SourcesScreen(
             onOpenWebdavAdd = { navController.navigate(DetailRoutes.SOURCE_WEBDAV_ADD) },
             onOpenWebdavEdit = { sourceId ->
@@ -331,10 +339,34 @@ private fun AppNavHost(navController: NavHostController) {
             )
         }
         composable(NavDestination.Settings.route) { SettingsScreen() }
-        composable(NavDestination.NowPlaying.route) { PlayerScreen(
-            onClose = { navController.popBackStack() },
-            onOpenQueue = { navController.navigate(NavDestination.Queue.route) },
-        ) }
+        composable(NavDestination.NowPlaying.route) {
+            // M3：编辑歌曲信息弹窗宿主（当前曲经 PlayerViewModel 反查）
+            val playerVm: com.muses.player.feature.player.PlayerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val currentMediaItem by playerVm.currentMediaItem.collectAsState()
+            var showEditMeta by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            if (showEditMeta) {
+                val editSong = currentMediaItem?.let { item ->
+                    com.muses.player.core.model.Song(
+                        id = item.mediaId,
+                        sourceId = "",
+                        path = item.localConfiguration?.uri?.toString() ?: "",
+                        title = item.mediaMetadata.title?.toString() ?: "未知歌曲",
+                        artist = item.mediaMetadata.artist?.toString(),
+                        album = item.mediaMetadata.albumTitle?.toString(),
+                        coverUri = item.mediaMetadata.artworkUri?.toString(),
+                    )
+                }
+                com.muses.player.feature.scrape.EditMetaSheet(
+                    song = editSong,
+                    onDismiss = { showEditMeta = false },
+                )
+            }
+            PlayerScreen(
+                onClose = { navController.popBackStack() },
+                onOpenQueue = { navController.navigate(NavDestination.Queue.route) },
+                onOpenEditMeta = { showEditMeta = true },
+            )
+        }
         composable(NavDestination.Queue.route) {
             QueueScreen(onClose = { navController.popBackStack() })
         }
