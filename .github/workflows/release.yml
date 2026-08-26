@@ -52,6 +52,14 @@ jobs:
             -Pandroid.injected.versionName=${{ steps.version.outputs.version }} \
             -Pandroid.injected.versionCode=$VERSION_CODE
 
+      - name: Rename muses APK
+        run: |
+          mv app/build/outputs/apk/muses/release/app-muses-release.apk              muses-v${{ steps.version.outputs.version }}.apk
+
+      - name: Rename miui APK
+        run: |
+          mv app/build/outputs/apk/miui/release/app-miui-release.apk              muses-v${{ steps.version.outputs.version }}-mi.apk
+
       - name: Read changelog
         id: changelog
         run: |
