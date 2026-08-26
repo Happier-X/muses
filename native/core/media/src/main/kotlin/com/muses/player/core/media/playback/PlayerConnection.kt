@@ -148,26 +148,28 @@ class PlayerConnection @Inject constructor(
         recoveryController.reset()
         recoveryController.clearError()
 
-        // 未缓存的 WEBDAV 曲目需先入缓存；期间取消上一次未完成的预取（用户已换队列）
-        val pendingDownloads = songs.filter {
-            it.sourceType == SourceType.WEBDAV && webDavCache.getCachedFile(it.path) == null
-        }
-        if (pendingDownloads.isEmpty()) {
+        // 仅当前曲需要等入缓存（整文件下载，规避 Range 探测风暴）；
+        // 其余队列曲目不等——applyPlayback 时未缓存者回退 http URL 流播，轮到播放时再取。
+        // 旧版「全队列预取」在随机播放大库时会串行下载数百首且失败被静默吞，表现为“点击无反应”。
+        val current = songs.firstOrNull { it.id == songId }
+        val needDownload = current != null &&
+            current.sourceType == SourceType.WEBDAV &&
+            webDavCache.getCachedFile(current.path) == null
+        if (!needDownload) {
             applyPlayback(songId, songs)
             return
         }
         prefetchJob?.cancel()
         prefetchJob = prefetchScope.launch {
-            for (song in pendingDownloads) {
-                try {
-                    ensureCached(song.path)
-                    // 当前曲入缓存后立即懒扫描标签（对齐 Web「播放器懒扫描」：用户只为真正会听的歌付出标签成本）
-                    if (song.id == songId) lazyScanTags(song)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    // 单首下载/读标签失败不阻塞后续；applyPlayback 时该曲回退 http URL 流播
-                }
+            var cached = false
+            try {
+                ensureCached(current.path)
+                lazyScanTags(current)
+                cached = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // 当前曲下载/读标签失败：不再等待，回退 http URL 流播（认证 interceptor 兑底）
             }
             // Media3 铁律：controller 方法仅主线程可调
             mainHandler.post { if (controller != null) applyPlayback(songId, songs) }

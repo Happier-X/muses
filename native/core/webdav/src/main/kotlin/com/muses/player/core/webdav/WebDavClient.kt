@@ -64,14 +64,20 @@ interface WebDavClient {
 @Singleton
 internal class OkHttpWebDavClient @Inject constructor(
     private val httpClient: OkHttpClient,
+    private val authRegistry: WebDavAuthRegistry,
 ) : WebDavClient {
 
+    /** 显式认证头（authenticate 设置）；空则回落 Registry 按 URL 前缀匹配（播放/懒扫描链路） */
     @Volatile
     private var authHeader: String? = null
 
     override fun authenticate(username: String, password: String) {
         authHeader = Credentials.basic(username, password)
     }
+
+    /** 请求认证头：显式优先，否则经 [WebDavAuthRegistry] 按目标 URL 匹配音源凭据 */
+    private fun effectiveAuthHeader(url: String): String? =
+        authHeader ?: authRegistry.authorizationHeader(url)
 
     override suspend fun probe(baseUrl: String): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -81,7 +87,7 @@ internal class OkHttpWebDavClient @Inject constructor(
                 .method("PROPFIND", body)
                 .header("Depth", "0")
                 .header("Content-Type", "application/xml; charset=utf-8")
-                .apply { authHeader?.let { header("Authorization", it) } }
+                .apply { effectiveAuthHeader(baseUrl)?.let { header("Authorization", it) } }
                 .build()
 
             httpClient.newCall(request).execute().use { response ->
@@ -100,7 +106,7 @@ internal class OkHttpWebDavClient @Inject constructor(
             .header("Depth", "1")
             .header("Content-Type", "application/xml; charset=utf-8")
             .header("Accept", "application/xml, text/xml, */*")
-            .apply { authHeader?.let { header("Authorization", it) } }
+            .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
             .build()
 
         httpClient.newCall(request).execute().use { response ->
@@ -120,7 +126,7 @@ internal class OkHttpWebDavClient @Inject constructor(
         val request = Request.Builder()
             .url(url)
             .get()
-            .apply { authHeader?.let { header("Authorization", it) } }
+            .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
             .build()
 
         httpClient.newCall(request).execute().use { response ->
@@ -143,7 +149,7 @@ internal class OkHttpWebDavClient @Inject constructor(
         val request = Request.Builder()
             .url(url)
             .put(requestBody)
-            .apply { authHeader?.let { header("Authorization", it) } }
+            .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
             .build()
 
         httpClient.newCall(request).execute().use { response ->
@@ -158,7 +164,7 @@ internal class OkHttpWebDavClient @Inject constructor(
         val request = Request.Builder()
             .url(url)
             .delete()
-            .apply { authHeader?.let { header("Authorization", it) } }
+            .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
             .build()
 
         httpClient.newCall(request).execute().use { response ->
@@ -175,7 +181,7 @@ internal class OkHttpWebDavClient @Inject constructor(
             .method("MOVE", null)
             .header("Destination", dest)
             .header("Overwrite", "T")
-            .apply { authHeader?.let { header("Authorization", it) } }
+            .apply { effectiveAuthHeader(dest)?.let { header("Authorization", it) } }
             .build()
 
         httpClient.newCall(request).execute().use { response ->
@@ -191,7 +197,7 @@ internal class OkHttpWebDavClient @Inject constructor(
             .url(url)
             .get()
             .header("Accept", "text/plain, */*")
-            .apply { authHeader?.let { header("Authorization", it) } }
+            .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
             .build()
 
         runCatching {

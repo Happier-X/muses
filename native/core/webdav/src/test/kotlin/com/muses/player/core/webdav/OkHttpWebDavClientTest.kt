@@ -22,6 +22,19 @@ class OkHttpWebDavClientTest {
     private lateinit var server: MockWebServer
     private lateinit var client: OkHttpWebDavClient
 
+    /** 空仓库 stub：Registry 无任何注册源 */
+    private val emptySourceRepo = object : com.muses.player.core.data.repository.SourceRepository {
+        override fun observeSources() = kotlinx.coroutines.flow.flowOf(emptyList<com.muses.player.core.model.Source>())
+        override suspend fun getSource(id: String): com.muses.player.core.model.Source? = null
+        override suspend fun upsert(source: com.muses.player.core.model.Source) = Unit
+        override suspend fun deleteById(id: String) = Unit
+    }
+    private val emptyCredRepo = object : com.muses.player.core.data.repository.CredentialsRepository {
+        override suspend fun savePassword(sourceId: String, password: String) = Unit
+        override suspend fun getPassword(sourceId: String): String? = null
+        override suspend fun clearPassword(sourceId: String) = Unit
+    }
+
     @Before
     fun setUp() {
         server = MockWebServer()
@@ -30,7 +43,11 @@ class OkHttpWebDavClientTest {
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.SECONDS)
             .build()
-        client = OkHttpWebDavClient(httpClient)
+        client = OkHttpWebDavClient(
+            httpClient,
+            // 空 Registry（无注册源 → authorizationHeader 恒 null）；本测试用显式 authenticate，不会查它
+            WebDavAuthRegistry(emptySourceRepo, emptyCredRepo),
+        )
         client.authenticate("user", "pass")
     }
 
