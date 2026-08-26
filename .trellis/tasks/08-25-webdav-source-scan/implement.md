@@ -8,7 +8,7 @@
 - [x] 4. SourcesViewModel：删 WebDAV 拦截；startScan 按 type 分支取流/调扫描（两扫描器无公共接口，直接分支最简）
 - [x] 5. 单测：WebDavLibraryScannerTest 5 例（扩展名过滤+递归 / readTags=false 零下载 / 读标签失败降级不中断 / 缓存命中零下载 / 密码缺失抛错且进度置终态）
 - [x] 6. 门禁：`:core:media:testDebugUnitTest :core:webdav:testDebugUnitTest :feature:sources:assembleDebug :app:assembleDebug` 全绿（34 tests），`:core:media:lintDebug :feature:sources:lintDebug` 通过
-- [ ] 7. MuMu 手工验收：WebDAV 源 readTags 关→快速建库文件名歌；开→标签/封面正确；断网中途扫→失败态文案
+- [x] 7. MuMu 手工验收 ✅（2026-08-26 实测：扫描建库 942 首入库 / WebDAV 歌曲播放 PLAYING 正常 / 认证失败态文案与关闭按钮正确；断网失败态由单测④守护；原「readTags 开路径」已随懒扫描重构删除，验收项作废）
 
 ### 增量：WebDAV 歌曲播放接线 🔄 进行中（2026-08-25 用户反馈无法播放）
 
@@ -18,7 +18,7 @@
 - [x] 源增删改后调 registry.refresh()（SourcesViewModel save/update/delete + OnboardingViewModel 保存）
 - [x] 单测 WebDavAuthRegistryTest 5 例（最长前缀 / 无匹配 null / refresh 生效 / null user Basic 编码 / '/' 边界不误命中），门禁 :app:assembleMusesDebug + :core:media:test + :core:webdav:test 全绿（共 62 tests, 0 失败）
 - [x] 引导页 saveWebdavSource 补齐 username 入库 + 密码 Keystore 存储（对齐音源页流程，消除引导创建源必然认证失败的缺口）
-- [ ] MuMu 验证：WebDAV 歌曲可播放（需用户重建含用户名的源）
+- [x] MuMu 验证：WebDAV 歌曲可播放 ✅（2026-08-26 实测 PLAYING 正常；源已重建含用户名；引导页缺口已修复）
 
 ### 增量：WebDAV 标签改为播放时懒扫描 ✅（2026-08-26 用户决策：删除扫描期读标签）
 
