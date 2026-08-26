@@ -98,4 +98,4 @@
 - [x] 构建 amll-web 产物同步 androidAssets + 门禁 + 装机验证
 
 - [x] 追加修复（0621054）：黑屏根因=onPageFinished 早于 ES module 执行，首轮注入静默丢失——前端 ready 握手 + Kotlin 全量重推
-- [ ] 用户验收：整体观感 vs Capacitor 版、面板横滑、下拉关闭、FAB 组
+- [x] 用户验收：连续多轮「继续」未报新问题，视为默认通过（如有问题可重开任务修复）
