@@ -23,6 +23,21 @@ core:scrape
 - **Room v4**：songs 表新增 `lyricsFormat/lyricsSource/metaTitle/metaArtist/metaAlbum/metaCover` 六列（MIGRATION_3_4）；Song 领域模型对应扩展
 - **歌词维度边界**：editmeta 只做编排（去重 key=`source\1format\1text[0..120]`、ttml/yrc/qrc 优先粗排），具体歌词 provider 与 AMLL 聚合通过 `LyricsSearchPort` 注入，本任务不接线
 
+## UI 接线契约（08-26-m3-scrape-metadata）
+
+- **feature:scrape**：ScrapeScreen 四态机（queue/matching/preview/result）+ ScrapeViewModel 编排
+  TextMetaMatcher+CoverMatcher+WritebackOrchestrator；ScrapeQueueAccessViewModel 供跨页面入队
+- **写回安全红线**：预览候选 `checked = false` 默认全不选；「写回选中」按钮 enabled 绑定 any{checked}
+- **歌曲页入口**：经 `onEnqueueScrape` 回调注入（feature:library 不直接依赖 core:scrape）；
+  MultiselectBottomBar 与 ⋮ 菜单两处入口
+- **EditMetaSheet 宿主在 MusesApp 层**：播放页 WebView「更多」键 → 桥动作 openEditMeta → 回调弹全局
+  BottomSheet；song 为 null 时搜索/应用均 disabled
+- **自动补缺**：`auto_scrape_enabled` DataStore 开关默认关；音源页扫描成功后
+  `getUntaggedSongIds()`(tagsVersion<1) 入队。ScanWorker 路径因 core:scrape→core:media 循环依赖不接，
+  只保留音源页扫描入口
+- **LrclibProvider 需全局 Hilt 绑定**：LyricsModule @Provides（此前仅手动构造无绑定，UI 接线后暴露）
+- **协程红线**：matcher/search 外包 catch 必须前置 rethrow CancellationException
+
 ## 已知缺口（接线 UI 前必须解决）
 
 1. **WebDAV username 未持久化**：M1 Source 模型无 username 字段，`WebDavAudioTagFileWriter` 认证用户名暂传空串——需先补 username 存储

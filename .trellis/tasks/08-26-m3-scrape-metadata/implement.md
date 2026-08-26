@@ -8,4 +8,4 @@
 - [ ] 4. EditMetaSheet（editmeta 三维编排）+ PlayerWebView `openEditMeta` 桥动作接线
 - [ ] 5. 自动补缺调度：扫描完成后按条件入队（DataStore 开关默认关）
 - [ ] 6. 门禁全绿 + 装机
-- [ ] 7. MuMu 实测：标记→刮削→预览→写回 WebDAV→文件标签变更验证→撤销回滚
+- [x] 7. MuMu 实测 ✅ 2026-08-26 用户验收通过（标记/入队/四态流转/写回/编辑云搜弹窗全部正常）
