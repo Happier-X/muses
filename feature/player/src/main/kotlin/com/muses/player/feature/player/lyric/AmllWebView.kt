@@ -141,9 +141,9 @@ fun AmllWebView(
                 setBackgroundColor(AndroidColor.TRANSPARENT)
                 // CDP 远程调试（chrome://inspect / adb forward），排查渲染问题后可关
                 WebView.setWebContentsDebuggingEnabled(true)
-                // MuMu 等模拟器 GPU 合成下 WebGL 表面可能整层不上屏（DOM 改色不可见）；
-                // 软件层强制 SwiftShader 渲染，真机可移除换回硬件加速
-                setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
+                // 保持默认硬件加速：P4.4 全页 WebView 后 LAYER_TYPE_SOFTWARE 会导致
+                // 大尺寸表面（含 WebGL/PIXI）整层不上屏——真机与模拟器均表现为纯底色"黑屏"。
+                // 若个别模拟器复现 WebGL 不上屏，属其 GPU 合成兼容性问题，勿再全局切软件层
 
                 val assetLoader = WebViewAssetLoader.Builder()
                     .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(ctx))
