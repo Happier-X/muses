@@ -67,9 +67,11 @@ import com.muses.player.core.ui.components.SaltEmpty
 import com.muses.player.core.ui.components.SaltIconButton
 import com.muses.player.core.ui.components.SaltIconButtonSize
 import com.muses.player.core.ui.components.SaltListItem
+import com.muses.player.core.ui.components.SaltListItemMetrics
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
 import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltDarkColors
 import com.muses.player.core.ui.theme.SaltShadowLayer
 import com.muses.player.core.ui.theme.saltShadow
@@ -269,8 +271,15 @@ fun SongsPage(
                 itemsIndexed(songs, key = { _, song -> song.id }) { _, song ->
                     val checked = isMultiSelect && song.id in selectedIds
                     SaltListItem(
+                        modifier = Modifier.background(
+                            // Web .songs-page__row.is-selected：rgba(var(--m-primary-rgb), .08)
+                            color = if (checked) salt.primary.copy(alpha = 0.08f) else Color.Transparent,
+                            shape = RoundedCornerShape(SaltRadius.sm),
+                        ),
                         title = song.title,
                         subtitle = "${song.artist ?: "未知艺术家"} - ${song.album ?: "未知专辑"}",
+                        // Web .songs-page :deep(.m-list-item)：72dp 行高/16-12px 字号/紧凑 after
+                        metrics = SaltListItemMetrics.SongsDense,
                         onClick = {
                             if (isMultiSelect) {
                                 selectedIds =
@@ -314,13 +323,22 @@ fun SongsPage(
                                         )
                                     }
                                 }
-                            } else {
+                            } else if (song.coverUri != null) {
                                 SaltCover(
                                     uri = song.coverUri,
                                     size = 54.dp,
                                     radius = SaltCoverRadius.SM,
                                 )
                                 // Web .m-list-item__inner padding-left:12px —— 封面-标题间距对齐椒盐
+                                Spacer(Modifier.width(12.dp))
+                            } else {
+                                // Web .songs-page__cover 无封面覆盖：透明底 32dp 占位图标 opacity .45
+                                Icon(
+                                    Icons.Filled.MusicNote,
+                                    contentDescription = null,
+                                    tint = salt.text.copy(alpha = 0.45f),
+                                    modifier = Modifier.size(32.dp),
+                                )
                                 Spacer(Modifier.width(12.dp))
                             }
                         },

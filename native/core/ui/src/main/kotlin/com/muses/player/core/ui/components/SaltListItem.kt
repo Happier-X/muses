@@ -27,6 +27,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.theme.LocalSaltColors
@@ -58,6 +60,8 @@ fun SaltListItem(
     dividers: Boolean = true,
     chevron: Boolean = false,
     strongTitle: Boolean = false,
+    /** 行度量（行高/字号/间距集），页面级覆盖用预设如 [SaltListItemMetrics.SongsDense] */
+    metrics: SaltListItemMetrics = SaltListItemMetrics(),
     /** 左侧 media 插槽（封面等），不额外加间距 —— Web 由调用方控制间距 */
     leading: (@Composable () -> Unit)? = null,
     /** 右侧 after 插槽（时长/按钮等） */
@@ -78,7 +82,7 @@ fun SaltListItem(
 
     Row(
         modifier = modifier
-            .heightIn(min = SaltSpacing.listRowHeight)
+            .heightIn(min = metrics.rowMinHeight)
             .fillMaxWidth()
             // --link 按压态背景（画在最底层，内容之上无遮挡）
             .background(pressBackground)
@@ -120,17 +124,17 @@ fun SaltListItem(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(top = 12.dp, end = 16.dp, bottom = 12.dp),
+                .padding(top = metrics.innerVerticalPadding, end = 16.dp, bottom = metrics.innerVerticalPadding),
         ) {
             // __title-wrap：min-height 28px，标题与 after 两端对齐
             Row(
-                modifier = Modifier.heightIn(min = 28.dp),
+                modifier = Modifier.heightIn(min = metrics.titleWrapMinHeight),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = title,
-                    fontSize = 17.sp,
-                    lineHeight = (17f * 1.35f).sp, // line-height 1.35
+                    fontSize = metrics.titleFontSize,
+                    lineHeight = metrics.titleLineHeight,
                     fontWeight = if (strongTitle) FontWeight.SemiBold else FontWeight.Normal,
                     color = salt.text,
                     maxLines = 1,
@@ -142,8 +146,8 @@ fun SaltListItem(
                 // __after：margin-left:auto + padding-left 4px + gap 4px
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(start = 4.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(metrics.afterGap),
+                    modifier = Modifier.padding(start = metrics.afterStartPadding),
                 ) {
                     after()
                 }
@@ -151,8 +155,8 @@ fun SaltListItem(
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    fontSize = 13.sp,
-                    lineHeight = (13f * 1.35f).sp,
+                    fontSize = metrics.subtitleFontSize,
+                    lineHeight = metrics.subtitleLineHeight,
                     color = salt.text2,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -172,5 +176,42 @@ fun SaltListItem(
                     .width(16.dp),
             )
         }
+    }
+}
+
+/**
+ * 列表行度量集 —— 承载页面级 :deep 覆盖（如 Web `.songs-page :deep(.m-list-item)`），
+ * 避免 SaltListItem 参数爆炸。默认值 = MListItem.vue 全局规格。
+ */
+data class SaltListItemMetrics(
+    val rowMinHeight: Dp = 56.dp,
+    val innerVerticalPadding: Dp = 12.dp,
+    val titleWrapMinHeight: Dp = 28.dp,
+    val titleFontSize: TextUnit = 17.sp,
+    val titleLineHeight: TextUnit = (17f * 1.35f).sp,
+    val subtitleFontSize: TextUnit = 13.sp,
+    val subtitleLineHeight: TextUnit = (13f * 1.35f).sp,
+    /** __after 左侧 padding（Web padding-left，椒盐歌曲行为 0 紧贴文字区） */
+    val afterStartPadding: Dp = 4.dp,
+    /** __after 内部 gap（Web gap，椒盐歌曲行为 0） */
+    val afterGap: Dp = 4.dp,
+) {
+    companion object {
+        /**
+         * Web `.songs-page :deep(.m-list-item)` 椒盐歌曲行覆盖：
+         * 行高对齐椒盐 72dp、inner 上下 6px、标题 16px/1.3、副文字 12px/1.3、
+         * after 紧贴文字区（padding-left/gap = 0）。
+         */
+        val SongsDense = SaltListItemMetrics(
+            rowMinHeight = 72.dp,
+            innerVerticalPadding = 6.dp,
+            titleWrapMinHeight = 24.dp,
+            titleFontSize = 16.sp,
+            titleLineHeight = (16f * 1.3f).sp,
+            subtitleFontSize = 12.sp,
+            subtitleLineHeight = (12f * 1.3f).sp,
+            afterStartPadding = 0.dp,
+            afterGap = 0.dp,
+        )
     }
 }
