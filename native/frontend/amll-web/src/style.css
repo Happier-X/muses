@@ -469,3 +469,61 @@ body {
 	width: 30px;
 	height: 30px;
 }
+
+/* ============ 平板横屏分支（.pp-tablet） ============
+ * 对照 PlayerPage.vue player-page--tablet：≥768 且宽>高时启用。
+ * Kotlin 侧经 updatePlayerState 下发 isTabletLayout，JS 切类 + DOM 迁移。 */
+
+/* 固定头部隐藏；面板内头部显示（__song-head--fixed / --in-panel） */
+.pp-song-head-in-panel {
+	display: none;
+	flex: none;
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0;
+	text-align: left;
+	min-width: 0;
+}
+
+#player-ui.pp-tablet .pp-head,
+#player-ui.pp-tablet .pp-song-meta {
+	display: none;
+}
+
+#player-ui.pp-tablet .pp-song-head-in-panel {
+	display: block;
+}
+
+/* 控制下移底部条后，封面垂直居中 */
+#player-ui.pp-tablet .pp-info-inner {
+	justify-content: center;
+}
+
+/* 歌词 FAB 组不显示播放键（Web v-if="!isTabletLayout"） */
+#player-ui.pp-tablet .pp-fab-play {
+	display: none;
+}
+
+/* 底部全宽控制条：渐变叠加 AMLL 背景（__bottom-bar 同配方） */
+#player-ui.pp-tablet #pp-bottom-bar {
+	display: block;
+	flex: none;
+	position: relative;
+	z-index: 10;
+	box-sizing: border-box;
+	padding: 6px 24px calc(8px + var(--pp-safe-bottom));
+	background: linear-gradient(180deg, rgba(5, 7, 13, 0) 0%, rgba(5, 7, 13, 0.55) 100%);
+	touch-action: manipulation;
+}
+
+/* 底部三段式近似：进度全宽 / 三键居中 / 四键 mode 居中
+ * （Web 为左右 mode 组夹中段三键；amll-web 为单一四键条，取居中排布简化） */
+#player-ui.pp-tablet #pp-bottom-bar .pp-controls {
+	gap: clamp(20px, 5vw, 44px);
+}
+
+#player-ui.pp-tablet #pp-bottom-bar .pp-mode-bar {
+	max-width: none;
+	justify-content: center;
+	gap: 24px;
+}

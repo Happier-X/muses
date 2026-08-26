@@ -34,6 +34,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -86,6 +87,11 @@ fun PlayerScreen(
 
     val context = LocalContext.current
     val density = LocalDensity.current
+    // 平板分支判定：对齐 PlayerPage.vue isTabletLayout（viewportWidth>=768 且宽>高横屏）
+    val configuration = LocalConfiguration.current
+    val isTabletLayout = remember(configuration) {
+        configuration.screenWidthDp >= 768 && configuration.screenHeightDp < configuration.screenWidthDp
+    }
     // 安全区：WebView 内 env(safe-area-inset-*) 恒为 0，经 payload 注入 px 值给前端 CSS 变量
     val insetTopPx = WindowInsets.statusBars.getTop(density)
     val insetBottomPx = WindowInsets.navigationBars.getBottom(density)
@@ -94,7 +100,7 @@ fun PlayerScreen(
     val playerStateJson = remember(
         currentMediaItem, isPlaying, position, duration, repeatMode,
         shuffleModeEnabled, isBuffering, stickyCover, hasTranslation, translationEnabled,
-        insetTopPx, insetBottomPx,
+        insetTopPx, insetBottomPx, isTabletLayout,
     ) {
         buildPlayerStateJson(
             title = if (currentMediaItem == null) "" else {
@@ -115,6 +121,7 @@ fun PlayerScreen(
             translationEnabled = translationEnabled,
             insetTopPx = insetTopPx,
             insetBottomPx = insetBottomPx,
+            isTabletLayout = isTabletLayout,
         )
     }
 
@@ -163,6 +170,8 @@ private fun buildPlayerStateJson(
     translationEnabled: Boolean,
     insetTopPx: Int,
     insetBottomPx: Int,
+    /** 横屏平板分支（≥768dp 且宽>高）：前端切 .pp-tablet 类，对照 player-page--tablet */
+    isTabletLayout: Boolean,
 ): String = JSONObject().apply {
     put("title", title)
     put("artist", artist ?: JSONObject.NULL)
@@ -177,6 +186,7 @@ private fun buildPlayerStateJson(
     put("translationEnabled", translationEnabled)
     put("insetTopPx", insetTopPx)
     put("insetBottomPx", insetBottomPx)
+    put("isTabletLayout", isTabletLayout)
 }.toString()
 
 // ---------- JS→Native 动作分派 ----------

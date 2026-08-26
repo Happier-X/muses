@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -121,7 +122,8 @@ fun AlbumsPage(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+                // Web ≥768px：repeat(auto-fill, minmax(180px, 1fr))；手机恒两列
+                columns = if (isTabletWidth()) GridCells.Adaptive(180.dp) else GridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     start = 16.dp,
@@ -211,7 +213,8 @@ fun ArtistsPage(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+                // 同专辑页：Web ≥768px auto-fill minmax(180px, 1fr)
+                columns = if (isTabletWidth()) GridCells.Adaptive(180.dp) else GridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     start = 16.dp,
@@ -320,3 +323,11 @@ private fun gridTopPadding(): Dp {
     }
     return statusBarTop.coerceAtLeast(16.dp) + 44.dp
 }
+
+/**
+ * Web 断点口径：viewport 宽 ≥768 即平板形态（TabsPage.vue isTablet 同款判定）。
+ * 页面级用屏幕宽度而非容器宽度——与 Web media query 的 viewport 口径一致。
+ */
+@Composable
+private fun isTabletWidth(): Boolean =
+    LocalConfiguration.current.screenWidthDp >= 768

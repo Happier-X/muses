@@ -128,7 +128,13 @@ fun TabsLayout(
 
         val isTablet = maxWidth >= TabletBreakpoint
         if (isTablet) {
-            TabletLayout(primaryItems, secondaryItems, Modifier, content)
+            TabletLayout(
+                primaryItems = primaryItems,
+                secondaryItems = secondaryItems,
+                bottomBar = bottomBar,
+                modifier = Modifier,
+                content = content,
+            )
         } else {
             PhoneLayout(
                 primaryItems = primaryItems,
@@ -145,11 +151,17 @@ fun TabsLayout(
 // 宽屏 aside 形态
 // ---------------------------------------------------------------------------
 
-/** `.tabs-layout__aside` + `.tabs-layout__panel`（非卡片分组形态） */
+/**
+ * `.tabs-layout__aside` + `.tabs-layout__panel`（非卡片分组形态）。
+ *
+ * [bottomBar]（MiniPlayer）：Web 版 MiniPlayer 无平板覆盖段——平板下仍以
+ * fixed left/right 18px 全宽胶囊悬浮，故 aside 形态照常渲染（z 序同手机）。
+ */
 @Composable
 private fun TabletLayout(
     primaryItems: List<SaltNavItem>,
     secondaryItems: List<SaltNavItem>,
+    bottomBar: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -177,6 +189,8 @@ private fun TabletLayout(
         )
         Box(Modifier.weight(1f).fillMaxHeight()) {
             content()
+            // MiniPlayer（z-index 1000）：悬浮于内容区之上，与手机形态同语义
+            Box(Modifier.align(Alignment.BottomCenter)) { bottomBar() }
         }
     }
 }

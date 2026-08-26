@@ -41,6 +41,11 @@
 				<!-- ===== info 面板 ===== -->
 				<section class="pp-panel pp-info">
 					<div class="pp-info-inner">
+						<!-- 面板内头部：仅平板横屏分支显示（对照 __song-head--in-panel；手机隐藏避免与固定头部重复；显隐由 .pp-tablet CSS 承担） -->
+						<div class="pp-song-head-in-panel" id="pp-song-head-in-panel">
+							<h1 class="pp-title" id="pp-title-panel"></h1>
+							<p class="pp-artist" id="pp-artist-panel" hidden></p>
+						</div>
 						<!-- 大封面 hero：正方形 contain，无封面 ♪ 占位 -->
 						<div class="pp-cover-hero">
 							<img class="pp-cover-img" id="pp-cover" alt="" hidden />

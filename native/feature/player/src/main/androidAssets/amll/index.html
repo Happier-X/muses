@@ -20,8 +20,8 @@
 '); el.style.display = 'block'; }
 			});
 		</script>
-		<script type="module" crossorigin src="./assets/index-B8pW5vMB.js"></script>
-		<link rel="stylesheet" crossorigin href="./assets/index-BI6jJgnj.css">
+		<script type="module" crossorigin src="./assets/index-Cn-V0cKe.js"></script>
+		<link rel="stylesheet" crossorigin href="./assets/index-D4jOHBrd.css">
 	</head>
 	<body>
 		<pre id="boot-error" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#300;color:#f88;font-size:11px;padding:8px;white-space:pre-wrap;word-break:break-all;"></pre>
@@ -43,6 +43,11 @@
 				<!-- ===== info 面板 ===== -->
 				<section class="pp-panel pp-info">
 					<div class="pp-info-inner">
+						<!-- 面板内头部：仅平板横屏分支显示（对照 __song-head--in-panel；手机隐藏避免与固定头部重复；显隐由 .pp-tablet CSS 承担） -->
+						<div class="pp-song-head-in-panel" id="pp-song-head-in-panel">
+							<h1 class="pp-title" id="pp-title-panel"></h1>
+							<p class="pp-artist" id="pp-artist-panel" hidden></p>
+						</div>
 						<!-- 大封面 hero：正方形 contain，无封面 ♪ 占位 -->
 						<div class="pp-cover-hero">
 							<img class="pp-cover-img" id="pp-cover" alt="" hidden />

@@ -38,6 +38,8 @@ interface PlayerStatePayload {
 	translationEnabled: boolean
 	insetTopPx?: number
 	insetBottomPx?: number
+	/** 横屏平板分支（≥768 且宽>高，Kotlin 判定下发）：对照 PlayerPage.vue isTabletLayout */
+	isTabletLayout?: boolean
 }
 
 /** JS→Native 动作（Kotlin 侧 nativeBridge.onAction 接收后分派 ViewModel） */
@@ -50,6 +52,7 @@ type NativeAction =
 	| { action: 'setShuffle'; enabled: boolean }
 	| { action: 'toggleTranslation' }
 	| { action: 'openQueue' }
+	| { action: 'openEditMeta' }
 	| { action: 'close' }
 
 declare global {
@@ -97,6 +100,9 @@ const btnMore = requiredElement<HTMLButtonElement>('pp-btn-more')
 const fabTranslate = requiredElement<HTMLButtonElement>('pp-fab-translate')
 const fabsContainer = requiredElement('pp-fabs')
 const fabPlay = requiredElement<HTMLButtonElement>('pp-fab-play')
+// 面板内头部（平板分支显示，显隐由 .pp-tablet CSS 规则承担；文本与固定头部同步）
+const titlePanelEl = requiredElement('pp-title-panel')
+const artistPanelEl = requiredElement<HTMLParagraphElement>('pp-artist-panel')
 const lyricSlot = requiredElement('lyric-slot')
 const lyricEmptyEl = requiredElement('pp-lyric-empty')
 const progressEl = requiredElement('pp-progress')
@@ -278,6 +284,45 @@ function hideLyricChromeImmediate(): void {
 let playerState: PlayerStatePayload | null = null
 let activePanel = 0
 
+// ---- 平板横屏分支（.pp-tablet，对照 PlayerPage.vue player-page--tablet）----
+// 差异项：固定头部隐藏/面板内头部显示、封面垂直居中、五行歌词小窗隐藏、
+// 歌词 FAB 组不显示播放键、进度/三键/mode 移到底部全宽控制条。
+// 控制块在手机形态位于 info-inner 内参与面板布局，平板下迁移到独立底部条 DOM；
+// 切回时按原顺序放回（progress → controls → mode-bar）。
+const infoInnerEl = document.querySelector('.pp-info-inner') as HTMLElement | null
+const progressAreaEl = requiredElement('pp-progress').parentElement as HTMLElement
+const controlsEl = document.querySelector('.pp-controls') as HTMLElement
+const modeBarEl = document.querySelector('.pp-mode-bar') as HTMLElement
+let bottomBarEl: HTMLElement | null = null
+let tabletLayoutOn = false
+
+function mountTabletLayout(on: boolean): void {
+	if (on === tabletLayoutOn) return
+	tabletLayoutOn = on
+	playerUi.classList.toggle('pp-tablet', on)
+	if (!infoInnerEl) return
+	if (on) {
+		bottomBarEl = document.createElement('div')
+		bottomBarEl.id = 'pp-bottom-bar'
+		bottomBarEl.append(progressAreaEl, controlsEl, modeBarEl)
+		playerUi.appendChild(bottomBarEl)
+	} else if (bottomBarEl) {
+		infoInnerEl.append(progressAreaEl, controlsEl, modeBarEl)
+		bottomBarEl.remove()
+		bottomBarEl = null
+	}
+}
+
+/** 同步歌名/艺术家到固定头部与面板内头部两处 */
+function syncHeadTexts(title: string, artist: string): void {
+	titleEl.textContent = title
+	titlePanelEl.textContent = title
+	artistEl.textContent = artist
+	artistPanelEl.textContent = artist
+	artistEl.hidden = artist.length === 0
+	artistPanelEl.hidden = artist.length === 0
+}
+
 function applyPanelsTransform(): void {
 	panelsEl.style.transform = `translateX(-${activePanel * 50}%)`
 }
@@ -311,10 +356,8 @@ window.updatePlayerState = (payload: string) => {
 		emptyState.hidden = hasSong
 		if (!hasSong) return
 
-		titleEl.textContent = data.title
 		const artist = data.artist?.trim() ?? ''
-		artistEl.textContent = artist
-		artistEl.hidden = artist.length === 0
+		syncHeadTexts(data.title, artist)
 
 		// 封面：null = 粘性沿用（不清旧图防闪）；有值才更新
 		if (data.coverUrl !== null && data.coverUrl !== undefined) {
@@ -338,6 +381,9 @@ window.updatePlayerState = (payload: string) => {
 		const hasLyrics = lyricLines.length > 0
 		lyricEmptyEl.hidden = hasLyrics
 		fabTranslate.hidden = !data.hasTranslation
+
+		// 平板横屏分支切换（FAB 播放键隐藏由 CSS .pp-tablet 规则承担）
+		mountTabletLayout(data.isTabletLayout === true)
 	} catch (err) {
 		console.error('[amll-web] updatePlayerState parse failed', err)
 	}
