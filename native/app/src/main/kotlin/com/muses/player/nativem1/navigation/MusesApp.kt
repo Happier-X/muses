@@ -44,7 +44,6 @@ import com.muses.player.feature.sources.SourcesScreen
 import com.muses.player.feature.sources.WebDavBrowseScreen
 import com.muses.player.feature.sources.WebDavFormScreen
 import com.muses.player.nativem1.R
-import com.muses.player.nativem1.onboarding.OnboardingScreen
 import com.muses.player.nativem1.settings.SettingsScreen
 import com.muses.player.core.ui.components.MiniPlayerBar
 import com.muses.player.core.ui.components.SaltEmpty
@@ -71,9 +70,6 @@ class MainViewModel @Inject constructor(
     private val songDao: SongDao,
     settingsRepository: SettingsRepository,
 ) : ViewModel() {
-
-    val isFirstLaunch: StateFlow<Boolean> = settingsRepository.isFirstLaunch
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     val isPlaying: StateFlow<Boolean> = playerConnection.isPlaying
 
@@ -118,9 +114,6 @@ fun MusesApp() {
 
     val viewModel: MainViewModel = hiltViewModel()
 
-    // 检查首次启动
-    val isFirstLaunch by viewModel.isFirstLaunch.collectAsState()
-
     // 连接播放服务
     LaunchedEffect(Unit) {
         viewModel.connectPlayer()
@@ -152,15 +145,8 @@ fun MusesApp() {
         }
     }
 
-    // 首次启动引导
-    if (isFirstLaunch) {
-        OnboardingScreen(
-            onComplete = {
-                // 引导完成后重新检查状态
-            },
-        )
-        return
-    }
+    // 首次启动引导已移除（用户决策 2026-08-26）：音源添加/扫描统一走音源页；
+    // settingsRepository.isFirstLaunch/completeFirstLaunch 保留但不再有 UI 消费方
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
