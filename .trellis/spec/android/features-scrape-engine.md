@@ -1,6 +1,6 @@
 # 刮削与元数据引擎（M3 数据层）
 
-> 任务 08-25-native-m3-scrape-engine。以 Web 层 `src/features/{scrape,metadata,cover,editMeta}` 源码为规格书翻译的纯 Kotlin 数据层，全部落在 `native/core/scrape`（+ core:model/core:data/core:media 增量）。UI 接线归后续任务。
+> 任务 08-25-native-m3-scrape-engine。以 Web 层 `src/features/{scrape,metadata,cover,editMeta}` 源码为规格书翻译的纯 Kotlin 数据层，全部落在 core/scrape（+ core:model/core:data/core:media 增量）。UI 接线归后续任务。
 
 ## 模块与分层
 

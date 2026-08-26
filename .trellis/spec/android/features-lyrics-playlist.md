@@ -1,6 +1,6 @@
 # 特征·歌词 / 播放列表 / 响度均衡 — 开发规范（M2）
 
-> 适用于 `native/` 工程的 AMLL 歌词渲染、播放列表管理、响度均衡相关改动。Web 层对应契约见 `spec/frontend/features-player.md`，本文是其原生等价实现 + M2 新增事实。
+> 适用于 仓库根 Android 工程的 AMLL 歌词渲染、播放列表管理、响度均衡相关改动。Web 层对应契约见 `spec/frontend/features-player.md`，本文是其原生等价实现 + M2 新增事实。
 
 ---
 
@@ -12,7 +12,7 @@
 
 ## 1. AMLL 渲染 = WebView 内嵌官方 core（定案，勿换）
 
-- **方案**：Vite 打包 `@applemusic-like-lyrics/core` 进 APK assets（`native/frontend/amll-web/`，产物 → `feature:player/src/main/androidAssets/amll/`）→ Compose `AndroidView` 包 WebView → `WebViewAssetLoader` 以 `https://appassets.androidplatform.net/assets/amll/index.html` 加载 → `evaluateJavascript` 注入。
+- **方案**：Vite 打包 `@applemusic-like-lyrics/core` 进 APK assets（frontend/amll-web/，产物 → `feature:player/src/main/androidAssets/amll/`）→ Compose `AndroidView` 包 WebView → `WebViewAssetLoader` 以 `https://appassets.androidplatform.net/assets/amll/index.html` 加载 → `evaluateJavascript` 注入。
 - **禁止**用销毁/重建 WebView 控制暂停；**禁止**引入第二套歌词渲染栈（accompanist lyrics-ui 仅作 fallback 方案保留在调研记录）。
 - 一个 WebView 页面同时承担**歌词 + 流体背景**双职责（BackgroundRender 由 PIXI 内部 ticker 自驱动）。
 

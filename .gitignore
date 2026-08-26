@@ -11,6 +11,7 @@ $RECYCLE.BIN/
 /.idea
 /.vscode/*
 !/.vscode/extensions.json
+*.iml
 
 # 依赖与构建产物
 node_modules/
@@ -19,3 +20,12 @@ node_modules/
 # 签名密钥
 *.keystore
 *.jks
+
+# Android/Gradle（项目根即工程根）
+.gradle
+.kotlin
+/local.properties
+/captures
+.externalNativeBuild
+.cxx
+build/

@@ -1,6 +1,6 @@
 # Android 原生开发规范
 
-> 适用于 `native/` 纯原生 Kotlin + Jetpack Compose 工程。
+> 适用于仓库根纯原生 Kotlin + Jetpack Compose 工程。
 
 ## 特征规范索引
 

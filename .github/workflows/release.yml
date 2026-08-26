@@ -39,7 +39,6 @@ jobs:
       # versionName=tag；versionCode=提交总数（单调递增，须不低于旧 Capacitor 版）
       - name: Build muses APK (com.muses.player)
         run: |
-          cd native
           chmod +x gradlew
           VERSION_CODE=$(git rev-list --count HEAD)
           ./gradlew :app:assembleMusesRelease \
@@ -52,12 +51,11 @@ jobs:
 
       - name: Rename muses APK
         run: |
-          mv native/app/build/outputs/apk/muses/release/app-muses-release.apk \
+          mv app/build/outputs/apk/muses/release/app-muses-release.apk \
              muses-v${{ steps.version.outputs.version }}.apk
 
       - name: Build miui APK (com.miui.player)
         run: |
-          cd native
           VERSION_CODE=$(git rev-list --count HEAD)
           ./gradlew :app:assembleMiuiRelease \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/muses-release.keystore \
@@ -69,7 +67,7 @@ jobs:
 
       - name: Rename miui APK
         run: |
-          mv native/app/build/outputs/apk/miui/release/app-miui-release.apk \
+          mv app/build/outputs/apk/miui/release/app-miui-release.apk \
              muses-v${{ steps.version.outputs.version }}-mi.apk
 
       - name: Read changelog

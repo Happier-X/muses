@@ -1,6 +1,6 @@
 # WebDAV 曲库链路 — 扫描/播放/凭据规范（08-25-webdav-source-scan）
 
-> 适用于 `native/` 工程 WebDAV 音源的扫描入库、播放、认证链路。Web 层 `src/features/library/scanner.ts` 为功能语义参照。
+> 适用于 仓库根 Android 工程 WebDAV 音源的扫描入库、播放、认证链路。Web 层 `src/features/library/scanner.ts` 为功能语义参照。
 
 ---
 

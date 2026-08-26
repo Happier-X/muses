@@ -1,6 +1,6 @@
 # 歌词在线搜索数据层
 
-> 任务 08-25-native-lyrics-online。翻译自 Web 层 `src/features/lyrics`，全部落在新建 `native/core:lyrics` 模块（依赖 core:model / OkHttp / kotlinx-serialization / Hilt）。
+> 任务 08-25-native-lyrics-online。翻译自 Web 层 `src/features/lyrics`，全部落在新建 core:lyrics 模块（`core/lyrics`） 模块（依赖 core:model / OkHttp / kotlinx-serialization / Hilt）。
 
 ## 结构与链路
 

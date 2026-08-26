@@ -1,6 +1,6 @@
 # Salt UI 组件体系 — 开发规范（08-25-native-salt-ui）
 
-> 适用于 `native/` 工程所有页面 UI 开发。Web 层 Vue 源码（`src/views/*.vue` + `src/components/ui/*` + `src/theme/index.scss`）是**唯一视觉规格书**。
+> 适用于 仓库根 Android 工程所有页面 UI 开发。Web 层 Vue 源码（`src/views/*.vue` + `src/components/ui/*` + `src/theme/index.scss`）是**唯一视觉规格书**。
 
 ---
 
