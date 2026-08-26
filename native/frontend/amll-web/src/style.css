@@ -433,15 +433,39 @@ body {
 	margin: 0;
 }
 
-/* 翻译 FAB：left 12px / bottom 8px+safe-bottom（__lyric-fab 观感简化：无玻璃底） */
-.pp-fab {
+/* FAB 组容器：右下角排布；is-visible 控制 0.2s opacity 过渡（__lyric-fabs） */
+.pp-fabs {
 	position: absolute;
-	left: 12px;
-	bottom: calc(8px + var(--pp-safe-bottom));
+	right: 18px;
+	bottom: calc(14px + var(--pp-safe-bottom));
 	z-index: 3;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+	pointer-events: none;
+}
+
+.pp-fabs.is-visible {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* 翻译/播放 FAB（__lyric-fab 观感简化：无玻璃底，白系图标） */
+.pp-fab {
+	border: none;
+	background: transparent;
+	padding: 6px;
 	color: rgba(255, 255, 255, 0.8);
+	cursor: pointer;
 }
 
 .pp-fab[hidden] {
 	display: none;
+}
+
+.pp-fab-play svg {
+	width: 30px;
+	height: 30px;
 }

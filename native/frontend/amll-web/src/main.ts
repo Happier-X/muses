@@ -95,6 +95,8 @@ const btnShuffle = requiredElement<HTMLButtonElement>('pp-btn-shuffle')
 const btnQueue = requiredElement<HTMLButtonElement>('pp-btn-queue')
 const btnMore = requiredElement<HTMLButtonElement>('pp-btn-more')
 const fabTranslate = requiredElement<HTMLButtonElement>('pp-fab-translate')
+const fabsContainer = requiredElement('pp-fabs')
+const fabPlay = requiredElement<HTMLButtonElement>('pp-fab-play')
 const lyricSlot = requiredElement('lyric-slot')
 const lyricEmptyEl = requiredElement('pp-lyric-empty')
 const progressEl = requiredElement('pp-progress')
@@ -131,6 +133,7 @@ const ICONS = {
 btnPrev.innerHTML = ICONS.previous
 btnNext.innerHTML = ICONS.next
 fabTranslate.innerHTML = ICONS.translate
+fabPlay.innerHTML = ICONS.play
 
 // ---------- 背景层（PIXI WebGL 流体渐变） ----------
 const canvas = document.createElement('canvas')
@@ -244,6 +247,33 @@ function syncMetaWindow(): void {
 	}, 420)
 }
 
+// ---------- 歌词面板 chrome（FAB 组）：交互浮现、3s 无操作淡出 ----------
+// 对照 Web LYRIC_FAB_IDLE_MS=3000 + revealLyricChrome/scheduleLyricChromeHide
+const LYRIC_FAB_IDLE_MS = 3000
+let lyricChromeTimer: number | null = null
+
+function scheduleLyricChromeHide(): void {
+	if (lyricChromeTimer !== null) window.clearTimeout(lyricChromeTimer)
+	lyricChromeTimer = window.setTimeout(() => {
+		fabsContainer.classList.remove('is-visible')
+		fabsContainer.setAttribute('aria-hidden', 'true')
+		lyricChromeTimer = null
+	}, LYRIC_FAB_IDLE_MS)
+}
+
+function revealLyricChrome(): void {
+	if (activePanel !== 1) return
+	fabsContainer.classList.add('is-visible')
+	fabsContainer.setAttribute('aria-hidden', 'false')
+	scheduleLyricChromeHide()
+}
+
+function hideLyricChromeImmediate(): void {
+	if (lyricChromeTimer !== null) window.clearTimeout(lyricChromeTimer)
+	lyricChromeTimer = null
+	fabsContainer.classList.remove('is-visible')
+}
+
 // ---------- 播放页状态下行 ----------
 let playerState: PlayerStatePayload | null = null
 let activePanel = 0
@@ -260,6 +290,7 @@ function applyTrackAndTime(positionMs: number, durationMs: number): void {
 
 function applyPlayIcon(): void {
 	btnPlay.innerHTML = playerState?.isPlaying ? ICONS.pause : ICONS.play
+	fabPlay.innerHTML = playerState?.isPlaying ? ICONS.pause : ICONS.play
 	btnPlay.setAttribute('aria-label', playerState?.isPlaying ? '暂停播放' : '播放')
 }
 
@@ -494,8 +525,16 @@ function finishTouch(cancelled: boolean): void {
 	if (!cancelled && Math.abs(s.dx) > swipeThresholdPx()) {
 		activePanel = s.dx < 0 ? 1 : 0
 		applyPanelsTransform()
+		if (activePanel !== 1) hideLyricChromeImmediate()
 	}
 }
+
+// 歌词面板交互（触摸抬起/滚动）→ 浮现 FAB 组并重置 3s 计时；
+// 点 FAB 自身不经过这里（click.stop 语义由 target 过滤近似——touchend 在 fab 上时跳过）
+lyricSlot.addEventListener('touchend', () => revealLyricChrome(), { passive: true })
+lyricSlot.addEventListener('scroll', () => revealLyricChrome(), { passive: true })
+fabTranslate.addEventListener('click', () => scheduleLyricChromeHide())
+fabPlay.addEventListener('click', () => scheduleLyricChromeHide())
 
 playerUi.addEventListener('touchend', () => finishTouch(false))
 playerUi.addEventListener('touchcancel', () => finishTouch(true))

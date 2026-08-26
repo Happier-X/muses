@@ -73,7 +73,11 @@
 						<h2>暂无歌词</h2>
 						<p>未找到内嵌歌词或同目录同名 .lrc 文件，可在刮削页获取。</p>
 					</div>
-					<button class="pp-fab" id="pp-fab-translate" aria-label="翻译" hidden></button>
+					<!-- FAB 组：用户交互浮现、3s 无操作淡出（对照 .lyric-floating-actions / LYRIC_FAB_IDLE_MS） -->
+					<div class="pp-fabs" id="pp-fabs" aria-hidden="true">
+						<button class="pp-fab" id="pp-fab-translate" aria-label="翻译" hidden></button>
+						<button class="pp-fab pp-fab-play" id="pp-fab-play" aria-label="播放"></button>
+					</div>
 				</section>
 			</div>
 		</div>
