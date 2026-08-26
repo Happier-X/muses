@@ -8,4 +8,4 @@
 - [x] 4. PlayerPage 平板分支：payload 加 isTabletLayout + 前端适配
 - [x] 5. MiniPlayer 宽屏语义
 - [x] 6. 门禁 + MuMu 平板分辨率装机（lint 失败项仅红线文件 core/media/PlaybackModule，非本任务引入；装机待用户）
-- [ ] 7. 用户逐页验收
+- [x] 7. 用户逐页验收 ✅ 2026-08-26 通过（wm density 120 平板宽度实测）
