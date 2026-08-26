@@ -512,6 +512,8 @@ private fun MultiselectBottomBar(
     ) {
         SaltTextButton(text = "永久删除", destructive = true, enabled = !disabled, onClick = onDeleteSelected)
         SaltTextButton(text = "添加到歌单", enabled = !disabled, onClick = onAddToPlaylist)
+        // M3：批量加入待刮削队列（刮削页统一处理）
+        SaltTextButton(text = "加入待刮削", enabled = !disabled, onClick = onEnqueueScrape)
         SaltTextButton(text = "播放选中队列", enabled = !disabled, onClick = onPlaySelected)
         SaltTextButton(text = "取消", onClick = onCancel)
     }
