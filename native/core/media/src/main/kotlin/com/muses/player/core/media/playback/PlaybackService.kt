@@ -9,12 +9,14 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.datasource.cache.SimpleCache
 import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.data.repository.PlaybackStateRepository
@@ -46,6 +48,10 @@ class PlaybackService : MediaSessionService() {
     @Inject
     lateinit var okHttpClient: OkHttpClient
 
+    /** Media3 流播磁盘缓存：探测性重复 Range 请求命中本地不再发网络（防网关限流） */
+    @Inject
+    lateinit var playbackCache: SimpleCache
+
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var songDao: SongDao
     @Inject lateinit var playbackStateRepository: PlaybackStateRepository
@@ -68,8 +74,14 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         val okHttpFactory = OkHttpDataSource.Factory(okHttpClient)
-        val defaultFactory = DefaultDataSource.Factory(this)
-        val dataSourceFactory = DefaultDataSource.Factory(this, okHttpFactory)
+        // CacheDataSource 边播边缓存：首次播放仍立即出声，但 ExoPlayer 对未知时长 mp3/flac 的
+        // 探测性重复打开会命中本地缓存不再发网络请求，避免触发网关（Cloudflare）限流；
+        // 出错时回落上游不阻断播放。file:// 由 DefaultDataSource 外层分派，不经缓存。
+        val cacheFactory = CacheDataSource.Factory()
+            .setCache(playbackCache)
+            .setUpstreamDataSourceFactory(okHttpFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        val dataSourceFactory = DefaultDataSource.Factory(this, cacheFactory)
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 
         val player = ExoPlayer.Builder(this)

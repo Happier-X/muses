@@ -35,6 +35,7 @@ dependencies {
     api(libs.media3.session)
     api(libs.media3.common)
     implementation(libs.media3.datasource.okhttp)
+    implementation(libs.media3.datasource)
 
     // 本地库扫描：MediaStore + jaudiotagger 标签；WorkManager 后台任务
     implementation(libs.jaudiotagger)

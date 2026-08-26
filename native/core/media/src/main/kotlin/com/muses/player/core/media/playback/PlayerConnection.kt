@@ -139,40 +139,37 @@ class PlayerConnection @Inject constructor(
 
     /**
      * 从歌曲列表中选择 songId 开始播放。
-     * WebDAV 曲目对齐旧版 getOrDownload 行为：先整文件下载进播放缓存再从 file:// 播——
-     * ExoPlayer 直接流播无时长元数据的 mp3/flac 会发出探测性 Range 分段请求（单首可达十余个），
-     * 易触发网关（Cloudflare）限流；整文件模式单首仅 1 个 GET。
+     * WebDAV 曲目直接流播：有缓存用 file://，无缓存用 HTTP URL（ExoPlayer 流播）。
+     * 后台异步预取+懒扫描标签，不阻塞播放。
      */
     fun play(songId: String, songs: List<com.muses.player.core.model.Song>) {
         // 用户主动切歌：重置恢复链与错误状态（controller.ts 语义）
         recoveryController.reset()
         recoveryController.clearError()
 
-        // 仅当前曲需要等入缓存（整文件下载，规避 Range 探测风暴）；
-        // 其余队列曲目不等——applyPlayback 时未缓存者回退 http URL 流播，轮到播放时再取。
-        // 旧版「全队列预取」在随机播放大库时会串行下载数百首且失败被静默吞，表现为“点击无反应”。
+        // 直接播放，不等下载；HTTP 流播由 PlaybackService 的 CacheDataSource 边播边缓存
+        applyPlayback(songId, songs)
+
+        // 后台异步：仅当懒扫描标签有活干且未入缓存时才整文件预取（供标签/封面扫描），
+        // 否则与流播缓存双倍下载；失败静默不影响播放
         val current = songs.firstOrNull { it.id == songId }
-        val needDownload = current != null &&
-            current.sourceType == SourceType.WEBDAV &&
-            webDavCache.getCachedFile(current.path) == null
-        if (!needDownload) {
-            applyPlayback(songId, songs)
-            return
-        }
-        prefetchJob?.cancel()
-        prefetchJob = prefetchScope.launch {
-            var cached = false
-            try {
-                ensureCached(current.path)
-                lazyScanTags(current)
-                cached = true
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                // 当前曲下载/读标签失败：不再等待，回退 http URL 流播（认证 interceptor 兑底）
+        if (
+            current != null
+            && current.sourceType == SourceType.WEBDAV
+            && current.tagsVersion < WebDavLibraryScanner.TAGS_VERSION
+            && webDavCache.getCachedFile(current.path) == null
+        ) {
+            prefetchJob?.cancel()
+            prefetchJob = prefetchScope.launch {
+                try {
+                    ensureCached(current.path)
+                    lazyScanTags(current)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // 预取/扫描失败不影响播放
+                }
             }
-            // Media3 铁律：controller 方法仅主线程可调
-            mainHandler.post { if (controller != null) applyPlayback(songId, songs) }
         }
     }
 
