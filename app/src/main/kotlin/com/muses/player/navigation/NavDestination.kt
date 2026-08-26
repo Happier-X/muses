@@ -1,4 +1,4 @@
-package com.muses.player.nativem1.navigation
+package com.muses.player.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
@@ -9,7 +9,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Settings
-import com.muses.player.nativem1.R
+import com.muses.player.R
 
 /**
  * 顶层路由 —— 条目/顺序/分组一比一对照 `TabsPage.vue` 的 `navItems`：

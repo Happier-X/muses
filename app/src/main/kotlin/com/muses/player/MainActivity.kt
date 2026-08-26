@@ -1,10 +1,10 @@
-package com.muses.player.nativem1
+package com.muses.player
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.muses.player.nativem1.navigation.MusesApp
+import com.muses.player.navigation.MusesApp
 import com.muses.player.core.ui.theme.SaltTheme
 import dagger.hilt.android.AndroidEntryPoint
 

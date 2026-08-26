@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.muses.player.nativem1"
+    namespace = "com.muses.player"
     compileSdk = 37
 
     defaultConfig {

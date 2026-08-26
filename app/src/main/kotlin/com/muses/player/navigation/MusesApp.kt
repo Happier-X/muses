@@ -1,4 +1,4 @@
-package com.muses.player.nativem1.navigation
+package com.muses.player.navigation
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -44,8 +44,8 @@ import com.muses.player.feature.playlist.PlaylistsPage
 import com.muses.player.feature.sources.SourcesScreen
 import com.muses.player.feature.sources.WebDavBrowseScreen
 import com.muses.player.feature.sources.WebDavFormScreen
-import com.muses.player.nativem1.R
-import com.muses.player.nativem1.settings.SettingsScreen
+import com.muses.player.R
+import com.muses.player.settings.SettingsScreen
 import com.muses.player.core.ui.components.MiniPlayerBar
 import com.muses.player.core.ui.components.SaltEmpty
 import dagger.hilt.android.lifecycle.HiltViewModel

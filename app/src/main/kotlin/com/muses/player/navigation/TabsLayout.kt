@@ -1,4 +1,4 @@
-package com.muses.player.nativem1.navigation
+package com.muses.player.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable

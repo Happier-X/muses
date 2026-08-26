@@ -1,5 +1,8 @@
-package com.muses.player.nativem1.settings
+package com.muses.player.settings
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -15,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VolumeUp
@@ -37,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.ui.components.SaltListItem
 import com.muses.player.core.ui.components.SaltNavbar
@@ -44,8 +49,11 @@ import com.muses.player.core.ui.components.SaltToggle
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
-import com.muses.player.nativem1.BuildConfig
+import com.muses.player.BuildConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
@@ -58,6 +66,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
+    private val errorLogStore: ErrorLogStore,
 ) : ViewModel() {
 
     val loudnessEnabled: StateFlow<Boolean> = settingsRepository.loudnessEnabled
@@ -67,6 +76,20 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.setLoudnessEnabled(enabled)
         }
+    }
+
+    /** 最近错误摘要 —— 供「复制报错日志」条目副标题 */
+    val latestErrorSummary: StateFlow<String?> = errorLogStore.latestSummary
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * 复制用日志全文：文件头（版本 + 导出时间）+ 缓冲正文（含上次会话崩溃段）。
+     * 无任何日志时返回 null，由 UI 层提示「暂无可复制的日志」。
+     */
+    suspend fun dumpLogs(): String? {
+        val body = errorLogStore.dump() ?: return null
+        val time = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+        return "[Muses 错误日志] v${BuildConfig.VERSION_NAME} @ $time\n$body"
     }
 }
 
@@ -143,8 +166,6 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
-
             // ---- 音频 ----
             SettingsBlockTitle(text = "音频")
             Column(
@@ -166,6 +187,42 @@ fun SettingsScreen(
                             checked = loudnessEnabled,
                             onCheckedChange = { viewModel.setLoudnessEnabled(it) },
                         )
+                    },
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // ---- 反馈 ----（任务 08-26-settings-log-viewer）
+            val latestSummary by viewModel.latestErrorSummary.collectAsState()
+            SettingsBlockTitle(text = "反馈")
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = SaltSpacing.spacingSub)
+                    .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
+                    .padding(vertical = 4.dp),
+            ) {
+                SaltListItem(
+                    title = "复制报错日志",
+                    subtitle = latestSummary ?: "暂无报错记录",
+                    onClick = {
+                        scope.launch {
+                            val text = viewModel.dumpLogs()
+                            if (text == null) {
+                                toastMessage = "暂无可复制的日志"
+                            } else {
+                                val clipboard = context.getSystemService(
+                                    Context.CLIPBOARD_SERVICE,
+                                ) as ClipboardManager
+                                clipboard.setPrimaryClip(
+                                    ClipData.newPlainText("Muses 报错日志", text),
+                                )
+                                toastMessage = "已复制报错日志"
+                            }
+                        }
+                    },
+                    leading = {
+                        SettingsIcon(icon = Icons.Filled.BugReport)
                     },
                 )
             }
