@@ -1,3 +1,7 @@
+> ⚠️ **已废弃（2026-08-26）**：Web/Vue 层已随纯原生重写完成而删除。本目录文档仅作
+> 历史规格参照（PlayerPage.vue / ScrapePage.vue 等行为语义的原始出处），**不是现行开发规范**。
+> 现行规范见 [../android/index.md](../android/index.md)。
+
 # Frontend Development Guidelines
 
 > Project-specific frontend conventions for this repository.

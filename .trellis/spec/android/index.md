@@ -1,11 +1,13 @@
 # Android 原生开发规范
 
 > 适用于仓库根纯原生 Kotlin + Jetpack Compose 工程。
+> 纯原生重写已完成（Capacitor/Web 层已删除）；仓库结构已扁平化（无 native/ 前缀）。
 
 ## 特征规范索引
 
 - [features-lyrics-playlist.md](features-lyrics-playlist.md) — AMLL WebView 歌词渲染 / 播放列表 / 响度均衡（M2）
-- [features-scrape-engine.md](features-scrape-engine.md) — 刮削引擎数据层：五源匹配链 / 写回编排 / 回滚 journal（M3）
+- [features-scrape-engine.md](features-scrape-engine.md) — 刮削引擎：数据层 + UI 接线（刮削页四态/云编辑/自动补缺）（M3）
+- **M4 平板双栏**：≥768dp TabletLayout 契约见 features-salt-ui.md 陷阱 #16
 - [features-lyrics-online.md](features-lyrics-online.md) — 歌词在线搜索：五源+LRCLIB+AMLL TTML / QRC 解密 / 编排链
 
 - [features-salt-ui.md](features-salt-ui.md) — Salt UI 组件体系：m-* 映射/设计令牌/布局陷阱（08-25-native-salt-ui）
@@ -49,7 +51,9 @@ app (UI 宿主、导航、引导)
 
 - `PlaybackService : MediaSessionService` 负责播放 + 通知 + 媒体按钮
 - `PlayerConnection` 封装 MediaController，暴露 StateFlow 给 ViewModel
-- WebDAV 曲目：检查 `WebDavAudioCache.getCachedFile()`；命中用 file://，否则 OkHttp 流播
+- WebDAV 曲目：直接 HTTP URL 流播（ExoPlayer），数据源经 **CacheDataSource 边播边缓存**——
+  探测性重复 Range 请求命中本地不再发网络（防网关限流）；详见 features-webdav-library.md
+- 播放页为全屏 WebView（P4.4）：AmllWebView 承载完整播放页 UI，双向桥见 features-lyrics-playlist.md
 - 音频焦点由 ExoPlayer 默认处理（handleAudioFocus=true）
 - `onTaskRemoved` → `stopSelf()`（后台播放安全）
 
@@ -70,14 +74,16 @@ app (UI 宿主、导航、引导)
 
 ## WebDAV 客户端
 
-- `OkHttpWebDavClient`：PROPFIND XML 用 XmlPullParser 解析（不用 DOM）
-- `WebDavAudioCache`：LRU 500MB 上限，`.meta` 文件记录 eTag/lastModified/lastAccess
+- 完整契约（扫描/缓存/凭据注册表/限流教训/懒扫描）见 [features-webdav-library.md](features-webdav-library.md)
+- `OkHttpWebDavClient`：PROPFIND XML 用 XmlPullParser 解析（不用 DOM）；Basic 编码显式 UTF-8
+- `WebDavAudioCache`：LRU 500MB 上限，`.meta` 与 cache 同名前缀关联（勿二次哈希）
 - 密码仅在内存中持有，不持久化到网络层
 
 ## 构建验证命令
 
 ```bash
-cd native && JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew :app:assembleDebug :lintDebug testDebugUnitTest
+# 仓库根执行；多 flavor 项目装包/编译验证一律 assembleMusesDebug（裸 assembleDebug 是无效旧 variant）
+JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew :app:assembleMusesDebug :lintDebug testDebugUnitTest
 ```
 
 ## 禁止模式
