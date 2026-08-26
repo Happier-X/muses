@@ -242,6 +242,8 @@ private fun PhoneLayout(
             .pointerInput(drawerOpen) {
                 detectHorizontalDragGestures(
                     onDragStart = { _ ->
+                        // 打断进行中的开合动画，避免 animateTo 与跟手 snapTo 抢控制权
+                        scope.launch { openFraction.stop() }
                         drag.reset(
                             if (drawerOpen) DragSession.Mode.CLOSING else DragSession.Mode.OPENING,
                         )
@@ -271,9 +273,8 @@ private fun PhoneLayout(
                     change.consume()
                     drag.tracker?.addPosition(change.uptimeMillis, change.position)
                     drag.totalDx += dragAmount
-                    // 拖拽直接驱动开合进度（关态右滑为正、开态左滑为负）
-                    val delta = if (drag.mode == DragSession.Mode.CLOSING) -dragAmount else dragAmount
-                    val raw = (openFraction.value + delta / drawerWidthPx).coerceIn(0f, 1f)
+                    // 拖拽直接驱动开合进度：右滑进度增大（开）、左滑减小（关），与模式无关
+                    val raw = (openFraction.value + dragAmount / drawerWidthPx).coerceIn(0f, 1f)
                     scope.launch { openFraction.snapTo(raw) }
                 }
             },
