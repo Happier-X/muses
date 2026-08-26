@@ -47,7 +47,7 @@
 - [x] P4.1 info 面板：封面 hero+进度条 Slider+时间行+三键控制+mode-bar（随机/循环）
 - [x] P4.2 歌词面板 Crossfade 切换（透出 WebView 完整歌词）；翻译 FAB 左下
 - [ ] P4.3 精修（2026-08-25 用户确认与旧 WebView 版观感差距过大，按 PlayerPage.vue 手机形态重做）：
-  - [ ] 固定头部改为椒盐式：歌名 h1 + 艺术家 p 常驻顶部（居中），**去掉关闭按钮**（关闭靠下滑手势）；队列入口移入 mode-bar
+  - [ ] 固定头部改为椒盐式：歌名 h1 + 艺术家 p 常驻顶部（左上，Vue 源码 text-align: left），**去掉关闭按钮**（关闭靠下滑手势）；队列入口移入 mode-bar
   - [ ] 面板切换改为同容器位移：双面板并排 `translateX(-activePanel * 50%)`，0.22s easeOut（替代 AnimatedContent 进出场）
   - [ ] info 面板对齐：大封面铺满上部 → 五行歌词小窗（当前行居中，spring 缩放 1.05/0.92 + blur 0.6px + opacity 1/0.55）→ 进度区（**无白色 thumb**，轨道从 0% 起）→ 时间行（含「缓冲中」提示位）→ 三键控制（prev/play/next，lg 图标**无圆底**）→ mode-bar 四键（循环/随机/队列/更多）
   - [ ] 歌词面板对齐：头部歌名/歌手 + AMLL 歌词（翻译开关保留）；用户滚动歌词后浮现 FAB 组（翻译+播放），3s 无操作淡出（LYRIC_FAB_IDLE_MS=3000）
@@ -64,6 +64,16 @@
 - [x] SourceWebDavBrowsePage（WebDavBrowseScreen：single 单选/multiple 多选 + WebDavBrowseResultHolder 跨页会话）
 - [x] SettingsPage（关于/检查更新 + 音量均衡 SaltToggle）
 - [x] 补齐 P2 漏项：歌曲页跳转当前播放 FAB（showJumpBubble 三条件 + 液态玻璃配方）
+
+## P5 补充：音源页扫描功能 ✅ 2026-08-25 完成（本地源；WebDAV 扫描待立项）
+
+- [x] SourcesScreen 卡片「浏览」占位 → 「扫描」按钮（对齐 Web 三按钮布局）
+- [x] 扫描设置弹窗（读取音乐标签 SaltToggle，WebDAV 默认关/本地默认开）+ 开始扫描
+- [x] 扫描进度弹窗（发现中/扫描中/完成/失败阶段文案 + 当前文件 + current/total）
+- [x] ViewModel 接线：注入 LocalLibraryScanner + SongRepository，startScan 前台扫描后 replaceSourceSongs 入库
+- [x] LocalLibraryScanner.scan 增加 readTags 参数（false 跳过 TagReader）
+- [x] 防护：WebDAV 源点扫描直接提示「暂未支持」（避免 path=null 退化全库扫描污染数据）
+- [ ] 待办（另立任务）：WebDAV 音源递归 PROPFIND 扫描 + HTTP 读标签
 
 ## 收尾
 

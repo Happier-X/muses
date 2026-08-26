@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -177,6 +178,8 @@ fun WebDavBrowseScreen(
                     LazyColumn(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
+                        // 底部预留 MiniPlayerBar 空间（项目惯例 96dp，对齐 SongsPage/SourcesScreen）
+                        contentPadding = PaddingValues(bottom = 96.dp),
                     ) {
                         items(browseState.directories, key = { it.path }) { directory ->
                             DirectoryRow(
@@ -202,7 +205,8 @@ fun WebDavBrowseScreen(
                         SaltTextButton(
                             text = "添加选中的 ${browseState.selectedPaths.size} 个文件夹",
                             onClick = { confirmSelection(browseState.selectedPaths.toList()) },
-                            modifier = Modifier.fillMaxWidth(),
+                            // 底部避让全局悬浮 MiniPlayerBar（64dp 高 + 间距）
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 96.dp),
                         )
                     }
                 }

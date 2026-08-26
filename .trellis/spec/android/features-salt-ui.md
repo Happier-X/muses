@@ -45,3 +45,5 @@
 10. **跨页内存会话用 take 语义 Holder**（对照 Web webdavBrowseSession）：浏览页确认后 `set()`，返回页重组时 `take()`（读走即清空）；密码等敏感信息仅内存不进 URL/日志
 11. **LazyListState.layoutInfo 不触发重组**——需要响应滚动的派生状态用 `snapshotFlow { listState.layoutInfo... }` + collectAsState；滚动防抖用 `LaunchedEffect(listState.isScrollInProgress)` + delay
 12. **app 模块用 BuildConfig 需显式 `buildFeatures { buildConfig = true }`**（AGP 8+ 默认关闭）
+13. **多 flavor 项目装包用 `assembleMusesDebug`，不用裸 `assembleDebug`**——后者打的是无 flavor 旧 variant 包，装机后表现为“改动没生效”（08-25 实测踩坑）
+14. **挂起调用外包 catch(Exception)/runCatching 会吞 CancellationException**——协程取消静默失效；须前置 `catch (e: CancellationException) { throw e }`（PlayerConnection 预取与两 scanner 均有示范）

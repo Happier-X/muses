@@ -25,7 +25,8 @@
     "08-25-native-m3-scrape-engine",
     "08-25-native-lyrics-online",
     "08-25-native-playback-persistence",
-    "08-25-native-playback-recovery"
+    "08-25-native-playback-recovery",
+    "08-25-webdav-source-scan"
   ],
   "parent": null,
   "relatedFiles": [],

@@ -28,6 +28,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
+    implementation(project(":core:media"))
     implementation(project(":core:ui"))
     implementation(project(":core:webdav"))
 

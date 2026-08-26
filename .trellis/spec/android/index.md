@@ -9,6 +9,7 @@
 - [features-lyrics-online.md](features-lyrics-online.md) — 歌词在线搜索：五源+LRCLIB+AMLL TTML / QRC 解密 / 编排链
 
 - [features-salt-ui.md](features-salt-ui.md) — Salt UI 组件体系：m-* 映射/设计令牌/布局陷阱（08-25-native-salt-ui）
+- [features-webdav-library.md](features-webdav-library.md) — WebDAV 曲库链路：扫描/播放整文件入缓存/凭据注册表/限流教训（08-25-webdav-source-scan）
 
 ---
 

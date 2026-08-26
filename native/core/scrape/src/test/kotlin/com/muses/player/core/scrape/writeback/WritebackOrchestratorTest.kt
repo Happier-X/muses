@@ -35,6 +35,10 @@ class WritebackOrchestratorTest {
         override suspend fun replaceSourceSongs(sourceId: String, songs: List<Song>) =
             throw UnsupportedOperationException()
 
+        override suspend fun deleteSourceSongs(sourceId: String) {
+            songs.entries.removeIf { it.value.sourceId == sourceId }
+        }
+
         override suspend fun getSong(id: String): Song? = songs[id]
         override suspend fun upsert(song: Song) {
             songs[song.id] = song

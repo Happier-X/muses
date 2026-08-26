@@ -3,11 +3,13 @@ package com.muses.player.nativem1.onboarding
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.data.repository.SourceRepository
 import com.muses.player.core.media.scanner.ScanWorkScheduler
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
+import com.muses.player.core.webdav.WebDavAuthRegistry
 import com.muses.player.core.webdav.WebDavClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,7 +36,9 @@ class OnboardingViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
     private val sourceRepository: SourceRepository,
+    private val credentialsRepository: CredentialsRepository,
     private val webDavClient: WebDavClient,
+    private val webDavAuthRegistry: WebDavAuthRegistry,
 ) : ViewModel() {
 
     private val _step = MutableStateFlow(OnboardingStep.WELCOME)
@@ -107,15 +111,24 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             _isSaving.value = true
             try {
+                val sourceId = UUID.randomUUID().toString()
                 val source = Source(
-                    id = UUID.randomUUID().toString(),
+                    id = sourceId,
                     name = _webdavName.value.ifBlank { "WebDAV" },
                     type = SourceType.WEBDAV,
                     url = _webdavUrl.value.trim(),
+                    // 用户名入库 + 密码走 Keystore 加密存储（对齐音源页添加流程；
+                    // 缺失任一则播放/扫描认证必然失败）
+                    username = _webdavUsername.value.trim().ifEmpty { null },
                     createdAt = System.currentTimeMillis(),
                     updatedAt = System.currentTimeMillis(),
                 )
                 sourceRepository.upsert(source)
+                if (_webdavPassword.value.isNotEmpty()) {
+                    credentialsRepository.savePassword(sourceId, _webdavPassword.value)
+                }
+                // 引导保存后同步播放认证注册表
+                webDavAuthRegistry.refresh()
                 // 触发扫描
                 ScanWorkScheduler.enqueue(context)
                 // 完成首次启动

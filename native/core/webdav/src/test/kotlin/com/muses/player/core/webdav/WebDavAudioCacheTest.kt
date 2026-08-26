@@ -20,13 +20,13 @@ import org.robolectric.annotation.Config
 class WebDavAudioCacheTest {
 
     private lateinit var context: Context
-    private lateinit var cache: WebDavAudioCache
+    private lateinit var cache: DiskWebDavAudioCache
     private lateinit var cacheDir: File
 
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        cache = WebDavAudioCache(context)
+        cache = DiskWebDavAudioCache(context)
         cacheDir = File(context.cacheDir, "webdav-cache")
         cacheDir.mkdirs()
     }

@@ -24,6 +24,8 @@ android {
 
 dependencies {
     api(project(":core:model"))
+    // WebDavAuthRegistry：读音源列表与凭据构造播放流播 Basic Auth（webdav=基础设施层 ← data=数据层，方向合法）
+    implementation(project(":core:data"))
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

@@ -4,6 +4,7 @@ package com.muses.player.core.media.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -11,10 +12,20 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import com.muses.player.core.model.SourceType
+import com.muses.player.core.webdav.WebDavAudioCache
+import com.muses.player.core.webdav.WebDavClient
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,6 +37,8 @@ import javax.inject.Singleton
 class PlayerConnection @Inject constructor(
     @ApplicationContext private val context: Context,
     private val recoveryController: PlaybackRecoveryController,
+    private val webDavCache: WebDavAudioCache,
+    private val webDavClient: WebDavClient,
 ) {
 
     /** 最近一次播放失败的安全文案；用户主动操作后清空（P4 播放页消费） */
@@ -34,6 +47,10 @@ class PlayerConnection @Inject constructor(
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /** WebDAV 预取下载（串行 IO）；play 换队列时取消旧任务 */
+    private val prefetchScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var prefetchJob: Job? = null
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -114,17 +131,45 @@ class PlayerConnection @Inject constructor(
 
     /**
      * 从歌曲列表中选择 songId 开始播放。
-     * WebDAV 曲目需提前调用 [setWebDavAuthorization] 设置 header。
+     * WebDAV 曲目对齐旧版 getOrDownload 行为：先整文件下载进播放缓存再从 file:// 播——
+     * ExoPlayer 直接流播无时长元数据的 mp3/flac 会发出探测性 Range 分段请求（单首可达十余个），
+     * 易触发网关（Cloudflare）限流；整文件模式单首仅 1 个 GET。
      */
     fun play(songId: String, songs: List<com.muses.player.core.model.Song>) {
         // 用户主动切歌：重置恢复链与错误状态（controller.ts 语义）
         recoveryController.reset()
         recoveryController.clearError()
+
+        // 未缓存的 WEBDAV 曲目需先入缓存；期间取消上一次未完成的预取（用户已换队列）
+        val pendingDownloads = songs.filter {
+            it.sourceType == SourceType.WEBDAV && webDavCache.getCachedFile(it.path) == null
+        }
+        if (pendingDownloads.isEmpty()) {
+            applyPlayback(songId, songs)
+            return
+        }
+        prefetchJob?.cancel()
+        prefetchJob = prefetchScope.launch {
+            for (song in pendingDownloads) {
+                try {
+                    ensureCached(song.path)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // 单首下载失败不阻塞后续；applyPlayback 时该曲回退 http URL 流播
+                }
+            }
+            // Media3 铁律：controller 方法仅主线程可调
+            mainHandler.post { if (controller != null) applyPlayback(songId, songs) }
+        }
+    }
+
+    private fun applyPlayback(songId: String, songs: List<com.muses.player.core.model.Song>) {
         val player = controller ?: return
         val mediaItems = songs.map { song ->
             MediaItem.Builder()
                 .setMediaId(song.id)
-                .setUri(song.path)
+                .setUri(resolveUri(song))
                 .setMediaMetadata(
                     androidx.media3.common.MediaMetadata.Builder()
                         .setTitle(song.title)
@@ -140,6 +185,33 @@ class PlayerConnection @Inject constructor(
         player.setMediaItems(mediaItems, index, C.TIME_UNSET)
         player.prepare()
         player.playWhenReady = true
+    }
+
+    /**
+     * 解析播放 URI：WebDAV 曲目查缓存命中转 file://；未命中走 HTTP URL（由 OkHttp 认证
+     * interceptor 注入 Authorization）。其余源直接用 path。
+     *
+     * play() 在主线程调用（Media3 契约）；[WebDavAudioCache.getCachedFile] 仅做文件 stat 检查，开销可接受。
+     */
+    private fun resolveUri(song: com.muses.player.core.model.Song): Uri {
+        if (song.sourceType != SourceType.WEBDAV) return Uri.parse(song.path)
+        return webDavCache.getCachedFile(song.path)?.let { Uri.fromFile(it) } ?: Uri.parse(song.path)
+    }
+
+    /**
+     * 整文件下载进播放缓存（IO 线程调用）：命中直接返回；未命中经临时文件下载后 putToCache
+     * （顺带预热 LRU，供后续播放零网络）。失败抛出由调用方决定回退策略。
+     */
+    private suspend fun ensureCached(url: String) {
+        if (webDavCache.getCachedFile(url) != null) return
+        val tempDir = File(context.cacheDir, "tmp-playback").apply { mkdirs() }
+        val temp = File.createTempFile("dl-", ".audio", tempDir)
+        try {
+            webDavClient.get(url, temp)
+            webDavCache.putToCache(url, temp)
+        } finally {
+            temp.delete()
+        }
     }
 
     fun playPause() {

@@ -65,6 +65,7 @@ import com.muses.player.core.ui.components.SaltIconButton
 import com.muses.player.core.ui.components.SaltIconButtonSize
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
+import com.muses.player.core.ui.components.SaltToggle
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
@@ -85,6 +86,8 @@ fun SourcesScreen(
     val salt = LocalSaltColors.current
     val sources by viewModel.sources.collectAsState()
     val showAddForm by viewModel.showAddForm.collectAsState()
+    // 扫描进度弹窗观察 scanner 内部进度流
+    val scanProgress by viewModel.scanProgress.collectAsState()
 
     // ---- .sources-page__navbar-wrap ----
     Column(modifier = modifier.fillMaxSize()) {
@@ -124,6 +127,7 @@ fun SourcesScreen(
                     }
                 },
                 onDelete = { source -> viewModel.confirmDelete(source) },
+                onScan = { source -> viewModel.openScanSettings(source) },
             )
         }
     }
@@ -216,6 +220,107 @@ fun SourcesScreen(
         )
     }
 
+    // ---- m-dialog：扫描设置（对照 SourcesPage.vue scanSettings 弹窗）----
+    // KDoc：内容区对应 .sources-page__hint-text；确认按钮对应 .sources-page__scan-start-btn
+    viewModel.pendingScanSource?.let {
+        AlertDialog(
+            onDismissRequest = { viewModel.closeScanSettings() },
+            title = { Text("扫描设置") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // 「读取音乐标签」+ SaltToggle（对照 Web m-toggle）
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("读取音乐标签", fontSize = 15.sp, color = salt.text)
+                        Spacer(Modifier.width(12.dp))
+                        SaltToggle(
+                            checked = viewModel.scanReadTags,
+                            onCheckedChange = { viewModel.updateScanReadTags(it) },
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    // __hint-text：13sp text2 居中提示
+                    Text(
+                        "开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。",
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        color = salt.text2,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.startScan() }) { Text("开始扫描") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.closeScanSettings() }) { Text("取消") }
+            },
+        )
+    }
+
+    // ---- m-dialog：扫描进度（对照 SourcesPage.vue 扫描进度弹窗：preloader + 阶段 h2 + 当前文件 + 统计行）----
+    if (viewModel.isScanProgressOpen) {
+        val scanError = viewModel.scanError
+        // 阶段文案映射（对齐 Web stage 计算）：错误 > 查找 > 入库 > 完成
+        val stageText = when {
+            scanError != null -> "扫描失败"
+            scanProgress.total == 0 && !scanProgress.finished -> "正在查找文件"
+            !scanProgress.finished -> "正在扫描入库"
+            else -> "扫描完成"
+        }
+        AlertDialog(
+            // 进行中禁止关闭：不给 onDismissRequest 任何关闭路径，也不渲染关闭按钮
+            onDismissRequest = { },
+            title = { Text("扫描进度") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // 阶段 h2 文案
+                    Text(stageText, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = salt.text)
+                    Spacer(Modifier.height(12.dp))
+                    when {
+                        scanError != null -> {
+                            Text(scanError, fontSize = 13.sp, color = salt.danger)
+                        }
+                        !scanProgress.finished -> {
+                            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                            Spacer(Modifier.height(12.dp))
+                            // 当前文件单行省略
+                            scanProgress.currentFile?.let {
+                                Text(
+                                    it,
+                                    fontSize = 13.sp,
+                                    color = salt.text2,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            // 统计行
+                            Text(
+                                "已处理 ${scanProgress.current} / ${scanProgress.total}",
+                                fontSize = 13.sp,
+                                color = salt.text2,
+                            )
+                        }
+                        else -> {
+                            // 项目无统一 toast 组件，选最简方案：汇总文案直接在进度弹窗完成态内展示，
+                            // 关闭时经 dismissScanProgress() 一并置空（不额外引入 SnackbarHost 脚手架）
+                            viewModel.scanResultMessage?.let {
+                                Text(it, fontSize = 13.sp, color = salt.text2)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                // 结束态（成功/失败）才给「关闭」按钮
+                if (scanProgress.finished || scanError != null) {
+                    TextButton(onClick = { viewModel.dismissScanProgress() }) { Text("关闭") }
+                }
+            },
+        )
+    }
+
     // ---- AddSourceSheet（保留既有底部弹窗表单）----
     if (showAddForm) {
         AddSourceSheet(
@@ -246,6 +351,8 @@ private fun SourceCardList(
     modifier: Modifier = Modifier,
     onEdit: (Source) -> Unit,
     onDelete: (Source) -> Unit,
+    /** 扫描入口（对照 Web .sources-page__scan-btn） */
+    onScan: (Source) -> Unit,
 ) {
     val salt = LocalSaltColors.current
     LazyColumn(
@@ -306,8 +413,8 @@ private fun SourceCardList(
                         destructive = true,
                     )
                     Spacer(Modifier.width(SaltSpacing.spacingSub))
-                    // 扫描入口：M1 扫描为全库 MediaStore 流程；此处保留浏览入口占位
-                    SaltTextButton(text = "浏览", onClick = { })
+                    // .sources-page__scan-btn：扫描入口 → 打开「扫描设置」弹窗
+                    SaltTextButton(text = "扫描", onClick = { onScan(source) })
                 }
             }
         }

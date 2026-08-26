@@ -10,7 +10,6 @@ import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -38,8 +37,12 @@ class LocalLibraryScanner @Inject constructor(
     /**
      * 扫描本地音频。传 [source]（LOCAL）时仅保留其目录前缀下的文件；
      * 返回 domain Song 列表（不写库——持久化由调用方/Worker 完成）。
+     *
+     * [readTags] = false 时跳过 TagReader（jaudiotagger）逐文件读取，标签全空，
+     * 直接回退 MediaStore 列值/文件名（对照 Web「读取音乐标签」开关关闭态）；
+     * 默认 true 保持既有调用方兼容。
      */
-    suspend fun scan(source: Source? = null): List<Song> = withContext(Dispatchers.IO) {
+    suspend fun scan(source: Source? = null, readTags: Boolean = true): List<Song> = withContext(Dispatchers.IO) {
         val sourceId = source?.id ?: DEFAULT_LOCAL_SOURCE_ID
         val pathPrefix = source?.path?.trim()?.trimEnd('/')
         val prefixNormalized = pathPrefix?.let { "$it/" }
@@ -54,7 +57,7 @@ class LocalLibraryScanner @Inject constructor(
             progressInternal.value =
                 ScanProgress(current = index, total = items.size, currentFile = item.displayName)
 
-            val tags = readTagsSafely(item.data)
+            val tags = if (readTags) readTagsSafely(item.data) else TagReaderResult.empty
             val song = Song(
                 id = stableSongId(sourceId, item.data),
                 sourceId = sourceId,
@@ -64,7 +67,7 @@ class LocalLibraryScanner @Inject constructor(
                 album = tags.album ?: item.album,
                 durationMs = item.durationMs ?: 0L,
                 durationSec = (item.durationMs ?: 0L) / 1000L,
-                coverUri = tags.coverBytes?.let { writeCoverCache(stableSongId(sourceId, item.data), it) },
+                coverUri = tags.coverBytes?.let { CoverCacheWriter.write(context, stableSongId(sourceId, item.data), it) },
                 lyrics = tags.lyrics,
                 replayGainTrackDb = tags.replayGainTrackDb,
                 sourceType = SourceType.LOCAL,
@@ -165,17 +168,6 @@ class LocalLibraryScanner @Inject constructor(
         val durationMs: Long?,
     )
 
-    /** 封面落盘：cache/covers/<sha256>.jpg；失败返回 null（封面缺失不阻塞扫描） */
-    private fun writeCoverCache(cacheKey: String, bytes: ByteArray): String? {
-        if (bytes.isEmpty()) return null
-        return runCatching {
-            val directory = File(context.cacheDir, "covers").apply { mkdirs() }
-            val file = File(directory, "${sha256(cacheKey)}.jpg")
-            file.writeBytes(bytes)
-            Uri.fromFile(file).toString()
-        }.getOrNull()
-    }
-
     companion object {
         const val TAGS_VERSION = 1
 
@@ -184,16 +176,12 @@ class LocalLibraryScanner @Inject constructor(
 
         /** 稳定歌曲 ID：sourceId + 文件路径哈希 */
         fun stableSongId(sourceId: String, filePath: String): String =
-            sha256("$sourceId|$filePath")
+            CoverCacheWriter.sha256("$sourceId|$filePath")
 
         fun isSupportedAudio(pathOrName: String): Boolean {
             val extension = pathOrName.substringAfterLast('.', "").lowercase()
             return extension in SUPPORTED_AUDIO_EXTENSIONS
         }
-
-        private fun sha256(value: String): String =
-            MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
-                .joinToString("") { "%02x".format(it) }
 
         private val SUPPORTED_AUDIO_EXTENSIONS = setOf(
             "aac", "aiff", "alac", "ape", "flac", "m4a", "m4b", "mp3", "ogg", "opus", "wav", "wma",

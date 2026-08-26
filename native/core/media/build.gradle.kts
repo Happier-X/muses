@@ -23,6 +23,8 @@ android {
 dependencies {
     api(project(":core:model"))
     implementation(project(":core:data"))
+    // WebDAV 库扫描：复用 WebDavClient（PROPFIND/GET）与 WebDavAudioCache（下载缓存/播放预热）
+    implementation(project(":core:webdav"))
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
@@ -39,4 +41,7 @@ dependencies {
     implementation(libs.work.runtime.ktx)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }

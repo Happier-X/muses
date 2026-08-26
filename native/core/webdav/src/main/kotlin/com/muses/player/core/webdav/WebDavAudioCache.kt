@@ -13,24 +13,37 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * WebDAV 音频文件磁盘缓存。
+ * WebDAV 音频磁盘缓存抽象。
  *
- * - 按 URL 做 key，文件存 `context.cacheDir/webdav-cache/`。
- * - ETag / Last-Modified 校验用于条件请求（下载时由调用方传入）。
- * - LRU 淘汰：超限时按 lastAccess 时间升序删除。
+ * 播放流播命中判断与库扫描下载预热共用；测试可注入内存 fake（无需 Android 环境）。
+ */
+interface WebDavAudioCache {
+    /** 返回完整缓存文件；.partial / .tmp / 空文件一律视为未命中 */
+    fun getCachedFile(url: String): File?
+
+    /** 写入缓存（从已下载的本地文件搬过来）；调用方需自行删除临时文件 */
+    fun putToCache(url: String, file: File, eTag: String? = null, lastModified: String? = null)
+}
+
+/**
+ * [WebDavAudioCache] 磁盘实现。
+ *
+ * - 按 URL 做 key，文件存 `context.cacheDir/webdav-cache/`；
+ * - ETag / Last-Modified 校验用于条件请求（下载时由调用方传入）；
+ * - LRU 淘汰：超限时按 lastAccess 时间升序删除；
  * - 每个缓存文件旁存 `.meta` 文件记录 eTag / lastModified / lastAccess。
  */
 @Singleton
-class WebDavAudioCache @Inject constructor(
+class DiskWebDavAudioCache @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : WebDavAudioCache {
     private val cacheDir: File
         get() = File(context.cacheDir, CACHE_DIR).apply { mkdirs() }
 
     /**
      * 返回完整缓存文件；.partial / .tmp / 空文件一律视为未命中。
      */
-    fun getCachedFile(url: String): File? {
+    override fun getCachedFile(url: String): File? {
         val file = cacheFile(url)
         if (!file.exists() || file.length() <= 0L) return null
         if (file.name.endsWith(".partial") || file.name.endsWith(".tmp")) return null
@@ -57,7 +70,7 @@ class WebDavAudioCache @Inject constructor(
      * 写入缓存（从已下载的本地文件搬过来）。
      * 调用方需自行删除临时文件。
      */
-    fun putToCache(url: String, file: File, eTag: String? = null, lastModified: String? = null) {
+    override fun putToCache(url: String, file: File, eTag: String?, lastModified: String?) {
         if (!file.exists() || file.length() <= 0L) return
         val target = cacheFile(url)
         target.parentFile?.mkdirs()

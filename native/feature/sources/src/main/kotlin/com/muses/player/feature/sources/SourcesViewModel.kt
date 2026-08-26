@@ -6,16 +6,23 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.repository.CredentialsRepository
+import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.repository.SourceRepository
+import com.muses.player.core.media.scanner.LocalLibraryScanner
+import com.muses.player.core.media.scanner.ScanProgress
+import com.muses.player.core.media.scanner.WebDavLibraryScanner
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
+import com.muses.player.core.webdav.WebDavAuthRegistry
 import com.muses.player.core.webdav.WebDavClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -43,8 +50,12 @@ sealed class TestState {
 @HiltViewModel
 class SourcesViewModel @Inject constructor(
     private val sourceRepository: SourceRepository,
+    private val songRepository: SongRepository,
+    private val scanner: LocalLibraryScanner,
+    private val webDavScanner: WebDavLibraryScanner,
     private val credentialsRepository: CredentialsRepository,
     private val webDavClient: WebDavClient,
+    private val webDavAuthRegistry: WebDavAuthRegistry,
 ) : ViewModel() {
 
     val sources: StateFlow<List<Source>> = sourceRepository.observeSources()
@@ -69,6 +80,35 @@ class SourcesViewModel @Inject constructor(
     /** m-dialog：本地音源编辑目标 */
     var pendingEdit by mutableStateOf<Source?>(null)
         private set
+
+    // ── 扫描流程（对齐 Web SourcesPage.vue openScanSettings/closeScanSettings/startScan）──
+
+    /** m-dialog「扫描设置」目标音源（非空 = 弹窗打开） */
+    var pendingScanSource by mutableStateOf<Source?>(null)
+        private set
+
+    /** 扫描设置：读取音乐标签（Web 同款默认——WebDAV 不逐文件读 ID3/Vorbis） */
+    var scanReadTags by mutableStateOf(true)
+        private set
+
+    /** m-dialog「扫描进度」开关 */
+    var isScanProgressOpen by mutableStateOf(false)
+        private set
+
+    /** 扫描进度统一 UI 流（本地/WebDAV 扫描器各自持有 StateFlow，startScan 时转发到此处） */
+    private val _scanProgress = MutableStateFlow(ScanProgress())
+    val scanProgress: StateFlow<ScanProgress> = _scanProgress.asStateFlow()
+
+    /** 扫描失败信息（非空 = 进度弹窗显示「扫描失败」态，对照 Web stage=failed + message） */
+    var scanError by mutableStateOf<String?>(null)
+        private set
+
+    /** 扫描结果汇总 toast 文案（单次事件，UI 消费后调 [clearScanResultMessage] 置空） */
+    var scanResultMessage by mutableStateOf<String?>(null)
+        private set
+
+    /** 防重入标记：扫描进行中禁止再次 startScan / 关闭进度弹窗 */
+    private var isScanning = false
 
     fun openAddActionSheet() {
         isAddActionSheetOpen = true
@@ -101,6 +141,75 @@ class SourcesViewModel @Inject constructor(
         pendingEdit = null
     }
 
+    // ── 扫描流程方法 ──────────────────────────────
+
+    /** 打开「扫描设置」弹窗；readTags 默认值对齐 Web（WebDAV 不读标签） */
+    fun openScanSettings(source: Source) {
+        pendingScanSource = source
+        scanReadTags = source.type != SourceType.WEBDAV
+    }
+
+    /** 关闭「扫描设置」弹窗 */
+    fun closeScanSettings() {
+        pendingScanSource = null
+    }
+
+    /** 更新「读取音乐标签」开关 */
+    fun updateScanReadTags(value: Boolean) {
+        scanReadTags = value
+    }
+
+    /** 关闭「扫描进度」弹窗（扫描进行中禁止关闭，双保险） */
+    fun dismissScanProgress() {
+        if (isScanning) return
+        isScanProgressOpen = false
+        scanError = null
+        clearScanResultMessage()
+    }
+
+    /** UI 消费完 toast 文案后置空（单次事件语义） */
+    fun clearScanResultMessage() {
+        scanResultMessage = null
+    }
+
+    /** 开始扫描：关设置开进度 → 按音源类型分派扫描器 → replaceSourceSongs → 结果汇总/异常入状态 */
+    fun startScan() {
+        val source = pendingScanSource ?: return
+        if (isScanning) return
+        closeScanSettings()
+        isScanProgressOpen = true
+        isScanning = true
+        viewModelScope.launch {
+            // 按类型分派：WebDAV 走 PROPFIND+缓存下载扫描器，本地走 MediaStore 扫描器；
+            // 两扫描器无公共接口（各自 scan 语义差异大），此处直接分支取流/调扫描
+            val isWebdav = source.type == SourceType.WEBDAV
+            // 把当前扫描器的进度转发到统一的 UI 流，
+            // 转发协程随扫描结束在 finally 中取消（最简转发方案，不引入合并流复杂度）
+            val progressJob = launch {
+                val progressFlow = if (isWebdav) webDavScanner.scanProgress else scanner.scanProgress
+                progressFlow.collect { _scanProgress.value = it }
+            }
+            try {
+                val songs = if (isWebdav) {
+                    webDavScanner.scan(source, readTags = scanReadTags)
+                } else {
+                    scanner.scan(source, readTags = scanReadTags)
+                }
+                songRepository.replaceSourceSongs(source.id, songs)
+                scanResultMessage = "扫描完成：共 ${songs.size} 首。"
+            } catch (e: CancellationException) {
+                // VM 销毁导致的协程取消：原样抛出交回结构化并发，不误报「扫描失败」
+                throw e
+            } catch (e: Exception) {
+                // scanner 内部 progress 流已中断，异常消息写入 scanError 供进度弹窗显示失败态
+                scanError = e.message ?: "扫描失败"
+            } finally {
+                progressJob.cancel()
+                isScanning = false
+            }
+        }
+    }
+
     /** 编辑保存：upsert + touch updatedAt（Web updateSource 同语义） */
     fun updateEditedSource(source: Source, name: String, path: String) {
         if (name.isBlank() || path.isBlank()) return
@@ -108,6 +217,8 @@ class SourcesViewModel @Inject constructor(
             sourceRepository.upsert(
                 source.copy(name = name, path = path, updatedAt = System.currentTimeMillis()),
             )
+            // 源变更后同步播放认证注册表（本地源无影响，refresh 幂等开销可忽略）
+            webDavAuthRegistry.refresh()
         }
     }
 
@@ -193,6 +304,8 @@ class SourcesViewModel @Inject constructor(
             if (form.type == SourceType.WEBDAV && form.webdavPassword.isNotEmpty()) {
                 credentialsRepository.savePassword(id, form.webdavPassword)
             }
+            // 源新增后立即同步播放认证注册表，避免播放流播首次请求才懒加载到旧数据
+            webDavAuthRegistry.refresh()
 
             dismissAddForm()
         }
@@ -203,6 +316,10 @@ class SourcesViewModel @Inject constructor(
         viewModelScope.launch {
             sourceRepository.deleteById(source.id)
             credentialsRepository.clearPassword(source.id)
+            // 同步清理该音源入库歌曲（对齐 Web executeDeleteSource → reconcileSourceSongs(id, [])）
+            songRepository.deleteSourceSongs(source.id)
+            // 源删除后同步播放认证注册表，移除残留凭据映射
+            webDavAuthRegistry.refresh()
         }
     }
 }

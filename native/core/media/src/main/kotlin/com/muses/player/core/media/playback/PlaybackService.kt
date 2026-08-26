@@ -41,7 +41,10 @@ import javax.inject.Inject
 class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
-    private val okHttpClient by lazy { OkHttpClient.Builder().build() }
+
+    /** Hilt 提供的共享客户端：带 WebDAV 认证 interceptor（播放流播用）与 NAS 友好超时 */
+    @Inject
+    lateinit var okHttpClient: OkHttpClient
 
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var songDao: SongDao
@@ -257,20 +260,5 @@ class PlaybackService : MediaSessionService() {
         }
         mediaSession = null
         super.onDestroy()
-    }
-
-    /**
-     * 构建带 Authorization header 的 MediaItem（用于 WebDAV 流播）。
-     */
-    fun buildWebDavMediaItem(url: String, songId: String, authHeader: String): MediaItem {
-        return MediaItem.Builder()
-            .setMediaId(songId)
-            .setUri(url.toUri())
-            .setRequestMetadata(
-                MediaItem.RequestMetadata.Builder()
-                    .setMediaUri(url.toUri())
-                    .build()
-            )
-            .build()
     }
 }
