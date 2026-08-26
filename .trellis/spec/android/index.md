@@ -79,11 +79,24 @@ app (UI 宿主、导航、引导)
 - `WebDavAudioCache`：LRU 500MB 上限，`.meta` 与 cache 同名前缀关联（勿二次哈希）
 - 密码仅在内存中持有，不持久化到网络层
 
+## 错误日志设施（任务 08-26-settings-log-viewer）
+
+- `ErrorLogStore`（core:data/log）：接口 + `@Binds @Singleton` 绑定在 `RepositoryModule`；
+  仅收 WARN/ERROR 到内存环形缓冲（ArrayDeque cap=500，synchronized）
+- **埋点规则**：新代码的静默 catch 必须补 `errorLogStore.log(ERROR, tag, msg, e)`；
+  挂起调用外包 catch 时前置 `catch (e: CancellationException) { throw e }`（不计日志、原样重抛）
+- `CrashHandler`：`MusesApplication.onCreate` 安装（super.onCreate 之后）；install 全程 try-catch
+  不抛异常；崩溃时写 `filesDir/error_log/crash-latest.txt` 后**必须委托原 handler**；启动读回后删文件
+- 设置页「反馈」分组消费：副标题 `latestSummary`，点击复制 `dump()` 全文；
+  同一实现双接口绑定（查询 `ErrorLogStore` / 序列化 `ErrorLogCrashPersistence`）避免 Application 注入实现类
+- 新增埋点时勿扩 diff 半径顺手改其它静默 catch——逐任务增量接入
+
 ## 构建验证命令
 
 ```bash
 # 仓库根执行；多 flavor 项目装包/编译验证一律 assembleMusesDebug（裸 assembleDebug 是无效旧 variant）
-JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew :app:assembleMusesDebug :lintDebug testDebugUnitTest
+# lint 任务在 :app 上（root 非 Android 项目无 :lintDebug）：:app:lintMusesDebug
+JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew :app:assembleMusesDebug :app:lintMusesDebug testDebugUnitTest
 ```
 
 ## 禁止模式

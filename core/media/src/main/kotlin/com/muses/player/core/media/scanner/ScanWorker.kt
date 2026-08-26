@@ -29,6 +29,7 @@ class ScanWorker(
         fun songRepository(): com.muses.player.core.data.repository.SongRepository
         fun sourceRepository(): com.muses.player.core.data.repository.SourceRepository
         fun settingsRepository(): com.muses.player.core.data.repository.SettingsRepository
+        fun errorLogStore(): com.muses.player.core.data.log.ErrorLogStore
     }
 
     private fun deps(): Deps = EntryPointAccessors.fromApplication(
@@ -55,7 +56,16 @@ class ScanWorker(
             )
             deps.settingsRepository().updateLastScanTimestamp(System.currentTimeMillis())
             Result.success(workDataOf(KEY_SCANNED_COUNT to songs.size))
-        } catch (_: Exception) {
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // 协程取消不得吞（spec 陷阱 #14），也不计入失败重试
+            throw e
+        } catch (e: Exception) {
+            deps.errorLogStore().log(
+                com.muses.player.core.data.log.ErrorLogStore.Level.ERROR,
+                "LibraryScan",
+                "后台扫描失败（attempt=${runAttemptCount + 1}）：${e.message ?: e::class.java.simpleName}",
+                e,
+            )
             if (runAttemptCount < MAX_RETRIES) Result.retry() else Result.failure()
         }
     }

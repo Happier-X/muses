@@ -1,5 +1,6 @@
 package com.muses.player.core.media.scanner
 
+import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.Source
@@ -28,6 +29,7 @@ import kotlinx.coroutines.withContext
 class WebDavLibraryScanner @Inject constructor(
     private val webDavClient: WebDavClient,
     private val credentialsRepository: CredentialsRepository,
+    private val errorLogStore: ErrorLogStore,
 ) {
 
     private val progressInternal = MutableStateFlow(ScanProgress())
@@ -54,7 +56,15 @@ class WebDavLibraryScanner @Inject constructor(
             progressInternal.value = ScanProgress(current = files.size, total = files.size, finished = true)
             songs
         } catch (e: Exception) {
-            // 发现/认证等整体失败：进度置终态，异常由调用方展示失败态文案
+            // 发现/认证等整体失败：留痕后进度置终态，异常由调用方展示失败态文案
+            if (e !is kotlinx.coroutines.CancellationException) {
+                errorLogStore.log(
+                    ErrorLogStore.Level.ERROR,
+                    "WebDavScan",
+                    "扫描失败（${source.name}）：${e.message ?: e::class.java.simpleName}",
+                    e,
+                )
+            }
             progressInternal.value = ScanProgress(finished = true)
             throw e
         }

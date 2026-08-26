@@ -4,6 +4,9 @@ import com.muses.player.core.data.dao.AlbumDao
 import com.muses.player.core.data.dao.ArtistDao
 import com.muses.player.core.data.dao.SourceDao
 import com.muses.player.core.data.dao.SongDao
+import com.muses.player.core.data.log.ErrorLogCrashPersistence
+import com.muses.player.core.data.log.ErrorLogStore
+import com.muses.player.core.data.log.RingBufferErrorLogStore
 import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.data.mapper.toEntity
 import com.muses.player.core.model.Album
@@ -209,4 +212,14 @@ internal abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindCryptoEngine(impl: AndroidKeystoreCryptoEngine): CryptoEngine
+
+    /** 错误日志环形缓冲（任务 08-26-settings-log-viewer） */
+    @Binds
+    @Singleton
+    abstract fun bindErrorLogStore(impl: RingBufferErrorLogStore): ErrorLogStore
+
+    /** 崩溃持久化能力（CrashHandler 专用，同一实现双接口绑定） */
+    @Binds
+    @Singleton
+    abstract fun bindErrorLogCrashPersistence(impl: RingBufferErrorLogStore): ErrorLogCrashPersistence
 }

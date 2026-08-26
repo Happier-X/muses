@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/index.md", "reason": "检查分层合规：feature 禁直接依赖实现库、接口+@Binds 模式"}
+{"file": ".trellis/spec/android/features-salt-ui.md", "reason": "校验设置页新增分组是否符合 Salt 设计令牌与 m-* 映射"}

@@ -19,6 +19,7 @@ import androidx.media3.session.MediaSessionService
 import androidx.media3.datasource.cache.SimpleCache
 import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.mapper.toDomain
+import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.PlaybackStateRepository
 import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.data.repository.SettingsRepository
@@ -57,6 +58,7 @@ class PlaybackService : MediaSessionService() {
     @Inject lateinit var playbackStateRepository: PlaybackStateRepository
     @Inject lateinit var recentPlaysRepository: RecentPlaysRepository
     @Inject lateinit var recoveryController: PlaybackRecoveryController
+    @Inject lateinit var errorLogStore: ErrorLogStore
 
     private var saveJob: kotlinx.coroutines.Job? = null
 
@@ -196,6 +198,14 @@ class PlaybackService : MediaSessionService() {
          */
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
             val player = mediaSession?.player ?: return
+
+            // R2 埋点：播放失败留痕（含限流/恢复链分支），供设置页复制反馈
+            errorLogStore.log(
+                ErrorLogStore.Level.ERROR,
+                "Playback",
+                "播放失败：${PlaybackErrorCopy.copyFor(error)}（code=${error.errorCode}）",
+                error,
+            )
 
             // 服务级拒绝（限流 429 / 网关故障 5xx）：服务器整体不可用，跳歌只会继续撞墙
             // 并持续触发请求加重限流（实测 465 首队列轮询切歌）——直接停止，等用户手动重试。

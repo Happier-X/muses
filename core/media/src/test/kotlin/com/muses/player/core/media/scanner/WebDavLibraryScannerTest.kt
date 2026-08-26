@@ -2,6 +2,7 @@ package com.muses.player.core.media.scanner
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
@@ -37,7 +38,7 @@ class WebDavLibraryScannerTest {
         context = ApplicationProvider.getApplicationContext()
         client = FakeWebDavClient()
         credentials = FakeCredentialsRepository(password = "secret")
-        scanner = WebDavLibraryScanner(client, credentials)
+        scanner = WebDavLibraryScanner(client, credentials, FakeErrorLogStore())
     }
 
     private fun webDavSource() = Source(
@@ -177,6 +178,17 @@ class WebDavLibraryScannerTest {
             getStringCalls.add(url)
             return null
         }
+    }
+
+    /** 内存版错误日志（埋点不影响断言；密码缺失用例可校验 error 留痕） */
+    private class FakeErrorLogStore : ErrorLogStore {
+        val entries = mutableListOf<String>()
+        override fun log(level: ErrorLogStore.Level, tag: String, message: String, throwable: Throwable?) {
+            entries.add("$tag/$message")
+        }
+
+        override val latestSummary = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+        override suspend fun dump(): String? = null
     }
 
     private class FakeCredentialsRepository(var password: String?) : CredentialsRepository {
