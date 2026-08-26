@@ -54,6 +54,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** MiniPlayerBar 的数据快照（对照 MiniPlayer.vue 的 playerState.currentSong 消费口径） */
 data class NowPlayingUiState(
@@ -68,6 +69,7 @@ data class NowPlayingUiState(
 class MainViewModel @Inject constructor(
     private val playerConnection: PlayerConnection,
     private val songDao: SongDao,
+    private val songRepository: com.muses.player.core.data.repository.SongRepository,
     settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
@@ -90,6 +92,13 @@ class MainViewModel @Inject constructor(
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** 存量库专辑/艺术家索引回填（幂等） */
+    fun rebuildLibraryIndexes() {
+        viewModelScope.launch {
+            runCatching { songRepository.rebuildDerivedIndexes() }
+        }
+    }
 
     fun connectPlayer() {
         playerConnection.connect()
@@ -117,6 +126,8 @@ fun MusesApp() {
     // 连接播放服务
     LaunchedEffect(Unit) {
         viewModel.connectPlayer()
+        // 存量库回填：albums/artists 索引此前无维护方，启动时幂等重建一次
+        viewModel.rebuildLibraryIndexes()
     }
 
     // 请求权限

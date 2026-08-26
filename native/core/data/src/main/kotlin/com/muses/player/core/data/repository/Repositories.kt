@@ -26,6 +26,8 @@ interface SongRepository {
     suspend fun replaceSourceSongs(sourceId: String, songs: List<Song>)
     /** 删除该音源下全部歌曲（删除音源时同步清理，对齐 Web reconcileSourceSongs(id, [])） */
     suspend fun deleteSourceSongs(sourceId: String)
+    /** 从全库歌曲重建专辑/艺术家派生索引（存量库升级回填；写入路径已自动触发） */
+    suspend fun rebuildDerivedIndexes()
     /** 按 id 取单曲（M3 刮削写回链路） */
     suspend fun getSong(id: String): Song?
     /** 单曲写入/更新（M3 刮削写回链路，对齐 Web upsertSong） */
@@ -35,22 +37,86 @@ interface SongRepository {
 @Singleton
 class RoomSongRepository @Inject constructor(
     private val songDao: SongDao,
+    private val albumDao: com.muses.player.core.data.dao.AlbumDao,
+    private val artistDao: com.muses.player.core.data.dao.ArtistDao,
 ) : SongRepository {
     override fun observeSongs(): Flow<List<Song>> =
         songDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
     override suspend fun replaceSourceSongs(sourceId: String, songs: List<Song>) {
         songDao.replaceSourceSongs(sourceId, songs.map { it.toEntity() })
+        rebuildDerivedIndexes()
     }
 
     override suspend fun deleteSourceSongs(sourceId: String) {
         songDao.deleteBySource(sourceId)
+        rebuildDerivedIndexes()
     }
 
     override suspend fun getSong(id: String): Song? = songDao.getById(id)?.toDomain()
 
     override suspend fun upsert(song: Song) {
         songDao.upsert(song.toEntity())
+        // 懒扫描回写可能改变专辑/艺术家归属，同步重建派生索引
+        rebuildDerivedIndexes()
+    }
+
+    /**
+     * 从全库 songs 重建 albums/artists 索引与 cross refs（派生数据，全量重建幂等）。
+     * M1 遗留缺口补齐：albums/artists 表此前无任何写入方，专辑/艺术家页恒为空。
+     * id 约定："album:<标题>" / "artist:<名称>"（稳定可读，详情路由内部自洽）；
+     * 无标题归入「未知专辑」、无艺术家归入「未知艺术家」（与列表页兜底文案一致）。
+     */
+    override suspend fun rebuildDerivedIndexes() {
+        val all = songDao.getAll()
+        if (all.isEmpty()) {
+            albumDao.deleteAll()
+            artistDao.deleteAll()
+            songDao.clearSongAlbumRefs()
+            songDao.clearSongArtistRefs()
+            return
+        }
+
+        val albumRefs = mutableListOf<com.muses.player.core.data.db.SongAlbumCrossRef>()
+        val artistRefs = mutableListOf<com.muses.player.core.data.db.SongArtistCrossRef>()
+
+        val albums = all
+            .groupBy { it.albumTitle?.trim()?.takeIf { t -> t.isNotEmpty() } ?: "未知专辑" }
+            .map { (title, group) ->
+                val albumId = "album:$title"
+                group.forEach { song ->
+                    albumRefs += com.muses.player.core.data.db.SongAlbumCrossRef(song.id, albumId)
+                }
+                com.muses.player.core.data.db.AlbumEntity(
+                    id = albumId,
+                    title = title,
+                    artist = group.mapNotNull { it.artist }.distinct().firstOrNull(),
+                    songCount = group.size,
+                )
+            }
+
+        val artists = all
+            .groupBy { it.artist?.trim()?.takeIf { a -> a.isNotEmpty() } ?: "未知艺术家" }
+            .map { (name, group) ->
+                val artistId = "artist:$name"
+                group.forEach { song ->
+                    artistRefs += com.muses.player.core.data.db.SongArtistCrossRef(song.id, artistId)
+                }
+                com.muses.player.core.data.db.ArtistEntity(
+                    id = artistId,
+                    name = name,
+                    songCount = group.size,
+                )
+            }
+
+        albumDao.deleteAll()
+        albumDao.insertAll(albums)
+        artistDao.deleteAll()
+        artistDao.insertAll(artists)
+        songDao.clearSongAlbumRefs()
+        songDao.insertSongAlbumRefs(albumRefs)
+        songDao.clearSongArtistRefs()
+        songDao.insertSongArtistRefs(artistRefs)
     }
 }
 
