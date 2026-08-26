@@ -23,6 +23,8 @@ data class EditMetaUiState(
     val artist: String = "",
     val album: String = "",
     val searching: Boolean = false,
+    /** 云搜失败标记（网络等异常；UI 显示重试提示） */
+    val searchFailed: Boolean = false,
     val result: EditCloudMetaResult? = null,
     /** 选中的封面候选下标；null = 不改封面 */
     val selectedCoverIndex: Int? = null,
@@ -84,15 +86,19 @@ class EditMetaViewModel @Inject constructor(
                 val bestAlbum = result.text.items.firstOrNull()?.album ?: state.album.ifEmpty { null }
                 _ui.value = _ui.value.copy(
                     searching = false,
+                    searchFailed = false,
                     result = result,
                     selectedCoverIndex = 0, // 默认选中最优封面
                     title = bestTitle,
                     artist = bestArtist.orEmpty(),
                     album = bestAlbum.orEmpty(),
                 )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // 前置 rethrow：VM 销毁时交回结构化并发（spec 陷阱 #14，禁止吞取消）
+                throw e
             } catch (e: Exception) {
-                // 网络等失败：保持输入，清结果（FailureCopy 语义在写回层）
-                _ui.value = _ui.value.copy(searching = false, result = null)
+                // 网络等失败：保持输入，清结果并置失败标记（FailureCopy 语义在写回层）
+                _ui.value = _ui.value.copy(searching = false, searchFailed = true, result = null)
             }
         }
     }

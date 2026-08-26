@@ -79,6 +79,14 @@ fun EditMetaSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            if (ui.searchFailed && ui.result == null) {
+                Text(
+                    "云端搜索失败，请检查网络后重试",
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                )
+            }
+
             // 云搜按钮 / 进行中 / 结果封面候选
             when {
                 ui.searching -> Row(

@@ -63,6 +63,10 @@ class ScrapeViewModel @Inject constructor(
     private val _queueSongIds = MutableStateFlow<List<String>>(emptyList())
     val queueSongIds: StateFlow<List<String>> = _queueSongIds.asStateFlow()
 
+    /** songId → 歌名（队列只持久化 songId，展示时反查库；缺失回退占位文案） */
+    private val _queueTitles = MutableStateFlow<Map<String, String>>(emptyMap())
+    val queueTitles: StateFlow<Map<String, String>> = _queueTitles.asStateFlow()
+
     // ---- 四态机 ----
     private val _pageState = MutableStateFlow<ScrapePageState>(ScrapePageState.Queue)
     val pageState: StateFlow<ScrapePageState> = _pageState.asStateFlow()
@@ -81,7 +85,12 @@ class ScrapeViewModel @Inject constructor(
 
     fun reloadQueue() {
         viewModelScope.launch {
-            _queueSongIds.value = queueStore.load().map { it.songId }
+            val ids = queueStore.load().map { it.songId }
+            _queueSongIds.value = ids
+            // 对齐 Web 版队列行显示歌名（ScrapePage.vue 队列项 title）；查不到的由 UI 回退
+            _queueTitles.value = ids.mapNotNull { id ->
+                songRepository.getSong(id)?.let { id to it.title }
+            }.toMap()
         }
     }
 

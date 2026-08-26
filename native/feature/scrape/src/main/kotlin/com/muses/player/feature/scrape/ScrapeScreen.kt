@@ -14,13 +14,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -64,6 +61,7 @@ fun ScrapeScreen(
         when (val state = pageState) {
             is ScrapePageState.Queue -> QueueStateContent(
                 queueSongIds = queueSongIds,
+                queueTitles = viewModel.queueTitles.collectAsState().value,
                 onRemove = { viewModel.removeFromQueue(listOf(it)) },
                 onClear = { viewModel.clearQueue() },
                 onStartAll = { viewModel.startMatching() },
@@ -93,6 +91,7 @@ fun ScrapeScreen(
 @Composable
 private fun QueueStateContent(
     queueSongIds: List<String>,
+    queueTitles: Map<String, String>,
     onRemove: (String) -> Unit,
     onClear: () -> Unit,
     onStartAll: () -> Unit,
@@ -113,25 +112,18 @@ private fun QueueStateContent(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             items(queueSongIds, key = { it }) { songId ->
-                // 歌名展示：队列只存 songId，行内显示截断 id 的可读形态由歌曲页标记时保证在库
+                // 队列只持久化 songId，歌名展示时反查库（对齐 Web 版队列行 title）
                 Row(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "待刮削歌曲",
+                        text = queueTitles[songId] ?: "待刮削歌曲",
                         fontSize = 16.sp,
                         color = salt.text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
-                    )
-                    Icon(
-                        Icons.Filled.Close,
-                        contentDescription = "移除",
-                        tint = salt.text2,
-                        modifier = Modifier
-                            .size(20.dp)
-                            .let { it }
-                            .also { },
                     )
                     SaltTextButton(text = "移除", onClick = { onRemove(songId) })
                 }
