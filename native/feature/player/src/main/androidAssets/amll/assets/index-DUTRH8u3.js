@@ -9535,3 +9535,8 @@ fi.addEventListener("click", () => Sn());
 _n.addEventListener("click", () => Sn());
 Ce.addEventListener("touchend", () => Kh(false));
 Ce.addEventListener("touchcancel", () => Kh(true));
+if (window.nativeBridge) try {
+  window.nativeBridge.onAction(JSON.stringify({ action: "ready" }));
+} catch (i) {
+  console.error("[amll-web] ready handshake failed", i);
+}

@@ -539,4 +539,15 @@ fabPlay.addEventListener('click', () => scheduleLyricChromeHide())
 playerUi.addEventListener('touchend', () => finishTouch(false))
 playerUi.addEventListener('touchcancel', () => finishTouch(true))
 
+// 就绪握手：ES module 异步执行，onPageFinished 时 window.updatePlayerState 尚未定义，
+// Kotlin 首轮注入会静默丢失（表现为打开播放页黑屏）。模块尾部主动上报 ready，
+// Kotlin 收到后立即全量重推当前状态与歌词载荷。
+if (window.nativeBridge) {
+	try {
+		window.nativeBridge.onAction(JSON.stringify({ action: 'ready' }))
+	} catch (err) {
+		console.error('[amll-web] ready handshake failed', err)
+	}
+}
+
 export { currentSongId }

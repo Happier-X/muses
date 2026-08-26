@@ -29,6 +29,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.io.File
 
+/** 前端模块就绪握手动作（P4.4：修复 onPageFinished 早于 ES module 执行导致首轮注入丢失的黑屏） */
+private const val BRIDGE_ACTION_READY = "{\"action\":\"ready\"}"
+
 /** AMLL WebView 页面地址（经 WebViewAssetLoader 以 https 源安全加载 APK assets） */
 private const val AMLL_START_URL = "https://appassets.androidplatform.net/assets/amll/index.html"
 
@@ -122,6 +125,11 @@ fun AmllWebView(
     // 桥回调经 ref 转发：factory 闭包只捕获一次，后续重组更新 lambda 不重建 WebView
     val onBridgeActionRef = remember { mutableStateOf(onBridgeAction) }
     onBridgeActionRef.value = onBridgeAction
+    // 最新载荷 ref：ready 握手时重推用（避免闭包捕获过期值）
+    val playerStateRef = remember { mutableStateOf(playerStateJson) }
+    playerStateRef.value = playerStateJson
+    val payloadRef = remember { mutableStateOf(payloadJson) }
+    payloadRef.value = payloadJson
 
     AndroidView(
         modifier = modifier,
@@ -146,7 +154,28 @@ fun AmllWebView(
                 // 保证调用方 lambda 可安全触碰 Compose 状态 / ViewModel
                 val mainHandler = Handler(Looper.getMainLooper())
                 addJavascriptInterface(
-                    NativeBridge { json -> mainHandler.post { onBridgeActionRef.value(json) } },
+                    NativeBridge { json ->
+                        mainHandler.post {
+                            if (json == BRIDGE_ACTION_READY) {
+                                // 前端 module 就绪握手：onPageFinished 时 ES module 尚未执行完，
+                                // 首轮 updatePlayerState/updateLyrics 注入会静默丢失——这里全量重推
+                                playerStateRef.value?.let {
+                                    webViewHolder.value?.evaluateJavascript(
+                                        "window.updatePlayerState(${AmllMapper.quote(it)})",
+                                        null,
+                                    )
+                                }
+                                payloadRef.value?.let {
+                                    webViewHolder.value?.evaluateJavascript(
+                                        "window.updateLyrics(${AmllMapper.quote(it)})",
+                                        null,
+                                    )
+                                }
+                            } else {
+                                onBridgeActionRef.value(json)
+                            }
+                        }
+                    },
                     "nativeBridge",
                 )
 
