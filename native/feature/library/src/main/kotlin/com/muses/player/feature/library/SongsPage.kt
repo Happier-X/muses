@@ -331,7 +331,8 @@ fun SongsPage(
                                 }
                             }
                         },
-                        dividers = true,
+                        // Web 版 <m-list :dividers="false">：椒盐歌曲列表无行间分割线
+                        dividers = false,
                     )
                 }
             }

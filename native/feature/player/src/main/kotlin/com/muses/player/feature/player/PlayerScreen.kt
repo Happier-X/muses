@@ -72,6 +72,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -1123,9 +1124,18 @@ fun QueueScreen(
                 itemsIndexed(queue, key = { _, item -> item.mediaId }) { index, item ->
                     val isCurrent = index == currentIndex
                     Box(
-                        Modifier.background(
-                            if (isCurrent) Color.White.copy(alpha = 0.1f) else Color.Transparent,
-                        ),
+                        Modifier
+                            .background(
+                                if (isCurrent) Color.White.copy(alpha = 0.1f) else Color.Transparent,
+                            )
+                            // Web .queue-page__row border-bottom 1px hairline（暗色沉浸页用白系低透明近似）
+                            .drawBehind {
+                                drawRect(
+                                    color = Color.White.copy(alpha = 0.08f),
+                                    topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - 1f),
+                                    size = androidx.compose.ui.geometry.Size(size.width, 1f),
+                                )
+                            },
                     ) {
                         Row(
                             Modifier
