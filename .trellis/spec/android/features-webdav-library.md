@@ -8,7 +8,7 @@
 
 | 组件 | 层 | 职责 | 关键签名 |
 |---|---|---|---|
-| WebDavLibraryScanner | core:media | BFS PROPFIND 发现 + 可选读标签，只产出不入库 | `suspend fun scan(source: Source, readTags: Boolean): List<Song>` |
+| WebDavLibraryScanner | core:media | BFS PROPFIND 纯发现 + 文件名建库（零下载），只产出不入库 | `suspend fun scan(source: Source): List<Song>`；`buildSidecarLyricsUrl(url)` 供播放懒扫描复用 |
 | LocalLibraryScanner | core:media | MediaStore 本地扫描；`isSupportedAudio`/`stableSongId`/`TAGS_VERSION` 为两扫描器共用常量方法 | `suspend fun scan(source: Source? = null, readTags: Boolean = true): List<Song>` |
 | CoverCacheWriter | core:media | 封面落盘 cache/covers/<sha256>.jpg（两扫描器共用，禁止回退私有实现） | `fun write(context, cacheKey, bytes): String?` |
 | WebDavAudioCache（接口） | core:webdav | 播放 LRU 缓存抽象（500MB）；磁盘实现 DiskWebDavAudioCache 经 @Binds 注入，测试注入内存 fake | `getCachedFile(url): File?` / `putToCache(url, file, eTag?, lastModified?)` |
@@ -17,13 +17,15 @@
 ## 入库与删除契约
 
 - 扫描器不写库：产出 `List<Song>` 后由 ViewModel/Worker 调 `SongRepository.replaceSourceSongs(sourceId, songs)`
+- 标签回写是懒扫描唯一入库路径：`songRepository.upsert(带 tagsVersion=TAGS_VERSION 的 Song)`
 - **删除音源必须同步清理歌曲**：`deleteSource` = deleteById + clearPassword + `songRepository.deleteSourceSongs(id)` + registry.refresh()（漏掉第三步会出现「源删了歌还在」）
 - Song.path 对 WEBDAV 一律存完整 HTTP URL；id 用 `stableSongId(sourceId, url)`
 
 ## 播放契约（限流教训，勿回退）
 
 - **WEBDAV 曲目播放 = 整文件入缓存后 file:// 播**（对齐旧版 getOrDownload）：未命中缓存的先经 `client.get` 单次 GET 进缓存再播。
-- **禁止**让 ExoPlayer 直接对 WebDAV URL 流播无时长元数据（readTags=false 扫描产物 durationMs=0）的 mp3/flac——ExoPlayer 会发探测性 Range 分段请求（单首可达十余个），叠加失败恢复链跳歌重试形成请求风暴，触发网关（Cloudflare）429 全站限流。
+- **禁止**让 ExoPlayer 直接对 WebDAV URL 流播无时长元数据（文件名建库产物 durationMs=0）的 mp3/flac——ExoPlayer 会发探测性 Range 分段请求（单首可达十余个），叠加失败恢复链跳歌重试形成请求风暴，触发网关（Cloudflare）429 全站限流。
+- **标签读取只在播放时懒扫描**（用户决策 2026-08-26：扫描期「读取音乐标签」功能已删除）：PlayerConnection 在当前曲入缓存后调 `lazyScanTags`——TagReader + sidecar .lrc + CoverCacheWriter → `songRepository.upsert` 回写（Room Flow 自动刷新列表）。幂等键：文件名建库 tagsVersion=0（FILENAME_TAGS_VERSION），懒扫描成功写 TAGS_VERSION；失败静默保持文件名歌下次重试。本地源扫描仍保留 readTags 开关（无网络成本）。
 - 认证统一走 OkHttpClient Interceptor + WebDavAuthRegistry；interceptor **不得覆盖请求已携带的 Authorization**（避免压掉 OkHttpWebDavClient.authenticate 的手动 header）。PlaybackService 禁止自建裸 OkHttpClient。
 - 预取模式（PlayerConnection.prefetchScope）：串行下载、换队列 cancel 旧任务、单首失败回退 http URL 不阻塞队列、完成后 mainHandler.post 回主线程 setMediaItems（Media3 主线程铁律）。
 - 凭据生命周期：源 save/update/delete 及引导页保存四处都必须调 `registry.refresh()`。
@@ -34,11 +36,11 @@
 |---|---|
 | 密码缺失 | WebDAV 密码不存在，请重新添加该音源。 |
 | 认证被拒 | WebDAV 认证失败（HTTP xxx）（来自 WebDavAuthException/WebDavRequestException） |
-| 单文件读标签失败 | 静默降级为文件名建歌，不中断整体扫描 |
+| 懒扫描读标签失败 | 静默保持文件名歌，下次播放重试（不阻塞播放） |
 
 ## 测试锚点
 
-- WebDavLibraryScannerTest：扩展名过滤+递归 / readTags=false 零下载 / 读标签降级不中断 / 缓存命中零下载 / 密码缺失抛错且进度置终态
+- WebDavLibraryScannerTest：扩展名过滤+递归 / 扫描零下载 / sidecar URL 构造 / 密码缺失抛错且进度置终态 / 文件名建库 tagsVersion=0
 - WebDavAuthRegistryTest：最长前缀匹配 / 无匹配 null / refresh 生效 / null user Basic 编码 / `'/'` 边界不误命中
 - 挂起调用外包 catch 时必须前置 `catch (e: CancellationException) { throw e }`（两 scanner 与 PlayerConnection 预取均有示范）
 

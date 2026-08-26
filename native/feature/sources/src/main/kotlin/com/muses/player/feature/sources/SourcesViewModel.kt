@@ -143,10 +143,14 @@ class SourcesViewModel @Inject constructor(
 
     // ── 扫描流程方法 ──────────────────────────────
 
-    /** 打开「扫描设置」弹窗；readTags 默认值对齐 Web（WebDAV 不读标签） */
+    /** 打开「扫描设置」弹窗；WebDAV 无选项（标签改由播放懒扫描）直接开扫，仅本地源弹窗 */
     fun openScanSettings(source: Source) {
         pendingScanSource = source
-        scanReadTags = source.type != SourceType.WEBDAV
+        if (source.type == SourceType.WEBDAV) {
+            startScan()
+            return
+        }
+        scanReadTags = true
     }
 
     /** 关闭「扫描设置」弹窗 */
@@ -191,7 +195,7 @@ class SourcesViewModel @Inject constructor(
             }
             try {
                 val songs = if (isWebdav) {
-                    webDavScanner.scan(source, readTags = scanReadTags)
+                    webDavScanner.scan(source)   // WebDAV：纯文件名建库，标签播放时懒扫描
                 } else {
                     scanner.scan(source, readTags = scanReadTags)
                 }

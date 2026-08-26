@@ -12,7 +12,13 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import com.muses.player.core.data.repository.SongRepository
+import com.muses.player.core.media.metadata.TagReader
+import com.muses.player.core.media.scanner.CoverCacheWriter
+import com.muses.player.core.media.scanner.LocalLibraryScanner
+import com.muses.player.core.media.scanner.WebDavLibraryScanner
 import com.muses.player.core.model.SourceType
+import com.muses.player.core.model.scrape.LyricsSource
 import com.muses.player.core.webdav.WebDavAudioCache
 import com.muses.player.core.webdav.WebDavClient
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -39,6 +45,8 @@ class PlayerConnection @Inject constructor(
     private val recoveryController: PlaybackRecoveryController,
     private val webDavCache: WebDavAudioCache,
     private val webDavClient: WebDavClient,
+    private val webDavLibraryScanner: WebDavLibraryScanner,
+    private val songRepository: SongRepository,
 ) {
 
     /** 最近一次播放失败的安全文案；用户主动操作后清空（P4 播放页消费） */
@@ -153,15 +161,51 @@ class PlayerConnection @Inject constructor(
             for (song in pendingDownloads) {
                 try {
                     ensureCached(song.path)
+                    // 当前曲入缓存后立即懒扫描标签（对齐 Web「播放器懒扫描」：用户只为真正会听的歌付出标签成本）
+                    if (song.id == songId) lazyScanTags(song)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
-                    // 单首下载失败不阻塞后续；applyPlayback 时该曲回退 http URL 流播
+                    // 单首下载/读标签失败不阻塞后续；applyPlayback 时该曲回退 http URL 流播
                 }
             }
             // Media3 铁律：controller 方法仅主线程可调
             mainHandler.post { if (controller != null) applyPlayback(songId, songs) }
         }
+    }
+
+    /**
+     * 播放时懒扫描（IO 线程）：缓存文件读标签/封面 + 同目录 .lrc sidecar，upsert 回库。
+     * Room Flow 驱动的列表自动刷新为真实标题。幂等：仅对 tagsVersion < TAGS_VERSION 的歌生效。
+     * 失败静默保持文件名歌（下次播放重试）。
+     */
+    private suspend fun lazyScanTags(song: com.muses.player.core.model.Song) {
+        if (song.tagsVersion >= WebDavLibraryScanner.TAGS_VERSION) return
+        val cached = webDavCache.getCachedFile(song.path) ?: return
+        val tags = TagReader.read(cached)
+        val sidecar = webDavLibraryScanner.buildSidecarLyricsUrl(song.path)
+            ?.let { webDavClient.getString(it) }?.trim()?.takeIf { it.isNotEmpty() }
+        val lyrics = tags.lyrics?.trim()?.takeIf { it.isNotEmpty() } ?: sidecar
+        val lyricsSource = when {
+            tags.lyrics?.trim()?.takeIf { it.isNotEmpty() } != null -> LyricsSource.EMBEDDED
+            sidecar != null -> LyricsSource.SIDECAR
+            else -> null
+        }
+        val songId = LocalLibraryScanner.stableSongId(song.sourceId, song.path)
+        songRepository.upsert(
+            song.copy(
+                title = tags.title?.trim()?.takeIf { it.isNotEmpty() } ?: song.title,
+                artist = tags.artist ?: song.artist,
+                album = tags.album ?: song.album,
+                durationMs = if (tags.durationSec > 0) tags.durationSec * 1000L else song.durationMs,
+                durationSec = if (tags.durationSec > 0) tags.durationSec else song.durationSec,
+                coverUri = tags.coverBytes?.let { CoverCacheWriter.write(context, songId, it) } ?: song.coverUri,
+                lyrics = lyrics ?: song.lyrics,
+                lyricsSource = lyricsSource ?: song.lyricsSource,
+                replayGainTrackDb = tags.replayGainTrackDb ?: song.replayGainTrackDb,
+                tagsVersion = WebDavLibraryScanner.TAGS_VERSION,
+            ),
+        )
     }
 
     private fun applyPlayback(songId: String, songs: List<com.muses.player.core.model.Song>) {

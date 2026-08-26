@@ -8,11 +8,9 @@ import com.muses.player.core.model.SourceType
 import com.muses.player.core.webdav.WebDavAudioCache
 import com.muses.player.core.webdav.WebDavClient
 import com.muses.player.core.webdav.WebDavItem
-import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -21,8 +19,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * WebDavLibraryScanner 单测（fake 注入 WebDavClient / WebDavAudioCache / CredentialsRepository）。
- * 覆盖：扩展名过滤、readTags=false 零下载、读标签失败降级、密码缺失抛错。
+ * WebDavLibraryScanner 单测（fake 注入 WebDavClient / CredentialsRepository）。
+ * 扫描器为纯发现+文件名建库（标签由播放懒扫描负责），覆盖：
+ * 扩展名过滤+递归 / 零下载 / 密码缺失抛错且进度置终态 / 文件名建库 tagsVersion=0。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -30,7 +29,6 @@ class WebDavLibraryScannerTest {
 
     private lateinit var context: Context
     private lateinit var client: FakeWebDavClient
-    private lateinit var cache: FakeAudioCache
     private lateinit var credentials: FakeCredentialsRepository
     private lateinit var scanner: WebDavLibraryScanner
 
@@ -38,9 +36,8 @@ class WebDavLibraryScannerTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         client = FakeWebDavClient()
-        cache = FakeAudioCache()
         credentials = FakeCredentialsRepository(password = "secret")
-        scanner = WebDavLibraryScanner(context, client, cache, credentials)
+        scanner = WebDavLibraryScanner(client, credentials)
     }
 
     private fun webDavSource() = Source(
@@ -54,7 +51,7 @@ class WebDavLibraryScannerTest {
         updatedAt = 0L,
     )
 
-    // ── ① 发现阶段扩展名过滤 ──────────────────────────
+    // ── ① 发现阶段扩展名过滤 + 递归 ──────────────────────
 
     @Test
     fun scan_filters_non_audio_files_and_recurses_directories() = runTest {
@@ -69,7 +66,7 @@ class WebDavLibraryScannerTest {
             file("ignored.exe", parent = "/music/sub"),
         )
 
-        val songs = scanner.scan(webDavSource(), readTags = false)
+        val songs = scanner.scan(webDavSource())
 
         assertEquals(listOf("01 - 开场", "track"), songs.map { it.title })
         assertEquals(
@@ -81,7 +78,10 @@ class WebDavLibraryScannerTest {
         )
         assertTrue(songs.all { it.sourceType == SourceType.WEBDAV })
         assertTrue(songs.all { it.sourceId == "src-1" })
-        assertTrue(songs.all { it.tagsVersion == LocalLibraryScanner.TAGS_VERSION })
+        // 文件名建库：tagsVersion=0（待播放懒扫描），无时长无封面
+        assertTrue(songs.all { it.tagsVersion == WebDavLibraryScanner.FILENAME_TAGS_VERSION })
+        assertTrue(songs.all { it.durationMs == 0L })
+        assertTrue(songs.all { it.coverUri == null })
         // 稳定 ID 与 LocalLibraryScanner.stableSongId 同源
         assertEquals(
             LocalLibraryScanner.stableSongId("src-1", songs[0].path),
@@ -93,56 +93,34 @@ class WebDavLibraryScannerTest {
         assertEquals(2, progress.total)
     }
 
-    // ── ② readTags=false 零下载 ──────────────────────────
+    // ── ② 扫描零下载（标签移交播放懒扫描） ──────────────────────
 
     @Test
-    fun scan_readTagsFalse_never_downloads() = runTest {
+    fun scan_never_downloads() = runTest {
         client.dirs["http://nas.local:5005/music"] = listOf(file("a.mp3"), dir("sub"))
         client.dirs["http://nas.local:5005/music/sub"] = listOf(file("b.ogg", parent = "/music/sub"))
 
-        val songs = scanner.scan(webDavSource(), readTags = false)
+        val songs = scanner.scan(webDavSource())
 
         assertEquals(2, songs.size)
-        assertEquals("readTags=false 不应触发任何下载", 0, client.downloadCalls.size)
+        assertEquals("扫描不应触发任何下载", 0, client.downloadCalls.size)
         assertEquals(0, client.getStringCalls.size)
-        assertTrue(cache.putCalls.isEmpty())
-        // 零标签快速建库
-        assertNull(songs[0].lyrics)
-        assertNull(songs[0].coverUri)
-        assertEquals(0L, songs[0].durationMs)
     }
 
-    // ── ③ 读标签失败降级为文件名，不中断整体 ──────────────
+    // ── ③ sidecar .lrc URL 构造 ──────────────────────────
 
     @Test
-    fun scan_tagReadFailure_degrades_to_filename_and_continues() = runTest {
-        client.dirs["http://nas.local:5005/music"] = listOf(file("bad.mp3"), file("good.mp3"))
-        client.downloads["http://nas.local:5005/music/bad.mp3"] =
-            writeGarbageFile("not-an-audio-file") // jaudiotagger 解析必失败
-        client.downloads["http://nas.local:5005/music/good.mp3"] =
-            writeGarbageFile("still-not-audio")
-
-        val songs = scanner.scan(webDavSource(), readTags = true)
-
-        // 两首都产出（降级为文件名），扫描未中断
-        assertEquals(listOf("bad", "good"), songs.map { it.title })
-        assertEquals(2, client.downloadCalls.size)
-        // 下载过的文件顺手 putToCache 预热播放 LRU（eTag 从发现阶段带下来）
-        assertEquals(setOf("http://nas.local:5005/music/bad.mp3", "http://nas.local:5005/music/good.mp3"), cache.putCalls.keys)
-        assertEquals("\"etag-bad\"", cache.putCalls["http://nas.local:5005/music/bad.mp3"])
-    }
-
-    /** 缓存命中时不重复下载 */
-    @Test
-    fun scan_uses_cached_file_without_redownload() = runTest {
-        val url = "http://nas.local:5005/music/hit.mp3"
-        client.dirs["http://nas.local:5005/music"] = listOf(file("hit.mp3"))
-        cache.files[url] = writeGarbageFile("cached-bytes") // 内容非法 → 走降级，但验证零下载
-
-        val songs = scanner.scan(webDavSource(), readTags = true)
-
-        assertEquals(1, songs.size)
-        assertEquals(0, client.downloadCalls.size)
+    fun buildSidecarLyricsUrl_replaces_extension() {
+        val audio = "http://nas.local:5005/music/%E5%8D%81%E5%B9%B4.mp3"
+        assertEquals(
+            "http://nas.local:5005/music/%E5%8D%81%E5%B9%B4.lrc",
+            scanner.buildSidecarLyricsUrl(audio),
+        )
+        // 无扩展名文件：追加 .lrc
+        assertEquals(
+            "http://nas.local:5005/music/track.lrc",
+            scanner.buildSidecarLyricsUrl("http://nas.local:5005/music/track"),
+        )
     }
 
     // ── ④ 密码缺失明确报错 ──────────────────────────
@@ -152,7 +130,7 @@ class WebDavLibraryScannerTest {
         credentials.password = null
         client.dirs["http://nas.local:5005/music"] = emptyList()
 
-        val error = runCatching { scanner.scan(webDavSource(), readTags = false) }
+        val error = runCatching { scanner.scan(webDavSource()) }
             .exceptionOrNull()
 
         assertNotNull(error)
@@ -165,29 +143,20 @@ class WebDavLibraryScannerTest {
         assertTrue(scanner.scanProgress.value.finished)
     }
 
-    // ── fakes ──────────────────────────────
+    // ── fakes ──────────────────────────────────────────────
 
     /** 父目录默认根 /music；子目录条目须显式传 parent 保证 URL 正确 */
     private fun file(name: String, parent: String = "/music") =
         WebDavItem(name = name, url = "http://nas.local:5005$parent/$name".replace(" ", "%20"), isDirectory = false, eTag = "\"etag-${name.take(3)}\"")
+
     private fun dir(name: String, parent: String = "/music") =
         WebDavItem(name = name, url = "http://nas.local:5005$parent/$name", isDirectory = true)
-
-    private fun writeGarbageFile(content: String): File =
-        File.createTempFile("scan-test-", ".mp3").apply {
-            writeText(content)
-            deleteOnExit()
-        }
 
     /** 目录树内存版 WebDAV 客户端；记录下载/sidecar 请求供断言 */
     private class FakeWebDavClient : WebDavClient {
         val dirs = mutableMapOf<String, List<WebDavItem>>()
-
-        /** url → 本地伪音频文件（内容为垃圾字节，保证 TagReader 解析失败走降级路径） */
-        val downloads = mutableMapOf<String, File>()
         val downloadCalls = mutableListOf<String>()
         val getStringCalls = mutableListOf<String>()
-        val sidecarLyrics = mutableMapOf<String, String>()
 
         override fun authenticate(username: String, password: String) = Unit
         override suspend fun probe(baseUrl: String): Boolean = true
@@ -195,33 +164,18 @@ class WebDavLibraryScannerTest {
         override suspend fun list(url: String): List<WebDavItem> =
             dirs[url.trimEnd('/')] ?: throw AssertionError("意外列目录: $url")
 
-        override suspend fun get(url: String, dest: File): File {
+        override suspend fun get(url: String, dest: java.io.File): java.io.File {
             downloadCalls.add(url)
-            val source = downloads[url] ?: throw java.io.IOException("模拟下载失败")
-            dest.parentFile?.mkdirs()
-            source.copyTo(dest, overwrite = true)
-            return dest
+            throw AssertionError("扫描器不应下载: $url")
         }
 
-        override suspend fun put(url: String, source: File) = Unit
+        override suspend fun put(url: String, source: java.io.File) = Unit
         override suspend fun delete(url: String) = Unit
         override suspend fun move(source: String, dest: String) = Unit
 
         override suspend fun getString(url: String): String? {
             getStringCalls.add(url)
-            return sidecarLyrics[url]
-        }
-    }
-
-    /** 内存版音频缓存（记录 putToCache 的 eTag 透传） */
-    private class FakeAudioCache : WebDavAudioCache {
-        val files = mutableMapOf<String, File>()
-        val putCalls = linkedMapOf<String, String?>()
-
-        override fun getCachedFile(url: String): File? = files[url]
-        override fun putToCache(url: String, file: File, eTag: String?, lastModified: String?) {
-            putCalls[url] = eTag
-            files[url] = file
+            return null
         }
     }
 

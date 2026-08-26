@@ -20,6 +20,14 @@
 - [x] 引导页 saveWebdavSource 补齐 username 入库 + 密码 Keystore 存储（对齐音源页流程，消除引导创建源必然认证失败的缺口）
 - [ ] MuMu 验证：WebDAV 歌曲可播放（需用户重建含用户名的源）
 
+### 增量：WebDAV 标签改为播放时懒扫描 ✅（2026-08-26 用户决策：删除扫描期读标签）
+
+- [x] WebDavLibraryScanner 瘦身：删 readTags 参数与标签/sidecar/临时下载逻辑，纯发现+文件名建库（tagsVersion=0）；buildSidecarLyricsUrl 保留供懒扫描复用
+- [x] PlayerConnection.lazyScanTags：当前曲入缓存后 TagReader+sidecar lrc+封面 → upsert 回写；幂等键 tagsVersion<TAGS_VERSION；失败静默下次重试
+- [x] SourcesViewModel：WebDAV 源点扫描跳过设置弹窗直接开扫（本地源弹窗保留）
+- [x] 单测更新（过滤递归/零下载/sidecar URL/密码缺失/tagsVersion=0）+ 门禁全绿 + 装机
+- [x] spec features-webdav-library.md 同步契约
+
 ### 主会话复查修正（子代理产出后的四处修复）
 
 1. `DiskWebDavAudioCache.putToCache` override 带默认参数值 → 编译错；默认值收口到接口声明
