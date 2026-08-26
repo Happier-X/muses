@@ -22,6 +22,8 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          # Gradle 依赖与 wrapper 缓存：跳过每次冷启动的全量下载
+          cache: 'gradle'
 
       - name: Extract version from tag
         id: version
@@ -37,38 +39,18 @@ jobs:
 
       # 签名与版本号经 AGP injected properties 注入：
       # versionName=tag；versionCode=提交总数（单调递增，须不低于旧 Capacitor 版）
-      - name: Build muses APK (com.muses.player)
+      # 双渠道一条命令构建：共享配置阶段与 compile 任务，较两次独立构建显著提速
+      - name: Build signed APKs (muses + miui)
         run: |
           chmod +x gradlew
           VERSION_CODE=$(git rev-list --count HEAD)
-          ./gradlew :app:assembleMusesRelease \
+          ./gradlew :app:assembleMusesRelease :app:assembleMiuiRelease \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/muses-release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }} \
             -Pandroid.injected.versionName=${{ steps.version.outputs.version }} \
             -Pandroid.injected.versionCode=$VERSION_CODE
-
-      - name: Rename muses APK
-        run: |
-          mv app/build/outputs/apk/muses/release/app-muses-release.apk \
-             muses-v${{ steps.version.outputs.version }}.apk
-
-      - name: Build miui APK (com.miui.player)
-        run: |
-          VERSION_CODE=$(git rev-list --count HEAD)
-          ./gradlew :app:assembleMiuiRelease \
-            -Pandroid.injected.signing.store.file=${{ github.workspace }}/muses-release.keystore \
-            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
-            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
-            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }} \
-            -Pandroid.injected.versionName=${{ steps.version.outputs.version }} \
-            -Pandroid.injected.versionCode=$VERSION_CODE
-
-      - name: Rename miui APK
-        run: |
-          mv app/build/outputs/apk/miui/release/app-miui-release.apk \
-             muses-v${{ steps.version.outputs.version }}-mi.apk
 
       - name: Read changelog
         id: changelog
