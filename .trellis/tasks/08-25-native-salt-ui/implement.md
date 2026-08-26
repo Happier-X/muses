@@ -41,19 +41,19 @@
 
 **验证**：同上
 
-## P4：PlayerPage 压轴 🔄 首版完成（7168327），精修项待迭代
+## P4：PlayerPage 压轴 ✅ 2026-08-26 完成（首版 7168327；P4.3 精修由并行会话交付：07ea574 面板横滑+下拉手势、111e637 跳转 FAB、92bf1a2 AMLL WebView 修复）
 
 - [x] P4.0 结构骨架：AMLL WebView 全屏底层 + 固定头部（标题/关闭/队列）
 - [x] P4.1 info 面板：封面 hero+进度条 Slider+时间行+三键控制+mode-bar（随机/循环）
 - [x] P4.2 歌词面板 Crossfade 切换（透出 WebView 完整歌词）；翻译 FAB 左下
-- [ ] P4.3 精修（2026-08-25 用户确认与旧 WebView 版观感差距过大，按 PlayerPage.vue 手机形态重做）：
-  - [ ] 固定头部改为椒盐式：歌名 h1 + 艺术家 p 常驻顶部（左上，Vue 源码 text-align: left），**去掉关闭按钮**（关闭靠下滑手势）；队列入口移入 mode-bar
-  - [ ] 面板切换改为同容器位移：双面板并排 `translateX(-activePanel * 50%)`，0.22s easeOut（替代 AnimatedContent 进出场）
-  - [ ] info 面板对齐：大封面铺满上部 → 五行歌词小窗（当前行居中，spring 缩放 1.05/0.92 + blur 0.6px + opacity 1/0.55）→ 进度区（**无白色 thumb**，轨道从 0% 起）→ 时间行（含「缓冲中」提示位）→ 三键控制（prev/play/next，lg 图标**无圆底**）→ mode-bar 四键（循环/随机/队列/更多）
-  - [ ] 歌词面板对齐：头部歌名/歌手 + AMLL 歌词（翻译开关保留）；用户滚动歌词后浮现 FAB 组（翻译+播放），3s 无操作淡出（LYRIC_FAB_IDLE_MS=3000）
-  - [ ] 手势系统：方向锁定（水平切面板 / 竖直下拉互斥）；下拉拖拽实时跟手，松手过阈值关闭否则回弹（220ms easeOut 回弹闭环，参照 journal Session 103 三条踩坑）
-  - [ ] 空态：未播放时 ♪ 占位封面 + 「暂无播放歌曲」文案
-  - [ ] 平板断点后置（PRD：先保证手机形态一比一）
+- [x] P4.3 精修 ✅（代码核查确认全部落地，对照 PlayerScreen.kt 现状）：
+  - [x] 固定头部椒盐式：歌名 h1 + 艺术家 p 左上常驻，无关闭按钮（下滑关闭），队列入口入 mode-bar
+  - [x] 双面板并排 translateX(-activePanel*50%)，220ms easeOut
+  - [x] info 面板：大封面 → 五行歌词小窗 → 自绘无 thumb 双轨进度条 → 时间行（含缓冲中）→ 三键无圆底控制 → mode-bar 四键
+  - [x] 歌词面板：AmllWebView 嵌入面板区 + FAB 组 3s 无操作淡出（LYRIC_FAB_IDLE_MS）
+  - [x] 手势系统：方向锁定互斥 + 下拉跟手关闭/回弹（Session 103 三踩坑闭环）
+  - [x] 空态：♪ 占位 + 「暂无播放歌曲」
+  - [x] 平板断点后置（PRD 决策：手机形态优先）
 
 **验证**：MuMu 全流程回归 + M2 真机回归项一并过
 
@@ -77,6 +77,11 @@
 
 ## 收尾
 
-- [ ] PRD Acceptance Criteria 逐项核对
-- [ ] 门禁 `lint testDebugUnitTest :app:assembleDebug` 全绿
-- [ ] spec 更新：m-* 映射组件使用规范 → `.trellis/spec/android/`
+- [x] PRD Acceptance Criteria 逐项核对（2026-08-26）：
+  - 各 P 批次 MuMu 并排对比用户逐批确认 ✅（P0-P3、P5 已确认；P4.3 重做后待用户最终验收）
+  - 明暗主题跟随系统 ✅（SaltColors 双套 light()/dark()）
+  - m-* 组件映射覆盖全集 ✅（页面仅 Material 行为基座：AlertDialog/ModalBottomSheet）
+  - AMLL 歌词层在复刻播放页正常工作 ✅（92bf1a2 修复后 MuMu 实测）
+  - 门禁全绿 ✅（lintDebug + testDebugUnitTest + assembleMusesDebug，2026-08-26）
+- [x] 门禁 `lint testDebugUnitTest :app:assembleMusesDebug` 全绿（多 flavor 项目用 muses 包）
+- [x] spec 更新 ✅：features-salt-ui.md（m-* 映射规范+14 条布局陷阱）、features-webdav-library.md、features-lyrics-playlist.md 补 AMLL WebView 踩坑三条

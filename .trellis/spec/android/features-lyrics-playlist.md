@@ -16,6 +16,12 @@
 - **禁止**用销毁/重建 WebView 控制暂停；**禁止**引入第二套歌词渲染栈（accompanist lyrics-ui 仅作 fallback 方案保留在调研记录）。
 - 一个 WebView 页面同时承担**歌词 + 流体背景**双职责（BackgroundRender 由 PIXI 内部 ticker 自驱动）。
 
+### 踩坑记录（92bf1a2，P4.3 歌词面板修复）
+
+1. **androidAssets 目录必须显式注册为 assets 源**：`feature/player/build.gradle.kts` 加 `assets.srcDir("src/main/androidAssets")`——M1 起该目录从未注册，WebViewAssetLoader 找不到 index.html → ERR_INVALID_RESPONSE，且报错被 WebView 白屏吞掉难定位
+2. **WebView 尺寸自适应用 ResizeObserver 不用 window.resize**：Android WebView 初始布局高度为 0，后续 AndroidView 获得真实尺寸不再派发 resize → 背景 canvas 高度 0 永不可见；amll-web 侧 `new ResizeObserver(resize).observe(document.body)` 兜底
+3. **AndroidView 嵌入面板区域时 offset 位移要加在 AndroidView 自身而非父容器**（父容器位移会连带裁剪/命中区域错位）；背景歌词解耦 = 背景层与歌词层各自独立 AmllWebView 实例
+
 ### 桥接口签名（window 级，前端 `amll-web/src/main.ts` ↔ Kotlin `AmllWebView.kt`）
 
 | JS 接口 | 入参 | 调用时机 |
