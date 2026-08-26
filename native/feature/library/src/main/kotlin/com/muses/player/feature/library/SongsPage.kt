@@ -332,13 +332,16 @@ fun SongsPage(
                                 // Web .m-list-item__inner padding-left:12px —— 封面-标题间距对齐椒盐
                                 Spacer(Modifier.width(12.dp))
                             } else {
-                                // Web .songs-page__cover 无封面覆盖：透明底 32dp 占位图标 opacity .45
-                                Icon(
-                                    Icons.Filled.MusicNote,
-                                    contentDescription = null,
-                                    tint = salt.text.copy(alpha = 0.45f),
-                                    modifier = Modifier.size(32.dp),
-                                )
+                                // Web .songs-page__cover 无封面覆盖：m-cover 容器仍恒定 54dp（透明底），
+                                // 内部居中 32dp 占位图标 opacity .45 —— 行首宽度与有封面状态一致
+                                Box(Modifier.size(54.dp), contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Filled.MusicNote,
+                                        contentDescription = null,
+                                        tint = salt.text.copy(alpha = 0.45f),
+                                        modifier = Modifier.size(32.dp),
+                                    )
+                                }
                                 Spacer(Modifier.width(12.dp))
                             }
                         },
