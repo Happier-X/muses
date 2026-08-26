@@ -14,8 +14,10 @@ android {
     defaultConfig {
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0-m1"
+        // CI 发布经 -Pandroid.injected.version* 注入（tag 名/提交总数）；
+        // AGP 9 中 DSL 显式赋值会覆盖 injected 属性，故必须在此主动读取
+        versionCode = (findProperty("android.injected.versionCode") as String?)?.toInt() ?: 1
+        versionName = (findProperty("android.injected.versionName") as String?) ?: "0.4.3"
     }
 
     // 渠道维度：主包 com.muses.player（覆盖安装旧 Web 版）+ MIUI 定制包
