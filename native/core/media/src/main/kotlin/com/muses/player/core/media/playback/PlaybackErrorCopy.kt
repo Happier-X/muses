@@ -25,6 +25,9 @@ object PlaybackErrorCopy {
 
     const val DEFAULT_ERROR = "播放失败，请稍后重试。"
 
+    /** 服务级限流/网关故障：跳歌只会继续撞墙，直接停止等用户手动重试 */
+    const val RATE_LIMITED_ERROR = "服务器请求过于频繁，请稍后再试。"
+
     /**
      * PlaybackException errorCode → 白名单文案。
      * 映射关系（对齐 Web 原生插件的错误分类习惯）：
@@ -57,4 +60,19 @@ object PlaybackErrorCopy {
     /** 非异常类失败（如解析失败字符串）的通用安全化：白名单内原样、否则兜底 */
     fun safeCopy(message: String?): String =
         if (message != null && message in SAFE_PLAYBACK_ERRORS) message else DEFAULT_ERROR
+
+    /**
+     * 从异常链提取 HTTP 状态码（HttpDataSource.InvalidResponseCodeException.responseCode）。
+     * 用于区分「单曲问题（4xx 跳歌恢复）」与「服务整体拒绝（429/5xx 停止重试）」。
+     */
+    fun httpResponseCode(error: PlaybackException): Int? {
+        var cause: Throwable? = error.cause
+        while (cause != null) {
+            if (cause is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) {
+                return cause.responseCode
+            }
+            cause = cause.cause
+        }
+        return null
+    }
 }

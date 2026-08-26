@@ -184,6 +184,16 @@ class PlaybackService : MediaSessionService() {
          */
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
             val player = mediaSession?.player ?: return
+
+            // 服务级拒绝（限流 429 / 网关故障 5xx）：服务器整体不可用，跳歌只会继续撞墙
+            // 并持续触发请求加重限流（实测 465 首队列轮询切歌）——直接停止，等用户手动重试。
+            val httpCode = PlaybackErrorCopy.httpResponseCode(error)
+            if (httpCode == 429 || httpCode in 500..599) {
+                player.stop()
+                recoveryController.setError(PlaybackErrorCopy.RATE_LIMITED_ERROR)
+                return
+            }
+
             val failedId = player.currentMediaItem?.mediaId
             if (failedId != null) {
                 recoveryController.markAttempted(failedId)
