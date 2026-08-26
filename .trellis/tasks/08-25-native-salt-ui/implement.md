@@ -86,13 +86,16 @@
 - [x] 门禁 `lint testDebugUnitTest :app:assembleMusesDebug` 全绿（多 flavor 项目用 muses 包）
 - [x] spec 更新 ✅：features-salt-ui.md（m-* 映射规范+14 条布局陷阱）、features-webdav-library.md、features-lyrics-playlist.md 补 AMLL WebView 踩坑三条
 
-## P4.4：沉浸式播放页改全 WebView 方案 🔄 进行中（2026-08-26 用户决策）
+## P4.4：沉浸式播放页改全 WebView 方案 ✅ 2026-08-26 完成（8969bc0+0621054，待用户最终验收）
 
 > 背景：Compose 复刻版反复出现布局错位（偏左/半屏分割）；旧 Capacitor 版全 WebView 从无此类问题。用户决策：整个播放页用 WebView 承载，观感直接对齐 Web 版。
 
-- [ ] 前端 amll-web：index.html/main.ts 扩展完整播放页 UI（头部/info 面板/歌词面板/mode-bar/进度条/控制键 + 下拉关闭手势）
-- [ ] 桥协议 Native→JS：updatePlayerState(json)（标题/歌手/封面/isPlaying/position/duration/repeat/shuffle/翻译态）
-- [ ] 桥协议 JS→Native：nativeBridge.onAction(json)（playPause/next/previous/seekTo/setRepeat/setShuffle/toggleTranslation/openQueue/close）
-- [ ] Kotlin：PlayerScreen 重构为全屏 WebView 容器（复用 assetLoader/封面映射），JavascriptInterface 分派动作
-- [ ] 队列页保持原生命航（openQueue 走桥回调）
-- [ ] 构建 amll-web 产物同步 androidAssets + 门禁 + 装机验证
+- [x] 前端 amll-web：index.html/main.ts 扩展完整播放页 UI（头部/info 面板/歌词面板/mode-bar/进度条/控制键 + 下拉关闭手势）
+- [x] 桥协议 Native→JS：updatePlayerState(json)（标题/歌手/封面/isPlaying/position/duration/repeat/shuffle/翻译态）
+- [x] 桥协议 JS→Native：nativeBridge.onAction(json)（playPause/next/previous/seekTo/setRepeat/setShuffle/toggleTranslation/openQueue/close）
+- [x] Kotlin：PlayerScreen 重构为全屏 WebView 容器（复用 assetLoader/封面映射），JavascriptInterface 分派动作
+- [x] 队列页保持原生命航（openQueue 走桥回调）
+- [x] 构建 amll-web 产物同步 androidAssets + 门禁 + 装机验证
+
+- [x] 追加修复（0621054）：黑屏根因=onPageFinished 早于 ES module 执行，首轮注入静默丢失——前端 ready 握手 + Kotlin 全量重推
+- [ ] 用户验收：整体观感 vs Capacitor 版、面板横滑、下拉关闭、FAB 组

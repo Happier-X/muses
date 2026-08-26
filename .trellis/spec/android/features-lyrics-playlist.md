@@ -16,6 +16,13 @@
 - **禁止**用销毁/重建 WebView 控制暂停；**禁止**引入第二套歌词渲染栈（accompanist lyrics-ui 仅作 fallback 方案保留在调研记录）。
 - 一个 WebView 页面同时承担**歌词 + 流体背景**双职责（BackgroundRender 由 PIXI 内部 ticker 自驱动）。
 
+### 就绪握手（0621054，P4.4 黑屏修复）
+
+- **onPageFinished 触发早于 ES module 执行**：此时 `window.updatePlayerState/updateLyrics` 未定义，
+  Kotlin 首轮 evaluateJavascript 注入静默丢失；无后续状态变化时播放页表现为纯底色黑屏。
+- 契约：前端 module 尾部经 `nativeBridge.onAction('{"action":"ready"}')` 上报就绪；
+  Kotlin 收到 ready 后全量重推当前 playerState 与歌词载荷（经 ref 取最新值，防闭包捕获过期）。
+
 ### 踩坑记录（92bf1a2，P4.3 歌词面板修复）
 
 1. **androidAssets 目录必须显式注册为 assets 源**：`feature/player/build.gradle.kts` 加 `assets.srcDir("src/main/androidAssets")`——M1 起该目录从未注册，WebViewAssetLoader 找不到 index.html → ERR_INVALID_RESPONSE，且报错被 WebView 白屏吞掉难定位
@@ -103,3 +110,5 @@ playlist_songs(playlistId FK→playlists CASCADE, songId FK→songs CASCADE, pos
 | 封面为 file:// 非 cacheDir | 映射返回 null → 前端粘性沿用 |
 | RG 标签非法（换算后仍超 ±30） | 丢弃不入库，播放按无标签处理 |
 | 快速连点切歌 | 单飞 applyJob 取消旧查询，最终一致为新曲增益 |
+
+15. **MuMu 的 screencap 截不到 WebView 硬件合成层**（截图纯黑但实际屏幕正常）——排查 WebView 页面"黑屏"必须用 uiautomator dump --compressed 读 accessibility 树或 CDP，勿信截图
