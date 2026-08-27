@@ -138,6 +138,8 @@ fun AmllWebView(
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
+            // 慢速全文档绘制：使 WebView 内容可被 PixelCopy/screencap 捕获（硬件加速 SurfaceView 在部分模拟器上截屏为黑）
+            try { WebView.enableSlowWholeDocumentDraw() } catch (_: Exception) {}
             WebView(ctx).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true

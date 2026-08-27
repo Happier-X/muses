@@ -127,6 +127,7 @@ fun PlayerScreen(
     }
 
     // ---- 全屏 WebView 容器（沉浸底色 #05070d 与前端 .drag-layer 一致，防加载闪白）----
+    // 若 WebView 仍黑屏，底层 Box 的原生回退 UI 保底可见
     Box(modifier.fillMaxSize().background(Color(0xFF05070D))) {
         AmllWebView(
             modifier = Modifier.fillMaxSize(),
@@ -140,6 +141,13 @@ fun PlayerScreen(
                     onOpenEditMeta,
                 )
             }
+        )
+        // 原生回退标题：WebView 黑屏时仍可见（调试后可移除）
+        Text(
+            text = currentMediaItem?.mediaMetadata?.title?.toString()?.ifEmpty { "暂无播放歌曲" } ?: "暂无播放歌曲",
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp).background(Color.Black.copy(alpha = 0.6f), shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 16.dp, vertical = 8.dp),
+            color = Color.White,
+            fontSize = 16.sp,
         )
         // 限流错误条：复用 PlaybackRecoveryController.playbackError（含 429 的「触发限流，稍后重试」）
         if (playbackError != null) {
