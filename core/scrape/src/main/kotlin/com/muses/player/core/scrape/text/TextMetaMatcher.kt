@@ -21,8 +21,13 @@ import kotlinx.coroutines.CancellationException
  */
 class TextMetaMatcher(
     private val providers: List<TextMetaProvider>,
-    internal val negativeCache: NegativeCache = NegativeCache(),
+    val negativeCache: NegativeCache = NegativeCache(),
 ) {
+
+    /** 供 UI 单曲重试时清除限流未命中的负缓存（NETWORK 不入缓存，但 NO_MATCH 需要可重试）。 */
+    fun invalidateNegativeCache(songId: String) {
+        negativeCache.remove(songId)
+    }
 
     suspend fun match(query: OnlineTextQuery): OnlineTextMatchResult {
         val title = query.title.trim()
@@ -61,17 +66,19 @@ class TextMetaMatcher(
             }
         }
 
-        negativeCache.put(
-            query.songId,
-            NegativeCache.NegativeEntry(
-                queryKey = queryKey,
-                expiresAt = System.currentTimeMillis() + NEGATIVE_CACHE_TTL_MS,
-            ),
-        )
+        // 仅 NO_MATCH 写入负缓存；NETWORK（含 429）不入缓存以支持限流后重试（由限流器控频）
+        val failReason = if (sawNetworkError) OnlineTextMatchFailReason.NETWORK else OnlineTextMatchFailReason.NO_MATCH
+        if (failReason == OnlineTextMatchFailReason.NO_MATCH) {
+            negativeCache.put(
+                query.songId,
+                NegativeCache.NegativeEntry(
+                    queryKey = queryKey,
+                    expiresAt = System.currentTimeMillis() + NEGATIVE_CACHE_TTL_MS,
+                ),
+            )
+        }
 
-        return OnlineTextMatchResult.Fail(
-            if (sawNetworkError) OnlineTextMatchFailReason.NETWORK else OnlineTextMatchFailReason.NO_MATCH,
-        )
+        return OnlineTextMatchResult.Fail(failReason)
     }
 
     companion object {

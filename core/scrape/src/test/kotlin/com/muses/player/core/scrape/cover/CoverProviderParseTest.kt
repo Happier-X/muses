@@ -15,8 +15,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /** 规格 = src/features/cover/providers/itunes.ts 与 wy.ts 的 JSON 解析（MockWebServer） */
+@RunWith(RobolectricTestRunner::class)
 class CoverProviderParseTest {
 
     private lateinit var server: MockWebServer
@@ -37,6 +40,7 @@ class CoverProviderParseTest {
                     chain.proceed(chain.request().newBuilder().url(local).build())
                 }
                 .build(),
+            rateLimiter = com.muses.player.core.scrape.http.ScrapeRateLimiter.Unlimited,
         )
 
     @Before

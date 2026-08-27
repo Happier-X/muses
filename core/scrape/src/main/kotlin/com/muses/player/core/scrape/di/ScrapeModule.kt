@@ -11,6 +11,7 @@ import com.muses.player.core.scrape.editmeta.AmllLyricsPort
 import com.muses.player.core.scrape.editmeta.EditCloudMetaSearch
 import com.muses.player.core.scrape.editmeta.ProviderLyricsPort
 import com.muses.player.core.scrape.http.ScrapeHttp
+import com.muses.player.core.scrape.http.ScrapeRateLimiter
 import com.muses.player.core.scrape.queue.ScrapeHistoryStore
 import com.muses.player.core.scrape.queue.ScrapeQueueStore
 import com.muses.player.core.scrape.text.NegativeCache
@@ -50,9 +51,14 @@ internal object ScrapeModule {
 
     // ── 网络与匹配链 ──────────────────────────────────────
 
+    /** 全局限流器：默认 4 rps，跨文本/封面/封面字节共享（任务 08-27-scrape-throttle-429）。 */
     @Provides
     @Singleton
-    fun provideScrapeHttp(): ScrapeHttp = ScrapeHttp()
+    fun provideScrapeRateLimiter(): ScrapeRateLimiter = ScrapeRateLimiter()
+
+    @Provides
+    @Singleton
+    fun provideScrapeHttp(rateLimiter: ScrapeRateLimiter): ScrapeHttp = ScrapeHttp(rateLimiter = rateLimiter)
 
     /** 默认文本五源链 kw→tx→wy→kg→mg（metadata/match.ts defaultProviders） */
     @Provides
@@ -134,7 +140,7 @@ internal object ScrapeModule {
 
     @Provides
     @Singleton
-    fun provideCoverBytesFetcher(): CoverBytesFetcher = HttpCoverBytesFetcher()
+    fun provideCoverBytesFetcher(http: ScrapeHttp): CoverBytesFetcher = HttpCoverBytesFetcher(http)
 
     @Provides
     @Singleton

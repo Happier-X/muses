@@ -19,8 +19,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /** 规格 = src/features/metadata/match.ts matchOnlineTextMeta 主流程 + providers/kw.ts 解析 */
+@RunWith(RobolectricTestRunner::class)
 class TextMetaMatcherTest {
 
     // ── fake provider ───────────────────────────────────────
@@ -125,12 +128,13 @@ class TextMetaMatcherTest {
     }
 
     @Test
-    fun `网络异常归network并仍写负缓存`() = runTest {
+    fun `网络异常归network不写负缓存以支持重试`() = runTest {
         val failing = FakeProvider(OnlineTextSource.KW) { throw java.io.IOException("http 500") }
         val matcher = TextMetaMatcher(listOf(failing))
         val result = matcher.match(query())
         assertEquals(OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK), result)
-        assertEquals(1, matcher.negativeCache.size())
+        // 任务 08-27：NETWORK（含 429）不入负缓存，由限流器控频，支持稍后重试
+        assertEquals(0, matcher.negativeCache.size())
     }
 
     @Test
@@ -163,6 +167,7 @@ class TextMetaMatcherTest {
                     chain.proceed(chain.request().newBuilder().url(local).build())
                 }
                 .build(),
+            rateLimiter = com.muses.player.core.scrape.http.ScrapeRateLimiter.Unlimited,
         )
 
     @Before

@@ -115,12 +115,13 @@ class CoverMatchTest {
     }
 
     @Test
-    fun `网络异常归network并仍写负缓存`() = runTest {
+    fun `网络异常归network不写负缓存以支持重试`() = runTest {
         val failing = FakeProvider(OnlineCoverSource.KW) { throw IOException("http 500") }
         val matcher = CoverMatcher(listOf(failing))
         val result = matcher.match(query())
         assertEquals(OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NETWORK), result)
-        assertEquals(1, matcher.negativeCache.size())
+        // 任务 08-27：NETWORK（含 429）不入负缓存，由限流器控频，支持稍后重试
+        assertEquals(0, matcher.negativeCache.size())
     }
 
     @Test

@@ -49,6 +49,9 @@ class NegativeCache {
 
     fun size(): Int = synchronized(map) { map.size }
 
+    /** 移除单首缓存（用于限流后单曲重试）。 */
+    fun remove(songId: String) = synchronized(map) { map.remove(songId) }
+
     /** match.ts resetOnlineTextMetaCache */
     fun clear() = synchronized(map) { map.clear() }
 

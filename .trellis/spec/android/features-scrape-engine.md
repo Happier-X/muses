@@ -49,3 +49,76 @@ core:scrape
 - `ScrapeHttp.getJson` 返回 `JsonElement`（非 JsonObject）：取字段须先 `asObjectOrNull()` 或用 `path(...)` 下钻，不能直接 `[key]`
 - itunes 封面放大正则带**前导斜杠** `/\d+x\d+([a-z]*)\./i`（漏掉会产生 `//600x600` 双斜杠）
 - MockWebServer 测硬编码域名 provider：OkHttp interceptor 把 host 重写到 loopback（见 CoverProviderParseTest/TextMetaMatcherTest 的 httpFor）
+
+## 限流与 429 退避（任务 08-27-scrape-throttle-429）
+
+### 1. Scope / Trigger
+- Trigger：刮削 `ScrapeHttp` 原为裸 OkHttp 透传，`TextMetaMatcher`（5 源）与 `CoverMatcher`（6 源）逐 provider 串行 `http.get` 无间隔，队列 10 首 ≈ 50+ 请求瞬发，必触发上游 429。需可执行限流+退避契约。
+
+### 2. Signatures
+- `ScrapeRateLimiter(intervalMs: Long = 250L, nowMs: ()->Long)`：`suspend fun acquire()`，`Mutex` 保护 `nextAvailableMs`，`delay(wait)` 非阻塞；`Unlimited = ScrapeRateLimiter(0)` 测试用
+- `ScrapeHttp(client: OkHttpClient, rateLimiter: ScrapeRateLimiter)`：`suspend fun getText/getJson/getBytes(url, headers): T` 共享 `executeWithRetry`；`companion MAX_RETRY_AFTER_MS=8000L, DEFAULT_429_DELAY_MS=1000L, fun parseRetryAfterMs(value: String?): Long?`
+- `ScrapeModule`：`@Singleton ScrapeRateLimiter.default()` 注入 `ScrapeHttp` 与 `HttpCoverBytesFetcher`（跨文本/封面/封面字节共享）
+- `TextMetaMatcher.negativeCache: NegativeCache` / `CoverMatcher.negativeCache: NegativeCache` 由 `internal` 提升为 `public val`，新增 `fun invalidateNegativeCache(songId: String)` / `NegativeCache.remove(songId)` 供单曲重试
+- `feature:scrape/ScrapeViewModel`：`retrySingle/throttledIds` 失效负缓存后重跑单曲，`matching` 态 `throttleMessage = "等待限流恢复…"`，`preview/result` 行 `触发限流，稍后重试`
+
+### 3. Contracts
+- Request：`ScrapeHttp` 每次请求前 `rateLimiter.acquire()`（0 间隔不限流）；`Retry-After` 解析：1) 秒数 `toLong*1000` 2) HTTP-date `RFC_1123_DATE_TIME` 差值，失败回退 `DEFAULT_429_DELAY_MS`
+- Response：非 429 非 2xx `throw IOException("http <code>")`；429 首次 `delay(min(computed,8000))` 后重试 1 次，二次 429 `throw IOException("http 429")`
+- 上层归类：`TextMetaMatcher`/`CoverMatcher` 将 `IOException("http 429")` 归为 `NETWORK`（`OnlineTextMatchFailReason.NETWORK` / `OnlineCoverMatchFailReason.NETWORK`），`NO_MATCH` 才写 `NegativeCache`，`NETWORK` 不写；单曲重试前 `remove` 对应缓存
+- UI：`queueTitles: Map<songId,title>` 透传用于 `throttledIds` 行优先显示标题回退 `take(8)`；限流提示 2s 后自动清除（单一 Job 管理防竞态）
+
+### 4. Validation & Error Matrix
+- `Retry-After: "120"` -> `120000L`
+- `Retry-After: "Wed, 21 Oct 2015 07:28:00 GMT"` -> `date - now` 差值（≥0）
+- `Retry-After: "invalid"` / null / 空白 -> `null` -> `DEFAULT_429_DELAY_MS`
+- `Retry-After: "100"` (100s) -> `min(100000,8000)=8000` 截断
+- 首次 429 -> delay 后重试
+- 二次 429 -> `IOException("http 429")` -> 上层 `NETWORK`
+- 非 429 4xx/5xx -> 直接 `IOException("http <code>")` 不重试
+- `acquire()` 期间 `CancellationException` 原样重抛，不吞取消
+
+### 5. Good/Base/Bad Cases
+- Good：队列 20 首连续刮削，4 rps 节流下约 250ms 间隔，偶发单 Provider 429 后 1s 退避重试成功，进度显示 `等待限流恢复…` 后继续
+- Base：单首双链均 `NETWORK`，result 行显示 `触发限流可单独重试`，重试前失效负缓存
+- Bad：裸直通无限流，10 首瞬发 50+ 请求，稳定 429 且无文案、重试风暴
+
+### 6. Tests Required
+- `ScrapeRateLimiterTest`：4 rps 下 `acquire()` 虚拟时间精确断言 `0/250/500`，1 rps 变体 `0/100/200`，`Unlimited` 不延迟
+- `ScrapeHttp429Test`：秒数解析、HTTP-date 解析、无效头回退、首次 429 重试成功、二次 429 抛错、非 429 不重试、Retry-After 上限截断、Cancellation 透传
+- `TextMetaMatcherTest` / `CoverProviderParseTest`：429 归 `NETWORK` 不写负缓存验证（存量 119 tests 回归）
+- UI 手测：MuMu 20 首队列 `matching` 进度可读，`preview/result` 限流文案出现，单曲重试入口可用
+
+### 7. Wrong vs Correct
+#### Wrong
+```kotlin
+// 裸直通，无限流无退避，二次 429 风暴
+class ScrapeHttp(private val client: OkHttpClient) {
+  suspend fun getText(url: String) = client.newCall(Request.Builder().url(url).build()).execute().let {
+    if (!it.isSuccessful) throw IOException("http ${it.code}")
+    it.body!!.string()
+  }
+}
+// 匹配器内部直接抛错，未区分 NETWORK/NO_MATCH，负缓存误写
+```
+#### Correct
+```kotlin
+class ScrapeRateLimiter(private val intervalMs: Long = 250L, private val nowMs: ()->Long) {
+  private val mutex = Mutex()
+  private var nextAvailableMs = 0L
+  suspend fun acquire() { val wait = mutex.withLock { /* 计算 wait */ }; if (wait>0) delay(wait) }
+}
+class ScrapeHttp(private val client: OkHttpClient, private val rateLimiter: ScrapeRateLimiter) {
+  suspend fun getText(url: String) = executeWithRetry(url) { res -> res.body!!.string() }
+  private suspend fun <T> executeWithRetry(url: String, onSuccess: (Response)->T): T {
+    rateLimiter.acquire()
+    var attempt=0
+    while(true){ val res = client.newCall(buildRequest(url)).execute()
+      if(res.code!=429){ if(!res.isSuccessful) throw IOException("http ${res.code}"); return onSuccess(res) }
+      val delayMs = parseRetryAfterMs(res.header("Retry-After"))?.let{ min(it,8000)} ?: 1000
+      res.close(); if(attempt>=1) throw IOException("http 429"); delay(delayMs); rateLimiter.acquire(); attempt++
+    }
+  }
+}
+// TextMetaMatcher: catch (e: IOException) -> Fail(NETWORK)，仅 NO_MATCH 写 NegativeCache
+```

@@ -58,6 +58,10 @@ fun ScrapeScreen(
             },
         )
 
+        // 限流可观察（任务 08-27-scrape-throttle-429）
+        val throttleMessage by viewModel.throttleMessage.collectAsState()
+        val throttledIds by viewModel.throttledIds.collectAsState()
+
         when (val state = pageState) {
             is ScrapePageState.Queue -> QueueStateContent(
                 queueSongIds = queueSongIds,
@@ -67,20 +71,29 @@ fun ScrapeScreen(
                 onStartAll = { viewModel.startMatching() },
             )
 
-            is ScrapePageState.Matching -> MatchingStateContent(state)
+            is ScrapePageState.Matching -> MatchingStateContent(state, throttleMessage)
 
             is ScrapePageState.Preview -> PreviewStateContent(
                 state = state,
+                throttleMessage = throttleMessage,
+                throttledIds = throttledIds,
+                queueTitles = viewModel.queueTitles.collectAsState().value,
                 onToggle = viewModel::toggleChecked,
                 onSetAll = viewModel::setAllChecked,
                 onConfirm = viewModel::confirmWriteback,
                 onCancel = viewModel::backToQueue,
+                onRetrySingle = viewModel::retrySingle,
+                onRetryThrottled = viewModel::retryThrottled,
             )
 
             is ScrapePageState.Result -> ResultStateContent(
                 state = state,
+                throttleMessage = throttleMessage,
+                throttledIds = throttledIds,
+                queueTitles = viewModel.queueTitles.collectAsState().value,
                 onUndo = viewModel::undoLastWriteback,
                 onBack = viewModel::backToQueue,
+                onRetrySingle = viewModel::retrySingle,
             )
         }
     }
@@ -144,7 +157,7 @@ private fun QueueStateContent(
 // ── matching 态 ──────────────────────────────────────
 
 @Composable
-private fun MatchingStateContent(state: ScrapePageState.Matching) {
+private fun MatchingStateContent(state: ScrapePageState.Matching, throttleMessage: String? = null) {
     val salt = LocalSaltColors.current
     Column(
         Modifier.fillMaxSize().padding(24.dp),
@@ -167,6 +180,16 @@ private fun MatchingStateContent(state: ScrapePageState.Matching) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (throttleMessage != null) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                throttleMessage,
+                fontSize = 13.sp,
+                color = salt.primary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -175,10 +198,15 @@ private fun MatchingStateContent(state: ScrapePageState.Matching) {
 @Composable
 private fun PreviewStateContent(
     state: ScrapePageState.Preview,
+    throttleMessage: String? = null,
+    throttledIds: List<String> = emptyList(),
+    queueTitles: Map<String, String> = emptyMap(),
     onToggle: (String) -> Unit,
     onSetAll: (Boolean) -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
+    onRetrySingle: (String) -> Unit = {},
+    onRetryThrottled: () -> Unit = {},
 ) {
     val salt = LocalSaltColors.current
     Column(Modifier.fillMaxSize()) {
@@ -194,6 +222,35 @@ private fun PreviewStateContent(
             )
             SaltTextButton(text = "全选", onClick = { onSetAll(true) })
             SaltTextButton(text = "清空", onClick = { onSetAll(false) })
+        }
+        if (throttleMessage != null) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    throttleMessage,
+                    fontSize = 12.sp,
+                    color = salt.primary,
+                    modifier = Modifier.weight(1f),
+                )
+                if (throttledIds.isNotEmpty()) {
+                    SaltTextButton(text = "重试限流", onClick = onRetryThrottled)
+                }
+            }
+        }
+        if (throttledIds.isNotEmpty() && state.items.isEmpty()) {
+            // 空命中但有被限流的歌曲：给出单首重试入口
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("${throttledIds.size} 首触发限流，稍后重试", fontSize = 13.sp, color = salt.text2)
+                Spacer(Modifier.height(8.dp))
+                throttledIds.take(5).forEach { sid ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(queueTitles[sid] ?: sid.take(8), fontSize = 12.sp, color = salt.text2, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        SaltTextButton(text = "重试", onClick = { onRetrySingle(sid) })
+                    }
+                }
+            }
         }
         LazyColumn(
             Modifier.weight(1f),
@@ -252,11 +309,21 @@ private fun PreviewStateContent(
 
 // ── result 态 ──────────────────────────────────────
 
+/** 判断写回结果是否疑似限流（429）。 */
+private fun isWritebackThrottled(r: com.muses.player.core.model.scrape.WritebackResult): Boolean {
+    val msg = (r.fileResult.message ?: "") + (r.error ?: "")
+    return msg.contains("429") || r.fileResult.code?.contains("429") == true
+}
+
 @Composable
 private fun ResultStateContent(
     state: ScrapePageState.Result,
+    throttleMessage: String? = null,
+    throttledIds: List<String> = emptyList(),
+    queueTitles: Map<String, String> = emptyMap(),
     onUndo: () -> Unit,
     onBack: () -> Unit,
+    onRetrySingle: (String) -> Unit = {},
 ) {
     val salt = LocalSaltColors.current
     val success = state.results.count { it.status == com.muses.player.core.model.scrape.WritebackStatus.SUCCESS }
@@ -271,13 +338,42 @@ private fun ResultStateContent(
             color = salt.text,
         )
         Spacer(Modifier.height(12.dp))
+        if (throttleMessage != null) {
+            Text(throttleMessage, fontSize = 12.sp, color = salt.primary)
+            Spacer(Modifier.height(8.dp))
+        }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             items(state.results, key = { it.songId }) { r ->
+                val throttled = isWritebackThrottled(r)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(8.dp).background(statusColor(r.status), RoundedCornerShape(4.dp)))
                     Spacer(Modifier.size(8.dp))
-                    Text(r.songId.take(8), fontSize = 13.sp, color = salt.text2, modifier = Modifier.weight(1f))
+                    Column(Modifier.weight(1f)) {
+                        Text(queueTitles[r.songId] ?: r.songId.take(8), fontSize = 13.sp, color = salt.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (throttled) {
+                            Text("限流，稍后重试", fontSize = 11.sp, color = salt.primary)
+                        }
+                    }
                     Text(r.status.wire, fontSize = 13.sp, color = statusColor(r.status))
+                    if (r.status != com.muses.player.core.model.scrape.WritebackStatus.SUCCESS) {
+                        Spacer(Modifier.size(8.dp))
+                        SaltTextButton(text = if (throttled) "限流重试" else "重试", onClick = { onRetrySingle(r.songId) })
+                    }
+                }
+            }
+            if (throttledIds.isNotEmpty()) {
+                throttledIds.forEach { sid ->
+                    item(key = "throttled-$sid") {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(8.dp).background(salt.primary, RoundedCornerShape(4.dp)))
+                            Spacer(Modifier.size(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(queueTitles[sid] ?: sid.take(8), fontSize = 13.sp, color = salt.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("限流，稍后重试", fontSize = 11.sp, color = salt.primary)
+                            }
+                            SaltTextButton(text = "重试", onClick = { onRetrySingle(sid) })
+                        }
+                    }
                 }
             }
         }

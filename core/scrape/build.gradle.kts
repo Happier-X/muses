@@ -45,4 +45,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     // M3-S1：kw provider JSON 解析测试（catalog 已有 okhttp-mockwebserver 条目）
     testImplementation(libs.okhttp.mockwebserver)
+    // 08-27 限流：MockWebServer 在 JVM 单元测试中触发 Android Platform 检测需 robolectric shadow
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }

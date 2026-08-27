@@ -27,8 +27,13 @@ import kotlinx.serialization.json.Json
  */
 class CoverMatcher(
     providers: List<CoverProvider>,
-    internal val negativeCache: NegativeCache = NegativeCache(),
+    val negativeCache: NegativeCache = NegativeCache(),
 ) {
+
+    /** 供 UI 单曲重试时清除限流未命中的负缓存。 */
+    fun invalidateNegativeCache(songId: String) {
+        negativeCache.remove(songId)
+    }
 
     private val providers: List<CoverProvider> = providers
 
@@ -60,17 +65,19 @@ class CoverMatcher(
             }
         }
 
-        negativeCache.put(
-            query.songId,
-            NegativeCache.NegativeEntry(
-                queryKey = queryKey,
-                expiresAt = System.currentTimeMillis() + NEGATIVE_CACHE_TTL_MS,
-            ),
-        )
+        // 仅 NO_MATCH 写入负缓存；NETWORK（含 429）不入缓存以支持限流后重试（由限流器控频）
+        val failReason = if (sawNetworkError) OnlineCoverMatchFailReason.NETWORK else OnlineCoverMatchFailReason.NO_MATCH
+        if (failReason == OnlineCoverMatchFailReason.NO_MATCH) {
+            negativeCache.put(
+                query.songId,
+                NegativeCache.NegativeEntry(
+                    queryKey = queryKey,
+                    expiresAt = System.currentTimeMillis() + NEGATIVE_CACHE_TTL_MS,
+                ),
+            )
+        }
 
-        return OnlineCoverMatchResult.Fail(
-            if (sawNetworkError) OnlineCoverMatchFailReason.NETWORK else OnlineCoverMatchFailReason.NO_MATCH,
-        )
+        return OnlineCoverMatchResult.Fail(failReason)
     }
 
     companion object {

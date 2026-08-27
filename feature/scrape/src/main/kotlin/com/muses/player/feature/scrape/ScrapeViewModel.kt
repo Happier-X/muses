@@ -2,23 +2,25 @@ package com.muses.player.feature.scrape
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muses.player.core.model.scrape.OnlineTextMatchFailReason
 import com.muses.player.core.model.scrape.OnlineTextQuery
 import com.muses.player.core.model.scrape.ScrapeCandidate
 import com.muses.player.core.model.scrape.ScrapeChanges
 import com.muses.player.core.model.scrape.WritebackResult
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.scrape.cover.CoverMatcher
+import com.muses.player.core.scrape.cover.OnlineCoverMatchFailReason
 import com.muses.player.core.scrape.cover.OnlineCoverQuery
 import com.muses.player.core.scrape.queue.ScrapeQueueStore
 import com.muses.player.core.scrape.text.TextMetaMatcher
 import com.muses.player.core.scrape.writeback.WritebackOrchestrator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** 页面四态（对照 ScrapePage.vue pageState: queue/matching/preview/result） */
@@ -75,6 +77,14 @@ class ScrapeViewModel @Inject constructor(
     var lastJournalId: String? = null
         private set
 
+    // ── 限流可观察状态（任务 08-27-scrape-throttle-429） ──────────────
+    private val _throttleMessage = MutableStateFlow<String?>(null)
+    val throttleMessage: StateFlow<String?> = _throttleMessage.asStateFlow()
+
+    /** 因限流/网络未命中的歌曲 id 集合，供 preview/result 展示“稍后重试”。 */
+    private val _throttledIds = MutableStateFlow<List<String>>(emptyList())
+    val throttledIds: StateFlow<List<String>> = _throttledIds.asStateFlow()
+
     init {
         reloadQueue()
         // 队列存储变化（入队/移除）自动刷新列表
@@ -107,41 +117,90 @@ class ScrapeViewModel @Inject constructor(
     /**
      * 「全部开始」：逐曲跑文本+封面匹配 → 聚合候选进 preview 态。
      * 匹配失败的歌不进预览（Web 语义：仅命中的进入人工确认）。
+     * 若因 NETWORK（含 429）未命中，则记录限流提示与可重试列表，不阻塞后续歌曲。
      */
     fun startMatching() {
         val ids = _queueSongIds.value
         if (ids.isEmpty()) return
         viewModelScope.launch {
+            // 重置限流提示
+            _throttleMessage.value = null
+            _throttledIds.value = emptyList()
+            val throttledMutable = mutableListOf<String>()
             val items = mutableListOf<PreviewCandidate>()
             var index = 0
             for (songId in ids) {
                 index++
-                val song = songRepository.getSong(songId)
+                val song = try {
+                    songRepository.getSong(songId)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null
+                }
                 if (song == null) {
                     // 已不在库（懒清理竞态）：直接出队
-                    queueStore.remove(listOf(songId))
+                    try {
+                        queueStore.remove(listOf(songId))
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {}
                     continue
                 }
                 _pageState.value = ScrapePageState.Matching(index, ids.size, song.title)
 
-                val textOk = textMetaMatcher.match(
-                    OnlineTextQuery(
-                        songId = song.id,
-                        title = song.title,
-                        path = song.path,
-                        artist = song.artist,
-                        album = song.album,
-                        durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(),
-                        metaSources = song.metaSources,
-                    ),
-                )
-                val coverOk = coverMatcher.match(
-                    OnlineCoverQuery(songId = song.id, title = song.title, artist = song.artist, album = song.album),
-                )
+                val textOk = try {
+                    textMetaMatcher.match(
+                        OnlineTextQuery(
+                            songId = song.id,
+                            title = song.title,
+                            path = song.path,
+                            artist = song.artist,
+                            album = song.album,
+                            durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(),
+                            metaSources = song.metaSources,
+                        ),
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK)
+                }
+                val coverOk = try {
+                    coverMatcher.match(
+                        OnlineCoverQuery(songId = song.id, title = song.title, artist = song.artist, album = song.album),
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NETWORK)
+                }
 
                 val hit = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.hit
                 val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
-                if (hit == null && coverUrl == null) continue // 双链均未命中：跳过
+                if (hit == null && coverUrl == null) {
+                    // 双链均未命中：区分 NETWORK 限流与普通无匹配
+                    val isNetwork = (textOk is com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail && textOk.reason == OnlineTextMatchFailReason.NETWORK) ||
+                        (coverOk is com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail && coverOk.reason == OnlineCoverMatchFailReason.NETWORK)
+                    if (isNetwork) {
+                        throttledMutable.add(songId)
+                        _throttledIds.value = throttledMutable.toList()
+                        _throttleMessage.value = "等待限流恢复…"
+                        // 2s 后自动清除提示（不阻塞主循环）
+                        viewModelScope.launch {
+                            try {
+                                delay(2000)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (_: Exception) {}
+                            // 若仍为同一提示则清除，避免覆盖后续提示
+                            if (_throttleMessage.value == "等待限流恢复…") {
+                                _throttleMessage.value = null
+                            }
+                        }
+                    }
+                    continue
+                }
 
                 val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
                 items += PreviewCandidate(
@@ -156,6 +215,154 @@ class ScrapeViewModel @Inject constructor(
                     checked = false,
                 )
             }
+            // 若有命中进预览；若全限流未命中，给出最终可重试提示
+            if (throttledMutable.isNotEmpty() && items.isEmpty()) {
+                _throttleMessage.value = "触发限流，稍后重试"
+            } else if (throttledMutable.isNotEmpty()) {
+                // 部分限流：保留短期提示供 preview 展示
+                _throttleMessage.value = "${throttledMutable.size} 首触发限流，可单独重试"
+            }
+            _throttledIds.value = throttledMutable.toList()
+            _pageState.value = ScrapePageState.Preview(items)
+        }
+    }
+
+    /**
+     * 单曲重试（复用 startMatching 的单曲路径）。
+     * 清除该首的负缓存后重跑文本+封面匹配，命中则进入预览，其余给出限流提示。
+     */
+    fun retrySingle(songId: String) {
+        viewModelScope.launch {
+            try {
+                textMetaMatcher.invalidateNegativeCache(songId)
+                coverMatcher.invalidateNegativeCache(songId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {}
+            val song = try {
+                songRepository.getSong(songId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            } ?: return@launch
+            _pageState.value = ScrapePageState.Matching(1, 1, song.title)
+            _throttleMessage.value = null
+            val textOk = try {
+                textMetaMatcher.match(
+                    OnlineTextQuery(
+                        songId = song.id,
+                        title = song.title,
+                        path = song.path,
+                        artist = song.artist,
+                        album = song.album,
+                        durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(),
+                        metaSources = song.metaSources,
+                    ),
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK)
+            }
+            val coverOk = try {
+                coverMatcher.match(
+                    OnlineCoverQuery(songId = song.id, title = song.title, artist = song.artist, album = song.album),
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NETWORK)
+            }
+            val hit = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.hit
+            val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
+            if (hit == null && coverUrl == null) {
+                val isNetwork = (textOk is com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail && textOk.reason == OnlineTextMatchFailReason.NETWORK) ||
+                    (coverOk is com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail && coverOk.reason == OnlineCoverMatchFailReason.NETWORK)
+                _throttleMessage.value = if (isNetwork) "触发限流，稍后重试" else "暂无匹配"
+                // 保留在 preview 空态以便继续重试
+                val currentPreview = _pageState.value as? ScrapePageState.Preview
+                if (currentPreview != null) {
+                    // 保持空预览以展示重试入口
+                    _pageState.value = ScrapePageState.Preview(currentPreview.items)
+                } else {
+                    _pageState.value = ScrapePageState.Preview(emptyList())
+                }
+                // 将该首重新加入可重试集合（若限流）
+                if (isNetwork) {
+                    val cur = _throttledIds.value.toMutableList()
+                    if (!cur.contains(songId)) cur.add(songId)
+                    _throttledIds.value = cur
+                }
+                return@launch
+            }
+            val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
+            val candidate = PreviewCandidate(
+                songId = song.id,
+                songTitle = song.title,
+                currentArtist = song.artist,
+                matchedTitle = hit?.title,
+                matchedArtist = hit?.artist,
+                matchedAlbum = hit?.album,
+                confidence = confidence,
+                coverUrl = coverUrl,
+                checked = false,
+            )
+            // 合并到现有预览（若已有则追加去重）
+            val existing = (_pageState.value as? ScrapePageState.Preview)?.items ?: emptyList()
+            val merged = (existing.filter { it.songId != songId } + candidate)
+            // 从限流集合移除已成功者
+            _throttledIds.value = _throttledIds.value.filter { it != songId }
+            if (_throttledIds.value.isEmpty()) _throttleMessage.value = null
+            _pageState.value = ScrapePageState.Preview(merged)
+        }
+    }
+
+    /** 重试所有限流未命中的歌曲（批量）。 */
+    fun retryThrottled() {
+        val ids = _throttledIds.value.toList()
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            // 清理负缓存
+            ids.forEach {
+                try {
+                    textMetaMatcher.invalidateNegativeCache(it)
+                    coverMatcher.invalidateNegativeCache(it)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {}
+            }
+            _throttleMessage.value = null
+            _throttledIds.value = emptyList()
+            val items = mutableListOf<PreviewCandidate>()
+            // 复用当前预览已命中项
+            val existing = (_pageState.value as? ScrapePageState.Preview)?.items?.toMutableList() ?: mutableListOf()
+            items.addAll(existing)
+            var index = 0
+            val throttledRemain = mutableListOf<String>()
+            for (songId in ids) {
+                index++
+                val song = try { songRepository.getSong(songId) } catch (e: CancellationException) { throw e } catch (_: Exception) { null } ?: continue
+                _pageState.value = ScrapePageState.Matching(index, ids.size, song.title)
+                val textOk = try {
+                    textMetaMatcher.match(OnlineTextQuery(songId = song.id, title = song.title, path = song.path, artist = song.artist, album = song.album, durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(), metaSources = song.metaSources))
+                } catch (e: CancellationException) { throw e } catch (_: Exception) { com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK) }
+                val coverOk = try { coverMatcher.match(OnlineCoverQuery(songId = song.id, title = song.title, artist = song.artist, album = song.album)) } catch (e: CancellationException) { throw e } catch (_: Exception) { com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NETWORK) }
+                val hit = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.hit
+                val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
+                if (hit == null && coverUrl == null) {
+                    val isNetwork = (textOk is com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail && textOk.reason == OnlineTextMatchFailReason.NETWORK) || (coverOk is com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail && coverOk.reason == OnlineCoverMatchFailReason.NETWORK)
+                    if (isNetwork) throttledRemain.add(songId)
+                    continue
+                }
+                val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
+                // 去重追加
+                if (items.none { it.songId == songId }) {
+                    items.add(PreviewCandidate(songId = song.id, songTitle = song.title, currentArtist = song.artist, matchedTitle = hit?.title, matchedArtist = hit?.artist, matchedAlbum = hit?.album, confidence = confidence, coverUrl = coverUrl, checked = false))
+                }
+            }
+            _throttledIds.value = throttledRemain
+            _throttleMessage.value = if (throttledRemain.isNotEmpty()) "${throttledRemain.size} 首仍触发限流，可稍后重试" else null
             _pageState.value = ScrapePageState.Preview(items)
         }
     }
