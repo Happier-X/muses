@@ -117,6 +117,40 @@ class PlaybackStateRepository @Inject constructor(private val dataStore: DataSto
         dataStore.edit { prefs -> prefs.remove(SNAPSHOT_KEY) }
     }
 
+    /** 删除快照中指定歌曲（删源时清理，避免恢复/底部栏残留已删歌曲） */
+    suspend fun removeSongs(songIds: Set<String>) {
+        if (songIds.isEmpty()) return
+        val snapshot = readSnapshot() ?: return
+        val filterList: (List<QueueItem>) -> List<QueueItem> = { list -> list.filter { it.songId !in songIds } }
+        val newItems = filterList(snapshot.items)
+        val newOriginal = filterList(snapshot.originalOrder)
+        val newShuffle = snapshot.shuffleOrder?.let { filterList(it) }
+        val currentId = snapshot.currentSongId
+        val currentDeleted = currentId != null && currentId in songIds
+        val newCurrentIndex = if (currentDeleted) -1 else snapshot.currentIndex.let { idx ->
+            // 若删除的是当前项之前的歌曲，索引前移；否则保持
+            val deletedBefore = snapshot.items.take(idx).count { it.songId in songIds }
+            (idx - deletedBefore).coerceAtLeast(-1)
+        }
+        val newPosition = if (currentDeleted) 0L else snapshot.positionMs
+        val newCurrentId: String? = if (currentDeleted) null else currentId
+        // 若队列空则直接清空快照
+        if (newItems.isEmpty()) {
+            clearSnapshot()
+            return
+        }
+        writeSnapshot(
+            snapshot.copy(
+                items = newItems,
+                originalOrder = newOriginal,
+                shuffleOrder = newShuffle,
+                currentIndex = newCurrentIndex.coerceIn(-1, newItems.size - 1),
+                positionMs = newPosition,
+                currentSongId = newCurrentId,
+            ),
+        )
+    }
+
     // ── 播放器配置 ────────────────────────────────────────
 
     private fun decodeConfig(raw: String?): PlayerConfig? = runCatching {

@@ -77,18 +77,23 @@ class MainViewModel @Inject constructor(
     val isPlaying: StateFlow<Boolean> = playerConnection.isPlaying
 
     /**
-     * 当前曲信息：currentMediaItem.mediaId（= song.id）反查 Room。
+     * 当前曲信息：优先用 Room 的已回写标签（lazyScan 后），未回写前回退到 ExoPlayer 解析的 MediaMetadata
+     *（通知栏同源，解决「通知栏有信息但底部栏仍未知」）。
      * null = 无当前曲（MiniPlayer 显示空态整条，对照 `.mini-player--empty`）。
      */
     val nowPlaying: StateFlow<NowPlayingUiState?> = playerConnection.currentMediaItem
-        .map { it?.mediaId }
-        .distinctUntilChanged()
-        .map { songId ->
-            songId?.let { runCatching { songDao.getById(it) }.getOrNull() }?.let { song ->
+        .map { mediaItem ->
+            mediaItem?.let { item ->
+                val song = runCatching { songDao.getById(item.mediaId) }.getOrNull()
+                val metaTitle = item.mediaMetadata.title?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                val metaArtist = item.mediaMetadata.artist?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                val metaAlbum = item.mediaMetadata.albumTitle?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                val metaCover = item.mediaMetadata.artworkUri?.toString()
+                val useMeta = song == null || song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
                 NowPlayingUiState(
-                    title = song.title,
-                    subtitle = "${song.artist ?: "未知艺术家"} - ${song.albumTitle ?: "未知专辑"}",
-                    coverUri = song.coverUri,
+                    title = if (useMeta) metaTitle ?: song?.title ?: "未知歌曲" else song.title,
+                    subtitle = "${if (useMeta) metaArtist ?: song?.artist ?: "未知艺术家" else song.artist ?: "未知艺术家"} - ${if (useMeta) metaAlbum ?: song?.albumTitle ?: "未知专辑" else song.albumTitle ?: "未知专辑"}",
+                    coverUri = if (useMeta) metaCover ?: song?.coverUri else song.coverUri,
                 )
             }
         }

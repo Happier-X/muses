@@ -108,4 +108,11 @@ class RecentPlaysRepository @Inject constructor(private val dataStore: DataStore
         if (decode(dataStore.data.first()[KEY]).isEmpty()) return
         write(emptyList())
     }
+
+    /** 删除指定歌曲的最近播放记录（删源时清理，避免底部栏残留已删歌曲信息） */
+    suspend fun removeSongs(songIds: Set<String>) {
+        if (songIds.isEmpty()) return
+        val filtered = decode(dataStore.data.first()[KEY]).filter { it.songId !in songIds }
+        write(filtered)
+    }
 }

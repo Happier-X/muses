@@ -12,26 +12,12 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
-import com.muses.player.core.data.repository.SongRepository
-import com.muses.player.core.media.metadata.TagReader
-import com.muses.player.core.media.scanner.CoverCacheWriter
-import com.muses.player.core.media.scanner.LocalLibraryScanner
-import com.muses.player.core.media.scanner.WebDavLibraryScanner
 import com.muses.player.core.model.SourceType
-import com.muses.player.core.model.scrape.LyricsSource
 import com.muses.player.core.webdav.WebDavAudioCache
-import com.muses.player.core.webdav.WebDavClient
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -44,9 +30,6 @@ class PlayerConnection @Inject constructor(
     @ApplicationContext private val context: Context,
     private val recoveryController: PlaybackRecoveryController,
     private val webDavCache: WebDavAudioCache,
-    private val webDavClient: WebDavClient,
-    private val webDavLibraryScanner: WebDavLibraryScanner,
-    private val songRepository: SongRepository,
 ) {
 
     /** 最近一次播放失败的安全文案；用户主动操作后清空（P4 播放页消费） */
@@ -64,10 +47,6 @@ class PlayerConnection @Inject constructor(
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
-
-    /** WebDAV 预取下载（串行 IO）；play 换队列时取消旧任务 */
-    private val prefetchScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var prefetchJob: Job? = null
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -100,6 +79,11 @@ class PlayerConnection @Inject constructor(
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             _currentMediaItem.value = mediaItem
+        }
+
+        override fun onMediaMetadataChanged(mediaMetadata: androidx.media3.common.MediaMetadata) {
+            // ExoPlayer 解析标签后更新 MediaItem 的 metadata，需同步到 currentMediaItem 以驱动底部栏回退显示
+            _currentMediaItem.value = controller?.currentMediaItem
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -146,74 +130,12 @@ class PlayerConnection @Inject constructor(
         controllerFuture = null
     }
 
-    /**
-     * 从歌曲列表中选择 songId 开始播放。
-     * WebDAV 曲目直接流播：有缓存用 file://，无缓存用 HTTP URL（ExoPlayer 流播）。
-     * 后台异步预取+懒扫描标签，不阻塞播放。
-     */
+    /** 从歌曲列表中选择 songId 开始播放（WebDAV 直接 HTTP 流播，标签由 ExoPlayer 解析回退显示） */
     fun play(songId: String, songs: List<com.muses.player.core.model.Song>) {
         // 用户主动切歌：重置恢复链与错误状态（controller.ts 语义）
         recoveryController.reset()
         recoveryController.clearError()
-
-        // 直接播放，不等下载；HTTP 流播由 PlaybackService 的 CacheDataSource 边播边缓存
         applyPlayback(songId, songs)
-
-        // 后台异步：仅当懒扫描标签有活干且未入缓存时才整文件预取（供标签/封面扫描），
-        // 否则与流播缓存双倍下载；失败静默不影响播放
-        val current = songs.firstOrNull { it.id == songId }
-        if (
-            current != null
-            && current.sourceType == SourceType.WEBDAV
-            && current.tagsVersion < WebDavLibraryScanner.TAGS_VERSION
-            && webDavCache.getCachedFile(current.path) == null
-        ) {
-            prefetchJob?.cancel()
-            prefetchJob = prefetchScope.launch {
-                try {
-                    ensureCached(current.path)
-                    lazyScanTags(current)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    // 预取/扫描失败不影响播放
-                }
-            }
-        }
-    }
-
-    /**
-     * 播放时懒扫描（IO 线程）：缓存文件读标签/封面 + 同目录 .lrc sidecar，upsert 回库。
-     * Room Flow 驱动的列表自动刷新为真实标题。幂等：仅对 tagsVersion < TAGS_VERSION 的歌生效。
-     * 失败静默保持文件名歌（下次播放重试）。
-     */
-    private suspend fun lazyScanTags(song: com.muses.player.core.model.Song) {
-        if (song.tagsVersion >= WebDavLibraryScanner.TAGS_VERSION) return
-        val cached = webDavCache.getCachedFile(song.path) ?: return
-        val tags = TagReader.read(cached)
-        val sidecar = webDavLibraryScanner.buildSidecarLyricsUrl(song.path)
-            ?.let { webDavClient.getString(it) }?.trim()?.takeIf { it.isNotEmpty() }
-        val lyrics = tags.lyrics?.trim()?.takeIf { it.isNotEmpty() } ?: sidecar
-        val lyricsSource = when {
-            tags.lyrics?.trim()?.takeIf { it.isNotEmpty() } != null -> LyricsSource.EMBEDDED
-            sidecar != null -> LyricsSource.SIDECAR
-            else -> null
-        }
-        val songId = LocalLibraryScanner.stableSongId(song.sourceId, song.path)
-        songRepository.upsert(
-            song.copy(
-                title = tags.title?.trim()?.takeIf { it.isNotEmpty() } ?: song.title,
-                artist = tags.artist ?: song.artist,
-                album = tags.album ?: song.album,
-                durationMs = if (tags.durationSec > 0) tags.durationSec * 1000L else song.durationMs,
-                durationSec = if (tags.durationSec > 0) tags.durationSec else song.durationSec,
-                coverUri = tags.coverBytes?.let { CoverCacheWriter.write(context, songId, it) } ?: song.coverUri,
-                lyrics = lyrics ?: song.lyrics,
-                lyricsSource = lyricsSource ?: song.lyricsSource,
-                replayGainTrackDb = tags.replayGainTrackDb ?: song.replayGainTrackDb,
-                tagsVersion = WebDavLibraryScanner.TAGS_VERSION,
-            ),
-        )
     }
 
     private fun applyPlayback(songId: String, songs: List<com.muses.player.core.model.Song>) {
@@ -250,22 +172,6 @@ class PlayerConnection @Inject constructor(
         return webDavCache.getCachedFile(song.path)?.let { Uri.fromFile(it) } ?: Uri.parse(song.path)
     }
 
-    /**
-     * 整文件下载进播放缓存（IO 线程调用）：命中直接返回；未命中经临时文件下载后 putToCache
-     * （顺带预热 LRU，供后续播放零网络）。失败抛出由调用方决定回退策略。
-     */
-    private suspend fun ensureCached(url: String) {
-        if (webDavCache.getCachedFile(url) != null) return
-        val tempDir = File(context.cacheDir, "tmp-playback").apply { mkdirs() }
-        val temp = File.createTempFile("dl-", ".audio", tempDir)
-        try {
-            webDavClient.get(url, temp)
-            webDavCache.putToCache(url, temp)
-        } finally {
-            temp.delete()
-        }
-    }
-
     fun playPause() {
         val player = controller ?: return
         if (player.isPlaying) player.pause() else player.play()
@@ -289,6 +195,28 @@ class PlayerConnection @Inject constructor(
     /** 清空队列 */
     fun clearQueueItems() {
         controller?.clearMediaItems()
+    }
+
+    /** 从队列中移除指定 songIds 的条目（删源时清理播放队列与底部栏残留） */
+    fun removeFromQueue(songIds: Set<String>) {
+        if (songIds.isEmpty()) return
+        val player = controller ?: return
+        // 需要在主线程操作 ExoPlayer（Media3 主线程铁律），此处由主线程调用方保证或 post
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            mainHandler.post { removeFromQueue(songIds) }
+            return
+        }
+        // 倒序删除避免索引错位
+        for (index in player.mediaItemCount - 1 downTo 0) {
+            if (player.getMediaItemAt(index).mediaId in songIds) {
+                player.removeMediaItem(index)
+            }
+        }
+        // 若当前播放项被删且队列非空，ExoPlayer 会自动切到下一项；若队列空则停止
+        if (player.mediaItemCount == 0) {
+            player.stop()
+            player.clearMediaItems()
+        }
     }
 
     fun skipToNext() {

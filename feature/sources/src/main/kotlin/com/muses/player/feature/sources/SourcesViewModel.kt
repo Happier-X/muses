@@ -60,6 +60,9 @@ class SourcesViewModel @Inject constructor(
     private val credentialsRepository: CredentialsRepository,
     private val webDavClient: WebDavClient,
     private val webDavAuthRegistry: WebDavAuthRegistry,
+    private val playbackStateRepository: com.muses.player.core.data.repository.PlaybackStateRepository,
+    private val recentPlaysRepository: com.muses.player.core.data.repository.RecentPlaysRepository,
+    private val playerConnection: com.muses.player.core.media.playback.PlayerConnection,
 ) : ViewModel() {
 
     val sources: StateFlow<List<Source>> = sourceRepository.observeSources()
@@ -370,10 +373,28 @@ class SourcesViewModel @Inject constructor(
     /** 删除音源 */
     fun deleteSource(source: Source) {
         viewModelScope.launch {
+            // 先取待删歌曲 ids，用于清理播放快照/最近播放/播放队列
+            val songIdsToRemove = try {
+                songDao.getBySource(source.id).map { it.id }.toSet()
+            } catch (_: Exception) {
+                emptySet()
+            }
             sourceRepository.deleteById(source.id)
             credentialsRepository.clearPassword(source.id)
             // 同步清理该音源入库歌曲（对齐 Web executeDeleteSource → reconcileSourceSongs(id, [])）
             songRepository.deleteSourceSongs(source.id)
+            // 清理播放相关残留，避免底部栏仍显示已删歌曲
+            if (songIdsToRemove.isNotEmpty()) {
+                try {
+                    playbackStateRepository.removeSongs(songIdsToRemove)
+                } catch (_: Exception) { }
+                try {
+                    recentPlaysRepository.removeSongs(songIdsToRemove)
+                } catch (_: Exception) { }
+                try {
+                    playerConnection.removeFromQueue(songIdsToRemove)
+                } catch (_: Exception) { }
+            }
             // 源删除后同步播放认证注册表，移除残留凭据映射
             webDavAuthRegistry.refresh()
         }
