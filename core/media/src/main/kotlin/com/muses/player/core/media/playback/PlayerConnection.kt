@@ -12,6 +12,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import com.muses.player.core.media.scanner.CoverCacheWriter
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.webdav.WebDavAudioCache
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -54,6 +55,9 @@ class PlayerConnection @Inject constructor(
     private val _currentMediaItem = MutableStateFlow<MediaItem?>(null)
     val currentMediaItem: StateFlow<MediaItem?> = _currentMediaItem.asStateFlow()
 
+    private val _mediaMetadata = MutableStateFlow<androidx.media3.common.MediaMetadata?>(null)
+    val mediaMetadata: StateFlow<androidx.media3.common.MediaMetadata?> = _mediaMetadata.asStateFlow()
+
     private val _position = MutableStateFlow(0L)
     val position: StateFlow<Long> = _position.asStateFlow()
 
@@ -79,10 +83,25 @@ class PlayerConnection @Inject constructor(
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             _currentMediaItem.value = mediaItem
+            _mediaMetadata.value = controller?.mediaMetadata
         }
 
         override fun onMediaMetadataChanged(mediaMetadata: androidx.media3.common.MediaMetadata) {
-            // ExoPlayer 解析标签后更新 MediaItem 的 metadata，需同步到 currentMediaItem 以驱动底部栏回退显示
+            // ExoPlayer 解析容器 ID3 后的合并 metadata（Player.mediaMetadata），与通知栏同源
+            // 不能用 MediaItem.mediaMetadata（静态占位），否则底部栏仍为占位
+            // 封面：MediaMetadata.artworkData 为内嵌字节，artworkUri 为空时需落盘为 file:// 供 Coil 显示
+            var updated = mediaMetadata
+            if (mediaMetadata.artworkData != null && mediaMetadata.artworkUri == null) {
+                val bytes = mediaMetadata.artworkData
+                if (bytes != null && bytes.isNotEmpty()) {
+                    val cacheKey = _currentMediaItem.value?.mediaId ?: mediaMetadata.title?.toString() ?: "cover_${System.currentTimeMillis()}"
+                    CoverCacheWriter.write(context, cacheKey, bytes)?.let { uri ->
+                        updated = mediaMetadata.buildUpon().setArtworkUri(Uri.parse(uri)).build()
+                    }
+                }
+            }
+            _mediaMetadata.value = updated
+            // 同时刷新 currentMediaItem 保持 queue 等状态一致
             _currentMediaItem.value = controller?.currentMediaItem
         }
 
@@ -250,6 +269,16 @@ class PlayerConnection @Inject constructor(
     private fun syncState(player: MediaController) {
         _isPlaying.value = player.isPlaying
         _currentMediaItem.value = player.currentMediaItem
+        var meta = player.mediaMetadata
+        if (meta.artworkData != null && meta.artworkUri == null) {
+            meta.artworkData?.takeIf { it.isNotEmpty() }?.let { bytes ->
+                val cacheKey = player.currentMediaItem?.mediaId ?: meta.title?.toString() ?: "cover"
+                CoverCacheWriter.write(context, cacheKey, bytes)?.let { uri ->
+                    meta = meta.buildUpon().setArtworkUri(Uri.parse(uri)).build()
+                }
+            }
+        }
+        _mediaMetadata.value = meta
         _position.value = player.currentPosition
         _duration.value = if (player.duration > 0) player.duration else 0L
         _playbackState.value = player.playbackState

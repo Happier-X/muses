@@ -24,12 +24,13 @@
 ## 播放契约（限流教训，勿回退）
 
 - **WEBDAV 曲目播放 = 整文件入缓存后 file:// 播**（对齐旧版 getOrDownload）：未命中缓存的先经 `client.get` 单次 GET 进缓存再播。
-- **禁止**让 ExoPlayer 直接对 WebDAV URL 流播无时长元数据（文件名建库产物 durationMs=0）的 mp3/flac——ExoPlayer 会发探测性 Range 分段请求（单首可达十余个），叠加失败恢复链跳歌重试形成请求风暴，触发网关（Cloudflare）429 全站限流。
+- **播放契约（限流教训，勿回退）**：WEBDAV 曲目播放 = ExoPlayer 直连 WebDAV URL **流式播放 + `CacheDataSource` 边播边缓存**（用户决策 2026-08-27：保持流式，不做整文件下载）。曾因「恢复队列一次性 `prepare` 全列触发请求 → 打爆限流 → 429 全站」而禁止直连流播；现通过两处消除 burst：(1) 流播 `OkHttpDataSource` 走 `@StreamingOkHttp` client（只 auth 不限流，见 `WebDavModule.provideStreamingOkHttpClient`），与扫描/预取限流桶隔离，流播单连接读取不再被饿死/超时重试；(2) media3 1.11 无 `Player.setPreloadItems`（相邻预加载 API 在 1.13+），默认不预加载整队列；若实测 `setMediaItems(全量)` + `prepare()` 仍发全列请求，再改为「只 `prepare` 当前曲 + 下一首」分批加载 + `PlayerConnection` 维护 UI 队列副本（解耦 ExoPlayer 队列）。重复播放命中 `CacheDataSource` 本地缓存不发网络。文件名建库 durationMs=0 的 mp3/flac 由 ExoPlayer 流播时自行解析容器 ID3 tag，无需额外网络请求。
 - **标签读取只在播放时懒扫描**（用户决策 2026-08-26：扫描期「读取音乐标签」功能已删除）：PlayerConnection 在当前曲入缓存后调 `lazyScanTags`——TagReader + sidecar .lrc + CoverCacheWriter → `songRepository.upsert` 回写（Room Flow 自动刷新列表）。幂等键：文件名建库 tagsVersion=0（FILENAME_TAGS_VERSION），懒扫描成功写 TAGS_VERSION；失败静默保持文件名歌下次重试。本地源扫描仍保留 readTags 开关（无网络成本）。
 - 认证统一走 OkHttpClient Interceptor + WebDavAuthRegistry；interceptor **不得覆盖请求已携带的 Authorization**（避免压掉 OkHttpWebDavClient.authenticate 的手动 header）。PlaybackService 禁止自建裸 OkHttpClient。
 - 预取模式（PlayerConnection.prefetchScope）：串行下载、换队列 cancel 旧任务、单首失败回退 http URL 不阻塞队列、完成后 mainHandler.post 回主线程 setMediaItems（Media3 主线程铁律）。
 - 凭据生命周期：源 save/update/delete 及引导页保存四处都必须调 `registry.refresh()`。
-- **播放/刮削共享限流（任务 08-27-webdav-playback-429）**：`WebDavRateLimiter`（`core:webdav` 单例 4 rps/250ms，`synchronized` 兼顾协程/阻塞链路）经 `WebDavModule` 单例提供，`ScrapeRateLimiter` 为其 `typealias` 复用；`WebDavClient` 全量方法前 `acquire()` + `OkHttpClient` 拦截器 `acquireBlocking()` 双层覆盖 `CacheDataSource` 的 Range 探测，避免叠加 burst；429 时 `parseRetryAfterMs`（秒/HTTP-date，≤8s）退避重试 1 次，二次 429 抛 `IOException("http 429")` 并 `ErrorLogStore.log(WARN)`，上层归为可重试 `NETWORK`。
+- **限流假设显式化（防 E 类隐含假设复发）**：禁止假设「4 rps 安全」——所有外发 HTTP（刮削 `ScrapeHttp`、播放 `WebDavClient`）必须经 `WebDavRateLimiter` 单例，阈值显式声明为 4 rps 且集中在 `WebDavModule`，测试注入 `nowMs` 避免虚拟时间漂移。**流播链路例外**：ExoPlayer 经 `CacheDataSource` + `OkHttpDataSource` 对流式 URL 的播放读取，走 `WebDavModule.provideStreamingOkHttpClient`（`@StreamingOkHttp`，只 auth 不限流）——流播是单连接串行持续读取、请求率远低于 CDN 阈值、不构成 burst，套 4 rps 反而饿死/超时重试叠加 429（用户决策 2026-08-27，任务 08-27-webdav-playback-429）。
+- **播放/刮削共享限流（任务 08-27-webdav-playback-429）**：`WebDavRateLimiter`（`core:webdav` 单例 4 rps/250ms，`synchronized` 兼顾协程/阻塞链路）经 `WebDavModule` 单例提供，`ScrapeRateLimiter` 为其 `typealias` 复用；`WebDavClient` 全量方法前 `acquire()` + `OkHttpClient` 拦截器 `acquireBlocking()` 双层覆盖（已在协程层限流的请求打 `X-Muses-Rate-Limited` marker 跳过二次限流）；**`CacheDataSource` 流播链路已剥离限流**（见上「流播链路例外」），走 `@StreamingOkHttp` client，不再经 `acquireBlocking()`；429 时 `parseRetryAfterMs`（秒/HTTP-date，≤8s）退避重试 1 次，二次 429 抛 `IOException("http 429")` 并 `ErrorLogStore.log(WARN)`，上层归为可重试 `NETWORK`。
 
 ## 错误文案矩阵（对齐 Web）
 
@@ -50,14 +51,10 @@
 ## Wrong vs Correct
 
 ```kotlin
-// WRONG：ExoPlayer 直接流播 WebDAV URL（Range 探测风暴 → 429）
+// CORRECT：ExoPlayer 直连 WebDAV URL 流式播放 + CacheDataSource 边播边缓存
+// （setPreloadItems(false) 只加载当前曲；流播 client 不限流，与扫描/预取桶隔离）
 MediaItem.Builder().setUri(song.path).build()
-
-// CORRECT：整文件入缓存后本地播
-val uri = webDavCache.getCachedFile(song.path)?.let { Uri.fromFile(it) } ?: run {
-    ensureCached(song.path)          // 单次认证 GET
-    Uri.fromFile(webDavCache.getCachedFile(song.path)!!) // 失败时回退 song.path
-}
+// 重复播放命中 CacheDataSource 本地缓存，不发网络；切歌时才加载下一首
 ```
 
 ## 构建注意

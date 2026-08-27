@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
+import com.muses.player.core.webdav.StreamingOkHttp
 import javax.inject.Inject
 
 /**
@@ -45,8 +46,9 @@ class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
 
-    /** Hilt 提供的共享客户端：带 WebDAV 认证 interceptor（播放流播用）与 NAS 友好超时 */
+    /** Hilt 提供的流播专用客户端：只带 WebDAV 认证 interceptor，不施加 4 rps 限流（见 [StreamingOkHttp]） */
     @Inject
+    @StreamingOkHttp
     lateinit var okHttpClient: OkHttpClient
 
     /** Media3 流播磁盘缓存：探测性重复 Range 请求命中本地不再发网络（防网关限流） */
@@ -92,6 +94,9 @@ class PlaybackService : MediaSessionService() {
             .setMediaSourceFactory(mediaSourceFactory)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+        // 注：media3 1.11 无 Player.setPreloadItems（相邻预加载 API 在 1.13+），默认不会预加载整队列；
+        // 真正触发 429 的是流播 Range 被 4 rps 限流饿死，已通过 @StreamingOkHttp 流播 client 剥离限流解决。
+        // 若实测恢复队列（465 首）一次性 prepare 仍发全列请求，再改为「只 prepare 当前曲 + 下一首」分批加载。
 
         mediaSession = MediaSession.Builder(this, player).build()
 

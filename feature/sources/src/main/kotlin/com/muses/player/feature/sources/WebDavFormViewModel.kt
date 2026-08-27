@@ -59,8 +59,7 @@ class WebDavFormViewModel @Inject constructor(
         if (current.editingSourceId == sourceId) return // 已初始化
 
         viewModelScope.launch {
-            val sources = sourceRepository.observeSources().first()
-            val source = sources.find { it.id == sourceId && it.type == SourceType.WEBDAV }
+            val source = sourceRepository.getSource(sourceId)?.takeIf { it.type == SourceType.WEBDAV }
             if (source == null) {
                 _formState.value = current.copy(
                     errorMessage = "找不到要编辑的音源。",

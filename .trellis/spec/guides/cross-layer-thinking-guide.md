@@ -288,6 +288,17 @@ When a CLI auto-detects a mode by probing a remote resource (e.g., checking if `
 
 ---
 
+## 外部限流显式化检查（429 复发教训）
+
+当客户端与 CDN/源站有频率契约时：
+
+- [ ] 阈值是否显式声明在单一限流器（而非分散在各 client 隐含假设）
+- [ ] CDN 侧跳过规则是否与客户端限流共享同一阈值文档（避免 4 rps 客户端 vs 2 rps 服务端错配）
+- [ ] 429 的 `Retry-After` 是否被解析并回退，不丢弃 `CancellationException`
+- [ ] 错误是否被可观测（`ErrorLogStore` + UI 白名单文案），而非静默 `catch (_:Exception){}`
+
+---
+
 ## When to Create Flow Documentation
 
 Create detailed flow docs when:

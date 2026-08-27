@@ -109,6 +109,7 @@ fun SourceEntity.toDomain(): Source = Source(
     type = runCatching { SourceType.valueOf(type) }.getOrDefault(SourceType.LOCAL),
     url = url,
     path = path,
+    username = username,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )

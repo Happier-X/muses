@@ -77,27 +77,31 @@ class MainViewModel @Inject constructor(
     val isPlaying: StateFlow<Boolean> = playerConnection.isPlaying
 
     /**
-     * 当前曲信息：优先用 Room 的已回写标签（lazyScan 后），未回写前回退到 ExoPlayer 解析的 MediaMetadata
+     * 当前曲信息：优先用 Room 的已回写标签（lazyScan 后），未回写前回退到 ExoPlayer 解析的 Player.mediaMetadata
      *（通知栏同源，解决「通知栏有信息但底部栏仍未知」）。
+     * 关键：必须用 Player.mediaMetadata（合并动态 ID3）而非 MediaItem.mediaMetadata（静态占位）。
      * null = 无当前曲（MiniPlayer 显示空态整条，对照 `.mini-player--empty`）。
      */
-    val nowPlaying: StateFlow<NowPlayingUiState?> = playerConnection.currentMediaItem
-        .map { mediaItem ->
-            mediaItem?.let { item ->
-                val song = runCatching { songDao.getById(item.mediaId) }.getOrNull()
-                val metaTitle = item.mediaMetadata.title?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-                val metaArtist = item.mediaMetadata.artist?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-                val metaAlbum = item.mediaMetadata.albumTitle?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-                val metaCover = item.mediaMetadata.artworkUri?.toString()
-                val useMeta = song == null || song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
-                NowPlayingUiState(
-                    title = if (useMeta) metaTitle ?: song?.title ?: "未知歌曲" else song.title,
-                    subtitle = "${if (useMeta) metaArtist ?: song?.artist ?: "未知艺术家" else song.artist ?: "未知艺术家"} - ${if (useMeta) metaAlbum ?: song?.albumTitle ?: "未知专辑" else song.albumTitle ?: "未知专辑"}",
-                    coverUri = if (useMeta) metaCover ?: song?.coverUri else song.coverUri,
-                )
-            }
+    val nowPlaying: StateFlow<NowPlayingUiState?> = kotlinx.coroutines.flow.combine(
+        playerConnection.currentMediaItem,
+        playerConnection.mediaMetadata,
+    ) { mediaItem, mediaMetadata ->
+        mediaItem?.let { item ->
+            val song = runCatching { songDao.getById(item.mediaId) }.getOrNull()
+            // 合并 metadata 优先用 Player.mediaMetadata（动态解析），回退到 MediaItem.mediaMetadata（静态）
+            val combined = mediaMetadata ?: item.mediaMetadata
+            val metaTitle = combined.title?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+            val metaArtist = combined.artist?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+            val metaAlbum = combined.albumTitle?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+            val metaCover = combined.artworkUri?.toString()
+            val useMeta = song == null || song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
+            NowPlayingUiState(
+                title = if (useMeta) metaTitle ?: song?.title ?: "未知歌曲" else song.title,
+                subtitle = "${if (useMeta) metaArtist ?: song?.artist ?: "未知艺术家" else song.artist ?: "未知艺术家"} - ${if (useMeta) metaAlbum ?: song?.albumTitle ?: "未知专辑" else song.albumTitle ?: "未知专辑"}",
+                coverUri = if (useMeta) metaCover ?: song?.coverUri else song.coverUri,
+            )
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** 存量库专辑/艺术家索引回填（幂等） */
     fun rebuildLibraryIndexes() {

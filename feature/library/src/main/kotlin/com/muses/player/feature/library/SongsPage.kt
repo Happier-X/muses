@@ -115,6 +115,7 @@ fun SongsPage(
     val currentSongId: String? = playerConnection?.currentMediaItem?.let { flow ->
         flow.collectAsState().value?.mediaId
     }
+    val currentMediaMetadata by playerConnection?.mediaMetadata?.collectAsState() ?: remember { mutableStateOf<androidx.media3.common.MediaMetadata?>(null) }
 
     // 列表滚动中防抖 300ms（对照 onListScroll/isListScrolling：滚动时隐藏气泡不挡更多按钮）
     var scrollSettled by remember { mutableStateOf(true) }
@@ -278,8 +279,16 @@ fun SongsPage(
                             color = if (checked) salt.primary.copy(alpha = 0.08f) else Color.Transparent,
                             shape = RoundedCornerShape(SaltRadius.sm),
                         ),
-                        title = song.title,
-                        subtitle = "${song.artist ?: "未知艺术家"} - ${song.album ?: "未知专辑"}",
+                        title = run {
+                            val isCurrent = song.id == currentSongId && song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
+                            if (isCurrent) currentMediaMetadata?.title?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: song.title else song.title
+                        },
+                        subtitle = run {
+                            val isCurrent = song.id == currentSongId && song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
+                            val metaArtist = if (isCurrent) currentMediaMetadata?.artist?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
+                            val metaAlbum = if (isCurrent) currentMediaMetadata?.albumTitle?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
+                            "${metaArtist ?: song.artist ?: "未知艺术家"} - ${metaAlbum ?: song.album ?: "未知专辑"}"
+                        },
                         // Web .songs-page :deep(.m-list-item)：72dp 行高/16-12px 字号/紧凑 after
                         metrics = SaltListItemMetrics.SongsDense,
                         onClick = {
@@ -325,15 +334,18 @@ fun SongsPage(
                                         )
                                     }
                                 }
-                            } else if (song.coverUri != null) {
-                                SaltCover(
-                                    uri = song.coverUri,
-                                    size = 54.dp,
-                                    radius = SaltCoverRadius.SM,
-                                )
-                                // Web .m-list-item__inner padding-left:12px —— 封面-标题间距对齐椒盐
-                                Spacer(Modifier.width(12.dp))
                             } else {
+                                val isCurrentCover = song.id == currentSongId && song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
+                                val displayCover = if (isCurrentCover) currentMediaMetadata?.artworkUri?.toString() ?: song.coverUri else song.coverUri
+                                if (displayCover != null) {
+                                    SaltCover(
+                                        uri = displayCover,
+                                        size = 54.dp,
+                                        radius = SaltCoverRadius.SM,
+                                    )
+                                    // Web .m-list-item__inner padding-left:12px —— 封面-标题间距对齐椒盐
+                                    Spacer(Modifier.width(12.dp))
+                                } else {
                                 // Web .songs-page__cover 无封面覆盖：m-cover 容器仍恒定 54dp（透明底），
                                 // 内部居中 32dp 占位图标 opacity .45 —— 行首宽度与有封面状态一致
                                 Box(Modifier.size(54.dp), contentAlignment = Alignment.Center) {
@@ -345,6 +357,7 @@ fun SongsPage(
                                     )
                                 }
                                 Spacer(Modifier.width(12.dp))
+                                }
                             }
                         },
                         after = {
