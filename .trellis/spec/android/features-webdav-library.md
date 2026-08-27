@@ -29,6 +29,7 @@
 - 认证统一走 OkHttpClient Interceptor + WebDavAuthRegistry；interceptor **不得覆盖请求已携带的 Authorization**（避免压掉 OkHttpWebDavClient.authenticate 的手动 header）。PlaybackService 禁止自建裸 OkHttpClient。
 - 预取模式（PlayerConnection.prefetchScope）：串行下载、换队列 cancel 旧任务、单首失败回退 http URL 不阻塞队列、完成后 mainHandler.post 回主线程 setMediaItems（Media3 主线程铁律）。
 - 凭据生命周期：源 save/update/delete 及引导页保存四处都必须调 `registry.refresh()`。
+- **播放/刮削共享限流（任务 08-27-webdav-playback-429）**：`WebDavRateLimiter`（`core:webdav` 单例 4 rps/250ms，`synchronized` 兼顾协程/阻塞链路）经 `WebDavModule` 单例提供，`ScrapeRateLimiter` 为其 `typealias` 复用；`WebDavClient` 全量方法前 `acquire()` + `OkHttpClient` 拦截器 `acquireBlocking()` 双层覆盖 `CacheDataSource` 的 Range 探测，避免叠加 burst；429 时 `parseRetryAfterMs`（秒/HTTP-date，≤8s）退避重试 1 次，二次 429 抛 `IOException("http 429")` 并 `ErrorLogStore.log(WARN)`，上层归为可重试 `NETWORK`。
 
 ## 错误文案矩阵（对齐 Web）
 
@@ -37,12 +38,14 @@
 | 密码缺失 | WebDAV 密码不存在，请重新添加该音源。 |
 | 认证被拒 | WebDAV 认证失败（HTTP xxx）（来自 WebDavAuthException/WebDavRequestException） |
 | 懒扫描读标签失败 | 静默保持文件名歌，下次播放重试（不阻塞播放） |
+| 播放 429 限流 | `触发限流，稍后重试`（`PlaybackErrorCopy.RATE_LIMITED_RETRY`，白名单第 9 条），`Snackbar` 提供重试/关闭，`ErrorLogStore` 可查 `WARN WebDavClient http 429` |
 
 ## 测试锚点
 
 - WebDavLibraryScannerTest：扩展名过滤+递归 / 扫描零下载 / sidecar URL 构造 / 密码缺失抛错且进度置终态 / 文件名建库 tagsVersion=0
 - WebDavAuthRegistryTest：最长前缀匹配 / 无匹配 null / refresh 生效 / null user Basic 编码 / `'/'` 边界不误命中
 - 挂起调用外包 catch 时必须前置 `catch (e: CancellationException) { throw e }`（两 scanner 与 PlayerConnection 预取均有示范）
+- `WebDavRateLimiter` 精确时序单测需注入 `nowMs` 避免虚拟时间漂移；`WebDavClient` 429 分支需覆盖 `Retry-After` 秒/HTTP-date/无头/上限截断四态
 
 ## Wrong vs Correct
 
