@@ -93,31 +93,22 @@ fun MiniPlayerBar(
             .saltShadow(shape = capsuleShape, layers = shadowLayers)
             .background(color = salt.glassBg, shape = capsuleShape)
             .border(border = BorderStroke(1.dp, borderColor), shape = capsuleShape)
-            .padding(horizontal = SaltSpacing.spacing),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
-    ) {
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier.clickable(
+            .clickable(
                 interactionSource = clickInteraction,
                 indication = null,
                 enabled = hasSong,
                 onClick = onOpenPlayer,
             )
-        ) {
-            SaltCover(uri = coverUri, size = 48.dp, radius = SaltCoverRadius.MD)
-        }
+            .padding(horizontal = SaltSpacing.spacing),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
+    ) {
+        SaltCover(uri = coverUri, size = 48.dp, radius = SaltCoverRadius.MD)
 
-        // __info：gap 3px，flex:1 min-width:0，整块可点打开播放页（控制区除外）
+        // __info：gap 3px，flex:1 min-width:0
         Column(
             modifier = Modifier
-                .weight(1f)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    enabled = hasSong,
-                    onClick = onOpenPlayer,
-                ),
+                .weight(1f),
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Text(
@@ -140,10 +131,18 @@ fun MiniPlayerBar(
         }
 
         // __controls：gap 2px，图标 18px（md 触控区 40px 不变）
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        // 外层整条可点打开播放页，控制区需消费点击避免冒泡（修复点击播放按钮同时打开播放页）
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+            )
         ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
             SaltIconButton(
                 onClick = onTogglePlayback,
                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, // lucide pause/play fill
@@ -152,13 +151,14 @@ fun MiniPlayerBar(
                 tint = salt.text, // __btn { color: var(--m-text) }
                 iconSizeOverride = 18.dp, // __icon { width: 18px }
             )
-            SaltIconButton(
-                onClick = onOpenQueue,
-                imageVector = Icons.Filled.QueueMusic, // lucide listMusic fill
-                contentDescription = "打开播放队列",
-                tint = salt.text,
-                iconSizeOverride = 18.dp,
-            )
+                SaltIconButton(
+                    onClick = onOpenQueue,
+                    imageVector = Icons.Filled.QueueMusic, // lucide listMusic fill
+                    contentDescription = "打开播放队列",
+                    tint = salt.text,
+                    iconSizeOverride = 18.dp,
+                )
+            }
         }
     }
 }
