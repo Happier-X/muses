@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -142,13 +143,45 @@ fun PlayerScreen(
                 )
             }
         )
-        // 原生回退标题：WebView 黑屏时仍可见（调试后可移除）
-        Text(
-            text = currentMediaItem?.mediaMetadata?.title?.toString()?.ifEmpty { "暂无播放歌曲" } ?: "暂无播放歌曲",
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp).background(Color.Black.copy(alpha = 0.6f), shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 16.dp, vertical = 8.dp),
-            color = Color.White,
-            fontSize = 16.sp,
-        )
+        // 原生回退 UI：WebView 黑屏时仍可用（封面 + 标题 + 控制），与 WebView 底层共存，层级在 WebView 之上但不遮挡手势（点击可透传至 WebView 的关闭按钮区域除外）
+        Column(
+            modifier = Modifier.fillMaxSize().padding(top = 72.dp, bottom = 32.dp, start = 24.dp, end = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            val cover = stickyCover
+            if (!cover.isNullOrEmpty()) {
+                com.muses.player.core.ui.components.SaltCover(uri = cover, size = 240.dp, radius = com.muses.player.core.ui.components.SaltCoverRadius.MD)
+                Spacer(modifier = Modifier.size(24.dp))
+            }
+            Text(
+                text = currentMediaItem?.mediaMetadata?.title?.toString()?.ifEmpty { "暂无播放歌曲" } ?: "暂无播放歌曲",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = currentMediaItem?.mediaMetadata?.artist?.toString() ?: "未知艺术家",
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.size(24.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(32.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.IconButton(onClick = { viewModel.skipToPrevious() }) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = "上一曲", tint = Color.White, modifier = Modifier.size(32.dp))
+                }
+                androidx.compose.material3.IconButton(onClick = { viewModel.playPause() }) {
+                    Icon(imageVector = if (isPlaying) Icons.Filled.Close else Icons.Filled.PlayArrow, contentDescription = if (isPlaying) "暂停" else "播放", tint = Color.White, modifier = Modifier.size(48.dp))
+                }
+                androidx.compose.material3.IconButton(onClick = { viewModel.skipToNext() }) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = "下一曲", tint = Color.White, modifier = Modifier.size(32.dp))
+                }
+            }
+        }
         // 限流错误条：复用 PlaybackRecoveryController.playbackError（含 429 的「触发限流，稍后重试」）
         if (playbackError != null) {
             androidx.compose.material3.Snackbar(
