@@ -35,6 +35,8 @@ class PlayerViewModel @Inject constructor(
 
     val isPlaying: StateFlow<Boolean> = playerConnection.isPlaying
     val currentMediaItem = playerConnection.currentMediaItem
+    /** 播放失败可观测：限流 429 展示「触发限流，稍后重试」并提供重试入口 */
+    val playbackError: StateFlow<String?> = playerConnection.playbackError
     val duration: StateFlow<Long> = playerConnection.duration
     val repeatMode: StateFlow<Int> = playerConnection.repeatMode
     val shuffleModeEnabled: StateFlow<Boolean> = playerConnection.shuffleModeEnabled
@@ -72,6 +74,20 @@ class PlayerViewModel @Inject constructor(
     fun skipToPrevious() = playerConnection.skipToPrevious()
 
     fun seekTo(positionMs: Long) = playerConnection.seekTo(positionMs)
+
+    /** 限流后用户手动重试：清错误并重置恢复链后重播当前曲（无队列上下文则仅清错） */
+    fun retryPlayback() {
+        val currentId = playerConnection.currentMediaItem.value?.mediaId ?: run {
+            playerConnection.clearPlaybackError()
+            return
+        }
+        playerConnection.clearPlaybackError()
+        // 重置恢复链 attempted 集合，避免重试后再次失败跳过候选异常
+        playerConnection.resetRecovery()
+        playerConnection.playAtIndex(playerConnection.queue.value.indexOfFirst { it.mediaId == currentId }.takeIf { it >= 0 } ?: 0)
+    }
+
+    fun clearPlaybackError() = playerConnection.clearPlaybackError()
 
     fun setRepeatMode(mode: Int) = playerConnection.setRepeatMode(mode)
 

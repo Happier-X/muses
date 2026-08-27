@@ -52,6 +52,15 @@ class PlayerConnection @Inject constructor(
     /** 最近一次播放失败的安全文案；用户主动操作后清空（P4 播放页消费） */
     val playbackError: StateFlow<String?> = recoveryController.playbackError
 
+    /** 清除限流/播放错误（播放页「重试」/关闭按钮消费） */
+    fun clearPlaybackError() = recoveryController.clearError()
+
+    /** @deprecated 使用 [clearPlaybackError] */
+    fun clearError() = clearPlaybackError()
+
+    /** 重置恢复链 attempted 集合（限流重试等场景） */
+    fun resetRecovery() = recoveryController.reset()
+
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())

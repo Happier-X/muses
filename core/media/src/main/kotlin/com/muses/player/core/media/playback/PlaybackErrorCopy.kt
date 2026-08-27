@@ -21,12 +21,16 @@ object PlaybackErrorCopy {
         "WebDAV 认证失败，请检查账号或重新添加音源。",
         "音频文件不存在或已失效，请重新扫描音源。",
         "播放失败，请检查音频文件或网络连接。",
+        "触发限流，稍后重试",
     )
 
     const val DEFAULT_ERROR = "播放失败，请稍后重试。"
 
     /** 服务级限流/网关故障：跳歌只会继续撞墙，直接停止等用户手动重试 */
     const val RATE_LIMITED_ERROR = "服务器请求过于频繁，请稍后再试。"
+
+    /** 08-27-webdav-playback-429：限流可自愈文案，新版提示与白名单一致 */
+    const val RATE_LIMITED_RETRY = "触发限流，稍后重试"
 
     /**
      * PlaybackException errorCode → 白名单文案。

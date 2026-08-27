@@ -35,6 +35,15 @@ class OkHttpWebDavClientTest {
         override suspend fun clearPassword(sourceId: String) = Unit
     }
 
+    private val fakeErrorLogStore = object : com.muses.player.core.data.log.ErrorLogStore {
+        val logs = mutableListOf<String>()
+        override val latestSummary = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+        override fun log(level: com.muses.player.core.data.log.ErrorLogStore.Level, tag: String, message: String, throwable: Throwable?) {
+            logs += "$tag:$message"
+        }
+        override suspend fun dump(): String? = logs.joinToString("\n").ifEmpty { null }
+    }
+
     @Before
     fun setUp() {
         server = MockWebServer()
@@ -47,6 +56,8 @@ class OkHttpWebDavClientTest {
             httpClient,
             // 空 Registry（无注册源 → authorizationHeader 恒 null）；本测试用显式 authenticate，不会查它
             WebDavAuthRegistry(emptySourceRepo, emptyCredRepo),
+            WebDavRateLimiter.Unlimited,
+            fakeErrorLogStore,
         )
         client.authenticate("user", "pass")
     }
@@ -197,6 +208,64 @@ class OkHttpWebDavClientTest {
         val chinese = items.firstOrNull { it.name.contains("晴天") }
         assertEquals(true, chinese?.name?.contains("晴天"))
         assertTrue(chinese?.isDirectory == false)
+    }
+
+    // ── 429 退避与限流埋点（任务 08-27-webdav-playback-429） ─────────────────
+
+    @Test
+    fun get_429_retry_once_then_success() = runTest {
+        fakeErrorLogStore.logs.clear()
+        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "0"))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("ok-after-429"))
+        val url = server.url("/dav/music/song.mp3").toString()
+        val dest = java.io.File.createTempFile("test-429-", ".mp3")
+        dest.deleteOnExit()
+        val result = client.get(url, dest)
+        assertEquals("ok-after-429", result.readText())
+        assertEquals(2, server.requestCount)
+        assertTrue(fakeErrorLogStore.logs.any { it.contains("429") })
+    }
+
+    @Test
+    fun get_429_second_attempt_throws_and_logs() = runTest {
+        fakeErrorLogStore.logs.clear()
+        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "0"))
+        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "0"))
+        val url = server.url("/dav/music/song.mp3").toString()
+        val dest = java.io.File.createTempFile("test-429-fail-", ".mp3")
+        dest.deleteOnExit()
+        try {
+            client.get(url, dest)
+            assert(false) { "应抛 http 429" }
+        } catch (e: java.io.IOException) {
+            assertEquals("http 429", e.message)
+        }
+        assertEquals(2, server.requestCount)
+        assertTrue(fakeErrorLogStore.logs.any { it.contains("429") })
+    }
+
+    @Test
+    fun list_429_retry_once_then_success() = runTest {
+        fakeErrorLogStore.logs.clear()
+        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "0"))
+        server.enqueue(MockResponse().setResponseCode(207).setBody(propfindDepthOneResponse))
+        val url = server.url("/dav/music/").toString()
+        val items = client.list(url)
+        assertEquals(3, items.size)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun get_429_without_retry_after_uses_default_delay_and_retries() = runTest {
+        fakeErrorLogStore.logs.clear()
+        server.enqueue(MockResponse().setResponseCode(429))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("ok-default"))
+        val url = server.url("/dav/music/song2.mp3").toString()
+        val dest = java.io.File.createTempFile("test-429-default-", ".mp3")
+        dest.deleteOnExit()
+        val result = client.get(url, dest)
+        assertEquals("ok-default", result.readText())
+        assertEquals(2, server.requestCount)
     }
 
     // ── Test XML responses ──────────────────────────────

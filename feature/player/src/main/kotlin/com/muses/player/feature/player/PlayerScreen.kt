@@ -84,6 +84,7 @@ fun PlayerScreen(
     val translationEnabled by viewModel.translationEnabled.collectAsStateWithLifecycle()
     val isBuffering by viewModel.isBuffering.collectAsStateWithLifecycle()
     val stickyCover by viewModel.stickyCover.collectAsStateWithLifecycle()
+    val playbackError by viewModel.playbackError.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -140,6 +141,30 @@ fun PlayerScreen(
                 )
             }
         )
+        // 限流错误条：复用 PlaybackRecoveryController.playbackError（含 429 的「触发限流，稍后重试」）
+        if (playbackError != null) {
+            androidx.compose.material3.Snackbar(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                action = {
+                    androidx.compose.material3.TextButton(onClick = { viewModel.retryPlayback() }) {
+                        Text("重试", color = Color.White)
+                    }
+                },
+                containerColor = Color(0xCC1A1A1A),
+                contentColor = Color.White,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(playbackError!!, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "关闭",
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp).clickable { viewModel.clearPlaybackError() },
+                    )
+                }
+            }
+        }
     }
 }
 

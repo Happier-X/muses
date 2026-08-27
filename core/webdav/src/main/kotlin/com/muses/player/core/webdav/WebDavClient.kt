@@ -1,11 +1,18 @@
 package com.muses.player.core.webdav
 
-import android.util.Base64
+import com.muses.player.core.data.log.ErrorLogStore
 import java.io.File
+import java.io.IOException
 import java.nio.charset.StandardCharsets
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.min
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
@@ -65,6 +72,8 @@ interface WebDavClient {
 internal class OkHttpWebDavClient @Inject constructor(
     private val httpClient: OkHttpClient,
     private val authRegistry: WebDavAuthRegistry,
+    private val rateLimiter: WebDavRateLimiter,
+    private val errorLogStore: ErrorLogStore,
 ) : WebDavClient {
 
     /** 显式认证头（authenticate 设置）；空则回落 Registry 按 URL 前缀匹配（播放/懒扫描链路） */
@@ -80,136 +89,346 @@ internal class OkHttpWebDavClient @Inject constructor(
     private fun effectiveAuthHeader(url: String): String? =
         authHeader ?: authRegistry.authorizationHeader(url)
 
-    override suspend fun probe(baseUrl: String): Boolean = withContext(Dispatchers.IO) {
-        try {
+    override suspend fun probe(baseUrl: String): Boolean {
+        var attempt = 0
+        while (true) {
+            try {
+                rateLimiter.acquire()
+            } catch (e: CancellationException) {
+                throw e
+            }
             val body = PROPFIND_BODY.toRequestBody(XML_MEDIA_TYPE)
             val request = Request.Builder()
                 .url(baseUrl)
                 .method("PROPFIND", body)
                 .header("Depth", "0")
                 .header("Content-Type", "application/xml; charset=utf-8")
+                .header(RATE_LIMIT_MARKER, "1")
                 .apply { effectiveAuthHeader(baseUrl)?.let { header("Authorization", it) } }
                 .build()
 
-            httpClient.newCall(request).execute().use { response ->
-                response.code in 200..299
-            }
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    override suspend fun list(url: String): List<WebDavItem> = withContext(Dispatchers.IO) {
-        val body = PROPFIND_BODY.toRequestBody(XML_MEDIA_TYPE)
-        val request = Request.Builder()
-            .url(url)
-            .method("PROPFIND", body)
-            .header("Depth", "1")
-            .header("Content-Type", "application/xml; charset=utf-8")
-            .header("Accept", "application/xml, text/xml, */*")
-            .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
-            .build()
-
-        httpClient.newCall(request).execute().use { response ->
-            when (response.code) {
-                401, 403 -> throw WebDavAuthException("WebDAV 认证失败（HTTP ${response.code}）")
-                in 200..299 -> {
-                    val bytes = response.body.bytes()
-                    val contentType = response.header("Content-Type")
-                    parsePropfindResponse(bytes, contentType, url)
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    httpClient.newCall(request).execute()
                 }
-                else -> throw WebDavRequestException(response.code, "PROPFIND 失败（HTTP ${response.code}）")
-            }
-        }
-    }
-
-    override suspend fun get(url: String, dest: File): File = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
-            .build()
-
-        httpClient.newCall(request).execute().use { response ->
-            when (response.code) {
-                401, 403 -> throw WebDavAuthException("WebDAV 认证失败（HTTP ${response.code}）")
-                in 200..299 -> {
-                    dest.parentFile?.mkdirs()
-                    response.body.byteStream().use { input ->
-                        dest.outputStream().use { output -> input.copyTo(output) }
+                if (response.code == 429) {
+                    val retryAfterMs = parseRetryAfterMs(response.header("Retry-After"))
+                    response.close()
+                    if (attempt >= 1) {
+                        val ex = IOException("http 429")
+                        errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "probe http 429 url=$baseUrl", ex)
+                        return false
                     }
-                    dest
+                    errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "probe http 429 url=$baseUrl Retry-After=${retryAfterMs ?: "null"} -> backoff", null)
+                    val delayMs = (retryAfterMs ?: DEFAULT_429_DELAY_MS).coerceIn(0L, MAX_RETRY_AFTER_MS)
+                    try {
+                        delay(delayMs)
+                    } catch (e: CancellationException) {
+                        throw e
+                    }
+                    attempt++
+                    continue
                 }
-                else -> throw WebDavRequestException(response.code, "下载失败（HTTP ${response.code}）")
+                response.use { res ->
+                    return res.code in 200..299
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                return false
             }
         }
     }
 
-    override suspend fun put(url: String, source: File) = withContext(Dispatchers.IO) {
-        val requestBody = source.readBytes().toRequestBody("application/octet-stream".toMediaType())
-        val request = Request.Builder()
-            .url(url)
-            .put(requestBody)
-            .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
-            .build()
+    override suspend fun list(url: String): List<WebDavItem> {
+        var attempt = 0
+        while (true) {
+            try {
+                rateLimiter.acquire()
+            } catch (e: CancellationException) {
+                throw e
+            }
+            val body = PROPFIND_BODY.toRequestBody(XML_MEDIA_TYPE)
+            val request = Request.Builder()
+                .url(url)
+                .method("PROPFIND", body)
+                .header("Depth", "1")
+                .header("Content-Type", "application/xml; charset=utf-8")
+                .header("Accept", "application/xml, text/xml, */*")
+                .header(RATE_LIMIT_MARKER, "1")
+                .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
+                .build()
 
-        httpClient.newCall(request).execute().use { response ->
-            when (response.code) {
-                401, 403 -> throw WebDavAuthException("WebDAV 认证失败（HTTP ${response.code}）")
-                !in 200..299 -> throw WebDavRequestException(response.code, "上传失败（HTTP ${response.code}）")
+            val response = try {
+                withContext(Dispatchers.IO) { httpClient.newCall(request).execute() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                throw e
+            }
+
+            if (response.code == 429) {
+                val retryAfterMs = parseRetryAfterMs(response.header("Retry-After"))
+                response.close()
+                if (attempt >= 1) {
+                    val ex = IOException("http 429")
+                    errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$url", ex)
+                    throw ex
+                }
+                errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$url Retry-After=${retryAfterMs ?: "null"} -> backoff ${min(retryAfterMs ?: DEFAULT_429_DELAY_MS, MAX_RETRY_AFTER_MS)}ms", null)
+                val delayMs = (retryAfterMs ?: DEFAULT_429_DELAY_MS).coerceIn(0L, MAX_RETRY_AFTER_MS)
+                try {
+                    delay(delayMs)
+                } catch (e: CancellationException) {
+                    throw e
+                }
+                attempt++
+                continue
+            }
+
+            response.use { res ->
+                when (res.code) {
+                    401, 403 -> throw WebDavAuthException("WebDAV 认证失败（HTTP ${res.code}）")
+                    in 200..299 -> {
+                        val bytes = res.body.bytes()
+                        val contentType = res.header("Content-Type")
+                        return parsePropfindResponse(bytes, contentType, url)
+                    }
+                    else -> throw WebDavRequestException(res.code, "PROPFIND 失败（HTTP ${res.code}）")
+                }
             }
         }
     }
 
-    override suspend fun delete(url: String) = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url(url)
-            .delete()
-            .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
-            .build()
+    override suspend fun get(url: String, dest: File): File {
+        var attempt = 0
+        while (true) {
+            try {
+                rateLimiter.acquire()
+            } catch (e: CancellationException) {
+                throw e
+            }
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .header(RATE_LIMIT_MARKER, "1")
+                .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
+                .build()
 
-        httpClient.newCall(request).execute().use { response ->
-            when (response.code) {
-                401, 403 -> throw WebDavAuthException("WebDAV 认证失败（HTTP ${response.code}）")
-                !in 200..299 -> throw WebDavRequestException(response.code, "删除失败（HTTP ${response.code}）")
+            val response = try {
+                withContext(Dispatchers.IO) { httpClient.newCall(request).execute() }
+            } catch (e: CancellationException) {
+                throw e
+            }
+
+            if (response.code == 429) {
+                val retryAfterMs = parseRetryAfterMs(response.header("Retry-After"))
+                response.close()
+                if (attempt >= 1) {
+                    val ex = IOException("http 429")
+                    errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$url", ex)
+                    throw ex
+                }
+                errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$url Retry-After=${retryAfterMs ?: "null"} -> backoff", null)
+                val delayMs = (retryAfterMs ?: DEFAULT_429_DELAY_MS).coerceIn(0L, MAX_RETRY_AFTER_MS)
+                try {
+                    delay(delayMs)
+                } catch (e: CancellationException) {
+                    throw e
+                }
+                attempt++
+                continue
+            }
+
+            response.use { res ->
+                when (res.code) {
+                    401, 403 -> throw WebDavAuthException("WebDAV 认证失败（HTTP ${res.code}）")
+                    in 200..299 -> {
+                        dest.parentFile?.mkdirs()
+                        res.body.byteStream().use { input ->
+                            dest.outputStream().use { output -> input.copyTo(output) }
+                        }
+                        return dest
+                    }
+                    else -> throw WebDavRequestException(res.code, "下载失败（HTTP ${res.code}）")
+                }
             }
         }
     }
 
-    override suspend fun move(source: String, dest: String) = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url(source)
-            .method("MOVE", null)
-            .header("Destination", dest)
-            .header("Overwrite", "T")
-            .apply { effectiveAuthHeader(dest)?.let { header("Authorization", it) } }
-            .build()
+    override suspend fun put(url: String, source: File) {
+        var attempt = 0
+        while (true) {
+            try {
+                rateLimiter.acquire()
+            } catch (e: CancellationException) {
+                throw e
+            }
+            val requestBody = source.readBytes().toRequestBody("application/octet-stream".toMediaType())
+            val request = Request.Builder()
+                .url(url)
+                .put(requestBody)
+                .header(RATE_LIMIT_MARKER, "1")
+                .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
+                .build()
 
-        httpClient.newCall(request).execute().use { response ->
-            when (response.code) {
-                401, 403 -> throw WebDavAuthException("WebDAV 认证失败（HTTP ${response.code}）")
-                !in 200..299 -> throw WebDavRequestException(response.code, "移动失败（HTTP ${response.code}）")
+            val response = try {
+                withContext(Dispatchers.IO) { httpClient.newCall(request).execute() }
+            } catch (e: CancellationException) {
+                throw e
+            }
+
+            if (response.code == 429) {
+                val retryAfterMs = parseRetryAfterMs(response.header("Retry-After"))
+                response.close()
+                if (attempt >= 1) {
+                    val ex = IOException("http 429")
+                    errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$url", ex)
+                    throw ex
+                }
+                errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$url Retry-After=${retryAfterMs ?: "null"} -> backoff", null)
+                val delayMs = (retryAfterMs ?: DEFAULT_429_DELAY_MS).coerceIn(0L, MAX_RETRY_AFTER_MS)
+                try { delay(delayMs) } catch (e: CancellationException) { throw e }
+                attempt++
+                continue
+            }
+
+            response.use { res ->
+                when (res.code) {
+                    401, 403 -> throw WebDavAuthException("WebDAV 认证失败（HTTP ${res.code}）")
+                    !in 200..299 -> throw WebDavRequestException(res.code, "上传失败（HTTP ${res.code}）")
+                    else -> return
+                }
             }
         }
     }
 
-    override suspend fun getString(url: String): String? = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .header("Accept", "text/plain, */*")
-            .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
-            .build()
+    override suspend fun delete(url: String) {
+        var attempt = 0
+        while (true) {
+            try { rateLimiter.acquire() } catch (e: CancellationException) { throw e }
+            val request = Request.Builder()
+                .url(url)
+                .delete()
+                .header(RATE_LIMIT_MARKER, "1")
+                .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
+                .build()
 
-        runCatching {
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@use null
-                val bytes = response.body.bytes()
+            val response = try {
+                withContext(Dispatchers.IO) { httpClient.newCall(request).execute() }
+            } catch (e: CancellationException) { throw e }
+
+            if (response.code == 429) {
+                val retryAfterMs = parseRetryAfterMs(response.header("Retry-After"))
+                response.close()
+                if (attempt >= 1) {
+                    val ex = IOException("http 429")
+                    errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$url", ex)
+                    throw ex
+                }
+                errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$url Retry-After=${retryAfterMs ?: "null"} -> backoff", null)
+                val delayMs = (retryAfterMs ?: DEFAULT_429_DELAY_MS).coerceIn(0L, MAX_RETRY_AFTER_MS)
+                try { delay(delayMs) } catch (e: CancellationException) { throw e }
+                attempt++
+                continue
+            }
+
+            response.use { res ->
+                when (res.code) {
+                    401, 403 -> throw WebDavAuthException("WebDAV 认证失败（HTTP ${res.code}）")
+                    !in 200..299 -> throw WebDavRequestException(res.code, "删除失败（HTTP ${res.code}）")
+                    else -> return
+                }
+            }
+        }
+    }
+
+    override suspend fun move(source: String, dest: String) {
+        var attempt = 0
+        while (true) {
+            try { rateLimiter.acquire() } catch (e: CancellationException) { throw e }
+            val request = Request.Builder()
+                .url(source)
+                .method("MOVE", null)
+                .header("Destination", dest)
+                .header("Overwrite", "T")
+                .header(RATE_LIMIT_MARKER, "1")
+                .apply { effectiveAuthHeader(dest)?.let { header("Authorization", it) } }
+                .build()
+
+            val response = try {
+                withContext(Dispatchers.IO) { httpClient.newCall(request).execute() }
+            } catch (e: CancellationException) { throw e }
+
+            if (response.code == 429) {
+                val retryAfterMs = parseRetryAfterMs(response.header("Retry-After"))
+                response.close()
+                if (attempt >= 1) {
+                    val ex = IOException("http 429")
+                    errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$source -> $dest", ex)
+                    throw ex
+                }
+                errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$source -> $dest Retry-After=${retryAfterMs ?: "null"} -> backoff", null)
+                val delayMs = (retryAfterMs ?: DEFAULT_429_DELAY_MS).coerceIn(0L, MAX_RETRY_AFTER_MS)
+                try { delay(delayMs) } catch (e: CancellationException) { throw e }
+                attempt++
+                continue
+            }
+
+            response.use { res ->
+                when (res.code) {
+                    401, 403 -> throw WebDavAuthException("WebDAV 认证失败（HTTP ${res.code}）")
+                    !in 200..299 -> throw WebDavRequestException(res.code, "移动失败（HTTP ${res.code}）")
+                    else -> return
+                }
+            }
+        }
+    }
+
+    override suspend fun getString(url: String): String? {
+        var attempt = 0
+        while (true) {
+            try { rateLimiter.acquire() } catch (e: CancellationException) { throw e }
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .header("Accept", "text/plain, */*")
+                .header(RATE_LIMIT_MARKER, "1")
+                .apply { effectiveAuthHeader(url)?.let { header("Authorization", it) } }
+                .build()
+
+            val response = try {
+                withContext(Dispatchers.IO) { httpClient.newCall(request).execute() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                return null
+            }
+
+            if (response.code == 429) {
+                val retryAfterMs = parseRetryAfterMs(response.header("Retry-After"))
+                response.close()
+                if (attempt >= 1) {
+                    val ex = IOException("http 429")
+                    errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$url", ex)
+                    // sidecar 场景静默回 null，不抛阻断懒扫描
+                    return null
+                }
+                errorLogStore.log(ErrorLogStore.Level.WARN, "WebDavClient", "http 429 url=$url Retry-After=${retryAfterMs ?: "null"} -> backoff", null)
+                val delayMs = (retryAfterMs ?: DEFAULT_429_DELAY_MS).coerceIn(0L, MAX_RETRY_AFTER_MS)
+                try { delay(delayMs) } catch (e: CancellationException) { throw e }
+                attempt++
+                continue
+            }
+
+            return response.use { res ->
+                if (!res.isSuccessful) return@use null
+                val bytes = res.body.bytes()
                 if (bytes.isEmpty()) return@use null
-                decodeResponseBody(bytes, response.header("Content-Type"))
+                decodeResponseBody(bytes, res.header("Content-Type"))
                     .takeIf { it.isNotBlank() }
             }
-        }.getOrNull()
+        }
     }
 
     // ── PROPFIND XML 解析 ──────────────────────────────────────────
@@ -384,5 +603,36 @@ internal class OkHttpWebDavClient @Inject constructor(
         val XML_MEDIA_TYPE = "application/xml; charset=utf-8".toMediaType()
         val CHARSET_PATTERN = Regex("charset=([^;\\s]+)", RegexOption.IGNORE_CASE)
         val XML_ENCODING_PATTERN = Regex("<\\?xml[^>]*encoding=[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
+
+        /** 内部标记头：已在协程层限流的请求告知 OkHttp 层跳过二次限流 */
+        const val RATE_LIMIT_MARKER = "X-Muses-Rate-Limited"
+
+        /** 429 退避上限 8s（对齐 ScrapeHttp） */
+        const val MAX_RETRY_AFTER_MS: Long = 8000L
+
+        /** 无 Retry-After 时默认退避 1s */
+        const val DEFAULT_429_DELAY_MS: Long = 1000L
+
+        /**
+         * 解析 Retry-After 头（秒数或 HTTP-date）。
+         * 复用 ScrapeHttp.parseRetryAfterMs 语义，copy 至本类避免跨模块依赖 core:scrape。
+         */
+        fun parseRetryAfterMs(value: String?): Long? {
+            if (value.isNullOrBlank()) return null
+            val trimmed = value.trim()
+            trimmed.toLongOrNull()?.let { sec ->
+                return (sec * 1000L).coerceAtLeast(0L)
+            }
+            return try {
+                val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
+                val dateTime = ZonedDateTime.parse(trimmed, formatter)
+                val diff = dateTime.toInstant().toEpochMilli() - System.currentTimeMillis()
+                diff.coerceAtLeast(0L)
+            } catch (_: DateTimeParseException) {
+                null
+            } catch (_: Exception) {
+                null
+            }
+        }
     }
 }
