@@ -85,7 +85,9 @@ body {
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
-	/* 沉浸底色：Vue .player-page__drag-layer { background: #05070d }（源码固定值） */
+	/* 100vh 直接撑满视口；WebView 环境中 body/html height:100% 可能失效
+	   导致 absolute 元素 containing block 高度为 0，整页塌陷 */
+
 	background: #05070d;
 	color: #fff;
 	font-family: sans-serif;
