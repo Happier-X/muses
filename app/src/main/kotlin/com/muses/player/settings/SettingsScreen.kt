@@ -145,7 +145,11 @@ fun SettingsScreen(
                         if (checking) return@SaltListItem
                         checking = true
                         scope.launch {
-                            toastMessage = checkLatestRelease(BuildConfig.VERSION_NAME)?.let { (tag, url) ->
+                            val result = checkLatestRelease(BuildConfig.VERSION_NAME)
+                            toastMessage = if (result == null) {
+                                "检查更新失败，请稍后重试"
+                            } else {
+                                val (tag, url) = result
                                 val latestVer = tag.removePrefix("v")
                                 val currentVer = BuildConfig.VERSION_NAME
                                     .removeSuffix("-miui")
@@ -249,25 +253,27 @@ fun SettingsScreen(
  */
 private suspend fun checkLatestRelease(currentVersion: String): Pair<String, String>? {
     return withContext(Dispatchers.IO) {
+        var connection: java.net.HttpURLConnection? = null
         try {
-            val connection = java.net.URL("https://api.github.com/repos/Happier-X/muses/releases/latest")
+            connection = java.net.URL("https://api.github.com/repos/Happier-X/muses/releases/latest")
                 .openConnection() as java.net.HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+            connection.setRequestProperty("User-Agent", "Muses/${BuildConfig.VERSION_NAME} (Android)")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
             val code = connection.responseCode
             if (code != 200) {
-                connection.disconnect()
                 return@withContext null
             }
             val body = connection.inputStream.bufferedReader().readText()
-            connection.disconnect()
             val tag = Regex("\"tag_name\"\\s*:\\s*\"(v\\d+\\.\\d+\\.\\d+)\"").find(body)?.groupValues?.getOrNull(1)
             val htmlUrl = Regex("\"html_url\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.getOrNull(1)
             if (tag != null && htmlUrl != null) tag to htmlUrl else null
         } catch (_: Exception) {
             null
+        } finally {
+            connection?.disconnect()
         }
     }
 }
