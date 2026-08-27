@@ -93,22 +93,31 @@ fun MiniPlayerBar(
             .saltShadow(shape = capsuleShape, layers = shadowLayers)
             .background(color = salt.glassBg, shape = capsuleShape)
             .border(border = BorderStroke(1.dp, borderColor), shape = capsuleShape)
-            .clickable(
+            .padding(horizontal = SaltSpacing.spacing),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
+    ) {
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.clickable(
                 interactionSource = clickInteraction,
                 indication = null,
                 enabled = hasSong,
                 onClick = onOpenPlayer,
             )
-            .padding(horizontal = SaltSpacing.spacing),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
-    ) {
-        SaltCover(uri = coverUri, size = 48.dp, radius = SaltCoverRadius.MD)
+        ) {
+            SaltCover(uri = coverUri, size = 48.dp, radius = SaltCoverRadius.MD)
+        }
 
-        // __info：gap 3px，flex:1 min-width:0
+        // __info：gap 3px，flex:1 min-width:0，整块可点打开播放页（控制区除外）
         Column(
             modifier = Modifier
-                .weight(1f),
+                .weight(1f)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    enabled = hasSong,
+                    onClick = onOpenPlayer,
+                ),
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Text(
