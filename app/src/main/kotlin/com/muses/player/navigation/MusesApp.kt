@@ -147,6 +147,17 @@ fun MusesApp() {
         viewModel.rebuildLibraryIndexes()
     }
 
+    // DEBUG: 播放时自动打开沉浸式页以复现黑屏（验证后移除）
+    val nowPlayingDebug by viewModel.nowPlaying.collectAsState()
+    LaunchedEffect(nowPlayingDebug) {
+        if (nowPlayingDebug != null) {
+            kotlinx.coroutines.delay(1200)
+            navController.navigate(NavDestination.NowPlaying.route) {
+                launchSingleTop = true
+            }
+        }
+    }
+
     // 请求权限
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()

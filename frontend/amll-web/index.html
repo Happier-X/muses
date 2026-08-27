@@ -10,14 +10,12 @@
 			window.addEventListener('error', function (e) {
 				window.__bootErrors.push(String((e && e.message) || e));
 				var el = document.getElementById('boot-error');
-				if (el) { el.textContent = window.__bootErrors.join('
-'); el.style.display = 'block'; }
+				if (el) { el.textContent = window.__bootErrors.join('\n'); el.style.display = 'block'; }
 			});
 			window.addEventListener('unhandledrejection', function (e) {
 				window.__bootErrors.push('rejection: ' + String(e.reason));
 				var el = document.getElementById('boot-error');
-				if (el) { el.textContent = window.__bootErrors.join('
-'); el.style.display = 'block'; }
+				if (el) { el.textContent = window.__bootErrors.join('\n'); el.style.display = 'block'; }
 			});
 		</script>
 	</head>

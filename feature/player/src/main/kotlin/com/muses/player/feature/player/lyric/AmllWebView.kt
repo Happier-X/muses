@@ -4,7 +4,10 @@ import android.annotation.SuppressLint
 import android.graphics.Color as AndroidColor
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -84,10 +87,10 @@ private class CacheDirPathHandler(private val root: File) : WebViewAssetLoader.P
  * JS→Native 动作桥：前端经 window.nativeBridge.onAction(json) 调用。
  * 回调发生在 WebView 的 JS 线程，[onAction] 内部自行 post 主线程后再触碰 Compose 状态。
  */
-private class NativeBridge(private val onAction: (String) -> Unit) {
+private class NativeBridge(private val delegate: (String) -> Unit) {
     @JavascriptInterface
     fun onAction(json: String) {
-        onAction(json)
+        delegate(json)
     }
 }
 
@@ -121,6 +124,7 @@ fun AmllWebView(
     val lifecycleOwner = LocalLifecycleOwner.current
     val webViewHolder = remember { mutableStateOf<WebView?>(null) }
     var pageReady by remember { mutableStateOf(false) }
+    var jsReady by remember { mutableStateOf(false) }
 
     // 桥回调经 ref 转发：factory 闭包只捕获一次，后续重组更新 lambda 不重建 WebView
     val onBridgeActionRef = remember { mutableStateOf(onBridgeAction) }
@@ -141,6 +145,12 @@ fun AmllWebView(
                 setBackgroundColor(AndroidColor.TRANSPARENT)
                 // CDP 远程调试（chrome://inspect / adb forward），排查渲染问题后可关
                 WebView.setWebContentsDebuggingEnabled(true)
+                webChromeClient = object : WebChromeClient() {
+                    override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                        Log.d("AmllWebView", "JS: ${consoleMessage.message()} -- ${consoleMessage.sourceId()}:${consoleMessage.lineNumber()}")
+                        return true
+                    }
+                }
                 // 保持默认硬件加速：P4.4 全页 WebView 后 LAYER_TYPE_SOFTWARE 会导致
                 // 大尺寸表面（含 WebGL/PIXI）整层不上屏——真机与模拟器均表现为纯底色"黑屏"。
                 // 若个别模拟器复现 WebGL 不上屏，属其 GPU 合成兼容性问题，勿再全局切软件层
@@ -157,13 +167,15 @@ fun AmllWebView(
                     NativeBridge { json ->
                         mainHandler.post {
                             if (json == BRIDGE_ACTION_READY) {
+                                Log.d("AmllWebView", "JS ready handshake")
+                                jsReady = true
                                 // 前端 module 就绪握手：onPageFinished 时 ES module 尚未执行完，
                                 // 首轮 updatePlayerState/updateLyrics 注入会静默丢失——这里全量重推
                                 playerStateRef.value?.let {
+                                    Log.d("AmllWebView", "ready inject updatePlayerState")
                                     webViewHolder.value?.evaluateJavascript(
-                                        "window.updatePlayerState(${AmllMapper.quote(it)})",
-                                        null,
-                                    )
+                                        "try{window.updatePlayerState(${AmllMapper.quote(it)}); 'ok:'+document.getElementById('player-ui')?.hidden}catch(e){'err:'+e}",
+                                    ) { res -> Log.d("AmllWebView", "ready inject result=$res") }
                                 }
                                 payloadRef.value?.let {
                                     webViewHolder.value?.evaluateJavascript(
@@ -183,11 +195,20 @@ fun AmllWebView(
                     override fun shouldInterceptRequest(
                         view: WebView,
                         request: WebResourceRequest,
-                    ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
+                    ): WebResourceResponse? {
+                        val resp = assetLoader.shouldInterceptRequest(request.url)
+                        if (resp == null) {
+                            Log.w("AmllWebView", "shouldIntercept miss: ${request.url}")
+                        }
+                        return resp
+                    }
 
                     override fun onPageFinished(view: WebView?, url: String?) {
+                        Log.d("AmllWebView", "onPageFinished: $url")
                         pageReady = true
                     }
+
+
                 }
 
                 loadUrl(AMLL_START_URL)
@@ -201,11 +222,12 @@ fun AmllWebView(
     )
 
     // 页面就绪或切歌（payload 变化）→ 注入歌词载荷；songId token 防过期回调由前端校验
-    LaunchedEffect(webViewHolder.value, pageReady, payloadJson) {
+    LaunchedEffect(webViewHolder.value, jsReady, payloadJson) {
         val wv = webViewHolder.value ?: return@LaunchedEffect
-        if (!pageReady || payloadJson == null) return@LaunchedEffect
+        if (!jsReady || payloadJson == null) return@LaunchedEffect
         // 前端契约为 updateLyrics(payload: string)，内部 JSON.parse——必须以 JS 字符串字面量嵌入，
         // 直接内插对象字面量会被 ToString 成 "[object Object]" 导致解析失败
+        Log.d("AmllWebView", "inject updateLyrics")
         wv.evaluateJavascript("window.updateLyrics(${AmllMapper.quote(payloadJson)})", null)
     }
 
@@ -222,11 +244,11 @@ fun AmllWebView(
             }
     }
 
-    // 播放页状态下行（P4.4）：页面 ready 或载荷变化即注入；JSON 由调用方构建，
+    // 播放页状态下行（P4.4）：JS 就绪后载荷变化即注入；JSON 由调用方构建，
     // 此处同样以 JS 字符串字面量嵌入（quote()），前端内部 JSON.parse
-    LaunchedEffect(webViewHolder.value, pageReady, playerStateJson) {
+    LaunchedEffect(webViewHolder.value, jsReady, playerStateJson) {
         val wv = webViewHolder.value ?: return@LaunchedEffect
-        if (!pageReady || playerStateJson == null) return@LaunchedEffect
+        if (!jsReady || playerStateJson == null) return@LaunchedEffect
         wv.evaluateJavascript("window.updatePlayerState(${AmllMapper.quote(playerStateJson)})", null)
     }
 
@@ -235,9 +257,9 @@ fun AmllWebView(
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_STOP ->
-                    webViewHolder.value?.evaluateJavascript("window.pauseRender()", null)
+                    webViewHolder.value?.evaluateJavascript("if(window.pauseRender) window.pauseRender()", null)
                 Lifecycle.Event.ON_START ->
-                    webViewHolder.value?.evaluateJavascript("window.resumeRender()", null)
+                    webViewHolder.value?.evaluateJavascript("if(window.resumeRender) window.resumeRender()", null)
                 else -> Unit
             }
         }
