@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.repository.SourceRepository
+import com.muses.player.core.data.tag.TagReaderScheduler
 import com.muses.player.core.media.scanner.LocalLibraryScanner
 import com.muses.player.core.media.scanner.ScanProgress
 import com.muses.player.core.media.scanner.WebDavLibraryScanner
@@ -63,6 +64,7 @@ class SourcesViewModel @Inject constructor(
     private val playbackStateRepository: com.muses.player.core.data.repository.PlaybackStateRepository,
     private val recentPlaysRepository: com.muses.player.core.data.repository.RecentPlaysRepository,
     private val playerConnection: com.muses.player.core.media.playback.PlayerConnection,
+    private val tagReaderScheduler: TagReaderScheduler,
 ) : ViewModel() {
 
     val sources: StateFlow<List<Source>> = sourceRepository.observeSources()
@@ -208,6 +210,10 @@ class SourcesViewModel @Inject constructor(
                 }
                 songRepository.replaceSourceSongs(source.id, songs)
                 scanResultMessage = "扫描完成：共 ${songs.size} 首。"
+                // WebDAV 扫描后立即触发标签读取（解决列表信息为空的问题）
+                if (isWebdav) {
+                    tagReaderScheduler.scheduleImmediate()
+                }
                 // M3 自动补缺：扫描后把无标签歌曲排进刮削队列（开关默认关）
                 if (settingsRepository.autoScrapeEnabled.first()) {
                     val untagged = songDao.getUntaggedSongIds()

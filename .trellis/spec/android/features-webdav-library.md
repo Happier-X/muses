@@ -57,6 +57,63 @@ MediaItem.Builder().setUri(song.path).build()
 // 重复播放命中 CacheDataSource 本地缓存，不发网络；切歌时才加载下一首
 ```
 
+## 场景：音频标签后台补齐（jaudiotagger，任务 08-27-audio-tag-cache）
+
+### 1. Scope / Trigger
+- WebDAV 扫描仅文件名建库（tagsVersion=0），列表长期展示占位；需后台自动读取真实标签（标题/歌手/专辑/封面/歌词/时长）并回写，避免扫描期批量网络触发限流
+- 触发：新/改 Infra 能力（jaudiotagger + Range 部分下载 + WorkManager）及跨层入库契约变更
+
+### 2. Signatures
+- `AudioTagReader @Singleton (Context, OkHttpClient)`：`fun readTags(source: String): AudioTags?` / `suspend fun readTagsSuspend(...)` / `fun readTagForUpdate(path, songId): TagUpdateData?` / `fun extractCover(source, songId): String?`
+- `TagReaderWorker @HiltWorker (SongDao, AudioTagReader) : CoroutineWorker` 常量 `WORK_NAME="tag_reader_worker"`
+- `TagReaderScheduler @Singleton (Context)`：`fun scheduleImmediate()` / `fun schedulePeriodic()` / `fun cancel()`
+- `SongDao.getUntaggedSongIds(): List<String>` 查询 `SELECT id FROM songs WHERE tagsVersion < 1`
+- `gradle/libs.versions.toml`：`jaudiotagger = "3.0.1"`，`jaudiotagger = { group="net.jthink", name="jaudiotagger", version.ref="jaudiotagger" }`
+
+### 3. Contracts
+- 输入：`source` 为本地绝对路径或 WebDAV HTTP(S) URL；`songId` 用于封面落盘 `cacheDir/audio_tags/cover_${songId}.jpg`
+- 输出：`AudioTags(title?, artist?, album?, lyrics?, cover?: ByteArray, durationMs)`；`TagUpdateData(title?, artist?, album?, lyrics?, coverUri?, durationMs)`
+- 标签映射：`FieldKey.TITLE/ARTIST/ALBUM/LYRICS` + `firstArtwork.binaryData` + `audioHeader.trackLength*1000`
+- WebDAV 下载：优先 Range `bytes=0-65535`，解析探测无有效标题/歌手/专辑时扩大至 `bytes=0-262143`；Range 失败回退全量 GET；均经 OkHttp 拦截器自动注入 Authorization（来自 WebDavAuthRegistry）与限流（X-Muses-Rate-Limited 避重）
+- 封面落盘：返回绝对路径字符串，供 `SongEntity.coverUri` 直接写入
+- Worker 回写：`song.copy(title=tagTitle?:原标题, artist?:原, albumTitle=tagAlbum?:原, lyrics?:原, coverUri?:原, durationMs=max, durationSec=max, tagsVersion=1)` 经 `songDao.upsert`；无更新视为 failed；读取失败保持 tagsVersion=0 下次重试
+
+### 4. Validation & Error Matrix
+- `AudioFileIO.read(File)` 抛异常 → `readTags` 返回 null，不崩溃
+- WebDAV 401/403 → OkHttp 拦截器未命中凭据或凭据失效，下载抛异常 → Worker 计 failed，下次 periodic 重试
+- Range 不支持（200 而非 206）→ 视为失败触发全量下载
+- `coverUri` 写入前 `cover?.let` 为 null → 不落盘，保持原 coverUri
+- `title` 空白 → 回退原 `song.title`（文件名）避免空标题
+
+### 5. Good/Base/Bad Cases
+- Good：WebDAV mp3 带 ID3v2 → Range 64KB 命中，标题/歌手/封面一次补齐，tagsVersion 置 1，列表实时刷新
+- Base：无标签纯文件名文件 → read 成功但字段全空，Worker 判无更新计 failed，不污染原数据
+- Bad：WebDAV URL 失效/密码错误 → 下载抛异常，Worker 不改库，下次调度重试，不阻塞其他歌曲
+
+### 6. Tests Required
+- 单测：`AudioTagReader` 本地 mp3/flac 解析标题/封面/歌词字段正确（mock File）
+- 单测：Range 成功 206 与回退 200 分支（MockWebServer 返回不同 code）
+- 集成：`TagReaderWorker` 对 1 条未标记歌曲执行 doWork，断言 songDao 中 tagsVersion 变 1 且 coverUri 非空
+- 手工：扫描 WebDAV 源后观察 WorkManager 日志 `processed/failed`，列表标题由文件名变为真实标签
+
+### 7. Wrong vs Correct
+#### Wrong
+```kotlin
+// 直接在扫描期对每个 WebDAV 文件逐个全量下载读标签 → 瞬时 N 次 GET → 429 限流打爆
+files.forEach { item ->
+  val tmp = File(cacheDir, item.name)
+  webDavClient.get(item.url, tmp) // 全量
+  val tags = AudioFileIO.read(tmp).tag
+}
+```
+#### Correct
+```kotlin
+// 扫描期零下载文件名建库；后台 Worker 按需 Range 64KB 读标签，认证经 OkHttp 拦截器注入
+val songs = files.map { filenameSong(sourceId, it) } // tagsVersion=0
+songRepository.replaceSourceSongs(sourceId, songs)
+tagReaderScheduler.scheduleImmediate() // Worker 内：readTagForUpdate(path, id) -> upsert(tagsVersion=1)
+```
+
 ## 构建注意
 
 - 多 flavor 项目（muses/miui）：装包验证一律 `assembleMusesDebug`（产物 app-muses-debug.apk）；裸 `assembleDebug` 打的是无 flavor 旧 variant 包，装机后表现为"改动没生效"

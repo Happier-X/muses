@@ -96,5 +96,8 @@ dependencies {
     // Coil 3（封面加载，阶段 1+ 实际使用）
     implementation(libs.coil.compose)
 
+    // jaudiotagger（音频标签读取）
+    implementation(libs.jaudiotagger)
+
     testImplementation(libs.junit)
 }

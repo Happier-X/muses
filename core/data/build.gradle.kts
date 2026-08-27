@@ -53,6 +53,17 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
 
+    // OkHttp（AudioTagReader 下载 WebDAV 文件）
+    implementation(libs.okhttp)
+    
+    // jaudiotagger（音频标签读取）
+    implementation(libs.jaudiotagger)
+    
+    // WorkManager（后台标签读取）
+    implementation(libs.work.runtime.ktx)
+    implementation(libs.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
