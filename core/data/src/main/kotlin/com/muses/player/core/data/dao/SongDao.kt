@@ -31,6 +31,9 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE id = :id")
     suspend fun getById(id: String): SongEntity?
 
+    @Query("SELECT * FROM songs WHERE id = :id")
+    fun observeById(id: String): Flow<SongEntity?>
+
     @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY title COLLATE NOCASE ASC")
     suspend fun searchByTitle(query: String): List<SongEntity>
 

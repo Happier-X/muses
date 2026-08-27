@@ -23,6 +23,9 @@ import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.PlaybackStateRepository
 import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.data.repository.SettingsRepository
+import com.muses.player.core.data.repository.SongRepository
+import com.muses.player.core.data.tag.AudioTagReader
+import com.muses.player.core.media.scanner.LocalLibraryScanner
 import com.muses.player.core.media.loudness.LoudnessController
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -61,6 +64,8 @@ class PlaybackService : MediaSessionService() {
     @Inject lateinit var recentPlaysRepository: RecentPlaysRepository
     @Inject lateinit var recoveryController: PlaybackRecoveryController
     @Inject lateinit var errorLogStore: ErrorLogStore
+    @Inject lateinit var audioTagReader: AudioTagReader
+    @Inject lateinit var songRepository: SongRepository
 
     private var saveJob: kotlinx.coroutines.Job? = null
 
@@ -256,7 +261,8 @@ class PlaybackService : MediaSessionService() {
                 val currentId = player.currentMediaItem?.mediaId
                 if (currentId != null) {
                     serviceScope.launch {
-                        songDao.getById(currentId)?.toDomain()?.let { song ->
+                        val entity = songDao.getById(currentId)
+                        entity?.toDomain()?.let { song ->
                             recentPlaysRepository.record(
                                 com.muses.player.core.model.playback.RecentPlayEntry(
                                     songId = song.id,
@@ -267,6 +273,44 @@ class PlaybackService : MediaSessionService() {
                                     playedAt = System.currentTimeMillis(),
                                 ),
                             )
+                        }
+                        // 播放时懒扫描：补齐 tagsVersion<1 的歌曲信息，Room Flow 自动刷新列表
+                        // 契约：仅对 FILENAME_TAGS_VERSION(0) 执行，经 SongRepository 唯一入库路径以同步重建派生索引
+                        if (entity != null && entity.tagsVersion < LocalLibraryScanner.TAGS_VERSION) {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    val tagData = audioTagReader.readTagForUpdate(entity.path, entity.id)
+                                    if (tagData != null) {
+                                        val hasUpdate = !tagData.title.isNullOrBlank() ||
+                                            !tagData.artist.isNullOrBlank() ||
+                                            !tagData.album.isNullOrBlank() ||
+                                            tagData.coverUri != null ||
+                                            tagData.durationMs > 0
+                                        if (hasUpdate) {
+                                            val domain = entity.toDomain().copy(
+                                                title = tagData.title?.takeIf { it.isNotBlank() } ?: entity.title,
+                                                artist = tagData.artist ?: entity.artist,
+                                                album = tagData.album ?: entity.albumTitle,
+                                                lyrics = tagData.lyrics ?: entity.lyrics,
+                                                coverUri = tagData.coverUri ?: entity.coverUri,
+                                                durationMs = tagData.durationMs.coerceAtLeast(entity.durationMs),
+                                                durationSec = (tagData.durationMs / 1000).coerceAtLeast(entity.durationSec),
+                                                tagsVersion = LocalLibraryScanner.TAGS_VERSION,
+                                            )
+                                            songRepository.upsert(domain)
+                                        } else {
+                                            // 无有效标签也标记已处理，避免对无标签文件重复 Range 请求；下次仍显示文件名
+                                            val domain = entity.toDomain().copy(tagsVersion = LocalLibraryScanner.TAGS_VERSION)
+                                            songRepository.upsert(domain)
+                                        }
+                                    }
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    // 静默失败保持 tagsVersion=0 下次重试，不阻塞播放；留痕供设置页排查
+                                    errorLogStore.log(ErrorLogStore.Level.WARN, "PlaybackLazyScan", "懒扫描失败 id=${entity.id} path=${entity.path.take(80)}: ${e.message}", e)
+                                }
+                            }
                         }
                     }
                 }

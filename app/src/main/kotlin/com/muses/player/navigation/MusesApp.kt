@@ -53,6 +53,8 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -81,13 +83,18 @@ class MainViewModel @Inject constructor(
      *（通知栏同源，解决「通知栏有信息但底部栏仍未知」）。
      * 关键：必须用 Player.mediaMetadata（合并动态 ID3）而非 MediaItem.mediaMetadata（静态占位）。
      * null = 无当前曲（MiniPlayer 显示空态整条，对照 `.mini-player--empty`）。
+     * 修复：改为 observeById Flow，使播放时回写后迷你条与列表一致（原 one-shot getById 不响应 DB 更新）。
      */
     val nowPlaying: StateFlow<NowPlayingUiState?> = kotlinx.coroutines.flow.combine(
         playerConnection.currentMediaItem,
         playerConnection.mediaMetadata,
-    ) { mediaItem, mediaMetadata ->
+        playerConnection.currentMediaItem.map { it?.mediaId }.distinctUntilChanged()
+            .flatMapLatest { id ->
+                if (id == null) flowOf(null) else songDao.observeById(id)
+            },
+    ) { mediaItem, mediaMetadata, songEntity ->
         mediaItem?.let { item ->
-            val song = runCatching { songDao.getById(item.mediaId) }.getOrNull()
+            val song = songEntity
             // 合并 metadata 优先用 Player.mediaMetadata（动态解析），回退到 MediaItem.mediaMetadata（静态）
             val combined = mediaMetadata ?: item.mediaMetadata
             val metaTitle = combined.title?.toString()?.trim()?.takeIf { it.isNotEmpty() }
