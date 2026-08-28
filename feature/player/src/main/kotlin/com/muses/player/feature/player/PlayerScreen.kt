@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
@@ -160,6 +161,8 @@ fun PlayerScreen(
     // 拖动层状态（对齐 PlayerPage.vue drag-layer）
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var isDraggingVertically by remember { mutableStateOf(false) }
+    // 歌词面板是否激活：垂直下滑仅 info-panel 生效（对齐 canStartVerticalDismiss / isLyricPanelTarget）
+    var isLyricPanelActive by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     // 回弹动画：0.22s easeOut（motion-v easeOut ≈ CubicBezier(0,0,0.58,1)）
@@ -245,13 +248,17 @@ fun PlayerScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding()
-                        .pointerInput(isTabletLayout, dismissThresholdPx) {
-                            // 垂直下滑：仅当拖动距离>8px 且方向为垂直时更新 dragOffsetY
-                            // 平板歌词面板占半屏时仍允许下滑？对齐 Vue：歌词面板内禁止下滑，此处简化为始终允许但不与水平冲突
+                        .pointerInput(isTabletLayout, isLyricPanelActive, dismissThresholdPx) {
+                            // 垂直下滑：仅 info-panel 生效，歌词面板内禁止（对齐 Vue canStartVerticalDismiss / isLyricPanelTarget）
                             var accumulatedY = 0f
                             detectVerticalDragGestures(
-                                onDragStart = { _: Offset -> accumulatedY = 0f; isDraggingVertically = true },
+                                onDragStart = { _: Offset ->
+                                    // 歌词面板激活时不启动垂直手势，避免滚动歌词误触发收起
+                                    if (!isTabletLayout && isLyricPanelActive) return@detectVerticalDragGestures
+                                    accumulatedY = 0f; isDraggingVertically = true
+                                },
                                 onVerticalDrag = { _: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
+                                    if (!isTabletLayout && isLyricPanelActive) return@detectVerticalDragGestures
                                     // 仅下拉（正向）生效，上滑忽略
                                     if (dragAmount > 0f || accumulatedY > 0f) {
                                         accumulatedY = (accumulatedY + dragAmount).coerceAtLeast(0f)
@@ -360,6 +367,7 @@ fun PlayerScreen(
                             onRequestClose = onClose,
                             dragOffsetY = dragOffsetY,
                             isDragging = isDraggingVertically,
+                            onActivePanelChange = { isLyricPanelActive = it == 1 },
                         )
                     }
                 }
@@ -500,8 +508,10 @@ private fun PhoneImmersiveLayout(
     onRequestClose: () -> Unit,
     dragOffsetY: Float,
     isDragging: Boolean,
+    onActivePanelChange: (Int) -> Unit = {},
 ) {
     var activePanel by remember { mutableStateOf(0) }
+    LaunchedEffect(activePanel) { onActivePanelChange(activePanel) }
     // panels 动画：translateX(-activePanel*50%) 0.22s easeOut
     val easing = remember { CubicBezierEasing(0f, 0f, 0.58f, 1f) }
     val panelOffset by animateFloatAsState(
@@ -849,6 +859,7 @@ private fun InfoPanel(
                 onOpenEditMeta = onOpenEditMeta,
             )
             Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.navigationBarsPadding())
         } else {
             Spacer(Modifier.height(12.dp))
         }
@@ -1000,21 +1011,25 @@ private fun ProgressSection(
     var previewMs by remember { mutableStateOf<Long?>(null) }
     val displayPos = previewMs ?: position
     val max = duration.coerceAtLeast(1L).toFloat()
+    val canSeek = duration > 0L
     // 兼容 Capacitor：隐藏 thumbWrap（inset-inline-start），Compose 直接透明 thumb
     Column(Modifier.fillMaxWidth()) {
         @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
         Slider(
             value = displayPos.coerceIn(0L, duration.coerceAtLeast(0L)).toFloat(),
             onValueChange = { v ->
+                if (!canSeek) return@Slider
                 if (previewMs == null) onSeekStart()
                 previewMs = v.toLong()
             },
             onValueChangeFinished = {
+                if (!canSeek) return@Slider
                 val target = previewMs ?: position
                 previewMs = null
                 onSeekEnd(target.coerceIn(0L, duration.coerceAtLeast(0L)))
             },
             valueRange = 0f..max,
+            enabled = canSeek,
             colors = SliderDefaults.colors(
                 activeTrackColor = Color.White,
                 inactiveTrackColor = Color.White.copy(alpha = 0.22f),
@@ -1170,7 +1185,8 @@ private fun TabletBottomBar(
                     colors = listOf(Color(0x0005070D), Color(0x8C05070D)),
                 ),
             )
-            .padding(start = 24.dp, end = 24.dp, top = 6.dp, bottom = 12.dp),
+            .padding(start = 24.dp, end = 24.dp, top = 6.dp, bottom = 12.dp)
+            .navigationBarsPadding(),
     ) {
         // 进度全宽：bottom-progress
         ProgressSection(
