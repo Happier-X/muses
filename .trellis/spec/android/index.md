@@ -18,7 +18,7 @@
 ## 架构分层
 
 ```
-app (UI 宿主、导航、引导) 
+app (UI 宿主、导航) 
   → feature:* (页面 UI + ViewModel)
     → core:* (业务逻辑/数据/网络)
       → core:model (纯 Kotlin 领域模型)

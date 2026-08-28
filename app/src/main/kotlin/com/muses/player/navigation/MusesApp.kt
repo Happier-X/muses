@@ -30,7 +30,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.muses.player.core.data.dao.SongDao
-import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.media.playback.PlayerConnection
 import com.muses.player.feature.library.AlbumDetailScreen
 import com.muses.player.feature.library.AlbumsPage
@@ -73,7 +72,6 @@ class MainViewModel @Inject constructor(
     private val playerConnection: PlayerConnection,
     private val songDao: SongDao,
     private val songRepository: com.muses.player.core.data.repository.SongRepository,
-    settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     val isPlaying: StateFlow<Boolean> = playerConnection.isPlaying
@@ -173,9 +171,6 @@ fun MusesApp() {
             permissionLauncher.launch(permissions.toTypedArray())
         }
     }
-
-    // 首次启动引导已移除（用户决策 2026-08-26）：音源添加/扫描统一走音源页；
-    // settingsRepository.isFirstLaunch/completeFirstLaunch 保留但不再有 UI 消费方
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route

@@ -127,7 +127,7 @@ class LocalLibraryScanner @Inject constructor(
                 }
             }
         } catch (_: SecurityException) {
-            // READ_MEDIA_AUDIO 未授权：返回空结果，权限请求在引导/设置页处理
+            // READ_MEDIA_AUDIO 未授权：返回空结果，权限请求在设置/音源页处理
         } catch (_: IllegalArgumentException) {
             // 游标列异常：返回已收集部分
         }

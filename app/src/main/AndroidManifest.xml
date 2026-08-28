@@ -5,7 +5,7 @@
     <!-- WebDAV 网络访问 -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- 本地库扫描：Android 13+ 细粒度音频权限（运行时请求在引导页接线） -->
+    <!-- 本地库扫描：Android 13+ 细粒度音频权限（运行时请求在设置/音源页接线） -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"

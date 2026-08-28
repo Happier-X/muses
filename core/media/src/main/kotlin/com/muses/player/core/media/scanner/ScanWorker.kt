@@ -78,7 +78,7 @@ class ScanWorker(
     }
 }
 
-/** 供引导页/音源管理触发后台扫描的便捷封装 */
+/** 供音源管理触发后台扫描的便捷封装 */
 object ScanWorkScheduler {
 
     fun enqueue(context: Context, sourceId: String? = null) {

@@ -28,7 +28,7 @@
 - **标签读取只在播放时懒扫描**（用户决策 2026-08-26：扫描期「读取音乐标签」功能已删除）：PlayerConnection 在当前曲入缓存后调 `lazyScanTags`——TagReader + sidecar .lrc + CoverCacheWriter → `songRepository.upsert` 回写（Room Flow 自动刷新列表）。幂等键：文件名建库 tagsVersion=0（FILENAME_TAGS_VERSION），懒扫描成功写 TAGS_VERSION；失败静默保持文件名歌下次重试。本地源扫描仍保留 readTags 开关（无网络成本）。
 - 认证统一走 OkHttpClient Interceptor + WebDavAuthRegistry；interceptor **不得覆盖请求已携带的 Authorization**（避免压掉 OkHttpWebDavClient.authenticate 的手动 header）。PlaybackService 禁止自建裸 OkHttpClient。
 - 预取模式（PlayerConnection.prefetchScope）：串行下载、换队列 cancel 旧任务、单首失败回退 http URL 不阻塞队列、完成后 mainHandler.post 回主线程 setMediaItems（Media3 主线程铁律）。
-- 凭据生命周期：源 save/update/delete 及引导页保存四处都必须调 `registry.refresh()`。
+- 凭据生命周期：源 save/update/delete 都必须调 `registry.refresh()`。
 - **限流假设显式化（防 E 类隐含假设复发）**：禁止假设「4 rps 安全」——所有外发 HTTP（刮削 `ScrapeHttp`、播放 `WebDavClient`）必须经 `WebDavRateLimiter` 单例，阈值显式声明为 4 rps 且集中在 `WebDavModule`，测试注入 `nowMs` 避免虚拟时间漂移。**流播链路例外**：ExoPlayer 经 `CacheDataSource` + `OkHttpDataSource` 对流式 URL 的播放读取，走 `WebDavModule.provideStreamingOkHttpClient`（`@StreamingOkHttp`，只 auth 不限流）——流播是单连接串行持续读取、请求率远低于 CDN 阈值、不构成 burst，套 4 rps 反而饿死/超时重试叠加 429（用户决策 2026-08-27，任务 08-27-webdav-playback-429）。
 - **播放/刮削共享限流（任务 08-27-webdav-playback-429）**：`WebDavRateLimiter`（`core:webdav` 单例 4 rps/250ms，`synchronized` 兼顾协程/阻塞链路）经 `WebDavModule` 单例提供，`ScrapeRateLimiter` 为其 `typealias` 复用；`WebDavClient` 全量方法前 `acquire()` + `OkHttpClient` 拦截器 `acquireBlocking()` 双层覆盖（已在协程层限流的请求打 `X-Muses-Rate-Limited` marker 跳过二次限流）；**`CacheDataSource` 流播链路已剥离限流**（见上「流播链路例外」），走 `@StreamingOkHttp` client，不再经 `acquireBlocking()`；429 时 `parseRetryAfterMs`（秒/HTTP-date，≤8s）退避重试 1 次，二次 429 抛 `IOException("http 429")` 并 `ErrorLogStore.log(WARN)`，上层归为可重试 `NETWORK`。
 
