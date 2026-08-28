@@ -52,7 +52,14 @@ fun coverUriToAppAssetsUrl(uri: String?, cacheDirPath: String): String? = when {
         if (path.startsWith(cacheDirPath)) {
             "https://appassets.androidplatform.net/cache/" + path.removePrefix(cacheDirPath).trimStart('/')
         } else {
-            // 非 cache 目录的本地封面暂不映射（M1 封面均落 cache/covers）
+            null
+        }
+    }
+    uri.startsWith("/") -> {
+        // 裸文件路径（如 /data/.../cache/audio_tags/...），兼容 AudioTagReader 存储的绝对路径
+        if (uri.startsWith(cacheDirPath)) {
+            "https://appassets.androidplatform.net/cache/" + uri.removePrefix(cacheDirPath).trimStart('/')
+        } else {
             null
         }
     }
