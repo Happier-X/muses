@@ -189,9 +189,12 @@ fun SongsPage(
                             SaltIconButton(
                                 onClick = {
                                     if (songs.isEmpty()) return@SaltIconButton
-                                    // 随机播放全部：入队后开 shuffle
+                                    // 随机播放全部：随机挑一首作为起点（对齐原版 onShuffleAll
+                                    // 「先 shuffle 再取随机第 0 首」——Media3 的 shuffleMode
+                                    // 只影响后续顺序、不改变当前曲，固定 first 会永远播第一首），
+                                    // 开 shuffle 保证后续顺序也随机
                                     playerConnection?.apply {
-                                        play(songs.first().id, songs)
+                                        play(songs.random().id, songs)
                                         setShuffleModeEnabled(true)
                                     }
                                 },
