@@ -1,17 +1,13 @@
 package com.muses.player.feature.player
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.media.playback.PlayerConnection
 import com.muses.player.feature.player.lyric.AmllLyricLine
 import com.muses.player.feature.player.lyric.AmllMapper
-import com.muses.player.feature.player.lyric.AmllPayload
 import com.muses.player.feature.player.lyric.LyricsParser
-import com.muses.player.feature.player.lyric.coverUriToAppAssetsUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +28,6 @@ import javax.inject.Inject
 class PlayerViewModel @Inject constructor(
     val playerConnection: PlayerConnection,
     private val songDao: SongDao,
-    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     val isPlaying: StateFlow<Boolean> = playerConnection.isPlaying
@@ -113,17 +108,17 @@ class PlayerViewModel @Inject constructor(
     private val _stickyCover = MutableStateFlow<String?>(null)
     val stickyCover: StateFlow<String?> = _stickyCover.asStateFlow()
 
-    /** 发给 WebView 的 updateLyrics 载荷 JSON；无词/解析失败也是空行数组载荷（背景照常渲染），仅无当前曲为 null */
-    private val _lyricsJson = MutableStateFlow<String?>(null)
-    val lyricsJson: StateFlow<String?> = _lyricsJson.asStateFlow()
+    /** 已解析 AMLL 行集：五行小窗与完整歌词同源 */
+    private val _parsedLines = MutableStateFlow<List<AmllLyricLine>>(emptyList())
+    val parsedLines: StateFlow<List<AmllLyricLine>> = _parsedLines.asStateFlow()
 
-    /** 当前歌词是否含译文/音译（翻译 FAB 显隐依据，复刻 Web 层语义） */
+    /** 当前歌词是否含译文/音译（翻译 FAB 显隐依据） */
     private val _hasTranslation = MutableStateFlow(false)
     val hasTranslation: StateFlow<Boolean> = _hasTranslation.asStateFlow()
 
-    /** 已解析 AMLL 行集：info 面板五行歌词小窗数据源（与 lyricsJson 同源同生命周期） */
-    private val _parsedLines = MutableStateFlow<List<AmllLyricLine>>(emptyList())
-    val parsedLines: StateFlow<List<AmllLyricLine>> = _parsedLines.asStateFlow()
+    /** 原生前向兼容：保留旧 WebView 的 JSON 载荷（已废弃，空实现供旧测试/归档引用） */
+    private val _lyricsJson = MutableStateFlow<String?>(null)
+    val lyricsJson: StateFlow<String?> = _lyricsJson.asStateFlow()
 
     /** 缓冲中提示位（时间行中央）：Media3 STATE_BUFFERING 直映。
      * 与 Web 层「seek 目标超缓冲区弹 1200ms 提示」语义近似但更简单——原生无 bufferedPosition 上报链路 */
@@ -183,58 +178,31 @@ class PlayerViewModel @Inject constructor(
             synced?.let { AmllMapper.toAmllLines(it) } ?: emptyList()
         }
         lastLineEndMs = currentLines.maxOfOrNull { it.endTime.toLong() } ?: Long.MAX_VALUE
-        _parsedLines.value = currentLines
         _hasTranslation.value = currentLines.any {
             it.translatedLyric.isNotEmpty() || it.romanLyric.isNotEmpty()
         }
-
-        publishPayload(song?.id)
+        refreshTranslationState()
+        if (song?.id == null) {
+            _lyricsJson.value = null
+        }
     }
 
-    /** 按 translationEnabled 重建 payload 并发布（coverUrl 优先 data URL，回退 appassets 映射，参考 AMLL-DroidMate 的 convertFileUriToDataUrl） */
-    private fun publishPayload(songId: String?) {
-        if (songId.isNullOrEmpty()) {
-            _lyricsJson.value = null
-            return
-        }
+    private fun refreshTranslationState() {
         val lines = if (_translationEnabled.value) {
             currentLines
         } else {
             currentLines.map { it.copy(translatedLyric = "", romanLyric = "") }
         }
-        // 优先尝试 data URL（最可靠，WebView Fetch 无需拦截），失败回退 https 映射
-        val coverUrl = runCatching { coverUriToDataUrl(_stickyCover.value) }.getOrNull()
-            ?: coverUriToAppAssetsUrl(
-                uri = _stickyCover.value,
-                cacheDirPath = appContext.cacheDir.absolutePath,
-            )
-        _lyricsJson.value = AmllMapper.toJson(AmllPayload(lines, coverUrl, songId))
-    }
-
-    private fun coverUriToDataUrl(uri: String?): String? {
-        if (uri.isNullOrBlank()) return null
-        return try {
-            val file = when {
-                uri.startsWith("file://") -> java.io.File(uri.removePrefix("file://"))
-                uri.startsWith("/") -> java.io.File(uri)
-                else -> return null
-            }
-            if (!file.isFile) return null
-            val bytes = file.readBytes()
-            val mime = when (file.extension.lowercase()) {
-                "png" -> "image/png"
-                "webp" -> "image/webp"
-                "gif" -> "image/gif"
-                else -> "image/jpeg"
-            }
-            val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-            "data:$mime;base64,$b64"
-        } catch (_: Exception) { null }
+        _parsedLines.value = lines
+        // 兼容旧 WebView JSON：保留但不再用于 UI（coil 直接加载 stickyCover）
+        if (currentSongId != null) {
+            _lyricsJson.value = "{\"lines\":" + lines.size + "}"
+        }
     }
 
     fun toggleTranslation() {
         _translationEnabled.value = !_translationEnabled.value
-        publishPayload(currentSongId)
+        refreshTranslationState()
     }
 
     /** 歌词进度轮询：比 UI 进度条更密的 ~100ms，驱动卡拉OK染色；钳制在末句 endTime 内 */

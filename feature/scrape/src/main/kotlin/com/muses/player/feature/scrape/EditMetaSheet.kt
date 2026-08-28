@@ -33,7 +33,7 @@ import com.muses.player.core.scrape.editmeta.EditDimStatus
 
 /**
  * 编辑歌曲信息弹窗 —— editmeta 三维云搜（文本/封面/歌词）+ 应用写回。
- * 入口 = 播放页 WebView「更多」键经桥回调；宿主在 MusesApp 层。
+ * 入口 = 播放页原生「更多」键回调；宿主在 MusesApp 层。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
