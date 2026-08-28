@@ -1039,6 +1039,10 @@ private fun ProgressSection(
             },
             valueRange = 0f..max,
             enabled = canSeek,
+            // 对齐 k-range 沉浸样式高度 20px（矮屏 18px）：压掉 M3 默认 44dp 布局高，细轨贴内容
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (LocalConfiguration.current.screenHeightDp <= 520) 18.dp else 20.dp),
             colors = SliderDefaults.colors(
                 // 对齐全局 .player-overlay .progress-range：底轨 rgba(255,255,255,0.25)，填充 #ffffff
                 // （scoped 的 primary 被全局规则覆盖，真源以白轨为准）
