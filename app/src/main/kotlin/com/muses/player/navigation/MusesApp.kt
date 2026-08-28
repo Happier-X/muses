@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -176,8 +179,10 @@ fun MusesApp() {
     val currentRoute = backStackEntry?.destination?.route
     val current = NavDestination.fromRoute(currentRoute) ?: NavDestination.Songs
 
-    // 播放页/队列页为覆盖路由形态：无导航 chrome（Web 层 popup 盖住 tabs-layout）
-    val overlayRoute = current == NavDestination.NowPlaying || current == NavDestination.Queue
+    // 沉浸式/队列改为状态驱动的 overlay（Box 叠加于 Tabs 之上），下滑漏出背后列表而非纯黑窗口
+    var showPlayerOverlay by remember { mutableStateOf(false) }
+    var showQueueOverlay by remember { mutableStateOf(false) }
+    val overlayRoute = showPlayerOverlay || showQueueOverlay
 
     // 导航项组装（map 为 inline 函数，lambda 内可直接调 Composable 取 string 资源）
     val primaryItems = NavDestination.Primary.map { dest -> dest.toNavItem(currentRoute, navController) }
@@ -186,35 +191,68 @@ fun MusesApp() {
     val nowPlaying by viewModel.nowPlaying.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
 
-    TabsLayout(
-        primaryItems = primaryItems,
-        secondaryItems = secondaryItems,
-        navVisible = !overlayRoute,
-        bottomBar = {
-            // MiniPlayer：覆盖路由上隐藏（对照 Web 层 popup 盖过 mini-player z 序）
-            if (!overlayRoute) {
-                Box(Modifier.navigationBarsPadding()) {
-                    MiniPlayerBar(
-                        title = nowPlaying?.title ?: stringResource(R.string.mini_empty_title),
-                        subtitle = nowPlaying?.subtitle ?: stringResource(
-                            R.string.mini_unknown_artist,
-                        ) + " - " + stringResource(R.string.mini_unknown_album),
-                        coverUri = nowPlaying?.coverUri,
-                        isPlaying = isPlaying,
-                        hasSong = nowPlaying != null,
-                        onOpenPlayer = { navigateTo(navController, NavDestination.NowPlaying) },
-                        onTogglePlayback = { viewModel.playPause() },
-                        onOpenQueue = { navigateTo(navController, NavDestination.Queue) },
-                        modifier = Modifier
-                            // .mini-player 定位：left/right 18px / bottom safe-bottom+8px
-                            .padding(horizontal = 18.dp, vertical = 8.dp)
-                            .fillMaxWidth(),
-                    )
+    Box(Modifier.fillMaxSize()) {
+        TabsLayout(
+            primaryItems = primaryItems,
+            secondaryItems = secondaryItems,
+            navVisible = !overlayRoute,
+            bottomBar = {
+                if (!overlayRoute) {
+                    Box(Modifier.navigationBarsPadding()) {
+                        MiniPlayerBar(
+                            title = nowPlaying?.title ?: stringResource(R.string.mini_empty_title),
+                            subtitle = nowPlaying?.subtitle ?: stringResource(
+                                R.string.mini_unknown_artist,
+                            ) + " - " + stringResource(R.string.mini_unknown_album),
+                            coverUri = nowPlaying?.coverUri,
+                            isPlaying = isPlaying,
+                            hasSong = nowPlaying != null,
+                            onOpenPlayer = { showPlayerOverlay = true },
+                            onTogglePlayback = { viewModel.playPause() },
+                            onOpenQueue = { showQueueOverlay = true },
+                            modifier = Modifier
+                                .padding(horizontal = 18.dp, vertical = 8.dp)
+                                .fillMaxWidth(),
+                        )
+                    }
                 }
+            },
+        ) {
+            AppNavHost(navController)
+        }
+        if (showPlayerOverlay) {
+            BackHandler { showPlayerOverlay = false }
+            Box(Modifier.fillMaxSize()) {
+                val playerVm: com.muses.player.feature.player.PlayerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                val currentMediaItem by playerVm.currentMediaItem.collectAsState()
+                var showEditMeta by remember { mutableStateOf(false) }
+                if (showEditMeta) {
+                    val editSong = currentMediaItem?.let { item ->
+                        com.muses.player.core.model.Song(
+                            id = item.mediaId,
+                            sourceId = "",
+                            path = item.localConfiguration?.uri?.toString() ?: "",
+                            title = item.mediaMetadata.title?.toString() ?: "未知歌曲",
+                            artist = item.mediaMetadata.artist?.toString(),
+                            album = item.mediaMetadata.albumTitle?.toString(),
+                            coverUri = item.mediaMetadata.artworkUri?.toString(),
+                        )
+                    }
+                    com.muses.player.feature.scrape.EditMetaSheet(song = editSong, onDismiss = { showEditMeta = false })
+                }
+                PlayerScreen(
+                    onClose = { showPlayerOverlay = false },
+                    onOpenQueue = { showPlayerOverlay = false; showQueueOverlay = true },
+                    onOpenEditMeta = { showEditMeta = true },
+                )
             }
-        },
-    ) {
-        AppNavHost(navController)
+        }
+        if (showQueueOverlay) {
+            BackHandler { showQueueOverlay = false }
+            Box(Modifier.fillMaxSize()) {
+                QueueScreen(onClose = { showQueueOverlay = false })
+            }
+        }
     }
 }
 
