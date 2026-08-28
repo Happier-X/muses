@@ -103,9 +103,9 @@ import com.muses.player.core.ui.components.SaltIconButton
 import com.muses.player.core.ui.components.SaltIconButtonSize
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltSpacing
-import com.muses.player.feature.player.backdrop.MeloXFlowingLightBackdrop
+import com.muses.player.feature.player.backdrop.FlowingLightBackdrop
 import com.muses.player.feature.player.lyric.AmllLyricLine
-import com.muses.player.feature.player.lyric.MeloXIOSLyricsPanel
+import com.muses.player.feature.player.lyric.IOSLyricsPanel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -196,8 +196,8 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color(0xFF05070D))
     ) {
-        // 背景层：MeloX 流体渐变与封面虚化（直接复刻 MeloXFlowingLightBackdrop，flowSpeed=2）
-        MeloXFlowingLightBackdrop(
+        // 背景层：Immersive 流体渐变与封面虚化（直接复刻 FlowingLightBackdrop，flowSpeed=2）
+        FlowingLightBackdrop(
             coverUri = stickyCover,
             hasLyric = parsedLines.isNotEmpty(),
             modifier = Modifier.fillMaxSize(),
@@ -592,7 +592,7 @@ private fun PhoneImmersiveLayout(
                     isNarrowHeight = isNarrowHeight,
                     isTablet = false,
                 )
-                1 -> MeloXIOSLyricsPanel(
+                1 -> IOSLyricsPanel(
                     lines = lines,
                     lyricPosition = lyricPosition,
                     translationEnabled = translationEnabled,
@@ -678,13 +678,13 @@ private fun TabletImmersiveLayout(
                 // 平板左侧不展示三行歌词与手机控件区（display:none），由底部条承担
                 Spacer(Modifier.height(8.dp))
             }
-            // 右栏：lyric-panel（50%）右侧歌词 — MeloX iOS 面板，header 在平板隐藏
+            // 右栏：lyric-panel（50%）右侧歌词 — Immersive iOS 面板，header 在平板隐藏
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
             ) {
-                MeloXIOSLyricsPanel(
+                IOSLyricsPanel(
                     lines = lines,
                     lyricPosition = lyricPosition,
                     translationEnabled = translationEnabled,

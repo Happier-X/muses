@@ -55,19 +55,19 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * MeloX iOS 歌词面板 — 直接复刻 MeloX-Android 的 MeloXIOSLyricsPanel
+ * Immersive iOS 歌词面板 — 直接复刻 Immersive-Android 的 IOSLyricsPanel
  *
- * 逐行/逐词契约（与 MeloX 一致）：
+ * 逐行/逐词契约（与 Immersive 一致）：
  * - 逐词 alpha / ExtraBold：当前行已唱词 1.0 ExtraBold，未唱 0.42 Regular，正在唱的词 ExtraBold 1.0；
- *   非当前行 0.45-0.5 Regular；wordFadeWidth 0.5 用词级二段近似（词内不细分字符，符合 MeloX 以 word 为原子）
+ *   非当前行 0.45-0.5 Regular；wordFadeWidth 0.5 用词级二段近似（词内不细分字符，符合 Immersive 以 word 为原子）
  * - 翻译/音译：translationEnabled 控制显隐，仅当该行 translatedLyric/romanLyric 非空时渲染（与 PlayerViewModel hasTranslation 配合）
  * - 和声：line.isBG 时文字 italic、alpha 更低、附「· 和声」标记，字号略小
  * - 点击跳转：点击任意行 seekTo(line.startTime)
  * - 自动滚动：当前行居中（LazyColumn animateScrollToItem current-2，align center 0.5）
- * - 空态、Fab 显隐（180ms fade，3s idle 隐藏）与 MeloX 交互一致
+ * - 空态、Fab 显隐（180ms fade，3s idle 隐藏）与 Immersive 交互一致
  */
 @Composable
-fun MeloXIOSLyricsPanel(
+fun IOSLyricsPanel(
     lines: List<AmllLyricLine>,
     lyricPosition: Long,
     translationEnabled: Boolean,
@@ -121,7 +121,7 @@ fun MeloXIOSLyricsPanel(
             }
         } else {
             val listState = rememberLazyListState()
-            val currentIdx = remember(lines, lyricPosition) { meloXComputeCurrentIndex(lines, lyricPosition) }
+            val currentIdx = remember(lines, lyricPosition) { computeCurrentIndex(lines, lyricPosition) }
 
             LaunchedEffect(currentIdx) {
                 if (currentIdx >= 0) {
@@ -160,14 +160,14 @@ fun MeloXIOSLyricsPanel(
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // MeloX 逐词：wordFadeWidth 0.5 二段近似，已唱/未唱以词边界区分；当前唱词 ExtraBold
+                        // Immersive 逐词：wordFadeWidth 0.5 二段近似，已唱/未唱以词边界区分；当前唱词 ExtraBold
                         val annotated = remember(line, lyricPosition, isCurrent) {
                             buildAnnotatedString {
                                 if (line.words.isEmpty()) {
                                     withStyle(SpanStyle(color = Color.White.copy(alpha = if (isCurrent) 1f else 0.5f))) { append("") }
                                 } else {
                                     line.words.forEach { w ->
-                                        // MeloX 标准：非当前行统一半透；当前行区分已唱/未唱/正在
+                                        // Immersive 标准：非当前行统一半透；当前行区分已唱/未唱/正在
                                         val alpha = when {
                                             !isCurrent -> if (line.isBG) 0.38f else 0.50f
                                             lyricPosition >= w.endTime -> 1f
@@ -239,13 +239,13 @@ fun MeloXIOSLyricsPanel(
             }
         }
 
-        // 浮动操作：复刻 MeloX lyric-fabs（motion 180ms fade，3s idle 隐藏）
+        // 浮动操作：复刻 Immersive lyric-fabs（motion 180ms fade，3s idle 隐藏）
         val showFabContainer = hasTranslation || showPlayFab
         if (showFabContainer) {
             val fabAlpha by animateFloatAsState(
                 targetValue = if (chromeVisible) 1f else 0f,
                 animationSpec = tween(durationMillis = 180),
-                label = "meloX-fab-alpha",
+                label = "fab-alpha",
             )
             Row(
                 modifier = Modifier
@@ -295,7 +295,7 @@ fun MeloXIOSLyricsPanel(
     }
 }
 
-internal fun meloXComputeCurrentIndex(lines: List<AmllLyricLine>, positionMs: Long): Int {
+internal fun computeCurrentIndex(lines: List<AmllLyricLine>, positionMs: Long): Int {
     if (lines.isEmpty()) return -1
     var idx = -1
     for (i in lines.indices) {

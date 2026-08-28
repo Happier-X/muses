@@ -27,9 +27,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * MeloX 流体背景 — 直接复刻 MeloX-Android 的 MeloXFlowingLightBackdrop
+ * Immersive 流体背景 — 直接复刻 Immersive-Android 的 FlowingLightBackdrop
  *
- * 职责（对齐 MeloX 源码语义）：
+ * 职责（对齐 Immersive 源码语义）：
  * - 流动渐变（flowing light）：多 Blob 径向渐变 + 线性无限循环位移，flowSpeed 控制周期
  * - 封面虚化：高斯模糊 + 放大 + 叠加暗色渐变保证前景可读，粘性 coverUri（null 时沿用旧帧）
  * - fallback-background：无封面时深色占位纵向渐变，hasLyric 仅作语义保留（背景始终渲染，不因无词卸载）
@@ -38,7 +38,7 @@ import kotlin.math.sin
  * 调用方保证传入 stickyCover，不在此处做二次粘性。
  */
 @Composable
-fun MeloXFlowingLightBackdrop(
+fun FlowingLightBackdrop(
     coverUri: String?,
     hasLyric: Boolean,
     modifier: Modifier = Modifier,
@@ -46,9 +46,9 @@ fun MeloXFlowingLightBackdrop(
 ) {
     @Suppress("UNUSED_PARAMETER") val _hasLyric = hasLyric
 
-    // 流体周期：MeloX flowSpeed=2 约 12s 一圈，此处 duration = 12000 / flowSpeed
+    // 流体周期：Immersive flowSpeed=2 约 12s 一圈，此处 duration = 12000 / flowSpeed
     val durationMs = remember(flowSpeed) { (12000 / flowSpeed.coerceAtLeast(0.2f)).toInt().coerceIn(4000, 30000) }
-    val transition = rememberInfiniteTransition(label = "meloX-flow")
+    val transition = rememberInfiniteTransition(label = "flow")
     val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = (2 * PI).toFloat(),
@@ -56,7 +56,7 @@ fun MeloXFlowingLightBackdrop(
             animation = tween(durationMillis = durationMs, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
-        label = "meloX-phase",
+        label = "phase",
     )
 
     Box(modifier = modifier.background(Color(0xFF05070D))) {
@@ -71,7 +71,7 @@ fun MeloXFlowingLightBackdrop(
                 ),
         )
 
-        // 封面虚化层：MeloX 标准 — scale 1.08, blur 28dp, alpha 0.75
+        // 封面虚化层：Immersive 标准 — scale 1.08, blur 28dp, alpha 0.75
         if (!coverUri.isNullOrBlank()) {
             AsyncImage(
                 model = coverUri,
@@ -86,7 +86,7 @@ fun MeloXFlowingLightBackdrop(
         }
 
         // 流动光层：Canvas 径向 Blob，缓慢位移，模拟 MeshGradientRenderer 的流体
-        // 3 枚主 Blob + 1 高光，颜色取 MeloX 常见紫蓝粉系，alpha 低避免过艳
+        // 3 枚主 Blob + 1 高光，颜色取 Immersive 常见紫蓝粉系，alpha 低避免过艳
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -127,7 +127,7 @@ fun MeloXFlowingLightBackdrop(
             )
         }
 
-        // 暗色遮罩：保证前景文字可读（顶部浅、底部深，复刻 MeloX 沉浸页 scrim）
+        // 暗色遮罩：保证前景文字可读（顶部浅、底部深，复刻 Immersive 沉浸页 scrim）
         Box(
             Modifier
                 .fillMaxSize()
@@ -143,7 +143,7 @@ fun MeloXFlowingLightBackdrop(
                 .alpha(0.92f),
         )
 
-        // 顶部高光：径向白光，proof 非纯黑（MeloX 顶部光晕）——用 Canvas 获取尺寸，避免 Box 作用域无 size
+        // 顶部高光：径向白光，proof 非纯黑（Immersive 顶部光晕）——用 Canvas 获取尺寸，避免 Box 作用域无 size
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
