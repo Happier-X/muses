@@ -158,18 +158,26 @@ class PlayerViewModel @Inject constructor(
                     else songDao.observeById(songId)
                 }
                 .collect { songEntity ->
-                    refreshLyricsWithEntity(songEntity)
+                    // 兜底封面：扫描未读到内嵌封面时，回退到 Media3 实时 metadata.artworkUri
+                    // （对齐 app/NowPlayingUiState mediaMetadata 兜底链路，沉浸页封面缺失修复）
+                    val metaArtwork = playerConnection.mediaMetadata.value?.artworkUri?.toString()
+                        ?.takeIf { it.isNotBlank() }
+                    refreshLyricsWithEntity(songEntity, metaArtwork)
                 }
         }
     }
 
-    private suspend fun refreshLyricsWithEntity(song: com.muses.player.core.data.db.SongEntity?) {
+    private suspend fun refreshLyricsWithEntity(
+        song: com.muses.player.core.data.db.SongEntity?,
+        metadataArtwork: String? = null,
+    ) {
 
-        // 粘性封面：有新封面即更新；新曲无封面沿用旧值；仅无当前曲才清空
-        if (song == null) {
-            _stickyCover.value = null
-        } else if (!song.coverUri.isNullOrEmpty()) {
-            _stickyCover.value = song.coverUri
+        // 粘性封面：有新封面即更新；新曲无 SongEntity 封面 → 沿用 metadata artwork；仅无当前曲才清空
+        when {
+            song == null -> _stickyCover.value = null
+            !song.coverUri.isNullOrEmpty() -> _stickyCover.value = song.coverUri
+            !metadataArtwork.isNullOrBlank() -> _stickyCover.value = metadataArtwork
+            // 都无：保持旧粘性值（不闪默认底）
         }
 
         // TTML/LRC 解析与映射可能较重（大文件逐词行），移出主线程；结果回主线程赋值，避免跨线程可见性问题
