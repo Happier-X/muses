@@ -182,30 +182,40 @@ fun SongsPage(
                 when {
                     songs.isNotEmpty() && !isSearching -> {
                         // .songs-page__toolbar-left：随机播放按钮 + 歌曲总数
+                        // 随机播放全部：随机挑一首作为起点（对齐原版 onShuffleAll
+                        // 「先 shuffle 再取随机第 0 首」——Media3 的 shuffleMode
+                        // 只影响后续顺序、不改变当前曲，固定 first 会永远播第一首），
+                        // 开 shuffle 保证后续顺序也随机
+                        val shuffleAll: () -> Unit = {
+                            if (songs.isNotEmpty()) {
+                                playerConnection?.apply {
+                                    play(songs.random().id, songs)
+                                    setShuffleModeEnabled(true)
+                                }
+                            }
+                        }
                         Row(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            SaltIconButton(
-                                onClick = {
-                                    if (songs.isEmpty()) return@SaltIconButton
-                                    // 随机播放全部：随机挑一首作为起点（对齐原版 onShuffleAll
-                                    // 「先 shuffle 再取随机第 0 首」——Media3 的 shuffleMode
-                                    // 只影响后续顺序、不改变当前曲，固定 first 会永远播第一首），
-                                    // 开 shuffle 保证后续顺序也随机
-                                    playerConnection?.apply {
-                                        play(songs.random().id, songs)
-                                        setShuffleModeEnabled(true)
-                                    }
-                                },
+                            // 图标与歌曲数同属一个可点区域（用户定案：点数字同样触发随机播放）
+                            Row(
+                                Modifier.clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = shuffleAll,
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(Icons.Filled.Shuffle, contentDescription = "随机播放全部")
+                                SaltIconButton(onClick = shuffleAll) {
+                                    Icon(Icons.Filled.Shuffle, contentDescription = "随机播放全部")
+                                }
+                                Text(
+                                    text = songs.size.toString(),
+                                    fontSize = 15.sp,
+                                    color = salt.text,
+                                )
                             }
-                            Text(
-                                text = songs.size.toString(),
-                                fontSize = 15.sp,
-                                color = salt.text,
-                            )
                             if (isMultiSelect) {
                                 Text(
                                     text = "已选中 ${selectedIds.size} 项",
