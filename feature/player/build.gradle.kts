@@ -10,7 +10,8 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        minSdk = 26
+        // lyrics-ui（AMLL 官方 Compose 渲染器）要求 29+；本机设备均 ≥29
+        minSdk = 29
     }
 
     compileOptions {
@@ -34,6 +35,8 @@ dependencies {
     implementation(project(":core:media"))
     // 歌词解析（accompanist lyrics-core 0.4.7，无 Android target 以 JVM 变体解析）
     implementation(libs.accompanist.lyrics.core)
+    // 歌词渲染（accompanist lyrics-ui 1.0.19 = AMLL 官方 Compose 实现：逐词渐变/字符弹跳/距离模糊/间奏呼吸点）
+    implementation(libs.accompanist.lyrics.ui)
     // 封面加载（Coil 3）
     implementation(libs.coil.compose)
     // Compose foundation（含 HorizontalPager 若需）

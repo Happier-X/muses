@@ -12,7 +12,8 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        minSdk = 26
+        // lyrics-ui（AMLL 官方 Compose 渲染器）要求 29+，故整体下限由 26 抬到 29
+        minSdk = 29
         targetSdk = 36
         // CI 发布经 -Pandroid.injected.version* 注入（tag 名/提交总数）；
         // AGP 9 中 DSL 显式赋值会覆盖 injected 属性，故必须在此主动读取

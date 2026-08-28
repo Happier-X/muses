@@ -63,10 +63,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -103,9 +106,11 @@ import com.muses.player.core.ui.components.SaltIconButtonSize
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.feature.player.backdrop.FlowingLightBackdrop
+import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
 import com.muses.player.feature.player.lyric.AmllLyricLine
 import com.muses.player.feature.player.lyric.LyricsPanel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -142,6 +147,12 @@ fun PlayerScreen(
     val hasTranslation by viewModel.hasTranslation.collectAsStateWithLifecycle()
     val translationEnabled by viewModel.translationEnabled.collectAsStateWithLifecycle()
     val lyricPosition by viewModel.lyricPosition.collectAsStateWithLifecycle()
+    val syncedLyrics by viewModel.syncedLyrics.collectAsStateWithLifecycle()
+    // 卡拉OK 逐词渐变需要逐帧位置：VM 的 ~100ms 轮询值作为锚点，UI 每帧线性外推
+    val lyricPositionProvider = rememberLyricPositionProvider(
+        positionFlow = viewModel.lyricPosition,
+        isPlaying = isPlaying,
+    )
     val stickyCover by viewModel.stickyCover.collectAsStateWithLifecycle()
     val playbackError by viewModel.playbackError.collectAsStateWithLifecycle()
     val isBuffering by viewModel.isBuffering.collectAsStateWithLifecycle()
@@ -294,6 +305,8 @@ fun PlayerScreen(
                             coverUri = stickyCover,
                             lines = parsedLines,
                             lyricPosition = lyricPosition,
+                            syncedLyrics = syncedLyrics,
+                            lyricPositionProvider = lyricPositionProvider,
                             hasTranslation = hasTranslation,
                             translationEnabled = translationEnabled,
                             onToggleTranslation = { viewModel.toggleTranslation() },
@@ -328,6 +341,8 @@ fun PlayerScreen(
                             coverUri = stickyCover,
                             lines = parsedLines,
                             lyricPosition = lyricPosition,
+                            syncedLyrics = syncedLyrics,
+                            lyricPositionProvider = lyricPositionProvider,
                             hasTranslation = hasTranslation,
                             translationEnabled = translationEnabled,
                             onToggleTranslation = { viewModel.toggleTranslation() },
@@ -472,6 +487,8 @@ private fun PhoneImmersiveLayout(
     coverUri: String?,
     lines: List<AmllLyricLine>,
     lyricPosition: Long,
+    syncedLyrics: SyncedLyrics?,
+    lyricPositionProvider: () -> Int,
     hasTranslation: Boolean,
     translationEnabled: Boolean,
     onToggleTranslation: () -> Unit,
@@ -565,8 +582,8 @@ private fun PhoneImmersiveLayout(
                     maxHeight = maxHeight,
                 )
                 1 -> LyricsPanel(
-                    lines = lines,
-                    lyricPosition = lyricPosition,
+                    syncedLyrics = syncedLyrics,
+                    positionProvider = lyricPositionProvider,
                     translationEnabled = translationEnabled,
                     hasTranslation = hasTranslation,
                     onToggleTranslation = onToggleTranslation,
@@ -588,6 +605,8 @@ private fun TabletImmersiveLayout(
     coverUri: String?,
     lines: List<AmllLyricLine>,
     lyricPosition: Long,
+    syncedLyrics: SyncedLyrics?,
+    lyricPositionProvider: () -> Int,
     hasTranslation: Boolean,
     translationEnabled: Boolean,
     onToggleTranslation: () -> Unit,
@@ -659,8 +678,8 @@ private fun TabletImmersiveLayout(
                     .fillMaxHeight(),
             ) {
                 LyricsPanel(
-                    lines = lines,
-                    lyricPosition = lyricPosition,
+                    syncedLyrics = syncedLyrics,
+                    positionProvider = lyricPositionProvider,
                     translationEnabled = translationEnabled,
                     hasTranslation = hasTranslation,
                     onToggleTranslation = onToggleTranslation,
@@ -1283,244 +1302,61 @@ private fun TabletBottomBar(
     }
 }
 
-// ---------- 歌词面板：LyricPlayer 复刻 ----------
+// ---------- 工具 ----------
 
 /**
- * 歌词面板一比一复刻 LyricPlayer
- * - lyric-lines / current-time（lyricPosition 钳制到末句 endTime，已在 VM 完成）
- * - alignAnchor center / alignPosition 0.5（当前行视口居中，LazyColumn animateScrollToItem -2 偏移居中）
- * - enableBlur / enableScale / wordFadeWidth 0.5（逐词 alpha 渐变）
- * - 空态：标题“暂无歌词” + 描述“未找到内嵌 …”
- * - Fab 组：is-visible 180ms fade，3s idle 隐藏，翻译仅 hasTranslation 时渲染，播放仅非平板
+ * 歌词逐帧进度源：为卡拉OK 渲染器提供 () -> Int 的播放位置（ms）。
+ *
+ * 为什么不能直接把 VM 的 lyricPosition 传进去：
+ * - VM 轮询粒度 ~100ms，仅够驱动「整词二段高亮」；逐词渐变需要 60fps 连续进度，否则填充边缘会跳变
+ * - 若把 lyricPosition 作为 State 在 Compose 层读取，每 100ms 会重组整棵歌词 LazyColumn（旧实现即如此）
+ *
+ * 做法（对齐 lyrics-ui 官方 sample 的 awaitFrame 模式）：
+ * - 锚点：VM 轮询值，在 LaunchedEffect 内 collect（协程内收集不触发重组），记入普通字段
+ * - 外推：每帧 withFrameMillis 以「锚点 + 帧时间差」线性推算，写 MutableLongState
+ * - 只有渲染器的 Canvas DrawScope 会读取该 State → 仅触发绘制失效，不触发重组
  */
 @Composable
-private fun LyricPanel(
-    lines: List<AmllLyricLine>,
-    lyricPosition: Long,
-    translationEnabled: Boolean,
-    hasTranslation: Boolean,
-    onToggleTranslation: () -> Unit,
+private fun rememberLyricPositionProvider(
+    positionFlow: StateFlow<Long>,
     isPlaying: Boolean,
-    onPlayPause: () -> Unit,
-    onSeek: (Long) -> Unit,
-    showPlayFab: Boolean,
-    isTablet: Boolean,
-) {
-    // 浮动按钮显隐：默认隐藏，点击/滑动歌词后显示，3s 后隐藏，切回控制页立即隐藏
-    var chromeVisible by remember { mutableStateOf(false) }
-    var chromeIdleJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    val scope = rememberCoroutineScope()
+): () -> Int {
+    val animatedPosition = remember { mutableLongStateOf(0L) }
+    // 锚点用普通字段：避免被 Compose 快照记录从而引发重组
+    val clock = remember { LyricClock() }
+    val playingState = rememberUpdatedState(isPlaying)
 
-    fun revealChrome() {
-        chromeVisible = true
-        chromeIdleJob?.cancel()
-        chromeIdleJob = scope.launch {
-            delay(3000)
-            chromeVisible = false
-        }
-    }
-    fun hideImmediate() {
-        chromeVisible = false
-        chromeIdleJob?.cancel()
-        chromeIdleJob = null
+    LaunchedEffect(positionFlow) {
+        positionFlow.collect { clock.anchorPositionMs = it }
     }
 
-    DisposableEffect(lines) {
-        onDispose { chromeIdleJob?.cancel() }
-    }
-
-    Box(
-        Modifier
-            .fillMaxSize()
-            .clickable(
-                indication = null,
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-            ) { if (lines.isNotEmpty()) revealChrome() },
-    ) {
-        if (lines.isEmpty()) {
-            // 空态：对齐 .player-page__lyric-empty —— h2 17px/600 + p 13px/1.5 opacity 0.65（无图标）
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("暂无歌词", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "未找到内嵌歌词或同目录同名 .lrc 文件，可在刮削页获取。",
-                        color = Color.White.copy(alpha = 0.65f),
-                        fontSize = 13.sp,
-                        lineHeight = 19.5.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 24.dp),
-                    )
+    LaunchedEffect(Unit) {
+        var lastAnchor = -1L
+        while (true) {
+            withFrameMillis { frameTimeMs ->
+                val base = clock.anchorPositionMs
+                if (base != lastAnchor) {
+                    // VM 给出新锚点（~100ms 一次 / seek 后立即），重置外推起点
+                    lastAnchor = base
+                    clock.anchorFrameMs = frameTimeMs
                 }
-            }
-        } else {
-            val listState = rememberLazyListState()
-            val currentIdx = remember(lines, lyricPosition) { computeCurrentIndex(lines, lyricPosition) }
-            // AMLL 字号：--amll-lp-font-size clamp(22px,6.5vw,32px)（平板 clamp(20px,2.4vw,30px)）
-            val amllFontSize = if (isTablet) {
-                (LocalConfiguration.current.screenWidthDp * 0.024f).coerceIn(20f, 30f).sp
-            } else {
-                (LocalConfiguration.current.screenWidthDp * 0.065f).coerceIn(22f, 32f).sp
-            }
-            val mainLineHeight = (amllFontSize.value * 1.6f).sp
-            val subLineSize = (amllFontSize.value * 0.6f).sp
-
-            // 随进度自动滚动 + 点击跳播（对齐LyricPlayer current-time + line-click → seek）
-            // 当前行位于歌词可视区中心（align center 0.5）：滚动到 currentIdx-2 使当前行居中
-            LaunchedEffect(currentIdx) {
-                if (currentIdx >= 0) {
-                    val target = (currentIdx - 2).coerceAtLeast(0)
-                    runCatching { listState.animateScrollToItem(target) }
-                }
-            }
-
-            // 用户滚动歌词时露出 chrome（wheel/touchmove）
-            LaunchedEffect(listState.isScrollInProgress) {
-                if (listState.isScrollInProgress) revealChrome()
-            }
-
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                // 行水平边距对齐 panel padding 24（.player-overlay .panel padding 24px，--lyric-line-padding-x: 0）
-                contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp, start = 24.dp, end = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                itemsIndexed(lines, key = { idx, line -> "${line.startTime}-$idx" }) { idx, line ->
-                    val isCurrent = idx == currentIdx
-                    // AMLL 行：无底色高亮（FmKaba_lyricLine 无背景），统一字号 + 逐词 alpha 区分
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onSeek(line.startTime.toLong())
-                                revealChrome()
-                            }
-                            .padding(vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        // 逐词高亮：wordFadeWidth 0.5 近似为已唱白色、未唱半透，enableBlur/enableScale 用 scale+alpha 表达
-                        val annotated = remember(line, lyricPosition, isCurrent) {
-                            buildAnnotatedString {
-                                if (line.words.isEmpty()) {
-                                    withStyle(SpanStyle(color = Color.White.copy(alpha = if (isCurrent) 1f else 0.35f))) { append("") }
-                                } else {
-                                    line.words.forEach { w ->
-                                        val alpha = when {
-                                            !isCurrent -> 0.35f // AMLL 非活动行统一暗淡
-                                            lyricPosition >= w.endTime -> 1f
-                                            lyricPosition < w.startTime -> 0.42f
-                                            else -> 1f // 正在唱的词
-                                        }
-                                        val weight = if (isCurrent && lyricPosition in w.startTime..w.endTime) FontWeight.ExtraBold else FontWeight.Normal
-                                        // wordFadeWidth 0.5：当前词内插值，此处简化为二段
-                                        withStyle(
-                                            SpanStyle(
-                                                color = Color.White.copy(alpha = alpha),
-                                                fontWeight = weight,
-                                                fontSize = amllFontSize,
-                                            ),
-                                        ) {
-                                            append(w.word)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Text(
-                            text = annotated,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .graphicsLayer {
-                                    // enableScale：当前行 1.0，非当前 0.98（AMLL 内部 scale）
-                                    scaleX = if (isCurrent) 1f else 0.98f
-                                    scaleY = if (isCurrent) 1f else 0.98f
-                                    // enableBlur：非当前行轻微透明
-                                    alpha = if (isCurrent) 1f else 0.95f
-                                },
-                            lineHeight = mainLineHeight,
-                        )
-                        // 翻译/音译（translationEnabled 控制显隐，对齐 applyLyricTranslationVisibility）
-                        if (translationEnabled && line.translatedLyric.isNotBlank()) {
-                            Text(
-                                text = line.translatedLyric,
-                                color = if (isCurrent) Color.White.copy(alpha = 0.88f) else Color.White.copy(alpha = 0.45f),
-                                fontSize = subLineSize,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 4.dp),
-                            )
-                        }
-                        if (translationEnabled && line.romanLyric.isNotBlank()) {
-                            Text(
-                                text = line.romanLyric,
-                                color = if (isCurrent) Color.White.copy(alpha = 0.62f) else Color.White.copy(alpha = 0.38f),
-                                fontSize = (amllFontSize.value * 0.5f).sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                        if (line.isBG && line.words.isNotEmpty()) {
-                            Text("· 和声", color = Color.White.copy(alpha = 0.35f), fontSize = 10.sp)
-                        }
-                    }
-                }
-            }
-        }
-
-        // 浮动操作：对齐 Capacitor lyric-fabs —— left/right 12、bottom calc(8px + safe-bottom)、200ms fade、
-        // clear 透明底 + text-white/80，翻译键 is-active 仅翻译，3s idle 隐藏
-        val showFabContainer = hasTranslation || showPlayFab
-        if (showFabContainer) {
-            val fabAlpha by animateFloatAsState(
-                targetValue = if (chromeVisible) 1f else 0f,
-                animationSpec = tween(durationMillis = 200),
-                label = "lyric-fab-alpha",
-            )
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .graphicsLayer { alpha = fabAlpha },
-                horizontalArrangement = if (hasTranslation && showPlayFab) Arrangement.SpaceBetween else if (hasTranslation) Arrangement.Start else Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (hasTranslation) {
-                    SaltIconButton(
-                        onClick = {
-                            onToggleTranslation()
-                            revealChrome()
-                        },
-                        imageVector = Icons.Filled.Translate,
-                        contentDescription = if (translationEnabled) "隐藏翻译" else "显示翻译",
-                        tint = if (translationEnabled) Color.White else Color.White.copy(alpha = 0.8f),
-                        enabled = chromeVisible,
-                    )
-                    if (showPlayFab) Spacer(Modifier.weight(1f))
-                }
-                if (showPlayFab) {
-                    SaltIconButton(
-                        onClick = {
-                            onPlayPause()
-                            revealChrome()
-                        },
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "暂停" else "播放",
-                        tint = Color.White,
-                        size = SaltIconButtonSize.LG,
-                        enabled = chromeVisible,
-                    )
+                animatedPosition.longValue = if (playingState.value) {
+                    base + (frameTimeMs - clock.anchorFrameMs).coerceAtLeast(0L)
+                } else {
+                    base
                 }
             }
         }
     }
+
+    return remember { { animatedPosition.longValue.toInt() } }
 }
 
-// ---------- 工具 ----------
+/** 逐帧外推锚点：[anchorPositionMs] 为 VM 轮询位置，[anchorFrameMs] 为收到该锚点时的帧时刻 */
+private class LyricClock {
+    @Volatile var anchorPositionMs: Long = 0L
+    @Volatile var anchorFrameMs: Long = 0L
+}
 
 private fun computeCurrentIndex(lines: List<AmllLyricLine>, positionMs: Long): Int {
     if (lines.isEmpty()) return -1
