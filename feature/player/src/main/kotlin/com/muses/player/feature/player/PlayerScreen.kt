@@ -13,7 +13,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -233,15 +232,16 @@ fun PlayerScreen(
             // 拖动层：player-page__drag-layer（translateY + is-dragging）
             // 手势：垂直下滑关闭（仅 info-panel 生效，lyric-panel 内禁止），水平滑动切面板
             // 简化实现：垂直下滑用 detectVerticalDragGestures，回弹 0.22s easeOut；水平切面板由 Panels 内部处理
-            BoxWithConstraints(
+            // 关键修复：不用 BoxWithConstraints.maxWidth（在 TabsLayout 子树内会被 50vw 抽屉约束为半屏），改以全屏 screenWidth 为基线
+            val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+            val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
                         translationY = dragOffsetY
                     },
             ) {
-                val maxWidth = maxWidth
-                val maxHeight = maxHeight
 
                 // 拖动层内容（flex column：固定头部 + panels + 底部条，对齐 Vue flex column）
                 Column(
@@ -328,8 +328,8 @@ fun PlayerScreen(
                             onOpenQueue = onOpenQueue,
                             onOpenEditMeta = onOpenEditMeta,
                             isNarrowHeight = isNarrowHeight,
-                            maxWidth = maxWidth,
-                            maxHeight = maxHeight,
+                            maxWidth = screenWidth,
+                            maxHeight = screenHeight,
                         )
                     } else {
                         // 手机：固定头部 + 双面板滑动（panels 0.22s easeOut）
@@ -362,8 +362,8 @@ fun PlayerScreen(
                             onOpenQueue = onOpenQueue,
                             onOpenEditMeta = onOpenEditMeta,
                             isNarrowHeight = isNarrowHeight,
-                            maxWidth = maxWidth,
-                            maxHeight = maxHeight,
+                            maxWidth = screenWidth,
+                            maxHeight = screenHeight,
                             onRequestClose = onClose,
                             dragOffsetY = dragOffsetY,
                             isDragging = isDraggingVertically,
@@ -511,14 +511,20 @@ private fun PhoneImmersiveLayout(
     onActivePanelChange: (Int) -> Unit = {},
 ) {
     var activePanel by remember { mutableStateOf(0) }
-    LaunchedEffect(activePanel) { onActivePanelChange(activePanel) }
-    // panels 动画：translateX(-activePanel*50%) 0.22s easeOut
-    val easing = remember { CubicBezierEasing(0f, 0f, 0.58f, 1f) }
-    val panelOffset by animateFloatAsState(
-        targetValue = -activePanel * 0.5f,
-        animationSpec = tween(durationMillis = 220, easing = easing),
-        label = "panels-translateX",
-    )
+    // HorizontalPager 替代 Row 200% 以避免 TabsLayout 半屏约束导致的半宽偏移
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 2 }, initialPage = activePanel)
+    LaunchedEffect(activePanel) {
+        if (pagerState.currentPage != activePanel) {
+            try { pagerState.animateScrollToPage(activePanel) } catch (_: Exception) {}
+        }
+        onActivePanelChange(activePanel)
+    }
+    LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
+        if (!pagerState.isScrollInProgress && pagerState.currentPage != activePanel) {
+            activePanel = pagerState.currentPage
+            onActivePanelChange(activePanel)
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -554,80 +560,50 @@ private fun PhoneImmersiveLayout(
             }
         }
 
-        // 面板容器：panels（width 200%，overflow hidden，height auto flex:1）
-        Box(
+        // 面板容器：改用 HorizontalPager 以确保单屏全宽
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pagerState,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(0.dp))
-                .pointerInput(activePanel) {
-                    var totalDx = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = { totalDx = 0f },
-                        onDragEnd = {
-                            if (totalDx < -40f && activePanel == 0) activePanel = 1
-                            else if (totalDx > 40f && activePanel == 1) activePanel = 0
-                        },
-                        onHorizontalDrag = { _, dragAmount -> totalDx += dragAmount },
-                    )
-                },
-        ) {
-            // 内层轨道：200% 宽，translateX
-            Row(
-                modifier = Modifier
-                    .requiredWidth(maxWidth * 2f)
-                    .fillMaxHeight()
-                    .offset { IntOffset((panelOffset * maxWidth.toPx() * 2f).roundToInt(), 0) },
-            ) {
-                // info-panel：50%（panel 宽 = maxWidth）
-                Box(
-                    modifier = Modifier
-                        .width(maxWidth)
-                        .fillMaxHeight(),
-                ) {
-                    InfoPanel(
-                        coverUri = coverUri,
-                        lines = lines,
-                        lyricPosition = lyricPosition,
-                        position = position,
-                        duration = duration,
-                        isPlaying = isPlaying,
-                        isBuffering = isBuffering,
-                        repeatMode = repeatMode,
-                        shuffleEnabled = shuffleEnabled,
-                        onSeek = onSeek,
-                        onSeekStart = onSeekStart,
-                        onSeekEnd = onSeekEnd,
-                        onPlayPause = onPlayPause,
-                        onPrevious = onPrevious,
-                        onNext = onNext,
-                        onToggleRepeat = onToggleRepeat,
-                        onToggleShuffle = onToggleShuffle,
-                        onOpenQueue = onOpenQueue,
-                        onOpenEditMeta = onOpenEditMeta,
-                        isNarrowHeight = isNarrowHeight,
-                        isTablet = false,
-                    )
-                }
-                // lyric-panel：50% — MeloX iOS 歌词面板（逐词高亮/翻译/和声/点击跳转）
-                Box(
-                    modifier = Modifier
-                        .width(maxWidth)
-                        .fillMaxHeight(),
-                ) {
-                    MeloXIOSLyricsPanel(
-                        lines = lines,
-                        lyricPosition = lyricPosition,
-                        translationEnabled = translationEnabled,
-                        hasTranslation = hasTranslation,
-                        onToggleTranslation = onToggleTranslation,
-                        isPlaying = isPlaying,
-                        onPlayPause = onPlayPause,
-                        onSeek = onSeek,
-                        showPlayFab = true,
-                        isTablet = false,
-                    )
-                }
+                .fillMaxWidth(),
+            beyondViewportPageCount = 0,
+        ) { page ->
+            when (page) {
+                0 -> InfoPanel(
+                    coverUri = coverUri,
+                    lines = lines,
+                    lyricPosition = lyricPosition,
+                    position = position,
+                    duration = duration,
+                    isPlaying = isPlaying,
+                    isBuffering = isBuffering,
+                    repeatMode = repeatMode,
+                    shuffleEnabled = shuffleEnabled,
+                    onSeek = onSeek,
+                    onSeekStart = onSeekStart,
+                    onSeekEnd = onSeekEnd,
+                    onPlayPause = onPlayPause,
+                    onPrevious = onPrevious,
+                    onNext = onNext,
+                    onToggleRepeat = onToggleRepeat,
+                    onToggleShuffle = onToggleShuffle,
+                    onOpenQueue = onOpenQueue,
+                    onOpenEditMeta = onOpenEditMeta,
+                    isNarrowHeight = isNarrowHeight,
+                    isTablet = false,
+                )
+                1 -> MeloXIOSLyricsPanel(
+                    lines = lines,
+                    lyricPosition = lyricPosition,
+                    translationEnabled = translationEnabled,
+                    hasTranslation = hasTranslation,
+                    onToggleTranslation = onToggleTranslation,
+                    isPlaying = isPlaying,
+                    onPlayPause = onPlayPause,
+                    onSeek = onSeek,
+                    showPlayFab = true,
+                    isTablet = false,
+                )
             }
         }
     }
