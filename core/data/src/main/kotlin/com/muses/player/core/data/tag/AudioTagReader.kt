@@ -71,15 +71,22 @@ class AudioTagReader @Inject constructor(
     /**
      * 下载 WebDAV 文件（支持 Range 请求，带认证）
      *
-     * 若服务器支持 Range，先取头部 HEAD_SIZE 字节尝试解析；解析失败时扩大至 MAX_HEAD。
+     * 策略：先 Range 头部 HEAD_SIZE 字节；
+     * 若文件是 ID3v2，则按标签头声明的标签大小补齐（内嵌大封面可让标签达到数百 KB，
+     * 固定上限会截断标签导致 jaudiotagger 整段解析失败——0321 - space x 封面 531KB 案例）；
+     * 补齐仍失败或非 ID3 文件保持头部，交给解析器容错。
      * 不支持 Range 或认证失败时回退全量下载。
      */
     private fun downloadFile(url: String): File {
         val cacheFile = getCacheFile(url)
 
-        // 缓存文件存在且有效，直接返回
+        // 缓存文件存在且有效，直接返回；ID3v2 缓存若短于标签声明大小（旧版 256KB 截断）删除重下
         if (cacheFile.exists() && cacheFile.length() > 0) {
-            return cacheFile
+            val declared = readId3v2TagSize(cacheFile)
+            if (declared <= 0 || cacheFile.length() >= ID3V2_HEADER_SIZE + declared) {
+                return cacheFile
+            }
+            cacheFile.delete()
         }
 
         // 尝试 Range 请求下载头部（带认证）
@@ -95,22 +102,35 @@ class AudioTagReader @Inject constructor(
             downloadFullFile(url, cacheFile)
             return cacheFile
         }
-        // Range 成功：尝试解析，若标签为空且文件被截断，扩大范围重试
-        return try {
-            val probe = runCatching { AudioFileIO.read(cacheFile) }.getOrNull()
-            val hasMeaningfulTag = probe?.tag?.let {
-                !it.getFirst(FieldKey.TITLE).isNullOrBlank() ||
-                    !it.getFirst(FieldKey.ARTIST).isNullOrBlank() ||
-                    !it.getFirst(FieldKey.ALBUM).isNullOrBlank()
-            } ?: false
-            if (!hasMeaningfulTag && cacheFile.length() >= HEAD_SIZE) {
-                // 可能标签超出首段或音轨较长，尝试扩大至 MAX_HEAD
+
+        // 按 ID3v2 头声明的标签大小补齐（synchsafe），上限 MAX_HEAD 防恶意声明
+        val declared = readId3v2TagSize(cacheFile)
+        if (declared > 0) {
+            val needed = ID3V2_HEADER_SIZE + declared
+            if (cacheFile.length() < needed && needed <= MAX_HEAD) {
                 cacheFile.delete()
-                downloadRange(url, cacheFile, 0, MAX_HEAD)
+                downloadRange(url, cacheFile, 0, needed - 1)
             }
-            cacheFile
+        }
+        return cacheFile
+    }
+
+    /** 读取 ID3v2 标签头声明的标签总大小（synchsafe 32-bit）；非 ID3 文件返回 0 */
+    private fun readId3v2TagSize(file: File): Long {
+        return try {
+            java.io.RandomAccessFile(file, "r").use { raf ->
+                val head = ByteArray(ID3V2_HEADER_SIZE.toInt())
+                if (raf.read(head) < ID3V2_HEADER_SIZE) return 0L
+                if (head[0] != 'I'.code.toByte() || head[1] != 'D'.code.toByte() || head[2] != '3'.code.toByte()) {
+                    return 0L
+                }
+                ((head[6].toLong() and 0x7F) shl 21) or
+                    ((head[7].toLong() and 0x7F) shl 14) or
+                    ((head[8].toLong() and 0x7F) shl 7) or
+                    (head[9].toLong() and 0x7F)
+            }
         } catch (_: Exception) {
-            cacheFile
+            0L
         }
     }
 
@@ -159,21 +179,58 @@ class AudioTagReader @Inject constructor(
 
     /**
      * 用 jaudiotagger 解析标签
+     *
+     * 优先通用 [AudioFileIO.read]（FLAC/M4A/完整 MP3，可同时取时长）；
+     * 失败时回退 [ID3v24Tag(ByteBuffer)] / [ID3v23Tag(ByteBuffer)] 直接解析 ID3v2 数据——
+     * WebDAV 头部探测文件只含标签 + 少量音频帧（内嵌大封面标签可达数百 KB，音频被 Range 截断），
+     * `AudioFileIO.read` / `MP3File` 均因找不到音频帧整体抛异常，ByteBuffer 方式不碰音频即可拿到文本帧。
      */
     private fun parseTags(file: File): AudioTags {
-        val audioFile = AudioFileIO.read(file)
-        val tag = audioFile.tag
+        val general = runCatching {
+            val audioFile = AudioFileIO.read(file)
+            val tag = audioFile.tag
+            AudioTags(
+                title = tag?.getFirst(FieldKey.TITLE),
+                artist = tag?.getFirst(FieldKey.ARTIST),
+                album = tag?.getFirst(FieldKey.ALBUM),
+                lyrics = tag?.getFirst(FieldKey.LYRICS),
+                cover = tag?.firstArtwork?.binaryData,
+                durationMs = audioFile.audioHeader?.trackLength?.times(1000L) ?: 0L,
+            )
+        }.getOrNull()
+        if (general != null) {
+            return general
+        }
 
-        val durationMs = audioFile.audioHeader?.trackLength?.times(1000L) ?: 0L
-
+        // 回退：ID3v2 ByteBuffer 解析（仅头部文件场景；文件上限 MAX_HEAD=4MB，读内存可控）
+        val id3 = parseId3v2FromBuffer(file) ?: throw org.jaudiotagger.tag.TagException("Not a parseable ID3v2 buffer")
         return AudioTags(
-            title = tag?.getFirst(FieldKey.TITLE),
-            artist = tag?.getFirst(FieldKey.ARTIST),
-            album = tag?.getFirst(FieldKey.ALBUM),
-            lyrics = tag?.getFirst(FieldKey.LYRICS),
-            cover = tag?.firstArtwork?.binaryData,
-            durationMs = durationMs
+            title = id3.getFirst(FieldKey.TITLE),
+            artist = id3.getFirst(FieldKey.ARTIST),
+            album = id3.getFirst(FieldKey.ALBUM),
+            lyrics = id3.getFirst(FieldKey.LYRICS),
+            cover = id3.firstArtwork?.binaryData,
+            durationMs = 0L,
         )
+    }
+
+    /** 从头部缓存文件读取 ID3v2 标签（v2.4 → ID3v24Tag，v2.3 → ID3v23Tag）；非 ID3 返回 null */
+    private fun parseId3v2FromBuffer(file: File): org.jaudiotagger.tag.id3.AbstractID3v2Tag? {
+        return try {
+            val bytes = file.readBytes()
+            if (bytes.size < 10 || bytes[0] != 'I'.code.toByte() ||
+                bytes[1] != 'D'.code.toByte() || bytes[2] != '3'.code.toByte()
+            ) {
+                return null
+            }
+            when (bytes[3]) {
+                4.toByte() -> org.jaudiotagger.tag.id3.ID3v24Tag(java.nio.ByteBuffer.wrap(bytes))
+                3.toByte() -> org.jaudiotagger.tag.id3.ID3v23Tag(java.nio.ByteBuffer.wrap(bytes))
+                else -> null
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
@@ -258,9 +315,12 @@ class AudioTagReader @Inject constructor(
     }
 
     companion object {
-        // 头部大小，足够包含 ID3 标签（64KB），扩大重试上限 256KB
+        // ID3v2 头固定 10 字节（含 synchsafe 大小声明）
+        private const val ID3V2_HEADER_SIZE = 10L
+        // 首次探测头部大小（64KB，ID3v2 文本帧基本都在此范围内）
         private const val HEAD_SIZE = 64 * 1024L
-        private const val MAX_HEAD = 256 * 1024L
+        // 按标签声明补齐的上限（4MB）：内嵌大封面可达数百 KB~数 MB；超限防恶意声明拖垮
+        private const val MAX_HEAD = 4 * 1024 * 1024L
     }
 }
 
