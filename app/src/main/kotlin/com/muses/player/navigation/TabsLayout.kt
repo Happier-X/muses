@@ -163,37 +163,41 @@ private fun TabletLayout(
     content: @Composable () -> Unit,
 ) {
     val salt = LocalSaltColors.current
-    Row(modifier.background(salt.surface)) {
-        // 平板 aside 改为卡片形态（对齐手机抽屉的 NavGroupCard），
-        // 主/次菜单各为一张圆角卡：surface-1 底、1px hairline、16dp 圆角、
-        // 左 18 右 12 空隙，两组间距 18dp（原版仅抽屉用卡片；现统一为卡片）
-        Column(
-            Modifier
-                .width(AsideWidth)
-                .fillMaxHeight()
-                .background(salt.surface1),
-        ) {
-            Spacer(Modifier.statusBarsPadding())
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                NavGroupCard(items = primaryItems)
-                NavGroupCard(
-                    items = secondaryItems,
-                    modifier = Modifier.padding(top = 18.dp),
-                )
-                Spacer(Modifier.navigationBarsPadding())
+    Box(modifier.background(salt.surface)) {
+        Row(Modifier.fillMaxSize()) {
+            // 平板 aside 改为卡片形态（对齐手机抽屉的 NavGroupCard），
+            // 主/次菜单各为一张圆角卡：surface-1 底、1px hairline、16dp 圆角、
+            // 左 18 右 12 空隙，两组间距 18dp（原版仅抽屉用卡片；现统一为卡片）
+            Column(
+                Modifier
+                    .width(AsideWidth)
+                    .fillMaxHeight()
+                    .background(salt.surface1),
+            ) {
+                Spacer(Modifier.statusBarsPadding())
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    NavGroupCard(items = primaryItems)
+                    NavGroupCard(
+                        items = secondaryItems,
+                        modifier = Modifier.padding(top = 18.dp),
+                    )
+                    Spacer(Modifier.navigationBarsPadding())
+                }
+            }
+            Box(
+                Modifier
+                    .width(1.dp)
+                    .fillMaxHeight()
+                    .background(salt.hairline),
+            )
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                content()
             }
         }
-        Box(
-            Modifier
-                .width(1.dp)
-                .fillMaxHeight()
-                .background(salt.hairline),
-        )
-        Box(Modifier.weight(1f).fillMaxHeight()) {
-            content()
-            // MiniPlayer（z-index 1000）：悬浮于内容区之上，与手机形态同语义
-            Box(Modifier.align(Alignment.BottomCenter)) { bottomBar() }
-        }
+        // MiniPlayer（z-index 1000）：视口级 fixed 全宽胶囊，浮于 aside 之上。
+        // 原版 left/right 18px 相对视口定位，非内容区——此前挂在内容区 Box 内
+        // 宽度只有「屏宽 - 261dp」，平板下明显不占满
+        Box(Modifier.align(Alignment.BottomCenter)) { bottomBar() }
     }
 }
 
