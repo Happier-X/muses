@@ -190,11 +190,10 @@ fun PlayerScreen(
         (h * 0.18f).coerceIn(96.dp.toPx(), 160.dp.toPx())
     }
 
-    // 外层：m-popup 式半透 scrim（36% 黑），拖动时漏出背后列表；内层 drag-layer 整体跟手下滑
+    // 外层：m-popup 背景透明（对齐 .player-page__popup background: transparent !important）——
+    // 无 scrim 黑化，drag-layer 下滑时直接漏出底下列表（原版 1:1）
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.36f))
+        modifier = modifier.fillMaxSize(),
     ) {
         val screenWidth = LocalConfiguration.current.screenWidthDp.dp
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
