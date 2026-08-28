@@ -1,12 +1,8 @@
 package com.muses.player.feature.player
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -41,14 +37,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
@@ -162,6 +157,7 @@ fun PlayerScreen(
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var isDraggingVertically by remember { mutableStateOf(false) }
     // 歌词面板是否激活：垂直下滑仅 info-panel 生效（对齐 canStartVerticalDismiss / isLyricPanelTarget）
+    @Suppress("UNUSED_VARIABLE")
     var isLyricPanelActive by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -485,7 +481,7 @@ private fun PhoneImmersiveLayout(
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 2 }, initialPage = activePanel)
     LaunchedEffect(activePanel) {
         if (pagerState.currentPage != activePanel) {
-            try { pagerState.animateScrollToPage(activePanel) } catch (_: Exception) {}
+            try { pagerState.animateScrollToPage(activePanel, animationSpec = tween(durationMillis = 220, easing = CubicBezierEasing(0f, 0f, 0.58f, 1f))) } catch (_: Exception) {}
         }
         onActivePanelChange(activePanel)
     }
@@ -1106,13 +1102,13 @@ private fun ModeBarRow(
         )
         SaltIconButton(
             onClick = onToggleShuffle,
-            imageVector = if (shuffleEnabled) Icons.Filled.Shuffle else Icons.Filled.FormatListBulleted,
+            imageVector = if (shuffleEnabled) Icons.Filled.Shuffle else Icons.AutoMirrored.Filled.FormatListBulleted,
             contentDescription = if (shuffleEnabled) "随机播放" else "顺序播放",
             tint = Color.White.copy(alpha = 0.8f),
         )
         SaltIconButton(
             onClick = onOpenQueue,
-            imageVector = Icons.Filled.QueueMusic,
+            imageVector = Icons.AutoMirrored.Filled.QueueMusic,
             contentDescription = "播放队列",
             tint = Color.White.copy(alpha = 0.8f),
         )
@@ -1180,7 +1176,7 @@ private fun TabletBottomBar(
                 )
                 SaltIconButton(
                     onClick = onToggleShuffle,
-                    imageVector = if (shuffleEnabled) Icons.Filled.Shuffle else Icons.Filled.FormatListBulleted,
+                    imageVector = if (shuffleEnabled) Icons.Filled.Shuffle else Icons.AutoMirrored.Filled.FormatListBulleted,
                     contentDescription = if (shuffleEnabled) "随机播放" else "顺序播放",
                     tint = Color.White.copy(alpha = 0.8f),
                 )
@@ -1196,7 +1192,7 @@ private fun TabletBottomBar(
                 SaltIconButton(onClick = onNext, imageVector = Icons.Filled.SkipNext, contentDescription = "下一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                SaltIconButton(onClick = onOpenQueue, imageVector = Icons.Filled.QueueMusic, contentDescription = "播放队列", tint = Color.White.copy(alpha = 0.8f))
+                SaltIconButton(onClick = onOpenQueue, imageVector = Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "播放队列", tint = Color.White.copy(alpha = 0.8f))
                 SaltIconButton(onClick = onOpenEditMeta, imageVector = Icons.Filled.MoreVert, contentDescription = "更多", tint = Color.White.copy(alpha = 0.8f))
             }
         }
