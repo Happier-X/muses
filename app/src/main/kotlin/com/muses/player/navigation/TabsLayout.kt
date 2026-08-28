@@ -45,9 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -167,6 +164,9 @@ private fun TabletLayout(
 ) {
     val salt = LocalSaltColors.current
     Row(modifier.background(salt.surface)) {
+        // 平板 aside 改为卡片形态（对齐手机抽屉的 NavGroupCard），
+        // 主/次菜单各为一张圆角卡：surface-1 底、1px hairline、16dp 圆角、
+        // 左 18 右 12 空隙，两组间距 18dp（原版仅抽屉用卡片；现统一为卡片）
         Column(
             Modifier
                 .width(AsideWidth)
@@ -175,9 +175,11 @@ private fun TabletLayout(
         ) {
             Spacer(Modifier.statusBarsPadding())
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                NavGroup(items = primaryItems, modifier = Modifier.padding(top = 8.dp))
-                SecondaryGroupDivider()
-                NavGroup(items = secondaryItems, modifier = Modifier.padding(top = 9.dp))
+                NavGroupCard(items = primaryItems)
+                NavGroupCard(
+                    items = secondaryItems,
+                    modifier = Modifier.padding(top = 18.dp),
+                )
                 Spacer(Modifier.navigationBarsPadding())
             }
         }
@@ -398,35 +400,6 @@ private fun DrawerPanel(
         NavGroupCard(secondaryItems)
         Spacer(Modifier.height(SaltSpacing.spacingSub + navBottom))
     }
-}
-
-/** `.tabs-layout__nav`（aside 非卡片形态）：一组 nav-link 纵排 */
-@Composable
-private fun NavGroup(
-    items: List<SaltNavItem>,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier) {
-        items.forEach { item -> SaltNavLink(item) }
-    }
-}
-
-/** aside 次组的 border-top: 1px solid var(--m-hairline) */
-@Composable
-private fun SecondaryGroupDivider() {
-    val salt = LocalSaltColors.current
-    Spacer(
-        Modifier
-            .fillMaxWidth()
-            .height(9.dp)
-            .drawBehind {
-                drawRect(
-                    color = salt.hairline,
-                    topLeft = Offset.Zero,
-                    size = Size(size.width, 1.dp.toPx()),
-                )
-            },
-    )
 }
 
 /**
