@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -148,21 +150,25 @@ class PlayerViewModel @Inject constructor(
         startLyricPositionPolling()
     }
 
-    /** 观察当前曲变化 → 反查 Room 取歌词/封面 → 解析映射并发布 payload */
+    /** 观察当前曲变化 → 订阅 Room 实时更新歌词/封面 → 解析映射并发布 payload */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private fun observeCurrentSong() {
         viewModelScope.launch {
             playerConnection.currentMediaItem
                 .map { it?.mediaId }
                 .distinctUntilChanged()
-                .collect { songId ->
+                .flatMapLatest { songId ->
                     currentSongId = songId
-                    refreshLyrics(songId)
+                    if (songId == null) flowOf(null)
+                    else songDao.observeById(songId)
+                }
+                .collect { songEntity ->
+                    refreshLyricsWithEntity(songEntity)
                 }
         }
     }
 
-    private suspend fun refreshLyrics(songId: String?) {
-        val song = songId?.let { runCatching { songDao.getById(it) }.getOrNull() }
+    private suspend fun refreshLyricsWithEntity(song: com.muses.player.core.data.db.SongEntity?) {
 
         // 粘性封面：有新封面即更新；新曲无封面沿用旧值；仅无当前曲才清空
         if (song == null) {
@@ -182,7 +188,7 @@ class PlayerViewModel @Inject constructor(
             it.translatedLyric.isNotEmpty() || it.romanLyric.isNotEmpty()
         }
 
-        publishPayload(songId)
+        publishPayload(song?.id)
     }
 
     /** 按 translationEnabled 重建 payload 并发布（coverUrl 经 file:// → appassets 映射） */
