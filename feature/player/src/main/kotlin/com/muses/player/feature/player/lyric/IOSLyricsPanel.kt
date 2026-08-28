@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import com.muses.player.core.ui.components.SaltIconButton
+import com.muses.player.core.ui.components.SaltIconButtonSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -239,7 +241,7 @@ fun IOSLyricsPanel(
             }
         }
 
-        // 浮动操作：复刻 Immersive lyric-fabs（motion 180ms fade，3s idle 隐藏）
+        // 浮动操作：对齐 Capacitor lyric-fabs clear 风格 — 透明底 + 白字 text-white/80，翻译键 is-active 仅翻译，3s idle 隐藏
         val showFabContainer = hasTranslation || showPlayFab
         if (showFabContainer) {
             val fabAlpha by animateFloatAsState(
@@ -258,37 +260,30 @@ fun IOSLyricsPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (hasTranslation) {
-                    androidx.compose.material3.FilledTonalIconButton(
+                    SaltIconButton(
                         onClick = {
                             onToggleTranslation()
                             revealChrome()
                         },
-                        modifier = Modifier.size(40.dp),
-                        colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = if (translationEnabled) Color.White else Color.White.copy(alpha = 0.14f),
-                            contentColor = if (translationEnabled) Color.Black else Color.White,
-                        ),
+                        imageVector = Icons.Filled.Translate,
+                        contentDescription = if (translationEnabled) "隐藏翻译" else "显示翻译",
+                        tint = if (translationEnabled) Color.White else Color.White.copy(alpha = 0.8f),
                         enabled = chromeVisible,
-                    ) {
-                        Icon(Icons.Filled.Translate, contentDescription = if (translationEnabled) "隐藏翻译" else "显示翻译", modifier = Modifier.size(18.dp))
-                    }
+                    )
                     if (showPlayFab) Spacer(Modifier.weight(1f))
                 }
                 if (showPlayFab) {
-                    androidx.compose.material3.FilledIconButton(
+                    SaltIconButton(
                         onClick = {
                             onPlayPause()
                             revealChrome()
                         },
-                        modifier = Modifier.size(48.dp),
-                        colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
-                            containerColor = Color.White,
-                            contentColor = Color.Black,
-                        ),
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (isPlaying) "暂停" else "播放",
+                        tint = Color.White,
+                        size = SaltIconButtonSize.LG,
                         enabled = chromeVisible,
-                    ) {
-                        Icon(if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = if (isPlaying) "暂停" else "播放", modifier = Modifier.size(24.dp))
-                    }
+                    )
                 }
             }
         }

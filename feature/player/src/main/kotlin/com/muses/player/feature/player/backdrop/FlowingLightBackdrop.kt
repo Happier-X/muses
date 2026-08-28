@@ -71,7 +71,7 @@ fun FlowingLightBackdrop(
                 ),
         )
 
-        // 封面虚化层：Immersive 标准 — scale 1.08, blur 28dp, alpha 0.75
+        // 封面虚化层：对齐 Capacitor player-page__bg opacity 0.75 + blur 28dp scale 1.08
         if (!coverUri.isNullOrBlank()) {
             AsyncImage(
                 model = coverUri,
@@ -80,8 +80,8 @@ fun FlowingLightBackdrop(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer(scaleX = 1.08f, scaleY = 1.08f)
-                    .blur(32.dp)
-                    .alpha(0.68f),
+                    .blur(28.dp)
+                    .alpha(0.75f),
             )
         }
 
@@ -143,11 +143,11 @@ fun FlowingLightBackdrop(
                 .alpha(0.92f),
         )
 
-        // 顶部高光：径向白光，proof 非纯黑（Immersive 顶部光晕）——用 Canvas 获取尺寸，避免 Box 作用域无 size
+        // 顶部高光：径向白光，对齐 Capacitor 高光 alpha 0.07（原 0.075）
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(0.075f),
+                .alpha(0.07f),
         ) {
             drawRect(
                 brush = Brush.radialGradient(

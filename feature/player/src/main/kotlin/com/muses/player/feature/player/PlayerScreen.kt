@@ -18,12 +18,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -539,26 +541,7 @@ private fun PhoneImmersiveLayout(
                 .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 0.dp),
         )
 
-        // 指示器（原 Capacitor 无显式指示器，但为手机提供面板切换提示，保留 2 点，选中 20x6）
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(2) { idx ->
-                val isSelected = activePanel == idx
-                Box(
-                    Modifier
-                        .padding(horizontal = 4.dp)
-                        .size(width = if (isSelected) 20.dp else 6.dp, height = 6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.35f))
-                        .clickable { activePanel = idx },
-                )
-            }
-        }
+        // 已移除手机端额外小圆点指示器：对齐 Capacitor 原版无指示器（PRD R7 1:1）
 
         // 面板容器：改用 HorizontalPager 以确保单屏全宽
         androidx.compose.foundation.pager.HorizontalPager(
@@ -591,6 +574,8 @@ private fun PhoneImmersiveLayout(
                     onOpenEditMeta = onOpenEditMeta,
                     isNarrowHeight = isNarrowHeight,
                     isTablet = false,
+                    maxWidth = maxWidth,
+                    maxHeight = maxHeight,
                 )
                 1 -> IOSLyricsPanel(
                     lines = lines,
@@ -663,7 +648,7 @@ private fun TabletImmersiveLayout(
                         .fillMaxWidth()
                         .padding(top = 4.dp, bottom = 12.dp),
                 )
-                // 封面居中（平板 info-inner justify-content center）
+                // 封面居中（平板 info-inner justify-content center）：CoverHero 响应式 min(50vh,420) contain
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -672,7 +657,9 @@ private fun TabletImmersiveLayout(
                 ) {
                     CoverHero(
                         coverUri = coverUri,
-                        modifier = Modifier.size(360.dp),
+                        screenHeight = maxHeight,
+                        screenWidth = maxWidth,
+                        isNarrowHeight = isNarrowHeight,
                     )
                 }
                 // 平板左侧不展示三行歌词与手机控件区（display:none），由底部条承担
@@ -780,6 +767,8 @@ private fun InfoPanel(
     onOpenEditMeta: () -> Unit,
     isNarrowHeight: Boolean,
     isTablet: Boolean,
+    maxWidth: Dp = 360.dp,
+    maxHeight: Dp = 800.dp,
 ) {
     // info-panel inner：手机 justify-content flex-end（底部对齐），平板 center
     // gap 14px，width min(100%,420px) 居中，padding-top 16，overflow hidden
@@ -793,16 +782,16 @@ private fun InfoPanel(
     ) {
         // 平板已在外层渲染头部，此处不再重复；手机版头部由 fixed 承担，此处不渲染 in-panel
         Spacer(Modifier.height(8.dp))
-        // 封面 hero：player-page__cover-hero（铺满与占位，aspect 1，max 50vh/420）
-        // 窄屏 max-height 520 时封面 34vw/150 限制
-        val coverSize = when {
-            isNarrowHeight -> 150.dp
-            isTablet -> 360.dp
-            else -> 272.dp
-        }
-        CoverHero(coverUri = coverUri, modifier = Modifier.size(coverSize))
+        // 封面 hero：对齐 Capacitor player-page__cover-hero 的 max-height min(50vh,420) + contain 逻辑
+        // 窄屏 34vw/150 限制通过 CoverHero 内部 34vw 计算
+        CoverHero(
+            coverUri = coverUri,
+            screenHeight = maxHeight,
+            screenWidth = maxWidth,
+            isNarrowHeight = isNarrowHeight,
+        )
         Spacer(Modifier.height(18.dp))
-        // 五行小窗：仅手机显示（平板 display:none）；窄屏单行模式
+        // 五行小窗：仅手机显示（平板 display:none）；窄屏单行模式，对齐 Capacitor 79/19.5 视口
         if (!isTablet) {
             MetaWindow(
                 lines = lines,
@@ -810,7 +799,7 @@ private fun InfoPanel(
                 isNarrowHeight = isNarrowHeight,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = if (isNarrowHeight) 19.5.dp else 92.dp),
+                    .height(if (isNarrowHeight) 19.5.dp else 79.dp),
             )
             Spacer(Modifier.height(18.dp))
         }
@@ -845,26 +834,49 @@ private fun InfoPanel(
 // ---------- 封面 hero：player-page__cover-hero ----------
 
 @Composable
-private fun CoverHero(coverUri: String?, modifier: Modifier = Modifier) {
+private fun CoverHero(
+    coverUri: String?,
+    modifier: Modifier = Modifier,
+    screenHeight: Dp = 800.dp,
+    screenWidth: Dp = 360.dp,
+    isNarrowHeight: Boolean = false,
+) {
     val shape = RoundedCornerShape(12.dp)
-    Box(
+    // 对齐 Capacitor player-page__cover-hero：容器 max-height min(50vh,420px) + cover-hero-img aspect 1 contain
+    val maxHeroHeight = minOf(screenHeight * 0.5f, 420.dp)
+    val narrowMaxWidth = if (isNarrowHeight) minOf(screenWidth * 0.34f, 150.dp) else null
+    BoxWithConstraints(
         modifier = modifier
-            .aspectRatio(1f)
-            .clip(shape)
-            .background(Color.White.copy(alpha = 0.06f)),
+            .fillMaxWidth()
+            .heightIn(max = maxHeroHeight),
         contentAlignment = Alignment.Center,
     ) {
-        if (!coverUri.isNullOrBlank()) {
-            AsyncImage(
-                model = coverUri,
-                contentDescription = "封面",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(shape),
-            )
-        } else {
-            Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(64.dp))
+        val availableWidth = maxWidth
+        val availableHeight = maxHeight
+        val targetSize = when {
+            narrowMaxWidth != null -> narrowMaxWidth
+            else -> minOf(availableWidth, availableHeight)
+        }
+        Box(
+            modifier = Modifier
+                .size(targetSize)
+                .aspectRatio(1f)
+                .clip(shape)
+                .background(Color.White.copy(alpha = 0.06f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!coverUri.isNullOrBlank()) {
+                AsyncImage(
+                    model = coverUri,
+                    contentDescription = "封面",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(shape),
+                )
+            } else {
+                Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(64.dp))
+            }
         }
     }
 }
@@ -886,7 +898,8 @@ private fun MetaWindow(
     modifier: Modifier = Modifier,
 ) {
     if (lines.isEmpty()) {
-        Box(modifier = modifier.heightIn(min = 92.dp), contentAlignment = Alignment.Center) {
+        val emptyHeight = if (isNarrowHeight) 19.5.dp else 79.dp
+        Box(modifier = modifier.height(emptyHeight), contentAlignment = Alignment.Center) {
             Text("暂无歌词", color = Color.White.copy(alpha = 0.45f), fontSize = 13.sp)
         }
         return
@@ -1007,7 +1020,7 @@ private fun ProgressSection(
             valueRange = 0f..max,
             enabled = canSeek,
             colors = SliderDefaults.colors(
-                activeTrackColor = Color.White,
+                activeTrackColor = LocalSaltColors.current.primary,
                 inactiveTrackColor = Color.White.copy(alpha = 0.22f),
                 thumbColor = Color.White,
                 activeTickColor = Color.Transparent,
@@ -1023,26 +1036,33 @@ private fun ProgressSection(
                 )
             },
         )
-        // time-row：左右时间，中间缓冲提示
+        // time-row：对齐 Capacitor 12px tabular-nums rgba0.68 + 缓冲提示 11px rgba0.55
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(formatTime(displayPos), color = Color.White.copy(alpha = 0.68f), fontSize = 12.sp)
+            Text(
+                text = formatTime(displayPos),
+                color = Color.White.copy(alpha = 0.68f),
+                fontSize = 12.sp,
+                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
+            )
             if (isBuffering) {
                 Text(
-                    "缓冲中",
+                    text = "缓冲中",
                     color = Color.White.copy(alpha = 0.55f),
                     fontSize = 11.sp,
-                    modifier = Modifier
-                        .background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
                 )
             } else {
                 Spacer(Modifier.width(1.dp))
             }
-            Text(if (duration > 0) formatTime(duration) else "--:--", color = Color.White.copy(alpha = 0.68f), fontSize = 12.sp)
+            Text(
+                text = if (duration > 0) formatTime(duration) else "--:--",
+                color = Color.White.copy(alpha = 0.68f),
+                fontSize = 12.sp,
+                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
+            )
         }
     }
 }
@@ -1057,8 +1077,11 @@ private fun ControlsRow(
     onNext: () -> Unit,
     compact: Boolean = false,
 ) {
-    // controls：三键 lg（48/28），gap clamp(24,10vw,44)，touch-action manipulation
-    val gap = if (compact) 12.dp else 28.dp
+    // controls：三键 lg（48/28），gap clamp(24,10vw,44)，touch-action manipulation — 对齐 Capacitor clamp
+    val gap = if (compact) 12.dp else {
+        val vw10 = LocalConfiguration.current.screenWidthDp.dp * 0.10f
+        vw10.coerceIn(24.dp, 44.dp)
+    }
     val btnSize = SaltIconButtonSize.LG
     Row(
         horizontalArrangement = Arrangement.spacedBy(gap),
@@ -1102,6 +1125,7 @@ private fun ModeBarRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .widthIn(max = 320.dp)
             .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -1161,7 +1185,7 @@ private fun TabletBottomBar(
                     colors = listOf(Color(0x0005070D), Color(0x8C05070D)),
                 ),
             )
-            .padding(start = 24.dp, end = 24.dp, top = 6.dp, bottom = 12.dp)
+            .padding(start = 24.dp, end = 24.dp, top = 6.dp, bottom = 8.dp)
             .navigationBarsPadding(),
     ) {
         // 进度全宽：bottom-progress
@@ -1194,7 +1218,9 @@ private fun TabletBottomBar(
                 )
             }
             Row(
-                horizontalArrangement = Arrangement.spacedBy(28.dp),
+                horizontalArrangement = Arrangement.spacedBy(
+                    (LocalConfiguration.current.screenWidthDp.dp * 0.05f).coerceIn(20.dp, 44.dp)
+                ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SaltIconButton(onClick = onPrevious, imageVector = Icons.Filled.SkipPrevious, contentDescription = "上一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
@@ -1386,13 +1412,12 @@ private fun LyricPanel(
             }
         }
 
-        // 浮动操作：lyric-fabs（motion 180ms fade，is-visible 控制 opacity + pointerEvents）
-        // 布局：hasTranslation 时 split（两端），否则 end（仅播放键居右）；平板无播放键
+        // 浮动操作：对齐 Capacitor lyric-fabs clear 风格 — 透明底 + 白字 text-white/80，翻译键 is-active 仅翻译，180ms fade，3s idle 隐藏
         val showFabContainer = hasTranslation || showPlayFab
         if (showFabContainer) {
             val fabAlpha by animateFloatAsState(
                 targetValue = if (chromeVisible) 1f else 0f,
-                animationSpec = tween(durationMillis = 200),
+                animationSpec = tween(durationMillis = 180),
                 label = "lyric-fab-alpha",
             )
             Row(
@@ -1406,42 +1431,31 @@ private fun LyricPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (hasTranslation) {
-                    androidx.compose.material3.FilledTonalIconButton(
+                    SaltIconButton(
                         onClick = {
                             onToggleTranslation()
                             revealChrome()
                         },
-                        modifier = Modifier.size(40.dp),
-                        colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = if (translationEnabled) Color.White else Color.White.copy(alpha = 0.14f),
-                            contentColor = if (translationEnabled) Color.Black else Color.White,
-                        ),
+                        imageVector = Icons.Filled.Translate,
+                        contentDescription = if (translationEnabled) "隐藏翻译" else "显示翻译",
+                        tint = if (translationEnabled) Color.White else Color.White.copy(alpha = 0.8f),
                         enabled = chromeVisible,
-                    ) {
-                        Icon(Icons.Filled.Translate, contentDescription = if (translationEnabled) "隐藏翻译" else "显示翻译", modifier = Modifier.size(18.dp))
-                    }
+                    )
                     if (showPlayFab) Spacer(Modifier.weight(1f))
                 }
                 if (showPlayFab) {
-                    androidx.compose.material3.FilledIconButton(
+                    SaltIconButton(
                         onClick = {
                             onPlayPause()
                             revealChrome()
                         },
-                        modifier = Modifier.size(48.dp),
-                        colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
-                            containerColor = Color.White,
-                            contentColor = Color.Black,
-                        ),
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (isPlaying) "暂停" else "播放",
+                        tint = Color.White,
+                        size = SaltIconButtonSize.LG,
                         enabled = chromeVisible,
-                    ) {
-                        Icon(if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = if (isPlaying) "暂停" else "播放", modifier = Modifier.size(24.dp))
-                    }
+                    )
                 }
-            }
-            // 隐藏态禁止点击（pointerEvents none）：通过 enabled 控制已实现
-            if (!chromeVisible) {
-                // 占位：避免隐藏态仍可点击（已用 enabled=false，额外屏蔽）
             }
         }
     }
