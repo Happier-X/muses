@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "沉浸式页原生契约 §7 与背景生命周期"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/PlayerScreen.kt", "reason": "待验收的沉浸式容器与 BEM 映射"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/backdrop/MeloXFlowingLightBackdrop.kt", "reason": "MeloX 流体背景复刻目标"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/MeloXIOSLyricsPanel.kt", "reason": "MeloX 逐词歌词复刻目标"}

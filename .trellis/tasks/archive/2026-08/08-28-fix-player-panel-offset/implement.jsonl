@@ -1,0 +1,3 @@
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/PlayerScreen.kt", "reason": "偏移根因所在文件，maxWidth 基线待改全屏宽"}
+{"file": "app/src/main/kotlin/com/muses/player/navigation/TabsLayout.kt", "reason": "PhoneLayout 50vw 抽屉对子测量的约束来源"}
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "沉浸页覆盖路由全屏语义 §7"}
