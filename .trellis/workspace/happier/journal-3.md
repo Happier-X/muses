@@ -1401,3 +1401,25 @@ npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1
 修复（3eef724）：nav-link 加 outline:none（与其他交互组件惯例一致），补 &:focus-visible 用 --m-primary 2px 描边保留键盘/无障碍焦点指示（触摸/JS focus 不触发 focus-visible）。焦点陷阱逻辑未动。
 
 验证：vue-tsc build ✓ / TabsPage eslint 零错误 / vitest 19 例 ✓。spec 已在 component-guidelines Styling Gotchas 记录该坑。任务已归档。
+
+
+## Session 110: 移除引导页残留
+<!-- trellis-session: v=2 fp=fa222ce9631b3293 -->
+
+**Date**: 2026-08-28
+**Task**: 移除引导页残留
+**Branch**: `main`
+
+### Summary
+
+彻底移除引导页残留：删除 SettingsRepository.isFirstLaunch/completeFirstLaunch 及 FIRST_LAUNCH_DONE，清理 MusesApp/Manifest/扫描器注释，同步修正 spec，MainViewModel 去未用注入
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1eac73f1` | refactor: 移除引导页残留 — 清理 SettingsRepository 与注释 |
+
+### Status
+
+[OK] **Completed**
