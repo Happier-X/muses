@@ -109,6 +109,16 @@ class PlayerConnection @Inject constructor(
             _playbackState.value = playbackState
         }
 
+        override fun onEvents(player: Player, events: Player.Events) {
+            // 同步 duration：ExoPlayer 对 WebDAV/Range 流播在缓冲足够后才会给出时长
+            // （通知栏有总时长 = 服务端已算出；app 进程必须实时同步，否则沉浸页恒 --:--）
+            if (events.contains(Player.EVENT_TIMELINE_CHANGED) ||
+                events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)
+            ) {
+                _duration.value = if (player.duration > 0) player.duration else 0L
+            }
+        }
+
         override fun onRepeatModeChanged(repeatMode: Int) {
             _repeatMode.value = repeatMode
         }
