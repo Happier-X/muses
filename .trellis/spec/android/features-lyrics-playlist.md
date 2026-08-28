@@ -10,11 +10,11 @@
 - 改动 `feature/playlist/*`、播放列表 Room 表
 - 改动响度均衡链路（LoudnessCalculator/LoudnessController/replayGainTrackDb 列）
 
-## 1. AMLL 渲染 = WebView 内嵌官方 core（定案，勿换）
+## 1. AMLL 渲染 = 原生 Compose（WebView 已废弃，归档保留）
 
-- **方案**：Vite 打包 `@applemusic-like-lyrics/core` 进 APK assets（frontend/amll-web/，产物 → `feature:player/src/main/androidAssets/amll/`）→ Compose `AndroidView` 包 WebView → `WebViewAssetLoader` 以 `https://appassets.androidplatform.net/assets/amll/index.html` 加载 → `evaluateJavascript` 注入。
-- **禁止**用销毁/重建 WebView 控制暂停；**禁止**引入第二套歌词渲染栈（accompanist lyrics-ui 仅作 fallback 方案保留在调研记录）。
-- 一个 WebView 页面同时承担**歌词 + 流体背景**双职责（BackgroundRender 由 PIXI 内部 ticker 自驱动）。
+- **现行方案（native，08-28 起）**：纯 Compose `PlayerScreen` 直接复刻 `MeloX-Android` 的 `MeloXFlowingLightBackdrop` + `MeloXIOSLyricsPanel`，**不再使用 WebView**。`PlayerViewModel` 经 `LyricsParser` + `AmllMapper` 解析为 `AmllLyricLine`（`words[{startTime,endTime,word}]`）→ `parsedLines` 供 `MeloXIOSLyricsPanel`（逐词）与 `MetaWindow`（五行小窗）同源消费；封面经 `stickyCover` 粘性传递给 `MeloXFlowingLightBackdrop`。
+- **归档 WebView 方案（仅历史参考，勿复用）**：曾用 Vite 打包 `@applemusic-like-lyrics/core` 进 APK assets（`frontend/amll-web/` → `feature:player/src/main/androidAssets/amll/`）→ `AndroidView` 包 WebView → `WebViewAssetLoader` 以 `https://appassets.androidplatform.net/assets/amll/index.html` 加载 → `evaluateJavascript` 注入；已于 08-28 原生重构中删除（`AmllWebView.kt` / `frontend/amll-web/` 已移除），原因见 §2 末与 index.md 播放契约。
+- **禁止**重新引入 WebView 歌词栈；新需求在 `MeloXIOSLyricsPanel` / `MeloXFlowingLightBackdrop` 上扩展。
 
 ### 就绪握手（0621054，P4.4 黑屏修复）
 
@@ -43,17 +43,19 @@ JS→Native（P4.4）：前端经 `window.nativeBridge.onAction(json)` 发动作
 - **payload 注入必须经 `AmllMapper.quote()` 包成 JS 字符串字面量**——前端内部做 `JSON.parse`，直接内插对象会被 ToString 成 `[object Object]`。
 - `songId` token：前端校验过期注入丢弃。
 
-## 2. 背景生命周期治理（继承 Web 层 spec，原生等价）
+## 2. 背景生命周期治理（原生 Compose）
 
-- 背景不得因「无歌词」卸载：无词时 payload.lines 为空数组照发（不是 null），前端显示空态占位、背景照常渲染。
-- ON_STOP → `pauseRender()`；ON_START → `resumeRender()`。observer 在 `DisposableEffect` 注册/移除成对。
+- 背景不得因「无歌词」卸载：`hasLyric = parsedLines.isNotEmpty()` 仅作语义保留，`MeloXFlowingLightBackdrop` 始终渲染；空态在前景 `Column` 显示占位（"暂无播放歌曲"），背景照常。
+- **原生 Compose 无需 pauseRender/resumeRender**：流体 Blob 由 `rememberInfiniteTransition` 自驱动，生命周期跟随 Composable；封面虚化由 `coil AsyncImage` + `blur(32.dp)` 直映，无 PIXI ticker。
 - 粘性封面三段语义（PlayerViewModel.stickyCover）：新曲有封面即更新；无封面**沿用旧值**；仅无当前曲才清空。
-- `coverUrl=null` 表示粘性沿用，前端不清旧封面。
+- `stickyCover == null` 时沿用旧帧（`MeloXFlowingLightBackdrop` 不清背景），避免切歌闪黑。
 
-## 3. 封面加载：混合内容规避
+> 归档：WebView 时代 ON_STOP→pauseRender / ON_START→resumeRender 已废弃。
 
-- 页面源是 https，`file://` 封面会被混合内容策略拦截。
-- 统一经 `coverUriToAppAssetsUrl(uri, cacheDirPath)`：cacheDir 下文件映射为 `https://appassets.androidplatform.net/cache/...`（自定义 PathHandler 服务，含 canonicalPath 目录穿越防护）；data:/http(s) 透传；无法映射返回 null 走粘性。
+## 3. 封面加载
+
+- **原生 Compose**：`stickyCover`（已是 `coverUriToAppAssetsUrl` / `data:image` 转换后结果）直接喂 `AsyncImage(model = coverUri)` 与 `MeloXFlowingLightBackdrop`，无 WebView 混合内容限制；coil 原生支持 `file://` / `content://` / `data:` / `https:`。
+- **归档 WebView 混合内容规避（已废弃）**：页面源是 https 时 `file://` 会被拦截，曾统一经 `coverUriToAppAssetsUrl(uri, cacheDirPath)` 映射为 `https://appassets.androidplatform.net/cache/...`。
 
 ## 4. 歌词解析（lyrics-core 0.4.7 API 事实）
 
@@ -94,10 +96,46 @@ playlist_songs(playlistId FK→playlists CASCADE, songId FK→songs CASCADE, pos
 - 默认关（DataStore `loudness_enabled`）；设置页 UI 入口留 M3。
 - RG 数据链路：TagReader 别名扫描/TXXX → normalize（÷256 + 校验）→ SongEntity.replayGainTrackDb → LoudnessController 按 mediaId 反查。
 
+## 7. 原生沉浸式播放页（MeloX 复刻，08-28）
+
+### 7.1 职责划分
+
+| 组件 | 文件 | 职责 |
+|---|---|---|
+| `PlayerScreen` | `feature/player/PlayerScreen.kt` | 沉浸式容器：固定头部 + 双面板滑动（`panels 200% → translateX(-activePanel*50%) 0.22s easeOut`）+ 进度/控制 + 平板双栏；数据源 `PlayerViewModel` |
+| `MeloXFlowingLightBackdrop` | `feature/player/backdrop/MeloXFlowingLightBackdrop.kt` | 流体 Blob（`Canvas` 3 径向渐变 + `infiniteRepeatable` `phase` 驱动）+ 封面虚化（`AsyncImage` + `blur(32.dp)` + `scale 1.08`）+ 暗色 scrim + 顶部高光；`flowSpeed=2` 约 12s 一圈 |
+| `MeloXIOSLyricsPanel` | `feature/player/lyric/MeloXIOSLyricsPanel.kt` | 完整歌词：逐词 `alpha`/`ExtraBold`（`wordFadeWidth 0.5` 二段近似）、翻译/音译显隐、和声/合唱 italic 标记、点击跳转 `onSeek(line.startTime)`、自动居中滚动 `animateScrollToItem(current-2)`、FAB 3s idle 隐藏 |
+| `MetaWindow` | `PlayerScreen.kt` 内 | 五行小窗预览：`79px` 视口 + `translateY -29.5` 居中、当前行 `scale 1.05 / alpha 1.0` 非当前 `0.92 / 0.55`，窄屏降为单行 |
+| `PlayerViewModel` | `PlayerViewModel.kt` | 粘性封面 `stickyCover` + `parsedLines`（经 `LyricsParser`→`AmllMapper`）+ `lyricPosition`（100ms 轮询钳制 `min(pos, lastLineEnd)`）+ `translationEnabled/hasTranslation` |
+
+### 7.2 布局契约（复刻 Capacitor `PlayerPage.vue` BEM）
+
+- `.player-page__drag-layer`：`graphicsLayer translationY = dragOffsetY`，垂直下滑 ≥阈值 `clamp(0.18*h, 96,160)` 触发 `onClose`，否则 0.22s `CubicBezier(0,0,0.58,1)` 回弹；水平滑动切面板由面板容器 `detectHorizontalDragGestures` 承担（阈值 40px）。
+- `.player-page__panels`：手机 `requiredWidth(maxWidth*2)` + `offset { IntOffset(panelOffset*maxWidth*2) }`；平板收缩为 `Row weight 1f` 双栏 + 底部 `TabletBottomBar`（渐变背景 + 进度全宽 + 三段式控制）。
+- `.player-page__cover-hero`：`aspectRatio(1)` 正方形，手机 272dp / 窄屏 150dp / 平板 360dp，圆角 12dp。
+- `PhoneImmersiveLayout` 含固定头部 `FixedSongHead`（常驻）、两点指示器、panels；`TabletImmersiveLayout` 头部移入左栏、右栏歌词无 play FAB。
+
+### 7.3 数据流
+
+```
+SongEntity(lyrics, coverUri) --observeById--> PlayerViewModel.refreshLyricsWithEntity()
+  ├─ stickyCover (三段粘性)
+  ├─ LyricsParser.parse(raw) -> SyncedLyrics? (Dispatchers.Default)
+  ├─ AmllMapper.toAmllLines(synced) -> List<AmllLyricLine>
+  ├─ _hasTranslation / _parsedLines (translationEnabled 过滤)
+  └─ lastLineEndMs (钳制)
+position (500ms) / lyricPosition (100ms, coerceAtMost lastLineEnd) -> PlayerScreen
+```
+
+- 歌词空时发空数组（非 null），`MeloXIOSLyricsPanel` / `MetaWindow` 显空态，背景不卸载。
+- 逐词染色：非当前行 `0.50`（和声 `0.38`），当前行已唱 `1.0 Bold` / 未唱 `0.42 Regular` / 正在唱 `1.0 ExtraBold`。
+
 ## 测试要点
 
 - LyricsParserTest：TTML 样本解析、双语 LRC 配对、非法输入（含乱文本返回 null 不抛）
 - AmllMapperTest：逐词映射窗口一致性、translation 直挂、JSON 字段名与转义、coverUrl=null 字面量
+- MeloXIOSLyricsPanelTest（新增）：逐词 alpha/weight、和声 italic、翻译显隐、点击 seek、空态
+- MeloXFlowingLightBackdropTest（新增）：无封面 fallback 纵向渐变、有封面 blur+scrim、flowSpeed 周期
 - PlaylistDaoTest / PlaylistRepositoryTest：CRUD、去重追加、紧凑重排、双 CASCADE
 - LoudnessCalculatorTest：Q7.8 换算、边界兜底、clamp 双端、开关/无标签恒 1.0
 

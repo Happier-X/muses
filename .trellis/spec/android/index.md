@@ -53,7 +53,7 @@ app (UI 宿主、导航、引导)
 - `PlayerConnection` 封装 MediaController，暴露 StateFlow 给 ViewModel
 - WebDAV 曲目：直接 HTTP URL 流播（ExoPlayer），数据源经 **CacheDataSource 边播边缓存**——
   探测性重复 Range 请求命中本地不再发网络（防网关限流）；详见 features-webdav-library.md
-- 播放页为全屏 WebView（P4.4）：AmllWebView 承载完整播放页 UI，双向桥见 features-lyrics-playlist.md
+- 沉浸式播放页为**纯原生 Compose**（P4.4 后 WebView 已废弃，详见 features-lyrics-playlist.md §7）：`PlayerScreen` + `MeloXFlowingLightBackdrop`（流体 Blob + 封面虚化）+ `MeloXIOSLyricsPanel`（逐词高亮）+ `PlayerViewModel` 粘性封面/歌词解析链路；布局 1:1 复刻 Capacitor `PlayerPage.vue` 的 BEM 结构（drag-layer / bg / song-head-fixed / panels 200% / cover-hero / meta-window / bottom-bar）
 - 音频焦点由 ExoPlayer 默认处理（handleAudioFocus=true）
 - `onTaskRemoved` → `stopSelf()`（后台播放安全）
 
