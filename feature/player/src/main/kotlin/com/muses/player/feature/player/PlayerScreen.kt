@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -107,7 +106,7 @@ import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.feature.player.backdrop.FlowingLightBackdrop
 import com.muses.player.feature.player.lyric.AmllLyricLine
-import com.muses.player.feature.player.lyric.IOSLyricsPanel
+import com.muses.player.feature.player.lyric.LyricsPanel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -193,18 +192,50 @@ fun PlayerScreen(
         (h * 0.18f).coerceIn(96.dp.toPx(), 160.dp.toPx())
     }
 
+    // 外层：m-popup 式半透 scrim（36% 黑），拖动时漏出背后列表；内层 drag-layer 整体跟手下滑
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF05070D))
+            .background(Color.Black.copy(alpha = 0.36f))
     ) {
-        // 背景层：Immersive 流体渐变与封面虚化（直接复刻 FlowingLightBackdrop，flowSpeed=2）
-        FlowingLightBackdrop(
-            coverUri = stickyCover,
-            hasLyric = parsedLines.isNotEmpty(),
-            modifier = Modifier.fillMaxSize(),
-            flowSpeed = 2f,
-        )
+        val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF05070D))
+                .graphicsLayer { translationY = dragOffsetY }
+                .pointerInput(isTabletLayout, dismissThresholdPx) {
+                    var accumulatedY = 0f
+                    detectVerticalDragGestures(
+                        onDragStart = { _: Offset -> accumulatedY = 0f; isDraggingVertically = true },
+                        onVerticalDrag = { _: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
+                            if (dragAmount > 0f || accumulatedY > 0f) {
+                                accumulatedY = (accumulatedY + dragAmount).coerceAtLeast(0f)
+                                dragOffsetY = accumulatedY
+                            }
+                        },
+                        onDragEnd = {
+                            isDraggingVertically = false
+                            if (accumulatedY >= dismissThresholdPx) { clearDragImmediate(); onClose() }
+                            else if (accumulatedY > 0f) { val from = accumulatedY; scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f } }
+                            accumulatedY = 0f
+                        },
+                        onDragCancel = {
+                            isDraggingVertically = false
+                            if (accumulatedY > 0f) { val from = accumulatedY; scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f } }
+                            accumulatedY = 0f
+                        },
+                    )
+                }
+        ) {
+            // 背景层：随 drag-layer 一起跟手下滑，1:1 复刻 Capacitor player-page__bg 在 drag-layer 内
+            FlowingLightBackdrop(
+                coverUri = stickyCover,
+                hasLyric = parsedLines.isNotEmpty(),
+                modifier = Modifier.fillMaxSize(),
+                flowSpeed = 2f,
+            )
 
         if (!hasSong) {
             // 空态：保留沉浸底色与背景渐变，中央提示（避免黑屏误判）
@@ -231,74 +262,11 @@ fun PlayerScreen(
                 Text("从歌曲列表选择一首音乐后，即可进入沉浸式播放。", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, textAlign = TextAlign.Center)
             }
         } else {
-            // 拖动层：player-page__drag-layer（translateY + is-dragging）
-            // 手势：垂直下滑关闭（仅 info-panel 生效，lyric-panel 内禁止），水平滑动切面板
-            // 简化实现：垂直下滑用 detectVerticalDragGestures，回弹 0.22s easeOut；水平切面板由 Panels 内部处理
-            // 关键修复：不用 BoxWithConstraints.maxWidth（在 TabsLayout 子树内会被 50vw 抽屉约束为半屏），改以全屏 screenWidth 为基线
-            val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-            val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        translationY = dragOffsetY
-                    },
+                    .statusBarsPadding()
             ) {
-
-                // 拖动层内容（flex column：固定头部 + panels + 底部条，对齐 Vue flex column）
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                        .pointerInput(isTabletLayout, isLyricPanelActive, dismissThresholdPx) {
-                            // 垂直下滑：仅 info-panel 生效，歌词面板内禁止（对齐 Vue canStartVerticalDismiss / isLyricPanelTarget）
-                            var accumulatedY = 0f
-                            detectVerticalDragGestures(
-                                onDragStart = { _: Offset ->
-                                    // 歌词面板激活时不启动垂直手势，避免滚动歌词误触发收起
-                                    if (!isTabletLayout && isLyricPanelActive) return@detectVerticalDragGestures
-                                    accumulatedY = 0f; isDraggingVertically = true
-                                },
-                                onVerticalDrag = { _: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
-                                    if (!isTabletLayout && isLyricPanelActive) return@detectVerticalDragGestures
-                                    // 仅下拉（正向）生效，上滑忽略
-                                    if (dragAmount > 0f || accumulatedY > 0f) {
-                                        accumulatedY = (accumulatedY + dragAmount).coerceAtLeast(0f)
-                                        dragOffsetY = accumulatedY
-                                    }
-                                },
-                                onDragEnd = {
-                                    isDraggingVertically = false
-                                    if (accumulatedY >= dismissThresholdPx) {
-                                        clearDragImmediate()
-                                        onClose()
-                                    } else if (accumulatedY > 0f) {
-                                        val from = accumulatedY
-                                        // pointerInputScope 本身是 CoroutineScope，可直接 launch
-                                        // 使用外部 scope 回弹以避免 Restricted 限制
-                                        scope.launch {
-                                            val anim = androidx.compose.animation.core.Animatable(from)
-                                            anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }
-                                            dragOffsetY = 0f
-                                        }
-                                    }
-                                    accumulatedY = 0f
-                                },
-                                onDragCancel = {
-                                    isDraggingVertically = false
-                                    if (accumulatedY > 0f) {
-                                        val from = accumulatedY
-                                        scope.launch {
-                                            val anim = androidx.compose.animation.core.Animatable(from)
-                                            anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }
-                                            dragOffsetY = 0f
-                                        }
-                                    }
-                                    accumulatedY = 0f
-                                },
-                            )
-                        }
-                ) {
                     if (isTabletLayout) {
                         // 平板横屏：固定头部隐藏，由面板内头部承担（此处不渲染 fixed）
                         TabletImmersiveLayout(
@@ -577,7 +545,7 @@ private fun PhoneImmersiveLayout(
                     maxWidth = maxWidth,
                     maxHeight = maxHeight,
                 )
-                1 -> IOSLyricsPanel(
+                1 -> LyricsPanel(
                     lines = lines,
                     lyricPosition = lyricPosition,
                     translationEnabled = translationEnabled,
@@ -671,7 +639,7 @@ private fun TabletImmersiveLayout(
                     .weight(1f)
                     .fillMaxHeight(),
             ) {
-                IOSLyricsPanel(
+                LyricsPanel(
                     lines = lines,
                     lyricPosition = lyricPosition,
                     translationEnabled = translationEnabled,
@@ -1317,11 +1285,7 @@ private fun LyricPanel(
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures { _, _ -> revealChrome() }
-                    },
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp, start = 16.dp, end = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

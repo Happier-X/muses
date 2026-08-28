@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +42,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
+
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -57,7 +56,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Immersive iOS 歌词面板 — 直接复刻 Immersive-Android 的 IOSLyricsPanel
+ * 沉浸式歌词面板 — 直接复刻 Capacitor LyricPlayer
  *
  * 逐行/逐词契约（与 Immersive 一致）：
  * - 逐词 alpha / ExtraBold：当前行已唱词 1.0 ExtraBold，未唱 0.42 Regular，正在唱的词 ExtraBold 1.0；
@@ -69,7 +68,7 @@ import kotlinx.coroutines.launch
  * - 空态、Fab 显隐（180ms fade，3s idle 隐藏）与 Immersive 交互一致
  */
 @Composable
-fun IOSLyricsPanel(
+fun LyricsPanel(
     lines: List<AmllLyricLine>,
     lyricPosition: Long,
     translationEnabled: Boolean,
@@ -138,11 +137,7 @@ fun IOSLyricsPanel(
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures { _, _ -> revealChrome() }
-                    },
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp, start = 16.dp, end = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
