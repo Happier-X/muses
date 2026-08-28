@@ -230,28 +230,28 @@ fun AmllWebView(
         // 前端契约为 updateLyrics(payload: string)，内部 JSON.parse——必须以 JS 字符串字面量嵌入，
         // 直接内插对象字面量会被 ToString 成 "[object Object]" 导致解析失败
         Log.d("AmllWebView", "inject updateLyrics")
-        wv.evaluateJavascript("window.updateLyrics(${AmllMapper.quote(payloadJson)})", null)
+        wv.evaluateJavascript("if(window.updateLyrics) window.updateLyrics(${AmllMapper.quote(payloadJson)})", null)
     }
 
-    // 进度注入：上游已按 ~100ms 节流且仅在播放中发射；暂停即停发
-    LaunchedEffect(webViewHolder.value, pageReady) {
+    // 进度注入：上游已按 ~100ms 节流且仅在播放中发射；暂停即停发；需等待 JS 就绪避免 window.updatePosition 未定义抛错
+    LaunchedEffect(webViewHolder.value, jsReady) {
         val wv = webViewHolder.value ?: return@LaunchedEffect
-        if (!pageReady) return@LaunchedEffect
+        if (!jsReady) return@LaunchedEffect
         combine(positionMsFlow, isPlaying) { pos, playing -> pos to playing }
             .distinctUntilChanged()
             .collect { (posMs, playing) ->
                 if (playing) {
-                    wv.evaluateJavascript("window.updatePosition($posMs)", null)
+                    wv.evaluateJavascript("if(window.updatePosition) window.updatePosition($posMs)", null)
                 }
             }
     }
 
     // 播放页状态下行（P4.4）：JS 就绪后载荷变化即注入；JSON 由调用方构建，
-    // 此处同样以 JS 字符串字面量嵌入（quote()），前端内部 JSON.parse
+    // 此处同样以 JS 字符串字面量嵌入（quote()），前端内部 JSON.parse；前置 if 保护避免未定义抛错阻断渲染
     LaunchedEffect(webViewHolder.value, jsReady, playerStateJson) {
         val wv = webViewHolder.value ?: return@LaunchedEffect
         if (!jsReady || playerStateJson == null) return@LaunchedEffect
-        wv.evaluateJavascript("window.updatePlayerState(${AmllMapper.quote(playerStateJson)})", null)
+        wv.evaluateJavascript("if(window.updatePlayerState) window.updatePlayerState(${AmllMapper.quote(playerStateJson)})", null)
     }
 
     // 渲染循环生命周期治理：切后台 pause / 恢复 resume，WebView 不销毁重建

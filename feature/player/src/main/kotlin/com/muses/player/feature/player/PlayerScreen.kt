@@ -22,7 +22,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -128,22 +131,9 @@ fun PlayerScreen(
     }
 
     // ---- 全屏 WebView 容器（沉浸底色 #05070d 与前端 .drag-layer 一致，防加载闪白）----
-    // 若 WebView 仍黑屏，底层 Box 的原生回退 UI 保底可见
+    // 原生回退 UI 置于底层：WebView 正常渲染时被前端不透明层遮挡，黑屏/透明时透出保底，不阻塞 WebView 手势
     Box(modifier.fillMaxSize().background(Color(0xFF05070D))) {
-        AmllWebView(
-            modifier = Modifier.fillMaxSize(),
-            payloadJson = lyricsJson,
-            positionMsFlow = viewModel.lyricPosition,
-            isPlaying = viewModel.isPlaying,
-            playerStateJson = playerStateJson,
-            onBridgeAction = { json ->
-                handleBridgeAction(
-                    json, viewModel, onClose, onOpenQueue,
-                    onOpenEditMeta,
-                )
-            }
-        )
-        // 原生回退 UI：WebView 黑屏时仍可用（封面 + 标题 + 控制），与 WebView 底层共存，层级在 WebView 之上但不遮挡手势（点击可透传至 WebView 的关闭按钮区域除外）
+        // 原生回退 UI（底层保底）：WebView 为透明背景，黑屏时透出；正常渲染时被 #player-ui 不透明背景遮挡
         Column(
             modifier = Modifier.fillMaxSize().padding(top = 72.dp, bottom = 32.dp, start = 24.dp, end = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -172,16 +162,29 @@ fun PlayerScreen(
             Spacer(modifier = Modifier.size(24.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(32.dp), verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.material3.IconButton(onClick = { viewModel.skipToPrevious() }) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = "上一曲", tint = Color.White, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Filled.SkipPrevious, contentDescription = "上一曲", tint = Color.White, modifier = Modifier.size(32.dp))
                 }
                 androidx.compose.material3.IconButton(onClick = { viewModel.playPause() }) {
-                    Icon(imageVector = if (isPlaying) Icons.Filled.Close else Icons.Filled.PlayArrow, contentDescription = if (isPlaying) "暂停" else "播放", tint = Color.White, modifier = Modifier.size(48.dp))
+                    Icon(imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = if (isPlaying) "暂停" else "播放", tint = Color.White, modifier = Modifier.size(48.dp))
                 }
                 androidx.compose.material3.IconButton(onClick = { viewModel.skipToNext() }) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = "下一曲", tint = Color.White, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Filled.SkipNext, contentDescription = "下一曲", tint = Color.White, modifier = Modifier.size(32.dp))
                 }
             }
         }
+        AmllWebView(
+            modifier = Modifier.fillMaxSize(),
+            payloadJson = lyricsJson,
+            positionMsFlow = viewModel.lyricPosition,
+            isPlaying = viewModel.isPlaying,
+            playerStateJson = playerStateJson,
+            onBridgeAction = { json ->
+                handleBridgeAction(
+                    json, viewModel, onClose, onOpenQueue,
+                    onOpenEditMeta,
+                )
+            }
+        )
         // 限流错误条：复用 PlaybackRecoveryController.playbackError（含 429 的「触发限流，稍后重试」）
         if (playbackError != null) {
             androidx.compose.material3.Snackbar(

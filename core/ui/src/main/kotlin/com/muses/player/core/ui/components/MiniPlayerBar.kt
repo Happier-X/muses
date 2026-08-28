@@ -131,7 +131,8 @@ fun MiniPlayerBar(
         }
 
         // __controls：gap 2px，图标 18px（md 触控区 40px 不变）
-        // 外层整条可点打开播放页，控制区需消费点击避免冒泡（修复点击播放按钮同时打开播放页）
+        // 控制区需消费点击避免冒泡至外层 Row 的 onOpenPlayer（修复点击播放按钮同时打开播放页）
+        // 外层 Box 以空 clickable 消费非按钮区域的 gap 点击；按钮自身可点击已天然拦截冒泡
         androidx.compose.foundation.layout.Box(
             modifier = Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -143,14 +144,14 @@ fun MiniPlayerBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-            SaltIconButton(
-                onClick = onTogglePlayback,
-                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, // lucide pause/play fill
-                contentDescription = if (isPlaying) "暂停播放" else "继续播放",
-                enabled = hasSong, // :disabled="!currentSong || status==='loading'"
-                tint = salt.text, // __btn { color: var(--m-text) }
-                iconSizeOverride = 18.dp, // __icon { width: 18px }
-            )
+                SaltIconButton(
+                    onClick = onTogglePlayback,
+                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, // lucide pause/play fill
+                    contentDescription = if (isPlaying) "暂停播放" else "继续播放",
+                    enabled = hasSong, // :disabled="!currentSong || status==='loading'"
+                    tint = salt.text, // __btn { color: var(--m-text) }
+                    iconSizeOverride = 18.dp, // __icon { width: 18px }
+                )
                 SaltIconButton(
                     onClick = onOpenQueue,
                     imageVector = Icons.Filled.QueueMusic, // lucide listMusic fill
