@@ -29,3 +29,10 @@ node_modules/
 .externalNativeBuild
 .cxx
 build/
+
+# 本地排障产生的 Gradle 用户目录副本（本机无法构建时绕路用，勿提交）
+.gh-fresh/
+.gradle-user-home/
+
+# 项目数据目录（memory/等，勿提交）
+.workbuddy/
