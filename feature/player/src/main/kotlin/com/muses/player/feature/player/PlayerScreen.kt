@@ -7,6 +7,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,8 +57,6 @@ import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -1019,48 +1019,57 @@ private fun ProgressSection(
 ) {
     var previewMs by remember { mutableStateOf<Long?>(null) }
     val displayPos = previewMs ?: position
-    val max = duration.coerceAtLeast(1L).toFloat()
+    val max = duration.coerceAtLeast(1L)
     val canSeek = duration > 0L
-    // 兼容 Capacitor：隐藏 thumbWrap（inset-inline-start），Compose 直接透明 thumb
+    // 兼容 Capacitor：k-range 细轨（4px 白） + thumbWrap 隐藏（无圆球），
+    // 完全自绘——不依赖 Material3 Slider 的 disabled 灰轨/默认 thumb
     Column(Modifier.fillMaxWidth()) {
-        @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-        Slider(
-            value = displayPos.coerceIn(0L, duration.coerceAtLeast(0L)).toFloat(),
-            onValueChange = { v ->
-                if (!canSeek) return@Slider
-                if (previewMs == null) onSeekStart()
-                previewMs = v.toLong()
-            },
-            onValueChangeFinished = {
-                if (!canSeek) return@Slider
-                val target = previewMs ?: position
-                previewMs = null
-                onSeekEnd(target.coerceIn(0L, duration.coerceAtLeast(0L)))
-            },
-            valueRange = 0f..max,
-            enabled = canSeek,
-            // 对齐 k-range 沉浸样式高度 20px（矮屏 18px）：压掉 M3 默认 44dp 布局高，细轨贴内容
+        val barHeight = if (LocalConfiguration.current.screenHeightDp <= 520) 18.dp else 20.dp
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (LocalConfiguration.current.screenHeightDp <= 520) 18.dp else 20.dp),
-            colors = SliderDefaults.colors(
-                // 对齐全局 .player-overlay .progress-range：底轨 rgba(255,255,255,0.25)，填充 #ffffff
-                // （scoped 的 primary 被全局规则覆盖，真源以白轨为准）
-                activeTrackColor = Color.White,
-                inactiveTrackColor = Color.White.copy(alpha = 0.25f),
-                thumbColor = Color.White,
-                activeTickColor = Color.Transparent,
-                inactiveTickColor = Color.Transparent,
-            ),
-            thumb = {
-                // 保留拖动热区但视觉隐藏 thumb（Capacitor 用 CSS 隐藏 thumbWrap）
-                Box(
-                    Modifier
-                        .size(14.dp)
-                        .background(Color.White, RoundedCornerShape(7.dp))
-                        .alpha(0f),
-                )
-            },
+                .height(barHeight)
+                .pointerInput(canSeek, max) {
+                    if (!canSeek) return@pointerInput
+                    fun fractionAt(offset: androidx.compose.ui.geometry.Offset): Float =
+                        (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                    detectTapGestures { offset ->
+                        onSeekStart()
+                        onSeekEnd((fractionAt(offset) * max).toLong().coerceIn(0L, duration))
+                    }
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            previewMs = (fractionAt(offset) * max).toLong()
+                            onSeekStart()
+                        },
+                        onDrag = { change, _ ->
+                            previewMs = (fractionAt(change.position) * max).toLong()
+                        },
+                        onDragEnd = {
+                            onSeekEnd((previewMs ?: position).coerceIn(0L, duration))
+                            previewMs = null
+                        },
+                        onDragCancel = { previewMs = null },
+                    )
+                }
+                .drawBehind {
+                    // 底轨 rgba(255,255,255,0.25) + 填充 #fff，4dp 圆角细轨（对齐 .progress-range 全局样式）
+                    val trackH = 4.dp.toPx()
+                    val top = (size.height - trackH) / 2f
+                    val fraction = (displayPos.toFloat() / max.toFloat()).coerceIn(0f, 1f)
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = 0.25f),
+                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
+                        size = androidx.compose.ui.geometry.Size(size.width, trackH),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackH / 2f),
+                    )
+                    drawRoundRect(
+                        color = Color.White,
+                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
+                        size = androidx.compose.ui.geometry.Size(size.width * fraction, trackH),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackH / 2f),
+                    )
+                },
         )
         // time-row：对齐 Capacitor 12px tabular-nums rgba0.68 + 缓冲提示 11px rgba0.55，margin-top 2px
         Row(

@@ -91,7 +91,13 @@ class PlaybackService : MediaSessionService() {
             .setUpstreamDataSourceFactory(okHttpFactory)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         val dataSourceFactory = DefaultDataSource.Factory(this, cacheFactory)
-        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+        // MP3 CBR 时长估算：HTTP 流播（WebDAV）默认 Mp3Extractor 不估算时长（duration=TIME_UNSET），
+        // 沉浸页进度条总时长显示 --:-- 且禁用；开 CBR seek flag 后按比特率估算 duration + seek 能力
+        val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
+            .setMp3ExtractorFlags(
+                androidx.media3.extractor.mp3.Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING,
+            )
+        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
 
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttributes, true)
