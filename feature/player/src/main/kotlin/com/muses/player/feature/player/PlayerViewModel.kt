@@ -191,7 +191,7 @@ class PlayerViewModel @Inject constructor(
         publishPayload(song?.id)
     }
 
-    /** 按 translationEnabled 重建 payload 并发布（coverUrl 经 file:// → appassets 映射） */
+    /** 按 translationEnabled 重建 payload 并发布（coverUrl 优先 data URL，回退 appassets 映射，参考 AMLL-DroidMate 的 convertFileUriToDataUrl） */
     private fun publishPayload(songId: String?) {
         if (songId.isNullOrEmpty()) {
             _lyricsJson.value = null
@@ -202,11 +202,34 @@ class PlayerViewModel @Inject constructor(
         } else {
             currentLines.map { it.copy(translatedLyric = "", romanLyric = "") }
         }
-        val coverUrl = coverUriToAppAssetsUrl(
-            uri = _stickyCover.value,
-            cacheDirPath = appContext.cacheDir.absolutePath,
-        )
+        // 优先尝试 data URL（最可靠，WebView Fetch 无需拦截），失败回退 https 映射
+        val coverUrl = runCatching { coverUriToDataUrl(_stickyCover.value) }.getOrNull()
+            ?: coverUriToAppAssetsUrl(
+                uri = _stickyCover.value,
+                cacheDirPath = appContext.cacheDir.absolutePath,
+            )
         _lyricsJson.value = AmllMapper.toJson(AmllPayload(lines, coverUrl, songId))
+    }
+
+    private fun coverUriToDataUrl(uri: String?): String? {
+        if (uri.isNullOrBlank()) return null
+        return try {
+            val file = when {
+                uri.startsWith("file://") -> java.io.File(uri.removePrefix("file://"))
+                uri.startsWith("/") -> java.io.File(uri)
+                else -> return null
+            }
+            if (!file.isFile) return null
+            val bytes = file.readBytes()
+            val mime = when (file.extension.lowercase()) {
+                "png" -> "image/png"
+                "webp" -> "image/webp"
+                "gif" -> "image/gif"
+                else -> "image/jpeg"
+            }
+            val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+            "data:$mime;base64,$b64"
+        } catch (_: Exception) { null }
     }
 
     fun toggleTranslation() {
