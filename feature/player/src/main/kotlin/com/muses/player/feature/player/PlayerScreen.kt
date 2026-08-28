@@ -131,47 +131,7 @@ fun PlayerScreen(
     }
 
     // ---- 全屏 WebView 容器（沉浸底色 #05070d 与前端 .drag-layer 一致，防加载闪白）----
-    // 原生回退 UI 置于底层：WebView 正常渲染时被前端不透明层遮挡，黑屏/透明时透出保底，不阻塞 WebView 手势
     Box(modifier.fillMaxSize().background(Color(0xFF05070D))) {
-        // 原生回退 UI（底层保底）：WebView 为透明背景，黑屏时透出；正常渲染时被 #player-ui 不透明背景遮挡
-        Column(
-            modifier = Modifier.fillMaxSize().padding(top = 72.dp, bottom = 32.dp, start = 24.dp, end = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            val cover = stickyCover
-            if (!cover.isNullOrEmpty()) {
-                com.muses.player.core.ui.components.SaltCover(uri = cover, size = 240.dp, radius = com.muses.player.core.ui.components.SaltCoverRadius.MD)
-                Spacer(modifier = Modifier.size(24.dp))
-            }
-            Text(
-                text = currentMediaItem?.mediaMetadata?.title?.toString()?.ifEmpty { "暂无播放歌曲" } ?: "暂无播放歌曲",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = currentMediaItem?.mediaMetadata?.artist?.toString() ?: "未知艺术家",
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(modifier = Modifier.size(24.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(32.dp), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.IconButton(onClick = { viewModel.skipToPrevious() }) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "上一曲", tint = Color.White, modifier = Modifier.size(32.dp))
-                }
-                androidx.compose.material3.IconButton(onClick = { viewModel.playPause() }) {
-                    Icon(imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = if (isPlaying) "暂停" else "播放", tint = Color.White, modifier = Modifier.size(48.dp))
-                }
-                androidx.compose.material3.IconButton(onClick = { viewModel.skipToNext() }) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "下一曲", tint = Color.White, modifier = Modifier.size(32.dp))
-                }
-            }
-        }
         AmllWebView(
             modifier = Modifier.fillMaxSize(),
             payloadJson = lyricsJson,
@@ -184,6 +144,13 @@ fun PlayerScreen(
                     onOpenEditMeta,
                 )
             }
+        )
+        // 原生回退标题（WebView 黑屏时顶部仍可见，验证数据链路）
+        Text(
+            text = currentMediaItem?.mediaMetadata?.title?.toString()?.ifEmpty { "暂无播放歌曲" } ?: "暂无播放歌曲",
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp).background(Color.Black.copy(alpha = 0.6f), shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 16.dp, vertical = 8.dp),
+            color = Color.White,
+            fontSize = 16.sp,
         )
         // 限流错误条：复用 PlaybackRecoveryController.playbackError（含 429 的「触发限流，稍后重试」）
         if (playbackError != null) {
