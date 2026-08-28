@@ -182,7 +182,6 @@ fun MusesApp() {
     // 沉浸式/队列改为状态驱动的 overlay（Box 叠加于 Tabs 之上），下滑漏出背后列表而非纯黑窗口
     var showPlayerOverlay by remember { mutableStateOf(false) }
     var showQueueOverlay by remember { mutableStateOf(false) }
-    val overlayRoute = showPlayerOverlay || showQueueOverlay
 
     // 导航项组装（map 为 inline 函数，lambda 内可直接调 Composable 取 string 资源）
     val primaryItems = NavDestination.Primary.map { dest -> dest.toNavItem(currentRoute, navController) }
@@ -192,29 +191,32 @@ fun MusesApp() {
     val isPlaying by viewModel.isPlaying.collectAsState()
 
     Box(Modifier.fillMaxSize()) {
+        // 结构恒定：overlay 打开时不得切换 TabsLayout 分支（navVisible 恒 true）——
+        // 原版 Web overlay 打开仅锁主页面交互（pointer-events:none），DOM 全保留；
+        // 之前按 overlayRoute 切 navVisible 会让 content（NavHost）在组合树换位销毁重建，
+        // 底下列表停止绘制 → 下滑沉浸页露出纯黑（08-28 下滑露黑根因）。
+        // overlay 全屏在上层，主页面的 navbar/MiniPlayer 被盖住不可见、不可交互。
         TabsLayout(
             primaryItems = primaryItems,
             secondaryItems = secondaryItems,
-            navVisible = !overlayRoute,
+            navVisible = true,
             bottomBar = {
-                if (!overlayRoute) {
-                    Box(Modifier.navigationBarsPadding()) {
-                        MiniPlayerBar(
-                            title = nowPlaying?.title ?: stringResource(R.string.mini_empty_title),
-                            subtitle = nowPlaying?.subtitle ?: stringResource(
-                                R.string.mini_unknown_artist,
-                            ) + " - " + stringResource(R.string.mini_unknown_album),
-                            coverUri = nowPlaying?.coverUri,
-                            isPlaying = isPlaying,
-                            hasSong = nowPlaying != null,
-                            onOpenPlayer = { showPlayerOverlay = true },
-                            onTogglePlayback = { viewModel.playPause() },
-                            onOpenQueue = { showQueueOverlay = true },
-                            modifier = Modifier
-                                .padding(horizontal = 18.dp, vertical = 8.dp)
-                                .fillMaxWidth(),
-                        )
-                    }
+                Box(Modifier.navigationBarsPadding()) {
+                    MiniPlayerBar(
+                        title = nowPlaying?.title ?: stringResource(R.string.mini_empty_title),
+                        subtitle = nowPlaying?.subtitle ?: stringResource(
+                            R.string.mini_unknown_artist,
+                        ) + " - " + stringResource(R.string.mini_unknown_album),
+                        coverUri = nowPlaying?.coverUri,
+                        isPlaying = isPlaying,
+                        hasSong = nowPlaying != null,
+                        onOpenPlayer = { showPlayerOverlay = true },
+                        onTogglePlayback = { viewModel.playPause() },
+                        onOpenQueue = { showQueueOverlay = true },
+                        modifier = Modifier
+                            .padding(horizontal = 18.dp, vertical = 8.dp)
+                            .fillMaxWidth(),
+                    )
                 }
             },
         ) {

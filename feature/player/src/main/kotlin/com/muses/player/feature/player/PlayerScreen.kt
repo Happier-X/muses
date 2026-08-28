@@ -200,8 +200,12 @@ fun PlayerScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                // 用 offset 而非 graphicsLayer.translationY 做下滑跟手位移：
+                // offset 无独立 RenderNode，绘制指令并入窗口根 display list，位移每帧
+                // 触发全窗口重绘 → 下滑暴露的新区域必然重绘底层主页面列表；
+                // graphicsLayer 纯位移只做合成、暴露区不重绘（露窗口底色，绿屏实验证实）
+                .offset { IntOffset(0, dragOffsetY.roundToInt()) }
                 .background(Color(0xFF05070D))
-                .graphicsLayer { translationY = dragOffsetY }
                 .pointerInput(isTabletLayout, dismissThresholdPx, isLyricPanelActive) {
                     var accumulatedY = 0f
                     detectVerticalDragGestures(
