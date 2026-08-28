@@ -7,10 +7,13 @@
    - [x] MuMu 真机截图对比（`mumu_melox.png` 封面+小窗 / `mumu_melox2.png` 完整歌词）确认主流程已 1:1
 
 2. **查漏补缺（按需，最小改）**
-   - [ ] 校验 `drag-layer` 下滑仅 `info-panel` 生效、歌词面板内禁止关闭的细节（当前简化为始终允许，需按旧版加 `activePanel==0` 守卫）
-   - [ ] 校验 `progress-range` 禁用态与 `canSeek` 语义（当前未禁用，需补 `enabled = duration>0`）
-   - [ ] 校验 `MetaWindow` 切行是否需保留 `spring` 手感（当前为 `tween 260ms`，必要时切 `spring(stiffness 240,damping 26)`）
-   - [ ] 校验 `navigationBars` 底部安全区（当前 `12dp` 固定，必要时补 `WindowInsets.navigationBars`）
+   - [x] 校验 `drag-layer` 下滑仅 `info-panel` 生效、歌词面板内禁止关闭的细节（当前简化为始终允许，需按旧版加 `activePanel==0` 守卫）— 已接线 `isLyricPanelActive`（activePanel==1 时禁下滑）
+   - [x] 校验 `progress-range` 禁用态与 `canSeek` 语义（当前未禁用，需补 `enabled = duration>0`）— 已补；并改白轨（全局 .player-overlay .progress-range 覆盖 primary）+ formatTime 分钟补零
+   - [x] 校验 `MetaWindow` 切行是否需保留 `spring` 手感（当前为 `tween 260ms`，必要时切 `spring(stiffness 240,damping 26)`）— 已切 spring(0.84,800)，补 transform-origin left center、去双重 alpha、相邻切行窗口整体上移 0.4s
+   - [x] 校验 `navigationBars` 底部安全区（当前 `12dp` 固定，必要时补 `WindowInsets.navigationBars`）— info-panel padding 16+navBar、FAB 8+navBar 已对齐
+   - [x] 歌词面板 AMLL 对齐：去当前行白底、字号 clamp(22,6.5vw,32)、行水平 24、空态去图标、FAB 12/8+navBar/200ms
+   - [x] 空态 placeholder-cover 对齐：渐变圆角方块 + ♪ 48px + 20px 标题 + 14px/0.75 描述
+   - [x] 背景 fallback 对齐：#171b2b→#0a0c14→#05070d + 紫径向 50%/18%
 
 3. **验证**
    - [ ] `./gradlew :feature:player:assembleDebug :app:assembleMusesDebug` 通过

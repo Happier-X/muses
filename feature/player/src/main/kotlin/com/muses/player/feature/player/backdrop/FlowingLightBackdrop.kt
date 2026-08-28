@@ -16,6 +16,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -60,16 +62,30 @@ fun FlowingLightBackdrop(
     )
 
     Box(modifier = modifier.background(Color(0xFF05070D))) {
-        // 底层 fallback：无封面时可见，有封面时被模糊层覆盖（opacity 由上层决定，不在此处切）
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color(0xFF1A1E2E), Color(0xFF0D0F1A), Color(0xFF05070D)),
-                    ),
-                ),
-        )
+        // 底层 fallback：无封面时可见（对齐 .player-overlay .fallback-background：
+        // 径向紫光 50%/18% rgba(148,120,255,0.28) → transparent 42% + 线性 165deg #171b2b/#0a0c14/#05070d）
+        if (coverUri.isNullOrBlank()) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .drawBehind {
+                        drawRect(
+                            Brush.linearGradient(
+                                colors = listOf(Color(0xFF171B2B), Color(0xFF0A0C14), Color(0xFF05070D)),
+                                start = Offset.Zero,
+                                end = Offset(size.width, size.height),
+                            ),
+                        )
+                        drawRect(
+                            Brush.radialGradient(
+                                colors = listOf(Color(0x479478FF), Color.Transparent),
+                                center = Offset(size.width * 0.5f, size.height * 0.18f),
+                                radius = size.width * 0.9f,
+                            ),
+                        )
+                    },
+            )
+        }
 
         // 封面虚化层：对齐 Capacitor player-page__bg opacity 0.75 + blur 28dp scale 1.08
         if (!coverUri.isNullOrBlank()) {

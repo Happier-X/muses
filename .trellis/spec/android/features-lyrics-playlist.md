@@ -102,18 +102,22 @@ playlist_songs(playlistId FK→playlists CASCADE, songId FK→songs CASCADE, pos
 
 | 组件 | 文件 | 职责 |
 |---|---|---|
-| `PlayerScreen` | `feature/player/PlayerScreen.kt` | 沉浸式容器：固定头部 + 双面板滑动（`panels 200% → translateX(-activePanel*50%) 0.22s easeOut`）+ 进度/控制 + 平板双栏；数据源 `PlayerViewModel` |
-| `MeloXFlowingLightBackdrop` | `feature/player/backdrop/MeloXFlowingLightBackdrop.kt` | 流体 Blob（`Canvas` 3 径向渐变 + `infiniteRepeatable` `phase` 驱动）+ 封面虚化（`AsyncImage` + `blur(32.dp)` + `scale 1.08`）+ 暗色 scrim + 顶部高光；`flowSpeed=2` 约 12s 一圈 |
-| `MeloXIOSLyricsPanel` | `feature/player/lyric/MeloXIOSLyricsPanel.kt` | 完整歌词：逐词 `alpha`/`ExtraBold`（`wordFadeWidth 0.5` 二段近似）、翻译/音译显隐、和声/合唱 italic 标记、点击跳转 `onSeek(line.startTime)`、自动居中滚动 `animateScrollToItem(current-2)`、FAB 3s idle 隐藏 |
-| `MetaWindow` | `PlayerScreen.kt` 内 | 五行小窗预览：`79px` 视口 + `translateY -29.5` 居中、当前行 `scale 1.05 / alpha 1.0` 非当前 `0.92 / 0.55`，窄屏降为单行 |
+| `PlayerScreen` | `feature/player/PlayerScreen.kt` | 沉浸式容器：固定头部 + 双面板滑动（`HorizontalPager` 0.22s easeOut 等价 `panels 200% → translateX(-activePanel*50%)`）+ 进度/控制 + 平板双栏；数据源 `PlayerViewModel` |
+| `FlowingLightBackdrop` | `feature/player/backdrop/FlowingLightBackdrop.kt` | 流体 Blob（`Canvas` 3 径向渐变 + `infiniteRepeatable` `phase` 驱动）+ 封面虚化（`AsyncImage` + `blur(28.dp)` + `scale 1.08` + `alpha 0.75`）+ 暗色 scrim + 顶部高光；fallback 对齐 `.fallback-background`（`#171b2b→#0a0c14→#05070d` + 紫径向 50%/18%）；`flowSpeed=2` 约 12s 一圈 |
+| `LyricPanel` | `PlayerScreen.kt` 内（`lyric/LyricsPanel.kt` 为同构副本，import 被遮蔽） | 完整歌词：逐词 `alpha`/`ExtraBold`（`wordFadeWidth 0.5` 二段近似）、翻译/音译显隐、和声 italic 标记、点击跳转 `onSeek(line.startTime)`、自动居中滚动 `animateScrollToItem(current-2)`、FAB 200ms fade + 3s idle 隐藏 |
+| `MetaWindow` | `PlayerScreen.kt` 内 | 五行小窗预览：`79px` 视口 + `translateY -29.5` 居中、当前行 `scale 1.05 / alpha 1.0`（颜色 `0.92`）非当前 `0.92 / 0.55`（颜色 `0.6`）、`transform-origin left center`、相邻切行窗口整体上移 0.4s `cubic(0.32,0.72,0,1)`、行动画 `spring(0.84, 800)`，窄屏降为单行 |
 | `PlayerViewModel` | `PlayerViewModel.kt` | 粘性封面 `stickyCover` + `parsedLines`（经 `LyricsParser`→`AmllMapper`）+ `lyricPosition`（100ms 轮询钳制 `min(pos, lastLineEnd)`）+ `translationEnabled/hasTranslation` |
 
-### 7.2 布局契约（复刻 Capacitor `PlayerPage.vue` BEM）
+### 7.2 布局契约（复刻 Capacitor `PlayerPage.vue` BEM，08-28 增量 1:1）
 
-- `.player-page__drag-layer`：`graphicsLayer translationY = dragOffsetY`，垂直下滑 ≥阈值 `clamp(0.18*h, 96,160)` 触发 `onClose`，否则 0.22s `CubicBezier(0,0,0.58,1)` 回弹；水平滑动切面板由面板容器 `detectHorizontalDragGestures` 承担（阈值 40px）。
-- `.player-page__panels`：手机 `requiredWidth(maxWidth*2)` + `offset { IntOffset(panelOffset*maxWidth*2) }`；平板收缩为 `Row weight 1f` 双栏 + 底部 `TabletBottomBar`（渐变背景 + 进度全宽 + 三段式控制）。
-- `.player-page__cover-hero`：`aspectRatio(1)` 正方形，手机 272dp / 窄屏 150dp / 平板 360dp，圆角 12dp。
-- `PhoneImmersiveLayout` 含固定头部 `FixedSongHead`（常驻）、两点指示器、panels；`TabletImmersiveLayout` 头部移入左栏、右栏歌词无 play FAB。
+- `.player-page__drag-layer`：`graphicsLayer translationY = dragOffsetY`，垂直下滑 ≥阈值 `clamp(0.18*h, 96,160)` 触发 `onClose`，否则 0.22s `CubicBezier(0,0,0.58,1)` 回弹；**歌词面板激活（`activePanel==1`）时禁止下滑关闭**（对齐 `canStartVerticalDismiss → isLyricPanelTarget`）。
+- `.player-page__panels`：手机 `HorizontalPager`（`beyondViewportPageCount 0`）+ `animateScrollToPage 220ms easeOut`，等价 200% → `translateX(-activePanel*50%)`；平板收缩为 `Row weight 1f` 双栏 + 底部 `TabletBottomBar`（渐变背景 `rgba(5,7,13,0)→0.55` + 进度全宽 + 三段式控制，padding `6 24 calc(8+safe)`）。
+- `.player-page__cover-hero`：`aspectRatio(1)` 正方形，`max-height min(50vh,420px)` 内 contain，窄屏 `min(34vw,150dp)`，圆角 12dp。
+- `info-panel`：padding `calc(16+safe) 24 16`；`info-inner` gap 14（`song-meta` 下边距 18 → 进度间距 32）；断点收紧 ≤720 gap 4 / ≤520 gap 2，mode-bar max 320/280/260。
+- `progress-range`：白色填充 + `rgba(255,255,255,0.25)` 底轨（全局 `.player-overlay .progress-range` 覆盖 primary）、thumb 隐藏、时间行 12px tabular `rgba 0.68`、缓冲 11px `0.55`、`formatTime` 分钟补零（`03:45`）。
+- `lyric-panel`：行字号 `clamp(22px,6.5vw,32px)`（平板 `clamp(20,2.4vw,30)`）统一、行水平边距 24、无当前行底色（AMLL 行无背景）、空态 `17px/600 + 13px/0.65` 无图标；`lyric-fabs` left/right 12、bottom `calc(8+safe)`、200ms fade。
+- 空态：`placeholder-cover` 渐变圆角方块 + `♪ 48px`、标题 `20px/600`、描述 `14px/1.5/0.75`。
+- `PhoneImmersiveLayout` 含固定头部 `FixedSongHead`（常驻，无指示器）、panels；`TabletImmersiveLayout` 头部移入左栏、右栏歌词无 play FAB。
 
 ### 7.3 数据流
 
@@ -128,7 +132,7 @@ position (500ms) / lyricPosition (100ms, coerceAtMost lastLineEnd) -> PlayerScre
 ```
 
 - 歌词空时发空数组（非 null），`MeloXIOSLyricsPanel` / `MetaWindow` 显空态，背景不卸载。
-- 逐词染色：非当前行 `0.50`（和声 `0.38`），当前行已唱 `1.0 Bold` / 未唱 `0.42 Regular` / 正在唱 `1.0 ExtraBold`。
+- 逐词染色：非当前行 `0.35`，当前行已唱 `1.0` / 未唱 `0.42` / 正在唱 `1.0 ExtraBold`（对齐 AMLL 非活动行统一暗淡）。
 
 ## 测试要点
 

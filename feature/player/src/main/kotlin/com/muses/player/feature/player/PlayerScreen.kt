@@ -1,7 +1,9 @@
 package com.muses.player.feature.player
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -75,6 +77,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -156,8 +159,7 @@ fun PlayerScreen(
     // 拖动层状态（对齐 PlayerPage.vue drag-layer）
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var isDraggingVertically by remember { mutableStateOf(false) }
-    // 歌词面板是否激活：垂直下滑仅 info-panel 生效（对齐 canStartVerticalDismiss / isLyricPanelTarget）
-    @Suppress("UNUSED_VARIABLE")
+    // 歌词面板是否激活：垂直下滑仅 info-panel 生效（对齐 canStartVerticalDismiss → isLyricPanelTarget）
     var isLyricPanelActive by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -201,11 +203,14 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .background(Color(0xFF05070D))
                 .graphicsLayer { translationY = dragOffsetY }
-                .pointerInput(isTabletLayout, dismissThresholdPx) {
+                .pointerInput(isTabletLayout, dismissThresholdPx, isLyricPanelActive) {
                     var accumulatedY = 0f
                     detectVerticalDragGestures(
                         onDragStart = { _: Offset -> accumulatedY = 0f; isDraggingVertically = true },
                         onVerticalDrag = { _: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
+                            // 歌词面板激活时禁用 overlay 下滑（对齐 canStartVerticalDismiss：isLyricPanelTarget → false），
+                            // 避免歌词上下滚动误触发整页跟手/关闭
+                            if (isLyricPanelActive) return@detectVerticalDragGestures
                             if (dragAmount > 0f || accumulatedY > 0f) {
                                 accumulatedY = (accumulatedY + dragAmount).coerceAtLeast(0f)
                                 dragOffsetY = accumulatedY
@@ -234,28 +239,43 @@ fun PlayerScreen(
             )
 
         if (!hasSong) {
-            // 空态：保留沉浸底色与背景渐变，中央提示（避免黑屏误判）
+            // 空态：对齐 empty-state + placeholder-cover —— 渐变圆角方块 + ♪（48px），标题 20px/600，描述 14px/1.5/0.75
+            // panel 级 padding calc(16+safe) 24 16（对齐 .player-overlay .empty-state）
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
-                    .padding(horizontal = 24.dp),
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
                 Box(
                     modifier = Modifier
-                        .size(96.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.08f)),
+                        .size(minOf(screenWidth * 0.72f, 340.dp, screenHeight * 0.52f))
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(
+                            // 135deg 渐变（对齐 .placeholder-cover linear-gradient(135deg, white .22→.06)）
+                            Brush.linearGradient(
+                                colors = listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.06f)),
+                                start = Offset.Zero,
+                                end = Offset.Infinite,
+                            ),
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(48.dp))
+                    Text("♪", color = Color.White.copy(alpha = 0.8f), fontSize = 48.sp)
                 }
                 Spacer(Modifier.height(16.dp))
-                Text("暂无播放歌曲", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Text("暂无播放歌曲", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(8.dp))
-                Text("从歌曲列表选择一首音乐后，即可进入沉浸式播放。", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, textAlign = TextAlign.Center)
+                Text(
+                    "从歌曲列表选择一首音乐后，即可进入沉浸式播放。",
+                    color = Color.White.copy(alpha = 0.75f),
+                    fontSize = 14.sp,
+                    lineHeight = 21.sp,
+                    textAlign = TextAlign.Center,
+                )
             }
         } else {
             Column(
@@ -687,7 +707,7 @@ private fun FixedSongHead(
             color = Color.White.copy(alpha = 0.95f),
             fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.2.sp * 0.01f,
+            letterSpacing = 0.2.sp, // 0.01em × 20px
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             lineHeight = 26.sp,
@@ -734,18 +754,27 @@ private fun InfoPanel(
     maxWidth: Dp = 360.dp,
     maxHeight: Dp = 800.dp,
 ) {
-    // info-panel inner：手机 justify-content flex-end（底部对齐），平板 center
-    // gap 14px，width min(100%,420px) 居中，padding-top 16，overflow hidden
+    // info-panel：panel padding calc(16+safe) 24 16（对齐 .player-overlay .panel）；
+    // info-inner gap 14、padding-top 16、song-meta margin-bottom 18（对齐 .info-panel-inner）
+    // 断点收紧（对齐全局 media query）：≤720 gap 4、≤520 gap 2
+    val shortHeight = maxHeight <= 720.dp
+    val innerGap = when {
+        isNarrowHeight -> 2.dp
+        shortHeight -> 4.dp
+        else -> 14.dp
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp)
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp)
+            .padding(top = 16.dp, bottom = 16.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = if (isTablet) Arrangement.Center else Arrangement.Bottom,
     ) {
         // 平板已在外层渲染头部，此处不再重复；手机版头部由 fixed 承担，此处不渲染 in-panel
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp)) // info-inner padding-top 16
         // 封面 hero：对齐 Capacitor player-page__cover-hero 的 max-height min(50vh,420) + contain 逻辑
         // 窄屏 34vw/150 限制通过 CoverHero 内部 34vw 计算
         CoverHero(
@@ -754,7 +783,7 @@ private fun InfoPanel(
             screenWidth = maxWidth,
             isNarrowHeight = isNarrowHeight,
         )
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(innerGap))
         // 五行小窗：仅手机显示（平板 display:none）；窄屏单行模式，对齐 Capacitor 79/19.5 视口
         if (!isTablet) {
             MetaWindow(
@@ -765,7 +794,8 @@ private fun InfoPanel(
                     .fillMaxWidth()
                     .height(if (isNarrowHeight) 19.5.dp else 79.dp),
             )
-            Spacer(Modifier.height(18.dp))
+            // song-meta margin-bottom 18（对齐 .player-page__song-meta margin: 0 0 18px）
+            Spacer(Modifier.height(innerGap + 18.dp))
         }
         // 手机控件区：player-page__info-controls（平板 display:none，由底部条承担）
         if (!isTablet) {
@@ -776,9 +806,9 @@ private fun InfoPanel(
                 onSeekStart = onSeekStart,
                 onSeekEnd = onSeekEnd,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(innerGap))
             ControlsRow(isPlaying = isPlaying, onPrevious = onPrevious, onPlayPause = onPlayPause, onNext = onNext)
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(innerGap))
             ModeBarRow(
                 repeatMode = repeatMode,
                 shuffleEnabled = shuffleEnabled,
@@ -787,8 +817,6 @@ private fun InfoPanel(
                 onOpenQueue = onOpenQueue,
                 onOpenEditMeta = onOpenEditMeta,
             )
-            Spacer(Modifier.height(24.dp))
-            Spacer(Modifier.navigationBarsPadding())
         } else {
             Spacer(Modifier.height(12.dp))
         }
@@ -870,19 +898,10 @@ private fun MetaWindow(
     }
     val currentIdx = remember(lines, lyricPosition) { computeCurrentIndex(lines, lyricPosition) }
 
-    // 显示窗口：始终 5 行（prev2/prev/current/next/next2），空行占位保持高度稳定
-    val windowRows = remember(lines, currentIdx) {
-        ( -2..2).map { offset ->
-            val idx = currentIdx + offset
-            val line = lines.getOrNull(idx)
-            val raw = line?.words?.joinToString("") { it.word }?.trim() ?: ""
-            Triple(offset, raw, offset == 0)
-        }
-    }
-
-    // 窄屏单行模式：仅当前行可见
+    // 窄屏单行模式：仅当前行可见（对齐 @media max-height:520px：19.5px 单行视口）
     if (isNarrowHeight) {
-        val currentText = windowRows.find { it.third }?.second ?: ""
+        val currentLine = lines.getOrNull(currentIdx)
+        val currentText = currentLine?.words?.joinToString("") { it.word }?.trim().orEmpty()
         Box(modifier = modifier.height(19.5.dp), contentAlignment = Alignment.CenterStart) {
             Text(
                 text = if (currentText.isEmpty()) " " else currentText,
@@ -896,6 +915,7 @@ private fun MetaWindow(
                     .graphicsLayer {
                         scaleX = 1.05f
                         scaleY = 1.05f
+                        transformOrigin = TransformOrigin(0f, 0.5f)
                     },
                 lineHeight = 19.5.sp,
             )
@@ -903,7 +923,36 @@ private fun MetaWindow(
         return
     }
 
-    // 79px 视口 + 窗口 -29.5 居中（对应 --meta-window-offset）
+    // 窗口基准行：对齐 Capacitor displayedWindow 语义——动画期间保持旧窗口，完成后换新窗口
+    var displayedBaseIdx by remember { mutableStateOf(currentIdx) }
+    // 相邻切行的整体上移补偿：1 = 起始（新当前行停在中心下一行位，T = -29.5 + 29.5 = 0）→ 0 = 稳态（-29.5）
+    val slide = remember { Animatable(0f) }
+    LaunchedEffect(currentIdx) {
+        val prevBase = displayedBaseIdx
+        if (currentIdx == prevBase) return@LaunchedEffect
+        // 先换窗口数据（对齐 Vue pre-flush watcher 先更新 displayedWindow）
+        displayedBaseIdx = currentIdx
+        // 非相邻（seek 大跳/切歌/翻译显隐）：直接到位，无滚动动画
+        if (currentIdx != prevBase + 1) {
+            slide.snapTo(0f)
+            return@LaunchedEffect
+        }
+        // 相邻切行：窗口整体上移一行（0.4s cubic-bezier(0.32,0.72,0,1)，对齐 JS animate）
+        slide.snapTo(1f)
+        slide.animateTo(0f, tween(durationMillis = 400, easing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)))
+    }
+
+    // 显示窗口：始终 5 行（prev2/prev/current/next/next2），空行占位保持高度稳定
+    val windowRows = remember(lines, displayedBaseIdx) {
+        ( -2..2).map { offset ->
+            val idx = displayedBaseIdx + offset
+            val line = lines.getOrNull(idx)
+            val raw = line?.words?.joinToString("") { it.word }?.trim() ?: ""
+            Triple(offset, raw, offset == 0)
+        }
+    }
+
+    // 79px 视口 + 窗口 -29.5 居中（对应 --meta-window-offset）；相邻切行追加 +29.5×slide 补偿
     Box(
         modifier = modifier
             .height(79.dp)
@@ -913,26 +962,30 @@ private fun MetaWindow(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .offset(y = (-29.5).dp),
+                .graphicsLayer {
+                    translationY = (-29.5f + 29.5f * slide.value).dp.toPx()
+                },
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             windowRows.forEach { (offset, raw, isCurrent) ->
                 val text = if (raw.isEmpty()) " " else raw
-                // 动画：scale 1.05/0.92，opacity 1/0.55，blur 0/0.6（Compose 用 alpha + scale 近似，blur 文本成本高仅保留 alpha 差异）
+                // 行动画：spring(stiffness 240, damping 26)（motion-v 参数直译：dampingRatio≈0.84）
+                // scale 1.05/0.92、opacity 1/0.55；blur 0.6px 用 alpha 近似（文本 blur 成本高）
                 val targetScale by animateFloatAsState(
                     targetValue = if (isCurrent) 1.05f else 0.92f,
-                    animationSpec = tween(durationMillis = 260, easing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)),
+                    animationSpec = spring(dampingRatio = 0.84f, stiffness = 800f),
                     label = "meta-scale-$offset",
                 )
                 val targetAlpha by animateFloatAsState(
                     targetValue = if (isCurrent) 1f else 0.55f,
-                    animationSpec = tween(260),
+                    animationSpec = spring(dampingRatio = 0.84f, stiffness = 800f),
                     label = "meta-alpha-$offset",
                 )
                 Text(
                     text = text,
-                    color = if (isCurrent) Color.White.copy(alpha = 0.92f * targetAlpha) else Color.White.copy(alpha = 0.6f * targetAlpha),
+                    // 颜色走 CSS 层（current 0.92 / 非当前 0.6），透明度走 motion opacity——不双重相乘
+                    color = if (isCurrent) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.6f),
                     fontSize = 13.sp,
                     fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
@@ -940,6 +993,8 @@ private fun MetaWindow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .graphicsLayer {
+                            // transform-origin: left center（缩放从左缘开始，三行保持左对齐不偏移）
+                            transformOrigin = TransformOrigin(0f, 0.5f)
                             scaleX = targetScale
                             scaleY = targetScale
                             alpha = if (raw.isEmpty()) 0f else targetAlpha
@@ -984,8 +1039,10 @@ private fun ProgressSection(
             valueRange = 0f..max,
             enabled = canSeek,
             colors = SliderDefaults.colors(
-                activeTrackColor = LocalSaltColors.current.primary,
-                inactiveTrackColor = Color.White.copy(alpha = 0.22f),
+                // 对齐全局 .player-overlay .progress-range：底轨 rgba(255,255,255,0.25)，填充 #ffffff
+                // （scoped 的 primary 被全局规则覆盖，真源以白轨为准）
+                activeTrackColor = Color.White,
+                inactiveTrackColor = Color.White.copy(alpha = 0.25f),
                 thumbColor = Color.White,
                 activeTickColor = Color.Transparent,
                 inactiveTickColor = Color.Transparent,
@@ -1000,9 +1057,9 @@ private fun ProgressSection(
                 )
             },
         )
-        // time-row：对齐 Capacitor 12px tabular-nums rgba0.68 + 缓冲提示 11px rgba0.55
+        // time-row：对齐 Capacitor 12px tabular-nums rgba0.68 + 缓冲提示 11px rgba0.55，margin-top 2px
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth().padding(top = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1041,10 +1098,16 @@ private fun ControlsRow(
     onNext: () -> Unit,
     compact: Boolean = false,
 ) {
-    // controls：三键 lg（48/28），gap clamp(24,10vw,44)，touch-action manipulation — 对齐 Capacitor clamp
+    // controls：三键 lg（48/28），gap clamp(24,10vw,44)；矮屏断点收紧（≤720 clamp(12,4vw,20)、≤520 clamp(10,3.5vw,16)）
+    val configuration = LocalConfiguration.current
     val gap = if (compact) 12.dp else {
-        val vw10 = LocalConfiguration.current.screenWidthDp.dp * 0.10f
-        vw10.coerceIn(24.dp, 44.dp)
+        val vw = configuration.screenWidthDp.dp
+        val vw10 = vw * 0.10f
+        when {
+            configuration.screenHeightDp <= 520 -> (vw * 0.035f).coerceIn(10.dp, 16.dp)
+            configuration.screenHeightDp <= 720 -> (vw * 0.04f).coerceIn(12.dp, 20.dp)
+            else -> vw10.coerceIn(24.dp, 44.dp)
+        }
     }
     val btnSize = SaltIconButtonSize.LG
     Row(
@@ -1084,13 +1147,17 @@ private fun ModeBarRow(
     onOpenQueue: () -> Unit,
     onOpenEditMeta: () -> Unit,
 ) {
-    // mode-bar：max-width 320，space-between，无 is-active（仅图标对 + aria-label）
+    // mode-bar：max-width 320（≤720 收 280、≤520 收 260），space-between，无 is-active（仅图标对 + aria-label）
     // 图标：repeatOutline(repeat) / repeat(one)，shuffle / listOutline（顺序播放）
+    val modeMaxWidth = when {
+        LocalConfiguration.current.screenHeightDp <= 520 -> 260.dp
+        LocalConfiguration.current.screenHeightDp <= 720 -> 280.dp
+        else -> 320.dp
+    }
     Row(
         Modifier
             .fillMaxWidth()
-            .widthIn(max = 320.dp)
-            .padding(horizontal = 8.dp),
+            .widthIn(max = modeMaxWidth),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1254,16 +1321,31 @@ private fun LyricPanel(
             ) { if (lines.isNotEmpty()) revealChrome() },
     ) {
         if (lines.isEmpty()) {
+            // 空态：对齐 .player-page__lyric-empty —— h2 17px/600 + p 13px/1.5 opacity 0.65（无图标）
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = Color.White.copy(alpha = 0.45f), modifier = Modifier.size(40.dp))
-                    Text("暂无歌词", color = Color.White.copy(alpha = 0.7f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                    Text("未找到内嵌歌词或同目录同名 .lrc 文件，可在刮削页获取。", color = Color.White.copy(alpha = 0.45f), fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
+                    Text("暂无歌词", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "未找到内嵌歌词或同目录同名 .lrc 文件，可在刮削页获取。",
+                        color = Color.White.copy(alpha = 0.65f),
+                        fontSize = 13.sp,
+                        lineHeight = 19.5.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
                 }
             }
         } else {
             val listState = rememberLazyListState()
             val currentIdx = remember(lines, lyricPosition) { computeCurrentIndex(lines, lyricPosition) }
+            // AMLL 字号：--amll-lp-font-size clamp(22px,6.5vw,32px)（平板 clamp(20px,2.4vw,30px)）
+            val amllFontSize = if (isTablet) {
+                (LocalConfiguration.current.screenWidthDp * 0.024f).coerceIn(20f, 30f).sp
+            } else {
+                (LocalConfiguration.current.screenWidthDp * 0.065f).coerceIn(22f, 32f).sp
+            }
+            val mainLineHeight = (amllFontSize.value * 1.6f).sp
+            val subLineSize = (amllFontSize.value * 0.6f).sp
 
             // 随进度自动滚动 + 点击跳播（对齐LyricPlayer current-time + line-click → seek）
             // 当前行位于歌词可视区中心（align center 0.5）：滚动到 currentIdx-2 使当前行居中
@@ -1282,45 +1364,44 @@ private fun LyricPanel(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp, start = 16.dp, end = 16.dp),
+                // 行水平边距对齐 panel padding 24（.player-overlay .panel padding 24px，--lyric-line-padding-x: 0）
+                contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp, start = 24.dp, end = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 itemsIndexed(lines, key = { idx, line -> "${line.startTime}-$idx" }) { idx, line ->
                     val isCurrent = idx == currentIdx
-                    val bg = if (isCurrent) Color.White.copy(alpha = 0.10f) else Color.Transparent
+                    // AMLL 行：无底色高亮（FmKaba_lyricLine 无背景），统一字号 + 逐词 alpha 区分
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(bg)
                             .clickable {
                                 onSeek(line.startTime.toLong())
                                 revealChrome()
                             }
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                            .padding(vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         // 逐词高亮：wordFadeWidth 0.5 近似为已唱白色、未唱半透，enableBlur/enableScale 用 scale+alpha 表达
                         val annotated = remember(line, lyricPosition, isCurrent) {
                             buildAnnotatedString {
                                 if (line.words.isEmpty()) {
-                                    withStyle(SpanStyle(color = Color.White.copy(alpha = if (isCurrent) 1f else 0.55f))) { append("") }
+                                    withStyle(SpanStyle(color = Color.White.copy(alpha = if (isCurrent) 1f else 0.35f))) { append("") }
                                 } else {
                                     line.words.forEach { w ->
                                         val alpha = when {
-                                            !isCurrent -> 0.5f
+                                            !isCurrent -> 0.35f // AMLL 非活动行统一暗淡
                                             lyricPosition >= w.endTime -> 1f
                                             lyricPosition < w.startTime -> 0.42f
                                             else -> 1f // 正在唱的词
                                         }
-                                        val weight = if (isCurrent && lyricPosition in w.startTime..w.endTime) FontWeight.ExtraBold else if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                                        val weight = if (isCurrent && lyricPosition in w.startTime..w.endTime) FontWeight.ExtraBold else FontWeight.Normal
                                         // wordFadeWidth 0.5：当前词内插值，此处简化为二段
                                         withStyle(
                                             SpanStyle(
                                                 color = Color.White.copy(alpha = alpha),
                                                 fontWeight = weight,
-                                                fontSize = if (isCurrent) 18.sp else 15.sp,
+                                                fontSize = amllFontSize,
                                             ),
                                         ) {
                                             append(w.word)
@@ -1341,14 +1422,14 @@ private fun LyricPanel(
                                     // enableBlur：非当前行轻微透明
                                     alpha = if (isCurrent) 1f else 0.95f
                                 },
-                            lineHeight = 26.sp,
+                            lineHeight = mainLineHeight,
                         )
                         // 翻译/音译（translationEnabled 控制显隐，对齐 applyLyricTranslationVisibility）
                         if (translationEnabled && line.translatedLyric.isNotBlank()) {
                             Text(
                                 text = line.translatedLyric,
                                 color = if (isCurrent) Color.White.copy(alpha = 0.88f) else Color.White.copy(alpha = 0.45f),
-                                fontSize = if (isCurrent) 13.sp else 12.sp,
+                                fontSize = subLineSize,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1359,7 +1440,7 @@ private fun LyricPanel(
                             Text(
                                 text = line.romanLyric,
                                 color = if (isCurrent) Color.White.copy(alpha = 0.62f) else Color.White.copy(alpha = 0.38f),
-                                fontSize = 11.sp,
+                                fontSize = (amllFontSize.value * 0.5f).sp,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth(),
                             )
@@ -1372,20 +1453,21 @@ private fun LyricPanel(
             }
         }
 
-        // 浮动操作：对齐 Capacitor lyric-fabs clear 风格 — 透明底 + 白字 text-white/80，翻译键 is-active 仅翻译，180ms fade，3s idle 隐藏
+        // 浮动操作：对齐 Capacitor lyric-fabs —— left/right 12、bottom calc(8px + safe-bottom)、200ms fade、
+        // clear 透明底 + text-white/80，翻译键 is-active 仅翻译，3s idle 隐藏
         val showFabContainer = hasTranslation || showPlayFab
         if (showFabContainer) {
             val fabAlpha by animateFloatAsState(
                 targetValue = if (chromeVisible) 1f else 0f,
-                animationSpec = tween(durationMillis = 180),
+                animationSpec = tween(durationMillis = 200),
                 label = "lyric-fab-alpha",
             )
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
-                    .alpha(fabAlpha)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
                     .graphicsLayer { alpha = fabAlpha },
                 horizontalArrangement = if (hasTranslation && showPlayFab) Arrangement.SpaceBetween else if (hasTranslation) Arrangement.Start else Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
@@ -1436,8 +1518,9 @@ private fun computeCurrentIndex(lines: List<AmllLyricLine>, positionMs: Long): I
 }
 
 private fun formatTime(ms: Long): String {
+    // 对齐 Capacitor formatTime：分钟补零（"03:45"）
     val totalSec = (ms / 1000).toInt().coerceAtLeast(0)
-    return "%d:%02d".format(totalSec / 60, totalSec % 60)
+    return "%02d:%02d".format(totalSec / 60, totalSec % 60)
 }
 
 // ---------- 队列页（保持原有 Salt 风格，轻微对齐） ----------
