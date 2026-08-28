@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -61,7 +62,13 @@ fun FlowingLightBackdrop(
         label = "phase",
     )
 
-    Box(modifier = modifier.background(Color(0xFF05070D))) {
+    Box(
+        modifier = modifier
+            // 对齐原版 .player-page__bg { overflow: hidden }：封面虚化层 scale 1.08 + blur 28dp
+            // 的绘制会向边界外溢出约一个模糊半径，不裁剪时沉浸页下滑会越界叠出半透明“第二层”
+            .clipToBounds()
+            .background(Color(0xFF05070D)),
+    ) {
         // 底层 fallback：无封面时可见（对齐 .player-overlay .fallback-background：
         // 径向紫光 50%/18% rgba(148,120,255,0.28) → transparent 42% + 线性 165deg #171b2b/#0a0c14/#05070d）
         if (coverUri.isNullOrBlank()) {
