@@ -768,20 +768,21 @@ private fun InfoPanel(
             .fillMaxSize()
             .navigationBarsPadding()
             .padding(horizontal = 24.dp)
-            .padding(top = 16.dp, bottom = 16.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(top = 16.dp, bottom = 16.dp),
+        // info-inner overflow: hidden（对齐 .player-page__info-inner）——页面不可滚动，封面弹性吃满剩余空间
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = if (isTablet) Arrangement.Center else Arrangement.Bottom,
     ) {
         // 平板已在外层渲染头部，此处不再重复；手机版头部由 fixed 承担，此处不渲染 in-panel
         Spacer(Modifier.height(16.dp)) // info-inner padding-top 16
-        // 封面 hero：对齐 Capacitor player-page__cover-hero 的 max-height min(50vh,420) + contain 逻辑
-        // 窄屏 34vw/150 限制通过 CoverHero 内部 34vw 计算
+        // 封面 hero：弹性占满剩余空间（对齐 cover-hero flex:1 1 auto；min-height 0 收缩），
+        // 上限 min(50vh,420px)，窄屏 34vw/150 限制通过 CoverHero 内部计算
         CoverHero(
             coverUri = coverUri,
             screenHeight = maxHeight,
             screenWidth = maxWidth,
             isNarrowHeight = isNarrowHeight,
+            modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.height(innerGap))
         // 五行小窗：仅手机显示（平板 display:none）；窄屏单行模式，对齐 Capacitor 79/19.5 视口
