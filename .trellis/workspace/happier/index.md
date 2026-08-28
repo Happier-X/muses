@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 110
+- **Total Sessions**: 111
 - **Last Active**: 2026-08-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1425 | Active |
+| `journal-3.md` | ~1450 | Active |
 | `journal-2.md` | ~1993 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 111 | 2026-08-28 | 沉浸式播放页1:1复刻Capacitor（增量+手势+overlay） | `44b2aa55`, `7a0cf9b7`, `1c1c0f05`, `2f1adec1` | `main` |
 | 110 | 2026-08-28 | 移除引导页残留 | `1eac73f1` | `main` |
 | 101 | 2026-08-17 | 所有依赖升级到最新版（TS7 保留 6.x） | `bf90517` | `main` |
 | 100 | 2026-08-17 | AMLL 歌词播完后保持最后一句高亮 | `c113199` | `main` |

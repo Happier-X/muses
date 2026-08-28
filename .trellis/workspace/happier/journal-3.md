@@ -1423,3 +1423,28 @@ npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1
 ### Status
 
 [OK] **Completed**
+
+
+## Session 111: 沉浸式播放页1:1复刻Capacitor（增量+手势+overlay）
+<!-- trellis-session: v=2 fp=9c851b69a61d994a -->
+
+**Date**: 2026-08-28
+**Task**: 沉浸式播放页1:1复刻Capacitor（增量+手势+overlay）
+**Branch**: `main`
+
+### Summary
+
+1:1 对齐 Capacitor PlayerPage：封面 50vh/420、小窗 79/-29.5、Slider primary/tabular、Fab clear、背景 blur28、移除指示器；重命名 LyricsPanel；全 popup 跟手与 overlay 漏列表；最终校验 Pager 0.22s 与图标去重
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `44b2aa55` | refactor(player): 沉浸式页1:1对齐 Capacitor 首轮增量 |
+| `7a0cf9b7` | refactor(player): 去 ios 命名并修复沉浸页整体跟手下滑 |
+| `1c1c0f05` | fix(player): 沉浸页改为 overlay 叠加，下滑漏出列表而非纯黑 |
+| `2f1adec1` | fix(player): 校验收尾 — Pager 0.22s 回弹与图标去重 |
+
+### Status
+
+[OK] **Completed**
