@@ -44,6 +44,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -325,12 +326,30 @@ fun KaraokeLyricsView(
                 if (!scrollInCode.value) {
                     val items = listState.layoutInfo.visibleItemsInfo
                     val targetItem = items.firstOrNull { it.index == firstIndex }
-                    val scrollOffset =
+                    val targetOffset =
                         (targetItem?.offset?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx))
                     try {
                         scrollInCode.value = true
-                        if (scrollOffset != null) {
-                            listState.scrollBy(scrollOffset.toFloat())
+                        if (targetOffset != null) {
+                            // 平滑跟随：逐帧指数逼近目标偏移。
+                            // 原实现用 scrollBy 一次性瞬移 + 行级弹簧回位动画叠加，
+                            // 换行/大跨行时新行会从上方"掉下来"。这里把瞬移改为逐帧
+                            // 收敛（帧率自适应），弹簧只负责手动滚动的回弹，自动滚动观感顺滑。
+                            var remaining = targetOffset.toFloat()
+                            var prevFrameMs = -1L
+                            while (kotlin.math.abs(remaining) > 0.5f) {
+                                val frameMs = withFrameMillis { it }
+                                if (prevFrameMs < 0L) prevFrameMs = frameMs
+                                val frameRatio =
+                                    ((frameMs - prevFrameMs) / 16.67f).coerceIn(0.5f, 2f)
+                                prevFrameMs = frameMs
+                                val step = remaining * (1f - 0.3f * frameRatio)
+                                listState.scrollBy(step)
+                                remaining -= step
+                            }
+                            if (kotlin.math.abs(remaining) > 0.5f) {
+                                listState.scrollBy(remaining)
+                            }
                         } else {
                             listState.animateScrollToItem(
                                 firstIndex,
@@ -420,7 +439,9 @@ fun KaraokeLyricsView(
 
                         val dynamicStiffness by remember(distanceWeightState.value) {
                             derivedStateOf {
-                                (120f - (distanceWeightState.value * 20f)).coerceAtLeast(20f)
+                                // 下限 60（原 20）：距离远的行弹簧太软，回位动画长，
+                                // 叠加自动滚动时产生"歌词从上面掉下来"的观感
+                                (120f - (distanceWeightState.value * 20f)).coerceAtLeast(60f)
                             }
                         }
 
