@@ -21,7 +21,6 @@ package com.mocharealm.accompanist.lyrics.ui.utils.modifier
 import androidx.compose.animation.core.DeferredTargetAnimation
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ApproachLayoutModifierNode
@@ -57,7 +56,10 @@ class SpringPlacementModifierNode(
         val target = with(lookaheadScope) {
             lookaheadScopeCoordinates.localLookaheadPositionOf(lookaheadCoordinates).round()
         }
-        -offsetAnimation.updateTarget(target, coroutineScope, if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 0.95f, stiffness = stiffness))
+        // 本地改动：原实现非手动滚动时用 spring 回位。列表顶部目标不可达时，
+        // lookahead 理论位置与实际位置出现偏差，弹簧把行从上方弹下来（"掉下来"观感）。
+        // 列表滚动本身已是平滑动画，行内再叠弹簧属于双重动画，统一改为 snap 直接跟随。
+        offsetAnimation.updateTarget(target, coroutineScope, snap())
         return !offsetAnimation.isIdle
     }
 
@@ -76,7 +78,7 @@ class SpringPlacementModifierNode(
                 val animatedOffset = offsetAnimation.updateTarget(
                     target,
                     coroutineScope,
-                    if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 0.95f, stiffness = stiffness)
+                    snap()
                 )
 
                 isFirstFrame = false
