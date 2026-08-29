@@ -132,6 +132,11 @@ fun LyricsPanel(
 
             val currentTextStyle = LocalTextStyle.current
             val screenWidthDp = LocalConfiguration.current.screenWidthDp
+            // 当前行定位基准：KaraokeLyricsView 会把当前行滚到距列表视口顶部 offset 处
+            // （默认 32dp 会贴顶）。AMLL 观感为当前行垂直居中略偏上，
+            // 取屏幕高度 42%，给下方翻译/音译行留出视觉平衡。
+            val screenHeightDp = LocalConfiguration.current.screenHeightDp
+            val lyricAnchorOffset = (screenHeightDp * 0.42f).dp
             // 字号：AMLL 默认 clamp(22px, 6.5vw, 32px)；手机端取 7.5vw 以贴合原生观感（360dp → 27sp，上限 32sp）
             val mainFontSize = if (isTablet) {
                 (screenWidthDp * 0.024f).coerceIn(20f, 30f)
@@ -168,6 +173,7 @@ fun LyricsPanel(
                 accompanimentLineTextStyle = accompanimentStyle,
                 phoneticTextStyle = phoneticStyle,
                 textColor = Color.White,
+                offset = lyricAnchorOffset,
                 // 非当前行高斯模糊：AMLL 的标志性景深（低版本系统由库内部降级）
                 useBlurEffect = true,
                 blendMode = BlendMode.Plus,
