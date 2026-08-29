@@ -317,68 +317,65 @@ fun KaraokeLyricsView(
         }
     }
 
-    // 用户手动滚动过后暂停自动跟随（可自由浏览前后歌词）；
-    // 直到用户滚回当前行附近（当前行重新可见）或点击任意行（seek）才恢复吸附。
-    val userScrolled = remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        androidx.compose.runtime.snapshotFlow { isManualScrolling }
-            .collect { scrolling -> if (scrolling) userScrolled.value = true }
+    // 对齐逻辑：把当前行平滑滚动到目标位置（逐帧指数逼近；目标行不可见时整列滚过去）。
+    // 手动滚动（isManualScrolling）期间一律不调用，避免打断浏览。
+    suspend fun alignToCurrentLine(firstIndex: Int) {
+        val items = listState.layoutInfo.visibleItemsInfo
+        val targetItem = items.firstOrNull { it.index == firstIndex }
+        val targetOffset =
+            (targetItem?.offset?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx))
+        try {
+            scrollInCode.value = true
+            if (targetOffset != null) {
+                var remaining = targetOffset.toFloat()
+                var prevFrameMs = -1L
+                while (kotlin.math.abs(remaining) > 0.5f) {
+                    val frameMs = withFrameMillis { it }
+                    if (prevFrameMs < 0L) prevFrameMs = frameMs
+                    val frameRatio =
+                        ((frameMs - prevFrameMs) / 16.67f).coerceIn(0.5f, 2f)
+                    prevFrameMs = frameMs
+                    val step = remaining * (1f - 0.3f * frameRatio)
+                    listState.scrollBy(step)
+                    remaining -= step
+                }
+                if (kotlin.math.abs(remaining) > 0.5f) {
+                    listState.scrollBy(remaining)
+                }
+            } else {
+                listState.animateScrollToItem(
+                    firstIndex,
+                    (-stableOffsetPx - keepAliveZonePx).toInt()
+                )
+            }
+        } catch (_: Exception) {
+        } finally {
+            scrollInCode.value = false
+        }
     }
-    // 切歌/换歌词时恢复自动跟随
-    LaunchedEffect(lyrics) { userScrolled.value = false }
 
+    // 换行时跟随当前行（滚动进行中不干预）
     LaunchedEffect(
         layoutCache,
         stableOffsetPx,
     ) {
         androidx.compose.runtime.snapshotFlow { lyricsFocusState.firstIndex }
             .collect { firstIndex ->
-                if (!scrollInCode.value) {
-                    val items = listState.layoutInfo.visibleItemsInfo
-                    val targetItem = items.firstOrNull { it.index == firstIndex }
-                    // 手动滚动中（含 userScrolled 置位前的一帧竞态）一律不干预滚动位置
-                    if (isManualScrolling) return@collect
-                    // 用户手动滚动过：暂停自动跟随，保持用户浏览位置；
-                    // 若用户已滚回当前行附近（当前行重新可见）则恢复吸附对齐
-                    if (userScrolled.value) {
-                        if (targetItem != null) userScrolled.value = false
-                        else return@collect
-                    }
-                    val targetOffset =
-                        (targetItem?.offset?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx))
-                    try {
-                        scrollInCode.value = true
-                        if (targetOffset != null) {
-                            // 平滑跟随：逐帧指数逼近目标偏移。
-                            // 原实现用 scrollBy 一次性瞬移 + 行级弹簧回位动画叠加，
-                            // 换行/大跨行时新行会从上方"掉下来"。这里把瞬移改为逐帧
-                            // 收敛（帧率自适应），弹簧只负责手动滚动的回弹，自动滚动观感顺滑。
-                            var remaining = targetOffset.toFloat()
-                            var prevFrameMs = -1L
-                            while (kotlin.math.abs(remaining) > 0.5f) {
-                                val frameMs = withFrameMillis { it }
-                                if (prevFrameMs < 0L) prevFrameMs = frameMs
-                                val frameRatio =
-                                    ((frameMs - prevFrameMs) / 16.67f).coerceIn(0.5f, 2f)
-                                prevFrameMs = frameMs
-                                val step = remaining * (1f - 0.3f * frameRatio)
-                                listState.scrollBy(step)
-                                remaining -= step
-                            }
-                            if (kotlin.math.abs(remaining) > 0.5f) {
-                                listState.scrollBy(remaining)
-                            }
-                        } else {
-                            listState.animateScrollToItem(
-                                firstIndex,
-                                (-stableOffsetPx - keepAliveZonePx).toInt()
-                            )
-                        }
-                    } catch (_: Exception) {
-                    } finally {
-                        scrollInCode.value = false
-                    }
+                if (!scrollInCode.value && !isManualScrolling) {
+                    alignToCurrentLine(firstIndex)
                 }
+            }
+    }
+
+    // 手动滚动结束（松手）：平滑回到当前高亮行
+    LaunchedEffect(layoutCache, stableOffsetPx) {
+        var prevScrolling = false
+        androidx.compose.runtime.snapshotFlow { isManualScrolling }
+            .collect { scrolling ->
+                if (prevScrolling && !scrolling && !scrollInCode.value) {
+                    alignToCurrentLine(lyricsFocusState.firstIndex)
+                }
+                prevScrolling = scrolling
             }
     }
     LookaheadScope {
@@ -512,14 +509,8 @@ fun KaraokeLyricsView(
                                         LyricsLineItem(
                                             isFocused = isCurrentFocusLine,
                                             isRightAligned = isVisualRightAligned,
-                                            onLineClicked = {
-                                                userScrolled.value = false
-                                                onLineClicked(line)
-                                            },
-                                            onLinePressed = {
-                                                userScrolled.value = false
-                                                onLinePressed(line)
-                                            },
+                                            onLineClicked = { onLineClicked(line) },
+                                            onLinePressed = { onLinePressed(line) },
                                             blurRadius = { blurRadiusState.value },
                                             blendMode = stableBlendMode,
                                         ) {
@@ -545,14 +536,8 @@ fun KaraokeLyricsView(
                                     LyricsLineItem(
                                         isFocused = isCurrentFocusLine,
                                         isRightAligned = isLineRtl,
-                                        onLineClicked = {
-                                            userScrolled.value = false
-                                            onLineClicked(line)
-                                        },
-                                        onLinePressed = {
-                                            userScrolled.value = false
-                                            onLinePressed(line)
-                                        },
+                                        onLineClicked = { onLineClicked(line) },
+                                        onLinePressed = { onLinePressed(line) },
                                         blurRadius = { blurRadiusState.value },
                                         blendMode = stableBlendMode,
                                     ) {
