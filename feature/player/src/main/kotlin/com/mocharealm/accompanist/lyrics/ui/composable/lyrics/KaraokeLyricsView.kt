@@ -317,18 +317,46 @@ fun KaraokeLyricsView(
         }
     }
 
+    // 当前行不在视口时的大跨行滚动：按平均行高估算距离，
+    // 固定速度匀速平滑逼近（接近时指数减速），直到当前行进入视口。
+    // 不用 animateScrollToItem 一步滚过去——中间行快速刷过 + 弹簧叠加产生"掉落感"。
+    suspend fun smoothScrollToward(firstIndex: Int) {
+        var prevFrameMs = -1L
+        var guard = 0
+        while (guard++ < 600) {
+            val info = listState.layoutInfo
+            if (info.visibleItemsInfo.any { it.index == firstIndex }) return
+            val firstVisible = info.visibleItemsInfo.firstOrNull()?.index ?: return
+            val vis = info.visibleItemsInfo
+            val avgHeight = if (vis.size >= 2) {
+                (vis.last().offset + vis.last().size - vis.first().offset).toFloat() /
+                    (vis.last().index - vis.first().index + 1)
+            } else 56f
+            val gap = firstIndex - firstVisible
+            if (gap == 0) return
+            val distance = gap * avgHeight
+            val frameMs = withFrameMillis { it }
+            val dtSec = if (prevFrameMs < 0L) 1f / 60f
+            else ((frameMs - prevFrameMs) / 1000f).coerceIn(0.005f, 0.1f)
+            prevFrameMs = frameMs
+            // 匀速 2200px/s；剩余距离 < ~120px 时按 30% 指数收敛自然减速
+            val step = (kotlin.math.abs(distance) * 0.3f)
+                .coerceAtLeast(2f)
+                .coerceAtMost(2200f * dtSec)
+            listState.scrollBy(if (gap > 0) step else -step)
+        }
+    }
+
     // 对齐逻辑：把当前行平滑滚动到目标位置。
-    // 可见时逐帧指数逼近；不可见时先滚到视口顶部（offset 0 是合法值，
-    // 传负值会被 Compose clamp 到 0，且滚动目标错误导致"回不到当前行"），
-    // 再走 scrollBy 精确对齐。手动滚动（isManualScrolling）期间一律不调用。
+    // 可见时逐帧指数逼近；不可见时先匀速平滑滚入视口，再 scrollBy 精确对齐。
+    // 手动滚动（isManualScrolling）期间一律不调用。
     suspend fun alignToCurrentLine(firstIndex: Int) {
         try {
             scrollInCode.value = true
             var targetItem = listState.layoutInfo.visibleItemsInfo
                 .firstOrNull { it.index == firstIndex }
             if (targetItem == null) {
-                // 当前行不在视口：先整列滚到该行贴视口顶部
-                listState.animateScrollToItem(firstIndex, 0)
+                smoothScrollToward(firstIndex)
                 targetItem = listState.layoutInfo.visibleItemsInfo
                     .firstOrNull { it.index == firstIndex }
             }
