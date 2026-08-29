@@ -40,6 +40,7 @@ feature/player/src/main/kotlin/com/mocharealm/accompanist/lyrics/ui/
 
 1. **`expect`/`actual` 折叠**：上游是 Kotlin Multiplatform 结构，`Char.isCjk()` / `isArabic()` / `isDevanagari()` 以 `expect` 声明、在 `androidMain` 提供 `actual` 实现。本项目是单目标 Android 模块，已将两者合并进 `utils/String.kt`，改为普通 Kotlin 函数。
 2. **移除 gaze-capsule 依赖**：`LyricsLineItem.kt` 原用 `com.mocharealm.gaze.capsule.ContinuousRoundedRectangle(8.dp)` 做行裁剪，现替换为 `androidx.compose.foundation.shape.RoundedCornerShape(8.dp)`，从而不必引入 `com.mocharealm.gaze:capsule` 库。
+3. **去掉 `ExperimentalAnimatableApi` opt-in**：`utils/modifier/SpringPlacementModifier.kt` 原带 `@OptIn(ExperimentalAnimatableApi::class)`（JetBrains Compose 的 KMP 注解）。AndroidX Compose 1.12 起 `DeferredTargetAnimation` 已转为稳定 API、该注解被移除，故删除 import 与注解。
 
 **许可证声明**（Apache 2.0 摘要）：
 

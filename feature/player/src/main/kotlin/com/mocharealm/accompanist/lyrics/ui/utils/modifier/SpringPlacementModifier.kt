@@ -19,7 +19,6 @@
 package com.mocharealm.accompanist.lyrics.ui.utils.modifier
 
 import androidx.compose.animation.core.DeferredTargetAnimation
-import androidx.compose.animation.core.ExperimentalAnimatableApi
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
@@ -38,7 +37,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.round
 
-@OptIn(ExperimentalAnimatableApi::class)
+// 本地化改动：上游为 JetBrains Compose（KMP）的 ExperimentalAnimatableApi 注解；
+// AndroidX Compose 1.12 起 DeferredTargetAnimation 已稳定、该注解被移除，故此处不再 opt-in
 class SpringPlacementModifierNode(
     var lookaheadScope: LookaheadScope,
     var itemKey: Any,
