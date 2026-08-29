@@ -317,15 +317,24 @@ fun KaraokeLyricsView(
         }
     }
 
-    // 对齐逻辑：把当前行平滑滚动到目标位置（逐帧指数逼近；目标行不可见时整列滚过去）。
-    // 手动滚动（isManualScrolling）期间一律不调用，避免打断浏览。
+    // 对齐逻辑：把当前行平滑滚动到目标位置。
+    // 可见时逐帧指数逼近；不可见时先滚到视口顶部（offset 0 是合法值，
+    // 传负值会被 Compose clamp 到 0，且滚动目标错误导致"回不到当前行"），
+    // 再走 scrollBy 精确对齐。手动滚动（isManualScrolling）期间一律不调用。
     suspend fun alignToCurrentLine(firstIndex: Int) {
-        val items = listState.layoutInfo.visibleItemsInfo
-        val targetItem = items.firstOrNull { it.index == firstIndex }
-        val targetOffset =
-            (targetItem?.offset?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx))
         try {
             scrollInCode.value = true
+            var targetItem = listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == firstIndex }
+            if (targetItem == null) {
+                // 当前行不在视口：先整列滚到该行贴视口顶部
+                listState.animateScrollToItem(firstIndex, 0)
+                targetItem = listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == firstIndex }
+            }
+            val targetOffset = targetItem
+                ?.offset
+                ?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx)
             if (targetOffset != null) {
                 var remaining = targetOffset.toFloat()
                 var prevFrameMs = -1L
@@ -342,11 +351,6 @@ fun KaraokeLyricsView(
                 if (kotlin.math.abs(remaining) > 0.5f) {
                     listState.scrollBy(remaining)
                 }
-            } else {
-                listState.animateScrollToItem(
-                    firstIndex,
-                    (-stableOffsetPx - keepAliveZonePx).toInt()
-                )
             }
         } catch (_: Exception) {
         } finally {
