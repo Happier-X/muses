@@ -483,12 +483,9 @@ fun KaraokeLyricsView(
                             }
                         }
 
-                        val dynamicStiffness by remember(distanceWeightState.value) {
-                            derivedStateOf {
-                                // 恢复原版弹性（下限 20）：距离越远弹簧越软，AMLL 标志性回弹手感
-                                (120f - (distanceWeightState.value * 20f)).coerceAtLeast(20f)
-                            }
-                        }
+                        // 弹簧刚度：原版 20..120 回位太慢=掉落感；统一 500（快速回弹），
+                        // 配合 dampingRatio 0.7 得到"快而短"的弹性手感
+                        val dynamicStiffness = 500f
 
                         Column(
                             modifier = Modifier
