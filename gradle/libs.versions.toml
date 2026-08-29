@@ -24,8 +24,6 @@ androidxHiltExt = "1.4.0"
 robolectric = "4.16"
 androidxTestCore = "1.7.0"
 accompanistLyricsCore = "0.4.7"
-# lyrics-ui 1.0.19 为 Maven Central 最新（2026-04-11），runtime 依赖 lyrics-core-jvm 0.4.5，Gradle 调解到 0.4.7
-accompanistLyricsUi = "1.0.19"
 androidxWebkit = "1.14.0"
 # M3 刮削引擎：DataStore JSON snapshot 序列化
 kotlinxSerialization = "1.9.0"
@@ -33,8 +31,7 @@ kotlinxSerialization = "1.9.0"
 [libraries]
 # M2：仅解析用（TTML/LRC → SyncedLyrics），不引入 lyrics-ui 渲染层
 accompanist-lyrics-core = { group = "com.mocharealm.accompanist", name = "lyrics-core", version.ref = "accompanistLyricsCore" }
-# 歌词渲染（KaraokeLyricsView 等，KMP 根坐标自动解析到 -android 变体）
-accompanist-lyrics-ui = { group = "com.mocharealm.accompanist", name = "lyrics-ui", version.ref = "accompanistLyricsUi" }
+# 歌词渲染层 lyrics-ui 已 vendor 为源码引入，不再作为外部依赖 —— 见 docs/THIRD_PARTY.md
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCore" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }

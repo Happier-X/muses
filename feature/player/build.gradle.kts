@@ -10,7 +10,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        // lyrics-ui（AMLL 官方 Compose 渲染器）要求 29+；本机设备均 ≥29
+        // 卡拉OK 歌词渲染依赖 Compose BlurEffect（API 31+ 生效），下限 29
         minSdk = 29
     }
 
@@ -35,8 +35,9 @@ dependencies {
     implementation(project(":core:media"))
     // 歌词解析（accompanist lyrics-core 0.4.7，无 Android target 以 JVM 变体解析）
     implementation(libs.accompanist.lyrics.core)
-    // 歌词渲染（accompanist lyrics-ui 1.0.19 = AMLL 官方 Compose 实现：逐词渐变/字符弹跳/距离模糊/间奏呼吸点）
-    implementation(libs.accompanist.lyrics.ui)
+    // 歌词渲染：AMLL 官方渲染器已 vendor 进本模块
+    // （src/main/kotlin/com/mocharealm/accompanist/lyrics/ui，不再依赖 lyrics-ui AAR）
+    // 见 docs/THIRD_PARTY.md
     // 封面加载（Coil 3）
     implementation(libs.coil.compose)
     // Compose foundation（含 HorizontalPager 若需）

@@ -12,7 +12,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        // lyrics-ui（AMLL 官方 Compose 渲染器）要求 29+，故整体下限由 26 抬到 29
+        // 卡拉OK 歌词渲染依赖 Compose BlurEffect（API 31+ 才生效），下限由 26 抬到 29
         minSdk = 29
         targetSdk = 36
         // CI 发布经 -Pandroid.injected.version* 注入（tag 名/提交总数）；
