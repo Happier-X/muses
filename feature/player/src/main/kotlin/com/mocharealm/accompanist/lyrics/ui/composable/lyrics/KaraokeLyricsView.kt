@@ -458,9 +458,8 @@ fun KaraokeLyricsView(
 
                         val dynamicStiffness by remember(distanceWeightState.value) {
                             derivedStateOf {
-                                // 下限 60（原 20）：距离远的行弹簧太软，回位动画长，
-                                // 叠加自动滚动时产生"歌词从上面掉下来"的观感
-                                (120f - (distanceWeightState.value * 20f)).coerceAtLeast(60f)
+                                // 恢复原版弹性（下限 20）：距离越远弹簧越软，AMLL 标志性回弹手感
+                                (120f - (distanceWeightState.value * 20f)).coerceAtLeast(20f)
                             }
                         }
 
