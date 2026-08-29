@@ -317,33 +317,32 @@ fun KaraokeLyricsView(
         }
     }
 
-    // 当前行不在视口时的大跨行滚动：按平均行高估算距离，
-    // 固定速度匀速平滑逼近（接近时指数减速），直到当前行进入视口。
+    // 当前行不在视口时的大跨行滚动：不估算行高（尾部有 2000dp 的
+    // BottomSpacing 空白项，行高估算会被严重拉偏），改为按固定步长
+    // （0.8 视口/步）匀速平滑逼近，直到当前行进入视口。
     // 不用 animateScrollToItem 一步滚过去——中间行快速刷过 + 弹簧叠加产生"掉落感"。
     suspend fun smoothScrollToward(firstIndex: Int) {
-        var prevFrameMs = -1L
         var guard = 0
-        while (guard++ < 600) {
+        while (guard++ < 400) {
             val info = listState.layoutInfo
             if (info.visibleItemsInfo.any { it.index == firstIndex }) return
             val firstVisible = info.visibleItemsInfo.firstOrNull()?.index ?: return
-            val vis = info.visibleItemsInfo
-            val avgHeight = if (vis.size >= 2) {
-                (vis.last().offset + vis.last().size - vis.first().offset).toFloat() /
-                    (vis.last().index - vis.first().index + 1)
-            } else 56f
             val gap = firstIndex - firstVisible
             if (gap == 0) return
-            val distance = gap * avgHeight
-            val frameMs = withFrameMillis { it }
-            val dtSec = if (prevFrameMs < 0L) 1f / 60f
-            else ((frameMs - prevFrameMs) / 1000f).coerceIn(0.005f, 0.1f)
-            prevFrameMs = frameMs
-            // 匀速 2200px/s；剩余距离 < ~120px 时按 30% 指数收敛自然减速
-            val step = (kotlin.math.abs(distance) * 0.3f)
-                .coerceAtLeast(2f)
-                .coerceAtMost(2200f * dtSec)
-            listState.scrollBy(if (gap > 0) step else -step)
+            val viewportH =
+                (info.viewportEndOffset - info.viewportStartOffset).toFloat().coerceAtLeast(600f)
+            var remaining = if (gap > 0) viewportH * 0.8f else -viewportH * 0.8f
+            var prevFrameMs = -1L
+            while (kotlin.math.abs(remaining) > 1f) {
+                val frameMs = withFrameMillis { it }
+                if (prevFrameMs < 0L) prevFrameMs = frameMs
+                val dtSec =
+                    ((frameMs - prevFrameMs) / 1000f).coerceIn(0.005f, 0.1f)
+                prevFrameMs = frameMs
+                val step = remaining.coerceAtMost(2200f * dtSec)
+                listState.scrollBy(step)
+                remaining -= step
+            }
         }
     }
 
