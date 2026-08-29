@@ -317,6 +317,16 @@ fun KaraokeLyricsView(
         }
     }
 
+    // 用户手动滚动过后暂停自动跟随（可自由浏览前后歌词）；
+    // 直到用户滚回当前行附近（当前行重新可见）或点击任意行（seek）才恢复吸附。
+    val userScrolled = remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        androidx.compose.runtime.snapshotFlow { isManualScrolling }
+            .collect { scrolling -> if (scrolling) userScrolled.value = true }
+    }
+    // 切歌/换歌词时恢复自动跟随
+    LaunchedEffect(lyrics) { userScrolled.value = false }
+
     LaunchedEffect(
         layoutCache,
         stableOffsetPx,
@@ -326,6 +336,14 @@ fun KaraokeLyricsView(
                 if (!scrollInCode.value) {
                     val items = listState.layoutInfo.visibleItemsInfo
                     val targetItem = items.firstOrNull { it.index == firstIndex }
+                    // 手动滚动中（含 userScrolled 置位前的一帧竞态）一律不干预滚动位置
+                    if (isManualScrolling) return@collect
+                    // 用户手动滚动过：暂停自动跟随，保持用户浏览位置；
+                    // 若用户已滚回当前行附近（当前行重新可见）则恢复吸附对齐
+                    if (userScrolled.value) {
+                        if (targetItem != null) userScrolled.value = false
+                        else return@collect
+                    }
                     val targetOffset =
                         (targetItem?.offset?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx))
                     try {
@@ -494,8 +512,14 @@ fun KaraokeLyricsView(
                                         LyricsLineItem(
                                             isFocused = isCurrentFocusLine,
                                             isRightAligned = isVisualRightAligned,
-                                            onLineClicked = { onLineClicked(line) },
-                                            onLinePressed = { onLinePressed(line) },
+                                            onLineClicked = {
+                                                userScrolled.value = false
+                                                onLineClicked(line)
+                                            },
+                                            onLinePressed = {
+                                                userScrolled.value = false
+                                                onLinePressed(line)
+                                            },
                                             blurRadius = { blurRadiusState.value },
                                             blendMode = stableBlendMode,
                                         ) {
@@ -521,8 +545,14 @@ fun KaraokeLyricsView(
                                     LyricsLineItem(
                                         isFocused = isCurrentFocusLine,
                                         isRightAligned = isLineRtl,
-                                        onLineClicked = { onLineClicked(line) },
-                                        onLinePressed = { onLinePressed(line) },
+                                        onLineClicked = {
+                                            userScrolled.value = false
+                                            onLineClicked(line)
+                                        },
+                                        onLinePressed = {
+                                            userScrolled.value = false
+                                            onLinePressed(line)
+                                        },
                                         blurRadius = { blurRadiusState.value },
                                         blendMode = stableBlendMode,
                                     ) {
