@@ -46,6 +46,9 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameMillis
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -345,14 +348,28 @@ fun KaraokeLyricsView(
                 // 弹簧驱动滚动：质量-弹簧-阻尼系统（Web 版 posY Spring 同款），
                 // 过阻尼（ratio 1.1）响应 = 初始速度快、越接近目标越慢的减速曲线。
                 // 之前 30%/帧 指数逼近太快（~50ms 完成）感觉不到减速过程。
-                var last = 0f
-                val scrollAnim = Animatable(0f)
-                scrollAnim.animateTo(
-                    targetOffset.toFloat(),
-                    spring(dampingRatio = 1.1f, stiffness = 220f)
-                ) {
-                    listState.scrollBy(value - last)
-                    last = value
+                // animateTo 的 block 非挂起，scrollBy 只能在帧循环里调用。
+                coroutineScope {
+                    var last = 0f
+                    val scrollAnim = Animatable(0f)
+                    val animationJob = launch {
+                        scrollAnim.animateTo(
+                            targetOffset.toFloat(),
+                            spring(dampingRatio = 1.1f, stiffness = 220f)
+                        )
+                    }
+                    while (animationJob.isActive) {
+                        withFrameMillis { }
+                        val v = scrollAnim.value
+                        listState.scrollBy(v - last)
+                        last = v
+                    }
+                    animationJob.join()
+                    // 收尾补差（浮点误差）
+                    val finalV = scrollAnim.value
+                    if (kotlin.math.abs(targetOffset.toFloat() - finalV) > 0.5f) {
+                        listState.scrollBy(targetOffset.toFloat() - finalV)
+                    }
                 }
             }
         } catch (_: Exception) {
