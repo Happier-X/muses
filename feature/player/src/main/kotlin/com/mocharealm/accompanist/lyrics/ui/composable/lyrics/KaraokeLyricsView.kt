@@ -46,7 +46,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -328,7 +327,7 @@ fun KaraokeLyricsView(
     // 对齐逻辑：把当前行滚动到居中锚点。
     // - 当前行不可见：animateScrollToItem(index, 0) 整体滚动动画（LazyList 内置弹簧，
     //   与 Web 版 posY spring 语义一致，且是整体滚动而非逐行弹簧，不会"掉下来"）；
-    // - 进入视口后：scrollBy 逐帧平滑微调到精确位置。
+    // - 进入视口后：弹簧驱动 scrollBy 精确到位。
     suspend fun alignToCurrentLine(firstIndex: Int) {
         try {
             scrollInCode.value = true
@@ -342,21 +341,18 @@ fun KaraokeLyricsView(
             val targetOffset = targetItem
                 ?.offset
                 ?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx)
-            if (targetOffset != null) {
-                var remaining = targetOffset.toFloat()
-                var prevFrameMs = -1L
-                while (kotlin.math.abs(remaining) > 0.5f) {
-                    val frameMs = withFrameMillis { it }
-                    if (prevFrameMs < 0L) prevFrameMs = frameMs
-                    val frameRatio =
-                        ((frameMs - prevFrameMs) / 16.67f).coerceIn(0.5f, 2f)
-                    prevFrameMs = frameMs
-                    val step = remaining * (1f - 0.3f * frameRatio)
-                    listState.scrollBy(step)
-                    remaining -= step
-                }
-                if (kotlin.math.abs(remaining) > 0.5f) {
-                    listState.scrollBy(remaining)
+            if (targetOffset != null && kotlin.math.abs(targetOffset) > 0.5f) {
+                // 弹簧驱动滚动：质量-弹簧-阻尼系统（Web 版 posY Spring 同款），
+                // 过阻尼（ratio 1.1）响应 = 初始速度快、越接近目标越慢的减速曲线。
+                // 之前 30%/帧 指数逼近太快（~50ms 完成）感觉不到减速过程。
+                var last = 0f
+                val scrollAnim = Animatable(0f)
+                scrollAnim.animateTo(
+                    targetOffset.toFloat(),
+                    spring(dampingRatio = 1.1f, stiffness = 220f)
+                ) {
+                    listState.scrollBy(value - last)
+                    last = value
                 }
             }
         } catch (_: Exception) {
