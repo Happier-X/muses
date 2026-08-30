@@ -57,10 +57,10 @@ class SpringPlacementModifierNode(
         val target = with(lookaheadScope) {
             lookaheadScopeCoordinates.localLookaheadPositionOf(lookaheadCoordinates).round()
         }
-        // 本地改动：原实现 spring(dampingRatio = 0.95f, stiffness = 20..120)。
-        // 0.95 接近临界阻尼 + 低刚度 = 回位动画几百 ms 慢慢归位，视觉即"歌词掉下来"。
-        // 弹性手感需要的是快速小幅回弹：提高刚度、降低阻尼比（0.7 欠阻尼，回弹 1-2 次即停）。
-        offsetAnimation.updateTarget(target, coroutineScope, if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 0.7f, stiffness = stiffness))
+        // 本地改动：弹簧参数对齐 Web 版 AMLL 行位置弹簧（posY Spring）：
+        // stiffness 170..220、damping = sqrt(stiffness)*2.2 → 阻尼比 ≈ 1.1（轻微过阻尼）。
+        // 回位快（~200ms）且无振荡——有"弹簧跟随"手感，不会像 0.95/低刚度那样拖尾掉落。
+        offsetAnimation.updateTarget(target, coroutineScope, if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 1.1f, stiffness = stiffness))
         return !offsetAnimation.isIdle
     }
 
@@ -79,7 +79,7 @@ class SpringPlacementModifierNode(
                 val animatedOffset = offsetAnimation.updateTarget(
                     target,
                     coroutineScope,
-                    if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 0.7f, stiffness = stiffness)
+                    if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 1.1f, stiffness = stiffness)
                 )
 
                 isFirstFrame = false

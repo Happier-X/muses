@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -72,6 +73,7 @@ import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeAlignment
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import com.mocharealm.accompanist.lyrics.ui.utils.isRtl
+import com.mocharealm.accompanist.lyrics.ui.utils.modifier.springPlacement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -400,7 +402,8 @@ fun KaraokeLyricsView(
 
     // 切歌/换歌词时恢复自动跟随
     LaunchedEffect(lyrics) { followPaused.value = false }
-    Crossfade(lyrics) { lyrics ->
+    LookaheadScope {
+        Crossfade(lyrics) { lyrics ->
             Box(modifier = modifier.clipToBounds()) {
                 LazyColumn(
                     state = listState,
@@ -473,10 +476,20 @@ fun KaraokeLyricsView(
                             }
                         }
 
-                        // 行容器不做逐行弹簧（对齐 Web 版：弹性动画作用于整体滚动位置，
-                        // 逐行独立弹簧会造成行从上方掉落的错位观感）
+                        // 行级弹簧（对齐 Web 版 posY Spring）：stiffness 随距离 220→170，
+                        // dampingRatio 1.1 轻微过阻尼 → 快速平滑跟随，有弹簧手感不拖尾
+                        val dynamicStiffness = (220f - distanceWeightState.value * 10f)
+                            .coerceIn(170f, 220f)
+
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .springPlacement(
+                                    this@LookaheadScope,
+                                    "${line.start}-${line.end}-$index",
+                                    isManualScrolling,
+                                    stiffness = dynamicStiffness
+                                ),
                             horizontalAlignment = if (isVisualRightAligned) Alignment.End else Alignment.Start
                         ) {
                             val animDuration = 600
@@ -581,5 +594,6 @@ fun KaraokeLyricsView(
                     }
                 }
             }
+        }
         }
 }
