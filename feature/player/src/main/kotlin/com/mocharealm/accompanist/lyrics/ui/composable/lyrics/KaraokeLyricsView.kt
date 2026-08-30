@@ -54,7 +54,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -73,8 +72,8 @@ import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeAlignment
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import com.mocharealm.accompanist.lyrics.ui.utils.isRtl
-import com.mocharealm.accompanist.lyrics.ui.utils.modifier.springPlacement
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.math.absoluteValue
@@ -317,45 +316,22 @@ fun KaraokeLyricsView(
         }
     }
 
-    // 当前行不在视口时的大跨行滚动：不估算行高（尾部有 2000dp 的
-    // BottomSpacing 空白项，行高估算会被严重拉偏），改为按固定步长
-    // （0.8 视口/步）匀速平滑逼近，直到当前行进入视口。
-    // 不用 animateScrollToItem 一步滚过去——中间行快速刷过 + 弹簧叠加产生"掉落感"。
-    suspend fun smoothScrollToward(firstIndex: Int) {
-        var guard = 0
-        while (guard++ < 400) {
-            val info = listState.layoutInfo
-            if (info.visibleItemsInfo.any { it.index == firstIndex }) return
-            val firstVisible = info.visibleItemsInfo.firstOrNull()?.index ?: return
-            val gap = firstIndex - firstVisible
-            if (gap == 0) return
-            val viewportH =
-                (info.viewportEndOffset - info.viewportStartOffset).toFloat().coerceAtLeast(600f)
-            var remaining = if (gap > 0) viewportH * 0.8f else -viewportH * 0.8f
-            var prevFrameMs = -1L
-            while (kotlin.math.abs(remaining) > 1f) {
-                val frameMs = withFrameMillis { it }
-                if (prevFrameMs < 0L) prevFrameMs = frameMs
-                val dtSec =
-                    ((frameMs - prevFrameMs) / 1000f).coerceIn(0.005f, 0.1f)
-                prevFrameMs = frameMs
-                val step = remaining.coerceAtMost(2200f * dtSec)
-                listState.scrollBy(step)
-                remaining -= step
-            }
-        }
-    }
+    // 手动滚动期间暂停自动跟随（对齐 Web 版 ScrollInteractionEngine 的交互语义）
+    val followPaused = remember { mutableStateOf(false) }
+    // 每次手动滚动开始递增，驱动"松手 5 秒后恢复自动对齐"的倒计时重启
+    val resumeTick = remember { mutableStateOf(0) }
 
-    // 对齐逻辑：把当前行平滑滚动到目标位置。
-    // 可见时逐帧指数逼近；不可见时先匀速平滑滚入视口，再 scrollBy 精确对齐。
-    // 手动滚动（isManualScrolling）期间一律不调用。
+    // 对齐逻辑：把当前行滚动到居中锚点。
+    // - 当前行不可见：animateScrollToItem(index, 0) 整体滚动动画（LazyList 内置弹簧，
+    //   与 Web 版 posY spring 语义一致，且是整体滚动而非逐行弹簧，不会"掉下来"）；
+    // - 进入视口后：scrollBy 逐帧平滑微调到精确位置。
     suspend fun alignToCurrentLine(firstIndex: Int) {
         try {
             scrollInCode.value = true
             var targetItem = listState.layoutInfo.visibleItemsInfo
                 .firstOrNull { it.index == firstIndex }
             if (targetItem == null) {
-                smoothScrollToward(firstIndex)
+                listState.animateScrollToItem(firstIndex, 0)
                 targetItem = listState.layoutInfo.visibleItemsInfo
                     .firstOrNull { it.index == firstIndex }
             }
@@ -385,32 +361,46 @@ fun KaraokeLyricsView(
         }
     }
 
-    // 换行时跟随当前行（滚动进行中不干预）
+    // 换行时跟随当前行（手动滚动或跟随暂停期间不干预）
     LaunchedEffect(
         layoutCache,
         stableOffsetPx,
     ) {
         androidx.compose.runtime.snapshotFlow { lyricsFocusState.firstIndex }
             .collect { firstIndex ->
-                if (!scrollInCode.value && !isManualScrolling) {
+                if (!scrollInCode.value && !isManualScrolling && !followPaused.value) {
                     alignToCurrentLine(firstIndex)
                 }
             }
     }
 
-    // 手动滚动结束（松手）：平滑回到当前高亮行
+    // 手动滚动：开始时暂停跟随；物理静止（含惯性结束）后启动
+    // 5 秒倒计时（对齐 Web 版 AUTO_ALIGN_RESUME_DELAY_MS）恢复自动对齐。
     LaunchedEffect(layoutCache, stableOffsetPx) {
         var prevScrolling = false
         androidx.compose.runtime.snapshotFlow { isManualScrolling }
             .collect { scrolling ->
-                if (prevScrolling && !scrolling && !scrollInCode.value) {
-                    alignToCurrentLine(lyricsFocusState.firstIndex)
+                if (scrolling) {
+                    followPaused.value = true
+                } else if (prevScrolling) {
+                    resumeTick.value++
                 }
                 prevScrolling = scrolling
             }
     }
-    LookaheadScope {
-        Crossfade(lyrics) { lyrics ->
+    LaunchedEffect(layoutCache, stableOffsetPx, resumeTick.value) {
+        if (followPaused.value) {
+            delay(5000)
+            if (followPaused.value && !isManualScrolling) {
+                followPaused.value = false
+                alignToCurrentLine(lyricsFocusState.firstIndex)
+            }
+        }
+    }
+
+    // 切歌/换歌词时恢复自动跟随
+    LaunchedEffect(lyrics) { followPaused.value = false }
+    Crossfade(lyrics) { lyrics ->
             Box(modifier = modifier.clipToBounds()) {
                 LazyColumn(
                     state = listState,
@@ -483,19 +473,10 @@ fun KaraokeLyricsView(
                             }
                         }
 
-                        // 弹簧刚度：原版 20..120 回位太慢=掉落感；统一 500（快速回弹），
-                        // 配合 dampingRatio 0.7 得到"快而短"的弹性手感
-                        val dynamicStiffness = 500f
-
+                        // 行容器不做逐行弹簧（对齐 Web 版：弹性动画作用于整体滚动位置，
+                        // 逐行独立弹簧会造成行从上方掉落的错位观感）
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .springPlacement(
-                                    this@LookaheadScope,
-                                    "${line.start}-${line.end}-$index",
-                                    isManualScrolling,
-                                    stiffness = dynamicStiffness
-                                ),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = if (isVisualRightAligned) Alignment.End else Alignment.Start
                         ) {
                             val animDuration = 600
@@ -536,8 +517,15 @@ fun KaraokeLyricsView(
                                         LyricsLineItem(
                                             isFocused = isCurrentFocusLine,
                                             isRightAligned = isVisualRightAligned,
-                                            onLineClicked = { onLineClicked(line) },
-                                            onLinePressed = { onLinePressed(line) },
+                                            onLineClicked = {
+                                                // 点击行（seek）立即恢复自动跟随（对齐 Web 版 resetScroll）
+                                                followPaused.value = false
+                                                onLineClicked(line)
+                                            },
+                                            onLinePressed = {
+                                                followPaused.value = false
+                                                onLinePressed(line)
+                                            },
                                             blurRadius = { blurRadiusState.value },
                                             blendMode = stableBlendMode,
                                         ) {
@@ -563,8 +551,14 @@ fun KaraokeLyricsView(
                                     LyricsLineItem(
                                         isFocused = isCurrentFocusLine,
                                         isRightAligned = isLineRtl,
-                                        onLineClicked = { onLineClicked(line) },
-                                        onLinePressed = { onLinePressed(line) },
+                                        onLineClicked = {
+                                            followPaused.value = false
+                                            onLineClicked(line)
+                                        },
+                                        onLinePressed = {
+                                            followPaused.value = false
+                                            onLinePressed(line)
+                                        },
                                         blurRadius = { blurRadiusState.value },
                                         blendMode = stableBlendMode,
                                     ) {
@@ -588,5 +582,4 @@ fun KaraokeLyricsView(
                 }
             }
         }
-    }
 }
