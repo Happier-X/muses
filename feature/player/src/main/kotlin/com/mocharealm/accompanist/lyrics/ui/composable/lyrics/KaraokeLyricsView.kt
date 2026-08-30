@@ -21,7 +21,9 @@ package com.mocharealm.accompanist.lyrics.ui.composable.lyrics
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
@@ -481,9 +483,25 @@ fun KaraokeLyricsView(
                         val dynamicStiffness = (220f - distanceWeightState.value * 10f)
                             .coerceIn(170f, 220f)
 
+                        // 波浪级联（对齐 Web 版 PlaybackTick 的 stagger 阶梯动画）：
+                        // 换行时每行按「距当前行的行数」错峰延迟（40ms/行），
+                        // 弹簧快速归位，形成从上到下依次跟进的波浪移动。
+                        val waveOffset = remember { Animatable(0f) }
+                        LaunchedEffect(lyricsFocusState.firstIndex) {
+                            val dist = kotlin.math.abs(index - lyricsFocusState.firstIndex)
+                            if (dist == 0) return@LaunchedEffect
+                            delay((dist * 40).coerceAtMost(200).toLong())
+                            waveOffset.snapTo(18f)
+                            waveOffset.animateTo(
+                                0f,
+                                spring(dampingRatio = 1.1f, stiffness = 220f)
+                            )
+                        }
+
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .graphicsLayer { translationY = waveOffset.value }
                                 .springPlacement(
                                     this@LookaheadScope,
                                     "${line.start}-${line.end}-$index",
