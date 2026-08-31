@@ -74,6 +74,8 @@ fun LyricWebView(
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
+            // 允许 Chrome DevTools 远程调试（排查 WebView 加载/JS 问题）
+            android.webkit.WebView.setWebContentsDebuggingEnabled(true)
             WebView(ctx).apply {
                 setBackgroundColor(Color.TRANSPARENT)
                 settings.javaScriptEnabled = true
@@ -92,6 +94,14 @@ fun LyricWebView(
                                 null
                             )
                         }
+                    }
+
+                    override fun onReceivedError(
+                        view: WebView?,
+                        request: android.webkit.WebResourceRequest?,
+                        error: android.webkit.WebResourceError?
+                    ) {
+                        android.util.Log.w("LyricWeb", "onReceivedError code=${error?.errorCode} desc=${error?.description} url=${request?.url}")
                     }
                 }
                 webChromeClient = object : android.webkit.WebChromeClient() {
