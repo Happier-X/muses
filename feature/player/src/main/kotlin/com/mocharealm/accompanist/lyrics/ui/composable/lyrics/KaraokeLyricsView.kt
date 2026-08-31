@@ -329,6 +329,11 @@ fun KaraokeLyricsView(
     // 每次手动滚动开始递增，驱动"松手 5 秒后恢复自动对齐"的倒计时重启
     val resumeTick = remember { mutableStateOf(0) }
 
+    // 行弹簧补偿（复刻 Web 版 posY Spring 机制）：列表瞬移后，
+    // waveDelta = 本次滚动量（行的视觉补偿），各行按 stagger 错峰弹簧归零
+    val waveDelta = remember { mutableStateOf(0f) }
+    val waveTick = remember { mutableStateOf(0) }
+
     // 对齐逻辑：把当前行滚动到居中锚点。
     // - 当前行不可见：animateScrollToItem(index, 0) 整体滚动动画（LazyList 内置弹簧，
     //   与 Web 版 posY spring 语义一致，且是整体滚动而非逐行弹簧，不会"掉下来"）；
@@ -347,32 +352,13 @@ fun KaraokeLyricsView(
                 ?.offset
                 ?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx)
             if (targetOffset != null && kotlin.math.abs(targetOffset) > 0.5f) {
-                // 弹簧物理驱动滚动：半隐式欧拉数值积分，参数完全对齐 Web 版
-                // posY Spring（m=1、k=220、c=2.2*sqrt(k)）——过阻尼阶跃响应：
-                // 起始速度最快、越接近目标越慢，即"越往上滚越慢"的减速曲线。
-                var remaining = targetOffset.toFloat()
-                var velocity = 0f
-                var prevFrameMs = -1L
-                var guard = 0
-                while (kotlin.math.abs(remaining) > 0.5f && guard++ < 240) {
-                    val frameMs = withFrameMillis { it }
-                    if (prevFrameMs < 0L) prevFrameMs = frameMs
-                    val dtSec =
-                        ((frameMs - prevFrameMs) / 1000f).coerceIn(0.001f, 0.032f)
-                    prevFrameMs = frameMs
-                    // remaining 视为位移误差（目标 0），弹簧把它拉向 0：
-                    // v' = -k*remaining - c*v；v 是 remaining 的变化率（衰减为负）
-                    val a = -SPRING_STIFFNESS * remaining - SPRING_DAMPING * velocity
-                    velocity += a * dtSec
-                    val dx = velocity * dtSec
-                    // 列表滚动方向与 remaining 衰减相反：remaining>0（行在目标下方）
-                    // 需要列表向下滚（scrollBy 正）让行上移
-                    listState.scrollBy(-dx)
-                    remaining += dx
-                }
-                if (kotlin.math.abs(remaining) > 0.5f) {
-                    listState.scrollBy(remaining)
-                }
+                // 完全复刻 Web 版移动机制：列表瞬移到位，行的视觉位置由每行
+                // 独立的 posY 弹簧从"旧视觉位置"过渡到"新位置"（含 stagger 错峰）。
+                // LazyList 的整体滚动是刚性的，无法逐行错峰，故用 graphicsLayer
+                // 补偿 = 滚动量的反向值，让行视觉保持旧位置，再弹簧归零。
+                waveDelta.value = targetOffset.toFloat()
+                waveTick.value++
+                listState.scrollBy(targetOffset.toFloat())
             }
         } catch (_: Exception) {
         } finally {
@@ -492,23 +478,22 @@ fun KaraokeLyricsView(
                             }
                         }
 
-                        // 波浪级联（对齐 Web 版 PlaybackTick 的 stagger 阶梯动画）：
-                        // 换行时每行按「距当前行的行数」错峰延迟（40ms/行），
-                        // 弹簧快速归位，形成从上到下依次跟进的波浪移动。
+                        // 行级 posY 弹簧（完全复刻 Web 版 group.ts 机制）：
+                        // 列表瞬移后，本行 graphicsLayer 先补偿 waveDelta（视觉保持旧位置），
+                        // 按「距当前行的行数」错峰延迟（40ms/行，上限 200ms）后，
+                        // 弹簧（阻尼比 1.1 过阻尼、k=220）归零——波浪式依次跟到位。
                         val waveOffset = remember { Animatable(0f) }
-                        LaunchedEffect(lyricsFocusState.firstIndex) {
+                        LaunchedEffect(waveTick.value) {
+                            if (waveDelta.value == 0f) return@LaunchedEffect
+                            waveOffset.snapTo(waveDelta.value)
                             val dist = kotlin.math.abs(index - lyricsFocusState.firstIndex)
-                            if (dist == 0) return@LaunchedEffect
                             delay((dist * 40).coerceAtMost(200).toLong())
-                            waveOffset.snapTo(18f)
                             waveOffset.animateTo(
                                 0f,
                                 spring(dampingRatio = 1.1f, stiffness = 220f)
                             )
                         }
 
-                        // 行容器不做位置弹簧：滚动已由弹簧物理整体驱动（对齐 Web 版——
-                        // 若行再叠一层弹簧会滞后于滚动，产生拖尾/掉落错位观感）
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
