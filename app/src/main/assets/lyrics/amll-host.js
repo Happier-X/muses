@@ -6,7 +6,17 @@
 import { LyricPlayer } from "@applemusic-like-lyrics/core";
 
 const root = document.getElementById("player");
-const player = new LyricPlayer(root);
+console.log("AMLL host: boot, root=", root);
+
+let player;
+try {
+	player = new LyricPlayer(root);
+	console.log("AMLL host: LyricPlayer created");
+} catch (e) {
+	console.error("AMLL host: LyricPlayer create FAILED", e);
+	// 构造失败则抛出让脚本中断，便于原生日志定位
+	throw e;
+}
 
 // 原生通过 evaluateJavascript 调用的桥
 window.AMLLHost = {
@@ -40,6 +50,7 @@ window.AMLLHost = {
 		player.update(16);
 	},
 };
+console.log("AMLL host: AMLLHost ready");
 
 // 点击歌词行 → seek（转发给原生）
 player.addEventListener("line-click", (evt) => {
@@ -73,3 +84,4 @@ root.addEventListener(
 );
 
 window.AMLLReady = true;
+console.log("AMLL host: ready");
