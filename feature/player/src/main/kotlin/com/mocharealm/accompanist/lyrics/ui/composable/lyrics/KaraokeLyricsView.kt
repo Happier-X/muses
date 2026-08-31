@@ -75,7 +75,6 @@ import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import com.mocharealm.accompanist.lyrics.ui.utils.isRtl
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.math.absoluteValue
@@ -329,12 +328,6 @@ fun KaraokeLyricsView(
     // 每次手动滚动开始递增，驱动"松手 5 秒后恢复自动对齐"的倒计时重启
     val resumeTick = remember { mutableStateOf(0) }
 
-    // 行弹簧补偿（复刻 Web 版 posY Spring 机制）：列表瞬移后，
-    // waveDelta = 本次滚动量（行的视觉补偿），各行按 stagger 错峰弹簧归零
-    val waveDelta = remember { mutableStateOf(0f) }
-    val waveTick = remember { mutableStateOf(0) }
-    val waveStiffness = remember { mutableStateOf(220f) }
-
     // 对齐逻辑：把当前行滚动到居中锚点。
     // - 当前行不可见：animateScrollToItem(index, 0) 整体滚动动画（LazyList 内置弹簧，
     //   与 Web 版 posY spring 语义一致，且是整体滚动而非逐行弹簧，不会"掉下来"）；
@@ -353,18 +346,17 @@ fun KaraokeLyricsView(
                 ?.offset
                 ?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx)
             if (targetOffset != null && kotlin.math.abs(targetOffset) > 0.5f) {
-                // 完全复刻 Web 版移动机制：列表瞬移到位，行的视觉位置由每行
-                // 独立的 posY 弹簧从"旧视觉位置"过渡到"新位置"（含 stagger 错峰）。
-                // LazyList 的整体滚动是刚性的，无法逐行错峰，故用 graphicsLayer
-                // 补偿 = 滚动量的反向值，让行视觉保持旧位置，再弹簧归零。
-                // 刚度动态化（Web 版 getPosYSpringPolicy）：按「当前行与上一行的
-                // 时间间隔」100~800ms 映射 stiffness 170~220（间隔短→更快的弹簧）。
+                // 弹簧物理滚动（对齐 Web 版 posY Spring）：半隐式欧拉数值积分，
+                // 刚度按「当前行与上一行的时间间隔」动态（170~220，getPosYSpringPolicy），
+                // 阻尼 = 2.2*sqrt(k) → 阻尼比 1.1 过阻尼：起始最快、越接近目标越慢。
+                // 注：不用"列表瞬移 + 行补偿"方案——scrollBy 与补偿快照分属两帧，
+                // 中间的布局帧会让行闪跳。
                 val line = lyrics.lines.getOrNull(firstIndex)
                 val prevLine = lyrics.lines.getOrNull(firstIndex - 1)
                 val intervalMs = if (line != null && prevLine != null) {
                     (line.start - prevLine.end).toFloat()
                 } else Float.NaN
-                waveStiffness.value = if (intervalMs.isNaN()) {
+                val stiffness = if (intervalMs.isNaN()) {
                     170f
                 } else {
                     val clamped = intervalMs.coerceIn(100f, 800f)
@@ -372,9 +364,29 @@ fun KaraokeLyricsView(
                     ratio = Math.pow(ratio.toDouble(), 0.2).toFloat()
                     170f + ratio * 50f
                 }
-                waveDelta.value = targetOffset.toFloat()
-                waveTick.value++
-                listState.scrollBy(targetOffset.toFloat())
+                val damping = 2.2f * kotlin.math.sqrt(stiffness)
+
+                var remaining = targetOffset.toFloat()
+                var velocity = 0f
+                var prevFrameMs = -1L
+                var guard = 0
+                while (kotlin.math.abs(remaining) > 0.5f && guard++ < 240) {
+                    val frameMs = withFrameMillis { it }
+                    if (prevFrameMs < 0L) prevFrameMs = frameMs
+                    val dtSec =
+                        ((frameMs - prevFrameMs) / 1000f).coerceIn(0.001f, 0.032f)
+                    prevFrameMs = frameMs
+                    val a = -stiffness * remaining - damping * velocity
+                    velocity += a * dtSec
+                    val dx = velocity * dtSec
+                    // remaining 是位移误差（弹簧拉向 0），v 为其变化率（负），
+                    // 列表滚动方向与衰减相反：scrollBy(-dx)、remaining += dx
+                    listState.scrollBy(-dx)
+                    remaining += dx
+                }
+                if (kotlin.math.abs(remaining) > 0.5f) {
+                    listState.scrollBy(remaining)
+                }
             }
         } catch (_: Exception) {
         } finally {
@@ -494,25 +506,6 @@ fun KaraokeLyricsView(
                             }
                         }
 
-                        // 行级 posY 弹簧（完全复刻 Web 版 group.ts 机制）：
-                        // 列表瞬移后，本行 graphicsLayer 先补偿 waveDelta（视觉保持旧位置），
-                        // 按「距当前行的行数」错峰延迟（50ms/行，上限 300ms）后，
-                        // 弹簧（waveStiffness 动态 170~220、阻尼比 1.1 过阻尼）归零。
-                        val waveOffset = remember { Animatable(0f) }
-                        LaunchedEffect(waveTick.value) {
-                            if (waveDelta.value == 0f) return@LaunchedEffect
-                            waveOffset.snapTo(waveDelta.value)
-                            val dist = kotlin.math.abs(index - lyricsFocusState.firstIndex)
-                            delay((dist * 50).coerceAtMost(300).toLong())
-                            waveOffset.animateTo(
-                                0f,
-                                spring(
-                                    dampingRatio = 1.1f,
-                                    stiffness = waveStiffness.value
-                                )
-                            )
-                        }
-
                         // 行缩放弹性（对齐 Web 版 line.ts scale Spring：k=100/d=10，
                         // 阻尼比 0.5 欠阻尼，当前行 100%、其他行 97%，切换时弹性振荡）
                         val lineScale = remember { Animatable(if (isCurrentFocusLine) 1f else 0.97f) }
@@ -527,7 +520,6 @@ fun KaraokeLyricsView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .graphicsLayer {
-                                    translationY = waveOffset.value
                                     scaleX = lineScale.value
                                     scaleY = lineScale.value
                                 },
