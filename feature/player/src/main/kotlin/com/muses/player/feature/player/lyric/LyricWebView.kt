@@ -181,7 +181,12 @@ internal fun String.toJsStringLiteral(): String {
             '\n' -> sb.append("\\n")
             '\r' -> sb.append("\\r")
             '\t' -> sb.append("\\t")
-            else -> if (c < 0x20) sb.append("\\u%04x".format(c.code)) else sb.append(c)
+            else -> if (c < 0x20) {
+                sb.append("\\u")
+                sb.append(c.code.toString(16).padStart(4, '0'))
+            } else {
+                sb.append(c)
+            }
         }
     }
     sb.append('"')
