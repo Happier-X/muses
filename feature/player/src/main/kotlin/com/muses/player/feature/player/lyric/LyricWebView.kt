@@ -166,9 +166,10 @@ internal fun SyncedLyrics.toLyricLinesJson(showTranslation: Boolean): String? {
         cursorMs = safeEnd
         when (line) {
             is KaraokeLine -> {
-                val offset = safeStart - originalStart
                 val words = line.syllables.joinToString(",") { s ->
-                    "{\"startTime\":${s.start + offset},\"endTime\":${(s.end + offset).coerceAtLeast(s.start + offset + 1L)},\"word\":${s.content.toJsStringLiteral()}}"
+                    val ws = s.start.toLong().coerceAtLeast(safeStart)
+                    val we = s.end.toLong().coerceAtMost(safeEnd).coerceAtLeast(ws + 1L)
+                    "{\"startTime\":$ws,\"endTime\":$we,\"word\":${s.content.toJsStringLiteral()}}"
                 }
                 sb.append("{\"words\":[$words],")
                 sb.append("\"translatedLyric\":${(if (showTranslation) line.translation else null).orEmpty().toJsStringLiteral()},")
@@ -179,8 +180,9 @@ internal fun SyncedLyrics.toLyricLinesJson(showTranslation: Boolean): String? {
             }
 
             is SyncedLine -> {
-                val offset = safeStart - originalStart
-                sb.append("{\"words\":[{\"startTime\":${line.start + offset},\"endTime\":${(line.end + offset).coerceAtLeast(line.start + offset + 1L)},\"word\":${line.content.toJsStringLiteral()}}],")
+                val ws = line.start.toLong().coerceAtLeast(safeStart)
+                val we = line.end.toLong().coerceAtMost(safeEnd).coerceAtLeast(ws + 1L)
+                sb.append("{\"words\":[{\"startTime\":$ws,\"endTime\":$we,\"word\":${line.content.toJsStringLiteral()}}],")
                 sb.append("\"translatedLyric\":${(if (showTranslation) line.translation else null).orEmpty().toJsStringLiteral()},")
                 sb.append("\"romanLyric\":\"\",")
                 sb.append("\"startTime\":$safeStart,\"endTime\":$safeEnd,\"isBG\":false,\"isDuet\":false}")
