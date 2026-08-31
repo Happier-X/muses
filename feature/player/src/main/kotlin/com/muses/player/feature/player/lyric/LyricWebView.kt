@@ -149,31 +149,41 @@ fun LyricWebView(
     }
 }
 
-/** SyncedLyrics → AMLL LyricLine[] JSON（web 版数据格式） */
+/** SyncedLyrics → AMLL LyricLine[] JSON（web 版数据格式）
+ * 预处理：避免时间重叠行触发 web 版 assertValidLyricTimestamps 失败（元数据行「作词/作曲/编曲」
+ * 经常同 startTime=0）；为每行 startTime 添加微递增确保单调非重叠。
+ */
 internal fun SyncedLyrics.toLyricLinesJson(showTranslation: Boolean): String? {
     if (lines.isEmpty()) return null
     val sb = StringBuilder("[")
+    var cursorMs = 0L
     lines.forEachIndexed { index, line ->
         if (index > 0) sb.append(',')
+        val originalStart = line.start
+        val originalEnd = line.end
+        val safeStart = if (originalStart < cursorMs) cursorMs else originalStart
+        val safeEnd = if (originalEnd <= safeStart) safeStart + 1L else originalEnd
+        cursorMs = safeEnd
         when (line) {
             is KaraokeLine -> {
+                val offset = safeStart - originalStart
                 val words = line.syllables.joinToString(",") { s ->
-                    "{\"startTime\":${s.start},\"endTime\":${s.end},\"word\":${s.content.toJsStringLiteral()}}"
+                    "{\"startTime\":${s.start + offset},\"endTime\":${(s.end + offset).coerceAtLeast(s.start + offset + 1)},\"word\":${s.content.toJsStringLiteral()}}"
                 }
                 sb.append("{\"words\":[$words],")
                 sb.append("\"translatedLyric\":${(if (showTranslation) line.translation else null).orEmpty().toJsStringLiteral()},")
                 sb.append("\"romanLyric\":${(if (showTranslation) line.phonetic else null).orEmpty().toJsStringLiteral()},")
-                sb.append("\"startTime\":${line.start},\"endTime\":${line.end},")
+                sb.append("\"startTime\":$safeStart,\"endTime\":$safeEnd,")
                 sb.append("\"isBG\":${line is KaraokeLine.AccompanimentKaraokeLine},")
                 sb.append("\"isDuet\":${line.alignment == KaraokeAlignment.End}}")
             }
 
             is SyncedLine -> {
-                sb.append("{\"words\":[{\"startTime\":${line.start},\"endTime\":${line.end},")
-                sb.append("\"word\":${line.content.toJsStringLiteral()}}],")
+                val offset = safeStart - originalStart
+                sb.append("{\"words\":[{\"startTime\":${line.start + offset},\"endTime\":${(line.end + offset).coerceAtLeast(line.start + offset + 1)},\"word\":${line.content.toJsStringLiteral()}}],")
                 sb.append("\"translatedLyric\":${(if (showTranslation) line.translation else null).orEmpty().toJsStringLiteral()},")
                 sb.append("\"romanLyric\":\"\",")
-                sb.append("\"startTime\":${line.start},\"endTime\":${line.end},\"isBG\":false,\"isDuet\":false}")
+                sb.append("\"startTime\":$safeStart,\"endTime\":$safeEnd,\"isBG\":false,\"isDuet\":false}")
             }
         }
     }
