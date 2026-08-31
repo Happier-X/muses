@@ -18,6 +18,8 @@
 
 package com.mocharealm.accompanist.lyrics.ui.composable.lyrics
 
+import android.os.SystemClock
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -155,7 +157,7 @@ internal class LyricWaveState {
     fun offsetFor(now: Long, dist: Int): Float {
         if (delta == 0f || startUptime == 0L) return 0f
         val staggerMs = (dist * 50).coerceAtMost(300f)
-        val t = (now - startUptime) / 1000f - staggerMs / 1000f
+        val t = (now - startUptime).toFloat() / 1000f - staggerMs / 1000f
         if (t <= 0f) return delta                     // 未轮到：停在旧视觉位置
         if (t > 2f) return 0f                         // 弹簧收敛完毕
         // Web solveSpring 过阻尼分支：x(t) = to - (Δ + t*leftover)·e^(ωt)，to=0
