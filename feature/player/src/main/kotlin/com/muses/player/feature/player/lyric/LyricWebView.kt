@@ -49,6 +49,9 @@ fun LyricWebView(
 ) {
     val context = LocalContext.current
     var webView by remember { mutableStateOf<WebView?>(null) }
+    // 页面就绪信号：onPageReady 回调置 true，驱动 LaunchedEffect 注入（解决
+    // onPageFinished 时 window.updateLyrics 尚未注册的竞态，照抄 DroidMate）
+    var pageReady by remember { mutableStateOf(false) }
 
     val bridge = remember {
         object {
@@ -59,7 +62,7 @@ fun LyricWebView(
 
             @JavascriptInterface
             fun onPageReady() {
-                android.util.Log.w("LyricWeb", "page ready")
+                pageReady = true
             }
 
             @JavascriptInterface
@@ -138,12 +141,17 @@ fun LyricWebView(
         update = { view -> webView = view }
     )
 
-    // 歌词变化 → 注入（等待 WebView 就绪；onPageFinished 时歌词可能尚未解析）
-    LaunchedEffect(lyrics, lyricJson) {
+    // 歌词变化 / 页面就绪 → 注入（等待 WebView 就绪 + 页面就绪，
+    // 解决 onPageFinished 时 window.updateLyrics 尚未注册的竞态，照抄 DroidMate）
+    LaunchedEffect(lyrics, lyricJson, pageReady) {
         var view = webView
         while (view == null) {
             delay(100)
             view = webView
+        }
+        // 等到 page ready（window.updateLyrics 已注册）再注入
+        while (!pageReady) {
+            delay(50)
         }
         val json = lyricJson
         if (json != null) {
