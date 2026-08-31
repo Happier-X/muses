@@ -45,8 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.withFrameMillis
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -117,6 +116,56 @@ internal data class FocusState(
 // 过阻尼阶跃响应 = 起始最快、越接近目标越慢的减速曲线
 private const val SPRING_STIFFNESS = 220f
 private const val SPRING_DAMPING = 32.63f // 2.2 * sqrt(220f)
+
+/**
+ * 行弹簧波浪状态（完全复刻 Web 版 group.posY Spring + stagger 阶梯动画）。
+ *
+ * 非 Compose 状态：绘制期由 [androidx.compose.ui.graphics.graphicsLayer] 直接读取，
+ * 每行偏移 = [offsetFor] 纯函数求值（Web solveSpring 过阻尼解析解 + 错峰延迟）。
+ * 无动画协程、无重组依赖，从根本上避免"瞬移+补偿"两帧时序差导致的闪烁。
+ *
+ * stagger：每行延迟 = 距当前行行数 × 50ms（对齐 Web baseDelay=0.05s，上限 300ms）。
+ */
+internal class LyricWaveState {
+    var delta: Float = 0f; private set
+    var startUptime: Long = 0L; private set
+    var stiffness: Float = 220f; private set
+    private var omega: Float = -14.83f; private set // -sqrt(k/m)
+    private var leftover: Float = 0f; private set   // -ω*Δ（v0=0）
+
+    val isAnimating: Boolean
+        get() = startUptime > 0L &&
+            SystemClock.uptimeMillis() - startUptime < WAVE_TOTAL_MS
+
+    fun trigger(delta: Float, stiffness: Float, damping: Float) {
+        this.delta = delta
+        this.stiffness = stiffness
+        this.omega = -kotlin.math.sqrt(stiffness)
+        this.leftover = -this.omega * delta
+        this.startUptime = SystemClock.uptimeMillis()
+    }
+
+    /** 手动滚动开始等场景：立即取消波浪，行回正位跟手 */
+    fun reset() {
+        delta = 0f
+        startUptime = 0L
+    }
+
+    /** 某行在时刻 [now] 的视觉偏移（px）。[dist] 为距当前行的行数。 */
+    fun offsetFor(now: Long, dist: Int): Float {
+        if (delta == 0f || startUptime == 0L) return 0f
+        val staggerMs = (dist * 50).coerceAtMost(300f)
+        val t = (now - startUptime) / 1000f - staggerMs / 1000f
+        if (t <= 0f) return delta                     // 未轮到：停在旧视觉位置
+        if (t > 2f) return 0f                         // 弹簧收敛完毕
+        // Web solveSpring 过阻尼分支：x(t) = to - (Δ + t*leftover)·e^(ωt)，to=0
+        return -(delta + t * leftover) * kotlin.math.exp(t * omega)
+    }
+
+    private companion object {
+        const val WAVE_TOTAL_MS = 2500L
+    }
+}
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -329,6 +378,20 @@ fun KaraokeLyricsView(
     // 每次手动滚动开始递增，驱动"松手 5 秒后恢复自动对齐"的倒计时重启
     val resumeTick = remember { mutableStateOf(0) }
 
+    // 行弹簧波浪（解析解纯函数求值，见 LyricWaveState）
+    val waveState = remember { LyricWaveState() }
+    val waveFrame = remember { mutableStateOf(0L) }
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            if (waveState.isAnimating) {
+                withFrameNanos { }
+                waveFrame.value = android.os.SystemClock.uptimeMillis()
+            } else {
+                delay(33)
+            }
+        }
+    }
+
     // 对齐逻辑：把当前行滚动到居中锚点。
     // - 当前行不可见：animateScrollToItem(index, 0) 整体滚动动画（LazyList 内置弹簧，
     //   与 Web 版 posY spring 语义一致，且是整体滚动而非逐行弹簧，不会"掉下来"）；
@@ -347,11 +410,11 @@ fun KaraokeLyricsView(
                 ?.offset
                 ?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx)
             if (targetOffset != null && kotlin.math.abs(targetOffset) > 0.5f) {
-                // 弹簧物理滚动（对齐 Web 版 posY Spring）：半隐式欧拉数值积分，
-                // 刚度按「当前行与上一行的时间间隔」动态（170~220，getPosYSpringPolicy），
-                // 阻尼 = 2.2*sqrt(k) → 阻尼比 1.1 过阻尼：起始最快、越接近目标越慢。
-                // 注：不用"列表瞬移 + 行补偿"方案——scrollBy 与补偿快照分属两帧，
-                // 中间的布局帧会让行闪跳。
+                // 完全复刻 Web 版行弹簧机制：列表瞬移到位，每行视觉位置由
+                // 「绘制期纯函数」按 Web solveSpring 解析解计算（从旧视觉位置
+                // 弹簧移动到新位置），并按距当前行行数 stagger 错峰（50ms/行）。
+                // 刚度按行间隔动态（170~220，getPosYSpringPolicy 同款）。
+                // 此方案无动画协程/无状态竞态，绘制期每帧纯计算，不会闪烁。
                 val line = lyrics.lines.getOrNull(firstIndex)
                 val prevLine = lyrics.lines.getOrNull(firstIndex - 1)
                 val intervalMs = if (line != null && prevLine != null) {
@@ -365,29 +428,15 @@ fun KaraokeLyricsView(
                     ratio = Math.pow(ratio.toDouble(), 0.2).toFloat()
                     170f + ratio * 50f
                 }
-                val damping = 2.2f * kotlin.math.sqrt(stiffness)
-
-                var remaining = targetOffset.toFloat()
-                var velocity = 0f
-                var prevFrameMs = -1L
-                var guard = 0
-                while (kotlin.math.abs(remaining) > 0.5f && guard++ < 240) {
-                    val frameMs = withFrameMillis { it }
-                    if (prevFrameMs < 0L) prevFrameMs = frameMs
-                    val dtSec =
-                        ((frameMs - prevFrameMs) / 1000f).coerceIn(0.001f, 0.032f)
-                    prevFrameMs = frameMs
-                    val a = -stiffness * remaining - damping * velocity
-                    velocity += a * dtSec
-                    val dx = velocity * dtSec
-                    // remaining 是位移误差（弹簧拉向 0），v 为其变化率（负），
-                    // 列表滚动方向与衰减相反：scrollBy(-dx)、remaining += dx
-                    listState.scrollBy(-dx)
-                    remaining += dx
-                }
-                if (kotlin.math.abs(remaining) > 0.5f) {
-                    listState.scrollBy(remaining)
-                }
+                waveState.trigger(
+                    delta = targetOffset.toFloat(),
+                    stiffness = stiffness,
+                    damping = 2.2f * kotlin.math.sqrt(stiffness),
+                )
+                // 立即驱动一次重绘（等帧循环轮询会有 1~2 帧空窗，行先闪到新位置）
+                waveFrame.value = android.os.SystemClock.uptimeMillis()
+                // 列表瞬移；行的视觉由 graphicsLayer 的解析弹簧补偿，同帧生效无闪跳
+                listState.scrollBy(targetOffset.toFloat())
             }
         } catch (_: Exception) {
         } finally {
@@ -416,6 +465,7 @@ fun KaraokeLyricsView(
             .collect { scrolling ->
                 if (scrolling) {
                     followPaused.value = true
+                    waveState.reset()
                 } else if (prevScrolling) {
                     resumeTick.value++
                 }
@@ -521,6 +571,13 @@ fun KaraokeLyricsView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .graphicsLayer {
+                                    // 行级 posY 弹簧（Web solveSpring 解析解，纯函数求值）：
+                                    // 换行瞬移后本行视觉保持旧位置，再按行距错峰弹簧归零
+                                    val frame = waveFrame.value
+                                    translationY = waveState.offsetFor(
+                                        now = frame,
+                                        dist = kotlin.math.abs(index - lyricsFocusState.firstIndex)
+                                    )
                                     scaleX = lineScale.value
                                     scaleY = lineScale.value
                                 },
