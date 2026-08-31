@@ -156,7 +156,7 @@ internal class LyricWaveState {
     /** 某行在时刻 [now] 的视觉偏移（px）。[dist] 为距当前行的行数。 */
     fun offsetFor(now: Long, dist: Int): Float {
         if (delta == 0f || startUptime == 0L) return 0f
-        val staggerMs = (dist * 50).coerceAtMost(300f)
+        val staggerMs = (dist * 50f).coerceAtMost(300f)
         val t = (now - startUptime).toFloat() / 1000f - staggerMs / 1000f
         if (t <= 0f) return delta                     // 未轮到：停在旧视觉位置
         if (t > 2f) return 0f                         // 弹簧收敛完毕
