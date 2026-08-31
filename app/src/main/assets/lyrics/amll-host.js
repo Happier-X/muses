@@ -24,10 +24,22 @@ window.AMLLHost = {
 	setLyric: (linesJson, timeMs) => {
 		try {
 			const lines = linesJson ? JSON.parse(linesJson) : [];
+			console.log(
+				"AMLLHost.setLyric lines=",
+				lines.length,
+				"time=",
+				timeMs,
+				"first=",
+				lines[0] ? JSON.stringify(lines[0]).slice(0, 200) : "none",
+			);
 			player.setLyricLines(lines, timeMs | 0);
 			player.update(16);
+			console.log(
+				"AMLLHost.setLyric done, got=",
+				player.getLyricLines().length,
+			);
 		} catch (e) {
-			console.error("AMLLHost.setLyric", e);
+			console.error("AMLLHost.setLyric FAILED", e);
 		}
 	},
 	setCurrentTime: (ms, isSeek) => {
