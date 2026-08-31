@@ -47,8 +47,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameMillis
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -58,7 +56,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -77,7 +74,6 @@ import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeAlignment
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import com.mocharealm.accompanist.lyrics.ui.utils.isRtl
-import com.mocharealm.accompanist.lyrics.ui.utils.modifier.springPlacement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -116,6 +112,12 @@ internal data class FocusState(
  * @param offset The vertical padding/offset at the start and end of the list.
  * @param showDebugRectangles Debug flag to draw bounding boxes around glyphs.
  */
+// 歌词行纵向滚动的弹簧物理参数（对齐 Web 版 AMLL getPosYSpringPolicy）：
+// m=1、stiffness=220、damping=2.2*sqrt(stiffness) → 阻尼比 ≈ 1.1（轻微过阻尼），
+// 过阻尼阶跃响应 = 起始最快、越接近目标越慢的减速曲线
+private const val SPRING_STIFFNESS = 220f
+private const val SPRING_DAMPING = 32.63f // 2.2 * sqrt(220f)
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun KaraokeLyricsView(
@@ -345,31 +347,27 @@ fun KaraokeLyricsView(
                 ?.offset
                 ?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx)
             if (targetOffset != null && kotlin.math.abs(targetOffset) > 0.5f) {
-                // 弹簧驱动滚动：质量-弹簧-阻尼系统（Web 版 posY Spring 同款），
-                // 过阻尼（ratio 1.1）响应 = 初始速度快、越接近目标越慢的减速曲线。
-                // 之前 30%/帧 指数逼近太快（~50ms 完成）感觉不到减速过程。
-                // animateTo 的 block 非挂起，scrollBy 只能在帧循环里调用。
-                coroutineScope {
-                    var last = 0f
-                    val scrollAnim = Animatable(0f)
-                    val animationJob = launch {
-                        scrollAnim.animateTo(
-                            targetOffset.toFloat(),
-                            spring(dampingRatio = 1.1f, stiffness = 220f)
-                        )
-                    }
-                    while (animationJob.isActive) {
-                        withFrameMillis { }
-                        val v = scrollAnim.value
-                        listState.scrollBy(v - last)
-                        last = v
-                    }
-                    animationJob.join()
-                    // 收尾补差（浮点误差）
-                    val finalV = scrollAnim.value
-                    if (kotlin.math.abs(targetOffset.toFloat() - finalV) > 0.5f) {
-                        listState.scrollBy(targetOffset.toFloat() - finalV)
-                    }
+                // 弹簧物理驱动滚动：半隐式欧拉数值积分，参数完全对齐 Web 版
+                // posY Spring（m=1、k=220、c=2.2*sqrt(k)）——过阻尼阶跃响应：
+                // 起始速度最快、越接近目标越慢，即"越往上滚越慢"的减速曲线。
+                var remaining = targetOffset.toFloat()
+                var velocity = 0f
+                var prevFrameMs = -1L
+                var guard = 0
+                while (kotlin.math.abs(remaining) > 0.5f && guard++ < 240) {
+                    val frameMs = withFrameMillis { it }
+                    if (prevFrameMs < 0L) prevFrameMs = frameMs
+                    val dtSec =
+                        ((frameMs - prevFrameMs) / 1000f).coerceIn(0.001f, 0.032f)
+                    prevFrameMs = frameMs
+                    val a = -SPRING_STIFFNESS * remaining - SPRING_DAMPING * velocity
+                    velocity += a * dtSec
+                    val dx = velocity * dtSec
+                    listState.scrollBy(dx)
+                    remaining -= dx
+                }
+                if (kotlin.math.abs(remaining) > 0.5f) {
+                    listState.scrollBy(remaining)
                 }
             }
         } catch (_: Exception) {
@@ -417,8 +415,7 @@ fun KaraokeLyricsView(
 
     // 切歌/换歌词时恢复自动跟随
     LaunchedEffect(lyrics) { followPaused.value = false }
-    LookaheadScope {
-        Crossfade(lyrics) { lyrics ->
+    Crossfade(lyrics) { lyrics ->
             Box(modifier = modifier.clipToBounds()) {
                 LazyColumn(
                     state = listState,
@@ -491,11 +488,6 @@ fun KaraokeLyricsView(
                             }
                         }
 
-                        // 行级弹簧（对齐 Web 版 posY Spring）：stiffness 随距离 220→170，
-                        // dampingRatio 1.1 轻微过阻尼 → 快速平滑跟随，有弹簧手感不拖尾
-                        val dynamicStiffness = (220f - distanceWeightState.value * 10f)
-                            .coerceIn(170f, 220f)
-
                         // 波浪级联（对齐 Web 版 PlaybackTick 的 stagger 阶梯动画）：
                         // 换行时每行按「距当前行的行数」错峰延迟（40ms/行），
                         // 弹簧快速归位，形成从上到下依次跟进的波浪移动。
@@ -511,16 +503,12 @@ fun KaraokeLyricsView(
                             )
                         }
 
+                        // 行容器不做位置弹簧：滚动已由弹簧物理整体驱动（对齐 Web 版——
+                        // 若行再叠一层弹簧会滞后于滚动，产生拖尾/掉落错位观感）
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .graphicsLayer { translationY = waveOffset.value }
-                                .springPlacement(
-                                    this@LookaheadScope,
-                                    "${line.start}-${line.end}-$index",
-                                    isManualScrolling,
-                                    stiffness = dynamicStiffness
-                                ),
+                                .graphicsLayer { translationY = waveOffset.value },
                             horizontalAlignment = if (isVisualRightAligned) Alignment.End else Alignment.Start
                         ) {
                             val animDuration = 600
@@ -625,6 +613,5 @@ fun KaraokeLyricsView(
                     }
                 }
             }
-        }
         }
 }
