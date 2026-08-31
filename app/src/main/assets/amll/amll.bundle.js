@@ -6404,9 +6404,9 @@ function Mr(e) {
   }, e.emit = function() {
   };
 }
-var We = class wt extends rs.default {
+var We = class Tt extends rs.default {
   constructor(t, r, s, i, n, a, o) {
-    if (super(), this.noFrame = !1, r || (this.noFrame = !0, r = new Et(0, 0, 1, 1)), t instanceof wt && (t = t.baseTexture), this.baseTexture = t, this._frame = r, this.trim = i, this.valid = !1, this.destroyed = !1, this._uvs = tn, this.uvMatrix = null, this.orig = s || r, this._rotate = Number(n || 0), n === !0) this._rotate = 2;
+    if (super(), this.noFrame = !1, r || (this.noFrame = !0, r = new Et(0, 0, 1, 1)), t instanceof Tt && (t = t.baseTexture), this.baseTexture = t, this._frame = r, this.trim = i, this.valid = !1, this.destroyed = !1, this._uvs = tn, this.uvMatrix = null, this.orig = s || r, this._rotate = Number(n || 0), n === !0) this._rotate = 2;
     else if (this._rotate % 2 !== 0) throw new Error("attempt to use diamond-shaped UVs. If you are sure, set rotation manually");
     this.defaultAnchor = a ? new Ft(a.x, a.y) : new Ft(0, 0), this.defaultBorders = o, this._updateID = 0, this.textureCacheIds = [], t.valid ? this.noFrame ? t.valid && this.onBaseTextureUpdated(t) : this.frame = r : t.once("loaded", this.onBaseTextureUpdated, this), this.noFrame && t.on("update", this.onBaseTextureUpdated, this);
   }
@@ -6424,14 +6424,14 @@ var We = class wt extends rs.default {
     if (this.baseTexture) {
       if (t) {
         const { resource: r } = this.baseTexture;
-        r?.url && Yt[r.url] && wt.removeFromCache(r.url), this.baseTexture.destroy();
+        r?.url && Yt[r.url] && Tt.removeFromCache(r.url), this.baseTexture.destroy();
       }
       this.baseTexture.off("loaded", this.onBaseTextureUpdated, this), this.baseTexture.off("update", this.onBaseTextureUpdated, this), this.baseTexture = null;
     }
-    this._frame = null, this._uvs = null, this.trim = null, this.orig = null, this.valid = !1, wt.removeFromCache(this), this.textureCacheIds = null, this.destroyed = !0, this.emit("destroyed", this), this.removeAllListeners();
+    this._frame = null, this._uvs = null, this.trim = null, this.orig = null, this.valid = !1, Tt.removeFromCache(this), this.textureCacheIds = null, this.destroyed = !0, this.emit("destroyed", this), this.removeAllListeners();
   }
   clone() {
-    const t = this._frame.clone(), r = this._frame === this.orig ? t : this.orig.clone(), s = new wt(this.baseTexture, !this.noFrame && t, r, this.trim?.clone(), this.rotate, this.defaultAnchor, this.defaultBorders);
+    const t = this._frame.clone(), r = this._frame === this.orig ? t : this.orig.clone(), s = new Tt(this.baseTexture, !this.noFrame && t, r, this.trim?.clone(), this.rotate, this.defaultAnchor, this.defaultBorders);
     return this.noFrame && (s._frame = t), s;
   }
   updateUvs() {
@@ -6443,14 +6443,14 @@ var We = class wt extends rs.default {
     i ? n = t : t instanceof vt ? (t.cacheId || (t.cacheId = `${r?.pixiIdPrefix || "pixiid"}-${fr()}`, vt.addToCache(t, t.cacheId)), n = t.cacheId) : (t._pixiId || (t._pixiId = `${r?.pixiIdPrefix || "pixiid"}_${fr()}`), n = t._pixiId);
     let a = Yt[n];
     if (i && s && !a) throw new Error(`The cacheId "${n}" does not exist in TextureCache.`);
-    return !a && !(t instanceof vt) ? (r.resolution || (r.resolution = Xi(t)), a = new wt(new vt(t, r)), a.baseTexture.cacheId = n, vt.addToCache(a.baseTexture, n), wt.addToCache(a, n)) : !a && t instanceof vt && (a = new wt(t), wt.addToCache(a, n)), a;
+    return !a && !(t instanceof vt) ? (r.resolution || (r.resolution = Xi(t)), a = new Tt(new vt(t, r)), a.baseTexture.cacheId = n, vt.addToCache(a.baseTexture, n), Tt.addToCache(a, n)) : !a && t instanceof vt && (a = new Tt(t), Tt.addToCache(a, n)), a;
   }
   static fromURL(t, r) {
-    const s = Object.assign({ autoLoad: !1 }, r?.resourceOptions), i = wt.from(t, Object.assign({ resourceOptions: s }, r), !1), n = i.baseTexture.resource;
+    const s = Object.assign({ autoLoad: !1 }, r?.resourceOptions), i = Tt.from(t, Object.assign({ resourceOptions: s }, r), !1), n = i.baseTexture.resource;
     return i.baseTexture.valid ? Promise.resolve(i) : n.load().then(() => Promise.resolve(i));
   }
   static fromBuffer(t, r, s, i) {
-    return new wt(vt.fromBuffer(t, r, s, i));
+    return new Tt(vt.fromBuffer(t, r, s, i));
   }
   static fromLoader(t, r, s, i) {
     const n = new vt(t, Object.assign({
@@ -6458,8 +6458,8 @@ var We = class wt extends rs.default {
       resolution: Xi(r)
     }, i)), { resource: a } = n;
     a instanceof oa && (a.url = r);
-    const o = new wt(n);
-    return s || (s = r), vt.addToCache(o.baseTexture, s), wt.addToCache(o, s), s !== r && (vt.addToCache(o.baseTexture, r), wt.addToCache(o, r)), o.baseTexture.valid ? Promise.resolve(o) : new Promise((h) => {
+    const o = new Tt(n);
+    return s || (s = r), vt.addToCache(o.baseTexture, s), Tt.addToCache(o, s), s !== r && (vt.addToCache(o.baseTexture, r), Tt.addToCache(o, r)), o.baseTexture.valid ? Promise.resolve(o) : new Promise((h) => {
       o.baseTexture.once("loaded", () => h(o));
     });
   }
@@ -6510,14 +6510,14 @@ var We = class wt extends rs.default {
     return this.baseTexture;
   }
   static get EMPTY() {
-    return wt._EMPTY || (wt._EMPTY = new wt(new vt()), Mr(wt._EMPTY), Mr(wt._EMPTY.baseTexture)), wt._EMPTY;
+    return Tt._EMPTY || (Tt._EMPTY = new Tt(new vt()), Mr(Tt._EMPTY), Mr(Tt._EMPTY.baseTexture)), Tt._EMPTY;
   }
   static get WHITE() {
-    if (!wt._WHITE) {
+    if (!Tt._WHITE) {
       const t = dt.ADAPTER.createCanvas(16, 16), r = t.getContext("2d");
-      t.width = 16, t.height = 16, r.fillStyle = "white", r.fillRect(0, 0, 16, 16), wt._WHITE = new wt(vt.from(t)), Mr(wt._WHITE), Mr(wt._WHITE.baseTexture);
+      t.width = 16, t.height = 16, r.fillStyle = "white", r.fillRect(0, 0, 16, 16), Tt._WHITE = new Tt(vt.from(t)), Mr(Tt._WHITE), Mr(Tt._WHITE.baseTexture);
     }
-    return wt._WHITE;
+    return Tt._WHITE;
   }
 }, ha = class la extends We {
   constructor(t, r) {
@@ -13661,7 +13661,7 @@ var Z = {
   pendingLyricOptions: {}
 };
 window.AMLLCore = oi;
-var Tt = (e, t = "info") => _u(e, t), Re = (e, t) => {
+var wt = (e, t = "info") => _u(e, t), Re = (e, t) => {
   const r = typeof t == "boolean" ? t ? "1" : "0" : String(t);
   document.documentElement.style.setProperty(e, r);
 };
@@ -13678,16 +13678,16 @@ function bu(e, t, r) {
 function Ja(e, t, r) {
   const s = e.BackgroundRender;
   if (!s?.new)
-    return Tt("BackgroundRender factory not found on core", "debug"), null;
+    return wt("BackgroundRender factory not found on core", "debug"), null;
   const i = {
     mesh: e.MeshGradientRenderer,
     pixi: e.PixiRenderer
   }, n = r && i[r] ? [i[r]] : [e.MeshGradientRenderer, e.PixiRenderer].filter(Boolean);
   for (const a of n) try {
     const o = s.new(a);
-    return bu(t, o.getElement(), "-1"), Tt(`Created BackgroundRender with ${a?.name || "renderer"}`, "debug"), o;
+    return bu(t, o.getElement(), "-1"), wt(`Created BackgroundRender with ${a?.name || "renderer"}`, "debug"), o;
   } catch (o) {
-    Tt(`BackgroundRender init failed with ${a?.name || "renderer"}: ${o.message}`, "warn");
+    wt(`BackgroundRender init failed with ${a?.name || "renderer"}: ${o.message}`, "warn");
   }
   return null;
 }
@@ -13715,11 +13715,11 @@ function bn() {
       }), n.parentElement !== e && e.appendChild(n));
       const a = (o) => {
         const h = o?.detail || {}, l = typeof o?.lineIndex == "number" ? o.lineIndex : typeof h.lineIndex == "number" ? h.lineIndex : -1, c = l >= 0 && Z.lyricLines?.[l] ? Z.lyricLines[l] : void 0, u = (y) => typeof y?.startTime == "number" ? y.startTime : typeof y?.start == "number" ? y.start : void 0, d = u(o) ?? u(h) ?? u(o?.line) ?? u(h.line) ?? u(c);
-        Tt(`line-click: index=${l}, start=${d}`, "debug"), d !== void 0 && (window.Android?.onLineClick?.(l, d), Z.player && (Z.player.setCurrentTime ? Z.player.setCurrentTime(d, !1) : Z.player.seek && Z.player.seek(d), Z.player.update?.(0)));
+        wt(`line-click: index=${l}, start=${d}`, "debug"), d !== void 0 && (window.Android?.onLineClick?.(l, d), Z.player && (Z.player.setCurrentTime ? Z.player.setCurrentTime(d, !1) : Z.player.seek && Z.player.seek(d), Z.player.update?.(0)));
       };
-      Z.player.addEventListener?.("line-click", a), n?.addEventListener?.("line-click", a), Tt("Created and attached DomLyricPlayer", "debug");
+      Z.player.addEventListener?.("line-click", a), n?.addEventListener?.("line-click", a), wt("Created and attached DomLyricPlayer", "debug");
     } catch (n) {
-      Tt(`Failed to instantiate DomLyricPlayer: ${n.message}`, "error");
+      wt(`Failed to instantiate DomLyricPlayer: ${n.message}`, "error");
     }
     Z.background || (Z.background = Ja(t, e)), window.__amll = {
       player: Z.player,
@@ -13732,47 +13732,55 @@ function bn() {
     };
     if (requestAnimationFrame(i), Z.lyricLines.length > 0 && Z.player) {
       const n = Z.player, a = n.setLyricLines || n.setLyrics || n.updateLyrics;
-      a && (a.call(n, Z.lyricLines), n.calcLayout?.(), n.update?.(0), Tt(`Applied ${Z.lyricLines.length} pending lines to new player`, "info"));
+      a && (a.call(n, Z.lyricLines), n.calcLayout?.(), n.update?.(0), wt(`Applied ${Z.lyricLines.length} pending lines to new player`, "info"));
     }
-    Tt("AMLL core WebView initialized", "debug"), window.Android?.onPageReady?.(), setTimeout(() => {
+    wt("AMLL core WebView initialized", "debug"), window.Android?.onPageReady?.(), setTimeout(() => {
       try {
         const n = Z.player;
         if (!n) {
-          Tt("DIAG: no player", "error");
+          wt("DIAG: no player", "error");
           return;
         }
-        n.setCurrentTime?.(6e4, !0), n.calcLayout?.(), n.update?.(0), Tt("DIAG: setCurrentTime(60000) done", "info");
+        n.setCurrentTime?.(6e4, !0), n.calcLayout?.(), n.update?.(0), wt("DIAG: setCurrentTime(60000) done", "info");
       } catch (n) {
-        Tt("DIAG jump err: " + n.message, "error");
+        wt("DIAG jump err: " + n.message, "error");
       }
     }, 3e3), setInterval(() => {
       try {
         const n = Z.player?.element;
         if (!n) return;
-        const a = Array.from(n.querySelectorAll(".FmKaba_lyricLine")), o = n.querySelector(".FmKaba_lyricLine.FmKaba_active"), h = a.map((l, c) => {
-          const u = l.getBoundingClientRect();
-          return `[${c}${l.classList.contains("FmKaba_active") ? "*" : ""}]${(l.textContent || "").slice(0, 10)} y=${u.y.toFixed(0)} h=${u.height.toFixed(0)}`;
+        n.style.setProperty("mix-blend-mode", "normal", "important"), n.style.setProperty("-webkit-mix-blend-mode", "normal", "important"), n.style.setProperty("color", "#ffffff", "important");
+        const a = n.querySelectorAll("*");
+        a.forEach((l) => {
+          const c = l;
+          c.style.setProperty("mix-blend-mode", "normal", "important"), c.style.setProperty("-webkit-mix-blend-mode", "normal", "important"), c.style.setProperty("mask-image", "none", "important"), c.style.setProperty("-webkit-mask-image", "none", "important"), c.style.setProperty("opacity", "1", "important");
         });
-        Tt(`DIAG: lines=${a.length} active=${JSON.stringify(o?.textContent?.slice(0, 20))}`, "info"), Tt(`DIAG: ${h.slice(0, 12).join(" | ")}`, "info"), o && (o.style.setProperty("color", "red", "important"), o.style.setProperty("-webkit-mask-image", "none", "important"), o.style.setProperty("mask-image", "none", "important"), o.style.setProperty("opacity", "1", "important"));
+        const o = Array.from(n.querySelectorAll(".FmKaba_lyricLine"));
+        o.forEach((l) => {
+          const c = l;
+          c.style.setProperty("color", "#ffffff", "important"), c.style.setProperty("mix-blend-mode", "normal", "important");
+        });
+        const h = n.querySelector(".FmKaba_lyricLine.FmKaba_active");
+        wt(`DIAG: forced clear on root + ${a.length} descendants, lines=${o.length} active=${JSON.stringify(h?.textContent?.slice(0, 20))}`, "info");
       } catch {
       }
-    }, 1500);
+    }, 2e3);
   } catch (e) {
-    Tt(`Initialization error: ${e.message}`, "error");
+    wt(`Initialization error: ${e.message}`, "error");
   }
 }
 document.readyState === "loading" ? window.addEventListener("DOMContentLoaded", bn) : setTimeout(bn, 0);
 window.updateLyrics = (e) => {
   try {
     const t = Array.isArray(e?.lines) ? e.lines : [];
-    Z.lyricLines = t, Tt(`updateLyrics: ${t.length} lines`, "debug");
+    Z.lyricLines = t, wt(`updateLyrics: ${t.length} lines`, "debug");
     const r = Z.player;
     if (r) {
       const s = r.setLyricLines || r.setLyrics || r.updateLyrics;
-      s ? (s.call(r, t), r.calcLayout?.(), r.update?.(0)) : Tt("playerInstance does not expose lyric setter", "warn");
+      s ? (s.call(r, t), r.calcLayout?.(), r.update?.(0)) : wt("playerInstance does not expose lyric setter", "warn");
     }
   } catch (t) {
-    Tt(`updateLyrics error: ${t.message}`, "error");
+    wt(`updateLyrics error: ${t.message}`, "error");
   }
 };
 window.updateTime = (e) => {
@@ -13785,7 +13793,7 @@ window.updateTime = (e) => {
     try {
       r.setCurrentTime ? r.setCurrentTime(t, !1) : r.seek && r.seek(t), r.update?.(0);
     } catch (s) {
-      Tt(`updateTime error: ${s.message}`, "error");
+      wt(`updateTime error: ${s.message}`, "error");
     }
 };
 window.updateAlbumArt = async (e) => {
@@ -13809,10 +13817,10 @@ window.updateAlbumArt = async (e) => {
     if (Z.albumUri = t, Z.background?.setAlbum) try {
       await Z.background.setAlbum(Z.albumUri), Z.background.update?.(0);
     } catch (a) {
-      Tt(`setAlbum error: ${a.message}. `, "warn");
+      wt(`setAlbum error: ${a.message}. `, "warn");
     }
   } catch (t) {
-    Tt(`updateAlbumArt error: ${t.message}`, "error");
+    wt(`updateAlbumArt error: ${t.message}`, "error");
   }
 };
 window.setPaused = (e) => {
@@ -13824,7 +13832,7 @@ window.setPaused = (e) => {
     try {
       e ? r.pause?.() : r.resume?.(), r.update?.(0);
     } catch (s) {
-      Tt(`setPaused error: ${s.message}`, "error");
+      wt(`setPaused error: ${s.message}`, "error");
     }
 };
 window.configureLyricMotion = (e) => {
@@ -13838,7 +13846,7 @@ window.configureLyricMotion = (e) => {
       const { springPosY: r, enableSpring: s, springScale: i, enableScale: n, enableBlur: a, hidePassedLines: o, wordFadeWidth: h } = e;
       r && t.setLinePosYSpringParams && t.setLinePosYSpringParams(r), s !== void 0 && t.setEnableSpring && t.setEnableSpring(s), i && t.setLineScaleSpringParams && t.setLineScaleSpringParams(i), n !== void 0 && t.setEnableScale && t.setEnableScale(n), a !== void 0 && t.setEnableBlur && t.setEnableBlur(a), o !== void 0 && t.setHidePassedLines && t.setHidePassedLines(o), h !== void 0 && t.setWordFadeWidth && t.setWordFadeWidth(h), t.calcLayout?.(), t.update?.(0);
     } catch (r) {
-      Tt(`configureLyricMotion error: ${r.message}`, "error");
+      wt(`configureLyricMotion error: ${r.message}`, "error");
     }
 };
 window.configureBackgroundEffect = (e) => {
@@ -13847,7 +13855,7 @@ window.configureBackgroundEffect = (e) => {
     try {
       e.flowSpeed !== void 0 && t.setFlowSpeed?.(e.flowSpeed), e.renderScale !== void 0 && t.setRenderScale?.(e.renderScale), e.lowFreqVolume !== void 0 && t.setLowFreqVolume?.(e.lowFreqVolume), e.fps !== void 0 && t.setFPS?.(e.fps), e.staticMode !== void 0 && t.setStaticMode?.(e.staticMode), t.update?.(0);
     } catch (r) {
-      Tt(`configureBackgroundEffect error: ${r.message}`, "error");
+      wt(`configureBackgroundEffect error: ${r.message}`, "error");
     }
 };
 window.configureLyricBackground = (e) => {
@@ -13861,7 +13869,7 @@ window.configureLyricBackground = (e) => {
     }
     document.body.style.background = t && e.cssProperty ? e.cssProperty : "transparent";
   } catch (t) {
-    Tt(`configureLyricBackground error: ${t.message}`, "error");
+    wt(`configureLyricBackground error: ${t.message}`, "error");
   }
 };
 window.setLyricSizePreset = (e) => {
@@ -13890,6 +13898,6 @@ window.applyFontSettings = (e) => {
     a.style.fontFamily = t ? "var(--amll-lp-font-family)" : "";
   });
 };
-window.setRenderMode = (e) => Tt(`setRenderMode: ${e}`, "debug");
-window.setLyricPlayerImplementation = (e) => Tt(`setLyricPlayerImplementation: ${e}`, "debug");
-window.rebuildLyricsDom = (e) => (Tt(`rebuildLyricsDom: ${e}`, "debug"), Z.player?.calcLayout?.(), Z.player?.update?.(0), !0);
+window.setRenderMode = (e) => wt(`setRenderMode: ${e}`, "debug");
+window.setLyricPlayerImplementation = (e) => wt(`setLyricPlayerImplementation: ${e}`, "debug");
+window.rebuildLyricsDom = (e) => (wt(`rebuildLyricsDom: ${e}`, "debug"), Z.player?.calcLayout?.(), Z.player?.update?.(0), !0);
