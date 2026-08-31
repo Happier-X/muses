@@ -159,8 +159,8 @@ internal fun SyncedLyrics.toLyricLinesJson(showTranslation: Boolean): String? {
     var cursorMs = 0L
     lines.forEachIndexed { index, line ->
         if (index > 0) sb.append(',')
-        val originalStart = line.start
-        val originalEnd = line.end
+        val originalStart = line.start.toLong()
+        val originalEnd = line.end.toLong()
         val safeStart = if (originalStart < cursorMs) cursorMs else originalStart
         val safeEnd = if (originalEnd <= safeStart) safeStart + 1L else originalEnd
         cursorMs = safeEnd
