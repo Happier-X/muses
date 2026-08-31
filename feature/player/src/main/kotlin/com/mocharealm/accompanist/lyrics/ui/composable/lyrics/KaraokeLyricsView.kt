@@ -333,6 +333,7 @@ fun KaraokeLyricsView(
     // waveDelta = 本次滚动量（行的视觉补偿），各行按 stagger 错峰弹簧归零
     val waveDelta = remember { mutableStateOf(0f) }
     val waveTick = remember { mutableStateOf(0) }
+    val waveStiffness = remember { mutableStateOf(220f) }
 
     // 对齐逻辑：把当前行滚动到居中锚点。
     // - 当前行不可见：animateScrollToItem(index, 0) 整体滚动动画（LazyList 内置弹簧，
@@ -356,6 +357,21 @@ fun KaraokeLyricsView(
                 // 独立的 posY 弹簧从"旧视觉位置"过渡到"新位置"（含 stagger 错峰）。
                 // LazyList 的整体滚动是刚性的，无法逐行错峰，故用 graphicsLayer
                 // 补偿 = 滚动量的反向值，让行视觉保持旧位置，再弹簧归零。
+                // 刚度动态化（Web 版 getPosYSpringPolicy）：按「当前行与上一行的
+                // 时间间隔」100~800ms 映射 stiffness 170~220（间隔短→更快的弹簧）。
+                val line = lyrics.lines.getOrNull(firstIndex)
+                val prevLine = lyrics.lines.getOrNull(firstIndex - 1)
+                val intervalMs = if (line != null && prevLine != null) {
+                    (line.start - prevLine.end).toFloat()
+                } else Float.NaN
+                waveStiffness.value = if (intervalMs.isNaN()) {
+                    170f
+                } else {
+                    val clamped = intervalMs.coerceIn(100f, 800f)
+                    var ratio = 1f - (clamped - 100f) / 700f
+                    ratio = Math.pow(ratio.toDouble(), 0.2).toFloat()
+                    170f + ratio * 50f
+                }
                 waveDelta.value = targetOffset.toFloat()
                 waveTick.value++
                 listState.scrollBy(targetOffset.toFloat())
@@ -480,24 +496,41 @@ fun KaraokeLyricsView(
 
                         // 行级 posY 弹簧（完全复刻 Web 版 group.ts 机制）：
                         // 列表瞬移后，本行 graphicsLayer 先补偿 waveDelta（视觉保持旧位置），
-                        // 按「距当前行的行数」错峰延迟（40ms/行，上限 200ms）后，
-                        // 弹簧（阻尼比 1.1 过阻尼、k=220）归零——波浪式依次跟到位。
+                        // 按「距当前行的行数」错峰延迟（50ms/行，上限 300ms）后，
+                        // 弹簧（waveStiffness 动态 170~220、阻尼比 1.1 过阻尼）归零。
                         val waveOffset = remember { Animatable(0f) }
                         LaunchedEffect(waveTick.value) {
                             if (waveDelta.value == 0f) return@LaunchedEffect
                             waveOffset.snapTo(waveDelta.value)
                             val dist = kotlin.math.abs(index - lyricsFocusState.firstIndex)
-                            delay((dist * 40).coerceAtMost(200).toLong())
+                            delay((dist * 50).coerceAtMost(300).toLong())
                             waveOffset.animateTo(
                                 0f,
-                                spring(dampingRatio = 1.1f, stiffness = 220f)
+                                spring(
+                                    dampingRatio = 1.1f,
+                                    stiffness = waveStiffness.value
+                                )
+                            )
+                        }
+
+                        // 行缩放弹性（对齐 Web 版 line.ts scale Spring：k=100/d=10，
+                        // 阻尼比 0.5 欠阻尼，当前行 100%、其他行 97%，切换时弹性振荡）
+                        val lineScale = remember { Animatable(if (isCurrentFocusLine) 1f else 0.97f) }
+                        LaunchedEffect(isCurrentFocusLine) {
+                            lineScale.animateTo(
+                                if (isCurrentFocusLine) 1f else 0.97f,
+                                spring(dampingRatio = 0.5f, stiffness = 100f)
                             )
                         }
 
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .graphicsLayer { translationY = waveOffset.value },
+                                .graphicsLayer {
+                                    translationY = waveOffset.value
+                                    scaleX = lineScale.value
+                                    scaleY = lineScale.value
+                                },
                             horizontalAlignment = if (isVisualRightAligned) Alignment.End else Alignment.Start
                         ) {
                             val animDuration = 600
