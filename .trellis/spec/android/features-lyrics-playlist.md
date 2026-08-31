@@ -10,11 +10,11 @@
 - 改动 `feature/playlist/*`、播放列表 Room 表
 - 改动响度均衡链路（LoudnessCalculator/LoudnessController/replayGainTrackDb 列）
 
-## 1. AMLL 渲染 = 原生 Compose（WebView 已废弃，归档保留）
+## 1. AMLL 渲染 = WebView 嵌入（DroidMate 1:1，08-31 起）
 
-- **现行方案（native，08-28 起）**：纯 Compose `PlayerScreen` 直接复刻 `MeloX-Android` 的 `MeloXFlowingLightBackdrop` + `MeloXIOSLyricsPanel`，**不再使用 WebView**。`PlayerViewModel` 经 `LyricsParser` + `AmllMapper` 解析为 `AmllLyricLine`（`words[{startTime,endTime,word}]`）→ `parsedLines` 供 `MeloXIOSLyricsPanel`（逐词）与 `MetaWindow`（五行小窗）同源消费；封面经 `stickyCover` 粘性传递给 `MeloXFlowingLightBackdrop`。
-- **归档 WebView 方案（仅历史参考，勿复用）**：曾用 Vite 打包 `@applemusic-like-lyrics/core` 进 APK assets（`frontend/amll-web/` → `feature:player/src/main/androidAssets/amll/`）→ `AndroidView` 包 WebView → `WebViewAssetLoader` 以 `https://appassets.androidplatform.net/assets/amll/index.html` 加载 → `evaluateJavascript` 注入；已于 08-28 原生重构中删除（`AmllWebView.kt` / `frontend/amll-web/` 已移除），原因见 §2 末与 index.md 播放契约。
-- **禁止**重新引入 WebView 歌词栈；新需求在 `MeloXIOSLyricsPanel` / `MeloXFlowingLightBackdrop` 上扩展。
+- **现行方案（WebView，08-31 起）**：`app/src/main/assets/amll/`（`vite lib es amll.bundle.js + cssInliner` 产自 `.workbuddy/tmp/amll-droidmate/frontend/src/main.tsx + styles.css + vite.config.js`）→ `AndroidView` 包 `WebView` → `WebViewAssetLoader` 以 `https://appassets.androidplatform.net/assets/amll/index.html` 加载 → `window.updateLyrics/updateTime/setPaused/updateAlbumArt/configure*` 注入。`PlayerViewModel` 经 `LyricsParser` + `AmllMapper` 解析为 `SyncedLyrics` → `LyricWebView` 透传；封面经 `FlowingLightBackdrop`（Compose 层）透底（WebView `LAYER_TYPE_HARDWARE + TRANSPARENT + mix-blend-mode:normal` 兼容 Chromium 110），WebView 内 `BackgroundRender(Mesh/Pixi)` 可选叠加但本任务以 Compose 层为主。
+- **归档原生 Compose 方案（08-28，仅历史参考）**：曾用 `MeloXFlowingLightBackdrop + MeloXIOSLyricsPanel` 纯 Compose 复刻，因 LazyList 波浪 stagger 无法无闪复刻 Web 行弹簧，已归档。
+- **禁止**在 WebView 栈外另起第二套歌词渲染；新需求在 `LyricWebView` / `amll.bundle.js` 上扩展。
 
 ### 就绪握手（0621054，P4.4 黑屏修复）
 
@@ -29,33 +29,32 @@
 2. **WebView 尺寸自适应用 ResizeObserver 不用 window.resize**：Android WebView 初始布局高度为 0，后续 AndroidView 获得真实尺寸不再派发 resize → 背景 canvas 高度 0 永不可见；amll-web 侧 `new ResizeObserver(resize).observe(document.body)` 兜底
 3. **AndroidView 嵌入面板区域时 offset 位移要加在 AndroidView 自身而非父容器**（父容器位移会连带裁剪/命中区域错位）；背景歌词解耦 = 背景层与歌词层各自独立 AmllWebView 实例
 
-### 桥接口签名（window 级，前端 `amll-web/src/main.ts` ↔ Kotlin `AmllWebView.kt`）
+### 桥接口签名（window 级，前端 `main.tsx` ↔ Kotlin `LyricWebView.kt`，1:1 DroidMate）
 
 | JS 接口 | 入参 | 调用时机 |
 |---|---|---|
-| `updateLyrics(payload: string)` | JSON 字符串 `{lines, coverUrl, songId}` | 页面 ready 后首次 + 每次切歌 |
-| `updatePosition(positionMs: number)` | ms 数值 | VM 侧 ~100ms 轮询节流，仅 isPlaying 时发射 |
-| `pauseRender()` / `resumeRender()` | 无 | Lifecycle ON_STOP / ON_START |
-| `updatePlayerState(payload: string)`（P4.4） | JSON `{title, artist, coverUrl, isPlaying, positionMs, durationMs, buffering, repeatMode:'off'\|'one'\|'all', shuffleEnabled, hasTranslation, translationEnabled, insetTopPx?, insetBottomPx?}` | 页面 ready / 任一状态变化（title 空串 = 无播放歌曲，前端显空态；coverUrl=null 粘性沿用） |
+| `updateLyrics({lines:[{words:[{word,startTime,endTime,romanWord?}], text, translatedLyric, romanLyric, startTime,endTime,isBG,isDuet}]})` | 对象（非字符串） | `isPageReady && lyrics !== lastLyrics` 引用比较 |
+| `updateTime(number)` | `Math.trunc(ms)` | `now - lastUpdate >= frameIntervalMs(32ms)` 节流，暂停且已同步过则忽略 |
+| `setPaused(bool)` | `!isPlaying` | `lastIsPlaying !== curIsPlaying` 去抖 |
+| `updateAlbumArt(string)` | `file://` 先 `fetch->blob->dataURL`，http 加 `t=Date.now()` | `lastAlbumArtUri !== cur` 时 |
+| `configureLyricMotion / configureBackgroundEffect / configureLyricBackground / applyFontSettings` | 各自 JSON | 签名比较，仅变化时刷 |
 
 JS→Native（P4.4）：前端经 `window.nativeBridge.onAction(json)` 发动作 `{action:'playPause'|'next'|'previous'|'seekTo'(positionMs)|'setRepeatMode'(mode)|'setShuffle'(enabled)|'toggleTranslation'|'openQueue'|'close'}`；Kotlin 侧 `NativeBridge` 回调在 JS 线程，AmllWebView 内部统一 post 主线程后再分派。seek 为一次性语义：拖动 preview 由前端本地完成，抬起才发。
 
 - **payload 注入必须经 `AmllMapper.quote()` 包成 JS 字符串字面量**——前端内部做 `JSON.parse`，直接内插对象会被 ToString 成 `[object Object]`。
 - `songId` token：前端校验过期注入丢弃。
 
-## 2. 背景生命周期治理（原生 Compose）
+## 2. 背景生命周期治理（WebView + Compose 混合）
 
-- 背景不得因「无歌词」卸载：`hasLyric = parsedLines.isNotEmpty()` 仅作语义保留，`MeloXFlowingLightBackdrop` 始终渲染；空态在前景 `Column` 显示占位（"暂无播放歌曲"），背景照常。
-- **原生 Compose 无需 pauseRender/resumeRender**：流体 Blob 由 `rememberInfiniteTransition` 自驱动，生命周期跟随 Composable；封面虚化由 `coil AsyncImage` + `blur(32.dp)` 直映，无 PIXI ticker。
+- 背景不得因「无歌词」卸载：`FlowingLightBackdrop`（Compose）始终渲染；WebView 透明透出；空态在前景 `LyricPanel` 显示占位，背景照常。
+- **WebView 背景（可选）**：`BackgroundRender.new(MeshGradientRenderer|PixiRenderer)`，`tick` 每帧 `player.update(delta)`（不因 paused 跳过），`updateAlbumArt` 时 `setAlbum + update(0)`；若 WebGL 不可用则仅用 Compose 层，避免 `plus-lighter` 无底色全透明（已全局改为 `normal` + 兼容补丁）。
 - 粘性封面三段语义（PlayerViewModel.stickyCover）：新曲有封面即更新；无封面**沿用旧值**；仅无当前曲才清空。
-- `stickyCover == null` 时沿用旧帧（`MeloXFlowingLightBackdrop` 不清背景），避免切歌闪黑。
-
-> 归档：WebView 时代 ON_STOP→pauseRender / ON_START→resumeRender 已废弃。
+- `stickyCover == null` 时沿用旧帧（`FlowingLightBackdrop` 不清背景），避免切歌闪黑。
 
 ## 3. 封面加载
 
-- **原生 Compose**：`stickyCover`（已是 `coverUriToAppAssetsUrl` / `data:image` 转换后结果）直接喂 `AsyncImage(model = coverUri)` 与 `MeloXFlowingLightBackdrop`，无 WebView 混合内容限制；coil 原生支持 `file://` / `content://` / `data:` / `https:`。
-- **归档 WebView 混合内容规避（已废弃）**：页面源是 https 时 `file://` 会被拦截，曾统一经 `coverUriToAppAssetsUrl(uri, cacheDirPath)` 映射为 `https://appassets.androidplatform.net/cache/...`。
+- **现行（混合）**：`stickyCover` 喂 Compose `FlowingLightBackdrop`（coil 天然支持 `file://`/`content://`/`data:`/`https:`）；WebView 侧 `updateAlbumArt` 对 `file://` 执行 `fetch->blob->dataURL` 规避 https 混合内容拦截，http 则加 `t=Date.now()` 防缓存。
+- **归档**：曾用 `coverUriToAppAssetsUrl` 映射 `https://appassets.androidplatform.net/cache/...`，现由前端 `fetch` 直转 `dataURL` 替代。
 
 ## 4. 歌词解析（lyrics-core 0.4.7 API 事实）
 
