@@ -360,11 +360,15 @@ fun KaraokeLyricsView(
                     val dtSec =
                         ((frameMs - prevFrameMs) / 1000f).coerceIn(0.001f, 0.032f)
                     prevFrameMs = frameMs
+                    // remaining 视为位移误差（目标 0），弹簧把它拉向 0：
+                    // v' = -k*remaining - c*v；v 是 remaining 的变化率（衰减为负）
                     val a = -SPRING_STIFFNESS * remaining - SPRING_DAMPING * velocity
                     velocity += a * dtSec
                     val dx = velocity * dtSec
-                    listState.scrollBy(dx)
-                    remaining -= dx
+                    // 列表滚动方向与 remaining 衰减相反：remaining>0（行在目标下方）
+                    // 需要列表向下滚（scrollBy 正）让行上移
+                    listState.scrollBy(-dx)
+                    remaining += dx
                 }
                 if (kotlin.math.abs(remaining) > 0.5f) {
                     listState.scrollBy(remaining)
