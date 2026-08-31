@@ -97,3 +97,14 @@ root.addEventListener(
 
 window.AMLLReady = true;
 console.log("AMLL host: ready");
+
+// LyricPlayer 无内置渲染循环（网页版由 React wrapper 用 rAF 驱动 update），
+// 这里补上持续渲染循环，否则只出第一帧（空布局），歌词永不显示
+let lastFrameTime = performance.now();
+function renderFrame(time) {
+	const dt = time - lastFrameTime;
+	lastFrameTime = time;
+	player.update(dt);
+	requestAnimationFrame(renderFrame);
+}
+requestAnimationFrame(renderFrame);
