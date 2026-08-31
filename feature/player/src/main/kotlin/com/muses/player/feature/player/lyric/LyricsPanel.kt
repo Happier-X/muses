@@ -123,67 +123,28 @@ fun LyricsPanel(
                 }
             }
         } else {
-            val listState = rememberLazyListState()
-
-            // 用户滚动歌词时露出 chrome（对应原版 wheel/touchmove）
-            LaunchedEffect(listState.isScrollInProgress) {
-                if (listState.isScrollInProgress) revealChrome()
-            }
-
-            val currentTextStyle = LocalTextStyle.current
-            val screenWidthDp = LocalConfiguration.current.screenWidthDp
-            // 当前行定位基准：KaraokeLyricsView 会把当前行滚到距列表视口顶部 offset 处
-            // （默认 32dp 会贴顶）。AMLL 观感为当前行垂直居中略偏上，
-            // 取屏幕高度 42%，给下方翻译/音译行留出视觉平衡。
-            val screenHeightDp = LocalConfiguration.current.screenHeightDp
-            val lyricAnchorOffset = (screenHeightDp * 0.42f).dp
             // 字号：AMLL 默认 clamp(22px, 6.5vw, 32px)；手机端取 7.5vw 以贴合原生观感（360dp → 27sp，上限 32sp）
+            val screenWidthDp = LocalConfiguration.current.screenWidthDp
             val mainFontSize = if (isTablet) {
                 (screenWidthDp * 0.024f).coerceIn(20f, 30f)
             } else {
                 (screenWidthDp * 0.075f).coerceIn(26f, 32f)
             }.sp
-            // TextMotion.Animated：逐词渐变时字形度量连续变化，避免整字跳变
-            val normalStyle = remember(currentTextStyle, mainFontSize) {
-                currentTextStyle.copy(
-                    fontSize = mainFontSize,
-                    fontWeight = FontWeight.Bold,
-                    textMotion = TextMotion.Animated,
-                )
-            }
-            val accompanimentStyle = remember(normalStyle, mainFontSize) {
-                normalStyle.copy(fontSize = mainFontSize * 0.7f)
-            }
-            val phoneticStyle = remember(normalStyle) {
-                normalStyle.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal)
-            }
 
-            KaraokeLyricsView(
-                listState = listState,
+            // WebView 内嵌 AMLL 网页版：滚动弹簧/波浪/缩放与网页版 100% 一致
+            LyricWebView(
                 lyrics = lyrics,
-                currentPosition = positionProvider,
-                onLineClicked = { line ->
-                    onSeek(line.start.toLong())
+                positionMs = positionProvider,
+                isPlaying = { isPlaying },
+                showTranslation = translationEnabled,
+                fontSizeSp = mainFontSize.value,
+                onSeek = { ms ->
+                    onSeek(ms)
                     revealChrome()
                 },
-                onLinePressed = { revealChrome() },
-                showTranslation = translationEnabled,
-                showPhonetic = translationEnabled,
-                normalLineTextStyle = normalStyle,
-                accompanimentLineTextStyle = accompanimentStyle,
-                phoneticTextStyle = phoneticStyle,
-                textColor = Color.White,
-                offset = lyricAnchorOffset,
-                // 非当前行高斯模糊：AMLL 的标志性景深（低版本系统由库内部降级）
-                useBlurEffect = true,
-                blendMode = BlendMode.Plus,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        // Plus 叠加需离屏合成，否则会与背景直接混合丢失发光
-                        blendMode = BlendMode.Plus
-                        compositingStrategy = CompositingStrategy.Offscreen
-                    },
+                onInteractionStart = { revealChrome() },
+                onInteractionEnd = {},
+                modifier = Modifier.fillMaxSize(),
             )
         }
 
