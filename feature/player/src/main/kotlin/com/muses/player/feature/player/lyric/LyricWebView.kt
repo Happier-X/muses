@@ -94,6 +94,12 @@ fun LyricWebView(
                         }
                     }
                 }
+                webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onConsoleMessage(message: android.webkit.ConsoleMessage): Boolean {
+                        android.util.Log.w("LyricWeb", "${message.message()} @${message.lineNumber()}")
+                        return true
+                    }
+                }
                 addJavascriptInterface(bridge, "AndroidLyric")
                 loadUrl("file:///android_asset/lyrics/index.html")
             }
@@ -101,9 +107,13 @@ fun LyricWebView(
         update = { view -> webView = view }
     )
 
-    // 歌词变化 → 注入
+    // 歌词变化 → 注入（等待 WebView 就绪；onPageFinished 时歌词可能尚未解析）
     LaunchedEffect(lyrics, lyricJson) {
-        val view = webView ?: return@LaunchedEffect
+        var view = webView
+        while (view == null) {
+            delay(100)
+            view = webView
+        }
         val json = lyricJson
         if (json != null) {
             view.evaluateJavascript(
