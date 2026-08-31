@@ -188,8 +188,9 @@ internal fun SyncedLyrics.toLyricLinesJson(showTranslation: Boolean): String? {
                     val we = s.end.toLong().coerceAtMost(safeEnd).coerceAtLeast(ws + 1L)
                     "{\"startTime\":$ws,\"endTime\":$we,\"word\":${s.content.toJsStringLiteral()}}"
                 }
+                val text = line.syllables.joinToString("") { it.content }
                 sb.append("{\"words\":[$words],")
-                sb.append("\"text\":${line.content.toJsStringLiteral()},")
+                sb.append("\"text\":${text.toJsStringLiteral()},")
                 sb.append("\"translatedLyric\":${(if (showTranslation) line.translation else null).orEmpty().toJsStringLiteral()},")
                 sb.append("\"romanLyric\":${(if (showTranslation) line.phonetic else null).orEmpty().toJsStringLiteral()},")
                 sb.append("\"startTime\":$safeStart,\"endTime\":$safeEnd,")
