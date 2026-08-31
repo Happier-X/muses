@@ -13736,29 +13736,27 @@ function bn() {
     }
     Tt("AMLL core WebView initialized", "debug"), window.Android?.onPageReady?.(), setTimeout(() => {
       try {
-        const n = Z.player?.element;
+        const n = Z.player;
         if (!n) {
-          Tt("DIAG: no player element", "error");
+          Tt("DIAG: no player", "error");
           return;
         }
-        const a = n.querySelectorAll(".FmKaba_lyricLine"), o = n.querySelector(".FmKaba_lyricLine.FmKaba_active");
-        if (Tt(`DIAG: ${a.length} lines, active=${JSON.stringify(o?.textContent)}`, "info"), o) {
-          const h = o.getBoundingClientRect();
-          Tt(`DIAG: active rect=${JSON.stringify({
-            x: h.x,
-            y: h.y,
-            w: h.width,
-            h: h.height
-          })}`, "info"), o.style.setProperty("color", "red", "important"), o.style.setProperty("-webkit-mask-image", "none", "important"), o.style.setProperty("mask-image", "none", "important"), o.style.setProperty("opacity", "1", "important");
-          const l = o.querySelectorAll("*");
-          l.forEach((c) => {
-            c.style.setProperty("color", "red", "important"), c.style.setProperty("-webkit-mask-image", "none", "important"), c.style.setProperty("mask-image", "none", "important"), c.style.setProperty("opacity", "1", "important");
-          }), Tt(`DIAG: forced RED on active + ${l.length} descendants`, "info");
-        }
+        n.setCurrentTime?.(6e4, !0), n.calcLayout?.(), n.update?.(0), Tt("DIAG: setCurrentTime(60000) done", "info");
       } catch (n) {
-        Tt("DIAG error: " + n.message, "error");
+        Tt("DIAG jump err: " + n.message, "error");
       }
-    }, 2500);
+    }, 3e3), setInterval(() => {
+      try {
+        const n = Z.player?.element;
+        if (!n) return;
+        const a = Array.from(n.querySelectorAll(".FmKaba_lyricLine")), o = n.querySelector(".FmKaba_lyricLine.FmKaba_active"), h = a.map((l, c) => {
+          const u = l.getBoundingClientRect();
+          return `[${c}${l.classList.contains("FmKaba_active") ? "*" : ""}]${(l.textContent || "").slice(0, 10)} y=${u.y.toFixed(0)} h=${u.height.toFixed(0)}`;
+        });
+        Tt(`DIAG: lines=${a.length} active=${JSON.stringify(o?.textContent?.slice(0, 20))}`, "info"), Tt(`DIAG: ${h.slice(0, 12).join(" | ")}`, "info"), o && (o.style.setProperty("color", "red", "important"), o.style.setProperty("-webkit-mask-image", "none", "important"), o.style.setProperty("mask-image", "none", "important"), o.style.setProperty("opacity", "1", "important"));
+      } catch {
+      }
+    }, 1500);
   } catch (e) {
     Tt(`Initialization error: ${e.message}`, "error");
   }
