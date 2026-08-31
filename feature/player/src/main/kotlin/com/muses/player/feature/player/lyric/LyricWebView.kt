@@ -2,7 +2,10 @@ package com.muses.player.feature.player.lyric
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
@@ -14,7 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import com.mocharealm.accompanist.lyrics.core.model.ISyncedLine
+import androidx.webkit.WebViewAssetLoader
 import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeAlignment
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
@@ -22,15 +25,14 @@ import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import kotlinx.coroutines.delay
 
 /**
- * 基于 WebView 的 AMLL 网页版歌词渲染。
+ * 基于 WebView 的 AMLL 网页版歌词渲染（照抄 AMLL-DroidMate 完整方案）。
  *
- * 直接运行 Web 版 LyricPlayer（assets/lyrics/，@applemusic-like-lyrics/core 打包），
- * 滚动弹簧/波浪/缩放等动画效果与 AMLL 网页版 100% 一致。
- *
- * 数据流：
- * - lyrics（SyncedLyrics）→ JSON 注入 setLyric；
- * - 播放位置 positionMs() 每 50ms 注入 setCurrentTime；
- * - 行点击 → 桥 onSeek（原生 seek）；触摸 → onInteractionStart/End（唤起控制条）。
+ * 关键差异（vs 之前 file:// 版本）：
+ * 1. WebViewAssetLoader：https://appassets.androidplatform.net/assets/amll/ 虚拟域名加载，
+ *    规避 file:// 下 ES Module/CSS 的 CORS 限制（之前歌词 DOM 无样式/模块不执行的真因）；
+ * 2. CSS 内联进 amll.bundle.js（vite cssInliner 插件），无外部 CSS 文件；
+ * 3. 前端 API 照 DroidMate：window.updateLyrics({lines}) / updateTime(ms) / setPaused(bool)，
+ *    LyricPlayer 内部 rAF 循环自驱动渲染（无内置循环的问题已由 DroidMate 的 tick 解决）。
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -51,8 +53,13 @@ fun LyricWebView(
     val bridge = remember {
         object {
             @JavascriptInterface
-            fun onSeek(ms: Double) {
-                onSeek(ms.toLong())
+            fun onLineClick(lineIndex: Int, startTime: Double) {
+                onSeek(startTime.toLong())
+            }
+
+            @JavascriptInterface
+            fun onPageReady() {
+                android.util.Log.w("LyricWeb", "page ready")
             }
 
             @JavascriptInterface
@@ -63,6 +70,11 @@ fun LyricWebView(
             @JavascriptInterface
             fun onInteractionEnd() {
                 onInteractionEnd()
+            }
+
+            @JavascriptInterface
+            fun log(message: String, level: String) {
+                android.util.Log.w("LyricWeb", "[js:$level] $message")
             }
         }
     }
@@ -75,7 +87,10 @@ fun LyricWebView(
         modifier = modifier,
         factory = { ctx ->
             // 允许 Chrome DevTools 远程调试（排查 WebView 加载/JS 问题）
-            android.webkit.WebView.setWebContentsDebuggingEnabled(true)
+            WebView.setWebContentsDebuggingEnabled(true)
+            val assetLoader = WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(ctx))
+                .build()
             WebView(ctx).apply {
                 setBackgroundColor(Color.TRANSPARENT)
                 settings.javaScriptEnabled = true
@@ -85,12 +100,18 @@ fun LyricWebView(
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
                 webViewClient = object : WebViewClient() {
+                    override fun shouldInterceptRequest(
+                        view: WebView,
+                        request: WebResourceRequest
+                    ): WebResourceResponse? {
+                        return assetLoader.shouldInterceptRequest(request.url)
+                    }
+
                     override fun onPageFinished(view: WebView, url: String?) {
                         webView = view
-                        view.evaluateJavascript("window.AMLLHost.setFontSize($fontSizeSp);", null)
                         lyricJson?.let { json ->
                             view.evaluateJavascript(
-                                "window.AMLLHost.setLyric(${json.toJsStringLiteral()}, ${positionMs()});",
+                                "window.updateLyrics && window.updateLyrics($json);",
                                 null
                             )
                         }
@@ -98,20 +119,20 @@ fun LyricWebView(
 
                     override fun onReceivedError(
                         view: WebView?,
-                        request: android.webkit.WebResourceRequest?,
+                        request: WebResourceRequest?,
                         error: android.webkit.WebResourceError?
                     ) {
                         android.util.Log.w("LyricWeb", "onReceivedError code=${error?.errorCode} desc=${error?.description} url=${request?.url}")
                     }
                 }
                 webChromeClient = object : android.webkit.WebChromeClient() {
-                    override fun onConsoleMessage(message: android.webkit.ConsoleMessage): Boolean {
+                    override fun onConsoleMessage(message: ConsoleMessage): Boolean {
                         android.util.Log.w("LyricWeb", "${message.message()} @${message.lineNumber()}")
                         return true
                     }
                 }
-                addJavascriptInterface(bridge, "AndroidLyric")
-                loadUrl("file:///android_asset/lyrics/index.html")
+                addJavascriptInterface(bridge, "Android")
+                loadUrl("https://appassets.androidplatform.net/assets/amll/index.html")
             }
         },
         update = { view -> webView = view }
@@ -126,18 +147,10 @@ fun LyricWebView(
         }
         val json = lyricJson
         if (json != null) {
-            view.evaluateJavascript(
-                "window.AMLLHost.setLyric(${json.toJsStringLiteral()}, ${positionMs()});",
-                null
-            )
+            view.evaluateJavascript("window.updateLyrics && window.updateLyrics($json);", null)
         } else {
-            view.evaluateJavascript("window.AMLLHost.clearLyric();", null)
+            view.evaluateJavascript("window.updateLyrics && window.updateLyrics({\"lines\":[]});", null)
         }
-    }
-
-    // 字号调整
-    LaunchedEffect(fontSizeSp) {
-        webView?.evaluateJavascript("window.AMLLHost.setFontSize($fontSizeSp);", null)
     }
 
     // 播放位置推进（50ms 粒度，逐词渐变所需）
@@ -145,27 +158,21 @@ fun LyricWebView(
         while (true) {
             val view = webView
             if (view != null) {
-                view.evaluateJavascript(
-                    "window.AMLLHost.setCurrentTime(${positionMs()}, false);",
-                    null
-                )
-                view.evaluateJavascript(
-                    "window.AMLLHost.setPlaying(${isPlaying()});",
-                    null
-                )
+                view.evaluateJavascript("window.updateTime && window.updateTime(${positionMs()});", null)
+                view.evaluateJavascript("window.setPaused && window.setPaused(${!isPlaying()});", null)
             }
             delay(50)
         }
     }
 }
 
-/** SyncedLyrics → AMLL LyricLine[] JSON（web 版数据格式）
+/** SyncedLyrics → DroidMate 格式 JSON（{"metadata":..., "lines":[...]}，前端 updateLyrics 用）
  * 预处理：避免时间重叠行触发 web 版 assertValidLyricTimestamps 失败（元数据行「作词/作曲/编曲」
  * 经常同 startTime=0）；为每行 startTime 添加微递增确保单调非重叠。
  */
 internal fun SyncedLyrics.toLyricLinesJson(showTranslation: Boolean): String? {
     if (lines.isEmpty()) return null
-    val sb = StringBuilder("[")
+    val sb = StringBuilder("{\"lines\":[")
     var cursorMs = 0L
     lines.forEachIndexed { index, line ->
         if (index > 0) sb.append(',')
@@ -182,6 +189,7 @@ internal fun SyncedLyrics.toLyricLinesJson(showTranslation: Boolean): String? {
                     "{\"startTime\":$ws,\"endTime\":$we,\"word\":${s.content.toJsStringLiteral()}}"
                 }
                 sb.append("{\"words\":[$words],")
+                sb.append("\"text\":${line.content.toJsStringLiteral()},")
                 sb.append("\"translatedLyric\":${(if (showTranslation) line.translation else null).orEmpty().toJsStringLiteral()},")
                 sb.append("\"romanLyric\":${(if (showTranslation) line.phonetic else null).orEmpty().toJsStringLiteral()},")
                 sb.append("\"startTime\":$safeStart,\"endTime\":$safeEnd,")
@@ -193,13 +201,14 @@ internal fun SyncedLyrics.toLyricLinesJson(showTranslation: Boolean): String? {
                 val ws = line.start.toLong().coerceAtLeast(safeStart)
                 val we = line.end.toLong().coerceAtMost(safeEnd).coerceAtLeast(ws + 1L)
                 sb.append("{\"words\":[{\"startTime\":$ws,\"endTime\":$we,\"word\":${line.content.toJsStringLiteral()}}],")
+                sb.append("\"text\":${line.content.toJsStringLiteral()},")
                 sb.append("\"translatedLyric\":${(if (showTranslation) line.translation else null).orEmpty().toJsStringLiteral()},")
                 sb.append("\"romanLyric\":\"\",")
                 sb.append("\"startTime\":$safeStart,\"endTime\":$safeEnd,\"isBG\":false,\"isDuet\":false}")
             }
         }
     }
-    sb.append(']')
+    sb.append("]}")
     return sb.toString()
 }
 
