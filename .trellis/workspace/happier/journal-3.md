@@ -1494,3 +1494,25 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+## Session 114: 沉浸式播放页底部播放模式和循环模式图标点击无响应
+<!-- trellis-session: v=2 fp=immersive-player-mode-toggle-fix -->
+
+**Date**: 2026-09-01
+**Task**: 沉浸式播放页底部播放模式和循环模式图标点击无响应
+**Branch**: `main`
+
+### Summary
+
+修复沉浸式单一WebView整页底部四枚按钮（mode-bar与bottom-bar的循环/随机）点击无响应：PlayerViewModel新增toggleRepeat/toggleShuffle无参方法避闭包陈旧值，PlayerScreen切无参直调；FullPlayerWebView OnTouchListener DOWN默认requestDisallow(true)保活纯点击；full-player.js isInNoSwipeZone对mode-bar/controls/progress-range/bottom-bar跳过横滑；PlayerScreen底部180dp排除区避免Compose下滑手势抢占点击；spec 7.1/7.2同步契约，assemble/lint验证通过
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d4ecf94b` | fix(player): 修复沉浸式底部循环/随机按钮无响应 |
+| `ba66c570` | fix(player): 补充沉浸式底部下滑排除与桥接闭包优化 |
+
+### Status
+
+[OK] **Completed**
