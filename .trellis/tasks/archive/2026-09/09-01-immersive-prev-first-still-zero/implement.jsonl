@@ -1,0 +1,2 @@
+{"file": "core/media/src/main/kotlin/com/muses/player/core/media/playback/PlayerConnection.kt", "reason": "队首循环上一曲兜底与日志"}
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "队首循环切歌契约"}
