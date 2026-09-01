@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/android/features-webdav-library.md", "reason": "本地/WebDAV 扫描与懒扫描契约主文档"}
+{"file": ".trellis/spec/android/index.md", "reason": "Android 分层与播放契约"}
+{"file": "core/media/src/main/kotlin/com/muses/player/core/media/scanner/LocalLibraryScanner.kt", "reason": "本地扫描主改动点"}
+{"file": "core/data/src/main/kotlin/com/muses/player/core/data/tag/AudioTagReader.kt", "reason": "标签读取支持 content URI"}
