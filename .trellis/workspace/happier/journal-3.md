@@ -1471,3 +1471,26 @@ MuMu 真机验证通过：单一 FullPlayerWebView（WebViewAssetLoader+HARDWARE
 ### Status
 
 [OK] **Completed**
+
+
+## Session 113: 本地扫描未勾选标签时像 WebDAV 一样懒补充
+<!-- trellis-session: v=2 fp=d121d6b90e0a6036 -->
+
+**Date**: 2026-09-01
+**Task**: 本地扫描未勾选标签时像 WebDAV 一样懒补充
+**Branch**: `main`
+
+### Summary
+
+LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersion=0；AudioTagReader 扩展 content:// / file:// 支持，播放时懒扫描对齐 WebDAV；spec 补充契约，补齐 CancellationException 透传；门禁 assemble/lint/核心单测通过
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e6fb9043` | feat(scanner): 本地扫描未勾选标签时像 WebDAV 一样懒补充 |
+| `c6bfca76` | fix(tag): 补齐 CancellationException 透传（AudioTagReader） |
+
+### Status
+
+[OK] **Completed**

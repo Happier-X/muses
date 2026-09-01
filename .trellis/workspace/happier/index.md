@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 112
+- **Total Sessions**: 113
 - **Last Active**: 2026-09-01
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1473 | Active |
+| `journal-3.md` | ~1496 | Active |
 | `journal-2.md` | ~1993 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 113 | 2026-09-01 | 本地扫描未勾选标签时像 WebDAV 一样懒补充 | `e6fb9043`, `c6bfca76` | `main` |
 | 112 | 2026-09-01 | 沉浸式单一 WebView 整页 1:1 复刻 | `41357614`, `29ca0bad` | `main` |
 | 111 | 2026-08-28 | 沉浸式播放页1:1复刻Capacitor（增量+手势+overlay） | `44b2aa55`, `7a0cf9b7`, `1c1c0f05`, `2f1adec1` | `main` |
 | 110 | 2026-08-28 | 移除引导页残留 | `1eac73f1` | `main` |
