@@ -113,7 +113,7 @@ playlist_songs(playlistId FK→playlists CASCADE, songId FK→songs CASCADE, pos
 - `.player-page__drag-layer`：`offset {IntOffset(0,dragOffsetY)}`（非 `graphicsLayer`，确保下滑暴露区重绘底表）+ `isLyricPanelActive && !isLyricAtTop ? Modifier : pointerInput` 分流；阈值 `clamp(0.18*h,96,160)`，回弹 `0.22s CubicBezier(0,0,0.58,1)`；底部 `180dp` 排除区（`bottomExclusionPx`）内 `ignoreDrag=true` 不参与下滑判定，保证底部按钮点击直达 WebView。
 - `.player-page__panels/full-player.js panels`：`width 200% + transform translateX(-activePanel*50%) 0.22s`（手机），平板 `width 100% transform:none + gap 24 + Row weight 1f` 双栏 + 底部 `TabletBottomBar`；`info-panel/lyric-panel` 各 `width 50% height 100% overflow hidden`；`full-player.js` 对 `mode-bar/controls/progress-range/bottom-bar` 命中 `isInNoSwipeZone` 时 `touchstart/move/end` 直接跳过横滑逻辑，按钮 `click` 仍经 `bindClick` → `Android.onAction toggleRepeat/toggleShuffle`；图标经 `setRepeatIcon/setShuffleIcon` 在 `bindClick` 乐观与 `updateProgress` 回写两处同步切换（`Repeat ↔ RepeatOne`、`Shuffle ↔ svgOrder`）。
 - `.player-page__cover-hero`：`aspectRatio(1) max-height min(50vh,420px) / clamp(160px,62vw,300px) max-height min(38dvh,300px)`，圆角 `12dp`，信息页 `info-panel` 弹性居中。
-- `info-panel/meta-window/progress/controls/mode-bar`：`meta-window 79px`（窄屏 `19.5px` 单行）`translateY -29.5` 居中 `scale 1.05/0.92 opacity 1/0.55`；`progress-range` 白填充+`0.25` 底轨，`time-row 12px tabular 0.68`；`controls 48/56 mode-bar 40 max320`，`SVG` `currentColor` + `active` 白。
+- `info-panel/progress/controls/mode-bar`：`progress-range` 白填充+`0.25` 底轨，`time-row 12px tabular 0.68`；`controls 48/56 mode-bar 40 max320`，`SVG` `currentColor` + `active` 白；信息页五行预览（`meta-window`）已移除（09-01），信息页仅封面+进度+控制。
 - `lyric-panel`：`#lyric-player-container 100% relative` 承载 `amll-lyric-player`（`position absolute inset 0` 迁入），`alignPosition 0.5` 高亮行始终居中，行字号 `clamp(22px,6.5vw,32px)`，手势由 `isUserScrolling + onLyricScroll(cur<=1)` 协同。
 
 ### 7.3 数据流
@@ -128,7 +128,7 @@ SongEntity(lyrics, coverUri) --observeById--> PlayerViewModel.refreshLyricsWithE
 position (500ms) / lyricPosition (100ms, coerceAtMost lastLineEnd) -> PlayerScreen
 ```
 
-- 歌词空时发空数组（非 null），`MeloXIOSLyricsPanel` / `MetaWindow` 显空态，背景不卸载。
+- 歌词空时发空数组（非 null），`LyricsPanel` 空态占位，背景不卸载。
 - 逐词染色：非当前行 `0.35`，当前行已唱 `1.0` / 未唱 `0.42` / 正在唱 `1.0 ExtraBold`（对齐 AMLL 非活动行统一暗淡）。
 
 ## 测试要点

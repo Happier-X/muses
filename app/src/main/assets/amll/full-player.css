@@ -349,59 +349,6 @@ html, body {
   .player-page__song-head--fixed { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: 4px; }
   .info-panel .cover-hero { padding: 2px 0; }
 }
-/* 五行小窗预览（1:1 Capacitor meta-window：79px 视口，当前行 scale 1.05） */
-.meta-window {
-  width: 100%;
-  height: 79px;
-  min-height: 79px;
-  max-height: 79px;
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  align-items: center;
-  margin: 4px 0;
-  flex: 0 0 auto;
-}
-.meta-viewport {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-}
-.meta-list {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  transition: transform 0.4s cubic-bezier(0.32,0.72,0,1);
-  will-change: transform;
-}
-.meta-row {
-  font-size: 13px;
-  line-height: 15.8px;
-  color: rgba(255,255,255,0.6);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transform: scale(0.92);
-  transform-origin: left center;
-  opacity: 0.55;
-  transition: all 0.3s;
-  min-height: 15.8px;
-}
-.meta-row.active {
-  color: rgba(255,255,255,0.92);
-  transform: scale(1.05);
-  opacity: 1;
-  font-weight: 600;
-}
-@media (max-height: 520px) {
-  .meta-window { height: 19.5px; min-height: 19.5px; max-height: 19.5px; }
-  .meta-window .meta-row:not(.active) { display: none; }
-}
-@media (min-width: 768px) and (orientation: landscape) {
-  .player-page--tablet .meta-window { display: none; }
-}
 /* 空态 */
 .empty-state {
   width: 100%;

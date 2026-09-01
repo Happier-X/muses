@@ -48,46 +48,6 @@
     return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
   }
 
-  function findCurrentIndex(lines, pos) {
-    if (!lines || !lines.length) return -1;
-    let idx = -1;
-    for (let i=0;i<lines.length;i++) if (lines[i].startTime <= pos) idx=i; else break;
-    if (idx===-1) return 0;
-    const last = lines[lines.length-1];
-    if (pos > last.endTime) return lines.length-1;
-    return idx;
-  }
-  function renderMetaWindow() {
-    const list = $('meta-list');
-    const viewport = $('meta-viewport');
-    if (!list || !viewport) return;
-    const lines = state.lines || [];
-    if (!lines.length) { list.innerHTML = ''; viewport.style.transform = 'translateY(0)'; return; }
-    const isNarrow = window.innerHeight <= 520;
-    const cur = findCurrentIndex(lines, state.position);
-    list.innerHTML = '';
-    const windowSize = isNarrow ? 1 : 5;
-    const half = Math.floor(windowSize/2);
-    let start = Math.max(0, cur - half);
-    let end = Math.min(lines.length, start + windowSize);
-    if (end - start < windowSize) start = Math.max(0, end - windowSize);
-    for (let i=start;i<end;i++) {
-      const line = lines[i];
-      const row = createEl('div', 'meta-row' + (i===cur ? ' active' : ''), list);
-      row.textContent = line.text || (line.words||[]).map(w=>w.word).join('');
-      row.dataset.index = String(i);
-      row.addEventListener('click', () => {
-        const st = line.startTime;
-        if (window.Android && window.Android.onAction) try { window.Android.onAction(JSON.stringify({action:'seekTo', positionMs: st})); } catch(e){}
-      });
-    }
-    // 窗口整体上移使当前行居中（79px 视口，-29.5 translateY）
-    const rowH = isNarrow ? 19.5 : 15.8;
-    const offset = isNarrow ? 0 : -(cur - start) * rowH + 29.5;
-    // 简化：用 transform 模拟 Capacitor 的 translateY
-    list.style.transform = 'translateY(' + offset + 'px)';
-  }
-
   function initDom() {
     if(window.Android&&window.Android.log) window.Android.log('full-player.js v6 iconFix visible 1+Order','info');
     const app = document.getElementById('app');
@@ -121,14 +81,6 @@
     placeholder.id = 'cover-placeholder';
     placeholder.innerHTML = '<svg viewBox="0 0 24 24" width="48" height="48"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" fill="rgba(255,255,255,0.8)"/></svg>';
     placeholder.style.display = 'flex';
-
-    // 五行小窗预览（1:1 Capacitor meta-window：79px 视口，当前行 scale 1.05）
-    const metaWindow = createEl('div', 'meta-window', info);
-    metaWindow.id = 'meta-window';
-    const metaViewport = createEl('div', 'meta-viewport', metaWindow);
-    metaViewport.id = 'meta-viewport';
-    const metaList = createEl('div', 'meta-list', metaViewport);
-    metaList.id = 'meta-list';
 
     const progress = createEl('div', 'progress-range', info);
     const range = createEl('input', '', progress);
@@ -482,17 +434,15 @@
       });
       if (p.repeatMode !== undefined) { state.repeatMode = p.repeatMode; setRepeatIcon(state.repeatMode); }
       if (p.shuffleEnabled !== undefined) { state.shuffleEnabled = !!p.shuffleEnabled; setShuffleIcon(state.shuffleEnabled); }
-      renderMetaWindow();
     } catch(e) {}
   };
-  // 拦截 amll 的 updateLyrics 以同步 meta-window 的 lines
+  // 同步歌词 lines 供滚动位置上报（已移除 meta-window 渲染）
   (function wrapLyrics(){
     if (window.updateLyrics && !window.updateLyrics.__wrapped) {
       const orig = window.updateLyrics;
       const wrapped = function(payload){
         try { orig(payload); } catch(e){}
         state.lines = (payload && payload.lines) ? payload.lines : [];
-        renderMetaWindow();
       };
       wrapped.__wrapped = true;
       window.updateLyrics = wrapped;
