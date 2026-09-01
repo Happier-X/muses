@@ -1579,3 +1579,24 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+## Session 118: 沉浸式上一曲首次仍回零排障
+<!-- trellis-session: v=2 fp=immersive-prev-first-still-zero -->
+
+**Date**: 2026-09-01
+**Task**: 沉浸式上一曲首次仍回零排障
+**Branch**: `main`
+
+### Summary
+
+二次兜底队首循环：skipToPrevious 在 hasPrevious 为 false 时若 repeat==ALL 且 count>1 则 seekTo(last,0)，解决队首首次点上一曲仍回零的问题；加 PlayerConnection 详细日志(idx/count/hasPrev/rep/pos)便于MuMu定界，spec 16 同步，assemble/lint通过
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `803000d3` | fix(player): 上一曲队首循环兜底与可观测日志 |
+
+### Status
+
+[OK] **Completed**
