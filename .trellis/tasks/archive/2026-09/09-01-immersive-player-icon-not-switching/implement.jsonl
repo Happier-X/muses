@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "沉浸式单一WebView整页契约，图标切换需同步§7前端图标与回写链路"}
+{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器前端图标与状态一致性契约参照"}
