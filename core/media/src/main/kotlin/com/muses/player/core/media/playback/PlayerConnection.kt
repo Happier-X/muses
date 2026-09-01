@@ -249,23 +249,24 @@ class PlayerConnection @Inject constructor(
     }
 
     fun skipToNext() {
-        controller?.let {
-            if (it.hasNextMediaItem()) it.seekToNext()
+        controller?.let { c ->
+            val count = c.mediaItemCount
+            if (count <= 1) { c.seekTo(0); return@let }
+            val idx = c.currentMediaItemIndex
+            val target = (idx + 1) % count
+            android.util.Log.w("PlayerConnection", "skipNext circular idx=$idx count=$count -> $target")
+            c.seekTo(target, 0)
         }
     }
 
     fun skipToPrevious() {
         controller?.let { c ->
             val count = c.mediaItemCount
+            if (count <= 1) { c.seekTo(0); return@let }
             val idx = c.currentMediaItemIndex
-            val hasPrev = c.hasPreviousMediaItem()
-            val rep = c.repeatMode
-            android.util.Log.w("PlayerConnection", "skipPrev idx=$idx count=$count hasPrev=$hasPrev rep=$rep pos=${c.currentPosition}")
-            when {
-                hasPrev -> c.seekToPrevious()
-                rep == Player.REPEAT_MODE_ALL && count > 1 -> c.seekTo(count - 1, 0)
-                else -> c.seekTo(0)
-            }
+            val target = (idx - 1 + count) % count
+            android.util.Log.w("PlayerConnection", "skipPrev circular idx=$idx count=$count -> $target")
+            c.seekTo(target, 0)
         }
     }
 
