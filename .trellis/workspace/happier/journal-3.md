@@ -1600,3 +1600,24 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+## Session 119: 沉浸式上一曲改为纯队列循环
+<!-- trellis-session: v=2 fp=immersive-prev-pure-circular -->
+
+**Date**: 2026-09-01
+**Task**: 沉浸式上一曲改为纯队列循环
+**Branch**: `main`
+
+### Summary
+
+按用户补充的随机即洗牌队列明确纯循环语义：skipToPrevious/Next 改为环形索引 (idx±1+count)%count，无视position/repeat/hasPrevious，count<=1回零；顺序为原始队列、随机为洗牌后时间线顺序，均与几分钟无关，队首上一曲必到队尾
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `af3603de` | fix(player): 上一曲/下一曲改为纯队列首尾循环 |
+
+### Status
+
+[OK] **Completed**
