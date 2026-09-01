@@ -151,3 +151,5 @@ position (500ms) / lyricPosition (100ms, coerceAtMost lastLineEnd) -> PlayerScre
 | 快速连点切歌 | 单飞 applyJob 取消旧查询，最终一致为新曲增益 |
 
 15. **MuMu 的 screencap 截不到 WebView 硬件合成层**（截图纯黑但实际屏幕正常）——排查 WebView 页面"黑屏"必须用 uiautomator dump --compressed 读 accessibility 树或 CDP，勿信截图
+
+16. **上一曲 3s 阈值已按产品决策移除（09-01 沉浸式排障 B 方案）**：`PlayerConnection.skipToPrevious` 改为 `hasPrevious -> seekToPrevious else seekTo(0)`，不再以 `currentPosition>3000` 回零；符合沉浸式“点一次必切上一曲”预期，队首无前曲才回零。

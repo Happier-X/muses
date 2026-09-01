@@ -256,10 +256,11 @@ class PlayerConnection @Inject constructor(
 
     fun skipToPrevious() {
         controller?.let {
-            if (it.currentPosition > 3000) {
-                it.seekTo(0)
-            } else if (it.hasPreviousMediaItem()) {
+            // 需求 B：始终切上一曲（有前曲即切，无前曲才回零），移除 3s 阈值以符合沉浸式“点一次必切”预期
+            if (it.hasPreviousMediaItem()) {
                 it.seekToPrevious()
+            } else {
+                it.seekTo(0)
             }
         }
     }
