@@ -79,6 +79,7 @@ fun LyricsPanel(
     onSeek: (Long) -> Unit,
     showPlayFab: Boolean,
     isTablet: Boolean,
+    albumArtUri: String? = null,
     modifier: Modifier = Modifier,
 ) {
     // 浮动按钮显隐：默认隐藏，点击/滑动歌词后显示，3s 后隐藏
@@ -131,13 +132,14 @@ fun LyricsPanel(
                 (screenWidthDp * 0.075f).coerceIn(26f, 32f)
             }.sp
 
-            // WebView 内嵌 AMLL 网页版：滚动弹簧/波浪/缩放与网页版 100% 一致
+            // WebView 内嵌 AMLL 网页版：滚动弹簧/波浪/缩放与网页版 100% 一致，背景由 AMLL BackgroundRender 驱动
             LyricWebView(
                 lyrics = lyrics,
                 positionMs = positionProvider,
                 isPlaying = { isPlaying },
                 showTranslation = translationEnabled,
                 fontSizeSp = mainFontSize.value,
+                albumArtUri = albumArtUri,
                 onSeek = { ms ->
                     onSeek(ms)
                     revealChrome()

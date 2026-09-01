@@ -172,6 +172,7 @@ fun PlayerScreen(
     var isDraggingVertically by remember { mutableStateOf(false) }
     // 歌词面板是否激活：垂直下滑仅 info-panel 生效（对齐 canStartVerticalDismiss → isLyricPanelTarget）
     var isLyricPanelActive by remember { mutableStateOf(false) }
+    var isLyricAtTop by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     // 回弹动画：0.22s easeOut（motion-v easeOut ≈ CubicBezier(0,0,0.58,1)）
@@ -217,165 +218,64 @@ fun PlayerScreen(
                 // graphicsLayer 纯位移只做合成、暴露区不重绘（露窗口底色，绿屏实验证实）
                 .offset { IntOffset(0, dragOffsetY.roundToInt()) }
                 .background(Color(0xFF05070D))
-                .pointerInput(isTabletLayout, dismissThresholdPx, isLyricPanelActive) {
-                    var accumulatedY = 0f
-                    detectVerticalDragGestures(
-                        onDragStart = { _: Offset -> accumulatedY = 0f; isDraggingVertically = true },
-                        onVerticalDrag = { _: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
-                            // 歌词面板激活时禁用 overlay 下滑（对齐 canStartVerticalDismiss：isLyricPanelTarget → false），
-                            // 避免歌词上下滚动误触发整页跟手/关闭
-                            if (isLyricPanelActive) return@detectVerticalDragGestures
-                            if (dragAmount > 0f || accumulatedY > 0f) {
-                                accumulatedY = (accumulatedY + dragAmount).coerceAtLeast(0f)
-                                dragOffsetY = accumulatedY
-                            }
-                        },
-                        onDragEnd = {
-                            isDraggingVertically = false
-                            if (accumulatedY >= dismissThresholdPx) { clearDragImmediate(); onClose() }
-                            else if (accumulatedY > 0f) { val from = accumulatedY; scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f } }
-                            accumulatedY = 0f
-                        },
-                        onDragCancel = {
-                            isDraggingVertically = false
-                            if (accumulatedY > 0f) { val from = accumulatedY; scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f } }
-                            accumulatedY = 0f
-                        },
-                    )
-                }
-        ) {
-            // 背景层：随 drag-layer 一起跟手下滑，1:1 复刻 Capacitor player-page__bg 在 drag-layer 内
-            FlowingLightBackdrop(
-                coverUri = stickyCover,
-                hasLyric = parsedLines.isNotEmpty(),
-                modifier = Modifier.fillMaxSize(),
-                flowSpeed = 2f,
-            )
-
-        if (!hasSong) {
-            // 空态：对齐 empty-state + placeholder-cover —— 渐变圆角方块 + ♪（48px），标题 20px/600，描述 14px/1.5/0.75
-            // panel 级 padding calc(16+safe) 24 16（对齐 .player-overlay .empty-state）
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(minOf(screenWidth * 0.72f, 340.dp, screenHeight * 0.52f))
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(
-                            // 135deg 渐变（对齐 .placeholder-cover linear-gradient(135deg, white .22→.06)）
-                            Brush.linearGradient(
-                                colors = listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.06f)),
-                                start = Offset.Zero,
-                                end = Offset.Infinite,
-                            ),
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("♪", color = Color.White.copy(alpha = 0.8f), fontSize = 48.sp)
-                }
-                Spacer(Modifier.height(16.dp))
-                Text("暂无播放歌曲", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "从歌曲列表选择一首音乐后，即可进入沉浸式播放。",
-                    color = Color.White.copy(alpha = 0.75f),
-                    fontSize = 14.sp,
-                    lineHeight = 21.sp,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-            ) {
-                    if (isTabletLayout) {
-                        // 平板横屏：固定头部隐藏，由面板内头部承担（此处不渲染 fixed）
-                        TabletImmersiveLayout(
-                            title = title,
-                            artist = artist,
-                            coverUri = stickyCover,
-                            lines = parsedLines,
-                            lyricPosition = lyricPosition,
-                            syncedLyrics = syncedLyrics,
-                            lyricPositionProvider = lyricPositionProvider,
-                            hasTranslation = hasTranslation,
-                            translationEnabled = translationEnabled,
-                            onToggleTranslation = { viewModel.toggleTranslation() },
-                            position = position,
-                            duration = duration,
-                            isPlaying = isPlaying,
-                            isBuffering = isBuffering,
-                            repeatMode = repeatMode,
-                            shuffleEnabled = shuffleModeEnabled,
-                            onSeek = { viewModel.seekTo(it); viewModel.onSeekEnd(it) },
-                            onSeekStart = { viewModel.onSeekStart() },
-                            onSeekEnd = { viewModel.onSeekEnd(it) },
-                            onPlayPause = { viewModel.playPause() },
-                            onPrevious = { viewModel.skipToPrevious() },
-                            onNext = { viewModel.skipToNext() },
-                            onToggleRepeat = {
-                                val next = if (repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_ONE
-                                viewModel.setRepeatMode(next)
+                .then(
+                    if (isLyricPanelActive && !isLyricAtTop) Modifier
+                    else Modifier.pointerInput(isTabletLayout, dismissThresholdPx) {
+                        var accumulatedY = 0f
+                        detectVerticalDragGestures(
+                            onDragStart = { _: Offset -> accumulatedY = 0f; isDraggingVertically = true },
+                            onVerticalDrag = { _: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
+                                if (dragAmount > 0f || accumulatedY > 0f) {
+                                    accumulatedY = (accumulatedY + dragAmount).coerceAtLeast(0f)
+                                    dragOffsetY = accumulatedY
+                                }
                             },
-                            onToggleShuffle = { viewModel.setShuffleModeEnabled(!shuffleModeEnabled) },
-                            onOpenQueue = onOpenQueue,
-                            onOpenEditMeta = onOpenEditMeta,
-                            isNarrowHeight = isNarrowHeight,
-                            maxWidth = screenWidth,
-                            maxHeight = screenHeight,
-                        )
-                    } else {
-                        // 手机：固定头部 + 双面板滑动（panels 0.22s easeOut）
-                        PhoneImmersiveLayout(
-                            title = title,
-                            artist = artist,
-                            coverUri = stickyCover,
-                            lines = parsedLines,
-                            lyricPosition = lyricPosition,
-                            syncedLyrics = syncedLyrics,
-                            lyricPositionProvider = lyricPositionProvider,
-                            hasTranslation = hasTranslation,
-                            translationEnabled = translationEnabled,
-                            onToggleTranslation = { viewModel.toggleTranslation() },
-                            position = position,
-                            duration = duration,
-                            isPlaying = isPlaying,
-                            isBuffering = isBuffering,
-                            repeatMode = repeatMode,
-                            shuffleEnabled = shuffleModeEnabled,
-                            onSeek = { viewModel.seekTo(it) },
-                            onSeekStart = { viewModel.onSeekStart() },
-                            onSeekEnd = { viewModel.onSeekEnd(it) },
-                            onPlayPause = { viewModel.playPause() },
-                            onPrevious = { viewModel.skipToPrevious() },
-                            onNext = { viewModel.skipToNext() },
-                            onToggleRepeat = {
-                                val next = if (repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_ONE
-                                viewModel.setRepeatMode(next)
+                            onDragEnd = {
+                                isDraggingVertically = false
+                                if (accumulatedY >= dismissThresholdPx) { clearDragImmediate(); onClose() }
+                                else if (accumulatedY > 0f) { val from = accumulatedY; scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f } }
+                                accumulatedY = 0f
                             },
-                            onToggleShuffle = { viewModel.setShuffleModeEnabled(!shuffleModeEnabled) },
-                            onOpenQueue = onOpenQueue,
-                            onOpenEditMeta = onOpenEditMeta,
-                            isNarrowHeight = isNarrowHeight,
-                            maxWidth = screenWidth,
-                            maxHeight = screenHeight,
-                            onRequestClose = onClose,
-                            dragOffsetY = dragOffsetY,
-                            isDragging = isDraggingVertically,
-                            onActivePanelChange = { isLyricPanelActive = it == 1 },
+                            onDragCancel = {
+                                isDraggingVertically = false
+                                if (accumulatedY > 0f) { val from = accumulatedY; scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f } }
+                                accumulatedY = 0f
+                            },
                         )
                     }
-                }
-            }
+                )
+        ) {
+            // 整页单一 WebView：背景 + 左侧信息栏 + 右侧歌词 1:1 复刻 Capacitor PlayerPage.vue
+            // 外层 drag-layer 的 offset/手势仍由 Compose 处理，WebView 内仅负责内容渲染与左右滑动
+            var activePanel by remember { mutableStateOf(0) }
+            // 同步 activePanel 到 drag 层的下滑禁用
+            LaunchedEffect(activePanel) { isLyricPanelActive = activePanel == 1 }
+            com.muses.player.feature.player.lyric.FullPlayerWebView(
+                title = title,
+                artist = artist,
+                coverUri = stickyCover,
+                positionMs = { lyricPositionProvider() },
+                durationMs = { duration },
+                isPlaying = { isPlaying },
+                repeatMode = { repeatMode },
+                shuffleEnabled = { shuffleModeEnabled },
+                lyrics = syncedLyrics,
+                showTranslation = translationEnabled,
+                fontSizeSp = if (isTabletLayout) (screenWidth.value * 0.024f).coerceIn(20f, 30f) else (screenWidth.value * 0.075f).coerceIn(26f, 32f),
+                activePanel = activePanel,
+                onSeek = { viewModel.seekTo(it); viewModel.onSeekEnd(it) },
+                onPlayPause = { viewModel.playPause() },
+                onPrevious = { viewModel.skipToPrevious() },
+                onNext = { viewModel.skipToNext() },
+                onToggleRepeat = { val next = if (repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_ONE; viewModel.setRepeatMode(next) },
+                onToggleShuffle = { viewModel.setShuffleModeEnabled(!shuffleModeEnabled) },
+                onOpenQueue = onOpenQueue,
+                onOpenEditMeta = onOpenEditMeta,
+                onPanelChange = { activePanel = it },
+                onLyricAtTopChange = { isLyricAtTop = it },
+                onClose = onClose,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         // 限流/播放错误条（Snackbar）
@@ -592,6 +492,7 @@ private fun PhoneImmersiveLayout(
                     onSeek = onSeek,
                     showPlayFab = true,
                     isTablet = false,
+                    albumArtUri = coverUri,
                 )
             }
         }
@@ -688,6 +589,7 @@ private fun TabletImmersiveLayout(
                     onSeek = onSeek,
                     showPlayFab = false,
                     isTablet = true,
+                    albumArtUri = coverUri,
                 )
             }
         }
