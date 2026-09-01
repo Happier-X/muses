@@ -27,7 +27,7 @@ accompanistLyricsCore = "0.4.7"
 androidxWebkit = "1.14.0"
 # M3 刮削引擎：DataStore JSON snapshot 序列化
 kotlinxSerialization = "1.9.0"
-haze = "2.0.0-alpha03"
+haze = "2.0.0-alpha05"
 
 [libraries]
 # M2：仅解析用（TTML/LRC → SyncedLyrics），不引入 lyrics-ui 渲染层

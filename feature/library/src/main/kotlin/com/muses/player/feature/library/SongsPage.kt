@@ -82,8 +82,8 @@ import com.muses.player.core.ui.theme.SaltShadowLayer
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.ui.theme.musesBottomBarHazeStyle
 import com.muses.player.core.ui.theme.saltShadow
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 
@@ -540,9 +540,7 @@ private fun JumpToCurrentFab(
             )
             .then(
                 if (hazeState != null && fabHazeStyle != null) {
-                    Modifier.hazeEffect(state = hazeState) {
-                        blurEffect { style = fabHazeStyle }
-                    }
+                    Modifier.hazeBlur(input = HazeInput.Sources(hazeState), style = fabHazeStyle)
                 } else {
                     Modifier.background(salt.glassBg, CircleShape)
                 },

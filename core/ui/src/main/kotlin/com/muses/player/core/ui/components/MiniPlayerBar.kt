@@ -34,8 +34,8 @@ import com.muses.player.core.ui.theme.SaltShadowLayer
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.ui.theme.musesBottomBarHazeStyle
 import com.muses.player.core.ui.theme.saltShadow
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.blur.hazeBlur
 
 /**
  * `.mini-player` —— 底部迷你播放条（MiniPlayer.vue 一比一翻译）。
@@ -101,11 +101,7 @@ fun MiniPlayerBar(
             .clip(capsuleShape)
             .then(
                 if (hazeState != null && bottomHazeStyle != null) {
-                    Modifier.hazeEffect(state = hazeState) {
-                        blurEffect {
-                            style = bottomHazeStyle
-                        }
-                    }
+                    Modifier.hazeBlur(input = HazeInput.Sources(hazeState), style = bottomHazeStyle)
                 } else {
                     Modifier.background(color = salt.glassBg, shape = capsuleShape)
                 },

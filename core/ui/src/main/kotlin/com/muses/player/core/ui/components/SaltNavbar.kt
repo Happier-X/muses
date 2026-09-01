@@ -33,8 +33,8 @@ import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltDarkColors
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.ui.theme.musesNavbarHazeStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.blur.hazeBlur
 
 /**
  * `.m-navbar` —— 吸顶导航栏（MNavbar.vue 一比一翻译）。
@@ -80,9 +80,7 @@ fun SaltNavbar(
                 if (transparent) {
                     Modifier
                 } else if (hazeState != null && navbarHazeStyle != null) {
-                    Modifier.hazeEffect(state = hazeState) {
-                        blurEffect { style = navbarHazeStyle }
-                    }
+                    Modifier.hazeBlur(input = HazeInput.Sources(hazeState), style = navbarHazeStyle)
                 } else {
                     Modifier.background(salt.navbarGlassBg)
                 },
