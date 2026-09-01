@@ -1448,3 +1448,26 @@ npm 升级 10 个包到最新（@lucide/vue 1.31.0、motion-v 2.4.0、vite 8.2.1
 ### Status
 
 [OK] **Completed**
+
+
+## Session 112: 沉浸式单一 WebView 整页 1:1 复刻
+<!-- trellis-session: v=2 fp=12c4f0a3c499e60e -->
+
+**Date**: 2026-09-01
+**Task**: 沉浸式单一 WebView 整页 1:1 复刻
+**Branch**: `main`
+
+### Summary
+
+MuMu 真机验证通过：单一 FullPlayerWebView（WebViewAssetLoader+HARDWARE+isPageReady+file→dataURL）、alignPosition 0.5 居中、SVG 乐观按钮、isLyricAtTop 手势分流、100dvh 自适应；lint/assemble 通过，规范已同步
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `41357614` | docs(spec): 更新沉浸式播放页为单一 WebView 整页契约（align 0.5 / isLyricAtTop / SVG 乐观） |
+| `29ca0bad` | feat(player): 沉浸式单一 WebView 整页 1:1 复刻（对齐 DroidMate） |
+
+### Status
+
+[OK] **Completed**
