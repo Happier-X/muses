@@ -1621,3 +1621,24 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+## Session 120: 移除歌曲信息页五行歌词
+<!-- trellis-session: v=2 fp=remove-info-meta-window -->
+
+**Date**: 2026-09-01
+**Task**: 移除歌曲信息页五行歌词
+**Branch**: `main`
+
+### Summary
+
+移除沉浸式信息页五行预览：full-player.js 删 renderMetaWindow/meta-window DOM及调用、full-player.css 删 meta-window 样式、PlayerScreen.kt 删 InfoPanel 中 MetaWindow 调用与私有组件；信息页仅保留封面+进度+控制，右侧完整歌词不受影响，spec §7 同步，assemble/lint通过
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0c745bc2` | feat(player): 移除歌曲信息页五行歌词预览 |
+
+### Status
+
+[OK] **Completed**
