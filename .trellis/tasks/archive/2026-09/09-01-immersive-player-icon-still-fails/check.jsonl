@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "校验图标形状与日志契约"}
+{"file": "app/src/main/assets/amll/full-player.js", "reason": "图标切换可视性验证"}
