@@ -152,4 +152,4 @@ position (500ms) / lyricPosition (100ms, coerceAtMost lastLineEnd) -> PlayerScre
 
 15. **MuMu 的 screencap 截不到 WebView 硬件合成层**（截图纯黑但实际屏幕正常）——排查 WebView 页面"黑屏"必须用 uiautomator dump --compressed 读 accessibility 树或 CDP，勿信截图
 
-16. **上一曲 3s 阈值已按产品决策移除（09-01 沉浸式排障 B 方案）**：`PlayerConnection.skipToPrevious` 改为 `hasPrevious -> seekToPrevious else seekTo(0)`，不再以 `currentPosition>3000` 回零；符合沉浸式“点一次必切上一曲”预期，队首无前曲才回零。
+16. **上一曲 3s 阈值已移除并补队首循环兜底（09-01 沉浸式排障）**：`PlayerConnection.skipToPrevious` 改为 `hasPrevious -> seekToPrevious；else if repeat==ALL && count>1 -> seekTo(last,0) else seekTo(0)`，不再以 `currentPosition>3000` 回零；队首在列表循环时回到队尾，非循环队首才回零，并加 `PlayerConnection skipPrev` 日志便于 MuMu 定界。

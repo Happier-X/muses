@@ -255,12 +255,16 @@ class PlayerConnection @Inject constructor(
     }
 
     fun skipToPrevious() {
-        controller?.let {
-            // 需求 B：始终切上一曲（有前曲即切，无前曲才回零），移除 3s 阈值以符合沉浸式“点一次必切”预期
-            if (it.hasPreviousMediaItem()) {
-                it.seekToPrevious()
-            } else {
-                it.seekTo(0)
+        controller?.let { c ->
+            val count = c.mediaItemCount
+            val idx = c.currentMediaItemIndex
+            val hasPrev = c.hasPreviousMediaItem()
+            val rep = c.repeatMode
+            android.util.Log.w("PlayerConnection", "skipPrev idx=$idx count=$count hasPrev=$hasPrev rep=$rep pos=${c.currentPosition}")
+            when {
+                hasPrev -> c.seekToPrevious()
+                rep == Player.REPEAT_MODE_ALL && count > 1 -> c.seekTo(count - 1, 0)
+                else -> c.seekTo(0)
             }
         }
     }
