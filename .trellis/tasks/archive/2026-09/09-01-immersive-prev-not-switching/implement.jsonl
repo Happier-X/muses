@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "沉浸式切歌语义与 3s 阈值契约"}
+{"file": "core/media/src/main/kotlin/com/muses/player/core/media/playback/PlayerConnection.kt", "reason": "skipToPrevious 3s 回零语义实现"}
