@@ -1516,3 +1516,24 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+## Session 115: 沉浸式播放页底部图标未随模式切换
+<!-- trellis-session: v=2 fp=immersive-player-icon-not-switching -->
+
+**Date**: 2026-09-01
+**Task**: 沉浸式播放页底部图标未随模式切换
+**Branch**: `main`
+
+### Summary
+
+补齐 WebView 图标缺失导致的视觉无响应：full-player.js 新增 svgRepeatOne(单曲带1)与 svgOrder(FormatListBulleted顺序)，抽 setRepeatIcon/setShuffleIcon 统一替换 innerHTML与active；bindClick乐观与updateProgress真值回写均经同一setter幂等，首帧同步；循环 ALL↔ONE、随机 true↔false 对齐 Compose 契约，四枚按钮同步；spec §7 同步，assemble/lint 验证通过
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `aad86018` | fix(player): 补齐沉浸式循环/随机图标随模式切换 |
+
+### Status
+
+[OK] **Completed**
