@@ -222,21 +222,36 @@ fun PlayerScreen(
                     if (isLyricPanelActive && !isLyricAtTop) Modifier
                     else Modifier.pointerInput(isTabletLayout, dismissThresholdPx) {
                         var accumulatedY = 0f
+                        var ignoreDrag = false
+                        val bottomExclusionPx = with(density) { 180.dp.toPx() }
                         detectVerticalDragGestures(
-                            onDragStart = { _: Offset -> accumulatedY = 0f; isDraggingVertically = true },
+                            onDragStart = { offset: Offset ->
+                                // 底部模式/控制区（约 180dp）不参与下滑关闭，避免与 WebView 底部按钮点击冲突
+                                if (offset.y > size.height - bottomExclusionPx) {
+                                    ignoreDrag = true
+                                    isDraggingVertically = false
+                                } else {
+                                    ignoreDrag = false
+                                    accumulatedY = 0f
+                                    isDraggingVertically = true
+                                }
+                            },
                             onVerticalDrag = { _: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
+                                if (ignoreDrag) return@detectVerticalDragGestures
                                 if (dragAmount > 0f || accumulatedY > 0f) {
                                     accumulatedY = (accumulatedY + dragAmount).coerceAtLeast(0f)
                                     dragOffsetY = accumulatedY
                                 }
                             },
                             onDragEnd = {
+                                if (ignoreDrag) { ignoreDrag = false; return@detectVerticalDragGestures }
                                 isDraggingVertically = false
                                 if (accumulatedY >= dismissThresholdPx) { clearDragImmediate(); onClose() }
                                 else if (accumulatedY > 0f) { val from = accumulatedY; scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f } }
                                 accumulatedY = 0f
                             },
                             onDragCancel = {
+                                if (ignoreDrag) { ignoreDrag = false; return@detectVerticalDragGestures }
                                 isDraggingVertically = false
                                 if (accumulatedY > 0f) { val from = accumulatedY; scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f } }
                                 accumulatedY = 0f
