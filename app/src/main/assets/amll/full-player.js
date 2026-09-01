@@ -256,10 +256,14 @@
     bindProgress('progress-range');
     bindProgress('bottom-progress');
 
-    // 面板横滑（手机）
+    // 面板横滑（手机）— 底部模式/控制/进度区不参与横滑，避免按钮点击被误判
     let startX = 0, startY = 0, isSwiping = false;
+    function isInNoSwipeZone(target) {
+      try { return !!(target && target.closest && target.closest('.mode-bar, .controls, .progress-range, .player-page__bottom-bar'));} catch(e){ return false; }
+    }
     panels.addEventListener('touchstart', (e) => {
       if (state.isTablet) return;
+      if (isInNoSwipeZone(e.target)) return;
       const t = e.touches[0];
       startX = t.clientX; startY = t.clientY;
       isSwiping = false;
@@ -267,6 +271,7 @@
     }, {passive:true});
     panels.addEventListener('touchmove', (e) => {
       if (state.isTablet) return;
+      if (isInNoSwipeZone(e.target)) return;
       const t = e.touches[0];
       const dx = t.clientX - startX;
       const dy = t.clientY - startY;
@@ -282,6 +287,7 @@
     }, {passive:false});
     panels.addEventListener('touchend', (e) => {
       if (state.isTablet) return;
+      if (isInNoSwipeZone(e.target)) { isSwiping = false; panels.style.transition=''; return; }
       panels.style.transition = '';
       if (isSwiping) {
         const dx = e.changedTouches[0].clientX - startX;

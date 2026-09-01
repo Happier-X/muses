@@ -133,8 +133,8 @@ fun FullPlayerWebView(
                         MotionEvent.ACTION_DOWN -> {
                             downX = event.x; downY = event.y
                             scrollResumeJob?.cancel()
-                            // DOWN 暂不判定，MOVE 时按 dy/dx 决定 isUserScrolling 与拦截
-                            v.parent?.requestDisallowInterceptTouchEvent(false)
+                            // 默认由 WebView 消费，纯点击可直达 JS 的 click；垂直下滑在 MOVE 时再放行给父容器
+                            v.parent?.requestDisallowInterceptTouchEvent(true)
                         }
                         MotionEvent.ACTION_MOVE -> {
                             val dx = abs(event.x - downX)

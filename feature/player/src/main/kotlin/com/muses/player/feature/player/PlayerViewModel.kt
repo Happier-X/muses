@@ -91,6 +91,17 @@ class PlayerViewModel @Inject constructor(
 
     fun setShuffleModeEnabled(enabled: Boolean) = playerConnection.setShuffleModeEnabled(enabled)
 
+    /** 无参切换：基于最新 StateFlow 值，避免闭包捕获陈旧 repeatMode（沉浸式 WebView 桥接多击竞态） */
+    fun toggleRepeat() {
+        val cur = repeatMode.value
+        val next = if (cur == androidx.media3.common.Player.REPEAT_MODE_ONE) androidx.media3.common.Player.REPEAT_MODE_ALL else androidx.media3.common.Player.REPEAT_MODE_ONE
+        setRepeatMode(next)
+    }
+
+    fun toggleShuffle() {
+        setShuffleModeEnabled(!shuffleModeEnabled.value)
+    }
+
     fun onSeekStart() {
         _isSeeking.value = true
     }
