@@ -1558,3 +1558,24 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+## Session 117: 沉浸式上一曲点击无响应
+<!-- trellis-session: v=2 fp=immersive-prev-not-switching -->
+
+**Date**: 2026-09-01
+**Task**: 沉浸式上一曲点击无响应
+**Branch**: `main`
+
+### Summary
+
+按用户选择B方案移除3s回零阈值：PlayerConnection.skipToPrevious 改为有前曲必切、无前曲才回零，解决进度>3s时点上一曲仅回零被误判为未切换的问题；验证手机/平板上一曲/下一曲可切，spec补充16，assemble/lint通过
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fca50e7d` | fix(player): 上一曲改为始终切上一曲，移除3s回零阈值 |
+
+### Status
+
+[OK] **Completed**
