@@ -95,28 +95,26 @@ playlist_songs(playlistId FK→playlists CASCADE, songId FK→songs CASCADE, pos
 - 默认关（DataStore `loudness_enabled`）；设置页 UI 入口留 M3。
 - RG 数据链路：TagReader 别名扫描/TXXX → normalize（÷256 + 校验）→ SongEntity.replayGainTrackDb → LoudnessController 按 mediaId 反查。
 
-## 7. 原生沉浸式播放页（MeloX 复刻，08-28）
+## 7. 沉浸式播放页（单一 WebView 整页，08-31 起 DroidMate 1:1）
 
 ### 7.1 职责划分
 
 | 组件 | 文件 | 职责 |
 |---|---|---|
-| `PlayerScreen` | `feature/player/PlayerScreen.kt` | 沉浸式容器：固定头部 + 双面板滑动（`HorizontalPager` 0.22s easeOut 等价 `panels 200% → translateX(-activePanel*50%)`）+ 进度/控制 + 平板双栏；数据源 `PlayerViewModel` |
-| `FlowingLightBackdrop` | `feature/player/backdrop/FlowingLightBackdrop.kt` | 流体 Blob（`Canvas` 3 径向渐变 + `infiniteRepeatable` `phase` 驱动）+ 封面虚化（`AsyncImage` + `blur(28.dp)` + `scale 1.08` + `alpha 0.75`）+ 暗色 scrim + 顶部高光；fallback 对齐 `.fallback-background`（`#171b2b→#0a0c14→#05070d` + 紫径向 50%/18%）；`flowSpeed=2` 约 12s 一圈 |
-| `LyricPanel` | `PlayerScreen.kt` 内（`lyric/LyricsPanel.kt` 为同构副本，import 被遮蔽） | 完整歌词：逐词 `alpha`/`ExtraBold`（`wordFadeWidth 0.5` 二段近似）、翻译/音译显隐、和声 italic 标记、点击跳转 `onSeek(line.startTime)`、自动居中滚动 `animateScrollToItem(current-2)`、FAB 200ms fade + 3s idle 隐藏 |
-| `MetaWindow` | `PlayerScreen.kt` 内 | 五行小窗预览：`79px` 视口 + `translateY -29.5` 居中、当前行 `scale 1.05 / alpha 1.0`（颜色 `0.92`）非当前 `0.92 / 0.55`（颜色 `0.6`）、`transform-origin left center`、相邻切行窗口整体上移 0.4s `cubic(0.32,0.72,0,1)`、行动画 `spring(0.84, 800)`，窄屏降为单行 |
-| `PlayerViewModel` | `PlayerViewModel.kt` | 粘性封面 `stickyCover` + `parsedLines`（经 `LyricsParser`→`AmllMapper`）+ `lyricPosition`（100ms 轮询钳制 `min(pos, lastLineEnd)`）+ `translationEnabled/hasTranslation` |
+| `PlayerScreen` | `feature/player/PlayerScreen.kt` | 容器：`drag-layer`（`offset {IntOffset(0,dragOffsetY)}` + `isLyricAtTop` 手势分流）+ `FlowingLightBackdrop` 透底 + 单一 `FullPlayerWebView`；`isLyricPanelActive && !isLyricAtTop` 时禁下滑（歌词未在顶部时让位跟手），否则 `pointerInput detectVerticalDragGestures` 跟手下滑≥`clamp(0.18*h,96,160)` 关闭 / 0.22s `CubicBezier(0,0,0.58,1)` 回弹 |
+| `FullPlayerWebView` | `feature/player/lyric/FullPlayerWebView.kt` | 单一 `WebView`：`WebViewAssetLoader https://appassets.androidplatform.net/assets/amll/` + `LAYER_TYPE_HARDWARE + TRANSPARENT` + `isPageReady` 闸门 + `32ms` 轮询 `updateProgress/updateTime/setPaused` + `file://→dataURL` 封面 + `onAction/onLineClick/onPanelChange/onLyricScroll`；`OnTouchListener` 按 `dy/dx` 分流（`dy>dx` 信息页放行/歌词页顶部放行其余 WebView，`dx>dy` 横滑）+ `isUserScrolling` 时 `configureLyricMotion(enableBlur:false)` |
+| `full-player.{js,css}` | `app/src/main/assets/amll/full-player.{js,css}` | 前端整页：`panels 200%→translateX(-activePanel*50%) 0.22s` / `alignPosition 0.5` 居中高亮行 / `SVG` 细线图标（`play/prev/next/repeat/shuffle/queue/more`）+ 乐观 `playPause/toggleRepeat/toggleShuffle` 瞬切 + `meta-window 79px` 小窗 + 平板 `--tablet` 双栏 |
+| `LyricWebView` | `feature/player/lyric/LyricWebView.kt` | 兼容旧入口：同 `FullPlayerWebView` 契约的独立歌词 `WebView`（现仅 `LyricsPanel` 内部或单测使用），保持 `WebViewAssetLoader + isPageReady + 32ms` 去重 |
+| `LyricPanel` | `lyric/LyricsPanel.kt` | 兼容壳：空态占位/`SaltIconButton` 翻译/播放 FAB 透传，歌词渲染已迁至 `FullPlayerWebView` |
+| `PlayerViewModel` | `PlayerViewModel.kt` | 粘性封面 `stickyCover` + `parsedLines`（`LyricsParser→AmllMapper`）+ `lyricPosition`（100ms 钳制 `min(pos,lastLineEnd)`）+ `translationEnabled/hasTranslation` |
 
-### 7.2 布局契约（复刻 Capacitor `PlayerPage.vue` BEM，08-28 增量 1:1）
+### 7.2 布局契约（复刻 Capacitor `PlayerPage.vue` BEM，08-31 单一 WebView 增量）
 
-- `.player-page__drag-layer`：`graphicsLayer translationY = dragOffsetY`，垂直下滑 ≥阈值 `clamp(0.18*h, 96,160)` 触发 `onClose`，否则 0.22s `CubicBezier(0,0,0.58,1)` 回弹；**歌词面板激活（`activePanel==1`）时禁止下滑关闭**（对齐 `canStartVerticalDismiss → isLyricPanelTarget`）。
-- `.player-page__panels`：手机 `HorizontalPager`（`beyondViewportPageCount 0`）+ `animateScrollToPage 220ms easeOut`，等价 200% → `translateX(-activePanel*50%)`；平板收缩为 `Row weight 1f` 双栏 + 底部 `TabletBottomBar`（渐变背景 `rgba(5,7,13,0)→0.55` + 进度全宽 + 三段式控制，padding `6 24 calc(8+safe)`）。
-- `.player-page__cover-hero`：`aspectRatio(1)` 正方形，`max-height min(50vh,420px)` 内 contain，窄屏 `min(34vw,150dp)`，圆角 12dp。
-- `info-panel`：padding `calc(16+safe) 24 16`；`info-inner` gap 14（`song-meta` 下边距 18 → 进度间距 32）；断点收紧 ≤720 gap 4 / ≤520 gap 2，mode-bar max 320/280/260。
-- `progress-range`：白色填充 + `rgba(255,255,255,0.25)` 底轨（全局 `.player-overlay .progress-range` 覆盖 primary）、thumb 隐藏、时间行 12px tabular `rgba 0.68`、缓冲 11px `0.55`、`formatTime` 分钟补零（`03:45`）。
-- `lyric-panel`：行字号 `clamp(22px,6.5vw,32px)`（平板 `clamp(20,2.4vw,30)`）统一、行水平边距 24、无当前行底色（AMLL 行无背景）、空态 `17px/600 + 13px/0.65` 无图标；`lyric-fabs` left/right 12、bottom `calc(8+safe)`、200ms fade。
-- 空态：`placeholder-cover` 渐变圆角方块 + `♪ 48px`、标题 `20px/600`、描述 `14px/1.5/0.75`。
-- `PhoneImmersiveLayout` 含固定头部 `FixedSongHead`（常驻，无指示器）、panels；`TabletImmersiveLayout` 头部移入左栏、右栏歌词无 play FAB。
+- `.player-page__drag-layer`：`offset {IntOffset(0,dragOffsetY)}`（非 `graphicsLayer`，确保下滑暴露区重绘底表）+ `isLyricPanelActive && !isLyricAtTop ? Modifier : pointerInput` 分流；阈值 `clamp(0.18*h,96,160)`，回弹 `0.22s CubicBezier(0,0,0.58,1)`。
+- `.player-page__panels/full-player.js panels`：`width 200% + transform translateX(-activePanel*50%) 0.22s`（手机），平板 `width 100% transform:none + gap 24 + Row weight 1f` 双栏 + 底部 `TabletBottomBar`；`info-panel/lyric-panel` 各 `width 50% height 100% overflow hidden`。
+- `.player-page__cover-hero`：`aspectRatio(1) max-height min(50vh,420px) / clamp(160px,62vw,300px) max-height min(38dvh,300px)`，圆角 `12dp`，信息页 `info-panel` 弹性居中。
+- `info-panel/meta-window/progress/controls/mode-bar`：`meta-window 79px`（窄屏 `19.5px` 单行）`translateY -29.5` 居中 `scale 1.05/0.92 opacity 1/0.55`；`progress-range` 白填充+`0.25` 底轨，`time-row 12px tabular 0.68`；`controls 48/56 mode-bar 40 max320`，`SVG` `currentColor` + `active` 白。
+- `lyric-panel`：`#lyric-player-container 100% relative` 承载 `amll-lyric-player`（`position absolute inset 0` 迁入），`alignPosition 0.5` 高亮行始终居中，行字号 `clamp(22px,6.5vw,32px)`，手势由 `isUserScrolling + onLyricScroll(cur<=1)` 协同。
 
 ### 7.3 数据流
 
