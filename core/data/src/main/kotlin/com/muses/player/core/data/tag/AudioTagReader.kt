@@ -44,6 +44,8 @@ class AudioTagReader @Inject constructor(
             val tags = parseTags(file)
             tagCache[source] = tags
             tags
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             null
         }
@@ -277,6 +279,8 @@ class AudioTagReader @Inject constructor(
             val coverFile = File(cacheDir, "cover_${songId}.jpg")
             FileOutputStream(coverFile).use { it.write(coverData) }
             coverFile.absolutePath
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             null
         }
@@ -327,6 +331,8 @@ class AudioTagReader @Inject constructor(
                 val coverFile = File(cacheDir, "cover_${songId}.jpg")
                 FileOutputStream(coverFile).use { it.write(coverBytes) }
                 coverFile.absolutePath
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 null
             }
