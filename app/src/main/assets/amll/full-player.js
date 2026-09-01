@@ -17,6 +17,8 @@
     shuffleEnabled: false,
     hasCover: false,
     lines: [],
+    isDraggingProgress: false,
+    lastProgressInputAt: 0,
   };
   // Salt 风格 SVG 图标（与 Compose SaltIconButton 同源，20/24 描边）
   const svgPlay = '<svg viewBox="0 0 24 24" width="24" height="24"><path d="M8 5.14v14l11-7-11-7z" fill="currentColor"/></svg>';
@@ -185,21 +187,29 @@
     setRepeatIcon(state.repeatMode);
     setShuffleIcon(state.shuffleEnabled);
 
-    // 进度条
+    // 进度条：input 时预览跟手（更新轨道填充+时间+双条同步），change 时才发送 seek
     function bindProgress(inputId) {
       const input = $(inputId);
       if (!input) return;
       let isDragging = false;
       input.addEventListener('input', () => {
         isDragging = true;
+        state.isDraggingProgress = true;
+        state.lastProgressInputAt = Date.now();
         const pct = parseInt(input.value,10)/1000;
         const seekMs = Math.floor(pct * state.duration);
-        if (window.Android && window.Android.onAction) {
-          // 预览不发，仅抬起发
-        }
-        // 同步显示
+        // 轨道填充跟手
+        input.style.setProperty('--progress', (pct*100)+'%');
+        // 双条同步（info 与 bottom 互相同步，避免另一条被外部 update 覆盖时跳变）
+        const otherId = inputId === 'bottom-progress' ? 'progress-range' : 'bottom-progress';
+        const other = $(otherId);
+        if (other) { other.value = input.value; other.style.setProperty('--progress', (pct*100)+'%'); }
+        // 时间预览跟手
         const curEl = inputId === 'bottom-progress' ? $('bottom-current') : $('current-time');
         if (curEl) curEl.textContent = formatTime(seekMs);
+        const otherCurId = inputId === 'bottom-progress' ? 'current-time' : 'bottom-current';
+        const otherCur = $(otherCurId);
+        if (otherCur) otherCur.textContent = formatTime(seekMs);
       });
       input.addEventListener('change', () => {
         const pct = parseInt(input.value,10)/1000;
@@ -208,7 +218,12 @@
           try { window.Android.onAction(JSON.stringify({action:'seekTo', positionMs: seekMs})); } catch(e) {}
         }
         isDragging = false;
+        state.isDraggingProgress = false;
       });
+      input.addEventListener('touchend', () => { isDragging = false; state.isDraggingProgress = false; }, {passive:true});
+      input.addEventListener('touchcancel', () => { isDragging = false; state.isDraggingProgress = false; }, {passive:true});
+      // 页面重建/隐藏后兜底：若上次拖动未正常结束，下次交互前自动重置
+      input.addEventListener('touchstart', () => { if (state.isDraggingProgress && Date.now() - state.lastProgressInputAt > 800) state.isDraggingProgress = false; }, {passive:true});
       // 避免与 panels 横滑冲突：横向拖动进度条时禁止 panels 拦截
       input.addEventListener('touchstart', (e) => { e.stopPropagation(); }, {passive:true});
     }
@@ -411,22 +426,33 @@
 
   window.updateProgress = function(payload) {
     try {
+      // 拖动标志超时自愈：避免关闭页面时未触发 change 导致永久阻塞
+      if (state.isDraggingProgress && Date.now() - state.lastProgressInputAt > 800) {
+        state.isDraggingProgress = false;
+      }
       const p = payload || {};
       if (p.position !== undefined) state.position = Number(p.position)||0;
       if (p.duration !== undefined) state.duration = Number(p.duration)||0;
       if (p.isPlaying !== undefined) state.isPlaying = !!p.isPlaying;
       const pct = state.duration > 0 ? Math.max(0, Math.min(1, state.position / state.duration)) : 0;
       const cur = formatTime(state.position), dur = formatTime(state.duration);
-      const els = ['current-time','duration','bottom-current','bottom-duration'];
-      const vals = [cur,dur,cur,dur];
-      els.forEach((id,i) => { const el=$(id); if(el) el.textContent=vals[i]; });
-      ['progress-range','bottom-progress'].forEach(id=>{
-        const el=$(id);
-        if(el){
-          el.value = String(Math.floor(pct*1000));
-          el.style.setProperty('--progress', (pct*100)+'%');
-        }
-      });
+      // 拖动预览中不覆盖进度条与时间，避免跟手被 32ms 轮询重置
+      if (!state.isDraggingProgress) {
+        const els = ['current-time','duration','bottom-current','bottom-duration'];
+        const vals = [cur,dur,cur,dur];
+        els.forEach((id,i) => { const el=$(id); if(el) el.textContent=vals[i]; });
+        ['progress-range','bottom-progress'].forEach(id=>{
+          const el=$(id);
+          if(el){
+            el.value = String(Math.floor(pct*1000));
+            el.style.setProperty('--progress', (pct*100)+'%');
+          }
+        });
+      } else {
+        // 拖动中仅更新总时长，避免当前位置跳变
+        const durEls = ['duration','bottom-duration'];
+        durEls.forEach(id=>{ const el=$(id); if(el) el.textContent=dur; });
+      }
       const playEls = ['btn-play','bottom-play'];
       playEls.forEach(id=>{
         const el=$(id);
@@ -473,6 +499,8 @@
     }, 300);
   });
 
+  // 供 Kotlin 在页面重建时重置拖动标志，避免复用 WebView 时旧状态阻塞进度
+  window.resetProgressDrag = function() { state.isDraggingProgress = false; };
   // 供 Kotlin 查询当前面板（用于 drag-layer 禁止下滑）
   window.getActivePanel = function() { return state.activePanel; };
 })();

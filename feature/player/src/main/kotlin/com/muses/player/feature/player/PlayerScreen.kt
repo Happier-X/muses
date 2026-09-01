@@ -289,6 +289,27 @@ fun PlayerScreen(
                 onPanelChange = { activePanel = it },
                 onLyricAtTopChange = { isLyricAtTop = it },
                 onClose = onClose,
+                onDragOffsetUpdate = { offset ->
+                    // WebView 触摸监听器直接回调：更新拖拽偏移量（视觉跟手）
+                    if (offset == 0f && dragOffsetY > 0f) {
+                        // 松手回弹：从当前位置动画到 0（对齐原 Compose 回弹）
+                        val from = dragOffsetY
+                        scope.launch {
+                            val anim = Animatable(from)
+                            anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }
+                            dragOffsetY = 0f
+                            isDraggingVertically = false
+                        }
+                    } else {
+                        dragOffsetY = offset
+                        isDraggingVertically = offset > 0f
+                    }
+                },
+                onDragDismiss = {
+                    // WebView 触摸监听器检测到达到关闭阈值
+                    clearDragImmediate()
+                    onClose()
+                },
                 modifier = Modifier.fillMaxSize()
             )
         }

@@ -71,6 +71,8 @@ fun FullPlayerWebView(
     onPanelChange: (Int) -> Unit,
     onLyricAtTopChange: (Boolean) -> Unit = {},
     onClose: () -> Unit,
+    onDragOffsetUpdate: (Float) -> Unit = {},
+    onDragDismiss: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var isPageReady by remember { mutableStateOf(false) }
@@ -101,6 +103,8 @@ fun FullPlayerWebView(
     val repeatModeState = rememberUpdatedState(repeatMode)
     val shuffleState = rememberUpdatedState(shuffleEnabled)
     val activePanelState = rememberUpdatedState(activePanel)
+    val onDragOffsetUpdateState = rememberUpdatedState(onDragOffsetUpdate)
+    val onDragDismissState = rememberUpdatedState(onDragDismiss)
 
     val frameIntervalMs = 32L
     val lyricJson = remember(lyrics, showTranslation) { lyrics?.toLyricLinesJson(showTranslation) }
@@ -126,12 +130,24 @@ fun FullPlayerWebView(
 
                 var downX = 0f
                 var downY = 0f
+                var dragStartY = 0f
+                var isDraggingDown = false
                 val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+                // 下滑关闭阈值（对齐 PlayerScreen 的 dismissThresholdPx）
+                val displayMetrics = ctx.resources.displayMetrics
+                val screenHeightPx = displayMetrics.heightPixels.toFloat()
+                val dismissThresholdPx = (screenHeightPx * 0.18f).coerceIn(
+                    96 * displayMetrics.density,
+                    160 * displayMetrics.density
+                )
+                val bottomExclusionPx = 180 * displayMetrics.density
                 setOnTouchListener { v, event ->
                     val wv = v as WebView
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
                             downX = event.x; downY = event.y
+                            dragStartY = event.y
+                            isDraggingDown = false
                             scrollResumeJob?.cancel()
                             // 默认由 WebView 消费，纯点击可直达 JS 的 click；垂直下滑在 MOVE 时再放行给父容器
                             v.parent?.requestDisallowInterceptTouchEvent(true)
@@ -144,16 +160,71 @@ fun FullPlayerWebView(
                                 val isLyricPanel = activePanelState.value == 1
                                 if (isLyricPanel) {
                                     if (isLyricAtTop) {
-                                        android.util.Log.w("FullPlayer", "MOVE vertical lyric atTop -> parent")
-                                        v.parent?.requestDisallowInterceptTouchEvent(false)
+                                        val deltaY = event.y - dragStartY
+                                        if (isDraggingDown) {
+                                            // 已在下滑关闭拖拽中，继续跟手或回弹
+                                            if (deltaY > 0) {
+                                                onDragOffsetUpdateState.value(deltaY)
+                                                android.util.Log.w("FullPlayer", "MOVE vertical lyric atTop drag deltaY=$deltaY")
+                                            } else {
+                                                isDraggingDown = false
+                                                onDragOffsetUpdateState.value(0f)
+                                            }
+                                            v.parent?.requestDisallowInterceptTouchEvent(true)
+                                        } else if (dragStartY >= v.height - bottomExclusionPx) {
+                                            // 底部控制区：完全交给 WebView（进度条/按钮），不触发下滑关闭
+                                            android.util.Log.w("FullPlayer", "MOVE vertical lyric atTop bottomZone -> webview")
+                                            v.parent?.requestDisallowInterceptTouchEvent(true)
+                                            if (!isUserScrolling) { isUserScrolling = true; wv.evaluateJavascript("window.configureLyricMotion && window.configureLyricMotion({enableBlur:false});", null) }
+                                        } else if (deltaY > 0) {
+                                            // 向下：触发下滑关闭
+                                            isDraggingDown = true
+                                            v.parent?.requestDisallowInterceptTouchEvent(true)
+                                            onDragOffsetUpdateState.value(deltaY)
+                                            android.util.Log.w("FullPlayer", "MOVE vertical lyric atTop drag deltaY=$deltaY")
+                                        } else if (deltaY < 0) {
+                                            // 向上：交给 WebView 滚动歌词
+                                            android.util.Log.w("FullPlayer", "MOVE vertical lyric atTop up -> webview scroll")
+                                            v.parent?.requestDisallowInterceptTouchEvent(true)
+                                            if (!isUserScrolling) { isUserScrolling = true; wv.evaluateJavascript("window.configureLyricMotion && window.configureLyricMotion({enableBlur:false});", null) }
+                                        } else {
+                                            android.util.Log.w("FullPlayer", "MOVE vertical lyric atTop -> parent")
+                                            v.parent?.requestDisallowInterceptTouchEvent(false)
+                                        }
                                     } else {
                                         android.util.Log.w("FullPlayer", "MOVE vertical lyric notTop -> webview")
                                         v.parent?.requestDisallowInterceptTouchEvent(true)
                                         if (!isUserScrolling) { isUserScrolling = true; wv.evaluateJavascript("window.configureLyricMotion && window.configureLyricMotion({enableBlur:false});", null) }
                                     }
                                 } else {
-                                    android.util.Log.w("FullPlayer", "MOVE vertical info -> parent")
-                                    v.parent?.requestDisallowInterceptTouchEvent(false)
+                                    // 信息面板：直接检测下滑关闭拖拽
+                                    // 原理：Compose 的 pointerInput 无法收到 DOWN 事件（WebView 已消费），
+                                    // 父 ViewGroup 拦截 MOVE 时 Compose 的 awaitFirstDown() 会丢弃 MOVE，
+                                    // 导致 detectVerticalDragGestures 完全失效，必须在此处检测
+                                    val deltaY = event.y - dragStartY
+                                    if (isDraggingDown) {
+                                        if (deltaY > 0) {
+                                            onDragOffsetUpdateState.value(deltaY)
+                                            android.util.Log.w("FullPlayer", "MOVE vertical info drag deltaY=$deltaY")
+                                        } else {
+                                            isDraggingDown = false
+                                            onDragOffsetUpdateState.value(0f)
+                                        }
+                                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                                    } else if (dragStartY >= v.height - bottomExclusionPx) {
+                                        // 底部控制区（进度条/按钮）：完全交给 WebView，不触发下滑关闭
+                                        android.util.Log.w("FullPlayer", "MOVE vertical info bottomZone -> webview")
+                                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                                        if (!isUserScrolling) { isUserScrolling = true; wv.evaluateJavascript("window.configureLyricMotion && window.configureLyricMotion({enableBlur:false});", null) }
+                                    } else if (deltaY > 0) {
+                                        isDraggingDown = true
+                                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                                        onDragOffsetUpdateState.value(deltaY)
+                                        android.util.Log.w("FullPlayer", "MOVE vertical info drag deltaY=$deltaY")
+                                    } else {
+                                        android.util.Log.w("FullPlayer", "MOVE vertical info -> parent")
+                                        v.parent?.requestDisallowInterceptTouchEvent(false)
+                                    }
                                 }
                             } else if (dx > dy && dx > touchSlop) {
                                 android.util.Log.w("FullPlayer", "MOVE horizontal -> webview")
@@ -162,6 +233,19 @@ fun FullPlayerWebView(
                             }
                         }
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            if (isDraggingDown) {
+                                // 检查是否达到关闭阈值
+                                val finalDeltaY = event.y - dragStartY
+                                if (finalDeltaY >= dismissThresholdPx) {
+                                    android.util.Log.w("FullPlayer", "DRAG DISMISS deltaY=$finalDeltaY")
+                                    // 在主线程上回调关闭（post 确保线程安全）
+                                    v.post { onDragDismissState.value() }
+                                } else if (finalDeltaY > 0) {
+                                    // 未达阈值，重置偏移量（由 PlayerScreen 的回弹动画处理）
+                                    onDragOffsetUpdateState.value(0f)
+                                }
+                                isDraggingDown = false
+                            }
                             v.parent?.requestDisallowInterceptTouchEvent(false)
                             scrollResumeJob?.cancel()
                             val target = wv
@@ -259,6 +343,8 @@ fun FullPlayerWebView(
         update = { view ->
             webViewHolder = view
             if (!isPageReady) return@AndroidView
+            // 兜底：页面重建时重置拖动阻塞，避免上次拖动未正常结束导致进度为 0
+            view.evaluateJavascript("try{ if(window.resetProgressDrag) window.resetProgressDrag(); }catch(e){}", null)
 
             // 标题/歌手/封面
             if (lastTitle != title || lastArtist != artist) {
@@ -354,8 +440,26 @@ fun FullPlayerWebView(
         }
     )
 
+    // 进入页面时重置拖动标志，避免复用 WebView 时旧状态阻塞进度
+    LaunchedEffect(isPageReady) {
+        if (isPageReady) {
+            webViewHolder?.evaluateJavascript("try{ if(window.resetProgressDrag) window.resetProgressDrag(); }catch(e){}", null)
+        }
+    }
+
     // 播放进度与时间（手势时暂停，避免抢夺）
     LaunchedEffect(isPageReady, isUserScrolling) {
+        // 立即同步一次，避免重开时 0 的闪烁
+        if (isPageReady && webViewHolder != null && !isUserScrolling) {
+            val view = webViewHolder
+            val pos = positionMsState.value.invoke()
+            val dur = durationMsState.value.invoke()
+            val playing = isPlayingState.value.invoke()
+            val rep = repeatModeState.value.invoke()
+            val shuf = shuffleState.value.invoke()
+            view?.evaluateJavascript("window.updateProgress && window.updateProgress({position:$pos, duration:$dur, isPlaying:$playing, repeatMode:$rep, shuffleEnabled:$shuf});", null)
+            view?.evaluateJavascript("window.updateTime && window.updateTime($pos);", null)
+        }
         while (true) {
             val view = webViewHolder
             if (isPageReady && view != null && !isUserScrolling) {

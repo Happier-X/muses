@@ -35,7 +35,11 @@ class PlayerViewModel @Inject constructor(
     val currentMediaItem = playerConnection.currentMediaItem
     /** 播放失败可观测：限流 429 展示「触发限流，稍后重试」并提供重试入口 */
     val playbackError: StateFlow<String?> = playerConnection.playbackError
-    val duration: StateFlow<Long> = playerConnection.duration
+    // 时长兜底：播放器未就绪时 duration 为 0，取 DB 的 durationMs 避免冷启动重开进度为 0
+    private val _dbDuration = MutableStateFlow(0L)
+    val duration: StateFlow<Long> = kotlinx.coroutines.flow.combine(playerConnection.duration, _dbDuration) { playerDur, dbDur ->
+        if (playerDur > 0) playerDur else dbDur
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
     val repeatMode: StateFlow<Int> = playerConnection.repeatMode
     val shuffleModeEnabled: StateFlow<Boolean> = playerConnection.shuffleModeEnabled
     val queue: StateFlow<List<androidx.media3.common.MediaItem>> = playerConnection.queue
@@ -190,6 +194,13 @@ class PlayerViewModel @Inject constructor(
         song: com.muses.player.core.data.db.SongEntity?,
         metadataArtwork: String? = null,
     ) {
+        // 时长兜底：DB 时长在播放器未就绪时提供进度分母
+        _dbDuration.value = when {
+            song == null -> 0L
+            song.durationMs > 0 -> song.durationMs
+            song.durationSec > 0 -> song.durationSec * 1000
+            else -> 0L
+        }
 
         // 粘性封面：有新封面即更新；新曲无 SongEntity 封面 → 沿用 metadata artwork；仅无当前曲才清空
         when {
@@ -234,12 +245,19 @@ class PlayerViewModel @Inject constructor(
         refreshTranslationState()
     }
 
-    /** 歌词进度轮询：比 UI 进度条更密的 ~100ms，驱动卡拉OK染色；钳制在末句 endTime 内 */
+    /** 歌词进度轮询：比 UI 进度条更密的 ~100ms，驱动卡拉OK染色；钳制在末句 endTime 内
+     * 冷启动暂停态也需同步位置，否则重开沉浸页进度为 0（isPlaying=false 时轮询不更新导致） */
     private fun startLyricPositionPolling() {
         viewModelScope.launch {
+            // 冷启动立即同步一次，避免暂停态下首帧为 0
+            _lyricPosition.value = playerConnection.currentPosition().coerceAtMost(lastLineEndMs)
             while (true) {
-                if (playerConnection.isPlaying.value && !_isSeeking.value) {
-                    _lyricPosition.value = playerConnection.currentPosition().coerceAtMost(lastLineEndMs)
+                if (!_isSeeking.value) {
+                    val pos = playerConnection.currentPosition().coerceAtMost(lastLineEndMs)
+                    // 播放态实时更新；暂停态仅在位置变化时更新（避免无谓写入，但保证冷启动后有值）
+                    if (playerConnection.isPlaying.value || _lyricPosition.value == 0L || pos != _lyricPosition.value) {
+                        _lyricPosition.value = pos
+                    }
                 }
                 delay(100)
             }
