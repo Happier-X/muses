@@ -24,7 +24,11 @@
   const svgPrev = '<svg viewBox="0 0 24 24" width="24" height="24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" fill="currentColor"/></svg>';
   const svgNext = '<svg viewBox="0 0 24 24" width="24" height="24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" fill="currentColor"/></svg>';
   const svgRepeat = '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" fill="currentColor"/></svg>';
+  const svgRepeatOne = '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" fill="currentColor"/><path d="M13 9h-1L10.5 10v1.2H12V15H13V9z" fill="currentColor"/></svg>';
   const svgShuffle = '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" fill="currentColor"/></svg>';
+  const svgOrder = '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="4.5" cy="6" r="1.5" fill="currentColor"/><circle cx="4.5" cy="12" r="1.5" fill="currentColor"/><circle cx="4.5" cy="18" r="1.5" fill="currentColor"/><path d="M8 5h12v2H8zM8 11h12v2H8zM8 17h12v2H8z" fill="currentColor"/></svg>';
+  function setRepeatIcon(mode){ var isOne = mode===1; ['btn-repeat','bottom-repeat'].forEach(function(id){ var el=$(id); if(el){ el.innerHTML=isOne?svgRepeatOne:svgRepeat; el.classList.toggle('active', isOne); }}); }
+  function setShuffleIcon(enabled){ ['btn-shuffle','bottom-shuffle'].forEach(function(id){ var el=$(id); if(el){ el.innerHTML=enabled?svgShuffle:svgOrder; el.classList.toggle('active', !!enabled); }}); }
   const svgQueue = '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" fill="currentColor"/></svg>';
   const svgMore = '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" fill="currentColor"/></svg>';
 
@@ -194,10 +198,10 @@
         } else if (action === 'toggleRepeat') {
           const isOne = state.repeatMode === 1;
           state.repeatMode = isOne ? 0 : 1;
-          ['btn-repeat','bottom-repeat'].forEach(pid=>{ const b=$(pid); if(b) b.classList.toggle('active', state.repeatMode===1); });
+          setRepeatIcon(state.repeatMode);
         } else if (action === 'toggleShuffle') {
           state.shuffleEnabled = !state.shuffleEnabled;
-          ['btn-shuffle','bottom-shuffle'].forEach(pid=>{ const b=$(pid); if(b) b.classList.toggle('active', !!state.shuffleEnabled); });
+          setShuffleIcon(state.shuffleEnabled);
         }
         if (window.Android && window.Android.onAction) {
           try { window.Android.onAction(JSON.stringify(Object.assign({action}, extra||{}))); } catch(err){ if(window.Android&&window.Android.log) window.Android.log('onAction err '+err.message,'error'); }
@@ -225,6 +229,8 @@
     bindClick('bottom-queue', 'openQueue');
     bindClick('btn-more', 'openMore');
     bindClick('bottom-more', 'openMore');
+    setRepeatIcon(state.repeatMode);
+    setShuffleIcon(state.shuffleEnabled);
 
     // 进度条
     function bindProgress(inputId) {
@@ -473,16 +479,8 @@
         const el=$(id);
         if(el) el.innerHTML = state.isPlaying ? svgPause : svgPlay;
       });
-      const rep = $('btn-repeat'), brep=$('bottom-repeat');
-      const mode = p.repeatMode !== undefined ? p.repeatMode : state.repeatMode;
-      if (p.repeatMode !== undefined) state.repeatMode = mode;
-      const isOne = mode === 1;
-      if(rep) rep.classList.toggle('active', isOne);
-      if(brep) brep.classList.toggle('active', isOne);
-      const sh = $('btn-shuffle'), bsh=$('bottom-shuffle');
-      if (p.shuffleEnabled !== undefined) state.shuffleEnabled = !!p.shuffleEnabled;
-      if(sh) sh.classList.toggle('active', !!state.shuffleEnabled);
-      if(bsh) bsh.classList.toggle('active', !!state.shuffleEnabled);
+      if (p.repeatMode !== undefined) { state.repeatMode = p.repeatMode; setRepeatIcon(state.repeatMode); }
+      if (p.shuffleEnabled !== undefined) { state.shuffleEnabled = !!p.shuffleEnabled; setShuffleIcon(state.shuffleEnabled); }
       renderMetaWindow();
     } catch(e) {}
   };
