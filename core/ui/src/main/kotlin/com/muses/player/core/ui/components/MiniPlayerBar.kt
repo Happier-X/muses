@@ -20,18 +20,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.muses.player.core.ui.theme.LocalMusesHazeState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltDarkColors
 import com.muses.player.core.ui.theme.SaltShadowLayer
-import com.muses.player.core.ui.theme.SaltShadowTokens
 import com.muses.player.core.ui.theme.SaltSpacing
+import com.muses.player.core.ui.theme.musesBottomBarHazeStyle
 import com.muses.player.core.ui.theme.saltShadow
+import dev.chrisbanes.haze.blur.blurEffect
+import dev.chrisbanes.haze.hazeEffect
 
 /**
  * `.mini-player` —— 底部迷你播放条（MiniPlayer.vue 一比一翻译）。
@@ -40,11 +44,12 @@ import com.muses.player.core.ui.theme.saltShadow
  * 视觉契约：
  * - 高 64px；左右 18px 悬浮（定位由页面控制，此处只画胶囊本体）；
  *   底部避让 safe-bottom + 8px 同样由页面布局负责；
- * - 液态玻璃：`--m-glass-bg` 半透明底 + `border-radius: 40px` 胶囊 +
- *   `border: 1px solid rgba(255,255,255,.5)`（暗色 .12）；
+ * - 液态玻璃（真磨砂）：`--m-glass-bg` + Haze `blur 20dp` + 白/黑 tint（暗 0.42 / 明 0.56），
+ *   `border-radius: 40px` 胶囊 + `border: 1px solid rgba(255,255,255,.5)`（暗色 .12）；
+ *   Haze 生效时由 [LocalMusesHazeState] 的 `hazeEffect` 提供实时背景模糊，
+ *   无 Haze 时回退为 0.75 alpha 的纯色底（见 [SaltColors.glassBg]）；
  * - box-shadow：`inset 0 1px 0 rgba(255,255,255,.65)`（暗 .1）+
- *   `0 4px 16px rgba(0,0,0,.08)`（暗 .35）；blur 说明同 SaltNavbar
- *   （MuMu 上 Web 版 backdrop-filter 失效，alpha+高光承担观感）；
+ *   `0 4px 16px rgba(0,0,0,.08)`（暗 .35）；
  * - 行内 gap `--m-spacing-sub`(12px)、水平 padding `--m-spacing`(16px)；
  * - 封面 48px；标题 15px/600/1.25 单行省略；副标题 13px/1.3/`--m-text-2`
  *   单行省略，两行间距 3px（`__info { gap: 3px }`）；
@@ -68,6 +73,8 @@ fun MiniPlayerBar(
     val salt = LocalSaltColors.current
     val isDark = salt === SaltDarkColors
     val capsuleShape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(40.dp)
+    val hazeState = LocalMusesHazeState.current
+    val bottomHazeStyle = if (hazeState != null) musesBottomBarHazeStyle(isDark) else null
 
     // box-shadow 双套配方（明 / 暗），层序与 SCSS 一致：先 inset 高光、后外投影
     val shadowLayers: List<SaltShadowLayer> = if (isDark) {
@@ -91,7 +98,18 @@ fun MiniPlayerBar(
             .height(64.dp)
             // 阴影会溢出边界绘制，父级不要 clipToBounds
             .saltShadow(shape = capsuleShape, layers = shadowLayers)
-            .background(color = salt.glassBg, shape = capsuleShape)
+            .clip(capsuleShape)
+            .then(
+                if (hazeState != null && bottomHazeStyle != null) {
+                    Modifier.hazeEffect(state = hazeState) {
+                        blurEffect {
+                            style = bottomHazeStyle
+                        }
+                    }
+                } else {
+                    Modifier.background(color = salt.glassBg, shape = capsuleShape)
+                },
+            )
             .border(border = BorderStroke(1.dp, borderColor), shape = capsuleShape)
             .clickable(
                 interactionSource = clickInteraction,

@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -59,6 +61,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.muses.player.core.media.playback.PlayerConnection
 import com.muses.player.core.model.Song
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import com.muses.player.core.ui.components.SaltActionsSheet
 import com.muses.player.core.ui.components.SaltActionItem
 import com.muses.player.core.ui.components.SaltCover
@@ -70,11 +74,18 @@ import com.muses.player.core.ui.components.SaltListItem
 import com.muses.player.core.ui.components.SaltListItemMetrics
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
+import com.muses.player.core.ui.theme.LocalMusesHazeState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltDarkColors
 import com.muses.player.core.ui.theme.SaltShadowLayer
+import com.muses.player.core.ui.theme.SaltSpacing
+import com.muses.player.core.ui.theme.musesBottomBarHazeStyle
 import com.muses.player.core.ui.theme.saltShadow
+import dev.chrisbanes.haze.blur.blurEffect
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 /**
  * 歌曲页 —— SongsPage.vue 一比一翻译。
@@ -164,113 +175,20 @@ fun SongsPage(
         selectedIds = emptySet()
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        // ---- navbar + subnavbar（同一块玻璃）----
-        SaltNavbar(
-            title = "歌曲",
-            right = {
-                SaltIconButton(onClick = {
-                    isSearching = true
-                    searchQuery = ""
-                    if (isMultiSelect) exitMultiSelect()
-                }) {
-                    Icon(Icons.Filled.Search, contentDescription = "搜索歌曲")
-                }
-            },
-            subnavbar = {
-                when {
-                    songs.isNotEmpty() && !isSearching -> {
-                        // .songs-page__toolbar-left：随机播放按钮 + 歌曲总数
-                        // 随机播放全部：随机挑一首作为起点（对齐原版 onShuffleAll
-                        // 「先 shuffle 再取随机第 0 首」——Media3 的 shuffleMode
-                        // 只影响后续顺序、不改变当前曲，固定 first 会永远播第一首），
-                        // 开 shuffle 保证后续顺序也随机
-                        val shuffleAll: () -> Unit = {
-                            if (songs.isNotEmpty()) {
-                                playerConnection?.apply {
-                                    play(songs.random().id, songs)
-                                    setShuffleModeEnabled(true)
-                                }
-                            }
-                        }
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            // 图标与歌曲数同属一个可点区域（用户定案：点数字同样触发随机播放）
-                            Row(
-                                Modifier.clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = shuffleAll,
-                                ),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                SaltIconButton(onClick = shuffleAll) {
-                                    Icon(Icons.Filled.Shuffle, contentDescription = "随机播放全部")
-                                }
-                                Text(
-                                    text = songs.size.toString(),
-                                    fontSize = 15.sp,
-                                    color = salt.text,
-                                )
-                            }
-                            if (isMultiSelect) {
-                                Text(
-                                    text = "已选中 ${selectedIds.size} 项",
-                                    fontSize = 15.sp,
-                                    color = salt.text2,
-                                    modifier = Modifier.padding(start = 12.dp),
-                                )
-                            }
-                        }
-                    }
-
-                    songs.isNotEmpty() && isSearching -> {
-                        // .songs-page__searchbar
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                Icons.Filled.Search,
-                                contentDescription = null,
-                                tint = salt.text2,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Box(
-                                Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp),
-                            ) {
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        text = "在 ${songs.size} 首歌曲中搜索",
-                                        fontSize = 16.sp,
-                                        color = salt.text2,
-                                    )
-                                }
-                                BasicTextField(
-                                    value = searchQuery,
-                                    onValueChange = {
-                                        searchQuery = it
-                                        viewModel.updateSearchQuery(it)
-                                    },
-                                    singleLine = true,
-                                    textStyle = TextStyle(fontSize = 16.sp, color = salt.text),
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
-                            SaltTextButton(text = "取消", onClick = { exitSearch() })
-                        }
-                    }
-                }
-            },
-        )
-
-        // ---- 列表 / 空态 ----
-        if (songs.isEmpty()) {
+    val outerHazeState = LocalMusesHazeState.current
+    val navbarHazeState = rememberHazeState()
+    CompositionLocalProvider(LocalMusesHazeState provides navbarHazeState) {
+        Box(modifier = modifier.fillMaxSize()) {
+            val navbarTopPadding = with(LocalDensity.current) {
+                WindowInsets.statusBars.getTop(this).toDp()
+            }.coerceAtLeast(16.dp) + 44.dp + SaltSpacing.listRowHeight
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = navbarHazeState)
+                    .background(salt.surface),
+            ) {
+                if (songs.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 SaltEmpty(
                     title = "还没有歌曲",
@@ -281,8 +199,7 @@ fun SongsPage(
             LazyColumn(
                 Modifier.fillMaxSize(),
                 state = listState,
-                // MiniPlayerBar 叠加时底部留白（Web 层 --m-content-pb 同语义）
-                contentPadding = PaddingValues(bottom = 96.dp),
+                contentPadding = PaddingValues(top = navbarTopPadding, bottom = 96.dp),
             ) {
                 itemsIndexed(songs, key = { _, song -> song.id }) { _, song ->
                     val checked = isMultiSelect && song.id in selectedIds
@@ -392,6 +309,109 @@ fun SongsPage(
         }
     }
 
+            SaltNavbar(
+            title = "歌曲",
+                modifier = Modifier.align(Alignment.TopCenter),
+            right = {
+                SaltIconButton(onClick = {
+                    isSearching = true
+                    searchQuery = ""
+                    if (isMultiSelect) exitMultiSelect()
+                }) {
+                    Icon(Icons.Filled.Search, contentDescription = "搜索歌曲")
+                }
+            },
+            subnavbar = {
+                when {
+                    songs.isNotEmpty() && !isSearching -> {
+                        // .songs-page__toolbar-left：随机播放按钮 + 歌曲总数
+                        // 随机播放全部：随机挑一首作为起点（对齐原版 onShuffleAll
+                        // 「先 shuffle 再取随机第 0 首」——Media3 的 shuffleMode
+                        // 只影响后续顺序、不改变当前曲，固定 first 会永远播第一首），
+                        // 开 shuffle 保证后续顺序也随机
+                        val shuffleAll: () -> Unit = {
+                            if (songs.isNotEmpty()) {
+                                playerConnection?.apply {
+                                    play(songs.random().id, songs)
+                                    setShuffleModeEnabled(true)
+                                }
+                            }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // 图标与歌曲数同属一个可点区域（用户定案：点数字同样触发随机播放）
+                            Row(
+                                Modifier.clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = shuffleAll,
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                SaltIconButton(onClick = shuffleAll) {
+                                    Icon(Icons.Filled.Shuffle, contentDescription = "随机播放全部")
+                                }
+                                Text(
+                                    text = songs.size.toString(),
+                                    fontSize = 15.sp,
+                                    color = salt.text,
+                                )
+                            }
+                            if (isMultiSelect) {
+                                Text(
+                                    text = "已选中 ${selectedIds.size} 项",
+                                    fontSize = 15.sp,
+                                    color = salt.text2,
+                                    modifier = Modifier.padding(start = 12.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    songs.isNotEmpty() && isSearching -> {
+                        // .songs-page__searchbar
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Filled.Search,
+                                contentDescription = null,
+                                tint = salt.text2,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Box(
+                                Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp),
+                            ) {
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = "在 ${songs.size} 首歌曲中搜索",
+                                        fontSize = 16.sp,
+                                        color = salt.text2,
+                                    )
+                                }
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = {
+                                        searchQuery = it
+                                        viewModel.updateSearchQuery(it)
+                                    },
+                                    singleLine = true,
+                                    textStyle = TextStyle(fontSize = 16.sp, color = salt.text),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            SaltTextButton(text = "取消", onClick = { exitSearch() })
+                        }
+                    }
+                }
+            },
+        )
+
     // ---- ⋮ 动作单（m-actions）----
     val currentId = actionSong?.id
     SaltActionsSheet(
@@ -441,19 +461,36 @@ fun SongsPage(
         )
     }
 
-    // ---- m-fab.songs-page__jump-fab：跳转到当前播放 ----
+    // ---- m-fab.songs-page__jump-fab：跳转到当前播放（与底部 MiniPlayer 同用全局 Haze，保证观感一致）----
     if (showJumpBubble) {
-        JumpToCurrentFab(
-            onClick = {
-                val idx = songs.indexOfFirst { it.id == currentSongId }
-                if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
-            },
-            // fixed right 16px / bottom 96px（对齐椒盐：底距 MiniPlayer 顶 ~24dp）
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 96.dp),
-        )
+        // 使用外层 TabsLayout 的全局 HazeState，与底部胶囊同源
+        val fabHazeState = outerHazeState
+        if (fabHazeState != null) {
+            // 包一层以提供全局 Haze 给 FAB
+            CompositionLocalProvider(LocalMusesHazeState provides fabHazeState) {
+                JumpToCurrentFab(
+                    onClick = {
+                        val idx = songs.indexOfFirst { it.id == currentSongId }
+                        if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 96.dp),
+                )
+            }
+        } else {
+            JumpToCurrentFab(
+                onClick = {
+                    val idx = songs.indexOfFirst { it.id == currentSongId }
+                    if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 96.dp),
+            )
+        }
     }
+        }
     }
 }
 
@@ -470,31 +507,48 @@ private fun JumpToCurrentFab(
 ) {
     val salt = LocalSaltColors.current
     val isDark = salt === SaltDarkColors
+    val hazeState = LocalMusesHazeState.current
+    // 悬浮钮按椒盐实拍更白：与顶部/底部 surface 0.08 区分，改用纯白基底提亮，避免偏灰
+    val fabHazeStyle = if (hazeState != null) {
+        if (isDark) {
+            dev.chrisbanes.haze.blur.HazeBlurStyle(
+                backgroundColor = androidx.compose.ui.graphics.Color(0xFF2A2A2A),
+                colorEffects = listOf(dev.chrisbanes.haze.blur.HazeColorEffect.tint(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.06f))),
+                blurRadius = 24.dp,
+                noiseFactor = 0.01f,
+            )
+        } else {
+            dev.chrisbanes.haze.blur.HazeBlurStyle(
+                backgroundColor = androidx.compose.ui.graphics.Color.White,
+                colorEffects = listOf(dev.chrisbanes.haze.blur.HazeColorEffect.tint(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.62f))),
+                blurRadius = 24.dp,
+                noiseFactor = 0.01f,
+            )
+        }
+    } else null
     Box(
         modifier = modifier
             .size(44.dp)
             .clip(CircleShape)
             .saltShadow(
                 CircleShape,
-                // __jump-fab 自身覆盖的 box-shadow：0 2px 8px rgba(0,0,0,.12)（暗色 .3）；
-                // 内高光由下方 drawBehind 画（inset 0 1px 0 white .65/.1）
+                // 与底部 MiniPlayer 同款悬浮：inset 高光 + 外投影 0 4px 16dp，避免仅 2/8 导致不浮
                 listOf(
-                    SaltShadowLayer(
-                        offsetY = 2.dp,
-                        blurRadius = 8.dp,
-                        color = if (isDark) Color(0x4D000000) else Color(0x1F000000),
-                    ),
+                    SaltShadowLayer(offsetY = 1.dp, color = Color.White.copy(alpha = if (isDark) 0.1f else 0.65f), inset = true),
+                    SaltShadowLayer(offsetY = 4.dp, blurRadius = 16.dp, color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.08f)),
                 ),
             )
-            .background(salt.glassBg)
+            .then(
+                if (hazeState != null && fabHazeStyle != null) {
+                    Modifier.hazeEffect(state = hazeState) {
+                        blurEffect { style = fabHazeStyle }
+                    }
+                } else {
+                    Modifier.background(salt.glassBg, CircleShape)
+                },
+            )
             .drawBehind {
-                // inset 0 1px 0 rgba(255,255,255,.65)（暗色 .1）顶部内高光
-                drawRect(
-                    color = Color.White.copy(alpha = if (isDark) 0.1f else 0.65f),
-                    topLeft = Offset.Zero,
-                    size = Size(size.width, 1f),
-                )
-                // border 1px rgba(255,255,255,.5)（暗色 .12）
+                // border 1px rgba(255,255,255,.5)（暗色 .12）—— 内高光已由 saltShadow 的 inset 承担
                 drawCircle(
                     color = Color.White.copy(alpha = if (isDark) 0.12f else 0.5f),
                     style = Stroke(width = 1.dp.toPx()),

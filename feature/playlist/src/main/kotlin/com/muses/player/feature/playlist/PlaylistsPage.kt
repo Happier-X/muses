@@ -1,12 +1,15 @@
 package com.muses.player.feature.playlist
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -20,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +31,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import com.muses.player.core.ui.theme.LocalMusesHazeState
+import com.muses.player.core.ui.theme.LocalSaltColors
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -125,44 +134,36 @@ fun PlaylistsPage(
     var nameDialog by remember { mutableStateOf<NameDialogState?>(null) }
     var deleteTargetId by remember { mutableStateOf<String?>(null) }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // ---- .playlists-page__navbar-wrap：m-navbar title=歌单 ----
-        SaltNavbar(
-            title = "歌单",
-            right = {
-                SaltIconButton(
-                    onClick = {
-                        nameDialog = NameDialogState(NameDialogMode.CREATE, initialName = "")
-                    },
-                    size = com.muses.player.core.ui.components.SaltIconButtonSize.SM,
-                    contentDescription = "新建歌单",
-                ) {
-                    Icon(
-                        Icons.Filled.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            },
-        )
-
-        // ---- .playlists-page__content ----
-        if (rows.isEmpty()) {
+    val hazeState = rememberHazeState()
+    CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+        Box(modifier = modifier.fillMaxSize()) {
+            val navbarTopPadding = with(LocalDensity.current) {
+                WindowInsets.statusBars.getTop(this).toDp()
+            }.coerceAtLeast(16.dp) + 44.dp
             Box(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentAlignment = Alignment.Center,
+                Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState)
+                    .background(LocalSaltColors.current.surface),
             ) {
-                SaltEmpty(
-                    title = "还没有歌单",
-                    description = "点右上角新建，或在歌曲页「更多」加入歌单。",
-                    icon = Icons.Filled.QueueMusic,
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 96.dp),
-            ) {
+                if (rows.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = navbarTopPadding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        SaltEmpty(
+                            title = "还没有歌单",
+                            description = "点右上角新建，或在歌曲页「更多」加入歌单。",
+                            icon = Icons.Filled.QueueMusic,
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(top = navbarTopPadding, bottom = 96.dp),
+                    ) {
                 items(rows, key = { it.playlist.id }) { row ->
                     SaltListItem(
                         title = row.name,
@@ -186,8 +187,29 @@ fun PlaylistsPage(
                             }
                         },
                     )
+                        }
+                    }
                 }
             }
+            SaltNavbar(
+                title = "歌单",
+                modifier = Modifier.align(Alignment.TopCenter),
+                right = {
+                    SaltIconButton(
+                        onClick = {
+                            nameDialog = NameDialogState(NameDialogMode.CREATE, initialName = "")
+                        },
+                        size = com.muses.player.core.ui.components.SaltIconButtonSize.SM,
+                        contentDescription = "新建歌单",
+                    ) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                },
+            )
         }
     }
 

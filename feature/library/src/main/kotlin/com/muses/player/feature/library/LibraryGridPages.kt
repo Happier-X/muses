@@ -22,11 +22,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.muses.player.core.ui.theme.LocalMusesHazeState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -113,18 +118,26 @@ fun AlbumsPage(
 ) {
     val salt = LocalSaltColors.current
     val cards by viewModel.cards.collectAsState()
-
-    Box(modifier.fillMaxSize()) {
-        // __grid：滚动区域从玻璃 navbar 下穿过（Web 版 absolute navbar 同观感）
+    val hazeState = rememberHazeState()
+    CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+        Box(modifier.fillMaxSize()) {
+        // __grid：滚动区域从玻璃 navbar 下穿过（Web 版 absolute navbar 同观感）—— 真磨砂：网格为 hazeSource
         if (cards.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState),
+                contentAlignment = Alignment.Center,
+            ) {
                 SaltEmpty(title = "还没有专辑", description = "请先到音源页添加并扫描音源。")
             }
         } else {
             LazyVerticalGrid(
                 // Web ≥768px：repeat(auto-fill, minmax(180px, 1fr))；手机恒两列
                 columns = if (isTabletWidth()) GridCells.Adaptive(180.dp) else GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState),
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
@@ -188,8 +201,9 @@ fun AlbumsPage(
             }
         }
 
-        // navbar 叠加层（玻璃）
+        // navbar 叠加层（玻璃）—— 真磨砂由 SaltNavbar 内部 hazeEffect 消费
         SaltNavbar(title = "专辑")
+        }
     }
 }
 
@@ -205,17 +219,25 @@ fun ArtistsPage(
 ) {
     val salt = LocalSaltColors.current
     val cards by viewModel.cards.collectAsState()
-
-    Box(modifier.fillMaxSize()) {
+    val hazeState = rememberHazeState()
+    CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+        Box(modifier.fillMaxSize()) {
         if (cards.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState),
+                contentAlignment = Alignment.Center,
+            ) {
                 SaltEmpty(title = "还没有艺术家", description = "请先到音源页添加并扫描音源。")
             }
         } else {
             LazyVerticalGrid(
                 // 同专辑页：Web ≥768px auto-fill minmax(180px, 1fr)
                 columns = if (isTabletWidth()) GridCells.Adaptive(180.dp) else GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState),
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
@@ -284,6 +306,7 @@ fun ArtistsPage(
         }
 
         SaltNavbar(title = "艺术家")
+        }
     }
 }
 

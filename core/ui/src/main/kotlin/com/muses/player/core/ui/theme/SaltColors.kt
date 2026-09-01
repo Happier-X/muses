@@ -105,7 +105,8 @@ private fun overlayGlass(baseLight: Boolean, alpha: Float): Color =
 
 /** 明色全套（SCSS `:root` 块） */
 val SaltLightColors: SaltColors = SaltColors(
-    glassBg = Color(0x73FFFFFF),            // rgba(255,255,255,0.45)
+    // 真磨砂：Haze 生效时 glassBg 仅作 tint 基底，回退态也需更不透以免过透；由 0.45 提升至 0.72（BF）
+    glassBg = Color(0xBFFFFFFF),            // rgba(255,255,255,0.75) 真磨砂回退
     navbarGlassBg = Color(0xA6F3F3F3),      // rgba(243,243,243,0.65)
     surface = Color(0xFFF3F3F3),
     surface1 = Color(0xFFF9F9F9),
@@ -138,7 +139,7 @@ val SaltLightColors: SaltColors = SaltColors(
 
 /** 暗色全套（SCSS `.dark` 块；未重定义变量沿用明色值） */
 val SaltDarkColors: SaltColors = SaltColors(
-    glassBg = Color(0x731E1E1E),            // rgba(30,30,30,0.45)
+    glassBg = Color(0xBF1E1E1E),            // rgba(30,30,30,0.75) 真磨砂回退
     navbarGlassBg = Color(0xA6202020),      // rgba(32,32,32,0.65)
     surface = Color(0xFF202020),
     surface1 = Color(0xFF262626),

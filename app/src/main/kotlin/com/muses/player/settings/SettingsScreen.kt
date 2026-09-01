@@ -10,10 +10,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,6 +38,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import com.muses.player.core.ui.theme.LocalMusesHazeState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -105,21 +112,24 @@ fun SettingsScreen(
     var checking by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(salt.surface),
-    ) {
-        // .settings-page__navbar-wrap
-        SaltNavbar(title = "设置")
-
-        // .settings-page__content
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(top = 8.dp),
-        ) {
+    val hazeState = rememberHazeState()
+    CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+        Box(modifier = modifier.fillMaxSize()) {
+            val navbarTopPadding = with(LocalDensity.current) {
+                WindowInsets.statusBars.getTop(this).toDp()
+            }.coerceAtLeast(16.dp) + 44.dp
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState)
+                    .background(salt.surface),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(top = navbarTopPadding + 8.dp),
+                ) {
             // ---- 关于 ----
             SettingsBlockTitle(text = "关于")
             Column(
@@ -233,6 +243,12 @@ fun SettingsScreen(
 
             // m-content-pb：底部避让 MiniPlayer
             Spacer(Modifier.height(96.dp))
+                }
+            }
+            SaltNavbar(
+                title = "设置",
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
         }
     }
 

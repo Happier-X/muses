@@ -50,12 +50,7 @@ fun ScrapeScreen(
 
     Column(modifier = modifier.fillMaxSize()) {
         SaltNavbar(
-            title = when (pageState) {
-                is ScrapePageState.Matching -> "刮削 · 匹配中"
-                is ScrapePageState.Preview -> "刮削 · 确认候选"
-                is ScrapePageState.Result -> "刮削 · 结果"
-                else -> "刮削"
-            },
+            title = "刮削",
         )
 
         // 限流可观察（任务 08-27-scrape-throttle-429）

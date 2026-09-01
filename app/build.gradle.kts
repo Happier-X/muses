@@ -94,6 +94,10 @@ dependencies {
     // WorkManager（Hilt Worker 集成）
     implementation(libs.work.runtime.ktx)
 
+    // 真磨砂：TabsLayout 的 hazeSource / hazeEffect 需在 app 模块可见
+    implementation(libs.haze)
+    implementation(libs.haze.blur)
+
     // Coil 3（封面加载，阶段 1+ 实际使用）
     implementation(libs.coil.compose)
 

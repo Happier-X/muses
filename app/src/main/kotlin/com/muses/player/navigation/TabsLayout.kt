@@ -54,9 +54,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.muses.player.core.ui.theme.LocalMusesHazeState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -116,30 +119,35 @@ fun TabsLayout(
     bottomBar: @Composable () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
-    BoxWithConstraints(modifier.fillMaxSize()) {
-        if (!navVisible) {
-            // 覆盖路由形态：无导航 chrome，全屏内容
-            Box(Modifier.fillMaxSize()) { content() }
-            return@BoxWithConstraints
-        }
+    val hazeState = rememberHazeState()
+    androidx.compose.runtime.CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+        BoxWithConstraints(modifier.fillMaxSize()) {
+            if (!navVisible) {
+                // 覆盖路由形态：无导航 chrome，全屏内容
+                Box(Modifier.fillMaxSize()) { content() }
+                return@BoxWithConstraints
+            }
 
-        val isTablet = maxWidth >= TabletBreakpoint
-        if (isTablet) {
-            TabletLayout(
-                primaryItems = primaryItems,
-                secondaryItems = secondaryItems,
-                bottomBar = bottomBar,
-                modifier = Modifier,
-                content = content,
-            )
-        } else {
-            PhoneLayout(
-                primaryItems = primaryItems,
-                secondaryItems = secondaryItems,
-                containerWidth = maxWidth,
-                bottomBar = bottomBar,
-                content = content,
-            )
+            val isTablet = maxWidth >= TabletBreakpoint
+            if (isTablet) {
+                TabletLayout(
+                    primaryItems = primaryItems,
+                    secondaryItems = secondaryItems,
+                    bottomBar = bottomBar,
+                    hazeState = hazeState,
+                    modifier = Modifier,
+                    content = content,
+                )
+            } else {
+                PhoneLayout(
+                    primaryItems = primaryItems,
+                    secondaryItems = secondaryItems,
+                    containerWidth = maxWidth,
+                    bottomBar = bottomBar,
+                    hazeState = hazeState,
+                    content = content,
+                )
+            }
         }
     }
 }
@@ -159,12 +167,17 @@ private fun TabletLayout(
     primaryItems: List<SaltNavItem>,
     secondaryItems: List<SaltNavItem>,
     bottomBar: @Composable () -> Unit,
+    hazeState: dev.chrisbanes.haze.HazeState,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val salt = LocalSaltColors.current
     Box(modifier.background(salt.surface)) {
-        Row(Modifier.fillMaxSize()) {
+        Row(
+            Modifier
+                .fillMaxSize()
+                .hazeSource(state = hazeState),
+        ) {
             // 平板 aside 改为卡片形态（对齐手机抽屉的 NavGroupCard），
             // 主/次菜单各为一张圆角卡：surface-1 底、1px hairline、16dp 圆角、
             // 左 18 右 12 空隙，两组间距 18dp（原版仅抽屉用卡片；现统一为卡片）
@@ -194,9 +207,7 @@ private fun TabletLayout(
                 content()
             }
         }
-        // MiniPlayer（z-index 1000）：视口级 fixed 全宽胶囊，浮于 aside 之上。
-        // 原版 left/right 18px 相对视口定位，非内容区——此前挂在内容区 Box 内
-        // 宽度只有「屏宽 - 261dp」，平板下明显不占满
+        // MiniPlayer（z-index 1000）：视口级 fixed 全宽胶囊，浮于 aside 之上，真磨砂由 MiniPlayerBar 内部 hazeEffect 消费 hazeSource。
         Box(Modifier.align(Alignment.BottomCenter)) { bottomBar() }
     }
 }
@@ -226,6 +237,7 @@ private fun PhoneLayout(
     secondaryItems: List<SaltNavItem>,
     containerWidth: Dp,
     bottomBar: @Composable () -> Unit,
+    hazeState: dev.chrisbanes.haze.HazeState,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -317,12 +329,13 @@ private fun PhoneLayout(
                 .offsetX { ((openFraction.value - 1f) * drawerWidthPx).roundToInt() },
         )
 
-        // __main：开态右移一个抽屉宽；向页内 SaltNavbar 提供汉堡打开回调
+        // __main：开态右移一个抽屉宽；向页内 SaltNavbar 提供汉堡打开回调；同时作为底部真磨砂的 hazeSource（与 bottomBar 同级）
         Box(
             Modifier
                 .align(Alignment.TopStart)
                 .fillMaxSize()
-                .offsetX { (openFraction.value * drawerWidthPx).roundToInt() },
+                .offsetX { (openFraction.value * drawerWidthPx).roundToInt() }
+                .hazeSource(state = hazeState),
         ) {
             androidx.compose.runtime.CompositionLocalProvider(
                 com.muses.player.core.ui.components.LocalSaltOpenDrawer provides { openDrawer() },
@@ -344,7 +357,7 @@ private fun PhoneLayout(
             )
         }
 
-        // MiniPlayer（z-index 1000）：层级高于 drawer-dismiss
+        // MiniPlayer（z-index 1000）：层级高于 drawer-dismiss，真磨砂由 MiniPlayerBar 内部 hazeEffect 消费上层 hazeSource
         Box(Modifier.align(Alignment.BottomCenter)) { bottomBar() }
     }
 }

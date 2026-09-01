@@ -4,10 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,11 +19,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.muses.player.core.model.Song
@@ -31,7 +36,10 @@ import com.muses.player.core.ui.components.SaltEmpty
 import com.muses.player.core.ui.components.SaltIconButton
 import com.muses.player.core.ui.components.SaltListItem
 import com.muses.player.core.ui.components.SaltNavbar
+import com.muses.player.core.ui.theme.LocalMusesHazeState
 import com.muses.player.core.ui.theme.LocalSaltColors
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 /**
  * 歌单详情页 —— PlaylistDetailPage.vue 一比一翻译。
@@ -58,55 +66,47 @@ fun PlaylistDetailPage(
     val playlist = detail?.playlist
     val songs = detail?.songs.orEmpty()
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // ---- navbar：back + title + playAll ----
-        SaltNavbar(
-            title = playlist?.name ?: "歌单",
-            left = {
-                SaltIconButton(
-                    onClick = onBack,
-                    contentDescription = "返回",
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                }
-            },
-            right = {
-                SaltIconButton(
-                    onClick = { viewModel.playAll() },
-                    enabled = songs.isNotEmpty(),
-                    contentDescription = "播放全部",
-                ) {
-                    Icon(Icons.Filled.PlayCircle, contentDescription = null)
-                }
-            },
-        )
-
-        // ---- .playlist-detail-page__content 三态 ----
-        when {
-            playlist == null -> {
-                Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    SaltEmpty(title = "歌单不存在", description = "可能已被删除。")
-                }
-            }
-            songs.isEmpty() -> {
-                Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    SaltEmpty(
-                        title = "歌单是空的",
-                        description = "在歌曲页点「更多」→「加入歌单」添加歌曲。",
-                    )
-                }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 96.dp),
-                ) {
+    val hazeState = rememberHazeState()
+    CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+        Box(modifier = modifier.fillMaxSize()) {
+            val navbarTopPadding = with(LocalDensity.current) {
+                WindowInsets.statusBars.getTop(this).toDp()
+            }.coerceAtLeast(16.dp) + 44.dp
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState)
+                    .background(LocalSaltColors.current.surface),
+            ) {
+                when {
+                    playlist == null -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = navbarTopPadding),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            SaltEmpty(title = "歌单不存在", description = "可能已被删除。")
+                        }
+                    }
+                    songs.isEmpty() -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = navbarTopPadding),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            SaltEmpty(
+                                title = "歌单是空的",
+                                description = "在歌曲页点「更多」→「加入歌单」添加歌曲。",
+                            )
+                        }
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(top = navbarTopPadding, bottom = 96.dp),
+                        ) {
                     items(songs.size, key = { songs[it].id }) { index ->
                         val song = songs[index]
                         val isPlaying = currentSongId == song.id
@@ -128,9 +128,32 @@ fun PlaylistDetailPage(
                                 onRemove = { viewModel.remove(song.id) },
                             )
                         }
+                            }
+                        }
                     }
                 }
             }
+            SaltNavbar(
+                title = playlist?.name ?: "歌单",
+                modifier = Modifier.align(Alignment.TopCenter),
+                left = {
+                    SaltIconButton(
+                        onClick = onBack,
+                        contentDescription = "返回",
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                    }
+                },
+                right = {
+                    SaltIconButton(
+                        onClick = { viewModel.playAll() },
+                        enabled = songs.isNotEmpty(),
+                        contentDescription = "播放全部",
+                    ) {
+                        Icon(Icons.Filled.PlayCircle, contentDescription = null)
+                    }
+                },
+            )
         }
     }
 

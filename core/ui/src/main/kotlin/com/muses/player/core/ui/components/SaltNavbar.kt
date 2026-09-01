@@ -28,9 +28,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.muses.player.core.ui.theme.LocalMusesHazeState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltDarkColors
 import com.muses.player.core.ui.theme.SaltSpacing
+import com.muses.player.core.ui.theme.musesNavbarHazeStyle
+import dev.chrisbanes.haze.blur.blurEffect
+import dev.chrisbanes.haze.hazeEffect
 
 /**
  * `.m-navbar` —— 吸顶导航栏（MNavbar.vue 一比一翻译）。
@@ -60,6 +64,8 @@ fun SaltNavbar(
 ) {
     val salt = LocalSaltColors.current
     val isDark = salt === SaltDarkColors
+    val hazeState = LocalMusesHazeState.current
+    val navbarHazeStyle = if (hazeState != null && !transparent) musesNavbarHazeStyle(isDark) else null
 
     // --m-navbar-pt: max(16px, safe-area-top)
     val statusBarTop = with(LocalDensity.current) {
@@ -73,23 +79,28 @@ fun SaltNavbar(
             .then(
                 if (transparent) {
                     Modifier
+                } else if (hazeState != null && navbarHazeStyle != null) {
+                    Modifier.hazeEffect(state = hazeState) {
+                        blurEffect { style = navbarHazeStyle }
+                    }
                 } else {
-                    Modifier
-                        .background(salt.navbarGlassBg)
-                        .drawBehind {
-                            // inset 0 1px 0 rgba(255,255,255,.65)（暗色 .1）：顶部 1px 物理像素高光
-                            drawRect(
-                                color = if (isDark) {
-                                    Color.White.copy(alpha = 0.1f)
-                                } else {
-                                    Color.White.copy(alpha = 0.65f)
-                                },
-                                topLeft = Offset.Zero,
-                                size = Size(size.width, 1f),
-                            )
-                        }
+                    Modifier.background(salt.navbarGlassBg)
                 },
             )
+            .drawBehind {
+                if (!transparent) {
+                    // inset 0 1px 0 rgba(255,255,255,.65)（暗色 .1）：顶部 1px 物理像素高光（真磨砂上叠加）
+                    drawRect(
+                        color = if (isDark) {
+                            Color.White.copy(alpha = 0.1f)
+                        } else {
+                            Color.White.copy(alpha = 0.65f)
+                        },
+                        topLeft = Offset.Zero,
+                        size = Size(size.width, 1f),
+                    )
+                }
+            }
             .padding(top = navbarPt),
     ) {
         Column {

@@ -31,4 +31,7 @@ dependencies {
     implementation(libs.compose.material.icons)
     implementation(libs.coil.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    // 真磨砂：底部 MiniPlayer / 顶部导航的 Haze 背景模糊（api 透传给 feature:* 页面）
+    api(libs.haze)
+    api(libs.haze.blur)
 }
