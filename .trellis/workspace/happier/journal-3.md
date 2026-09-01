@@ -1537,3 +1537,24 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+## Session 116: 沉浸式图标点击仍无切换排障
+<!-- trellis-session: v=2 fp=immersive-player-icon-still-fails -->
+
+**Date**: 2026-09-01
+**Task**: 沉浸式图标点击仍无切换排障
+**Branch**: `main`
+
+### Summary
+
+二次排障：MuMu反馈有颜色变但图标未换，定界为前版RepeatOne小path与Order小圆点在20px下不可辨且缺版本日志。放大svgRepeatOne为居中text 1(8px/900)与svgOrder圆点r2，set*Icon与initDom加v6日志便于adb验证，卸载重装后循环与随机均可在对应形态间清晰切换
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `137b72f2` | fix(player): 放大沉浸式 RepeatOne 与顺序图标并加可观测日志 |
+
+### Status
+
+[OK] **Completed**
