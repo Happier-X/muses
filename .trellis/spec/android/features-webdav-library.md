@@ -9,7 +9,7 @@
 | 组件 | 层 | 职责 | 关键签名 |
 |---|---|---|---|
 | WebDavLibraryScanner | core:media | BFS PROPFIND 纯发现 + 文件名建库（零下载），只产出不入库 | `suspend fun scan(source: Source): List<Song>`；`buildSidecarLyricsUrl(url)` 供播放懒扫描复用 |
-| LocalLibraryScanner | core:media | MediaStore 本地扫描；`isSupportedAudio`/`stableSongId`/`TAGS_VERSION` 为两扫描器共用常量方法 | `suspend fun scan(source: Source? = null, readTags: Boolean = true): List<Song>` |
+| LocalLibraryScanner | core:media | MediaStore 本地扫描；`isSupportedAudio`/`stableSongId`/`TAGS_VERSION`/`FILENAME_TAGS_VERSION` 为两扫描器共用常量方法 | `suspend fun scan(source: Source? = null, readTags: Boolean = true): List<Song>`（`readTags=false` 时 `tagsVersion=FILENAME_TAGS_VERSION(0)` 进懒补充） |
 | CoverCacheWriter | core:media | 封面落盘 cache/covers/<sha256>.jpg（两扫描器共用，禁止回退私有实现） | `fun write(context, cacheKey, bytes): String?` |
 | WebDavAudioCache（接口） | core:webdav | 播放 LRU 缓存抽象（500MB）；磁盘实现 DiskWebDavAudioCache 经 @Binds 注入，测试注入内存 fake | `getCachedFile(url): File?` / `putToCache(url, file, eTag?, lastModified?)` |
 | WebDavAuthRegistry | core:webdav | 内存凭据表 baseUrl→(user,pass)；最长前缀匹配出 Basic header | `suspend fun refresh()` / `fun authorizationHeader(url): String?` |
@@ -25,7 +25,7 @@
 
 - **WEBDAV 曲目播放 = 整文件入缓存后 file:// 播**（对齐旧版 getOrDownload）：未命中缓存的先经 `client.get` 单次 GET 进缓存再播。
 - **播放契约（限流教训，勿回退）**：WEBDAV 曲目播放 = ExoPlayer 直连 WebDAV URL **流式播放 + `CacheDataSource` 边播边缓存**（用户决策 2026-08-27：保持流式，不做整文件下载）。曾因「恢复队列一次性 `prepare` 全列触发请求 → 打爆限流 → 429 全站」而禁止直连流播；现通过两处消除 burst：(1) 流播 `OkHttpDataSource` 走 `@StreamingOkHttp` client（只 auth 不限流，见 `WebDavModule.provideStreamingOkHttpClient`），与扫描/预取限流桶隔离，流播单连接读取不再被饿死/超时重试；(2) media3 1.11 无 `Player.setPreloadItems`（相邻预加载 API 在 1.13+），默认不预加载整队列；若实测 `setMediaItems(全量)` + `prepare()` 仍发全列请求，再改为「只 `prepare` 当前曲 + 下一首」分批加载 + `PlayerConnection` 维护 UI 队列副本（解耦 ExoPlayer 队列）。重复播放命中 `CacheDataSource` 本地缓存不发网络。文件名建库 durationMs=0 的 mp3/flac 由 ExoPlayer 流播时自行解析容器 ID3 tag，无需额外网络请求。
-- **标签读取只在播放时懒扫描**（用户决策 2026-08-26：扫描期「读取音乐标签」功能已删除）：PlayerConnection 在当前曲入缓存后调 `lazyScanTags`——TagReader + sidecar .lrc + CoverCacheWriter → `songRepository.upsert` 回写（Room Flow 自动刷新列表）。幂等键：文件名建库 tagsVersion=0（FILENAME_TAGS_VERSION），懒扫描成功写 TAGS_VERSION；失败静默保持文件名歌下次重试。本地源扫描仍保留 readTags 开关（无网络成本）。
+- **标签读取只在播放时懒扫描**（用户决策 2026-08-26：扫描期「读取音乐标签」功能已删除）：WebDAV 为文件名建库 `tagsVersion=0`；本地 `readTags=false` 时同为 `FILENAME_TAGS_VERSION(0)` 占位入库（标题取 MediaStore/文件名、封面空，等待懒补），`readTags=true` 才即时 `TAGS_VERSION(1)`。播放时 `PlaybackService` 对 `tagsVersion < TAGS_VERSION` 的歌曲（WebDAV/local 通用，local 的 `content://` 经 `AudioTagReader.copyContentUriToCache` 拷贝后解析）调 `lazyScanTags`——TagReader + sidecar .lrc + CoverCacheWriter → `songRepository.upsert` 回写（Room Flow 自动刷新列表）。幂等键：`tagsVersion=0`（FILENAME_TAGS_VERSION），懒扫描成功写 TAGS_VERSION；失败静默保持文件名歌下次重试。本地 `readTags` 开关保留（无网络成本，关时走同 WebDAV 的懒补充）。
 - 认证统一走 OkHttpClient Interceptor + WebDavAuthRegistry；interceptor **不得覆盖请求已携带的 Authorization**（避免压掉 OkHttpWebDavClient.authenticate 的手动 header）。PlaybackService 禁止自建裸 OkHttpClient。
 - 预取模式（PlayerConnection.prefetchScope）：串行下载、换队列 cancel 旧任务、单首失败回退 http URL 不阻塞队列、完成后 mainHandler.post 回主线程 setMediaItems（Media3 主线程铁律）。
 - 凭据生命周期：源 save/update/delete 都必须调 `registry.refresh()`。
@@ -64,21 +64,23 @@ MediaItem.Builder().setUri(song.path).build()
 - 触发：新增 jaudiotagger 标签读取能力（Range 部分下载）及跨层入库契约
 
 ### 2. Signatures
-- `AudioTagReader @Singleton (Context, OkHttpClient)`：`fun readTags(source: String): AudioTags?` / `suspend fun readTagsSuspend(...)` / `fun readTagForUpdate(path, songId): TagUpdateData?` / `fun extractCover(source, songId): String?`（本地/WebDAV 通用，WebDAV 经 Range 部分下载）
+- `AudioTagReader @Singleton (Context, OkHttpClient)`：`fun readTags(source: String): AudioTags?` / `suspend fun readTagsSuspend(...)` / `fun readTagForUpdate(path, songId): TagUpdateData?` / `fun extractCover(source, songId): String?`（本地/WebDAV 通用，WebDAV 经 Range 部分下载；本地支持 `content://`（ContentResolver 拷贝）/ `file://` / 绝对路径四态）
 - `SongDao.getUntaggedSongIds(): List<String>` 查询 `SELECT id FROM songs WHERE tagsVersion < 1`（供懒扫描判定，未直接批量处理）
 - `gradle/libs.versions.toml`：`jaudiotagger = "3.0.1"`，`jaudiotagger = { group="net.jthink", name="jaudiotagger", version.ref="jaudiotagger" }`
 
 ### 3. Contracts
-- 输入：`source` 为本地绝对路径或 WebDAV HTTP(S) URL；`songId` 用于封面落盘 `cacheDir/audio_tags/cover_${songId}.jpg`
+- 输入：`source` 为本地绝对路径/`content://`/`file://` 或 WebDAV HTTP(S) URL；`songId` 用于封面落盘 `cacheDir/audio_tags/cover_${songId}.jpg`
 - 输出：`AudioTags(title?, artist?, album?, lyrics?, cover?: ByteArray, durationMs)`；`TagUpdateData(title?, artist?, album?, lyrics?, coverUri?, durationMs)`
 - 标签映射：`FieldKey.TITLE/ARTIST/ALBUM/LYRICS` + `firstArtwork.binaryData` + `audioHeader.trackLength*1000`
 - WebDAV 下载：优先 Range `bytes=0-65535`，解析探测无有效标题/歌手/专辑时扩大至 `bytes=0-262143`；Range 失败回退全量 GET；均经 OkHttp 拦截器自动注入 Authorization（来自 WebDavAuthRegistry）与限流（X-Muses-Rate-Limited 避重）
+- 本地 `content://`：经 `ContentResolver.openInputStream` 全量拷贝到 `cacheDir/audio_tags/content_${hash}.tmp` 再解析（命中复用，避免切歌重复拷贝）；`file://` 去前缀后 File，直链绝对路径同理
 - 封面落盘：返回绝对路径字符串，供 `SongEntity.coverUri` 直接写入
 - 回写契约（播放时懒扫描）：`song.copy(title=tagTitle?:原标题, artist?:原, albumTitle=tagAlbum?:原, lyrics?:原, coverUri?:原, durationMs=max, durationSec=max, tagsVersion=1)` 经 `songDao.upsert`；读取失败保持 tagsVersion=0 下次播放重试，不批量后台处理
 
 ### 4. Validation & Error Matrix
 - `AudioFileIO.read(File)` 抛异常 → `readTags` 返回 null，不崩溃
 - WebDAV 401/403 → OkHttp 拦截器未命中凭据或凭据失效，下载抛异常 → 懒扫描静默失败，保持文件名歌，下次播放重试
+- 本地 `content://` 打开失败（权限缺失/文件已删）→ 抛 `FileNotFoundException` → `readTags` 返回 null，懒扫描保持 `tagsVersion=0` 下次重试，不阻塞播放
 - Range 不支持（200 而非 206）→ 视为失败触发全量下载
 - `coverUri` 写入前 `cover?.let` 为 null → 不落盘，保持原 coverUri
 - `title` 空白 → 回退原 `song.title`（文件名）避免空标题

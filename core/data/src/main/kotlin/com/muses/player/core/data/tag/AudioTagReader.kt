@@ -1,6 +1,7 @@
 package com.muses.player.core.data.tag
 
 import android.content.Context
+import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -58,14 +59,41 @@ class AudioTagReader @Inject constructor(
     }
 
     /**
-     * 解析文件路径，WebDAV 自动下载到缓存
+     * 解析文件路径，支持 WebDAV / content:// / file:// / 绝对路径四态。
+     * - http(s) → Range 下载到缓存（WebDAV）
+     * - content:// → ContentResolver 拷贝到缓存（本地懒补充，Song.path 为 content URI）
+     * - file:// → Uri 解析取 path
+     * - 其它 → 视为文件绝对路径直接 File
      */
     private fun resolveFile(source: String): File {
-        return if (source.startsWith("http://") || source.startsWith("https://")) {
-            downloadFile(source)
-        } else {
-            File(source)
+        return when {
+            source.startsWith("http://") || source.startsWith("https://") -> downloadFile(source)
+            source.startsWith("content://") -> copyContentUriToCache(source)
+            source.startsWith("file://") -> {
+                val path = Uri.parse(source).path ?: source.removePrefix("file://")
+                File(path)
+            }
+            else -> File(source)
         }
+    }
+
+    /**
+     * 将 content:// URI 经 ContentResolver 拷贝到本地缓存文件，供 jaudiotagger 解析。
+     * 缓存命中复用（播放切歌不再重复拷贝）；失败抛异常由外层转 null（懒扫描静默重试）。
+     */
+    private fun copyContentUriToCache(uriString: String): File {
+        val hash = uriString.hashCode().toString(16)
+        val rawSuffix = uriString.substringAfterLast('/').substringAfterLast(':').take(30)
+        val safeSuffix = rawSuffix.replace(Regex("[^A-Za-z0-9._-]"), "_").ifEmpty { "audio" }
+        val target = File(cacheDir, "content_${hash}_${safeSuffix}.tmp")
+        if (target.exists() && target.length() > 0) return target
+        val uri = Uri.parse(uriString)
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(target).use { output ->
+                input.copyTo(output)
+            }
+        } ?: throw java.io.FileNotFoundException("无法打开 content URI: $uriString")
+        return target
     }
 
     /**

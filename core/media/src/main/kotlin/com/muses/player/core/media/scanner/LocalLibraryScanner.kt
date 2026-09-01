@@ -39,7 +39,8 @@ class LocalLibraryScanner @Inject constructor(
      * 返回 domain Song 列表（不写库——持久化由调用方/Worker 完成）。
      *
      * [readTags] = false 时跳过 TagReader（jaudiotagger）逐文件读取，标签全空，
-     * 直接回退 MediaStore 列值/文件名（对照 Web「读取音乐标签」开关关闭态）；
+     * 直接回退 MediaStore 列值/文件名，且 [Song.tagsVersion] 置 [FILENAME_TAGS_VERSION]（0）
+     * 进入播放时懒补充链路（对照 WebDAV 文件名建库）；
      * 默认 true 保持既有调用方兼容。
      */
     suspend fun scan(source: Source? = null, readTags: Boolean = true): List<Song> = withContext(Dispatchers.IO) {
@@ -71,7 +72,7 @@ class LocalLibraryScanner @Inject constructor(
                 lyrics = tags.lyrics,
                 replayGainTrackDb = tags.replayGainTrackDb,
                 sourceType = SourceType.LOCAL,
-                tagsVersion = TAGS_VERSION,
+                tagsVersion = if (readTags) TAGS_VERSION else FILENAME_TAGS_VERSION,
             )
             songs.add(song)
         }
@@ -170,6 +171,8 @@ class LocalLibraryScanner @Inject constructor(
 
     companion object {
         const val TAGS_VERSION = 1
+        /** 文件名/ MediaStore 占位建库的 tagsVersion（< TAGS_VERSION 即待播放懒扫描，对齐 WebDAV） */
+        const val FILENAME_TAGS_VERSION = 0
 
         /** 未指定音源时的默认本地扫描标识 */
         const val DEFAULT_LOCAL_SOURCE_ID = "local"
