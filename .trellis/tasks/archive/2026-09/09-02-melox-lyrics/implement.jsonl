@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/android/features-lyrics-online.md", "reason": "在线歌词搜索规范，用于理解保留范围"}
+{"file": ".trellis/spec/android/index.md", "reason": "Android 架构规范，用于理解模块结构"}
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "现有歌词实现规范，用于理解删除范围"}

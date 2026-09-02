@@ -33,6 +33,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
     implementation(project(":core:media"))
+    implementation(project(":core:lyrics"))
     // 歌词解析（accompanist lyrics-core 0.4.7，无 Android target 以 JVM 变体解析）
     implementation(libs.accompanist.lyrics.core)
     // 歌词渲染：AMLL 官方渲染器已 vendor 进本模块

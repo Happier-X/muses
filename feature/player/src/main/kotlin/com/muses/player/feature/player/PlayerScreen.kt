@@ -106,8 +106,8 @@ import com.muses.player.core.ui.components.SaltIconButtonSize
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.feature.player.backdrop.FlowingLightBackdrop
-import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
 import com.muses.player.feature.player.lyric.AmllLyricLine
+import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.feature.player.lyric.LyricsPanel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -144,10 +144,10 @@ fun PlayerScreen(
     val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
     val shuffleModeEnabled by viewModel.shuffleModeEnabled.collectAsStateWithLifecycle()
     val parsedLines by viewModel.parsedLines.collectAsStateWithLifecycle()
+    val lyricsDocument by viewModel.lyricsDocument.collectAsStateWithLifecycle()
     val hasTranslation by viewModel.hasTranslation.collectAsStateWithLifecycle()
     val translationEnabled by viewModel.translationEnabled.collectAsStateWithLifecycle()
     val lyricPosition by viewModel.lyricPosition.collectAsStateWithLifecycle()
-    val syncedLyrics by viewModel.syncedLyrics.collectAsStateWithLifecycle()
     // 卡拉OK 逐词渐变需要逐帧位置：VM 的 ~100ms 轮询值作为锚点，UI 每帧线性外推
     val lyricPositionProvider = rememberLyricPositionProvider(
         positionFlow = viewModel.lyricPosition,
@@ -263,7 +263,7 @@ fun PlayerScreen(
             // 原生重构：FlowingLightBackdrop + 手机/平板双形态（无 WebView）
             FlowingLightBackdrop(
                 coverUri = stickyCover,
-                hasLyric = parsedLines.isNotEmpty() || (syncedLyrics?.lines?.isNotEmpty() == true),
+                hasLyric = parsedLines.isNotEmpty(),
                 modifier = Modifier.fillMaxSize(),
                 flowSpeed = 2f,
             )
@@ -275,8 +275,8 @@ fun PlayerScreen(
                     artist = artist,
                     coverUri = stickyCover,
                     lines = parsedLines,
+                    lyricsDocument = lyricsDocument,
                     lyricPosition = lyricPosition,
-                    syncedLyrics = syncedLyrics,
                     lyricPositionProvider = lyricPositionProvider,
                     hasTranslation = hasTranslation,
                     translationEnabled = translationEnabled,
@@ -308,8 +308,8 @@ fun PlayerScreen(
                     artist = artist,
                     coverUri = stickyCover,
                     lines = parsedLines,
+                    lyricsDocument = lyricsDocument,
                     lyricPosition = lyricPosition,
-                    syncedLyrics = syncedLyrics,
                     lyricPositionProvider = lyricPositionProvider,
                     hasTranslation = hasTranslation,
                     translationEnabled = translationEnabled,
@@ -450,8 +450,8 @@ private fun PhoneImmersiveLayout(
     artist: String,
     coverUri: String?,
     lines: List<AmllLyricLine>,
+    lyricsDocument: LyricsDocument?,
     lyricPosition: Long,
-    syncedLyrics: SyncedLyrics?,
     lyricPositionProvider: () -> Int,
     hasTranslation: Boolean,
     translationEnabled: Boolean,
@@ -547,18 +547,10 @@ private fun PhoneImmersiveLayout(
                     maxHeight = maxHeight,
                 )
                 1 -> LyricsPanel(
-                    syncedLyrics = syncedLyrics,
-                    positionProvider = lyricPositionProvider,
-                    translationEnabled = translationEnabled,
-                    hasTranslation = hasTranslation,
-                    onToggleTranslation = onToggleTranslation,
+                    document = lyricsDocument,
+                    positionMs = lyricPosition,
                     isPlaying = isPlaying,
-                    onPlayPause = onPlayPause,
                     onSeek = onSeek,
-                    showPlayFab = true,
-                    isTablet = false,
-                    albumArtUri = coverUri,
-                    onLyricAtTopChange = onLyricAtTopChange,
                 )
             }
         }
@@ -571,8 +563,8 @@ private fun TabletImmersiveLayout(
     artist: String,
     coverUri: String?,
     lines: List<AmllLyricLine>,
+    lyricsDocument: LyricsDocument?,
     lyricPosition: Long,
-    syncedLyrics: SyncedLyrics?,
     lyricPositionProvider: () -> Int,
     hasTranslation: Boolean,
     translationEnabled: Boolean,
@@ -639,25 +631,17 @@ private fun TabletImmersiveLayout(
                 // 平板左侧不展示三行歌词与手机控件区（display:none），由底部条承担
                 Spacer(Modifier.height(8.dp))
             }
-            // 右栏：lyric-panel（50%）右侧歌词 — Immersive iOS 面板，header 在平板隐藏
+            // 右栏：lyric-panel（50%）右侧歌词 — Immersive  面板，header 在平板隐藏
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
             ) {
                 LyricsPanel(
-                    syncedLyrics = syncedLyrics,
-                    positionProvider = lyricPositionProvider,
-                    translationEnabled = translationEnabled,
-                    hasTranslation = hasTranslation,
-                    onToggleTranslation = onToggleTranslation,
+                    document = lyricsDocument,
+                    positionMs = lyricPosition,
                     isPlaying = isPlaying,
-                    onPlayPause = onPlayPause,
                     onSeek = onSeek,
-                    showPlayFab = false,
-                    isTablet = true,
-                    albumArtUri = coverUri,
-                    onLyricAtTopChange = onLyricAtTopChange,
                 )
             }
         }

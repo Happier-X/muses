@@ -2,12 +2,12 @@ package com.muses.player.feature.player
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
 import com.muses.player.core.data.dao.SongDao
+import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.core.media.playback.PlayerConnection
 import com.muses.player.feature.player.lyric.AmllLyricLine
-import com.muses.player.feature.player.lyric.AmllMapper
 import com.muses.player.feature.player.lyric.LyricsParser
+import com.muses.player.feature.player.lyric.toAmllLyricLines
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -128,12 +128,9 @@ class PlayerViewModel @Inject constructor(
     private val _parsedLines = MutableStateFlow<List<AmllLyricLine>>(emptyList())
     val parsedLines: StateFlow<List<AmllLyricLine>> = _parsedLines.asStateFlow()
 
-    /**
-     * 解析后的原始歌词模型：卡拉OK 渲染器（lyrics-ui KaraokeLyricsView）直接消费 SyncedLyrics，
-     * 以拿到逐词 syllables / 和声行 / 翻译 / 音译等完整信息（List<AmllLyricLine> 是扁平化投影，会丢失这些）。
-     */
-    private val _syncedLyrics = MutableStateFlow<SyncedLyrics?>(null)
-    val syncedLyrics: StateFlow<SyncedLyrics?> = _syncedLyrics.asStateFlow()
+    /**  LyricsDocument：供完整版 LyricsPanel 使用 */
+    private val _lyricsDocument = MutableStateFlow<LyricsDocument?>(null)
+    val lyricsDocument: StateFlow<LyricsDocument?> = _lyricsDocument.asStateFlow()
 
     /** 当前歌词是否含译文/音译（翻译 FAB 显隐依据） */
     private val _hasTranslation = MutableStateFlow(false)
@@ -211,12 +208,11 @@ class PlayerViewModel @Inject constructor(
         }
 
         // TTML/LRC 解析与映射可能较重（大文件逐词行），移出主线程；结果回主线程赋值，避免跨线程可见性问题
-        val synced = withContext(Dispatchers.Default) { LyricsParser.parse(song?.lyrics) }
-        // 卡拉OK 渲染源：与 parsedLines 同一份解析结果，切歌/更新时同步替换
-        _syncedLyrics.value = synced
-        currentLines = withContext(Dispatchers.Default) {
-            synced?.let { AmllMapper.toAmllLines(it) } ?: emptyList()
+        val document = withContext(Dispatchers.Default) {
+            LyricsParser.parseDocument(song?.lyrics)
         }
+        _lyricsDocument.value = document
+        currentLines = document?.toAmllLyricLines() ?: emptyList()
         lastLineEndMs = currentLines.maxOfOrNull { it.endTime.toLong() } ?: Long.MAX_VALUE
         _hasTranslation.value = currentLines.any {
             it.translatedLyric.isNotEmpty() || it.romanLyric.isNotEmpty()

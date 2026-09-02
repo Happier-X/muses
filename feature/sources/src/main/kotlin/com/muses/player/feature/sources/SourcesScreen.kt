@@ -538,7 +538,7 @@ private fun AddSourceSheet(
                         label = { Text("目录路径（SAF tree URI）") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("content://com.android.externalstorage...") },
+                        placeholder = { Text("content://com.android.externalstorage..") },
                     )
                 }
             }
