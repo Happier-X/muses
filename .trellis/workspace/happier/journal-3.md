@@ -1642,3 +1642,26 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+
+## Session 121: 修复 FLAC 刮削回传 ImageIO 崩溃
+<!-- trellis-session: v=2 fp=4094e00ebf9a08dc -->
+
+**Date**: 2026-09-02
+**Task**: 修复 FLAC 刮削回传 ImageIO 崩溃
+**Branch**: `main`
+
+### Summary
+
+修复刮削回传含封面写入 FLAC 时 StandardArtwork 触发 javax.imageio.ImageIO 导致 NoClassDefFoundError 崩溃：MusesApplication 显式 setAndroid(true)，TagWriter 改用 AndroidSafeArtwork 反射 BitmapFactory 取宽高并兜底 Throwable，已验证 MP3/FLAC/Vorbis/ID3 冒烟与 lint/test 回归
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e88a8245` | fix(media): 修复 FLAC 刮削回传 ImageIO 崩溃 |
+| `bff6ca4a` | docs(spec): 沉淀 jaudiotagger Android 适配契约 |
+
+### Status
+
+[OK] **Completed**
