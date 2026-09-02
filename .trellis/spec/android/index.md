@@ -53,7 +53,7 @@ app (UI 宿主、导航)
 - `PlayerConnection` 封装 MediaController，暴露 StateFlow 给 ViewModel
 - WebDAV 曲目：直接 HTTP URL 流播（ExoPlayer），数据源经 **CacheDataSource 边播边缓存**——
   探测性重复 Range 请求命中本地不再发网络（防网关限流）；详见 features-webdav-library.md
-- 沉浸式播放页为**单一 WebView 整页**（08-31 起 DroidMate 1:1，详见 features-lyrics-playlist.md §1/§7）：`PlayerScreen`（drag-layer + offset + `isLyricAtTop` 手势分流）+ `FullPlayerWebView`（`WebViewAssetLoader https://appassets.androidplatform.net/assets/amll/` + `LAYER_TYPE_HARDWARE + TRANSPARENT` + `isPageReady` 闸门 + `file://→dataURL` 封面）+ `app/src/main/assets/amll/full-player.{js,css}`（面板 200% / `alignPosition 0.5` 居中 / `SVG` 乐观 `playPause` / `onLyricScroll`）+ `amll.bundle.js`（`BackgroundRender` 流体背景 + 逐词发光）；`PlayerViewModel` 仍提供粘性封面/解析链路；布局 1:1 复刻 Capacitor `PlayerPage.vue` BEM（drag-layer / song-head-fixed / panels 200% / cover-hero / meta-window / bottom-bar）
+- 沉浸式播放页为**纯原生 Compose**（09-02 起自研手搓，WebView 已下线，详见 features-lyrics-playlist.md §1/§7）：`PlayerScreen`（`offset` 跟手 + `isLyricAtTop` 手势分流 + `FlowingLightBackdrop` 透底）+ `HorizontalPager` 双面板（手机）/ 左右双栏+`TabletBottomBar`（平板横屏）+ `NativeLyricsPanel`（`LazyColumn` 居中滚动 + `NativeKaraokeLine` 逐词/逐字符 `AnnotatedString` 连续渐变 + 距离 `Blur/Scale/Alpha` + 翻译 FAB）+ `CoverHero`/`ProgressSection`/`ControlsRow`/`ModeBarRow`；`rememberLyricPositionProvider` 帧外推保持 60fps 无重组；`PlayerViewModel` 粘性封面/解析链路不变；彻底删除 `FullPlayerWebView`/`LyricWebView` 与 `app/src/main/assets/amll/*`（Git 可回溯，BEM 契约保留 drag-layer / song-head-fixed / cover-hero / bottom-bar）
 - 音频焦点由 ExoPlayer 默认处理（handleAudioFocus=true）
 - `onTaskRemoved` → `stopSelf()`（后台播放安全）
 

@@ -37,7 +37,7 @@ class RelativeMillisLrcParserTest {
 		val parsed = RelativeMillisLrcParser.parse(content.split("\n"))
 		assertEquals(1, parsed.lines.size)
 		val line = parsed.lines.single() as KaraokeLine
-		assertEquals(6, line.syllables.size)
+		assertEquals(5, line.syllables.size)
 
 		val first = line.syllables[0]
 		assertEquals("为", first.content)

@@ -10,51 +10,30 @@
 - 改动 `feature/playlist/*`、播放列表 Room 表
 - 改动响度均衡链路（LoudnessCalculator/LoudnessController/replayGainTrackDb 列）
 
-## 1. AMLL 渲染 = WebView 嵌入（DroidMate 1:1，08-31 起）
+## 1. AMLL 渲染 = 原生自研（09-02 起，手搓，WebView 已下线）
 
-- **现行方案（WebView，08-31 起）**：`app/src/main/assets/amll/`（`vite lib es amll.bundle.js + cssInliner` 产自 `.workbuddy/tmp/amll-droidmate/frontend/src/main.tsx + styles.css + vite.config.js`）→ `AndroidView` 包 `WebView` → `WebViewAssetLoader` 以 `https://appassets.androidplatform.net/assets/amll/index.html` 加载 → `window.updateLyrics/updateTime/setPaused/updateAlbumArt/configure*` 注入。`PlayerViewModel` 经 `LyricsParser` + `AmllMapper` 解析为 `SyncedLyrics` → `LyricWebView` 透传；封面经 `FlowingLightBackdrop`（Compose 层）透底（WebView `LAYER_TYPE_HARDWARE + TRANSPARENT + mix-blend-mode:normal` 兼容 Chromium 110），WebView 内 `BackgroundRender(Mesh/Pixi)` 可选叠加但本任务以 Compose 层为主。
-- **归档原生 Compose 方案（08-28，仅历史参考）**：曾用 `MeloXFlowingLightBackdrop + MeloXIOSLyricsPanel` 纯 Compose 复刻，因 LazyList 波浪 stagger 无法无闪复刻 Web 行弹簧，已归档。
-- **禁止**在 WebView 栈外另起第二套歌词渲染；新需求在 `LyricWebView` / `amll.bundle.js` 上扩展。
+- **现行方案（原生，09-02 起）**：`feature/player/lyric/NativeLyricsPanel`（`LazyColumn` 居中滚动 + `isAtTop` 回调）+ `NativeKaraokeLine`（`AnnotatedString` 逐词/逐字符 `lerp` 连续渐变 + 距离 `Blur/Scale/Alpha` + `FontStyle.Italic` 和声）→ `PlayerScreen` 透过 `FlowingLightBackdrop` 透底；`PlayerViewModel` 经 `LyricsParser` 解析为 `SyncedLyrics` 直传面板，无 `amll.bundle.js`/`WebViewAssetLoader`/`evaluateJavascript`；`rememberLyricPositionProvider` 帧外推保持 60fps（仅当前行重组）。
+- **归档 WebView 方案（08-31，09-02 已删除）**：曾用 `app/src/main/assets/amll/` → `WebViewAssetLoader https://appassets.androidplatform.net` → `window.update*` 注入 + `BackgroundRender`，因手搓需求与包体积已彻底删除 `FullPlayerWebView.kt`/`LyricWebView.kt` 与 `app/src/main/assets/amll/*`（Git 可回溯）。
+- **禁止**再引入 `WebView` 或 `lyrics-ui KaraokeLyricsView`（已 vendored 但沉浸主路径零引用）；新需求在 `NativeLyricsPanel`/`NativeKaraokeLine` 上扩展。
 
-### 就绪握手（0621054，P4.4 黑屏修复）
+### 手搓渲染契约（09-02）
 
-- **onPageFinished 触发早于 ES module 执行**：此时 `window.updatePlayerState/updateLyrics` 未定义，
-  Kotlin 首轮 evaluateJavascript 注入静默丢失；无后续状态变化时播放页表现为纯底色黑屏。
-- 契约：前端 module 尾部经 `nativeBridge.onAction('{"action":"ready"}')` 上报就绪；
-  Kotlin 收到 ready 后全量重推当前 playerState 与歌词载荷（经 ref 取最新值，防闭包捕获过期）。
+- 数据源 `SyncedLyrics.lines: List<ISyncedLine>`（`KaraokeLine.syllables` 逐词时轴 / `SyncedLine` 整行）→ `WordInfo(start,end,text)`；翻译 `translation/phonetic` 按 `translationEnabled` 显隐。
+- 当前行判定 `computeCurrentIndexNative(lines, positionMs)` 线性扫描；`currentIndex` 100ms 轮询更新，仅索引变化触发滚动重组。
+- 距离衰减：`alpha 1/0.45/0.28/0.18` + `scale 1.05/0.92` + `blur 6.dp (distance>=2)`；当前行逐词 `fraction=(pos-start)/(end-start)` lerp `White 0.35→White`，长词>6字符按字符拆分二次 lerp 实现字符级扫过。
+- 滚动：`LazyColumn` `animateScrollToItem(currentIndex)` 居中，手势 `isScrollInProgress` 时 3s 防抖后恢复；`onLyricAtTopChange` 供外层下滑关闭分流。
 
-### 踩坑记录（92bf1a2，P4.3 歌词面板修复）
+## 2. 背景生命周期治理（纯 Compose）
 
-1. **androidAssets 目录必须显式注册为 assets 源**：`feature/player/build.gradle.kts` 加 `assets.srcDir("src/main/androidAssets")`——M1 起该目录从未注册，WebViewAssetLoader 找不到 index.html → ERR_INVALID_RESPONSE，且报错被 WebView 白屏吞掉难定位
-2. **WebView 尺寸自适应用 ResizeObserver 不用 window.resize**：Android WebView 初始布局高度为 0，后续 AndroidView 获得真实尺寸不再派发 resize → 背景 canvas 高度 0 永不可见；amll-web 侧 `new ResizeObserver(resize).observe(document.body)` 兜底
-3. **AndroidView 嵌入面板区域时 offset 位移要加在 AndroidView 自身而非父容器**（父容器位移会连带裁剪/命中区域错位）；背景歌词解耦 = 背景层与歌词层各自独立 AmllWebView 实例
-
-### 桥接口签名（window 级，前端 `main.tsx` ↔ Kotlin `LyricWebView.kt`，1:1 DroidMate）
-
-| JS 接口 | 入参 | 调用时机 |
-|---|---|---|
-| `updateLyrics({lines:[{words:[{word,startTime,endTime,romanWord?}], text, translatedLyric, romanLyric, startTime,endTime,isBG,isDuet}]})` | 对象（非字符串） | `isPageReady && lyrics !== lastLyrics` 引用比较 |
-| `updateTime(number)` | `Math.trunc(ms)` | `now - lastUpdate >= frameIntervalMs(32ms)` 节流，暂停且已同步过则忽略 |
-| `setPaused(bool)` | `!isPlaying` | `lastIsPlaying !== curIsPlaying` 去抖 |
-| `updateAlbumArt(string)` | `file://` 先 `fetch->blob->dataURL`，http 加 `t=Date.now()` | `lastAlbumArtUri !== cur` 时 |
-| `configureLyricMotion / configureBackgroundEffect / configureLyricBackground / applyFontSettings` | 各自 JSON | 签名比较，仅变化时刷 |
-
-JS→Native（P4.4）：前端经 `window.nativeBridge.onAction(json)` 发动作 `{action:'playPause'|'next'|'previous'|'seekTo'(positionMs)|'setRepeatMode'(mode)|'setShuffle'(enabled)|'toggleTranslation'|'openQueue'|'close'}`；Kotlin 侧 `NativeBridge` 回调在 JS 线程，AmllWebView 内部统一 post 主线程后再分派。seek 为一次性语义：拖动 preview 由前端本地完成，抬起才发。
-
-- **payload 注入必须经 `AmllMapper.quote()` 包成 JS 字符串字面量**——前端内部做 `JSON.parse`，直接内插对象会被 ToString 成 `[object Object]`。
-- `songId` token：前端校验过期注入丢弃。
-
-## 2. 背景生命周期治理（WebView + Compose 混合）
-
-- 背景不得因「无歌词」卸载：`FlowingLightBackdrop`（Compose）始终渲染；WebView 透明透出；空态在前景 `LyricPanel` 显示占位，背景照常。
-- **WebView 背景（可选）**：`BackgroundRender.new(MeshGradientRenderer|PixiRenderer)`，`tick` 每帧 `player.update(delta)`（不因 paused 跳过），`updateAlbumArt` 时 `setAlbum + update(0)`；若 WebGL 不可用则仅用 Compose 层，避免 `plus-lighter` 无底色全透明（已全局改为 `normal` + 兼容补丁）。
+- 背景不得因「无歌词」卸载：`FlowingLightBackdrop` 始终渲染；空态在前景 `NativeLyricsPanel` 显示占位，背景照常。
+- **原生背景**：`FlowingLightBackdrop`（`clipToBounds + fallback 纵向渐变 + cover blur28/scale1.08/alpha0.75 + Canvas 3 Blob + 暗色 scrim + 顶部高光`，`flowSpeed=2 → 6000ms 周期`）。
 - 粘性封面三段语义（PlayerViewModel.stickyCover）：新曲有封面即更新；无封面**沿用旧值**；仅无当前曲才清空。
 - `stickyCover == null` 时沿用旧帧（`FlowingLightBackdrop` 不清背景），避免切歌闪黑。
 
 ## 3. 封面加载
 
-- **现行（混合）**：`stickyCover` 喂 Compose `FlowingLightBackdrop`（coil 天然支持 `file://`/`content://`/`data:`/`https:`）；WebView 侧 `updateAlbumArt` 对 `file://` 执行 `fetch->blob->dataURL` 规避 https 混合内容拦截，http 则加 `t=Date.now()` 防缓存。
-- **归档**：曾用 `coverUriToAppAssetsUrl` 映射 `https://appassets.androidplatform.net/cache/...`，现由前端 `fetch` 直转 `dataURL` 替代。
+- **现行（纯 Compose）**：`stickyCover` 直喂 `FlowingLightBackdrop`/`CoverHero` 的 `AsyncImage`（coil 天然支持 `file://`/`content://`/`data:`/`https:`），无 `fetch->blob->dataURL` 转码与 `WebViewAssetLoader`。
+- **归档 WebView 转码**：曾用前端 `fetch->blob->dataURL` 与 `coverUriToAppAssetsUrl` 映射，09-02 已随 WebView 删除。
 
 ## 4. 歌词解析（lyrics-core 0.4.7 API 事实）
 
@@ -95,26 +74,27 @@ playlist_songs(playlistId FK→playlists CASCADE, songId FK→songs CASCADE, pos
 - 默认关（DataStore `loudness_enabled`）；设置页 UI 入口留 M3。
 - RG 数据链路：TagReader 别名扫描/TXXX → normalize（÷256 + 校验）→ SongEntity.replayGainTrackDb → LoudnessController 按 mediaId 反查。
 
-## 7. 沉浸式播放页（单一 WebView 整页，08-31 起 DroidMate 1:1）
+## 7. 沉浸式播放页（纯原生 Compose，09-02 起自研）
 
 ### 7.1 职责划分
 
 | 组件 | 文件 | 职责 |
 |---|---|---|
-| `PlayerScreen` | `feature/player/PlayerScreen.kt` | 容器：`drag-layer`（`offset {IntOffset(0,dragOffsetY)}` + `isLyricAtTop` 手势分流）+ `FlowingLightBackdrop` 透底 + 单一 `FullPlayerWebView`；`isLyricPanelActive && !isLyricAtTop` 时禁下滑（歌词未在顶部时让位跟手），否则 `pointerInput detectVerticalDragGestures` 跟手下滑≥`clamp(0.18*h,96,160)` 关闭 / 0.22s `CubicBezier(0,0,0.58,1)` 回弹；底部约 `180dp` 控制区排除下滑判定（`bottomExclusionPx` + `ignoreDrag`），避免与 WebView 底部按钮点击冲突；`onToggleRepeat/onToggleShuffle` 直调 `viewModel.toggleRepeat/toggleShuffle` 无参版以避闭包陈旧值 |
-| `FullPlayerWebView` | `feature/player/lyric/FullPlayerWebView.kt` | 单一 `WebView`：`WebViewAssetLoader https://appassets.androidplatform.net/assets/amll/` + `LAYER_TYPE_HARDWARE + TRANSPARENT` + `isPageReady` 闸门 + `32ms` 轮询 `updateProgress/updateTime/setPaused` + `file://→dataURL` 封面 + `onAction/onLineClick/onPanelChange/onLyricScroll`；`OnTouchListener` 在 `ACTION_DOWN` 默认 `requestDisallowInterceptTouchEvent(true)` 保活点击（纯点击不再被外层下滑手势拦截），`MOVE` 时按 `dy/dx` 分流（`dy>dx` 信息页放行/歌词页顶部放行其余 WebView，`dx>dy` 横滑）+ `isUserScrolling` 时 `configureLyricMotion(enableBlur:false)`；`onToggleRepeat/onToggleShuffle` 经 `rememberUpdatedState` 取最新闭包 |
-| `full-player.{js,css}` | `app/src/main/assets/amll/full-player.{js,css}` | 前端整页：`panels 200%→translateX(-activePanel*50%) 0.22s` / `alignPosition 0.5` 居中高亮行 / `SVG` 图标（`play/prev/next` + `repeat/svgRepeatOne` + `shuffle/svgOrder(FormatListBulleted 顺序)` + `queue/more`）经 `setRepeatIcon(mode)/setShuffleIcon(enabled)` 统一替换 `innerHTML` 与 `active`（循环 `ALL:Repeat ↔ ONE:RepeatOne`，随机 `true:Shuffle ↔ false:FormatListBulleted`），乐观 `playPause/toggleRepeat/toggleShuffle` 瞬切与 32ms `updateProgress({repeatMode,shuffleEnabled})` 真值回写均经同一 setter 幂等；`meta-window 79px` 小窗 + 平板 `--tablet` 双栏；`panels` 横滑对 `mode-bar/controls/progress-range/bottom-bar` 非滑动区 `isInNoSwipeZone` 直接跳过（`closest` 判定），按钮 `touchstart/move stopPropagation` 保留点击 |
-| `LyricWebView` | `feature/player/lyric/LyricWebView.kt` | 兼容旧入口：同 `FullPlayerWebView` 契约的独立歌词 `WebView`（现仅 `LyricsPanel` 内部或单测使用），保持 `WebViewAssetLoader + isPageReady + 32ms` 去重 |
-| `LyricPanel` | `lyric/LyricsPanel.kt` | 兼容壳：空态占位/`SaltIconButton` 翻译/播放 FAB 透传，歌词渲染已迁至 `FullPlayerWebView` |
+| `PlayerScreen` | `feature/player/PlayerScreen.kt` | 容器：`drag-layer`（`offset {IntOffset(0,dragOffsetY)}` + `isLyricAtTop` 手势分流）+ `FlowingLightBackdrop` 透底 + `HorizontalPager` 双面板（手机）/ 左右双栏+`TabletBottomBar`（平板）；阈值 `clamp(0.18*h,96,160)`，回弹 `0.22s CubicBezier(0,0,0.58,1)`，底部 `180dp` 排除；`activePanel` 经 `onActivePanelChange` 同步外层 `isLyricPanelActive`，`onLyricAtTopChange` 供下滑分流 |
+| `NativeLyricsPanel` | `feature/player/lyric/NativeLyricsPanel.kt` | 原生歌词面板：`LazyColumn` + `currentIndex` 100ms 轮询 + `animateScrollToItem` 居中 + `isAtTop` snapshotFlow + FAB 3s 显隐；空态占位 |
+| `NativeKaraokeLine` | `feature/player/lyric/NativeKaraokeLine.kt` | 单行渲染：距离 `alpha/scale/blur` + 逐词/逐字符 `AnnotatedString` lerp（`fraction=(pos-start)/(end-start)`）+ 和声 `italic/End` + 翻译/音译二行；点击 `onSeek(line.start)` |
+| `LyricsPanel` | `lyric/LyricsPanel.kt` | 兼容壳：直接委托 `NativeLyricsPanel`（保留旧签名，新增 `onLyricAtTopChange`） |
 | `PlayerViewModel` | `PlayerViewModel.kt` | 粘性封面 `stickyCover` + `parsedLines`（`LyricsParser→AmllMapper`）+ `lyricPosition`（100ms 钳制 `min(pos,lastLineEnd)`）+ `translationEnabled/hasTranslation` |
 
-### 7.2 布局契约（复刻 Capacitor `PlayerPage.vue` BEM，08-31 单一 WebView 增量）
+> 归档：`FullPlayerWebView.kt`/`LyricWebView.kt` 与 `app/src/main/assets/amll/*` 已于 09-02 彻底删除（Git 可回溯）；`LyricWebView` 的 `WebViewAssetLoader/isPageReady/32ms` 契约已下线。
 
-- `.player-page__drag-layer`：`offset {IntOffset(0,dragOffsetY)}`（非 `graphicsLayer`，确保下滑暴露区重绘底表）+ `isLyricPanelActive && !isLyricAtTop ? Modifier : pointerInput` 分流；阈值 `clamp(0.18*h,96,160)`，回弹 `0.22s CubicBezier(0,0,0.58,1)`；底部 `180dp` 排除区（`bottomExclusionPx`）内 `ignoreDrag=true` 不参与下滑判定，保证底部按钮点击直达 WebView。
-- `.player-page__panels/full-player.js panels`：`width 200% + transform translateX(-activePanel*50%) 0.22s`（手机），平板 `width 100% transform:none + gap 24 + Row weight 1f` 双栏 + 底部 `TabletBottomBar`；`info-panel/lyric-panel` 各 `width 50% height 100% overflow hidden`；`full-player.js` 对 `mode-bar/controls/progress-range/bottom-bar` 命中 `isInNoSwipeZone` 时 `touchstart/move/end` 直接跳过横滑逻辑，按钮 `click` 仍经 `bindClick` → `Android.onAction toggleRepeat/toggleShuffle`；图标经 `setRepeatIcon/setShuffleIcon` 在 `bindClick` 乐观与 `updateProgress` 回写两处同步切换（`Repeat ↔ RepeatOne`、`Shuffle ↔ svgOrder`）。
-- `.player-page__cover-hero`：`aspectRatio(1) max-height min(50vh,420px) / clamp(160px,62vw,300px) max-height min(38dvh,300px)`，圆角 `12dp`，信息页 `info-panel` 弹性居中。
-- `info-panel/progress/controls/mode-bar`：`progress-range` 白填充+`0.25` 底轨，`time-row 12px tabular 0.68`；`controls 48/56 mode-bar 40 max320`，`SVG` `currentColor` + `active` 白；信息页五行预览（`meta-window`）已移除（09-01），信息页仅封面+进度+控制。
-- `lyric-panel`：`#lyric-player-container 100% relative` 承载 `amll-lyric-player`（`position absolute inset 0` 迁入），`alignPosition 0.5` 高亮行始终居中，行字号 `clamp(22px,6.5vw,32px)`，手势由 `isUserScrolling + onLyricScroll(cur<=1)` 协同。
+### 7.2 布局契约（复刻 Capacitor `PlayerPage.vue` BEM，09-02 原生增量）
+
+- `.player-page__drag-layer`：`offset {IntOffset(0,dragOffsetY)}`（非 `graphicsLayer`，确保下滑暴露区重绘底表）+ `isLyricPanelActive && !isLyricAtTop ? Modifier : pointerInput` 分流；阈值 `clamp(0.18*h,96,160)`，回弹 `0.22s CubicBezier(0,0,0.58,1)`；底部 `180dp` 排除区内 `ignoreDrag=true` 不参与下滑判定，保证底部按钮点击直达 Compose。
+- `.player-page__panels`：手机 `HorizontalPager(pageCount=2, 0.22s easeOut)` 替代 `width 200% translateX`，平板 `Row weight 1f + gap 24 + TabletBottomBar` 双栏；`info-panel/lyric-panel` 各 `weight 1f`；无 `isInNoSwipeZone` JS 逻辑，手势由 Compose `detectVerticalDragGestures` + `HorizontalPager` 原生分流。
+- `.player-page__cover-hero`：`aspectRatio(1) max-height min(50vh,420px)`，圆角 `12dp`，信息页弹性居中；复用既有 `CoverHero`。
+- `info-panel/progress/controls/mode-bar`：`ProgressSection` 自绘双轨 + `time-row 12px tabular 0.68`；`ControlsRow 48/56 + ModeBar 40 max320` 均用 `SaltIconButton`，无 `is-active`。
+- `lyric-panel`：`NativeLyricsPanel` 纯 Compose，`LazyColumn vertical 120dp padding` + `mainFontSize clamp(22,6.5vw,32)`，手势由 `isUserScrolling 3s` + `onLyricAtTopChange` 协同。
 
 ### 7.3 数据流
 

@@ -260,58 +260,86 @@ fun PlayerScreen(
                     }
                 )
         ) {
-            // 整页单一 WebView：背景 + 左侧信息栏 + 右侧歌词 1:1 复刻 Capacitor PlayerPage.vue
-            // 外层 drag-layer 的 offset/手势仍由 Compose 处理，WebView 内仅负责内容渲染与左右滑动
-            var activePanel by remember { mutableStateOf(0) }
-            // 同步 activePanel 到 drag 层的下滑禁用
-            LaunchedEffect(activePanel) { isLyricPanelActive = activePanel == 1 }
-            com.muses.player.feature.player.lyric.FullPlayerWebView(
-                title = title,
-                artist = artist,
+            // 原生重构：FlowingLightBackdrop + 手机/平板双形态（无 WebView）
+            FlowingLightBackdrop(
                 coverUri = stickyCover,
-                positionMs = { lyricPositionProvider() },
-                durationMs = { duration },
-                isPlaying = { isPlaying },
-                repeatMode = { repeatMode },
-                shuffleEnabled = { shuffleModeEnabled },
-                lyrics = syncedLyrics,
-                showTranslation = translationEnabled,
-                fontSizeSp = if (isTabletLayout) (screenWidth.value * 0.024f).coerceIn(20f, 30f) else (screenWidth.value * 0.075f).coerceIn(26f, 32f),
-                activePanel = activePanel,
-                onSeek = { viewModel.seekTo(it); viewModel.onSeekEnd(it) },
-                onPlayPause = { viewModel.playPause() },
-                onPrevious = { viewModel.skipToPrevious() },
-                onNext = { viewModel.skipToNext() },
-                onToggleRepeat = { viewModel.toggleRepeat() },
-                onToggleShuffle = { viewModel.toggleShuffle() },
-                onOpenQueue = onOpenQueue,
-                onOpenEditMeta = onOpenEditMeta,
-                onPanelChange = { activePanel = it },
-                onLyricAtTopChange = { isLyricAtTop = it },
-                onClose = onClose,
-                onDragOffsetUpdate = { offset ->
-                    // WebView 触摸监听器直接回调：更新拖拽偏移量（视觉跟手）
-                    if (offset == 0f && dragOffsetY > 0f) {
-                        // 松手回弹：从当前位置动画到 0（对齐原 Compose 回弹）
-                        val from = dragOffsetY
-                        scope.launch {
-                            val anim = Animatable(from)
-                            anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }
-                            dragOffsetY = 0f
-                            isDraggingVertically = false
-                        }
-                    } else {
-                        dragOffsetY = offset
-                        isDraggingVertically = offset > 0f
-                    }
-                },
-                onDragDismiss = {
-                    // WebView 触摸监听器检测到达到关闭阈值
-                    clearDragImmediate()
-                    onClose()
-                },
-                modifier = Modifier.fillMaxSize()
+                hasLyric = parsedLines.isNotEmpty() || (syncedLyrics?.lines?.isNotEmpty() == true),
+                modifier = Modifier.fillMaxSize(),
+                flowSpeed = 2f,
             )
+            var activePanel by remember { mutableStateOf(0) }
+            LaunchedEffect(activePanel) { isLyricPanelActive = activePanel == 1 }
+            if (isTabletLayout) {
+                TabletImmersiveLayout(
+                    title = title,
+                    artist = artist,
+                    coverUri = stickyCover,
+                    lines = parsedLines,
+                    lyricPosition = lyricPosition,
+                    syncedLyrics = syncedLyrics,
+                    lyricPositionProvider = lyricPositionProvider,
+                    hasTranslation = hasTranslation,
+                    translationEnabled = translationEnabled,
+                    onToggleTranslation = { viewModel.toggleTranslation() },
+                    position = position,
+                    duration = duration,
+                    isPlaying = isPlaying,
+                    isBuffering = isBuffering,
+                    repeatMode = repeatMode,
+                    shuffleEnabled = shuffleModeEnabled,
+                    onSeek = { viewModel.seekTo(it); viewModel.onSeekEnd(it) },
+                    onSeekStart = { viewModel.onSeekStart() },
+                    onSeekEnd = { viewModel.onSeekEnd(it) },
+                    onPlayPause = { viewModel.playPause() },
+                    onPrevious = { viewModel.skipToPrevious() },
+                    onNext = { viewModel.skipToNext() },
+                    onToggleRepeat = { viewModel.toggleRepeat() },
+                    onToggleShuffle = { viewModel.toggleShuffle() },
+                    onOpenQueue = onOpenQueue,
+                    onOpenEditMeta = onOpenEditMeta,
+                    isNarrowHeight = isNarrowHeight,
+                    maxWidth = screenWidth,
+                    maxHeight = screenHeight,
+                    onLyricAtTopChange = { isLyricAtTop = it },
+                )
+            } else {
+                PhoneImmersiveLayout(
+                    title = title,
+                    artist = artist,
+                    coverUri = stickyCover,
+                    lines = parsedLines,
+                    lyricPosition = lyricPosition,
+                    syncedLyrics = syncedLyrics,
+                    lyricPositionProvider = lyricPositionProvider,
+                    hasTranslation = hasTranslation,
+                    translationEnabled = translationEnabled,
+                    onToggleTranslation = { viewModel.toggleTranslation() },
+                    position = position,
+                    duration = duration,
+                    isPlaying = isPlaying,
+                    isBuffering = isBuffering,
+                    repeatMode = repeatMode,
+                    shuffleEnabled = shuffleModeEnabled,
+                    onSeek = { viewModel.seekTo(it); viewModel.onSeekEnd(it) },
+                    onSeekStart = { viewModel.onSeekStart() },
+                    onSeekEnd = { viewModel.onSeekEnd(it) },
+                    onPlayPause = { viewModel.playPause() },
+                    onPrevious = { viewModel.skipToPrevious() },
+                    onNext = { viewModel.skipToNext() },
+                    onToggleRepeat = { viewModel.toggleRepeat() },
+                    onToggleShuffle = { viewModel.toggleShuffle() },
+                    onOpenQueue = onOpenQueue,
+                    onOpenEditMeta = onOpenEditMeta,
+                    isNarrowHeight = isNarrowHeight,
+                    maxWidth = screenWidth,
+                    maxHeight = screenHeight,
+                    onRequestClose = onClose,
+                    dragOffsetY = dragOffsetY,
+                    isDragging = isDraggingVertically,
+                    onActivePanelChange = { activePanel = it },
+                    onLyricAtTopChange = { isLyricAtTop = it },
+                )
+            }
         }
 
         // 限流/播放错误条（Snackbar）
@@ -451,6 +479,7 @@ private fun PhoneImmersiveLayout(
     dragOffsetY: Float,
     isDragging: Boolean,
     onActivePanelChange: (Int) -> Unit = {},
+    onLyricAtTopChange: (Boolean) -> Unit = {},
 ) {
     var activePanel by remember { mutableStateOf(0) }
     // HorizontalPager 替代 Row 200% 以避免 TabsLayout 半屏约束导致的半宽偏移
@@ -529,6 +558,7 @@ private fun PhoneImmersiveLayout(
                     showPlayFab = true,
                     isTablet = false,
                     albumArtUri = coverUri,
+                    onLyricAtTopChange = onLyricAtTopChange,
                 )
             }
         }
@@ -566,6 +596,7 @@ private fun TabletImmersiveLayout(
     isNarrowHeight: Boolean,
     maxWidth: Dp,
     maxHeight: Dp,
+    onLyricAtTopChange: (Boolean) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         // 平板不渲染固定头部，由面板内头部承担
@@ -626,6 +657,7 @@ private fun TabletImmersiveLayout(
                     showPlayFab = false,
                     isTablet = true,
                     albumArtUri = coverUri,
+                    onLyricAtTopChange = onLyricAtTopChange,
                 )
             }
         }
