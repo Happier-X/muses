@@ -116,13 +116,12 @@ fun NativeLyricsPanel(
             .collectLatest { atTop -> onLyricAtTopChange(atTop) }
     }
 
-    // 自动滚动居中（非用户手势时）— 已为 spring 弹性（Compose 默认即 spring）
+    // 自动滚动居中（非用户手势时）— 修复逐级不滚动：移除 isScrollInProgress 误跳过，自动逐级一律 spring
     LaunchedEffect(currentIndex) {
         if (lines.isEmpty() || currentIndex < 0) return@LaunchedEffect
-        // 若用户正在拖动则不抢
-        if (listState.isScrollInProgress) return@LaunchedEffect
         try {
-            // 粗略居中：滚动到 currentIndex，默认即 spring 弹簧（stiffness≈400, damping≈0.8）
+            android.util.Log.d("NativeLyrics", "autoScroll index=$currentIndex pos=${positionProvider()} size=${lines.size}")
+            // 逐级欠阻尼使小位移也可见（默认已为 spring，此处保持默认，无需显式 animationSpec）
             listState.animateScrollToItem(currentIndex)
         } catch (_: Exception) {}
     }
