@@ -124,18 +124,6 @@ fun NativeLyricsPanel(
     // 用户手势期间暂停自动居中 3s（与 Web 版 isUserScrolling 语义对齐）
     var isUserScrolling by remember { mutableStateOf(false) }
 
-    // 自动滚动居中（非用户手势时）— 修复逐级不滚动：移除 isScrollInProgress 误跳过，自动逐级一律 spring
-    LaunchedEffect(currentIndex) {
-        if (lines.isEmpty() || currentIndex < 0) return@LaunchedEffect
-        try {
-            Log.d("LyricDebug", "autoScroll START index=$currentIndex pos=${positionProvider()} size=${lines.size} isScrollInProgress=${listState.isScrollInProgress} isUserScrolling=$isUserScrolling")
-            // 逐级欠阻尼使小位移也可见（默认已为 spring，此处保持默认，无需显式 animationSpec）
-            listState.animateScrollToItem(currentIndex)
-            Log.d("LyricDebug", "autoScroll END index=$currentIndex")
-        } catch (e: Exception) {
-            Log.d("LyricDebug", "autoScroll FAIL $e")
-        }
-    }
     var autoResumeJob by remember { mutableStateOf<Job?>(null) }
     LaunchedEffect(listState.isScrollInProgress) {
         if (listState.isScrollInProgress) {
@@ -185,36 +173,52 @@ fun NativeLyricsPanel(
                 (screenWidthDp * 0.075f).coerceIn(26f, 32f)
             }.sp
 
-            LookaheadScope {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 120.dp),
-                ) {
-                    itemsIndexed(lines, key = { idx, _ -> idx }) { idx, line ->
-                        val distance = if (currentIndex < 0) abs(idx - 0) else abs(idx - currentIndex)
-                        val isCurrent = idx == currentIndex
-                        val stiffness = if (kotlin.math.abs(idx - currentIndex) <= 1) 220f else 170f
-                        Box(
-                            modifier = Modifier.appleSpringPlacement(
-                                lookaheadScope = this@LookaheadScope,
-                                itemKey = idx,
-                                isManualScrolling = isUserScrolling,
-                                stiffness = stiffness
-                            ).animateItem(placementSpec = spring(stiffness = 80f, dampingRatio = 0.6f))
-                        ) {
-                            NativeKaraokeLine(
-                                line = line,
-                                isCurrent = isCurrent,
-                                distance = distance,
-                                positionProvider = if (isCurrent) positionProvider else null,
-                                translationEnabled = translationEnabled,
-                                fontSize = mainFontSize,
-                                onSeek = {
-                                    onSeek(it)
-                                    revealChrome()
-                                },
-                            )
+            androidx.compose.foundation.layout.BoxWithConstraints(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                val viewportHeight = maxHeight
+                val anchor = viewportHeight * 0.32f
+                val anchorPx = with(androidx.compose.ui.platform.LocalDensity.current) { anchor.toPx().toInt() }
+                // 自动滚动需在 BoxWithConstraints 内以获取 anchorPx
+                androidx.compose.runtime.LaunchedEffect(currentIndex, anchorPx) {
+                    if (lines.isEmpty() || currentIndex < 0) return@LaunchedEffect
+                    try {
+                        Log.d("LyricDebug", "anchorScroll index=$currentIndex anchorPx=$anchorPx")
+                        // 使当前行位于 32% 锚点：scrollOffset = -anchorPx
+                        listState.animateScrollToItem(currentIndex, scrollOffset = -anchorPx)
+                    } catch (_: Exception) {}
+                }
+                LookaheadScope {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(top = anchor, bottom = viewportHeight - anchor),
+                    ) {
+                        itemsIndexed(lines, key = { idx, _ -> idx }) { idx, line ->
+                            val distance = if (currentIndex < 0) abs(idx - 0) else abs(idx - currentIndex)
+                            val isCurrent = idx == currentIndex
+                            val stiffness = if (kotlin.math.abs(idx - currentIndex) <= 1) 220f else 170f
+                            Box(
+                                modifier = Modifier.appleSpringPlacement(
+                                    lookaheadScope = this@LookaheadScope,
+                                    itemKey = idx,
+                                    isManualScrolling = isUserScrolling,
+                                    stiffness = stiffness
+                                ).animateItem(placementSpec = spring(stiffness = 80f, dampingRatio = 0.6f))
+                            ) {
+                                NativeKaraokeLine(
+                                    line = line,
+                                    isCurrent = isCurrent,
+                                    distance = distance,
+                                    positionProvider = if (isCurrent) positionProvider else null,
+                                    translationEnabled = translationEnabled,
+                                    fontSize = mainFontSize,
+                                    onSeek = {
+                                        onSeek(it)
+                                        revealChrome()
+                                    },
+                                )
+                            }
                         }
                     }
                 }
