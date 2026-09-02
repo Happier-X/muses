@@ -32,7 +32,8 @@ class AppleSpringPlacementNode(
     var lookaheadScope: LookaheadScope,
     var itemKey: Any,
     var isManualScrolling: Boolean,
-    var stiffness: Float
+    var stiffness: Float,
+    var dampingRatio: Float = 0.85f
 ) : ApproachLayoutModifierNode, Modifier.Node() {
     private var offsetAnimation = DeferredTargetAnimation(IntOffset.VectorConverter)
     private var isFirstFrame = true
@@ -45,12 +46,11 @@ class AppleSpringPlacementNode(
         val target = with(lookaheadScope) {
             lookaheadScopeCoordinates.localLookaheadPositionOf(lookaheadCoordinates).round()
         }
-        Log.d("AppleSpring", "isPlacementApproach target=$target isManual=$isManualScrolling first=$isFirstFrame stiffness=$stiffness")
-        // Apple-like 欠阻尼：dampingRatio 0.85（原 1.1 过阻尼无回弹，改为 0.82~0.88 带一次轻回弹可见）
+        Log.d("AppleSpring", "isPlacementApproach target=$target isManual=$isManualScrolling first=$isFirstFrame stiffness=$stiffness dampingRatio=$dampingRatio")
         offsetAnimation.updateTarget(
             target,
             coroutineScope,
-            if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 0.85f, stiffness = stiffness)
+            if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = dampingRatio, stiffness = stiffness)
         )
         return !offsetAnimation.isIdle
     }
@@ -66,11 +66,11 @@ class AppleSpringPlacementNode(
                 val target = with(lookaheadScope) {
                     lookaheadScopeCoordinates.localLookaheadPositionOf(coordinates).round()
                 }
-                Log.d("AppleSpring", "approachMeasure target=$target isManual=$isManualScrolling")
+                Log.d("AppleSpring", "approachMeasure target=$target isManual=$isManualScrolling dampingRatio=$dampingRatio")
                 val animatedOffset = offsetAnimation.updateTarget(
                     target,
                     coroutineScope,
-                    if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 0.85f, stiffness = stiffness)
+                    if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = dampingRatio, stiffness = stiffness)
                 )
                 isFirstFrame = false
                 val placementOffset = with(lookaheadScope) {
@@ -84,10 +84,11 @@ class AppleSpringPlacementNode(
         }
     }
 
-    fun updateState(newScope: LookaheadScope, newKey: Any, newIsManualScrolling: Boolean, newStiffness: Float) {
+    fun updateState(newScope: LookaheadScope, newKey: Any, newIsManualScrolling: Boolean, newStiffness: Float, newDampingRatio: Float = 0.85f) {
         lookaheadScope = newScope
         isManualScrolling = newIsManualScrolling
         stiffness = newStiffness
+        dampingRatio = newDampingRatio
         if (itemKey != newKey) {
             itemKey = newKey
             offsetAnimation = DeferredTargetAnimation(IntOffset.VectorConverter)
@@ -100,18 +101,20 @@ data class AppleSpringPlacementElement(
     val lookaheadScope: LookaheadScope,
     val itemKey: Any,
     val isManualScrolling: Boolean,
-    val stiffness: Float
+    val stiffness: Float,
+    val dampingRatio: Float = 0.85f
 ) : ModifierNodeElement<AppleSpringPlacementNode>() {
     override fun update(node: AppleSpringPlacementNode) {
-        node.updateState(lookaheadScope, itemKey, isManualScrolling, stiffness)
+        node.updateState(lookaheadScope, itemKey, isManualScrolling, stiffness, dampingRatio)
     }
     override fun create(): AppleSpringPlacementNode =
-        AppleSpringPlacementNode(lookaheadScope, itemKey, isManualScrolling, stiffness)
+        AppleSpringPlacementNode(lookaheadScope, itemKey, isManualScrolling, stiffness, dampingRatio)
 }
 
 fun Modifier.appleSpringPlacement(
     lookaheadScope: LookaheadScope,
     itemKey: Any,
     isManualScrolling: Boolean,
-    stiffness: Float
-) = this.then(AppleSpringPlacementElement(lookaheadScope, itemKey, isManualScrolling, stiffness))
+    stiffness: Float,
+    dampingRatio: Float = 0.85f
+) = this.then(AppleSpringPlacementElement(lookaheadScope, itemKey, isManualScrolling, stiffness, dampingRatio))

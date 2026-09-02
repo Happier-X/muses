@@ -24,7 +24,7 @@ fun LyricsPanel(
     modifier: Modifier = Modifier,
     onLyricAtTopChange: (Boolean) -> Unit = {},
 ) {
-    NativeLyricsPanel(
+    GzLyricsView(
         syncedLyrics = syncedLyrics,
         positionProvider = positionProvider,
         translationEnabled = translationEnabled,
