@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,7 +53,7 @@ fun NativeKaraokeLine(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 距离衰减：当前 1.0/1.05，其余按距离递减 — 改为 spring 动画（替代瞬切）
+    // 距离衰减：当前 1.0/1.05，其余按距离递减 — Apple-like spring 精调（完全一致）
     val targetAlpha = when (distance) {
         0 -> 1f
         1 -> 0.45f
@@ -60,10 +62,12 @@ fun NativeKaraokeLine(
     }
     val targetScale = if (distance == 0) 1.05f else 0.92f
     val targetBlur = if (abs(distance) >= 2) 6.dp else 0.dp
-    // 弹簧参数可调：stiffness 越大越硬，dampingRatio 越小越弹
-    val lineAlpha by animateFloatAsState(targetValue = targetAlpha, animationSpec = spring(stiffness = 350f, dampingRatio = 0.82f), label = "lyric-alpha")
-    val lineScale by animateFloatAsState(targetValue = targetScale, animationSpec = spring(stiffness = 380f, dampingRatio = 0.72f), label = "lyric-scale")
-    val blurRadius by animateDpAsState(targetValue = targetBlur, animationSpec = spring(stiffness = 300f, dampingRatio = 0.85f), label = "lyric-blur")
+    // Apple Music 精调：scale 带轻微 overshoot（0.78），alpha 平滑（0.92），blur 同步（0.9）
+    val lineAlpha by animateFloatAsState(targetValue = targetAlpha, animationSpec = spring(stiffness = 280f, dampingRatio = 0.92f), label = "lyric-alpha")
+    val lineScale by animateFloatAsState(targetValue = targetScale, animationSpec = spring(stiffness = 320f, dampingRatio = 0.78f, visibilityThreshold = 0.001f), label = "lyric-scale")
+    val blurRadius by animateDpAsState(targetValue = targetBlur, animationSpec = spring(stiffness = 300f, dampingRatio = 0.9f), label = "lyric-blur")
+    // 词级微弹簧的 easing（复刻 AMLL DipAndRise/Swell 的 CubicBezier 0.33,1,0.68,1）
+    val appleEasing = remember { CubicBezierEasing(0.33f, 1f, 0.68f, 1f) }
 
     // 当前行逐帧位置（仅当前行订阅，减少重组）
     var currentPos by remember(line, isCurrent) { mutableIntStateOf(positionProvider?.invoke() ?: line.start) }
@@ -155,7 +159,10 @@ fun NativeKaraokeLine(
                                 charFraction
                             )
                             val weight = if (charFraction > 0.5f) FontWeight.ExtraBold else FontWeight.Medium
-                            withStyle(SpanStyle(color = color, fontSize = fontSize, fontWeight = weight, fontStyle = if (isBG) FontStyle.Italic else FontStyle.Normal)) {
+                            // Apple-like 微弹跳：DipAndRise 近似（4dp 上下浮动）
+                            val dip = appleEasing.transform((1f - charFraction).coerceIn(0f, 1f))
+                            val baseline = BaselineShift(0.12f * dip)
+                            withStyle(SpanStyle(color = color, fontSize = fontSize, fontWeight = weight, fontStyle = if (isBG) FontStyle.Italic else FontStyle.Normal, baselineShift = baseline)) {
                                 append(ch.toString())
                             }
                         }

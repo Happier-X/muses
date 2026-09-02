@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "原生自研渲染契约，需在手搓弹簧段补充滚动/行焦点弹簧说明"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeLyricsPanel.kt", "reason": "滚动弹簧与 placement 弹簧主战场"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeKaraokeLine.kt", "reason": "行焦点弹簧与词级微弹跳实现"}

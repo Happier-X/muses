@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -176,27 +178,38 @@ fun NativeLyricsPanel(
                 (screenWidthDp * 0.075f).coerceIn(26f, 32f)
             }.sp
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 120.dp),
-            ) {
-                itemsIndexed(lines, key = { idx, _ -> idx }) { idx, line ->
-                    val distance = if (currentIndex < 0) abs(idx - 0) else abs(idx - currentIndex)
-                    val isCurrent = idx == currentIndex
-                    NativeKaraokeLine(
-                        line = line,
-                        isCurrent = isCurrent,
-                        distance = distance,
-                        positionProvider = if (isCurrent) positionProvider else null,
-                        translationEnabled = translationEnabled,
-                        fontSize = mainFontSize,
-                        onSeek = {
-                            onSeek(it)
-                            revealChrome()
-                        },
-                        modifier = Modifier.animateItem(placementSpec = spring(stiffness = 300f, dampingRatio = 0.75f)),
-                    )
+            LookaheadScope {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 120.dp),
+                ) {
+                    itemsIndexed(lines, key = { idx, _ -> idx }) { idx, line ->
+                        val distance = if (currentIndex < 0) abs(idx - 0) else abs(idx - currentIndex)
+                        val isCurrent = idx == currentIndex
+                        val stiffness = if (kotlin.math.abs(idx - currentIndex) <= 1) 220f else 170f
+                        Box(
+                            modifier = Modifier.appleSpringPlacement(
+                                lookaheadScope = this@LookaheadScope,
+                                itemKey = idx,
+                                isManualScrolling = isUserScrolling || listState.isScrollInProgress,
+                                stiffness = stiffness
+                            )
+                        ) {
+                            NativeKaraokeLine(
+                                line = line,
+                                isCurrent = isCurrent,
+                                distance = distance,
+                                positionProvider = if (isCurrent) positionProvider else null,
+                                translationEnabled = translationEnabled,
+                                fontSize = mainFontSize,
+                                onSeek = {
+                                    onSeek(it)
+                                    revealChrome()
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }

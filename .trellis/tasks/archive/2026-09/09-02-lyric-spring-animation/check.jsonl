@@ -1,0 +1,2 @@
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeLyricsPanel.kt", "reason": "校验滚动 spring 与 animateItem 生效"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeKaraokeLine.kt", "reason": "校验行弹簧与词级微动无闪烁"}
