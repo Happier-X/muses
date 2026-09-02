@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "原生歌词弹簧契约，需补充 Lookahead/行焦点/词级弹簧参数"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/AppleSpringPlacement.kt", "reason": "新建手搓 Lookahead 弹簧，跟随 Apple Music 1:1"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeLyricsPanel.kt", "reason": "列表级 Lookahead 包裹与滚动弹簧精调"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeKaraokeLine.kt", "reason": "行焦点与词级微弹簧精调"}

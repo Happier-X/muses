@@ -53,18 +53,16 @@ fun NativeKaraokeLine(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 距离衰减：当前 1.0/1.05，其余按距离递减 — Apple-like spring 精调（完全一致）
+    // 距离衰减：当前 1.0，其余按距离递减 — 去除放大（Apple Music 无缩放，完全一致）
     val targetAlpha = when (distance) {
         0 -> 1f
         1 -> 0.45f
         2 -> 0.28f
         else -> 0.18f
     }
-    val targetScale = if (distance == 0) 1.05f else 0.92f
     val targetBlur = if (abs(distance) >= 2) 6.dp else 0.dp
-    // Apple Music 精调：scale 带轻微 overshoot（0.78），alpha 平滑（0.92），blur 同步（0.9）
+    // Apple Music 精调：alpha 平滑（0.92），blur 同步（0.9），scale 恒 1.0 无动画
     val lineAlpha by animateFloatAsState(targetValue = targetAlpha, animationSpec = spring(stiffness = 280f, dampingRatio = 0.92f), label = "lyric-alpha")
-    val lineScale by animateFloatAsState(targetValue = targetScale, animationSpec = spring(stiffness = 320f, dampingRatio = 0.78f, visibilityThreshold = 0.001f), label = "lyric-scale")
     val blurRadius by animateDpAsState(targetValue = targetBlur, animationSpec = spring(stiffness = 300f, dampingRatio = 0.9f), label = "lyric-blur")
     // 词级微弹簧的 easing（复刻 AMLL DipAndRise/Swell 的 CubicBezier 0.33,1,0.68,1）
     val appleEasing = remember { CubicBezierEasing(0.33f, 1f, 0.68f, 1f) }
@@ -108,8 +106,6 @@ fun NativeKaraokeLine(
         modifier = modifier
             .fillMaxWidth()
             .graphicsLayer {
-                scaleX = lineScale
-                scaleY = lineScale
                 alpha = lineAlpha
             }
             .then(if (blurRadius > 0.dp) Modifier.blur(blurRadius) else Modifier)
