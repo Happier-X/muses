@@ -24,6 +24,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -142,7 +143,7 @@ private object UpstreamLyrics {
     const val FONT_SIZE_SP = 34f
     const val LINE_HEIGHT_SP = 40.8f // fontSize * 1.2
     const val LINE_SPACING_DP = 28f
-    const val CURRENT_LINE_SCALE = 1.02f
+    const val CURRENT_LINE_SCALE = 1.05f
     const val FOCUS_POSITION = 0.25f
     const val BLUR_INTENSITY = 0.8f
     const val DIM_AMOUNT = 1f
@@ -151,19 +152,19 @@ private object UpstreamLyrics {
     const val TRANSLATION_FONT_SCALE = 0.65f
     const val ANNOTATION_OPACITY = 0.9f
     const val ANNOTATION_SPACING_DP = 4f
-    const val FOCUS_COLOR_DURATION_MS = 120
+    const val FOCUS_COLOR_DURATION_MS = 180
 
-    const val CASCADE_DELAY_MS = 14f
-    const val CASCADE_DELAY_INCREASE_MS = 2.5f
-    const val CASCADE_FOLLOWING_DELAY_MS = 22f
-    const val CASCADE_CATCH_UP_RATIO = 0.97f
-    const val CASCADE_CHASE_SPEED_GRADIENT = 0.82f
-    const val CASCADE_DURATION_MS = 560f
-    const val CASCADE_SNAP_THRESHOLD_MS = 180f
-    const val CASCADE_BOUNCE = 0.14f
-    const val CASCADE_BOUNCE_GRADIENT = 0.60f
-    const val SCALE_BOUNCE = 0.16f
-    const val SCALE_BOUNCE_DURATION_MS = 420
+    const val CASCADE_DELAY_MS = 17f
+    const val CASCADE_DELAY_INCREASE_MS = 2.2f
+    const val CASCADE_FOLLOWING_DELAY_MS = 27f
+    const val CASCADE_CATCH_UP_RATIO = 0.84f
+    const val CASCADE_CHASE_SPEED_GRADIENT = 0.60f
+    const val CASCADE_DURATION_MS = 740f
+    const val CASCADE_SNAP_THRESHOLD_MS = 150f
+    const val CASCADE_BOUNCE = 0.16f
+    const val CASCADE_BOUNCE_GRADIENT = 0.40f
+    const val SCALE_BOUNCE = 0.30f
+    const val SCALE_BOUNCE_DURATION_MS = 580
 
     const val GLOW_INTENSITY = 1f
     const val LONG_TONE_THRESHOLD_MS = 950f
@@ -586,12 +587,9 @@ private fun AppleMusicLyricsPanel(
             launch {
                 scaleProgress[previousIndex].animateTo(
                     0f,
-                    tween(
-                        durationMillis = SettingsRuntime.lyricScaleBounceDurationMs,
-                            easing = if (SettingsRuntime.lyricScaleBounceEnabled) {
-                                SourceSpringEasing(SettingsRuntime.lyricScaleBounce)
-                            } else SourceSmoothStepEasing,
-                    ),
+                    if (SettingsRuntime.lyricScaleBounceEnabled) {
+                        spring(dampingRatio = 0.82f, stiffness = 380f)
+                    } else tween(durationMillis = SettingsRuntime.lyricScaleBounceDurationMs, easing = SourceSmoothStepEasing),
                 )
             }
         }
@@ -599,12 +597,9 @@ private fun AppleMusicLyricsPanel(
             launch {
                 scaleProgress[nextIndex].animateTo(
                     1f,
-                    tween(
-                        durationMillis = SettingsRuntime.lyricScaleBounceDurationMs,
-                        easing = if (SettingsRuntime.lyricScaleBounceEnabled) {
-                            SourceSpringEasing(SettingsRuntime.lyricScaleBounce)
-                        } else SourceSmoothStepEasing,
-                    ),
+                    if (SettingsRuntime.lyricScaleBounceEnabled) {
+                        spring(dampingRatio = 0.80f, stiffness = 320f)
+                    } else tween(durationMillis = SettingsRuntime.lyricScaleBounceDurationMs, easing = SourceSmoothStepEasing),
                 )
             }
         }
@@ -873,14 +868,14 @@ private fun AppleMusicLyricsPanel(
                         (chaseTiming.durationMs - slowestDuration) *
                         SettingsRuntime.lyricCascadeChaseSpeedGradient
                     val bounce = sourceCascadeBounce(chaseOrder, maximumChaseOrder)
+                    // 收回弹：提高阻尼、提高刚度，回到 AMLL 过阻尼柔感
+                    val lineStiffness = (260f - bounce * 180f).coerceIn(140f, 260f)
+                    val lineDamping = (0.88f - bounce * 0.08f).coerceIn(0.82f, 0.92f)
                     launch {
                         if (movementTiming.delayMs > 0f) delay(movementTiming.delayMs.toLong())
                         cascadeLineProgress[index].animateTo(
                             targetValue = 1f,
-                            animationSpec = tween(
-                                durationMillis = max(duration, 1f).roundToInt(),
-                                easing = SourceSpringEasing(bounce),
-                            ),
+                            animationSpec = spring(dampingRatio = lineDamping, stiffness = lineStiffness),
                         )
                     }
                 }
@@ -2303,12 +2298,13 @@ private fun sourceConcurrentLyricIndexes(
 }
 
 private fun sourceFocusAnimationDurationMs(index: Int, lines: List<LyricLine>): Int {
-    if (index !in lines.indices) return 300
+    if (index !in lines.indices) return 360
     val available = if (index + 1 < lines.size) {
         sourceLineActivationTimeMs(lines[index + 1]) - sourceLineActivationTimeMs(lines[index])
     } else null
-    if (available == null || available <= 0L) return 300
-    return (available * 0.30f).coerceIn(50f, 240f).roundToInt()
+    if (available == null || available <= 0L) return 400
+    // 三轮：区间映射回调，避免快歌级联过长导致重叠，保留柔感
+    return (available * 0.44f).coerceIn(100f, 460f).roundToInt()
 }
 
 private fun sourceRemainingFocusDurationMs(
@@ -2330,7 +2326,7 @@ private fun sourceCascadeLineTimings(
     animationDurationMs: Float,
 ): List<SourceCascadeLineTiming> {
     val catchUpCompletionTime = animationDurationMs * SettingsRuntime.lyricCascadeCatchUpRatio
-    val minimumCatchUpDuration = min(180f, animationDurationMs * 0.5f)
+    val minimumCatchUpDuration = min(240f, animationDurationMs * 0.50f)
     return (0..maximumLineOrder.coerceAtLeast(0)).map { order ->
         if (order == 0) {
             SourceCascadeLineTiming(0f, animationDurationMs)
@@ -2411,8 +2407,9 @@ private class SourceSpringEasing(private val bounce: Float) : Easing {
     override fun transform(fraction: Float): Float {
         val t = fraction.coerceIn(0f, 1f)
         if (bounce <= 0.0001f) return SourceSmoothStepEasing.transform(t)
-        val damping = (1f - bounce.coerceIn(0f, 0.95f) * 0.72f).coerceIn(0.18f, 0.999f)
-        val omega = 9.5f
+        // 三轮：找回逐级可见性，omega 回调至 7.0 保留柔感但不抹平级联
+        val damping = (1f - bounce.coerceIn(0f, 0.95f) * 0.56f).coerceIn(0.24f, 0.95f)
+        val omega = 7.0f
         val damped = omega * sqrt(max(1f - damping * damping, 0.0001f))
         val envelope = exp((-damping * omega * t).toDouble()).toFloat()
         val raw = 1f - envelope * (
