@@ -45,6 +45,10 @@ core:scrape
 
 ## 踩坑记录
 
+- **WebDAV 写回 URL 双重前缀**：`WebDavLibraryScanner` 存 `path = item.url` 完整 URL，`WebDavAudioTagFileWriter` 若再 `buildWebDavUrl(serverUrl, song.path)` 会得 `serverUrl/https%3A...` 404。修复为按 `song.path` 形态分流：以 `serverUrl` 开头则抽后缀重编码，`http(s)://` 按自身 `scheme+host` 重建，否则按相对路径（`SongFileWriters.kt`）。
+- **临时文件扩展名**：`File.createTempFile(..., ".tmp")` 致 `TagWriter` 报 `No Reader for .tmp`，需保留原文件真实后缀（取 `song.path` 最后段 `.ext`）再创建临时文件。
+- **临时目录**：`ScrapeModule` 仅 `provide` 时 `mkdirs`，系统清 `cacheDir` 后 `createTempFile` 失败，需每次写入前 `mkdirs`。
+- **JVM 单测 Log 桩**：`android.util.Log` 在 JVM 单测为 `Stub!` 抛异常，`Writeback` 侧需 `try/catch` 回退 `println`（`safeLog`）。
 - `URLEncoder.encode(String, Charset)` 重载需 API 33（minSdk 26）：统一用 `text/provider/KwProvider.kt` 的 `urlEncode`（charset 名重载 + `+→%20` 对齐 encodeURIComponent）
 - `ScrapeHttp.getJson` 返回 `JsonElement`（非 JsonObject）：取字段须先 `asObjectOrNull()` 或用 `path(...)` 下钻，不能直接 `[key]`
 - itunes 封面放大正则带**前导斜杠** `/\d+x\d+([a-z]*)\./i`（漏掉会产生 `//600x600` 双斜杠）
