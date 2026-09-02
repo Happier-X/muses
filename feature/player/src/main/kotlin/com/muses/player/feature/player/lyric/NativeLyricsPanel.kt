@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyColumn
@@ -99,13 +100,17 @@ fun NativeLyricsPanel(
     val lines = syncedLyrics?.lines ?: emptyList()
     val listState = rememberLazyListState()
 
-    // 当前行索引：100ms 粒度轮询，仅索引变化触发重组
+    // 当前行索引：100ms 粒度轮询，仅索引变化触发重组 — 调试日志
     var currentIndex by remember(syncedLyrics) { mutableStateOf(computeCurrentIndexNative(lines, positionProvider().toLong())) }
     LaunchedEffect(syncedLyrics) {
         while (true) {
             val pos = positionProvider().toLong()
             val newIdx = computeCurrentIndexNative(lines, pos)
-            if (newIdx != currentIndex) currentIndex = newIdx
+            Log.d("LyricDebug", "poll pos=$pos newIdx=$newIdx current=$currentIndex lines=${lines.size} isPlaying=${isPlaying}")
+            if (newIdx != currentIndex) {
+                Log.d("LyricDebug", "index change $currentIndex -> $newIdx")
+                currentIndex = newIdx
+            }
             delay(100)
         }
     }
@@ -116,18 +121,21 @@ fun NativeLyricsPanel(
             .collectLatest { atTop -> onLyricAtTopChange(atTop) }
     }
 
+    // 用户手势期间暂停自动居中 3s（与 Web 版 isUserScrolling 语义对齐）
+    var isUserScrolling by remember { mutableStateOf(false) }
+
     // 自动滚动居中（非用户手势时）— 修复逐级不滚动：移除 isScrollInProgress 误跳过，自动逐级一律 spring
     LaunchedEffect(currentIndex) {
         if (lines.isEmpty() || currentIndex < 0) return@LaunchedEffect
         try {
-            android.util.Log.d("NativeLyrics", "autoScroll index=$currentIndex pos=${positionProvider()} size=${lines.size}")
+            Log.d("LyricDebug", "autoScroll START index=$currentIndex pos=${positionProvider()} size=${lines.size} isScrollInProgress=${listState.isScrollInProgress} isUserScrolling=$isUserScrolling")
             // 逐级欠阻尼使小位移也可见（默认已为 spring，此处保持默认，无需显式 animationSpec）
             listState.animateScrollToItem(currentIndex)
-        } catch (_: Exception) {}
+            Log.d("LyricDebug", "autoScroll END index=$currentIndex")
+        } catch (e: Exception) {
+            Log.d("LyricDebug", "autoScroll FAIL $e")
+        }
     }
-
-    // 用户手势期间暂停自动居中 3s（与 Web 版 isUserScrolling 语义对齐）
-    var isUserScrolling by remember { mutableStateOf(false) }
     var autoResumeJob by remember { mutableStateOf<Job?>(null) }
     LaunchedEffect(listState.isScrollInProgress) {
         if (listState.isScrollInProgress) {
@@ -193,7 +201,7 @@ fun NativeLyricsPanel(
                                 itemKey = idx,
                                 isManualScrolling = isUserScrolling,
                                 stiffness = stiffness
-                            )
+                            ).animateItem(placementSpec = spring(stiffness = 80f, dampingRatio = 0.6f))
                         ) {
                             NativeKaraokeLine(
                                 line = line,

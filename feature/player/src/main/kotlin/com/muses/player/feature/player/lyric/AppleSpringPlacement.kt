@@ -12,6 +12,7 @@ import androidx.compose.animation.core.DeferredTargetAnimation
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import android.util.Log
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ApproachLayoutModifierNode
@@ -44,6 +45,7 @@ class AppleSpringPlacementNode(
         val target = with(lookaheadScope) {
             lookaheadScopeCoordinates.localLookaheadPositionOf(lookaheadCoordinates).round()
         }
+        Log.d("AppleSpring", "isPlacementApproach target=$target isManual=$isManualScrolling first=$isFirstFrame stiffness=$stiffness")
         // Apple-like 欠阻尼：dampingRatio 0.85（原 1.1 过阻尼无回弹，改为 0.82~0.88 带一次轻回弹可见）
         offsetAnimation.updateTarget(
             target,
@@ -64,6 +66,7 @@ class AppleSpringPlacementNode(
                 val target = with(lookaheadScope) {
                     lookaheadScopeCoordinates.localLookaheadPositionOf(coordinates).round()
                 }
+                Log.d("AppleSpring", "approachMeasure target=$target isManual=$isManualScrolling")
                 val animatedOffset = offsetAnimation.updateTarget(
                     target,
                     coroutineScope,
