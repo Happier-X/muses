@@ -10,6 +10,7 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,7 +54,7 @@ fun NativeKaraokeLine(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 距离衰减：当前 1.0，其余按距离递减 — 去除放大（Apple Music 无缩放，完全一致）
+    // 距离衰减：当前 1.0，其余按距离递减 — MeloX tween 级联（非 spring）
     val targetAlpha = when (distance) {
         0 -> 1f
         1 -> 0.45f
@@ -61,9 +62,10 @@ fun NativeKaraokeLine(
         else -> 0.18f
     }
     val targetBlur = if (abs(distance) >= 2) 6.dp else 0.dp
-    // Apple Music 精调：alpha 平滑（0.92），blur 同步（0.9），scale 恒 1.0 无动画
-    val lineAlpha by animateFloatAsState(targetValue = targetAlpha, animationSpec = spring(stiffness = 280f, dampingRatio = 0.92f), label = "lyric-alpha")
-    val blurRadius by animateDpAsState(targetValue = targetBlur, animationSpec = spring(stiffness = 300f, dampingRatio = 0.9f), label = "lyric-blur")
+    // MeloX 级联：delay 14 + distance*2.5, duration 560, CubicBezier 0.33,1,0.68,1
+    val cascadeDelayAlpha = (abs(distance) * 14).toInt().coerceAtMost(120)
+    val lineAlpha by animateFloatAsState(targetValue = targetAlpha, animationSpec = tween(durationMillis = 560, delayMillis = cascadeDelayAlpha, easing = CubicBezierEasing(0.33f, 1f, 0.68f, 1f)), label = "lyric-alpha")
+    val blurRadius by animateDpAsState(targetValue = targetBlur, animationSpec = tween(durationMillis = 560, delayMillis = cascadeDelayAlpha, easing = CubicBezierEasing(0.33f, 1f, 0.68f, 1f)), label = "lyric-blur")
     // 词级微弹簧的 easing（复刻 AMLL DipAndRise/Swell 的 CubicBezier 0.33,1,0.68,1）
     val appleEasing = remember { CubicBezierEasing(0.33f, 1f, 0.68f, 1f) }
 

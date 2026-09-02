@@ -1,8 +1,8 @@
 package com.muses.player.feature.player.lyric
 
 import android.util.Log
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -42,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -178,40 +177,33 @@ fun GzLyricsView(
                 val screenWidthDp = LocalConfiguration.current.screenWidthDp
                 val mainFontSize = if (isTablet) (screenWidthDp * 0.024f).coerceIn(20f, 30f) else (screenWidthDp * 0.075f).coerceIn(26f, 32f)
 
-                LookaheadScope {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = anchor, bottom = viewportHeight - anchor),
-                    ) {
-                        itemsIndexed(windowedLines, key = { _, pair -> pair.first }) { _, pair ->
-                            val (globalIdx, line) = pair
-                            val distance = abs(globalIdx - currentIndex)
-                            val isCurrent = globalIdx == currentIndex
-                            // 动态弹簧：按 interval 计算，与 AMLL getPosYSpringPolicy 1:1
-                            val intervalMs = if (globalIdx > 0 && globalIdx < lines.size) {
-                                (lines[globalIdx].start - lines[globalIdx - 1].start).toLong()
-                            } else null
-                            val (stiffness, dampingRatio) = remember(intervalMs) { getPosYSpringPolicy(intervalMs) }
-                            Box(
-                                modifier = Modifier.appleSpringPlacement(
-                                    lookaheadScope = this@LookaheadScope,
-                                    itemKey = globalIdx,
-                                    isManualScrolling = isUserScrolling,
-                                    stiffness = stiffness,
-                                    dampingRatio = dampingRatio
-                                )
-                            ) {
-                                NativeKaraokeLine(
-                                    line = line,
-                                    isCurrent = isCurrent,
-                                    distance = distance,
-                                    positionProvider = if (isCurrent) positionProvider else null,
-                                    translationEnabled = translationEnabled,
-                                    fontSize = mainFontSize.sp,
-                                    onSeek = { onSeek(it); revealChrome() },
-                                )
-                            }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = anchor, bottom = viewportHeight - anchor),
+                ) {
+                    itemsIndexed(windowedLines, key = { _, pair -> pair.first }) { index, pair ->
+                        val (globalIdx, line) = pair
+                        val distance = abs(globalIdx - currentIndex)
+                        val isCurrent = globalIdx == currentIndex
+                        // MeloX 级联：delay 14 + distance*2.5, duration 560, CubicBezier 0.33,1,0.68,1（非 spring）
+                        val cascadeDelay = (14 + abs(globalIdx - currentIndex) * 2.5f).toInt().coerceAtMost(120)
+                        Box(
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = null,
+                                fadeOutSpec = null,
+                                placementSpec = tween(durationMillis = 560, delayMillis = cascadeDelay, easing = CubicBezierEasing(0.33f, 1f, 0.68f, 1f))
+                            )
+                        ) {
+                            NativeKaraokeLine(
+                                line = line,
+                                isCurrent = isCurrent,
+                                distance = distance,
+                                positionProvider = if (isCurrent) positionProvider else null,
+                                translationEnabled = translationEnabled,
+                                fontSize = mainFontSize.sp,
+                                onSeek = { onSeek(it); revealChrome() },
+                            )
                         }
                     }
                 }
