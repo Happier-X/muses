@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/features-scrape-engine.md", "reason": "刮削写回编排与 WebDAV 写入契约"}
+{"file": ".trellis/spec/frontend/features-scrape.md", "reason": "刮削页面四态机与 Result 展示"}
