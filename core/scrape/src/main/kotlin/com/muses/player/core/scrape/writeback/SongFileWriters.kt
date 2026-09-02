@@ -68,6 +68,24 @@ internal fun encodeWebDavPath(path: String): String {
 internal fun buildWebDavUrl(serverUrl: String, path: String): String =
     serverUrl.trim().trimEnd('/') + encodeWebDavPath(path)
 
+// ── 日志安全封装（单元测试无 Android 桩时回退到 println，避免 Stub! 异常） ───────
+internal fun safeLogW(tag: String, msg: String) {
+    try {
+        android.util.Log.w(tag, msg)
+    } catch (_: Throwable) {
+        println("[$tag] $msg")
+    }
+}
+
+internal fun safeLogE(tag: String, msg: String, throwable: Throwable? = null) {
+    try {
+        android.util.Log.e(tag, msg, throwable)
+    } catch (_: Throwable) {
+        println("[$tag] $msg ${throwable?.message}")
+        throwable?.printStackTrace()
+    }
+}
+
 /**
  * 本地写路径：直接对 song.path 指向的物理文件调 TagWriter。
  * 文件不存在/格式不支持均由 TagWriter 折叠为 write_failed 结果（对齐 file-failed 分类）。
@@ -100,14 +118,14 @@ class WebDavAudioTagFileWriter(
 ) : AudioTagFileWriter {
 
     override suspend fun write(song: Song, request: TagWriter.TagWriteRequest): FileWriteResult {
-        android.util.Log.w("WebDavWrite", "write start songId=${song.id} path=${song.path} sourceId=${song.sourceId} title=${song.title}")
+        safeLogW("WebDavWrite", "write start songId=${song.id} path=${song.path} sourceId=${song.sourceId} title=${song.title}")
         // 确保临时目录存在（系统可能清理 cache）
         if (!tempDir.exists()) tempDir.mkdirs()
         // 1. 按歌曲所属音源精确查找
         val source = sourceRepository.getSource(song.sourceId)
         val serverUrl = source?.url
         if (source == null || source.type != SourceType.WEBDAV || serverUrl.isNullOrBlank()) {
-            android.util.Log.w("WebDavWrite", "no_password: source missing id=${song.sourceId} found=$source")
+            safeLogW("WebDavWrite", "no_password: source missing id=${song.sourceId} found=$source")
             return FileWriteResult(
                 ok = false,
                 code = "no_password",
@@ -118,8 +136,8 @@ class WebDavAudioTagFileWriter(
         // 2. 密码
         val password = credentialsRepository.getPassword(source.id)
             ?: run {
-                android.util.Log.w("WebDavWrite", "no_password: missing credentials for source ${source.id}")
-                return FileWriteResult(ok = false, code = "no_password", message = "WebDAV 密码未配置。")
+                safeLogW("WebDavWrite", "no_password: missing credentials for source ${source.id}")
+                return FileWriteResult(ok = false, code = "no_password", message = "WebDAV 密码未配置，请到音源设置补全后重试。")
             }
 
         val client = webDavClientFactory()
@@ -134,39 +152,52 @@ class WebDavAudioTagFileWriter(
             }
             song.path.startsWith("http://") || song.path.startsWith("https://") -> {
                 // 完整 URL 但与当前音源不一致（换源或历史）：尝试按自身 host 重建编码，若失败则直接使用
+                // 优先用 java.net.URI（JVM 单测友好），回退到 Android Uri，最后直接使用原 path
                 try {
-                    val uri = android.net.Uri.parse(song.path)
-                    val schemeHost = "${uri.scheme}://${uri.authority}"
-                    val pathPart = uri.path ?: "/"
-                    buildWebDavUrl(serverUrl = schemeHost, path = pathPart)
+                    val parsed = try {
+                        java.net.URI(song.path)
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (parsed != null && parsed.scheme != null && parsed.host != null) {
+                        val authority = parsed.authority ?: parsed.host
+                        val schemeHost = "${parsed.scheme}://$authority"
+                        val pathPart = parsed.path ?: "/"
+                        buildWebDavUrl(serverUrl = schemeHost, path = pathPart)
+                    } else {
+                        val uri = android.net.Uri.parse(song.path)
+                        val schemeHost = "${uri.scheme}://${uri.authority}"
+                        val pathPart = uri.path ?: "/"
+                        buildWebDavUrl(serverUrl = schemeHost, path = pathPart)
+                    }
                 } catch (_: Exception) {
                     song.path
                 }
             }
             else -> buildWebDavUrl(serverUrl = serverUrl, path = song.path)
         }
-        android.util.Log.w("WebDavWrite", "url=$url serverUrl=$serverUrl rawPath=${song.path}")
+        safeLogW("WebDavWrite", "url=$url serverUrl=$serverUrl rawPath=${song.path}")
 
         // 4. 下载 → 写标签 → 上传：临时文件需保留原扩展名，否则 jaudiotagger 报 No Reader for .tmp
-        val ext = song.path.substringAfterLast('.', "").let { e ->
-            val clean = e.substringBefore('?').substringBefore('#')
+        // 先剥离 query/fragment，再取最后路径段的扩展名，避免 host/query 中含 . 导致误判（如 ?token=1.2）
+        val ext = song.path.substringBefore('?').substringBefore('#').substringAfterLast('/').substringAfterLast('.', "").let { clean ->
             if (clean.isNotEmpty() && clean.length <= 5 && clean.all { it.isLetterOrDigit() }) ".$clean" else ".tmp"
         }
         val tempFile = try {
             File.createTempFile("muses-scrape-", ext, tempDir)
         } catch (e: Exception) {
-            android.util.Log.e("WebDavWrite", "createTempFile failed dir=$tempDir exists=${tempDir.exists()} ext=$ext", e)
+            safeLogE("WebDavWrite", "createTempFile failed dir=$tempDir exists=${tempDir.exists()} ext=$ext", e)
             return FileWriteResult(ok = false, code = "download_failed", message = "创建临时文件失败: ${e.message}")
         }
-        android.util.Log.w("WebDavWrite", "tempFile=${tempFile.absolutePath} size will download")
+        safeLogW("WebDavWrite", "tempFile=${tempFile.absolutePath} size will download")
         try {
             try {
                 client.get(url, tempFile)
-                android.util.Log.w("WebDavWrite", "download ok size=${tempFile.length()}")
+                safeLogW("WebDavWrite", "download ok size=${tempFile.length()}")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                android.util.Log.e("WebDavWrite", "download_failed url=$url", e)
+                safeLogE("WebDavWrite", "download_failed url=$url", e)
                 return FileWriteResult(
                     ok = false,
                     code = "download_failed",
@@ -175,18 +206,18 @@ class WebDavAudioTagFileWriter(
             }
 
             val tagResult = withContext(Dispatchers.IO) { TagWriter.write(tempFile, request) }
-            android.util.Log.w("WebDavWrite", "tagWrite ok=${tagResult.ok} code=${tagResult.code} msg=${tagResult.message} request=$request")
+            safeLogW("WebDavWrite", "tagWrite ok=${tagResult.ok} code=${tagResult.code} msg=${tagResult.message} request=$request")
             if (!tagResult.ok) {
                 return FileWriteResult(ok = false, code = tagResult.code, message = tagResult.message)
             }
 
             try {
                 client.put(url, tempFile)
-                android.util.Log.w("WebDavWrite", "put ok url=$url size=${tempFile.length()}")
+                safeLogW("WebDavWrite", "put ok url=$url size=${tempFile.length()}")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                android.util.Log.e("WebDavWrite", "put_failed url=$url", e)
+                safeLogE("WebDavWrite", "put_failed url=$url", e)
                 return FileWriteResult(
                     ok = false,
                     code = "put_failed",

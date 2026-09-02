@@ -334,6 +334,12 @@ private fun ResultStateContent(
             fontWeight = FontWeight.SemiBold,
             color = salt.text,
         )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "撤销仅恢复曲库，音频文件已写入不可逆",
+            fontSize = 11.sp,
+            color = salt.text2,
+        )
         Spacer(Modifier.height(12.dp))
         if (throttleMessage != null) {
             Text(throttleMessage, fontSize = 12.sp, color = salt.primary)
