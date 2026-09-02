@@ -212,6 +212,7 @@ class WritebackOrchestrator(
             val changes = changesMap[candidate.songId] ?: ScrapeChanges()
             return try {
                 val fileResult = writeSingleFile(candidate.song, changes)
+                android.util.Log.w("Writeback", "writeOne ${candidate.songId} fileOk=${fileResult.ok} code=${fileResult.code} msg=${fileResult.message} changes=$changes")
                 val libraryUpdated = updateSongInLibrary(candidate.songId, changes, fileResult.ok)
                 WritebackResult(
                     songId = candidate.songId,

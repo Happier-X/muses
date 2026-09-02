@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -140,7 +141,8 @@ private fun QueueStateContent(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 80.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Button(onClick = onClear, modifier = Modifier.weight(1f)) { Text("清空") }
@@ -289,7 +291,7 @@ private fun PreviewStateContent(
             }
         }
         Row(
-            Modifier.fillMaxWidth().padding(16.dp),
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 80.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Button(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("取消") }
@@ -347,6 +349,9 @@ private fun ResultStateContent(
                         Text(queueTitles[r.songId] ?: r.songId.take(8), fontSize = 13.sp, color = salt.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (throttled) {
                             Text("限流，稍后重试", fontSize = 11.sp, color = salt.primary)
+                        } else if (r.status != com.muses.player.core.model.scrape.WritebackStatus.SUCCESS) {
+                            val detail = listOfNotNull(r.fileResult.code, r.fileResult.message ?: r.error).joinToString(": ").takeIf { it.isNotBlank() }
+                            if (detail != null) Text(detail, fontSize = 11.sp, color = salt.text2, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     Text(r.status.wire, fontSize = 13.sp, color = statusColor(r.status))
@@ -373,7 +378,7 @@ private fun ResultStateContent(
             }
         }
         Row(
-            Modifier.fillMaxWidth().padding(top = 12.dp),
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(top = 12.dp, bottom = 80.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Button(onClick = onUndo, modifier = Modifier.weight(1f)) { Text("撤销上次") }
