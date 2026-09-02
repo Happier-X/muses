@@ -53,6 +53,7 @@ core:scrape
 - `ScrapeHttp.getJson` 返回 `JsonElement`（非 JsonObject）：取字段须先 `asObjectOrNull()` 或用 `path(...)` 下钻，不能直接 `[key]`
 - itunes 封面放大正则带**前导斜杠** `/\d+x\d+([a-z]*)\./i`（漏掉会产生 `//600x600` 双斜杠）
 - MockWebServer 测硬编码域名 provider：OkHttp interceptor 把 host 重写到 loopback（见 CoverProviderParseTest/TextMetaMatcherTest 的 httpFor）
+- **jaudiotagger 封面写入 ImageIO 崩溃（09-02）**：`ArtworkFactory.getNew()` 默认 `isAndroid=false` 返回 `StandardArtwork`，其 `setImageFromData()/getImage()` 强依赖 `javax.imageio.ImageIO`/`java.awt`（Android 不存在），FLAC `FlacTag.createField()` 必调 `setImageFromData()` 触发 `NoClassDefFoundError`；`TagWriter.write()` 仅 `catch(Exception)` 漏掉 `Error`。修复：`MusesApplication.onCreate()` 显式 `setAndroid(true)` + `TagWriter` 改用 `AndroidSafeArtwork`（反射 `BitmapFactory.decodeByteArray` 取宽高，失败 0×0 并 `return true`）+ `catch(Throwable)` 兜底
 
 ## 限流与 429 退避（任务 08-27-scrape-throttle-429）
 
@@ -125,4 +126,83 @@ class ScrapeHttp(private val client: OkHttpClient, private val rateLimiter: Scra
   }
 }
 // TextMetaMatcher: catch (e: IOException) -> Fail(NETWORK)，仅 NO_MATCH 写 NegativeCache
+```
+
+## 封面写入与 jaudiotagger Android 适配（09-02 fix-flac-scrape-imageio-crash）
+
+### 1. Scope / Trigger
+- Trigger：刮削回传含封面写入 FLAC/OGG 时 `StandardArtwork.getImage()` 调 `javax.imageio.ImageIO` 在 Android 运行时 `NoClassDefFoundError` 崩溃；`AndroidArtwork.setImageFromData()` 直接抛 `UnsupportedOperationException` 亦导致 FLAC 失败；`TagWriter.write()` 仅 `catch(Exception)` 漏 `Error`。
+- 影响：`core:media/metadata/TagWriter.kt` + `app/MusesApplication.kt`，覆盖本地与 WebDAV 两条写回链路
+
+### 2. Signatures
+- `MusesApplication.onCreate()`：`TagOptionSingleton.getInstance().setAndroid(true)`（try-catch 兜底，不阻断启动）
+- `TagWriter.write(file: File, request: TagWriteRequest): WriteResult`：`catch(Throwable)`，`CancellationException`/`InterruptedException` 原样重抛，其余折叠 `failure("write_failed", msg)`
+- `TagWriter.createArtwork(bytes: ByteArray): Artwork`：返回 `AndroidSafeArtwork`，不走 `ArtworkFactory.getNew()`
+- `AndroidSafeArtwork : Artwork`：持有 `binaryData/mimeType/description/pictureType(3)/width/height/isLinked/imageUrl`；`setImageFromData(): Boolean` 反射 `BitmapFactory.decodeByteArray(..., inJustDecodeBounds=true)` 取宽高，失败 0×0 并 `return true`；`getImage()` 抛 `UnsupportedOperationException`；`setFromFile()` 抛异常；`setFromMetadataBlockDataPicture()` 按 `isImageUrl` 分流复制
+
+### 3. Contracts
+- Request：`TagWriteRequest(coverBytes: ByteArray?, clearCover: Boolean, ...)`；`coverBytes.isNotEmpty()` 才写封面，先 `deleteArtworkField()` 再 `addField(artwork)`
+- Response：`WriteResult(ok, code, message)`；`ok=true` 表示 `AudioFileIO.write` 成功；异常一律 `ok=false code=write_failed`
+- 初始化契约：进程启动必 `setAndroid(true)`，否则 `ArtworkFactory` 仍可能返回 `StandardArtwork`；`TagWriter` 已不依赖工厂，双保险
+- 封面为 `null/empty` → 不写；`clearCover=true` → `deleteArtworkField()`
+
+### 4. Validation & Error Matrix
+- `NoClassDefFoundError: javax/imageio/ImageIO` -> `write_failed` 不崩溃（Throwable 兜底）
+- `UnsupportedOperationException` from `setImageFromData` -> 不再发生（SafeArtwork 返回 true）
+- `CancellationException` / `InterruptedException` -> 原样重抛，不计日志，不转 `write_failed`
+- `coverBytes` 非法或 `AudioFileIO.read/write` 失败 -> `write_failed`
+- `song.path` 对应文件不存在 -> `write_failed`（`checkFileExists` 抛）
+- 协程取消在 `WebDavAudioTagFileWriter` 外层已 `catch(CancellationException) throw`，与 `TagWriter` 重抛一致
+
+### 5. Good/Base/Bad Cases
+- Good：FLAC 含 JPEG 封面 `1200x1200` 刮削回传，`BitmapFactory` 解得 `1200×1200`，`FlacTag.createField` 成功，`TagReader.read().coverBytes` 与写入一致，不崩溃
+- Base：封面为 4 字节最小 JPEG `FF D8 FF D9`，解码失败宽高回退 0×0，`MetadataBlockDataPicture` 仍以 `width=0 height=0` 写入成功，读回字节一致
+- Bad：未设 `setAndroid(true)` 且走 `StandardArtwork`，FLAC 写入触 `ImageIO` 抛 `NoClassDefFoundError`，`catch(Exception)` 漏捕导致进程崩溃
+
+### 6. Tests Required
+- `TagWriterTest` 存量 5 项回归：基本标签、歌词+封面、clearLyrics、null 不覆盖、缺失文件 `write_failed`
+- 新增冒烟（已验证，可选固化）：`FlacTag.createField(safeArtwork)` / `VorbisCommentTag.createField` / `ID3v24Tag.createField` 均不抛，`FLAC addField` 后 `artworkList.size==1`
+- 手测：真机 WebDAV FLAC/MP3/OGG 各一首含封面刮削回传，日志 `WebDavWrite` 无 `NoClassDefFoundError`，`FileWriteResult.ok==true`
+- Lint：`:app:lintMusesDebug` 通过；`:core:media:testDebugUnitTest` `:core:scrape:testDebugUnitTest` 通过
+
+### 7. Wrong vs Correct
+#### Wrong
+```kotlin
+// 直接用工厂，默认 isAndroid=false，走 StandardArtwork + ImageIO，FLAC 必崩
+object TagWriter {
+  private fun createArtwork(bytes: ByteArray): Artwork {
+    val artwork = ArtworkFactory.getNew() // -> StandardArtwork on Android if not setAndroid
+    artwork.binaryData = bytes
+    artwork.mimeType = sniff(bytes)
+    return artwork
+  }
+  fun write(file: File, req: TagWriteRequest): WriteResult = try {
+    val af = AudioFileIO.read(file); val tag = af.tagOrCreateAndSetDefault
+    tag.addField(createArtwork(req.coverBytes!!)); AudioFileIO.write(af); success()
+  } catch (e: Exception) { failure("write_failed", e.message) } // Error 漏捕
+}
+```
+#### Correct
+```kotlin
+// MusesApplication.onCreate(): TagOptionSingleton.getInstance().setAndroid(true)
+object TagWriter {
+  fun write(file: File, req: TagWriteRequest): WriteResult = try {
+    val af = AudioFileIO.read(file); applyRequest(af.tagOrCreateAndSetDefault, req); AudioFileIO.write(af); success()
+  } catch (e: Throwable) {
+    if (e is CancellationException) throw e
+    failure("write_failed", e.message ?: "写入失败")
+  }
+  private fun createArtwork(bytes: ByteArray): Artwork = AndroidSafeArtwork().apply {
+    binaryData = bytes; mimeType = sniff(bytes); pictureType = 3 // DEFAULT_ID
+  }
+  private class AndroidSafeArtwork : Artwork {
+    // ... 存储字段 ...
+    override fun setImageFromData(): Boolean {
+      val d = binaryData ?: return true
+      val wh = tryDecodeBounds(d) // 反射 BitmapFactory inJustDecodeBounds
+      width = wh?.first ?: 0; height = wh?.second ?: 0; return true
+    }
+    override fun getImage(): Any = throw UnsupportedOperationException()
+  }
+}
 ```
