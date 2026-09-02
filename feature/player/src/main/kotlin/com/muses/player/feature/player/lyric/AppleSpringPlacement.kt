@@ -44,11 +44,11 @@ class AppleSpringPlacementNode(
         val target = with(lookaheadScope) {
             lookaheadScopeCoordinates.localLookaheadPositionOf(lookaheadCoordinates).round()
         }
-        // Apple-like 过阻尼：dampingRatio 1.1, stiffness 170..220，按距离动态
+        // Apple-like 欠阻尼：dampingRatio 0.85（原 1.1 过阻尼无回弹，改为 0.82~0.88 带一次轻回弹可见）
         offsetAnimation.updateTarget(
             target,
             coroutineScope,
-            if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 1.1f, stiffness = stiffness)
+            if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 0.85f, stiffness = stiffness)
         )
         return !offsetAnimation.isIdle
     }
@@ -67,7 +67,7 @@ class AppleSpringPlacementNode(
                 val animatedOffset = offsetAnimation.updateTarget(
                     target,
                     coroutineScope,
-                    if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 1.1f, stiffness = stiffness)
+                    if (isFirstFrame || isManualScrolling) snap() else spring(dampingRatio = 0.85f, stiffness = stiffness)
                 )
                 isFirstFrame = false
                 val placementOffset = with(lookaheadScope) {

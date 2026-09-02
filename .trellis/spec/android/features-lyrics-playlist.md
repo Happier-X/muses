@@ -21,7 +21,7 @@
 - 数据源 `SyncedLyrics.lines: List<ISyncedLine>`（`KaraokeLine.syllables` 逐词时轴 / `SyncedLine` 整行）→ `WordInfo(start,end,text)`；翻译 `translation/phonetic` 按 `translationEnabled` 显隐。
 - 当前行判定 `computeCurrentIndexNative(lines, positionMs)` 线性扫描；`currentIndex` 100ms 轮询更新，仅索引变化触发滚动重组。
 - 距离衰减：`alpha 1/0.45/0.28/0.18` + `scale 1.05/0.92` + `blur 6.dp (distance>=2)`；当前行逐词 `fraction=(pos-start)/(end-start)` lerp `White 0.35→White`，长词>6字符按字符拆分二次 lerp 实现字符级扫过。
-- 弹簧（09-02 Apple精调，完全一致，无放大）：滚动 `LazyColumn` 默认 spring + `LookaheadScope + AppleSpringPlacement(stiffness 170..220, dampingRatio 1.1 过阻尼, 200ms 回位)` 跟随，行 `placement` 由 Lookahead 接管，行焦点仅 `alpha 280/0.92` / `blur 300/0.9` 经 `animate*AsState` 弹簧（`scale` 恒1.0，已去除放大，精准对齐 Apple Music 克制效果），词级字符 `DipAndRise`（`CubicBezier 0.33,1,0.68,1`，`offset 4dp`）仅当前行；`isScrollInProgress` 时 `snap()`，3s 回中同样 spring。
+- 弹簧（09-02 Apple精调，可见欠阻尼）：滚动 `LazyColumn` 默认 spring + `LookaheadScope + AppleSpringPlacement(stiffness 170..220, dampingRatio 0.85 欠阻尼带一次轻回弹，200ms 回位)` 跟随（原 1.1 过阻尼无回弹不可见，已重调），行 `placement` 由 Lookahead 接管，行焦点仅 `alpha 280/0.92` / `blur 300/0.9` 经 `animate*AsState` 弹簧（`scale` 恒1.0，已去除放大），词级字符 `DipAndRise`（`CubicBezier 0.33,1,0.68,1`，`offset 4dp`）仅当前行；仅用户手势 `isUserScrolling` 时 `snap()`，自动滚动一律 `spring`。
 - 滚动：`LazyColumn` `animateScrollToItem(currentIndex)` 居中，手势 `isScrollInProgress` 时 3s 防抖后恢复；`onLyricAtTopChange` 供外层下滑关闭分流。
 
 ## 2. 背景生命周期治理（纯 Compose）

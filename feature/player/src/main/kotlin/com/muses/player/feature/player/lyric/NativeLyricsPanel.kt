@@ -192,7 +192,7 @@ fun NativeLyricsPanel(
                             modifier = Modifier.appleSpringPlacement(
                                 lookaheadScope = this@LookaheadScope,
                                 itemKey = idx,
-                                isManualScrolling = isUserScrolling || listState.isScrollInProgress,
+                                isManualScrolling = isUserScrolling,
                                 stiffness = stiffness
                             )
                         ) {
