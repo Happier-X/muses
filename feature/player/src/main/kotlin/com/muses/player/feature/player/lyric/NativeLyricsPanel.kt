@@ -1,6 +1,7 @@
 package com.muses.player.feature.player.lyric
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -58,6 +60,7 @@ import kotlin.math.abs
  * -逐词 lerp 由 NativeKaraokeLine 内部按 positionProvider 帧驱动（仅当前行重组）
  * - isAtTop 回调供外层下滑关闭分流
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NativeLyricsPanel(
     syncedLyrics: SyncedLyrics?,
@@ -111,14 +114,13 @@ fun NativeLyricsPanel(
             .collectLatest { atTop -> onLyricAtTopChange(atTop) }
     }
 
-    // 自动滚动居中（非用户手势时）
+    // 自动滚动居中（非用户手势时）— 已为 spring 弹性（Compose 默认即 spring）
     LaunchedEffect(currentIndex) {
         if (lines.isEmpty() || currentIndex < 0) return@LaunchedEffect
         // 若用户正在拖动则不抢
         if (listState.isScrollInProgress) return@LaunchedEffect
         try {
-            // 粗略居中：滚动到 currentIndex，前后留出视口一半
-            // 使用 animateScrollToItem + 额外 offset 居中效果，后续可按 viewport 高度精确计算
+            // 粗略居中：滚动到 currentIndex，默认即 spring 弹簧（stiffness≈400, damping≈0.8）
             listState.animateScrollToItem(currentIndex)
         } catch (_: Exception) {}
     }
@@ -136,7 +138,7 @@ fun NativeLyricsPanel(
             autoResumeJob = scope.launch {
                 delay(3000)
                 isUserScrolling = false
-                // 恢复后立即居中到当前行
+                // 恢复后立即居中到当前行（同样 spring 回弹）
                 if (currentIndex >= 0) {
                     try { listState.animateScrollToItem(currentIndex) } catch (_: Exception) {}
                 }
@@ -193,6 +195,7 @@ fun NativeLyricsPanel(
                             onSeek(it)
                             revealChrome()
                         },
+                        modifier = Modifier.animateItem(placementSpec = spring(stiffness = 300f, dampingRatio = 0.75f)),
                     )
                 }
             }

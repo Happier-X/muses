@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/android/index.md", "reason": "校验沉浸式段落已由WebView更新为原生自研描述"}
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "校验WebView契约已归档/重写，新增自研渲染契约"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/PlayerScreen.kt", "reason": "校验无WebView引用、手势/平板/进度链路完整"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeLyricsPanel.kt", "reason": "校验逐词连续、翻译、空态、滚动与下滑分流"}
+{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeKaraokeLine.kt", "reason": "校验Canvas双层裁剪与字符级进度正确"}

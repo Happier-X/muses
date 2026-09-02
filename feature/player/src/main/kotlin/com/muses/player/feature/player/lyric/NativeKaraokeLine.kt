@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,15 +51,19 @@ fun NativeKaraokeLine(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 距离衰减：当前 1.0/1.05，其余按距离递减
-    val lineAlpha = when (distance) {
+    // 距离衰减：当前 1.0/1.05，其余按距离递减 — 改为 spring 动画（替代瞬切）
+    val targetAlpha = when (distance) {
         0 -> 1f
         1 -> 0.45f
         2 -> 0.28f
         else -> 0.18f
     }
-    val lineScale = if (distance == 0) 1.05f else 0.92f
-    val blurRadius = if (abs(distance) >= 2) 6.dp else 0.dp
+    val targetScale = if (distance == 0) 1.05f else 0.92f
+    val targetBlur = if (abs(distance) >= 2) 6.dp else 0.dp
+    // 弹簧参数可调：stiffness 越大越硬，dampingRatio 越小越弹
+    val lineAlpha by animateFloatAsState(targetValue = targetAlpha, animationSpec = spring(stiffness = 350f, dampingRatio = 0.82f), label = "lyric-alpha")
+    val lineScale by animateFloatAsState(targetValue = targetScale, animationSpec = spring(stiffness = 380f, dampingRatio = 0.72f), label = "lyric-scale")
+    val blurRadius by animateDpAsState(targetValue = targetBlur, animationSpec = spring(stiffness = 300f, dampingRatio = 0.85f), label = "lyric-blur")
 
     // 当前行逐帧位置（仅当前行订阅，减少重组）
     var currentPos by remember(line, isCurrent) { mutableIntStateOf(positionProvider?.invoke() ?: line.start) }
