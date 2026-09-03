@@ -1759,3 +1759,26 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+
+## Session 126: 加入待刮削提示
+<!-- trellis-session: v=2 fp=8cccba6704f3932f -->
+
+**Date**: 2026-09-03
+**Task**: 加入待刮削成功失败提示
+**Branch**: `main`
+
+### Summary
+
+歌曲页单首⋮与多选批量入队后 Snackbar 即时提示已加入/批量数，ViewModel 新增 enqueueWithResult 精确回执能力
+
+### Git Commits
+
+| Hash | Message |
+|------|----------|
+| `930b74c0` | feat(scrape): 加入待刮削增加成功轻提示 |
+| `8c70d957` | chore(task): archive 09-03-scrape-enqueue-feedback |
+
+### Status
+
+[OK] **Completed**
