@@ -57,6 +57,7 @@ data class PreviewCandidate(
     val confidence: String?,
     val coverUrl: String?,
     val checked: Boolean = false,
+    val checkedFields: Set<String> = emptySet(),
     val editTitle: String? = null,
     val editArtist: String? = null,
     val editAlbum: String? = null,
@@ -383,7 +384,15 @@ class ScrapeViewModel @Inject constructor(
                 val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
                 // 去重追加
                 if (items.none { it.songId == songId }) {
-                    items.add(PreviewCandidate(songId = song.id, songTitle = song.title, currentTitle = song.title, currentArtist = song.artist, currentAlbum = song.album, currentLyrics = song.lyrics, matchedTitle = hit?.title, matchedArtist = hit?.artist, matchedAlbum = hit?.album, matchedLyrics = null, confidence = confidence, coverUrl = coverUrl, checked = false))
+                    val c = PreviewCandidate(songId = song.id, songTitle = song.title, currentTitle = song.title, currentArtist = song.artist, currentAlbum = song.album, currentLyrics = song.lyrics, matchedTitle = hit?.title, matchedArtist = hit?.artist, matchedAlbum = hit?.album, matchedLyrics = null, confidence = confidence, coverUrl = coverUrl, checked = true)
+                    val defaultChecked = buildSet {
+                        if (c.resolvedTitle() != null) add("title")
+                        if (c.resolvedArtist() != null) add("artist")
+                        if (c.resolvedAlbum() != null) add("album")
+                        if (c.coverUrl != null) add("cover")
+                        if (c.resolvedLyrics() != null) add("lyrics")
+                    }
+                    items.add(c.copy(checkedFields = defaultChecked))
                 }
             }
             _throttledIds.value = throttledRemain
@@ -392,7 +401,7 @@ class ScrapeViewModel @Inject constructor(
         }
     }
 
-    /** 预览行勾选切换 */
+    /** 预览行勾选切换（整首） */
     fun toggleChecked(songId: String) {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
         _pageState.value = state.copy(
@@ -400,10 +409,36 @@ class ScrapeViewModel @Inject constructor(
         )
     }
 
-    /** 全选 / 全不选 */
+    /** 全选 / 全不选（整首） */
     fun setAllChecked(checked: Boolean) {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
         _pageState.value = state.copy(items = state.items.map { it.copy(checked = checked) })
+    }
+
+    /** 切换单首歌曲的单个字段勾选 */
+    fun toggleField(songId: String, field: String) {
+        val state = _pageState.value as? ScrapePageState.Preview ?: return
+        _pageState.value = state.copy(
+            items = state.items.map {
+                if (it.songId == songId) {
+                    val newChecked = it.checkedFields.toMutableSet()
+                    if (field in newChecked) newChecked.remove(field) else newChecked.add(field)
+                    it.copy(checkedFields = newChecked)
+                } else it
+            },
+        )
+    }
+
+    /** 批量全选/全不选某字段（跨所有歌曲） */
+    fun setAllFields(field: String, checked: Boolean) {
+        val state = _pageState.value as? ScrapePageState.Preview ?: return
+        _pageState.value = state.copy(
+            items = state.items.map {
+                val newChecked = it.checkedFields.toMutableSet()
+                if (checked) newChecked.add(field) else newChecked.remove(field)
+                it.copy(checkedFields = newChecked)
+            },
+        )
     }
 
     /** 更新预览行编辑值（空串已在调用方转 null 表示回退匹配值） */
@@ -414,10 +449,10 @@ class ScrapeViewModel @Inject constructor(
         )
     }
 
-    /** 确认写回：仅勾选项；逐曲结果进 result 态 */
+    /** 确认写回：仅写回各首勾选的字段；逐曲结果进 result 态 */
     fun confirmWriteback() {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
-        val checkedItems = state.items.filter { it.checked }
+        val checkedItems = state.items.filter { it.checkedFields.isNotEmpty() }
         if (checkedItems.isEmpty()) return
         // 立即切到写回中态，给用户明确反馈（WebDAV 上传/本地落盘需数秒）
         _pageState.value = ScrapePageState.Writing(checkedItems.size)
@@ -429,11 +464,11 @@ class ScrapeViewModel @Inject constructor(
                     val song = songRepository.getSong(item.songId) ?: continue
                     candidates += ScrapeCandidate(songId = song.id, song = song)
                     changesMap[song.id] = ScrapeChanges(
-                        title = item.resolvedTitle(),
-                        artist = item.resolvedArtist(),
-                        album = item.resolvedAlbum(),
-                        coverRemoteUrl = item.coverUrl,
-                        lyrics = item.resolvedLyrics(),
+                        title = item.resolvedTitle().takeIf { "title" in item.checkedFields },
+                        artist = item.resolvedArtist().takeIf { "artist" in item.checkedFields },
+                        album = item.resolvedAlbum().takeIf { "album" in item.checkedFields },
+                        coverRemoteUrl = item.coverUrl.takeIf { "cover" in item.checkedFields },
+                        lyrics = item.resolvedLyrics().takeIf { "lyrics" in item.checkedFields },
                     )
                 }
                 val applyResult = writebackOrchestrator.applyScrapeChanges(

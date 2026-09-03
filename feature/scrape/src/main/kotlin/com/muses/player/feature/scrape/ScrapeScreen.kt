@@ -89,6 +89,8 @@ fun ScrapeScreen(
                 queueTitles = viewModel.queueTitles.collectAsState().value,
                 onToggle = viewModel::toggleChecked,
                 onSetAll = viewModel::setAllChecked,
+                onToggleField = viewModel::toggleField,
+                onSetAllFields = viewModel::setAllFields,
                 onConfirm = viewModel::confirmWriteback,
                 onCancel = viewModel::backToQueue,
                 onRetrySingle = viewModel::retrySingle,
@@ -235,6 +237,8 @@ private fun PreviewStateContent(
     queueTitles: Map<String, String> = emptyMap(),
     onToggle: (String) -> Unit,
     onSetAll: (Boolean) -> Unit,
+    onToggleField: (String, String) -> Unit,
+    onSetAllFields: (String, Boolean) -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
     onRetrySingle: (String) -> Unit = {},
@@ -242,22 +246,11 @@ private fun PreviewStateContent(
     onEdit: (String, String?, String?, String?, String?) -> Unit = { _, _, _, _, _ -> },
 ) {
     val salt = LocalSaltColors.current
-    var editTarget by remember { mutableStateOf<PreviewCandidate?>(null) }
-    // 编辑弹层：复用 resolved 值填充，可空回退原值
-    editTarget?.let { target ->
-        PreviewEditSheet(
-            candidate = target,
-            onDismiss = { editTarget = null },
-            onConfirm = { t, a, al, l ->
-                onEdit(target.songId, t, a, al, l)
-                editTarget = null
-            },
-        )
-    }
     Column(Modifier.fillMaxSize()) {
-        // 命中分维度统计，避免"共命中却全—"的误导
+        // 命中分维度统计
         val textHits = remember(state.items) { state.items.count { it.matchedTitle != null || it.matchedArtist != null || it.matchedAlbum != null } }
         val coverHits = remember(state.items) { state.items.count { it.coverUrl != null } }
+        val totalCheckedFields = remember(state.items) { state.items.sumOf { it.checkedFields.size } }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -265,14 +258,24 @@ private fun PreviewStateContent(
             Text(
                 buildString {
                     append("文本命中 $textHits · 封面命中 $coverHits · 共 ${state.items.size} 首")
-                    append("，默认全不选")
                 },
                 fontSize = 13.sp,
                 color = salt.text2,
                 modifier = Modifier.weight(1f),
             )
-            SaltTextButton(text = "全选", onClick = { onSetAll(true) })
-            SaltTextButton(text = "清空", onClick = { onSetAll(false) })
+        }
+        // 逐字段批量全选/全不选
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("批量字段：", fontSize = 11.sp, color = salt.text2)
+            listOf("title" to "标题", "artist" to "歌手", "album" to "专辑", "cover" to "封面", "lyrics" to "歌词").forEach { (field, label) ->
+                SaltTextButton(text = label, onClick = {
+                    val allHave = state.items.all { field in it.checkedFields }
+                    onSetAllFields(field, !allHave)
+                })
+            }
         }
         if (throttleMessage != null) {
             Row(
@@ -309,110 +312,37 @@ private fun PreviewStateContent(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(state.items, key = { it.songId }) { item ->
-                val isEdited = item.editTitle != null || item.editArtist != null || item.editAlbum != null || item.editLyrics != null
                 Column(
                     Modifier
                         .fillMaxWidth()
                         .background(salt.surface1, RoundedCornerShape(10.dp))
-                        .border(0.5.dp, if (item.checked) salt.primary.copy(alpha = 0.5f) else salt.surface2, RoundedCornerShape(10.dp))
+                        .border(0.5.dp, if (item.checkedFields.isNotEmpty()) salt.primary.copy(alpha = 0.5f) else salt.surface2, RoundedCornerShape(10.dp))
                         .padding(12.dp),
                 ) {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Checkbox(
-                            checked = item.checked,
-                            onCheckedChange = { onToggle(item.songId) },
-                            colors = CheckboxDefaults.colors(checkedColor = salt.primary),
-                        )
-                        Column(Modifier.weight(1f).padding(start = 4.dp)) {
-                            // 原值
-                            Text(
-                                "原：${item.currentTitle} · ${item.currentArtist ?: "未知艺术家"}${item.currentAlbum?.let { " · $it" } ?: ""}",
-                                fontSize = 12.sp,
-                                color = salt.text2,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (!item.currentLyrics.isNullOrBlank()) {
-                                Text("原歌词：有（${item.currentLyrics!!.length}字）", fontSize = 11.sp, color = salt.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            Spacer(Modifier.height(2.dp))
-                            // 新值（编辑覆写后高亮）；三字段全空时补充“无文本变更”避免裸 — 歧义
-                            val newTitle = item.resolvedTitle() ?: "—"
-                            val newArtist = item.resolvedArtist() ?: "—"
-                            val newAlbum = item.resolvedAlbum()
-                            val hasTextChange = item.resolvedTitle() != null || item.resolvedArtist() != null || item.resolvedAlbum() != null
-                            val hasCover = item.coverUrl != null
-                            val hasLyrics = !item.resolvedLyrics().isNullOrBlank()
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    buildString {
-                                        append("新：")
-                                        append(newTitle)
-                                        append(" · ")
-                                        append(newArtist)
-                                        if (newAlbum != null) { append(" · "); append(newAlbum) }
-                                        if (!hasTextChange) append("（无文本变更）")
-                                        if (hasLyrics) append(" · 歌词有")
-                                    },
-                                    fontSize = 13.sp,
-                                    color = if (isEdited) salt.primary else if (!hasTextChange && !hasLyrics) salt.text2 else salt.text,
-                                    fontWeight = if (isEdited) FontWeight.SemiBold else FontWeight.Normal,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                // 维度徽标
-                                val dimLabel = when {
-                                    hasTextChange && hasCover -> "文本·封面"
-                                    hasTextChange -> "文本"
-                                    hasCover -> "封面"
-                                    else -> null
-                                }
-                                dimLabel?.let {
-                                    Box(
-                                        Modifier.padding(start = 4.dp).background(salt.surface2, RoundedCornerShape(4.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
-                                    ) {
-                                        Text(it, fontSize = 10.sp, color = salt.text2)
-                                    }
-                                }
-                                if (item.confidence != null) {
-                                    Box(
-                                        Modifier.padding(start = 4.dp).background(salt.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
-                                    ) {
-                                        Text(item.confidence!!, fontSize = 10.sp, color = salt.primary)
-                                    }
-                                }
-                                if (isEdited) {
-                                    Box(
-                                        Modifier.padding(start = 4.dp).background(salt.primary, RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp),
-                                    ) {
-                                        Text("已改", fontSize = 10.sp, color = salt.onPrimary)
-                                    }
-                                }
+                    // 歌曲标题 + 置信度
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(item.songTitle, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = salt.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        if (item.confidence != null) {
+                            Box(Modifier.padding(start = 4.dp).background(salt.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                Text(item.confidence!!, fontSize = 10.sp, color = salt.primary)
                             }
                         }
-                        // 封面缩略（命中维度区分文案）
                         if (item.coverUrl != null) {
                             AsyncImage(
                                 model = item.coverUrl,
                                 contentDescription = "封面",
-                                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).background(salt.surface2),
+                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)).background(salt.surface2).padding(start = 6.dp),
                                 contentScale = ContentScale.Crop,
                             )
-                        } else {
-                            val coverPlaceholder = if (item.resolvedTitle() != null || item.resolvedArtist() != null) "仅文本命中" else "无封面"
-                            Box(
-                                Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).background(salt.surface2),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(coverPlaceholder, fontSize = 8.sp, color = salt.text2, lineHeight = 9.sp, maxLines = 2)
-                            }
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        SaltTextButton(text = "编辑", onClick = { editTarget = item })
-                    }
+                    // 逐字段 Checkbox 行
+                    PreviewFieldRow(label = "标题", checked = "title" in item.checkedFields, original = item.currentTitle, updated = item.resolvedTitle(), onCheckedChange = { onToggleField(item.songId, "title") })
+                    PreviewFieldRow(label = "歌手", checked = "artist" in item.checkedFields, original = item.currentArtist ?: "—", updated = item.resolvedArtist(), onCheckedChange = { onToggleField(item.songId, "artist") })
+                    PreviewFieldRow(label = "专辑", checked = "album" in item.checkedFields, original = item.currentAlbum ?: "—", updated = item.resolvedAlbum(), onCheckedChange = { onToggleField(item.songId, "album") })
+                    PreviewFieldRow(label = "封面", checked = "cover" in item.checkedFields, original = "—", updated = if (item.coverUrl != null) "有新封面" else null, onCheckedChange = { onToggleField(item.songId, "cover") })
+                    PreviewFieldRow(label = "歌词", checked = "lyrics" in item.checkedFields, original = if (!item.currentLyrics.isNullOrBlank()) "有（${item.currentLyrics!!.length}字）" else "无", updated = if (!item.resolvedLyrics().isNullOrBlank()) "有（${item.resolvedLyrics()!!.length}字）" else null, onCheckedChange = { onToggleField(item.songId, "lyrics") })
                 }
             }
         }
@@ -424,8 +354,36 @@ private fun PreviewStateContent(
             Button(
                 onClick = onConfirm,
                 modifier = Modifier.weight(2f),
-                enabled = state.items.any { it.checked },
-            ) { Text("写回选中") }
+                enabled = totalCheckedFields > 0,
+            ) { Text("应用" + if (totalCheckedFields > 0) "（$totalCheckedFields）" else "") }
+        }
+    }
+}
+
+@Composable
+private fun PreviewFieldRow(
+    label: String,
+    checked: Boolean,
+    original: String,
+    updated: String?,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    val salt = LocalSaltColors.current
+    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = CheckboxDefaults.colors(checkedColor = salt.primary),
+        )
+        Column(Modifier.weight(1f).padding(start = 4.dp)) {
+            val display = if (updated != null && updated != original) "$original → $updated" else original
+            Text(
+                "$label：$display",
+                fontSize = 12.sp,
+                color = if (checked) salt.text else salt.text2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

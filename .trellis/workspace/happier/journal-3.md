@@ -1828,3 +1828,17 @@ Writeback 修复 coverRemoteUrl 未同步落库 coverUri/metaCover；Preview 扩
 ### Status
 
 [OK] **Completed**
+
+## 2026-09-03 继续：单曲即时刮削升级为融合版 + 去掉旧入队
+
+**Why**：用户要 MusicTag/Picard/网易云的结合体，逐字段打勾 + 差异高亮 + 批量全选 + 单候选一键应用。同时要替换掉歌曲页⋮菜单的「加入待刮削」旧逻辑。
+
+**做了什么**：
+1. `SingleScrapeViewModel`：HasCandidates 新增 `checkedFields: Set<String>`，默认勾选有值字段，新增 `toggleField` / `setAllFields` 方法，`applySelected` 仅写回勾选字段
+2. `SingleScrapeSheet`：顶部「应用字段：全选/全不选」，逐字段 Checkbox 行（标题/歌手/专辑/封面/歌词），原→新对比 + 差异高亮，封面缩略+歌词预览，编辑后自动勾选字段，底部「应用（N）」带勾选计数
+3. SongsPage⋮菜单：去掉「加入待刮削」，仅保留「刮削元数据」直接弹出 SingleScrapeSheet
+4. 多选栏批量「加入待刮削」保留不变
+
+**Commits**：`2a5c4b0d` feat(scrape): 单曲浮层逐字段勾选与批量 → `b646504e` refactor(scrape): 单曲⋮菜单用即时刮削替换旧入队逻辑
+
+**Still broken**：封面刮后仍不展示——需 logcat 定位 `coverUri` 是否真落库。下一步查 `Writeback` 日志。

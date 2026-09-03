@@ -432,10 +432,10 @@ fun SongsPage(
         onDismiss = { actionSong = null },
         label = "歌曲操作",
         items = listOf(
-            SaltActionItem(label = "刮削元数据", onClick = {
-                val s = actionSong
+            SaltActionItem(label = "加入待刮削", onClick = {
+                val ids = listOfNotNull(currentId)
+                if (ids.isNotEmpty()) doEnqueue(ids)
                 actionSong = null
-                if (s != null) onScrapeSingle(s)
             }),
             SaltActionItem(label = "添加到队列", onClick = {
                 // TODO(P2b)：PlayerConnection 补 addToQueue 后接线
