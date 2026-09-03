@@ -34,6 +34,9 @@ sealed interface ScrapePageState {
     /** 候选预览确认（checkedIds 默认空 = 全不选，写回安全红线） */
     data class Preview(val items: List<PreviewCandidate>) : ScrapePageState
 
+    /** 写回中：点“写回选中”后、文件/DB 落盘期间的过渡态，避免无反馈 */
+    data class Writing(val count: Int) : ScrapePageState
+
     /** 写回结果 + 可撤销 journalId */
     data class Result(val results: List<WritebackResult>, val journalId: String) : ScrapePageState
 }
@@ -386,29 +389,38 @@ class ScrapeViewModel @Inject constructor(
         val state = _pageState.value as? ScrapePageState.Preview ?: return
         val checkedItems = state.items.filter { it.checked }
         if (checkedItems.isEmpty()) return
+        // 立即切到写回中态，给用户明确反馈（WebDAV 上传/本地落盘需数秒）
+        _pageState.value = ScrapePageState.Writing(checkedItems.size)
         viewModelScope.launch {
-            val candidates = mutableListOf<ScrapeCandidate>()
-            val changesMap = mutableMapOf<String, ScrapeChanges>()
-            for (item in checkedItems) {
-                val song = songRepository.getSong(item.songId) ?: continue
-                candidates += ScrapeCandidate(songId = song.id, song = song)
-                changesMap[song.id] = ScrapeChanges(
-                    title = item.matchedTitle,
-                    artist = item.matchedArtist,
-                    album = item.matchedAlbum,
-                    coverRemoteUrl = item.coverUrl,
+            try {
+                val candidates = mutableListOf<ScrapeCandidate>()
+                val changesMap = mutableMapOf<String, ScrapeChanges>()
+                for (item in checkedItems) {
+                    val song = songRepository.getSong(item.songId) ?: continue
+                    candidates += ScrapeCandidate(songId = song.id, song = song)
+                    changesMap[song.id] = ScrapeChanges(
+                        title = item.matchedTitle,
+                        artist = item.matchedArtist,
+                        album = item.matchedAlbum,
+                        coverRemoteUrl = item.coverUrl,
+                    )
+                }
+                val applyResult = writebackOrchestrator.applyScrapeChanges(
+                    candidates = candidates,
+                    checkedIds = changesMap.keys,
+                    changesMap = changesMap,
                 )
+                lastJournalId = applyResult.journalId
+                // 写回完成后出队已处理歌曲并刷新
+                queueStore.remove(changesMap.keys.toList())
+                reloadQueue()
+                _pageState.value = ScrapePageState.Result(applyResult.results, applyResult.journalId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // 异常时回退到预览态，避免卡死在 Writing
+                _pageState.value = state
             }
-            val applyResult = writebackOrchestrator.applyScrapeChanges(
-                candidates = candidates,
-                checkedIds = changesMap.keys,
-                changesMap = changesMap,
-            )
-            lastJournalId = applyResult.journalId
-            // 写回完成后出队已处理歌曲并刷新
-            queueStore.remove(changesMap.keys.toList())
-            reloadQueue()
-            _pageState.value = ScrapePageState.Result(applyResult.results, applyResult.journalId)
         }
     }
 

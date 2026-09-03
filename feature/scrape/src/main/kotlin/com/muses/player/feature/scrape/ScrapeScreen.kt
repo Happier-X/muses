@@ -82,6 +82,8 @@ fun ScrapeScreen(
                 onRetryThrottled = viewModel::retryThrottled,
             )
 
+            is ScrapePageState.Writing -> WritingStateContent(state)
+
             is ScrapePageState.Result -> ResultStateContent(
                 state = state,
                 throttleMessage = throttleMessage,
@@ -148,6 +150,24 @@ private fun QueueStateContent(
             Button(onClick = onClear, modifier = Modifier.weight(1f)) { Text("清空") }
             Button(onClick = onStartAll, modifier = Modifier.weight(2f)) { Text("全部开始") }
         }
+    }
+}
+
+// ── writing 态（写回中）──────────────────────────────────
+
+@Composable
+private fun WritingStateContent(state: ScrapePageState.Writing) {
+    val salt = LocalSaltColors.current
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        CircularProgressIndicator()
+        Spacer(Modifier.height(20.dp))
+        Text("正在写回 ${state.count} 首…", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = salt.text)
+        Spacer(Modifier.height(8.dp))
+        Text("正在写入文件与数据库，请稍候", fontSize = 13.sp, color = salt.text2)
     }
 }
 
