@@ -24,7 +24,11 @@ import kotlinx.coroutines.launch
 sealed interface SingleScrapeState {
     data object Idle : SingleScrapeState
     data class Searching(val songTitle: String) : SingleScrapeState
-    data class HasCandidates(val candidates: List<PreviewCandidate>, val selectedIndex: Int = 0) : SingleScrapeState
+    data class HasCandidates(
+        val candidates: List<PreviewCandidate>,
+        val selectedIndex: Int = 0,
+        val checkedFields: Set<String> = emptySet(),
+    ) : SingleScrapeState
     data class Empty(val reason: String) : SingleScrapeState
     data class Writing(val count: Int = 1) : SingleScrapeState
     data object Success : SingleScrapeState
@@ -93,7 +97,14 @@ class SingleScrapeViewModel @Inject constructor(
                     coverUrl = coverUrl,
                     checked = true,
                 )
-                _state.value = SingleScrapeState.HasCandidates(listOf(candidate), 0)
+                val checkedFields = buildSet {
+                    if (candidate.resolvedTitle() != null) add("title")
+                    if (candidate.resolvedArtist() != null) add("artist")
+                    if (candidate.resolvedAlbum() != null) add("album")
+                    if (candidate.coverUrl != null) add("cover")
+                    if (candidate.resolvedLyrics() != null) add("lyrics")
+                }
+                _state.value = SingleScrapeState.HasCandidates(listOf(candidate), 0, checkedFields)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -114,22 +125,52 @@ class SingleScrapeViewModel @Inject constructor(
         val list = s.candidates.toMutableList()
         val cur = list[idx]
         list[idx] = cur.copy(editTitle = title, editArtist = artist, editAlbum = album, editLyrics = lyrics)
-        _state.value = s.copy(candidates = list)
+        // 编辑后自动勾选该字段
+        val newChecked = s.checkedFields.toMutableSet()
+        if (title != null) newChecked.add("title") else if (title == null && cur.matchedTitle == null) newChecked.remove("title")
+        if (artist != null) newChecked.add("artist")
+        if (album != null) newChecked.add("album")
+        if (lyrics != null) newChecked.add("lyrics")
+        _state.value = s.copy(candidates = list, checkedFields = newChecked)
+    }
+
+    fun toggleField(field: String) {
+        val s = _state.value as? SingleScrapeState.HasCandidates ?: return
+        val newChecked = s.checkedFields.toMutableSet()
+        if (field in newChecked) newChecked.remove(field) else newChecked.add(field)
+        _state.value = s.copy(checkedFields = newChecked)
+    }
+
+    fun setAllFields(checked: Boolean) {
+        val s = _state.value as? SingleScrapeState.HasCandidates ?: return
+        val candidate = s.candidates.getOrNull(s.selectedIndex) ?: return
+        _state.value = if (checked) {
+            s.copy(checkedFields = buildSet {
+                if (candidate.resolvedTitle() != null || candidate.matchedTitle != null) add("title")
+                if (candidate.resolvedArtist() != null || candidate.matchedArtist != null) add("artist")
+                if (candidate.resolvedAlbum() != null || candidate.matchedAlbum != null) add("album")
+                if (candidate.coverUrl != null) add("cover")
+                if (candidate.resolvedLyrics() != null || candidate.currentLyrics != null) add("lyrics")
+            })
+        } else {
+            s.copy(checkedFields = emptySet())
+        }
     }
 
     fun applySelected(onSuccess: () -> Unit = {}) {
         val s = _state.value as? SingleScrapeState.HasCandidates ?: return
         val candidate = s.candidates.getOrNull(s.selectedIndex) ?: return
+        if (s.checkedFields.isEmpty()) return
         val song = currentSong ?: return
         viewModelScope.launch {
             _state.value = SingleScrapeState.Writing(1)
             try {
                 val changes = ScrapeChanges(
-                    title = candidate.resolvedTitle(),
-                    artist = candidate.resolvedArtist(),
-                    album = candidate.resolvedAlbum(),
-                    coverRemoteUrl = candidate.coverUrl,
-                    lyrics = candidate.resolvedLyrics(),
+                    title = candidate.resolvedTitle().takeIf { "title" in s.checkedFields },
+                    artist = candidate.resolvedArtist().takeIf { "artist" in s.checkedFields },
+                    album = candidate.resolvedAlbum().takeIf { "album" in s.checkedFields },
+                    coverRemoteUrl = candidate.coverUrl.takeIf { "cover" in s.checkedFields },
+                    lyrics = candidate.resolvedLyrics().takeIf { "lyrics" in s.checkedFields },
                 )
                 writebackOrchestrator.applyScrapeChanges(
                     candidates = listOf(ScrapeCandidate(songId = song.id, song = song)),

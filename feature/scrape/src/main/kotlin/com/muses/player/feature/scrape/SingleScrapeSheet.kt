@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -81,7 +83,21 @@ fun SingleScrapeSheet(
                 }
                 is SingleScrapeState.HasCandidates -> {
                     val candidate = s.candidates[s.selectedIndex]
-                    // 原/新对比
+                    // 逐字段勾选（A 形态）+ 批量全选
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("应用字段：", fontSize = 12.sp, color = salt.text2)
+                        Spacer(Modifier.weight(1f))
+                        SaltTextButton(text = "全选", onClick = { viewModel.setAllFields(true) })
+                        SaltTextButton(text = "全不选", onClick = { viewModel.setAllFields(false) })
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    FieldCheckRow(label = "标题", checked = "title" in s.checkedFields, enabled = candidate.resolvedTitle() != null, onCheckedChange = { viewModel.toggleField("title") }, original = candidate.currentTitle, updated = candidate.resolvedTitle() ?: "—")
+                    FieldCheckRow(label = "歌手", checked = "artist" in s.checkedFields, enabled = candidate.resolvedArtist() != null, onCheckedChange = { viewModel.toggleField("artist") }, original = candidate.currentArtist ?: "—", updated = candidate.resolvedArtist() ?: "—")
+                    FieldCheckRow(label = "专辑", checked = "album" in s.checkedFields, enabled = candidate.resolvedAlbum() != null || candidate.currentAlbum != null, onCheckedChange = { viewModel.toggleField("album") }, original = candidate.currentAlbum ?: "—", updated = candidate.resolvedAlbum() ?: "—")
+                    FieldCheckRow(label = "封面", checked = "cover" in s.checkedFields, enabled = candidate.coverUrl != null, onCheckedChange = { viewModel.toggleField("cover") }, original = "—", updated = if (candidate.coverUrl != null) "有新封面" else "无")
+                    FieldCheckRow(label = "歌词", checked = "lyrics" in s.checkedFields, enabled = !candidate.resolvedLyrics().isNullOrBlank() || !candidate.currentLyrics.isNullOrBlank(), onCheckedChange = { viewModel.toggleField("lyrics") }, original = if (!candidate.currentLyrics.isNullOrBlank()) "有（${candidate.currentLyrics!!.length}字）" else "无", updated = if (!candidate.resolvedLyrics().isNullOrBlank()) "有（${candidate.resolvedLyrics()!!.length}字）" else "—")
+                    Spacer(Modifier.height(8.dp))
+                    // 原/新对比（差异高亮）
                     Column(
                         Modifier.fillMaxWidth().background(salt.surface1, RoundedCornerShape(10.dp)).border(0.5.dp, salt.surface2, RoundedCornerShape(10.dp)).padding(12.dp),
                     ) {
@@ -135,7 +151,11 @@ fun SingleScrapeSheet(
                     Spacer(Modifier.height(16.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(onClick = { viewModel.reset(); onDismiss() }, modifier = Modifier.weight(1f)) { Text("取消") }
-                        Button(onClick = { viewModel.applySelected { viewModel.reset(); onDismiss() } }, modifier = Modifier.weight(1f)) { Text("应用") }
+                        Button(
+                            onClick = { viewModel.applySelected { viewModel.reset(); onDismiss() } },
+                            modifier = Modifier.weight(1f),
+                            enabled = s.checkedFields.isNotEmpty(),
+                        ) { Text("应用" + if (s.checkedFields.isNotEmpty()) "（${s.checkedFields.size}）" else "") }
                     }
                 }
                 is SingleScrapeState.Empty -> {
@@ -163,6 +183,29 @@ fun SingleScrapeSheet(
                 }
                 else -> {}
             }
+        }
+    }
+}
+
+@Composable
+private fun FieldCheckRow(
+    label: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    original: String,
+    updated: String,
+) {
+    val salt = LocalSaltColors.current
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            colors = CheckboxDefaults.colors(checkedColor = salt.primary),
+        )
+        Column(Modifier.weight(1f).padding(start = 4.dp)) {
+            Text("$label：$original → $updated", fontSize = 12.sp, color = if (checked) salt.text else salt.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
