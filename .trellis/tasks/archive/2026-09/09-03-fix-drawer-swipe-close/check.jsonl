@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/index.md", "reason": "check阶段验证构建命令与分层约束"}
+{"file": ".trellis/spec/android/features-salt-ui.md", "reason": "check抽屉手势语义是否符合Salt UI契约"}
