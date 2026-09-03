@@ -11,6 +11,8 @@
     <string name="nav_settings">设置</string>
     <string name="nav_now_playing">正在播放</string>
     <string name="nav_queue">播放队列</string>
+    <!-- 刮削审核页（不进侧边栏，仅路由条目用） -->
+    <string name="nav_scrape_review">刮削审核</string>
     <string name="cd_open_drawer">打开侧边栏</string>
     <string name="cd_open_player">打开播放页</string>
     <string name="cd_play_pause">播放/暂停</string>

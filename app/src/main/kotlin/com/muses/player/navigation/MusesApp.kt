@@ -305,15 +305,13 @@ private fun AppNavHost(navController: NavHostController) {
             val playerConnection = androidx.hilt.navigation.compose.hiltViewModel<com.muses.player.feature.player.PlayerViewModel>().playerConnection
             // M3：刮削队列入队（ScrapeQueueStore 为 @Singleton，经 hiltViewModel 载体注入）
             val scrapeVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            var singleScrapeSong by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.muses.player.core.model.Song?>(null) }
             SongsPage(
                 playerConnection = playerConnection,
                 onEnqueueScrape = { ids -> scrapeVm.enqueue(ids) },
-                onScrapeSingle = { singleScrapeSong = it },
+                onScrapeSingle = { song ->
+                    navController.navigate(DetailRoutes.scrapeReview(song.id)) { launchSingleTop = true }
+                },
             )
-            singleScrapeSong?.let { s ->
-                com.muses.player.feature.scrape.SingleScrapeSheet(song = s, onDismiss = { singleScrapeSong = null })
-            }
         }
         composable(NavDestination.Albums.route) {
             AlbumsPage(
@@ -360,7 +358,59 @@ private fun AppNavHost(navController: NavHostController) {
         }
         // 刮削页随 M3 复刻，当前为占位空态
         composable(NavDestination.Scrape.route) {
-            com.muses.player.feature.scrape.ScrapeScreen()
+            com.muses.player.feature.scrape.ScrapeScreen(
+                onOpenReview = { songId ->
+                    navController.navigate(DetailRoutes.scrapeReview(songId)) { launchSingleTop = true }
+                },
+                // S3 逐首审核：带 queue 上下文进入审核页（「应用并下一首」推进用）
+                onStartReviewQueue = { firstSongId, queue ->
+                    navController.navigate(DetailRoutes.scrapeReview(firstSongId, queue)) { launchSingleTop = true }
+                },
+            )
+        }
+        // 单曲刮削审核页（Tagger 式就地审核，design §2.1）
+        composable(
+            route = DetailRoutes.SCRAPE_REVIEW,
+            arguments = listOf(
+                androidx.navigation.navArgument("songId") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("queue") {
+                    type = androidx.navigation.NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) {
+            // S3：待审队列宿主在 Scrape 页的 VM 实例（跨 destination 共享，需按回退栈取同实例，
+            // 不可直接 hiltViewModel()——那是审核页自己的 scope）
+            val scrapeEntry = remember(it) {
+                try {
+                    navController.getBackStackEntry(NavDestination.Scrape.route)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            val scrapeVm: com.muses.player.feature.scrape.ScrapeViewModel? = scrapeEntry?.let { entry ->
+                androidx.hilt.navigation.compose.hiltViewModel(entry)
+            }
+            com.muses.player.feature.scrape.ScrapeReviewScreen(
+                onBack = { navController.popBackStack() },
+                // S3「应用并下一首」：同步预览（剔除已写回者）→ 推进待审队列 → 打开下一首（结束则返回）
+                onAppliedAndNext = { writtenSongId, _ ->
+                    scrapeVm?.refreshAfterExternalWriteback(writtenSongId)
+                    val next = scrapeVm?.advanceReview(writtenSongId)
+                    if (next != null) {
+                        val rest = scrapeVm?.pendingReviewQueue?.value.orEmpty()
+                        navController.navigate(DetailRoutes.scrapeReview(next, rest)) {
+                            popUpTo(DetailRoutes.SCRAPE_REVIEW) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    } else {
+                        navController.popBackStack()
+                    }
+                },
+                // S3 手动返回：清待审队列，不强推下一首
+                onManualBack = { scrapeVm?.cancelReviewQueue() },
+            )
         }
         composable(NavDestination.Sources.route) { SourcesScreen(
             onOpenWebdavAdd = { navController.navigate(DetailRoutes.SOURCE_WEBDAV_ADD) },

@@ -32,7 +32,14 @@ sealed interface ScrapePageState {
     data class Matching(val current: Int, val total: Int, val currentItem: String) : ScrapePageState
 
     /** 候选预览确认（checkedIds 默认空 = 全不选，写回安全红线） */
-    data class Preview(val items: List<PreviewCandidate>) : ScrapePageState
+    data class Preview(
+        val items: List<PreviewCandidate>,
+        /**
+         * 未命中分组（S2）：双链均为 NO_MATCH 的 songId（非限流）。
+         * 与 [_throttledIds]（NETWORK/限流）分开，预览页分组列出、可单独重试或去审核改词重搜。
+         */
+        val noMatchIds: List<String> = emptyList(),
+    ) : ScrapePageState
 
     /** 写回中：点“写回选中”后、文件/DB 落盘期间的过渡态，避免无反馈 */
     data class Writing(val count: Int) : ScrapePageState
@@ -95,6 +102,17 @@ class ScrapeViewModel @Inject constructor(
     var lastJournalId: String? = null
         private set
 
+    // ── S3 批量逐首审核：待审队列 ──────────────────────────
+
+    /**
+     * 待审队列（S3）：预览态点「逐首审核」后设置，MusesApp 宿主按此逐首打开审核页。
+     * 仅在「应用并下一首」路径推进（审核页写回后由宿主回调 [advanceReview]）。
+     * 用户手动返回（非应用路径）由宿主清队列（[cancelReviewQueue]），不强推下一首。
+     * 状态机实现见 [ReviewQueueTracker]（纯状态机，可单测）。
+     */
+    private val reviewTracker = ReviewQueueTracker()
+    val pendingReviewQueue: StateFlow<List<String>> = reviewTracker.queue
+
     // ── 限流可观察状态（任务 08-27-scrape-throttle-429） ──────────────
     private val _throttleMessage = MutableStateFlow<String?>(null)
     val throttleMessage: StateFlow<String?> = _throttleMessage.asStateFlow()
@@ -134,8 +152,8 @@ class ScrapeViewModel @Inject constructor(
 
     /**
      * 「全部开始」：逐曲跑文本+封面匹配 → 聚合候选进 preview 态。
-     * 匹配失败的歌不进预览（Web 语义：仅命中的进入人工确认）。
-     * 若因 NETWORK（含 429）未命中，则记录限流提示与可重试列表，不阻塞后续歌曲。
+     * 命中进入人工确认；未命中（S2）按 NETWORK/NO_MATCH 分组列出：
+     * NETWORK → 限流提示 + [_throttledIds] 可重试；NO_MATCH → [ScrapePageState.Preview.noMatchIds] 可重试或改词重搜。
      */
     fun startMatching() {
         val ids = _queueSongIds.value
@@ -145,6 +163,7 @@ class ScrapeViewModel @Inject constructor(
             _throttleMessage.value = null
             _throttledIds.value = emptyList()
             val throttledMutable = mutableListOf<String>()
+            val noMatchMutable = mutableListOf<String>()
             val items = mutableListOf<PreviewCandidate>()
             var index = 0
             for (songId in ids) {
@@ -197,7 +216,7 @@ class ScrapeViewModel @Inject constructor(
                 val hit = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.hit
                 val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
                 if (hit == null && coverUrl == null) {
-                    // 双链均未命中：区分 NETWORK 限流与普通无匹配
+                    // 双链均未命中：区分 NETWORK 限流与普通无匹配（S2）
                     val isNetwork = (textOk is com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail && textOk.reason == OnlineTextMatchFailReason.NETWORK) ||
                         (coverOk is com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail && coverOk.reason == OnlineCoverMatchFailReason.NETWORK)
                     if (isNetwork) {
@@ -216,6 +235,9 @@ class ScrapeViewModel @Inject constructor(
                                 _throttleMessage.value = null
                             }
                         }
+                    } else {
+                        // 普通未命中：进 noMatch 分组，不再静默消失
+                        noMatchMutable.add(songId)
                     }
                     continue
                 }
@@ -237,15 +259,15 @@ class ScrapeViewModel @Inject constructor(
                     checked = false,
                 )
             }
-            // 若有命中进预览；若全限流未命中，给出最终可重试提示
-            if (throttledMutable.isNotEmpty() && items.isEmpty()) {
+            // 若有命中进预览；全未命中时按分组给提示
+            if (throttledMutable.isNotEmpty() && items.isEmpty() && noMatchMutable.isEmpty()) {
                 _throttleMessage.value = "触发限流，稍后重试"
             } else if (throttledMutable.isNotEmpty()) {
                 // 部分限流：保留短期提示供 preview 展示
                 _throttleMessage.value = "${throttledMutable.size} 首触发限流，可单独重试"
             }
             _throttledIds.value = throttledMutable.toList()
-            _pageState.value = ScrapePageState.Preview(items)
+            _pageState.value = ScrapePageState.Preview(items, noMatchIds = noMatchMutable.toList())
         }
     }
 
@@ -302,19 +324,24 @@ class ScrapeViewModel @Inject constructor(
                 val isNetwork = (textOk is com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail && textOk.reason == OnlineTextMatchFailReason.NETWORK) ||
                     (coverOk is com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail && coverOk.reason == OnlineCoverMatchFailReason.NETWORK)
                 _throttleMessage.value = if (isNetwork) "触发限流，稍后重试" else "暂无匹配"
-                // 保留在 preview 空态以便继续重试
+                // 保留在 preview 以便继续重试（S2：保留 noMatchIds 分组）
                 val currentPreview = _pageState.value as? ScrapePageState.Preview
                 if (currentPreview != null) {
                     // 保持空预览以展示重试入口
-                    _pageState.value = ScrapePageState.Preview(currentPreview.items)
+                    _pageState.value = currentPreview
                 } else {
                     _pageState.value = ScrapePageState.Preview(emptyList())
                 }
-                // 将该首重新加入可重试集合（若限流）
+                // 将该首重新加入可重试集合（限流→throttledIds，普通未命中→noMatchIds）
                 if (isNetwork) {
                     val cur = _throttledIds.value.toMutableList()
                     if (!cur.contains(songId)) cur.add(songId)
                     _throttledIds.value = cur
+                } else {
+                    val current = (_pageState.value as? ScrapePageState.Preview)
+                    val cur = (current?.noMatchIds ?: emptyList()).toMutableList()
+                    if (!cur.contains(songId)) cur.add(songId)
+                    _pageState.value = (current ?: ScrapePageState.Preview(emptyList())).copy(noMatchIds = cur)
                 }
                 return@launch
             }
@@ -334,13 +361,17 @@ class ScrapeViewModel @Inject constructor(
                 coverUrl = coverUrl,
                 checked = false,
             )
-            // 合并到现有预览（若已有则追加去重）
-            val existing = (_pageState.value as? ScrapePageState.Preview)?.items ?: emptyList()
+            // 合并到现有预览（若已有则追加去重）；保留 noMatchIds 分组，去掉已成功者
+            val currentPreview = _pageState.value as? ScrapePageState.Preview
+            val existing = currentPreview?.items ?: emptyList()
             val merged = (existing.filter { it.songId != songId } + candidate)
-            // 从限流集合移除已成功者
+            // 从限流/未命中集合移除已成功者
             _throttledIds.value = _throttledIds.value.filter { it != songId }
             if (_throttledIds.value.isEmpty()) _throttleMessage.value = null
-            _pageState.value = ScrapePageState.Preview(merged)
+            _pageState.value = ScrapePageState.Preview(
+                items = merged,
+                noMatchIds = (currentPreview?.noMatchIds ?: emptyList()).filter { it != songId },
+            )
         }
     }
 
@@ -361,9 +392,11 @@ class ScrapeViewModel @Inject constructor(
             _throttleMessage.value = null
             _throttledIds.value = emptyList()
             val items = mutableListOf<PreviewCandidate>()
-            // 复用当前预览已命中项
-            val existing = (_pageState.value as? ScrapePageState.Preview)?.items?.toMutableList() ?: mutableListOf()
+            // 复用当前预览已命中项与未命中分组
+            val basePreview = _pageState.value as? ScrapePageState.Preview
+            val existing = basePreview?.items?.toMutableList() ?: mutableListOf()
             items.addAll(existing)
+            val noMatchMutable = (basePreview?.noMatchIds ?: emptyList()).toMutableList()
             var index = 0
             val throttledRemain = mutableListOf<String>()
             for (songId in ids) {
@@ -378,7 +411,12 @@ class ScrapeViewModel @Inject constructor(
                 val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
                 if (hit == null && coverUrl == null) {
                     val isNetwork = (textOk is com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail && textOk.reason == OnlineTextMatchFailReason.NETWORK) || (coverOk is com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail && coverOk.reason == OnlineCoverMatchFailReason.NETWORK)
-                    if (isNetwork) throttledRemain.add(songId)
+                    if (isNetwork) {
+                        throttledRemain.add(songId)
+                    } else if (!noMatchMutable.contains(songId)) {
+                        // 非限流未命中 → 转入未命中分组，不再丢弃
+                        noMatchMutable.add(songId)
+                    }
                     continue
                 }
                 val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
@@ -394,10 +432,11 @@ class ScrapeViewModel @Inject constructor(
                     }
                     items.add(c.copy(checkedFields = defaultChecked))
                 }
+                noMatchMutable.remove(songId)
             }
             _throttledIds.value = throttledRemain
             _throttleMessage.value = if (throttledRemain.isNotEmpty()) "${throttledRemain.size} 首仍触发限流，可稍后重试" else null
-            _pageState.value = ScrapePageState.Preview(items)
+            _pageState.value = ScrapePageState.Preview(items, noMatchIds = noMatchMutable)
         }
     }
 
@@ -504,5 +543,51 @@ class ScrapeViewModel @Inject constructor(
     fun backToQueue() {
         _pageState.value = ScrapePageState.Queue
         reloadQueue()
+    }
+
+    // ── S3 批量逐首审核（连续推进）─────────────────────────
+
+    /**
+     * 开始逐首审核：把当前预览命中列表作为待审队列。
+     * @return 队列第一首 songId（宿主据此打开审核页）；队列为空返回 null
+     */
+    fun startReviewQueue(): String? {
+        val preview = _pageState.value as? ScrapePageState.Preview ?: return null
+        val queue = preview.items.map { it.songId }
+        if (queue.isEmpty()) return null
+        return reviewTracker.start(queue)
+    }
+
+    /**
+     * 写回成功后推进：从待审队列剔除已写回者。
+     * @param songId 审核页刚写回的歌曲
+     * @return 队列中下一首 songId；无则 null（宿主停止连续推进）
+     */
+    fun advanceReview(songId: String): String? = reviewTracker.advance(songId)
+
+    /** 用户手动返回（非应用路径）：清待审队列，不强推下一首 */
+    fun cancelReviewQueue() {
+        reviewTracker.cancel()
+    }
+
+    /**
+     * 审核页外部写回同步（S3）：审核页走自己的单曲 `applyScrapeChanges`，
+     * 不经过本 VM 的 `confirmWriteback`，故需把已写回者从预览列表剔除并出队，
+     * 避免返回预览后看到已处理的歌还躺在列表里。
+     */
+    fun refreshAfterExternalWriteback(songId: String) {
+        val preview = _pageState.value as? ScrapePageState.Preview ?: return
+        _pageState.value = preview.copy(
+            items = preview.items.filter { it.songId != songId },
+            noMatchIds = preview.noMatchIds.filter { it != songId },
+        )
+        viewModelScope.launch {
+            try {
+                queueStore.remove(listOf(songId))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {}
+            reloadQueue()
+        }
     }
 }

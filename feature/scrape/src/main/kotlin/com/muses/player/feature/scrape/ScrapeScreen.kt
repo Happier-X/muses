@@ -57,6 +57,13 @@ import kotlinx.coroutines.launch
 fun ScrapeScreen(
     modifier: Modifier = Modifier,
     viewModel: ScrapeViewModel = hiltViewModel(),
+    /** S2：打开审核页（单曲改词重搜；由 app 宿主接导航到 ScrapeReview 路由） */
+    onOpenReview: (String) -> Unit = {},
+    /**
+     * S3：开始逐首审核（首 songId + 队列上下文；由 app 宿主打开带 queue 参数的审核页）。
+     * 队列本身在 ScrapeViewModel.pendingReviewQueue，宿主通过它构造路由。
+     */
+    onStartReviewQueue: (firstSongId: String, queue: List<String>) -> Unit = { _, _ -> },
 ) {
     val salt = LocalSaltColors.current
     val pageState by viewModel.pageState.collectAsState()
@@ -96,6 +103,12 @@ fun ScrapeScreen(
                 onRetrySingle = viewModel::retrySingle,
                 onRetryThrottled = viewModel::retryThrottled,
                 onEdit = viewModel::updatePreviewItem,
+                onOpenReview = onOpenReview,
+                // 队列构造统一走 VM（startReviewQueue 置待审队列并返回首 songId），路由 queue 参数取 VM 待审队列
+                onStartReviewQueue = {
+                    val first = viewModel.startReviewQueue()
+                    if (first != null) onStartReviewQueue(first, viewModel.pendingReviewQueue.value)
+                },
             )
 
             is ScrapePageState.Writing -> WritingStateContent(state)
@@ -244,6 +257,10 @@ private fun PreviewStateContent(
     onRetrySingle: (String) -> Unit = {},
     onRetryThrottled: () -> Unit = {},
     onEdit: (String, String?, String?, String?, String?) -> Unit = { _, _, _, _, _ -> },
+    /** S2：打开审核页（未命中改词重搜） */
+    onOpenReview: (String) -> Unit = {},
+    /** S3：开始逐首审核（按钮只发信号；首 songId + 队列由调用方从 VM 取） */
+    onStartReviewQueue: () -> Unit = {},
 ) {
     val salt = LocalSaltColors.current
     Column(Modifier.fillMaxSize()) {
@@ -264,7 +281,7 @@ private fun PreviewStateContent(
                 modifier = Modifier.weight(1f),
             )
         }
-        // 逐字段批量全选/全不选
+        // 逐字段批量全选/全不选 + 逐首审核入口（S3）
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -275,6 +292,17 @@ private fun PreviewStateContent(
                     val allHave = state.items.all { field in it.checkedFields }
                     onSetAllFields(field, !allHave)
                 })
+            }
+        }
+        // S3 逐首审核入口（Tagger「连续审核」）：有命中才展示
+        if (state.items.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("不想一次性全勾？", fontSize = 11.sp, color = salt.text2)
+                Spacer(Modifier.weight(1f))
+                SaltTextButton(text = "逐首审核（${state.items.size}）", onClick = onStartReviewQueue)
             }
         }
         if (throttleMessage != null) {
@@ -305,6 +333,15 @@ private fun PreviewStateContent(
                     }
                 }
             }
+        }
+        // S2：未命中分组（普通 NO_MATCH，不再静默消失；可单独重试或去审核改词重搜）
+        if (state.noMatchIds.isNotEmpty()) {
+            NoMatchGroup(
+                noMatchIds = state.noMatchIds,
+                queueTitles = queueTitles,
+                onRetry = onRetrySingle,
+                onOpenReview = onOpenReview,
+            )
         }
         LazyColumn(
             Modifier.weight(1f),
@@ -356,6 +393,44 @@ private fun PreviewStateContent(
                 modifier = Modifier.weight(2f),
                 enabled = totalCheckedFields > 0,
             ) { Text("应用" + if (totalCheckedFields > 0) "（$totalCheckedFields）" else "") }
+        }
+    }
+}
+
+/** S2：未命中折叠分组（普通 NO_MATCH 行内重试 + 去审核改词重搜） */
+@Composable
+private fun NoMatchGroup(
+    noMatchIds: List<String>,
+    queueTitles: Map<String, String>,
+    onRetry: (String) -> Unit,
+    onOpenReview: (String) -> Unit,
+) {
+    val salt = LocalSaltColors.current
+    var expanded by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SaltTextButton(
+                text = if (expanded) "未命中（${noMatchIds.size} 首）收起" else "未命中（${noMatchIds.size} 首）展开",
+                onClick = { expanded = !expanded },
+            )
+            Spacer(Modifier.weight(1f))
+            Text("暂无匹配，可重试或改词重搜", fontSize = 11.sp, color = salt.text2)
+        }
+        if (expanded) {
+            noMatchIds.forEach { sid ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        queueTitles[sid] ?: sid.take(8),
+                        fontSize = 12.sp,
+                        color = salt.text2,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    SaltTextButton(text = "重试", onClick = { onRetry(sid) })
+                    SaltTextButton(text = "去审核", onClick = { onOpenReview(sid) })
+                }
+            }
         }
     }
 }

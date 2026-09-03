@@ -432,6 +432,12 @@ fun SongsPage(
         onDismiss = { actionSong = null },
         label = "歌曲操作",
         items = listOf(
+            SaltActionItem(label = "刮削", onClick = {
+                // Tagger 式就地审核：直达全屏审核页（不经刮削 Tab）
+                val song = actionSong
+                actionSong = null
+                if (song != null) onScrapeSingle(song)
+            }),
             SaltActionItem(label = "加入待刮削", onClick = {
                 val ids = listOfNotNull(currentId)
                 if (ids.isNotEmpty()) doEnqueue(ids)

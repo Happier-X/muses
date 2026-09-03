@@ -43,9 +43,15 @@ enum class NavDestination(
         childPrefixes = listOf("sources/webdav")),
     Settings("settings", R.string.nav_settings, Icons.Filled.Settings),    // settings
 
-    // ---- 非 tabs 导航项（播放页/队列页，不出现在侧边栏）----
+    // ---- 非 tabs 导航项（播放页/队列页/刮削审核页，不出现在侧边栏）----
     NowPlaying("now-playing", R.string.nav_now_playing, Icons.Filled.MusicNote),
     Queue("queue", R.string.nav_queue, Icons.Filled.QueueMusic),
+    /**
+     * 单曲刮削审核页（Tagger 式就地审核）。真实导航 route 带参数：
+     * `"scrape_review?songId={songId}&queue={queue}"`（songId 必传、queue 可选逗号分隔），
+     * 见 [DetailRoutes.scrapeReview] 与 MusesApp 的 composable 声明。
+     */
+    ScrapeReview("scrape_review", R.string.nav_scrape_review, Icons.Filled.Checklist),
     ;
 
     /** 对照 TabsPage.vue 的 isNavActive(item) */
@@ -88,4 +94,16 @@ object DetailRoutes {
     fun artistDetail(artistId: String) = "artist/$artistId"
 
     fun sourceWebdavEdit(sourceId: String) = "sources/webdav/$sourceId"
+
+    // ---- 刮削审核页（Tagger 式审核流，design §2.1）----
+    // 注：非 const——引用 enum 成员 route（运行时值），与 albumDetail/artistDetail 同为普通函数/属性
+    /** 审核页带参数路由模板（songId 必传、queue 可选逗号分隔 songId 列表） */
+    val SCRAPE_REVIEW = "${NavDestination.ScrapeReview.route}?songId={songId}&queue={queue}"
+
+    /** 单曲模式：仅 songId */
+    fun scrapeReview(songId: String) = "${NavDestination.ScrapeReview.route}?songId=$songId"
+
+    /** 批量模式：songId + 逗号分隔队列上下文（供「应用并下一首」推进，S3 接线） */
+    fun scrapeReview(songId: String, queue: List<String>) =
+        "${NavDestination.ScrapeReview.route}?songId=$songId&queue=${queue.joinToString(",")}"
 }
