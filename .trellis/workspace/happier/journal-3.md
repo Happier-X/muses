@@ -1688,3 +1688,27 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+
+## Session 123: 修复重刮削后播放旧元信息回归
+<!-- trellis-session: v=2 fp=8cccba6704f3932f -->
+
+**Date**: 2026-09-03
+**Task**: 修复重新刮削后播放仍显示旧元信息
+**Branch**: `main`
+
+### Summary
+
+修复懒扫描无条件覆写 + UI 优先旧文件标签 + 缓存陈旧三重叠加导致的重刮削成果丢失：AudioTagReader 新增 invalidate 供 WritebackOrchestrator 文件成功后失效缓存；PlaybackService 懒扫描按 metaSources 逐字段守卫；MusesApp/SongsPage/PlayerViewModel 按 metaSources 优先库值展示；沉淀契约至 features-webdav-library.md
+
+### Git Commits
+
+| Hash | Message |
+|------|----------|
+| `9e70ed63` | fix: 修复重刮削后播放仍显示旧元信息 |
+| `ac3c025b` | docs(spec): 沉淀刮削后懒扫描与展示守卫契约 |
+| `e6fea471` | chore(task): archive 09-03-fix-rescrape-stale-metadata |
+
+### Status
+
+[OK] **Completed**
