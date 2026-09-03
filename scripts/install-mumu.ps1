@@ -31,7 +31,8 @@ $online = adb devices | Where-Object { $_ -match "^$escaped\s+device\s*$" }
 if (-not $online) { throw "Device $Serial is not connected (see: adb devices)" }
 
 $installedVc = $null
-$dump = adb -s $Serial shell dumpsys package $Package 2>$null
+# 注意：adb 输出是字符串数组，必须先 -join 成单串再 -match，否则 $Matches 不会被填充
+$dump = ((adb -s $Serial shell dumpsys package $Package 2>$null) -join "`n")
 if ($dump -match "versionCode=(\d+)") { $installedVc = [int]$Matches[1] }
 
 $gradleArgs = @(":app:installMusesDebug", "--offline")

@@ -126,7 +126,7 @@ import kotlin.math.roundToInt
  * - .panels：width 200% → translateX(-activePanel*50%)，0.22s easeOut，info-panel / lyric-panel 各 50%（平板收缩为 100% + 左右双栏）
  * - .player-page__cover-hero：aspect-ratio 1 正方形，max-height min(50vh,420px)，圆角 12
  * - .player-page__meta-window：displayedWindow 五行，当前行 scale 1.05 / 0.92，79px 视口，translateY -29.5 居中
- * - .progress-range + .player-page__time-row：m-range + 时间行 + bufferHint（缓冲中）
+ * - .progress-range + .player-page__time-row：m-range + 时间行
  * - .controls：三键 lg（48/28），.mode-bar 四键 md（40/20）max-w 320，无 is-active
  * - LyricPlayer：lyric-lines/current-time/align center 0.5 enableBlur/enableScale/wordFadeWidth 0.5，Fab 组 3s idle 隐藏
  * - .player-page__bottom-bar：平板全宽控制条（进度全宽 + 三段式按钮 spaceBetween）
@@ -157,7 +157,6 @@ fun PlayerScreen(
     )
     val stickyCover by viewModel.stickyCover.collectAsStateWithLifecycle()
     val playbackError by viewModel.playbackError.collectAsStateWithLifecycle()
-    val isBuffering by viewModel.isBuffering.collectAsStateWithLifecycle()
 
     val configuration = LocalConfiguration.current
     val isTabletLayout = remember(configuration) {
@@ -286,7 +285,6 @@ fun PlayerScreen(
                     position = position,
                     duration = duration,
                     isPlaying = isPlaying,
-                    isBuffering = isBuffering,
                     repeatMode = repeatMode,
                     shuffleEnabled = shuffleModeEnabled,
                     onSeek = { viewModel.seekTo(it); viewModel.onSeekEnd(it) },
@@ -319,7 +317,6 @@ fun PlayerScreen(
                     position = position,
                     duration = duration,
                     isPlaying = isPlaying,
-                    isBuffering = isBuffering,
                     repeatMode = repeatMode,
                     shuffleEnabled = shuffleModeEnabled,
                     onSeek = { viewModel.seekTo(it); viewModel.onSeekEnd(it) },
@@ -461,7 +458,6 @@ private fun PhoneImmersiveLayout(
     position: Long,
     duration: Long,
     isPlaying: Boolean,
-    isBuffering: Boolean,
     repeatMode: Int,
     shuffleEnabled: Boolean,
     onSeek: (Long) -> Unit,
@@ -533,7 +529,6 @@ private fun PhoneImmersiveLayout(
                     position = position,
                     duration = duration,
                     isPlaying = isPlaying,
-                    isBuffering = isBuffering,
                     repeatMode = repeatMode,
                     shuffleEnabled = shuffleEnabled,
                     onSeek = onSeek,
@@ -578,7 +573,6 @@ private fun TabletImmersiveLayout(
     position: Long,
     duration: Long,
     isPlaying: Boolean,
-    isBuffering: Boolean,
     repeatMode: Int,
     shuffleEnabled: Boolean,
     onSeek: (Long) -> Unit,
@@ -655,7 +649,6 @@ private fun TabletImmersiveLayout(
         TabletBottomBar(
             position = position,
             duration = duration,
-            isBuffering = isBuffering,
             isPlaying = isPlaying,
             repeatMode = repeatMode,
             shuffleEnabled = shuffleEnabled,
@@ -718,7 +711,6 @@ private fun InfoPanel(
     position: Long,
     duration: Long,
     isPlaying: Boolean,
-    isBuffering: Boolean,
     repeatMode: Int,
     shuffleEnabled: Boolean,
     onSeek: (Long) -> Unit,
@@ -773,7 +765,6 @@ private fun InfoPanel(
             ProgressSection(
                 position = position,
                 duration = duration,
-                isBuffering = isBuffering,
                 onSeekStart = onSeekStart,
                 onSeekEnd = onSeekEnd,
                 onSeekDragActive = onSeekDragActive,
@@ -845,13 +836,12 @@ private fun CoverHero(
     }
 }
 
-// ---------- 进度区：m-range + time-row + bufferHint ----------
+// ---------- 进度区：m-range + time-row ----------
 
 @Composable
 private fun ProgressSection(
     position: Long,
     duration: Long,
-    isBuffering: Boolean,
     onSeekStart: () -> Unit,
     onSeekEnd: (Long) -> Unit,
     // 进度条手势活跃状态：按下即 true（tap/拖动均算），抬手/取消即 false。
@@ -928,7 +918,7 @@ private fun ProgressSection(
                     )
                 },
         )
-        // time-row：对齐 Capacitor 12px tabular-nums rgba0.68 + 缓冲提示 11px rgba0.55，margin-top 2px
+        // time-row：对齐 Capacitor 12px tabular-nums rgba0.68，margin-top 2px（缓冲提示已按需求移除）
         Row(
             Modifier.fillMaxWidth().padding(top = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -940,15 +930,6 @@ private fun ProgressSection(
                 fontSize = 12.sp,
                 style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
             )
-            if (isBuffering) {
-                Text(
-                    text = "缓冲中",
-                    color = Color.White.copy(alpha = 0.55f),
-                    fontSize = 11.sp,
-                )
-            } else {
-                Spacer(Modifier.width(1.dp))
-            }
             Text(
                 text = if (duration > 0) formatTime(duration) else "--:--",
                 color = Color.White.copy(alpha = 0.68f),
@@ -1065,7 +1046,6 @@ private fun ModeBarRow(
 private fun TabletBottomBar(
     position: Long,
     duration: Long,
-    isBuffering: Boolean,
     isPlaying: Boolean,
     repeatMode: Int,
     shuffleEnabled: Boolean,
@@ -1094,7 +1074,6 @@ private fun TabletBottomBar(
         ProgressSection(
             position = position,
             duration = duration,
-            isBuffering = isBuffering,
             onSeekStart = onSeekStart,
             onSeekEnd = onSeekEnd,
         )
