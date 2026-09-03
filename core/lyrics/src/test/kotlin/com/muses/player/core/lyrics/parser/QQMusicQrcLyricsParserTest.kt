@@ -50,4 +50,17 @@ class QQMusicQrcLyricsParserTest {
         assertEquals("你好", doc.lines[0].text)
         assertEquals("世界", doc.lines[1].text)
     }
+
+    @Test
+    fun `无行头纯 timing 行也组行`() {
+        // 解密后每字一行、无行头形态（《为何我》库内实际形态）
+        val raw = "(123270,370,0)浮\n(123640,1180,0)现\n(124820,1590,0)了"
+        val doc = QQMusicQrcLyricsParser.parse(raw)
+        assertEquals(3, doc.lines.size)
+        assertEquals("浮", doc.lines[0].text)
+        assertFalse(doc.lines[0].text.contains("("))
+        assertEquals(123270L, doc.lines[0].timeMs)
+        assertEquals("现", doc.lines[1].text)
+        assertEquals("了", doc.lines[2].text)
+    }
 }

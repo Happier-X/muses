@@ -158,7 +158,27 @@ object QQMusicQrcLyricsParser {
                 }
                 continue
             }
-            val match = lineTiming.find(trimmed) ?: continue
+            val match = lineTiming.find(trimmed)
+            if (match == null) {
+                // 无行头形态：整行是纯 `(timing)字` 序列（如解密后每字一行），也组行；
+                // 行时间取首个 timing，时长取首 timing 到末 timing 结束（至少 1ms）
+                val bareSyllables = parseQrcSyllables(trimmed, 0L)
+                if (bareSyllables.isNotEmpty()) {
+                    val text = bareSyllables.joinToString("") { it.text }.trim()
+                    if (text.isNotBlank()) {
+                        val first = bareSyllables.first()
+                        val last = bareSyllables.last()
+                        lines += LyricLine(
+                            timeMs = first.startTimeMs,
+                            durationMs = (last.endTimeMs - first.startTimeMs).coerceAtLeast(1L),
+                            text = text,
+                            syllables = bareSyllables,
+                            agent = LyricAgent("qrc-${alignment.name}", alignment.name, alignment),
+                        )
+                    }
+                }
+                continue
+            }
             val lineStart = match.groupValues[1].toLongOrNull() ?: continue
             val lineDuration = match.groupValues[2].toLongOrNull()?.coerceAtLeast(1L) ?: continue
             val content = match.groupValues[3]
