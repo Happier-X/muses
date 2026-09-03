@@ -7,8 +7,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -483,6 +484,8 @@ private fun PhoneImmersiveLayout(
     onLyricAtTopChange: (Boolean) -> Unit = {},
 ) {
     var activePanel by remember { mutableStateOf(0) }
+    // 进度条手势进行中时禁用 pager 横滑：杜绝 seek 拖动被当成切页（由 ProgressSection.onSeekDragActive 驱动）
+    var isSeekDragging by remember { mutableStateOf(false) }
     // HorizontalPager 替代 Row 200% 以避免 TabsLayout 半屏约束导致的半宽偏移
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 2 }, initialPage = activePanel)
     LaunchedEffect(activePanel) {
@@ -520,6 +523,7 @@ private fun PhoneImmersiveLayout(
                 .weight(1f)
                 .fillMaxWidth(),
             beyondViewportPageCount = 0,
+            userScrollEnabled = !isSeekDragging,
         ) { page ->
             when (page) {
                 0 -> InfoPanel(
@@ -546,6 +550,7 @@ private fun PhoneImmersiveLayout(
                     isTablet = false,
                     maxWidth = maxWidth,
                     maxHeight = maxHeight,
+                    onSeekDragActive = { isSeekDragging = it },
                 )
                 1 -> LyricsPanel(
                     document = lyricsDocument,
@@ -730,6 +735,7 @@ private fun InfoPanel(
     isTablet: Boolean,
     maxWidth: Dp = 360.dp,
     maxHeight: Dp = 800.dp,
+    onSeekDragActive: (Boolean) -> Unit = {},
 ) {
     // info-panel：panel padding calc(16+safe) 24 16（对齐 .player-overlay .panel）；
     // info-inner gap 14、padding-top 16、song-meta margin-bottom 18（对齐 .info-panel-inner）
@@ -770,6 +776,7 @@ private fun InfoPanel(
                 isBuffering = isBuffering,
                 onSeekStart = onSeekStart,
                 onSeekEnd = onSeekEnd,
+                onSeekDragActive = onSeekDragActive,
             )
             Spacer(Modifier.height(innerGap))
             ControlsRow(isPlaying = isPlaying, onPrevious = onPrevious, onPlayPause = onPlayPause, onNext = onNext)
@@ -847,6 +854,9 @@ private fun ProgressSection(
     isBuffering: Boolean,
     onSeekStart: () -> Unit,
     onSeekEnd: (Long) -> Unit,
+    // 进度条手势活跃状态：按下即 true（tap/拖动均算），抬手/取消即 false。
+    // 手机布局据此禁用 HorizontalPager 横滑，杜绝 seek 拖动被当成切页。
+    onSeekDragActive: (Boolean) -> Unit = {},
 ) {
     var previewMs by remember { mutableStateOf<Long?>(null) }
     val displayPos = previewMs ?: position
@@ -864,24 +874,40 @@ private fun ProgressSection(
                     if (!canSeek) return@pointerInput
                     fun fractionAt(offset: androidx.compose.ui.geometry.Offset): Float =
                         (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                    detectTapGestures { offset ->
-                        onSeekStart()
-                        onSeekEnd((fractionAt(offset) * max).toLong().coerceIn(0L, duration))
-                    }
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            previewMs = (fractionAt(offset) * max).toLong()
-                            onSeekStart()
-                        },
-                        onDrag = { change, _ ->
-                            previewMs = (fractionAt(change.position) * max).toLong()
-                        },
-                        onDragEnd = {
-                            onSeekEnd((previewMs ?: position).coerceIn(0L, duration))
+                    // 注意：不可在此串行调用 detectTapGestures + detectDragGestures——
+                    // 前者内部 awaitEachGesture 无限循环永不返回，后者会成死代码
+                    // （这正是此前拖动失效、手势冒泡给 pager 切页的根因）。
+                    // 单一 awaitEachGesture 同时处理 tap + 水平拖动，越过 slop 即 consume。
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        // 按在进度条上即视为 seek 意图：先通知上层禁用 pager 横滑，关掉抢手势的窗口
+                        onSeekDragActive(true)
+                        try {
+                            val slop = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ ->
+                                change.consume()
+                            }
+                            if (slop == null) {
+                                // 未越过 slop 即抬手 → 点击 seek（对齐原 detectTapGestures 行为）
+                                onSeekStart()
+                                onSeekEnd((fractionAt(down.position) * max).toLong().coerceIn(0L, duration))
+                            } else {
+                                // 拖动：跟手预览，松手 commit（对齐原 detectDragGestures 语义）
+                                previewMs = (fractionAt(slop.position) * max).toLong()
+                                onSeekStart()
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!change.pressed) break
+                                    change.consume()
+                                    previewMs = (fractionAt(change.position) * max).toLong()
+                                }
+                                onSeekEnd((previewMs ?: position).coerceIn(0L, duration))
+                            }
+                        } finally {
                             previewMs = null
-                        },
-                        onDragCancel = { previewMs = null },
-                    )
+                            onSeekDragActive(false)
+                        }
+                    }
                 }
                 .drawBehind {
                     // 底轨 rgba(255,255,255,0.25) + 填充 #fff，4dp 圆角细轨（对齐 .progress-range 全局样式）

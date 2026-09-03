@@ -54,6 +54,7 @@ app (UI 宿主、导航)
 - WebDAV 曲目：直接 HTTP URL 流播（ExoPlayer），数据源经 **CacheDataSource 边播边缓存**——
   探测性重复 Range 请求命中本地不再发网络（防网关限流）；详见 features-webdav-library.md
 - 沉浸式播放页为**纯原生 Compose**（09-02 起自研手搓，WebView 已下线，详见 features-lyrics-playlist.md §1/§7）：`PlayerScreen`（`offset` 跟手 + `isLyricAtTop` 手势分流 + `FlowingLightBackdrop` 透底）+ `HorizontalPager` 双面板（手机）/ 左右双栏+`TabletBottomBar`（平板横屏）+ `NativeLyricsPanel`（`LazyColumn` 居中滚动 + `NativeKaraokeLine` 逐词/逐字符 `AnnotatedString` 连续渐变 + 距离 `Blur/Scale/Alpha` + 翻译 FAB）+ `CoverHero`/`ProgressSection`/`ControlsRow`/`ModeBarRow`；`rememberLyricPositionProvider` 帧外推保持 60fps 无重组；`PlayerViewModel` 粘性封面/解析链路不变；彻底删除 `FullPlayerWebView`/`LyricWebView` 与 `app/src/main/assets/amll/*`（Git 可回溯，BEM 契约保留 drag-layer / song-head-fixed / cover-hero / bottom-bar）
+- 沉浸式页手势铁律（任务 09-03-fix-player-seek-pager-conflict 血泪）：同一 `pointerInput` 内**禁止**串行 `detectTapGestures` + `detectDragGestures`（前者内部 `awaitEachGesture` 永不返回，后者成死代码，拖动冒泡给 pager 变切页）；`ProgressSection` 的 tap + 水平拖动必须在**同一个** `awaitEachGesture` 内处理、越过 slop 即 `consume`；seek 手势按下期间经 `onSeekDragActive` 置 `HorizontalPager(userScrollEnabled=false)`，抬手恢复
 - 音频焦点由 ExoPlayer 默认处理（handleAudioFocus=true）
 - `onTaskRemoved` → `stopSelf()`（后台播放安全）
 
