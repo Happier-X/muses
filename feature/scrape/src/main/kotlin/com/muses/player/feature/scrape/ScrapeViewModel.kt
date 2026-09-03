@@ -41,11 +41,13 @@ sealed interface ScrapePageState {
     data class Result(val results: List<WritebackResult>, val journalId: String) : ScrapePageState
 }
 
-/** 预览行：歌曲 + 匹配到的变更 + 封面候选 + 勾选态 */
+/** 预览行：歌曲 + 匹配到的变更 + 封面候选 + 勾选态（09-03 可编辑：保留原值供对比，edit* 为用户覆写副本） */
 data class PreviewCandidate(
     val songId: String,
     val songTitle: String,
+    val currentTitle: String = songTitle,
     val currentArtist: String?,
+    val currentAlbum: String? = null,
     val matchedTitle: String?,
     val matchedArtist: String?,
     val matchedAlbum: String?,
@@ -53,7 +55,14 @@ data class PreviewCandidate(
     val confidence: String?,
     val coverUrl: String?,
     val checked: Boolean = false,
-)
+    val editTitle: String? = null,
+    val editArtist: String? = null,
+    val editAlbum: String? = null,
+) {
+    fun resolvedTitle(): String? = editTitle ?: matchedTitle
+    fun resolvedArtist(): String? = editArtist ?: matchedArtist
+    fun resolvedAlbum(): String? = editAlbum ?: matchedAlbum
+}
 
 @HiltViewModel
 class ScrapeViewModel @Inject constructor(
@@ -209,7 +218,9 @@ class ScrapeViewModel @Inject constructor(
                 items += PreviewCandidate(
                     songId = song.id,
                     songTitle = song.title,
+                    currentTitle = song.title,
                     currentArtist = song.artist,
+                    currentAlbum = song.album,
                     matchedTitle = hit?.title,
                     matchedArtist = hit?.artist,
                     matchedAlbum = hit?.album,
@@ -303,7 +314,9 @@ class ScrapeViewModel @Inject constructor(
             val candidate = PreviewCandidate(
                 songId = song.id,
                 songTitle = song.title,
+                currentTitle = song.title,
                 currentArtist = song.artist,
+                currentAlbum = song.album,
                 matchedTitle = hit?.title,
                 matchedArtist = hit?.artist,
                 matchedAlbum = hit?.album,
@@ -361,7 +374,7 @@ class ScrapeViewModel @Inject constructor(
                 val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
                 // 去重追加
                 if (items.none { it.songId == songId }) {
-                    items.add(PreviewCandidate(songId = song.id, songTitle = song.title, currentArtist = song.artist, matchedTitle = hit?.title, matchedArtist = hit?.artist, matchedAlbum = hit?.album, confidence = confidence, coverUrl = coverUrl, checked = false))
+                    items.add(PreviewCandidate(songId = song.id, songTitle = song.title, currentTitle = song.title, currentArtist = song.artist, currentAlbum = song.album, matchedTitle = hit?.title, matchedArtist = hit?.artist, matchedAlbum = hit?.album, confidence = confidence, coverUrl = coverUrl, checked = false))
                 }
             }
             _throttledIds.value = throttledRemain
@@ -384,6 +397,14 @@ class ScrapeViewModel @Inject constructor(
         _pageState.value = state.copy(items = state.items.map { it.copy(checked = checked) })
     }
 
+    /** 更新预览行编辑值（空串已在调用方转 null 表示回退匹配值） */
+    fun updatePreviewItem(songId: String, title: String?, artist: String?, album: String?) {
+        val state = _pageState.value as? ScrapePageState.Preview ?: return
+        _pageState.value = state.copy(
+            items = state.items.map { if (it.songId == songId) it.copy(editTitle = title, editArtist = artist, editAlbum = album) else it },
+        )
+    }
+
     /** 确认写回：仅勾选项；逐曲结果进 result 态 */
     fun confirmWriteback() {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
@@ -399,9 +420,9 @@ class ScrapeViewModel @Inject constructor(
                     val song = songRepository.getSong(item.songId) ?: continue
                     candidates += ScrapeCandidate(songId = song.id, song = song)
                     changesMap[song.id] = ScrapeChanges(
-                        title = item.matchedTitle,
-                        artist = item.matchedArtist,
-                        album = item.matchedAlbum,
+                        title = item.resolvedTitle(),
+                        artist = item.resolvedArtist(),
+                        album = item.resolvedAlbum(),
                         coverRemoteUrl = item.coverUrl,
                     )
                 }
