@@ -47,6 +47,7 @@
 12. **app 模块用 BuildConfig 需显式 `buildFeatures { buildConfig = true }`**（AGP 8+ 默认关闭）
 13. **多 flavor 项目装包用 `assembleMusesDebug`，不用裸 `assembleDebug`**——后者打的是无 flavor 旧 variant 包，装机后表现为“改动没生效”（08-25 实测踩坑）
 14. **挂起调用外包 catch(Exception)/runCatching 会吞 CancellationException**——协程取消静默失效；须前置 `catch (e: CancellationException) { throw e }`（PlayerConnection 预取与两 scanner 均有示范）
+15. **抽屉手势结算必须带方向判断**——`PhoneLayout` 的 `onDragEnd` 不能只看 `abs(totalDx)`/`abs(velocity)`：已打开时继续右滑（正位移大）会被误判关闭，已关闭时向左大滑会被误判打开。口径：`OPENING` 仅 `(totalDx > 0 && 位移≥25%宽) || 速度>+0.5px/ms` 可开，`CLOSING` 仅 `(totalDx < 0 && 位移≥25%宽) || 速度<-0.5px/ms` 可关（09-03 实测踩坑）
 16. **平板双栏（≥768dp）**：TabletLayout 左侧 260dp aside + 内容区；MiniPlayer 在 TabletLayout 经
     bottomBar 渲染（G1 教训：aside 形态别漏 bottomBar）；专辑/艺术家网格 ≥768dp 用
     `GridCells.Adaptive(180.dp)` 对齐 Web auto-fill；WebView 播放页平板分支经 payload

@@ -284,12 +284,14 @@ private fun PhoneLayout(
                     onDragEnd = {
                         val mode = drag.mode ?: return@detectHorizontalDragGestures
                         val velocity = drag.tracker?.calculateVelocity()?.x ?: 0f
+                        val velocityThreshold = FastSwipePxPerMs * 1000f
                         val crossedDistance = abs(drag.totalDx) >= drawerWidthPx * SettleRatio
-                        val crossedVelocity = abs(velocity) >= FastSwipePxPerMs * 1000f
                         val shouldOpen = if (mode == DragSession.Mode.OPENING) {
-                            crossedDistance || crossedVelocity
+                            // 关闭态仅向右滑可开：反向（向左）大位移/快扫不得误开
+                            (drag.totalDx > 0f && crossedDistance) || velocity > velocityThreshold
                         } else {
-                            !(crossedDistance || crossedVelocity)
+                            // 打开态仅向左滑可关：继续向右滑保持打开
+                            !((drag.totalDx < 0f && crossedDistance) || velocity < -velocityThreshold)
                         }
                         drag.reset(null)
                         if (shouldOpen) openDrawer() else closeDrawer()
