@@ -1665,3 +1665,26 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+
+## Session 122: 移除音量均衡功能
+<!-- trellis-session: v=2 fp=8cccba6704f3932f -->
+
+**Date**: 2026-09-03
+**Task**: 移除音量均衡功能
+**Branch**: `main`
+
+### Summary
+
+彻底移除响度均衡：删除 Loudness 包、Song/Entity RG 字段、TagReader 解析、PlaybackService 挂载、Settings/PlayerConfig 开关及设置页 UI，DB 升 v6 并以重建表迁移清理列，完成单测与 lint 回归
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `26597fa3` | refactor: 移除音量均衡功能 |
+| `15d9621e` | docs(spec): 补充移除音量均衡 PRD 与验收 |
+
+### Status
+
+[OK] **Completed**
