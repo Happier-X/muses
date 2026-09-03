@@ -1782,3 +1782,26 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+
+## Session 127: 修复提示遮挡与样式
+<!-- trellis-session: v=2 fp=8cccba6704f3932f -->
+
+**Date**: 2026-09-03
+**Task**: 修复加入待刮削提示被播放条遮挡及样式不一致
+**Branch**: `main`
+
+### Summary
+
+SnackbarHost 被 MiniPlayerBar 遮挡，改为系统 Toast 居中轻提示，与设置/音源页公共样式一致
+
+### Git Commits
+
+| Hash | Message |
+|------|----------|
+| `8702203f` | fix(library): 加入待刮削提示改用公共 Toast 居中样式 |
+| `078a3819` | chore(task): archive 09-03-fix-enqueue-toast-style |
+
+### Status
+
+[OK] **Completed**
