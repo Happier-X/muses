@@ -1712,3 +1712,27 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+
+## Session 124: 刮削预览可视与编辑
+<!-- trellis-session: v=2 fp=8cccba6704f3932f -->
+
+**Date**: 2026-09-03
+**Task**: 刮削预览可见匹配结果并支持编辑
+**Branch**: `main`
+
+### Summary
+
+预览行由单行改为原/新分段对比 + 置信度 + 封面缩略 + 编辑入口；PreviewCandidate 扩展 edit* 与 resolved*，PreviewEditSheet BottomSheet 三字段可改，写回改用编辑后值；一并修复写回选中无反馈的 Writing 过渡态
+
+### Git Commits
+
+| Hash | Message |
+|------|----------|
+| `594860eb` | fix(scrape): 写回选中增加写回中过渡态 |
+| `c2f7d209` | feat(scrape): 刮削预览可视匹配结果并支持现场编辑 |
+| `680383c8` | chore(task): archive 09-03-scrape-preview-editable |
+
+### Status
+
+[OK] **Completed**
