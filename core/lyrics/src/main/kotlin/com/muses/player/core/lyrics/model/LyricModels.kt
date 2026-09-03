@@ -227,7 +227,27 @@ object NeteaseLyricParser {
                 }
                 continue
             }
-            if (!line.startsWith('[')) continue
+            if (!line.startsWith('[')) {
+                // 无行头形态：整行是纯 `(timing)字` 序列（如网易 YRC 解密后每字一行），也组行；
+                // 行时间取首个 timing，时长取首 timing 到末 timing 结束（至少 1ms）
+                val bareMatches = yrcSyllableTiming.findAll(line).toList()
+                if (bareMatches.isNotEmpty()) {
+                    val bareSyllables = parseYrcSyllables(line, bareMatches)
+                    val bareText = bareSyllables.joinToString("") { it.text }.trim()
+                    if (bareText.isNotBlank()) {
+                        val first = bareSyllables.first()
+                        val last = bareSyllables.last()
+                        result += LyricLine(
+                            timeMs = first.startTimeMs,
+                            durationMs = (last.endTimeMs - first.startTimeMs).coerceAtLeast(1L),
+                            timingKind = LyricTimingKind.Precise,
+                            text = bareText,
+                            syllables = bareSyllables,
+                        )
+                    }
+                }
+                continue
+            }
             val close = line.indexOf(']')
             if (close <= 1) continue
 
@@ -249,24 +269,7 @@ object NeteaseLyricParser {
                 continue
             }
 
-            val syllables = buildList {
-                for ((index, match) in matches.withIndex()) {
-                    val syllableStartMs = match.groupValues[1].toLongOrNull() ?: continue
-                    val syllableDurationMs = match.groupValues[2].toLongOrNull() ?: continue
-                    val textStart = match.range.last + 1
-                    val textEnd = matches.getOrNull(index + 1)?.range?.first ?: content.length
-                    if (textEnd < textStart) continue
-                    val syllableText = content.substring(textStart, textEnd)
-                    if (syllableText.isEmpty()) continue
-                    add(
-                        LyricSyllable(
-                            text = syllableText,
-                            startTimeMs = syllableStartMs,
-                            endTimeMs = syllableStartMs + syllableDurationMs.coerceAtLeast(1L),
-                        ),
-                    )
-                }
-            }
+            val syllables = parseYrcSyllables(content, matches)
 
             val text = syllables.joinToString("") { it.text }.trim()
             if (text.isBlank()) continue
@@ -279,6 +282,26 @@ object NeteaseLyricParser {
             )
         }
         return result.sortedBy { it.timeMs }
+    }
+
+    /** YRC 内容逐字切分：每个 timing 之后、下一个 timing 之前的文本归属该 timing，末 timing 收到 content 尾 */
+    private fun parseYrcSyllables(content: String, matches: List<MatchResult>): List<LyricSyllable> = buildList {
+        for ((index, match) in matches.withIndex()) {
+            val syllableStartMs = match.groupValues[1].toLongOrNull() ?: continue
+            val syllableDurationMs = match.groupValues[2].toLongOrNull() ?: continue
+            val textStart = match.range.last + 1
+            val textEnd = matches.getOrNull(index + 1)?.range?.first ?: content.length
+            if (textEnd < textStart) continue
+            val syllableText = content.substring(textStart, textEnd)
+            if (syllableText.isEmpty()) continue
+            add(
+                LyricSyllable(
+                    text = syllableText,
+                    startTimeMs = syllableStartMs,
+                    endTimeMs = syllableStartMs + syllableDurationMs.coerceAtLeast(1L),
+                ),
+            )
+        }
     }
 
     private fun selectSecondary(yrc: String, lrc: String): List<LyricLine> {

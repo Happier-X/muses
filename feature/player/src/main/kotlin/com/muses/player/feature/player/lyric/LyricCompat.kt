@@ -91,6 +91,15 @@ object LyricsParser {
             val ttmlDocument = com.muses.player.core.lyrics.parser.TtmlLyricsParser.parse(raw)
             if (ttmlDocument.lines.isNotEmpty()) return ttmlDocument
 
+            // 尝试 YRC 解析（网易逐字；必须在 KRC 之前——两者行头同形，KRC 会误食 YRC）
+            val yrcLines = com.muses.player.core.lyrics.model.NeteaseLyricParser.parseYrc(raw)
+            if (yrcLines.isNotEmpty()) {
+                return com.muses.player.core.lyrics.model.LyricsDocument(
+                    lines = yrcLines,
+                    quality = com.muses.player.core.lyrics.model.LyricQuality.WordSynchronized,
+                )
+            }
+
             // 尝试 KRC 解析
             val krcDocument = com.muses.player.core.lyrics.parser.KugouKrcLyricsParser.parse(raw)
             if (krcDocument.lines.isNotEmpty()) return krcDocument
