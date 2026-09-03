@@ -1881,3 +1881,25 @@ Writeback 修复 coverRemoteUrl 未同步落库 coverUri/metaCover；Preview 扩
 ### Status
 
 [OK] **Completed**
+
+
+## Session 130: 修复远程封面全灭
+<!-- trellis-session: v=2 fp=9d2245f98459f31b -->
+
+**Date**: 2026-09-03
+**Task**: 修复远程封面全灭
+**Branch**: `main`
+
+### Summary
+
+根因：缺 coil-network-okhttp，AsyncImage 远程图静默失败。补依赖到 core:ui，模拟器验证通过；咪咕源挂了留后续任务。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f5aa2eda` | fix(cover): 补 coil-network-okhttp，修复远程封面全灭 |
+
+### Status
+
+[OK] **Completed**
