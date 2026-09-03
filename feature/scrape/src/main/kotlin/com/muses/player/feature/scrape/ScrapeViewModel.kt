@@ -48,9 +48,11 @@ data class PreviewCandidate(
     val currentTitle: String = songTitle,
     val currentArtist: String?,
     val currentAlbum: String? = null,
+    val currentLyrics: String? = null,
     val matchedTitle: String?,
     val matchedArtist: String?,
     val matchedAlbum: String?,
+    val matchedLyrics: String? = null,
     /** 匹配置信度展示（HIGH/MEDIUM/LOW），null = 文本链未命中 */
     val confidence: String?,
     val coverUrl: String?,
@@ -58,10 +60,13 @@ data class PreviewCandidate(
     val editTitle: String? = null,
     val editArtist: String? = null,
     val editAlbum: String? = null,
+    val editLyrics: String? = null,
 ) {
     fun resolvedTitle(): String? = editTitle ?: matchedTitle
     fun resolvedArtist(): String? = editArtist ?: matchedArtist
     fun resolvedAlbum(): String? = editAlbum ?: matchedAlbum
+    fun resolvedLyrics(): String? = editLyrics ?: matchedLyrics
+    fun hasLyricsChange(): Boolean = !resolvedLyrics().isNullOrBlank()
 }
 
 @HiltViewModel
@@ -221,9 +226,11 @@ class ScrapeViewModel @Inject constructor(
                     currentTitle = song.title,
                     currentArtist = song.artist,
                     currentAlbum = song.album,
+                    currentLyrics = song.lyrics,
                     matchedTitle = hit?.title,
                     matchedArtist = hit?.artist,
                     matchedAlbum = hit?.album,
+                    matchedLyrics = null,
                     confidence = confidence,
                     coverUrl = coverUrl,
                     checked = false,
@@ -317,9 +324,11 @@ class ScrapeViewModel @Inject constructor(
                 currentTitle = song.title,
                 currentArtist = song.artist,
                 currentAlbum = song.album,
+                currentLyrics = song.lyrics,
                 matchedTitle = hit?.title,
                 matchedArtist = hit?.artist,
                 matchedAlbum = hit?.album,
+                matchedLyrics = null,
                 confidence = confidence,
                 coverUrl = coverUrl,
                 checked = false,
@@ -374,7 +383,7 @@ class ScrapeViewModel @Inject constructor(
                 val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
                 // 去重追加
                 if (items.none { it.songId == songId }) {
-                    items.add(PreviewCandidate(songId = song.id, songTitle = song.title, currentTitle = song.title, currentArtist = song.artist, currentAlbum = song.album, matchedTitle = hit?.title, matchedArtist = hit?.artist, matchedAlbum = hit?.album, confidence = confidence, coverUrl = coverUrl, checked = false))
+                    items.add(PreviewCandidate(songId = song.id, songTitle = song.title, currentTitle = song.title, currentArtist = song.artist, currentAlbum = song.album, currentLyrics = song.lyrics, matchedTitle = hit?.title, matchedArtist = hit?.artist, matchedAlbum = hit?.album, matchedLyrics = null, confidence = confidence, coverUrl = coverUrl, checked = false))
                 }
             }
             _throttledIds.value = throttledRemain
@@ -398,10 +407,10 @@ class ScrapeViewModel @Inject constructor(
     }
 
     /** 更新预览行编辑值（空串已在调用方转 null 表示回退匹配值） */
-    fun updatePreviewItem(songId: String, title: String?, artist: String?, album: String?) {
+    fun updatePreviewItem(songId: String, title: String?, artist: String?, album: String?, lyrics: String? = null) {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
         _pageState.value = state.copy(
-            items = state.items.map { if (it.songId == songId) it.copy(editTitle = title, editArtist = artist, editAlbum = album) else it },
+            items = state.items.map { if (it.songId == songId) it.copy(editTitle = title, editArtist = artist, editAlbum = album, editLyrics = lyrics) else it },
         )
     }
 
@@ -424,6 +433,7 @@ class ScrapeViewModel @Inject constructor(
                         artist = item.resolvedArtist(),
                         album = item.resolvedAlbum(),
                         coverRemoteUrl = item.coverUrl,
+                        lyrics = item.resolvedLyrics(),
                     )
                 }
                 val applyResult = writebackOrchestrator.applyScrapeChanges(

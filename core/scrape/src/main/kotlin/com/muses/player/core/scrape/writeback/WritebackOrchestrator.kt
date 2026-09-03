@@ -76,22 +76,23 @@ class WritebackOrchestrator(
         val metaSources = song.metaSources ?: com.muses.player.core.model.scrape.MetaSources()
         // 文件写入成功 → embedded（已入文件）；失败 → scrape（仅库内展示，值得重刮）
         val fieldSource = if (fileOk) MetaFieldSource.EMBEDDED else MetaFieldSource.SCRAPE
+        val effectiveCoverUri = changes.coverUri ?: changes.coverRemoteUrl
         val newMetaSources = com.muses.player.core.model.scrape.MetaSources(
             title = if (changes.title != null) fieldSource else metaSources.title,
             artist = if (changes.artist != null) fieldSource else metaSources.artist,
             album = if (changes.album != null) fieldSource else metaSources.album,
-            cover = if (changes.coverUri != null) fieldSource else metaSources.cover,
+            cover = if (effectiveCoverUri != null) fieldSource else metaSources.cover,
         )
         songRepository.upsert(
             song.copy(
                 title = changes.title ?: song.title,
                 artist = changes.artist ?: song.artist,
                 album = changes.album ?: song.album,
-                // 空串语义 = 清空（Web changes.coverUri || undefined）
+                // 空串语义 = 清空（Web changes.coverUri || undefined）；coverRemoteUrl 同步落库为 coverUri 供 coil 直链展示
                 coverUri = when {
-                    changes.coverUri == null -> song.coverUri
-                    changes.coverUri!!.isEmpty() -> null
-                    else -> changes.coverUri
+                    effectiveCoverUri == null -> song.coverUri
+                    effectiveCoverUri.isEmpty() -> null
+                    else -> effectiveCoverUri
                 },
                 lyrics = changes.lyrics ?: song.lyrics,
                 lyricsFormat = changes.lyricsFormat ?: song.lyricsFormat,

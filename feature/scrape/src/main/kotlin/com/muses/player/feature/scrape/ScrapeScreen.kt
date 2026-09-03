@@ -239,7 +239,7 @@ private fun PreviewStateContent(
     onCancel: () -> Unit,
     onRetrySingle: (String) -> Unit = {},
     onRetryThrottled: () -> Unit = {},
-    onEdit: (String, String?, String?, String?) -> Unit = { _, _, _, _ -> },
+    onEdit: (String, String?, String?, String?, String?) -> Unit = { _, _, _, _, _ -> },
 ) {
     val salt = LocalSaltColors.current
     var editTarget by remember { mutableStateOf<PreviewCandidate?>(null) }
@@ -248,8 +248,8 @@ private fun PreviewStateContent(
         PreviewEditSheet(
             candidate = target,
             onDismiss = { editTarget = null },
-            onConfirm = { t, a, al ->
-                onEdit(target.songId, t, a, al)
+            onConfirm = { t, a, al, l ->
+                onEdit(target.songId, t, a, al, l)
                 editTarget = null
             },
         )
@@ -309,7 +309,7 @@ private fun PreviewStateContent(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(state.items, key = { it.songId }) { item ->
-                val isEdited = item.editTitle != null || item.editArtist != null || item.editAlbum != null
+                val isEdited = item.editTitle != null || item.editArtist != null || item.editAlbum != null || item.editLyrics != null
                 Column(
                     Modifier
                         .fillMaxWidth()
@@ -332,6 +332,9 @@ private fun PreviewStateContent(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
+                            if (!item.currentLyrics.isNullOrBlank()) {
+                                Text("原歌词：有（${item.currentLyrics!!.length}字）", fontSize = 11.sp, color = salt.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                             Spacer(Modifier.height(2.dp))
                             // 新值（编辑覆写后高亮）；三字段全空时补充“无文本变更”避免裸 — 歧义
                             val newTitle = item.resolvedTitle() ?: "—"
@@ -339,6 +342,7 @@ private fun PreviewStateContent(
                             val newAlbum = item.resolvedAlbum()
                             val hasTextChange = item.resolvedTitle() != null || item.resolvedArtist() != null || item.resolvedAlbum() != null
                             val hasCover = item.coverUrl != null
+                            val hasLyrics = !item.resolvedLyrics().isNullOrBlank()
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     buildString {
@@ -348,9 +352,10 @@ private fun PreviewStateContent(
                                         append(newArtist)
                                         if (newAlbum != null) { append(" · "); append(newAlbum) }
                                         if (!hasTextChange) append("（无文本变更）")
+                                        if (hasLyrics) append(" · 歌词有")
                                     },
                                     fontSize = 13.sp,
-                                    color = if (isEdited) salt.primary else if (!hasTextChange) salt.text2 else salt.text,
+                                    color = if (isEdited) salt.primary else if (!hasTextChange && !hasLyrics) salt.text2 else salt.text,
                                     fontWeight = if (isEdited) FontWeight.SemiBold else FontWeight.Normal,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -430,12 +435,13 @@ private fun PreviewStateContent(
 private fun PreviewEditSheet(
     candidate: PreviewCandidate,
     onDismiss: () -> Unit,
-    onConfirm: (String?, String?, String?) -> Unit,
+    onConfirm: (String?, String?, String?, String?) -> Unit,
 ) {
     val salt = LocalSaltColors.current
     var title by remember(candidate.songId) { mutableStateOf(candidate.resolvedTitle() ?: candidate.currentTitle) }
     var artist by remember(candidate.songId) { mutableStateOf(candidate.resolvedArtist() ?: candidate.currentArtist.orEmpty()) }
     var album by remember(candidate.songId) { mutableStateOf(candidate.resolvedAlbum() ?: candidate.currentAlbum.orEmpty()) }
+    var lyrics by remember(candidate.songId) { mutableStateOf(candidate.resolvedLyrics() ?: candidate.currentLyrics.orEmpty()) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     ModalBottomSheet(
@@ -471,6 +477,14 @@ private fun PreviewEditSheet(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = lyrics,
+                onValueChange = { lyrics = it },
+                label = { Text("歌词（可选，粘贴 LRC/TTML 原文）") },
+                modifier = Modifier.fillMaxWidth().height(100.dp),
+                maxLines = 5,
+            )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
@@ -483,8 +497,9 @@ private fun PreviewEditSheet(
                         val outTitle = title.trim().takeIf { it.isNotEmpty() && it != candidate.matchedTitle }
                         val outArtist = artist.trim().takeIf { it.isNotEmpty() && it != candidate.matchedArtist }
                         val outAlbum = album.trim().takeIf { it.isNotEmpty() && it != candidate.matchedAlbum }
+                        val outLyrics = lyrics.trim().takeIf { it.isNotEmpty() && it != candidate.matchedLyrics } ?: lyrics.trim().takeIf { it.isNotEmpty() && it != candidate.currentLyrics }
                         scope.launch { sheetState.hide() }
-                        onConfirm(outTitle, outArtist, outAlbum)
+                        onConfirm(outTitle, outArtist, outAlbum, outLyrics)
                     },
                     modifier = Modifier.weight(1f),
                 ) { Text("确认") }
