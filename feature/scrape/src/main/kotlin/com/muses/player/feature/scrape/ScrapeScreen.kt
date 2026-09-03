@@ -255,12 +255,18 @@ private fun PreviewStateContent(
         )
     }
     Column(Modifier.fillMaxSize()) {
+        // 命中分维度统计，避免"共命中却全—"的误导
+        val textHits = remember(state.items) { state.items.count { it.matchedTitle != null || it.matchedArtist != null || it.matchedAlbum != null } }
+        val coverHits = remember(state.items) { state.items.count { it.coverUrl != null } }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "共 ${state.items.size} 首命中，默认全不选，勾选后才写回",
+                buildString {
+                    append("文本命中 $textHits · 封面命中 $coverHits · 共 ${state.items.size} 首")
+                    append("，默认全不选")
+                },
                 fontSize = 13.sp,
                 color = salt.text2,
                 modifier = Modifier.weight(1f),
@@ -327,10 +333,12 @@ private fun PreviewStateContent(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Spacer(Modifier.height(2.dp))
-                            // 新值（编辑覆写后高亮）
+                            // 新值（编辑覆写后高亮）；三字段全空时补充“无文本变更”避免裸 — 歧义
                             val newTitle = item.resolvedTitle() ?: "—"
                             val newArtist = item.resolvedArtist() ?: "—"
                             val newAlbum = item.resolvedAlbum()
+                            val hasTextChange = item.resolvedTitle() != null || item.resolvedArtist() != null || item.resolvedAlbum() != null
+                            val hasCover = item.coverUrl != null
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     buildString {
@@ -339,17 +347,32 @@ private fun PreviewStateContent(
                                         append(" · ")
                                         append(newArtist)
                                         if (newAlbum != null) { append(" · "); append(newAlbum) }
+                                        if (!hasTextChange) append("（无文本变更）")
                                     },
                                     fontSize = 13.sp,
-                                    color = if (isEdited) salt.primary else salt.text,
+                                    color = if (isEdited) salt.primary else if (!hasTextChange) salt.text2 else salt.text,
                                     fontWeight = if (isEdited) FontWeight.SemiBold else FontWeight.Normal,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f),
                                 )
+                                // 维度徽标
+                                val dimLabel = when {
+                                    hasTextChange && hasCover -> "文本·封面"
+                                    hasTextChange -> "文本"
+                                    hasCover -> "封面"
+                                    else -> null
+                                }
+                                dimLabel?.let {
+                                    Box(
+                                        Modifier.padding(start = 4.dp).background(salt.surface2, RoundedCornerShape(4.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
+                                    ) {
+                                        Text(it, fontSize = 10.sp, color = salt.text2)
+                                    }
+                                }
                                 if (item.confidence != null) {
                                     Box(
-                                        Modifier.background(salt.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+                                        Modifier.padding(start = 4.dp).background(salt.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
                                     ) {
                                         Text(item.confidence!!, fontSize = 10.sp, color = salt.primary)
                                     }
@@ -363,7 +386,7 @@ private fun PreviewStateContent(
                                 }
                             }
                         }
-                        // 封面缩略
+                        // 封面缩略（命中维度区分文案）
                         if (item.coverUrl != null) {
                             AsyncImage(
                                 model = item.coverUrl,
@@ -372,11 +395,12 @@ private fun PreviewStateContent(
                                 contentScale = ContentScale.Crop,
                             )
                         } else {
+                            val coverPlaceholder = if (item.resolvedTitle() != null || item.resolvedArtist() != null) "仅文本命中" else "无封面"
                             Box(
                                 Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).background(salt.surface2),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Text("无封面", fontSize = 9.sp, color = salt.text2)
+                                Text(coverPlaceholder, fontSize = 8.sp, color = salt.text2, lineHeight = 9.sp, maxLines = 2)
                             }
                         }
                     }
