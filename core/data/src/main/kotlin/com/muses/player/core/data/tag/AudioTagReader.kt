@@ -316,6 +316,32 @@ class AudioTagReader @Inject constructor(
     }
 
     /**
+     * 失效指定音频源的缓存（刮削写文件成功后调用）。
+     * 清除内存 tagCache 与磁盘头部缓存，确保后续 readTags 重新下载/解析新文件内容。
+     */
+    fun invalidate(source: String) {
+        tagCache.remove(source)
+        try {
+            when {
+                source.startsWith("http://") || source.startsWith("https://") -> {
+                    getCacheFile(source).takeIf { it.exists() }?.delete()
+                }
+                source.startsWith("content://") -> {
+                    val hash = source.hashCode().toString(16)
+                    cacheDir.listFiles()?.forEach { file ->
+                        if (file.name.startsWith("content_${hash}_")) {
+                            file.delete()
+                        }
+                    }
+                }
+                // file:// 与绝对路径无下载缓存，仅清内存即可
+            }
+        } catch (_: Exception) {
+            // 缓存清理失败不影响主流程
+        }
+    }
+
+    /**
      * 读取标签并返回可用于更新 SongEntity 的数据
      *
      * @param path 音频文件路径或 URL

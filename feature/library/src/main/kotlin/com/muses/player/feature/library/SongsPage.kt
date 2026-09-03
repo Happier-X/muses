@@ -210,13 +210,17 @@ fun SongsPage(
                             shape = RoundedCornerShape(SaltRadius.sm),
                         ),
                         title = run {
-                            val isCurrent = song.id == currentSongId && song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
-                            if (isCurrent) currentMediaMetadata?.title?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: song.title else song.title
+                            val useMetaForTitle = song.id == currentSongId
+                                && song.metaSources?.title == null
+                                && song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
+                            if (useMetaForTitle) currentMediaMetadata?.title?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: song.title else song.title
                         },
                         subtitle = run {
-                            val isCurrent = song.id == currentSongId && song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
-                            val metaArtist = if (isCurrent) currentMediaMetadata?.artist?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
-                            val metaAlbum = if (isCurrent) currentMediaMetadata?.albumTitle?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
+                            val isCurrent = song.id == currentSongId
+                            val useMetaArtist = isCurrent && song.metaSources?.artist == null && song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
+                            val useMetaAlbum = isCurrent && song.metaSources?.album == null && song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
+                            val metaArtist = if (useMetaArtist) currentMediaMetadata?.artist?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
+                            val metaAlbum = if (useMetaAlbum) currentMediaMetadata?.albumTitle?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
                             "${metaArtist ?: song.artist ?: "未知艺术家"} - ${metaAlbum ?: song.album ?: "未知专辑"}"
                         },
                         // Web .songs-page :deep(.m-list-item)：72dp 行高/16-12px 字号/紧凑 after
@@ -265,8 +269,8 @@ fun SongsPage(
                                     }
                                 }
                             } else {
-                                val isCurrentCover = song.id == currentSongId && song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
-                                val displayCover = if (isCurrentCover) currentMediaMetadata?.artworkUri?.toString() ?: song.coverUri else song.coverUri
+                                val useMetaCover = song.id == currentSongId && song.metaSources?.cover == null && song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
+                                val displayCover = if (useMetaCover) currentMediaMetadata?.artworkUri?.toString() ?: song.coverUri else song.coverUri
                                 if (displayCover != null) {
                                     SaltCover(
                                         uri = displayCover,

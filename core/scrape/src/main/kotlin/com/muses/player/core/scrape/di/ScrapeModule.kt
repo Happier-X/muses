@@ -160,6 +160,7 @@ internal object ScrapeModule {
         fileWriter: AudioTagFileWriter,
         coverBytesFetcher: CoverBytesFetcher,
         historyStore: Lazy<ScrapeHistoryStore>,
+        audioTagReader: Lazy<com.muses.player.core.data.tag.AudioTagReader>,
     ): WritebackOrchestrator = WritebackOrchestrator(
         songRepository = songRepository,
         journalStore = journalStore,
@@ -167,5 +168,6 @@ internal object ScrapeModule {
         coverBytesFetcher = coverBytesFetcher,
         historySink = { entries -> historyStore.get().append(entries) },
         nowMs = { System.currentTimeMillis() },
+        audioTagCacheInvalidator = { path -> audioTagReader.get().invalidate(path) },
     )
 }

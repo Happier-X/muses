@@ -41,6 +41,8 @@ class WritebackOrchestrator(
     private val historySink: suspend (List<ScrapeHistoryEntry>) -> Unit = { },
     /** 时钟注入（测试用） */
     private val nowMs: () -> Long = System::currentTimeMillis,
+    /** 音频标签缓存失效器（写文件成功后清除 AudioTagReader 缓存，避免下次播放读旧缓存） */
+    private val audioTagCacheInvalidator: ((String) -> Unit)? = null,
 ) {
 
     /** applyScrapeChanges 返回值（Web：{ journalId, results }） */
@@ -216,6 +218,14 @@ class WritebackOrchestrator(
                     android.util.Log.w("Writeback", "writeOne ${candidate.songId} fileOk=${fileResult.ok} code=${fileResult.code} msg=${fileResult.message} changes=$changes")
                 } catch (_: Throwable) {
                     println("[Writeback] writeOne ${candidate.songId} fileOk=${fileResult.ok} code=${fileResult.code} msg=${fileResult.message} changes=$changes")
+                }
+                // 写文件成功后失效标签缓存，保证后续懒扫描读到新文件内容
+                if (fileResult.ok) {
+                    try {
+                        audioTagCacheInvalidator?.invoke(candidate.song.path)
+                    } catch (_: Exception) {
+                        // 缓存失效失败不影响主流程
+                    }
                 }
                 val libraryUpdated = updateSongInLibrary(candidate.songId, changes, fileResult.ok)
                 WritebackResult(

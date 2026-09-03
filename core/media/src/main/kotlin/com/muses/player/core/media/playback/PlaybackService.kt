@@ -274,31 +274,43 @@ class PlaybackService : MediaSessionService() {
                         }
                         // 播放时懒扫描：补齐 tagsVersion<1 的歌曲信息，Room Flow 自动刷新列表
                         // 契约：仅对 FILENAME_TAGS_VERSION(0) 执行，经 SongRepository 唯一入库路径以同步重建派生索引
+                        // 修复：已刮削字段（metaSources 非空）不得被文件旧标签覆盖（重刮削后播放旧值回归根因）
                         if (entity != null && entity.tagsVersion < LocalLibraryScanner.TAGS_VERSION) {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
                                     val tagData = audioTagReader.readTagForUpdate(entity.path, entity.id)
                                     if (tagData != null) {
-                                        val hasUpdate = !tagData.title.isNullOrBlank() ||
-                                            !tagData.artist.isNullOrBlank() ||
-                                            !tagData.album.isNullOrBlank() ||
-                                            tagData.coverUri != null ||
-                                            tagData.durationMs > 0
+                                        val domainBefore = entity.toDomain()
+                                        val ms = domainBefore.metaSources
+                                        // 已刮削字段跳过覆盖，未标记字段才允许用文件标签补齐
+                                        val resolvedTitle = if (ms?.title != null) domainBefore.title else tagData.title?.takeIf { it.isNotBlank() } ?: entity.title
+                                        val resolvedArtist = if (ms?.artist != null) domainBefore.artist else tagData.artist ?: entity.artist
+                                        val resolvedAlbum = if (ms?.album != null) domainBefore.album else tagData.album ?: entity.albumTitle
+                                        val resolvedCover = if (ms?.cover != null) domainBefore.coverUri else tagData.coverUri ?: entity.coverUri
+                                        // 歌词：有 scrape/embedded 标记时同样跳过（lyricsSource 非空视为已刮削）
+                                        val resolvedLyrics = if (domainBefore.lyricsSource != null && !domainBefore.lyrics.isNullOrBlank()) domainBefore.lyrics else tagData.lyrics ?: entity.lyrics
+                                        val hasUpdate = resolvedTitle != entity.title ||
+                                            resolvedArtist != entity.artist ||
+                                            resolvedAlbum != entity.albumTitle ||
+                                            resolvedCover != entity.coverUri ||
+                                            resolvedLyrics != entity.lyrics ||
+                                            tagData.durationMs > entity.durationMs
                                         if (hasUpdate) {
-                                            val domain = entity.toDomain().copy(
-                                                title = tagData.title?.takeIf { it.isNotBlank() } ?: entity.title,
-                                                artist = tagData.artist ?: entity.artist,
-                                                album = tagData.album ?: entity.albumTitle,
-                                                lyrics = tagData.lyrics ?: entity.lyrics,
-                                                coverUri = tagData.coverUri ?: entity.coverUri,
+                                            val domain = domainBefore.copy(
+                                                title = resolvedTitle,
+                                                artist = resolvedArtist,
+                                                album = resolvedAlbum,
+                                                lyrics = resolvedLyrics,
+                                                coverUri = resolvedCover,
                                                 durationMs = tagData.durationMs.coerceAtLeast(entity.durationMs),
                                                 durationSec = (tagData.durationMs / 1000).coerceAtLeast(entity.durationSec),
                                                 tagsVersion = LocalLibraryScanner.TAGS_VERSION,
                                             )
                                             songRepository.upsert(domain)
                                         } else {
-                                            // 无有效标签也标记已处理，避免对无标签文件重复 Range 请求；下次仍显示文件名
-                                            val domain = entity.toDomain().copy(tagsVersion = LocalLibraryScanner.TAGS_VERSION)
+                                            // 无实际更新：仍抬升 tagsVersion 以避免对已刮削歌曲重复 Range 请求
+                                            // （守卫已保证不覆盖刮削值；无标签文件亦按原契约抬升，下次显示文件名不重复探测）
+                                            val domain = domainBefore.copy(tagsVersion = LocalLibraryScanner.TAGS_VERSION)
                                             songRepository.upsert(domain)
                                         }
                                     }

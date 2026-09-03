@@ -200,9 +200,14 @@ class PlayerViewModel @Inject constructor(
         }
 
         // 粘性封面：有新封面即更新；新曲无 SongEntity 封面 → 沿用 metadata artwork；仅无当前曲才清空
+        // 修复：已刮削封面（metaCover 非空）时不回退旧文件封面，避免重刮削后封面被旧 ID3 覆盖
         when {
             song == null -> _stickyCover.value = null
             !song.coverUri.isNullOrEmpty() -> _stickyCover.value = song.coverUri
+            song.metaCover != null -> {
+                // 刮削标记存在但 coverUri 为空：表示刮削清空封面，不回退旧 metadata，避免复活旧封面
+                _stickyCover.value = null
+            }
             !metadataArtwork.isNullOrBlank() -> _stickyCover.value = metadataArtwork
             // 都无：保持旧粘性值（不闪默认底）
         }

@@ -102,11 +102,35 @@ class MainViewModel @Inject constructor(
             val metaArtist = combined.artist?.toString()?.trim()?.takeIf { it.isNotEmpty() }
             val metaAlbum = combined.albumTitle?.toString()?.trim()?.takeIf { it.isNotEmpty() }
             val metaCover = combined.artworkUri?.toString()
-            val useMeta = song == null || song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION
+            // 修复：已刮削字段（metaTitle/metaArtist/metaAlbum/metaCover 非空）优先库值，避免重刮削后仍显示旧文件标签
+            val title = when {
+                song == null -> metaTitle ?: "未知歌曲"
+                song.metaTitle != null -> song.title
+                song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION -> metaTitle ?: song.title
+                else -> song.title
+            }
+            val artist = when {
+                song == null -> metaArtist ?: "未知艺术家"
+                song.metaArtist != null -> song.artist ?: "未知艺术家"
+                song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION -> metaArtist ?: song.artist ?: "未知艺术家"
+                else -> song.artist ?: "未知艺术家"
+            }
+            val album = when {
+                song == null -> metaAlbum ?: "未知专辑"
+                song.metaAlbum != null -> song.albumTitle ?: "未知专辑"
+                song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION -> metaAlbum ?: song.albumTitle ?: "未知专辑"
+                else -> song.albumTitle ?: "未知专辑"
+            }
+            val cover = when {
+                song == null -> metaCover
+                song.metaCover != null -> song.coverUri
+                song.tagsVersion < com.muses.player.core.media.scanner.WebDavLibraryScanner.TAGS_VERSION -> metaCover ?: song.coverUri
+                else -> song.coverUri
+            }
             NowPlayingUiState(
-                title = if (useMeta) metaTitle ?: song?.title ?: "未知歌曲" else song.title,
-                subtitle = "${if (useMeta) metaArtist ?: song?.artist ?: "未知艺术家" else song.artist ?: "未知艺术家"} - ${if (useMeta) metaAlbum ?: song?.albumTitle ?: "未知专辑" else song.albumTitle ?: "未知专辑"}",
-                coverUri = if (useMeta) metaCover ?: song?.coverUri else song.coverUri,
+                title = title,
+                subtitle = "$artist - $album",
+                coverUri = cover,
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
