@@ -104,8 +104,6 @@ fun SongsPage(
     playerConnection: PlayerConnection?,
     /** M3：加入待刮削队列（经回调注入，feature:library 不直接依赖 core:scrape） */
     onEnqueueScrape: (List<String>) -> Unit = {},
-    /** 单曲即时刮削（B 方案浮层，由上层 app 宿主实现） */
-    onScrapeSingle: (Song) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SongsViewModel = hiltViewModel(),
 ) {
@@ -432,12 +430,6 @@ fun SongsPage(
         onDismiss = { actionSong = null },
         label = "歌曲操作",
         items = listOf(
-            SaltActionItem(label = "刮削", onClick = {
-                // Tagger 式就地审核：直达全屏审核页（不经刮削 Tab）
-                val song = actionSong
-                actionSong = null
-                if (song != null) onScrapeSingle(song)
-            }),
             SaltActionItem(label = "加入待刮削", onClick = {
                 val ids = listOfNotNull(currentId)
                 if (ids.isNotEmpty()) doEnqueue(ids)

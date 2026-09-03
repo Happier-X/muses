@@ -308,9 +308,6 @@ private fun AppNavHost(navController: NavHostController) {
             SongsPage(
                 playerConnection = playerConnection,
                 onEnqueueScrape = { ids -> scrapeVm.enqueue(ids) },
-                onScrapeSingle = { song ->
-                    navController.navigate(DetailRoutes.scrapeReview(song.id)) { launchSingleTop = true }
-                },
             )
         }
         composable(NavDestination.Albums.route) {
