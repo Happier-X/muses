@@ -31,7 +31,8 @@ object QQMusicQrcLyricsParser {
     private val qrcKey3 = "!@#)(*$%".toByteArray(Charsets.US_ASCII)
     private val lineTiming = Regex("^\\[(\\d+),(\\d+)](.*)$")
     private val backgroundTiming = Regex("^\\[bg:(\\d+),(\\d+)](.*)$", RegexOption.IGNORE_CASE)
-    private val wordTiming = Regex("\\((\\d+),(\\d+)\\)")
+    // 逐字 timing：真实 QRC 为三元 (start,duration,0)，老形态为二元 (start,duration)，都要兼容
+    private val wordTiming = Regex("\\((\\d+),(\\d+)(?:,(\\d+))?\\)")
     private val lyricContent = Regex("LyricContent=\"(.*?)\"", setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE))
     private const val AnnotationToleranceMs = 1_500L
     private const val OffsetConsistencyMs = 1_500L
@@ -180,17 +181,20 @@ object QQMusicQrcLyricsParser {
         return lines.sortedBy(LyricLine::timeMs)
     }
 
+    /**
+     * QRC 逐字切分：形态为 `(start,dur[,x])字(timing)字…`，每个 timing 之后、下一个 timing 之前的
+     * 文本归属该 timing；最后一个 timing 收到行尾（收尾字不丢失）。
+     */
     private fun parseQrcSyllables(content: String, lineStart: Long): List<LyricSyllable> = buildList {
         val matches = wordTiming.findAll(content).toList()
-        var textStart = 0
-        for (timing in matches) {
-            val textEnd = timing.range.first
-            if (textEnd < textStart) continue
-            val text = content.substring(textStart, textEnd)
-            textStart = timing.range.last + 1
-            if (text.isEmpty()) continue
-            val rawStart = timing.groupValues[1].toLongOrNull() ?: continue
-            val duration = timing.groupValues[2].toLongOrNull()?.coerceAtLeast(1L) ?: continue
+        matches.forEachIndexed { index, timing ->
+            val nextStart = matches.getOrNull(index + 1)?.range?.first ?: content.length
+            val afterStart = timing.range.last + 1
+            if (afterStart > nextStart) return@forEachIndexed
+            val text = content.substring(afterStart, nextStart)
+            if (text.isEmpty()) return@forEachIndexed
+            val rawStart = timing.groupValues[1].toLongOrNull() ?: return@forEachIndexed
+            val duration = timing.groupValues[2].toLongOrNull()?.coerceAtLeast(1L) ?: return@forEachIndexed
             val start = if (rawStart < lineStart && lineStart > 0L) lineStart + rawStart else rawStart
             add(LyricSyllable(text, start, start + duration))
         }
