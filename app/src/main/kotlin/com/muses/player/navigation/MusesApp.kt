@@ -305,10 +305,15 @@ private fun AppNavHost(navController: NavHostController) {
             val playerConnection = androidx.hilt.navigation.compose.hiltViewModel<com.muses.player.feature.player.PlayerViewModel>().playerConnection
             // M3：刮削队列入队（ScrapeQueueStore 为 @Singleton，经 hiltViewModel 载体注入）
             val scrapeVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            var singleScrapeSong by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.muses.player.core.model.Song?>(null) }
             SongsPage(
                 playerConnection = playerConnection,
                 onEnqueueScrape = { ids -> scrapeVm.enqueue(ids) },
+                onScrapeSingle = { singleScrapeSong = it },
             )
+            singleScrapeSong?.let { s ->
+                com.muses.player.feature.scrape.SingleScrapeSheet(song = s, onDismiss = { singleScrapeSong = null })
+            }
         }
         composable(NavDestination.Albums.route) {
             AlbumsPage(
