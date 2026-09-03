@@ -1736,3 +1736,26 @@ LocalLibraryScanner 新增 FILENAME_TAGS_VERSION，readTags=false 时 tagsVersio
 ### Status
 
 [OK] **Completed**
+
+
+## Session 125: 修复刮削预览命中展示混淆
+<!-- trellis-session: v=2 fp=8cccba6704f3932f -->
+
+**Date**: 2026-09-03
+**Task**: 修复刮削预览命中但新值为-的展示混淆
+**Branch**: `main`
+
+### Summary
+
+命中计数拆为文本/封面/去重共计，新行全空时补充（无文本变更）与维度徽标，封面占位区分仅文本命中，消除全—空白误导
+
+### Git Commits
+
+| Hash | Message |
+|------|----------|
+| `2245da8c` | fix(scrape): 预览命中分维度展示与空值文案 |
+| `f50ef7e7` | chore(task): archive 09-03-fix-scrape-preview-hit-display |
+
+### Status
+
+[OK] **Completed**
