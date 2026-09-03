@@ -34,8 +34,6 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -179,14 +177,12 @@ fun SongsPage(
 
     val outerHazeState = LocalMusesHazeState.current
     val navbarHazeState = rememberHazeState()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val context = androidx.compose.ui.platform.LocalContext.current
     fun doEnqueue(ids: List<String>) {
         if (ids.isEmpty()) return
         onEnqueueScrape(ids)
-        scope.launch {
-            val msg = if (ids.size == 1) "已加入待刮削队列" else "已加入 ${ids.size} 首到待刮削队列"
-            snackbarHostState.showSnackbar(msg)
-        }
+        val msg = if (ids.size == 1) "已加入待刮削队列" else "已加入 ${ids.size} 首到待刮削队列"
+        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
     }
     CompositionLocalProvider(LocalMusesHazeState provides navbarHazeState) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -477,8 +473,6 @@ fun SongsPage(
             onCancel = { exitMultiSelect() },
         )
     }
-
-    SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
 
     // ---- m-fab.songs-page__jump-fab：跳转到当前播放（与底部 MiniPlayer 同用全局 Haze，保证观感一致）----
     if (showJumpBubble) {
