@@ -1805,3 +1805,26 @@ SnackbarHost 被 MiniPlayerBar 遮挡，改为系统 Toast 居中轻提示，与
 ### Status
 
 [OK] **Completed**
+
+
+## Session 128: 刮削后封面与歌词可见
+<!-- trellis-session: v=2 fp=8cccba6704f3932f -->
+
+**Date**: 2026-09-03
+**Task**: 刮削后封面与歌词可见
+**Branch**: `main`
+
+### Summary
+
+Writeback 修复 coverRemoteUrl 未同步落库 coverUri/metaCover；Preview 扩展歌词字段与编辑，写回携带 lyrics，打通封面/歌词刮后可见链路
+
+### Git Commits
+
+| Hash | Message |
+|------|----------|
+| `9b63ebbf` | fix(scrape): 刮削后封面与歌词可见 |
+| `3c43d3a0` | chore(task): archive 09-03-scrape-cover-lyrics-visible |
+
+### Status
+
+[OK] **Completed**
