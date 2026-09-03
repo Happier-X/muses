@@ -30,6 +30,8 @@ dependencies {
     implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.material.icons)
     implementation(libs.coil.compose)
+    // 远程封面加载：Coil 3 网络引擎（okhttp 实现；不加则 AsyncImage 加载 https 静默失败）
+    implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.lifecycle.runtime.compose)
     // 真磨砂：底部 MiniPlayer / 顶部导航的 Haze 背景模糊（api 透传给 feature:* 页面）
     api(libs.haze)

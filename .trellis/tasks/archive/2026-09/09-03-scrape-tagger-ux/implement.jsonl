@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/android/index.md", "reason": "Android 分层架构与 feature/core 依赖红线（feature 禁依赖 Room/OkHttp，跨模块走接口+Hilt）"}
+{"file": ".trellis/spec/android/features-scrape-engine.md", "reason": "刮削引擎权威契约：写回五步、限流 429、负缓存、协程 rethrow 红线、jaudiotagger 踩坑，本任务复用 EditCloudMetaSearch 与 WritebackOrchestrator 必读"}
+{"file": ".trellis/spec/android/features-salt-ui.md", "reason": "Salt UI 组件与设计令牌规范，新建 ScrapeReviewScreen 全屏页需对齐"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本次改动跨 app/feature:scrape/feature:library 三层接线，需按跨层检查法自查数据流"}
+{"file": ".trellis/tasks/09-03-scrape-tagger-ux/research/tagger-ux-analysis.md", "reason": "Tagger 操作逻辑与 muses 痛点对照表，PRD 需求来源"}
