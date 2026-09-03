@@ -47,44 +47,5 @@ class TagReaderTest {
         assertNull(tags.title)
         assertNull(tags.artist)
         assertNull(tags.album)
-        assertNull(tags.replayGainTrackDb)
-    }
-
-    // ---- ReplayGain 解析 ----
-
-    @Test
-    fun `ReplayGain dB 字符串解析`() {
-        assertEquals(-6.54, TagReader.parseReplayGainDbString("-6.54 dB")!!, 1e-9)
-        assertEquals(1.2, TagReader.parseReplayGainDbString("+1.2")!!, 1e-9)
-        assertEquals(-3.0, TagReader.parseReplayGainDbString("-3 db")!!, 1e-9)
-        assertNull(TagReader.parseReplayGainDbString("not-a-number"))
-        assertNull(TagReader.parseReplayGainDbString(""))
-        assertNull(TagReader.parseReplayGainDbString(null))
-    }
-
-    @Test
-    fun `R128 Q7点8 整数按除以256换算`() {
-        // Opus 常见 R128_TRACK_GAIN = -1697 → -6.63dB 左右
-        val q78 = TagReader.normalizeReplayGainDbValue(-1697.0)!!
-        assertEquals(-6.62890625, q78, 1e-9)
-        // 常规 dB 直接透传
-        assertEquals(-8.0, TagReader.normalizeReplayGainDbValue(-8.0)!!, 1e-9)
-        // 超出合理区间且换算后仍非法 → 丢弃
-        assertNull(TagReader.normalizeReplayGainDbValue(Double.NaN))
-        assertNull(TagReader.normalizeReplayGainDbValue(999999.0))
-    }
-
-    @Test
-    fun `从 Vorbis 标签读取 ReplayGain track gain`() {
-        val tag = VorbisCommentTag().apply {
-            setField("REPLAYGAIN_TRACK_GAIN", "-7.89 dB")
-        }
-        val db = TagReader.parseReplayGainTrackDb(tag)!!
-        assertEquals(-7.89, db, 1e-9)
-    }
-
-    @Test
-    fun `无 RG 标签时返回 null 而非假增益`() {
-        assertNull(TagReader.parseReplayGainTrackDb(id3Tag(title = "t")))
     }
 }

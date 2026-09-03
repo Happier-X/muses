@@ -160,8 +160,6 @@ class PlaybackStateRepository @Inject constructor(private val dataStore: DataSto
         PlayerConfig(
             repeatMode = RepeatMode.entries.firstOrNull { it.wire == repeatWire } ?: RepeatMode.ALL,
             shuffleEnabled = root.str("shuffleEnabled") == "true",
-            // 旧 config 缺键时默认 true；仅显式 false 关闭（queue.ts loadConfig）
-            loudnessNormalizeEnabled = root.str("loudnessNormalizeEnabled") != "false",
         )
     }.getOrNull()
 
@@ -174,7 +172,6 @@ class PlaybackStateRepository @Inject constructor(private val dataStore: DataSto
             put("version", JsonPrimitive(SNAPSHOT_VERSION.toString()))
             put("repeatMode", JsonPrimitive(config.repeatMode.wire))
             put("shuffleEnabled", JsonPrimitive(config.shuffleEnabled.toString()))
-            put("loudnessNormalizeEnabled", JsonPrimitive(config.loudnessNormalizeEnabled.toString()))
         }
         dataStore.edit { prefs ->
             prefs[CONFIG_KEY] = json.encodeToString(JsonObject.serializer(), body)

@@ -47,7 +47,6 @@ fun SongEntity.toDomain(): Song = Song(
         album = fieldSourceOf(metaAlbum),
         cover = fieldSourceOf(metaCover),
     ).takeIf { it.title != null || it.artist != null || it.album != null || it.cover != null },
-    replayGainTrackDb = replayGainTrackDb,
     sourceType = runCatching { SourceType.valueOf(sourceType) }.getOrDefault(SourceType.LOCAL),
     tagsVersion = tagsVersion,
 )
@@ -70,7 +69,6 @@ fun Song.toEntity(): SongEntity = SongEntity(
     metaArtist = metaSources?.artist?.wire,
     metaAlbum = metaSources?.album?.wire,
     metaCover = metaSources?.cover?.wire,
-    replayGainTrackDb = replayGainTrackDb,
     tagsVersion = tagsVersion,
 )
 

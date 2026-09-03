@@ -13,9 +13,10 @@ import com.muses.player.core.data.dao.SourceDao
  *
  * - v1：songs / albums / artists / song_album_cross_ref / song_artist_cross_ref / sources
  * - v2：playlists / playlist_songs（M2 阶段 2，迁移见 [MIGRATION_1_2]）
- * - v3：songs.replayGainTrackDb（M2 阶段 3 响度均衡，迁移见 [MIGRATION_2_3]）
+ * - v3：songs.replayGainTrackDb（M2 阶段 3 响度均衡，已在 v6 移除，迁移见 [MIGRATION_2_3] / [MIGRATION_5_6]）
  * - v4：songs 刮削写回列 lyricsFormat/lyricsSource/meta*（M3，迁移见 [MIGRATION_3_4]）
  * - v5：sources.username（WebDAV 登录名，迁移见 [MIGRATION_4_5]）
+ * - v6：移除 songs.replayGainTrackDb（移除音量均衡，迁移见 [MIGRATION_5_6]）
  */
 @Database(
     entities = [
@@ -28,7 +29,7 @@ import com.muses.player.core.data.dao.SourceDao
         PlaylistEntity::class,
         PlaylistSongEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class MusesDatabase : RoomDatabase() {

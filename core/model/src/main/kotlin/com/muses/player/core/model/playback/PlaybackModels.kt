@@ -14,13 +14,11 @@ enum class RepeatMode(val wire: String) {
 
 /**
  * 播放器配置（queue.ts PlayerConfig）。
- * 默认值对齐 defaultConfig()：all / false / loudness=true（缓解曲库响度不一 #46）。
+ * 默认值对齐 defaultConfig()：all / false。
  */
 data class PlayerConfig(
     val repeatMode: RepeatMode = RepeatMode.ALL,
     val shuffleEnabled: Boolean = false,
-    /** 根据歌曲 ReplayGain 标签做音量均衡；默认开启 */
-    val loudnessNormalizeEnabled: Boolean = true,
 )
 
 /** 队列条目：仅存 songId，恢复时按曲库解析完整歌曲（queue.ts QueueItem） */

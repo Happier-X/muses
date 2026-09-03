@@ -70,7 +70,6 @@ class LocalLibraryScanner @Inject constructor(
                 durationSec = (item.durationMs ?: 0L) / 1000L,
                 coverUri = tags.coverBytes?.let { CoverCacheWriter.write(context, stableSongId(sourceId, item.data), it) },
                 lyrics = tags.lyrics,
-                replayGainTrackDb = tags.replayGainTrackDb,
                 sourceType = SourceType.LOCAL,
                 tagsVersion = if (readTags) TAGS_VERSION else FILENAME_TAGS_VERSION,
             )
@@ -140,7 +139,7 @@ class LocalLibraryScanner @Inject constructor(
         if (!file.exists() || file.length() <= 0L) return TagReaderResult.empty
         return try {
             val tags = TagReader.read(file)
-            TagReaderResult(tags.title, tags.artist, tags.album, tags.lyrics, tags.replayGainTrackDb, tags.coverBytes)
+            TagReaderResult(tags.title, tags.artist, tags.album, tags.lyrics, tags.coverBytes)
         } catch (_: Exception) {
             TagReaderResult.empty
         }
@@ -151,11 +150,10 @@ class LocalLibraryScanner @Inject constructor(
         val artist: String?,
         val album: String?,
         val lyrics: String?,
-        val replayGainTrackDb: Double?,
         val coverBytes: ByteArray?,
     ) {
         companion object {
-            val empty = TagReaderResult(null, null, null, null, null, null)
+            val empty = TagReaderResult(null, null, null, null, null)
         }
     }
 

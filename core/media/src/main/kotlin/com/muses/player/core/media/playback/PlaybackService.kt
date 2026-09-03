@@ -22,11 +22,9 @@ import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.PlaybackStateRepository
 import com.muses.player.core.data.repository.RecentPlaysRepository
-import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.tag.AudioTagReader
 import com.muses.player.core.media.scanner.LocalLibraryScanner
-import com.muses.player.core.media.loudness.LoudnessController
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +56,6 @@ class PlaybackService : MediaSessionService() {
     @Inject
     lateinit var playbackCache: SimpleCache
 
-    @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var songDao: SongDao
     @Inject lateinit var playbackStateRepository: PlaybackStateRepository
     @Inject lateinit var recentPlaysRepository: RecentPlaysRepository
@@ -72,7 +69,6 @@ class PlaybackService : MediaSessionService() {
     // ExoPlayer 强制主线程访问（player-accessed-on-wrong-thread 崩溃防护），
     // 服务生命周期本就在主线程；Room/DataStore 挂起调用内部自行切 IO
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var loudnessController: LoudnessController? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -114,10 +110,6 @@ class PlaybackService : MediaSessionService() {
         val notificationProvider = DefaultMediaNotificationProvider(this)
         notificationProvider.setSmallIcon(android.R.drawable.ic_media_play)
         setMediaNotificationProvider(notificationProvider)
-
-        // 响度均衡：挂在服务侧 ExoPlayer 上（MediaController 无 volume 能力）
-        loudnessController = LoudnessController(player, settingsRepository, songDao, serviceScope)
-            .also { it.start() }
 
         // 播放持久化（任务 08-25-native-playback-persistence / P1）
         player.addListener(persistenceListener)
@@ -348,9 +340,6 @@ class PlaybackService : MediaSessionService() {
                 withTimeoutOrNull(2_000) { saveSnapshotNow(player) }
             }
         }
-        // 响度均衡先停，避免释放中的 player 还被回调
-        loudnessController?.stop()
-        loudnessController = null
         serviceScope.cancel()
         mediaSession?.run {
             player.release()

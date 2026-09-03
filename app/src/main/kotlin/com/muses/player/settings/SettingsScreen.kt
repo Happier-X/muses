@@ -23,7 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,10 +48,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.log.ErrorLogStore
-import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.ui.components.SaltListItem
 import com.muses.player.core.ui.components.SaltNavbar
-import com.muses.player.core.ui.components.SaltToggle
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
@@ -72,18 +69,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository,
     private val errorLogStore: ErrorLogStore,
 ) : ViewModel() {
-
-    val loudnessEnabled: StateFlow<Boolean> = settingsRepository.loudnessEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
-    fun setLoudnessEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setLoudnessEnabled(enabled)
-        }
-    }
 
     /** 最近错误摘要 —— 供「复制报错日志」条目副标题 */
     val latestErrorSummary: StateFlow<String?> = errorLogStore.latestSummary
@@ -108,7 +95,6 @@ fun SettingsScreen(
     val salt = LocalSaltColors.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val loudnessEnabled by viewModel.loudnessEnabled.collectAsState()
     var checking by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
@@ -179,33 +165,6 @@ fun SettingsScreen(
                     },
                 )
             }
-
-            // ---- 音频 ----
-            SettingsBlockTitle(text = "音频")
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = SaltSpacing.spacingSub)
-                    .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
-                    .padding(vertical = 4.dp),
-            ) {
-                // 音量均衡（m-toggle）
-                SaltListItem(
-                    title = "音量均衡",
-                    subtitle = "根据歌曲自带的 ReplayGain 等标签统一响度（含 +6 dB 听感补偿）。无标签不改变；过静曲无法超过系统满幅。若整体仍偏小可关闭本开关。",
-                    onClick = null,
-                    leading = {
-                        SettingsIcon(icon = Icons.Filled.VolumeUp)
-                    },
-                    after = {
-                        SaltToggle(
-                            checked = loudnessEnabled,
-                            onCheckedChange = { viewModel.setLoudnessEnabled(it) },
-                        )
-                    },
-                )
-            }
-
-            Spacer(Modifier.height(24.dp))
 
             // ---- 反馈 ----（任务 08-26-settings-log-viewer）
             val latestSummary by viewModel.latestErrorSummary.collectAsState()

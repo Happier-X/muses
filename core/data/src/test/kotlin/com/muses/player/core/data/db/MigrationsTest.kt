@@ -60,6 +60,36 @@ class MigrationsTest {
     }
 
     @Test
+    fun `MIGRATION_5_6_移除replayGainTrackDb列`() {
+        val db = openWritableDatabase(5) { sql ->
+            sql.execSQL(
+                "CREATE TABLE IF NOT EXISTS `songs` (`id` TEXT NOT NULL, `sourceId` TEXT NOT NULL, " +
+                    "`sourceType` TEXT NOT NULL, `path` TEXT NOT NULL, `title` TEXT NOT NULL, " +
+                    "`artist` TEXT, `albumTitle` TEXT, `durationMs` INTEGER NOT NULL, " +
+                    "`durationSec` INTEGER NOT NULL, `coverUri` TEXT, `lyrics` TEXT, `lyricsFormat` TEXT, " +
+                    "`lyricsSource` TEXT, `metaTitle` TEXT, `metaArtist` TEXT, `metaAlbum` TEXT, `metaCover` TEXT, " +
+                    "`replayGainTrackDb` REAL, `tagsVersion` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+            )
+            sql.execSQL("CREATE INDEX IF NOT EXISTS `index_songs_sourceId` ON `songs` (`sourceId`)")
+            sql.execSQL(
+                "INSERT INTO `songs` VALUES ('s1','src','LOCAL','/a.mp3','t','ar','al',1000,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL, -6.5, 1)",
+            )
+        }
+        MIGRATION_5_6.migrate(db)
+        val columns = mutableListOf<String>()
+        db.query("PRAGMA table_info(`songs`)").use { cursor ->
+            val nameIdx = cursor.getColumnIndex("name")
+            while (cursor.moveToNext()) columns.add(cursor.getString(nameIdx))
+        }
+        assertTrue("不应再有 replayGainTrackDb", !columns.contains("replayGainTrackDb"))
+        assertTrue(columns.contains("title"))
+        db.query("SELECT `id`,`title`,`tagsVersion` FROM `songs` WHERE `id`='s1'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("s1", c.getString(0))
+        }
+    }
+
+    @Test
     fun `MIGRATION_3_4_songs新增刮削六列`() {
         val db = openWritableDatabase(3) { sql ->
             sql.execSQL(

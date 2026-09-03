@@ -35,7 +35,6 @@ data class SongEntity(
     @ColumnInfo(name = "metaArtist") val metaArtist: String? = null,
     @ColumnInfo(name = "metaAlbum") val metaAlbum: String? = null,
     @ColumnInfo(name = "metaCover") val metaCover: String? = null,
-    @ColumnInfo(name = "replayGainTrackDb") val replayGainTrackDb: Double? = null,
     @ColumnInfo(name = "tagsVersion") val tagsVersion: Int = 0,
 )
 

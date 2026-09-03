@@ -29,8 +29,6 @@ data class Song(
     val lyricsSource: LyricsSource? = null,
     /** 各字段来源标记（M3 刮削写回链路；null = 全部未标记） */
     val metaSources: MetaSources? = null,
-    /** ReplayGain track gain（dB），非法标签不入库（null = 无增益） */
-    val replayGainTrackDb: Double? = null,
     val sourceType: SourceType = SourceType.LOCAL,
     /** 标签解析器版本号；每次扫描写入当前版本 */
     val tagsVersion: Int = 0,

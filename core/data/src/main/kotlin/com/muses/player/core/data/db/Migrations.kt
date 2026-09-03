@@ -56,3 +56,41 @@ val MIGRATION_4_5: Migration = object : Migration(4, 5) {
         db.execSQL("ALTER TABLE `sources` ADD COLUMN `username` TEXT DEFAULT NULL")
     }
 }
+
+/** v5 → v6：移除 songs.replayGainTrackDb（移除音量均衡，重建表兼容旧 SQLite） */
+val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `songs_new` (" +
+                "`id` TEXT NOT NULL, " +
+                "`sourceId` TEXT NOT NULL, " +
+                "`sourceType` TEXT NOT NULL, " +
+                "`path` TEXT NOT NULL, " +
+                "`title` TEXT NOT NULL, " +
+                "`artist` TEXT, " +
+                "`albumTitle` TEXT, " +
+                "`durationMs` INTEGER NOT NULL, " +
+                "`durationSec` INTEGER NOT NULL, " +
+                "`coverUri` TEXT, " +
+                "`lyrics` TEXT, " +
+                "`lyricsFormat` TEXT, " +
+                "`lyricsSource` TEXT, " +
+                "`metaTitle` TEXT, " +
+                "`metaArtist` TEXT, " +
+                "`metaAlbum` TEXT, " +
+                "`metaCover` TEXT, " +
+                "`tagsVersion` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`))",
+        )
+        db.execSQL(
+            "INSERT INTO `songs_new` " +
+                "(`id`,`sourceId`,`sourceType`,`path`,`title`,`artist`,`albumTitle`,`durationMs`,`durationSec`,`coverUri`,`lyrics`,`lyricsFormat`,`lyricsSource`,`metaTitle`,`metaArtist`,`metaAlbum`,`metaCover`,`tagsVersion`) " +
+                "SELECT `id`,`sourceId`,`sourceType`,`path`,`title`,`artist`,`albumTitle`,`durationMs`,`durationSec`,`coverUri`,`lyrics`,`lyricsFormat`,`lyricsSource`,`metaTitle`,`metaArtist`,`metaAlbum`,`metaCover`,`tagsVersion` FROM `songs`",
+        )
+        db.execSQL("DROP TABLE `songs`")
+        db.execSQL("ALTER TABLE `songs_new` RENAME TO `songs`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_songs_sourceId` ON `songs` (`sourceId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_songs_title` ON `songs` (`title`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_songs_albumTitle` ON `songs` (`albumTitle`)")
+    }
+}

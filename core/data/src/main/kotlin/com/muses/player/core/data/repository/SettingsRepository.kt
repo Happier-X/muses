@@ -15,17 +15,12 @@ interface SettingsRepository {
     /** 上次完成扫描的时间戳（epoch millis，0 = 从未扫描） */
     val lastScanTimestamp: Flow<Long>
 
-    /** 响度均衡开关（默认关；语义见 spec/frontend/features-player.md 响度均衡小节） */
-    val loudnessEnabled: Flow<Boolean>
-
     /** M3 自动补缺：扫描入库后对无标签歌曲自动加入刮削队列（默认关，DataStore 手动改） */
     val autoScrapeEnabled: Flow<Boolean>
 
     suspend fun setAutoScrapeEnabled(enabled: Boolean)
 
     suspend fun updateLastScanTimestamp(timestampMillis: Long)
-
-    suspend fun setLoudnessEnabled(enabled: Boolean)
 }
 
 @Singleton
@@ -36,18 +31,11 @@ class DataStoreSettingsRepository @Inject constructor(
     override val lastScanTimestamp: Flow<Long>
         get() = dataStore.data.map { prefs -> prefs[LAST_SCAN_TIMESTAMP] ?: 0L }
 
-    override val loudnessEnabled: Flow<Boolean>
-        get() = dataStore.data.map { prefs -> prefs[LOUDNESS_ENABLED] == true }
-
     override val autoScrapeEnabled: Flow<Boolean>
         get() = dataStore.data.map { prefs -> prefs[AUTO_SCRAPE_ENABLED] == true }
 
     override suspend fun updateLastScanTimestamp(timestampMillis: Long) {
         dataStore.edit { prefs -> prefs[LAST_SCAN_TIMESTAMP] = timestampMillis }
-    }
-
-    override suspend fun setLoudnessEnabled(enabled: Boolean) {
-        dataStore.edit { prefs -> prefs[LOUDNESS_ENABLED] = enabled }
     }
 
     override suspend fun setAutoScrapeEnabled(enabled: Boolean) {
@@ -56,7 +44,6 @@ class DataStoreSettingsRepository @Inject constructor(
 
     private companion object {
         val LAST_SCAN_TIMESTAMP = longPreferencesKey("last_scan_timestamp")
-        val LOUDNESS_ENABLED = booleanPreferencesKey("loudness_enabled")
         val AUTO_SCRAPE_ENABLED = booleanPreferencesKey("auto_scrape_enabled")
     }
 }

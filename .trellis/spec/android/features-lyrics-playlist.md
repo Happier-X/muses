@@ -8,7 +8,7 @@
 
 - 改动 `feature/player/lyric/*`（AmllWebView、LyricsParser、AmllMapper）、`frontend/amll-web/`（AMLL 前端页面）
 - 改动 `feature/playlist/*`、播放列表 Room 表
-- 改动响度均衡链路（LoudnessCalculator/LoudnessController/replayGainTrackDb 列）
+- （已移除，09-03）响度均衡链路（LoudnessCalculator/LoudnessController/replayGainTrackDb）已删除
 
 ## 1. AMLL 渲染 = 原生自研（09-02 起，手搓，WebView 已下线）
 
@@ -67,13 +67,10 @@ playlist_songs(playlistId FK→playlists CASCADE, songId FK→songs CASCADE, pos
 - 整体入队：`PlaylistRepository.getSongs(id)` → `PlayerConnection.play(first.id, songs)`；空列表早退。
 - 迁移只向前追加，不改既有表；新增列用 `ALTER TABLE ... ADD COLUMN ... DEFAULT NULL`。
 
-## 6. 响度均衡（服务侧应用）
+## 6. 响度均衡（已移除，09-03）
 
-- **音量必须设在服务侧 ExoPlayer 上**（`PlaybackService` 的 player）；MediaController 无 volume 能力。`PlaybackService` 已 `@AndroidEntryPoint`，onCreate 组装 `LoudnessController(player, settingsRepository, songDao, serviceScope)`，onDestroy **先 stop controller/serviceScope 再 release player**。
-- 计算语义（照搬 Web 层 loudness.ts）：`volume = clamp(10^((db+6)/20), 0.1, 1.0)`；关闭或 gain=null → 1.0；超 ±30dB 先走 Q7.8 ÷256 兜底换算，仍越界才丢弃。
-- 切歌必重算（onMediaItemTransition），禁止串曲增益；开关变化即时对当前曲重设。写入 volume 必须**单飞**（取消上一个在途 applyJob 再启动，防快速切歌乱序覆盖）。
-- 默认关（DataStore `loudness_enabled`）；设置页 UI 入口留 M3。
-- RG 数据链路：TagReader 别名扫描/TXXX → normalize（÷256 + 校验）→ SongEntity.replayGainTrackDb → LoudnessController 按 mediaId 反查。
+- **09-03 起已彻底移除**：`core/media/loudness/`（`LoudnessCalculator`/`LoudnessController`）、`Song/SongEntity.replayGainTrackDb`、`TagReader` 的 RG 解析、`PlaybackService` 的 `LoudnessController` 挂载、`SettingsRepository.loudnessEnabled`（`loudness_enabled`）与 `PlayerConfig.loudnessNormalizeEnabled`、设置页「音量均衡」Toggle 均已删除；`MusesDatabase` 升至 v6 并以 `MIGRATION_5_6` 重建 `songs` 表去掉该列。
+- 归档实现（历史可回溯，勿重新引入）：原计算语义为 `volume = clamp(10^((db+6)/20), 0.1, 1.0)` 且 Q7.8 ÷256 兜底，音量设在服务侧 ExoPlayer；现 `player.volume` 恒 1.0。
 
 ## 7. 沉浸式播放页（纯原生 Compose，09-02 起自研）
 
@@ -119,7 +116,7 @@ position (500ms) / lyricPosition (100ms, coerceAtMost lastLineEnd) -> PlayerScre
 - MeloXIOSLyricsPanelTest（新增）：逐词 alpha/weight、和声 italic、翻译显隐、点击 seek、空态
 - MeloXFlowingLightBackdropTest（新增）：无封面 fallback 纵向渐变、有封面 blur+scrim、flowSpeed 周期
 - PlaylistDaoTest / PlaylistRepositoryTest：CRUD、去重追加、紧凑重排、双 CASCADE
-- LoudnessCalculatorTest：Q7.8 换算、边界兜底、clamp 双端、开关/无标签恒 1.0
+- （已移除）LoudnessCalculatorTest 已随功能删除
 
 ## 错误行为矩阵
 
@@ -128,8 +125,8 @@ position (500ms) / lyricPosition (100ms, coerceAtMost lastLineEnd) -> PlayerScre
 | 歌词解析失败/空 | null → 空 payload，背景照常渲染 |
 | payload JSON 含引号/换行 | quote() 转义后嵌入 JS 字符串字面量 |
 | 封面为 file:// 非 cacheDir | 映射返回 null → 前端粘性沿用 |
-| RG 标签非法（换算后仍超 ±30） | 丢弃不入库，播放按无标签处理 |
-| 快速连点切歌 | 单飞 applyJob 取消旧查询，最终一致为新曲增益 |
+| （已移除）RG 标签相关行为已删除 | — |
+| 快速连点切歌 | 仅保留快照节流，与响度无关 |
 
 15. **MuMu 的 screencap 截不到 WebView 硬件合成层**（截图纯黑但实际屏幕正常）——排查 WebView 页面"黑屏"必须用 uiautomator dump --compressed 读 accessibility 树或 CDP，勿信截图
 

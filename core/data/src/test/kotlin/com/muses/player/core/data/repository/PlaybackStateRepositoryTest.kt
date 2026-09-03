@@ -69,24 +69,20 @@ class PlaybackStateRepositoryTest {
         val config = newRepo().readConfig()
         assertEquals(RepeatMode.ALL, config.repeatMode)
         assertEquals(false, config.shuffleEnabled)
-        // 缺键时 loudness 默认 true；仅显式 false 关闭
-        assertEquals(true, config.loudnessNormalizeEnabled)
     }
 
     @Test
-    fun `配置显式false关闭loudness且roundtrip`() = runTest {
+    fun `配置roundtrip`() = runTest {
         val repo = newRepo()
         repo.writeConfig(
             com.muses.player.core.model.playback.PlayerConfig(
                 repeatMode = RepeatMode.ONE,
                 shuffleEnabled = true,
-                loudnessNormalizeEnabled = false,
             ),
         )
         val read = repo.readConfig()
         assertEquals(RepeatMode.ONE, read.repeatMode)
         assertTrue(read.shuffleEnabled)
-        assertEquals(false, read.loudnessNormalizeEnabled)
     }
 
     // 反射规避 private decode 的桥接：直接走 write+read 验证容错语义
