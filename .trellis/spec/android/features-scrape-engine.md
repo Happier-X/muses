@@ -23,10 +23,22 @@ core:scrape
 - **Room v4**：songs 表新增 `lyricsFormat/lyricsSource/metaTitle/metaArtist/metaAlbum/metaCover` 六列（MIGRATION_3_4）；Song 领域模型对应扩展
 - **歌词维度边界**：editmeta 只做编排（去重 key=`source\1format\1text[0..120]`、ttml/yrc/qrc 优先粗排），具体歌词 provider 与 AMLL 聚合通过 `LyricsSearchPort` 注入，本任务不接线
 
-## UI 接线契约（08-26-m3-scrape-metadata）
+## UI 接线契约（08-26-m3-scrape-metadata，09-03-scrape-tagger-ux 增补）
 
 - **feature:scrape**：ScrapeScreen 四态机（queue/matching/preview/result）+ ScrapeViewModel 编排
   TextMetaMatcher+CoverMatcher+WritebackOrchestrator；ScrapeQueueAccessViewModel 供跨页面入队
+- **快慢双链分层（09-03）**：快链（TextMetaMatcher/CoverMatcher，命中即停+负缓存）用于批量匹配；
+  全链（EditCloudMetaSearch，三维多候选+AbortSignal）用于审核页查询与改词重搜。引擎层零改动是刻意决策，
+  不得把 TextMetaMatcher 改为多源聚合（批量在 250ms 限流下速度退化 + 119 单测回归面大）
+- **审核页（09-03）**：`ScrapeReviewScreen/ScrapeReviewViewModel` 全屏导航页（路由 `scrape_review?songId=&queue=`），
+  歌曲列表 ⋮「刮削」直达；文本候选整体切换 + 逐字段覆写 + 封面/歌词多候选 + AbortSignal 重搜；
+  写回成功即出队（与批量 confirmWriteback 语义一致）
+- **预览未命中分组（09-03）**：`ScrapePageState.Preview.noMatchIds`（NO_MATCH）与 `_throttledIds`（NETWORK）分开列出，
+  行内重试 + 「去审核」改词重搜；匹配失败不得静默消失
+- **逐首审核（09-03）**：`ReviewQueueTracker` 纯状态机（start/advance/cancel/remove，可单测）+ 宿主按
+  Scrape 页回退栈取同 VM 实例推进（`navController.getBackStackEntry(Scrape.route)`，不可跨 destination 直接 hiltViewModel）；
+  成功页/手动返回清队列，不强推；外部写回后 `refreshAfterExternalWriteback` 同步预览
+- **写回安全红线（09-03 演进）**：默认勾选有值且有差异的字段（2a5c4b0d/91b7c13c 起），「应用（N）」enabled 绑定勾选非空
 - **写回安全红线**：预览候选 `checked = false` 默认全不选；「写回选中」按钮 enabled 绑定 any{checked}
 - **歌曲页入口**：经 `onEnqueueScrape` 回调注入（feature:library 不直接依赖 core:scrape）；
   MultiselectBottomBar 与 ⋮ 菜单两处入口

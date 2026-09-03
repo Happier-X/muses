@@ -51,4 +51,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
 
     debugImplementation(libs.compose.ui.tooling)
+
+    // S4：待审队列状态机单测（纯 JVM）
+    testImplementation(libs.junit)
 }
