@@ -1903,3 +1903,25 @@ Writeback 修复 coverRemoteUrl 未同步落库 coverUri/metaCover；Preview 扩
 ### Status
 
 [OK] **Completed**
+
+
+## Session 131: YRC 解析分支修复
+<!-- trellis-session: v=2 fp=135468d473bcbbb4 -->
+
+**Date**: 2026-09-03
+**Task**: YRC 解析分支修复
+**Branch**: `main`
+
+### Summary
+
+播放页加 YRC 分支（防 KRC 误食）+parseYrc 兼容无行头行；单测3项；用户模拟器确认《为何我》显示正常
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c599b32d` | fix(lyrics): 播放页加 YRC 解析分支并兼容无行头行 |
+
+### Status
+
+[OK] **Completed**
