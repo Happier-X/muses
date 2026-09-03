@@ -68,7 +68,7 @@ fun SingleScrapeSheet(
         containerColor = salt.surface,
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-            Text("刮削 - ${song.title}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = salt.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("刮削元数据 - ${song.title}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = salt.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(12.dp))
             when (val s = state) {
                 is SingleScrapeState.Searching -> {
