@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 122
+- **Total Sessions**: 129
 - **Last Active**: 2026-09-03
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1690 | Active |
+| `journal-3.md` | ~1883 | Active |
 | `journal-2.md` | ~1993 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 129 | 2026-09-03 | 刮削 Tagger 式审核流 | `83875e8d` | `main` |
 | 122 | 2026-09-03 | 移除音量均衡功能 | `26597fa3`, `15d9621e` | `main` |
 | 121 | 2026-09-02 | 修复 FLAC 刮削回传 ImageIO 崩溃 | `e88a8245`, `bff6ca4a` | `main` |
 | 113 | 2026-09-01 | 本地扫描未勾选标签时像 WebDAV 一样懒补充 | `e6fb9043`, `c6bfca76` | `main` |

@@ -1842,3 +1842,42 @@ Writeback 修复 coverRemoteUrl 未同步落库 coverUri/metaCover；Preview 扩
 **Commits**：`2a5c4b0d` feat(scrape): 单曲浮层逐字段勾选与批量 → `b646504e` refactor(scrape): 单曲⋮菜单用即时刮削替换旧入队逻辑
 
 **Still broken**：封面刮后仍不展示——需 logcat 定位 `coverUri` 是否真落库。下一步查 `Writeback` 日志。
+
+## 2026-09-03 刮削页预览升级为逐字段 Checkbox
+
+**Why**：用户要把 MusicTag/Picard 的逐字段打勾体验做到刮削页的批量预览流里，而不是单独的弹出浮层。
+
+**做了什么**：
+1. `PreviewCandidate` 新增 `checkedFields: Set<String>`，每首匹配后默认勾选有值字段
+2. `ScrapeViewModel`：新增 `toggleField(songId, field)` 和 `setAllFields(field, checked)` 方法
+3. `ScrapeScreen` 预览卡：去掉旧的整体 Checkbox + "编辑" 按钮，改为逐字段 Checkbox 行（标题/歌手/专辑/封面/歌词），每行显示"原 → 新"
+4. 顶部批量字段全选/全不选（标题/歌手/专辑/封面/歌词各一个按钮）
+5. 底部按钮从「写回选中」改为「应用（N）」，N 为总勾选字段数
+6. `confirmWriteback` 改为仅写回各首勾选字段，未勾字段传 null 不落库
+7. SongsPage⋮恢复「加入待刮削」，去掉「刮削元数据」（不再用弹出浮层）
+
+**Commit**：`91b7c13c` refactor(scrape): 刮削页预览用逐字段 Checkbox 替换旧整体勾选
+
+**Still broken**：封面刮后仍不展示。待查。
+
+
+## Session 129: 刮削 Tagger 式审核流
+<!-- trellis-session: v=2 fp=fae9a2671562532f -->
+
+**Date**: 2026-09-03
+**Task**: 刮削 Tagger 式审核流
+**Branch**: `main`
+
+### Summary
+
+单曲全屏审核页（多候选切换/改词重搜/封面歌词候选）+批量未命中分组+逐首审核连续推进；退役孤儿浮层；引擎零改动；新增7项单测；编译/单测/lint全过
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `83875e8d` | test(scrape): 待审队列单测与审核流规约沉淀 |
+
+### Status
+
+[OK] **Completed**
