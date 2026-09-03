@@ -21,4 +21,10 @@ class ScrapeQueueAccessViewModel @Inject constructor(
         if (songIds.isEmpty()) return
         viewModelScope.launch { queueStore.enqueue(songIds) }
     }
+
+    /** 带回执的入队（供 Snackbar 区分“已加入/已在队列”） */
+    suspend fun enqueueWithResult(songIds: List<String>): com.muses.player.core.scrape.queue.ScrapeQueueStore.EnqueueResult {
+        if (songIds.isEmpty()) return com.muses.player.core.scrape.queue.ScrapeQueueStore.EnqueueResult(added = 0)
+        return queueStore.enqueue(songIds)
+    }
 }

@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -177,6 +179,15 @@ fun SongsPage(
 
     val outerHazeState = LocalMusesHazeState.current
     val navbarHazeState = rememberHazeState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    fun doEnqueue(ids: List<String>) {
+        if (ids.isEmpty()) return
+        onEnqueueScrape(ids)
+        scope.launch {
+            val msg = if (ids.size == 1) "已加入待刮削队列" else "已加入 ${ids.size} 首到待刮削队列"
+            snackbarHostState.showSnackbar(msg)
+        }
+    }
     CompositionLocalProvider(LocalMusesHazeState provides navbarHazeState) {
         Box(modifier = modifier.fillMaxSize()) {
             val navbarTopPadding = with(LocalDensity.current) {
@@ -428,7 +439,8 @@ fun SongsPage(
                 actionSong = null
             }),
             SaltActionItem(label = "加入待刮削", onClick = {
-                currentId?.let { onEnqueueScrape(listOf(it)) }
+                val ids = listOfNotNull(currentId)
+                if (ids.isNotEmpty()) doEnqueue(ids)
                 actionSong = null
             }),
             SaltActionItem(label = "加入歌单…", onClick = {
@@ -458,12 +470,15 @@ fun SongsPage(
                 exitMultiSelect()
             },
             onEnqueueScrape = {
-                if (selectedIds.isNotEmpty()) onEnqueueScrape(selectedIds.toList())
+                val ids = selectedIds.toList()
+                if (ids.isNotEmpty()) doEnqueue(ids)
                 exitMultiSelect()
             },
             onCancel = { exitMultiSelect() },
         )
     }
+
+    SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
 
     // ---- m-fab.songs-page__jump-fab：跳转到当前播放（与底部 MiniPlayer 同用全局 Haze，保证观感一致）----
     if (showJumpBubble) {
