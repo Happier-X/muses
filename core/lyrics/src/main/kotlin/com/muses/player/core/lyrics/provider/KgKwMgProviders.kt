@@ -47,7 +47,7 @@ private suspend fun searchKgTrack(http: LyricsHttp, query: OnlineLyricsQuery): K
     } catch (_: Exception) {
         return null
     }
-    val items = root.obj("data")?.obj("lists")?.get("lists").asObjArray()
+    val items = root.obj("data")?.arrCompat("lists").orEmpty()
     data class KgItem(
         val hash: String,
         val durationMs: Long,
@@ -86,7 +86,7 @@ suspend fun searchKgLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLy
     } catch (_: Exception) {
         return null
     }
-    val cand = searchBody.obj("candidates")?.get("candidates").asObjArray().firstOrNull()
+    val cand = searchBody.arrCompat("candidates").firstOrNull()
         ?: return null
     val id = cand.str("id")?.takeIf(String::isNotEmpty) ?: return null
     val accesskey = cand.str("accesskey")?.takeIf(String::isNotEmpty) ?: return null
@@ -135,7 +135,8 @@ private suspend fun searchKwMusicId(http: LyricsHttp, query: OnlineLyricsQuery):
         return null
     }
     data class KwItem(override val title: String?, override val artist: String?, override val album: String?, val id: String) : ScoreableHit
-    val list = body.obj("abslist")?.get("abslist").asObjArray().mapNotNull { item ->
+    // abslist 双层/单层兼容（arrCompat：老对象包数组 / 新直接数组）
+    val list = body.arrCompat("abslist").mapNotNull { item ->
         val id = extractId(item.str("MUSICRID")) ?: return@mapNotNull null
         KwItem(title = item.str("SONGNAME"), artist = item.str("ARTIST"), album = item.str("ALBUM"), id = id)
     }
@@ -152,7 +153,7 @@ suspend fun searchKwLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLy
     } catch (_: Exception) {
         return null
     }
-    val rows = body.obj("data")?.obj("lrclist")?.get("lrclist").asObjArray()
+    val rows = body.obj("data")?.arrCompat("lrclist").orEmpty()
     val lrc = linesToLrc(
         rows.map { row -> LrcLine(time = row.str("time")?.toDoubleOrNull() ?: row.str("time"), text = row.str("lineLyric")) },
     )

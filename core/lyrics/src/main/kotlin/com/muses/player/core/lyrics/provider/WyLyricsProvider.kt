@@ -38,6 +38,15 @@ internal fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
 internal fun JsonElement?.asObjArray(): List<JsonObject> =
     (this as? JsonArray)?.mapNotNull { it as? JsonObject } ?: emptyList()
 
+/**
+ * 双层/单层兼容取数组：老结构 `{key: {key: [...]}}`（对象包数组）与新结构 `{key: [...]}`（直接数组）都兼容。
+ * 背景：2026-09 发现 kw/tx/kg/wy 搜索接口陆续把外层对象 flatten 成直接数组，老解析全返回空。
+ */
+internal fun JsonObject.arrCompat(key: String): List<JsonObject> {
+    val node = this[key] ?: return emptyList()
+    return (node as? JsonObject)?.get(key)?.asObjArray() ?: node.asObjArray()
+}
+
 /** 判断是否为 yrc 逐字体（wy.ts isYrcBody + qrc.ts looksLikeWordLevelBracket） */
 private fun looksLikeWordLevelBracket(text: String): Boolean {
     val line = text.split(Regex("\\r?\\n")).firstOrNull { l ->
@@ -92,7 +101,8 @@ private suspend fun searchWySongId(http: LyricsHttp, query: OnlineLyricsQuery): 
     } catch (_: Exception) {
         return null
     } ?: return null
-    val songs = body.obj("result")?.obj("songs")?.get("songs")?.asObjArray().orEmpty()
+    // 搜索返回结构兼容：老结构 result.songs.songs（对象包数组）与新结构 result.songs（直接数组）
+    val songs = body.obj("result")?.arrCompat("songs").orEmpty()
     data class WySong(val id: Long, override val title: String?, override val artist: String?, override val album: String?) : ScoreableHit
     val list = songs.mapNotNull { s ->
         val idPrimitive = s["id"] as? JsonPrimitive ?: return@mapNotNull null

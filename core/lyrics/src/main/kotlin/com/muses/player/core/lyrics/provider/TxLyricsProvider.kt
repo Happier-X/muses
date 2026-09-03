@@ -59,7 +59,8 @@ private suspend fun searchTxHit(http: LyricsHttp, query: OnlineLyricsQuery): TxH
     } catch (_: Exception) {
         return null
     }
-    val items = body.obj("data")?.obj("song")?.obj("list")?.get("list").asObjArray()
+    // song.list 双层/单层兼容（arrCompat：老对象包数组 / 新直接数组）
+    val items = body.obj("data")?.obj("song")?.arrCompat("list").orEmpty()
     val list = items.mapNotNull { item ->
         val mid = item.str("songmid")?.trim()?.takeUnless { it.isEmpty() } ?: return@mapNotNull null
         val rawId = (item["songid"] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.content
