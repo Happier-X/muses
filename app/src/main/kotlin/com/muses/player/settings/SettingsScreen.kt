@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import com.muses.player.core.ui.icons.LucideIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -130,7 +131,7 @@ fun SettingsScreen(
                     subtitle = "应用版本 ${BuildConfig.VERSION_NAME}",
                     onClick = null,
                     leading = {
-                        SettingsIcon(icon = Icons.Filled.Info)
+                        SettingsIcon(icon = LucideIcons.Info)
                     },
                 )
                 // 检查更新
@@ -161,7 +162,7 @@ fun SettingsScreen(
                         }
                     },
                     leading = {
-                        SettingsIcon(icon = Icons.Filled.Refresh)
+                        SettingsIcon(icon = LucideIcons.Refresh)
                     },
                 )
             }
@@ -195,7 +196,7 @@ fun SettingsScreen(
                         }
                     },
                     leading = {
-                        SettingsIcon(icon = Icons.Filled.BugReport)
+                        SettingsIcon(icon = LucideIcons.BugReport)
                     },
                 )
             }

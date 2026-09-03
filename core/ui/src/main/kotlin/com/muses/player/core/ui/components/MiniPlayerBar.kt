@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
+import com.muses.player.core.ui.icons.LucideIcons
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -160,7 +161,7 @@ fun MiniPlayerBar(
             ) {
                 SaltIconButton(
                     onClick = onTogglePlayback,
-                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, // lucide pause/play fill
+                    imageVector = if (isPlaying) LucideIcons.Pause else LucideIcons.Play, // lucide pause/play fill
                     contentDescription = if (isPlaying) "暂停播放" else "继续播放",
                     enabled = hasSong, // :disabled="!currentSong || status==='loading'"
                     tint = salt.text, // __btn { color: var(--m-text) }
@@ -168,7 +169,7 @@ fun MiniPlayerBar(
                 )
                 SaltIconButton(
                     onClick = onOpenQueue,
-                    imageVector = Icons.Filled.QueueMusic, // lucide listMusic fill
+                    imageVector = LucideIcons.QueueMusic, // lucide listMusic fill
                     contentDescription = "打开播放队列",
                     tint = salt.text,
                     iconSizeOverride = 18.dp,

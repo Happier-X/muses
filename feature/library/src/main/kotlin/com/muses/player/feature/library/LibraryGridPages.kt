@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import com.muses.player.core.ui.icons.LucideIcons
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -327,7 +328,7 @@ private fun GridCover(uri: String?, modifier: Modifier = Modifier) {
             )
         } else {
             Icon(
-                Icons.Filled.MusicNote,
+                LucideIcons.MusicNote,
                 contentDescription = null,
                 tint = salt.text2,
                 modifier = Modifier.size(24.dp),

@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
+import com.muses.player.core.ui.icons.LucideIcons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -261,7 +262,7 @@ private fun SaltIconButtonBack(onClick: () -> Unit) {
         contentDescription = "返回",
     ) {
         androidx.compose.material3.Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            imageVector = LucideIcons.ArrowBack,
             contentDescription = null,
         )
     }

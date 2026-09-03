@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
+import com.muses.player.core.ui.icons.LucideIcons
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -268,7 +269,7 @@ fun SongsPage(
                                 ) {
                                     if (checked) {
                                         Icon(
-                                            Icons.Filled.Check,
+                                            LucideIcons.Check,
                                             contentDescription = null,
                                             tint = salt.onPrimary,
                                             modifier = Modifier.size(16.dp),
@@ -291,7 +292,7 @@ fun SongsPage(
                                 // 内部居中 32dp 占位图标 opacity .45 —— 行首宽度与有封面状态一致
                                 Box(Modifier.size(54.dp), contentAlignment = Alignment.Center) {
                                     Icon(
-                                        Icons.Filled.MusicNote,
+                                        LucideIcons.MusicNote,
                                         contentDescription = null,
                                         tint = salt.text.copy(alpha = 0.45f),
                                         modifier = Modifier.size(32.dp),
@@ -308,7 +309,7 @@ fun SongsPage(
                                     size = SaltIconButtonSize.SM,
                                     onClick = { actionSong = song },
                                 ) {
-                                    Icon(Icons.Filled.MoreVert, contentDescription = "更多歌曲操作")
+                                    Icon(LucideIcons.MoreVert, contentDescription = "更多歌曲操作")
                                 }
                             }
                         },
@@ -329,7 +330,7 @@ fun SongsPage(
                     searchQuery = ""
                     if (isMultiSelect) exitMultiSelect()
                 }) {
-                    Icon(Icons.Filled.Search, contentDescription = "搜索歌曲")
+                    Icon(LucideIcons.Search, contentDescription = "搜索歌曲")
                 }
             },
             subnavbar = {
@@ -362,7 +363,7 @@ fun SongsPage(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 SaltIconButton(onClick = shuffleAll) {
-                                    Icon(Icons.Filled.Shuffle, contentDescription = "随机播放全部")
+                                    Icon(LucideIcons.Shuffle, contentDescription = "随机播放全部")
                                 }
                                 Text(
                                     text = songs.size.toString(),
@@ -388,7 +389,7 @@ fun SongsPage(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
-                                Icons.Filled.Search,
+                                LucideIcons.Search,
                                 contentDescription = null,
                                 tint = salt.text2,
                                 modifier = Modifier.size(18.dp),
@@ -573,7 +574,7 @@ private fun JumpToCurrentFab(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            Icons.Filled.MyLocation,
+            LucideIcons.MyLocation,
             contentDescription = "跳转到当前播放",
             tint = salt.text2,
             modifier = Modifier.size(20.dp),

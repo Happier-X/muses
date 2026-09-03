@@ -18,7 +18,7 @@ android {
         // CI 发布经 -Pandroid.injected.version* 注入（tag 名/提交总数）；
         // AGP 9 中 DSL 显式赋值会覆盖 injected 属性，故必须在此主动读取
         versionCode = (findProperty("android.injected.versionCode") as String?)?.toInt() ?: 1
-        versionName = (findProperty("android.injected.versionName") as String?) ?: "0.5.0"
+        versionName = (findProperty("android.injected.versionName") as String?) ?: "0.5.1"
     }
 
     // 渠道维度：主包 com.muses.player（覆盖安装旧 Web 版）+ MIUI 定制包
@@ -83,6 +83,9 @@ dependencies {
     implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
+
+    // Lucide Icons for Android
+    implementation(libs.lucide.icons)
 
     // Hilt
     implementation(libs.hilt.android)

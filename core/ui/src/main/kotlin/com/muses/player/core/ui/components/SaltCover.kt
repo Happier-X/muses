@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material3.Icon
+import com.muses.player.core.ui.icons.LucideIcons
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,7 +64,7 @@ fun SaltCover(
     ) {
         // 占位（src 为空或未加载时透出）
         Icon(
-            imageVector = Icons.Outlined.MusicNote, // lucide musical-notes-outline
+            imageVector = LucideIcons.MusicNoteOutlined, // lucide musical-notes-outline
             contentDescription = null,
             tint = salt.text2,
             modifier = Modifier.size(SaltSpacing.listIcon), // __placeholder-icon: --m-list-icon

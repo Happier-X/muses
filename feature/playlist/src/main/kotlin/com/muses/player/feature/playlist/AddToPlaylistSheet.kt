@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Queue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.muses.player.core.ui.icons.LucideIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -61,7 +62,7 @@ fun AddToPlaylistSheet(
                         Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     leadingContent = {
-                        Icon(Icons.Filled.Queue, contentDescription = null)
+                        Icon(LucideIcons.QueueMusic, contentDescription = null)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -75,7 +76,7 @@ fun AddToPlaylistSheet(
                 HorizontalDivider()
                 ListItem(
                     headlineContent = { Text("新建播放列表并加入") },
-                    leadingContent = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    leadingContent = { Icon(LucideIcons.Add, contentDescription = null) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { showCreateDialog = true },

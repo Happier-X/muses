@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.AlertDialog
+import com.muses.player.core.ui.icons.LucideIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -156,7 +157,7 @@ fun PlaylistsPage(
                         SaltEmpty(
                             title = "还没有歌单",
                             description = "点右上角新建，或在歌曲页「更多」加入歌单。",
-                            icon = Icons.Filled.QueueMusic,
+                            icon = LucideIcons.QueueMusic,
                         )
                     }
                 } else {
@@ -179,7 +180,7 @@ fun PlaylistsPage(
                                 contentDescription = "更多歌单操作",
                             ) {
                                 Icon(
-                                    Icons.Filled.MoreVert,
+                                    LucideIcons.MoreVert,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
                                     tint = salt.text2,
@@ -203,7 +204,7 @@ fun PlaylistsPage(
                         contentDescription = "新建歌单",
                     ) {
                         Icon(
-                            Icons.Filled.Add,
+                            LucideIcons.Add,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                         )

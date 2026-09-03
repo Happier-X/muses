@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 // 注：icons-extended 1.7.8 无 automirrored 版 ChevronRight，退回 Filled（LTR 下视觉一致）
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Icon
+import com.muses.player.core.ui.icons.LucideIcons
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -168,7 +169,7 @@ fun SaltListItem(
         if (chevron) {
             // __chevron：opacity .2 / margin-left 12 / margin-right 4
             Icon(
-                imageVector = Icons.Filled.ChevronRight,
+                imageVector = LucideIcons.ChevronRight,
                 contentDescription = null,
                 tint = salt.text.copy(alpha = 0.2f),
                 modifier = Modifier
