@@ -11,11 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
-import com.muses.player.core.ui.icons.LucideIcons
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -28,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.muses.player.core.ui.icons.LucideIcons
 import com.muses.player.core.ui.theme.LocalMusesHazeState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltDarkColors
@@ -161,7 +157,7 @@ fun MiniPlayerBar(
             ) {
                 SaltIconButton(
                     onClick = onTogglePlayback,
-                    imageVector = if (isPlaying) LucideIcons.Pause else LucideIcons.Play, // lucide pause/play fill
+                    imageVector = if (isPlaying) LucideIcons.PauseFill else LucideIcons.PlayFill, // fill 风格播放/暂停
                     contentDescription = if (isPlaying) "暂停播放" else "继续播放",
                     enabled = hasSong, // :disabled="!currentSong || status==='loading'"
                     tint = salt.text, // __btn { color: var(--m-text) }

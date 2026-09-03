@@ -14,7 +14,7 @@ object LucideIcons {
     val QueueMusic: ImageVector = Lucide.ListMusic
     val PlaylistPlay: ImageVector = Lucide.ListMusic
 
-    // 播放控制
+    // 播放控制（stroke 风格）
     val Play: ImageVector = Lucide.Play
     val Pause: ImageVector = Lucide.Pause
     val SkipPrevious: ImageVector = Lucide.SkipBack
@@ -22,6 +22,12 @@ object LucideIcons {
     val Repeat: ImageVector = Lucide.Repeat
     val RepeatOne: ImageVector = Lucide.Repeat1
     val Shuffle: ImageVector = Lucide.Shuffle
+
+    // 播放控制（fill 风格，手写路径）
+    val PlayFill: ImageVector = FillIcons.Play
+    val PauseFill: ImageVector = FillIcons.Pause
+    val SkipPreviousFill: ImageVector = FillIcons.SkipBack
+    val SkipNextFill: ImageVector = FillIcons.SkipForward
 
     // 导航
     val ArrowBack: ImageVector = Lucide.ArrowLeft

@@ -961,21 +961,21 @@ private fun ControlsRow(
     ) {
         SaltIconButton(
             onClick = onPrevious,
-            imageVector = LucideIcons.SkipPrevious,
+            imageVector = LucideIcons.SkipPreviousFill,
             contentDescription = "上一曲",
             size = btnSize,
             tint = Color.White.copy(alpha = 0.9f),
         )
         SaltIconButton(
             onClick = onPlayPause,
-            imageVector = if (isPlaying) LucideIcons.Pause else LucideIcons.Play,
+            imageVector = if (isPlaying) LucideIcons.PauseFill else LucideIcons.PlayFill,
             contentDescription = if (isPlaying) "暂停" else "播放",
             size = btnSize,
             tint = Color.White.copy(alpha = 0.92f),
         )
         SaltIconButton(
             onClick = onNext,
-            imageVector = LucideIcons.SkipNext,
+            imageVector = LucideIcons.SkipNextFill,
             contentDescription = "下一曲",
             size = btnSize,
             tint = Color.White.copy(alpha = 0.9f),
@@ -1099,9 +1099,9 @@ private fun TabletBottomBar(
                 ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SaltIconButton(onClick = onPrevious, imageVector = LucideIcons.SkipPrevious, contentDescription = "上一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
-                SaltIconButton(onClick = onPlayPause, imageVector = if (isPlaying) LucideIcons.Pause else LucideIcons.Play, contentDescription = if (isPlaying) "暂停" else "播放", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.92f))
-                SaltIconButton(onClick = onNext, imageVector = LucideIcons.SkipNext, contentDescription = "下一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
+                SaltIconButton(onClick = onPrevious, imageVector = LucideIcons.SkipPreviousFill, contentDescription = "上一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
+                SaltIconButton(onClick = onPlayPause, imageVector = if (isPlaying) LucideIcons.PauseFill else LucideIcons.PlayFill, contentDescription = if (isPlaying) "暂停" else "播放", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.92f))
+                SaltIconButton(onClick = onNext, imageVector = LucideIcons.SkipNextFill, contentDescription = "下一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 SaltIconButton(onClick = onOpenQueue, imageVector = LucideIcons.QueueMusic, contentDescription = "播放队列", tint = Color.White.copy(alpha = 0.8f))
