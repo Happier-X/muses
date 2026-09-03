@@ -115,6 +115,67 @@ songRepository.replaceSourceSongs(sourceId, songs)
 // 播放时：AudioTagReader.readTagForUpdate(song.path, song.id) -> songDao.upsert(tagsVersion=1)
 ```
 
+## 刮削后懒扫描与展示的守卫（09-03-fix-rescrape-stale-metadata）
+
+### 1. Scope / Trigger
+- 触发：重刮削后 `tagsVersion` 仍为 0（写库不抬升），下一次播放的懒扫描无条件用文件旧标签覆盖库内刮削新值；同时 UI `useMeta = tagsVersion<1` 分支优先旧文件标签，导致迷你条/列表当前行仍显示旧标题。
+
+### 2. Signatures
+- `PlaybackService.persistenceListener.onEvents(EVENT_MEDIA_ITEM_TRANSITION)` 懒扫描分支：`val ms = entity.toDomain().metaSources`
+- `AudioTagReader.invalidate(source: String)`：清 `tagCache[source]` + `getCacheFile(url).delete()` / `content_${hash}_*` 前缀文件
+- `WritebackOrchestrator(audioTagCacheInvalidator: ((String)->Unit)?)` 写文件 `ok==true` 时 `invalidator?.invoke(song.path)`
+- UI：`MusesApp.MainViewModel.nowPlaying` / `SongsPage` 行内 `if (song.metaSources?.field != null) song.field else metaField ?: song.field`
+
+### 3. Contracts
+- 懒扫描覆盖前逐字段守卫：`ms?.title/artist/album/cover != null` 跳过该字段，`lyricsSource != null && lyrics 非空` 跳过歌词；`durationMs` 始终 `max`
+- 无实际更新也抬升 `tagsVersion=1`（避免已刮削歌曲重复 Range 请求）；读失败（`tagData==null` / 抛异常）保持 `tagsVersion=0` 下次重试
+- `invalidate` 仅在文件写成功分支调用，失败不失效；异常静默
+- UI 对已刮削字段强制库值优先，未标记字段保持原 `tagsVersion<1 → mediaMetadata` 回退链路
+
+### 4. Validation & Error Matrix
+- `metaTitle=SCRAPE, 文件标题旧值` → 懒扫描后库标题仍为刮削新值
+- `metaCover=EMBEDDED, 文件无有效标签` → 懒扫描仍抬升为 1，不重复探测
+- `metaSources==null, tagsVersion=0, 文件标题新值` → 正常覆盖并抬升（回归）
+- `invalidate("http://...")` → `audio_<hash>_*` 文件被删 + 内存 miss
+- `invalidate("content://...")` → `content_<hash>_*` 前缀文件被删
+
+### 5. Good/Base/Bad Cases
+- Good：WebDAV `FILE_FAILED` 刮削（`metaTitle=SCRAPE`）→ 播放切歌守卫跳过标题覆盖 → 迷你条/列表均显示库内新标题
+- Base：本地刮削含封面成功 → `invalidate(path)` → 下次 `readTags` 重新解析新封面字节
+- Bad：无守卫时刮削后播放→文件旧标签覆盖库新值→重刮削成果丢失；无 `invalidate` 时成功写入后仍读旧缓存
+
+### 6. Tests Required
+- 懒扫描守卫：构造 `SongEntity(metaTitle=embedded, tagsVersion=0)` + 旧文件标签，断言切歌后库标题不变
+- `AudioTagReader`：写入缓存→`invalidate`→断言 `getCacheFile` 不存在且内存 miss
+- `WritebackOrchestrator`：文件成功断言 `invalidator` 调用 1 次，失败断言不调用
+- 手测：WebDAV `FILE_FAILED` 歌曲刮削→播放→迷你条/列表/沉浸页标题一致为新值
+
+### 7. Wrong vs Correct
+#### Wrong
+```kotlin
+// 无守卫：直接用文件标签覆盖
+val domain = entity.toDomain().copy(
+  title = tagData.title ?: entity.title, // 覆盖刮削新值
+  tagsVersion = 1
+)
+// UI 无守卫：tagsVersion<1 永远优先旧 mediaMetadata
+title = if (tagsVersion < 1) metaTitle ?: song.title else song.title
+```
+#### Correct
+```kotlin
+// 逐字段守卫，未标记才覆盖
+val resolvedTitle = if (ms?.title != null) domainBefore.title
+  else tagData.title?.takeIf { it.isNotBlank() } ?: entity.title
+// UI 按已刮削优先库值
+val title = when {
+  song.metaTitle != null -> song.title
+  song.tagsVersion < 1 -> metaTitle ?: song.title
+  else -> song.title
+}
+// 写回成功后失效缓存
+if (fileResult.ok) audioTagCacheInvalidator?.invoke(song.path)
+```
+
 ## 构建注意
 
 - 多 flavor 项目（muses/miui）：装包验证一律 `assembleMusesDebug`（产物 app-muses-debug.apk）；裸 `assembleDebug` 打的是无 flavor 旧 variant 包，装机后表现为"改动没生效"
