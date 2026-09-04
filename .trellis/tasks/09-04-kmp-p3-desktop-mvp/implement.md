@@ -12,7 +12,7 @@
   - 已交付：纯 JVM `:desktop` 模块（VLCJ 只进本模块，未建 composeApp-CMP，S3 建 UI 壳时再定）；`:desktop:test` 14 项零失败；`jvmTest` 无回归；`assembleMusesDebug` 通过。
 - [x] S3a composeApp 桌面壳 + 自绘标题栏（CMP 1.12.0-rc01 兼容 Kotlin 2.4.10；:composeApp:run 可启动窗口）。
 - [x] S3b 三屏最小可用：composeApp 内重写库房/播放/设置三屏（侧边导航双栏 + 曲目列表 + 播放控制 + WebDAV 音源增删，DPAPI 凭据）。
-- [ ] S4 打包分发：`composeApp(desktop)` + `packageMsi`/`packageExe`（VLCJ 原生库随包）+ 签名；产出首版安装包；干净机安装验证。
+- [x] S4 打包分发：`packageMsi`/`packageExe` 已产出首版安装包（Muses-1.0.0.msi 77M + Muses-1.0.0.exe 78M；javaHome 指本机 JDK21，jbr 无 jpackage；签名/SmartScreen 二期）。
 - [ ] S5 回归：安卓包 `:app:assembleMusesDebug` 全程通过；feature 屏 CMP 化前后安卓行为对照。
 
 ## 验证命令

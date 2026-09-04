@@ -34,6 +34,9 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "com.muses.player.desktop.MainKt"
+        // S4 打包：jpackage 需完整 JDK（含 jpackage.exe），Android Studio jbr 不带；
+        // 本机 jdk-21.0.11+10 即打包用 JDK（与 :desktop jvmToolchain(21) 同版本线）。
+        javaHome = System.getenv("MUSES_DESKTOP_JDK") ?: "C:/Users/zhf52/java/jdk-21.0.11+10"
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
