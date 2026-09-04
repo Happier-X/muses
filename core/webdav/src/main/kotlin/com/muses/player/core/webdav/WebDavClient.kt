@@ -115,7 +115,7 @@ internal class KtorWebDavClient constructor(
                 throw e
             }
             val response = try {
-                httpClient.request(baseUrl) {
+                httpClient.request(encodeUrl(baseUrl)) {
                     method = HttpMethod("PROPFIND")
                     header("Depth", "0")
                     effectiveAuthHeader(baseUrl)?.let { header("Authorization", it) }
@@ -160,7 +160,7 @@ internal class KtorWebDavClient constructor(
                 throw e
             }
             val response = try {
-                httpClient.request(url) {
+                httpClient.request(encodeUrl(url)) {
                     method = HttpMethod("PROPFIND")
                     header("Depth", "1")
                     header("Accept", "application/xml, text/xml, */*")
@@ -203,7 +203,13 @@ internal class KtorWebDavClient constructor(
                     return parsePropfindResponse(bytes, response.headers["Content-Type"], url)
                 }
                 else -> {
-                    runCatching { response.bodyAsText() }
+                    // P2c-diag 临时：记录 400 响应体与请求指纹定位 OpenList 拒因（脱敏：Authorization 只记有无）
+                    val respBody = runCatching { response.bodyAsText().take(500) }.getOrDefault("<unreadable>")
+                    errorLogStore.log(
+                        ErrorLogStore.Level.ERROR, "WebDavDiag",
+                        "PROPFIND url=$url depth=1 hasAuth=${response.call.request.headers["Authorization"] != null} " +
+                            "respContentType=${response.headers["Content-Type"]} respBody=$respBody", null,
+                    )
                     throw WebDavRequestException(response.status.value, "PROPFIND 失败（HTTP ${response.status.value}）")
                 }
             }
@@ -219,7 +225,7 @@ internal class KtorWebDavClient constructor(
                 throw e
             }
             val response = try {
-                httpClient.get(url) {
+                httpClient.get(encodeUrl(url)) {
                     effectiveAuthHeader(url)?.let { header("Authorization", it) }
                 }
             } catch (e: CancellationException) {
@@ -272,7 +278,7 @@ internal class KtorWebDavClient constructor(
                 throw e
             }
             val response = try {
-                httpClient.request(url) {
+                httpClient.request(encodeUrl(url)) {
                     method = HttpMethod.Put
                     // ByteArrayContent 自带 contentType：避免 contentType()+setBody(ByteArray)
                     // 被 DefaultTransform 二次包裹（MockEngine 下断言体时需精确类型）
@@ -320,7 +326,7 @@ internal class KtorWebDavClient constructor(
         while (true) {
             try { rateLimiter.acquire() } catch (e: CancellationException) { throw e }
             val response = try {
-                httpClient.delete(url) {
+                httpClient.delete(encodeUrl(url)) {
                     effectiveAuthHeader(url)?.let { header("Authorization", it) }
                 }
             } catch (e: CancellationException) { throw e }
@@ -362,9 +368,9 @@ internal class KtorWebDavClient constructor(
         while (true) {
             try { rateLimiter.acquire() } catch (e: CancellationException) { throw e }
             val response = try {
-                httpClient.request(source) {
+                httpClient.request(encodeUrl(source)) {
                     method = HttpMethod("MOVE")
-                    header("Destination", dest)
+                    header("Destination", encodeUrl(dest))
                     header("Overwrite", "T")
                     effectiveAuthHeader(dest)?.let { header("Authorization", it) }
                 }
@@ -407,7 +413,7 @@ internal class KtorWebDavClient constructor(
         while (true) {
             try { rateLimiter.acquire() } catch (e: CancellationException) { throw e }
             val response = try {
-                httpClient.get(url) {
+                httpClient.get(encodeUrl(url)) {
                     header("Accept", "text/plain, */*")
                     effectiveAuthHeader(url)?.let { header("Authorization", it) }
                 }
@@ -568,6 +574,31 @@ internal class KtorWebDavClient constructor(
     }
 
     companion object {
+        private const val HEX_DIGITS = "0123456789ABCDEF"
+
+        /**
+         * P2c-fix：OkHttp 会把 URL 中的非 ASCII 百分号编码后发送，Ktor 原样发 UTF-8
+         * 原字节（OpenList 回 400）。此处对齐 OkHttp：仅编码 >127 的码点（UTF-8 %XX 大写），
+         * 已有 %XX 原样保留防 double-encode；凭据匹配/解析仍用原始 url，不受影响。
+         */
+        internal fun encodeUrl(raw: String): String {
+            if (raw.none { it.code > 127 }) return raw
+            val out = StringBuilder(raw.length)
+            var i = 0
+            while (i < raw.length) {
+                val cp = Character.codePointAt(raw, i)
+                if (cp > 127) {
+                    for (b in String(Character.toChars(cp)).toByteArray(Charsets.UTF_8)) {
+                        out.append('%').append(HEX_DIGITS[(b.toInt() ushr 4) and 0xF])
+                            .append(HEX_DIGITS[b.toInt() and 0xF])
+                    }
+                } else {
+                    out.append(raw[i])
+                }
+                i += Character.charCount(cp)
+            }
+            return out.toString()
+        }
         const val PROPFIND_BODY = """<?xml version="1.0" encoding="utf-8" ?><d:propfind xmlns:d="DAV:"><d:allprop /></d:propfind>"""
         val CHARSET_PATTERN = Regex("charset=([^;\\s]+)", RegexOption.IGNORE_CASE)
         val XML_ENCODING_PATTERN = Regex("<\\?xml[^>]*encoding=[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
