@@ -3,6 +3,8 @@ package com.muses.player.core.media.playback
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
+import com.muses.player.core.media.scanner.LocalLibraryScanner
+import com.muses.player.core.media.scanner.WebDavLibraryScanner
 import java.io.File
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.singleOf
@@ -15,6 +17,12 @@ val playbackModule = module {
 
     singleOf(::NoOpPlaybackController)
     single<PlaybackController> { get<NoOpPlaybackController>() }
+
+    // P2a 补漏：Hilt 时代靠 @Inject 构造自动提供，Koin 需显式声明
+    singleOf(::PlaybackRecoveryController)
+    singleOf(::PlayerConnection)
+    singleOf(::LocalLibraryScanner)
+    singleOf(::WebDavLibraryScanner)
 
     /**
      * Media3 SimpleCache 单例：进程内同目录只允许一个实例。

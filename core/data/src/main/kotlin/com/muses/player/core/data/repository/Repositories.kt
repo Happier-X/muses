@@ -213,4 +213,8 @@ val repositoryModule = module {
 
     /** 崩溃持久化能力（CrashHandler 专用，同一实现双接口绑定） */
     single<ErrorLogCrashPersistence> { get<RingBufferErrorLogStore>() }
+
+    /** 播放快照/最近播放（PlaybackService 恢复队列用，P2a 补漏：Hilt 时代靠 @Inject 构造自动提供） */
+    singleOf(::PlaybackStateRepository)
+    singleOf(::RecentPlaysRepository)
 }
