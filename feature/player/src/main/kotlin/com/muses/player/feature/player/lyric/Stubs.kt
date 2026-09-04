@@ -54,7 +54,7 @@ object SettingsRuntime {
     const val lyricDimAmount: Float = 1f
     const val lyricDistanceBlurScale: Float = 1.05f
     const val lyricFocusColorLeadMs: Long = 80L
-    const val lyricFocusPosition: Float = 0.25f
+    const val lyricFocusPosition: Float = 0.5f
     const val lyricFocusScale: Float = 1.05f
     const val lyricFollowDelayMs: Int = 3000
     val lyricFontWeight: LyricFontWeight = LyricFontWeight.Bold

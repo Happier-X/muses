@@ -144,7 +144,7 @@ private object UpstreamLyrics {
     const val LINE_HEIGHT_SP = 40.8f // fontSize * 1.2
     const val LINE_SPACING_DP = 28f
     const val CURRENT_LINE_SCALE = 1.05f
-    const val FOCUS_POSITION = 0.25f
+    const val FOCUS_POSITION = 0.5f
     const val BLUR_INTENSITY = 0.8f
     const val DIM_AMOUNT = 1f
     const val DISTANCE_BLUR_SCALE = 1.05f
