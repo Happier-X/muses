@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/android/index.md", "reason": "分层铁律/播放契约/持久化与恢复链/构建验证命令，P3复用基线"}
+{"file": ".trellis/spec/android/features-salt-ui.md", "reason": "平板双栏断点与Haze降级点，三屏CMP化剥离依据"}
+{"file": ".trellis/spec/android/features-webdav-library.md", "reason": "WebDAV扫描/缓存/限流语义，桌面spiller对齐基线"}
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "沉浸播放页手势铁律与歌词面板结构，桌面复用避坑"}

@@ -1,0 +1,35 @@
+# P3 桌面 MVP 执行计划
+
+> 前置门禁：P2c 网络层切换停稳提交后，P3 实现才开工（同工作目录防冲突）。S0 原型可用独立目录先行。
+
+## 有序清单
+
+- [ ] S0 解码原型（失败即停）：独立分支/目录验证 VLCJ 三项——FLAC 实播（含 24bit/高采样）、seek 精度（±1s）、干净 Windows 机跑通（原生库随包）；输出书面结论。任一不过 → 回退 JavaFX Media，重出结论。
+- [ ] S1 数据层桌面接线：`DataStorePath.jvm` 真实路径 + Room `JvmSQLiteDriver` + 凭据 expect/actual（DPAPI/Credential Manager）；验证 `:core:common:compileKotlinJvm + jvmTest`。
+- [ ] S2 JvmPlayerPort：VLCJ 解码 + 本地队列状态机（repeat/shuffle 对齐 `QueueSnapshotData`）+ 状态/错误桥接（STATE_* 整型映射 + 8 条安全文案）+ 持久化/恢复复用；WebDAV 用 Ktor Range + okio spiller（500MB LRU 语义）。
+- [ ] S3 三屏 CMP 化 + 自绘标题栏：feature 屏上移共用（平板断点分支自然命中）；剥离 `LocalConfiguration`/边衬/Haze 降级；无装饰窗口 + 自绘栏（最小/最大/关闭 + 拖拽 + 双击最大化 + 边缘缩放）。
+- [ ] S4 打包分发：`composeApp(desktop)` + `packageMsi`/`packageExe`（VLCJ 原生库随包）+ 签名；产出首版安装包；干净机安装验证。
+- [ ] S5 回归：安卓包 `:app:assembleMusesDebug` 全程通过；feature 屏 CMP 化前后安卓行为对照。
+
+## 验证命令
+
+```bash
+# S1 数据层（jvm）
+JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew :core:common:compileKotlinJvm :core:common:jvmTest
+# S5 安卓零影响门禁（P3 全程）
+JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew :app:assembleMusesDebug testDebugUnitTest
+# S4 打包（模块名以实际 composeApp 命名为准）
+JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew :composeApp:packageMsi :composeApp:packageExe
+```
+
+## 风险文件
+
+- `PlayerPort.kt`（接口冻结，只增二期 TODO，不改现有签名）。
+- `TabsLayout.kt` / `PlayerScreen.kt` / `LibraryGridPages.kt`（CMP 化剥离安卓相关，diff 逐行注明安卓行为不变）。
+- `DataStorePath.jvm.kt`（TODO 转真实路径，Win 路径策略原型期定）。
+- `PlaybackModels.kt`（队列语义对齐，不增桌面专属字段进 commonMain）。
+
+## 回滚点
+
+- composeApp 为新模块：删除即回滚；VLCJ 零渗入 commonMain。
+- 每阶段单提交；`git revert` 即可。超预估 50% 即回父任务重估，禁止硬扛（迁移纲领通用门禁）。

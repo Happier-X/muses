@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/android/features-salt-ui.md", "reason": "验收三屏平板形态一致性与Haze降级效果"}
+{"file": ".trellis/spec/android/features-webdav-library.md", "reason": "验收桌面WebDAV建库/扫库/流播语义不变"}
+{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "验收桌面歌词展示与手势无回归"}
+{"file": ".trellis/spec/android/index.md", "reason": "验收安卓包零影响门禁与播放契约"}

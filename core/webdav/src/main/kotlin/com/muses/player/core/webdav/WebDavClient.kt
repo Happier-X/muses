@@ -16,7 +16,6 @@ import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.content.ByteArrayContent
-import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readAvailable
 import java.io.File
@@ -119,9 +118,10 @@ internal class KtorWebDavClient constructor(
                 httpClient.request(baseUrl) {
                     method = HttpMethod("PROPFIND")
                     header("Depth", "0")
-                    contentType(ContentType.parse("application/xml; charset=utf-8"))
                     effectiveAuthHeader(baseUrl)?.let { header("Authorization", it) }
-                    setBody(PROPFIND_BODY)
+                    // P2c-fix：contentType()+setBody(String) 会被 CIO 以 Content-Length: 0 空发
+                    // （OpenList 回 400）；改 ByteArrayContent 自带类型（同 put）。
+                    setBody(ByteArrayContent(PROPFIND_BODY.toByteArray(Charsets.UTF_8), ContentType.parse("application/xml; charset=utf-8")))
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -163,10 +163,10 @@ internal class KtorWebDavClient constructor(
                 httpClient.request(url) {
                     method = HttpMethod("PROPFIND")
                     header("Depth", "1")
-                    contentType(ContentType.parse("application/xml; charset=utf-8"))
                     header("Accept", "application/xml, text/xml, */*")
                     effectiveAuthHeader(url)?.let { header("Authorization", it) }
-                    setBody(PROPFIND_BODY)
+                    // P2c-fix：同上，ByteArrayContent 保 body 必达。
+                    setBody(ByteArrayContent(PROPFIND_BODY.toByteArray(Charsets.UTF_8), ContentType.parse("application/xml; charset=utf-8")))
                 }
             } catch (e: CancellationException) {
                 throw e
