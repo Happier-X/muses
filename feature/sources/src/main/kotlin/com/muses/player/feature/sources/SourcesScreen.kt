@@ -63,7 +63,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.model.Source
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
@@ -91,7 +91,7 @@ fun SourcesScreen(
     onOpenWebdavAdd: () -> Unit = {},
     /** 跳转 WebDAV 编辑表单页（对照 /tabs/sources/webdav/:id） */
     onOpenWebdavEdit: (sourceId: String) -> Unit = {},
-    viewModel: SourcesViewModel = hiltViewModel(),
+    viewModel: SourcesViewModel = koinViewModel(),
 ) {
     val salt = LocalSaltColors.current
     val context = androidx.compose.ui.platform.LocalContext.current

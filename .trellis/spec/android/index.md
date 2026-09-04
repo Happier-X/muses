@@ -25,7 +25,7 @@ app (UI 宿主、导航)
 ```
 
 - `feature:*` **禁止**直接依赖 Room、OkHttp、Media3 等实现库，只依赖 `core:*` 的接口与 `core:model`
-- 所有跨模块通信通过接口 + Hilt `@Binds` 实现
+- 所有跨模块通信通过接口 + Koin DSL 绑定实现（P2a 起 Hilt 已全量移除；`singleOf/bind`，双绑定显式委托）
 
 ## 技术栈
 
@@ -33,7 +33,7 @@ app (UI 宿主、导航)
 |---|---|
 | Kotlin | 2.x（Version Catalog 管理） |
 | Compose | BOM + Material 3 基础组件 |
-| DI | Hilt（@HiltAndroidApp / @HiltViewModel / @Singleton） |
+| DI | Koin 4.x（BOM 统一；`single/factory/viewModel` DSL，无代码生成，CMP 就绪） |
 | 异步 | Coroutines + Flow；UI 层 StateFlow + collectAsStateWithLifecycle |
 | 持久化 | Room（库数据）+ DataStore Preferences（设置）+ Keystore（凭据） |
 | 网络 | OkHttp 5 |

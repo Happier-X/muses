@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -26,9 +25,11 @@ dependencies {
     // WebDAV 库扫描：复用 WebDavClient（PROPFIND/GET）与 WebDavAudioCache（下载缓存/播放预热）
     implementation(project(":core:webdav"))
 
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.coroutines.core)
+    // P2a Koin（BOM 统一 4.2.0；android 供 androidContext()）
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.core)
+    implementation(libs.koin.android)
 
     // Media3 播放栈（PlaybackService 在阶段 3 实现）
     api(libs.media3.exoplayer)

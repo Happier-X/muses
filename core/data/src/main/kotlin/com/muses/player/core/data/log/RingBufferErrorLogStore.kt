@@ -4,8 +4,6 @@ import java.text.SimpleDateFormat
 import java.util.ArrayDeque
 import java.util.Date
 import java.util.Locale
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,8 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * - 所有读写经 `synchronized(this)` 保证线程安全（埋点来自播放/扫描等多线程）；
  * - [serialize]/[restore] 为崩溃持久化的紧凑行格式，仅供 [CrashHandler] 使用。
  */
-@Singleton
-class RingBufferErrorLogStore @Inject constructor() : ErrorLogStore, ErrorLogCrashPersistence {
+class RingBufferErrorLogStore constructor() : ErrorLogStore, ErrorLogCrashPersistence {
 
     /** 单条日志记录；message 可含多行（throwable 堆栈附后） */
     internal data class Entry(

@@ -8,10 +8,7 @@ import com.muses.player.core.media.metadata.TagReader
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,9 +21,8 @@ import kotlinx.coroutines.withContext
  * - jaudiotagger 读 ID3/Vorbis 标签与内嵌封面，失败回退 MediaStore 列值；
  * - 封面落盘 cacheDir/covers/<sha256(songKey)>.jpg，返回安全 file:// URI。
  */
-@Singleton
-class LocalLibraryScanner @Inject constructor(
-    @ApplicationContext private val context: Context,
+class LocalLibraryScanner constructor(
+    private val context: Context,
 ) {
 
     private val progressInternal = MutableStateFlow(ScanProgress())

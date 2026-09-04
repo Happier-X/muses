@@ -6,7 +6,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.android.library)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -31,8 +30,9 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
+    // P2a Koin（BOM 统一 4.2.0）
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

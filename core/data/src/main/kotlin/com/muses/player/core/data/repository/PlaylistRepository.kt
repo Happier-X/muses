@@ -13,8 +13,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * 播放列表仓库。
@@ -48,8 +46,7 @@ interface PlaylistRepository {
     suspend fun moveSong(playlistId: String, fromPosition: Int, toPosition: Int)
 }
 
-@Singleton
-class RoomPlaylistRepository @Inject constructor(
+class RoomPlaylistRepository constructor(
     private val db: MusesDatabase,
 ) : PlaylistRepository {
 

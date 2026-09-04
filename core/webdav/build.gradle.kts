@@ -3,7 +3,6 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -27,9 +26,10 @@ dependencies {
     // WebDavAuthRegistry：读音源列表与凭据构造播放流播 Basic Auth（webdav=基础设施层 ← data=数据层，方向合法）
     implementation(project(":core:data"))
 
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.coroutines.core)
+    // P2a Koin（BOM 统一 4.2.0）
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.core)
 
     // WebDAV 客户端基于 OkHttp 手写（移植自旧工程 WebDavPlugin），阶段 2 实现
     implementation(libs.okhttp)

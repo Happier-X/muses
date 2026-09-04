@@ -32,7 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
 import com.muses.player.core.ui.components.SaltTextButtonSize
@@ -58,7 +58,7 @@ fun WebDavBrowseScreen(
     onBack: () -> Unit,
     onConfirm: (paths: List<String>) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: WebDavBrowseViewModel = hiltViewModel(),
+    viewModel: WebDavBrowseViewModel = koinViewModel(),
 ) {
     val salt = LocalSaltColors.current
     val browseState by viewModel.browseState.collectAsState()

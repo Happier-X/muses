@@ -15,9 +15,7 @@ import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.webdav.WebDavAuthRegistry
 import com.muses.player.core.webdav.WebDavClient
-import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,8 +46,7 @@ sealed class TestState {
     data class Failure(val message: String) : TestState()
 }
 
-@HiltViewModel
-class SourcesViewModel @Inject constructor(
+class SourcesViewModel constructor(
     private val sourceRepository: SourceRepository,
     private val songRepository: SongRepository,
     private val scanner: LocalLibraryScanner,

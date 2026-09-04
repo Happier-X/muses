@@ -9,58 +9,55 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.muses.player.core.data.log.ErrorLogStore
+import com.muses.player.core.data.repository.SettingsRepository
+import com.muses.player.core.data.repository.SongRepository
+import com.muses.player.core.data.repository.SourceRepository
 import com.muses.player.core.model.SourceType
-import dagger.hilt.android.EntryPointAccessors
-import dagger.hilt.components.SingletonComponent
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 /**
- * 后台扫描任务（WorkManager CoroutineWorker + Hilt EntryPoint）。
+ * 后台扫描任务（WorkManager CoroutineWorker）。
+ * P2a Hilt→Koin：原手动取依赖改 `KoinComponent` 懒注入（design D3，
+ * 不引入 workmanager 插件）；触发条件与约束不变。
+ *
  * 入参 sourceId（可选）：缺省扫描默认本地库；指定时按该音源目录前缀过滤。
  */
 class ScanWorker(
     appContext: Context,
     params: WorkerParameters,
-) : CoroutineWorker(appContext, params) {
+) : CoroutineWorker(appContext, params), KoinComponent {
 
-    @dagger.hilt.EntryPoint
-    @dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
-    interface Deps {
-        fun scanner(): LocalLibraryScanner
-        fun songRepository(): com.muses.player.core.data.repository.SongRepository
-        fun sourceRepository(): com.muses.player.core.data.repository.SourceRepository
-        fun settingsRepository(): com.muses.player.core.data.repository.SettingsRepository
-        fun errorLogStore(): com.muses.player.core.data.log.ErrorLogStore
-    }
-
-    private fun deps(): Deps = EntryPointAccessors.fromApplication(
-        applicationContext,
-        Deps::class.java,
-    )
+    private val scanner: LocalLibraryScanner by inject()
+    private val songRepository: SongRepository by inject()
+    private val sourceRepository: SourceRepository by inject()
+    private val settingsRepository: SettingsRepository by inject()
+    private val errorLogStore: ErrorLogStore by inject()
 
     override suspend fun doWork(): Result {
-        val deps = deps()
         val sourceId = inputData.getString(KEY_SOURCE_ID)
         return try {
             val songs = if (sourceId == null) {
-                deps.scanner().scan(null)
+                scanner.scan(null)
             } else {
-                val source = deps.sourceRepository().getSource(sourceId)
+                val source = sourceRepository.getSource(sourceId)
                 when (source?.type) {
-                    SourceType.LOCAL -> deps.scanner().scan(source)
-                    else -> deps.scanner().scan(null)
+                    SourceType.LOCAL -> scanner.scan(source)
+                    else -> scanner.scan(null)
                 }
             }
-            deps.songRepository().replaceSourceSongs(
+            songRepository.replaceSourceSongs(
                 sourceId ?: LocalLibraryScanner.DEFAULT_LOCAL_SOURCE_ID,
                 songs,
             )
-            deps.settingsRepository().updateLastScanTimestamp(System.currentTimeMillis())
+            settingsRepository.updateLastScanTimestamp(System.currentTimeMillis())
             Result.success(workDataOf(KEY_SCANNED_COUNT to songs.size))
         } catch (e: kotlinx.coroutines.CancellationException) {
             // 协程取消不得吞（spec 陷阱 #14），也不计入失败重试
             throw e
         } catch (e: Exception) {
-            deps.errorLogStore().log(
+            errorLogStore.log(
                 com.muses.player.core.data.log.ErrorLogStore.Level.ERROR,
                 "LibraryScan",
                 "后台扫描失败（attempt=${runAttemptCount + 1}）：${e.message ?: e::class.java.simpleName}",

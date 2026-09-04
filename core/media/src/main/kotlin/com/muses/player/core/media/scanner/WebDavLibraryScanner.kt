@@ -7,8 +7,6 @@ import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.webdav.WebDavClient
 import com.muses.player.core.webdav.WebDavItem
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,8 +23,7 @@ import kotlinx.coroutines.withContext
  *   避免扫描期批量网络请求触发网关限流，且用户只对真正会听的歌付出标签成本）；
  * - 只产出 List<Song>，入库（replaceSourceSongs）由调用方完成。
  */
-@Singleton
-class WebDavLibraryScanner @Inject constructor(
+class WebDavLibraryScanner constructor(
     private val webDavClient: WebDavClient,
     private val credentialsRepository: CredentialsRepository,
     private val errorLogStore: ErrorLogStore,

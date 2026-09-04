@@ -7,8 +7,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /** 应用设置（DataStore Preferences） */
 interface SettingsRepository {
@@ -23,8 +21,7 @@ interface SettingsRepository {
     suspend fun updateLastScanTimestamp(timestampMillis: Long)
 }
 
-@Singleton
-class DataStoreSettingsRepository @Inject constructor(
+class DataStoreSettingsRepository constructor(
     private val dataStore: DataStore<Preferences>,
 ) : SettingsRepository {
 

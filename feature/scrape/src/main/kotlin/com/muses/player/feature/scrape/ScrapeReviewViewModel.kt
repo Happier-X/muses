@@ -18,9 +18,7 @@ import com.muses.player.core.scrape.editmeta.EditDimResult
 import com.muses.player.core.scrape.editmeta.EditDimStatus
 import com.muses.player.core.scrape.editmeta.EditLyricsCandidate
 import com.muses.player.core.scrape.writeback.WritebackOrchestrator
-import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -121,8 +119,7 @@ data class ReviewKeyword(
  * ABORTED 状态正常返回（EditSearchAbortedException 被引擎消化），VM 层只需保证
  * 重搜取消前次 job 时不吞其它 CancellationException。
  */
-@HiltViewModel
-class ScrapeReviewViewModel @Inject constructor(
+class ScrapeReviewViewModel constructor(
     savedStateHandle: SavedStateHandle,
     private val editCloudMetaSearch: EditCloudMetaSearch,
     private val songRepository: SongRepository,

@@ -7,8 +7,6 @@ import java.nio.charset.StandardCharsets
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlin.math.min
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -68,8 +66,7 @@ interface WebDavClient {
     suspend fun getString(url: String): String?
 }
 
-@Singleton
-internal class OkHttpWebDavClient @Inject constructor(
+internal class OkHttpWebDavClient constructor(
     private val httpClient: OkHttpClient,
     private val authRegistry: WebDavAuthRegistry,
     private val rateLimiter: WebDavRateLimiter,

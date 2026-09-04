@@ -35,7 +35,7 @@
             </intent-filter>
         </activity>
 
-        <!-- WorkManager 按需初始化：默认 Initializer 移除，交给 HiltWorkerFactory -->
+        <!-- WorkManager 按需初始化：默认 Initializer 移除，改由 MusesApplication.Configuration.Provider 手动初始化 -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

@@ -25,7 +25,6 @@ import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.tag.AudioTagReader
 import com.muses.player.core.media.scanner.LocalLibraryScanner
-import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,36 +32,35 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import com.muses.player.core.webdav.STREAMING_OKHTTP_QUALIFIER
 import okhttp3.OkHttpClient
-import com.muses.player.core.webdav.StreamingOkHttp
-import javax.inject.Inject
+import org.koin.android.ext.android.inject
+import org.koin.core.qualifier.named
 
 /**
  * 播放服务：Media3 MediaSessionService。
  * 持有 ExoPlayer，自动处理通知/媒体按钮/音频焦点/蓝牙断连暂停。
+ *
+ * P2a Hilt→Koin：`@AndroidEntryPoint` + `@Inject` 字段改 Koin 懒委托（Service 是 Context，直接 `inject()`）。
  */
 @UnstableApi
-@AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
 
-    /** Hilt 提供的流播专用客户端：只带 WebDAV 认证 interceptor，不施加 4 rps 限流（见 [StreamingOkHttp]） */
-    @Inject
-    @StreamingOkHttp
-    lateinit var okHttpClient: OkHttpClient
+    /** 流播专用客户端：只带 WebDAV 认证 interceptor，不施加 4 rps 限流（见 [STREAMING_OKHTTP_QUALIFIER]） */
+    private val okHttpClient: OkHttpClient by inject(named(STREAMING_OKHTTP_QUALIFIER))
 
     /** Media3 流播磁盘缓存：探测性重复 Range 请求命中本地不再发网络（防网关限流） */
-    @Inject
-    lateinit var playbackCache: SimpleCache
+    private val playbackCache: SimpleCache by inject()
 
-    @Inject lateinit var songDao: SongDao
-    @Inject lateinit var playbackStateRepository: PlaybackStateRepository
-    @Inject lateinit var recentPlaysRepository: RecentPlaysRepository
-    @Inject lateinit var recoveryController: PlaybackRecoveryController
-    @Inject lateinit var errorLogStore: ErrorLogStore
-    @Inject lateinit var audioTagReader: AudioTagReader
-    @Inject lateinit var songRepository: SongRepository
+    private val songDao: SongDao by inject()
+    private val playbackStateRepository: PlaybackStateRepository by inject()
+    private val recentPlaysRepository: RecentPlaysRepository by inject()
+    private val recoveryController: PlaybackRecoveryController by inject()
+    private val errorLogStore: ErrorLogStore by inject()
+    private val audioTagReader: AudioTagReader by inject()
+    private val songRepository: SongRepository by inject()
 
     private var saveJob: kotlinx.coroutines.Job? = null
 
@@ -102,7 +100,7 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         // 注：media3 1.11 无 Player.setPreloadItems（相邻预加载 API 在 1.13+），默认不会预加载整队列；
-        // 真正触发 429 的是流播 Range 被 4 rps 限流饿死，已通过 @StreamingOkHttp 流播 client 剥离限流解决。
+        // 真正触发 429 的是流播 Range 被 4 rps 限流饿死，已通过流播专用 client（named streamingOkHttp）剥离限流解决。
         // 若实测恢复队列（465 首）一次性 prepare 仍发全列请求，再改为「只 prepare 当前曲 + 下一首」分批加载。
 
         mediaSession = MediaSession.Builder(this, player).build()

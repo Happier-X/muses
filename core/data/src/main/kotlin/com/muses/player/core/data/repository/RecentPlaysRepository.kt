@@ -1,8 +1,6 @@
 package com.muses.player.core.data.repository
 
 import androidx.datastore.core.DataStore
-import javax.inject.Inject
-import javax.inject.Singleton
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -28,8 +26,7 @@ import kotlinx.serialization.json.jsonObject
  * 仅存展示所需元数据（title/subtitle/coverUri），点击播放时按 songId 从曲库解析。
  * 存储替换 localStorage → DataStore；事件广播 → StateFlow。
  */
-@Singleton
-class RecentPlaysRepository @Inject constructor(private val dataStore: DataStore<Preferences>) {
+class RecentPlaysRepository constructor(private val dataStore: DataStore<Preferences>) {
 
     companion object {
         /** Web RECENT_STORAGE_KEY = 'muses:recent' */

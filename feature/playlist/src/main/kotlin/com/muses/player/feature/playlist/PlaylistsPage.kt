@@ -36,7 +36,7 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.repository.PlaylistRepository
@@ -50,8 +50,6 @@ import com.muses.player.core.ui.components.SaltIconButton
 import com.muses.player.core.ui.components.SaltListItem
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.theme.LocalSaltColors
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -71,8 +69,7 @@ import kotlinx.coroutines.launch
  */
 data class PlaylistRow(val playlist: Playlist, val name: String, val validCount: Int)
 
-@HiltViewModel
-class PlaylistsViewModel @Inject constructor(
+class PlaylistsViewModel constructor(
     private val repository: PlaylistRepository,
 ) : ViewModel() {
 
@@ -121,7 +118,7 @@ private data class NameDialogState(
 fun PlaylistsPage(
     onOpenPlaylist: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: PlaylistsViewModel = hiltViewModel(),
+    viewModel: PlaylistsViewModel = koinViewModel(),
 ) {
     val salt = LocalSaltColors.current
     val rows by viewModel.rows.collectAsState()

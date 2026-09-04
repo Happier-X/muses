@@ -10,14 +10,12 @@ import com.muses.player.core.webdav.WebDavClient
 import com.muses.player.core.webdav.getParentWebDavPath
 import com.muses.player.core.webdav.getWebDavDisplayName
 import com.muses.player.core.webdav.normalizeWebDavPath
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
-import javax.inject.Inject
 
 /** WebDAV 表单状态 */
 data class WebDavFormState(
@@ -43,8 +41,7 @@ data class WebDavFormState(
     val editingSource: Source? = null,
 )
 
-@HiltViewModel
-class WebDavFormViewModel @Inject constructor(
+class WebDavFormViewModel constructor(
     private val sourceRepository: SourceRepository,
     private val credentialsRepository: CredentialsRepository,
     private val webDavClient: WebDavClient,

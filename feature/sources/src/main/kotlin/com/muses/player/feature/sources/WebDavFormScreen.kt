@@ -37,7 +37,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
 import com.muses.player.core.ui.theme.LocalSaltColors
@@ -58,7 +58,7 @@ fun WebDavFormScreen(
     onBack: () -> Unit,
     onBrowse: (mode: String, initialPath: String, serverUrl: String, username: String, password: String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: WebDavFormViewModel = hiltViewModel(),
+    viewModel: WebDavFormViewModel = koinViewModel(),
 ) {
     val salt = LocalSaltColors.current
     val context = LocalContext.current

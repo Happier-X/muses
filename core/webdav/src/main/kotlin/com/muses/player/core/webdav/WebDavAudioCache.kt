@@ -2,13 +2,10 @@ package com.muses.player.core.webdav
 
 import android.content.Context
 import android.net.Uri
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-import javax.inject.Inject
-import javax.inject.Singleton
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
@@ -33,9 +30,8 @@ interface WebDavAudioCache {
  * - LRU 淘汰：超限时按 lastAccess 时间升序删除；
  * - 每个缓存文件旁存 `.meta` 文件记录 eTag / lastModified / lastAccess。
  */
-@Singleton
-class DiskWebDavAudioCache @Inject constructor(
-    @ApplicationContext private val context: Context,
+class DiskWebDavAudioCache constructor(
+    private val context: Context,
 ) : WebDavAudioCache {
     private val cacheDir: File
         get() = File(context.cacheDir, CACHE_DIR).apply { mkdirs() }

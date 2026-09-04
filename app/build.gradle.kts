@@ -3,8 +3,6 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.ksp)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -65,6 +63,9 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:webdav"))
     implementation(project(":core:media"))
+    // P2a：AppKoinModule 直接聚合 lyrics/scrape 的 Koin 模块，需直连依赖（implementation 非传递）
+    implementation(project(":core:lyrics"))
+    implementation(project(":core:scrape"))
     implementation(project(":feature:library"))
     implementation(project(":feature:playlist"))
     implementation(project(":feature:player"))
@@ -83,14 +84,14 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
 
-    // Hilt
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-    implementation(libs.androidx.hilt.navigation.compose)
-    implementation(libs.hilt.work)
-    ksp(libs.androidx.hilt.compiler)
+    // P2a Koin（BOM 统一 4.2.0，无散装版本号）
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.core)
+    implementation(libs.koin.android)
+    implementation(libs.koin.compose.viewmodel)
+    implementation(libs.koin.androidx.compose.navigation)
 
-    // WorkManager（Hilt Worker 集成）
+    // WorkManager（ScanWorker 为 KoinComponent 懒注入，见 P2a R3）
     implementation(libs.work.runtime.ktx)
 
     // 真磨砂：TabsLayout 的 hazeSource / hazeEffect 需在 app 模块可见

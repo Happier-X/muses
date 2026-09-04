@@ -25,7 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.model.Playlist
 
 /**
@@ -41,7 +41,7 @@ fun AddToPlaylistSheet(
     songIds: List<String>,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: AddToPlaylistViewModel = hiltViewModel(),
+    viewModel: AddToPlaylistViewModel = koinViewModel(),
 ) {
     val playlists by viewModel.playlists.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }

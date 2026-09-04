@@ -12,17 +12,14 @@ import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.model.Album
 import com.muses.player.core.model.Artist
 import com.muses.player.core.model.Song
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import javax.inject.Inject
 
 /** 歌曲列表 ViewModel */
-@HiltViewModel
-class SongsViewModel @Inject constructor(
+class SongsViewModel constructor(
     songRepository: SongRepository,
     private val songDao: com.muses.player.core.data.dao.SongDao,
 ) : ViewModel() {
@@ -54,8 +51,7 @@ class SongsViewModel @Inject constructor(
 }
 
 /** 专辑列表 ViewModel */
-@HiltViewModel
-class AlbumsViewModel @Inject constructor(
+class AlbumsViewModel constructor(
     albumRepository: AlbumRepository,
     albumDao: com.muses.player.core.data.dao.AlbumDao,
 ) : ViewModel() {
@@ -70,8 +66,7 @@ class AlbumsViewModel @Inject constructor(
 }
 
 /** 专辑详情 ViewModel */
-@HiltViewModel
-class AlbumDetailViewModel @Inject constructor(
+class AlbumDetailViewModel constructor(
     private val albumRepository: AlbumRepository,
 ) : ViewModel() {
 
@@ -92,8 +87,7 @@ class AlbumDetailViewModel @Inject constructor(
 }
 
 /** 艺术家列表 ViewModel */
-@HiltViewModel
-class ArtistsViewModel @Inject constructor(
+class ArtistsViewModel constructor(
     artistRepository: ArtistRepository,
     artistDao: com.muses.player.core.data.dao.ArtistDao,
 ) : ViewModel() {
@@ -108,8 +102,7 @@ class ArtistsViewModel @Inject constructor(
 }
 
 /** 艺术家详情 ViewModel */
-@HiltViewModel
-class ArtistDetailViewModel @Inject constructor(
+class ArtistDetailViewModel constructor(
     private val artistRepository: ArtistRepository,
 ) : ViewModel() {
 

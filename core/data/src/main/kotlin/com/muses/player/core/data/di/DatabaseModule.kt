@@ -1,54 +1,49 @@
 package com.muses.player.core.data.di
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
+import com.muses.player.core.data.dao.AlbumDao
+import com.muses.player.core.data.dao.ArtistDao
+import com.muses.player.core.data.dao.SongDao
+import com.muses.player.core.data.dao.SourceDao
 import com.muses.player.core.data.db.MIGRATION_1_2
 import com.muses.player.core.data.db.MIGRATION_2_3
 import com.muses.player.core.data.db.MIGRATION_3_4
 import com.muses.player.core.data.db.MIGRATION_4_5
 import com.muses.player.core.data.db.MIGRATION_5_6
 import com.muses.player.core.data.db.MusesDatabase
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
 import java.io.File
-import javax.inject.Singleton
+import org.koin.android.ext.koin.androidContext
+import org.koin.dsl.module
 
-@Module
-@InstallIn(SingletonComponent::class)
-internal object DatabaseModule {
+/**
+ * 数据库装配（P2a Hilt→Koin：原 `@Module @InstallIn(SingletonComponent)`）。
+ * `@Provides @Singleton`→`single`；无作用域的 DAO 提供→`factory`（见 design.md 映射表）。
+ */
+val databaseModule = module {
 
-    private const val DB_NAME = "muses.db"
-    private const val DATASTORE_NAME = "muses_settings.preferences_pb"
-
-    @Provides
-    @Singleton
-    fun provideMusesDatabase(@ApplicationContext context: Context): MusesDatabase =
-        Room.databaseBuilder(context, MusesDatabase::class.java, DB_NAME)
+    single<MusesDatabase> {
+        Room.databaseBuilder(androidContext(), MusesDatabase::class.java, DB_NAME)
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .build()
+    }
 
-    @Provides
-    fun provideSongDao(db: MusesDatabase): com.muses.player.core.data.dao.SongDao = db.songDao()
+    factory<SongDao> { get<MusesDatabase>().songDao() }
 
-    @Provides
-    fun provideSourceDao(db: MusesDatabase): com.muses.player.core.data.dao.SourceDao = db.sourceDao()
+    factory<SourceDao> { get<MusesDatabase>().sourceDao() }
 
-    @Provides
-    fun provideAlbumDao(db: MusesDatabase): com.muses.player.core.data.dao.AlbumDao = db.albumDao()
+    factory<AlbumDao> { get<MusesDatabase>().albumDao() }
 
-    @Provides
-    fun provideArtistDao(db: MusesDatabase): com.muses.player.core.data.dao.ArtistDao = db.artistDao()
+    factory<ArtistDao> { get<MusesDatabase>().artistDao() }
 
-    @Provides
-    @Singleton
-    fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
+    single<DataStore<Preferences>> {
         PreferenceDataStoreFactory.create {
-            File(context.filesDir, DATASTORE_NAME)
+            File(androidContext().filesDir, DATASTORE_NAME)
         }
+    }
 }
+
+private const val DB_NAME = "muses.db"
+private const val DATASTORE_NAME = "muses_settings.preferences_pb"

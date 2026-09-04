@@ -50,7 +50,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.muses.player.core.media.playback.PlayerConnection
@@ -99,7 +99,7 @@ fun SongsPage(
     /** M3：加入待刮削队列（经回调注入，feature:library 不直接依赖 core:scrape） */
     onEnqueueScrape: (List<String>) -> Unit = {},
     modifier: Modifier = Modifier,
-    viewModel: SongsViewModel = hiltViewModel(),
+    viewModel: SongsViewModel = koinViewModel(),
 ) {
     // 非 null 时弹出「加入播放列表」弹层（复用 M2 AddToPlaylistSheet）
     var addToPlaylistTarget by remember { mutableStateOf<List<String>?>(null) }

@@ -3,14 +3,14 @@
 agp = "9.3.2"
 kotlin = "2.4.10"
 ksp = "2.3.11"
-hilt = "2.60.1"
+# P2a Hilt→Koin：BOM 统一版本（AC3），各工件不散装版本号
+koin-bom = "4.2.0"
 
 androidxCore = "1.19.0"
 composeBom = "2026.08.00"
 activityCompose = "1.13.0"
 navigationCompose = "2.9.8"
 lifecycle = "2.11.0"
-hiltNavigationCompose = "1.4.0"
 media3 = "1.11.0"
 okhttp = "5.5.0"
 coil = "3.5.0"
@@ -20,7 +20,6 @@ coroutines = "1.11.0"
 junit = "4.13.2"
 jaudiotagger = "3.0.1"
 workManager = "2.11.2"
-androidxHiltExt = "1.4.0"
 robolectric = "4.16"
 androidxTestCore = "1.7.0"
 accompanistLyricsCore = "0.4.7"
@@ -49,9 +48,13 @@ compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 
-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
-hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
-androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+# P2a：Koin 4.2.0 BOM（CMP 就绪，P3 复用；无 version 经 BOM 统一）
+koin-bom = { group = "io.insert-koin", name = "koin-bom", version.ref = "koin-bom" }
+koin-core = { group = "io.insert-koin", name = "koin-core" }
+koin-android = { group = "io.insert-koin", name = "koin-android" }
+koin-compose = { group = "io.insert-koin", name = "koin-compose" }
+koin-compose-viewmodel = { group = "io.insert-koin", name = "koin-compose-viewmodel" }
+koin-androidx-compose-navigation = { group = "io.insert-koin", name = "koin-androidx-compose-navigation" }
 
 media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 media3-datasource = { group = "androidx.media3", name = "media3-datasource", version.ref = "media3" }
@@ -79,8 +82,6 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 jaudiotagger = { group = "net.jthink", name = "jaudiotagger", version.ref = "jaudiotagger" }
 
 work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "androidxHiltExt" }
-androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "androidxHiltExt" }
 
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref = "androidxTestCore" }
@@ -102,4 +103,3 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

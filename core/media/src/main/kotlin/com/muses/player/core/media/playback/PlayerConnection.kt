@@ -15,20 +15,16 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.muses.player.core.media.scanner.CoverCacheWriter
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.webdav.WebDavAudioCache
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * 播放连接：经 MediaController 连接 PlaybackService，
  * 暴露播放状态 Flow 供 ViewModel 消费。
  */
-@Singleton
-class PlayerConnection @Inject constructor(
-    @ApplicationContext private val context: Context,
+class PlayerConnection constructor(
+    private val context: Context,
     private val recoveryController: PlaybackRecoveryController,
     private val webDavCache: WebDavAudioCache,
 ) {

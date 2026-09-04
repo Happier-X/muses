@@ -10,8 +10,6 @@ import com.muses.player.core.scrape.editmeta.EditCloudMetaQuery
 import com.muses.player.core.scrape.writeback.WritebackOrchestrator
 import com.muses.player.core.model.scrape.ScrapeCandidate
 import com.muses.player.core.model.scrape.ScrapeChanges
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,8 +33,7 @@ data class EditMetaUiState(
  * 编辑歌曲信息弹窗编排：editmeta 三维云搜（文本/封面/歌词）→ 用户确认 → WritebackOrchestrator 写回。
  * 歌词维度在 LyricsSearchPort 未注入时由数据层降级（status != OK），UI 显示跳过文案。
  */
-@HiltViewModel
-class EditMetaViewModel @Inject constructor(
+class EditMetaViewModel constructor(
     private val editCloudMetaSearch: EditCloudMetaSearch,
     private val songRepository: SongRepository,
     private val writebackOrchestrator: WritebackOrchestrator,

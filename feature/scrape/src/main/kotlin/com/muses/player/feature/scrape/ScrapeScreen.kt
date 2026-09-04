@@ -41,7 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import coil3.compose.AsyncImage
 import com.muses.player.core.ui.components.SaltEmpty
 import com.muses.player.core.ui.components.SaltNavbar
@@ -56,7 +56,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ScrapeScreen(
     modifier: Modifier = Modifier,
-    viewModel: ScrapeViewModel = hiltViewModel(),
+    viewModel: ScrapeViewModel = koinViewModel(),
     /** S2：打开审核页（单曲改词重搜；由 app 宿主接导航到 ScrapeReview 路由） */
     onOpenReview: (String) -> Unit = {},
     /**

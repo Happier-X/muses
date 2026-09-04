@@ -13,14 +13,10 @@ import com.muses.player.core.model.Album
 import com.muses.player.core.model.Artist
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.Source
-import dagger.Binds
-import dagger.Module
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import javax.inject.Inject
-import javax.inject.Singleton
+import org.koin.core.module.dsl.singleOf
+import org.koin.dsl.module
 
 /** 曲库仓库 */
 interface SongRepository {
@@ -37,8 +33,7 @@ interface SongRepository {
     suspend fun upsert(song: Song)
 }
 
-@Singleton
-class RoomSongRepository @Inject constructor(
+class RoomSongRepository constructor(
     private val songDao: SongDao,
     private val albumDao: com.muses.player.core.data.dao.AlbumDao,
     private val artistDao: com.muses.player.core.data.dao.ArtistDao,
@@ -131,8 +126,7 @@ interface SourceRepository {
     suspend fun deleteById(id: String)
 }
 
-@Singleton
-class RoomSourceRepository @Inject constructor(
+class RoomSourceRepository constructor(
     private val sourceDao: SourceDao,
 ) : SourceRepository {
     override fun observeSources(): Flow<List<Source>> =
@@ -156,8 +150,7 @@ interface AlbumRepository {
     fun observeAlbumWithSongs(albumId: String): Flow<com.muses.player.core.data.db.AlbumWithSongs?>
 }
 
-@Singleton
-class RoomAlbumRepository @Inject constructor(
+class RoomAlbumRepository constructor(
     private val albumDao: AlbumDao,
 ) : AlbumRepository {
     override fun observeAlbums(): Flow<List<Album>> =
@@ -173,8 +166,7 @@ interface ArtistRepository {
     fun observeArtistWithSongs(artistId: String): Flow<com.muses.player.core.data.db.ArtistWithSongs?>
 }
 
-@Singleton
-class RoomArtistRepository @Inject constructor(
+class RoomArtistRepository constructor(
     private val artistDao: ArtistDao,
 ) : ArtistRepository {
     override fun observeArtists(): Flow<List<Artist>> =
@@ -184,42 +176,41 @@ class RoomArtistRepository @Inject constructor(
         artistDao.observeArtistWithSongs(artistId)
 }
 
-@Module
-@InstallIn(SingletonComponent::class)
-internal abstract class RepositoryModule {
+/**
+ * 仓库装配（P2a Hilt→Koin：原 `@Module` + `@Binds`）。
+ * `@Binds`→`singleOf` + 接口 `single` 委托；同一实现双接口绑定（ErrorLogStore +
+ * ErrorLogCrashPersistence）共享同一单例（见 design.md 映射表）。
+ */
+val repositoryModule = module {
 
-    @Binds
-    abstract fun bindSongRepository(impl: RoomSongRepository): SongRepository
+    singleOf(::RoomSongRepository)
+    single<SongRepository> { get<RoomSongRepository>() }
 
-    @Binds
-    abstract fun bindSourceRepository(impl: RoomSourceRepository): SourceRepository
+    singleOf(::RoomSourceRepository)
+    single<SourceRepository> { get<RoomSourceRepository>() }
 
-    @Binds
-    abstract fun bindAlbumRepository(impl: RoomAlbumRepository): AlbumRepository
+    singleOf(::RoomAlbumRepository)
+    single<AlbumRepository> { get<RoomAlbumRepository>() }
 
-    @Binds
-    abstract fun bindArtistRepository(impl: RoomArtistRepository): ArtistRepository
+    singleOf(::RoomArtistRepository)
+    single<ArtistRepository> { get<RoomArtistRepository>() }
 
-    @Binds
-    abstract fun bindPlaylistRepository(impl: RoomPlaylistRepository): PlaylistRepository
+    singleOf(::RoomPlaylistRepository)
+    single<PlaylistRepository> { get<RoomPlaylistRepository>() }
 
-    @Binds
-    abstract fun bindSettingsRepository(impl: DataStoreSettingsRepository): SettingsRepository
+    singleOf(::DataStoreSettingsRepository)
+    single<SettingsRepository> { get<DataStoreSettingsRepository>() }
 
-    @Binds
-    abstract fun bindCredentialsRepository(impl: AndroidKeyStoreCredentialsRepository): CredentialsRepository
+    singleOf(::AndroidKeyStoreCredentialsRepository)
+    single<CredentialsRepository> { get<AndroidKeyStoreCredentialsRepository>() }
 
-    @Binds
-    @Singleton
-    abstract fun bindCryptoEngine(impl: AndroidKeystoreCryptoEngine): CryptoEngine
+    singleOf(::AndroidKeystoreCryptoEngine)
+    single<CryptoEngine> { get<AndroidKeystoreCryptoEngine>() }
 
     /** 错误日志环形缓冲（任务 08-26-settings-log-viewer） */
-    @Binds
-    @Singleton
-    abstract fun bindErrorLogStore(impl: RingBufferErrorLogStore): ErrorLogStore
+    singleOf(::RingBufferErrorLogStore)
+    single<ErrorLogStore> { get<RingBufferErrorLogStore>() }
 
     /** 崩溃持久化能力（CrashHandler 专用，同一实现双接口绑定） */
-    @Binds
-    @Singleton
-    abstract fun bindErrorLogCrashPersistence(impl: RingBufferErrorLogStore): ErrorLogCrashPersistence
+    single<ErrorLogCrashPersistence> { get<RingBufferErrorLogStore>() }
 }

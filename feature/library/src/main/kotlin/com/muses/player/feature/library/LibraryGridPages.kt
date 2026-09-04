@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.repository.AlbumRepository
@@ -50,8 +50,6 @@ import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -74,12 +72,11 @@ import kotlinx.coroutines.flow.stateIn
 
 data class AlbumCard(val album: Album, val coverUri: String?)
 
-@HiltViewModel
-class AlbumCardsViewModel @Inject constructor(
+class AlbumCardsViewModel constructor(
     albumRepository: AlbumRepository,
     albumDao: com.muses.player.core.data.dao.AlbumDao,
 ) : ViewModel() {
-    // Hilt 禁止 ViewModel 互注入：这里自行组合专辑列表与封面（数据口径同 AlbumsViewModel）
+    // ViewModel 间禁止互注入：这里自行组合专辑列表与封面（数据口径同 AlbumsViewModel）
     val cards: StateFlow<List<AlbumCard>> = combine(
         albumRepository.observeAlbums(),
         albumDao.observeAlbumCovers(),
@@ -91,8 +88,7 @@ class AlbumCardsViewModel @Inject constructor(
 
 data class ArtistCard(val artist: Artist, val coverUri: String?)
 
-@HiltViewModel
-class ArtistCardsViewModel @Inject constructor(
+class ArtistCardsViewModel constructor(
     artistRepository: ArtistRepository,
     artistDao: com.muses.player.core.data.dao.ArtistDao,
 ) : ViewModel() {
@@ -113,7 +109,7 @@ class ArtistCardsViewModel @Inject constructor(
 fun AlbumsPage(
     onAlbumClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: AlbumCardsViewModel = hiltViewModel(),
+    viewModel: AlbumCardsViewModel = koinViewModel(),
 ) {
     val salt = LocalSaltColors.current
     val cards by viewModel.cards.collectAsState()
@@ -214,7 +210,7 @@ fun AlbumsPage(
 fun ArtistsPage(
     onArtistClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ArtistCardsViewModel = hiltViewModel(),
+    viewModel: ArtistCardsViewModel = koinViewModel(),
 ) {
     val salt = LocalSaltColors.current
     val cards by viewModel.cards.collectAsState()

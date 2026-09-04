@@ -87,6 +87,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import coil3.compose.AsyncImage
+import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.ui.components.SaltCoverRadius
 import com.muses.player.core.ui.components.SaltIconButton
 import com.muses.player.core.ui.components.SaltIconButtonSize
@@ -120,7 +121,7 @@ import kotlin.math.roundToInt
 fun PlayerScreen(
     modifier: Modifier = Modifier,
     onClose: () -> Unit = {},
-    viewModel: PlayerViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    viewModel: PlayerViewModel = koinViewModel(),
     onOpenQueue: () -> Unit = {},
     onOpenEditMeta: () -> Unit = {},
 ) {
@@ -1181,7 +1182,7 @@ private fun formatTime(ms: Long): String {
 fun QueueScreen(
     onClose: () -> Unit = {},
     modifier: Modifier = Modifier,
-    viewModel: PlayerViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    viewModel: PlayerViewModel = koinViewModel(),
 ) {
     val queue by viewModel.queue.collectAsStateWithLifecycle()
     val currentMediaItem by viewModel.currentMediaItem.collectAsStateWithLifecycle()

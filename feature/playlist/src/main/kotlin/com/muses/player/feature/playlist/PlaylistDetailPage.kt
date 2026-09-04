@@ -25,7 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.model.Song
 import com.muses.player.core.ui.components.SaltCover
 import com.muses.player.core.ui.components.SaltCoverRadius
@@ -53,7 +53,7 @@ fun PlaylistDetailPage(
     playlistId: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: PlaylistDetailViewModel = hiltViewModel(),
+    viewModel: PlaylistDetailViewModel = koinViewModel(),
 ) {
     viewModel.bind(playlistId)
     val salt = LocalSaltColors.current

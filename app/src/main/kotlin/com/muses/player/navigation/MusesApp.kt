@@ -24,7 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
@@ -50,8 +50,6 @@ import com.muses.player.R
 import com.muses.player.settings.SettingsScreen
 import com.muses.player.core.ui.components.MiniPlayerBar
 import com.muses.player.core.ui.components.SaltEmpty
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -70,8 +68,7 @@ data class NowPlayingUiState(
 )
 
 /** 主界面 ViewModel：管理权限、播放连接与 MiniPlayer 数据 */
-@HiltViewModel
-class MainViewModel @Inject constructor(
+class MainViewModel constructor(
     private val playerConnection: PlayerConnection,
     private val songDao: SongDao,
     private val songRepository: com.muses.player.core.data.repository.SongRepository,
@@ -163,7 +160,7 @@ fun MusesApp() {
     val navController = rememberNavController()
     val context = LocalContext.current
 
-    val viewModel: MainViewModel = hiltViewModel()
+    val viewModel: MainViewModel = koinViewModel()
 
     // 连接播放服务
     LaunchedEffect(Unit) {
@@ -249,7 +246,7 @@ fun MusesApp() {
         if (showPlayerOverlay) {
             BackHandler { showPlayerOverlay = false }
             Box(Modifier.fillMaxSize()) {
-                val playerVm: com.muses.player.feature.player.PlayerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
                 val currentMediaItem by playerVm.currentMediaItem.collectAsState()
                 var showEditMeta by remember { mutableStateOf(false) }
                 if (showEditMeta) {
@@ -302,9 +299,9 @@ private fun AppNavHost(navController: NavHostController) {
         modifier = Modifier.fillMaxSize(),
     ) {
         composable(NavDestination.Songs.route) {
-            val playerConnection = androidx.hilt.navigation.compose.hiltViewModel<com.muses.player.feature.player.PlayerViewModel>().playerConnection
-            // M3：刮削队列入队（ScrapeQueueStore 为 @Singleton，经 hiltViewModel 载体注入）
-            val scrapeVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val playerConnection = koinViewModel<com.muses.player.feature.player.PlayerViewModel>().playerConnection
+            // M3：刮削队列入队（ScrapeQueueStore 为 @Singleton，经 koinViewModel 载体注入）
+            val scrapeVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = koinViewModel()
             SongsPage(
                 playerConnection = playerConnection,
                 onEnqueueScrape = { ids -> scrapeVm.enqueue(ids) },
@@ -326,7 +323,7 @@ private fun AppNavHost(navController: NavHostController) {
         }
         composable(DetailRoutes.ALBUM_DETAIL) { backStackEntry ->
             val albumId = backStackEntry.arguments?.getString("albumId") ?: return@composable
-            val playerConnection = androidx.hilt.navigation.compose.hiltViewModel<com.muses.player.feature.player.PlayerViewModel>().playerConnection
+            val playerConnection = koinViewModel<com.muses.player.feature.player.PlayerViewModel>().playerConnection
             AlbumDetailScreen(
                 albumId = albumId,
                 onBack = { navController.popBackStack() },
@@ -335,7 +332,7 @@ private fun AppNavHost(navController: NavHostController) {
         }
         composable(DetailRoutes.ARTIST_DETAIL) { backStackEntry ->
             val artistId = backStackEntry.arguments?.getString("artistId") ?: return@composable
-            val playerConnection = androidx.hilt.navigation.compose.hiltViewModel<com.muses.player.feature.player.PlayerViewModel>().playerConnection
+            val playerConnection = koinViewModel<com.muses.player.feature.player.PlayerViewModel>().playerConnection
             ArtistDetailScreen(
                 artistId = artistId,
                 onBack = { navController.popBackStack() },
@@ -378,7 +375,7 @@ private fun AppNavHost(navController: NavHostController) {
             ),
         ) {
             // S3：待审队列宿主在 Scrape 页的 VM 实例（跨 destination 共享，需按回退栈取同实例，
-            // 不可直接 hiltViewModel()——那是审核页自己的 scope）
+            // 不可直接 koinViewModel()——那是审核页自己的 scope）
             val scrapeEntry = remember(it) {
                 try {
                     navController.getBackStackEntry(NavDestination.Scrape.route)
@@ -387,7 +384,7 @@ private fun AppNavHost(navController: NavHostController) {
                 }
             }
             val scrapeVm: com.muses.player.feature.scrape.ScrapeViewModel? = scrapeEntry?.let { entry ->
-                androidx.hilt.navigation.compose.hiltViewModel(entry)
+                koinViewModel(viewModelStoreOwner = entry)
             }
             com.muses.player.feature.scrape.ScrapeReviewScreen(
                 onBack = { navController.popBackStack() },
@@ -469,7 +466,7 @@ private fun AppNavHost(navController: NavHostController) {
         composable(NavDestination.Settings.route) { SettingsScreen() }
         composable(NavDestination.NowPlaying.route) {
             // M3：编辑歌曲信息弹窗宿主（当前曲经 PlayerViewModel 反查）
-            val playerVm: com.muses.player.feature.player.PlayerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
             val currentMediaItem by playerVm.currentMediaItem.collectAsState()
             var showEditMeta by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
             if (showEditMeta) {

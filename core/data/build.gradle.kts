@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -42,8 +41,10 @@ ksp {
 dependencies {
     api(project(":core:common"))
 
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
+    // P2a Koin（BOM 统一 4.2.0）
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.core)
+    implementation(libs.koin.android)
     implementation(libs.kotlinx.coroutines.core)
 
     // Room 曲库 + DataStore 设置/凭据密文
@@ -59,10 +60,8 @@ dependencies {
     // jaudiotagger（音频标签读取）
     implementation(libs.jaudiotagger)
     
-    // WorkManager（后台标签读取）
+    // WorkManager（ScanWorker 为 KoinComponent 懒注入，见 P2a R3）
     implementation(libs.work.runtime.ktx)
-    implementation(libs.hilt.work)
-    ksp(libs.androidx.hilt.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

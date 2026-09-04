@@ -1,76 +1,67 @@
 package com.muses.player.core.webdav
 
-import dagger.Binds
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
 import java.util.concurrent.TimeUnit
-import javax.inject.Qualifier
-import javax.inject.Singleton
-import kotlin.annotation.AnnotationRetention
 import okhttp3.OkHttpClient
+import org.koin.core.module.dsl.singleOf
+import org.koin.core.qualifier.named
+import org.koin.dsl.module
 
-/** 流播专用 OkHttpClient 限定符：只注入 Basic Auth，不施加 4 rps 限流（见 [provideStreamingOkHttpClient]）。 */
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class StreamingOkHttp
+/** 流播专用 OkHttpClient 限定名：只注入 Basic Auth，不施加 4 rps 限流（见 [webdavModule]）。 */
+const val STREAMING_OKHTTP_QUALIFIER = "streamingOkHttp"
 
-@Module
-@InstallIn(SingletonComponent::class)
-internal abstract class WebDavClientModule {
+/**
+ * WebDAV 装配（P2a Hilt→Koin：原 `@Module @InstallIn(SingletonComponent)` + `@Binds`）。
+ * 原 `@Qualifier @StreamingOkHttp` 改为 Koin `named("streamingOkHttp")`。
+ */
+val webdavModule = module {
 
-    @Binds
-    abstract fun bindWebDavClient(impl: OkHttpWebDavClient): WebDavClient
+    singleOf(::WebDavAuthRegistry)
 
-    @Binds
-    abstract fun bindWebDavAudioCache(impl: DiskWebDavAudioCache): WebDavAudioCache
+    singleOf(::OkHttpWebDavClient)
+    single<WebDavClient> { get<OkHttpWebDavClient>() }
 
-    companion object {
-        /** 共享限流器：WebDAV 播放 + 刮削全局 4 rps，供 OkHttp 流播与 WebDavClient 双链路共享 */
-        @Provides
-        @Singleton
-        fun provideWebDavRateLimiter(): WebDavRateLimiter = WebDavRateLimiter()
+    singleOf(::DiskWebDavAudioCache)
+    single<WebDavAudioCache> { get<DiskWebDavAudioCache>() }
 
-        /**
-         * 流播专用 OkHttpClient：只注入 Basic Auth，**不施加 4 rps 限流**。
-         *
-         * 流播是 ExoPlayer 对 WebDAV URL 的单连接持续读取（边播边读），请求量极小、串行、
-         * 不构成 burst，无需节流；若套 4 rps 限流反而会把流播 Range 请求和扫描/预取挤在
-         * 同一桶里饿死/超时重试 → 叠加 429。
-         * 限流只作用于扫描/批量预取等可能并发突发的链路（[provideOkHttpClient]）。
-         *
-         * 用户决策 2026-08-27：保持流式播放 + CacheDataSource 边播边缓存，流播链路不套限流
-         * （对齐 cross-layer 限流显式化：流播单连接请求率远低于 CDN 阈值，不构成错配）。
-         */
-        @Provides
-        @Singleton
-        @StreamingOkHttp
-        fun provideStreamingOkHttpClient(registry: WebDavAuthRegistry): OkHttpClient =
-            OkHttpClient.Builder()
-                .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(60, TimeUnit.SECONDS)
-                .addInterceptor { chain ->
-                    val request = chain.request()
-                    val auth = if (request.header("Authorization") == null) {
-                        registry.authorizationHeader(request.url.toString())
-                    } else {
-                        null
-                    }
-                    chain.proceed(
-                        if (auth != null) request.newBuilder().header("Authorization", auth).build() else request,
-                    )
+    /** 共享限流器：WebDAV 播放 + 刮削全局 4 rps，供 OkHttp 流播与 WebDavClient 双链路共享 */
+    single { WebDavRateLimiter() }
+
+    /**
+     * 流播专用 OkHttpClient：只注入 Basic Auth，**不施加 4 rps 限流**。
+     *
+     * 流播是 ExoPlayer 对 WebDAV URL 的单连接持续读取（边播边读），请求量极小、串行、
+     * 不构成 burst，无需节流；若套 4 rps 限流反而会把流播 Range 请求和扫描/预取挤在
+     * 同一桶里饿死/超时重试 → 叠加 429。
+     * 限流只作用于扫描/批量预取等可能并发突发的链路（[OkHttpClient] 默认绑定）。
+     *
+     * 用户决策 2026-08-27：保持流式播放 + CacheDataSource 边播边缓存，流播链路不套限流
+     * （对齐 cross-layer 限流显式化：流播单连接请求率远低于 CDN 阈值，不构成错配）。
+     */
+    single<OkHttpClient>(named(STREAMING_OKHTTP_QUALIFIER)) {
+        val registry: WebDavAuthRegistry = get()
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val auth = if (request.header("Authorization") == null) {
+                    registry.authorizationHeader(request.url.toString())
+                } else {
+                    null
                 }
-                .build()
+                chain.proceed(
+                    if (auth != null) request.newBuilder().header("Authorization", auth).build() else request,
+                )
+            }
+            .build()
+    }
 
-        /** WebDAV 服务器常见于家庭 NAS，超时放宽 */
-        @Provides
-        @Singleton
-        fun provideOkHttpClient(
-            registry: WebDavAuthRegistry,
-            rateLimiter: WebDavRateLimiter,
-        ): OkHttpClient = OkHttpClient.Builder()
+    /** WebDAV 服务器常见于家庭 NAS，超时放宽 */
+    single<OkHttpClient> {
+        val registry: WebDavAuthRegistry = get()
+        val rateLimiter: WebDavRateLimiter = get()
+        OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)

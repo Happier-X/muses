@@ -5,12 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.muses.player.core.webdav.WebDavClient
 import com.muses.player.core.webdav.getParentWebDavPath
 import com.muses.player.core.webdav.normalizeWebDavPath
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /** WebDAV 目录浏览状态 */
 data class WebDavBrowseState(
@@ -21,8 +19,7 @@ data class WebDavBrowseState(
     val errorMessage: String? = null,
 )
 
-@HiltViewModel
-class WebDavBrowseViewModel @Inject constructor(
+class WebDavBrowseViewModel constructor(
     private val webDavClient: WebDavClient,
 ) : ViewModel() {
 

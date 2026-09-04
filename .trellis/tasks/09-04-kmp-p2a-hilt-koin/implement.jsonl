@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/index.md", "reason": "分层铁律与标准验证门禁；ErrorLogStore埋点规则（改动不扩散）"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "DI切换跨层边界：ViewModel与Module接线一致性"}

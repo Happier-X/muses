@@ -13,8 +13,6 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /** WebDAV 等敏感凭据存取（密码 Keystore 加密后落盘，明文只在调用方短生命周期内存在） */
 interface CredentialsRepository {
@@ -36,8 +34,7 @@ interface CryptoEngine {
  * AndroidKeyStore AES-256-GCM 加密引擎。
  * 密钥不可导出；密文格式 base64( iv[12] || ciphertext+tag )。
  */
-@Singleton
-class AndroidKeystoreCryptoEngine @Inject constructor() : CryptoEngine {
+class AndroidKeystoreCryptoEngine constructor() : CryptoEngine {
 
     private fun obtainKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
@@ -97,8 +94,7 @@ class AesGcmCryptoEngine(private val key: javax.crypto.spec.SecretKeySpec) : Cry
 /**
  * 凭据仓库实现：DataStore 中存 base64 加密串，加解密委托 [CryptoEngine]。
  */
-@Singleton
-class AndroidKeyStoreCredentialsRepository @Inject constructor(
+class AndroidKeyStoreCredentialsRepository constructor(
     private val dataStore: DataStore<Preferences>,
     private val cryptoEngine: CryptoEngine,
 ) : CredentialsRepository {

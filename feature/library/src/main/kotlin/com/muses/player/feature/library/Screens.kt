@@ -42,7 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import coil3.compose.AsyncImage
 import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.model.Song
@@ -54,7 +54,7 @@ import com.muses.player.core.media.playback.PlayerConnection
 @Composable
 fun SongsScreen(
     modifier: Modifier = Modifier,
-    viewModel: SongsViewModel = hiltViewModel(),
+    viewModel: SongsViewModel = koinViewModel(),
     playerConnection: PlayerConnection? = null,
 ) {
     val songs by viewModel.songs.collectAsState()
@@ -190,7 +190,7 @@ fun SongListItem(
 @Composable
 fun AlbumsScreen(
     modifier: Modifier = Modifier,
-    viewModel: AlbumsViewModel = hiltViewModel(),
+    viewModel: AlbumsViewModel = koinViewModel(),
     onAlbumClick: (String) -> Unit = {},
 ) {
     val albums by viewModel.albums.collectAsState()
@@ -244,7 +244,7 @@ fun AlbumDetailScreen(
     albumId: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: AlbumDetailViewModel = hiltViewModel(),
+    viewModel: AlbumDetailViewModel = koinViewModel(),
     playerConnection: PlayerConnection? = null,
 ) {
     viewModel.bind(albumId)
@@ -288,7 +288,7 @@ fun AlbumDetailScreen(
 @Composable
 fun ArtistsScreen(
     modifier: Modifier = Modifier,
-    viewModel: ArtistsViewModel = hiltViewModel(),
+    viewModel: ArtistsViewModel = koinViewModel(),
     onArtistClick: (String) -> Unit = {},
 ) {
     val artists by viewModel.artists.collectAsState()
@@ -342,7 +342,7 @@ fun ArtistDetailScreen(
     artistId: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ArtistDetailViewModel = hiltViewModel(),
+    viewModel: ArtistDetailViewModel = koinViewModel(),
     playerConnection: PlayerConnection? = null,
 ) {
     viewModel.bind(artistId)

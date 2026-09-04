@@ -14,8 +14,6 @@ import com.muses.player.core.scrape.cover.OnlineCoverQuery
 import com.muses.player.core.scrape.queue.ScrapeQueueStore
 import com.muses.player.core.scrape.text.TextMetaMatcher
 import com.muses.player.core.scrape.writeback.WritebackOrchestrator
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -77,8 +75,7 @@ data class PreviewCandidate(
     fun hasLyricsChange(): Boolean = !resolvedLyrics().isNullOrBlank()
 }
 
-@HiltViewModel
-class ScrapeViewModel @Inject constructor(
+class ScrapeViewModel constructor(
     private val queueStore: ScrapeQueueStore,
     private val textMetaMatcher: TextMetaMatcher,
     private val coverMatcher: CoverMatcher,

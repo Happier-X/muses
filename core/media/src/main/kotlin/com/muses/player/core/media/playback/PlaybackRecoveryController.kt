@@ -1,8 +1,6 @@
 package com.muses.player.core.media.playback
 
 import androidx.media3.common.Player
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,8 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * - 最多回绕一次（offset ≤ items.length），保证损坏队列不会无限推进；
  * - attempted 集合在用户主动切歌/队列变更时重置。
  */
-@Singleton
-class PlaybackRecoveryController @Inject constructor() {
+class PlaybackRecoveryController constructor() {
 
     /** 安全错误文案；用户主动操作/成功恢复后置 null */
     private val _playbackError = MutableStateFlow<String?>(null)

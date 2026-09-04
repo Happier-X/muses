@@ -45,7 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import coil3.compose.AsyncImage
 import com.muses.player.core.ui.components.SaltCover
 import com.muses.player.core.ui.components.SaltCoverRadius
@@ -63,7 +63,7 @@ import com.muses.player.core.ui.theme.LocalSaltColors
 @Composable
 fun ScrapeReviewScreen(
     onBack: () -> Unit,
-    viewModel: ScrapeReviewViewModel = hiltViewModel(),
+    viewModel: ScrapeReviewViewModel = koinViewModel(),
     /**
      * S3「应用并下一首」：批量模式审核页写回成功后，宿主先推进 ScrapeViewModel 待审队列
      * （[advanceReview 回调由宿主实现]），再打开下一首审核页。

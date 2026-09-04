@@ -25,7 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import coil3.compose.AsyncImage
 import com.muses.player.core.model.Song
 import com.muses.player.core.scrape.editmeta.EditCloudMetaResult
@@ -41,7 +41,7 @@ fun EditMetaSheet(
     song: Song?,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: EditMetaViewModel = hiltViewModel(),
+    viewModel: EditMetaViewModel = koinViewModel(),
 ) {
     val ui by viewModel.ui.collectAsState()
 

@@ -3,8 +3,6 @@ package com.muses.player.core.webdav
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SourceRepository
 import com.muses.player.core.model.SourceType
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.Credentials
@@ -17,8 +15,7 @@ import okhttp3.Credentials
  * - 密码仅在内存中短生命周期存在，不落日志/持久化（沿用项目安全惯例）；
  * - 匹配规则：请求 URL 以某注册源 baseUrl 为前缀（'/' 边界对齐），取最长匹配。
  */
-@Singleton
-class WebDavAuthRegistry @Inject constructor(
+class WebDavAuthRegistry constructor(
     private val sourceRepository: SourceRepository,
     private val credentialsRepository: CredentialsRepository,
 ) {

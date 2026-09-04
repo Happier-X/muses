@@ -2,15 +2,12 @@ package com.muses.player.core.data.tag
 
 import android.content.Context
 import android.net.Uri
-import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
 import java.io.FileOutputStream
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * 音频标签读取器
@@ -18,9 +15,8 @@ import javax.inject.Singleton
  * 支持从本地文件和 WebDAV 读取音频标签（标题、歌手、专辑、封面、歌词等）。
  * 对于 WebDAV 文件，使用 Range 请求只下载头部数据，减少网络开销。
  */
-@Singleton
-class AudioTagReader @Inject constructor(
-    @ApplicationContext private val context: Context,
+class AudioTagReader constructor(
+    private val context: Context,
     private val okHttpClient: OkHttpClient,
 ) {
     private val cacheDir: File by lazy {

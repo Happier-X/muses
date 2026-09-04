@@ -9,8 +9,6 @@ import com.muses.player.core.media.playback.PlayerConnection
 import com.muses.player.core.data.repository.PlaylistRepository
 import com.muses.player.core.model.Playlist
 import com.muses.player.core.model.PlaylistWithSongs
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,8 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class)
-@HiltViewModel
-class PlaylistDetailViewModel @Inject constructor(
+class PlaylistDetailViewModel constructor(
     private val repository: PlaylistRepository,
     private val playerConnection: PlayerConnection,
 ) : ViewModel() {
@@ -97,8 +94,7 @@ class PlaylistDetailViewModel @Inject constructor(
     }
 }
 
-@HiltViewModel
-class AddToPlaylistViewModel @Inject constructor(
+class AddToPlaylistViewModel constructor(
     private val repository: PlaylistRepository,
 ) : ViewModel() {
 

@@ -8,7 +8,6 @@ import com.muses.player.core.media.playback.PlayerConnection
 import com.muses.player.feature.player.lyric.AmllLyricLine
 import com.muses.player.feature.player.lyric.LyricsParser
 import com.muses.player.feature.player.lyric.toAmllLyricLines
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,11 +21,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
 /** 播放页 ViewModel：包装 PlayerConnection 的 Flow 并提供位置轮询 */
-@HiltViewModel
-class PlayerViewModel @Inject constructor(
+class PlayerViewModel constructor(
     val playerConnection: PlayerConnection,
     private val songDao: SongDao,
 ) : ViewModel() {
@@ -254,8 +251,7 @@ class PlayerViewModel @Inject constructor(
 }
 
 /** 队列页 ViewModel */
-@HiltViewModel
-class QueueViewModel @Inject constructor(
+class QueueViewModel constructor(
     val playerConnection: PlayerConnection,
 ) : ViewModel() {
     val queue: StateFlow<List<androidx.media3.common.MediaItem>> = playerConnection.queue
