@@ -27,6 +27,8 @@ rootProject.name = "muses-native"
 include(":app")
 include(":core:common")
 include(":core:ui")
+// U0 地基（09-04-kmp-ui-shared）：KMP 界面共享模块
+include(":core:ui-shared")
 include(":core:data")
 include(":core:webdav")
 include(":core:media")

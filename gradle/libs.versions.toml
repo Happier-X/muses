@@ -46,6 +46,12 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 tabler-icons = { group = "com.composables", name = "icons-tabler-outline-cmp-android", version.ref = "tablerIcons" }
 # Tabler Filled Icons（官方带圆角 fill，替换手写 FillIcons）
 tabler-filled-icons = { group = "com.composables", name = "icons-tabler-filled-cmp-android", version.ref = "tablerIcons" }
+# U0 地基新增（09-04-kmp-ui-shared）：KMP 共通坐标，现有 -cmp-android / okhttp 坐标不动
+# 纠偏：design 原写 `-desktop`，中央仓库真实产物为 `-cmp`（KMP 父件，含 android+jvm 变体），同 2.2.1
+tabler-icons-cmp = { group = "com.composables", name = "icons-tabler-outline-cmp", version.ref = "tablerIcons" }
+tabler-filled-icons-cmp = { group = "com.composables", name = "icons-tabler-filled-cmp", version.ref = "tablerIcons" }
+# Coil 桌面网络引擎：3.5.0 线真实产物为 ktor3（design 原写的 coil-network-ktor 止于 3.0.0-alpha08）
+coil-network-ktor3 = { group = "io.coil-kt.coil3", name = "coil-network-ktor3", version.ref = "coil" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
