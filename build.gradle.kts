@@ -6,5 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.kotlin.compose) apply false
+    // P3-S3：JetBrains Compose Multiplatform 桌面插件（S3/S4 打包用）
+    alias(libs.plugins.compose.multiplatform) apply false
     alias(libs.plugins.ksp) apply false
 }

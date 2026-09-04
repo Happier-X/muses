@@ -10,6 +10,7 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
 }
 
@@ -39,3 +40,6 @@ include(":feature:sources")
 
 // P3-S2：桌面播放端口纯 JVM 模块（VLCJ 只进本模块；composeApp 三屏/S4 打包另起任务）
 include(":desktop")
+
+// P3-S3：composeApp(desktop) Compose Multiplatform UI 壳
+include(":composeApp")
