@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltDarkColors
@@ -79,9 +80,9 @@ fun SaltToggle(
                 .background(
                     if (isDark) {
                         // 暗色模式滑块稍暗
-                        androidx.compose.ui.graphics.Color(0xFFE0E0E0)
+                        Color(0xFFE0E0E0)
                     } else {
-                        androidx.compose.ui.graphics.Color.White
+                        Color.White
                     },
                 ),
         )

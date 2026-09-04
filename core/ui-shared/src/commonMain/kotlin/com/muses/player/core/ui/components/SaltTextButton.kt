@@ -9,6 +9,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -67,7 +68,7 @@ fun SaltTextButton(
     Box(
         modifier = modifier
             .height(size.height)
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(SaltRadius.md))
+            .clip(RoundedCornerShape(SaltRadius.md))
             .background(
                 // rgba(var(--m-primary-rgb), 0.15)
                 color = salt.primary.copy(alpha = 0.15f * bgAlpha),

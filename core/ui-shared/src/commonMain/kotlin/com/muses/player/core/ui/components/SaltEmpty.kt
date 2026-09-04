@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,7 +50,7 @@ fun SaltEmpty(
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .clip(CircleShape)
                     .background(salt.surface2),
                 contentAlignment = Alignment.Center,
             ) {

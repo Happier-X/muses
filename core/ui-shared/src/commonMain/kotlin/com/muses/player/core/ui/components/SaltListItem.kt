@@ -5,7 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
-import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,7 +30,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.theme.SaltDarkColors
 import com.muses.player.core.ui.theme.SaltSpacing
 
 /**
@@ -66,7 +69,7 @@ fun SaltListItem(
     after: @Composable RowScope.() -> Unit = {},
 ) {
     val salt = LocalSaltColors.current
-    val isDark = salt === com.muses.player.core.ui.theme.SaltDarkColors
+    val isDark = salt === SaltDarkColors
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val isLink = onClick != null
@@ -89,8 +92,8 @@ fun SaltListItem(
                     // ::after 物理像素 1px 分隔线，left 从 16px 起
                     drawRect(
                         color = salt.hairline,
-                        topLeft = androidx.compose.ui.geometry.Offset(16.dp.toPx(), size.height - 1f),
-                        size = androidx.compose.ui.geometry.Size(size.width - 16.dp.toPx(), 1f),
+                        topLeft = Offset(16.dp.toPx(), size.height - 1f),
+                        size = Size(size.width - 16.dp.toPx(), 1f),
                     )
                 }
             }
@@ -144,7 +147,7 @@ fun SaltListItem(
                 // __after：margin-left:auto + padding-left 4px + gap 4px
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(metrics.afterGap),
+                    horizontalArrangement = Arrangement.spacedBy(metrics.afterGap),
                     modifier = Modifier.padding(start = metrics.afterStartPadding),
                 ) {
                     after()
