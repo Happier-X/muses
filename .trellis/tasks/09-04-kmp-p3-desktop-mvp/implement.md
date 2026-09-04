@@ -13,7 +13,7 @@
 - [x] S3a composeApp 桌面壳 + 自绘标题栏（CMP 1.12.0-rc01 兼容 Kotlin 2.4.10；:composeApp:run 可启动窗口）。
 - [x] S3b 三屏最小可用：composeApp 内重写库房/播放/设置三屏（侧边导航双栏 + 曲目列表 + 播放控制 + WebDAV 音源增删，DPAPI 凭据）。
 - [x] S4 打包分发：`packageMsi`/`packageExe` 已产出首版安装包（Muses-1.0.0.msi 77M + Muses-1.0.0.exe 78M；javaHome 指本机 JDK21，jbr 无 jpackage；签名/SmartScreen 二期）。
-- [ ] S5 回归：安卓包 `:app:assembleMusesDebug` 全程通过；feature 屏 CMP 化前后安卓行为对照。
+- [x] S5 回归：`:app:assembleMusesDebug` + `:core:common:jvmTest` + `:desktop:test` 全过；feature 屏未动（S3b 在 composeApp 重写，安卓零交叉）。
 
 ## 验证命令
 
