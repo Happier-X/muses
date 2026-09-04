@@ -44,6 +44,8 @@ import java.util.UUID
  *
  * - 列表行：名称 + URL + 用户名展示，编辑切换表单态、删除清库 + 凭据；
  * - 表单：名称/地址/用户名/密码 + 保存/取消（编辑态密码留空保留原密码）。
+ * - 浏览子页：表单保存后进入共用 [WebDavBrowseScreen]（BROWSE 子页，导航内切换）；
+ *   multiple 多选批量建源（对照安卓添加流程），编辑态 single 单选回填 path。
  */
 @Composable
 fun SourceManagerScreen() {
@@ -53,6 +55,7 @@ fun SourceManagerScreen() {
     var showAdd by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<SourceEntity?>(null) }
     var errorText by remember { mutableStateOf("") }
+    var browseSession by remember { mutableStateOf<BrowseSession?>(null) }
 
     // 表单受控字段（新增与编辑共用；进入编辑时回填）
     var formName by remember { mutableStateOf("") }
@@ -160,6 +163,155 @@ fun SourceManagerScreen() {
         }
     }
 
+    /** 浏览确认：multiple 批量建源 / single 回填编辑态 path（对照安卓 consumeBrowseResult）。 */
+    fun confirmBrowse(paths: List<String>) {
+        val session = browseSession ?: return
+        if (paths.isEmpty()) {
+            browseSession = null
+            return
+        }
+        if (session.mode == "single") {
+            val targetEdit = editing
+            if (targetEdit != null) {
+                scope.launch {
+                    runCatching {
+                        DesktopContainer.database().sourceDao().upsert(
+                            targetEdit.copy(
+                                path = paths[0],
+                                updatedAt = System.currentTimeMillis(),
+                            ),
+                        )
+                        reload()
+                    }.onFailure { e ->
+                        errorText = "回填目录失败：${e.message}"
+                    }
+                }
+            }
+            browseSession = null
+            showAdd = false
+            editing = null
+            return
+        }
+        formBusy = true
+        scope.launch {
+            val result = runCatching {
+                val now = System.currentTimeMillis()
+                for (path in paths) {
+                    val id = UUID.randomUUID().toString()
+                    DesktopContainer.database().sourceDao().upsert(
+                        SourceEntity(
+                            id = id,
+                            name = path.trimEnd('/').substringAfterLast('/').ifBlank { path },
+                            type = "WEBDAV",
+                            url = session.serverUrl,
+                            path = path,
+                            username = session.username.ifBlank { null },
+                            createdAt = now,
+                            updatedAt = now,
+                        ),
+                    )
+                    if (session.password.isNotBlank()) {
+                        DesktopCredentials().savePassword(id, session.password)
+                    }
+                }
+                reload()
+            }
+            formBusy = false
+            result
+                .onSuccess {
+                    browseSession = null
+                    showAdd = false
+                    editing = null
+                    errorText = ""
+                }
+                .onFailure { e ->
+                    errorText = "添加失败：${e.message}"
+                    PlatformToast.show("添加失败：${e.message}")
+                }
+        }
+    }
+
+    /** 表单保存后进入浏览：先落库连接信息，再打开 BROWSE 子页（对照安卓 submitAdd）。 */
+    fun submitThenBrowse() {
+        val targetEdit = editing
+        if (formUrl.isBlank() || formUsername.isBlank()) {
+            errorText = "请填写地址与用户名"
+            return
+        }
+        if (targetEdit == null && formName.isBlank()) {
+            errorText = "请填写名称与地址"
+            return
+        }
+        if (targetEdit == null && formPassword.isBlank()) {
+            errorText = "请填写密码"
+            return
+        }
+        formBusy = true
+        scope.launch {
+            val resolved = runCatching {
+                if (targetEdit == null) {
+                    // 新增：先建一个占位源拿到 id 存密码，浏览确认后再批量建子目录源
+                    val id = UUID.randomUUID().toString()
+                    val now = System.currentTimeMillis()
+                    DesktopContainer.database().sourceDao().upsert(
+                        SourceEntity(
+                            id = id,
+                            name = formName.trim(),
+                            type = "WEBDAV",
+                            url = formUrl.trim().trimEnd('/'),
+                            username = formUsername.trim().ifBlank { null },
+                            createdAt = now,
+                            updatedAt = now,
+                        ),
+                    )
+                    DesktopCredentials().savePassword(id, formPassword)
+                    Triple(formUrl.trim().trimEnd('/'), formUsername.trim(), formPassword)
+                } else {
+                    val password = formPassword.ifBlank {
+                        DesktopCredentials().getPassword(targetEdit.id).orEmpty()
+                    }
+                    if (password.isBlank()) throw IllegalStateException("WebDAV 密码不存在，请输入新密码。")
+                    if (formPassword.isNotBlank()) {
+                        DesktopCredentials().savePassword(targetEdit.id, formPassword)
+                    }
+                    Triple(
+                        formUrl.trim().trimEnd('/'),
+                        formUsername.trim(),
+                        password,
+                    )
+                }
+            }
+            formBusy = false
+            resolved
+                .onSuccess { (url, user, pass) ->
+                    browseSession = BrowseSession(
+                        mode = if (targetEdit == null) "multiple" else "single",
+                        serverUrl = url,
+                        username = user,
+                        password = pass,
+                    )
+                    errorText = ""
+                }
+                .onFailure { e ->
+                    errorText = e.message ?: "保存失败。"
+                }
+        }
+    }
+
+    val session = browseSession
+    if (session != null) {
+        WebDavBrowseScreen(
+            mode = session.mode,
+            initialPath = "/",
+            serverUrl = session.serverUrl,
+            username = session.username,
+            password = session.password,
+            onBack = { browseSession = null },
+            onConfirm = ::confirmBrowse,
+        )
+        return
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -217,6 +369,12 @@ fun SourceManagerScreen() {
                     editing = null
                     errorText = ""
                 },
+                extraContent = {
+                    SaltTextButton(
+                        onClick = ::submitThenBrowse,
+                        text = if (editing != null) "浏览并回填目录" else "保存并浏览目录",
+                    )
+                },
             )
         } else {
             SaltTextButton(
@@ -227,6 +385,14 @@ fun SourceManagerScreen() {
         Spacer(modifier = Modifier.height(96.dp))
     }
 }
+
+/** 桌面浏览会话（BROWSE 子页参数；对照安卓导航参数 connection/initialPath/mode）。 */
+private data class BrowseSession(
+    val mode: String,
+    val serverUrl: String,
+    val username: String,
+    val password: String,
+)
 
 /** Room SourceEntity → 共用 SharedSourceItem 映射 */
 private fun SourceEntity.toSharedSourceItem() = SharedSourceItem(
