@@ -18,6 +18,7 @@ kotlin {
             api(project(":desktop"))
             // :desktop 用 implementation 不透传 :core:common，composeApp 需直接依赖
             api(project(":core:common"))
+            implementation(project(":core:ui-shared"))
             // Room/SQLite/DataStore/JNA 不透传，桌面直接调用 DAO 时需显式声明
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)

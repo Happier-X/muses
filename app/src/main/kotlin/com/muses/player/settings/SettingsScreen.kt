@@ -45,6 +45,10 @@ import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.log.ErrorLogStore
+import com.muses.player.core.ui.components.SettingsBlockTitle
+import com.muses.player.core.ui.components.SettingsIcon
+import com.muses.player.core.ui.components.SettingsScreen
+import com.muses.player.core.ui.components.SettingsSource
 import com.muses.player.core.ui.components.SaltListItem
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.theme.LocalSaltColors
@@ -97,115 +101,99 @@ fun SettingsScreen(
         LocalMusesHazeState provides hazeState,
         com.muses.player.core.ui.theme.LocalHazeBlurState provides hazeState,
     ) {
-        Box(modifier = modifier.fillMaxSize()) {
-            val navbarTopPadding = with(LocalDensity.current) {
-                WindowInsets.statusBars.getTop(this).toDp()
-            }.coerceAtLeast(16.dp) + 44.dp
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .hazeSource(state = hazeState)
-                    .background(salt.surface),
-            ) {
+        // Android 端：音源管理为空（仅桌面端有 WebDAV 音源管理），
+        // 通过 extraContent 插入「关于」和「反馈」区块。
+        SettingsScreen(
+            sources = emptyList(),
+            onSave = { _, _, _, _ -> Result.success(Unit) },
+            onDelete = { _ -> Result.success(Unit) },
+            modifier = modifier,
+            extraContent = {
+                // ---- 关于 ----
+                SettingsBlockTitle(text = "关于")
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(top = navbarTopPadding + 8.dp),
+                        .padding(horizontal = SaltSpacing.spacingSub)
+                        .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
+                        .padding(vertical = 4.dp),
                 ) {
-            // ---- 关于 ----
-            SettingsBlockTitle(text = "关于")
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = SaltSpacing.spacingSub)
-                    .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
-                    .padding(vertical = 4.dp),
-            ) {
-                // Muses 版本
-                SaltListItem(
-                    title = "Muses",
-                    subtitle = "应用版本 ${BuildConfig.VERSION_NAME}",
-                    onClick = null,
-                    leading = {
-                        SettingsIcon(icon = TablerIcons.Info)
-                    },
-                )
-                // 检查更新
-                SaltListItem(
-                    title = "检查更新",
-                    subtitle = if (checking) "正在检查更新…" else null,
-                    onClick = {
-                        if (checking) return@SaltListItem
-                        checking = true
-                        scope.launch {
-                            val result = checkLatestRelease(BuildConfig.VERSION_NAME)
-                            toastMessage = if (result == null) {
-                                "检查更新失败，请稍后重试"
-                            } else {
-                                val (tag, url) = result
-                                val latestVer = tag.removePrefix("v")
-                                val currentVer = BuildConfig.VERSION_NAME
-                                    .removeSuffix("-miui")
-                                    .substringBefore("-")
-                                if (compareVersions(latestVer, currentVer) <= 0) {
-                                    "已是最新版本"
+                    // Muses 版本
+                    SaltListItem(
+                        title = "Muses",
+                        subtitle = "应用版本 ${BuildConfig.VERSION_NAME}",
+                        onClick = null,
+                        leading = {
+                            SettingsIcon(icon = TablerIcons.Info)
+                        },
+                    )
+                    // 检查更新
+                    SaltListItem(
+                        title = "检查更新",
+                        subtitle = if (checking) "正在检查更新…" else null,
+                        onClick = {
+                            if (checking) return@SaltListItem
+                            checking = true
+                            scope.launch {
+                                val result = checkLatestRelease(BuildConfig.VERSION_NAME)
+                                toastMessage = if (result == null) {
+                                    "检查更新失败，请稍后重试"
                                 } else {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                                    "发现新版本 $tag"
+                                    val (tag, url) = result
+                                    val latestVer = tag.removePrefix("v")
+                                    val currentVer = BuildConfig.VERSION_NAME
+                                        .removeSuffix("-miui")
+                                        .substringBefore("-")
+                                    if (compareVersions(latestVer, currentVer) <= 0) {
+                                        "已是最新版本"
+                                    } else {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                        "发现新版本 $tag"
+                                    }
+                                }
+                                checking = false
+                            }
+                        },
+                        leading = {
+                            SettingsIcon(icon = TablerIcons.Refresh)
+                        },
+                    )
+                }
+
+                // ---- 反馈 ----（任务 08-26-settings-log-viewer）
+                val latestSummary by viewModel.latestErrorSummary.collectAsState()
+                SettingsBlockTitle(text = "反馈")
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = SaltSpacing.spacingSub)
+                        .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
+                        .padding(vertical = 4.dp),
+                ) {
+                    SaltListItem(
+                        title = "复制报错日志",
+                        subtitle = latestSummary ?: "暂无报错记录",
+                        onClick = {
+                            scope.launch {
+                                val text = viewModel.dumpLogs()
+                                if (text == null) {
+                                    toastMessage = "暂无可复制的日志"
+                                } else {
+                                    val clipboard = context.getSystemService(
+                                        Context.CLIPBOARD_SERVICE,
+                                    ) as ClipboardManager
+                                    clipboard.setPrimaryClip(
+                                        ClipData.newPlainText("Muses 报错日志", text),
+                                    )
+                                    toastMessage = "已复制报错日志"
                                 }
                             }
-                            checking = false
-                        }
-                    },
-                    leading = {
-                        SettingsIcon(icon = TablerIcons.Refresh)
-                    },
-                )
-            }
-
-            // ---- 反馈 ----（任务 08-26-settings-log-viewer）
-            val latestSummary by viewModel.latestErrorSummary.collectAsState()
-            SettingsBlockTitle(text = "反馈")
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = SaltSpacing.spacingSub)
-                    .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
-                    .padding(vertical = 4.dp),
-            ) {
-                SaltListItem(
-                    title = "复制报错日志",
-                    subtitle = latestSummary ?: "暂无报错记录",
-                    onClick = {
-                        scope.launch {
-                            val text = viewModel.dumpLogs()
-                            if (text == null) {
-                                toastMessage = "暂无可复制的日志"
-                            } else {
-                                val clipboard = context.getSystemService(
-                                    Context.CLIPBOARD_SERVICE,
-                                ) as ClipboardManager
-                                clipboard.setPrimaryClip(
-                                    ClipData.newPlainText("Muses 报错日志", text),
-                                )
-                                toastMessage = "已复制报错日志"
-                            }
-                        }
-                    },
-                    leading = {
-                        SettingsIcon(icon = TablerIcons.BugReport)
-                    },
-                )
-            }
-
-            // m-content-pb：底部避让 MiniPlayer
-            Spacer(Modifier.height(96.dp))
+                        },
+                        leading = {
+                            SettingsIcon(icon = TablerIcons.BugReport)
+                        },
+                    )
                 }
-            }
-            SaltNavbar(
-                title = "设置",
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
-        }
+            },
+        )
     }
 
     // Toast 显示（m-toast center 行为层；样式组件待后续统一落地）
@@ -247,49 +235,6 @@ private suspend fun checkLatestRelease(currentVersion: String): Pair<String, Str
         } finally {
             connection?.disconnect()
         }
-    }
-}
-
-/**
- * 设置分组标题 —— 对照 SettingsPage.vue 的 `.m-block-title--default`
- * （本页覆写：16px 顶距 / sm 字号 / 600 字重 / --m-text-2）。
- */
-@Composable
-private fun SettingsBlockTitle(text: String) {
-    val salt = LocalSaltColors.current
-    Text(
-        text = text,
-        fontSize = 13.sp,
-        fontWeight = FontWeight.SemiBold,
-        lineHeight = (13f * 1.4f).sp,
-        letterSpacing = 0.02.sp,
-        color = salt.text2,
-        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
-    )
-}
-
-/**
- * 设置项左侧图标容器 —— 36dp 圆角方形 + primary 浅底
- * （rgba(var(--m-primary-rgb), 0.12)，明暗主题自动跟随）。
- */
-@Composable
-private fun SettingsIcon(icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    val salt = LocalSaltColors.current
-    Box(
-        modifier = Modifier
-            // margin-right: var(--m-spacing-sub) —— 必须在链最外层（先留间距再画壳），
-            // 放 size/background 之后会收缩背景本身
-            .padding(end = SaltSpacing.spacingSub)
-            .size(36.dp)
-            .background(salt.primary.copy(alpha = 0.12f), RoundedCornerShape(SaltRadius.sm)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null, // aria-hidden
-            tint = salt.primary,
-            modifier = Modifier.size(20.dp),
-        )
     }
 }
 
