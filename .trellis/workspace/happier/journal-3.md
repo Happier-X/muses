@@ -1925,3 +1925,26 @@ Writeback 修复 coverRemoteUrl 未同步落库 coverUri/metaCover；Preview 扩
 ### Status
 
 [OK] **Completed**
+
+
+## Session 132: 沉浸式歌词居中与字号字重调整
+<!-- trellis-session: v=2 fp=ca5e1744b7629f45 -->
+
+**Date**: 2026-09-04
+**Task**: 沉浸式歌词居中与字号字重调整
+**Branch**: `main`
+
+### Summary
+
+将沉浸式播放页歌词当前行锚点由25%改为视口居中50%，主行字号由34改为24并保持1.2倍行高，字重由Bold改为SemiBold对应600，已在MuMu模拟器验证居中与字号效果
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a673d46f` | fix(player): 沉浸式播放页歌词当前行居中 |
+| `8352f169` | fix(player): 沉浸式歌词主行字号24与字重600 |
+
+### Status
+
+[OK] **Completed**
