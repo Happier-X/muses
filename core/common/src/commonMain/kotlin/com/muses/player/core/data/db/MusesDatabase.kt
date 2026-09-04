@@ -1,5 +1,6 @@
 package com.muses.player.core.data.db
 
+import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.muses.player.core.data.dao.AlbumDao
@@ -32,6 +33,7 @@ import com.muses.player.core.data.dao.SourceDao
     version = 6,
     exportSchema = true,
 )
+@ConstructedBy(MusesDatabaseConstructor::class)
 abstract class MusesDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
     abstract fun albumDao(): AlbumDao

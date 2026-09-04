@@ -26,10 +26,12 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * 刮削存储 snapshot 的 JSON 编解码（不引 @Serializable 插件，手工对齐 Web 字段名）。
  *
+ * P2b 由 :core:scrape 迁入 :core:common（随 ScrapeQueueStore 等），故为 public。
+ *
  * schema 均带 version 字段；解码宽松——结构不符的字段/条目跳过或回退空表，
  * 与 Web localStorage 读取的 isRecord 防御风格一致。
  */
-internal object WritebackJson {
+object WritebackJson {
 
     private val json = Json
 

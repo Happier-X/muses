@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.ksp)
 }
 
 android {
@@ -16,24 +15,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    sourceSets {
-        // MigrationTestHelper 读取导出的 room schema json
-        getByName("test") {
-            assets.srcDir("$projectDir/schemas")
-        }
-    }
-
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
             isReturnDefaultValues = true
         }
     }
-}
-
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-    arg("room.incremental", "true")
 }
 
 // AGP 9 内置 Kotlin：jvmTarget 默认取 compileOptions.targetCompatibility
@@ -47,10 +34,10 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.kotlinx.coroutines.core)
 
-    // Room 曲库 + DataStore 设置/凭据密文
+    // Room 曲库 + DataStore 设置/凭据密文（P2b：entities/DAO/MusesDatabase/Migrations 已迁 :core:common；
+    // 本模块仅留平台接线 DatabaseModule，故删 ksp(room-compiler)/schemaLocation/room-testing）
     api(libs.room.runtime)
     implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
     implementation(libs.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
 
@@ -67,5 +54,4 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
-    testImplementation(libs.room.testing)
 }

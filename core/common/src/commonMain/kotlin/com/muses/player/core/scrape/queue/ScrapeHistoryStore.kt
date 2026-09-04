@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.muses.player.core.model.scrape.ScrapeHistoryEntry
 import com.muses.player.core.model.scrape.ScrapeHistorySnapshot
+import com.muses.player.core.data.store.platformNowIso
 import com.muses.player.core.scrape.writeback.WritebackJson
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -20,7 +21,7 @@ import kotlinx.coroutines.flow.first
  */
 class ScrapeHistoryStore(
     private val dataStore: DataStore<Preferences>,
-    private val nowIso: () -> String = { java.time.Instant.now().toString() },
+    private val nowIso: () -> String = { platformNowIso() },
 ) {
 
     companion object {

@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.muses.player.core.model.scrape.ScrapeQueueItem
 import com.muses.player.core.model.scrape.ScrapeQueueSnapshot
+import com.muses.player.core.data.store.platformNowIso
 import com.muses.player.core.scrape.writeback.WritebackJson
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -22,7 +23,7 @@ class ScrapeQueueStore(
     private val dataStore: DataStore<Preferences>,
     /** 懒清理需要判定歌曲是否仍在库 */
     private val existingSongIds: suspend () -> Set<String>,
-    private val nowIso: () -> String = { java.time.Instant.now().toString() },
+    private val nowIso: () -> String = { platformNowIso() },
 ) {
 
     companion object {
