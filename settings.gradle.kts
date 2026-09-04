@@ -24,7 +24,7 @@ dependencyResolutionManagement {
 rootProject.name = "muses-native"
 
 include(":app")
-include(":core:model")
+include(":core:common")
 include(":core:ui")
 include(":core:data")
 include(":core:webdav")

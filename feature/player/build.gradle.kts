@@ -29,7 +29,7 @@ android {
 // AGP 9 内置 Kotlin：jvmTarget 默认取 compileOptions.targetCompatibility
 
 dependencies {
-    implementation(project(":core:model"))
+    implementation(project(":core:common"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
     implementation(project(":core:media"))

@@ -3,40 +3,41 @@
 // 禁止手改。
 package com.muses.player.core.lyrics.provider.qrc
 
-internal object QrcTables {
+// P1 KMP:原 internal 拓宽为 public（QrcDecoder 留守 core:lyrics 需跨模块访问，值表内容零改动）。
+object QrcTables {
 
-internal val KEY_RND_SHIFT: IntArray = intArrayOf(
+val KEY_RND_SHIFT: IntArray = intArrayOf(
     1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1,
 )
 
-internal val KEY_PERM_C: IntArray = intArrayOf(
+val KEY_PERM_C: IntArray = intArrayOf(
     56, 48, 40, 32, 24, 16, 8, 0, 57, 49, 41, 33, 25, 17, 9, 1,
     58, 50, 42, 34, 26, 18, 10, 2, 59, 51, 43, 35,
 )
 
-internal val KEY_PERM_D: IntArray = intArrayOf(
+val KEY_PERM_D: IntArray = intArrayOf(
     62, 54, 46, 38, 30, 22, 14, 6, 61, 53, 45, 37, 29, 21, 13, 5,
     60, 52, 44, 36, 28, 20, 12, 4, 27, 19, 11, 3,
 )
 
-internal val KEY_COMPRESSION: IntArray = intArrayOf(
+val KEY_COMPRESSION: IntArray = intArrayOf(
     13, 16, 10, 23, 0, 4, 2, 27, 14, 5, 20, 9, 22, 18, 11, 3,
     25, 7, 15, 6, 26, 19, 12, 1, 40, 51, 30, 36, 46, 54, 29, 39,
     50, 44, 32, 47, 43, 48, 38, 55, 33, 52, 45, 41, 49, 35, 28, 31,
 )
 
-internal val P_BOX: IntArray = intArrayOf(
+val P_BOX: IntArray = intArrayOf(
     16, 7, 20, 21, 29, 12, 28, 17, 1, 15, 23, 26, 5, 18, 31, 10,
     2, 8, 24, 14, 32, 27, 3, 9, 19, 13, 30, 6, 22, 11, 4, 25,
 )
 
-internal val E_BOX_TABLE: IntArray = intArrayOf(
+val E_BOX_TABLE: IntArray = intArrayOf(
     32, 1, 2, 3, 4, 5, 4, 5, 6, 7, 8, 9, 8, 9, 10, 11,
     12, 13, 12, 13, 14, 15, 16, 17, 16, 17, 18, 19, 20, 21, 20, 21,
     22, 23, 24, 25, 24, 25, 26, 27, 28, 29, 28, 29, 30, 31, 32, 1,
 )
 
-internal val S_BOXES: Array<IntArray> = arrayOf(
+val S_BOXES: Array<IntArray> = arrayOf(
     intArrayOf(
         14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7,
         0, 15, 7, 4, 14, 2, 13, 1, 10, 6, 12, 11, 9, 5, 3, 8,
@@ -87,13 +88,13 @@ internal val S_BOXES: Array<IntArray> = arrayOf(
    ),
 )
 
-internal val IP_RULE: IntArray = intArrayOf(
+val IP_RULE: IntArray = intArrayOf(
     34, 42, 50, 58, 2, 10, 18, 26, 36, 44, 52, 60, 4, 12, 20, 28,
     38, 46, 54, 62, 6, 14, 22, 30, 40, 48, 56, 64, 8, 16, 24, 32,
     33, 41, 49, 57, 1, 9, 17, 25, 35, 43, 51, 59, 3, 11, 19, 27,
     37, 45, 53, 61, 5, 13, 21, 29, 39, 47, 55, 63, 7, 15, 23, 31,
 )
-    internal val INV_IP_RULE: IntArray = intArrayOf(
+val INV_IP_RULE: IntArray = intArrayOf(
     37, 5, 45, 13, 53, 21, 61, 29, 38, 6, 46, 14, 54, 22, 62, 30,
     39, 7, 47, 15, 55, 23, 63, 31, 40, 8, 48, 16, 56, 24, 64, 32,
     33, 1, 41, 9, 49, 17, 57, 25, 34, 2, 42, 10, 50, 18, 58, 26,

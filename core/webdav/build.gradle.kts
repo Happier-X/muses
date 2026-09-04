@@ -23,7 +23,7 @@ android {
 // AGP 9 内置 Kotlin：jvmTarget 默认取 compileOptions.targetCompatibility
 
 dependencies {
-    api(project(":core:model"))
+    api(project(":core:common"))
     // WebDavAuthRegistry：读音源列表与凭据构造播放流播 Basic Auth（webdav=基础设施层 ← data=数据层，方向合法）
     implementation(project(":core:data"))
 

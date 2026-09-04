@@ -59,7 +59,7 @@ android {
 
 dependencies {
     // 模块依赖：app 聚合全部 core/feature
-    implementation(project(":core:model"))
+    implementation(project(":core:common"))
     implementation(project(":feature:scrape"))
     implementation(project(":core:ui"))
     implementation(project(":core:data"))

@@ -26,10 +26,10 @@ android {
 // AGP 9 内置 Kotlin：jvmTarget 默认取 android.compileOptions.targetCompatibility
 
 dependencies {
-    // core:model 提供 Song/ScrapeCandidate 等领域模型；core:data 提供曲库仓库；
+    // core:common 提供 Song/ScrapeCandidate 等领域模型；core:data 提供曲库仓库；
     // core:scrape 为 M3 数据层（队列/历史/匹配/写回/editmeta 编排，只消费不改内部）；
     // core:ui 为 Salt 组件体系。不碰实现库（jaudiotagger 等）。
-    implementation(project(":core:model"))
+    implementation(project(":core:common"))
     implementation(project(":core:data"))
     implementation(project(":core:scrape"))
     implementation(project(":core:ui"))

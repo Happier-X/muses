@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/index.md", "reason": "分层铁律与构建验证命令：feature禁直连实现库、assembleMusesDebug/testDebugUnitTest门禁"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "搬迁边界划分：commonMain准入判定与消费者repoint"}

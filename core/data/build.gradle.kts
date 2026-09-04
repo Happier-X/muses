@@ -40,7 +40,7 @@ ksp {
 // AGP 9 内置 Kotlin：jvmTarget 默认取 compileOptions.targetCompatibility
 
 dependencies {
-    api(project(":core:model"))
+    api(project(":core:common"))
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

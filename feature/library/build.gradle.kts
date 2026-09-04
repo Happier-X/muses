@@ -23,9 +23,9 @@ android {
     }
 }
 
-// feature:* 只依赖 core:* 接口与 core:model，禁止直接依赖 Room/OkHttp
+// feature:* 只依赖 core:* 接口与 core:common，禁止直接依赖 Room/OkHttp
 dependencies {
-    implementation(project(":core:model"))
+    implementation(project(":core:common"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
     // 「加入播放列表」长按菜单复用 AddToPlaylistSheet（feature→feature 例外，后续如需解耦可下沉共享模块）

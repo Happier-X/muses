@@ -21,7 +21,7 @@ android {
 // AGP 9 内置 Kotlin：jvmTarget 默认取 compileOptions.targetCompatibility
 
 dependencies {
-    api(project(":core:model"))
+    api(project(":core:common"))
     implementation(project(":core:data"))
     // WebDAV 库扫描：复用 WebDavClient（PROPFIND/GET）与 WebDavAudioCache（下载缓存/播放预热）
     implementation(project(":core:webdav"))

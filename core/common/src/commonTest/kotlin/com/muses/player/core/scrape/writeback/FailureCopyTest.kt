@@ -1,7 +1,7 @@
 package com.muses.player.core.scrape.writeback
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /** 规格 = src/features/scrape/failure-copy.ts 逐条规则 */
 class FailureCopyTest {

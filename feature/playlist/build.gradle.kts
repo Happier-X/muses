@@ -27,9 +27,9 @@ android {
 
 // AGP 9 内置 Kotlin：jvmTarget 默认取 compileOptions.targetCompatibility
 
-// feature:* 只依赖 core:* 接口与 core:model，禁止直接依赖 Room/OkHttp
+// feature:* 只依赖 core:* 接口与 core:common，禁止直接依赖 Room/OkHttp
 dependencies {
-    implementation(project(":core:model"))
+    implementation(project(":core:common"))
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
