@@ -36,3 +36,6 @@ include(":feature:library")
 include(":feature:player")
 include(":feature:playlist")
 include(":feature:sources")
+
+// P3-S2：桌面播放端口纯 JVM 模块（VLCJ 只进本模块；composeApp 三屏/S4 打包另起任务）
+include(":desktop")

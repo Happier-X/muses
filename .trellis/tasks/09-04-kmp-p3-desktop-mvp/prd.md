@@ -36,7 +36,9 @@
 
 ## Key Decisions
 
-- D1：解码选 VLCJ 先行（用户已确认方向；仍需原型验证 FLAC/seek/打包三项后锁定，原型若否决则回退 JavaFX Media）。
+- D1：解码选 VLCJ（用户已确认方向；S0 三项 gate 全过技术锁定；VLCJ 实测为 GPL 系，用户 2026-09-04 已接受 GPL 分发，回退线关闭）。
+
+- D5：S0/S1 已提交落稳（e18b5f6f）；spike-vlcj 原型目录（约 282MB）不进仓库，已入 .gitignore，结论见 spike.md。
 
 - D2：桌面三屏复用平板形态（viewport 宽 ≥768 断点：TabsLayout 双栏 + 曲库自适应网格 + 沉浸播放横屏布局），桌面窗口默认宽度 Physiology 落在平板断点之上；桌面新增系统标题栏（最小化/最大化/关闭）。
 

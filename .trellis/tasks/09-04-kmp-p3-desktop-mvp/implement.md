@@ -8,7 +8,8 @@
   - 结论见 `spike.md`：三项全过，技术锁定 VLCJ；VLCJ 实测为 GPL 系（非 LGPL），S2 开工前需决策人确认分发合规。
 - [x] S1 数据层桌面接线：`DataStorePath.jvm` 真实路径 + Room `JvmSQLiteDriver` + 凭据 expect/actual（DPAPI/Credential Manager）；验证 `:core:common:compileKotlinJvm + jvmTest`。
   - 已交付：PlatformDirs/PlatformCryptoEngine expect+双端 actual、JvmDatabase、JNA 5.17.0（jvmMain）；jvmTest 15 项零失败；`:app:assembleMusesDebug` 通过。
-- [ ] S2 JvmPlayerPort：VLCJ 解码 + 本地队列状态机（repeat/shuffle 对齐 `QueueSnapshotData`）+ 状态/错误桥接（STATE_* 整型映射 + 8 条安全文案）+ 持久化/恢复复用；WebDAV 用 Ktor Range + okio spiller（500MB LRU 语义）。
+- [x] S2 JvmPlayerPort：VLCJ 解码 + 本地队列状态机（repeat/shuffle 对齐 `QueueSnapshotData`）+ 状态/错误桥接（STATE_* 整型映射 + 8 条安全文案）+ 持久化/恢复复用；WebDAV 用 Ktor Range + okio spiller（500MB LRU 语义）。
+  - 已交付：纯 JVM `:desktop` 模块（VLCJ 只进本模块，未建 composeApp-CMP，S3 建 UI 壳时再定）；`:desktop:test` 14 项零失败；`jvmTest` 无回归；`assembleMusesDebug` 通过。
 - [ ] S3 三屏 CMP 化 + 自绘标题栏：feature 屏上移共用（平板断点分支自然命中）；剥离 `LocalConfiguration`/边衬/Haze 降级；无装饰窗口 + 自绘栏（最小/最大/关闭 + 拖拽 + 双击最大化 + 边缘缩放）。
 - [ ] S4 打包分发：`composeApp(desktop)` + `packageMsi`/`packageExe`（VLCJ 原生库随包）+ 签名；产出首版安装包；干净机安装验证。
 - [ ] S5 回归：安卓包 `:app:assembleMusesDebug` 全程通过；feature 屏 CMP 化前后安卓行为对照。

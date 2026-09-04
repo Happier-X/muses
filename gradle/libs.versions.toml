@@ -26,6 +26,7 @@ datastore = "1.2.1"
 coroutines = "1.11.0"
 junit = "4.13.2"
 jaudiotagger = "3.0.1"
+vlcj = "4.8.2"
 workManager = "2.11.2"
 robolectric = "4.16"
 androidxTestCore = "1.7.0"
@@ -115,6 +116,9 @@ haze-blur = { group = "dev.chrisbanes.haze", name = "haze-blur", version.ref = "
 # S1 桌面凭据：Windows DPAPI 经 JNA（jna-platform 含 Crypt32Util；版本与 Gradle 自带 jna 5.17.0 对齐）
 jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version.ref = "jna" }
+
+# P3-S2 桌面解码：VLCJ 只进 :desktop 纯 JVM 模块，禁止进 :core:common（GPL 系见任务 spike.md §2，D1 已接受）
+vlcj = { group = "uk.co.caprica", name = "vlcj", version.ref = "vlcj" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
