@@ -31,11 +31,17 @@ dependencies {
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.core)
 
-    // WebDAV 客户端基于 OkHttp 手写（移植自旧工程 WebDavPlugin），阶段 2 实现
+    // WebDAV 客户端：P2c 起 Ktor-client（CIO）手写（原 OkHttp 实现已替换）；
+    // OkHttp 保留仅供 Media3 流播数据源 + AudioTagReader Range（P2c 豁免，见 WebDavModule）
     implementation(libs.okhttp)
+    implementation(platform(libs.ktor.bom))
+    implementation(libs.ktor.client.cio)
 
     testImplementation(libs.junit)
-    testImplementation(libs.okhttp.mockwebserver)
+    // P2c：MockWebServer 已无使用者并移除（KtorWebDavClientTest 走 MockEngine）
+    // P2c：Ktor MockEngine（WebDavClient/ScrapeHttp 429 单测，不再走真实 socket）
+    testImplementation(platform(libs.ktor.bom))
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.robolectric)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.test.core)

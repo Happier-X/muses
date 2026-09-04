@@ -13,6 +13,11 @@ navigationCompose = "2.9.8"
 lifecycle = "2.11.0"
 media3 = "1.11.0"
 okhttp = "5.5.0"
+# P2c Ktor-client（CIO）：3.5.x 线 S0 spike 实测锁定 3.5.2
+# （mavenCentral 200 验证：client-core/cio/mock 全构件存在；传递 coroutines 1.11.0 与本项目一致）
+ktor = "3.5.2"
+# Ktor 3.5.2 官方传递版本（ktor-io-jvm POM 实测）：kotlinx.io.IOException 供给
+kotlinxIo = "0.9.1"
 coil = "3.5.0"
 room = "2.8.4"
 sqlite = "2.6.2"
@@ -66,6 +71,14 @@ media3-datasource-okhttp = { group = "androidx.media3", name = "media3-datasourc
 
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
+
+# P2c Ktor-client（AC4：版本经 BOM 统一，无散装版本；S0 锁定 3.5.2）
+ktor-bom = { module = "io.ktor:ktor-bom", version.ref = "ktor" }
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core" }
+ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio" }
+ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock" }
+# Ktor 3.5.2 官方传递版本（S0 实测 ktor-io-jvm POM）：kotlinx.io.IOException 供给
+kotlinx-io-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-io-core", version.ref = "kotlinxIo" }
 
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 # Coil 3 远程图片需显式网络引擎（否则 AsyncImage 加载 https 静默失败）；okhttp 实现与项目 OkHttp 版本线一致

@@ -5,7 +5,6 @@ import com.muses.player.core.data.repository.SourceRepository
 import com.muses.player.core.model.SourceType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import okhttp3.Credentials
 
 /**
  * WebDAV 播放认证注册表：内存持有「baseUrl → Basic 凭据」映射，
@@ -68,7 +67,8 @@ class WebDavAuthRegistry constructor(
             .filter { matchesPrefix(normalized, it.baseUrl) }
             .maxByOrNull { it.baseUrl.length } ?: return null
         // user 缺失按空 user 处理（Basic 冒号前置空）；显式 UTF-8 兼容非 ASCII 用户名
-        return Credentials.basic(match.username ?: "", match.password, Charsets.UTF_8)
+        // P2c 去 okhttp3：纯函数拼 Basic 头（与 KtorWebDavClient.basicHeader 同一语义）
+        return KtorWebDavClient.basicHeader(match.username ?: "", match.password)
     }
 
     /** 前缀匹配需落在 '/' 边界，避免 `/dav` 误命中 `/davious` */

@@ -1,125 +1,115 @@
 package com.muses.player.core.scrape.http
 
-import java.io.IOException
-import java.net.InetAddress
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.test.runTest
-import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
-import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 
 /**
- * ScrapeHttp 429 退避单测（任务 08-27-scrape-throttle-429）。
+ * ScrapeHttp 429 退避单测（P2c：MockWebServer → Ktor MockEngine 重写，语义冻结）。
  *
  * - 解析 Retry-After（秒 / HTTP-date）；
  * - 命中 429 时尊重头部延迟后重试 1 次；
  * - 二次 429 抛 IOException("http 429")。
+ *
+ * MockEngine 不走真实 socket：delay 照常经 runTest 虚拟时间；requestCount 改计数 handler 命中次数。
+ * （kotlinx.io.IOException 在 JVM 即 java.io.IOException 别名，旧 catch 断言零改动。）
  */
-@RunWith(RobolectricTestRunner::class)
 class ScrapeHttp429Test {
 
-    private lateinit var server: MockWebServer
-    private val loopback = InetAddress.getLoopbackAddress()
+    private data class MockResp(
+        val status: Int,
+        val body: String,
+        val headers: Map<String, String> = emptyMap(),
+    )
 
-    private fun http(rateLimiter: ScrapeRateLimiter = ScrapeRateLimiter.Unlimited): ScrapeHttp =
-        ScrapeHttp(
-            OkHttpClient.Builder()
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(5, TimeUnit.SECONDS)
-                .addInterceptor { chain ->
-                    val local = chain.request().url.newBuilder()
-                        .scheme("http")
-                        .host(loopback.hostAddress)
-                        .port(server.port)
-                        .build()
-                    chain.proceed(chain.request().newBuilder().url(local).build())
-                }
-                .build(),
-            rateLimiter = rateLimiter,
-        )
+    private var requests: Int = 0
 
-    @Before
-    fun setUp() {
-        server = MockWebServer()
-        server.start(loopback, 0)
-    }
-
-    @After
-    fun tearDown() {
-        server.shutdown()
+    private fun http(
+        vararg resps: MockResp,
+        rateLimiter: ScrapeRateLimiter = ScrapeRateLimiter.Unlimited,
+    ): ScrapeHttp {
+        val queue = ArrayDeque(resps.toList())
+        requests = 0
+        val engine = MockEngine { _ ->
+            requests++
+            val r = queue.removeFirst()
+            respond(
+                r.body,
+                HttpStatusCode.fromValue(r.status),
+                headersOf(*r.headers.map { (k, v) -> k to listOf(v) }.toTypedArray()),
+            )
+        }
+        return ScrapeHttp(HttpClient(engine), rateLimiter = rateLimiter)
     }
 
     @Test
     fun `429带RetryAfter秒_重试一次后成功`() = runTest {
         // 首次 429 带 Retry-After:0（立即重试），二次 200
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "0").setBody("throttled"))
-        server.enqueue(MockResponse().setResponseCode(200).setBody("ok-body"))
-
-        val client = http()
+        val client = http(
+            MockResp(429, "throttled", mapOf("Retry-After" to "0")),
+            MockResp(200, "ok-body"),
+        )
         val body = client.getText("https://example.com/a")
         assertEquals("ok-body", body)
-        assertEquals(2, server.requestCount)
+        assertEquals(2, requests)
     }
 
     @Test
     fun `429二次仍429抛http429`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "0").setBody("t1"))
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "0").setBody("t2"))
-
-        val client = http()
+        val client = http(
+            MockResp(429, "t1", mapOf("Retry-After" to "0")),
+            MockResp(429, "t2", mapOf("Retry-After" to "0")),
+        )
         try {
             client.getText("https://example.com/b")
             fail("应抛 IOException(\"http 429\")")
-        } catch (e: IOException) {
+        } catch (e: java.io.IOException) {
             assertEquals("http 429", e.message)
         }
-        assertEquals(2, server.requestCount)
+        assertEquals(2, requests)
     }
 
     @Test
     fun `429无RetryAfter默认1s后重试成功`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(429).setBody("t1"))
-        server.enqueue(MockResponse().setResponseCode(200).setBody("second"))
-
-        val client = http()
+        val client = http(
+            MockResp(429, "t1"),
+            MockResp(200, "second"),
+        )
         val body = client.getText("https://example.com/c")
         assertEquals("second", body)
-        assertEquals(2, server.requestCount)
+        assertEquals(2, requests)
     }
 
     @Test
     fun `非429错误不重试直接抛`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(500).setBody("err"))
-
-        val client = http()
+        val client = http(MockResp(500, "err"))
         try {
             client.getText("https://example.com/d")
             fail("应抛 http 500")
-        } catch (e: IOException) {
+        } catch (e: java.io.IOException) {
             assertEquals("http 500", e.message)
         }
-        assertEquals(1, server.requestCount)
+        assertEquals(1, requests)
     }
 
     @Test
     fun `getBytes在429后重试一次成功`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "0").setBody("t"))
-        server.enqueue(MockResponse().setResponseCode(200).setBody("bytes-body"))
-
-        val client = http()
+        val client = http(
+            MockResp(429, "t", mapOf("Retry-After" to "0")),
+            MockResp(200, "bytes-body"),
+        )
         val bytes = client.getBytes("https://example.com/e")
         assertEquals("bytes-body", String(bytes))
-        assertEquals(2, server.requestCount)
+        assertEquals(2, requests)
     }
 
     @Test
@@ -141,14 +131,13 @@ class ScrapeHttp429Test {
     @Test
     fun `RetryAfter超过8s被截断`() = runTest {
         // Retry-After: 20 秒，但 ScrapeHttp 应截断至 8s（MAX_RETRY_AFTER_MS）
-        // 为避免真实等待 8s，用 Robolectric 的虚拟时间：runTest 会虚拟推进 delay
-        // 此处仅验证 getText 在大 Retry-After 下仍会重试并最终成功（二次 200）
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "20").setBody("t"))
-        server.enqueue(MockResponse().setResponseCode(200).setBody("ok"))
-
-        val client = http()
+        // runTest 虚拟推进 delay：验证大 Retry-After 下仍会重试并最终成功（二次 200）
+        val client = http(
+            MockResp(429, "t", mapOf("Retry-After" to "20")),
+            MockResp(200, "ok"),
+        )
         val body = client.getText("https://example.com/f")
         assertEquals("ok", body)
-        assertEquals(2, server.requestCount)
+        assertEquals(2, requests)
     }
 }

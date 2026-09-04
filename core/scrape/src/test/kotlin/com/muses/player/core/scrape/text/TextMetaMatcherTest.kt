@@ -8,22 +8,21 @@ import com.muses.player.core.model.scrape.OnlineTextSource
 import com.muses.player.core.model.scrape.TextMetaHit
 import com.muses.player.core.scrape.http.ScrapeHttp
 import com.muses.player.core.scrape.text.provider.KwProvider
-import java.net.InetAddress
-import java.util.concurrent.TimeUnit
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.HttpRequestData
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
-import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 
-/** 规格 = src/features/metadata/match.ts matchOnlineTextMeta 主流程 + providers/kw.ts 解析 */
-@RunWith(RobolectricTestRunner::class)
+/**
+ * 规格 = src/features/metadata/match.ts matchOnlineTextMeta 主流程 + providers/kw.ts 解析
+ * （P2c：kw 段 MockWebServer → Ktor MockEngine；纯 FakeProvider 段本就无需 Robolectric，
+ * 整类去 Robolectric，MockEngine 按序应答，requestCount 改计数器）。
+ */
 class TextMetaMatcherTest {
 
     // ── fake provider ───────────────────────────────────────
@@ -147,44 +146,31 @@ class TextMetaMatcherTest {
         assertEquals(2, miss.calls)
     }
 
-    // ── kw provider JSON 解析（MockWebServer）───────────────
+    // ── kw provider JSON 解析（MockEngine 按序应答）───────────────
 
-    private lateinit var server: MockWebServer
-    private val loopback = InetAddress.getLoopbackAddress()
+    private data class MockResp(val status: Int, val body: String)
 
-    private fun httpFor(server: MockWebServer): ScrapeHttp =
-        ScrapeHttp(
-            OkHttpClient.Builder()
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(5, TimeUnit.SECONDS)
-                .addInterceptor { chain ->
-                    // 把硬编码的 search.kuwo.cn 重写到本地 mock server（http + loopback IPv4）
-                    val local = chain.request().url.newBuilder()
-                        .scheme("http")
-                        .host(loopback.hostAddress)
-                        .port(server.port)
-                        .build()
-                    chain.proceed(chain.request().newBuilder().url(local).build())
-                }
-                .build(),
+    private class Harness(vararg resps: MockResp) {
+        private val queue = ArrayDeque(resps.toList())
+        val requests = mutableListOf<HttpRequestData>()
+        val http = ScrapeHttp(
+            HttpClient(
+                MockEngine { req ->
+                    requests += req
+                    val r = queue.removeFirst()
+                    respond(r.body, HttpStatusCode.fromValue(r.status))
+                },
+            ),
             rateLimiter = com.muses.player.core.scrape.http.ScrapeRateLimiter.Unlimited,
         )
-
-    @Before
-    fun setUp() {
-        server = MockWebServer()
-        server.start(loopback, 0)
     }
 
-    @After
-    fun tearDown() {
-        server.shutdown()
-    }
+    private fun ok(body: String) = MockResp(200, body)
 
     @Test
     fun `kw解析abslist字段并pickBestHit`() = runTest {
-        server.enqueue(
-            MockResponse().setBody(
+        val h = Harness(
+            ok(
                 """
                 {"abslist":[
                   {"SONGNAME":" Love Story ","ARTIST":"Taylor Swift","ALBUM":"Fearless"},
@@ -195,7 +181,7 @@ class TextMetaMatcherTest {
             ),
         )
 
-        val provider = KwProvider(httpFor(server))
+        val provider = KwProvider(h.http)
         val hit = provider.search(query(title = "Love Story", artist = "Taylor"))
 
         assertTrue(hit != null)
@@ -203,20 +189,20 @@ class TextMetaMatcherTest {
         assertEquals("Taylor Swift", hit?.artist)
         assertEquals("Fearless", hit?.album)
         // 第二条 artist/album 均空被过滤；仅剩一条候选
-        assertEquals(1, server.requestCount)
+        assertEquals(1, h.requests.size)
     }
 
     @Test
     fun `kw响应非JSON返回null不抛错`() = runTest {
-        server.enqueue(MockResponse().setBody("<html>oops</html>"))
-        val provider = KwProvider(httpFor(server))
+        val h = Harness(ok("<html>oops</html>"))
+        val provider = KwProvider(h.http)
         org.junit.Assert.assertNull(provider.search(query(title = "Love Story")))
     }
 
     @Test
     fun `kw非2xx向上抛错由matcher归network`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(500).setBody("err"))
-        val matcher = TextMetaMatcher(listOf(KwProvider(httpFor(server))))
+        val h = Harness(MockResp(500, "err"))
+        val matcher = TextMetaMatcher(listOf(KwProvider(h.http)))
         val result = matcher.match(query())
         assertEquals(OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK), result)
     }

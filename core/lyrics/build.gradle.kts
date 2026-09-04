@@ -27,7 +27,6 @@ android {
 dependencies {
     api(project(":core:common"))
 
-    implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
     // P2a Koin（BOM 统一 4.2.0）
@@ -36,5 +35,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.okhttp.mockwebserver)
+    // P2c：Ktor MockEngine（provider 解析单测；MockWebServer 已无使用者并移除）
+    testImplementation(platform(libs.ktor.bom))
+    testImplementation(libs.ktor.client.mock)
 }

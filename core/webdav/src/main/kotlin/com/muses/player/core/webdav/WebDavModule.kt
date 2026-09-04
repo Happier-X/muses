@@ -12,13 +12,23 @@ const val STREAMING_OKHTTP_QUALIFIER = "streamingOkHttp"
 /**
  * WebDAV 装配（P2a Hilt→Koin：原 `@Module @InstallIn(SingletonComponent)` + `@Binds`）。
  * 原 `@Qualifier @StreamingOkHttp` 改为 Koin `named("streamingOkHttp")`。
+ *
+ * P2c：传输层切 Ktor（CIO）——`WebDavClient` 改由 [KtorWebDavClient] 提供；
+ * 两个 OkHttpClient 绑定明确保留（P2c 豁免）：
+ * 流播 `@StreamingOkHttp` 喂 Media3 `OkHttpDataSource`，默认绑定喂 `AudioTagReader` Range 下载。
  */
 val webdavModule = module {
 
     singleOf(::WebDavAuthRegistry)
 
-    singleOf(::OkHttpWebDavClient)
-    single<WebDavClient> { get<OkHttpWebDavClient>() }
+    // P2c：Ktor 实现。HttpClient 用类内默认 CIO 客户端；显式工厂避免 Koin 误解析 HttpClient 绑定。
+    single<WebDavClient> {
+        KtorWebDavClient(
+            authRegistry = get(),
+            rateLimiter = get(),
+            errorLogStore = get(),
+        )
+    }
 
     singleOf(::DiskWebDavAudioCache)
     single<WebDavAudioCache> { get<DiskWebDavAudioCache>() }
@@ -70,10 +80,13 @@ val webdavModule = module {
             .addInterceptor { chain ->
                 val request = chain.request()
                 // WebDavClient 已在协程层 acquire 的请求打标，限流层跳过避免 double-delay
+                // P2c 注：Ktor 链路不再发送此头（仅历史 OkHttp 链路残留），此处仅 strip 防污染服务端。
                 if (request.header("X-Muses-Rate-Limited") != null) {
                     return@addInterceptor chain.proceed(request.newBuilder().removeHeader("X-Muses-Rate-Limited").build())
                 }
-                rateLimiter.acquireBlocking()
+                // P2c：阻塞等待改经 reserveBlockingDelayMs（限流器本体已进 commonMain，无 Thread.sleep）
+                val waitMs = rateLimiter.reserveBlockingDelayMs()
+                if (waitMs > 0L) Thread.sleep(waitMs)
                 chain.proceed(request)
             }
             // ② 播放流播统一注入 Basic Auth（interceptor 在 OkHttp IO 线程执行）；

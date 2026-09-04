@@ -4,15 +4,14 @@ import android.content.Context
 import android.net.Uri
 import java.io.File
 import java.security.MessageDigest
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
-import okhttp3.OkHttpClient
-import okhttp3.Request
 
 /**
  * WebDAV 音频磁盘缓存抽象。
  *
  * 播放流播命中判断与库扫描下载预热共用；测试可注入内存 fake（无需 Android 环境）。
+ *
+ * P2c 说明：本文件历史遗留的 okhttp3/未使用 import 已清理；本体留守 Android
+ * （Context/Uri/Media3 链路），不随 WebDavClient 进 commonMain。
  */
 interface WebDavAudioCache {
     /** 返回完整缓存文件；.partial / .tmp / 空文件一律视为未命中 */

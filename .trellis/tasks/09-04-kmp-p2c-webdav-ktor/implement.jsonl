@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/features-webdav-library.md", "reason": "WebDAV全链路契约：扫描/缓存/凭据/限流教训，行为冻结基线"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "传输替换跨层边界：包装器API冻结与消费者零改动"}

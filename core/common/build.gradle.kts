@@ -30,10 +30,17 @@ kotlin {
             // P2b-S2：datastore-preferences（KMP，含 jvm 变体）+ okio（createWithPath Path）
             implementation(libs.datastore.preferences)
             implementation(libs.okio)
+            // P2c：Ktor-client（CIO）传输层进 commonMain（AC4 经 ktor-bom 统一版本，
+            // BOM 约束见底部 dependencies 块 `commonMainApi(platform(...))`，sourceSets 内无 platform 作用域）
+            // core/api 暴露：下游 :core:lyrics/:core:scrape/:core:webdav 的包装器公有签名含 HttpClient
+            api(libs.ktor.client.core)
+            implementation(libs.ktor.client.cio)
+            api(libs.kotlinx.io.core)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
     }
 }
@@ -43,6 +50,8 @@ dependencies {
     add("kspCommonMainMetadata", libs.room.compiler)
     add("kspAndroid", libs.room.compiler)
     add("kspJvm", libs.room.compiler)
+    // P2c AC4：Ktor 版本经 BOM 统一（sourceSets 块内无 platform 作用域，故在此声明约束）
+    add("commonMainApi", platform(libs.ktor.bom))
 }
 
 // S0：schemas 导出目录指到 core/common/schemas（R2 时旧 core/data/schemas 迁移后删除）

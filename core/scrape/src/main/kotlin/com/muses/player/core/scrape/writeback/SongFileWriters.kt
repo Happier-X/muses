@@ -26,7 +26,7 @@ fun interface CoverBytesFetcher {
     suspend fun fetch(remoteUrl: String): ByteArray?
 }
 
-/** 默认实现：OkHttp 二进制 GET（ScrapeHttp.getBytes） */
+/** 默认实现：Ktor 二进制 GET（ScrapeHttp.getBytes，P2c 起经 CIO） */
 class HttpCoverBytesFetcher(private val http: ScrapeHttp = ScrapeHttp()) : CoverBytesFetcher {
     override suspend fun fetch(remoteUrl: String): ByteArray? = try {
         http.getBytes(remoteUrl)
