@@ -1,7 +1,5 @@
 package com.muses.player.core.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.Icon
 import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Text
@@ -22,18 +18,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.muses.player.core.ui.theme.LocalMusesHazeState
+import com.muses.player.core.ui.theme.HazeBlurStyleData
+import com.muses.player.core.ui.theme.LocalHazeBlurState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltDarkColors
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.ui.theme.musesNavbarHazeStyle
-import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.blur.hazeBlur
+import com.muses.player.core.uishared.platform.PlatformInsets
+import com.muses.player.core.uishared.platform.platformBlurModifier
 
 /**
  * `.m-navbar` —— 吸顶导航栏（MNavbar.vue 一比一翻译）。
@@ -63,14 +59,16 @@ fun SaltNavbar(
 ) {
     val salt = LocalSaltColors.current
     val isDark = salt === SaltDarkColors
-    val hazeState = LocalMusesHazeState.current
-    val navbarHazeStyle = if (hazeState != null && !transparent) musesNavbarHazeStyle(isDark) else null
 
     // --m-navbar-pt: max(16px, safe-area-top)
-    val statusBarTop = with(LocalDensity.current) {
-        WindowInsets.statusBars.getTop(this).toDp()
-    }
+    // 使用 PlatformInsets 替代 WindowInsets.statusBars（跨平台兼容）
+    val statusBarTop = PlatformInsets.statusBarHeightDp().toDouble().dp
     val navbarPt = maxOf(SaltSpacing.navbarTopPaddingMin, statusBarTop)
+
+    // 平台模糊风格数据：Android 真 Haze / 桌面纯色降级
+    // LocalHazeBlurState 由 app 层（TabsLayout）provide，值与 LocalMusesHazeState 相同
+    val hazeState = LocalHazeBlurState.current
+    val hazeStyle: HazeBlurStyleData? = if (!transparent) musesNavbarHazeStyle(isDark) else null
 
     Box(
         modifier = modifier
@@ -78,10 +76,13 @@ fun SaltNavbar(
             .then(
                 if (transparent) {
                     Modifier
-                } else if (hazeState != null && navbarHazeStyle != null) {
-                    Modifier.hazeBlur(input = HazeInput.Sources(hazeState), style = navbarHazeStyle)
                 } else {
-                    Modifier.background(salt.navbarGlassBg)
+                    platformBlurModifier(
+                        isDark = isDark,
+                        backgroundColor = salt.navbarGlassBg,
+                        hazeState = hazeState,
+                        hazeStyleData = hazeStyle,
+                    )
                 },
             )
             .drawBehind {

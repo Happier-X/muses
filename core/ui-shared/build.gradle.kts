@@ -30,6 +30,10 @@ kotlin {
             // Tabler Icons（KMP 坐标：outline + filled；注意空基座陷阱：不要单独声明 icons-tabler-cmp）
             implementation(libs.tabler.icons.cmp)
             implementation(libs.tabler.filled.icons.cmp)
+            // Coil 3（KMP 图片加载；commonMain 提供 AsyncImage API）
+            implementation(libs.coil.compose)
+            // Haze 公共类型（KMP：HazeState / HazeInput 等跨平台类型；不含 Android-only blur modifier）
+            implementation(libs.haze.utils)
         }
 
         androidMain.dependencies {
@@ -38,6 +42,13 @@ kotlin {
             // PlatformBlur：Haze 真模糊（U3 T1 组件层消费；此处声明让 androidMain actual 可引用）
             implementation(libs.haze)
             implementation(libs.haze.blur)
+            // Coil 3 网络引擎（okhttp 实现；不加则 AsyncImage 加载 https 静默失败）
+            implementation(libs.coil.network.okhttp)
+        }
+
+        jvmMain.dependencies {
+            // Coil 3 网络引擎（ktor3 实现；桌面端 HTTP 图片加载）
+            implementation(libs.coil.network.ktor3)
         }
     }
 }

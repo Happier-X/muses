@@ -93,7 +93,10 @@ fun SettingsScreen(
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
     val hazeState = rememberHazeState()
-    CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+    CompositionLocalProvider(
+        LocalMusesHazeState provides hazeState,
+        com.muses.player.core.ui.theme.LocalHazeBlurState provides hazeState,
+    ) {
         Box(modifier = modifier.fillMaxSize()) {
             val navbarTopPadding = with(LocalDensity.current) {
                 WindowInsets.statusBars.getTop(this).toDp()

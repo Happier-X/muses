@@ -118,6 +118,9 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 haze-blur = { group = "dev.chrisbanes.haze", name = "haze-blur", version.ref = "haze" }
+# haze-utils 是 KMP 公共产物（含 HazeState / HazeInput 等跨平台类型），
+# commonMain 可直接引用；haze / haze-blur 是 Android only
+haze-utils = { group = "dev.chrisbanes.haze", name = "haze-utils", version.ref = "haze" }
 
 # S1 桌面凭据：Windows DPAPI 经 JNA（jna-platform 含 Crypt32Util；版本与 Gradle 自带 jna 5.17.0 对齐）
 jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }

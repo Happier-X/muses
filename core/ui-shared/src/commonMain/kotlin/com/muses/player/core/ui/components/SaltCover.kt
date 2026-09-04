@@ -21,7 +21,7 @@ import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
 
 /** MCover 圆角档位：sm → `--m-radius-sm`(8) / md → `--m-radius-card`(12) */
-enum class SaltCoverRadius(val value: androidx.compose.ui.unit.Dp) {
+enum class SaltCoverRadius(val value: Dp) {
     SM(SaltRadius.sm),
     MD(SaltRadius.card),
 }

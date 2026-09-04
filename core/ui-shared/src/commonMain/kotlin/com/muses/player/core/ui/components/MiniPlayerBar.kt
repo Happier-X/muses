@@ -1,11 +1,11 @@
 package com.muses.player.core.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,15 +24,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.ui.theme.LocalMusesHazeState
+import com.muses.player.core.ui.theme.HazeBlurStyleData
+import com.muses.player.core.ui.theme.LocalHazeBlurState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltDarkColors
-import com.muses.player.core.ui.theme.SaltShadowLayer
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.ui.theme.musesBottomBarHazeStyle
-import com.muses.player.core.ui.theme.saltShadow
-import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.blur.hazeBlur
+import com.muses.player.core.uishared.platform.platformBlurModifier
 
 /**
  * `.mini-player` —— 底部迷你播放条（MiniPlayer.vue 一比一翻译）。
@@ -70,38 +68,30 @@ fun MiniPlayerBar(
     val salt = LocalSaltColors.current
     val isDark = salt === SaltDarkColors
     val capsuleShape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(40.dp)
-    val hazeState = LocalMusesHazeState.current
-    val bottomHazeStyle = if (hazeState != null) musesBottomBarHazeStyle(isDark) else null
 
-    // box-shadow 双套配方（明 / 暗），层序与 SCSS 一致：先 inset 高光、后外投影
-    val shadowLayers: List<SaltShadowLayer> = if (isDark) {
-        listOf(
-            SaltShadowLayer(offsetY = 1.dp, color = Color.White.copy(alpha = 0.1f), inset = true),
-            SaltShadowLayer(offsetY = 4.dp, blurRadius = 16.dp, color = Color.Black.copy(alpha = 0.35f)),
-        )
-    } else {
-        listOf(
-            SaltShadowLayer(offsetY = 1.dp, color = Color.White.copy(alpha = 0.65f), inset = true),
-            SaltShadowLayer(offsetY = 4.dp, blurRadius = 16.dp, color = Color.Black.copy(alpha = 0.08f)),
-        )
-    }
     val borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.5f)
 
     val clickInteraction = remember { MutableInteractionSource() }
+
+    // 平台模糊风格数据
+    // LocalHazeBlurState 由 app 层（TabsLayout）provide，值与 LocalMusesHazeState 相同
+    val hazeState = LocalHazeBlurState.current
+    val hazeStyle: HazeBlurStyleData = musesBottomBarHazeStyle(isDark)
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(64.dp)
-            // 阴影会溢出边界绘制，父级不要 clipToBounds
-            .saltShadow(shape = capsuleShape, layers = shadowLayers)
+            // TODO(U4): SaltShadows（android.graphics.BlurMaskFilter）暂不迁入 commonMain，
+            // 完整阴影配方待 SaltShadows 完成跨平台抽象后恢复。
             .clip(capsuleShape)
             .then(
-                if (hazeState != null && bottomHazeStyle != null) {
-                    Modifier.hazeBlur(input = HazeInput.Sources(hazeState), style = bottomHazeStyle)
-                } else {
-                    Modifier.background(color = salt.glassBg, shape = capsuleShape)
-                },
+                platformBlurModifier(
+                    isDark = isDark,
+                    backgroundColor = salt.glassBg,
+                    hazeState = hazeState,
+                    hazeStyleData = hazeStyle,
+                ),
             )
             .border(border = BorderStroke(1.dp, borderColor), shape = capsuleShape)
             .clickable(
@@ -144,7 +134,7 @@ fun MiniPlayerBar(
         // __controls：gap 2px，图标 18px（md 触控区 40px 不变）
         // 控制区需消费点击避免冒泡至外层 Row 的 onOpenPlayer（修复点击播放按钮同时打开播放页）
         // 外层 Box 以空 clickable 消费非按钮区域的 gap 点击；按钮自身可点击已天然拦截冒泡
-        androidx.compose.foundation.layout.Box(
+        Box(
             modifier = Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

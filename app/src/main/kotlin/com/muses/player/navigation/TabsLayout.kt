@@ -120,7 +120,10 @@ fun TabsLayout(
     content: @Composable () -> Unit,
 ) {
     val hazeState = rememberHazeState()
-    androidx.compose.runtime.CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalMusesHazeState provides hazeState,
+        com.muses.player.core.ui.theme.LocalHazeBlurState provides hazeState,
+    ) {
         BoxWithConstraints(modifier.fillMaxSize()) {
             if (!navVisible) {
                 // 覆盖路由形态：无导航 chrome，全屏内容
