@@ -1,8 +1,13 @@
 package com.muses.player.core.uishared.platform
 
-/** U0 jvmMain（桌面）占位实现：静默丢弃，真实现（状态栏文案/小浮层）U2 落地。 */
+/**
+ * U2 jvmMain（桌面）实现：静默丢弃。
+ *
+ * - 桌面端无系统 Toast 通道；后续可接入状态栏文案或小浮层（composeApp 层）；
+ * - 当前保持 no-op，不影响功能正确性。
+ */
 actual object PlatformToast {
     actual fun show(message: String) {
-        // U0 占位：桌面提示通道 U2 接入前静默丢弃，避免引入桌面 UI 依赖
+        // U2 桌面实现：静默丢弃，无系统 Toast 通道
     }
 }

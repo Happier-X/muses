@@ -1,8 +1,10 @@
 package com.muses.player.core.uishared.platform
 
 /**
- * U0 jvmMain（桌面）占位实现：边衬给 0，模糊降级关闭，Toast 静默丢弃。
- * 真实现 U2 落地（标题栏高/桌面浮层），供 composeApp/desktop 消费。
+ * U2 jvmMain（桌面）实现：边衬给 0，标题栏高度由 composeApp 自行处理。
+ *
+ * - 桌面窗口无系统状态栏/导航栏概念，标题栏由 composeApp 自绘；
+ * - 组件层按此值 0 不做额外顶部/底部避让，由页面布局自行安排。
  */
 actual object PlatformInsets {
     actual fun statusBarHeightDp(): Float = 0f

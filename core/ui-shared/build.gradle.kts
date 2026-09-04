@@ -31,5 +31,13 @@ kotlin {
             implementation(libs.tabler.icons.cmp)
             implementation(libs.tabler.filled.icons.cmp)
         }
+
+        androidMain.dependencies {
+            // PlatformInsets：ViewCompat / WindowInsetsCompat 读取系统边衬
+            implementation(libs.androidx.core.ktx)
+            // PlatformBlur：Haze 真模糊（U3 T1 组件层消费；此处声明让 androidMain actual 可引用）
+            implementation(libs.haze)
+            implementation(libs.haze.blur)
+        }
     }
 }
