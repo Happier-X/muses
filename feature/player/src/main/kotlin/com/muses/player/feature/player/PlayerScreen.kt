@@ -498,7 +498,7 @@ private fun PhoneImmersiveLayout(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().statusBarsPadding(),
     ) {
         // 固定头部：player-page__song-head--fixed（手机常驻，平板隐藏，此处仅手机分支）
         // 顶部避让 calc(16px + safe-area) 左右 24px，平板隐藏
@@ -590,7 +590,7 @@ private fun TabletImmersiveLayout(
     maxHeight: Dp,
     onLyricAtTopChange: (Boolean) -> Unit = {},
 ) {
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
         // 平板不渲染固定头部，由面板内头部承担
         Row(
             Modifier

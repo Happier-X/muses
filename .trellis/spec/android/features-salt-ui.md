@@ -52,3 +52,4 @@
     bottomBar 渲染（G1 教训：aside 形态别漏 bottomBar）；专辑/艺术家网格 ≥768dp 用
     `GridCells.Adaptive(180.dp)` 对齐 Web auto-fill；WebView 播放页平板分支经 payload
     `isTabletLayout` 字段下发前端 `.pp-tablet` 类切换（Kotlin 判定 ≥768 且宽>高）
+17. **沉浸式全屏页顶部必须内容层加 `statusBarsPadding()`、背景层保持全屏**——`enableEdgeToEdge` 下状态栏压住内容是默认行为；只写固定 `padding(top=16.dp)` 不够（09-04 沉浸页标题被状态栏压住）。背景（Backdrop/封面模糊）与内容是兄弟层：背景 `fillMaxSize()` 不动，只给内容 `Column` 加：`Modifier.fillMaxSize().statusBarsPadding()`
