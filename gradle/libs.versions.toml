@@ -28,15 +28,17 @@ androidxWebkit = "1.14.0"
 # M3 刮削引擎：DataStore JSON snapshot 序列化
 kotlinxSerialization = "1.9.0"
 haze = "2.0.0-alpha05"
-lucideIcons = "1.1.0"
+tablerIcons = "2.2.1"
 
 [libraries]
 # M2：仅解析用（TTML/LRC → SyncedLyrics），不引入 lyrics-ui 渲染层
 accompanist-lyrics-core = { group = "com.mocharealm.accompanist", name = "lyrics-core", version.ref = "accompanistLyricsCore" }
 # 歌词渲染层 lyrics-ui 已 vendor 为源码引入，不再作为外部依赖 —— 见 docs/THIRD_PARTY.md
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCore" }
-# Lucide Icons for Android
-lucide-icons = { group = "com.composables", name = "icons-lucide-android", version.ref = "lucideIcons" }
+# Tabler Icons（outline；注意必须用 cmp-android 才有 ImageVector，纯 android 只有 VectorDrawable）
+tabler-icons = { group = "com.composables", name = "icons-tabler-outline-cmp-android", version.ref = "tablerIcons" }
+# Tabler Filled Icons（官方带圆角 fill，替换手写 FillIcons）
+tabler-filled-icons = { group = "com.composables", name = "icons-tabler-filled-cmp-android", version.ref = "tablerIcons" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
@@ -49,8 +51,6 @@ compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
-compose-material-icons = { group = "androidx.compose.material", name = "material-icons-core" }
-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }

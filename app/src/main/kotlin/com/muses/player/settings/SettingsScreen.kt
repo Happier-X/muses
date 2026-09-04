@@ -19,11 +19,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Refresh
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -131,7 +127,7 @@ fun SettingsScreen(
                     subtitle = "应用版本 ${BuildConfig.VERSION_NAME}",
                     onClick = null,
                     leading = {
-                        SettingsIcon(icon = LucideIcons.Info)
+                        SettingsIcon(icon = TablerIcons.Info)
                     },
                 )
                 // 检查更新
@@ -162,7 +158,7 @@ fun SettingsScreen(
                         }
                     },
                     leading = {
-                        SettingsIcon(icon = LucideIcons.Refresh)
+                        SettingsIcon(icon = TablerIcons.Refresh)
                     },
                 )
             }
@@ -196,7 +192,7 @@ fun SettingsScreen(
                         }
                     },
                     leading = {
-                        SettingsIcon(icon = LucideIcons.BugReport)
+                        SettingsIcon(icon = TablerIcons.BugReport)
                     },
                 )
             }

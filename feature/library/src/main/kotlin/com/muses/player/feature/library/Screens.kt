@@ -18,13 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -90,7 +85,7 @@ fun SongsScreen(
                         searchQuery = ""
                         viewModel.updateSearchQuery("")
                     }) {
-                        Icon(LucideIcons.ArrowBack, contentDescription = "关闭搜索")
+                        Icon(TablerIcons.ArrowBack, contentDescription = "关闭搜索")
                     }
                 },
                 singleLine = true,
@@ -105,7 +100,7 @@ fun SongsScreen(
         if (songs.isEmpty() && !showSearch) {
             EmptyLibraryHint(
                 modifier = Modifier.fillMaxSize(),
-                icon = { Icon(LucideIcons.Album, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
+                icon = { Icon(TablerIcons.Album, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
                 title = "曲库为空",
                 hint = "请先在「音源」中添加本地目录或 WebDAV 并扫描",
             )
@@ -203,7 +198,7 @@ fun AlbumsScreen(
     if (albums.isEmpty()) {
         EmptyLibraryHint(
             modifier = modifier,
-            icon = { Icon(LucideIcons.Album, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
+            icon = { Icon(TablerIcons.Album, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
             title = "暂无专辑",
             hint = "扫描完成后在此浏览专辑",
         )
@@ -226,7 +221,7 @@ fun AlbumsScreen(
                     },
                     leadingContent = {
                         Icon(
-                            LucideIcons.Album,
+                            TablerIcons.Album,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(40.dp),
@@ -262,7 +257,7 @@ fun AlbumDetailScreen(
             title = albumWithSongs?.album?.title ?: "专辑",
             left = {
                 Icon(
-                    LucideIcons.ArrowBack,
+                    TablerIcons.ArrowBack,
                     contentDescription = "返回",
                     modifier = Modifier.clickable(onClick = onBack),
                 )
@@ -301,7 +296,7 @@ fun ArtistsScreen(
     if (artists.isEmpty()) {
         EmptyLibraryHint(
             modifier = modifier,
-            icon = { Icon(LucideIcons.Person, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
+            icon = { Icon(TablerIcons.Person, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
             title = "暂无艺术家",
             hint = "扫描完成后在此浏览艺术家",
         )
@@ -324,7 +319,7 @@ fun ArtistsScreen(
                     },
                     leadingContent = {
                         Icon(
-                            LucideIcons.Person,
+                            TablerIcons.Person,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(40.dp),
@@ -359,7 +354,7 @@ fun ArtistDetailScreen(
             title = artistWithSongs?.artist?.name ?: "艺术家",
             left = {
                 Icon(
-                    LucideIcons.ArrowBack,
+                    TablerIcons.ArrowBack,
                     contentDescription = "返回",
                     modifier = Modifier.clickable(onClick = onBack),
                 )

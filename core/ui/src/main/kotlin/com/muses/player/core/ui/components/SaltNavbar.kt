@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Icon
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -128,7 +126,7 @@ fun SaltNavbar(
                         modifier = Modifier.padding(end = SaltSpacing.spacingSub),
                     ) {
                         SaltIconButton(onClick = openDrawer) {
-                            Icon(LucideIcons.Menu, contentDescription = "打开导航菜单")
+                            Icon(TablerIcons.Menu, contentDescription = "打开导航菜单")
                         }
                     }
                 }

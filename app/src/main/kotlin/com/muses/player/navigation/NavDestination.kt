@@ -1,16 +1,8 @@
 package com.muses.player.navigation
 
 import androidx.annotation.StringRes
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.QueueMusic
-import androidx.compose.material.icons.filled.Settings
 import com.muses.player.R
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 
 /**
  * 顶层路由 —— 条目/顺序/分组一比一对照 `TabsPage.vue` 的 `navItems`：
@@ -24,35 +16,35 @@ import com.muses.player.core.ui.icons.LucideIcons
 enum class NavDestination(
     val route: String,
     @StringRes val labelRes: Int,
-    /** Web 层同款语义的 Material 图标（括号内为 lucide 原名） */
+    /** Web 层同款语义的图标（括号内为 Tabler 原名） */
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     /** 子路由前缀（对照 Web 层 NavigationItem.childPrefixes） */
     val childPrefixes: List<String> = emptyList(),
 ) {
     // ---- 主菜单（曲库）：primaryNavItems = navItems.slice(0, 4) ----
-    Songs("songs", R.string.nav_songs, LucideIcons.MusicNote),            // musicalNotes (Music)
-    Albums("albums", R.string.nav_albums, LucideIcons.Album,              // albums (Disc3)
+    Songs("songs", R.string.nav_songs, TablerIcons.MusicNote),            // music (Music)
+    Albums("albums", R.string.nav_albums, TablerIcons.Album,              // albums (Disc)
         childPrefixes = listOf(DetailRoutes.ALBUM_DETAIL_PREFIX)),
-    Artists("artists", R.string.nav_artists, LucideIcons.Person,          // person (MicVocal)
+    Artists("artists", R.string.nav_artists, TablerIcons.Person,          // user (MicVocal)
         childPrefixes = listOf(DetailRoutes.ARTIST_DETAIL_PREFIX)),
-    Playlists("playlists", R.string.nav_playlists, LucideIcons.QueueMusic, // list (ListMusic)
+    Playlists("playlists", R.string.nav_playlists, TablerIcons.QueueMusic, // playlist (ListMusic)
         childPrefixes = listOf("playlist/")),
 
     // ---- 次菜单（工具）：secondaryNavItems = navItems.slice(4) ----
-    Scrape("scrape", R.string.nav_scrape, LucideIcons.Checklist),         // listChecks
-    Sources("sources", R.string.nav_sources, LucideIcons.Folder,          // radio (Web 层映射 Folder)
+    Scrape("scrape", R.string.nav_scrape, TablerIcons.Checklist),         // listCheck
+    Sources("sources", R.string.nav_sources, TablerIcons.Folder,          // broadcast (Web 层映射 Folder)
         childPrefixes = listOf("sources/webdav")),
-    Settings("settings", R.string.nav_settings, LucideIcons.Settings),    // settings
+    Settings("settings", R.string.nav_settings, TablerIcons.Settings),    // settings
 
     // ---- 非 tabs 导航项（播放页/队列页/刮削审核页，不出现在侧边栏）----
-    NowPlaying("now-playing", R.string.nav_now_playing, LucideIcons.MusicNote),
-    Queue("queue", R.string.nav_queue, LucideIcons.QueueMusic),
+    NowPlaying("now-playing", R.string.nav_now_playing, TablerIcons.MusicNote),
+    Queue("queue", R.string.nav_queue, TablerIcons.QueueMusic),
     /**
      * 单曲刮削审核页（Tagger 式就地审核）。真实导航 route 带参数：
      * `"scrape_review?songId={songId}&queue={queue}"`（songId 必传、queue 可选逗号分隔），
      * 见 [DetailRoutes.scrapeReview] 与 MusesApp 的 composable 声明。
      */
-    ScrapeReview("scrape_review", R.string.nav_scrape_review, LucideIcons.Checklist),
+    ScrapeReview("scrape_review", R.string.nav_scrape_review, TablerIcons.Checklist),
     ;
 
     /** 对照 TabsPage.vue 的 isNavActive(item) */

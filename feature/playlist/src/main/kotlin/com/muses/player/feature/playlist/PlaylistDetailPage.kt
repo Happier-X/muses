@@ -11,12 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.Icon
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -142,7 +138,7 @@ fun PlaylistDetailPage(
                         onClick = onBack,
                         contentDescription = "返回",
                     ) {
-                        Icon(LucideIcons.ArrowBack, contentDescription = null)
+                        Icon(TablerIcons.ArrowBack, contentDescription = null)
                     }
                 },
                 right = {
@@ -151,7 +147,7 @@ fun PlaylistDetailPage(
                         enabled = songs.isNotEmpty(),
                         contentDescription = "播放全部",
                     ) {
-                        Icon(LucideIcons.Play, contentDescription = null)
+                        Icon(TablerIcons.Play, contentDescription = null)
                     }
                 },
             )
@@ -199,7 +195,7 @@ private fun DetailSongRow(
                 contentDescription = "从歌单移除 ${song.title}",
             ) {
                 Icon(
-                    LucideIcons.Remove,
+                    TablerIcons.Remove,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = Color(0xFFFF3B30),

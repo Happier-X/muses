@@ -16,14 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.NavigateBefore
-import androidx.compose.material.icons.filled.CheckBox
-import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.AlertDialog
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -254,7 +248,7 @@ private fun DirectoryRow(
         // 多选模式：复选框
         if (mode == "multiple") {
             Icon(
-                imageVector = if (isSelected) LucideIcons.CheckBox else LucideIcons.CheckBoxOutlineBlank,
+                imageVector = if (isSelected) TablerIcons.CheckBox else TablerIcons.CheckBoxOutlineBlank,
                 contentDescription = if (isSelected) "取消选择" else "选择",
                 tint = if (isSelected) salt.primary else salt.text2,
                 modifier = Modifier
@@ -266,7 +260,7 @@ private fun DirectoryRow(
 
         // 目录图标
         Icon(
-            imageVector = LucideIcons.Folder,
+            imageVector = TablerIcons.Folder,
             contentDescription = null,
             tint = salt.primary,
             modifier = Modifier.size(28.dp),

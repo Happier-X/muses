@@ -26,15 +26,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -269,7 +262,7 @@ fun SongsPage(
                                 ) {
                                     if (checked) {
                                         Icon(
-                                            LucideIcons.Check,
+                                            TablerIcons.Check,
                                             contentDescription = null,
                                             tint = salt.onPrimary,
                                             modifier = Modifier.size(16.dp),
@@ -292,7 +285,7 @@ fun SongsPage(
                                 // 内部居中 32dp 占位图标 opacity .45 —— 行首宽度与有封面状态一致
                                 Box(Modifier.size(54.dp), contentAlignment = Alignment.Center) {
                                     Icon(
-                                        LucideIcons.MusicNote,
+                                        TablerIcons.MusicNote,
                                         contentDescription = null,
                                         tint = salt.text.copy(alpha = 0.45f),
                                         modifier = Modifier.size(32.dp),
@@ -309,7 +302,7 @@ fun SongsPage(
                                     size = SaltIconButtonSize.SM,
                                     onClick = { actionSong = song },
                                 ) {
-                                    Icon(LucideIcons.MoreVert, contentDescription = "更多歌曲操作")
+                                    Icon(TablerIcons.MoreVert, contentDescription = "更多歌曲操作")
                                 }
                             }
                         },
@@ -330,7 +323,7 @@ fun SongsPage(
                     searchQuery = ""
                     if (isMultiSelect) exitMultiSelect()
                 }) {
-                    Icon(LucideIcons.Search, contentDescription = "搜索歌曲")
+                    Icon(TablerIcons.Search, contentDescription = "搜索歌曲")
                 }
             },
             subnavbar = {
@@ -363,7 +356,7 @@ fun SongsPage(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 SaltIconButton(onClick = shuffleAll) {
-                                    Icon(LucideIcons.Shuffle, contentDescription = "随机播放全部")
+                                    Icon(TablerIcons.Shuffle, contentDescription = "随机播放全部")
                                 }
                                 Text(
                                     text = songs.size.toString(),
@@ -389,7 +382,7 @@ fun SongsPage(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
-                                LucideIcons.Search,
+                                TablerIcons.Search,
                                 contentDescription = null,
                                 tint = salt.text2,
                                 modifier = Modifier.size(18.dp),
@@ -574,7 +567,7 @@ private fun JumpToCurrentFab(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            LucideIcons.MyLocation,
+            TablerIcons.MyLocation,
             contentDescription = "跳转到当前播放",
             tint = salt.text2,
             modifier = Modifier.size(20.dp),

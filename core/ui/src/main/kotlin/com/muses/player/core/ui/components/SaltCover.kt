@@ -3,10 +3,8 @@ package com.muses.player.core.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material3.Icon
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +32,7 @@ enum class SaltCoverRadius(val value: androidx.compose.ui.unit.Dp) {
  * 视觉契约：
  * - 尺寸：Web 'md' = 52px / 'sm' = 48px（此处以 [size] Dp 直传，默认 52dp）；
  * - 底色 `--m-surface-2`、图标色 `--m-text-2`；
- * - 占位图标 `--m-list-icon`(24px)，lucide musical-notes-outline；
+ * - 占位图标 `--m-list-icon`(24px)，tabler music；
  * - 图片 `object-fit: cover`；圆角按 [radius] 档位。
  */
 @Composable
@@ -64,7 +62,7 @@ fun SaltCover(
     ) {
         // 占位（src 为空或未加载时透出）
         Icon(
-            imageVector = LucideIcons.MusicNoteOutlined, // lucide musical-notes-outline
+            imageVector = TablerIcons.MusicNoteOutlined, // tabler music
             contentDescription = null,
             tint = salt.text2,
             modifier = Modifier.size(SaltSpacing.listIcon), // __placeholder-icon: --m-list-icon

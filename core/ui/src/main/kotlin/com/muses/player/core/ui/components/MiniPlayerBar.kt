@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalMusesHazeState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltDarkColors
@@ -50,7 +50,7 @@ import dev.chrisbanes.haze.blur.hazeBlur
  * - 行内 gap `--m-spacing-sub`(12px)、水平 padding `--m-spacing`(16px)；
  * - 封面 48px；标题 15px/600/1.25 单行省略；副标题 13px/1.3/`--m-text-2`
  *   单行省略，两行间距 3px（`__info { gap: 3px }`）；
- * - 控制组 gap 2px，图标 18px 实心（lucide fill=currentColor → Material Filled 系）；
+ * - 控制组 gap 2px，图标 18px 实心（Tabler Filled 系）；
  * - 无歌空态：显示「暂无播放歌曲 / 未知艺术家 - 未知专辑」占位文案，
  *   整条不可点、播放键禁用（`.mini-player--empty` + aria-disabled）。
  */
@@ -157,7 +157,7 @@ fun MiniPlayerBar(
             ) {
                 SaltIconButton(
                     onClick = onTogglePlayback,
-                    imageVector = if (isPlaying) LucideIcons.PauseFill else LucideIcons.PlayFill, // fill 风格播放/暂停
+                    imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill, // fill 风格播放/暂停
                     contentDescription = if (isPlaying) "暂停播放" else "继续播放",
                     enabled = hasSong, // :disabled="!currentSong || status==='loading'"
                     tint = salt.text, // __btn { color: var(--m-text) }
@@ -165,7 +165,7 @@ fun MiniPlayerBar(
                 )
                 SaltIconButton(
                     onClick = onOpenQueue,
-                    imageVector = LucideIcons.QueueMusic, // lucide listMusic fill
+                    imageVector = TablerIcons.QueueMusic, // tabler playlist
                     contentDescription = "打开播放队列",
                     tint = salt.text,
                     iconSizeOverride = 18.dp,

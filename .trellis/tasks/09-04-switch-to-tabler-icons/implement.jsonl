@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/index.md", "reason": "构建验证命令（assembleMusesDebug）、分层规范与禁止模式"}
+{"file": ".trellis/spec/android/features-salt-ui.md", "reason": "Salt UI 组件体系（SaltIconButton 等），图标调用点所在的组件规范"}

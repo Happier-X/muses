@@ -16,11 +16,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -328,7 +326,7 @@ private fun GridCover(uri: String?, modifier: Modifier = Modifier) {
             )
         } else {
             Icon(
-                LucideIcons.MusicNote,
+                TablerIcons.MusicNote,
                 contentDescription = null,
                 tint = salt.text2,
                 modifier = Modifier.size(24.dp),

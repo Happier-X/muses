@@ -26,12 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -69,7 +65,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.muses.player.core.model.Source
-import androidx.compose.material.icons.filled.Radio
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -132,7 +127,7 @@ fun SourcesScreen(
                             SaltEmpty(
                                 title = "还没有音源",
                                 description = "点击右上角加号添加本地文件夹或 WebDAV 文件夹。",
-                                icon = LucideIcons.Radio,
+                                icon = TablerIcons.Radio,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
@@ -163,7 +158,7 @@ fun SourcesScreen(
                         size = SaltIconButtonSize.SM,
                         contentDescription = "添加音源",
                     ) {
-                        Icon(LucideIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(TablerIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
                 },
             )
@@ -608,7 +603,7 @@ private fun AddSourceSheet(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = form.testState !is TestState.Testing,
                     ) {
-                        Icon(LucideIcons.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(TablerIcons.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("测试连接")
                     }

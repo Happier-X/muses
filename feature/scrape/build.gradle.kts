@@ -37,7 +37,6 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
-    implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.ui.tooling.preview)
 
     // 封面候选网格远程图加载（与 library/app 同一版本线）

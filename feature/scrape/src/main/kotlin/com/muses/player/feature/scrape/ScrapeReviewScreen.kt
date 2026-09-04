@@ -21,10 +21,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -125,7 +123,7 @@ private fun SaltReviewNavbar(onBack: () -> Unit) {
         left = {
             SaltIconButton(
                 onClick = onBack,
-                imageVector = LucideIcons.ArrowBack,
+                imageVector = TablerIcons.ArrowBack,
                 contentDescription = "返回",
                 tint = salt.text,
             )

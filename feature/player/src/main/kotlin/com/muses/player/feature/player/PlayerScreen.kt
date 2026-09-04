@@ -41,22 +41,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.outlined.MusicNote
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -357,7 +342,7 @@ fun PlayerScreen(
                     Text(playbackError!!, modifier = Modifier.weight(1f))
                     Spacer(Modifier.width(8.dp))
                     Icon(
-                        LucideIcons.Close,
+                        TablerIcons.Close,
                         contentDescription = "关闭",
                         tint = Color.White.copy(alpha = 0.7f),
                         modifier = Modifier.size(16.dp).clickable { viewModel.clearPlaybackError() },
@@ -830,7 +815,7 @@ private fun CoverHero(
                         .clip(shape),
                 )
             } else {
-                Icon(LucideIcons.MusicNoteOutlined, contentDescription = null, tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(64.dp))
+                Icon(TablerIcons.MusicNoteOutlined, contentDescription = null, tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(64.dp))
             }
         }
     }
@@ -968,21 +953,21 @@ private fun ControlsRow(
     ) {
         SaltIconButton(
             onClick = onPrevious,
-            imageVector = LucideIcons.SkipPreviousFill,
+            imageVector = TablerIcons.SkipPreviousFill,
             contentDescription = "上一曲",
             size = btnSize,
             tint = Color.White.copy(alpha = 0.9f),
         )
         SaltIconButton(
             onClick = onPlayPause,
-            imageVector = if (isPlaying) LucideIcons.PauseFill else LucideIcons.PlayFill,
+            imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill,
             contentDescription = if (isPlaying) "暂停" else "播放",
             size = btnSize,
             tint = Color.White.copy(alpha = 0.92f),
         )
         SaltIconButton(
             onClick = onNext,
-            imageVector = LucideIcons.SkipNextFill,
+            imageVector = TablerIcons.SkipNextFill,
             contentDescription = "下一曲",
             size = btnSize,
             tint = Color.White.copy(alpha = 0.9f),
@@ -1015,25 +1000,25 @@ private fun ModeBarRow(
     ) {
         SaltIconButton(
             onClick = onToggleRepeat,
-            imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) LucideIcons.RepeatOne else LucideIcons.Repeat,
+            imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) TablerIcons.RepeatOne else TablerIcons.Repeat,
             contentDescription = if (repeatMode == Player.REPEAT_MODE_ONE) "单曲循环" else "列表循环",
             tint = Color.White.copy(alpha = 0.8f),
         )
         SaltIconButton(
             onClick = onToggleShuffle,
-            imageVector = if (shuffleEnabled) LucideIcons.Shuffle else LucideIcons.FormatListBulleted,
+            imageVector = if (shuffleEnabled) TablerIcons.Shuffle else TablerIcons.FormatListBulleted,
             contentDescription = if (shuffleEnabled) "随机播放" else "顺序播放",
             tint = Color.White.copy(alpha = 0.8f),
         )
         SaltIconButton(
             onClick = onOpenQueue,
-            imageVector = LucideIcons.QueueMusic,
+            imageVector = TablerIcons.QueueMusic,
             contentDescription = "播放队列",
             tint = Color.White.copy(alpha = 0.8f),
         )
         SaltIconButton(
             onClick = onOpenEditMeta,
-            imageVector = LucideIcons.MoreVert,
+            imageVector = TablerIcons.MoreVert,
             contentDescription = "更多",
             tint = Color.White.copy(alpha = 0.8f),
         )
@@ -1087,13 +1072,13 @@ private fun TabletBottomBar(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 SaltIconButton(
                     onClick = onToggleRepeat,
-                    imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) LucideIcons.RepeatOne else LucideIcons.Repeat,
+                    imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) TablerIcons.RepeatOne else TablerIcons.Repeat,
                     contentDescription = if (repeatMode == Player.REPEAT_MODE_ONE) "单曲循环" else "列表循环",
                     tint = Color.White.copy(alpha = 0.8f),
                 )
                 SaltIconButton(
                     onClick = onToggleShuffle,
-                    imageVector = if (shuffleEnabled) LucideIcons.Shuffle else LucideIcons.FormatListBulleted,
+                    imageVector = if (shuffleEnabled) TablerIcons.Shuffle else TablerIcons.FormatListBulleted,
                     contentDescription = if (shuffleEnabled) "随机播放" else "顺序播放",
                     tint = Color.White.copy(alpha = 0.8f),
                 )
@@ -1104,13 +1089,13 @@ private fun TabletBottomBar(
                 ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SaltIconButton(onClick = onPrevious, imageVector = LucideIcons.SkipPreviousFill, contentDescription = "上一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
-                SaltIconButton(onClick = onPlayPause, imageVector = if (isPlaying) LucideIcons.PauseFill else LucideIcons.PlayFill, contentDescription = if (isPlaying) "暂停" else "播放", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.92f))
-                SaltIconButton(onClick = onNext, imageVector = LucideIcons.SkipNextFill, contentDescription = "下一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
+                SaltIconButton(onClick = onPrevious, imageVector = TablerIcons.SkipPreviousFill, contentDescription = "上一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
+                SaltIconButton(onClick = onPlayPause, imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill, contentDescription = if (isPlaying) "暂停" else "播放", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.92f))
+                SaltIconButton(onClick = onNext, imageVector = TablerIcons.SkipNextFill, contentDescription = "下一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                SaltIconButton(onClick = onOpenQueue, imageVector = LucideIcons.QueueMusic, contentDescription = "播放队列", tint = Color.White.copy(alpha = 0.8f))
-                SaltIconButton(onClick = onOpenEditMeta, imageVector = LucideIcons.MoreVert, contentDescription = "更多", tint = Color.White.copy(alpha = 0.8f))
+                SaltIconButton(onClick = onOpenQueue, imageVector = TablerIcons.QueueMusic, contentDescription = "播放队列", tint = Color.White.copy(alpha = 0.8f))
+                SaltIconButton(onClick = onOpenEditMeta, imageVector = TablerIcons.MoreVert, contentDescription = "更多", tint = Color.White.copy(alpha = 0.8f))
             }
         }
     }
@@ -1213,10 +1198,10 @@ fun QueueScreen(
             Text("播放队列", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = LocalSaltColors.current.text)
             Row {
                 if (queue.isNotEmpty()) {
-                    Icon(LucideIcons.Delete, contentDescription = "清空队列", tint = LocalSaltColors.current.text.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
+                    Icon(TablerIcons.Delete, contentDescription = "清空队列", tint = LocalSaltColors.current.text.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
                     Spacer(Modifier.width(16.dp))
                 }
-                Icon(LucideIcons.Close, contentDescription = "关闭队列", tint = LocalSaltColors.current.text.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable(onClick = onClose))
+                Icon(TablerIcons.Close, contentDescription = "关闭队列", tint = LocalSaltColors.current.text.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable(onClick = onClose))
             }
         }
 
@@ -1246,7 +1231,7 @@ fun QueueScreen(
                             }
                             Text((index + 1).toString(), color = salt.text2, fontSize = 13.sp)
                             Spacer(Modifier.width(12.dp))
-                            Icon(LucideIcons.Close, contentDescription = "从队列删除", tint = salt.text2, modifier = Modifier.size(18.dp).clickable { viewModel.removeQueueItemAt(index) })
+                            Icon(TablerIcons.Close, contentDescription = "从队列删除", tint = salt.text2, modifier = Modifier.size(18.dp).clickable { viewModel.removeQueueItemAt(index) })
                         }
                     }
                 }

@@ -18,10 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -262,7 +260,7 @@ private fun SaltIconButtonBack(onClick: () -> Unit) {
         contentDescription = "返回",
     ) {
         androidx.compose.material3.Icon(
-            imageVector = LucideIcons.ArrowBack,
+            imageVector = TablerIcons.ArrowBack,
             contentDescription = null,
         )
     }

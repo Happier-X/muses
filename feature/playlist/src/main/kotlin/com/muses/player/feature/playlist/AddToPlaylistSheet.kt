@@ -7,11 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Queue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -62,7 +59,7 @@ fun AddToPlaylistSheet(
                         Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     leadingContent = {
-                        Icon(LucideIcons.QueueMusic, contentDescription = null)
+                        Icon(TablerIcons.QueueMusic, contentDescription = null)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -76,7 +73,7 @@ fun AddToPlaylistSheet(
                 HorizontalDivider()
                 ListItem(
                     headlineContent = { Text("新建播放列表并加入") },
-                    leadingContent = { Icon(LucideIcons.Add, contentDescription = null) },
+                    leadingContent = { Icon(TablerIcons.Add, contentDescription = null) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { showCreateDialog = true },

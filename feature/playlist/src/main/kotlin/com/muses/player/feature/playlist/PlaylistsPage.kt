@@ -12,12 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.AlertDialog
-import com.muses.player.core.ui.icons.LucideIcons
+import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -157,7 +153,7 @@ fun PlaylistsPage(
                         SaltEmpty(
                             title = "还没有歌单",
                             description = "点右上角新建，或在歌曲页「更多」加入歌单。",
-                            icon = LucideIcons.QueueMusic,
+                            icon = TablerIcons.QueueMusic,
                         )
                     }
                 } else {
@@ -180,7 +176,7 @@ fun PlaylistsPage(
                                 contentDescription = "更多歌单操作",
                             ) {
                                 Icon(
-                                    LucideIcons.MoreVert,
+                                    TablerIcons.MoreVert,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
                                     tint = salt.text2,
@@ -204,7 +200,7 @@ fun PlaylistsPage(
                         contentDescription = "新建歌单",
                     ) {
                         Icon(
-                            LucideIcons.Add,
+                            TablerIcons.Add,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                         )

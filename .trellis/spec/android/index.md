@@ -39,7 +39,16 @@ app (UI 宿主、导航)
 | 网络 | OkHttp 5 |
 | 播放 | Media3 ExoPlayer + MediaSessionService |
 | 图片 | Coil 3（AsyncImage） |
+| 图标 | Tabler Icons（composables icons-tabler 2.2.1），统一经 `core/ui` 的 `TablerIcons` 包装器引用 |
 | 导航 | navigation-compose |
+
+## 图标约定（任务 09-04-switch-to-tabler-icons）
+
+- 业务代码**只允许**经 `core/ui/.../icons/TablerIcons.kt` 包装器引用图标（语义名稳定，底层库可整体切换）；禁止直接 `import com.composables.icons.tabler.*`，禁止回引 `androidx.compose.material.icons.*`（依赖已移除，lucide 同理）
+- outline 用 `Tabler.Outline.*`，fill 用 `Tabler.Filled.*`（播放控制 fill 四件套：PlayFill/PauseFill/SkipPreviousFill/SkipNextFill）
+- **工件命名陷阱**：`icons-tabler-cmp-android` 是空基座（只有 `Tabler` 对象，无图标本体）；图标本体在 `icons-tabler-outline-cmp-android` / `icons-tabler-filled-cmp-android`。显式声明空基座会造成 debug/release 变体 `Duplicate class com.composables.icons.tabler.Tabler` 冲突——两个 outline/filled 工件已传递携带基座，不要单独声明
+- **属性命名陷阱**：扩展属性名是 PascalCase 无下划线（`PlayerPlay`/`ArrowLeft`/`Menu2`），但 class 文件名保留下划线（`Player_playKt`）——解包 AAR 看类文件名猜属性名会编译失败，以 IDE 补全/编译器报错为准
+- Mic 语义：tabler v3 无 `Mic`，已改名 `Microphone`
 
 ## Salt 主题层
 
