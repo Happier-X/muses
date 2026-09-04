@@ -9,7 +9,7 @@ import okio.Path.Companion.toPath
  * DataStore 工厂（P2b-S2）。
  *
  * KMP 口径：PreferenceDataStoreFactory.createWithPath + okio Path；
- * 物理路径由平台供给（expect/actual）：androidMain = filesDir，jvmMain = 占位（P3 实现）。
+ * 物理路径由平台供给（expect/actual）：androidMain = filesDir，jvmMain = PlatformDirs.appDataDir。
  * 文件名 [DATASTORE_NAME] 与 key 名全冻结，老用户数据零迁移。
  */
 const val DATASTORE_NAME = "muses_settings.preferences_pb"

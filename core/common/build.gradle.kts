@@ -42,6 +42,16 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
         }
+        // S1：桌面凭据 DPAPI 经 JNA（仅 jvmMain 可见，不进 commonMain；VLCJ 同理零渗入）
+        jvmMain.dependencies {
+            implementation(libs.jna)
+            implementation(libs.jna.platform)
+        }
+        // S1：桌面 jvmTest（Room 文件库/内存库 + DataStore 真实路径 + DPAPI 回退 roundtrip）
+        jvmTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
     }
 }
 

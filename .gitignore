@@ -36,3 +36,6 @@ build/
 
 # 项目数据目录（memory/等，勿提交）
 .workbuddy/
+
+# S0 解码原型（VLC 便携包约 256MB + 测试音频 + 构建产物，结论见任务目录 spike.md）
+spike-vlcj/
