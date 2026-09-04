@@ -3,7 +3,6 @@ package com.muses.player.feature.sources
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,9 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import com.muses.player.core.ui.icons.TablerIcons
@@ -30,18 +26,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
+import com.muses.player.core.ui.components.SourceFormCard
+import com.muses.player.core.ui.components.SourceFormInput
 import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
 import kotlinx.coroutines.delay
 
@@ -109,108 +101,65 @@ fun WebDavFormScreen(
                 .padding(horizontal = SaltSpacing.spacingSub)
                 .padding(top = 8.dp),
         ) {
-            // .source-webdav-page__form-fields
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                // 显示名称（仅编辑模式）
-                if (isEditMode) {
-                    WebDavFormInput(
-                        label = "显示名称",
-                        value = formState.name,
-                        placeholder = "显示名称",
-                        error = formState.nameError,
-                        onValueChange = { viewModel.updateName(it) },
-                    )
-                }
-
-                // 服务器地址
-                WebDavFormInput(
-                    label = "服务器地址",
-                    value = formState.serverUrl,
-                    placeholder = "https://example.com/dav",
-                    error = formState.serverUrlError,
-                    keyboardType = KeyboardType.Uri,
-                    onValueChange = { viewModel.updateServerUrl(it) },
-                )
-
-                // 用户名
-                WebDavFormInput(
-                    label = "用户名",
-                    value = formState.username,
-                    placeholder = "用户名",
-                    error = formState.usernameError,
-                    onValueChange = { viewModel.updateUsername(it) },
-                )
-
-                // 密码
-                WebDavFormInput(
-                    label = if (isEditMode) "新密码" else "密码",
-                    value = formState.password,
-                    placeholder = if (isEditMode) "新密码" else "密码",
-                    info = if (isEditMode) "留空则保留原密码" else null,
-                    error = formState.passwordError,
-                    isPassword = true,
-                    onValueChange = { viewModel.updatePassword(it) },
-                )
-
-                // 目录（仅编辑模式，只读展示 + 浏览目录按钮）
-                if (isEditMode) {
-                    // .source-webdav-page__path-row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        WebDavFormInput(
-                            label = "目录",
-                            value = formState.path,
-                            placeholder = "目录",
-                            error = formState.pathError,
-                            readOnly = true,
-                            modifier = Modifier.weight(1f),
-                            onValueChange = {},
-                        )
-                        SaltTextButton(
-                            text = "浏览目录",
-                            onClick = { viewModel.startEditBrowse(onBrowse) },
-                        )
+            // .source-webdav-page__form-fields：共用 SourceFormCard（受控字段经 VM 回调注入）
+            SourceFormCard(
+                name = formState.name,
+                onNameChange = { viewModel.updateName(it) },
+                showNameField = isEditMode,
+                nameError = formState.nameError,
+                url = formState.serverUrl,
+                onUrlChange = { viewModel.updateServerUrl(it) },
+                urlError = formState.serverUrlError,
+                username = formState.username,
+                onUsernameChange = { viewModel.updateUsername(it) },
+                usernameError = formState.usernameError,
+                password = formState.password,
+                onPasswordChange = { viewModel.updatePassword(it) },
+                passwordLabel = if (isEditMode) "新密码" else "密码",
+                passwordInfo = if (isEditMode) "留空则保留原密码" else null,
+                passwordError = formState.passwordError,
+                busy = formState.isVerifying || formState.isSubmitting,
+                saveText = if (isEditMode) "保存修改" else "连接并浏览",
+                onSave = {
+                    if (isEditMode) viewModel.submitEdit()
+                    else viewModel.submitAdd(onBrowse)
+                },
+                extraContent = {
+                    // 目录（仅编辑模式，只读展示 + 浏览目录按钮）
+                    if (isEditMode) {
+                        // .source-webdav-page__path-row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            SourceFormInput(
+                                label = "目录",
+                                value = formState.path,
+                                placeholder = "目录",
+                                error = formState.pathError,
+                                readOnly = true,
+                                modifier = Modifier.weight(1f),
+                                onValueChange = {},
+                            )
+                            SaltTextButton(
+                                text = "浏览目录",
+                                onClick = { viewModel.startEditBrowse(onBrowse) },
+                            )
+                        }
                     }
-                }
-            }
+                },
+            )
 
-            Spacer(Modifier.height(16.dp))
-
-            // .source-webdav-page__actions
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
-            ) {
-                val busy = formState.isVerifying || formState.isSubmitting
-                if (isEditMode) {
-                    // 编辑模式：连接并浏览 + 保存修改
-                    SaltTextButton(
-                        text = "连接并浏览",
-                        onClick = { viewModel.startEditBrowse(onBrowse) },
-                        enabled = !busy,
-                        modifier = Modifier.weight(1f),
-                    )
-                    SaltTextButton(
-                        text = if (formState.isSubmitting) "正在保存…" else "保存修改",
-                        onClick = { viewModel.submitEdit() },
-                        enabled = !busy,
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    // 添加模式：连接并浏览（先验证连接再进浏览页）
-                    SaltTextButton(
-                        text = "连接并浏览",
-                        onClick = { viewModel.submitAdd(onBrowse) },
-                        enabled = !busy,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+            // 编辑模式第二动作：连接并浏览（共用卡只有一个主按钮，编辑态副按钮放卡外）
+            if (isEditMode) {
+                Spacer(Modifier.height(12.dp))
+                SaltTextButton(
+                    text = "连接并浏览",
+                    onClick = { viewModel.startEditBrowse(onBrowse) },
+                    enabled = !formState.isVerifying && !formState.isSubmitting,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             // 验证中指示器
@@ -263,88 +212,5 @@ private fun SaltIconButtonBack(onClick: () -> Unit) {
             imageVector = TablerIcons.ArrowBack,
             contentDescription = null,
         )
-    }
-}
-
-/**
- * 表单输入行 —— 对照 m-list-input：label 上、输入框下（40px 高透明底 input）、
- * info/error 辅助行。
- */
-@Composable
-private fun WebDavFormInput(
-    label: String,
-    value: String,
-    placeholder: String,
-    modifier: Modifier = Modifier,
-    info: String? = null,
-    error: String? = null,
-    isPassword: Boolean = false,
-    readOnly: Boolean = false,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    onValueChange: (String) -> Unit,
-) {
-    val salt = LocalSaltColors.current
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = salt.text,
-            modifier = Modifier.padding(bottom = 4.dp),
-        )
-
-        // .source-webdav-page__input：40px 高、无边框透明底
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                readOnly = readOnly,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                visualTransformation = if (isPassword) {
-                    PasswordVisualTransformation()
-                } else {
-                    VisualTransformation.None
-                },
-                textStyle = TextStyle(fontSize = 16.sp, color = salt.text),
-                modifier = Modifier.fillMaxWidth(),
-                decorationBox = { innerTextField ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (value.isEmpty()) {
-                            Text(
-                                text = placeholder,
-                                fontSize = 16.sp,
-                                color = salt.text3,
-                                maxLines = 1,
-                            )
-                        }
-                        innerTextField()
-                    }
-                },
-            )
-        }
-
-        error?.let {
-            Text(
-                text = it,
-                fontSize = 12.sp,
-                color = salt.danger,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
-        info?.let {
-            Text(
-                text = it,
-                fontSize = 12.sp,
-                color = salt.text2,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
     }
 }

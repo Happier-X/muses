@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 enum class DesktopDestination {
     LIBRARY,
     PLAYER,
+    SOURCES,
     SETTINGS,
 }
 

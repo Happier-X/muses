@@ -70,14 +70,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.components.SaltActionsSheet
 import com.muses.player.core.ui.components.SaltActionItem
+import com.muses.player.core.ui.components.SharedSourceItem
+import com.muses.player.core.ui.components.SourceListItem
 import com.muses.player.core.ui.components.SaltEmpty
 import com.muses.player.core.ui.components.SaltIconButton
 import com.muses.player.core.ui.components.SaltIconButtonSize
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
 import com.muses.player.core.ui.components.SaltToggle
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.model.SourceType
 
@@ -402,7 +402,6 @@ private fun SourceCardList(
     /** 扫描入口（对照 Web .sources-page__scan-btn） */
     onScan: (Source) -> Unit,
 ) {
-    val salt = LocalSaltColors.current
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(
@@ -414,60 +413,27 @@ private fun SourceCardList(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(sources, key = { it.id }) { source ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
-                    .border(1.dp, salt.hairline, RoundedCornerShape(SaltRadius.card))
-                    .padding(16.dp),
-            ) {
-                Text(
-                    text = source.name,
-                    fontSize = 17.sp,
-                    lineHeight = 22.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = salt.text,
-                )
-                Text(
-                    text = when (source.type) {
-                        SourceType.LOCAL -> "本地文件夹"
-                        SourceType.WEBDAV -> source.username?.let { "WebDAV · $it@${source.url.orEmpty().removePrefix("https://").removePrefix("http://")}" }
-                            ?: ("WebDAV · " + source.url.orEmpty())
-                    },
-                    fontSize = 13.sp,
-                    color = salt.text2,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-                Text(
-                    text = source.path ?: source.url.orEmpty(),
-                    fontSize = 13.sp,
-                    color = salt.text2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = SaltSpacing.spacingSub),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SaltTextButton(text = "编辑", onClick = { onEdit(source) })
-                    Spacer(Modifier.width(SaltSpacing.spacingSub))
-                    SaltTextButton(
-                        text = "删除",
-                        onClick = { onDelete(source) },
-                        destructive = true,
-                    )
-                    Spacer(Modifier.width(SaltSpacing.spacingSub))
-                    // .sources-page__scan-btn：扫描入口 → 打开「扫描设置」弹窗
-                    SaltTextButton(text = "扫描", onClick = { onScan(source) })
-                }
-            }
+            SourceListItem(
+                item = source.toSharedSourceItem(),
+                onEdit = { onEdit(source) },
+                onDelete = { onDelete(source) },
+                onScan = { onScan(source) },
+            )
         }
     }
 }
+
+/** 安卓 Source → 共用 SharedSourceItem 映射（subtitle/detail 文案与原卡片一致） */
+private fun Source.toSharedSourceItem() = SharedSourceItem(
+    id = id,
+    name = name,
+    subtitle = when (type) {
+        SourceType.LOCAL -> "本地文件夹"
+        SourceType.WEBDAV -> username?.let { "WebDAV · $it@${url.orEmpty().removePrefix("https://").removePrefix("http://")}" }
+            ?: ("WebDAV · " + url.orEmpty())
+    },
+    detail = path ?: url.orEmpty(),
+)
 
 // ── 添加音源底部弹窗 ──────────────────────────────────────────
 
