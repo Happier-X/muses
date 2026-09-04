@@ -1948,3 +1948,23 @@ Writeback 修复 coverRemoteUrl 未同步落库 coverUri/metaCover；Preview 扩
 ### Status
 
 [OK] **Completed**
+
+
+## Session 133: 归档剩余任务清理
+<!-- trellis-session: v=2 fp=5af442e8ccb87883 -->
+
+**Date**: 2026-09-04
+**Task**: 归档剩余任务清理
+**Branch**: `main`
+
+### Summary
+
+用户要求归档所有任务，将尚未完成的单曲即时刮削候选浮层任务归档，未合入代码变更，验收项未勾选，后续重启时可从归档恢复
+
+### Git Commits
+
+(No commits - planning session)
+
+### Status
+
+[OK] **Completed**
