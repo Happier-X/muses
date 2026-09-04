@@ -95,7 +95,7 @@ class PlayerViewModel @Inject constructor(
 
     fun setShuffleModeEnabled(enabled: Boolean) = playerConnection.setShuffleModeEnabled(enabled)
 
-    /** 无参切换：基于最新 StateFlow 值，避免闭包捕获陈旧 repeatMode（沉浸式 WebView 桥接多击竞态） */
+    /** 无参切换：基于最新 StateFlow 值，避免闭包捕获陈旧 repeatMode（连击竞态） */
     fun toggleRepeat() {
         val cur = repeatMode.value
         val next = if (cur == androidx.media3.common.Player.REPEAT_MODE_ONE) androidx.media3.common.Player.REPEAT_MODE_ALL else androidx.media3.common.Player.REPEAT_MODE_ONE
@@ -136,10 +136,6 @@ class PlayerViewModel @Inject constructor(
     private val _hasTranslation = MutableStateFlow(false)
     val hasTranslation: StateFlow<Boolean> = _hasTranslation.asStateFlow()
 
-    /** 原生前向兼容：保留旧 WebView 的 JSON 载荷（已废弃，空实现供旧测试/归档引用） */
-    private val _lyricsJson = MutableStateFlow<String?>(null)
-    val lyricsJson: StateFlow<String?> = _lyricsJson.asStateFlow()
-
     /** 缓冲中提示位（时间行中央）：Media3 STATE_BUFFERING 直映。
      * 与 Web 层「seek 目标超缓冲区弹 1200ms 提示」语义近似但更简单——原生无 bufferedPosition 上报链路 */
     val isBuffering: StateFlow<Boolean> = playerConnection.playbackState
@@ -156,7 +152,6 @@ class PlayerViewModel @Inject constructor(
 
     /** 当前曲已映射的 AMLL 行集（翻译开关重建 payload 用）；末句结束时间（ms），无词时 Long.MAX_VALUE 即不钳制 */
     private var currentLines: List<AmllLyricLine> = emptyList()
-    private var currentSongId: String? = null
     private var lastLineEndMs: Long = Long.MAX_VALUE
 
     init {
@@ -173,7 +168,6 @@ class PlayerViewModel @Inject constructor(
                 .map { it?.mediaId }
                 .distinctUntilChanged()
                 .flatMapLatest { songId ->
-                    currentSongId = songId
                     if (songId == null) flowOf(null)
                     else songDao.observeById(songId)
                 }
@@ -223,9 +217,6 @@ class PlayerViewModel @Inject constructor(
             it.translatedLyric.isNotEmpty() || it.romanLyric.isNotEmpty()
         }
         refreshTranslationState()
-        if (song?.id == null) {
-            _lyricsJson.value = null
-        }
     }
 
     private fun refreshTranslationState() {
@@ -235,10 +226,6 @@ class PlayerViewModel @Inject constructor(
             currentLines.map { it.copy(translatedLyric = "", romanLyric = "") }
         }
         _parsedLines.value = lines
-        // 兼容旧 WebView JSON：保留但不再用于 UI（coil 直接加载 stickyCover）
-        if (currentSongId != null) {
-            _lyricsJson.value = "{\"lines\":" + lines.size + "}"
-        }
     }
 
     fun toggleTranslation() {

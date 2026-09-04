@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/android/index.md", "reason": "分层铁律与播放契约：feature禁直连Room/OkHttp/Media3、PlaybackService+PlayerConnection结构，是PlayerPort抽象的依据"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨层数据流思考：common下沉与expect-actual边界划分"}

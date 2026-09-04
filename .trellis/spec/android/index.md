@@ -112,6 +112,7 @@ JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew :app:assembleM
 ## 禁止模式
 
 - 禁止 `feature:*` 直接 import `androidx.room` / `okhttp3`
+- 下线系统能力时必须同步删依赖/注释/兼容死代码（09-04 webkit 教训：运行时零引用后仍残留 `androidx.webkit` 依赖 + 5 处注释 + `_lyricsJson` 空壳 StateFlow）
 - 禁止在 ViewModel 中持有 Context 引用
 - 禁止在 Composable 中做网络/IO 操作
 - 禁止硬编码字符串（应提取到 strings.xml，M1 可暂容忍）

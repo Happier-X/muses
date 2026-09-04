@@ -212,7 +212,7 @@ fun PlayerScreen(
                         val bottomExclusionPx = with(density) { 180.dp.toPx() }
                         detectVerticalDragGestures(
                             onDragStart = { offset: Offset ->
-                                // 底部模式/控制区（约 180dp）不参与下滑关闭，避免与 WebView 底部按钮点击冲突
+                                // 底部模式/控制区（约 180dp）不参与下滑关闭，避免与底部按钮点击冲突
                                 if (offset.y > size.height - bottomExclusionPx) {
                                     ignoreDrag = true
                                     isDraggingVertically = false
@@ -246,7 +246,7 @@ fun PlayerScreen(
                     }
                 )
         ) {
-            // 原生重构：FlowingLightBackdrop + 手机/平板双形态（无 WebView）
+            // FlowingLightBackdrop + 手机/平板双形态
             FlowingLightBackdrop(
                 coverUri = stickyCover,
                 hasLyric = parsedLines.isNotEmpty(),

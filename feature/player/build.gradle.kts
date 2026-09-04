@@ -57,8 +57,5 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
-    // WebViewAssetLoader（AMLL 歌词 WebView：https 虚拟域名加载 assets，规避 file:// CORS）
-    implementation(libs.androidx.webkit)
-
     debugImplementation(libs.compose.ui.tooling)
 }
