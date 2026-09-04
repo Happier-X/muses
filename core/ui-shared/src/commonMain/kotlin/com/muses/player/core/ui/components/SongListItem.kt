@@ -2,6 +2,7 @@ package com.muses.player.core.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Row
@@ -53,6 +54,7 @@ data class SongItem(
  * @param song 曲目数据
  * @param isCurrent 是否为当前播放曲
  * @param onClick 点击回调
+ * @param onLongClick 长按回调（null = 不支持长按；安卓旧曲库屏传入「加入歌单」弹层）
  */
 @Composable
 fun SongListItem(
@@ -60,6 +62,7 @@ fun SongListItem(
     isCurrent: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val salt = LocalSaltColors.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -76,10 +79,21 @@ fun SongListItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(SaltRadius.sm))
             .background(bgColor)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
+            .then(
+                if (onLongClick != null) {
+                    Modifier.combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    )
+                } else {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick,
+                    )
+                },
             )
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

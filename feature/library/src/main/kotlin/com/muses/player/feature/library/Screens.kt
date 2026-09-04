@@ -1,36 +1,18 @@
 package com.muses.player.feature.library
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
-import com.muses.player.core.ui.icons.TablerIcons
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,16 +21,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
-import coil3.compose.AsyncImage
 import com.muses.player.core.data.mapper.toDomain
+import com.muses.player.core.model.Album
+import com.muses.player.core.model.Artist
 import com.muses.player.core.model.Song
 import com.muses.player.core.media.playback.PlayerConnection
+import com.muses.player.core.ui.components.LibraryAlbumGrid
+import com.muses.player.core.ui.components.LibraryAlbumItem
+import com.muses.player.core.ui.components.LibraryArtistGrid
+import com.muses.player.core.ui.components.LibraryArtistItem
+import com.muses.player.core.ui.components.LibrarySearchField
+import com.muses.player.core.ui.components.LibrarySongList
+import com.muses.player.core.ui.components.SongItem
+import com.muses.player.core.ui.icons.TablerIcons
+
+// ── 曲库主页（共用化）：标签页 + 网格 + 搜索 ────────────────────────
+// U8 曲库主页共用化：本文件为三屏的「共用装配层」——ViewModel 订阅 + 实体映射 +
+// 回调注入，纯 UI 片段（tab 栏/搜索框/列表/网格）调用 :core:ui-shared 的
+// LibraryComponents。播放页、刮削页不在此列。
 
 // ── 歌曲列表 ──────────────────────────────────────────
+// U8 共用化：列表区调用共用 LibrarySongList（实体→SongItem 映射 + 播放/长按回调注入）。
+// 搜索框调用共用 LibrarySearchField；空态文案保持原样。
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,58 +68,34 @@ fun SongsScreen(
 
     Column(modifier = modifier) {
         if (showSearch) {
-            TextField(
+            LibrarySearchField(
                 value = searchQuery,
                 onValueChange = {
                     searchQuery = it
                     viewModel.updateSearchQuery(it)
                 },
-                placeholder = { Text("搜索歌曲、艺术家、专辑") },
-                leadingIcon = {
-                    IconButton(onClick = {
-                        showSearch = false
-                        searchQuery = ""
-                        viewModel.updateSearchQuery("")
-                    }) {
-                        Icon(TablerIcons.ArrowBack, contentDescription = "关闭搜索")
-                    }
+                placeholder = "搜索歌曲、艺术家、专辑",
+                onCancel = {
+                    showSearch = false
+                    searchQuery = ""
+                    viewModel.updateSearchQuery("")
                 },
-                singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
             )
         }
 
-        if (songs.isEmpty() && !showSearch) {
-            EmptyLibraryHint(
-                modifier = Modifier.fillMaxSize(),
-                icon = { Icon(TablerIcons.Album, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
-                title = "曲库为空",
-                hint = "请先在「音源」中添加本地目录或 WebDAV 并扫描",
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-                    SongListItem(
-                        song = song,
-                        onClick = {
-                            playerConnection?.play(song.id, songs)
-                        },
-                        onLongClick = { addToPlaylistTarget = listOf(song.id) },
-                    )
-                }
-            }
-        }
+        LibrarySongList(
+            songs = songs.map { it.toSongItem() },
+            currentSongId = null,
+            onPlay = { songId -> playerConnection?.play(songId, songs) },
+            onLongClick = { songId -> addToPlaylistTarget = listOf(songId) },
+            emptyTitle = "曲库为空",
+            emptyDescription = if (showSearch) null else "请先在「音源」中添加本地目录或 WebDAV 并扫描",
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SongListItem(
     song: Song,
@@ -133,59 +105,46 @@ fun SongListItem(
     index: Int = 0,
     onLongClick: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier = modifier
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (showIndex) {
-            Text(
-                text = "${index + 1}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(24.dp),
-            )
-        }
-        // 封面
-        AsyncImage(
-            model = song.coverUri,
-            contentDescription = null,
-            modifier = Modifier
-                .size(48.dp)
-                .padding(end = if (showIndex) 0.dp else 12.dp),
-        )
-        if (!showIndex) Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = listOfNotNull(song.artist, song.album).joinToString(" · ")
-                    .ifEmpty { "未知艺术家" },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Text(
-            text = formatDuration(song.durationMs),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 8.dp),
-        )
-    }
+    // U8 共用化：共用 SongListItem 已承担曲目行渲染；本函数保留作旧详情屏兼容，
+    // 内部转调共用组件（序号/封面/时长等旧细节不再保留，以共用视觉为准）。
+    val songItem = remember(song) { song.toSongItem() }
+    com.muses.player.core.ui.components.SongListItem(
+        song = songItem,
+        isCurrent = false,
+        onClick = onClick,
+        modifier = modifier,
+        onLongClick = onLongClick,
+    )
 }
 
+/** 安卓 Song → 跨平台 SongItem 映射（曲库主页共用化；标题/艺术家/专辑三字段） */
+fun Song.toSongItem() = SongItem(
+    id = id,
+    title = title,
+    artist = artist,
+    albumTitle = album,
+)
+
+/** 安卓 Album → 跨平台 LibraryAlbumItem 映射（封面经调用方 covers 回填） */
+fun Album.toLibraryAlbumItem(coverUri: String? = null) = LibraryAlbumItem(
+    id = id,
+    title = title,
+    artist = artist,
+    songCount = songCount,
+    coverUri = coverUri,
+)
+
+/** 安卓 Artist → 跨平台 LibraryArtistItem 映射（封面经调用方 covers 回填） */
+fun Artist.toLibraryArtistItem(coverUri: String? = null) = LibraryArtistItem(
+    id = id,
+    name = name,
+    songCount = songCount,
+    albumCount = albumCount,
+    coverUri = coverUri,
+)
+
 // ── 专辑列表 ──────────────────────────────────────────
+// U8 共用化：网格区调用共用 LibraryAlbumGrid（手机恒两列/平板 Adaptive 口径在内）。
 
 @Composable
 fun AlbumsScreen(
@@ -194,46 +153,14 @@ fun AlbumsScreen(
     onAlbumClick: (String) -> Unit = {},
 ) {
     val albums by viewModel.albums.collectAsState()
+    val covers by viewModel.covers.collectAsState()
 
-    if (albums.isEmpty()) {
-        EmptyLibraryHint(
-            modifier = modifier,
-            icon = { Icon(TablerIcons.Album, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
-            title = "暂无专辑",
-            hint = "扫描完成后在此浏览专辑",
-        )
-    } else {
-        LazyColumn(
-            modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            items(albums, key = { it.id }) { album ->
-                ListItem(
-                    headlineContent = {
-                        Text(album.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    },
-                    supportingContent = {
-                        Text(
-                            listOfNotNull(album.artist, "${album.songCount} 首歌曲").joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    leadingContent = {
-                        Icon(
-                            TablerIcons.Album,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(40.dp),
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onAlbumClick(album.id) },
-                )
-            }
-        }
-    }
+    LibraryAlbumGrid(
+        albums = albums.map { it.toLibraryAlbumItem(covers[it.id]) },
+        isTablet = isLibraryTabletWidth(),
+        onAlbumClick = onAlbumClick,
+        modifier = modifier,
+    )
 }
 
 // ── 专辑详情 ──────────────────────────────────────────
@@ -264,26 +191,18 @@ fun AlbumDetailScreen(
             },
         )
         val songs = albumWithSongs?.songs?.map { it.toDomain() }.orEmpty()
-        if (songs.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                com.muses.player.core.ui.components.SaltEmpty(title = "专辑中暂无歌曲")
-            }
-        } else {
-            LazyColumn(Modifier.fillMaxSize()) {
-                itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-                    SongListItem(
-                        song = song,
-                        onClick = { playerConnection?.play(song.id, songs) },
-                        showIndex = true,
-                        index = index,
-                    )
-                }
-            }
-        }
+        LibrarySongList(
+            songs = songs.map { it.toSongItem() },
+            currentSongId = null,
+            onPlay = { songId -> playerConnection?.play(songId, songs) },
+            emptyTitle = "专辑中暂无歌曲",
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
 // ── 艺术家列表 ──────────────────────────────────────────
+// U8 共用化：网格区调用共用 LibraryArtistGrid。
 
 @Composable
 fun ArtistsScreen(
@@ -292,46 +211,14 @@ fun ArtistsScreen(
     onArtistClick: (String) -> Unit = {},
 ) {
     val artists by viewModel.artists.collectAsState()
+    val covers by viewModel.covers.collectAsState()
 
-    if (artists.isEmpty()) {
-        EmptyLibraryHint(
-            modifier = modifier,
-            icon = { Icon(TablerIcons.Person, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
-            title = "暂无艺术家",
-            hint = "扫描完成后在此浏览艺术家",
-        )
-    } else {
-        LazyColumn(
-            modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            items(artists, key = { it.id }) { artist ->
-                ListItem(
-                    headlineContent = {
-                        Text(artist.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    },
-                    supportingContent = {
-                        Text(
-                            "${artist.songCount} 首歌曲 · ${artist.albumCount} 张专辑",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    leadingContent = {
-                        Icon(
-                            TablerIcons.Person,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(40.dp),
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onArtistClick(artist.id) },
-                )
-            }
-        }
-    }
+    LibraryArtistGrid(
+        artists = artists.map { it.toLibraryArtistItem(covers[it.id]) },
+        isTablet = isLibraryTabletWidth(),
+        onArtistClick = onArtistClick,
+        modifier = modifier,
+    )
 }
 
 // ── 艺术家详情 ──────────────────────────────────────────
@@ -361,30 +248,19 @@ fun ArtistDetailScreen(
             },
         )
         val songs = artistWithSongs?.songs?.map { it.toDomain() }.orEmpty()
-        if (songs.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "艺术家暂无歌曲",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            LazyColumn(Modifier.fillMaxSize()) {
-                itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-                    SongListItem(
-                        song = song,
-                        onClick = { playerConnection?.play(song.id, songs) },
-                        showIndex = true,
-                        index = index,
-                    )
-                }
-            }
-        }
+        LibrarySongList(
+            songs = songs.map { it.toSongItem() },
+            currentSongId = null,
+            onPlay = { songId -> playerConnection?.play(songId, songs) },
+            emptyTitle = "艺术家暂无歌曲",
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
 // ── 空态提示 ──────────────────────────────────────────
+// U8 共用化：空态统一由共用 SaltEmpty（经 LibrarySongList/LibraryAlbumGrid/LibraryArtistGrid）
+// 承担；本函数保留作外部兼容（已无外部引用，新代码勿用）。
 
 @Composable
 fun EmptyLibraryHint(
@@ -393,30 +269,16 @@ fun EmptyLibraryHint(
     title: String,
     hint: String,
 ) {
-    Column(
-        modifier = modifier.padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        icon()
-        Spacer(Modifier.height(16.dp))
-        Text(text = title, style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = hint,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    com.muses.player.core.ui.components.SaltEmpty(
+        title = title,
+        description = hint,
+        modifier = modifier,
+    )
 }
 
 // ── 工具函数 ──────────────────────────────────────────
+// U8 共用化：网格断点判定（Web 断点口径 viewport ≥768；与 LibraryGridPages.isTabletWidth 同口径）。
 
-private fun formatDuration(durationMs: Long): String {
-    if (durationMs <= 0) return "0:00"
-    val totalSeconds = durationMs / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return "%d:%02d".format(minutes, seconds)
-}
+@Composable
+fun isLibraryTabletWidth(): Boolean =
+    androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 768
