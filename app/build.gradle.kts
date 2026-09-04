@@ -60,6 +60,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":feature:scrape"))
     implementation(project(":core:ui"))
+    implementation(project(":core:ui-shared"))
     implementation(project(":core:data"))
     implementation(project(":core:webdav"))
     implementation(project(":core:media"))

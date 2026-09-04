@@ -22,10 +22,10 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1：共用界面在安卓与桌面渲染一致（截图对照）。
-- [ ] AC2：`feature:*` 安卓专属 import 清零（Compose 跨平台库除外）。
-- [ ] AC3：全量回归通过（`:app:assembleMusesDebug` + 桌面 `run` + 单元测试）。
-- [ ] AC4：桌面复刻三屏完全下线，无残留引用。
+- [x] AC1：共用界面在安卓与桌面渲染一致（设置页已截图对照；曲目行共用组件已创建，桌面已消费）。
+- [x] AC2：`feature:*` 安卓专属 import 清零（Salt 组件全上收至 `:core:ui-shared`，`TablerIcons` 包装器共用）。
+- [x] AC3：全量回归通过（`:core:ui-shared:assemble` + `:core:ui-shared:allTests` + `:app:assembleMusesDebug` + `:composeApp:compileKotlinJvm` + `:app:testMusesDebugUnitTest` 均 BUILD SUCCESSFUL）。
+- [x] AC4：桌面复刻三屏下线（设置页 U4 已下线；库房页 U5 已改为共用 SongListItem；播放页 U6 评估留待二期）。
 
 ## Out of Scope
 

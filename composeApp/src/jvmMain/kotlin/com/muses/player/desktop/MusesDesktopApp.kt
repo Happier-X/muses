@@ -28,11 +28,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowState
+import com.muses.player.core.ui.theme.SaltTheme
 import com.muses.player.desktop.playback.DesktopPlayerHook
 
 /**
  * 桌面主界面（S3b）：标题栏 + 平板双栏（侧边导航 + 内容区）。
  * 桌面宽度默认 1280dp，天然落在平板断点（>=768dp）之上。
+ *
+ * U5 曲目列表共用化：包裹 SaltTheme 使共享组件可正确取色。
  */
 @Composable
 fun MusesDesktopApp(
@@ -43,23 +46,25 @@ fun MusesDesktopApp(
 ) {
     val destination by viewModel.destination.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF11111B))) {
-        DesktopTitleBar(
-            windowState = windowState,
-            onClose = onClose,
-        )
-        Row(modifier = Modifier.fillMaxSize()) {
-            // 侧边导航（TabletLayout 双栏：260px 侧边栏）
-            DesktopSidebar(
-                current = destination,
-                onNavigate = viewModel::navigate,
+    SaltTheme {
+        Column(modifier = Modifier.fillMaxSize().background(Color(0xFF11111B))) {
+            DesktopTitleBar(
+                windowState = windowState,
+                onClose = onClose,
             )
-            // 内容区
-            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                when (destination) {
-                    DesktopDestination.LIBRARY -> LibraryScreen(playerHook = playerHook)
-                    DesktopDestination.PLAYER -> PlayerScreen(playerHook = playerHook)
-                    DesktopDestination.SETTINGS -> SettingsScreen()
+            Row(modifier = Modifier.fillMaxSize()) {
+                // 侧边导航（TabletLayout 双栏：260px 侧边栏）
+                DesktopSidebar(
+                    current = destination,
+                    onNavigate = viewModel::navigate,
+                )
+                // 内容区
+                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    when (destination) {
+                        DesktopDestination.LIBRARY -> LibraryScreen(playerHook = playerHook)
+                        DesktopDestination.PLAYER -> PlayerScreen(playerHook = playerHook)
+                        DesktopDestination.SETTINGS -> SettingsScreen()
+                    }
                 }
             }
         }
