@@ -89,7 +89,7 @@ fun DesktopTitleBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TitleBarButton("─", Color(0xFF585B70)) {
-                // TODO: Compose Desktop 暂无 minimize API，首版留空
+                windowState.isMinimized = true
             }
             TitleBarButton(
                 text = if (isMaximized) "❐" else "□",
