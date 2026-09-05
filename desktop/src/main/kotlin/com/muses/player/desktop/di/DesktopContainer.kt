@@ -4,6 +4,7 @@ import com.muses.player.core.data.crypto.PlatformCryptoEngine
 import com.muses.player.core.data.db.MusesDatabase
 import com.muses.player.core.data.db.createJvmDatabase
 import com.muses.player.core.data.platform.PlatformDirs
+import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.model.SourceType
 import com.muses.player.desktop.cache.DesktopWebDavAudioCache
 import com.muses.player.desktop.playback.DesktopErrorLog
@@ -33,6 +34,9 @@ object DesktopContainer {
         }
 
     fun audioCache(): DesktopWebDavAudioCache = DesktopWebDavAudioCache()
+
+    /** 凭据仓库（commonMain [CredentialsRepository] 实现；DataStore 单实例由类内 lazy 保证）。 */
+    fun credentials(): DesktopCredentials = DesktopCredentials()
 
     /**
      * 播放端口装配：曲库/音源/密码三查默认走 Room + DataStore + DPAPI 文件密钥。
@@ -86,18 +90,26 @@ object DesktopContainer {
  * 桌面凭据仓库（对齐安卓侧 `AndroidKeyStoreCredentialsRepository` 语义）：
  * DataStore 存 base64 加密串（key `credential.<sourceId>`），加解密委托 [PlatformCryptoEngine]
  *（DPAPI，失败回退文件密钥，见 S1 jvmMain actual）；明文只在调用方短生命周期内存在。
+ *
+ * W4 桌面装配（任务 09-05-scrape-kmp）：直接实现 commonMain [CredentialsRepository] 接口，
+ * 刮削写回链（WebDavAudioTagFileWriter）无需适配层即可注入。
  */
-class DesktopCredentials {
-    private val store by lazy { com.muses.player.core.data.store.createDataStore() }
+class DesktopCredentials : CredentialsRepository {
 
-    suspend fun savePassword(sourceId: String, password: String) {
+    private companion object {
+        // 进程级单实例：同文件（muses_settings）多 DataStore 实例会抛 multiple DataStores active，
+        // DesktopContainer.playerPort / credentials() 各自新建本类实例时必须共享同一 store
+        val store by lazy { com.muses.player.core.data.store.createDataStore() }
+    }
+
+    override suspend fun savePassword(sourceId: String, password: String) {
         require(password.isNotEmpty()) { "密码不能为空" }
         val encrypted = PlatformCryptoEngine.encrypt(password.toByteArray(Charsets.UTF_8))
         val encoded = java.util.Base64.getEncoder().encodeToString(encrypted)
         store.edit { prefs -> prefs[keyFor(sourceId)] = encoded }
     }
 
-    suspend fun getPassword(sourceId: String): String? {
+    override suspend fun getPassword(sourceId: String): String? {
         val encoded = store.data.first()[keyFor(sourceId)] ?: return null
         return runCatching {
             String(
@@ -107,7 +119,7 @@ class DesktopCredentials {
         }.getOrNull()
     }
 
-    suspend fun clearPassword(sourceId: String) {
+    override suspend fun clearPassword(sourceId: String) {
         store.edit { prefs -> prefs.remove(keyFor(sourceId)) }
     }
 

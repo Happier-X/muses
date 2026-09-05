@@ -67,6 +67,18 @@ class DesktopWebDavAudioCache(
         cacheDir().listFiles()?.forEach { it.delete() }
     }
 
+    /**
+     * 单条失效（W4 桌面装配，任务 09-05-scrape-kmp）：刮削写回成功后删除该 URL 的
+     * 缓存文件与 `.meta`，对齐安卓 `AudioTagReader.invalidate` 语义（避免播放读到旧音频）。
+     * URL 未命中时为 no-op；全程不抛异常（失效失败不影响写回主流程）。
+     */
+    fun invalidate(url: String) {
+        runCatching {
+            cacheFile(url).delete()
+            metaFile(url).delete()
+        }
+    }
+
     private fun trimToLimit() {
         val dir = cacheDir()
         val files = dir.listFiles()
