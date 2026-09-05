@@ -31,6 +31,7 @@ $env:MUSES_DESKTOP_JDK = $env:JAVA_HOME
 
 - 产物：`Muses-vX.Y.Z.msi`，jpackage 输出在 `composeApp/build/compose/binaries/main/msi/Muses-<去v版本>.msi`
 - runner 的 Temurin JDK 21 自带 `jpackage.exe`；WiX 由 Compose 插件自动下载
+- 安装行为由 `composeApp/build.gradle.kts` 的 `nativeDistributions.windows` 块决定（开始菜单/桌面快捷方式、UpgradeCode），改动前见 §5 Common Mistake 3
 
 ## 3. Contracts（环境与属性）
 
@@ -85,6 +86,25 @@ $msi = Get-ChildItem "composeApp/build/compose/binaries/*/msi/*.msi" | Select-Ob
 if (-not $msi) { throw "未找到 MSI 产物" }
 ```
 
+### Common Mistake 3：MSI 装完无任何入口，且新版本无法覆盖升级
+
+- **Symptom**：MSI 安装"成功"，但开始菜单和桌面都没有 Muses 快捷方式，用户找不到应用（实际装在 `C:\Program Files\Muses\Muses.exe`）；或安装新版本 MSI 后旧版本仍留在「应用」列表，需要先手动卸载
+- **Cause**：`nativeDistributions` 未配置任何 Windows 选项时，Compose Desktop（jpackage/WiX）默认**不创建**任何快捷方式；未固定 `upgradeUuid` 时每次构建 UpgradeCode 随机，WiX 的 major upgrade 不生效，新旧版本互不识别
+- **Fix / Prevention**：在 `nativeDistributions` 内固化 `windows` 块（见 `composeApp/build.gradle.kts`）
+
+```kotlin
+windows {
+    menu = true            // 开始菜单快捷方式（--win-menu）
+    menuGroup = "Muses"    // 开始菜单分组文件夹
+    shortcut = true        // 桌面快捷方式（--win-shortcut）
+    dirChooser = true      // 安装时允许选目录
+    upgradeUuid = "5d86c48d-082d-4cb1-911f-17f7fe6676c5"
+}
+```
+
+- **`upgradeUuid` 是长期契约**：一经发版发布就不得再改，改了等于换新的 UpgradeCode，后续版本又会失去覆盖升级能力（每个已装机用户的 MSI 里烧录着这个 UUID）
+- **已知边界**：未固定 UUID 的旧版本（≤ v0.5.2）与新版本 UpgradeCode 不匹配，升级到首个修复版本时不会被自动覆盖，用户需先卸载旧版；自首个修复版本起恢复正常
+
 ## 6. 失败排查矩阵
 
 | 症状 | 根因 | 处置 |
@@ -94,6 +114,8 @@ if (-not $msi) { throw "未找到 MSI 产物" }
 | Release 标题为 `vvX.Y.Z` | 标题模板手动拼了 v | 见 §4 变量约定 |
 | `release` job 显示 skipped | 某构建 job 失败导致 needs 未满足 | 符合预期，去修失败的构建 job |
 | 两侧构建都绿但 Release 附件缺失 | `fail_on_unmatched_files` 未触发 / glob 未命中 | 核对 artifact name 与 `files` glob 路径闭环 |
+| MSI 装完开始菜单/桌面无快捷方式，找不到应用 | `nativeDistributions.windows` 未开 `menu`/`shortcut` | 见 Common Mistake 3 |
+| 装新版 MSI 后旧版仍在「应用」列表，不覆盖升级 | `upgradeUuid` 缺失或中途变更导致 UpgradeCode 变化 | 见 Common Mistake 3；UUID 一经发版不得再改 |
 
 ## 7. 发版操作步骤（标准流程）
 

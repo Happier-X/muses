@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/ci/release-pipeline.md", "reason": "MSI 打包契约与 v0.5.2 踩坑:改 nativeDistributions 前必读"}

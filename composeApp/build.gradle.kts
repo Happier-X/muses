@@ -46,6 +46,16 @@ compose.desktop {
             packageVersion = (project.findProperty("muses.desktop.version") as String?) ?: "1.0.0"
             description = "Muses Music Player"
             vendor = "Muses"
+
+            // v0.5.2 实测：不配置则 MSI 装完无任何入口，用户找不到应用。
+            // upgradeUuid 固定 UpgradeCode，缺省时每次构建随机，后续版本无法覆盖升级。
+            windows {
+                menu = true
+                menuGroup = "Muses"
+                shortcut = true
+                dirChooser = true
+                upgradeUuid = "5d86c48d-082d-4cb1-911f-17f7fe6676c5"
+            }
         }
     }
 }
