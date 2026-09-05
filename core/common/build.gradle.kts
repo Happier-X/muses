@@ -3,9 +3,13 @@
 // kotlin { android { ... } } 内（AGP 把扩展挂在 Kotlin 扩展上，不再有顶层 android {}）。
 // commonMain 只收严格平台无关代码；androidMain/jvmMain 暂空占位供 P2 actual 用。
 // P2b-S0 spike：Room KMP 插件链验证（room 插件 × kmp.library interplay 门禁）。
+// 09-05-desktop-player-lyrics Y1：SimpleLyricsPanel 上收 jvmShared（纯 Compose 双端面板），
+//   Compose 插件组合对齐 :core:ui-shared（android.kmp.library + kotlin.multiplatform 同款 interplay 已验证）。
 plugins {
     alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
 }
@@ -62,6 +66,13 @@ kotlin {
             dependencies {
                 implementation(libs.jaudiotagger)
                 implementation(libs.koin.core)
+                // 09-05-desktop-player-lyrics Y1：SimpleLyricsPanel 上收（纯 Compose 面板，
+                // android/jvm 双端共用；插件组合同 :core:ui-shared，不升级版本线）
+                implementation(compose.runtime)
+                implementation(compose.ui)
+                implementation(compose.foundation)
+                implementation(compose.animation)
+                implementation(compose.material3)
             }
         }
         jvmMain.get().dependsOn(jvmShared)

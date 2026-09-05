@@ -485,6 +485,7 @@ private fun AppleMusicLyricsPanel(
         SettingsRuntime.showLyricRomanization,
     ) { mutableStateMapOf<Int, Int>() }
     var viewportHeightPx by remember(document) { mutableIntStateOf(0) }
+    var viewportWidthPx by remember(document) { mutableIntStateOf(0) }
     var visualFocusIndex by remember(document) { mutableIntStateOf(-1) }
     var isBrowsingLyrics by remember(document) { mutableStateOf(false) }
     var playbackFocusGeneration by remember(document) { mutableIntStateOf(0) }

@@ -45,6 +45,9 @@ import kotlin.math.sqrt
  *
  * 这是一个临时方案，提供基本的歌词显示和滚动功能。
  * 后续可以替换为完整的 LyricsPanel。
+ *
+ * 09-05-desktop-player-lyrics Y1：自 feature:player 上收 :core:common jvmShared
+ * （同包名透传，安卓零改动；纯 Compose + coroutines + 数学，无平台 API）。
  */
 @Composable
 fun SimpleLyricsPanel(

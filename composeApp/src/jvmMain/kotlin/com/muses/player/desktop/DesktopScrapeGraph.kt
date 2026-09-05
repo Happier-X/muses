@@ -12,6 +12,7 @@ import com.muses.player.core.lyrics.amll.AMLL_INDEX_URL
 import com.muses.player.core.lyrics.amll.AmllIndexRepository
 import com.muses.player.core.lyrics.amll.AmllTtmlDbClient
 import com.muses.player.core.lyrics.http.LyricsHttp
+import com.muses.player.core.lyrics.LyricsMatcher
 import com.muses.player.core.lyrics.lrclib.LrclibProvider
 import com.muses.player.core.lyrics.provider.PlatformLyricsProvider
 import com.muses.player.core.model.SourceType
@@ -100,6 +101,20 @@ internal object DesktopScrapeGraph {
     }
 
     private val lrclibProvider: LrclibProvider by lazy { LrclibProvider(http = lyricsHttp) }
+
+    /**
+     * 播放页在线歌词匹配（09-05-desktop-player-lyrics Y3；对齐安卓 lyricsModule 组合）：
+     * AMLL 优先 → 平台五源 → LRCLIB，任一命中即停；仅供无库歌词时手动补充，不自动联网。
+     */
+    val lyricsMatcher: LyricsMatcher by lazy {
+        LyricsMatcher(
+            amllClient = amllClient,
+            fallbackProviders = buildList {
+                addAll(PlatformLyricsProvider.defaultChain(lyricsHttp))
+                add(lrclibProvider)
+            },
+        )
+    }
 
     /** 编辑页全链云搜（多候选 + 粗排）；桌面批量匹配与单曲重搜共用 */
     val editSearch: EditCloudMetaSearch by lazy {
