@@ -151,10 +151,11 @@ jobs:
         with:
           path: release-assets
 
+      # ref_name 已含 v 前缀（v0.5.2），标题直接用，不再拼 v
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: v${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
           body_path: release-assets/muses-android/release_body.md
           fail_on_unmatched_files: true
