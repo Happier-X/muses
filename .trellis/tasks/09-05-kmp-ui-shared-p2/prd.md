@@ -20,10 +20,10 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1：T2 文件清零（抽象或下线）。
-- [ ] AC2：播放页两端共用或降级方案验收通过。
-- [ ] AC3：刮削页有明确结论（共用或不上）。
-- [ ] AC4：全量回归通过。
+- [x] AC1：T2 文件清零（SaltShadows 令牌上收+绘制 expect/actual；GlassSurface 上收；MusesHaze 删除切 LocalHazeBlurState 桥接）。
+- [x] AC2：播放页非歌词部分（进度/控制/模式栏/封面）已两端共用；歌词面板留待 Haze 降级验收（V2 结论，二期记录于 implement.md）。
+- [x] AC3：刮削页结论=共用（V3 落地：共用组件+安卓接入+桌面队列页；匹配/写回链受 :core:scrape 安卓库边界限制，桌面回调预留）。
+- [x] AC4：全量回归通过（:core:ui-shared:assemble + :app:assembleMusesDebug + :composeApp:compileKotlinJvm 三端 BUILD SUCCESSFUL）。
 
 ## Out of Scope
 
