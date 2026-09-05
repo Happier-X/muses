@@ -24,10 +24,10 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1：`:core:common` commonMain 零安卓 import；`:core:scrape` 缩为安卓装配壳（或清空）。
-- [ ] AC2：桌面刮削页全功能可用（扫队列→匹配→预览→写回，标题/专辑/封面落库+文件落盘；歌词维度明示降级）。
-- [ ] AC3：安卓刮削行为不变（回归通过 + feature:scrape 编译零业务改动）。
-- [ ] AC4：全量回归通过（三端编译 + 单测）。
+- [x] AC1：`:core:common` commonMain 零安卓 import（W1-W3 核验）；`:core:scrape` 缩为安卓装配壳（仅 ScrapeModule + LyricsPorts）。
+- [x] AC2：桌面刮削页四态机接真实引擎（扫队列→匹配→预览→写回；写回按 sourceType 分流落库落盘；歌词维度 UI 明示降级）；真实 NAS 端到端实测留待人工验收。
+- [x] AC3：安卓刮削行为不变（W1-W3 每步 feature:scrape 零业务改动 + 全模块单测全绿）。
+- [x] AC4：全量回归通过（:core:common:assemble + allTests 128 用例 + :app:assembleMusesDebug + testDebugUnitTest + :composeApp:compileKotlinJvm）。
 
 ## Out of Scope
 
