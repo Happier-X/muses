@@ -123,11 +123,12 @@ jobs:
           $env:MUSES_DESKTOP_JDK = $env:JAVA_HOME
           ./gradlew.bat :composeApp:packageMsi "-Pmuses.desktop.version=${{ steps.version.outputs.version }}"
 
-      # 通配符定位产物（jpackage 输出文件名细节可能随版本变化），找不到即显式失败
+      # 通配符定位产物：输出目录随 CMP 版本可能是 main/ 或 main-release/，
+      # 覆盖两种变体，找不到即显式失败
       - name: Rename MSI
         shell: pwsh
         run: |
-          $msi = Get-ChildItem "composeApp/build/compose/binaries/main-release/msi/*.msi" | Select-Object -First 1
+          $msi = Get-ChildItem "composeApp/build/compose/binaries/*/msi/*.msi" | Select-Object -First 1
           if (-not $msi) { throw "未找到 MSI 产物" }
           Move-Item $msi.FullName "Muses-v${{ steps.version.outputs.version }}.msi"
 
