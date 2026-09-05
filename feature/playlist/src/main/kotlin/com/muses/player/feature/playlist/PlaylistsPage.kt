@@ -30,7 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import com.muses.player.core.ui.theme.LocalMusesHazeState
+import com.muses.player.core.ui.theme.LocalHazeBlurState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
@@ -129,7 +129,7 @@ fun PlaylistsPage(
     var deleteTargetId by remember { mutableStateOf<String?>(null) }
 
     val hazeState = rememberHazeState()
-    CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+    CompositionLocalProvider(LocalHazeBlurState provides hazeState) {
         Box(modifier = modifier.fillMaxSize()) {
             val navbarTopPadding = with(LocalDensity.current) {
                 WindowInsets.statusBars.getTop(this).toDp()

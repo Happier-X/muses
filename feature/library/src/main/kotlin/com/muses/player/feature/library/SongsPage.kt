@@ -68,7 +68,7 @@ import com.muses.player.core.ui.components.SaltListItem
 import com.muses.player.core.ui.components.SaltListItemMetrics
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
-import com.muses.player.core.ui.theme.LocalMusesHazeState
+import com.muses.player.core.ui.theme.LocalHazeBlurState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltDarkColors
@@ -169,7 +169,7 @@ fun SongsPage(
         selectedIds = emptySet()
     }
 
-    val outerHazeState = LocalMusesHazeState.current
+    val outerHazeState = LocalHazeBlurState.current as? dev.chrisbanes.haze.HazeState
     val navbarHazeState = rememberHazeState()
     val context = androidx.compose.ui.platform.LocalContext.current
     fun doEnqueue(ids: List<String>) {
@@ -178,7 +178,7 @@ fun SongsPage(
         val msg = if (ids.size == 1) "已加入待刮削队列" else "已加入 ${ids.size} 首到待刮削队列"
         android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
     }
-    CompositionLocalProvider(LocalMusesHazeState provides navbarHazeState) {
+    CompositionLocalProvider(LocalHazeBlurState provides navbarHazeState) {
         Box(modifier = modifier.fillMaxSize()) {
             val navbarTopPadding = with(LocalDensity.current) {
                 WindowInsets.statusBars.getTop(this).toDp()
@@ -474,7 +474,7 @@ fun SongsPage(
         val fabHazeState = outerHazeState
         if (fabHazeState != null) {
             // 包一层以提供全局 Haze 给 FAB
-            CompositionLocalProvider(LocalMusesHazeState provides fabHazeState) {
+            CompositionLocalProvider(LocalHazeBlurState provides fabHazeState) {
                 JumpToCurrentFab(
                     onClick = {
                         val idx = songs.indexOfFirst { it.id == currentSongId }
@@ -514,7 +514,7 @@ private fun JumpToCurrentFab(
 ) {
     val salt = LocalSaltColors.current
     val isDark = salt === SaltDarkColors
-    val hazeState = LocalMusesHazeState.current
+    val hazeState = LocalHazeBlurState.current as? dev.chrisbanes.haze.HazeState
     // 悬浮钮按椒盐实拍更白：与顶部/底部 surface 0.08 区分，改用纯白基底提亮，避免偏灰
     val fabHazeStyle = if (hazeState != null) {
         if (isDark) {

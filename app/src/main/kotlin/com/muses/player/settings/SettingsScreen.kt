@@ -35,7 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import com.muses.player.core.ui.theme.LocalMusesHazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.text.font.FontWeight
@@ -98,7 +97,7 @@ fun SettingsScreen(
 
     val hazeState = rememberHazeState()
     CompositionLocalProvider(
-        LocalMusesHazeState provides hazeState,
+        // 09-05 T2：MusesHaze 下线，统一经 ui-shared 的 LocalHazeBlurState 桥接
         com.muses.player.core.ui.theme.LocalHazeBlurState provides hazeState,
     ) {
         // Android 端：音源管理为空（仅桌面端有 WebDAV 音源管理），

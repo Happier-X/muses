@@ -28,7 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import com.muses.player.core.ui.theme.LocalMusesHazeState
+import com.muses.player.core.ui.theme.LocalHazeBlurState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.text.font.FontWeight
@@ -114,7 +114,7 @@ fun AlbumsPage(
     val salt = LocalSaltColors.current
     val cards by viewModel.cards.collectAsState()
     val hazeState = rememberHazeState()
-    CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+    CompositionLocalProvider(LocalHazeBlurState provides hazeState) {
         Box(modifier.fillMaxSize()) {
         // __grid：滚动区域从玻璃 navbar 下穿过（Web 版 absolute navbar 同观感）—— 真磨砂：网格为 hazeSource
         if (cards.isEmpty()) {
@@ -215,7 +215,7 @@ fun ArtistsPage(
     val salt = LocalSaltColors.current
     val cards by viewModel.cards.collectAsState()
     val hazeState = rememberHazeState()
-    CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+    CompositionLocalProvider(LocalHazeBlurState provides hazeState) {
         Box(modifier.fillMaxSize()) {
         if (cards.isEmpty()) {
             Box(

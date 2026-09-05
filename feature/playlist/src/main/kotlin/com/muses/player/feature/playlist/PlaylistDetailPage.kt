@@ -33,7 +33,7 @@ import com.muses.player.core.ui.components.SaltEmpty
 import com.muses.player.core.ui.components.SaltIconButton
 import com.muses.player.core.ui.components.SaltListItem
 import com.muses.player.core.ui.components.SaltNavbar
-import com.muses.player.core.ui.theme.LocalMusesHazeState
+import com.muses.player.core.ui.theme.LocalHazeBlurState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
@@ -64,7 +64,7 @@ fun PlaylistDetailPage(
     val songs = detail?.songs.orEmpty()
 
     val hazeState = rememberHazeState()
-    CompositionLocalProvider(LocalMusesHazeState provides hazeState) {
+    CompositionLocalProvider(LocalHazeBlurState provides hazeState) {
         Box(modifier = modifier.fillMaxSize()) {
             val navbarTopPadding = with(LocalDensity.current) {
                 WindowInsets.statusBars.getTop(this).toDp()

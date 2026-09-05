@@ -54,7 +54,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.muses.player.core.ui.theme.LocalMusesHazeState
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
@@ -121,7 +120,8 @@ fun TabsLayout(
 ) {
     val hazeState = rememberHazeState()
     androidx.compose.runtime.CompositionLocalProvider(
-        LocalMusesHazeState provides hazeState,
+        // 09-05 T2：MusesHaze 下线，统一经 ui-shared 的 LocalHazeBlurState 桥接
+        // （Any? 擦除传递，Android actual 转 HazeState 消费）
         com.muses.player.core.ui.theme.LocalHazeBlurState provides hazeState,
     ) {
         BoxWithConstraints(modifier.fillMaxSize()) {
