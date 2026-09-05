@@ -114,12 +114,14 @@ jobs:
 
       # jpackage 需完整 JDK（含 jpackage.exe）：javaHome 经 MUSES_DESKTOP_JDK 指向
       # runner 的 JDK（setup-java 已导出 JAVA_HOME），本机硬编码路径仅作本地回落；
-      # MSI 版本经 -Pmuses.desktop.version 注入（v0.4.10 → 0.4.10）
+      # MSI 版本经 -Pmuses.desktop.version 注入（v0.4.10 → 0.4.10）；
+      # -P 参数必须加引号：pwsh 会把 -P 开头解析为自己的参数，不加引号点号后的部分
+      # 会被 Gradle 误认为任务名（Task '.desktop.version=x' not found）
       - name: Package Windows MSI
         shell: pwsh
         run: |
           $env:MUSES_DESKTOP_JDK = $env:JAVA_HOME
-          ./gradlew.bat :composeApp:packageMsi -Pmuses.desktop.version=${{ steps.version.outputs.version }}
+          ./gradlew.bat :composeApp:packageMsi "-Pmuses.desktop.version=${{ steps.version.outputs.version }}"
 
       # 通配符定位产物（jpackage 输出文件名细节可能随版本变化），找不到即显式失败
       - name: Rename MSI
