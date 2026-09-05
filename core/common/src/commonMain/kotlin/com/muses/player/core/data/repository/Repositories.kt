@@ -4,9 +4,6 @@ import com.muses.player.core.data.dao.AlbumDao
 import com.muses.player.core.data.dao.ArtistDao
 import com.muses.player.core.data.dao.SourceDao
 import com.muses.player.core.data.dao.SongDao
-import com.muses.player.core.data.log.ErrorLogCrashPersistence
-import com.muses.player.core.data.log.ErrorLogStore
-import com.muses.player.core.data.log.RingBufferErrorLogStore
 import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.data.mapper.toEntity
 import com.muses.player.core.model.Album
@@ -15,8 +12,6 @@ import com.muses.player.core.model.Song
 import com.muses.player.core.model.Source
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import org.koin.core.module.dsl.singleOf
-import org.koin.dsl.module
 
 /** 曲库仓库 */
 interface SongRepository {
@@ -174,47 +169,4 @@ class RoomArtistRepository constructor(
 
     override fun observeArtistWithSongs(artistId: String): Flow<com.muses.player.core.data.db.ArtistWithSongs?> =
         artistDao.observeArtistWithSongs(artistId)
-}
-
-/**
- * 仓库装配（P2a Hilt→Koin：原 `@Module` + `@Binds`）。
- * `@Binds`→`singleOf` + 接口 `single` 委托；同一实现双接口绑定（ErrorLogStore +
- * ErrorLogCrashPersistence）共享同一单例（见 design.md 映射表）。
- */
-val repositoryModule = module {
-
-    singleOf(::RoomSongRepository)
-    single<SongRepository> { get<RoomSongRepository>() }
-
-    singleOf(::RoomSourceRepository)
-    single<SourceRepository> { get<RoomSourceRepository>() }
-
-    singleOf(::RoomAlbumRepository)
-    single<AlbumRepository> { get<RoomAlbumRepository>() }
-
-    singleOf(::RoomArtistRepository)
-    single<ArtistRepository> { get<RoomArtistRepository>() }
-
-    singleOf(::RoomPlaylistRepository)
-    single<PlaylistRepository> { get<RoomPlaylistRepository>() }
-
-    singleOf(::DataStoreSettingsRepository)
-    single<SettingsRepository> { get<DataStoreSettingsRepository>() }
-
-    singleOf(::AndroidKeyStoreCredentialsRepository)
-    single<CredentialsRepository> { get<AndroidKeyStoreCredentialsRepository>() }
-
-    singleOf(::AndroidKeystoreCryptoEngine)
-    single<CryptoEngine> { get<AndroidKeystoreCryptoEngine>() }
-
-    /** 错误日志环形缓冲（任务 08-26-settings-log-viewer） */
-    singleOf(::RingBufferErrorLogStore)
-    single<ErrorLogStore> { get<RingBufferErrorLogStore>() }
-
-    /** 崩溃持久化能力（CrashHandler 专用，同一实现双接口绑定） */
-    single<ErrorLogCrashPersistence> { get<RingBufferErrorLogStore>() }
-
-    /** 播放快照/最近播放（PlaybackService 恢复队列用，P2a 补漏：Hilt 时代靠 @Inject 构造自动提供） */
-    singleOf(::PlaybackStateRepository)
-    singleOf(::RecentPlaysRepository)
 }

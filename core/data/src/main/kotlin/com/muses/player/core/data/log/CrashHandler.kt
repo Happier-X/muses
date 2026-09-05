@@ -5,18 +5,6 @@ import android.util.Log
 import java.io.File
 
 /**
- * 崩溃持久化能力（[CrashHandler] 专用，与查询用 [ErrorLogStore] 接口分离）：
- * 序列化当前缓冲 / 将上次会话内容恢复进缓冲头部。
- */
-interface ErrorLogCrashPersistence {
-    /** 序列化全部缓冲为可持久化的紧凑行格式 */
-    fun serialize(): String
-
-    /** 将上次会话持久化内容恢复进缓冲头部；空/非法输入静默忽略 */
-    fun restore(serialized: String)
-}
-
-/**
  * 未捕获异常处理器（任务 08-26-settings-log-viewer）。
  *
  * - [install] 在 `MusesApplication.onCreate` 调用：先读回上次崩溃（若有），再包装
@@ -24,6 +12,9 @@ interface ErrorLogCrashPersistence {
  * - 崩溃时把当前缓冲 + 崩溃堆栈写入 `filesDir/error_log/crash-latest.txt`
  *   （阻塞 IO 可接受——进程即将死亡），随后**必须**委托原 handler 保持系统崩溃流程；
  * - 全部逻辑 try-catch 包裹：安装/持久化任何异常都不得把正常启动变成崩溃。
+ *
+ * W1 KMP 上收：[ErrorLogStore]/[ErrorLogCrashPersistence] 接口已迁 :core:common commonMain
+ * （同包名经 api(:core:common) 透传解析）；Context/Log 依赖为安卓专属，本壳留在 core:data。
  */
 object CrashHandler {
 

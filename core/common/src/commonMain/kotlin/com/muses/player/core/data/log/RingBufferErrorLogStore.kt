@@ -1,9 +1,6 @@
 package com.muses.player.core.data.log
 
-import java.text.SimpleDateFormat
-import java.util.ArrayDeque
-import java.util.Date
-import java.util.Locale
+import com.muses.player.core.data.store.platformNowMs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
  * - [ArrayDeque] 容量上限 [CAPACITY]（500），超限丢弃最早条目，纯内存不落盘；
  * - 所有读写经 `synchronized(this)` 保证线程安全（埋点来自播放/扫描等多线程）；
  * - [serialize]/[restore] 为崩溃持久化的紧凑行格式，仅供 [CrashHandler] 使用。
+ *
+ * W1 KMP 上收：时间源经 platformNowMs（commonMain 无 System.currentTimeMillis），
+ * 时间格式化经 expect formatLogTime（双端 actual 均为 SimpleDateFormat，输出不变）。
  */
 class RingBufferErrorLogStore constructor() : ErrorLogStore, ErrorLogCrashPersistence {
 
@@ -40,7 +40,7 @@ class RingBufferErrorLogStore constructor() : ErrorLogStore, ErrorLogCrashPersis
             message
         }
         synchronized(lock) {
-            buffer.addLast(Entry(System.currentTimeMillis(), level, tag, fullMessage))
+            buffer.addLast(Entry(platformNowMs(), level, tag, fullMessage))
             while (buffer.size > CAPACITY) {
                 buffer.removeFirst()
             }
@@ -106,14 +106,14 @@ class RingBufferErrorLogStore constructor() : ErrorLogStore, ErrorLogCrashPersis
     /** 摘要：「MM-dd HH:mm 首行消息」（设置页副标题单行展示） */
     private fun formatSummary(entry: Entry): String {
         val firstLine = entry.message.lineSequence().firstOrNull().orEmpty()
-        return "${TIME_FORMAT_SUMMARY.format(Date(entry.timestamp))} $firstLine"
+        return "${formatLogTime(entry.timestamp, TIME_FORMAT_SUMMARY)} $firstLine"
     }
 
     /** 单条格式化：`--- WARN  yyyy-MM-dd HH:mm:ss [tag] 首行` + 续行缩进 4 空格 */
     private fun formatEntry(entry: Entry): String {
         val lines = entry.message.split('\n')
         val head = "--- ${entry.level.name.padEnd(5)} " +
-            TIME_FORMAT_DUMP.format(Date(entry.timestamp)) +
+            formatLogTime(entry.timestamp, TIME_FORMAT_DUMP) +
             " [${entry.tag}] ${lines.first()}"
         val rest = lines.drop(1).joinToString("\n") { "    $it" }
         return if (rest.isEmpty()) head else "$head\n$rest"
@@ -156,7 +156,7 @@ class RingBufferErrorLogStore constructor() : ErrorLogStore, ErrorLogCrashPersis
         /** 缓冲容量上限（PRD AC5：超限丢最早，不 OOM） */
         const val CAPACITY = 500
 
-        private val TIME_FORMAT_SUMMARY = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
-        private val TIME_FORMAT_DUMP = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        private const val TIME_FORMAT_SUMMARY = "MM-dd HH:mm"
+        private const val TIME_FORMAT_DUMP = "yyyy-MM-dd HH:mm:ss"
     }
 }

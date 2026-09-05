@@ -14,21 +14,10 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** WebDAV 等敏感凭据存取（密码 Keystore 加密后落盘，明文只在调用方短生命周期内存在） */
-interface CredentialsRepository {
-    suspend fun savePassword(sourceId: String, password: String)
-
-    /** 返回解密后的密码副本；未存储返回 null。禁止写入日志/状态流/持久化数据。 */
-    suspend fun getPassword(sourceId: String): String?
-
-    suspend fun clearPassword(sourceId: String)
-}
-
-/** AES-256-GCM 加密引擎抽象：Android 侧绑定 AndroidKeystoreCryptoEngine，测试可注入 JVM 实现 */
-interface CryptoEngine {
-    fun encrypt(plain: ByteArray): ByteArray
-    fun decrypt(blob: ByteArray): ByteArray
-}
+/**
+ * W1 KMP 上收：[CredentialsRepository]/[CryptoEngine] 接口已迁 :core:common commonMain
+ * （同包名经 api(:core:common) 透传解析）；本文件仅留安卓专属实现，Koin 绑定不变。
+ */
 
 /**
  * AndroidKeyStore AES-256-GCM 加密引擎。
