@@ -3,25 +3,36 @@ package com.muses.player.core.scrape.queue
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.muses.player.core.model.scrape.ScrapeQueueItem
 import java.io.File
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 
 /** 规格 = src/features/scrape/queue.ts 主流程（幂等入队 / 懒清理 / 移除） */
 class ScrapeQueueStoreTest {
 
-    @get:Rule
-    val tmp: TemporaryFolder = TemporaryFolder()
+    private var testDir: File? = null
+
+    @BeforeTest
+    fun setUp() {
+        testDir = File(System.getProperty("java.io.tmpdir"), "qtest-${System.nanoTime()}").apply { mkdirs() }
+    }
+
+    @AfterTest
+    fun tearDown() {
+        testDir?.deleteRecursively()
+        testDir = null
+    }
 
     private fun newStore(existingIds: Set<String> = emptySet()): ScrapeQueueStore {
-        val file = File(tmp.root, "queue_${System.nanoTime()}.preferences_pb")
+        val file = File(testDir!!, "queue_${System.nanoTime()}.preferences_pb")
         val dataStore = PreferenceDataStoreFactory.create(scope = CoroutineScope(Dispatchers.IO)) { file }
         return ScrapeQueueStore(dataStore, existingSongIds = { existingIds })
     }
@@ -89,7 +100,7 @@ class ScrapeQueueStoreTest {
         kotlinx.coroutines.yield()
         assertTrue(notified)
         job.cancel()
- }
+    }
 
     @Test
     fun `坏数据宽松回退空表`() {
@@ -97,10 +108,10 @@ class ScrapeQueueStoreTest {
     }
 
     private fun assertNullSnapshot(@Suppress("UNUSED_PARAMETER") ignore: String) {
-        org.junit.Assert.assertNull(
+        assertNull(
             com.muses.player.core.scrape.writeback.WritebackJson.decodeQueue("not-json{"),
         )
-        org.junit.Assert.assertEquals(
+        assertEquals(
             emptyList<ScrapeQueueItem>(),
             com.muses.player.core.scrape.writeback.WritebackJson.decodeQueue("""{"version":"1","items":[]}""")?.items,
         )

@@ -29,6 +29,8 @@ import com.muses.player.core.scrape.writeback.HttpCoverBytesFetcher
 import com.muses.player.core.scrape.writeback.RollbackJournalStore
 import com.muses.player.core.scrape.writeback.WebDavAudioTagFileWriter
 import com.muses.player.core.scrape.writeback.WritebackOrchestrator
+import com.muses.player.core.scrape.ports.JaudiotaggerTagPort
+import com.muses.player.core.scrape.ports.TagPort
 import com.muses.player.core.webdav.WebDavClient
 import com.muses.player.core.webdav.WebDavRateLimiter
 import java.io.File
@@ -122,11 +124,15 @@ val scrapeModule = module {
 
     single<CoverBytesFetcher> { HttpCoverBytesFetcher(http = get()) }
 
+    // W3 写回链 KMP 化：jaudiotagger 标签端口双端实现（:core:common jvmShared，core/media TagWriter 逻辑上收）
+    single<TagPort> { JaudiotaggerTagPort }
+
     single<AudioTagFileWriter> {
         WebDavAudioTagFileWriter(
             sourceRepository = get(),
             credentialsRepository = get<CredentialsRepository>(),
             webDavClientFactory = { get<WebDavClient>() },
+            tagPort = get<TagPort>(),
             tempDir = File(androidContext().cacheDir, "scrape-writeback").apply { mkdirs() },
         )
     }

@@ -1,29 +1,77 @@
-package com.muses.player.core.media.metadata
+package com.muses.player.core.scrape.ports
 
+import com.muses.player.core.model.scrape.FileWriteResult
+import com.muses.player.core.model.scrape.ScrapeChanges
+import java.io.File
+import kotlinx.coroutines.CancellationException
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.audio.flac.metadatablock.MetadataBlockDataPicture
 import org.jaudiotagger.tag.FieldKey
 import org.jaudiotagger.tag.Tag
 import org.jaudiotagger.tag.images.Artwork
-import java.io.File
 
 /**
- * jaudiotagger 标签写入器（任务 08-25-native-m3-scrape-engine / S0 / 09-02 ImageIO 修复）。
+ * jaudiotagger 标签端口实现（W3 写回链 KMP 化，design.md §1「jvmMain & androidMain 同库双端」）。
  *
- * 规格书 = Web 层 src/features/library/native.ts 的 WriteMetadataOptions / WriteMetadataResult：
- * - ok=true 成功；失败带 code 便于文案映射，**不抛异常**
- * - null 字段 = 不修改；clearXxx = 显式清空该字段
- * - 格式兼容性失败统一归入 code=write_failed（对应 Web 写回编排的 file-failed 分类）
+ * 放置决策（core:common jvmShared 而非 core:media）：
+ * - core:media 是 android library，composeApp 桌面（jvm）无法依赖——若实现留在 core:media，
+ *   W4 桌面装配将无 TagPort 可注入，被迫在 composeApp 复制第三份 jaudiotagger 逻辑；
+ * - jvmShared 中间层让同一份代码同时进入 androidMain 与 jvmMain（jaudiotagger 纯 JVM，双端可载）；
+ * - 写逻辑逐字上收自 core/media TagWriter（任务 08-25 / 09-02 ImageIO 修复版），写回语义冻结。
+ *   core/media TagWriter 本体保留（TagWriterTest 存量回归 + 09-02 修复档案），生产引用归零后
+ *   由装配层切换注入本实现。
  *
- * 09-02 修复：Android 端禁止使用 javax.imageio.ImageIO（StandardArtwork 在 FLAC 路径会触发
- * NoClassDefFoundError），改用 [AndroidSafeArtwork] 绕开 ImageIO，并兜底 Throwable。
- *
- * W3 注（任务 09-05-scrape-kmp）：写逻辑已逐字上收 :core:common jvmShared
- * 的 `JaudiotaggerTagPort`（TagPort 双端实现，写回链经 TagPort 注入）。
- * 本体保留供 [TagWriterTest] 存量回归与 09-02 修复档案；生产引用归零后勿在此新增逻辑，
- * 双侧写语义变更须同步（与 JaudiotaggerTagPort 逐字对齐）。
+ * Android 适配语义逐字保留：
+ * - [AndroidSafeArtwork] 绕开 javax.imageio（StandardArtwork 的 FLAC 崩溃根因）；
+ *   setImageFromData 反射 BitmapFactory 取宽高，JVM 桌面无此类时回退 0×0 并 return true（写路径不受影响）
+ * - `catch (Throwable)` 兜底 NoClassDefFoundError / LinkageError；CancellationException/InterruptedException 原样重抛
+ * - 进程级初始化（MusesApplication.onCreate 的 `TagOptionSingleton.setAndroid(true)`）不受迁移影响
  */
-object TagWriter {
+object JaudiotaggerTagPort : TagPort {
+
+    // ── TagPort：读 ───────────────────────────────────────
+
+    /** 通用读（AudioFileIO 全量解析，取文本字段 + 首帧封面 + 时长）；失败返回 null */
+    override fun readTags(file: File): TagPortTags? {
+        return try {
+            val audioFile = AudioFileIO.read(file)
+            val tag = audioFile.tag
+            TagPortTags(
+                title = tag?.getFirst(FieldKey.TITLE),
+                artist = tag?.getFirst(FieldKey.ARTIST),
+                album = tag?.getFirst(FieldKey.ALBUM),
+                lyrics = tag?.getFirst(FieldKey.LYRICS),
+                cover = tag?.firstArtwork?.binaryData,
+                durationMs = audioFile.audioHeader?.trackLength?.times(1000L) ?: 0L,
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    // ── TagPort：写（文件 + ScrapeChanges → 结果）──────────
+
+    /**
+     * 写入刮削变更（对齐原 WritebackOrchestrator.buildTagRequest 映射，语义冻结）：
+     * null = 不修改；`lyrics == ""` → clearLyrics；`coverUri == ""` → clearCover。
+     */
+    override fun writeTags(file: File, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult {
+        val result = write(
+            file = file,
+            request = TagWriteRequest(
+                title = changes.title,
+                artist = changes.artist,
+                album = changes.album,
+                lyrics = changes.lyrics,
+                clearLyrics = changes.lyrics == "",
+                coverBytes = coverBytes,
+                clearCover = changes.coverUri == "",
+            ),
+        )
+        return FileWriteResult(ok = result.ok, code = result.code, message = result.message)
+    }
 
     /** 写标签结果（对齐 Web WriteMetadataResult 字段与语义） */
     data class WriteResult(
@@ -40,7 +88,6 @@ object TagWriter {
 
     /**
      * 标签写入请求（字段集对齐 Web WriteMetadataOptions 的本地写路径）。
-     * 与 [TrackTags] 不同：这是「待写入值」而非「已读取值」，
      * null 语义为不修改（Web undefined），clear* 为显式清空（Web clearLyrics/clearCover）。
      */
     data class TagWriteRequest(
@@ -56,7 +103,8 @@ object TagWriter {
     )
 
     /**
-     * 写入音频文件标签。读文件失败 / 无可写标签 / 容器不支持均返回失败结果，不抛异常。
+     * 写入音频文件标签（上收自 core/media TagWriter.write，逐字保留）。
+     * 读文件失败 / 无可写标签 / 容器不支持均返回失败结果，不抛异常。
      * 注意：捕获 Throwable 以兜底 NoClassDefFoundError（如 ImageIO）、LinkageError 等 Error。
      */
     fun write(file: File, request: TagWriteRequest): WriteResult {
@@ -69,7 +117,7 @@ object TagWriter {
             WriteResult.success()
         } catch (e: Throwable) {
             // 协程取消需原样重抛，不计为 write_failed
-            if (e is kotlinx.coroutines.CancellationException) throw e
+            if (e is CancellationException) throw e
             if (e is InterruptedException) throw e
             // 对齐 Web writeLocalAudioMetadata：异常折叠为 ok=false + code，不让上层崩溃
             WriteResult.failure(
@@ -124,7 +172,7 @@ object TagWriter {
     }
 
     /**
-     * Android 安全的 Artwork 实现：
+     * Android 安全的 Artwork 实现（上收自 core/media TagWriter.AndroidSafeArtwork，逐字保留）：
      * - 不依赖 javax.imageio / java.awt（StandardArtwork 的崩溃根因）
      * - setImageFromData() 优先用反射调 android.graphics.BitmapFactory 解宽高，失败则 0×0 并返回 true，
      *   满足 FlacTag/VorbisCommentTag 对 setImageFromData()==true 的校验

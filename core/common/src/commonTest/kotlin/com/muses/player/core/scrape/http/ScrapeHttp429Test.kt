@@ -1,17 +1,16 @@
 package com.muses.player.core.scrape.http
 
+import com.muses.player.core.webdav.WebDavRateLimiter
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /**
  * ScrapeHttp 429 退避单测（P2c：MockWebServer → Ktor MockEngine 重写，语义冻结）。
@@ -22,6 +21,9 @@ import org.junit.Test
  *
  * MockEngine 不走真实 socket：delay 照常经 runTest 虚拟时间；requestCount 改计数 handler 命中次数。
  * （kotlinx.io.IOException 在 JVM 即 java.io.IOException 别名，旧 catch 断言零改动。）
+ *
+ * W3 归位 :core:common commonTest：HTTP-date 用例的 java.time 构造改手动
+ * （固定锚点 epoch=1_700_000_000_000 = 2023-11-14T22:13:20Z 星期二，经 nowMs 注入）。
  */
 class ScrapeHttp429Test {
 
@@ -35,7 +37,7 @@ class ScrapeHttp429Test {
 
     private fun http(
         vararg resps: MockResp,
-        rateLimiter: com.muses.player.core.webdav.WebDavRateLimiter = com.muses.player.core.webdav.WebDavRateLimiter.Unlimited,
+        rateLimiter: WebDavRateLimiter = WebDavRateLimiter.Unlimited,
     ): ScrapeHttp {
         val queue = ArrayDeque(resps.toList())
         requests = 0
@@ -122,10 +124,11 @@ class ScrapeHttp429Test {
 
     @Test
     fun `parseRetryAfterHttpDate正确`() {
-        val future = ZonedDateTime.now().plusSeconds(5)
-        val header = future.format(DateTimeFormatter.RFC_1123_DATE_TIME)
-        val parsed = ScrapeHttp.parseRetryAfterMs(header)
-        assertTrue(parsed != null && parsed!! in 0..6000)
+        // 手动构造 RFC1123（commonTest 无 java.time）：固定锚点 1_700_000_000_000L = 2023-11-14T22:13:20Z（星期二）
+        // header = 锚点 + 5s → 期望解析差值 ≈ 5000ms
+        val header = "Tue, 14 Nov 2023 22:13:25 GMT"
+        val parsed = ScrapeHttp.parseRetryAfterMs(header) { 1_700_000_000_000L }
+        assertTrue(parsed != null && parsed in 4000..6000)
     }
 
     @Test

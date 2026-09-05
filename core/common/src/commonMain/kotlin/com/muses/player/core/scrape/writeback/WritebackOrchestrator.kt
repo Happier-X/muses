@@ -1,7 +1,6 @@
 package com.muses.player.core.scrape.writeback
 
 import com.muses.player.core.data.repository.SongRepository
-import com.muses.player.core.media.metadata.TagWriter
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.scrape.FileWriteResult
 import com.muses.player.core.model.scrape.MetaFieldSource
@@ -27,6 +26,9 @@ import kotlinx.coroutines.coroutineScope
  * 3. 写库（upsertSong，来源按文件结果标记 embedded/scrape）
  * 4. 逐行返回成功/失败状态（success / file-failed / failed）
  * 5. 撤销恢复曲库旧值（文件不可逆）
+ *
+ * W3 上收 commonMain（任务 09-05-scrape-kmp R4）：三仓库依赖直连 commonMain
+ * SongRepository；文件写入经 [AudioTagFileWriter]（TagPort 收口）；日志经 safeLogW。
  */
 class WritebackOrchestrator(
     private val songRepository: SongRepository,
@@ -123,17 +125,6 @@ class WritebackOrchestrator(
         }
     }
 
-    private fun buildTagRequest(changes: ScrapeChanges, coverBytes: ByteArray?): TagWriter.TagWriteRequest =
-        TagWriter.TagWriteRequest(
-            title = changes.title,
-            artist = changes.artist,
-            album = changes.album,
-            lyrics = changes.lyrics,
-            clearLyrics = changes.lyrics == "",
-            coverBytes = coverBytes,
-            clearCover = changes.coverUri == "",
-        )
-
     // ── 旁路：历史落库 ───────────────────────────────────
 
     /** 对齐 recordHistory：changedFields 归并 coverRemoteUrl→cover、lyricsFormat→lyrics */
@@ -215,11 +206,10 @@ class WritebackOrchestrator(
             val changes = changesMap[candidate.songId] ?: ScrapeChanges()
             return try {
                 val fileResult = writeSingleFile(candidate.song, changes)
-                try {
-                    android.util.Log.w("Writeback", "writeOne ${candidate.songId} fileOk=${fileResult.ok} code=${fileResult.code} msg=${fileResult.message} changes=$changes")
-                } catch (_: Throwable) {
-                    println("[Writeback] writeOne ${candidate.songId} fileOk=${fileResult.ok} code=${fileResult.code} msg=${fileResult.message} changes=$changes")
-                }
+                safeLogW(
+                    "Writeback",
+                    "writeOne ${candidate.songId} fileOk=${fileResult.ok} code=${fileResult.code} msg=${fileResult.message} changes=$changes",
+                )
                 // 写文件成功后失效标签缓存，保证后续懒扫描读到新文件内容
                 if (fileResult.ok) {
                     try {
@@ -267,7 +257,7 @@ class WritebackOrchestrator(
     /** 单曲文件写入（含远程封面字节获取） */
     private suspend fun writeSingleFile(song: Song, changes: ScrapeChanges): FileWriteResult {
         val coverBytes = fetchCoverBytes(changes)
-        return fileWriter.write(song, buildTagRequest(changes, coverBytes))
+        return fileWriter.write(song, changes, coverBytes)
     }
 
     // ── 撤销 ─────────────────────────────────────────────

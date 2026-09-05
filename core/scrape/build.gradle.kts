@@ -1,8 +1,11 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // M3 刮削引擎数据层（任务 08-25-native-m3-scrape-engine）：
-// 仅依赖 core:common / OkHttp / kotlinx-serialization / DataStore / coroutines，
+// 仅依赖 core:common / kotlinx-serialization / DataStore / coroutines，
 // 禁止依赖 Compose、Room 具体类与 Media3（分层铁律见 .trellis/spec/android/index.md）
+// W3 KMP 化（任务 09-05-scrape-kmp）：引擎全量已上收 :core:common commonMain
+// （text/cover/queue/editmeta/writeback + ScrapeHttp + WebDavClient 接口 + TagPort），
+// 本模块缩为安卓装配瘦壳（ScrapeModule Koin + LyricsPorts 适配），依赖 core:common 即可。
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.ksp)
@@ -26,10 +29,8 @@ android {
 
 dependencies {
     api(project(":core:common"))
-    // 写回编排：曲库/音源/凭据仓库 + WebDAV 客户端接口 + TagWriter（分层规则见 spec/android/index.md）
+    // ScrapeModule 安卓装配残留：AudioTagReader 缓存失效器（audioTagCacheInvalidator）
     implementation(project(":core:data"))
-    implementation(project(":core:webdav"))
-    implementation(project(":core:media"))
     // editmeta 歌词维度的 Port 适配（L3）：scrape(编排) → lyrics(实现) 无环
     implementation(project(":core:lyrics"))
 
@@ -40,11 +41,4 @@ dependencies {
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.core)
     implementation(libs.koin.android)
-
-    testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
-    // P2c：Ktor MockEngine（429/解析单测，不再走真实 socket）
-    testImplementation(platform(libs.ktor.bom))
-    testImplementation(libs.ktor.client.mock)
-    // W2 纯逻辑上收：text/cover/queue/editmeta 测试随实现迁 core:common commonTest（robolectric/androidx.test.core 已零使用，移除）
 }

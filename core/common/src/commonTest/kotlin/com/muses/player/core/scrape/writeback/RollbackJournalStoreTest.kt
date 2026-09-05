@@ -9,22 +9,34 @@ import com.muses.player.core.model.scrape.RollbackEntry
 import com.muses.player.core.model.scrape.RollbackJournal
 import com.muses.player.core.model.scrape.RollbackSongSnapshot
 import java.io.File
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 
 /** 规格 = src/features/scrape/writeback.ts 回滚 journal 存储语义（DataStore 替换 localStorage） */
 class RollbackJournalStoreTest {
 
-    @get:Rule
-    val tmp: TemporaryFolder = TemporaryFolder()
+    private var testDir: File? = null
+
+    @BeforeTest
+    fun setUp() {
+        testDir = File(System.getProperty("java.io.tmpdir"), "rbtest-${System.nanoTime()}").apply { mkdirs() }
+    }
+
+    @AfterTest
+    fun tearDown() {
+        testDir?.deleteRecursively()
+        testDir = null
+    }
 
     private fun newStore(): RollbackJournalStore {
-        val file = File(tmp.root, "test_${System.nanoTime()}.preferences_pb")
-        val dataStore = PreferenceDataStoreFactory.create(scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)) { file }
+        val file = File(testDir!!, "test_${System.nanoTime()}.preferences_pb")
+        val dataStore = PreferenceDataStoreFactory.create(scope = CoroutineScope(Dispatchers.IO)) { file }
         return RollbackJournalStore(dataStore)
     }
 

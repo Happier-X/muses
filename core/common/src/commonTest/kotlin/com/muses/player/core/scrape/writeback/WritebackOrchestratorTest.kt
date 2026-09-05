@@ -1,7 +1,7 @@
 package com.muses.player.core.scrape.writeback
 
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.muses.player.core.data.repository.SongRepository
-import com.muses.player.core.media.metadata.TagWriter
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.model.scrape.FileWriteResult
@@ -10,20 +10,35 @@ import com.muses.player.core.model.scrape.ScrapeCandidate
 import com.muses.player.core.model.scrape.ScrapeChanges
 import com.muses.player.core.model.scrape.WritebackStatus
 import java.io.File
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 
-/** 规格 = src/features/scrape/writeback.ts applyScrapeChanges / revertScrapeJournal 主流程 */
+/**
+ * 规格 = src/features/scrape/writeback.ts applyScrapeChanges / revertScrapeJournal 主流程。
+ * W3 随实现迁 :core:common commonTest；TagPort 收口后 FakeWriter 捕获 ScrapeChanges/封面字节。
+ */
 class WritebackOrchestratorTest {
 
-    @get:Rule
-    val tmp: TemporaryFolder = TemporaryFolder()
+    private var testDir: File? = null
+
+    @BeforeTest
+    fun setUp() {
+        testDir = File(System.getProperty("java.io.tmpdir"), "wbtest-${System.nanoTime()}").apply { mkdirs() }
+    }
+
+    @AfterTest
+    fun tearDown() {
+        testDir?.deleteRecursively()
+        testDir = null
+    }
 
     // ── fakes ──────────────────────────────────────────────
 
@@ -49,9 +64,9 @@ class WritebackOrchestratorTest {
     }
 
     private fun newJournalStore(): RollbackJournalStore {
-        val file = File(tmp.root, "journal_${System.nanoTime()}.preferences_pb")
-        val dataStore = androidx.datastore.preferences.core.PreferenceDataStoreFactory.create(
-            scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO),
+        val file = File(testDir!!, "journal_${System.nanoTime()}.preferences_pb")
+        val dataStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(Dispatchers.IO),
         ) { file }
         return RollbackJournalStore(dataStore)
     }
@@ -62,7 +77,7 @@ class WritebackOrchestratorTest {
         val calls = mutableListOf<String>()
         val orderLock = Object()
 
-        override suspend fun write(song: Song, request: TagWriter.TagWriteRequest): FileWriteResult {
+        override suspend fun write(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult {
             synchronized(orderLock) { calls.add(song.id) }
             return behavior(song)
         }
@@ -259,9 +274,9 @@ class WritebackOrchestratorTest {
     @Test
     fun `远程封面字节成功时传入标签请求`() = runTest {
         val repo = InMemorySongRepository(listOf(song("s1")))
-        val captured = mutableListOf<TagWriter.TagWriteRequest>()
-        val writer = AudioTagFileWriter { _, request ->
-            captured.add(request); FileWriteResult(ok = true)
+        val captured = mutableListOf<Pair<ScrapeChanges, ByteArray?>>()
+        val writer = AudioTagFileWriter { _, changes, coverBytes ->
+            captured.add(changes to coverBytes); FileWriteResult(ok = true)
         }
         val fakeFetcher = CoverBytesFetcher { "https://fake".toByteArray() }
         val orch = WritebackOrchestrator(repo, newJournalStore(), writer, coverBytesFetcher = fakeFetcher)
@@ -272,7 +287,7 @@ class WritebackOrchestratorTest {
         )
 
         assertEquals(1, captured.size)
-        assertTrue(captured.single().coverBytes != null)
+        assertTrue(captured.single().second != null)
         // 库内 coverUri 保留远端地址（非清空）
         assertEquals("https://remote/c.jpg", repo.songs.getValue("s1").coverUri)
     }

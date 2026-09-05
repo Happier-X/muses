@@ -27,64 +27,15 @@ import kotlin.math.min
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
-/** WebDAV 条目（PROPFIND depth 1 返回的单个文件/目录） */
-data class WebDavItem(
-    val name: String,
-    val url: String,
-    val isDirectory: Boolean,
-    val contentLength: Long = 0L,
-    val lastModified: String? = null,
-    val eTag: String? = null,
-)
-
-/** WebDAV 认证失败异常 */
-class WebDavAuthException(message: String) : Exception(message)
-
-/** WebDAV 请求失败异常 */
-class WebDavRequestException(val code: Int, message: String) : Exception(message)
-
-/**
- * WebDAV 客户端接口。
- *
- * 移植自旧工程 WebDavPlugin 的 PROPFIND/GET/PUT/DELETE/MOVE + Basic Auth，
- * 阶段 2 完整实现。
- *
- * P2c 说明：传输层由 OkHttp 换为 Ktor-client（CIO）；`get/put` 的 `java.io.File`
- * 签名保持不变（`WebDavAudioCache`/写回链路留守 Android，见 R3 偏离记录），
- * 搬入 commonMain 待 core:data 仓库 KMP 化后再议。
- */
-interface WebDavClient {
-    /** 设置 Basic Auth 凭据（内存持有，不持久化密码到网络层） */
-    fun authenticate(username: String, password: String)
-
-    /** 校验服务端连通性（PROPFIND depth 0） */
-    suspend fun probe(baseUrl: String): Boolean
-
-    /** PROPFIND depth 1 列出目录内容 */
-    suspend fun list(url: String): List<WebDavItem>
-
-    /** 下载文件到本地 */
-    suspend fun get(url: String, dest: File): File
-
-    /** 上传文件 */
-    suspend fun put(url: String, source: File)
-
-    /** 删除远程文件/目录 */
-    suspend fun delete(url: String)
-
-    /** 移动/重命名 */
-    suspend fun move(source: String, dest: String)
-
-    /** 下载文件内容为字符串（用于 sidecar 歌词等文本文件） */
-    suspend fun getString(url: String): String?
-}
-
 /**
  * P2c Ktor 实现（原 OkHttpWebDavClient 逐方法平移，契约冻结）：
  * - 429 骨架：acquire → 执行 → 解析 Retry-After → delay(min,8s) → 重试 1 次 → 二次抛 `http 429`；
  * - 401/403 → WebDavAuthException；其他非 2xx → WebDavRequestException（文案逐字保留）；
  * - 内部 `X-Muses-Rate-Limited` marker 头不再外发（Ktor 请求不经过 OkHttp 拦截器链，
  *   旧 marker 仅用于 OkHttp 层跳过二次限流，外发会污染服务端）。
+ *
+ * W3 上收：[WebDavClient]/[WebDavItem]/[WebDavAuthException]/[WebDavRequestException]
+ * 已移入 :core:common commonMain（同包名，经 api(:core:common) 解析），本文件仅留实现。
  */
 internal class KtorWebDavClient constructor(
     private val httpClient: HttpClient = defaultWebDavHttpClient(),

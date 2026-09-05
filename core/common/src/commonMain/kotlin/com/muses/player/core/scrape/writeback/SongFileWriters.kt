@@ -2,11 +2,12 @@ package com.muses.player.core.scrape.writeback
 
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SourceRepository
-import com.muses.player.core.media.metadata.TagWriter
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.model.scrape.FileWriteResult
+import com.muses.player.core.model.scrape.ScrapeChanges
 import com.muses.player.core.scrape.http.ScrapeHttp
+import com.muses.player.core.scrape.ports.TagPort
 import com.muses.player.core.webdav.WebDavClient
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -16,9 +17,17 @@ import kotlinx.coroutines.withContext
 /**
  * 音频标签文件写入器（规格书 = src/features/scrape/writeback.ts 的 writeFile 分派语义）：
  * 按 song.sourceType 选择本地 / WebDAV 写入方式，失败返回 FileWriteResult 不抛异常。
+ *
+ * W3 上收 commonMain（任务 09-05-scrape-kmp R4）：
+ * - 三仓库依赖（Song/Source/CredentialsRepository）为 :core:common commonMain 实体，直连无需 Port；
+ * - WebDavClient 走 commonMain 接口（同包名上收）；
+ * - TagWriter（core:media）依赖经 [TagPort] 收口，写入请求改传 ScrapeChanges + 封面字节
+ *   （原 TagWriter.TagWriteRequest 映射下沉至 TagPort 实现，语义冻结）；
+ * - `android.util.Log` → [safeLogW]/[safeLogE] expect/actual；
+ * - URL 重建的 `android.net.Uri` 兜底分支改纯字符串解析（取值语义对齐 scheme/authority/path）。
  */
 fun interface AudioTagFileWriter {
-    suspend fun write(song: Song, request: TagWriter.TagWriteRequest): FileWriteResult
+    suspend fun write(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult
 }
 
 /** 远程封面字节获取（对齐 Web ensureLocalCover：失败返回 null 跳过内嵌，不阻断写回） */
@@ -68,33 +77,16 @@ internal fun encodeWebDavPath(path: String): String {
 internal fun buildWebDavUrl(serverUrl: String, path: String): String =
     serverUrl.trim().trimEnd('/') + encodeWebDavPath(path)
 
-// ── 日志安全封装（单元测试无 Android 桩时回退到 println，避免 Stub! 异常） ───────
-internal fun safeLogW(tag: String, msg: String) {
-    try {
-        android.util.Log.w(tag, msg)
-    } catch (_: Throwable) {
-        println("[$tag] $msg")
-    }
-}
-
-internal fun safeLogE(tag: String, msg: String, throwable: Throwable? = null) {
-    try {
-        android.util.Log.e(tag, msg, throwable)
-    } catch (_: Throwable) {
-        println("[$tag] $msg ${throwable?.message}")
-        throwable?.printStackTrace()
-    }
-}
-
 /**
- * 本地写路径：直接对 song.path 指向的物理文件调 TagWriter。
- * 文件不存在/格式不支持均由 TagWriter 折叠为 write_failed 结果（对齐 file-failed 分类）。
+ * 本地写路径：直接对 song.path 指向的物理文件经 [TagPort] 写入。
+ * 文件不存在/格式不支持均由 TagPort 实现折叠为 write_failed 结果（对齐 file-failed 分类）。
  */
-class LocalAudioTagFileWriter : AudioTagFileWriter {
-    override suspend fun write(song: Song, request: TagWriter.TagWriteRequest): FileWriteResult =
+class LocalAudioTagFileWriter(
+    private val tagPort: TagPort,
+) : AudioTagFileWriter {
+    override suspend fun write(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult =
         withContext(Dispatchers.IO) {
-            val result = TagWriter.write(File(song.path), request)
-            FileWriteResult(ok = result.ok, code = result.code, message = result.message)
+            tagPort.writeTags(File(song.path), changes, coverBytes)
         }
 }
 
@@ -103,7 +95,7 @@ class LocalAudioTagFileWriter : AudioTagFileWriter {
  * 1. 按 song.sourceId 精确查找音源（多音源读写目标必须一致）；缺失 → no_password 文案 A
  * 2. 取密码；未配置 → no_password 文案 B
  * 3. 完整地址 = serverUrl + encodePath(song.path)（与读取链路一致）
- * 4. 下载到临时文件 → TagWriter 写标签 → put 上传
+ * 4. 下载到临时文件 → TagPort 写标签 → put 上传
  * 5. 各阶段失败映射 code：download_failed / write_failed / put_failed
  *
  * 认证用户名取自 source.username（Room v5 起持久化）。
@@ -113,11 +105,13 @@ class WebDavAudioTagFileWriter(
     private val credentialsRepository: CredentialsRepository,
     /** 提供可用的 WebDAV 客户端（单例复用；串行写回下 authenticate 切换安全） */
     private val webDavClientFactory: suspend () -> WebDavClient,
+    /** 标签写入端口（jaudiotagger 双端实现） */
+    private val tagPort: TagPort,
     /** 下载临时目录（cache 目录，由装配方提供） */
     private val tempDir: File,
 ) : AudioTagFileWriter {
 
-    override suspend fun write(song: Song, request: TagWriter.TagWriteRequest): FileWriteResult {
+    override suspend fun write(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult {
         safeLogW("WebDavWrite", "write start songId=${song.id} path=${song.path} sourceId=${song.sourceId} title=${song.title}")
         // 确保临时目录存在（系统可能清理 cache）
         if (!tempDir.exists()) tempDir.mkdirs()
@@ -152,7 +146,8 @@ class WebDavAudioTagFileWriter(
             }
             song.path.startsWith("http://") || song.path.startsWith("https://") -> {
                 // 完整 URL 但与当前音源不一致（换源或历史）：尝试按自身 host 重建编码，若失败则直接使用
-                // 优先用 java.net.URI（JVM 单测友好），回退到 Android Uri，最后直接使用原 path
+                // 优先用 java.net.URI（JVM 单测友好）；解析失败回退纯字符串解析
+                // （原 android.net.Uri 兜底分支改手动拆分，取值语义对齐 scheme/authority/path）
                 try {
                     val parsed = try {
                         java.net.URI(song.path)
@@ -165,9 +160,9 @@ class WebDavAudioTagFileWriter(
                         val pathPart = parsed.path ?: "/"
                         buildWebDavUrl(serverUrl = schemeHost, path = pathPart)
                     } else {
-                        val uri = android.net.Uri.parse(song.path)
-                        val schemeHost = "${uri.scheme}://${uri.authority}"
-                        val pathPart = uri.path ?: "/"
+                        val uri = parseUrlParts(song.path)
+                        val schemeHost = "${uri.first}://${uri.second}"
+                        val pathPart = uri.third
                         buildWebDavUrl(serverUrl = schemeHost, path = pathPart)
                     }
                 } catch (_: Exception) {
@@ -205,8 +200,8 @@ class WebDavAudioTagFileWriter(
                 )
             }
 
-            val tagResult = withContext(Dispatchers.IO) { TagWriter.write(tempFile, request) }
-            safeLogW("WebDavWrite", "tagWrite ok=${tagResult.ok} code=${tagResult.code} msg=${tagResult.message} request=$request")
+            val tagResult = withContext(Dispatchers.IO) { tagPort.writeTags(tempFile, changes, coverBytes) }
+            safeLogW("WebDavWrite", "tagWrite ok=${tagResult.ok} code=${tagResult.code} msg=${tagResult.message} changes=$changes")
             if (!tagResult.ok) {
                 return FileWriteResult(ok = false, code = tagResult.code, message = tagResult.message)
             }
@@ -227,6 +222,18 @@ class WebDavAudioTagFileWriter(
             return FileWriteResult(ok = true)
         } finally {
             tempFile.delete()
+        }
+    }
+
+    /** 纯字符串 URL 拆分：scheme / authority / path（android.net.Uri.parse 取值语义的 common 版） */
+    private fun parseUrlParts(raw: String): Triple<String, String, String> {
+        val withoutScheme = raw.substringAfter("://")
+        val scheme = raw.substringBefore("://")
+        val slashIndex = withoutScheme.indexOf('/')
+        return if (slashIndex == -1) {
+            Triple(scheme, withoutScheme, "/")
+        } else {
+            Triple(scheme, withoutScheme.take(slashIndex), withoutScheme.substring(slashIndex))
         }
     }
 }

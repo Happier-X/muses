@@ -52,6 +52,17 @@ kotlin {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
         }
+        // W3 写回链 KMP 化：jaudiotagger 标签实现（design.md §1「jvmMain & androidMain 同库双端」）。
+        // jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn，一份代码双端编译；
+        // jaudiotagger 为纯 JVM 库（android/jvm 均可加载），implementation 不向上游传递。
+        val jvmShared by creating {
+            dependsOn(commonMain.get())
+            dependencies {
+                implementation(libs.jaudiotagger)
+            }
+        }
+        jvmMain.get().dependsOn(jvmShared)
+        androidMain.get().dependsOn(jvmShared)
     }
 }
 
