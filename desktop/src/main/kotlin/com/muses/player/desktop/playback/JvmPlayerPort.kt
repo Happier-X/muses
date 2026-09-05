@@ -737,7 +737,10 @@ class JvmPlayerPort(
     fun setTrayVisible(visible: Boolean) {
     }
 
-    /** TODO(二期): Windows SMTC（系统媒体传输控制：任务栏/音量面板展示曲名+封面+按键）。 */
+    /**
+     * Windows SMTC 已由 composeApp Main.kt 装配的 [com.muses.player.desktop.smtc.SmtcController]
+     * 承载（直连 StateFlow + lambda 注入，不经过本端口）；本预留方法保留签名不再接线。
+     */
     fun updateSystemMediaTransport(info: String?) {
     }
 
