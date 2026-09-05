@@ -95,6 +95,7 @@ import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.LayoutDirection
@@ -662,7 +663,10 @@ private fun AppleMusicLyricsPanel(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .onSizeChanged { viewportHeightPx = it.height },
+            .onSizeChanged {
+                viewportHeightPx = it.height
+                viewportWidthPx = it.width
+            },
     ) {
         val focusPosition = SettingsRuntime.lyricFocusPosition
         val topPaddingPx = viewportHeightPx * focusPosition
@@ -917,6 +921,19 @@ private fun AppleMusicLyricsPanel(
                 )
             }
             else -> {
+                // The focused row scales from its start (or end, when flipped)
+                // edge by lyricFocusScale, so a full-width line visually grows
+                // past the 8dp gutter and gets clipped by clipToBounds().
+                // Reserve a static gutter on the growing side, sized from the
+                // panel width at the maximum scale so the wrap points never
+                // shift while the scale animates.
+                val focusScale = SettingsRuntime.lyricFocusScale
+                val focusScaleReservePadding = with(density) {
+                    val panelWidthDp = viewportWidthPx.toDp().value
+                    (((focusScale - 1f) * (panelWidthDp - 16f) - 8f) / focusScale)
+                        .coerceAtLeast(0f)
+                        .dp
+                }
                 val focusAnchorY = viewportHeightPx * focusPosition
                 val annotationHeightPx = annotationFontPx * 1.2f * 2f + annotationSpacingPx * 2f
                 val lyricStridePx = max(primaryHeightPx + annotationHeightPx + lineSpacingPx, 1f)
@@ -1033,6 +1050,7 @@ private fun AppleMusicLyricsPanel(
                             timingEffectsStrength = if (isActiveLine) 1f else effectiveFocus,
                             timedUnplayedAlpha = timedUnplayedAlpha,
                             visualScale = scale,
+                            focusScaleReservePadding = focusScaleReservePadding,
                             visualOffsetPx = visualOffset,
                             rowAlpha = rowAlpha,
                             distanceBlurDp = distanceBlur,
@@ -1177,6 +1195,7 @@ private fun UpstreamLyricLine(
     timingEffectsStrength: Float,
     timedUnplayedAlpha: Float,
     visualScale: Float,
+    focusScaleReservePadding: Dp,
     visualOffsetPx: Float,
     rowAlpha: Float,
     distanceBlurDp: Float,
@@ -1220,7 +1239,12 @@ private fun UpstreamLyricLine(
                 onClick = { if (tapSeekEnabled) onClick() },
                 onLongClick = { if (longPressShareEnabled) onLongClick() },
             )
-            .padding(horizontal = 8.dp),
+            // The scale origin sits on the flipped-aware start edge, so the
+            // reserved gutter goes to the opposite side where the text grows.
+            .padding(
+                start = if (flipped) 8.dp + focusScaleReservePadding else 8.dp,
+                end = if (flipped) 8.dp else 8.dp + focusScaleReservePadding,
+            ),
         horizontalAlignment = lineAlignment,
     ) {
         accompanimentBefore.forEach { vocal ->
