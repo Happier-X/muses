@@ -2,10 +2,10 @@
 
 ## 有序清单
 
-- [ ] Y1 SimpleLyricsPanel 上收：迁 core:common jvmShared 同包名；安卓 feature:player 透传；验证 `:app:assembleMusesDebug + :core:common:assemble`。
-- [ ] Y2 桌面数据链：DesktopPlayerHook 读库歌词→解析→StateFlow；播放页歌词面板渲染+进度联动。
-- [ ] Y3 在线搜索：无库歌词时 LyricsMatcher 补充链（复用 DesktopScrapeGraph 网络单例）；展示命中结果。
-- [ ] Y4 收尾：AC 全勾 + 三端回归 + 归档。
+- [x] Y1 SimpleLyricsPanel 上收：迁 core:common jvmShared 同包名；安卓 feature:player 透传；验证 `:app:assembleMusesDebug + :core:common:assemble`。
+- [x] Y2 桌面数据链：DesktopPlayerHook 读库歌词→解析→StateFlow；播放页歌词面板渲染+进度联动。
+- [x] Y3 在线搜索：无库歌词时 LyricsMatcher 补充链（复用 DesktopScrapeGraph 网络单例）；展示命中结果。
+- [x] Y4 收尾：AC 全勾 + 三端回归 + 归档。
 
 ## 验证命令
 
