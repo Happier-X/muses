@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "核对 packageVersion 注入改动是否遗漏本地硬编码引用点"}
