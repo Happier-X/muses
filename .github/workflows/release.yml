@@ -6,10 +6,11 @@ on:
       - 'v*'
 
 jobs:
-  build-and-release:
+  # 安卓双渠道签名 APK：ubuntu 构建，产物经 artifact 交给 release 汇总
+  build-android:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout
@@ -60,8 +61,8 @@ jobs:
         run: |
           mv app/build/outputs/apk/miui/release/app-miui-release.apk              muses-v${{ steps.version.outputs.version }}-mi.apk
 
+      # 说明由安卓 job 生成（有 checkout 可读 changelog）；MSI 文件名是确定性的
       - name: Read changelog
-        id: changelog
         run: |
           CHANGELOG_FILE="changelog/v${{ steps.version.outputs.version }}.md"
           if [ -f "$CHANGELOG_FILE" ]; then
@@ -74,13 +75,86 @@ jobs:
           echo "### 构建产物" >> release_body.md
           echo "- \`muses-v${{ steps.version.outputs.version }}.apk\` — 原生 Kotlin + Jetpack Compose（包名 \`com.muses.player\`）" >> release_body.md
           echo "- \`muses-v${{ steps.version.outputs.version }}-mi.apk\` — 包名 \`com.miui.player\`" >> release_body.md
+          echo "- \`Muses-v${{ steps.version.outputs.version }}.msi\` — Windows 桌面端（Compose Desktop + jpackage）" >> release_body.md
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: muses-android
+          path: |
+            muses-v${{ steps.version.outputs.version }}.apk
+            muses-v${{ steps.version.outputs.version }}-mi.apk
+            release_body.md
+
+  # Windows 桌面端 MSI（Compose Desktop / jpackage），与安卓并行
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $TAG = "${{ github.ref }}" -replace '^refs/tags/', ''
+          $VERSION = $TAG -replace '^v', ''
+          "version=$VERSION" >> $env:GITHUB_OUTPUT
+          "tag=$TAG" >> $env:GITHUB_OUTPUT
+
+      # jpackage 需完整 JDK（含 jpackage.exe）：javaHome 经 MUSES_DESKTOP_JDK 指向
+      # runner 的 JDK（setup-java 已导出 JAVA_HOME），本机硬编码路径仅作本地回落；
+      # MSI 版本经 -Pmuses.desktop.version 注入（v0.4.10 → 0.4.10）
+      - name: Package Windows MSI
+        shell: pwsh
+        run: |
+          $env:MUSES_DESKTOP_JDK = $env:JAVA_HOME
+          ./gradlew.bat :composeApp:packageMsi -Pmuses.desktop.version=${{ steps.version.outputs.version }}
+
+      # 通配符定位产物（jpackage 输出文件名细节可能随版本变化），找不到即显式失败
+      - name: Rename MSI
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem "composeApp/build/compose/binaries/main-release/msi/*.msi" | Select-Object -First 1
+          if (-not $msi) { throw "未找到 MSI 产物" }
+          Move-Item $msi.FullName "Muses-v${{ steps.version.outputs.version }}.msi"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: muses-windows
+          path: Muses-v${{ steps.version.outputs.version }}.msi
+
+  # 汇总发版：两端构建都成功后创建唯一 Release
+  release:
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: v${{ steps.version.outputs.version }}
-          tag_name: ${{ steps.version.outputs.tag }}
-          body_path: release_body.md
+          name: v${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body_path: release-assets/muses-android/release_body.md
+          fail_on_unmatched_files: true
           files: |
-            muses-v${{ steps.version.outputs.version }}.apk
-            muses-v${{ steps.version.outputs.version }}-mi.apk
+            release-assets/**/*.apk
+            release-assets/**/*.msi

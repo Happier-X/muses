@@ -42,7 +42,8 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Muses"
-            packageVersion = "1.0.0"
+            // CI 发版经 -Pmuses.desktop.version 从 tag 注入，本地不传时回落 1.0.0
+            packageVersion = (project.findProperty("muses.desktop.version") as String?) ?: "1.0.0"
             description = "Muses Music Player"
             vendor = "Muses"
         }
