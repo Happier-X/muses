@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.Icon
 import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Text
@@ -18,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -28,7 +31,6 @@ import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltDarkColors
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.ui.theme.musesNavbarHazeStyle
-import com.muses.player.core.uishared.platform.PlatformInsets
 import com.muses.player.core.uishared.platform.platformBlurModifier
 
 /**
@@ -61,8 +63,11 @@ fun SaltNavbar(
     val isDark = salt === SaltDarkColors
 
     // --m-navbar-pt: max(16px, safe-area-top)
-    // 使用 PlatformInsets 替代 WindowInsets.statusBars（跨平台兼容）
-    val statusBarTop = PlatformInsets.statusBarHeightDp().toDouble().dp
+    // CMP foundation 的 WindowInsets 跨平台可用：Android 取真实状态栏高度并响应变化，
+    // 桌面返回 0（此时 navbarPt 落回最小值）
+    val statusBarTop = with(LocalDensity.current) {
+        WindowInsets.statusBars.getTop(this).toDp()
+    }
     val navbarPt = maxOf(SaltSpacing.navbarTopPaddingMin, statusBarTop)
 
     // 平台模糊风格数据：Android 真 Haze / 桌面纯色降级

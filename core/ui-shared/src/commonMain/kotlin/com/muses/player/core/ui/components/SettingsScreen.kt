@@ -6,12 +6,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,13 +32,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
-import com.muses.player.core.uishared.platform.PlatformInsets
 import com.muses.player.core.uishared.platform.PlatformToast
 import kotlinx.coroutines.launch
 
@@ -77,7 +79,10 @@ fun SettingsScreen(
     var showAdd by remember { mutableStateOf(false) }
 
     // ---- navbar 顶部避让 ----
-    val statusBarTop = PlatformInsets.statusBarHeightDp().toDouble().dp
+    // 与 SaltNavbar 同口径：CMP WindowInsets 跨平台取真实状态栏高度，桌面返回 0
+    val statusBarTop = with(LocalDensity.current) {
+        WindowInsets.statusBars.getTop(this).toDp()
+    }
     val navbarPt = maxOf(SaltSpacing.navbarTopPaddingMin, statusBarTop) + 44.dp
 
     Box(modifier = modifier.fillMaxSize().background(salt.surface)) {
