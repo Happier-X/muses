@@ -1,0 +1,113 @@
+package com.muses.player.desktop.tray
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import java.awt.Color
+import java.awt.EventQueue
+import java.awt.Font
+import java.awt.Image
+import java.awt.MenuItem
+import java.awt.PopupMenu
+import java.awt.RenderingHints
+import java.awt.SystemTray
+import java.awt.TrayIcon
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
+import java.awt.image.BufferedImage
+
+/**
+ * 桌面系统托盘（二期预留落地，JvmPlayerPort.setTrayVisible 预留能力的承载者）：
+ * - 常驻图标 + 菜单（显示主窗口/播放⇄暂停/上一首/下一首/退出）；
+ * - 左键单击图标唤起主窗口；
+ * - SystemTray 不可用（无头/不支持）时静默降级为 no-op；
+ * - 图标为程序化占位（项目蓝圆底 + M），正式图标随打包 icon 任务替换。
+ *
+ * 动作以 lambda 注入，本类不感知播放器与窗口实现；AWT 创建与更新均在 EDT。
+ */
+class DesktopTray(
+    private val isPlaying: StateFlow<Boolean>,
+    private val onShowMainWindow: () -> Unit,
+    private val onTogglePlay: () -> Unit,
+    private val onNext: () -> Unit,
+    private val onPrevious: () -> Unit,
+    private val onExit: () -> Unit,
+    private val tooltip: String = "Muses",
+) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var trayIcon: TrayIcon? = null
+
+    /** 安装托盘；重复调用安全，SystemTray 不可用时 no-op。 */
+    fun install() {
+        if (!SystemTray.isSupported() || trayIcon != null) return
+        EventQueue.invokeLater {
+            runCatching {
+                val playItem = MenuItem("播放").apply {
+                    addActionListener { onTogglePlay() }
+                }
+                val popup = PopupMenu().apply {
+                    add(MenuItem("显示主窗口").apply {
+                        addActionListener { onShowMainWindow() }
+                    })
+                    add(playItem)
+                    add(MenuItem("上一首").apply {
+                        addActionListener { onPrevious() }
+                    })
+                    add(MenuItem("下一首").apply {
+                        addActionListener { onNext() }
+                    })
+                    addSeparator()
+                    add(MenuItem("退出").apply {
+                        addActionListener { onExit() }
+                    })
+                }
+                val icon = TrayIcon(createIconImage(), tooltip, popup).apply {
+                    isImageAutoSize = true
+                    addMouseListener(object : MouseAdapter() {
+                        override fun mouseClicked(e: MouseEvent) {
+                            if (e.button == MouseEvent.BUTTON1) onShowMainWindow()
+                        }
+                    })
+                }
+                SystemTray.getSystemTray().add(icon)
+                trayIcon = icon
+                scope.launch {
+                    isPlaying.collect { playing ->
+                        EventQueue.invokeLater {
+                            runCatching { playItem.label = if (playing) "暂停" else "播放" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** 移除托盘并停止状态收集；未安装时安全。应用退出前调用。 */
+    fun uninstall() {
+        scope.cancel()
+        val icon = trayIcon ?: return
+        trayIcon = null
+        EventQueue.invokeLater {
+            runCatching { SystemTray.getSystemTray().remove(icon) }
+        }
+    }
+
+    /** 程序化占位图标：项目蓝圆底 + 白色 M。 */
+    private fun createIconImage(): Image {
+        val size = 32
+        val img = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
+        val g = img.createGraphics()
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+        g.color = Color(0x89, 0xB4, 0xFA)
+        g.fillOval(1, 1, size - 3, size - 3)
+        g.color = Color.WHITE
+        g.font = Font(Font.SANS_SERIF, Font.BOLD, 17)
+        val fm = g.fontMetrics
+        g.drawString("M", (size - fm.stringWidth("M")) / 2, size / 2 + fm.ascent / 2 - 2)
+        g.dispose()
+        return img
+    }
+}
