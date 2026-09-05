@@ -2,14 +2,9 @@ package com.muses.player.feature.player
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,36 +12,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -61,25 +42,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -88,16 +62,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import coil3.compose.AsyncImage
 import org.koin.compose.viewmodel.koinViewModel
-import com.muses.player.core.ui.components.SaltCoverRadius
+import com.muses.player.core.ui.components.PlayerControls
+import com.muses.player.core.ui.components.PlayerCoverHero
+import com.muses.player.core.ui.components.PlayerModeBar
+import com.muses.player.core.ui.components.PlayerProgress
 import com.muses.player.core.ui.components.SaltIconButton
-import com.muses.player.core.ui.components.SaltIconButtonSize
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.feature.player.backdrop.FlowingLightBackdrop
 import com.muses.player.feature.player.lyric.AmllLyricLine
 import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.feature.player.lyric.LyricsPanel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -623,6 +598,7 @@ private fun TabletImmersiveLayout(
                     .weight(1f)
                     .fillMaxHeight(),
             ) {
+                // 歌词面板（V2 范围外，不动）：NativeLyricsPanel 手势分流保持原生
                 LyricsPanel(
                     document = lyricsDocument,
                     positionMs = lyricPosition,
@@ -772,7 +748,11 @@ private fun InfoPanel(
     }
 }
 
-// ---------- 封面 hero：player-page__cover-hero ----------
+// ---------- 非歌词部分已上收 ui-shared（V2）： ----------
+// CoverHero → PlayerCoverHero / ProgressSection → PlayerProgress /
+// ControlsRow → PlayerControls / ModeBarRow → PlayerModeBar。
+// 安卓保留同名私有适配壳（断点 gap/barHeight 计算 + 参数映射），
+// 手势铁律与渲染实现只在 ui-shared commonMain 维护一份。
 
 @Composable
 private fun CoverHero(
@@ -782,47 +762,14 @@ private fun CoverHero(
     screenWidth: Dp = 360.dp,
     isNarrowHeight: Boolean = false,
 ) {
-    val shape = RoundedCornerShape(12.dp)
-    // 对齐 Capacitor player-page__cover-hero：容器 max-height min(50vh,420px) + cover-hero-img aspect 1 contain
-    val maxHeroHeight = minOf(screenHeight * 0.5f, 420.dp)
-    val narrowMaxWidth = if (isNarrowHeight) minOf(screenWidth * 0.34f, 150.dp) else null
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(max = maxHeroHeight),
-        contentAlignment = Alignment.Center,
-    ) {
-        val availableWidth = maxWidth
-        val availableHeight = maxHeight
-        val targetSize = when {
-            narrowMaxWidth != null -> narrowMaxWidth
-            else -> minOf(availableWidth, availableHeight)
-        }
-        Box(
-            modifier = Modifier
-                .size(targetSize)
-                .aspectRatio(1f)
-                .clip(shape)
-                .background(Color.White.copy(alpha = 0.06f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (!coverUri.isNullOrBlank()) {
-                AsyncImage(
-                    model = coverUri,
-                    contentDescription = "封面",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(shape),
-                )
-            } else {
-                Icon(TablerIcons.MusicNoteOutlined, contentDescription = null, tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(64.dp))
-            }
-        }
-    }
+    PlayerCoverHero(
+        coverUri = coverUri,
+        modifier = modifier,
+        screenHeight = screenHeight,
+        screenWidth = screenWidth,
+        isNarrowHeight = isNarrowHeight,
+    )
 }
-
-// ---------- 进度区：m-range + time-row ----------
 
 @Composable
 private fun ProgressSection(
@@ -834,99 +781,16 @@ private fun ProgressSection(
     // 手机布局据此禁用 HorizontalPager 横滑，杜绝 seek 拖动被当成切页。
     onSeekDragActive: (Boolean) -> Unit = {},
 ) {
-    var previewMs by remember { mutableStateOf<Long?>(null) }
-    val displayPos = previewMs ?: position
-    val max = duration.coerceAtLeast(1L)
-    val canSeek = duration > 0L
-    // 兼容 Capacitor：k-range 细轨（4px 白） + thumbWrap 隐藏（无圆球），
-    // 完全自绘——不依赖 Material3 Slider 的 disabled 灰轨/默认 thumb
-    Column(Modifier.fillMaxWidth()) {
-        val barHeight = if (LocalConfiguration.current.screenHeightDp <= 520) 18.dp else 20.dp
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(barHeight)
-                .pointerInput(canSeek, max) {
-                    if (!canSeek) return@pointerInput
-                    fun fractionAt(offset: androidx.compose.ui.geometry.Offset): Float =
-                        (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                    // 注意：不可在此串行调用 detectTapGestures + detectDragGestures——
-                    // 前者内部 awaitEachGesture 无限循环永不返回，后者会成死代码
-                    // （这正是此前拖动失效、手势冒泡给 pager 切页的根因）。
-                    // 单一 awaitEachGesture 同时处理 tap + 水平拖动，越过 slop 即 consume。
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        // 按在进度条上即视为 seek 意图：先通知上层禁用 pager 横滑，关掉抢手势的窗口
-                        onSeekDragActive(true)
-                        try {
-                            val slop = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ ->
-                                change.consume()
-                            }
-                            if (slop == null) {
-                                // 未越过 slop 即抬手 → 点击 seek（对齐原 detectTapGestures 行为）
-                                onSeekStart()
-                                onSeekEnd((fractionAt(down.position) * max).toLong().coerceIn(0L, duration))
-                            } else {
-                                // 拖动：跟手预览，松手 commit（对齐原 detectDragGestures 语义）
-                                previewMs = (fractionAt(slop.position) * max).toLong()
-                                onSeekStart()
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                    if (!change.pressed) break
-                                    change.consume()
-                                    previewMs = (fractionAt(change.position) * max).toLong()
-                                }
-                                onSeekEnd((previewMs ?: position).coerceIn(0L, duration))
-                            }
-                        } finally {
-                            previewMs = null
-                            onSeekDragActive(false)
-                        }
-                    }
-                }
-                .drawBehind {
-                    // 底轨 rgba(255,255,255,0.25) + 填充 #fff，4dp 圆角细轨（对齐 .progress-range 全局样式）
-                    val trackH = 4.dp.toPx()
-                    val top = (size.height - trackH) / 2f
-                    val fraction = (displayPos.toFloat() / max.toFloat()).coerceIn(0f, 1f)
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = 0.25f),
-                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
-                        size = androidx.compose.ui.geometry.Size(size.width, trackH),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackH / 2f),
-                    )
-                    drawRoundRect(
-                        color = Color.White,
-                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
-                        size = androidx.compose.ui.geometry.Size(size.width * fraction, trackH),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackH / 2f),
-                    )
-                },
-        )
-        // time-row：对齐 Capacitor 12px tabular-nums rgba0.68，margin-top 2px（缓冲提示已按需求移除）
-        Row(
-            Modifier.fillMaxWidth().padding(top = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = formatTime(displayPos),
-                color = Color.White.copy(alpha = 0.68f),
-                fontSize = 12.sp,
-                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
-            )
-            Text(
-                text = if (duration > 0) formatTime(duration) else "--:--",
-                color = Color.White.copy(alpha = 0.68f),
-                fontSize = 12.sp,
-                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
-            )
-        }
-    }
+    val barHeight = if (LocalConfiguration.current.screenHeightDp <= 520) 18.dp else 20.dp
+    PlayerProgress(
+        positionMs = position,
+        durationMs = duration,
+        onSeekStart = onSeekStart,
+        onSeekEnd = onSeekEnd,
+        barHeight = barHeight,
+        onSeekDragActive = onSeekDragActive,
+    )
 }
-
-// ---------- 控制区：controls 三键 lg + mode-bar 四键 ----------
 
 @Composable
 private fun ControlsRow(
@@ -947,33 +811,14 @@ private fun ControlsRow(
             else -> vw10.coerceIn(24.dp, 44.dp)
         }
     }
-    val btnSize = SaltIconButtonSize.LG
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(gap),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SaltIconButton(
-            onClick = onPrevious,
-            imageVector = TablerIcons.SkipPreviousFill,
-            contentDescription = "上一曲",
-            size = btnSize,
-            tint = Color.White.copy(alpha = 0.9f),
-        )
-        SaltIconButton(
-            onClick = onPlayPause,
-            imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill,
-            contentDescription = if (isPlaying) "暂停" else "播放",
-            size = btnSize,
-            tint = Color.White.copy(alpha = 0.92f),
-        )
-        SaltIconButton(
-            onClick = onNext,
-            imageVector = TablerIcons.SkipNextFill,
-            contentDescription = "下一曲",
-            size = btnSize,
-            tint = Color.White.copy(alpha = 0.9f),
-        )
-    }
+    PlayerControls(
+        isPlaying = isPlaying,
+        onPrevious = onPrevious,
+        onPlayPause = onPlayPause,
+        onNext = onNext,
+        compact = compact,
+        gap = gap,
+    )
 }
 
 @Composable
@@ -986,44 +831,20 @@ private fun ModeBarRow(
     onOpenEditMeta: () -> Unit,
 ) {
     // mode-bar：max-width 320（≤720 收 280、≤520 收 260），space-between，无 is-active（仅图标对 + aria-label）
-    // 图标：repeatOutline(repeat) / repeat(one)，shuffle / listOutline（顺序播放）
     val modeMaxWidth = when {
         LocalConfiguration.current.screenHeightDp <= 520 -> 260.dp
         LocalConfiguration.current.screenHeightDp <= 720 -> 280.dp
         else -> 320.dp
     }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .widthIn(max = modeMaxWidth),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SaltIconButton(
-            onClick = onToggleRepeat,
-            imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) TablerIcons.RepeatOne else TablerIcons.Repeat,
-            contentDescription = if (repeatMode == Player.REPEAT_MODE_ONE) "单曲循环" else "列表循环",
-            tint = Color.White.copy(alpha = 0.8f),
-        )
-        SaltIconButton(
-            onClick = onToggleShuffle,
-            imageVector = if (shuffleEnabled) TablerIcons.Shuffle else TablerIcons.FormatListBulleted,
-            contentDescription = if (shuffleEnabled) "随机播放" else "顺序播放",
-            tint = Color.White.copy(alpha = 0.8f),
-        )
-        SaltIconButton(
-            onClick = onOpenQueue,
-            imageVector = TablerIcons.QueueMusic,
-            contentDescription = "播放队列",
-            tint = Color.White.copy(alpha = 0.8f),
-        )
-        SaltIconButton(
-            onClick = onOpenEditMeta,
-            imageVector = TablerIcons.MoreVert,
-            contentDescription = "更多",
-            tint = Color.White.copy(alpha = 0.8f),
-        )
-    }
+    PlayerModeBar(
+        repeatMode = repeatMode,
+        shuffleEnabled = shuffleEnabled,
+        onToggleRepeat = onToggleRepeat,
+        onToggleShuffle = onToggleShuffle,
+        onOpenQueue = onOpenQueue,
+        onOpenEditMeta = onOpenEditMeta,
+        maxWidth = modeMaxWidth,
+    )
 }
 
 // ---------- 平板底部控制条：player-page__bottom-bar ----------
@@ -1084,16 +905,14 @@ private fun TabletBottomBar(
                     tint = Color.White.copy(alpha = 0.8f),
                 )
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(
-                    (LocalConfiguration.current.screenWidthDp.dp * 0.05f).coerceIn(20.dp, 44.dp)
-                ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SaltIconButton(onClick = onPrevious, imageVector = TablerIcons.SkipPreviousFill, contentDescription = "上一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
-                SaltIconButton(onClick = onPlayPause, imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill, contentDescription = if (isPlaying) "暂停" else "播放", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.92f))
-                SaltIconButton(onClick = onNext, imageVector = TablerIcons.SkipNextFill, contentDescription = "下一曲", size = SaltIconButtonSize.LG, tint = Color.White.copy(alpha = 0.9f))
-            }
+            PlayerControls(
+                isPlaying = isPlaying,
+                onPrevious = onPrevious,
+                onPlayPause = onPlayPause,
+                onNext = onNext,
+                compact = true,
+                gap = (LocalConfiguration.current.screenWidthDp.dp * 0.05f).coerceIn(20.dp, 44.dp),
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 SaltIconButton(onClick = onOpenQueue, imageVector = TablerIcons.QueueMusic, contentDescription = "播放队列", tint = Color.White.copy(alpha = 0.8f))
                 SaltIconButton(onClick = onOpenEditMeta, imageVector = TablerIcons.MoreVert, contentDescription = "更多", tint = Color.White.copy(alpha = 0.8f))
@@ -1158,23 +977,8 @@ private class LyricClock {
     @Volatile var anchorFrameMs: Long = 0L
 }
 
-private fun computeCurrentIndex(lines: List<AmllLyricLine>, positionMs: Long): Int {
-    if (lines.isEmpty()) return -1
-    var idx = -1
-    for (i in lines.indices) {
-        if (lines[i].startTime <= positionMs) idx = i else break
-    }
-    if (idx == -1) return 0
-    val last = lines.last()
-    if (positionMs > last.endTime) return lines.lastIndex
-    return idx.coerceIn(0, lines.lastIndex)
-}
-
-private fun formatTime(ms: Long): String {
-    // 对齐 Capacitor formatTime：分钟补零（"03:45"）
-    val totalSec = (ms / 1000).toInt().coerceAtLeast(0)
-    return "%02d:%02d".format(totalSec / 60, totalSec % 60)
-}
+// 注：computeCurrentIndex/formatTime 已随 V2 上收到 ui-shared（formatPlayerTime），
+// 本文件残留版本已删除；SimpleLyricsPanel 自带同名私有实现，不受影响。
 
 // ---------- 队列页（保持原有 Salt 风格，轻微对齐） ----------
 
