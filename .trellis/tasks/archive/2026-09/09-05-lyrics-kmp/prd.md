@@ -25,10 +25,10 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1：`:core:common` commonMain/jvmShared 零安卓 import；`:core:lyrics` 瘦壳或清空。
-- [ ] AC2：桌面刮削页歌词维度可用（刮削预览出现歌词字段，写回歌词落文件）。
-- [ ] AC3：安卓歌词行为不变（全模块单测 + 播放页回归）。
-- [ ] AC4：全量回归通过（三端编译 + 单测）。
+- [x] AC1：`:core:common` commonMain/jvmShared 零安卓 import；`:core:lyrics` 瘦壳或清空。
+- [x] AC2：桌面刮削页歌词维度可用（刮削预览出现歌词字段，写回歌词落文件）。
+- [x] AC3：安卓歌词行为不变（全模块单测 + 播放页回归）。
+- [x] AC4：全量回归通过（三端编译 + 单测）。
 
 ## Out of Scope
 
