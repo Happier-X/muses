@@ -15,13 +15,14 @@ import kotlinx.serialization.json.JsonPrimitive
  * - 进程内单飞加载（对齐 indexPromise 语义），失败不缓存可重试
  */
 
-internal const val AMLL_INDEX_URL =
+// X2 迁移注：原 internal，留守 :core:lyrics 的 LyricsModule.kt 跨模块引用，放宽为 public（语义不变）
+const val AMLL_INDEX_URL =
     "https://cdn.jsdelivr.net/gh/amll-dev/amll-ttml-db@main/metadata/raw-lyrics-index.jsonl"
 
 internal const val AMLL_TTML_BASE_URL =
     "https://cdn.jsdelivr.net/gh/amll-dev/amll-ttml-db@main/raw-lyrics/"
 
-internal const val AMLL_INDEX_TIMEOUT_SEC = 20L
+const val AMLL_INDEX_TIMEOUT_SEC = 20L
 internal const val AMLL_TTML_TIMEOUT_SEC = 12L
 
 /** 解析单行索引（parseIndexLine）；结构不符/缺关键字段 → null */
