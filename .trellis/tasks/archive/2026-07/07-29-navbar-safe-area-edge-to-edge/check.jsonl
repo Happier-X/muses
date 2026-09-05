@@ -1,6 +1,0 @@
-[
-  {"id":1,"type":"check","timestamp":"2026-07-29T02:16:00Z","content":"AC1: 背景 Edge-to-Edge + 内容避让 — 依赖宿主 CSS 与 Capacitor 注入。"},
-  {"id":2,"type":"check","timestamp":"2026-07-29T02:16:00Z","content":"AC2: CSS 使用 var(--safe-area-inset-top, env(...)) + capacitor.config.ts 显式 insetsHandling='css'。"},
-  {"id":3,"type":"check","timestamp":"2026-07-29T02:16:00Z","content":"AC3~AC4: 滚动/overlay 后 Navbar 固定兼容性 — 确保不改 MPage 契约。"},
-  {"id":4,"type":"check","timestamp":"2026-07-29T02:16:00Z","content":"AC5~AC7: build/lint 通过；Android配置写入正确；提交 GitHub issue；不修改库源码。"}
-]

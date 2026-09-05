@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/android/features-webdav-library.md", "reason": "WebDAV边播边缓存与限流教训：桌面侧缓存重写时必须保留的约束"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用审查：播放持久化与恢复链进commonMain的复用判定"}

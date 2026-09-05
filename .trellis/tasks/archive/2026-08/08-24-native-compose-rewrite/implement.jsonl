@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/08-24-native-compose-rewrite/prd.md", "reason": "需求全集、里程碑路线与已确认决策 D1-D4"}
-{"file": ".trellis/tasks/08-24-native-compose-rewrite/design.md", "reason": "M1 架构设计：模块结构、技术栈定版、播放/WebDAV/Salt 主题方案"}
-{"file": ".trellis/spec/frontend/features-player.md", "reason": "现有播放器契约与历史踩坑（通知架构、进度同步、返回键行为），原生重写需对照评估哪些约束仍适用"}

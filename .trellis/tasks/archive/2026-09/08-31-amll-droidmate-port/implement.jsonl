@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "现行 WebView 契约与禁止条款，指导本次复活范围与桥接口"}
-{"file": ".trellis/spec/android/index.md", "reason": "播放持久化与恢复链路的架构分层，确认 ViewModel 不持 Context、播放仅主线程"}
-{"file": ".trellis/spec/android/features-salt-ui.md", "reason": "布局陷阱与平板双栏契约，避免播放页位移与 isTabletLayout 误判"}
-{"file": ".trellis/spec/guides/index.md", "reason": "跨层与复用思考，确保 API 字段在 Kotlin/JS 两侧一致"}

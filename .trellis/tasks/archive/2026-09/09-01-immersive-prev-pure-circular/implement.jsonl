@@ -1,2 +1,0 @@
-{"file": "core/media/src/main/kotlin/com/muses/player/core/media/playback/PlayerConnection.kt", "reason": "纯队列循环切歌实现"}
-{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "切歌循环契约"}

@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "校验 WebView 渲染、粘性封面、歌词解析映射是否合规"}
-{"file": ".trellis/spec/android/index.md", "reason": "校验分层与构建命令 assembleMusesDebug/lintMusesDebug"}
-{"file": ".trellis/spec/android/features-salt-ui.md", "reason": "校验拖拽回弹与平板布局未回归"}

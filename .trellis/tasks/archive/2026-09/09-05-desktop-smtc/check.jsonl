@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/09-05-desktop-smtc/research/smtc-interop.md", "reason": "核对实现是否遵循调研报告的接口顺序、线程模型与降级策略"}
-{"file": ".trellis/spec/android/index.md", "reason": "检查按键语义与状态映射是否与既有播放契约一致"}

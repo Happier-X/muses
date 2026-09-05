@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/android/index.md", "reason": "检查分层依赖红线与架构一致性"}
-{"file": ".trellis/spec/android/features-scrape-engine.md", "reason": "检查写回安全语义、限流/负缓存契约、CancellationException rethrow 红线是否被破坏"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "检查是否重复造轮子（FieldCheckRow 迁移而非复制、候选 UI 复用 EditDimResult 结构）"}
-{"file": ".trellis/tasks/09-03-scrape-tagger-ux/research/tagger-ux-analysis.md", "reason": "验收对照：需求是否覆盖 Tagger 操作逻辑的核心差距"}

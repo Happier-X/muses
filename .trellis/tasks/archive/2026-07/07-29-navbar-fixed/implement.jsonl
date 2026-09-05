@@ -1,9 +1,0 @@
-[
-  {"id":1,"type":"research","timestamp":"2026-07-29T08:26:00Z","content":"根因：TabsPage 主元素在 md+ 设 `overflow-auto` 使整页（含 navbar）成为滚动容器；HNavBar 组件库默认 fixed=true，Muses 页壳有意 false，依赖 flex 骨架。详见设计.md 方案 A。"},
-  {"id":2,"type":"research","timestamp":"2026-07-29T08:26:00Z","content":"component-guidelines.md 页面骨架 Pattern 明确：MPage 用 HNavBar :fixed=false + MContent 滚动；不改库。"},
-  {"id":3,"type":"research","timestamp":"2026-07-29T08:26:00Z","content":"高度链核验：html/body/#app 未显式 100% 高度，.m-page height:100% 依赖祖先；需在 tailwind.css 补齐。"},
-  {"id":4,"type":"research","timestamp":"2026-07-29T08:26:00Z","content":"mockup：窄屏长列表滚、宽屏侧栏下顶栏钉住、content 独立滚动。"},
-  {"id":5,"type":"check","timestamp":"2026-07-29T08:26:00Z","content":"AC1~AC6：Tabs 主 main 不再滚动吞 navbar；overlay 回归后列表页顶栏仍钉；不改库。"},
-  {"id":6,"type":"check","timestamp":"2026-07-29T08:26:00Z","content":"风险：Tabs overflow 改坏宽屏高度或侧栏；全局 height 影响 overlay。"},
-  {"id":7,"type":"check","timestamp":"2026-07-29T08:26:00Z","content":"当前规划无 blocking open question；已完成 PRD convergence pass。"}
-]

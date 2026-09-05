@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/android/index.md", "reason": "播放持久化契约与key冻结：playback_snapshot/config键名与默认值"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "DB与DataStore跨层边界：builder与路径供给的平台划分"}

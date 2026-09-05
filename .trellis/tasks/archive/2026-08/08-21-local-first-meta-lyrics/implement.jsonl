@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "歌词展示优先级（247 行附近）与曲库存储契约需按本地来源语义改写；含 upsert/手改保护约定"}
-{"file": ".trellis/spec/frontend/features-player.md", "reason": "播放器 controller 结构、切歌流程、预取调度约定，移除在线匹配时须遵循"}
-{"file": ".trellis/spec/frontend/features-scrape.md", "reason": "刮削页候选/写回/来源标记（embedded/cloud）约定，新增 scrape 标记需对齐"}
-{"file": ".trellis/spec/frontend/type-safety.md", "reason": "枚举扩展（LyricsSource/FieldSource 加 scrape）的类型规范"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/type-check/test 质量门槛与单测要求"}

@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "移除信息页meta-window契约"}
-{"file": "app/src/main/assets/amll/full-player.js", "reason": "移除renderMetaWindow与DOM创建"}

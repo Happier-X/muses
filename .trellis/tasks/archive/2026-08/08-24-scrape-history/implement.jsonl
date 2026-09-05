@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/frontend/features-scrape.md", "reason": "刮削模块规范：队列存储模式、失败文案、写回契约"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Salt token 与组件约定"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "验证命令规范"}
-{"file": ".trellis/tasks/08-24-scrape-history/prd.md", "reason": "本任务需求与验收标准"}

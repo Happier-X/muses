@@ -1,6 +1,0 @@
-[
-  {"id":1,"type":"research","timestamp":"2026-07-31T00:00:00Z","content":"happier-ui 0.0.7 HPopup fullscreen：z-index 1200 与 QueuePage 一致；panel inset:0 无圆角无 padding；自带 swipe-down 关闭 + transition + useScrollLock（引用计数锁 documentElement）。HBottomSheet/HDialog 是 HPopup 薄包装。见 design.md。"},
-  {"id":2,"type":"research","timestamp":"2026-07-31T00:00:00Z","content":"PlayerPage 迁移 HPopup 有硬冲突：HPopup slot 是 v-if（无 keepAlive/v-show）→ 关闭卸载 AMLL BackgroundRender → #22 回归；HPopup fullscreen 自带 swipe-down 与 PlayerPage 自建手势（横向切面板/纵向关闭/进度条隔离/touch-action-none）冲突。用户决策 B：PlayerPage 保留宿主实现。"},
-  {"id":3,"type":"research","timestamp":"2026-07-31T00:00:00Z","content":"ExploreContainer.vue 无任何 import 引用，是 Ionic 遗留死代码，可直接删除。MContent/MiniPlayer/action-sheet.ts 本次不动。component-guidelines.md 约定：happier-ui 精确版本、无 file: 链接、宿主不覆盖库已接管能力。"},
-  {"id":4,"type":"check","timestamp":"2026-07-31T00:00:00Z","content":"AC1~AC7：QueuePage 用 HPopup fullscreen；下滑关闭 + 转场正常；滚动锁三场景无残留；全功能正常；ExploreContainer 无引用；lint/build 通过；PlayerPage 保活/手势不回归。"}
-]

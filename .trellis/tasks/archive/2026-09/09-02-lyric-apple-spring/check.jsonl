@@ -1,3 +1,0 @@
-{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/AppleSpringPlacement.kt", "reason": "校验 Lookahead 弹簧无振荡、200ms 回位"}
-{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeLyricsPanel.kt", "reason": "校验滚动与 placement 弹簧与手势中断"}
-{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeKaraokeLine.kt", "reason": "校验行 overshoot 与词级浮动无闪烁"}

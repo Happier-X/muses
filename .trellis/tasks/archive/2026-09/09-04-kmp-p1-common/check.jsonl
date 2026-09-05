@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/android/features-scrape-engine.md", "reason": "刮削引擎数据层约束：搬迁文件不得破坏队列/写回链路"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用审查：禁止为搬迁制造重复副本"}

@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend coding conventions, component patterns"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Component usage rules (note: stale 0.0.2-era, to be updated post-migration)"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Code quality standards"}
-{"file": ".trellis/tasks/07-25-migrate-off-ionic-core/prd.md", "reason": "Task requirements and acceptance criteria"}
-{"file": ".trellis/tasks/07-25-migrate-off-ionic-core/design.md", "reason": "Technical design, component contracts, migration mapping"}

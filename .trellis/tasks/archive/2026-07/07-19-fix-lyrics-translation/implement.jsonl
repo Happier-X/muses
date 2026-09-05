@@ -1,3 +1,0 @@
-{"file":".trellis/spec/frontend/component-guidelines.md","reason":"约束 PlayerPage 的 AMLL 歌词容器、响应式布局、翻译副行和活跃行样式。"}
-{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"约束歌词功能的 lint、build、unit test 验证。"}
-{"file":".trellis/spec/frontend/features-player.md","reason":"约束播放器歌词状态、歌词格式和翻译显示契约。"}

@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/08-25-native-m3-scrape-engine/prd.md", "reason": "范围批次 S0-S5、方法论（Web=规格书）、与 Salt UI 任务的文件隔离铁律"}
-{"file": ".trellis/tasks/08-25-native-m3-scrape-engine/design.md", "reason": "模块边界、包结构、写回五步契约、存储介质映射表、并发策略"}
-{"file": ".trellis/spec/android/index.md", "reason": "原生工程分层规则：core:* 禁依赖 Compose，接口+Hilt @Binds"}

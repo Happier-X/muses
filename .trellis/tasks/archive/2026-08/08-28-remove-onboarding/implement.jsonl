@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/android/index.md", "reason": "移除引导页后需修正 app 宿主导航描述"}
-{"file": ".trellis/spec/android/features-webdav-library.md", "reason": "修正凭据生命周期中引导页表述"}

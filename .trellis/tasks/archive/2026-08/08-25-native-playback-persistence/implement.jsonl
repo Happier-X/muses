@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/android/index.md", "reason": "分层规则、播放契约、构建验证命令"}
-{"file": ".trellis/spec/android/features-scrape-engine.md", "reason": "DataStore JSON snapshot 编解码模式（WritebackJson）与踩坑记录复用"}

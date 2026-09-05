@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/android/features-scrape-engine.md", "reason": "刮削队列与写回链路约束：store搬迁不得改语义"}
-{"file": ".trellis/spec/android/features-webdav-library.md", "reason": "WebDAV缓存与凭据约束：CredentialsRepository留守边界"}

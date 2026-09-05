@@ -1,5 +1,0 @@
-{"file": ".trellis/tasks/08-24-native-m2-lyrics-playlist/prd.md", "reason": "M2 范围、已定案决策（不做在线匹配、accompanist 方案）与验收标准"}
-{"file": ".trellis/tasks/08-24-native-m2-lyrics-playlist/design.md", "reason": "技术设计：选型与 API 事实、模块布局、歌词链路/背景治理/播放列表 schema/响度计算、M1 依赖契约"}
-{"file": ".trellis/tasks/08-24-native-m1-core-playback/prd.md", "reason": "M1 交付边界与环境事实（JAVA_HOME、SDK 路径），M2 前置依赖的来源"}
-{"file": ".trellis/spec/frontend/features-player.md", "reason": "AMLL 背景生命周期治理契约（后台 pause、粘性封面、有界缓存）、歌词播完钳制等必须继承的行为语义"}
-{"file": ".trellis/tasks/08-24-native-compose-rewrite/design.md", "reason": "父任务架构设计：模块结构 core:{model,data,webdav,media}/feature:* 与分层规则"}

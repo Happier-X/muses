@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "校验 PlayerPage 迁移是否符合 HPopup fullscreen 约定与既有双锁语义"}
-{"file": ".trellis/spec/frontend/features-player.md", "reason": "校验保活/手势/状态栏回归是否违反播放器既有规范"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "AC6 build/lint 与代码质量核对"}

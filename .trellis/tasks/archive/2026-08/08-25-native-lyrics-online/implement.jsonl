@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/08-25-native-lyrics-online/prd.md", "reason": "范围批次 L0-L4、方法论、验收标准"}
-{"file": ".trellis/tasks/08-25-native-lyrics-online/design.md", "reason": "模块边界、包结构、wyCrypto/AMLL/编排契约、username 补缺方案"}
-{"file": ".trellis/spec/android/index.md", "reason": "分层规则与构建验证命令"}
-{"file": ".trellis/spec/android/features-scrape-engine.md", "reason": "M3 沉淀的踩坑记录（URLEncoder/JsonElement/MockWebServer host 重写），本任务直接复用"}

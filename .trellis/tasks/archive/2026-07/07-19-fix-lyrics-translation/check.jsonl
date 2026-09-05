@@ -1,3 +1,0 @@
-{"file":".trellis/spec/frontend/component-guidelines.md","reason":"检查翻译副行与当前行高亮样式及播放器布局是否符合规范。"}
-{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"运行完整质量命令并评估结果。"}
-{"file":".trellis/spec/frontend/features-player.md","reason":"检查歌词翻译状态、TTML/LRC/YRC/QRC 兼容和安全回退行为。"}

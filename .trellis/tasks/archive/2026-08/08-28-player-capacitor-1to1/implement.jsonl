@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/android/index.md", "reason": "沉浸式页纯 Compose 契约与播放持久化"}
-{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "歌词/播放列表/响度均衡原生规范"}
-{"file": ".trellis/spec/android/features-salt-ui.md", "reason": "Salt UI 组件体系与布局陷阱"}
-{"file": ".trellis/spec/frontend/features-player.md", "reason": "Capacitor 原版播放器契约作为 1:1 对照源"}

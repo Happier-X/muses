@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/08-25-native-m3-scrape-engine/prd.md", "reason": "验收清单：常量对齐 Web 值、门禁命令、git diff 隔离自检"}
-{"file": ".trellis/tasks/08-25-native-m3-scrape-engine/design.md", "reason": "检查模块依赖方向与存储映射是否遵循设计，无 Compose 依赖泄漏"}

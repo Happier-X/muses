@@ -1,1 +1,0 @@
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "修改配置常量（packageVersion/javaHome）前先全局搜索引用，防止漏改"}

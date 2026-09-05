@@ -1,4 +1,0 @@
-{"path":".trellis/spec/frontend/component-guidelines.md","reason":"沉浸主控/mode-bar/歌词 FAB ghost 契约"}
-{"path":".trellis/spec/frontend/features-player.md","reason":"播放页歌词 FAB 与沉浸约定"}
-{"path":"src/theme/tailwind.css","reason":"当前分裂的 controls/mode-bar/lyric-fab 样式"}
-{"path":"src/views/PlayerPage.vue","reason":"按钮结构与 is-active class"}

@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "HPopup fullscreen 用法、keepAlive/swipeClose 契约、PlayerPage 保留宿主实现的历史决策与迁移语境（哪个对应本任务要更新的段落）"}
-{"file": ".trellis/spec/frontend/features-player.md", "reason": "PlayerPage 保活（#22）、手势、状态栏交互、overlay 的既有规范"}
-{"file": ".trellis/tasks/08-03-player-hpopup-migration/design.md", "reason": "迁移设计：HPopup 外壳、z-index、双锁、手势保留"}

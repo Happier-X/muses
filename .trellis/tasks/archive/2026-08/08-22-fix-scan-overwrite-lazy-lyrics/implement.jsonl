@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "项目质量规范：测试、lint、禁止管道吞退出码等约定"}
-{"file": ".trellis/spec/frontend/type-safety.md", "reason": "类型安全约定，scanner.ts 改动需遵守"}
-{"file": ".trellis/tasks/08-22-fix-scan-overwrite-lazy-lyrics/prd.md", "reason": "本任务需求与验收标准"}

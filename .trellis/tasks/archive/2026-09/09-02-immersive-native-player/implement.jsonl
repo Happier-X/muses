@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/android/index.md", "reason": "沉浸式播放页当前为单一WebView整页的架构契约与播放持久化/恢复链，需重写为原生Compose自研方案"}
-{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "AMLL渲染/WebViewAssetLoader/isPageReady/BackgroundRender等历史契约，需替换为NativeLyricsPanel自研卡拉OK渲染契约"}
-{"file": ".trellis/spec/android/features-salt-ui.md", "reason": "Salt UI组件与平板双栏布局陷阱，保障Controls/ModeBar/TabletBottomBar复用一致"}
-{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/PlayerScreen.kt", "reason": "现状FullPlayerWebView容器，需重构为FlowingLightBackdrop+HorizontalPager/双栏原生容器"}
-{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/LyricsPanel.kt", "reason": "现有LyricsPanel包LyricWebView，需改为包NativeLyricsPanel"}
-{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeLyricsPanel.kt", "reason": "新增自研歌词面板（LazyColumn+currentIndex居中+FAB）"}
-{"file": "feature/player/src/main/kotlin/com/muses/player/feature/player/lyric/NativeKaraokeLine.kt", "reason": "新增单行逐词/逐字Canvas裁剪渲染（BlendMode+Plus发光）"}

@@ -1,5 +1,0 @@
-[
-  {"id":1,"type":"check","timestamp":"2026-07-29T08:26:00Z","content":"AC1~AC6：Tabs 主 main 不再滚动吞 navbar；overlay 回归后列表页顶栏仍钉；不改库。"},
-  {"id":2,"type":"check","timestamp":"2026-07-29T08:26:00Z","content":"风险：Tabs overflow 改坏宽屏高度或侧栏；全局 height 影响 overlay。"},
-  {"id":3,"type":"check","timestamp":"2026-07-29T08:26:00Z","content":"当前规划无 blocking open question；已完成 PRD convergence pass。"}
-]

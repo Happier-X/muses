@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/08-25-native-salt-ui/prd.md", "reason": "复刻范围批次划分、方法论（Vue=规格书）与验收标准"}
-{"file": ".trellis/tasks/08-25-native-salt-ui/design.md", "reason": "翻译流水线、设计令牌映射表、m-* 组件映射表、各页面要点"}
-{"file": ".trellis/spec/android/index.md", "reason": "原生工程分层规则与禁止模式"}
-{"file": ".trellis/spec/android/features-lyrics-playlist.md", "reason": "AMLL WebView 层契约——P4 播放页整合时不得破坏"}
