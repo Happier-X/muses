@@ -7,7 +7,7 @@ import android.widget.Toast
  * U2 androidMain 真实现：通过 [init] 注入应用 [Context]，使用系统 Toast 显示短提示。
  *
  * - 调用方在 Application.onCreate 处调一次 [init]；
- * - [init] 幂等：首个值生效；重复传入不同实例抛错（与 PlatformInsets 口径一致）；
+ * - [init] 幂等：首个值生效；重复传入不同实例抛错；
  * - 未初始化时 [show] 静默丢弃，不抛异常。
  */
 actual object PlatformToast {
