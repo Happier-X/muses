@@ -1,6 +1,5 @@
 package com.muses.player.core.scrape.editmeta
 
-import com.muses.player.core.lyrics.LyricsMatcher
 import com.muses.player.core.lyrics.amll.AmllTtmlDbClient
 import com.muses.player.core.model.lyrics.AmllMatchQuery
 import com.muses.player.core.model.lyrics.LyricsProvider
@@ -11,6 +10,10 @@ import com.muses.player.core.model.lyrics.OnlineLyricsQuery
  *
  * - [AmllLyricsPort]：AMLL TTML 聚合库，始终参与、不随平台过滤（对齐 searchEditCloudMeta.ts）
  * - [ProviderLyricsPort]：平台五源 / LRCLIB，按 id 参与平台过滤
+ *
+ * 09-05-lyrics-kmp：随 core:lyrics KMP 化上收 :core:common jvmShared（引用 jvmShared
+ * AmllTtmlDbClient，不能进 commonMain）；同包名，安卓 ScrapeModule 装配零改动，
+ * 桌面 DesktopScrapeGraph 直接 import。
  */
 
 /** AMLL 端口（id = "amll"，与 EditCloudMetaSearch.AMLL_PORT_ID 对齐） */

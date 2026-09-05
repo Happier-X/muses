@@ -7,9 +7,18 @@ import com.muses.player.core.data.repository.RoomSongRepository
 import com.muses.player.core.data.repository.RoomSourceRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.store.createDataStore
+import com.muses.player.core.lyrics.amll.AMLL_INDEX_TIMEOUT_SEC
+import com.muses.player.core.lyrics.amll.AMLL_INDEX_URL
+import com.muses.player.core.lyrics.amll.AmllIndexRepository
+import com.muses.player.core.lyrics.amll.AmllTtmlDbClient
+import com.muses.player.core.lyrics.http.LyricsHttp
+import com.muses.player.core.lyrics.lrclib.LrclibProvider
+import com.muses.player.core.lyrics.provider.PlatformLyricsProvider
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.scrape.cover.CoverMatcher
+import com.muses.player.core.scrape.editmeta.AmllLyricsPort
 import com.muses.player.core.scrape.editmeta.EditCloudMetaSearch
+import com.muses.player.core.scrape.editmeta.ProviderLyricsPort
 import com.muses.player.core.scrape.http.ScrapeHttp
 import com.muses.player.core.scrape.ports.JaudiotaggerTagPort
 import com.muses.player.core.scrape.ports.TagPort
@@ -32,9 +41,10 @@ import java.io.File
 /**
  * 桌面刮削装配（W4 桌面装配收尾，任务 09-05-scrape-kmp R5；进程内单例）。
  *
- * 引擎全部来自 `:core:common` commonMain（W1-W3 已上收）：
- * - 匹配：[EditCloudMetaSearch] 全链（文本五源 + 封面六源）；歌词维度降级 =
- *   `lyricsPorts = emptyList()`（PRD D2，core:lyrics 未 KMP 化，UI 明示"桌面暂不支持"）；
+ * 引擎全部来自 `:core:common` commonMain/jvmShared（W1-W3 + 09-05-lyrics-kmp X2）：
+ * - 匹配：[EditCloudMetaSearch] 全链（文本五源 + 封面六源 + 歌词维度）；
+ *   歌词端口（09-05-lyrics-kmp X4）按安卓 ScrapeModule 组合顺序注入：
+ *   AMLL TTML 聚合库（始终参与）→ 平台五源 → LRCLIB；
  * - 写回：[WritebackOrchestrator] + jvmShared [JaudiotaggerTagPort]（jaudiotagger 纯 JVM 双端共用）；
  *   文件写入按 `song.sourceType` 分流（Web writeback.ts writeFile 分派语义）：
  *   WEBDAV → 下载-写标签-上传（[WebDavAudioTagFileWriter]），其余 → 本地直写（[LocalAudioTagFileWriter]）；
@@ -74,12 +84,36 @@ internal object DesktopScrapeGraph {
 
     private val http: ScrapeHttp by lazy { ScrapeHttp(rateLimiter = rateLimiter) }
 
-    /** 编辑页全链云搜（多候选 + 粗排）；桌面批量匹配与单曲重搜共用。歌词维度不参与（降级） */
+    // ── 歌词域（09-05-lyrics-kmp X4；与安卓 lyricsModule 同构，手动装配） ──
+
+    /** 歌词域独立 HTTP（与 ScrapeHttp 分离，对齐安卓 LyricsHttp 单例语义） */
+    private val lyricsHttp: LyricsHttp by lazy { LyricsHttp() }
+
+    private val amllIndexRepository: AmllIndexRepository by lazy {
+        AmllIndexRepository(
+            loadFromNetwork = { lyricsHttp.getText(AMLL_INDEX_URL, timeoutSec = AMLL_INDEX_TIMEOUT_SEC) },
+        )
+    }
+
+    private val amllClient: AmllTtmlDbClient by lazy {
+        AmllTtmlDbClient(http = lyricsHttp, indexRepository = amllIndexRepository)
+    }
+
+    private val lrclibProvider: LrclibProvider by lazy { LrclibProvider(http = lyricsHttp) }
+
+    /** 编辑页全链云搜（多候选 + 粗排）；桌面批量匹配与单曲重搜共用 */
     val editSearch: EditCloudMetaSearch by lazy {
         EditCloudMetaSearch(
             textProviders = TextMetaMatcher.defaultProviders(http),
             coverProviders = CoverMatcher.defaultProviders(http),
-            lyricsPorts = emptyList(),
+            // 歌词端口：AMLL 始终参与 + 平台五源 + LRCLIB（match.ts 组合顺序，对齐安卓 ScrapeModule）
+            lyricsPorts = buildList {
+                add(AmllLyricsPort(amllClient))
+                PlatformLyricsProvider.defaultChain(lyricsHttp).forEach { p ->
+                    add(ProviderLyricsPort(p))
+                }
+                add(ProviderLyricsPort(lrclibProvider))
+            },
         )
     }
 

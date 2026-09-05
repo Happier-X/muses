@@ -32,7 +32,7 @@ kotlin {
             implementation(libs.okio)
             // P2c：Ktor-client（CIO）传输层进 commonMain（AC4 经 ktor-bom 统一版本，
             // BOM 约束见底部 dependencies 块 `commonMainApi(platform(...))`，sourceSets 内无 platform 作用域）
-            // core/api 暴露：下游 :core:lyrics/:core:scrape/:core:webdav 的包装器公有签名含 HttpClient
+            // core/api 暴露：下游 :core:scrape/:core:webdav 及本模块 lyrics 域（jvmShared）的包装器公有签名含 HttpClient
             api(libs.ktor.client.core)
             implementation(libs.ktor.client.cio)
             api(libs.kotlinx.io.core)
@@ -55,10 +55,13 @@ kotlin {
         // W3 写回链 KMP 化：jaudiotagger 标签实现（design.md §1「jvmMain & androidMain 同库双端」）。
         // jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn，一份代码双端编译；
         // jaudiotagger 为纯 JVM 库（android/jvm 均可加载），implementation 不向上游传递。
+        // 09-05-lyrics-kmp X3：lyrics 主源码 + LyricsModule（koin-core DSL，纯 Kotlin 无安卓依赖）
+        // 上收 jvmShared 同包名，安卓 AppKoinModule 装配零改动；koin-core 版本经 BOM 约束（见底部）。
         val jvmShared by creating {
             dependsOn(commonMain.get())
             dependencies {
                 implementation(libs.jaudiotagger)
+                implementation(libs.koin.core)
             }
         }
         jvmMain.get().dependsOn(jvmShared)
@@ -73,6 +76,8 @@ dependencies {
     add("kspJvm", libs.room.compiler)
     // P2c AC4：Ktor 版本经 BOM 统一（sourceSets 块内无 platform 作用域，故在此声明约束）
     add("commonMainApi", platform(libs.ktor.bom))
+    // 09-05-lyrics-kmp X3：koin-core（jvmShared LyricsModule 消费）版本经 Koin BOM 统一（4.2.0）
+    add("jvmSharedImplementation", platform(libs.koin.bom))
 }
 
 // S0：schemas 导出目录指到 core/common/schemas（R2 时旧 core/data/schemas 迁移后删除）

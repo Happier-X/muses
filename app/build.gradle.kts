@@ -65,7 +65,7 @@ dependencies {
     implementation(project(":core:webdav"))
     implementation(project(":core:media"))
     // P2a：AppKoinModule 直接聚合 lyrics/scrape 的 Koin 模块，需直连依赖（implementation 非传递）
-    implementation(project(":core:lyrics"))
+    // 09-05-lyrics-kmp X3：lyricsModule 已上收 :core:common jvmShared 同包名，随 core:common 依赖可达
     implementation(project(":core:scrape"))
     implementation(project(":feature:library"))
     implementation(project(":feature:playlist"))

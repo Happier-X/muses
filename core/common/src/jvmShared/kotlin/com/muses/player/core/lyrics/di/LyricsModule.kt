@@ -13,6 +13,9 @@ import org.koin.dsl.module
 /**
  * 歌词在线搜索装配（P2a Hilt→Koin：原 `@Module @InstallIn(SingletonComponent)`，
  * 任务 08-25-native-lyrics-online L3）。仅装配数据层单例；UI/播放链路接线归后续任务。
+ *
+ * 09-05-lyrics-kmp X3：随主源码上收 :core:common jvmShared（koin-core DSL 纯 Kotlin，
+ * 无安卓依赖）；包名不变，app/AppKoinModule 装配零改动。
  */
 val lyricsModule = module {
 

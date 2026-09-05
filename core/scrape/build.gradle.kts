@@ -31,8 +31,7 @@ dependencies {
     api(project(":core:common"))
     // ScrapeModule 安卓装配残留：AudioTagReader 缓存失效器（audioTagCacheInvalidator）
     implementation(project(":core:data"))
-    // editmeta 歌词维度的 Port 适配（L3）：scrape(编排) → lyrics(实现) 无环
-    implementation(project(":core:lyrics"))
+    // 09-05-lyrics-kmp X3：歌词实现随 :core:common jvmShared 同包名传递（scrape→lyrics 无环仍成立）
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.datastore.preferences)

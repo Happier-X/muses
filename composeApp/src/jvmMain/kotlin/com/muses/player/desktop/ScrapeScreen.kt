@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.data.mapper.toDomain
+import com.muses.player.core.model.scrape.LyricsFormat
 import com.muses.player.core.model.scrape.ScrapeChanges
 import com.muses.player.core.model.scrape.ScrapeCandidate
 import com.muses.player.core.model.scrape.WritebackStatus
@@ -56,10 +57,11 @@ import kotlinx.coroutines.launch
  * 桌面刮削页（W4 桌面装配收尾，任务 09-05-scrape-kmp R5）。
  *
  * 引擎已 KMP 化（W1-W3），本页去回调占位接真实链路（装配见 [DesktopScrapeGraph]）：
- * - 扫队列 → 匹配（[EditCloudMetaSearch] 全链：文本五源 + 封面六源）→ 预览（字段勾选，
+ * - 扫队列 → 匹配（[EditCloudMetaSearch] 全链：文本五源 + 封面六源 + 歌词维度）→ 预览（字段勾选，
  *   默认勾选有值且有差异的字段，写回安全红线）→ 写回（[WritebackOrchestrator]，
- *   按 sourceType 分流本地/WebDAV，标题/专辑/封面落库 + 文件落盘）→ 结果（逐行状态 + 撤销）；
- * - 歌词维度降级（PRD D2）：`lyricsPorts = emptyList()`，预览行明示"桌面暂不支持"。
+ *   按 sourceType 分流本地/WebDAV，标题/专辑/封面/歌词落库 + 文件落盘）→ 结果（逐行状态 + 撤销）；
+ * - 歌词维度已接通（09-05-lyrics-kmp X4）：AMLL TTML + 平台五源 + LRCLIB，
+ *   最优候选进预览可勾选，写回落文件（ID3 LYRICS）+ 落库。
  */
 
 /** 队列行展示数据（Room SongEntity 反查后的本地快照）。 */
@@ -77,16 +79,22 @@ private data class DesktopPreviewItem(
     val artist: String?,
     val album: String?,
     val coverUri: String?,
+    /** 当前已存歌词（song.lyrics 快照，供预览行 original 展示与差异比较） */
+    val currentLyrics: String?,
     val matchedTitle: String?,
     val matchedArtist: String?,
     val matchedAlbum: String?,
     val matchedCoverUrl: String?,
+    /** 最优歌词候选全文 + 格式 wire 值（lrc/ttml/yrc/qrc；写回经 LyricsFormat 还原） */
+    val matchedLyricsText: String?,
+    val matchedLyricsFormat: String?,
     val sourceWire: String?,
     val network: Boolean,
     val checkedFields: Set<String>,
 ) {
     val hasCandidate: Boolean
-        get() = matchedTitle != null || matchedArtist != null || matchedAlbum != null || matchedCoverUrl != null
+        get() = matchedTitle != null || matchedArtist != null || matchedAlbum != null ||
+            matchedCoverUrl != null || matchedLyricsText != null
 }
 
 /** 页面四态机（queue → matching → preview → writing → result；语义对齐安卓 ScrapePageState）。 */
@@ -157,7 +165,7 @@ fun ScrapeScreen(modifier: Modifier = Modifier) {
         )
     }
 
-    /** 全部开始：队列逐曲全链云搜（文本 + 封面；歌词维度降级不参与） */
+    /** 全部开始：队列逐曲全链云搜（文本 + 封面 + 歌词三维度） */
     fun startMatch() {
         val rows = queueRows
         if (rows.isEmpty()) return
@@ -183,8 +191,9 @@ fun ScrapeScreen(modifier: Modifier = Modifier) {
                             album = song.album,
                             durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(),
                         ),
-                        // 歌词维度降级（PRD D2）：不参与云搜
-                        options = SearchOptions(dimensions = setOf(EditDimKey.TEXT, EditDimKey.COVER)),
+                        options = SearchOptions(
+                            dimensions = setOf(EditDimKey.TEXT, EditDimKey.COVER, EditDimKey.LYRICS),
+                        ),
                     )
                 } catch (e: CancellationException) {
                     throw e
@@ -193,15 +202,21 @@ fun ScrapeScreen(modifier: Modifier = Modifier) {
                 }
                 val text = result?.text?.items?.firstOrNull()
                 val cover = result?.cover?.items?.firstOrNull()
+                // 最优歌词候选：仅 status == OK 时取首条（对齐安卓 EditMetaViewModel 语义）
+                val lyrics = result?.lyrics
+                    ?.takeIf { it.status == EditDimStatus.OK }
+                    ?.items?.firstOrNull()
                 val network = (result == null) ||
                     (text == null && result.text.status == EditDimStatus.NETWORK) ||
-                    (cover == null && result.cover.status == EditDimStatus.NETWORK)
+                    (cover == null && result.cover.status == EditDimStatus.NETWORK) ||
+                    (lyrics == null && result.lyrics.status == EditDimStatus.NETWORK)
                 // 写回安全红线：默认勾选有值且有差异的字段
                 val checked = buildSet {
                     if (text?.title?.takeIf { it.isNotBlank() } != null && text.title != song.title) add("title")
                     if (text?.artist?.takeIf { it.isNotBlank() } != null && text.artist != song.artist) add("artist")
                     if (text?.album?.takeIf { it.isNotBlank() } != null && text.album != song.album) add("album")
                     if (cover != null && cover.remoteUrl != song.coverUri) add("cover")
+                    if (lyrics != null && lyrics.text.isNotBlank() && lyrics.text != song.lyrics) add("lyrics")
                 }
                 preview += DesktopPreviewItem(
                     songId = song.id,
@@ -209,12 +224,15 @@ fun ScrapeScreen(modifier: Modifier = Modifier) {
                     artist = song.artist,
                     album = song.album,
                     coverUri = song.coverUri,
+                    currentLyrics = song.lyrics,
                     matchedTitle = text?.title?.takeIf { it.isNotBlank() },
                     matchedArtist = text?.artist?.takeIf { it.isNotBlank() },
                     matchedAlbum = text?.album?.takeIf { it.isNotBlank() },
                     matchedCoverUrl = cover?.remoteUrl,
+                    matchedLyricsText = lyrics?.text,
+                    matchedLyricsFormat = lyrics?.format,
                     sourceWire = text?.source?.wire,
-                    network = network && text == null && cover == null,
+                    network = network && text == null && cover == null && lyrics == null,
                     checkedFields = checked,
                 )
             }
@@ -243,11 +261,19 @@ fun ScrapeScreen(modifier: Modifier = Modifier) {
                 for (item in checkedItems) {
                     val song = db.songDao().getById(item.songId)?.toDomain() ?: continue
                     candidates += ScrapeCandidate(songId = song.id, song = song)
+                    val writeLyrics = item.matchedLyricsText.takeIf { "lyrics" in item.checkedFields }
                     changesMap[song.id] = ScrapeChanges(
                         title = item.matchedTitle.takeIf { "title" in item.checkedFields },
                         artist = item.matchedArtist.takeIf { "artist" in item.checkedFields },
                         album = item.matchedAlbum.takeIf { "album" in item.checkedFields },
                         coverRemoteUrl = item.matchedCoverUrl.takeIf { "cover" in item.checkedFields },
+                        lyrics = writeLyrics,
+                        // 候选格式 wire（lrc/ttml/yrc/qrc）→ LyricsFormat；未识别格式落 null 走默认
+                        lyricsFormat = writeLyrics?.let {
+                            item.matchedLyricsFormat?.let { wire ->
+                                LyricsFormat.entries.firstOrNull { it.wire == wire }
+                            }
+                        },
                     )
                 }
                 val applyResult = DesktopScrapeGraph.orchestrator.applyScrapeChanges(
@@ -295,7 +321,7 @@ fun ScrapeScreen(modifier: Modifier = Modifier) {
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "待刮削歌曲统一补全标题/歌手/专辑/封面（匹配 → 预览 → 写回）；歌词维度桌面暂不支持（引擎待 KMP 化，仅安卓提供）。",
+            text = "待刮削歌曲统一补全标题/歌手/专辑/封面/歌词（匹配 → 预览 → 写回）。",
             color = salt.text2,
             fontSize = 12.sp,
         )
@@ -442,7 +468,7 @@ private fun PreviewContent(
             }
         }
         Text(
-            text = "写回含文件落盘（本地直写 / WebDAV 下载-写-上传），标题/专辑/封面同时落库；歌词不参与（桌面暂不支持）。",
+            text = "写回含文件落盘（本地直写 / WebDAV 下载-写-上传），标题/专辑/封面/歌词同时落库。",
             color = salt.text2,
             fontSize = 11.sp,
         )
@@ -485,8 +511,14 @@ private fun PreviewCard(
             updated = item.matchedCoverUrl,
             checked = "cover" in item.checkedFields,
         ),
-        // 歌词维度降级（PRD D2）：无候选、不可勾，明示能力边界
-        SharedReviewField(key = "lyrics", label = "歌词", original = "桌面暂不支持", updated = null, checked = false),
+        // 歌词维度（09-05-lyrics-kmp X4）：最优候选全文可勾选写回（单行截断展示，写回带全文）
+        SharedReviewField(
+            key = "lyrics",
+            label = "歌词",
+            original = item.currentLyrics ?: "（无）",
+            updated = item.matchedLyricsText,
+            checked = "lyrics" in item.checkedFields,
+        ),
     )
     Column {
         ScrapeReviewCard(
