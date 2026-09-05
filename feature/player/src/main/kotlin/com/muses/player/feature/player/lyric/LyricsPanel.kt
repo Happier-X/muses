@@ -924,13 +924,16 @@ private fun AppleMusicLyricsPanel(
                 // The focused row scales from its start (or end, when flipped)
                 // edge by lyricFocusScale, so a full-width line visually grows
                 // past the 8dp gutter and gets clipped by clipToBounds().
-                // Reserve a static gutter on the growing side, sized from the
-                // panel width at the maximum scale so the wrap points never
-                // shift while the scale animates.
+                // Reserve a static gutter E on the growing side: the far text
+                // edge sits at P - 8 - E before scaling and lands exactly on
+                // the panel edge after, s * (P - 8 - E) <= P, which solves to
+                // E >= (s - 1) * P / s - 8. Sized from the panel width at the
+                // maximum scale so the wrap points never shift while the
+                // scale animates.
                 val focusScale = SettingsRuntime.lyricFocusScale
                 val focusScaleReservePadding = with(density) {
                     val panelWidthDp = viewportWidthPx.toDp().value
-                    (((focusScale - 1f) * (panelWidthDp - 16f) - 8f) / focusScale)
+                    (((focusScale - 1f) * panelWidthDp / focusScale) - 8f)
                         .coerceAtLeast(0f)
                         .dp
                 }
