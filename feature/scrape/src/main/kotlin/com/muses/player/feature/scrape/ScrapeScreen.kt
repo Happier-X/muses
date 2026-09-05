@@ -15,13 +15,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.border
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -35,17 +31,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
-import coil3.compose.AsyncImage
 import com.muses.player.core.ui.components.SaltEmpty
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
+import com.muses.player.core.ui.components.ScrapeProgressBar
+import com.muses.player.core.ui.components.ScrapeReviewCard
+import com.muses.player.core.ui.components.ScrapeResultRow
+import com.muses.player.core.ui.components.ScrapeStatusKind
+import com.muses.player.core.ui.components.SharedReviewField
+import com.muses.player.core.ui.components.SharedScrapeCandidate
+import com.muses.player.core.ui.components.SharedWritebackResult
 import com.muses.player.core.ui.theme.LocalSaltColors
 import kotlinx.coroutines.launch
 
@@ -200,43 +200,17 @@ private fun WritingStateContent(state: ScrapePageState.Writing) {
     }
 }
 
-// ── matching 态 ──────────────────────────────────────
+// ── matching 态（V3 共用化：ScrapeProgressBar 承载视觉，行为/文案不变）──
 
 @Composable
 private fun MatchingStateContent(state: ScrapePageState.Matching, throttleMessage: String? = null) {
-    val salt = LocalSaltColors.current
-    Column(
-        Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        CircularProgressIndicator()
-        Spacer(Modifier.height(20.dp))
-        Text("正在匹配 ${state.current} / ${state.total}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = salt.text)
-        Spacer(Modifier.height(8.dp))
-        LinearProgressIndicator(
-            progress = { if (state.total > 0) state.current.toFloat() / state.total else 0f },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            state.currentItem,
-            fontSize = 13.sp,
-            color = salt.text2,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (throttleMessage != null) {
-            Spacer(Modifier.height(12.dp))
-            Text(
-                throttleMessage,
-                fontSize = 13.sp,
-                color = salt.primary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
+    ScrapeProgressBar(
+        current = state.current,
+        total = state.total,
+        currentItem = state.currentItem,
+        message = throttleMessage,
+        modifier = Modifier.fillMaxSize(),
+    )
 }
 
 // ── preview 态 ──────────────────────────────────────
@@ -349,38 +323,53 @@ private fun PreviewStateContent(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(state.items, key = { it.songId }) { item ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(salt.surface1, RoundedCornerShape(10.dp))
-                        .border(0.5.dp, if (item.checkedFields.isNotEmpty()) salt.primary.copy(alpha = 0.5f) else salt.surface2, RoundedCornerShape(10.dp))
-                        .padding(12.dp),
-                ) {
-                    // 歌曲标题 + 置信度
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(item.songTitle, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = salt.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        if (item.confidence != null) {
-                            Box(Modifier.padding(start = 4.dp).background(salt.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                                Text(item.confidence!!, fontSize = 10.sp, color = salt.primary)
-                            }
-                        }
-                        if (item.coverUrl != null) {
-                            AsyncImage(
-                                model = item.coverUrl,
-                                contentDescription = "封面",
-                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)).background(salt.surface2).padding(start = 6.dp),
-                                contentScale = ContentScale.Crop,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    // 逐字段 Checkbox 行
-                    PreviewFieldRow(label = "标题", checked = "title" in item.checkedFields, original = item.currentTitle, updated = item.resolvedTitle(), onCheckedChange = { onToggleField(item.songId, "title") })
-                    PreviewFieldRow(label = "歌手", checked = "artist" in item.checkedFields, original = item.currentArtist ?: "—", updated = item.resolvedArtist(), onCheckedChange = { onToggleField(item.songId, "artist") })
-                    PreviewFieldRow(label = "专辑", checked = "album" in item.checkedFields, original = item.currentAlbum ?: "—", updated = item.resolvedAlbum(), onCheckedChange = { onToggleField(item.songId, "album") })
-                    PreviewFieldRow(label = "封面", checked = "cover" in item.checkedFields, original = "—", updated = if (item.coverUrl != null) "有新封面" else null, onCheckedChange = { onToggleField(item.songId, "cover") })
-                    PreviewFieldRow(label = "歌词", checked = "lyrics" in item.checkedFields, original = if (!item.currentLyrics.isNullOrBlank()) "有（${item.currentLyrics!!.length}字）" else "无", updated = if (!item.resolvedLyrics().isNullOrBlank()) "有（${item.resolvedLyrics()!!.length}字）" else null, onCheckedChange = { onToggleField(item.songId, "lyrics") })
-                }
+                // V3 共用化：预览卡 = 共用 ScrapeReviewCard（头部+逐字段勾选行），映射仅取展示字段
+                ScrapeReviewCard(
+                    candidate = SharedScrapeCandidate(
+                        songId = item.songId,
+                        title = item.songTitle,
+                        coverUri = item.coverUrl,
+                        confidenceLabel = item.confidence,
+                    ),
+                    fields = listOf(
+                        SharedReviewField(
+                            key = "title",
+                            label = "标题",
+                            original = item.currentTitle,
+                            updated = item.resolvedTitle(),
+                            checked = "title" in item.checkedFields,
+                        ),
+                        SharedReviewField(
+                            key = "artist",
+                            label = "歌手",
+                            original = item.currentArtist ?: "—",
+                            updated = item.resolvedArtist(),
+                            checked = "artist" in item.checkedFields,
+                        ),
+                        SharedReviewField(
+                            key = "album",
+                            label = "专辑",
+                            original = item.currentAlbum ?: "—",
+                            updated = item.resolvedAlbum(),
+                            checked = "album" in item.checkedFields,
+                        ),
+                        SharedReviewField(
+                            key = "cover",
+                            label = "封面",
+                            original = "—",
+                            updated = if (item.coverUrl != null) "有新封面" else null,
+                            checked = "cover" in item.checkedFields,
+                        ),
+                        SharedReviewField(
+                            key = "lyrics",
+                            label = "歌词",
+                            original = if (!item.currentLyrics.isNullOrBlank()) "有（${item.currentLyrics!!.length}字）" else "无",
+                            updated = if (!item.resolvedLyrics().isNullOrBlank()) "有（${item.resolvedLyrics()!!.length}字）" else null,
+                            checked = "lyrics" in item.checkedFields,
+                        ),
+                    ),
+                    onToggleField = { field -> onToggleField(item.songId, field) },
+                )
             }
         }
         Row(
@@ -431,34 +420,6 @@ private fun NoMatchGroup(
                     SaltTextButton(text = "去审核", onClick = { onOpenReview(sid) })
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PreviewFieldRow(
-    label: String,
-    checked: Boolean,
-    original: String,
-    updated: String?,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    val salt = LocalSaltColors.current
-    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = CheckboxDefaults.colors(checkedColor = salt.primary),
-        )
-        Column(Modifier.weight(1f).padding(start = 4.dp)) {
-            val display = if (updated != null && updated != original) "$original → $updated" else original
-            Text(
-                "$label：$display",
-                fontSize = 12.sp,
-                color = if (checked) salt.text else salt.text2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
     }
 }
@@ -585,24 +546,33 @@ private fun ResultStateContent(
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             items(state.results, key = { it.songId }) { r ->
                 val throttled = isWritebackThrottled(r)
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).background(statusColor(r.status), RoundedCornerShape(4.dp)))
-                    Spacer(Modifier.size(8.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(queueTitles[r.songId] ?: r.songId.take(8), fontSize = 13.sp, color = salt.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (throttled) {
-                            Text("限流，稍后重试", fontSize = 11.sp, color = salt.primary)
-                        } else if (r.status != com.muses.player.core.model.scrape.WritebackStatus.SUCCESS) {
-                            val detail = listOfNotNull(r.fileResult.code, r.fileResult.message ?: r.error).joinToString(": ").takeIf { it.isNotBlank() }
-                            if (detail != null) Text(detail, fontSize = 11.sp, color = salt.text2, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                    Text(r.status.wire, fontSize = 13.sp, color = statusColor(r.status))
-                    if (r.status != com.muses.player.core.model.scrape.WritebackStatus.SUCCESS) {
-                        Spacer(Modifier.size(8.dp))
-                        SaltTextButton(text = if (throttled) "限流重试" else "重试", onClick = { onRetrySingle(r.songId) })
-                    }
-                }
+                // V3 共用化：结果行 = 共用 ScrapeResultRow（圆点/状态 wire/详情/重试按钮）
+                ScrapeResultRow(
+                    result = SharedWritebackResult(
+                        songId = r.songId,
+                        title = queueTitles[r.songId] ?: r.songId.take(8),
+                        statusKind = when (r.status) {
+                            com.muses.player.core.model.scrape.WritebackStatus.SUCCESS -> ScrapeStatusKind.SUCCESS
+                            com.muses.player.core.model.scrape.WritebackStatus.FILE_FAILED -> ScrapeStatusKind.WARNING
+                            com.muses.player.core.model.scrape.WritebackStatus.FAILED -> ScrapeStatusKind.ERROR
+                        },
+                        statusWire = r.status.wire,
+                        detail = when {
+                            throttled -> "限流，稍后重试"
+                            r.status != com.muses.player.core.model.scrape.WritebackStatus.SUCCESS ->
+                                listOfNotNull(r.fileResult.code, r.fileResult.message ?: r.error)
+                                    .joinToString(": ").takeIf { it.isNotBlank() }
+                            else -> null
+                        },
+                        detailHighlight = throttled,
+                        retryText = when {
+                            r.status == com.muses.player.core.model.scrape.WritebackStatus.SUCCESS -> null
+                            throttled -> "限流重试"
+                            else -> "重试"
+                        },
+                    ),
+                    onRetry = onRetrySingle,
+                )
             }
             if (throttledIds.isNotEmpty()) {
                 throttledIds.forEach { sid ->
@@ -629,10 +599,3 @@ private fun ResultStateContent(
         }
     }
 }
-
-private fun statusColor(status: com.muses.player.core.model.scrape.WritebackStatus) =
-    when (status) {
-        com.muses.player.core.model.scrape.WritebackStatus.SUCCESS -> androidx.compose.ui.graphics.Color(0xFF34C759)
-        com.muses.player.core.model.scrape.WritebackStatus.FILE_FAILED -> androidx.compose.ui.graphics.Color(0xFFFF9500)
-        com.muses.player.core.model.scrape.WritebackStatus.FAILED -> androidx.compose.ui.graphics.Color(0xFFFF3B30)
-    }

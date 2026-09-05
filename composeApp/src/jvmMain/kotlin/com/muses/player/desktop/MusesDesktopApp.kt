@@ -64,6 +64,7 @@ fun MusesDesktopApp(
                         DesktopDestination.LIBRARY -> LibraryScreen(playerHook = playerHook)
                         DesktopDestination.PLAYER -> PlayerScreen(playerHook = playerHook)
                         DesktopDestination.SOURCES -> SourceManagerScreen()
+                        DesktopDestination.SCRAPE -> ScrapeScreen()
                         DesktopDestination.SETTINGS -> SettingsScreen()
                     }
                 }
@@ -106,6 +107,11 @@ private fun DesktopSidebar(
             label = "音源",
             selected = current == DesktopDestination.SOURCES,
             onClick = { onNavigate(DesktopDestination.SOURCES) },
+        )
+        SidebarItem(
+            label = "刮削",
+            selected = current == DesktopDestination.SCRAPE,
+            onClick = { onNavigate(DesktopDestination.SCRAPE) },
         )
         SidebarItem(
             label = "设置",

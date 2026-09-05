@@ -52,6 +52,12 @@ import com.muses.player.core.ui.components.SaltCoverRadius
 import com.muses.player.core.ui.components.SaltIconButton
 import com.muses.player.core.ui.components.SaltNavbar
 import com.muses.player.core.ui.components.SaltTextButton
+import com.muses.player.core.ui.components.ScrapeBadgeBox
+import com.muses.player.core.ui.components.ScrapeCandidateRow
+import com.muses.player.core.ui.components.ScrapeCoverThumb
+import com.muses.player.core.ui.components.ScrapeReviewFieldRow
+import com.muses.player.core.ui.components.SharedReviewField
+import com.muses.player.core.ui.components.SharedScrapeCandidate
 import com.muses.player.core.ui.theme.LocalSaltColors
 
 /**
@@ -261,33 +267,44 @@ private fun ReviewContent(
                     Spacer(Modifier.height(4.dp))
                     val hit = state.selectedHit
                     val recommended = state.selectedTextIndex == state.text.defaultIndex
-                    FieldCheckRow(
-                        label = "标题",
-                        checked = "title" in state.checkedFields,
+                    // V3 共用化：字段审核行 = ScrapeReviewFieldRow（Checkbox+对比+来源/推荐角标）；
+                    // enabled=无解析值禁勾（写回安全红线），语义与原 FieldCheckRow 一致
+                    ScrapeReviewFieldRow(
+                        field = SharedReviewField(
+                            key = "title",
+                            label = "标题",
+                            original = state.song.title,
+                            updated = state.resolvedTitle() ?: "—",
+                            checked = "title" in state.checkedFields,
+                        ),
                         enabled = state.resolvedTitle() != null,
                         onCheckedChange = { viewModel.toggleField("title") },
-                        original = state.song.title,
-                        updated = state.resolvedTitle() ?: "—",
                         sourceBadge = hit?.source?.wire,
                         recommended = recommended,
                     )
-                    FieldCheckRow(
-                        label = "歌手",
-                        checked = "artist" in state.checkedFields,
+                    ScrapeReviewFieldRow(
+                        field = SharedReviewField(
+                            key = "artist",
+                            label = "歌手",
+                            original = state.song.artist ?: "—",
+                            updated = state.resolvedArtist() ?: "—",
+                            checked = "artist" in state.checkedFields,
+                        ),
                         enabled = state.resolvedArtist() != null,
                         onCheckedChange = { viewModel.toggleField("artist") },
-                        original = state.song.artist ?: "—",
-                        updated = state.resolvedArtist() ?: "—",
                         sourceBadge = hit?.source?.wire,
                         recommended = recommended,
                     )
-                    FieldCheckRow(
-                        label = "专辑",
-                        checked = "album" in state.checkedFields,
+                    ScrapeReviewFieldRow(
+                        field = SharedReviewField(
+                            key = "album",
+                            label = "专辑",
+                            original = state.song.album ?: "—",
+                            updated = state.resolvedAlbum() ?: "—",
+                            checked = "album" in state.checkedFields,
+                        ),
                         enabled = state.resolvedAlbum() != null,
                         onCheckedChange = { viewModel.toggleField("album") },
-                        original = state.song.album ?: "—",
-                        updated = state.resolvedAlbum() ?: "—",
                         sourceBadge = hit?.source?.wire,
                         recommended = recommended,
                     )
@@ -358,31 +375,20 @@ private fun selectableFields(state: ScrapeReviewState.Review): List<String> = li
     "lyrics".takeIf { state.selectedLyrics != null },
 )
 
-/** 歌曲头：本地标题 · 歌手 · 专辑 + 封面小图（「本地值」列的数据来源快照） */
+/** 歌曲头：本地标题 · 歌手 · 专辑 + 封面小图（V3 共用化：ScrapeCandidateRow，「本地值」列的数据来源快照） */
 @Composable
 private fun SongHead(state: ScrapeReviewState.Review) {
-    val salt = LocalSaltColors.current
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        SaltCover(uri = state.song.coverUri, size = 48.dp, radius = SaltCoverRadius.SM)
-        Spacer(Modifier.size(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                state.song.title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = salt.text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                listOfNotNull(state.song.artist ?: "未知艺术家", state.song.album ?: "未知专辑").joinToString(" · "),
-                fontSize = 12.sp,
-                color = salt.text2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
+    ScrapeCandidateRow(
+        candidate = SharedScrapeCandidate(
+            songId = state.song.id,
+            title = state.song.title,
+            subtitle = listOfNotNull(
+                state.song.artist ?: "未知艺术家",
+                state.song.album ?: "未知专辑",
+            ).joinToString(" · "),
+            coverUri = state.song.coverUri,
+        ),
+    )
 }
 
 /** 搜索词行：title/artist/album 三输入（默认预填本地值）+ 「重新搜索」 */
@@ -420,62 +426,6 @@ private fun SearchKeywordRow(keyword: ReviewKeyword, viewModel: ScrapeReviewView
                 onClick = { viewModel.search() },
                 enabled = !keyword.titleBlank,
             )
-        }
-    }
-}
-
-/**
- * 字段审核行（FieldCheckRow 自 SingleScrapeSheet 迁移改造）：
- * Checkbox + 「本地值 → 候选值」+ 来源角标 + 推荐角标。
- * 注：EditCloudMetaSearch 不提供 per-hit 置信度（引擎零改动约束，D2），推荐候选（defaultIndex）
- * 以「推荐」角标置于原置信度角标位置。
- */
-@Composable
-private fun FieldCheckRow(
-    label: String,
-    checked: Boolean,
-    enabled: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    original: String,
-    updated: String,
-    sourceBadge: String? = null,
-    recommended: Boolean = false,
-) {
-    val salt = LocalSaltColors.current
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled,
-            colors = CheckboxDefaults.colors(checkedColor = salt.primary),
-        )
-        Text(
-            buildString {
-                append(label).append("：")
-                if (updated != original) {
-                    append(original).append(" → ").append(updated)
-                } else {
-                    append(original)
-                }
-            },
-            fontSize = 12.sp,
-            color = if (checked) salt.text else salt.text2,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).padding(start = 4.dp),
-        )
-        if (sourceBadge != null) {
-            BadgeBox(text = sourceBadge)
-            Spacer(Modifier.size(4.dp))
-        }
-        if (recommended) {
-            Box(
-                Modifier
-                    .background(salt.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 5.dp, vertical = 2.dp),
-            ) {
-                Text("推荐", fontSize = 9.sp, color = salt.primary)
-            }
         }
     }
 }
@@ -597,32 +547,20 @@ private fun CoverSection(
             itemsIndexed(state.cover.items) { index, candidate ->
                 val selected = index == state.selectedCoverIndex
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(salt.surface2)
-                            .border(
-                                width = if (selected) 2.dp else 0.5.dp,
-                                color = if (selected) salt.primary else salt.surface2,
-                                shape = RoundedCornerShape(6.dp),
-                            )
-                            .clickable {
-                                if (selected) {
-                                    // 再点已选项 → 大图预览
-                                    onPreview(candidate.remoteUrl)
-                                } else {
-                                    viewModel.selectCover(index)
-                                }
-                            },
-                    ) {
-                        AsyncImage(
-                            model = candidate.remoteUrl,
-                            contentDescription = "封面候选 ${index + 1}",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                    }
+                    // V3 共用化：候选缩略图 = ScrapeCoverThumb（选中态 primary 边框）；
+                    // 「再点已选项→大图预览，否则切换选中」逻辑留在调用方
+                    ScrapeCoverThumb(
+                        url = candidate.remoteUrl,
+                        selected = selected,
+                        contentDescription = "封面候选 ${index + 1}",
+                        onClick = {
+                            if (selected) {
+                                onPreview(candidate.remoteUrl)
+                            } else {
+                                viewModel.selectCover(index)
+                            }
+                        },
+                    )
                     Spacer(Modifier.height(2.dp))
                     Text(candidate.source.wire, fontSize = 9.sp, color = if (selected) salt.primary else salt.text2)
                 }
@@ -683,9 +621,9 @@ private fun LyricsCandidateRow(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("${index + 1}", fontSize = 11.sp, color = if (selected) salt.primary else salt.text2, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(6.dp))
-            BadgeBox(text = candidate.source)
+            ScrapeBadgeBox(text = candidate.source)
             Spacer(Modifier.size(4.dp))
-            BadgeBox(text = candidate.format)
+            ScrapeBadgeBox(text = candidate.format)
         }
         Spacer(Modifier.height(4.dp))
         // 预览前几行（时间轴行可能很长，只取前 90 字符）
@@ -696,17 +634,5 @@ private fun LyricsCandidateRow(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-    }
-}
-
-@Composable
-private fun BadgeBox(text: String) {
-    val salt = LocalSaltColors.current
-    Box(
-        Modifier
-            .background(salt.surface2, RoundedCornerShape(4.dp))
-            .padding(horizontal = 5.dp, vertical = 1.dp),
-    ) {
-        Text(text, fontSize = 9.sp, color = salt.text2)
     }
 }
