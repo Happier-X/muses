@@ -23,9 +23,11 @@ import com.muses.player.core.scrape.text.provider.KwProvider
 import com.muses.player.core.scrape.text.provider.MgProvider
 import com.muses.player.core.scrape.text.provider.TxProvider
 import com.muses.player.core.scrape.text.provider.WyProvider
+import com.muses.player.core.model.SourceType
 import com.muses.player.core.scrape.writeback.AudioTagFileWriter
 import com.muses.player.core.scrape.writeback.CoverBytesFetcher
 import com.muses.player.core.scrape.writeback.HttpCoverBytesFetcher
+import com.muses.player.core.scrape.writeback.LocalAudioTagFileWriter
 import com.muses.player.core.scrape.writeback.RollbackJournalStore
 import com.muses.player.core.scrape.writeback.WebDavAudioTagFileWriter
 import com.muses.player.core.scrape.writeback.WritebackOrchestrator
@@ -127,14 +129,25 @@ val scrapeModule = module {
     // W3 写回链 KMP 化：jaudiotagger 标签端口双端实现（:core:common jvmShared，core/media TagWriter 逻辑上收）
     single<TagPort> { JaudiotaggerTagPort }
 
+    // 写回按来源分流（Web writeback.ts writeFile 分派语义，与桌面 DesktopScrapeGraph 同构）：
+    // WEBDAV → 下载-写标签-上传；其余（LOCAL 等）→ 本地直写。
+    // 修复历史缺口：原先只绑定 WebDav writer，本地歌曲写回错误命中 no_password 分支。
     single<AudioTagFileWriter> {
-        WebDavAudioTagFileWriter(
+        val tagPort: TagPort = get()
+        val webdavWriter = WebDavAudioTagFileWriter(
             sourceRepository = get(),
             credentialsRepository = get<CredentialsRepository>(),
             webDavClientFactory = { get<WebDavClient>() },
-            tagPort = get<TagPort>(),
+            tagPort = tagPort,
             tempDir = File(androidContext().cacheDir, "scrape-writeback").apply { mkdirs() },
         )
+        val localWriter = LocalAudioTagFileWriter(tagPort)
+        AudioTagFileWriter { song, changes, coverBytes ->
+            when (song.sourceType) {
+                SourceType.WEBDAV -> webdavWriter.write(song, changes, coverBytes)
+                else -> localWriter.write(song, changes, coverBytes)
+            }
+        }
     }
 
     single {
