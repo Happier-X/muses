@@ -1,5 +1,6 @@
 package com.muses.player.desktop.tray
 
+import javax.imageio.ImageIO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -95,8 +96,16 @@ class DesktopTray(
         }
     }
 
-    /** 程序化占位图标：项目蓝圆底 + 白色 M。 */
-    private fun createIconImage(): Image {
+    /**
+     * 托盘图标：优先读 classpath 内生成好的图标资源（与 jpackage 同一设计语言），
+     * 读取失败（资源缺失/损坏）时回落程序化绘制，保证托盘始终可用。
+     */
+    private fun createIconImage(): Image = runCatching {
+        ImageIO.read(javaClass.getResourceAsStream("/muses/tray-icon.png"))
+    }.getOrNull() ?: drawFallbackIcon()
+
+    /** 程序化兜底图标：项目蓝圆底 + 白色 M。 */
+    private fun drawFallbackIcon(): Image {
         val size = 32
         val img = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
         val g = img.createGraphics()
