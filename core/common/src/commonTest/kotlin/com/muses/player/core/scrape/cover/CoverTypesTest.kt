@@ -3,6 +3,8 @@ package com.muses.player.core.scrape.cover
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 // 规格 = src/features/cover/types.ts 类型定义与 wire 值
 
@@ -24,25 +26,24 @@ class CoverTypesTest {
             )
     }
 
-    @Suppress("JUnitTestAnnotation")
-    @org.junit.Test
+    @Test
     fun `wire值对齐Web字符串`() {
-        org.junit.Assert.assertEquals("itunes", OnlineCoverSource.ITUNES.wire)
-        org.junit.Assert.assertEquals("kw", OnlineCoverSource.KW.wire)
-        org.junit.Assert.assertEquals("mg", OnlineCoverSource.MG.wire)
-        org.junit.Assert.assertEquals("kg", OnlineCoverSource.KG.wire)
-        org.junit.Assert.assertEquals("tx", OnlineCoverSource.TX.wire)
-        org.junit.Assert.assertEquals("wy", OnlineCoverSource.WY.wire)
+        assertEquals("itunes", OnlineCoverSource.ITUNES.wire)
+        assertEquals("kw", OnlineCoverSource.KW.wire)
+        assertEquals("mg", OnlineCoverSource.MG.wire)
+        assertEquals("kg", OnlineCoverSource.KG.wire)
+        assertEquals("tx", OnlineCoverSource.TX.wire)
+        assertEquals("wy", OnlineCoverSource.WY.wire)
 
-        org.junit.Assert.assertEquals("no-match", OnlineCoverMatchFailReason.NO_MATCH.wire)
-        org.junit.Assert.assertEquals("network", OnlineCoverMatchFailReason.NETWORK.wire)
-        org.junit.Assert.assertEquals("aborted", OnlineCoverMatchFailReason.ABORTED.wire)
+        assertEquals("no-match", OnlineCoverMatchFailReason.NO_MATCH.wire)
+        assertEquals("network", OnlineCoverMatchFailReason.NETWORK.wire)
+        assertEquals("aborted", OnlineCoverMatchFailReason.ABORTED.wire)
     }
 
-    @org.junit.Test
+    @Test
     fun `queryKey构造对齐match_ts的buildQueryKey`() {
         val q = OnlineCoverQuery(songId = "s1", title = " Title ", artist = " A ", album = null)
         // JSON.stringify([title.trim(), artist?.trim() || '', album?.trim() || ''])
-        org.junit.Assert.assertEquals("""["Title","A",""]""", Dummy.key(q))
+        assertEquals("""["Title","A",""]""", Dummy.key(q))
     }
 }

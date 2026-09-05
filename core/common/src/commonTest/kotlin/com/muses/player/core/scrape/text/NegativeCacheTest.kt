@@ -1,9 +1,10 @@
 package com.muses.player.core.scrape.text
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import com.muses.player.core.data.store.platformNowMs
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** 规格 = src/features/metadata/match.ts 负缓存常量 + src/features/runtime/boundedCache.ts LRU 语义 */
 class NegativeCacheTest {
@@ -20,7 +21,7 @@ class NegativeCacheTest {
         cache.put("s1", NegativeCache.NegativeEntry(queryKey = """["T","",""]""", expiresAt = 1000L))
         val entry = cache.get("s1")
         // match.ts：cached.expiresAt > Date.now() 才算有效，过期即失效
-        assertTrue(entry != null && entry.expiresAt <= System.currentTimeMillis())
+        assertTrue(entry != null && entry.expiresAt <= platformNowMs())
     }
 
     @Test

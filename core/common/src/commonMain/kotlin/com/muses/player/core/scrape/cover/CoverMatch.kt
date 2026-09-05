@@ -1,5 +1,6 @@
 package com.muses.player.core.scrape.cover
 
+import com.muses.player.core.data.store.platformNowMs
 import com.muses.player.core.model.scrape.OnlineTextQuery
 import com.muses.player.core.scrape.cover.provider.ItunesCoverProvider
 import com.muses.player.core.scrape.cover.provider.KgCoverProvider
@@ -24,6 +25,8 @@ import kotlinx.serialization.json.Json
  *
  * 负缓存 TTL 45min / 容量 256 与文本链相同常量但独立实例
  * （Web 为 match.ts 模块级独立 Map，此处新建 NegativeCache 实例对齐）。
+ *
+ * W2 上收注：`System.currentTimeMillis()` → [platformNowMs]（commonMain 等价替身，actual 即 System）。
  */
 class CoverMatcher(
     providers: List<CoverProvider>,
@@ -45,7 +48,7 @@ class CoverMatcher(
 
         val queryKey = buildQueryKey(query)
         val cached = negativeCache.get(query.songId)
-        if (cached != null && cached.queryKey == queryKey && cached.expiresAt > System.currentTimeMillis()) {
+        if (cached != null && cached.queryKey == queryKey && cached.expiresAt > platformNowMs()) {
             return OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NO_MATCH)
         }
 
@@ -72,7 +75,7 @@ class CoverMatcher(
                 query.songId,
                 NegativeCache.NegativeEntry(
                     queryKey = queryKey,
-                    expiresAt = System.currentTimeMillis() + NEGATIVE_CACHE_TTL_MS,
+                    expiresAt = platformNowMs() + NEGATIVE_CACHE_TTL_MS,
                 ),
             )
         }

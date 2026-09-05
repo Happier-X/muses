@@ -7,7 +7,6 @@ import com.muses.player.core.scrape.http.ScrapeHttp
 import com.muses.player.core.scrape.text.TextMetaProvider
 import com.muses.player.core.scrape.text.buildKeyword
 import com.muses.player.core.scrape.text.pickBestHit
-import java.net.URLEncoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -24,10 +23,14 @@ internal fun buildKwSearchUrl(keyword: String): String =
         "&show_copyright_off=1&newver=1&ft=music&cluster=0&strategy=2012" +
         "&encoding=utf8&rformat=json&vermerge=1&mobi=1&issubtitle=1"
 
-// JS encodeURIComponent 对齐：空格转 %20（URLEncoder 会转成 +，需替换）；
-// 用 charset 名重载以兼容 minSdk 26（Charset 重载需 API 33）
-internal fun urlEncode(value: String): String =
-    URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+/**
+ * JS encodeURIComponent 对齐：空格转 %20（URLEncoder 会转成 +，需替换）。
+ * W2 上收：commonMain 无 java.net.URLEncoder，下沉为 expect/actual
+ * （android/jvm 两端 actual 均为 `URLEncoder.encode(value, "UTF-8")` + `+→%20`，
+ * 用 charset 名重载以兼容 minSdk 26（Charset 重载需 API 33），行为冻结）。
+ * public 可见性：core:scrape 留守的写回链（SongFileWriters）仍复用此函数（spec 契约）。
+ */
+expect fun urlEncode(value: String): String
 
 class KwProvider(private val http: ScrapeHttp) : TextMetaProvider {
 

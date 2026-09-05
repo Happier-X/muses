@@ -2,11 +2,11 @@ package com.muses.player.core.scrape.text
 
 import com.muses.player.core.model.scrape.MetaFieldSource
 import com.muses.player.core.model.scrape.MetaSources
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** 规格 = src/features/metadata/util.ts（needsOnlineTextMeta / titlesRelated / isWeakTitle 等） */
 class TextMetaUtilTest {

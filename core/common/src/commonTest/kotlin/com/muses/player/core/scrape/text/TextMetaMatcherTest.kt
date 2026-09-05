@@ -8,20 +8,25 @@ import com.muses.player.core.model.scrape.OnlineTextSource
 import com.muses.player.core.model.scrape.TextMetaHit
 import com.muses.player.core.scrape.http.ScrapeHttp
 import com.muses.player.core.scrape.text.provider.KwProvider
+import com.muses.player.core.webdav.WebDavRateLimiter
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * 规格 = src/features/metadata/match.ts matchOnlineTextMeta 主流程 + providers/kw.ts 解析
  * （P2c：kw 段 MockWebServer → Ktor MockEngine；纯 FakeProvider 段本就无需 Robolectric，
  * 整类去 Robolectric，MockEngine 按序应答，requestCount 改计数器）。
+ *
+ * W2 上收注：`com.muses.player.core.scrape.http.ScrapeRateLimiter`（core:webdav 限流器的
+ * 兼容别名，本轮已删除）→ 直接引用 `com.muses.player.core.webdav.WebDavRateLimiter`，编译期等价。
  */
 class TextMetaMatcherTest {
 
@@ -128,7 +133,7 @@ class TextMetaMatcherTest {
 
     @Test
     fun `网络异常归network不写负缓存以支持重试`() = runTest {
-        val failing = FakeProvider(OnlineTextSource.KW) { throw java.io.IOException("http 500") }
+        val failing = FakeProvider(OnlineTextSource.KW) { throw kotlinx.io.IOException("http 500") }
         val matcher = TextMetaMatcher(listOf(failing))
         val result = matcher.match(query())
         assertEquals(OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK), result)
@@ -161,7 +166,7 @@ class TextMetaMatcherTest {
                     respond(r.body, HttpStatusCode.fromValue(r.status))
                 },
             ),
-            rateLimiter = com.muses.player.core.scrape.http.ScrapeRateLimiter.Unlimited,
+            rateLimiter = WebDavRateLimiter.Unlimited,
         )
     }
 
@@ -196,7 +201,7 @@ class TextMetaMatcherTest {
     fun `kw响应非JSON返回null不抛错`() = runTest {
         val h = Harness(ok("<html>oops</html>"))
         val provider = KwProvider(h.http)
-        org.junit.Assert.assertNull(provider.search(query(title = "Love Story")))
+        assertNull(provider.search(query(title = "Love Story")))
     }
 
     @Test

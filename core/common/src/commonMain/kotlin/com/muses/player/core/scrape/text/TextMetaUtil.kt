@@ -3,13 +3,18 @@ package com.muses.player.core.scrape.text
 import com.muses.player.core.model.scrape.MetaSources
 import com.muses.player.core.model.scrape.OnlineTextQuery
 import com.muses.player.core.model.scrape.TextMetaHit
-import java.text.Normalizer
 
 // 规格书 = src/features/metadata/util.ts（逐函数翻译）
 // normalize 逻辑 = src/features/lyrics/normalize.ts（core 层尚无对应实现，此处一并翻译）
 
 /** util.ts isBlank */
 fun isBlank(value: String?): Boolean = value?.trim().isNullOrEmpty()
+
+/**
+ * W2 上收：commonMain 无 java.text.Normalizer，NFKC 归一化下沉为 expect/actual
+ * （android/jvm 两端 actual 均为 JDK `Normalizer.normalize(NFKC)`，逐字节一致，行为冻结）。
+ */
+internal expect fun normalizeNfkc(value: String): String
 
 /**
  * normalize.ts normalizeText：
@@ -33,7 +38,7 @@ private val WHITESPACE_CHARS =
 internal fun normalizeText(input: String?): String {
     if (input.isNullOrEmpty()) return ""
     return input
-        .let { Normalizer.normalize(it, Normalizer.Form.NFKC) }
+        .let { normalizeNfkc(it) }
         .lowercase()
         .replace(DECOR_CHARS, " ")
         .replace(SUFFIX_WORDS, " ")

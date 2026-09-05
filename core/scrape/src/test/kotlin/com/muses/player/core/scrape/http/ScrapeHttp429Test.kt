@@ -35,7 +35,7 @@ class ScrapeHttp429Test {
 
     private fun http(
         vararg resps: MockResp,
-        rateLimiter: ScrapeRateLimiter = ScrapeRateLimiter.Unlimited,
+        rateLimiter: com.muses.player.core.webdav.WebDavRateLimiter = com.muses.player.core.webdav.WebDavRateLimiter.Unlimited,
     ): ScrapeHttp {
         val queue = ArrayDeque(resps.toList())
         requests = 0

@@ -1,8 +1,8 @@
 package com.muses.player.core.scrape.text
 
 import com.muses.player.core.model.scrape.MatchConfidence
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /** 规格 = src/features/metadata/util.ts classifyTextMetaConfidence（child4 R4-2）逐条规则 */
 class TextMetaConfidenceTest {

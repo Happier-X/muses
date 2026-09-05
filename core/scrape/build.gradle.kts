@@ -43,11 +43,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
-    // M3-S1：kw provider JSON 解析测试（已切 Ktor MockEngine；MockWebServer 无使用者并移除）
     // P2c：Ktor MockEngine（429/解析单测，不再走真实 socket）
     testImplementation(platform(libs.ktor.bom))
     testImplementation(libs.ktor.client.mock)
-    // 08-27 限流：MockWebServer 在 JVM 单元测试中触发 Android Platform 检测需 robolectric shadow
-    testImplementation(libs.robolectric)
-    testImplementation(libs.androidx.test.core)
+    // W2 纯逻辑上收：text/cover/queue/editmeta 测试随实现迁 core:common commonTest（robolectric/androidx.test.core 已零使用，移除）
 }

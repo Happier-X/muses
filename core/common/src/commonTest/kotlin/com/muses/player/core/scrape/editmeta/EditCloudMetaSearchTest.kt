@@ -8,9 +8,9 @@ import com.muses.player.core.scrape.cover.OnlineCoverQuery
 import com.muses.player.core.scrape.cover.OnlineCoverSource
 import com.muses.player.core.scrape.text.TextMetaProvider
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** 规格 = src/features/editMeta/searchEditCloudMeta.ts 编排主流程（fake provider 注入） */
 class EditCloudMetaSearchTest {

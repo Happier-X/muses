@@ -3,21 +3,25 @@ package com.muses.player.core.scrape.cover
 import com.muses.player.core.scrape.cover.provider.ItunesCoverProvider
 import com.muses.player.core.scrape.cover.provider.WyCoverProvider
 import com.muses.player.core.scrape.http.ScrapeHttp
+import com.muses.player.core.webdav.WebDavRateLimiter
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * 规格 = src/features/cover/providers/itunes.ts 与 wy.ts 的 JSON 解析
  * （P2c：MockWebServer → Ktor MockEngine；MockEngine 拦截全部 host，
  * 硬编码远端 host 无需重写，队列按请求顺序应答；requestCount 改计数器）。
+ *
+ * W2 上收注：`com.muses.player.core.scrape.http.ScrapeRateLimiter`（core:webdav 限流器的
+ * 兼容别名，本轮已删除）→ 直接引用 `com.muses.player.core.webdav.WebDavRateLimiter`，编译期等价。
  */
 class CoverProviderParseTest {
 
@@ -34,7 +38,7 @@ class CoverProviderParseTest {
                     respond(r.body, HttpStatusCode.fromValue(r.status))
                 },
             ),
-            rateLimiter = com.muses.player.core.scrape.http.ScrapeRateLimiter.Unlimited,
+            rateLimiter = WebDavRateLimiter.Unlimited,
         )
     }
 

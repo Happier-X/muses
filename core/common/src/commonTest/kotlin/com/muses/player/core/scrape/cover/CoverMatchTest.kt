@@ -1,12 +1,11 @@
 package com.muses.player.core.scrape.cover
 
-import com.muses.player.core.scrape.cover.CoverTypesTest.Dummy
 import com.muses.player.core.scrape.text.NegativeCache
-import java.io.IOException
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlinx.io.IOException
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** 规格 = src/features/cover/match.ts matchOnlineCoverRemote 主流程 */
 class CoverMatchTest {
@@ -108,7 +107,7 @@ class CoverMatchTest {
         // 预写一条已过期的负缓存（expiresAt < now）
         matcher.negativeCache.put(
             q.songId,
-            NegativeCache.NegativeEntry(queryKey = Dummy.key(q), expiresAt = 0L),
+            NegativeCache.NegativeEntry(queryKey = CoverTypesTest.Dummy.key(q), expiresAt = 0L),
         )
         matcher.match(q)
         assertEquals(1, miss.calls)

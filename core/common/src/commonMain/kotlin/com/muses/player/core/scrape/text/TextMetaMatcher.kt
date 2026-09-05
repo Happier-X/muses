@@ -1,5 +1,6 @@
 package com.muses.player.core.scrape.text
 
+import com.muses.player.core.data.store.platformNowMs
 import com.muses.player.core.model.scrape.OnlineTextMatchFailReason
 import com.muses.player.core.model.scrape.OnlineTextMatchResult
 import com.muses.player.core.model.scrape.OnlineTextQuery
@@ -18,6 +19,8 @@ import kotlinx.coroutines.CancellationException
  * 3. 负缓存命中（queryKey 一致且未过期）→ no-match 短路；
  * 4. 按链序逐源搜索，命中且 hitFillsMissing 即返回（confidence 由 classifyTextMetaConfidence 判定）；
  * 5. 全链无命中：写负缓存，返回 network（链中出现过异常）或 no-match。
+ *
+ * W2 上收注：`System.currentTimeMillis()` → [platformNowMs]（commonMain 等价替身，actual 即 System）。
  */
 class TextMetaMatcher(
     private val providers: List<TextMetaProvider>,
@@ -41,7 +44,7 @@ class TextMetaMatcher(
 
         val queryKey = NegativeCache.buildQueryKey(query)
         val cached = negativeCache.get(query.songId)
-        if (cached != null && cached.queryKey == queryKey && cached.expiresAt > System.currentTimeMillis()) {
+        if (cached != null && cached.queryKey == queryKey && cached.expiresAt > platformNowMs()) {
             return OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NO_MATCH)
         }
 
@@ -73,7 +76,7 @@ class TextMetaMatcher(
                 query.songId,
                 NegativeCache.NegativeEntry(
                     queryKey = queryKey,
-                    expiresAt = System.currentTimeMillis() + NEGATIVE_CACHE_TTL_MS,
+                    expiresAt = platformNowMs() + NEGATIVE_CACHE_TTL_MS,
                 ),
             )
         }
