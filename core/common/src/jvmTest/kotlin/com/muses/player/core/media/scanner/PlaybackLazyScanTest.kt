@@ -81,4 +81,41 @@ class PlaybackLazyScanTest {
         val merged = PlaybackLazyScan.merge(song, PlaybackLazyScan.FileTags(title = "  "))!!
         assertEquals("库标题", merged.title)
     }
+
+    // ── coverBackfill：封面回填脱离版本门禁 ──
+
+    @Test
+    fun backfills_cover_when_version_ready_but_missing() {
+        // 版本已齐（merge 必返回 null），库内无封面 → 文件封面回填
+        val song = filenameSong().copy(tagsVersion = SongTags.TAGS_VERSION)
+        assertNull(PlaybackLazyScan.merge(song, fullTags().copy(coverUri = "file:///covers/x.jpg")))
+        val backfilled = PlaybackLazyScan.coverBackfill(song, "file:///covers/x.jpg")!!
+        assertEquals("file:///covers/x.jpg", backfilled.coverUri)
+        // 只动封面：其余字段与版本原样保留
+        assertEquals(song.title, backfilled.title)
+        assertEquals(SongTags.TAGS_VERSION, backfilled.tagsVersion)
+    }
+
+    @Test
+    fun skips_backfill_when_cover_present() {
+        val song = filenameSong().copy(coverUri = "file:///covers/old.jpg")
+        assertNull(PlaybackLazyScan.coverBackfill(song, "file:///covers/new.jpg"))
+    }
+
+    @Test
+    fun skips_backfill_when_scraped_cover_decision() {
+        // 刮削封面决策（选中/显式清空）不受文件图覆盖
+        val song = filenameSong().copy(
+            tagsVersion = SongTags.TAGS_VERSION,
+            metaSources = MetaSources(cover = MetaFieldSource.SCRAPE),
+        )
+        assertNull(PlaybackLazyScan.coverBackfill(song, "file:///covers/x.jpg"))
+    }
+
+    @Test
+    fun skips_backfill_when_file_has_no_cover() {
+        val song = filenameSong().copy(tagsVersion = SongTags.TAGS_VERSION)
+        assertNull(PlaybackLazyScan.coverBackfill(song, null))
+        assertNull(PlaybackLazyScan.coverBackfill(song, "  "))
+    }
 }

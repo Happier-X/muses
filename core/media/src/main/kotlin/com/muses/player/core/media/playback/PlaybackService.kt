@@ -406,24 +406,36 @@ class PlaybackService : MediaSessionService() {
                         }
                         // 播放时懒扫描：补齐 tagsVersion<1 的歌曲信息，Room Flow 自动刷新列表
                         // 编排收口 U26 共用 [PlaybackLazyScan]；本处只负责读标签（AudioTagReader Range 探测）+ 入库
-                        if (entity != null && entity.tagsVersion < LocalLibraryScanner.TAGS_VERSION) {
+                        // 封面缺失同样进入（版本已齐也不跳过）：后补内嵌/首次漏读可经 coverBackfill 回填
+                        val needsCover = entity != null &&
+                            entity.metaCover == null && entity.coverUri.isNullOrBlank()
+                        if (entity != null && (entity.tagsVersion < LocalLibraryScanner.TAGS_VERSION || needsCover)) {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
                                     val tagData = audioTagReader.readTagForUpdate(entity.path, entity.id)
+                                    val fileTags = tagData?.let {
+                                        com.muses.player.core.media.scanner.PlaybackLazyScan.FileTags(
+                                            title = it.title,
+                                            artist = it.artist,
+                                            album = it.album,
+                                            lyrics = it.lyrics,
+                                            coverUri = it.coverUri,
+                                            durationMs = it.durationMs,
+                                        )
+                                    }
+                                    val song = entity.toDomain()
                                     val merged = com.muses.player.core.media.scanner.PlaybackLazyScan.merge(
-                                        entity.toDomain(),
-                                        tagData?.let {
-                                            com.muses.player.core.media.scanner.PlaybackLazyScan.FileTags(
-                                                title = it.title,
-                                                artist = it.artist,
-                                                album = it.album,
-                                                lyrics = it.lyrics,
-                                                coverUri = it.coverUri,
-                                                durationMs = it.durationMs,
-                                            )
-                                        },
+                                        song,
+                                        fileTags,
                                     )
-                                    if (merged != null) songRepository.upsert(merged)
+                                    if (merged != null) {
+                                        songRepository.upsert(merged)
+                                    } else {
+                                        com.muses.player.core.media.scanner.PlaybackLazyScan.coverBackfill(
+                                            song,
+                                            fileTags?.coverUri,
+                                        )?.let { songRepository.upsert(it) }
+                                    }
                                 } catch (e: kotlinx.coroutines.CancellationException) {
                                     throw e
                                 } catch (e: Exception) {

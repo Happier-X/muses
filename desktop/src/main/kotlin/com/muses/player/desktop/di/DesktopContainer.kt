@@ -109,7 +109,15 @@ object DesktopContainer {
                     val song = songRepository.getSong(songId)
                     if (song != null) {
                         val merged = PlaybackLazyScan.merge(song, fileTags)
-                        if (merged != null) songRepository.upsert(merged)
+                        if (merged != null) {
+                            songRepository.upsert(merged)
+                        } else {
+                            // 版本已齐但库内缺封面：文件侧有图则回填
+                            // （后补内嵌/首次漏读/缓存清理，不再永久缺席；刮削封面决策不受影响）
+                            PlaybackLazyScan.coverBackfill(song, fileTags?.coverUri)?.let {
+                                songRepository.upsert(it)
+                            }
+                        }
                     }
                     fileTags
                 } catch (e: kotlinx.coroutines.CancellationException) {

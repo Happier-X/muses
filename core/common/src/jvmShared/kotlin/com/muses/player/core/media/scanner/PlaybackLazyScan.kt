@@ -30,6 +30,27 @@ object PlaybackLazyScan {
         val durationMs: Long = 0L,
     )
 
+    /**
+     * 封面回填（独立于 [merge] 的版本门禁）：
+     *
+     * 根因：[merge] 仅在 `tagsVersion < TAGS_VERSION` 时执行，且无更新分支也会抬升版本；
+     * 封面在首次扫描/懒扫描时错过（内嵌图解析失败、文件当时无封面后补、缓存封面被清理），
+     * 此后永久不再补——「有内嵌封面但不展示」的系统性缺口。
+     *
+     * 触发条件（缺一不可）：库内无封面（coverUri 空）+ 无刮削封面决策
+     * （`metaSources.cover` 非空表示用户已选封面/显式清空，不得用文件图覆盖）+
+     * 本次读到文件封面。只动 coverUri，其余字段与 tagsVersion 原样保留。
+     *
+     * @return 需入库的 Song，或 null（无需回填）。调用方在 [merge] 返回 null
+     *  （版本已齐/标签读取失败）时顺手调用一次即可，两者互斥不重复写库。
+     */
+    fun coverBackfill(song: Song, coverUri: String?): Song? {
+        if (song.metaSources?.cover != null) return null
+        if (!song.coverUri.isNullOrBlank()) return null
+        if (coverUri.isNullOrBlank()) return null
+        return song.copy(coverUri = coverUri)
+    }
+
     fun merge(song: Song, tags: FileTags?): Song? {
         if (song.tagsVersion >= SongTags.TAGS_VERSION) return null
         if (tags == null) return null

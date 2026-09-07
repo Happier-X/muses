@@ -220,7 +220,9 @@ class AudioTagReader constructor(
                 artist = tag?.getFirst(FieldKey.ARTIST),
                 album = tag?.getFirst(FieldKey.ALBUM),
                 lyrics = tag?.getFirst(FieldKey.LYRICS),
-                cover = tag?.firstArtwork?.binaryData,
+                // 封面单独隔离：firstArtwork 对特定文件抛异常（FLAC 无图 NPE 等），
+                // 只丢封面不丢文本（同 JaudiotaggerTagPort.readCoverSafely 语义）
+                cover = readCoverSafely(tag),
                 durationMs = audioFile.audioHeader?.trackLength?.times(1000L) ?: 0L,
             )
         }.getOrNull()
@@ -235,7 +237,7 @@ class AudioTagReader constructor(
             artist = id3.getFirst(FieldKey.ARTIST),
             album = id3.getFirst(FieldKey.ALBUM),
             lyrics = id3.getFirst(FieldKey.LYRICS),
-            cover = id3.firstArtwork?.binaryData,
+            cover = readCoverSafely(id3),
             durationMs = 0L,
         )
     }
@@ -336,6 +338,10 @@ class AudioTagReader constructor(
             // 缓存清理失败不影响主流程
         }
     }
+
+    /** 封面单独隔离读取（首帧二进制；损坏/不支持的内嵌图返回 null，不抛） */
+    private fun readCoverSafely(tag: org.jaudiotagger.tag.Tag?): ByteArray? =
+        runCatching { tag?.firstArtwork?.binaryData }.getOrNull()
 
     /**
      * 读取标签并返回可用于更新 SongEntity 的数据

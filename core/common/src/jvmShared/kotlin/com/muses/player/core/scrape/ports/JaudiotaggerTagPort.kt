@@ -31,7 +31,14 @@ object JaudiotaggerTagPort : TagPort {
 
     // ── TagPort：读 ───────────────────────────────────────
 
-    /** 通用读（AudioFileIO 全量解析，取文本字段 + 首帧封面 + 时长）；失败返回 null */
+    /**
+     * 通用读（AudioFileIO 全量解析，取文本字段 + 首帧封面 + 时长）；失败返回 null。
+     *
+     * 封面提取单独隔离：`firstArtwork` 会对特定文件抛异常（实测 jaudiotagger 3.0.1
+     * `FlacTag.getArtworkList` 在无内嵌图时 NPE；损坏 APIC 帧同理），且安卓 [TagReader]
+     * 早有同款 runCatching 先例。封面失败只丢封面，不得拖累文本/歌词整体返回 null——
+     * 否则调用方（懒扫描/刮削）会误判整曲无标签。
+     */
     override fun readTags(file: File): TagPortTags? {
         return try {
             val audioFile = AudioFileIO.read(file)
@@ -41,7 +48,7 @@ object JaudiotaggerTagPort : TagPort {
                 artist = tag?.getFirst(FieldKey.ARTIST),
                 album = tag?.getFirst(FieldKey.ALBUM),
                 lyrics = tag?.getFirst(FieldKey.LYRICS),
-                cover = tag?.firstArtwork?.binaryData,
+                cover = readCoverSafely(tag),
                 durationMs = audioFile.audioHeader?.trackLength?.times(1000L) ?: 0L,
             )
         } catch (e: CancellationException) {
@@ -50,6 +57,10 @@ object JaudiotaggerTagPort : TagPort {
             null
         }
     }
+
+    /** 封面单独隔离读取（首帧二进制；损坏/不支持的内嵌图返回 null，不抛） */
+    fun readCoverSafely(tag: Tag?): ByteArray? =
+        runCatching { tag?.firstArtwork?.binaryData }.getOrNull()
 
     // ── TagPort：写（文件 + ScrapeChanges → 结果）──────────
 
