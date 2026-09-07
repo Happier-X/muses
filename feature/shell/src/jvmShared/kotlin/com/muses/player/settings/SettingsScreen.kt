@@ -30,7 +30,9 @@ import com.muses.player.core.ui.components.SettingsScreen
 import com.muses.player.core.ui.components.SaltToggle
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.feature.shell.platform.AppVersionProvider
+import com.muses.player.feature.shell.platform.InAppUpdateSection
 import com.muses.player.feature.shell.platform.rememberShellPlatformActions
+import com.muses.player.feature.shell.platform.supportsInAppUpdate
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -103,6 +105,14 @@ fun SettingsScreen(
                     onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
                 )
 
+                // ---- 应用更新（Windows 应用内更新卡片；安卓空实现，走共享外链检查项） ----
+                if (supportsInAppUpdate) {
+                    InAppUpdateSection(
+                        versionName = versionProvider.versionName,
+                        onOpenUrl = actions.openUrl,
+                    )
+                }
+
                 // ---- 关于 ----
                 val latestSummary by viewModel.latestErrorSummary.collectAsState()
                 SettingsAboutFeedbackContent(
@@ -112,6 +122,7 @@ fun SettingsScreen(
                     onCheckUpdate = { current -> checkLatestRelease(current) },
                     errorLogSummary = latestSummary,
                     onDumpLogs = { viewModel.dumpLogs() },
+                    showCheckUpdate = !supportsInAppUpdate,
                 )
             },
         )

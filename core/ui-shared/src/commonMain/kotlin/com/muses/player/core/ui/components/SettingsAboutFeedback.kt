@@ -39,6 +39,8 @@ fun SettingsAboutFeedbackContent(
     onCheckUpdate: suspend (String) -> Pair<String, String>?,
     errorLogSummary: String?,
     onDumpLogs: suspend () -> String?,
+    /** 桌面 Windows 用应用内更新卡片替代此外链检查项时置 false（安卓保持 true） */
+    showCheckUpdate: Boolean = true,
 ) {
     val scope = rememberCoroutineScope()
     var checking by remember { mutableStateOf(false) }
@@ -61,7 +63,8 @@ fun SettingsAboutFeedbackContent(
                 SettingsIcon(icon = TablerIcons.Info)
             },
         )
-        // 检查更新
+        // 检查更新（桌面应用内更新接管时隐藏，避免重复入口）
+        if (showCheckUpdate) {
         SaltListItem(
             title = "检查更新",
             subtitle = if (checking) "正在检查更新…" else null,
@@ -92,6 +95,7 @@ fun SettingsAboutFeedbackContent(
                 SettingsIcon(icon = TablerIcons.Refresh)
             },
         )
+        }
     }
 
     // ---- 反馈 ----（任务 08-26-settings-log-viewer）
