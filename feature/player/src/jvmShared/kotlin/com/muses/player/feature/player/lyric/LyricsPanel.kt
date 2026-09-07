@@ -1843,14 +1843,17 @@ private fun GlyphLyricText(
                         } else {
                             bounds.left + bounds.width * reveal
                         }
+                        // U22：Shadow 在 TextLayoutResult 中烘焙，clipRect 无法约束其模糊溢出，
+                        // 导致整行辉光。将 shadowBlurPx 缩至 glowRadius 的 12%（≤1.5dp），
+                        // 使溢出不可见，同时保留光晕语义。
+                        val clampedGlowBlur = glowRadius * 0.12f
                         clipRect(
                             left = if (isRtl) revealFront - glowRadius else bounds.left - glowRadius,
                             top = bounds.top - glowRadius,
                             right = if (isRtl) bounds.right + glowRadius else revealFront + glowRadius,
                             bottom = bounds.bottom + glowRadius,
                         ) {
-                            // U21：Shadow 白轮廓光晕（透明字色），等价原 BlurMaskFilter 模糊白字
-                            drawGlyph(glow.coerceIn(0f, 1f) * .648f, glowRadius)
+                            drawGlyph(glow.coerceIn(0f, 1f) * .648f, clampedGlowBlur)
                         }
                     }
 
@@ -1862,8 +1865,10 @@ private fun GlyphLyricText(
                     ) {
                         if (reveal <= 0f) return@clipRect
 
+                        // AMLL 对齐：fadeWidth = word.height * wordFadeWidth(0.5)。
+                        // 旧值 0.7*字宽在 CJK 大字上羽化带过宽，看起来整字发虚。
                         val feather = max(
-                            bounds.width * SettingsRuntime.lyricHighlightGradientWidth,
+                            bounds.height * 0.5f,
                             1.5f * density.density,
                         )
                         val front = if (isRtl) {
@@ -2000,6 +2005,13 @@ private fun sourceGlyphTimings(
         }
     }
 
+    // AMLL 对齐（LyricLineBase.shouldEmphasize）：CJK 词仅看时长 ≥1000ms；
+    // 非 CJK 还要求去空格后长度 2..7。旧逻辑只看 toneDuration ≥ 阈值，
+    // 中文短字（如 200ms 的“爱”）也会被误判为长词带辉光。
+    fun isCjk(text: String): Boolean = text.any { ch ->
+        ch.code in 0x4E00..0x9FFF || ch.code in 0x3400..0x4DBF ||
+            ch.code in 0x3040..0x30FF || ch.code in 0xAC00..0xD7AF
+    }
     return result.map { timing ->
         timing?.let {
             val liftStart = if (liftMode == LyricsGroupingMode.Word) it.wordStart else it.start
@@ -2011,7 +2023,13 @@ private fun sourceGlyphTimings(
             val toneDuration = max(toneEnd - toneStart, 0f)
             val toneIndex = if (usesWordGroup) it.wordCharacterIndex else it.characterIndex
             val toneCount = if (usesWordGroup) it.wordCharacterCount else it.characterCount
-            val longTone = !line.text[it.textOffset].isWhitespace() && toneDuration >= longToneThresholdMs
+            val wordStartOffset = (it.textOffset - it.wordCharacterIndex).coerceIn(0, line.text.length)
+            val wordEndOffset = (wordStartOffset + it.wordCharacterCount).coerceIn(0, line.text.length)
+            val wordText = line.text.substring(wordStartOffset, wordEndOffset)
+            val trimmedLen = wordText.trim().length
+            val emphasizeByAmll = toneDuration >= 1000f && (isCjk(wordText) || (trimmedLen in 2..7))
+            val longTone = !line.text[it.textOffset].isWhitespace() &&
+                emphasizeByAmll && toneDuration >= longToneThresholdMs
             val emphasisProgress = sourceSmootherStep(
                 (toneDuration - longToneThresholdMs) / (2800f - longToneThresholdMs),
             )
@@ -2066,26 +2084,15 @@ private fun sourceGlyphVisual(
     val longToneScale = if (reduceMotion) 1f else
         1f + (UpstreamLyrics.LONG_TONE_MAX_SCALE - 1f) * envelope * timing.expansionAmount *
             SettingsRuntime.lyricLongToneStrength
-    // Word bounce: 1.0→1.2→1.0 when a word first becomes active (Apple Music style)
-    val bounceScale = if (reduceMotion || timing.isLongTone || !SettingsRuntime.lyricWordBounceEnabled) 1f else {
-        val bounceProgress = raw.coerceIn(0f, 1f)
-        if (bounceProgress > 0f && bounceProgress < 0.5f) {
-            1f + 0.2f * (bounceProgress / 0.5f)
-        } else if (bounceProgress >= 0.5f && bounceProgress < 1f) {
-            1.2f - 0.2f * ((bounceProgress - 0.5f) / 0.5f)
-        } else {
-            1f
-        }
-    }
-    val scale = longToneScale * bounceScale
-    val glow = if (reduceMotion || !SettingsRuntime.lyricGlowEnabled ||
-        (SettingsRuntime.lyricGlowLongTonesOnly && !timing.isLongTone)
-    ) 0f else {
-        if (timing.isLongTone) envelope * timing.glowAmount else sourceOrdinaryGlowStrength(
-            playbackTimeMs = playbackTimeMs.toFloat(),
-            endMs = timing.end,
-            rawProgress = raw,
-        )
+    // AMLL 对齐：普通字无缩放、无弹跳，只有长词（emphasize）才有 swell/glow。
+    // 旧的 1.0→1.2→1.0 bounce（20% 放大）是误读，AMLL 普通词只有 float 上浮。
+    val scale = longToneScale
+    // AMLL 对齐：辉光仅属于强调词（shouldEmphasize：词长 ≥1000ms）。
+    // 普通字 glow 恒为 0，否则整行都有辉光。
+    val glow = if (reduceMotion || !SettingsRuntime.lyricGlowEnabled || !timing.isLongTone) {
+        0f
+    } else {
+        envelope * timing.glowAmount
     }
     val shakeAmplitude = if (reduceMotion || !timing.isLongTone || raw <= 0f || raw >= 1f) 0f else {
         min(.58f * density, UpstreamLyrics.FONT_SIZE_SP * fontScale * .013f * density) *
@@ -2102,20 +2109,6 @@ private fun sourceGlyphVisual(
         shakeXPx = shakeX,
         shakeYPx = shakeY,
     )
-}
-
-private fun sourceOrdinaryGlowStrength(
-    playbackTimeMs: Float,
-    endMs: Float,
-    rawProgress: Float,
-): Float {
-    if (playbackTimeMs <= endMs) {
-        val attack = sourceSmootherStep(rawProgress / .24f)
-        val breath = .82f + .18f * kotlin.math.sin(Math.PI.toFloat() * rawProgress)
-        return attack * breath * .55f
-    }
-    val tail = ((playbackTimeMs - endMs) / UpstreamLyrics.GLOW_TAIL_MS).coerceIn(0f, 1f)
-    return (1f - sourceSmootherStep(tail)) * .82f * .55f
 }
 
 private data class SourceTextBlock(val start: Int, val end: Int)
