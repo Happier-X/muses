@@ -25,7 +25,9 @@ import androidx.compose.ui.unit.dp
 import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.db.SongTags
 import com.muses.player.core.data.mapper.toDomain
+import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.data.repository.SongRepository
+import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MiniPlayerBar
@@ -38,6 +40,7 @@ import com.muses.player.feature.library.ArtistsPage
 import com.muses.player.feature.library.SongsPage
 import com.muses.player.feature.player.PlayerScreen
 import com.muses.player.feature.player.QueueScreen
+import com.muses.player.feature.player.lyric.LyricsParser
 import com.muses.player.feature.playlist.PlaylistDetailPage
 import com.muses.player.feature.playlist.PlaylistsPage
 import com.muses.player.feature.sources.SourcesScreen
@@ -46,8 +49,12 @@ import com.muses.player.feature.sources.WebDavFormScreen
 import com.muses.player.settings.SettingsScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -55,6 +62,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** MiniPlayerBar 的数据快照（对照 MiniPlayer.vue 的 playerState.currentSong 消费口径） */
 data class NowPlayingUiState(
@@ -74,6 +82,7 @@ class MainViewModel constructor(
     private val playback: PlaybackPort,
     private val songDao: SongDao,
     private val songRepository: SongRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     val isPlaying: StateFlow<Boolean> = playback.isPlaying
@@ -96,6 +105,58 @@ class MainViewModel constructor(
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    // ── 迷你条歌词模式 ──
+
+    /** 开关状态 */
+    val miniPlayerLyricsEnabled: StateFlow<Boolean> = settingsRepository.miniPlayerLyricsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** 当前歌词行文本（null = 无歌词或开关关闭） */
+    private val _currentLyricLine = MutableStateFlow<String?>(null)
+    val currentLyricLine: StateFlow<String?> = _currentLyricLine.asStateFlow()
+
+    /** 已解析歌词文档（切歌时更新） */
+    private var lyricsDocument: LyricsDocument? = null
+
+    init {
+        observeLyrics()
+        startLyricPositionPolling()
+    }
+
+    /** 订阅当前曲歌词变化：切歌时解析歌词文本 → 更新 [lyricsDocument] */
+    private fun observeLyrics() {
+        viewModelScope.launch {
+            playback.currentSongId
+                .flatMapLatest { songId ->
+                    if (songId == null) flowOf(null)
+                    else songDao.observeById(songId)
+                }
+                .collect { songEntity ->
+                    val doc = withContext(Dispatchers.Default) {
+                        LyricsParser.parseDocument(songEntity?.lyrics)
+                    }
+                    lyricsDocument = doc
+                }
+        }
+    }
+
+    /** 歌词进度轮询：~100ms，根据播放位置查找当前歌词行 */
+    private fun startLyricPositionPolling() {
+        viewModelScope.launch {
+            while (true) {
+                if (miniPlayerLyricsEnabled.value) {
+                    val doc = lyricsDocument
+                    val pos = playback.currentPosition()
+                    val index = doc?.highlightedIndex(pos)
+                    _currentLyricLine.value = index?.let { doc?.lines?.getOrNull(it)?.text }
+                } else {
+                    _currentLyricLine.value = null
+                }
+                delay(100)
+            }
+        }
+    }
 
     private fun mergeNowPlaying(
         songId: String?,
@@ -193,6 +254,8 @@ fun MusesApp() {
 
     val nowPlaying by viewModel.nowPlaying.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
+    val miniPlayerLyricsEnabled by viewModel.miniPlayerLyricsEnabled.collectAsState()
+    val currentLyricLine by viewModel.currentLyricLine.collectAsState()
 
     Box(Modifier.fillMaxSize()) {
         // 结构恒定：overlay 打开时不得切换 TabsLayout 分支（navVisible 恒 true）——
@@ -206,10 +269,15 @@ fun MusesApp() {
             navVisible = true,
             bottomBar = {
                 BoxWithConstraints(Modifier.navigationBarsPadding()) {
-                    // 09-07 定案：窄屏副标题只显示艺术家；宽屏（Windows/平板）才「艺术家 - 专辑」
-                    val miniSubtitle = if (maxWidth >= TabletBreakpoint) {
+                    // 歌词模式：开关开启且有当前歌词行时，用歌词替换艺术家
+                    val lyricLine = if (miniPlayerLyricsEnabled) currentLyricLine else null
+                    val miniSubtitle = if (lyricLine != null) {
+                        lyricLine
+                    } else if (maxWidth >= TabletBreakpoint) {
+                        // 宽屏（Windows/平板）「艺术家 - 专辑」
                         nowPlaying?.subtitle ?: "未知艺术家 - 未知专辑"
                     } else {
+                        // 窄屏「艺术家」
                         nowPlaying?.artist ?: "未知艺术家"
                     }
                     MiniPlayerBar(

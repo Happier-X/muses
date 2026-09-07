@@ -61,8 +61,18 @@ class PlaybackService : MediaSessionService() {
     private val errorLogStore: ErrorLogStore by inject()
     private val audioTagReader: AudioTagReader by inject()
     private val songRepository: SongRepository by inject()
+    private val settingsRepository: com.muses.player.core.data.repository.SettingsRepository by inject()
 
     private var saveJob: kotlinx.coroutines.Job? = null
+
+    // ── 通知歌词模式 ──
+    /** 原始元数据（切歌时快照；开启歌词模式后不从 player.currentMediaItem 读，防脏读） */
+    private var originalTitle: CharSequence? = null
+    private var originalArtist: CharSequence? = null
+    /** 标记当前 MediaItem 是否已被歌词模式修改过（防重复 replaceMediaItem 触发持久化循环） */
+    private var metadataModified = false
+    /** 当前曲歌词行缓存（解析一次，position 轮询只做二分查找） */
+    private var lyricsLines: List<com.muses.player.core.lyrics.model.LyricLine>? = null
 
     // ExoPlayer 强制主线程访问（player-accessed-on-wrong-thread 崩溃防护），
     // 服务生命周期本就在主线程；Room/DataStore 挂起调用内部自行切 IO
@@ -122,6 +132,8 @@ class PlaybackService : MediaSessionService() {
 
         // 播放持久化（任务 08-25-native-playback-persistence / P1）
         player.addListener(persistenceListener)
+        // 09-07 通知歌词模式：监听开关 + 歌词 + 播放位置，动态替换 MediaMetadata
+        startNotificationLyricsMonitoring(player)
         // ExoPlayer 只能在主线程访问：恢复流程在后台查库，player 操作投递主线程
         val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
         serviceScope.launch {
@@ -144,6 +156,115 @@ class PlaybackService : MediaSessionService() {
             Player.REPEAT_MODE_ALL
         }
         player.shuffleModeEnabled = config.shuffleEnabled
+    }
+
+    // ── 通知歌词模式 ──
+
+    /**
+     * 监听 [SettingsRepository.notificationLyricsEnabled]，开启后：
+     * - 标题位置显示当前歌词行
+     * - 艺术家位置显示「原始标题 - 原始艺术家」
+     * 关闭时恢复原始 MediaMetadata。
+     */
+    private fun startNotificationLyricsMonitoring(player: Player) {
+        serviceScope.launch {
+            var enabled = false
+            // 后台收集开关状态
+            launch {
+                settingsRepository.notificationLyricsEnabled.collect {
+                    enabled = it
+                    if (!it) restoreNotificationMetadata(player)
+                }
+            }
+            kotlinx.coroutines.delay(50) // 等首次值到达
+            // 位置轮询 + 切歌检测
+            var lastSongId: String? = null
+            snapshotOriginalMetadata(player)
+            parseCurrentSongLyrics(player)
+            lastSongId = player.currentMediaItem?.mediaId
+            while (true) {
+                kotlinx.coroutines.delay(100)
+                if (!enabled) {
+                    lastSongId = null
+                    continue
+                }
+                val currentId = player.currentMediaItem?.mediaId
+                if (currentId != lastSongId) {
+                    metadataModified = false
+                    snapshotOriginalMetadata(player)
+                    parseCurrentSongLyrics(player)
+                    lastSongId = currentId
+                }
+                updateNotificationMetadataWithLyric(player)
+            }
+        }
+    }
+
+    /** 快照原始元数据（只在首次或切歌时调用，防歌词模式下读到脏值） */
+    private fun snapshotOriginalMetadata(player: Player) {
+        if (metadataModified) return
+        val item = player.currentMediaItem ?: return
+        originalTitle = item.mediaMetadata.title
+        originalArtist = item.mediaMetadata.artist
+    }
+
+    /** 从 Room 读取歌词并解析 */
+    private suspend fun parseCurrentSongLyrics(player: Player) {
+        val songId = player.currentMediaItem?.mediaId ?: run {
+            lyricsLines = null
+            return
+        }
+        val song = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            songDao.getById(songId)
+        }
+        lyricsLines = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            com.muses.player.feature.player.lyric.LyricsParser.parseDocument(song?.lyrics)?.lines
+        }
+    }
+
+    /** 根据播放位置更新 MediaMetadata：标题=歌词行，艺术家=原始标题-原始艺术家 */
+    private fun updateNotificationMetadataWithLyric(player: Player) {
+        val session = mediaSession ?: return
+        val lines = lyricsLines
+        if (lines.isNullOrEmpty()) {
+            if (metadataModified) restoreNotificationMetadata(player)
+            return
+        }
+        val pos = player.currentPosition
+        val index = com.muses.player.core.lyrics.model.LyricsDocument(
+            lines = lines,
+        ).highlightedIndex(pos)
+        val lyricLine = index?.let { lines.getOrNull(it)?.text?.trim() }?.takeIf { it.isNotEmpty() }
+            ?: return
+        val origTitle = originalTitle?.toString() ?: ""
+        val origArtist = originalArtist?.toString() ?: ""
+        val metadata = androidx.media3.common.MediaMetadata.Builder()
+            .setTitle(lyricLine)
+            .setArtist("$origTitle - $origArtist")
+            .build()
+        val current = player.currentMediaItem ?: return
+        player.replaceMediaItem(
+            player.currentMediaItemIndex,
+            current.buildUpon().setMediaMetadata(metadata).build(),
+        )
+        metadataModified = true
+    }
+
+    /** 恢复原始 MediaMetadata（关闭歌词模式或切歌时） */
+    private fun restoreNotificationMetadata(player: Player) {
+        val origTitle = originalTitle ?: return
+        val origArtist = originalArtist
+        val metadata = androidx.media3.common.MediaMetadata.Builder()
+            .setTitle(origTitle)
+            .setArtist(origArtist)
+            .build()
+        val current = player.currentMediaItem ?: return
+        player.replaceMediaItem(
+            player.currentMediaItemIndex,
+            current.buildUpon().setMediaMetadata(metadata).build(),
+        )
+        metadataModified = false
+        lyricsLines = null
     }
 
     /**
@@ -264,6 +385,8 @@ class PlaybackService : MediaSessionService() {
 
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                // 通知歌词模式：切歌时重置标记，由轮询检测 songId 变化后重新快照+应用
+                metadataModified = false
                 scheduleSnapshotSave(player)
                 val currentId = player.currentMediaItem?.mediaId
                 if (currentId != null) {
