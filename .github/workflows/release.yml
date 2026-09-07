@@ -73,9 +73,9 @@ jobs:
           echo "---" >> release_body.md
           echo "" >> release_body.md
           echo "### 构建产物" >> release_body.md
-          echo "- \`muses-v${{ steps.version.outputs.version }}.apk\` — 原生 Kotlin + Jetpack Compose（包名 \`com.muses.player\`）" >> release_body.md
-          echo "- \`muses-v${{ steps.version.outputs.version }}-mi.apk\` — 包名 \`com.miui.player\`" >> release_body.md
-          echo "- \`Muses-v${{ steps.version.outputs.version }}.msi\` — Windows 桌面端（Compose Desktop + jpackage）" >> release_body.md
+          echo "- \`muses-v${{ steps.version.outputs.version }}.apk\` — 安卓端（Compose Multiplatform 双端共享界面，包名 \`com.muses.player\`）" >> release_body.md
+          echo "- \`muses-v${{ steps.version.outputs.version }}-mi.apk\` — 安卓端（Compose Multiplatform 双端共享界面，包名 \`com.miui.player\`）" >> release_body.md
+          echo "- \`Muses-v${{ steps.version.outputs.version }}.msi\` — Windows 桌面端（Compose Multiplatform 双端共享界面 + jpackage）" >> release_body.md
 
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
@@ -86,7 +86,7 @@ jobs:
             muses-v${{ steps.version.outputs.version }}-mi.apk
             release_body.md
 
-  # Windows 桌面端 MSI（Compose Desktop / jpackage），与安卓并行
+  # Windows 桌面端 MSI（Compose Multiplatform / jpackage），与安卓并行
   build-windows:
     runs-on: windows-latest
     permissions:
