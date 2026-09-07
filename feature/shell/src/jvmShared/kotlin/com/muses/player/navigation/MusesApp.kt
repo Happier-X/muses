@@ -217,6 +217,10 @@ class MainViewModel constructor(
     }
 
     fun playPause() = playback.playPause()
+
+    fun skipToNext() = playback.skipToNext()
+
+    fun skipToPrevious() = playback.skipToPrevious()
 }
 
 /**
@@ -289,6 +293,8 @@ fun MusesApp() {
                         onOpenPlayer = { showPlayerOverlay = true },
                         onTogglePlayback = { viewModel.playPause() },
                         onOpenQueue = { showQueueOverlay = true },
+                        onNext = { viewModel.skipToNext() },
+                        onPrevious = { viewModel.skipToPrevious() },
                         modifier = Modifier
                             .padding(horizontal = 18.dp, vertical = 8.dp)
                             .fillMaxWidth(),
