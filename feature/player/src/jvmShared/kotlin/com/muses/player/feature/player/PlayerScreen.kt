@@ -123,10 +123,13 @@ fun PlayerScreen(
 
     // U21：屏幕尺寸改用视口约束（见下方 BoxWithConstraints），原 LocalConfiguration 仅安卓可用
 
-    // U12：标题/艺术家改由曲库实时流（metaTitle/metaArtist 刮削优先）；原 Media3 动态 ID3
-    // 标签与扫描标签同源，差异仅在未回写窗口期
-    val title = currentSong?.let { it.metaTitle ?: it.title }?.trim()?.takeIf { it.isNotEmpty() } ?: ""
-    val artist = currentSong?.metaArtist ?: currentSong?.artist ?: ""
+    // U12：标题/艺术家改由曲库实时流；原 Media3 动态 ID3标签与扫描标签同源，差异仅在未回写窗口期。
+    // 注意：metaTitle/metaArtist 是来源标记（embedded/scrape…，见 Mappers 写入 wire 值），
+    // 不是展示值！展示永远取 title/artist 本体（刮削写回已把刮削值写入本体，标记只做
+    // 「是否被刮削过」的非空判断，见 mergeNowPlaying）。此前误把标记当名字展示，
+    // 刮削完艺术家会显示成 "embedded"。
+    val title = currentSong?.title?.trim()?.takeIf { it.isNotEmpty() } ?: ""
+    val artist = currentSong?.artist ?: ""
     val hasSong = currentSong != null && title.isNotEmpty()
 
     // 拖动层状态（对齐 PlayerPage.vue drag-layer）
