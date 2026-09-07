@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -32,15 +33,30 @@ import kotlinx.coroutines.delay
  */
 @Composable
 fun DesktopToastOverlay(modifier: Modifier = Modifier) {
-    val message by desktopToastMessage.collectAsState()
     var visibleText by remember { mutableStateOf<String?>(null) }
+    // 消退令牌：每次新消息递增，旧延迟任务过期后不再清屏，避免新消息被吞
+    var dismissToken by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(message) {
-        if (message != null) {
-            visibleText = message
-            delay(2_200)
-            visibleText = null
+    // 挂载前攒的消息兜底：首帧消费一次最近一条（壳层晚挂载不丢提示）
+    val pendingMessage by desktopToastMessage.collectAsState()
+    LaunchedEffect(pendingMessage) {
+        if (visibleText == null && pendingMessage != null) {
+            visibleText = pendingMessage
             desktopToastMessage.value = null
+            val token = ++dismissToken
+            delay(2_200)
+            if (dismissToken == token) visibleText = null
+        }
+    }
+
+    // 事件总线：SharedFlow 无去重，同文案连续触发也每次都显示
+    LaunchedEffect(Unit) {
+        desktopToastEvents.collect { message ->
+            visibleText = message
+            desktopToastMessage.value = null
+            val token = ++dismissToken
+            delay(2_200)
+            if (dismissToken == token) visibleText = null
         }
     }
 
