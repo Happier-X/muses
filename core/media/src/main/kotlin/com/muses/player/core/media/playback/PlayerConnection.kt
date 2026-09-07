@@ -231,7 +231,8 @@ class PlayerConnection constructor(
                     androidx.media3.common.MediaMetadata.Builder()
                         .setTitle(song.title)
                         .setArtist(song.artist)
-                        .setAlbumTitle(song.album)
+                        // 不传 albumTitle：小米系统卡片 / 超级岛副标题直接读此字段，
+                        // 播放条与通知口径统一为「标题/艺术家」，专辑信息仅保留在数据库（蓝牙场景暂不考虑）
                         .build()
                 )
                 .build()

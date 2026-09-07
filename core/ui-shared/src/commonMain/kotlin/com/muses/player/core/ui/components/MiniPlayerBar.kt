@@ -49,8 +49,8 @@ import com.muses.player.core.uishared.platform.platformBlurModifier
  * - 封面 48px；标题 15px/600/1.25 单行省略；副标题 13px/1.3/`--m-text-2`
  *   单行省略，两行间距 3px（`__info { gap: 3px }`）；
  * - 控制组 gap 2px，图标 18px 实心（Tabler Filled 系）；
- * - 无歌空态：显示「暂无播放歌曲 / 未知艺术家 - 未知专辑」占位文案，
- *   整条不可点、播放键禁用（`.mini-player--empty` + aria-disabled）。
+ * - 无歌空态：显示「暂无播放歌曲 / 未知艺术家」占位文案（宽屏副标题带「- 未知专辑」，
+ *   由调用方按断点决定），整条不可点、播放键禁用（`.mini-player--empty` + aria-disabled）。
  */
 @Composable
 fun MiniPlayerBar(

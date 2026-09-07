@@ -1,6 +1,7 @@
 package com.muses.player.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -58,8 +59,10 @@ import kotlinx.coroutines.launch
 /** MiniPlayerBar 的数据快照（对照 MiniPlayer.vue 的 playerState.currentSong 消费口径） */
 data class NowPlayingUiState(
     val title: String,
-    /** 「{artist} - {album}」，空值回退「未知艺术家/未知专辑」 */
+    /** 宽屏副标题（≥ [TabletBreakpoint]）：「{artist} - {album}」，空值回退「未知艺术家/未知专辑」 */
     val subtitle: String,
+    /** 窄屏副标题：只显示艺术家（专辑不进迷你条，09-07 定案） */
+    val artist: String,
     val coverUri: String?,
 )
 
@@ -132,6 +135,7 @@ class MainViewModel constructor(
         return NowPlayingUiState(
             title = title,
             subtitle = "$artist - $album",
+            artist = artist,
             coverUri = cover,
         )
     }
@@ -201,10 +205,16 @@ fun MusesApp() {
             secondaryItems = secondaryItems,
             navVisible = true,
             bottomBar = {
-                Box(Modifier.navigationBarsPadding()) {
+                BoxWithConstraints(Modifier.navigationBarsPadding()) {
+                    // 09-07 定案：窄屏副标题只显示艺术家；宽屏（Windows/平板）才「艺术家 - 专辑」
+                    val miniSubtitle = if (maxWidth >= TabletBreakpoint) {
+                        nowPlaying?.subtitle ?: "未知艺术家 - 未知专辑"
+                    } else {
+                        nowPlaying?.artist ?: "未知艺术家"
+                    }
                     MiniPlayerBar(
                         title = nowPlaying?.title ?: "暂无播放歌曲",
-                        subtitle = nowPlaying?.subtitle ?: "未知艺术家 - 未知专辑",
+                        subtitle = miniSubtitle,
                         coverUri = nowPlaying?.coverUri,
                         isPlaying = isPlaying,
                         hasSong = nowPlaying != null,

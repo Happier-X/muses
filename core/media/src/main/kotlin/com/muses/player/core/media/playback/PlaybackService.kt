@@ -105,7 +105,18 @@ class PlaybackService : MediaSessionService() {
 
         mediaSession = MediaSession.Builder(this, player).build()
 
-        val notificationProvider = DefaultMediaNotificationProvider(this)
+        // 09-07 定案：媒体通知口径 = 上面标题、下面艺术家，专辑不进通知（与迷你条窄屏形态一致）；
+        // media3 1.11 默认行为相同，此处显式锁定防止后续升级改默认值。MediaMetadata.albumTitle
+        // 保留不删——蓝牙/车载（AVRCP）仍需要专辑名。
+        val notificationProvider = object : DefaultMediaNotificationProvider(this) {
+            override fun getNotificationContentTitle(
+                mediaMetadata: androidx.media3.common.MediaMetadata,
+            ): CharSequence = mediaMetadata.title ?: ""
+
+            override fun getNotificationContentText(
+                mediaMetadata: androidx.media3.common.MediaMetadata,
+            ): CharSequence = mediaMetadata.artist ?: ""
+        }
         notificationProvider.setSmallIcon(android.R.drawable.ic_media_play)
         setMediaNotificationProvider(notificationProvider)
 
@@ -164,7 +175,7 @@ class PlaybackService : MediaSessionService() {
                 androidx.media3.common.MediaMetadata.Builder()
                     .setTitle(song.title)
                     .setArtist(song.artist)
-                    .setAlbumTitle(song.album)
+                    // 与 applyPlayback 同口径：不传 albumTitle，系统卡片只显示艺术家
                     .build(),
             )
             .build()

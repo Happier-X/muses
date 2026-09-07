@@ -77,8 +77,8 @@ import kotlinx.coroutines.launch
  * 或快扫 ≥ 0.5 px/ms。
  */
 
-/** Web 断点口径：viewportWidth >= 768 即平板形态 */
-private val TabletBreakpoint = 768.dp
+/** Web 断点口径：viewportWidth >= 768 即平板形态（MiniPlayer 副标题宽窄形态共用） */
+internal val TabletBreakpoint = 768.dp
 
 /** `.tabs-layout__aside { width: 260px }` */
 private val AsideWidth = 260.dp
