@@ -31,6 +31,7 @@ import com.muses.player.core.ui.components.SaltToggle
 import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.feature.shell.platform.AppVersionProvider
 import com.muses.player.feature.shell.platform.InAppUpdateSection
+import com.muses.player.feature.shell.platform.XiaomiIslandSettingRow
 import com.muses.player.feature.shell.platform.rememberShellPlatformActions
 import com.muses.player.feature.shell.platform.supportsInAppUpdate
 import kotlinx.coroutines.flow.SharingStarted
@@ -104,6 +105,8 @@ fun SettingsScreen(
                     checked = notificationLyricsEnabled,
                     onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
                 )
+                // 小米超级岛（仅 HyperOS 安卓渲染，桌面为空实现）
+                XiaomiIslandSettingRow()
 
                 // ---- 应用更新（Windows 应用内更新卡片；安卓空实现，走共享外链检查项） ----
                 if (supportsInAppUpdate) {

@@ -22,11 +22,20 @@ interface SettingsRepository {
     /** 媒体通知歌词开关：开启后通知标题显示歌词，艺术家显示「标题-艺术家」 */
     val notificationLyricsEnabled: Flow<Boolean>
 
+    /**
+     * 小米超级岛/焦点通知开关（MeloX 式可选适配）：仅 HyperOS 设备上有效，
+     * 开启后播放通知携带 `miui.focus.param` 岛参数；非小米设备上无任何作用。
+     * 默认开（非支持设备/无白名单时 extras 被系统忽略，行为不变）。
+     */
+    val xiaomiIslandEnabled: Flow<Boolean>
+
     suspend fun setAutoScrapeEnabled(enabled: Boolean)
 
     suspend fun setMiniPlayerLyricsEnabled(enabled: Boolean)
 
     suspend fun setNotificationLyricsEnabled(enabled: Boolean)
+
+    suspend fun setXiaomiIslandEnabled(enabled: Boolean)
 
     suspend fun updateLastScanTimestamp(timestampMillis: Long)
 }
@@ -47,6 +56,9 @@ class DataStoreSettingsRepository constructor(
     override val notificationLyricsEnabled: Flow<Boolean>
         get() = dataStore.data.map { prefs -> prefs[NOTIFICATION_LYRICS_ENABLED] == true }
 
+    override val xiaomiIslandEnabled: Flow<Boolean>
+        get() = dataStore.data.map { prefs -> prefs[XIAOMI_ISLAND_ENABLED] != false }
+
     override suspend fun updateLastScanTimestamp(timestampMillis: Long) {
         dataStore.edit { prefs -> prefs[LAST_SCAN_TIMESTAMP] = timestampMillis }
     }
@@ -63,10 +75,15 @@ class DataStoreSettingsRepository constructor(
         dataStore.edit { prefs -> prefs[NOTIFICATION_LYRICS_ENABLED] = enabled }
     }
 
+    override suspend fun setXiaomiIslandEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[XIAOMI_ISLAND_ENABLED] = enabled }
+    }
+
     private companion object {
         val LAST_SCAN_TIMESTAMP = longPreferencesKey("last_scan_timestamp")
         val AUTO_SCRAPE_ENABLED = booleanPreferencesKey("auto_scrape_enabled")
         val MINI_PLAYER_LYRICS_ENABLED = booleanPreferencesKey("mini_player_lyrics_enabled")
         val NOTIFICATION_LYRICS_ENABLED = booleanPreferencesKey("notification_lyrics_enabled")
+        val XIAOMI_ISLAND_ENABLED = booleanPreferencesKey("xiaomi_island_enabled")
     }
 }
