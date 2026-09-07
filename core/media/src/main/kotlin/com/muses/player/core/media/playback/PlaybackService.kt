@@ -1,6 +1,7 @@
 package com.muses.player.core.media.playback
 
 import android.app.Notification
+import android.app.PendingIntent
 import android.content.Intent
 import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
@@ -113,7 +114,12 @@ class PlaybackService : MediaSessionService() {
         // 真正触发 429 的是流播 Range 被 4 rps 限流饿死，已通过流播专用 client（named streamingOkHttp）剥离限流解决。
         // 若实测恢复队列（465 首）一次性 prepare 仍发全列请求，再改为「只 prepare 当前曲 + 下一首」分批加载。
 
-        mediaSession = MediaSession.Builder(this, player).build()
+        // 通知卡片点击回应用：Media3 通知的 contentIntent 取自 sessionActivity，
+        // 缺省 null 即点击无反应（小米等：别家点卡片回应用，我方无反应即此缺口）。
+        // 本版 setSessionActivity 不接受 null，取不到启动意图时保持缺省（行为不变，不崩溃）。
+        val sessionBuilder = MediaSession.Builder(this, player)
+        buildSessionActivity()?.let { sessionBuilder.setSessionActivity(it) }
+        mediaSession = sessionBuilder.build()
 
         // 09-07 定案：媒体通知口径 = 上面标题、下面艺术家，专辑不进通知（与迷你条窄屏形态一致）；
         // media3 1.11 默认行为相同，此处显式锁定防止后续升级改默认值。MediaMetadata.albumTitle
@@ -454,6 +460,27 @@ class PlaybackService : MediaSessionService() {
                 scheduleSnapshotSave(player)
             }
         }
+    }
+
+    /**
+     * 回应用启动意图（通知卡片/系统卡片点击用）。
+     *
+     * 经包名取启动意图，不直引 :app 的 MainActivity——core:media 不能反向依赖 app，
+     * 且 muses/miui 双 flavor 包名不同，包名口径自动适配。MainActivity 为 singleTask，
+     * NEW_TASK 下点击直接把已有任务抬到前台，不会重复建栈。
+     */
+    private fun buildSessionActivity(): PendingIntent? {
+        return runCatching {
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            } ?: return null
+            PendingIntent.getActivity(
+                this,
+                0,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }.getOrNull()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
