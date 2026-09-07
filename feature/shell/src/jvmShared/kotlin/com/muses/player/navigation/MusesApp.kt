@@ -323,10 +323,8 @@ fun MusesApp() {
             }
         }
         if (showQueueOverlay) {
-            ShellBackHandler { showQueueOverlay = false }
-            Box(Modifier.fillMaxSize()) {
-                QueueScreen(onClose = { showQueueOverlay = false })
-            }
+            // 队列已是 Dialog 弹窗：返回/遮罩点击由 Dialog 自行消费，此处不再套 ShellBackHandler
+            QueueScreen(onClose = { showQueueOverlay = false })
         }
     }
 }

@@ -1,10 +1,14 @@
 package com.muses.player.feature.player
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -59,6 +64,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import coil3.compose.AsyncImage
@@ -69,6 +76,7 @@ import com.muses.player.core.ui.components.PlayerModeBar
 import com.muses.player.core.ui.components.PlayerProgress
 import com.muses.player.core.ui.components.SaltIconButton
 import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.theme.SaltRadius
 import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.feature.player.backdrop.FlowingLightBackdrop
 import com.muses.player.feature.player.lyric.AmllLyricLine
@@ -1001,7 +1009,7 @@ private class LyricClock {
 // 注：computeCurrentIndex/formatTime 已随 V2 上收到 ui-shared（formatPlayerTime），
 // 本文件残留版本已删除；SimpleLyricsPanel 自带同名私有实现，不受影响。
 
-// ---------- 队列页（保持原有 Salt 风格，轻微对齐） ----------
+// ---------- 队列弹窗（底部 popup：遮罩 + 上滑进入 + 顶部圆角，内容沿用原队列页） ----------
 
 @Composable
 fun QueueScreen(
@@ -1012,52 +1020,90 @@ fun QueueScreen(
     val queue by viewModel.queueRows.collectAsStateWithLifecycle()
     val currentId by viewModel.currentSongId.collectAsStateWithLifecycle()
     val currentIndex = queue.indexOfFirst { it.songId == currentId }
+    val salt = LocalSaltColors.current
+    // 入场：底部上滑（Dialog 内容组合即播一次；关闭直接走 onClose，无退场动画）
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
 
-    Column(
-        modifier = modifier.fillMaxSize().background(LocalSaltColors.current.surface),
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Row(
-            Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = SaltSpacing.spacing, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("播放队列", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = LocalSaltColors.current.text)
-            Row {
-                if (queue.isNotEmpty()) {
-                    Icon(TablerIcons.Delete, contentDescription = "清空队列", tint = LocalSaltColors.current.text.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
-                    Spacer(Modifier.width(16.dp))
-                }
-                Icon(TablerIcons.Close, contentDescription = "关闭队列", tint = LocalSaltColors.current.text.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable(onClick = onClose))
-            }
-        }
-
-        val salt = LocalSaltColors.current
-        if (queue.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("队列为空", color = salt.text.copy(alpha = 0.6f))
-            }
-        } else {
-            val surfaceVariant = salt.surfaceVariant
-            val hairline = salt.hairline
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
-                itemsIndexed(queue, key = { _, item -> item.songId }) { index, item ->
-                    val isCurrent = index == currentIndex
+        Box(Modifier.fillMaxSize()) {
+            // 遮罩：点击关闭（无涟漪，与 Salt 按压规范一致）
+            Box(
+                Modifier.fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClose,
+                    ),
+            )
+            AnimatedVisibility(
+                visible = entered,
+                enter = slideInVertically(initialOffsetY = { it }),
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
+                Column(
+                    modifier = modifier.fillMaxWidth().fillMaxHeight(0.75f)
+                        .clip(RoundedCornerShape(topStart = SaltRadius.dialog, topEnd = SaltRadius.dialog))
+                        .background(salt.surface)
+                        .navigationBarsPadding(),
+                ) {
+                    // 把手（纯视觉，拖拽关闭暂不做）
                     Box(
-                        Modifier.background(if (isCurrent) surfaceVariant else Color.Transparent).drawBehind {
-                            drawRect(color = hairline, topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f))
-                        },
+                        Modifier.align(Alignment.CenterHorizontally)
+                            .padding(top = 8.dp)
+                            .size(width = 36.dp, height = 4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(salt.text2.copy(alpha = 0.35f)),
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = SaltSpacing.spacing, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Row(
-                            Modifier.fillMaxWidth().clickable { viewModel.playAtIndex(index) }.padding(horizontal = SaltSpacing.spacing, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(item.title, color = salt.text, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(item.artist ?: "未知歌手", color = salt.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("播放队列", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = salt.text)
+                        Row {
+                            if (queue.isNotEmpty()) {
+                                Icon(TablerIcons.Delete, contentDescription = "清空队列", tint = salt.text.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
+                                Spacer(Modifier.width(16.dp))
                             }
-                            Text((index + 1).toString(), color = salt.text2, fontSize = 13.sp)
-                            Spacer(Modifier.width(12.dp))
-                            Icon(TablerIcons.Close, contentDescription = "从队列删除", tint = salt.text2, modifier = Modifier.size(18.dp).clickable { viewModel.removeQueueItemAt(index) })
+                            Icon(TablerIcons.Close, contentDescription = "关闭队列", tint = salt.text.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable(onClick = onClose))
+                        }
+                    }
+
+                    if (queue.isEmpty()) {
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text("队列为空", color = salt.text.copy(alpha = 0.6f))
+                        }
+                    } else {
+                        val surfaceVariant = salt.surfaceVariant
+                        val hairline = salt.hairline
+                        // 底部内边距 16dp：弹窗内无迷你条，原 96dp 预留不再需要
+                        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 16.dp)) {
+                            itemsIndexed(queue, key = { _, item -> item.songId }) { index, item ->
+                                val isCurrent = index == currentIndex
+                                Box(
+                                    Modifier.background(if (isCurrent) surfaceVariant else Color.Transparent).drawBehind {
+                                        drawRect(color = hairline, topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f))
+                                    },
+                                ) {
+                                    Row(
+                                        Modifier.fillMaxWidth().clickable { viewModel.playAtIndex(index) }.padding(horizontal = SaltSpacing.spacing, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(item.title, color = salt.text, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(item.artist ?: "未知歌手", color = salt.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                        Text((index + 1).toString(), color = salt.text2, fontSize = 13.sp)
+                                        Spacer(Modifier.width(12.dp))
+                                        Icon(TablerIcons.Close, contentDescription = "从队列删除", tint = salt.text2, modifier = Modifier.size(18.dp).clickable { viewModel.removeQueueItemAt(index) })
+                                    }
+                                }
+                            }
                         }
                     }
                 }
