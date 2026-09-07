@@ -85,30 +85,33 @@ object DesktopContainer {
             }
         }
         // U26 播放懒扫描：读本地已缓存文件标签（JaudiotaggerTagPort）→ 共用编排融合 →
-        // RoomSongRepository.upsert 回写（与安卓 PlaybackService 同契约：已刮削字段保护 + tagsVersion 抬升）
+        // RoomSongRepository.upsert 回写（与安卓 PlaybackService 同契约：已刮削字段保护 + tagsVersion 抬升）→
+        // 回传文件标签快照供端口发布 currentMeta（对齐安卓 ExoPlayer 内嵌标签经 MediaMetadata
+        // 回流：未刮削歌曲重播时展示用上文件侧更新数据，而非只读库）
         val songRepository = RoomSongRepository(db.songDao(), db.albumDao(), db.artistDao())
-        val lazyScan: suspend (String, java.io.File) -> Unit = { songId, localFile ->
+        val lazyScan: suspend (String, java.io.File) -> PlaybackLazyScan.FileTags? = { songId, localFile ->
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 try {
-                    val song = songRepository.getSong(songId) ?: return@withContext
                     val tags = JaudiotaggerTagPort.readTags(localFile)
                     val coverUri = tags?.cover?.takeIf { it.isNotEmpty() }?.let { bytes ->
                         writeLazyScanCover(songId, bytes)
                     }
-                    val merged = PlaybackLazyScan.merge(
-                        song,
-                        tags?.let {
-                            PlaybackLazyScan.FileTags(
-                                title = it.title,
-                                artist = it.artist,
-                                album = it.album,
-                                lyrics = it.lyrics,
-                                coverUri = coverUri,
-                                durationMs = it.durationMs,
-                            )
-                        },
-                    )
-                    if (merged != null) songRepository.upsert(merged)
+                    val fileTags = tags?.let {
+                        PlaybackLazyScan.FileTags(
+                            title = it.title,
+                            artist = it.artist,
+                            album = it.album,
+                            lyrics = it.lyrics,
+                            coverUri = coverUri,
+                            durationMs = it.durationMs,
+                        )
+                    }
+                    val song = songRepository.getSong(songId)
+                    if (song != null) {
+                        val merged = PlaybackLazyScan.merge(song, fileTags)
+                        if (merged != null) songRepository.upsert(merged)
+                    }
+                    fileTags
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -118,6 +121,7 @@ object DesktopContainer {
                         "懒扫描失败 id=$songId path=${localFile.path.take(80)}: ${e.message}",
                         e,
                     )
+                    null
                 }
             }
         }

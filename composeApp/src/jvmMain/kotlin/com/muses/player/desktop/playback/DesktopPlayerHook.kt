@@ -94,11 +94,11 @@ class DesktopPlayerHook(
     private val _playerConfig = MutableStateFlow(PlayerConfig())
     override val playerConfig: StateFlow<PlayerConfig> = _playerConfig.asStateFlow()
 
-    /** 兜底封面：桌面无实时 metadata 封面流，恒空（TODO：VLCJ cover art 桥接） */
+    /** 兜底封面：桥接自端口文件实时标签的 cover（对齐安卓 Media3 artworkUri 直映） */
     private val _artworkUri = MutableStateFlow<String?>(null)
     override val artworkUri: StateFlow<String?> = _artworkUri.asStateFlow()
 
-    /** 当前曲实时展示元数据（桌面暂空——展示走曲库实时流；TODO：随 artworkUri 一并桥接） */
+    /** 当前曲实时展示元数据（桥接自端口文件实时标签；未刮削歌曲经共享 mergeNowPlaying 优先文件侧数据） */
     private val _currentMeta = MutableStateFlow<com.muses.player.core.playback.PlaybackMeta?>(null)
     override val currentMeta: StateFlow<com.muses.player.core.playback.PlaybackMeta?> = _currentMeta.asStateFlow()
 
@@ -132,6 +132,13 @@ class DesktopPlayerHook(
         scope.launch { port.playbackState.collect { _playbackState.value = it } }
         scope.launch { port.playerConfig.collect { _playerConfig.value = it } }
         scope.launch { port.playbackError.collect { _playbackError.value = it } }
+        // 文件实时标签桥接（对齐安卓 syncPortDerived：切歌清旧值，懒扫描回传后发布新值）
+        scope.launch {
+            port.currentMeta.collect {
+                _currentMeta.value = it
+                _artworkUri.value = it?.coverUri
+            }
+        }
         return port
     }
 

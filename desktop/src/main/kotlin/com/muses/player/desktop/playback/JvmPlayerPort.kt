@@ -8,6 +8,8 @@ import com.muses.player.core.data.store.createDataStore
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.model.playback.PlayerConfig
 import com.muses.player.core.model.playback.RepeatMode
+import com.muses.player.core.media.scanner.PlaybackLazyScan
+import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlayerPort
 import com.muses.player.desktop.cache.DesktopWebDavAudioCache
 import io.ktor.client.HttpClient
@@ -68,9 +70,11 @@ class JvmPlayerPort(
     private val factoryProvider: () -> MediaPlayerFactory = { defaultFactory() },
     /**
      * U26 播放懒扫描钩子：startPlayback 接受播放后触发（songId + 已落盘本地文件）。
-     * 调用方负责读标签 + 回写库；本端口只保证「播起来了才触发」，失败不阻塞播放。
+     * 调用方负责读标签 + 回写库，并回传本次读到的文件标签快照（null = 读取失败/无需处理）；
+     * 本端口据此发布 [currentMeta]，对齐安卓 ExoPlayer 解析内嵌标签后经 MediaMetadata
+     * 回流的展示口径（未刮削歌曲重播时用上文件侧更新数据）。失败不阻塞播放。
      */
-    private val onPlaybackStarted: (suspend (songId: String, localFile: java.io.File) -> Unit)? = null,
+    private val onPlaybackStarted: (suspend (songId: String, localFile: java.io.File) -> PlaybackLazyScan.FileTags?)? = null,
 ) : PlayerPort {
 
     /** 曲库解析出的播放引用（Song 实体的最小播放子集，避免桌面依赖 :core:data mapper）。 */
@@ -112,6 +116,14 @@ class JvmPlayerPort(
 
     private val _currentSongId = MutableStateFlow<String?>(null)
     val currentSongId: StateFlow<String?> = _currentSongId.asStateFlow()
+
+    /**
+     * 当前曲文件实时标签（对齐安卓 Media3 mediaMetadata 直映：VLCJ 不解析内嵌标签，
+     * 由懒扫描钩子回传的 [PlaybackLazyScan.FileTags] 映射；上层 mergeNowPlaying 据此
+     * 在未刮削歌曲上优先文件侧数据。切歌先清 null，避免上一首残留串台。
+     */
+    private val _currentMeta = MutableStateFlow<PlaybackMeta?>(null)
+    val currentMeta: StateFlow<PlaybackMeta?> = _currentMeta.asStateFlow()
 
     private val _volume = MutableStateFlow(100)
     val volume: StateFlow<Int> = _volume.asStateFlow()
@@ -353,6 +365,7 @@ class JvmPlayerPort(
             }
             currentRef = ref
             _currentSongId.value = ref.id
+            _currentMeta.value = null
             _durationMs.value = 0L
             _positionMs.value = startPositionMs.coerceAtLeast(0L)
             startPlayback(ref, startPositionMs)
@@ -394,15 +407,26 @@ class JvmPlayerPort(
             onSongFailed(ref.id, DesktopPlaybackErrorCopy.DEFAULT_ERROR)
             return
         }
-        // U26 播放懒扫描：播起来了才触发（读标签 + 回写库由调用方承载，异常内部消化不阻塞播放）
+        // U26 播放懒扫描：播起来了才触发（读标签 + 回写库由调用方承载，异常内部消化不阻塞播放；
+        // 回传的文件标签快照同步发布 currentMeta，对齐安卓 ExoPlayer 内嵌标签解析后
+        // onMediaMetadataChanged 回流的展示口径——未刮削歌曲重播时用上文件侧更新数据）
         onPlaybackStarted?.let { hook ->
             val songId = ref.id
             scope.launch {
-                runCatching { hook(songId, file) }
+                val tags = runCatching { hook(songId, file) }
                     .onFailure { e ->
                         if (e is CancellationException) throw e
                         errorLog("JvmPlayerPort", "懒扫描钩子失败 songId=$songId", e)
                     }
+                    .getOrNull()
+                if (tags != null) {
+                    _currentMeta.value = PlaybackMeta(
+                        title = tags.title,
+                        artist = tags.artist,
+                        album = tags.album,
+                        coverUri = tags.coverUri,
+                    )
+                }
             }
         }
         if (startPositionMs > 0L) {
@@ -850,7 +874,7 @@ class JvmPlayerPort(
                 DesktopErrorLog.log(tag, msg, e)
             },
             scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-            onPlaybackStarted: (suspend (songId: String, localFile: java.io.File) -> Unit)? = null,
+            onPlaybackStarted: (suspend (songId: String, localFile: java.io.File) -> PlaybackLazyScan.FileTags?)? = null,
             dataStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> =
                 com.muses.player.core.data.store.createDataStore(),
         ): JvmPlayerPort {
