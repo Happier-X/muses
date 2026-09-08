@@ -22,13 +22,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import com.muses.player.core.ui.components.MusesButton
 import com.muses.player.core.ui.icons.TablerIcons
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import com.muses.player.core.ui.components.MusesCheckbox
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import com.muses.player.core.ui.components.MusesTextField
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -180,7 +179,7 @@ private fun SuccessContent(
             Spacer(Modifier.height(12.dp))
             if (nextSongId != null) {
                 // S3 批量模式：应用并下一首
-                Button(onClick = { onNext(nextSongId) }, modifier = Modifier.fillMaxWidth()) {
+                MusesButton(onClick = { onNext(nextSongId) }, modifier = Modifier.fillMaxWidth()) {
                     Text("应用并下一首")
                 }
                 Spacer(Modifier.height(8.dp))
@@ -215,7 +214,7 @@ private fun EmptyContent(
             Spacer(Modifier.height(12.dp))
             SearchKeywordRow(keyword = keyword, viewModel = viewModel)
         }
-        Button(
+        MusesButton(
             onClick = { viewModel.search() },
             modifier = Modifier
                 .fillMaxWidth()
@@ -327,7 +326,7 @@ private fun ReviewContent(
         }
 
         // 底部「应用（N）」：仅写回勾选字段；无勾选 disabled（写回安全语义）
-        Button(
+        MusesButton(
             onClick = { viewModel.apply() },
             enabled = state.checkedFields.isNotEmpty(),
             modifier = Modifier
@@ -395,26 +394,26 @@ private fun SongHead(state: ScrapeReviewState.Review) {
 @Composable
 private fun SearchKeywordRow(keyword: ReviewKeyword, viewModel: ScrapeReviewViewModel) {
     Column {
-        OutlinedTextField(
+        MusesTextField(
             value = keyword.title,
             onValueChange = viewModel::updateKeywordTitle,
-            label = { Text("标题") },
+            label = "标题",
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
+            MusesTextField(
                 value = keyword.artist,
                 onValueChange = viewModel::updateKeywordArtist,
-                label = { Text("歌手") },
+                label = "歌手",
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
-            OutlinedTextField(
+            MusesTextField(
                 value = keyword.album,
                 onValueChange = viewModel::updateKeywordAlbum,
-                label = { Text("专辑") },
+                label = "专辑",
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
@@ -440,26 +439,26 @@ private fun TextFieldEditOverrides(state: ScrapeReviewState.Review, viewModel: S
         var artist by remember(state.selectedTextIndex) { mutableStateOf(state.resolvedArtist() ?: state.song.artist.orEmpty()) }
         var album by remember(state.selectedTextIndex) { mutableStateOf(state.resolvedAlbum() ?: state.song.album.orEmpty()) }
         Spacer(Modifier.height(6.dp))
-        OutlinedTextField(
+        MusesTextField(
             value = title,
             onValueChange = { title = it },
-            label = { Text("标题覆写") },
+            label = "标题覆写",
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(6.dp))
-        OutlinedTextField(
+        MusesTextField(
             value = artist,
             onValueChange = { artist = it },
-            label = { Text("歌手覆写") },
+            label = "歌手覆写",
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(6.dp))
-        OutlinedTextField(
+        MusesTextField(
             value = album,
             onValueChange = { album = it },
-            label = { Text("专辑覆写") },
+            label = "专辑覆写",
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -524,11 +523,11 @@ private fun CoverSection(
     val scheme = MiuixTheme.colorScheme
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(
+            MusesCheckbox(
                 checked = "cover" in state.checkedFields,
-                onCheckedChange = { viewModel.toggleField("cover") },
+                onToggle = { viewModel.toggleField("cover") },
                 enabled = state.cover.items.isNotEmpty(),
-                colors = CheckboxDefaults.colors(checkedColor = scheme.primary),
+                checkedColor = scheme.primary,
             )
             Text("封面", fontSize = 12.sp, color = if ("cover" in state.checkedFields) scheme.onBackground else scheme.onBackgroundVariant)
             Spacer(Modifier.weight(1f))
@@ -575,11 +574,11 @@ private fun LyricsSection(state: ScrapeReviewState.Review, viewModel: ScrapeRevi
     val scheme = MiuixTheme.colorScheme
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(
+            MusesCheckbox(
                 checked = "lyrics" in state.checkedFields,
-                onCheckedChange = { viewModel.toggleField("lyrics") },
+                onToggle = { viewModel.toggleField("lyrics") },
                 enabled = state.lyrics.items.isNotEmpty(),
-                colors = CheckboxDefaults.colors(checkedColor = scheme.primary),
+                checkedColor = scheme.primary,
             )
             Text("歌词", fontSize = 12.sp, color = if ("lyrics" in state.checkedFields) scheme.onBackground else scheme.onBackgroundVariant)
             Spacer(Modifier.weight(1f))

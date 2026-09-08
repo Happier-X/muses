@@ -2,9 +2,9 @@ package com.muses.player.core.ui.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
+import top.yukonga.miuix.kmp.basic.Icon
 import androidx.compose.runtime.Composable
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,7 +28,7 @@ enum class MusesIconButtonSize(val touchSize: Dp, val iconSize: Dp) {
 /**
  * 统一图标按钮（miuix IconButton；透明底、无涟漪，按压反馈由 miuix 承担）。
  *
- * 图标色继承调用方文字色（默认取 [LocalContentColor]，可用 [tint] 显式覆盖）；
+ * 图标色默认取 miuix onBackground（原 M3 LocalContentColor 经主题桥接同源），可用 [tint] 显式覆盖；
  * disabled 整体置灰由 miuix 处理。
  */
 @Composable
@@ -39,10 +39,11 @@ fun MusesIconButton(
     modifier: Modifier = Modifier,
     size: MusesIconButtonSize = MusesIconButtonSize.MD,
     enabled: Boolean = true,
-    tint: Color = LocalContentColor.current,
+    tint: Color = Color.Unspecified,
     /** 覆盖档位默认图标尺寸（如 MiniPlayer 用 md 触控区 + 18px 图标） */
     iconSizeOverride: Dp? = null,
 ) {
+    val resolvedTint = if (tint == Color.Unspecified) MiuixTheme.colorScheme.onBackground else tint
     MusesIconButton(
         onClick = onClick,
         modifier = modifier,
@@ -53,7 +54,7 @@ fun MusesIconButton(
             Icon(
                 imageVector = imageVector,
                 contentDescription = null, // 无障碍语义挂在按钮容器上
-                tint = tint,
+                tint = resolvedTint,
                 modifier = Modifier.size(iconSizeOverride ?: size.iconSize),
             )
         },

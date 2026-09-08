@@ -32,8 +32,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import com.muses.player.core.playback.PlaybackStates
 import com.muses.player.core.ui.icons.TablerIcons
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -314,20 +314,20 @@ fun PlayerScreen(
             }
         }
 
-        // 限流/播放错误条（Snackbar）
+        // 限流/播放错误条（深色浮层；原 M3 Snackbar，已收敛为自绘避免残留 M3）
         if (playbackError != null) {
-            androidx.compose.material3.Snackbar(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
-                action = {
-                    androidx.compose.material3.TextButton(onClick = { viewModel.retryPlayback() }) {
-                        Text("重试", color = Color.White)
-                    }
-                },
-                containerColor = Color(0xCC1A1A1A),
-                contentColor = Color.White,
+            Box(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
+                    .background(Color(0xCC1A1A1A), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(playbackError!!, modifier = Modifier.weight(1f))
+                    Text(playbackError!!, color = Color.White, modifier = Modifier.weight(1f))
+                    Text(
+                        "重试",
+                        color = Color.White,
+                        modifier = Modifier.clickable(onClick = { viewModel.retryPlayback() }).padding(8.dp),
+                    )
                     Spacer(Modifier.width(8.dp))
                     Icon(
                         TablerIcons.Close,

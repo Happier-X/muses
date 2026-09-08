@@ -11,12 +11,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import com.muses.player.core.ui.components.MusesButton
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Surface
+import com.muses.player.core.ui.components.MusesBottomSheet
+import com.muses.player.core.ui.components.MusesTextField
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,7 +24,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import org.koin.compose.viewmodel.koinViewModel
 import coil3.compose.AsyncImage
 import com.muses.player.core.model.Song
@@ -35,7 +38,6 @@ import com.muses.player.core.scrape.editmeta.EditDimStatus
  * 编辑歌曲信息弹窗 —— editmeta 三维云搜（文本/封面/歌词）+ 应用写回。
  * 入口 = 播放页原生「更多」键回调；宿主在 MusesApp 层。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditMetaSheet(
     song: Song?,
@@ -50,31 +52,30 @@ fun EditMetaSheet(
         if (song != null) viewModel.load(song)
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
+    MusesBottomSheet(onDismiss = onDismiss, title = "编辑歌曲信息", modifier = modifier) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("编辑歌曲信息", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)
 
-            OutlinedTextField(
+            MusesTextField(
                 value = ui.title,
                 onValueChange = viewModel::updateTitle,
-                label = { Text("标题") },
+                label = "标题",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            MusesTextField(
                 value = ui.artist,
                 onValueChange = viewModel::updateArtist,
-                label = { Text("艺术家") },
+                label = "艺术家",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            MusesTextField(
                 value = ui.album,
                 onValueChange = viewModel::updateAlbum,
-                label = { Text("专辑") },
+                label = "专辑",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -82,8 +83,8 @@ fun EditMetaSheet(
             if (ui.searchFailed && ui.result == null) {
                 Text(
                     "云端搜索失败，请检查网络后重试",
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.error,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = MiuixTheme.colorScheme.error,
+                    fontSize = 12.sp,
                 )
             }
 
@@ -97,13 +98,13 @@ fun EditMetaSheet(
                     Text("云端搜索中…")
                 }
                 ui.result != null -> {
-                    Text("封面候选", style = androidx.compose.material3.MaterialTheme.typography.labelLarge)
+                    Text("封面候选", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MiuixTheme.colorScheme.onBackground)
                     val covers = ui.result!!.cover
                     if (covers.status == EditDimStatus.OK && covers.items.isNotEmpty()) {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(covers.items.size) { idx ->
                                 val candidate = covers.items[idx]
-                                androidx.compose.material3.Surface(
+                                Surface(
                                     onClick = { viewModel.selectCover(idx) },
                                     shape = RoundedCornerShape(8.dp),
                                 ) {
@@ -119,15 +120,16 @@ fun EditMetaSheet(
                             }
                         }
                     } else {
-                        Text("未找到可用封面", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                        Text("未找到可用封面", fontSize = 12.sp, color = MiuixTheme.colorScheme.onBackgroundVariant)
                     }
                     if (ui.result!!.lyrics.status == EditDimStatus.OK) {
                         Text(
                             "歌词已找到 ${ui.result!!.lyrics.items.size} 条候选（应用后写入）",
-                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                            fontSize = 12.sp,
+                            color = MiuixTheme.colorScheme.onBackgroundVariant,
                         )
                     } else {
-                        Text("歌词聚合未接入或无结果，已跳过歌词维度", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                        Text("歌词聚合未接入或无结果，已跳过歌词维度", fontSize = 12.sp, color = MiuixTheme.colorScheme.onBackgroundVariant)
                     }
                 }
             }
@@ -137,12 +139,12 @@ fun EditMetaSheet(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Button(
+                MusesButton(
                     onClick = { viewModel.search() },
                     enabled = !ui.searching && song != null,
                     modifier = Modifier.weight(1f),
                 ) { Text(if (ui.result == null) "云端搜索" else "重新搜索") }
-                Button(
+                MusesButton(
                     onClick = { viewModel.apply(); onDismiss() },
                     enabled = !ui.searching && song != null,
                     modifier = Modifier.weight(1f),

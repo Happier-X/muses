@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 /** 玻璃层级，映射 GlassAlpha 梯度 */
 enum class GlassLevel { Faint, Subtle, Medium, Strong }
@@ -31,7 +31,7 @@ enum class GlassLevel { Faint, Subtle, Medium, Strong }
 @Composable
 fun GlassSurface(
     modifier: Modifier = Modifier,
-    shape: Shape = MaterialTheme.shapes.large,
+    shape: Shape = RoundedCornerShape(16.dp),
     level: GlassLevel = GlassLevel.Subtle,
     tint: Color? = null,
     borderEnabled: Boolean = true,

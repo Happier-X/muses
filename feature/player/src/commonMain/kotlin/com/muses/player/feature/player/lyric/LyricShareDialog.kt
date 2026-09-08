@@ -18,9 +18,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,8 +53,8 @@ internal fun LyricShareDialog(
     /** U17：分享动作回调（安卓系统分享面板 / 桌面剪贴板） */
     onShareText: (String) -> Unit,
 ) {
-    val foreground = MaterialTheme.colorScheme.onBackground
-    val surfaceForeground = MaterialTheme.colorScheme.onSurface
+    val foreground = MiuixTheme.colorScheme.onBackground
+    val surfaceForeground = MiuixTheme.colorScheme.onSurface
     val scope = rememberCoroutineScope()
     var selected by remember(lines, initialIndex) { mutableStateOf(setOf(initialIndex.coerceIn(lines.indices))) }
     var generating by remember { mutableStateOf(false) }
@@ -66,7 +66,7 @@ internal fun LyricShareDialog(
     ) {
         Column(
             Modifier.fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(MiuixTheme.colorScheme.background)
                 .statusBarsPadding()
                 .navigationBarsPadding(),
         ) {
@@ -74,9 +74,9 @@ internal fun LyricShareDialog(
                 Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("取消", color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onDismiss).padding(8.dp))
+                Text("取消", color = MiuixTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onDismiss).padding(8.dp))
                 Text("分享歌词", Modifier.weight(1f), color = foreground, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                Text("全选", color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { selected = lines.indices.toSet() }.padding(8.dp))
+                Text("全选", color = MiuixTheme.colorScheme.primary, modifier = Modifier.clickable { selected = lines.indices.toSet() }.padding(8.dp))
             }
 
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -103,7 +103,7 @@ internal fun LyricShareDialog(
                     })
                     Box(
                         Modifier.fillMaxWidth().clip(shape)
-                            .background(if (chosen) MaterialTheme.colorScheme.primary.copy(alpha = .18f) else MaterialTheme.colorScheme.surface)
+                            .background(if (chosen) MiuixTheme.colorScheme.primary.copy(alpha = .18f) else MiuixTheme.colorScheme.surface)
                             .clickable {
                                 selected = if (chosen) selected - index else selected + index
                             }
@@ -114,7 +114,7 @@ internal fun LyricShareDialog(
                 }
             }
 
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+            error?.let { Text(it, color = MiuixTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
             Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ShareButton("分享文本", Modifier.weight(1f), selected.isNotEmpty() && !generating) {
                     val chosen = selected.sorted().mapNotNull(lines::getOrNull)
@@ -143,10 +143,10 @@ private fun ShareButton(text: String, modifier: Modifier, enabled: Boolean, onCl
         modifier.height(50.dp).meloXLiquidButton(
             shape = RoundedCornerShape(25.dp),
             enabled = enabled,
-            surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = .12f),
+            surfaceColor = MiuixTheme.colorScheme.primary.copy(alpha = .12f),
         ).clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = .35f), fontWeight = FontWeight.SemiBold)
+        Text(text, color = if (enabled) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface.copy(alpha = .35f), fontWeight = FontWeight.SemiBold)
     }
 }

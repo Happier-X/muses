@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -189,7 +189,7 @@ actual fun InAppUpdateSection(
                 )
                 Spacer(Modifier.height(8.dp))
                 LinearProgressIndicator(
-                    progress = { if (total > 0) downloading.downloaded.toFloat() / total else 0f },
+                    progress = if (total > 0) downloading.downloaded.toFloat() / total else 0f,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

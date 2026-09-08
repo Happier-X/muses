@@ -13,13 +13,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import com.muses.player.core.ui.icons.TablerIcons
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -30,18 +26,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
 import com.muses.player.core.ui.theme.LocalHazeBlurState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.repository.PlaylistRepository
 import com.muses.player.core.model.Playlist
 import com.muses.player.core.ui.components.MusesActionsSheet
+import com.muses.player.core.ui.components.MusesDialog
 import com.muses.player.core.ui.components.MusesActionItem
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
@@ -248,31 +243,20 @@ fun PlaylistsPage(
         )
     }
 
-    // ---- m-dialog：删除确认（deleteMessage 文案逐字对齐）----
+    // ---- m-dialog：删除确认（deleteMessage 文案逐字对齐；miuix MusesDialog）----
     deleteTargetId?.let { targetId ->
         val name = rows.firstOrNull { it.playlist.id == targetId }?.name ?: "该歌单"
-        AlertDialog(
-            onDismissRequest = { deleteTargetId = null },
-            title = { Text("删除歌单") },
-            text = {
-                Text(
-                    "确定删除「$name」？此操作不可撤销。",
-                    fontSize = 15.sp,
-                    lineHeight = 21.sp,
-                    color = scheme.onBackgroundVariant,
-                )
+        MusesDialog(
+            onDismiss = { deleteTargetId = null },
+            title = "删除歌单",
+            message = "确定删除「$name」？此操作不可撤销。",
+            confirmText = "删除",
+            onConfirm = {
+                viewModel.deletePlaylist(targetId)
+                deleteTargetId = null
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deletePlaylist(targetId)
-                    deleteTargetId = null
-                }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleteTargetId = null }) { Text("取消") }
-            },
+            destructiveConfirm = true,
+            dismissText = "取消",
         )
     }
 }

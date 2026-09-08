@@ -14,12 +14,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import com.muses.player.core.ui.components.MusesDialog
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.uishared.platform.PlatformToast
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -183,17 +183,14 @@ fun WebDavFormScreen(
         }
     }
 
-    // 错误提示（m-toast center 观感用系统 Toast 承担行为层，样式待 SaltToast 组件落地统一）
+    // 错误提示（m-toast center 观感用系统 Toast 承担行为层，样式待 SaltToast 组件落地统一；miuix MusesDialog）
     formState.errorMessage?.let { message ->
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissError() },
-            title = { Text("错误") },
-            text = { Text(message, color = scheme.onBackgroundVariant) },
-            confirmButton = {
-                TextButton(onClick = { viewModel.dismissError() }) {
-                    Text("确定")
-                }
-            },
+        MusesDialog(
+            onDismiss = { viewModel.dismissError() },
+            title = "错误",
+            message = message,
+            confirmText = "确定",
+            onConfirm = { viewModel.dismissError() },
         )
     }
 }
@@ -205,7 +202,7 @@ private fun MusesIconButtonBack(onClick: () -> Unit) {
         onClick = onClick,
         contentDescription = "返回",
     ) {
-        androidx.compose.material3.Icon(
+        Icon(
             imageVector = TablerIcons.ArrowBack,
             contentDescription = null,
         )

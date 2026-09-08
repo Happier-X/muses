@@ -16,13 +16,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import com.muses.player.core.ui.components.MusesBottomSheet
+import com.muses.player.core.ui.components.MusesButton
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import com.muses.player.core.ui.components.MusesTextField
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -176,8 +174,8 @@ private fun QueueStateContent(
                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 80.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Button(onClick = onClear, modifier = Modifier.weight(1f)) { Text("清空") }
-            Button(onClick = onStartAll, modifier = Modifier.weight(2f)) { Text("全部开始") }
+            MusesButton(onClick = onClear, modifier = Modifier.weight(1f)) { Text("清空") }
+            MusesButton(onClick = onStartAll, modifier = Modifier.weight(2f)) { Text("全部开始") }
         }
     }
 }
@@ -215,7 +213,6 @@ private fun MatchingStateContent(state: ScrapePageState.Matching, throttleMessag
 
 // ── preview 态 ──────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PreviewStateContent(
     state: ScrapePageState.Preview,
@@ -376,8 +373,8 @@ private fun PreviewStateContent(
             Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 80.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Button(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("取消") }
-            Button(
+            MusesButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("取消") }
+            MusesButton(
                 onClick = onConfirm,
                 modifier = Modifier.weight(2f),
                 enabled = totalCheckedFields > 0,
@@ -424,7 +421,6 @@ private fun NoMatchGroup(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PreviewEditSheet(
     candidate: PreviewCandidate,
@@ -436,63 +432,57 @@ private fun PreviewEditSheet(
     var artist by remember(candidate.songId) { mutableStateOf(candidate.resolvedArtist() ?: candidate.currentArtist.orEmpty()) }
     var album by remember(candidate.songId) { mutableStateOf(candidate.resolvedAlbum() ?: candidate.currentAlbum.orEmpty()) }
     var lyrics by remember(candidate.songId) { mutableStateOf(candidate.resolvedLyrics() ?: candidate.currentLyrics.orEmpty()) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scope = rememberCoroutineScope()
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = scheme.background,
+    MusesBottomSheet(
+        onDismiss = onDismiss,
+        title = "编辑刮削结果",
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-            Text("编辑刮削结果", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
-            Spacer(Modifier.height(4.dp))
             Text("仅影响本次写回，未勾选行不落库", fontSize = 12.sp, color = scheme.onBackgroundVariant)
             Spacer(Modifier.height(16.dp))
-            OutlinedTextField(
+            MusesTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("标题") },
+                label = "标题",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
+            MusesTextField(
                 value = artist,
                 onValueChange = { artist = it },
-                label = { Text("歌手") },
+                label = "歌手",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
+            MusesTextField(
                 value = album,
                 onValueChange = { album = it },
-                label = { Text("专辑") },
+                label = "专辑",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
+            MusesTextField(
                 value = lyrics,
                 onValueChange = { lyrics = it },
-                label = { Text("歌词（可选，粘贴 LRC/TTML 原文）") },
+                label = "歌词（可选，粘贴 LRC/TTML 原文）",
                 modifier = Modifier.fillMaxWidth().height(100.dp),
                 maxLines = 5,
             )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(
+                MusesButton(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f),
                 ) { Text("取消") }
-                Button(
+                MusesButton(
                     onClick = {
                         // 输入与匹配值相同视为未编辑（传 null 回退），空视为不改该字段
                         val outTitle = title.trim().takeIf { it.isNotEmpty() && it != candidate.matchedTitle }
                         val outArtist = artist.trim().takeIf { it.isNotEmpty() && it != candidate.matchedArtist }
                         val outAlbum = album.trim().takeIf { it.isNotEmpty() && it != candidate.matchedAlbum }
                         val outLyrics = lyrics.trim().takeIf { it.isNotEmpty() && it != candidate.matchedLyrics } ?: lyrics.trim().takeIf { it.isNotEmpty() && it != candidate.currentLyrics }
-                        scope.launch { sheetState.hide() }
                         onConfirm(outTitle, outArtist, outAlbum, outLyrics)
                     },
                     modifier = Modifier.weight(1f),
@@ -594,8 +584,8 @@ private fun ResultStateContent(
             Modifier.fillMaxWidth().navigationBarsPadding().padding(top = 12.dp, bottom = 80.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Button(onClick = onUndo, modifier = Modifier.weight(1f)) { Text("撤销上次") }
-            Button(onClick = onBack, modifier = Modifier.weight(1f)) { Text("返回队列") }
+            MusesButton(onClick = onUndo, modifier = Modifier.weight(1f)) { Text("撤销上次") }
+            MusesButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("返回队列") }
         }
     }
 }

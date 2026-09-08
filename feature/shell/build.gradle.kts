@@ -45,6 +45,8 @@ kotlin {
             implementation(libs.haze.blur)
             // miuix 设置行（SwitchPreference；ui-shared 为 implementation 不透传，此处直连）
             implementation(libs.miuix.preference)
+            // 第一阶段迁移：TabsLayout 等改用 miuix Text/Icon，需直引 miuix-ui
+            implementation(libs.miuix.ui)
         }
 
         // U22：jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn（core:common 同款模式），
@@ -57,6 +59,8 @@ kotlin {
                 implementation(compose.foundation)
                 implementation(compose.animation)
                 implementation(compose.material3)
+                // 第一阶段迁移：TabsLayout 改用 miuix Text/Icon，需直引 miuix-ui
+                implementation(libs.miuix.ui)
             }
         }
         jvmMain.get().dependsOn(jvmShared)

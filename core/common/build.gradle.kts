@@ -77,6 +77,8 @@ kotlin {
                 implementation(compose.foundation)
                 implementation(compose.animation)
                 implementation(compose.material3)
+                // 第一阶段迁移：SimpleLyricsPanel 改用 miuix Text，需直引 miuix-ui
+                implementation(libs.miuix.ui)
             }
         }
         jvmMain.get().dependsOn(jvmShared)

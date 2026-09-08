@@ -22,24 +22,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
+import com.muses.player.core.ui.components.MusesDialog
 import com.muses.player.core.ui.icons.TablerIcons
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import com.muses.player.core.ui.components.MusesBottomSheet
+import com.muses.player.core.ui.components.MusesButton
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon
+import com.muses.player.core.ui.components.MusesTextField
+import top.yukonga.miuix.kmp.basic.TabRow
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -77,7 +68,6 @@ import com.muses.player.core.model.SourceType
 
 // ── 主入口 ──────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SourcesScreen(
     modifier: Modifier = Modifier,
@@ -185,70 +175,53 @@ fun SourcesScreen(
         )
     }
 
-    // ---- m-dialog：删除确认（deleteAlertMessage 文案逐字对齐）----
+    // ---- m-dialog：删除确认（deleteAlertMessage 文案逐字对齐；miuix MusesDialog）----
     viewModel.pendingDelete?.let { source ->
         val credentialNote = if (source.type == SourceType.WEBDAV) "与安全存储凭据" else ""
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissDelete() },
-            title = { Text("删除音源") },
-            text = {
-                Text(
-                    "确定删除「${source.name}」吗？将同时清理该音源下的歌曲$credentialNote。",
-                    color = scheme.onBackgroundVariant,
-                )
+        MusesDialog(
+            onDismiss = { viewModel.dismissDelete() },
+            title = "删除音源",
+            message = "确定删除「${source.name}」吗？将同时清理该音源下的歌曲$credentialNote。",
+            confirmText = "删除",
+            onConfirm = {
+                viewModel.deleteSource(source)
+                viewModel.dismissDelete()
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteSource(source)
-                    viewModel.dismissDelete()
-                }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.dismissDelete() }) { Text("取消") }
-            },
+            destructiveConfirm = true,
+            dismissText = "取消",
         )
     }
 
-    // ---- 编辑音源表单（m-dialog：显示名称 / 目录）----
+    // ---- 编辑音源表单（m-dialog：显示名称 / 目录；miuix MusesDialog + MusesTextField）----
     viewModel.pendingEdit?.let { source ->
         var editName by remember(source.id) { mutableStateOf(source.name) }
         var editPath by remember(source.id) { mutableStateOf(source.path.orEmpty()) }
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissEdit() },
-            title = { Text("编辑音源") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = editName,
-                        onValueChange = { editName = it },
-                        singleLine = true,
-                        label = { Text("显示名称") },
-                        placeholder = { Text("显示名称") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = editPath,
-                        onValueChange = { editPath = it },
-                        singleLine = true,
-                        label = { Text("目录") },
-                        placeholder = { Text("目录") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+        MusesDialog(
+            onDismiss = { viewModel.dismissEdit() },
+            title = "编辑音源",
+            confirmText = "保存修改",
+            onConfirm = {
+                viewModel.updateEditedSource(source, editName.trim(), editPath.trim())
+                viewModel.dismissEdit()
             },
-            confirmButton = {
-                TextButton(
-                    enabled = editName.isNotBlank() && editPath.isNotBlank(),
-                    onClick = {
-                        viewModel.updateEditedSource(source, editName.trim(), editPath.trim())
-                        viewModel.dismissEdit()
-                    },
-                ) { Text("保存修改") }
-            },
-            dismissButton = {
-                TextButton(enabled = true, onClick = { viewModel.dismissEdit() }) { Text("取消") }
+            confirmEnabled = editName.isNotBlank() && editPath.isNotBlank(),
+            dismissText = "取消",
+            content = {
+                MusesTextField(
+                    value = editName,
+                    onValueChange = { editName = it },
+                    singleLine = true,
+                    label = "显示名称",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+                MusesTextField(
+                    value = editPath,
+                    onValueChange = { editPath = it },
+                    singleLine = true,
+                    label = "目录",
+                    modifier = Modifier.fillMaxWidth(),
+                )
             },
         )
     }
@@ -256,37 +229,34 @@ fun SourcesScreen(
     // ---- m-dialog：扫描设置（对照 SourcesPage.vue scanSettings 弹窗）----
     // KDoc：内容区对应 .sources-page__hint-text；确认按钮对应 .sources-page__scan-start-btn
     viewModel.pendingScanSource?.let {
-        AlertDialog(
-            onDismissRequest = { viewModel.closeScanSettings() },
-            title = { Text("扫描设置") },
-            text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // 「读取音乐标签」+ miuix 开关
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("读取音乐标签", fontSize = 15.sp, color = scheme.onBackground)
-                        Spacer(Modifier.width(12.dp))
-                        Switch(
-                            checked = viewModel.scanReadTags,
-                            onCheckedChange = { viewModel.updateScanReadTags(it) },
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    // __hint-text：13sp text2 居中提示
-                    Text(
-                        "开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。",
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        color = scheme.onBackgroundVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
+        MusesDialog(
+            onDismiss = { viewModel.closeScanSettings() },
+            title = "扫描设置",
+            confirmText = "开始扫描",
+            onConfirm = { viewModel.startScan() },
+            dismissText = "取消",
+            content = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("读取音乐标签", fontSize = 15.sp, color = scheme.onBackground)
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = viewModel.scanReadTags,
+                        onCheckedChange = { viewModel.updateScanReadTags(it) },
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.startScan() }) { Text("开始扫描") }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.closeScanSettings() }) { Text("取消") }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。",
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = scheme.onBackgroundVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             },
         )
     }
@@ -301,54 +271,43 @@ fun SourcesScreen(
             !scanProgress.finished -> "正在扫描入库"
             else -> "扫描完成"
         }
-        AlertDialog(
-            // 进行中禁止关闭：不给 onDismissRequest 任何关闭路径，也不渲染关闭按钮
-            onDismissRequest = { },
-            title = { Text("扫描进度") },
-            text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // 阶段 h2 文案
-                    Text(stageText, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
-                    Spacer(Modifier.height(12.dp))
-                    when {
-                        scanError != null -> {
-                            Text(scanError, fontSize = 13.sp, color = scheme.error)
-                        }
-                        !scanProgress.finished -> {
-                            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
-                            Spacer(Modifier.height(12.dp))
-                            // 当前文件单行省略
-                            scanProgress.currentFile?.let {
-                                Text(
-                                    it,
-                                    fontSize = 13.sp,
-                                    color = scheme.onBackgroundVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            // 统计行
+        MusesDialog(
+            // 进行中禁止关闭：onDismiss 为空实现，且进行中不渲染确认按钮
+            onDismiss = { },
+            title = "扫描进度",
+            confirmText = if (scanProgress.finished || scanError != null) "关闭" else null,
+            onConfirm = { viewModel.dismissScanProgress() },
+            content = {
+                Text(stageText, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
+                Spacer(Modifier.height(12.dp))
+                when {
+                    scanError != null -> {
+                        Text(scanError, fontSize = 13.sp, color = scheme.error)
+                    }
+                    !scanProgress.finished -> {
+                        CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                        Spacer(Modifier.height(12.dp))
+                        scanProgress.currentFile?.let {
                             Text(
-                                "已处理 ${scanProgress.current} / ${scanProgress.total}",
+                                it,
                                 fontSize = 13.sp,
                                 color = scheme.onBackgroundVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        else -> {
-                            // 项目无统一 toast 组件，选最简方案：汇总文案直接在进度弹窗完成态内展示，
-                            // 关闭时经 dismissScanProgress() 一并置空（不额外引入 SnackbarHost 脚手架）
-                            viewModel.scanResultMessage?.let {
-                                Text(it, fontSize = 13.sp, color = scheme.onBackgroundVariant)
-                            }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "已处理 ${scanProgress.current} / ${scanProgress.total}",
+                            fontSize = 13.sp,
+                            color = scheme.onBackgroundVariant,
+                        )
+                    }
+                    else -> {
+                        viewModel.scanResultMessage?.let {
+                            Text(it, fontSize = 13.sp, color = scheme.onBackgroundVariant)
                         }
                     }
-                }
-            },
-            confirmButton = {
-                // 结束态（成功/失败）才给「关闭」按钮
-                if (scanProgress.finished || scanError != null) {
-                    TextButton(onClick = { viewModel.dismissScanProgress() }) { Text("关闭") }
                 }
             },
         )
@@ -420,9 +379,8 @@ private fun Source.toSharedSourceItem() = SharedSourceItem(
     detail = path ?: url.orEmpty(),
 )
 
-// ── 添加音源底部弹窗 ──────────────────────────────────────────
+// ── 添加音源底部弹窗（miuix MusesBottomSheet + TabRow 类型选择）──────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddSourceSheet(
     form: AddSourceForm,
@@ -436,83 +394,72 @@ private fun AddSourceSheet(
     onUpdateWebdavUsername: (String) -> Unit,
     onUpdateWebdavPassword: (String) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = BottomSheetDefaults.ContainerColor,
+    val scheme = MiuixTheme.colorScheme
+    MusesBottomSheet(
+        onDismiss = onDismiss,
+        title = "添加音源",
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 16.dp),
         ) {
-            Text("添加音源", style = MaterialTheme.typography.headlineSmall)
-            Spacer(Modifier.height(16.dp))
+
 
             // 名称
-            OutlinedTextField(
+            MusesTextField(
                 value = form.name,
                 onValueChange = onUpdateName,
-                label = { Text("音源名称") },
+                label = "音源名称",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
 
-            // 类型选择
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = form.type == SourceType.LOCAL,
-                    onClick = { onUpdateType(SourceType.LOCAL) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                ) { Text("本地目录") }
-                SegmentedButton(
-                    selected = form.type == SourceType.WEBDAV,
-                    onClick = { onUpdateType(SourceType.WEBDAV) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                ) { Text("WebDAV") }
-            }
+            // 类型选择（miuix TabRow 双选项）
+            TabRow(
+                tabs = listOf("本地目录", "WebDAV"),
+                selectedTabIndex = if (form.type == SourceType.LOCAL) 0 else 1,
+                onTabSelected = { onUpdateType(if (it == 0) SourceType.LOCAL else SourceType.WEBDAV) },
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(16.dp))
 
             // 根据类型显示不同表单
             AnimatedVisibility(visible = form.type == SourceType.LOCAL) {
                 Column {
-                    OutlinedTextField(
+                    MusesTextField(
                         value = form.localPath,
                         onValueChange = onUpdateLocalPath,
-                        label = { Text("目录路径（SAF tree URI）") },
+                        label = "目录路径（SAF tree URI）",
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("content://com.android.externalstorage..") },
                     )
                 }
             }
 
             AnimatedVisibility(visible = form.type == SourceType.WEBDAV) {
                 Column {
-                    OutlinedTextField(
+                    MusesTextField(
                         value = form.webdavUrl,
                         onValueChange = onUpdateWebdavUrl,
-                        label = { Text("服务器地址") },
+                        label = "服务器地址",
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("https://dav.example.com/music/") },
                     )
                     Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
+                    MusesTextField(
                         value = form.webdavUsername,
                         onValueChange = onUpdateWebdavUsername,
-                        label = { Text("用户名") },
+                        label = "用户名",
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
+                    MusesTextField(
                         value = form.webdavPassword,
                         onValueChange = onUpdateWebdavPassword,
-                        label = { Text("密码") },
+                        label = "密码",
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         visualTransformation = PasswordVisualTransformation(),
@@ -529,27 +476,27 @@ private fun AddSourceSheet(
                             ) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                                 Spacer(Modifier.width(8.dp))
-                                Text("正在测试连接…", style = MaterialTheme.typography.bodyMedium)
+                                Text("正在测试连接…", fontSize = 14.sp, color = scheme.onBackgroundVariant)
                             }
                         }
                         is TestState.Success -> {
                             Text(
                                 "连接成功 ✓",
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodyMedium,
+                                color = scheme.primary,
+                                fontSize = 14.sp,
                             )
                         }
                         is TestState.Failure -> {
                             Text(
                                 (form.testState as TestState.Failure).message,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
+                                color = scheme.error,
+                                fontSize = 14.sp,
                             )
                         }
                         is TestState.Idle -> { /* no-op */ }
                     }
 
-                    OutlinedButton(
+                    MusesButton(
                         onClick = onTestConnection,
                         modifier = Modifier.fillMaxWidth(),
                         enabled = form.testState !is TestState.Testing,
@@ -564,7 +511,7 @@ private fun AddSourceSheet(
             Spacer(Modifier.height(24.dp))
 
             // 保存按钮
-            Button(
+            MusesButton(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = form.name.isNotBlank() && (

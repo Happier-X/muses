@@ -16,11 +16,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -247,7 +245,7 @@ fun ScrapeProgressBar(
         Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
         Spacer(Modifier.height(8.dp))
         LinearProgressIndicator(
-            progress = { if (total > 0) current.toFloat() / total else 0f },
+            progress = if (total > 0) current.toFloat() / total else 0f,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(8.dp))
@@ -370,11 +368,11 @@ fun ScrapeReviewFieldRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onCheckedChange != null) {
-            Checkbox(
+            MusesCheckbox(
                 checked = field.checked,
-                onCheckedChange = { onCheckedChange() },
+                onToggle = { onCheckedChange() },
                 enabled = enabled,
-                colors = CheckboxDefaults.colors(checkedColor = scheme.primary),
+                checkedColor = scheme.primary,
             )
         }
         Column(Modifier.weight(1f).padding(start = if (onCheckedChange != null) 4.dp else 0.dp)) {

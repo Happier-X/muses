@@ -5,9 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.muses.player.core.ui.components.MusesDialog
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -104,17 +103,14 @@ fun WebDavBrowseScreen(
                 modifier = Modifier.weight(1f),
             )
 
-            // 错误对话框
+            // 错误对话框（miuix MusesDialog）
             browseState.errorMessage?.let { message ->
-                AlertDialog(
-                    onDismissRequest = { viewModel.dismissError() },
-                    title = { Text("错误") },
-                    text = { Text(message) },
-                    confirmButton = {
-                        TextButton(onClick = { viewModel.dismissError() }) {
-                            Text("确定")
-                        }
-                    },
+                MusesDialog(
+                    onDismiss = { viewModel.dismissError() },
+                    title = "错误",
+                    message = message,
+                    confirmText = "确定",
+                    onConfirm = { viewModel.dismissError() },
                 )
             }
         }

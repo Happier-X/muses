@@ -11,10 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -53,7 +51,6 @@ import com.muses.player.core.ui.icons.TablerIcons
 // U8 共用化：列表区调用共用 LibrarySongList（实体→SongItem 映射 + 播放/长按回调注入）。
 // 搜索框调用共用 LibrarySearchField；空态文案保持原样。
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongsScreen(
     modifier: Modifier = Modifier,
@@ -213,7 +210,6 @@ fun AlbumsScreen(
 
 // ── 专辑详情 ──────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumDetailScreen(
     albumId: String,
@@ -274,7 +270,6 @@ fun ArtistsScreen(
 
 // ── 艺术家详情 ──────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtistDetailScreen(
     artistId: String,
