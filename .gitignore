@@ -39,3 +39,13 @@ build/
 
 # S0 解码原型（VLC 便携包约 256MB + 测试音频 + 构建产物，结论见任务目录 spike.md）
 spike-vlcj/
+
+# 调试截图 & UI dump & 临时文件
+mx_*.png
+uix*.xml
+uixd.xml
+getev.txt
+muses_mumu.db
+package-lock.json
+package.json
+skills-lock.json
