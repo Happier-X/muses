@@ -1,5 +1,6 @@
 package com.muses.player.core.ui.components
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,8 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
 
 /**
  * 刮削页共用组件（V3 刮削页共用化，U4 设置页模式：纯 UI + 回调）。
@@ -135,7 +134,7 @@ data class SharedWritebackResult(
  * 刮削候选项行 —— 封面 + 标题 + 来源 + 置信度 + 选择回调。
  *
  * 视觉契约（对照 ScrapeScreen 预览卡头 / ScrapeReviewScreen 歌曲头）：
- * - 48dp SaltCover（远程/本地图，空占位）+ 12dp 间距 + 文字区；
+ * - 48dp MusesCover（远程/本地图，空占位）+ 12dp 间距 + 文字区；
  * - 标题 14sp/600 单行省略，副标题 12sp text2 单行省略；
  * - 来源角标（surface2 底 9sp text2）+ 置信度角标（primary 浅底 10sp primary）；
  * - [onSelect] = null 时为纯展示（无点击）；非空时整行可点（无涟漪，对齐 SaltListItem）。
@@ -148,7 +147,7 @@ fun ScrapeCandidateRow(
     onSelect: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
@@ -167,14 +166,14 @@ fun ScrapeCandidateRow(
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SaltCover(uri = candidate.coverUri, size = 48.dp, radius = SaltCoverRadius.SM)
+        MusesCover(uri = candidate.coverUri, size = 48.dp, radius = MusesCoverRadius.SM)
         Spacer(Modifier.size(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 text = candidate.title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = if (selected) salt.primary else salt.text,
+                color = if (selected) scheme.primary else scheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -182,7 +181,7 @@ fun ScrapeCandidateRow(
                 Text(
                     text = candidate.subtitle,
                     fontSize = 12.sp,
-                    color = salt.text2,
+                    color = scheme.onBackgroundVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -198,10 +197,10 @@ fun ScrapeCandidateRow(
                 if (candidate.confidenceLabel != null) {
                     Box(
                         Modifier
-                            .background(salt.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                            .background(scheme.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     ) {
-                        Text(candidate.confidenceLabel, fontSize = 10.sp, color = salt.primary)
+                        Text(candidate.confidenceLabel, fontSize = 10.sp, color = scheme.primary)
                     }
                 }
             }
@@ -235,7 +234,7 @@ fun ScrapeProgressBar(
     title: String = "正在匹配 $current / $total",
     onCancel: (() -> Unit)? = null,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -245,7 +244,7 @@ fun ScrapeProgressBar(
     ) {
         CircularProgressIndicator()
         Spacer(Modifier.height(20.dp))
-        Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = salt.text)
+        Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
         Spacer(Modifier.height(8.dp))
         LinearProgressIndicator(
             progress = { if (total > 0) current.toFloat() / total else 0f },
@@ -256,7 +255,7 @@ fun ScrapeProgressBar(
             Text(
                 currentItem,
                 fontSize = 13.sp,
-                color = salt.text2,
+                color = scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -266,14 +265,14 @@ fun ScrapeProgressBar(
             Text(
                 message,
                 fontSize = 13.sp,
-                color = salt.primary,
+                color = scheme.primary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         if (onCancel != null) {
             Spacer(Modifier.height(12.dp))
-            SaltTextButton(onClick = onCancel, text = "取消")
+            MusesTextButton(onClick = onCancel, text = "取消")
         }
     }
 }
@@ -304,16 +303,16 @@ fun ScrapeReviewCard(
     skipText: String? = null,
     onSkip: (() -> Unit)? = null,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val hasChecked = fields.any { it.checked }
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
+            .background(scheme.surface, RoundedCornerShape(12.dp))
             .border(
                 0.5.dp,
-                if (hasChecked) salt.primary.copy(alpha = 0.5f) else salt.hairline,
-                RoundedCornerShape(SaltRadius.card),
+                if (hasChecked) scheme.primary.copy(alpha = 0.5f) else scheme.dividerLine,
+                RoundedCornerShape(12.dp),
             )
             .padding(12.dp),
     ) {
@@ -333,10 +332,10 @@ fun ScrapeReviewCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (onSkip != null) {
-                    SaltTextButton(onClick = onSkip, text = skipText ?: "跳过")
+                    MusesTextButton(onClick = onSkip, text = skipText ?: "跳过")
                 }
                 if (onConfirm != null) {
-                    SaltTextButton(onClick = onConfirm, text = confirmText ?: "确认")
+                    MusesTextButton(onClick = onConfirm, text = confirmText ?: "确认")
                 }
             }
         }
@@ -365,7 +364,7 @@ fun ScrapeReviewFieldRow(
     sourceBadge: String? = null,
     recommended: Boolean = false,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Row(
         modifier = modifier.fillMaxWidth().padding(vertical = 1.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -375,7 +374,7 @@ fun ScrapeReviewFieldRow(
                 checked = field.checked,
                 onCheckedChange = { onCheckedChange() },
                 enabled = enabled,
-                colors = CheckboxDefaults.colors(checkedColor = salt.primary),
+                colors = CheckboxDefaults.colors(checkedColor = scheme.primary),
             )
         }
         Column(Modifier.weight(1f).padding(start = if (onCheckedChange != null) 4.dp else 0.dp)) {
@@ -387,7 +386,7 @@ fun ScrapeReviewFieldRow(
             Text(
                 "${field.label}：$display",
                 fontSize = 12.sp,
-                color = if (field.checked) salt.text else salt.text2,
+                color = if (field.checked) scheme.onBackground else scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -399,10 +398,10 @@ fun ScrapeReviewFieldRow(
         if (recommended) {
             Box(
                 Modifier
-                    .background(salt.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                    .background(scheme.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
                     .padding(horizontal = 5.dp, vertical = 2.dp),
             ) {
-                Text("推荐", fontSize = 9.sp, color = salt.primary)
+                Text("推荐", fontSize = 9.sp, color = scheme.primary)
             }
         }
     }
@@ -422,7 +421,7 @@ fun ScrapeResultRow(
     modifier: Modifier = Modifier,
     onRetry: ((String) -> Unit)? = null,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.size(8.dp).background(statusColor(result.statusKind), RoundedCornerShape(4.dp)),
@@ -432,7 +431,7 @@ fun ScrapeResultRow(
             Text(
                 result.title,
                 fontSize = 13.sp,
-                color = salt.text2,
+                color = scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -440,7 +439,7 @@ fun ScrapeResultRow(
                 Text(
                     result.detail,
                     fontSize = 11.sp,
-                    color = if (result.detailHighlight) salt.primary else salt.text2,
+                    color = if (result.detailHighlight) scheme.primary else scheme.onBackgroundVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -449,7 +448,7 @@ fun ScrapeResultRow(
         Text(result.statusWire, fontSize = 13.sp, color = statusColor(result.statusKind))
         if (result.retryText != null && onRetry != null) {
             Spacer(Modifier.size(8.dp))
-            SaltTextButton(
+            MusesTextButton(
                 text = result.retryText,
                 onClick = { onRetry(result.songId) },
             )
@@ -460,13 +459,13 @@ fun ScrapeResultRow(
 /** 来源角标（surface2 底 9sp text2；对照审核页 BadgeBox）。 */
 @Composable
 fun ScrapeBadgeBox(text: String, modifier: Modifier = Modifier) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Box(
         modifier
-            .background(salt.surface2, RoundedCornerShape(4.dp))
+            .background(scheme.surfaceVariant, RoundedCornerShape(4.dp))
             .padding(horizontal = 5.dp, vertical = 1.dp),
     ) {
-        Text(text, fontSize = 9.sp, color = salt.text2)
+        Text(text, fontSize = 9.sp, color = scheme.onBackgroundVariant)
     }
 }
 
@@ -489,15 +488,15 @@ fun ScrapeCoverThumb(
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Box(
         modifier
             .size(72.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(salt.surface2)
+            .background(scheme.surfaceVariant)
             .border(
                 width = if (selected) 2.dp else 0.5.dp,
-                color = if (selected) salt.primary else salt.surface2,
+                color = if (selected) scheme.primary else scheme.surfaceVariant,
                 shape = RoundedCornerShape(6.dp),
             )
             .clickable(

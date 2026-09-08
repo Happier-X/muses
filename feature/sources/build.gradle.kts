@@ -36,6 +36,8 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)
             // U20：列表页 haze 玻璃（2.0 起 KMP 工件，双端同源）
             implementation(libs.haze)
+            // 直引 miuix Switch（ui-shared 为 implementation 不透传）
+            implementation(libs.miuix.ui)
             implementation(libs.haze.blur)
         }
 

@@ -1,5 +1,6 @@
 package com.muses.player.core.ui.components
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,25 +33,25 @@ fun PlayerControls(
         horizontalArrangement = Arrangement.spacedBy(gap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SaltIconButton(
+        MusesIconButton(
             onClick = onPrevious,
             imageVector = TablerIcons.SkipPreviousFill,
             contentDescription = "上一曲",
-            size = SaltIconButtonSize.LG,
+            size = MusesIconButtonSize.LG,
             tint = Color.White.copy(alpha = 0.9f),
         )
-        SaltIconButton(
+        MusesIconButton(
             onClick = onPlayPause,
             imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill,
             contentDescription = if (isPlaying) "暂停" else "播放",
-            size = SaltIconButtonSize.LG,
+            size = MusesIconButtonSize.LG,
             tint = Color.White.copy(alpha = 0.92f),
         )
-        SaltIconButton(
+        MusesIconButton(
             onClick = onNext,
             imageVector = TablerIcons.SkipNextFill,
             contentDescription = "下一曲",
-            size = SaltIconButtonSize.LG,
+            size = MusesIconButtonSize.LG,
             tint = Color.White.copy(alpha = 0.9f),
         )
     }
@@ -82,25 +83,25 @@ fun PlayerModeBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SaltIconButton(
+        MusesIconButton(
             onClick = onToggleRepeat,
             imageVector = if (repeatMode == PLAYER_REPEAT_ONE) TablerIcons.RepeatOne else TablerIcons.Repeat,
             contentDescription = if (repeatMode == PLAYER_REPEAT_ONE) "单曲循环" else "列表循环",
             tint = Color.White.copy(alpha = 0.8f),
         )
-        SaltIconButton(
+        MusesIconButton(
             onClick = onToggleShuffle,
             imageVector = if (shuffleEnabled) TablerIcons.Shuffle else TablerIcons.FormatListBulleted,
             contentDescription = if (shuffleEnabled) "随机播放" else "顺序播放",
             tint = Color.White.copy(alpha = 0.8f),
         )
-        SaltIconButton(
+        MusesIconButton(
             onClick = onOpenQueue,
             imageVector = TablerIcons.QueueMusic,
             contentDescription = "播放队列",
             tint = Color.White.copy(alpha = 0.8f),
         )
-        SaltIconButton(
+        MusesIconButton(
             onClick = onOpenEditMeta,
             imageVector = TablerIcons.MoreVert,
             contentDescription = "更多",

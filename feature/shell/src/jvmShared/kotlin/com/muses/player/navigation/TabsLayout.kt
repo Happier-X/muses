@@ -1,5 +1,6 @@
 package com.muses.player.navigation
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -53,9 +54,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
-import com.muses.player.core.ui.theme.SaltSpacing
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import kotlin.math.abs
@@ -95,7 +93,7 @@ private const val SettleRatio = 0.25f
 private const val FastSwipePxPerMs = 0.5f
 
 /** 导航项（RouterLink 的 Compose 对应物入参） */
-data class SaltNavItem(
+data class MusesNavItem(
     val icon: ImageVector,
     val label: String,
     val active: Boolean,
@@ -110,8 +108,8 @@ data class SaltNavItem(
  */
 @Composable
 fun TabsLayout(
-    primaryItems: List<SaltNavItem>,
-    secondaryItems: List<SaltNavItem>,
+    primaryItems: List<MusesNavItem>,
+    secondaryItems: List<MusesNavItem>,
     navVisible: Boolean,
     modifier: Modifier = Modifier,
     bottomBar: @Composable () -> Unit = {},
@@ -166,15 +164,15 @@ fun TabsLayout(
  */
 @Composable
 private fun TabletLayout(
-    primaryItems: List<SaltNavItem>,
-    secondaryItems: List<SaltNavItem>,
+    primaryItems: List<MusesNavItem>,
+    secondaryItems: List<MusesNavItem>,
     bottomBar: @Composable () -> Unit,
     hazeState: dev.chrisbanes.haze.HazeState,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val salt = LocalSaltColors.current
-    Box(modifier.background(salt.surface)) {
+    val scheme = MiuixTheme.colorScheme
+    Box(modifier.background(scheme.background)) {
         Row(
             Modifier
                 .fillMaxSize()
@@ -188,7 +186,7 @@ private fun TabletLayout(
                 Modifier
                     .width(AsideWidth)
                     .fillMaxHeight()
-                    .background(salt.surface),
+                    .background(scheme.background),
             ) {
                 Spacer(Modifier.statusBarsPadding())
                 Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -230,8 +228,8 @@ private class DragSession {
 
 @Composable
 private fun PhoneLayout(
-    primaryItems: List<SaltNavItem>,
-    secondaryItems: List<SaltNavItem>,
+    primaryItems: List<MusesNavItem>,
+    secondaryItems: List<MusesNavItem>,
     containerWidth: Dp,
     bottomBar: @Composable () -> Unit,
     hazeState: dev.chrisbanes.haze.HazeState,
@@ -268,7 +266,7 @@ private fun PhoneLayout(
     Box(
         Modifier
             .fillMaxSize()
-            .background(LocalSaltColors.current.surface)
+            .background(MiuixTheme.colorScheme.background)
             .pointerInput(drawerOpen) {
                 detectHorizontalDragGestures(
                     onDragStart = { _ ->
@@ -329,7 +327,7 @@ private fun PhoneLayout(
                 .offsetX { ((openFraction.value - 1f) * drawerWidthPx).roundToInt() },
         )
 
-        // __main：开态右移一个抽屉宽；向页内 SaltNavbar 提供汉堡打开回调；同时作为底部真磨砂的 hazeSource（与 bottomBar 同级）
+        // __main：开态右移一个抽屉宽；向页内 MusesNavbar 提供汉堡打开回调；同时作为底部真磨砂的 hazeSource（与 bottomBar 同级）
         Box(
             Modifier
                 .align(Alignment.TopStart)
@@ -338,7 +336,7 @@ private fun PhoneLayout(
                 .hazeSource(state = hazeState),
         ) {
             androidx.compose.runtime.CompositionLocalProvider(
-                com.muses.player.core.ui.components.LocalSaltOpenDrawer provides { openDrawer() },
+                com.muses.player.core.ui.components.LocalMusesOpenDrawer provides { openDrawer() },
             ) {
                 content()
             }
@@ -377,34 +375,34 @@ private fun Modifier.offsetX(x: () -> Int): Modifier =
  */
 @Composable
 private fun NavGroupCard(
-    items: List<SaltNavItem>,
+    items: List<MusesNavItem>,
     modifier: Modifier = Modifier,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val cardShape = RoundedCornerShape(16.dp)
     Column(
         modifier
             .padding(start = 18.dp, end = 12.dp)
-            .background(salt.surface1, cardShape)
-            .border(1.dp, salt.hairline, cardShape)
+            .background(scheme.surface, cardShape)
+            .border(1.dp, scheme.dividerLine, cardShape)
             .padding(vertical = 8.dp),
     ) {
-        items.forEach { item -> SaltNavLink(item, inDrawer = true) }
+        items.forEach { item -> MusesNavLink(item, inDrawer = true) }
     }
 }
 
 /** 卡片形态抽屉面板：`.tabs-layout__panel` + 两张 nav 卡（次卡与主卡间距 18px） */
 @Composable
 private fun DrawerPanel(
-    primaryItems: List<SaltNavItem>,
-    secondaryItems: List<SaltNavItem>,
+    primaryItems: List<MusesNavItem>,
+    secondaryItems: List<MusesNavItem>,
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
     // padding: calc(var(--m-navbar-pt) + var(--m-spacing)) 0 calc(var(--m-spacing-sub) + safe-bottom) 0
     val navbarPt = with(density) {
         WindowInsets.statusBars.getTop(this).toDp()
-    }.coerceAtLeast(SaltSpacing.navbarTopPaddingMin)
+    }.coerceAtLeast(16.dp)
     val navBottom = with(density) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
@@ -412,10 +410,10 @@ private fun DrawerPanel(
         modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Spacer(Modifier.height(navbarPt + SaltSpacing.spacing))
+        Spacer(Modifier.height(navbarPt + 16.dp))
         NavGroupCard(primaryItems)
         NavGroupCard(secondaryItems)
-        Spacer(Modifier.height(SaltSpacing.spacingSub + navBottom))
+        Spacer(Modifier.height(12.dp + navBottom))
     }
 }
 
@@ -428,11 +426,11 @@ private fun DrawerPanel(
  * （18px 卡片空隙 + 60px 图标列使文字自 ~78px 起，对齐椒盐 x204px 实测）。
  */
 @Composable
-private fun SaltNavLink(
-    item: SaltNavItem,
+private fun MusesNavLink(
+    item: MusesNavItem,
     inDrawer: Boolean = false,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         Modifier
@@ -443,23 +441,23 @@ private fun SaltNavLink(
                 indication = null,
                 onClick = item.onClick,
             )
-            .clip(RoundedCornerShape(SaltRadius.sm))
+            .clip(RoundedCornerShape(8.dp))
             .padding(
-                start = if (inDrawer) 0.dp else SaltSpacing.spacing,
-                end = SaltSpacing.spacing,
+                start = if (inDrawer) 0.dp else 16.dp,
+                end = 16.dp,
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // __nav-icon-shell：flex 0 0 60px，图标居中于 30px 处
         Box(
-            Modifier.size(width = 60.dp, height = SaltSpacing.listIcon),
+            Modifier.size(width = 60.dp, height = 24.dp),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = item.icon,
                 contentDescription = null, // aria-hidden
-                tint = salt.text2,
-                modifier = Modifier.size(SaltSpacing.listIcon),
+                tint = scheme.onBackgroundVariant,
+                modifier = Modifier.size(24.dp),
             )
         }
         // __nav-label：font-size 16px / --m-text
@@ -467,7 +465,7 @@ private fun SaltNavLink(
             text = item.label,
             fontSize = 16.sp,
             fontWeight = FontWeight.Normal,
-            color = salt.text,
+            color = scheme.onBackground,
         )
     }
 }

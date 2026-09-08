@@ -1,5 +1,6 @@
 package com.muses.player.feature.shell.platform
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -24,13 +25,10 @@ import com.muses.player.core.appupdate.downloadWindowsInstaller
 import com.muses.player.core.appupdate.fetchWindowsRelease
 import com.muses.player.core.appupdate.launchWindowsInstaller
 import com.muses.player.core.appupdate.windowsUpdateDir
-import com.muses.player.core.ui.components.SaltListItem
+import com.muses.player.core.ui.components.MusesListRow
 import com.muses.player.core.ui.components.SettingsBlockTitle
 import com.muses.player.core.ui.components.SettingsIcon
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
-import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.uishared.platform.PlatformToast
 import java.io.File
 import kotlinx.coroutines.Job
@@ -61,7 +59,7 @@ actual fun InAppUpdateSection(
     val scope = rememberCoroutineScope()
     var ui by remember { mutableStateOf<UpdateUi>(UpdateUi.Idle) }
     var downloadJob by remember { mutableStateOf<Job?>(null) }
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
 
     fun check() {
         if (ui != UpdateUi.Idle) return
@@ -114,12 +112,12 @@ actual fun InAppUpdateSection(
     SettingsBlockTitle(text = "应用更新")
     Column(
         modifier = Modifier
-            .padding(horizontal = SaltSpacing.spacingSub)
-            .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
+            .padding(horizontal = 12.dp)
+            .background(scheme.surface, RoundedCornerShape(12.dp))
             .padding(vertical = 4.dp),
     ) {
         // 主行：检查更新
-        SaltListItem(
+        MusesListRow(
             title = "检查更新",
             subtitle = when (ui) {
                 is UpdateUi.Checking -> "正在检查更新…"
@@ -136,7 +134,7 @@ actual fun InAppUpdateSection(
         val available = ui as? UpdateUi.Available
         if (available != null) {
             val info = available.info
-            SaltListItem(
+            MusesListRow(
                 title = "发现新版本 ${info.tag}",
                 subtitle = "安装包约 ${formatMB(info.msiSizeBytes)}",
                 onClick = null,
@@ -150,13 +148,13 @@ actual fun InAppUpdateSection(
                     text = notes,
                     fontSize = 13.sp,
                     lineHeight = (13f * 1.5f).sp,
-                    color = salt.text2,
+                    color = scheme.onBackgroundVariant,
                     maxLines = 5,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
-            SaltListItem(
+            MusesListRow(
                 title = "下载更新",
                 subtitle = "下载完成后可直接安装",
                 onClick = { download(info) },
@@ -164,7 +162,7 @@ actual fun InAppUpdateSection(
                     SettingsIcon(icon = TablerIcons.Download)
                 },
             )
-            SaltListItem(
+            MusesListRow(
                 title = "前往下载页",
                 subtitle = "浏览器打开 Release 页面手动下载",
                 onClick = { onOpenUrl(info.htmlUrl) },
@@ -187,7 +185,7 @@ actual fun InAppUpdateSection(
                         "正在下载 ${formatMB(downloading.downloaded)}"
                     },
                     fontSize = 13.sp,
-                    color = salt.text2,
+                    color = scheme.onBackgroundVariant,
                 )
                 Spacer(Modifier.height(8.dp))
                 LinearProgressIndicator(
@@ -195,7 +193,7 @@ actual fun InAppUpdateSection(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            SaltListItem(
+            MusesListRow(
                 title = "取消下载",
                 onClick = {
                     downloadJob?.cancel()
@@ -211,7 +209,7 @@ actual fun InAppUpdateSection(
         // 待安装：安装入口 + 重新下载
         val ready = ui as? UpdateUi.Ready
         if (ready != null) {
-            SaltListItem(
+            MusesListRow(
                 title = "安装更新",
                 subtitle = "${ready.file.name}（${formatMB(ready.file.length())}）已就绪",
                 onClick = {
@@ -226,7 +224,7 @@ actual fun InAppUpdateSection(
                     SettingsIcon(icon = TablerIcons.CheckCircle)
                 },
             )
-            SaltListItem(
+            MusesListRow(
                 title = "重新下载",
                 onClick = {
                     ready.file.delete()

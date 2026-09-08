@@ -334,7 +334,7 @@ fun MusesApp() {
 private fun NavDestination.toNavItem(
     currentRoute: String?,
     navController: NavHostController,
-): SaltNavItem = SaltNavItem(
+): MusesNavItem = MusesNavItem(
     icon = icon,
     label = label,
     active = isActive(currentRoute),

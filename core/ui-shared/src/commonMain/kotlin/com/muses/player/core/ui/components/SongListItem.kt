@@ -1,5 +1,6 @@
 package com.muses.player.core.ui.components
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -24,8 +25,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
 
 /**
  * 跨平台曲目行数据（平台无关，只承载展示信息）。
@@ -45,8 +44,8 @@ data class SongItem(
  *
  * 视觉契约（对照桌面 LibraryScreen SongRow + SaltListItem 风格）：
  * - 行高自适应，内缩 padding 12dp;
- * - 标题：salt.text / 14sp，当前曲 primary 色 + SemiBold;
- * - 副标题：artist - albumTitle，salt.text2 / 12sp，单行省略;
+ * - 标题：scheme.onBackground / 14sp，当前曲 primary 色 + SemiBold;
+ * - 副标题：artist - albumTitle，scheme.onBackgroundVariant / 12sp，单行省略;
  * - 当前行：surface1 背景 + primary 色标题 + 尾部播放图标;
  * - 按压态：透明叠层（无涟漪），对齐 SaltListItem 约定;
  * - 纯 UI 组件，零平台依赖，所有业务逻辑经回调注入。
@@ -64,20 +63,20 @@ fun SongListItem(
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
 
     val bgColor = when {
-        isCurrent -> salt.surface1
-        pressed -> salt.surface1.copy(alpha = 0.5f)
-        else -> salt.surface
+        isCurrent -> scheme.surface
+        pressed -> scheme.surface.copy(alpha = 0.5f)
+        else -> scheme.background
     }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(SaltRadius.sm))
+            .clip(RoundedCornerShape(8.dp))
             .background(bgColor)
             .then(
                 if (onLongClick != null) {
@@ -104,7 +103,7 @@ fun SongListItem(
         ) {
             Text(
                 text = song.title,
-                color = if (isCurrent) salt.primary else salt.text,
+                color = if (isCurrent) scheme.primary else scheme.onBackground,
                 fontSize = 14.sp,
                 fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
@@ -116,7 +115,7 @@ fun SongListItem(
             if (subtitle.isNotBlank()) {
                 Text(
                     text = subtitle,
-                    color = salt.text2,
+                    color = scheme.onBackgroundVariant,
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -129,7 +128,7 @@ fun SongListItem(
             Icon(
                 imageVector = TablerIcons.PlayFill,
                 contentDescription = "正在播放",
-                tint = salt.primary,
+                tint = scheme.primary,
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .size(16.dp),

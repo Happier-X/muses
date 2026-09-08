@@ -1,5 +1,6 @@
 package com.muses.player.desktop
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,8 +9,7 @@ import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltTheme
+import com.muses.player.core.ui.theme.MusesTheme
 import com.muses.player.core.uishared.platform.DesktopToastOverlay
 import com.muses.player.navigation.MusesApp
 import org.koin.compose.KoinApplication
@@ -28,9 +28,9 @@ fun WindowScope.MusesDesktopApp(
     onClose: () -> Unit,
 ) {
     KoinApplication(application = { modules(desktopAppModules) }) {
-        SaltTheme {
+        MusesTheme {
             Box(modifier = Modifier.fillMaxSize()) {
-                Column(modifier = Modifier.fillMaxSize().background(LocalSaltColors.current.surface)) {
+                Column(modifier = Modifier.fillMaxSize().background(MiuixTheme.colorScheme.background)) {
                     DesktopTitleBar(windowState, onClose)
                     // 共享导航壳（hazeState 由 TabsLayout 内部 provide，磨砂导航/迷你条真磨砂）
                     Box(modifier = Modifier.weight(1f).fillMaxSize()) {

@@ -1,5 +1,6 @@
 package com.muses.player.desktop
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -41,7 +42,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.ui.theme.LocalSaltColors
 import java.awt.MouseInfo
 import java.awt.Toolkit
 import kotlinx.coroutines.withTimeoutOrNull
@@ -63,7 +63,7 @@ fun WindowScope.DesktopTitleBar(
     onClose: () -> Unit,
     title: String = "Muses",
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val awtWindow = window
     var isMaximized by remember { mutableStateOf(false) }
     var restoredBounds by remember { mutableStateOf<WindowBounds?>(null) }
@@ -141,7 +141,7 @@ fun WindowScope.DesktopTitleBar(
         } while (event.changes.any { it.id == pointerId && it.pressed })
     }
 
-    Column(modifier = Modifier.fillMaxWidth().background(salt.surface1)) {
+    Column(modifier = Modifier.fillMaxWidth().background(scheme.surface)) {
         Row(
             modifier = Modifier.fillMaxWidth().height(40.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -197,19 +197,19 @@ fun WindowScope.DesktopTitleBar(
                 Box(
                     modifier = Modifier
                         .size(20.dp)
-                        .background(salt.primary, shape = RoundedCornerShape(6.dp)),
+                        .background(scheme.primary, shape = RoundedCornerShape(6.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = TablerIcons.MusicNote,
                         contentDescription = null,
-                        tint = salt.onPrimary,
+                        tint = scheme.onPrimary,
                         modifier = Modifier.size(13.dp),
                     )
                 }
                 Text(
                     text = title,
-                    color = salt.text,
+                    color = scheme.onBackground,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(start = 8.dp),
@@ -236,7 +236,7 @@ fun WindowScope.DesktopTitleBar(
                 onClick = onClose,
             )
         }
-        HorizontalDivider(color = salt.hairline, thickness = 1.dp)
+        HorizontalDivider(color = scheme.dividerLine, thickness = 1.dp)
     }
 }
 
@@ -258,15 +258,15 @@ private fun CaptionButton(
     danger: Boolean = false,
     flipHorizontally: Boolean = false,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val background = when {
-        danger && hovered -> salt.danger
-        hovered -> salt.surface2
+        danger && hovered -> scheme.error
+        hovered -> scheme.surfaceVariant
         else -> Color.Transparent
     }
-    val foreground = if (danger && hovered) Color.White else salt.text2
+    val foreground = if (danger && hovered) Color.White else scheme.onBackgroundVariant
 
     Box(
         modifier = Modifier

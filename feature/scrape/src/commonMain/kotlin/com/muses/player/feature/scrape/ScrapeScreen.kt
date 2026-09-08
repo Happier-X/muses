@@ -1,5 +1,6 @@
 package com.muses.player.feature.scrape
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,9 +37,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
-import com.muses.player.core.ui.components.SaltEmpty
-import com.muses.player.core.ui.components.SaltNavbar
-import com.muses.player.core.ui.components.SaltTextButton
+import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesNavbar
+import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.ScrapeProgressBar
 import com.muses.player.core.ui.components.ScrapeReviewCard
 import com.muses.player.core.ui.components.ScrapeResultRow
@@ -46,7 +47,6 @@ import com.muses.player.core.ui.components.ScrapeStatusKind
 import com.muses.player.core.ui.components.SharedReviewField
 import com.muses.player.core.ui.components.SharedScrapeCandidate
 import com.muses.player.core.ui.components.SharedWritebackResult
-import com.muses.player.core.ui.theme.LocalSaltColors
 import kotlinx.coroutines.launch
 
 /**
@@ -65,12 +65,12 @@ fun ScrapeScreen(
      */
     onStartReviewQueue: (firstSongId: String, queue: List<String>) -> Unit = { _, _ -> },
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val pageState by viewModel.pageState.collectAsState()
     val queueSongIds by viewModel.queueSongIds.collectAsState()
 
     Column(modifier = modifier.fillMaxSize()) {
-        SaltNavbar(
+        MusesNavbar(
             title = "刮削",
         )
 
@@ -136,9 +136,9 @@ private fun QueueStateContent(
     onClear: () -> Unit,
     onStartAll: () -> Unit,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     if (queueSongIds.isEmpty()) {
-        SaltEmpty(
+        MusesEmpty(
             title = "待刮削队列为空",
             description = "请先在歌曲页标记需要刮削的歌曲。",
             modifier = Modifier.fillMaxSize(),
@@ -160,12 +160,12 @@ private fun QueueStateContent(
                     Text(
                         text = queueTitles[songId] ?: "待刮削歌曲",
                         fontSize = 16.sp,
-                        color = salt.text,
+                        color = scheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    SaltTextButton(text = "移除", onClick = { onRemove(songId) })
+                    MusesTextButton(text = "移除", onClick = { onRemove(songId) })
                 }
             }
         }
@@ -186,7 +186,7 @@ private fun QueueStateContent(
 
 @Composable
 private fun WritingStateContent(state: ScrapePageState.Writing) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Column(
         Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -194,9 +194,9 @@ private fun WritingStateContent(state: ScrapePageState.Writing) {
     ) {
         CircularProgressIndicator()
         Spacer(Modifier.height(20.dp))
-        Text("正在写回 ${state.count} 首…", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = salt.text)
+        Text("正在写回 ${state.count} 首…", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
         Spacer(Modifier.height(8.dp))
-        Text("正在写入文件与数据库，请稍候", fontSize = 13.sp, color = salt.text2)
+        Text("正在写入文件与数据库，请稍候", fontSize = 13.sp, color = scheme.onBackgroundVariant)
     }
 }
 
@@ -236,7 +236,7 @@ private fun PreviewStateContent(
     /** S3：开始逐首审核（按钮只发信号；首 songId + 队列由调用方从 VM 取） */
     onStartReviewQueue: () -> Unit = {},
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Column(Modifier.fillMaxSize()) {
         // 命中分维度统计
         val textHits = remember(state.items) { state.items.count { it.matchedTitle != null || it.matchedArtist != null || it.matchedAlbum != null } }
@@ -251,7 +251,7 @@ private fun PreviewStateContent(
                     append("文本命中 $textHits · 封面命中 $coverHits · 共 ${state.items.size} 首")
                 },
                 fontSize = 13.sp,
-                color = salt.text2,
+                color = scheme.onBackgroundVariant,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -260,9 +260,9 @@ private fun PreviewStateContent(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("批量字段：", fontSize = 11.sp, color = salt.text2)
+            Text("批量字段：", fontSize = 11.sp, color = scheme.onBackgroundVariant)
             listOf("title" to "标题", "artist" to "歌手", "album" to "专辑", "cover" to "封面", "lyrics" to "歌词").forEach { (field, label) ->
-                SaltTextButton(text = label, onClick = {
+                MusesTextButton(text = label, onClick = {
                     val allHave = state.items.all { field in it.checkedFields }
                     onSetAllFields(field, !allHave)
                 })
@@ -274,9 +274,9 @@ private fun PreviewStateContent(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("不想一次性全勾？", fontSize = 11.sp, color = salt.text2)
+                Text("不想一次性全勾？", fontSize = 11.sp, color = scheme.onBackgroundVariant)
                 Spacer(Modifier.weight(1f))
-                SaltTextButton(text = "逐首审核（${state.items.size}）", onClick = onStartReviewQueue)
+                MusesTextButton(text = "逐首审核（${state.items.size}）", onClick = onStartReviewQueue)
             }
         }
         if (throttleMessage != null) {
@@ -287,23 +287,23 @@ private fun PreviewStateContent(
                 Text(
                     throttleMessage,
                     fontSize = 12.sp,
-                    color = salt.primary,
+                    color = scheme.primary,
                     modifier = Modifier.weight(1f),
                 )
                 if (throttledIds.isNotEmpty()) {
-                    SaltTextButton(text = "重试限流", onClick = onRetryThrottled)
+                    MusesTextButton(text = "重试限流", onClick = onRetryThrottled)
                 }
             }
         }
         if (throttledIds.isNotEmpty() && state.items.isEmpty()) {
             // 空命中但有被限流的歌曲：给出单首重试入口
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("${throttledIds.size} 首触发限流，稍后重试", fontSize = 13.sp, color = salt.text2)
+                Text("${throttledIds.size} 首触发限流，稍后重试", fontSize = 13.sp, color = scheme.onBackgroundVariant)
                 Spacer(Modifier.height(8.dp))
                 throttledIds.take(5).forEach { sid ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(queueTitles[sid] ?: sid.take(8), fontSize = 12.sp, color = salt.text2, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        SaltTextButton(text = "重试", onClick = { onRetrySingle(sid) })
+                        Text(queueTitles[sid] ?: sid.take(8), fontSize = 12.sp, color = scheme.onBackgroundVariant, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MusesTextButton(text = "重试", onClick = { onRetrySingle(sid) })
                     }
                 }
             }
@@ -394,16 +394,16 @@ private fun NoMatchGroup(
     onRetry: (String) -> Unit,
     onOpenReview: (String) -> Unit,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     var expanded by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            SaltTextButton(
+            MusesTextButton(
                 text = if (expanded) "未命中（${noMatchIds.size} 首）收起" else "未命中（${noMatchIds.size} 首）展开",
                 onClick = { expanded = !expanded },
             )
             Spacer(Modifier.weight(1f))
-            Text("暂无匹配，可重试或改词重搜", fontSize = 11.sp, color = salt.text2)
+            Text("暂无匹配，可重试或改词重搜", fontSize = 11.sp, color = scheme.onBackgroundVariant)
         }
         if (expanded) {
             noMatchIds.forEach { sid ->
@@ -411,13 +411,13 @@ private fun NoMatchGroup(
                     Text(
                         queueTitles[sid] ?: sid.take(8),
                         fontSize = 12.sp,
-                        color = salt.text2,
+                        color = scheme.onBackgroundVariant,
                         modifier = Modifier.weight(1f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    SaltTextButton(text = "重试", onClick = { onRetry(sid) })
-                    SaltTextButton(text = "去审核", onClick = { onOpenReview(sid) })
+                    MusesTextButton(text = "重试", onClick = { onRetry(sid) })
+                    MusesTextButton(text = "去审核", onClick = { onOpenReview(sid) })
                 }
             }
         }
@@ -431,7 +431,7 @@ private fun PreviewEditSheet(
     onDismiss: () -> Unit,
     onConfirm: (String?, String?, String?, String?) -> Unit,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     var title by remember(candidate.songId) { mutableStateOf(candidate.resolvedTitle() ?: candidate.currentTitle) }
     var artist by remember(candidate.songId) { mutableStateOf(candidate.resolvedArtist() ?: candidate.currentArtist.orEmpty()) }
     var album by remember(candidate.songId) { mutableStateOf(candidate.resolvedAlbum() ?: candidate.currentAlbum.orEmpty()) }
@@ -441,12 +441,12 @@ private fun PreviewEditSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = salt.surface,
+        containerColor = scheme.background,
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-            Text("编辑刮削结果", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = salt.text)
+            Text("编辑刮削结果", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
             Spacer(Modifier.height(4.dp))
-            Text("仅影响本次写回，未勾选行不落库", fontSize = 12.sp, color = salt.text2)
+            Text("仅影响本次写回，未勾选行不落库", fontSize = 12.sp, color = scheme.onBackgroundVariant)
             Spacer(Modifier.height(16.dp))
             OutlinedTextField(
                 value = title,
@@ -520,7 +520,7 @@ private fun ResultStateContent(
     onBack: () -> Unit,
     onRetrySingle: (String) -> Unit = {},
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val success = state.results.count { it.status == com.muses.player.core.model.scrape.WritebackStatus.SUCCESS }
     val fileFailed = state.results.count { it.status == com.muses.player.core.model.scrape.WritebackStatus.FILE_FAILED }
     val failed = state.results.count { it.status == com.muses.player.core.model.scrape.WritebackStatus.FAILED }
@@ -530,17 +530,17 @@ private fun ResultStateContent(
             "成功 $success · 文件失败 $fileFailed · 失败 $failed",
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
-            color = salt.text,
+            color = scheme.onBackground,
         )
         Spacer(Modifier.height(4.dp))
         Text(
             "撤销仅恢复曲库，音频文件已写入不可逆",
             fontSize = 11.sp,
-            color = salt.text2,
+            color = scheme.onBackgroundVariant,
         )
         Spacer(Modifier.height(12.dp))
         if (throttleMessage != null) {
-            Text(throttleMessage, fontSize = 12.sp, color = salt.primary)
+            Text(throttleMessage, fontSize = 12.sp, color = scheme.primary)
             Spacer(Modifier.height(8.dp))
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -578,13 +578,13 @@ private fun ResultStateContent(
                 throttledIds.forEach { sid ->
                     item(key = "throttled-$sid") {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(8.dp).background(salt.primary, RoundedCornerShape(4.dp)))
+                            Box(Modifier.size(8.dp).background(scheme.primary, RoundedCornerShape(4.dp)))
                             Spacer(Modifier.size(8.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(queueTitles[sid] ?: sid.take(8), fontSize = 13.sp, color = salt.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("限流，稍后重试", fontSize = 11.sp, color = salt.primary)
+                                Text(queueTitles[sid] ?: sid.take(8), fontSize = 13.sp, color = scheme.onBackgroundVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("限流，稍后重试", fontSize = 11.sp, color = scheme.primary)
                             }
-                            SaltTextButton(text = "重试", onClick = { onRetrySingle(sid) })
+                            MusesTextButton(text = "重试", onClick = { onRetrySingle(sid) })
                         }
                     }
                 }

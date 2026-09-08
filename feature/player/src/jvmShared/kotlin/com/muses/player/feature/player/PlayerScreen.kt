@@ -1,5 +1,6 @@
 package com.muses.player.feature.player
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -74,10 +75,7 @@ import com.muses.player.core.ui.components.PlayerControls
 import com.muses.player.core.ui.components.PlayerCoverHero
 import com.muses.player.core.ui.components.PlayerModeBar
 import com.muses.player.core.ui.components.PlayerProgress
-import com.muses.player.core.ui.components.SaltIconButton
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
-import com.muses.player.core.ui.theme.SaltSpacing
+import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.feature.player.backdrop.FlowingLightBackdrop
 import com.muses.player.feature.player.lyric.AmllLyricLine
 import com.muses.player.core.lyrics.model.LyricsDocument
@@ -921,13 +919,13 @@ private fun TabletBottomBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                SaltIconButton(
+                MusesIconButton(
                     onClick = onToggleRepeat,
                     imageVector = if (repeatMode == PlaybackStates.REPEAT_MODE_ONE) TablerIcons.RepeatOne else TablerIcons.Repeat,
                     contentDescription = if (repeatMode == PlaybackStates.REPEAT_MODE_ONE) "单曲循环" else "列表循环",
                     tint = Color.White.copy(alpha = 0.8f),
                 )
-                SaltIconButton(
+                MusesIconButton(
                     onClick = onToggleShuffle,
                     imageVector = if (shuffleEnabled) TablerIcons.Shuffle else TablerIcons.FormatListBulleted,
                     contentDescription = if (shuffleEnabled) "随机播放" else "顺序播放",
@@ -943,8 +941,8 @@ private fun TabletBottomBar(
                 gap = (screenWidth * 0.05f).coerceIn(20.dp, 44.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                SaltIconButton(onClick = onOpenQueue, imageVector = TablerIcons.QueueMusic, contentDescription = "播放队列", tint = Color.White.copy(alpha = 0.8f))
-                SaltIconButton(onClick = onOpenEditMeta, imageVector = TablerIcons.MoreVert, contentDescription = "更多", tint = Color.White.copy(alpha = 0.8f))
+                MusesIconButton(onClick = onOpenQueue, imageVector = TablerIcons.QueueMusic, contentDescription = "播放队列", tint = Color.White.copy(alpha = 0.8f))
+                MusesIconButton(onClick = onOpenEditMeta, imageVector = TablerIcons.MoreVert, contentDescription = "更多", tint = Color.White.copy(alpha = 0.8f))
             }
         }
     }
@@ -1020,7 +1018,7 @@ fun QueueScreen(
     val queue by viewModel.queueRows.collectAsStateWithLifecycle()
     val currentId by viewModel.currentSongId.collectAsStateWithLifecycle()
     val currentIndex = queue.indexOfFirst { it.songId == currentId }
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     // 入场：底部上滑（Dialog 内容组合即播一次；关闭直接走 onClose，无退场动画）
     var entered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
@@ -1047,8 +1045,8 @@ fun QueueScreen(
             ) {
                 Column(
                     modifier = modifier.fillMaxWidth().fillMaxHeight(0.75f)
-                        .clip(RoundedCornerShape(topStart = SaltRadius.dialog, topEnd = SaltRadius.dialog))
-                        .background(salt.surface)
+                        .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                        .background(scheme.background)
                         .navigationBarsPadding(),
                 ) {
                     // 把手（纯视觉，拖拽关闭暂不做）
@@ -1057,30 +1055,30 @@ fun QueueScreen(
                             .padding(top = 8.dp)
                             .size(width = 36.dp, height = 4.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(salt.text2.copy(alpha = 0.35f)),
+                            .background(scheme.onBackgroundVariant.copy(alpha = 0.35f)),
                     )
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = SaltSpacing.spacing, vertical = 12.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("播放队列", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = salt.text)
+                        Text("播放队列", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = scheme.onBackground)
                         Row {
                             if (queue.isNotEmpty()) {
-                                Icon(TablerIcons.Delete, contentDescription = "清空队列", tint = salt.text.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
+                                Icon(TablerIcons.Delete, contentDescription = "清空队列", tint = scheme.onBackground.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
                                 Spacer(Modifier.width(16.dp))
                             }
-                            Icon(TablerIcons.Close, contentDescription = "关闭队列", tint = salt.text.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable(onClick = onClose))
+                            Icon(TablerIcons.Close, contentDescription = "关闭队列", tint = scheme.onBackground.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable(onClick = onClose))
                         }
                     }
 
                     if (queue.isEmpty()) {
                         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Text("队列为空", color = salt.text.copy(alpha = 0.6f))
+                            Text("队列为空", color = scheme.onBackground.copy(alpha = 0.6f))
                         }
                     } else {
-                        val surfaceVariant = salt.surfaceVariant
-                        val hairline = salt.hairline
+                        val surfaceVariant = scheme.surfaceVariant
+                        val hairline = scheme.dividerLine
                         // 底部内边距 16dp：弹窗内无迷你条，原 96dp 预留不再需要
                         LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 16.dp)) {
                             itemsIndexed(queue, key = { _, item -> item.songId }) { index, item ->
@@ -1091,16 +1089,16 @@ fun QueueScreen(
                                     },
                                 ) {
                                     Row(
-                                        Modifier.fillMaxWidth().clickable { viewModel.playAtIndex(index) }.padding(horizontal = SaltSpacing.spacing, vertical = 10.dp),
+                                        Modifier.fillMaxWidth().clickable { viewModel.playAtIndex(index) }.padding(horizontal = 16.dp, vertical = 10.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text(item.title, color = salt.text, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text(item.artist ?: "未知歌手", color = salt.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(item.title, color = scheme.onBackground, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(item.artist ?: "未知歌手", color = scheme.onBackgroundVariant, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
-                                        Text((index + 1).toString(), color = salt.text2, fontSize = 13.sp)
+                                        Text((index + 1).toString(), color = scheme.onBackgroundVariant, fontSize = 13.sp)
                                         Spacer(Modifier.width(12.dp))
-                                        Icon(TablerIcons.Close, contentDescription = "从队列删除", tint = salt.text2, modifier = Modifier.size(18.dp).clickable { viewModel.removeQueueItemAt(index) })
+                                        Icon(TablerIcons.Close, contentDescription = "从队列删除", tint = scheme.onBackgroundVariant, modifier = Modifier.size(18.dp).clickable { viewModel.removeQueueItemAt(index) })
                                     }
                                 }
                             }

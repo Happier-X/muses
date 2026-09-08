@@ -5,7 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.muses.player.navigation.MusesApp
-import com.muses.player.core.ui.theme.SaltTheme
+import com.muses.player.core.ui.theme.MusesTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -13,7 +13,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            SaltTheme {
+            MusesTheme {
                 MusesApp()
             }
         }

@@ -1,5 +1,6 @@
 package com.muses.player.feature.playlist
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import com.muses.player.core.ui.theme.LocalHazeBlurState
-import com.muses.player.core.ui.theme.LocalSaltColors
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.unit.dp
@@ -41,15 +41,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.repository.PlaylistRepository
 import com.muses.player.core.model.Playlist
-import com.muses.player.core.ui.components.SaltActionsSheet
-import com.muses.player.core.ui.components.SaltActionItem
-import com.muses.player.core.ui.components.SaltCover
-import com.muses.player.core.ui.components.SaltCoverRadius
-import com.muses.player.core.ui.components.SaltEmpty
-import com.muses.player.core.ui.components.SaltIconButton
-import com.muses.player.core.ui.components.SaltListItem
-import com.muses.player.core.ui.components.SaltNavbar
-import com.muses.player.core.ui.theme.LocalSaltColors
+import com.muses.player.core.ui.components.MusesActionsSheet
+import com.muses.player.core.ui.components.MusesActionItem
+import com.muses.player.core.ui.components.MusesCover
+import com.muses.player.core.ui.components.MusesCoverRadius
+import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesIconButton
+import com.muses.player.core.ui.components.MusesListRow
+import com.muses.player.core.ui.components.MusesNavbar
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -60,7 +59,7 @@ import kotlinx.coroutines.launch
  * 歌单页 —— PlaylistsPage.vue 一比一翻译。
  *
  * 结构对照（BEM 类名见各段注释）：
- * - navbar：SaltNavbar(title=歌单, right=新建按钮 32dp clear rounded + add 图标 16px)
+ * - navbar：MusesNavbar(title=歌单, right=新建按钮 32dp clear rounded + add 图标 16px)
  * - 空态：m-empty「还没有歌单 / 点右上角新建，或在歌曲页「更多」加入歌单。」(icon=list)
  * - 列表行 `.playlists-page__row`（min-height --m-list-row-h、hairline 分隔）：
  *   m-cover 48/radius-sm(placeholder=list) → 标题 17/600 单行省略 +
@@ -120,7 +119,7 @@ fun PlaylistsPage(
     modifier: Modifier = Modifier,
     viewModel: PlaylistsViewModel = koinViewModel(),
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val rows by viewModel.rows.collectAsState()
 
     // Vue ref 组：activePlaylistId / isActionsOpen / isNameAlertOpen / isDeleteAlertOpen
@@ -138,7 +137,7 @@ fun PlaylistsPage(
                 Modifier
                     .fillMaxSize()
                     .hazeSource(state = hazeState)
-                    .background(LocalSaltColors.current.surface),
+                    .background(MiuixTheme.colorScheme.background),
             ) {
                 if (rows.isEmpty()) {
                     Box(
@@ -147,7 +146,7 @@ fun PlaylistsPage(
                             .padding(top = navbarTopPadding),
                         contentAlignment = Alignment.Center,
                     ) {
-                        SaltEmpty(
+                        MusesEmpty(
                             title = "还没有歌单",
                             description = "点右上角新建，或在歌曲页「更多」加入歌单。",
                             icon = TablerIcons.QueueMusic,
@@ -159,16 +158,15 @@ fun PlaylistsPage(
                         contentPadding = PaddingValues(top = navbarTopPadding, bottom = 96.dp),
                     ) {
                 items(rows, key = { it.playlist.id }) { row ->
-                    SaltListItem(
+                    MusesListRow(
                         title = row.name,
                         subtitle = "${row.validCount} 首",
-                        strongTitle = true,
                         onClick = { onOpenPlaylist(row.playlist.id) },
                         leading = {
-                            SaltCover(uri = null, size = 48.dp, radius = SaltCoverRadius.SM)
+                            MusesCover(uri = null, size = 48.dp, radius = MusesCoverRadius.SM)
                         },
                         after = {
-                            SaltIconButton(
+                            MusesIconButton(
                                 onClick = { actionsTargetId = row.playlist.id },
                                 contentDescription = "更多歌单操作",
                             ) {
@@ -176,7 +174,7 @@ fun PlaylistsPage(
                                     TablerIcons.MoreVert,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
-                                    tint = salt.text2,
+                                    tint = scheme.onBackgroundVariant,
                                 )
                             }
                         },
@@ -185,15 +183,15 @@ fun PlaylistsPage(
                     }
                 }
             }
-            SaltNavbar(
+            MusesNavbar(
                 title = "歌单",
                 modifier = Modifier.align(Alignment.TopCenter),
                 right = {
-                    SaltIconButton(
+                    MusesIconButton(
                         onClick = {
                             nameDialog = NameDialogState(NameDialogMode.CREATE, initialName = "")
                         },
-                        size = com.muses.player.core.ui.components.SaltIconButtonSize.SM,
+                        size = com.muses.player.core.ui.components.MusesIconButtonSize.SM,
                         contentDescription = "新建歌单",
                     ) {
                         Icon(
@@ -209,21 +207,21 @@ fun PlaylistsPage(
 
     // ---- m-actions：歌单操作（重命名 / 删除 / 取消）----
     actionsTargetId?.let { targetId ->
-        SaltActionsSheet(
+        MusesActionsSheet(
             opened = true,
             onDismiss = { actionsTargetId = null },
             label = "歌单操作",
             items = listOf(
-                SaltActionItem(label = "重命名", onClick = {
+                MusesActionItem(label = "重命名", onClick = {
                     val current = rows.firstOrNull { it.playlist.id == targetId }?.name.orEmpty()
                     nameDialog = NameDialogState(NameDialogMode.RENAME, current, targetId)
                     actionsTargetId = null
                 }),
-                SaltActionItem(label = "删除", onClick = {
+                MusesActionItem(label = "删除", onClick = {
                     deleteTargetId = targetId
                     actionsTargetId = null
                 }),
-                SaltActionItem(label = "取消", onClick = { actionsTargetId = null }),
+                MusesActionItem(label = "取消", onClick = { actionsTargetId = null }),
             ),
         )
     }
@@ -261,7 +259,7 @@ fun PlaylistsPage(
                     "确定删除「$name」？此操作不可撤销。",
                     fontSize = 15.sp,
                     lineHeight = 21.sp,
-                    color = salt.text2,
+                    color = scheme.onBackgroundVariant,
                 )
             },
             confirmButton = {

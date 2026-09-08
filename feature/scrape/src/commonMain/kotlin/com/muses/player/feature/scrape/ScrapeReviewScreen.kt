@@ -1,5 +1,6 @@
 package com.muses.player.feature.scrape
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -47,18 +48,17 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.koin.compose.viewmodel.koinViewModel
 import coil3.compose.AsyncImage
-import com.muses.player.core.ui.components.SaltCover
-import com.muses.player.core.ui.components.SaltCoverRadius
-import com.muses.player.core.ui.components.SaltIconButton
-import com.muses.player.core.ui.components.SaltNavbar
-import com.muses.player.core.ui.components.SaltTextButton
+import com.muses.player.core.ui.components.MusesCover
+import com.muses.player.core.ui.components.MusesCoverRadius
+import com.muses.player.core.ui.components.MusesIconButton
+import com.muses.player.core.ui.components.MusesNavbar
+import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.ScrapeBadgeBox
 import com.muses.player.core.ui.components.ScrapeCandidateRow
 import com.muses.player.core.ui.components.ScrapeCoverThumb
 import com.muses.player.core.ui.components.ScrapeReviewFieldRow
 import com.muses.player.core.ui.components.SharedReviewField
 import com.muses.player.core.ui.components.SharedScrapeCandidate
-import com.muses.player.core.ui.theme.LocalSaltColors
 
 /**
  * 单曲刮削审核页（Tagger 式「就地审核」全屏页，design §2.3）：
@@ -79,11 +79,11 @@ fun ScrapeReviewScreen(
     /** S3 用户手动返回（非应用路径）：宿主清 ScrapeViewModel 待审队列，不强推下一首 */
     onManualBack: () -> Unit = {},
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val state by viewModel.state.collectAsState()
     val keyword by viewModel.keyword.collectAsState()
 
-    Column(Modifier.fillMaxSize().background(salt.surface)) {
+    Column(Modifier.fillMaxSize().background(scheme.background)) {
         SaltReviewNavbar(
             onBack = {
                 // 手动返回即清待审队列（S3：不强推下一首）
@@ -123,15 +123,15 @@ fun ScrapeReviewScreen(
 
 @Composable
 private fun SaltReviewNavbar(onBack: () -> Unit) {
-    val salt = LocalSaltColors.current
-    SaltNavbar(
+    val scheme = MiuixTheme.colorScheme
+    MusesNavbar(
         title = "刮削审核",
         left = {
-            SaltIconButton(
+            MusesIconButton(
                 onClick = onBack,
                 imageVector = TablerIcons.ArrowBack,
                 contentDescription = "返回",
-                tint = salt.text,
+                tint = scheme.onBackground,
             )
         },
     )
@@ -141,14 +141,14 @@ private fun SaltReviewNavbar(onBack: () -> Unit) {
 
 @Composable
 private fun SearchingContent(songTitle: String?) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator()
             Spacer(Modifier.height(12.dp))
-            Text("正在搜索候选…", fontSize = 13.sp, color = salt.text2)
+            Text("正在搜索候选…", fontSize = 13.sp, color = scheme.onBackgroundVariant)
             if (songTitle != null) {
-                Text(songTitle, fontSize = 12.sp, color = salt.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(songTitle, fontSize = 12.sp, color = scheme.onBackgroundVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -156,13 +156,13 @@ private fun SearchingContent(songTitle: String?) {
 
 @Composable
 private fun WritingContent() {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator()
             Spacer(Modifier.height(12.dp))
-            Text("正在写回…", fontSize = 13.sp, color = salt.text2)
-            Text("写入文件与数据库，WebDAV 曲目需数秒", fontSize = 12.sp, color = salt.text2)
+            Text("正在写回…", fontSize = 13.sp, color = scheme.onBackgroundVariant)
+            Text("写入文件与数据库，WebDAV 曲目需数秒", fontSize = 12.sp, color = scheme.onBackgroundVariant)
         }
     }
 }
@@ -173,10 +173,10 @@ private fun SuccessContent(
     onBack: () -> Unit,
     onNext: (String) -> Unit,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("已更新", fontSize = 15.sp, color = salt.primary, fontWeight = FontWeight.SemiBold)
+            Text("已更新", fontSize = 15.sp, color = scheme.primary, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))
             if (nextSongId != null) {
                 // S3 批量模式：应用并下一首
@@ -185,7 +185,7 @@ private fun SuccessContent(
                 }
                 Spacer(Modifier.height(8.dp))
             }
-            SaltTextButton(text = "返回", onClick = onBack)
+            MusesTextButton(text = "返回", onClick = onBack)
         }
     }
 }
@@ -197,7 +197,7 @@ private fun EmptyContent(
     keyword: ReviewKeyword,
     viewModel: ScrapeReviewViewModel,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Column(Modifier.fillMaxSize()) {
         Column(
             Modifier
@@ -207,10 +207,10 @@ private fun EmptyContent(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.height(24.dp))
-            Text(reason, fontSize = 14.sp, color = salt.text2)
+            Text(reason, fontSize = 14.sp, color = scheme.onBackgroundVariant)
             if (reason == "暂无匹配") {
                 Spacer(Modifier.height(4.dp))
-                Text("可修改下方搜索词后重新搜索", fontSize = 12.sp, color = salt.text2)
+                Text("可修改下方搜索词后重新搜索", fontSize = 12.sp, color = scheme.onBackgroundVariant)
             }
             Spacer(Modifier.height(12.dp))
             SearchKeywordRow(keyword = keyword, viewModel = viewModel)
@@ -235,7 +235,7 @@ private fun ReviewContent(
     keyword: ReviewKeyword,
     viewModel: ScrapeReviewViewModel,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     var previewCoverUrl by remember { mutableStateOf<String?>(null) }
 
     Column(Modifier.fillMaxSize()) {
@@ -253,14 +253,14 @@ private fun ReviewContent(
             item(key = "text-fields") {
                 Column {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("应用字段：", fontSize = 12.sp, color = salt.text2)
+                        Text("应用字段：", fontSize = 12.sp, color = scheme.onBackgroundVariant)
                         Spacer(Modifier.weight(1f))
-                        SaltTextButton(text = "全选", onClick = {
+                        MusesTextButton(text = "全选", onClick = {
                             selectableFields(state).forEach { field ->
                                 if (field !in state.checkedFields) viewModel.toggleField(field)
                             }
                         })
-                        SaltTextButton(text = "全不选", onClick = {
+                        MusesTextButton(text = "全不选", onClick = {
                             state.checkedFields.toList().forEach { viewModel.toggleField(it) }
                         })
                     }
@@ -421,7 +421,7 @@ private fun SearchKeywordRow(keyword: ReviewKeyword, viewModel: ScrapeReviewView
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            SaltTextButton(
+            MusesTextButton(
                 text = "重新搜索",
                 onClick = { viewModel.search() },
                 enabled = !keyword.titleBlank,
@@ -434,7 +434,7 @@ private fun SearchKeywordRow(keyword: ReviewKeyword, viewModel: ScrapeReviewView
 @Composable
 private fun TextFieldEditOverrides(state: ScrapeReviewState.Review, viewModel: ScrapeReviewViewModel) {
     var expanded by remember { mutableStateOf(false) }
-    SaltTextButton(text = if (expanded) "收起编辑" else "编辑", onClick = { expanded = !expanded })
+    MusesTextButton(text = if (expanded) "收起编辑" else "编辑", onClick = { expanded = !expanded })
     if (expanded) {
         var title by remember(state.selectedTextIndex) { mutableStateOf(state.resolvedTitle() ?: state.song.title) }
         var artist by remember(state.selectedTextIndex) { mutableStateOf(state.resolvedArtist() ?: state.song.artist.orEmpty()) }
@@ -465,7 +465,7 @@ private fun TextFieldEditOverrides(state: ScrapeReviewState.Review, viewModel: S
         )
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            SaltTextButton(text = "应用编辑", onClick = {
+            MusesTextButton(text = "应用编辑", onClick = {
                 viewModel.updateEditTitle(title)
                 viewModel.updateEditArtist(artist)
                 viewModel.updateEditAlbum(album)
@@ -478,9 +478,9 @@ private fun TextFieldEditOverrides(state: ScrapeReviewState.Review, viewModel: S
 /** 文本候选切换条：横向 chip 列出 text.items（源 wire 值 + 标题），当前选中高亮 */
 @Composable
 private fun TextCandidateStrip(state: ScrapeReviewState.Review, viewModel: ScrapeReviewViewModel) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Column {
-        Text("文本候选（${state.text.items.size}）", fontSize = 12.sp, color = salt.text2)
+        Text("文本候选（${state.text.items.size}）", fontSize = 12.sp, color = scheme.onBackgroundVariant)
         Spacer(Modifier.height(6.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(state.text.items) { index, hit ->
@@ -488,22 +488,22 @@ private fun TextCandidateStrip(state: ScrapeReviewState.Review, viewModel: Scrap
                 Column(
                     Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) salt.primary.copy(alpha = 0.12f) else salt.surface1)
-                        .border(1.dp, if (selected) salt.primary else salt.surface2, RoundedCornerShape(8.dp))
+                        .background(if (selected) scheme.primary.copy(alpha = 0.12f) else scheme.surface)
+                        .border(1.dp, if (selected) scheme.primary else scheme.surfaceVariant, RoundedCornerShape(8.dp))
                         .clickable { viewModel.selectTextCandidate(index) }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(hit.source.wire, fontSize = 10.sp, color = salt.primary, fontWeight = FontWeight.SemiBold)
+                        Text(hit.source.wire, fontSize = 10.sp, color = scheme.primary, fontWeight = FontWeight.SemiBold)
                         if (index == state.text.defaultIndex) {
                             Spacer(Modifier.width(4.dp))
-                            Text("推荐", fontSize = 9.sp, color = salt.text2)
+                            Text("推荐", fontSize = 9.sp, color = scheme.onBackgroundVariant)
                         }
                     }
                     Text(
                         hit.title ?: "（无标题）",
                         fontSize = 12.sp,
-                        color = if (selected) salt.text else salt.text2,
+                        color = if (selected) scheme.onBackground else scheme.onBackgroundVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.width(96.dp),
@@ -521,27 +521,27 @@ private fun CoverSection(
     viewModel: ScrapeReviewViewModel,
     onPreview: (String) -> Unit,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(
                 checked = "cover" in state.checkedFields,
                 onCheckedChange = { viewModel.toggleField("cover") },
                 enabled = state.cover.items.isNotEmpty(),
-                colors = CheckboxDefaults.colors(checkedColor = salt.primary),
+                colors = CheckboxDefaults.colors(checkedColor = scheme.primary),
             )
-            Text("封面", fontSize = 12.sp, color = if ("cover" in state.checkedFields) salt.text else salt.text2)
+            Text("封面", fontSize = 12.sp, color = if ("cover" in state.checkedFields) scheme.onBackground else scheme.onBackgroundVariant)
             Spacer(Modifier.weight(1f))
-            Text("候选 ${state.cover.items.size}", fontSize = 11.sp, color = salt.text2)
+            Text("候选 ${state.cover.items.size}", fontSize = 11.sp, color = scheme.onBackgroundVariant)
         }
         Spacer(Modifier.height(4.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // 本地封面（对比用，不可选中）
             item(key = "local") {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    SaltCover(uri = state.song.coverUri, size = 72.dp, radius = SaltCoverRadius.SM)
+                    MusesCover(uri = state.song.coverUri, size = 72.dp, radius = MusesCoverRadius.SM)
                     Spacer(Modifier.height(2.dp))
-                    Text("本地", fontSize = 9.sp, color = salt.text2)
+                    Text("本地", fontSize = 9.sp, color = scheme.onBackgroundVariant)
                 }
             }
             itemsIndexed(state.cover.items) { index, candidate ->
@@ -562,7 +562,7 @@ private fun CoverSection(
                         },
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(candidate.source.wire, fontSize = 9.sp, color = if (selected) salt.primary else salt.text2)
+                    Text(candidate.source.wire, fontSize = 9.sp, color = if (selected) scheme.primary else scheme.onBackgroundVariant)
                 }
             }
         }
@@ -572,21 +572,21 @@ private fun CoverSection(
 /** 歌词区：Checkbox + 候选列表（来源 + format 角标）+ 预览前几行 */
 @Composable
 private fun LyricsSection(state: ScrapeReviewState.Review, viewModel: ScrapeReviewViewModel) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(
                 checked = "lyrics" in state.checkedFields,
                 onCheckedChange = { viewModel.toggleField("lyrics") },
                 enabled = state.lyrics.items.isNotEmpty(),
-                colors = CheckboxDefaults.colors(checkedColor = salt.primary),
+                colors = CheckboxDefaults.colors(checkedColor = scheme.primary),
             )
-            Text("歌词", fontSize = 12.sp, color = if ("lyrics" in state.checkedFields) salt.text else salt.text2)
+            Text("歌词", fontSize = 12.sp, color = if ("lyrics" in state.checkedFields) scheme.onBackground else scheme.onBackgroundVariant)
             Spacer(Modifier.weight(1f))
-            Text("候选 ${state.lyrics.items.size}", fontSize = 11.sp, color = salt.text2)
+            Text("候选 ${state.lyrics.items.size}", fontSize = 11.sp, color = scheme.onBackgroundVariant)
         }
         if (state.lyrics.items.isEmpty()) {
-            Text("未命中歌词候选", fontSize = 12.sp, color = salt.text2, modifier = Modifier.padding(start = 44.dp))
+            Text("未命中歌词候选", fontSize = 12.sp, color = scheme.onBackgroundVariant, modifier = Modifier.padding(start = 44.dp))
         } else {
             state.lyrics.items.forEachIndexed { index, candidate ->
                 LyricsCandidateRow(
@@ -607,19 +607,19 @@ private fun LyricsCandidateRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Column(
         Modifier
             .fillMaxWidth()
             .padding(start = 44.dp, bottom = 6.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) salt.primary.copy(alpha = 0.12f) else salt.surface1)
-            .border(1.dp, if (selected) salt.primary else salt.surface2, RoundedCornerShape(8.dp))
+            .background(if (selected) scheme.primary.copy(alpha = 0.12f) else scheme.surface)
+            .border(1.dp, if (selected) scheme.primary else scheme.surfaceVariant, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${index + 1}", fontSize = 11.sp, color = if (selected) salt.primary else salt.text2, fontWeight = FontWeight.SemiBold)
+            Text("${index + 1}", fontSize = 11.sp, color = if (selected) scheme.primary else scheme.onBackgroundVariant, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(6.dp))
             ScrapeBadgeBox(text = candidate.source)
             Spacer(Modifier.size(4.dp))
@@ -630,7 +630,7 @@ private fun LyricsCandidateRow(
         Text(
             candidate.text.take(90).replace('\n', ' '),
             fontSize = 11.sp,
-            color = if (selected) salt.text else salt.text2,
+            color = if (selected) scheme.onBackground else scheme.onBackgroundVariant,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )

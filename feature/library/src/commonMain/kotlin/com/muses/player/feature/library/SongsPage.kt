@@ -1,5 +1,7 @@
 package com.muses.player.feature.library
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,23 +60,18 @@ import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.model.Song
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
-import com.muses.player.core.ui.components.SaltActionsSheet
-import com.muses.player.core.ui.components.SaltActionItem
-import com.muses.player.core.ui.components.SaltCover
-import com.muses.player.core.ui.components.SaltCoverRadius
-import com.muses.player.core.ui.components.SaltEmpty
-import com.muses.player.core.ui.components.SaltIconButton
-import com.muses.player.core.ui.components.SaltIconButtonSize
-import com.muses.player.core.ui.components.SaltListItem
-import com.muses.player.core.ui.components.SaltListItemMetrics
-import com.muses.player.core.ui.components.SaltNavbar
-import com.muses.player.core.ui.components.SaltTextButton
+import com.muses.player.core.ui.components.MusesActionsSheet
+import com.muses.player.core.ui.components.MusesActionItem
+import com.muses.player.core.ui.components.MusesCover
+import com.muses.player.core.ui.components.MusesCoverRadius
+import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesIconButton
+import com.muses.player.core.ui.components.MusesIconButtonSize
+import com.muses.player.core.ui.components.MusesListRow
+import com.muses.player.core.ui.components.MusesNavbar
+import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.theme.LocalHazeBlurState
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
-import com.muses.player.core.ui.theme.SaltDarkColors
-import com.muses.player.core.ui.theme.SaltShadowLayer
-import com.muses.player.core.ui.theme.SaltSpacing
+import com.muses.player.core.ui.theme.MusesShadowLayer
 import com.muses.player.core.ui.theme.musesBottomBarHazeStyle
 import com.muses.player.core.ui.theme.saltShadow
 import dev.chrisbanes.haze.HazeInput
@@ -86,10 +83,10 @@ import dev.chrisbanes.haze.rememberHazeState
  * 歌曲页 —— SongsPage.vue 一比一翻译。
  *
  * 结构对照（BEM 类名见各段注释）：
- * - `.songs-page__navbar`：SaltNavbar(title=歌曲, right=搜索) + subnavbar
+ * - `.songs-page__navbar`：MusesNavbar(title=歌曲, right=搜索) + subnavbar
  *   （工具条 ↔ 搜索栏二选一，同一块玻璃无分界线）
  * - 工具条 `.songs-page__toolbar-left`：随机播放按钮 + 歌曲总数；多选时加计数
- * - 列表行：SaltListItem(title, subtitle="artist - album",
+ * - 列表行：MusesListRow(title, subtitle="artist - album",
  *   leading=封面 54/radius-sm 或多选 checkbox，after=⋮ 三点菜单)
  * - 行点击：多选切换选择；否则全列表入队播放该曲
  * - 空态 m-empty；多选底部操作条 multibar；⋮ 动作单 m-actions
@@ -111,7 +108,7 @@ fun SongsPage(
             onDismiss = { addToPlaylistTarget = null },
         )
     }
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val songs by viewModel.songs.collectAsState()
 
     // ---- 跳转到当前播放（SongsPage.vue scrollToCurrentSong/jump-fab 组）----
@@ -183,16 +180,16 @@ fun SongsPage(
         Box(modifier = modifier.fillMaxSize()) {
             val navbarTopPadding = with(LocalDensity.current) {
                 WindowInsets.statusBars.getTop(this).toDp()
-            }.coerceAtLeast(16.dp) + 44.dp + SaltSpacing.listRowHeight
+            }.coerceAtLeast(16.dp) + 44.dp + 56.dp
             Box(
                 Modifier
                     .fillMaxSize()
                     .hazeSource(state = navbarHazeState)
-                    .background(salt.surface),
+                    .background(scheme.background),
             ) {
                 if (songs.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                SaltEmpty(
+                MusesEmpty(
                     title = "还没有歌曲",
                     description = "请先到音源页添加并扫描音源。",
                 )
@@ -205,11 +202,11 @@ fun SongsPage(
             ) {
                 itemsIndexed(songs, key = { _, song -> song.id }) { _, song ->
                     val checked = isMultiSelect && song.id in selectedIds
-                    SaltListItem(
+                    MusesListRow(
                         modifier = Modifier.background(
                             // Web .songs-page__row.is-selected：rgba(var(--m-primary-rgb), .08)
-                            color = if (checked) salt.primary.copy(alpha = 0.08f) else Color.Transparent,
-                            shape = RoundedCornerShape(SaltRadius.sm),
+                            color = if (checked) scheme.primary.copy(alpha = 0.08f) else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp),
                         ),
                         title = run {
                             val useMetaForTitle = song.id == currentSongId
@@ -226,7 +223,6 @@ fun SongsPage(
                             "${metaArtist ?: song.artist ?: "未知艺术家"} - ${metaAlbum ?: song.album ?: "未知专辑"}"
                         },
                         // Web .songs-page :deep(.m-list-item)：72dp 行高/16-12px 字号/紧凑 after
-                        metrics = SaltListItemMetrics.SongsDense,
                         onClick = {
                             if (isMultiSelect) {
                                 selectedIds =
@@ -251,12 +247,12 @@ fun SongsPage(
                                     Modifier
                                         .size(22.dp)
                                         .background(
-                                            color = if (checked) salt.primary else salt.surface2,
+                                            color = if (checked) scheme.primary else scheme.surfaceVariant,
                                             shape = RoundedCornerShape(6.dp),
                                         )
                                         .border(
                                             width = 1.5.dp,
-                                            color = if (checked) salt.primary else salt.text2,
+                                            color = if (checked) scheme.primary else scheme.onBackgroundVariant,
                                             shape = RoundedCornerShape(6.dp),
                                         ),
                                     contentAlignment = Alignment.Center,
@@ -265,7 +261,7 @@ fun SongsPage(
                                         Icon(
                                             TablerIcons.Check,
                                             contentDescription = null,
-                                            tint = salt.onPrimary,
+                                            tint = scheme.onPrimary,
                                             modifier = Modifier.size(16.dp),
                                         )
                                     }
@@ -274,10 +270,10 @@ fun SongsPage(
                                 val useMetaCover = song.id == currentSongId && song.metaSources?.cover == null && song.tagsVersion < com.muses.player.core.data.db.SongTags.TAGS_VERSION
                                 val displayCover = if (useMetaCover) currentMeta?.coverUri ?: song.coverUri else song.coverUri
                                 if (displayCover != null) {
-                                    SaltCover(
+                                    MusesCover(
                                         uri = displayCover,
                                         size = 54.dp,
-                                        radius = SaltCoverRadius.SM,
+                                        radius = MusesCoverRadius.SM,
                                     )
                                     // Web .m-list-item__inner padding-left:12px —— 封面-标题间距对齐椒盐
                                     Spacer(Modifier.width(12.dp))
@@ -288,7 +284,7 @@ fun SongsPage(
                                     Icon(
                                         TablerIcons.MusicNote,
                                         contentDescription = null,
-                                        tint = salt.text.copy(alpha = 0.45f),
+                                        tint = scheme.onBackground.copy(alpha = 0.45f),
                                         modifier = Modifier.size(32.dp),
                                     )
                                 }
@@ -299,8 +295,8 @@ fun SongsPage(
                         after = {
                             if (!isMultiSelect) {
                                 // 椒盐式实心三点菜单
-                                SaltIconButton(
-                                    size = SaltIconButtonSize.SM,
+                                MusesIconButton(
+                                    size = MusesIconButtonSize.SM,
                                     onClick = { actionSong = song },
                                 ) {
                                     Icon(TablerIcons.MoreVert, contentDescription = "更多歌曲操作")
@@ -315,11 +311,11 @@ fun SongsPage(
         }
     }
 
-            SaltNavbar(
+            MusesNavbar(
             title = "歌曲",
                 modifier = Modifier.align(Alignment.TopCenter),
             right = {
-                SaltIconButton(onClick = {
+                MusesIconButton(onClick = {
                     isSearching = true
                     searchQuery = ""
                     if (isMultiSelect) exitMultiSelect()
@@ -356,20 +352,20 @@ fun SongsPage(
                                 ),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                SaltIconButton(onClick = shuffleAll) {
+                                MusesIconButton(onClick = shuffleAll) {
                                     Icon(TablerIcons.Shuffle, contentDescription = "随机播放全部")
                                 }
                                 Text(
                                     text = songs.size.toString(),
                                     fontSize = 15.sp,
-                                    color = salt.text,
+                                    color = scheme.onBackground,
                                 )
                             }
                             if (isMultiSelect) {
                                 Text(
                                     text = "已选中 ${selectedIds.size} 项",
                                     fontSize = 15.sp,
-                                    color = salt.text2,
+                                    color = scheme.onBackgroundVariant,
                                     modifier = Modifier.padding(start = 12.dp),
                                 )
                             }
@@ -385,7 +381,7 @@ fun SongsPage(
                             Icon(
                                 TablerIcons.Search,
                                 contentDescription = null,
-                                tint = salt.text2,
+                                tint = scheme.onBackgroundVariant,
                                 modifier = Modifier.size(18.dp),
                             )
                             Box(
@@ -397,7 +393,7 @@ fun SongsPage(
                                     Text(
                                         text = "在 ${songs.size} 首歌曲中搜索",
                                         fontSize = 16.sp,
-                                        color = salt.text2,
+                                        color = scheme.onBackgroundVariant,
                                     )
                                 }
                                 BasicTextField(
@@ -407,11 +403,11 @@ fun SongsPage(
                                         viewModel.updateSearchQuery(it)
                                     },
                                     singleLine = true,
-                                    textStyle = TextStyle(fontSize = 16.sp, color = salt.text),
+                                    textStyle = TextStyle(fontSize = 16.sp, color = scheme.onBackground),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
-                            SaltTextButton(text = "取消", onClick = { exitSearch() })
+                            MusesTextButton(text = "取消", onClick = { exitSearch() })
                         }
                     }
                 }
@@ -420,21 +416,21 @@ fun SongsPage(
 
     // ---- ⋮ 动作单（m-actions）----
     val currentId = actionSong?.id
-    SaltActionsSheet(
+    MusesActionsSheet(
         opened = actionSong != null,
         onDismiss = { actionSong = null },
         label = "歌曲操作",
         items = listOf(
-            SaltActionItem(label = "加入待刮削", onClick = {
+            MusesActionItem(label = "加入待刮削", onClick = {
                 val ids = listOfNotNull(currentId)
                 if (ids.isNotEmpty()) doEnqueue(ids)
                 actionSong = null
             }),
-            SaltActionItem(label = "添加到队列", onClick = {
+            MusesActionItem(label = "添加到队列", onClick = {
                 // TODO(P2b)：PlayerConnection 补 addToQueue 后接线
                 actionSong = null
             }),
-            SaltActionItem(label = "加入歌单…", onClick = {
+            MusesActionItem(label = "加入歌单…", onClick = {
                 // 等动作单关闭后再开歌单弹层（Web 层 180ms 延迟同语义）
                 val ids = listOfNotNull(currentId)
                 actionSong = null
@@ -513,8 +509,8 @@ private fun JumpToCurrentFab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val salt = LocalSaltColors.current
-    val isDark = salt === SaltDarkColors
+    val scheme = MiuixTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
     val hazeState = LocalHazeBlurState.current as? dev.chrisbanes.haze.HazeState
     // 悬浮钮按椒盐实拍更白：与顶部/底部 surface 0.08 区分，改用纯白基底提亮，避免偏灰
     val fabHazeStyle = if (hazeState != null) {
@@ -542,15 +538,15 @@ private fun JumpToCurrentFab(
                 CircleShape,
                 // 与底部 MiniPlayer 同款悬浮：inset 高光 + 外投影 0 4px 16dp，避免仅 2/8 导致不浮
                 listOf(
-                    SaltShadowLayer(offsetY = 1.dp, color = Color.White.copy(alpha = if (isDark) 0.1f else 0.65f), inset = true),
-                    SaltShadowLayer(offsetY = 4.dp, blurRadius = 16.dp, color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.08f)),
+                    MusesShadowLayer(offsetY = 1.dp, color = Color.White.copy(alpha = if (isDark) 0.1f else 0.65f), inset = true),
+                    MusesShadowLayer(offsetY = 4.dp, blurRadius = 16.dp, color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.08f)),
                 ),
             )
             .then(
                 if (hazeState != null && fabHazeStyle != null) {
                     Modifier.hazeBlur(input = HazeInput.Sources(hazeState), style = fabHazeStyle)
                 } else {
-                    Modifier.background(salt.glassBg, CircleShape)
+                    Modifier.background(scheme.surface.copy(alpha = 0.75f), CircleShape)
                 },
             )
             .drawBehind {
@@ -570,7 +566,7 @@ private fun JumpToCurrentFab(
         Icon(
             TablerIcons.MyLocation,
             contentDescription = "跳转到当前播放",
-            tint = salt.text2,
+            tint = scheme.onBackgroundVariant,
             modifier = Modifier.size(20.dp),
         )
     }
@@ -586,21 +582,21 @@ private fun MultiselectBottomBar(
     onCancel: () -> Unit,
     onEnqueueScrape: () -> Unit = {},
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val disabled = selectedCount == 0
     Row(
         Modifier
             .fillMaxWidth()
-            .background(salt.surface1)
+            .background(scheme.surface)
             .navigationBarsPadding()
             .padding(horizontal = 4.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        SaltTextButton(text = "永久删除", destructive = true, enabled = !disabled, onClick = onDeleteSelected)
-        SaltTextButton(text = "添加到歌单", enabled = !disabled, onClick = onAddToPlaylist)
+        MusesTextButton(text = "永久删除", destructive = true, enabled = !disabled, onClick = onDeleteSelected)
+        MusesTextButton(text = "添加到歌单", enabled = !disabled, onClick = onAddToPlaylist)
         // M3：批量加入待刮削队列（刮削页统一处理）
-        SaltTextButton(text = "加入待刮削", enabled = !disabled, onClick = onEnqueueScrape)
-        SaltTextButton(text = "播放选中队列", enabled = !disabled, onClick = onPlaySelected)
-        SaltTextButton(text = "取消", onClick = onCancel)
+        MusesTextButton(text = "加入待刮削", enabled = !disabled, onClick = onEnqueueScrape)
+        MusesTextButton(text = "播放选中队列", enabled = !disabled, onClick = onPlaySelected)
+        MusesTextButton(text = "取消", onClick = onCancel)
     }
 }

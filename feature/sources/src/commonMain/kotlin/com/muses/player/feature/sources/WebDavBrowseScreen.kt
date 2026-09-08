@@ -1,5 +1,6 @@
 package com.muses.player.feature.sources
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,13 +14,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
-import com.muses.player.core.ui.components.SaltNavbar
-import com.muses.player.core.ui.components.SaltTextButton
-import com.muses.player.core.ui.components.SaltTextButtonSize
+import com.muses.player.core.ui.components.MusesNavbar
+import com.muses.player.core.ui.components.MusesTextButton
+import com.muses.player.core.ui.components.MusesTextButtonSize
 import com.muses.player.core.ui.components.WebDavBrowseItem
 import com.muses.player.core.ui.components.WebDavBrowseList
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltSpacing
 /**
  * WebDAV 目录浏览页 —— 一比一翻译自 SourceWebDavBrowsePage.vue + WebDavDirectoryBrowser.vue。
  *
@@ -44,7 +43,7 @@ fun WebDavBrowseScreen(
     modifier: Modifier = Modifier,
     viewModel: WebDavBrowseViewModel = koinViewModel(),
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val browseState by viewModel.browseState.collectAsState()
 
     // 初始化
@@ -66,19 +65,19 @@ fun WebDavBrowseScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(salt.surface),
+            .background(scheme.background),
     ) {
         // .source-webdav-browse-page__navbar-wrap
-        SaltNavbar(
+        MusesNavbar(
             title = if (mode == "single") "选择目录" else "选择文件夹",
             left = {
-                SaltTextButton(
+                MusesTextButton(
                     text = "返回",
                     onClick = {
                         viewModel.clearSelection()
                         onBack()
                     },
-                    size = SaltTextButtonSize.SMALL,
+                    size = MusesTextButtonSize.SMALL,
                 )
             },
         )
@@ -87,7 +86,7 @@ fun WebDavBrowseScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = SaltSpacing.spacingSub)
+                .padding(horizontal = 12.dp)
                 .padding(top = 8.dp),
         ) {
             WebDavBrowseList(

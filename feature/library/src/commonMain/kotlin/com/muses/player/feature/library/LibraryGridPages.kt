@@ -1,5 +1,6 @@
 package com.muses.player.feature.library
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,11 +39,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
-import com.muses.player.core.ui.components.SaltEmpty
-import com.muses.player.core.ui.components.SaltNavbar
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
-import com.muses.player.core.ui.theme.SaltSpacing
+import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesNavbar
 
 /**
  * 专辑/艺术家页 —— AlbumsPage.vue / ArtistsPage.vue 一比一翻译。
@@ -70,7 +68,7 @@ fun AlbumsPage(
     modifier: Modifier = Modifier,
     viewModel: AlbumCardsViewModel = koinViewModel(),
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val cards by viewModel.cards.collectAsState()
     val hazeState = rememberHazeState()
     CompositionLocalProvider(LocalHazeBlurState provides hazeState) {
@@ -83,7 +81,7 @@ fun AlbumsPage(
                     .hazeSource(state = hazeState),
                 contentAlignment = Alignment.Center,
             ) {
-                SaltEmpty(title = "还没有专辑", description = "请先到音源页添加并扫描音源。")
+                MusesEmpty(title = "还没有专辑", description = "请先到音源页添加并扫描音源。")
             }
         } else {
             LazyVerticalGrid(
@@ -106,19 +104,19 @@ fun AlbumsPage(
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(SaltRadius.card))
-                            .background(salt.surface1)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(scheme.surface)
                             .clickable { onAlbumClick(card.album.id) }
-                            .padding(SaltSpacing.spacingSub),
-                        verticalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         // __cover：满宽 1:1（覆盖 MCover 固定尺寸），radius-sm
                         Box(
                             Modifier
                                 .fillMaxWidth()
                                 .aspectRatio(1f)
-                                .clip(RoundedCornerShape(SaltRadius.sm))
-                                .background(salt.surface2),
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(scheme.surfaceVariant),
                             contentAlignment = Alignment.Center,
                         ) {
                             GridCover(uri = card.coverUri, modifier = Modifier.fillMaxSize())
@@ -130,7 +128,7 @@ fun AlbumsPage(
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 lineHeight = (17 * 1.3).sp,
-                                color = salt.text,
+                                color = scheme.onBackground,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -138,14 +136,14 @@ fun AlbumsPage(
                                 text = "${card.album.songCount} 首歌曲",
                                 fontSize = 13.sp,
                                 lineHeight = (13 * 1.35).sp,
-                                color = salt.text2,
+                                color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 text = card.album.artist ?: "",
                                 fontSize = 13.sp,
-                                color = salt.text2,
+                                color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -155,8 +153,8 @@ fun AlbumsPage(
             }
         }
 
-        // navbar 叠加层（玻璃）—— 真磨砂由 SaltNavbar 内部 hazeEffect 消费
-        SaltNavbar(title = "专辑")
+        // navbar 叠加层（玻璃）—— 真磨砂由 MusesNavbar 内部 hazeEffect 消费
+        MusesNavbar(title = "专辑")
         }
     }
 }
@@ -171,7 +169,7 @@ fun ArtistsPage(
     modifier: Modifier = Modifier,
     viewModel: ArtistCardsViewModel = koinViewModel(),
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val cards by viewModel.cards.collectAsState()
     val hazeState = rememberHazeState()
     CompositionLocalProvider(LocalHazeBlurState provides hazeState) {
@@ -183,7 +181,7 @@ fun ArtistsPage(
                     .hazeSource(state = hazeState),
                 contentAlignment = Alignment.Center,
             ) {
-                SaltEmpty(title = "还没有艺术家", description = "请先到音源页添加并扫描音源。")
+                MusesEmpty(title = "还没有艺术家", description = "请先到音源页添加并扫描音源。")
             }
         } else {
             LazyVerticalGrid(
@@ -205,11 +203,11 @@ fun ArtistsPage(
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(SaltRadius.card))
-                            .background(salt.surface1)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(scheme.surface)
                             .clickable { onArtistClick(card.artist.id) }
-                            .padding(SaltSpacing.spacingSub),
-                        verticalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         // __cover：圆形（艺术家特有）
                         Box(
@@ -217,7 +215,7 @@ fun ArtistsPage(
                                 .fillMaxWidth()
                                 .aspectRatio(1f)
                                 .clip(CircleShape)
-                                .background(salt.surface2),
+                                .background(scheme.surfaceVariant),
                             contentAlignment = Alignment.Center,
                         ) {
                             GridCover(uri = card.coverUri, modifier = Modifier.fillMaxSize())
@@ -233,7 +231,7 @@ fun ArtistsPage(
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 lineHeight = (17 * 1.3).sp,
-                                color = salt.text,
+                                color = scheme.onBackground,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.Center,
@@ -242,14 +240,14 @@ fun ArtistsPage(
                             Text(
                                 text = "${card.artist.songCount} 首歌曲",
                                 fontSize = 13.sp,
-                                color = salt.text2,
+                                color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 text = "${card.artist.albumCount} 张专辑",
                                 fontSize = 13.sp,
-                                color = salt.text2,
+                                color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -259,7 +257,7 @@ fun ArtistsPage(
             }
         }
 
-        SaltNavbar(title = "艺术家")
+        MusesNavbar(title = "艺术家")
         }
     }
 }
@@ -270,8 +268,8 @@ fun ArtistsPage(
  */
 @Composable
 private fun GridCover(uri: String?, modifier: Modifier = Modifier) {
-    val salt = LocalSaltColors.current
-    Box(modifier.background(salt.surface2), contentAlignment = Alignment.Center) {
+    val scheme = MiuixTheme.colorScheme
+    Box(modifier.background(scheme.surfaceVariant), contentAlignment = Alignment.Center) {
         if (uri != null) {
             coil3.compose.AsyncImage(
                 model = uri,
@@ -283,7 +281,7 @@ private fun GridCover(uri: String?, modifier: Modifier = Modifier) {
             Icon(
                 TablerIcons.MusicNote,
                 contentDescription = null,
-                tint = salt.text2,
+                tint = scheme.onBackgroundVariant,
                 modifier = Modifier.size(24.dp),
             )
         }

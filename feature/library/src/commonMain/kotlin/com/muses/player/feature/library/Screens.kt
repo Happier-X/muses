@@ -1,5 +1,6 @@
 package com.muses.player.feature.library
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -117,12 +118,12 @@ private fun LibrarySearchEntry(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val salt = com.muses.player.core.ui.theme.LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-            .background(salt.surface1)
+            .background(scheme.surface)
             .clickable(
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 indication = null,
@@ -133,7 +134,7 @@ private fun LibrarySearchEntry(
     ) {
         Text(
             text = text,
-            color = salt.text2,
+            color = scheme.onBackgroundVariant,
             fontSize = 14.sp,
         )
     }
@@ -224,10 +225,10 @@ fun AlbumDetailScreen(
     viewModel.bind(albumId)
     val albumWithSongs by viewModel.albumWithSongs.collectAsState()
 
-    val salt = com.muses.player.core.ui.theme.LocalSaltColors.current
-    androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxSize().background(salt.surface)) {
-        // SaltNavbar：左返回箭头（对照 Web LibraryDetailPage navbar）
-        com.muses.player.core.ui.components.SaltNavbar(
+    val scheme = MiuixTheme.colorScheme
+    androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxSize().background(scheme.background)) {
+        // MusesNavbar：左返回箭头（对照 Web LibraryDetailPage navbar）
+        com.muses.player.core.ui.components.MusesNavbar(
             title = albumWithSongs?.album?.title ?: "专辑",
             left = {
                 Icon(
@@ -285,9 +286,9 @@ fun ArtistDetailScreen(
     viewModel.bind(artistId)
     val artistWithSongs by viewModel.artistWithSongs.collectAsState()
 
-    val salt = com.muses.player.core.ui.theme.LocalSaltColors.current
-    androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxSize().background(salt.surface)) {
-        com.muses.player.core.ui.components.SaltNavbar(
+    val scheme = MiuixTheme.colorScheme
+    androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxSize().background(scheme.background)) {
+        com.muses.player.core.ui.components.MusesNavbar(
             title = artistWithSongs?.artist?.name ?: "艺术家",
             left = {
                 Icon(
@@ -319,7 +320,7 @@ fun EmptyLibraryHint(
     title: String,
     hint: String,
 ) {
-    com.muses.player.core.ui.components.SaltEmpty(
+    com.muses.player.core.ui.components.MusesEmpty(
         title = title,
         description = hint,
         modifier = modifier,

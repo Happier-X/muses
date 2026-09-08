@@ -17,7 +17,7 @@ import dev.chrisbanes.haze.blur.hazeBlur
  *
  * - [hazeState] 由上层导航（TabsLayout）通过 `LocalHazeBlurState` provide，
  *   此处转为 `dev.chrisbanes.haze.HazeState` 消费；
- * - 不可用（null）时回退为半透明纯色背景，行为与旧 SaltNavbar 一致。
+ * - 不可用（null）时回退为半透明纯色背景，行为与旧 MusesNavbar 一致。
  */
 @Composable
 @ReadOnlyComposable

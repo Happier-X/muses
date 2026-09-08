@@ -40,6 +40,8 @@ kotlin {
             implementation(project(":feature:playlist"))
             implementation(libs.coil.compose)
             implementation(libs.haze)
+            // 直引 miuix（ui-shared 为 implementation 不透传）
+            implementation(libs.miuix.ui)
             implementation(libs.haze.blur)
         }
     }

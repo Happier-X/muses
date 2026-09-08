@@ -1,5 +1,6 @@
 package com.muses.player.core.ui.components
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -26,9 +27,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
-import com.muses.player.core.ui.theme.SaltSpacing
 
 /**
  * 跨平台音源行数据（平台无关，只承载展示信息）。
@@ -67,12 +65,12 @@ fun SourceListItem(
     modifier: Modifier = Modifier,
     onScan: (() -> Unit)? = null,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
-            .border(1.dp, salt.hairline, RoundedCornerShape(SaltRadius.card))
+            .background(scheme.surface, RoundedCornerShape(12.dp))
+            .border(1.dp, scheme.dividerLine, RoundedCornerShape(12.dp))
             .padding(16.dp),
     ) {
         Text(
@@ -80,13 +78,13 @@ fun SourceListItem(
             fontSize = 17.sp,
             lineHeight = 22.sp,
             fontWeight = FontWeight.SemiBold,
-            color = salt.text,
+            color = scheme.onBackground,
         )
         item.subtitle?.let {
             Text(
                 text = it,
                 fontSize = 13.sp,
-                color = salt.text2,
+                color = scheme.onBackgroundVariant,
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
@@ -94,7 +92,7 @@ fun SourceListItem(
             Text(
                 text = it,
                 fontSize = 13.sp,
-                color = salt.text2,
+                color = scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 8.dp),
@@ -103,20 +101,20 @@ fun SourceListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = SaltSpacing.spacingSub),
+                .padding(top = 12.dp),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SaltTextButton(text = "编辑", onClick = onEdit)
-            Spacer(Modifier.width(SaltSpacing.spacingSub))
-            SaltTextButton(
+            MusesTextButton(text = "编辑", onClick = onEdit)
+            Spacer(Modifier.width(12.dp))
+            MusesTextButton(
                 text = "删除",
                 onClick = onDelete,
                 destructive = true,
             )
             if (onScan != null) {
-                Spacer(Modifier.width(SaltSpacing.spacingSub))
-                SaltTextButton(text = "扫描", onClick = onScan)
+                Spacer(Modifier.width(12.dp))
+                MusesTextButton(text = "扫描", onClick = onScan)
             }
         }
     }
@@ -141,14 +139,14 @@ fun SourceFormInput(
     keyboardType: KeyboardType = KeyboardType.Text,
     onValueChange: (String) -> Unit,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = label,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            color = salt.text,
+            color = scheme.onBackground,
             modifier = Modifier.padding(bottom = 4.dp),
         )
 
@@ -169,7 +167,7 @@ fun SourceFormInput(
                 } else {
                     VisualTransformation.None
                 },
-                textStyle = TextStyle(fontSize = 16.sp, color = salt.text),
+                textStyle = TextStyle(fontSize = 16.sp, color = scheme.onBackground),
                 modifier = Modifier.fillMaxWidth(),
                 decorationBox = { innerTextField ->
                     Box(contentAlignment = Alignment.CenterStart) {
@@ -177,7 +175,7 @@ fun SourceFormInput(
                             Text(
                                 text = placeholder,
                                 fontSize = 16.sp,
-                                color = salt.text3,
+                                color = scheme.onBackground.copy(alpha = 0.3f),
                                 maxLines = 1,
                             )
                         }
@@ -191,7 +189,7 @@ fun SourceFormInput(
             Text(
                 text = it,
                 fontSize = 12.sp,
-                color = salt.danger,
+                color = scheme.error,
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
@@ -199,7 +197,7 @@ fun SourceFormInput(
             Text(
                 text = it,
                 fontSize = 12.sp,
-                color = salt.text2,
+                color = scheme.onBackgroundVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
@@ -298,16 +296,16 @@ fun SourceFormCard(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SaltTextButton(
+            MusesTextButton(
                 text = if (busy) "请稍候…" else saveText,
                 onClick = onSave,
                 enabled = !busy && saveEnabled,
                 modifier = Modifier.weight(1f),
             )
             if (onCancel != null && cancelText != null) {
-                SaltTextButton(
+                MusesTextButton(
                     text = cancelText,
                     onClick = onCancel,
                     enabled = !busy,

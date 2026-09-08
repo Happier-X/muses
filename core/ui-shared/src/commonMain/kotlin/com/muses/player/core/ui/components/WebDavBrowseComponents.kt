@@ -1,5 +1,6 @@
 package com.muses.player.core.ui.components
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,8 +27,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
 
 /**
  * 跨平台 WebDAV 浏览条目（平台无关，只承载展示信息）。
@@ -48,11 +47,11 @@ data class WebDavBrowseItem(
  * WebDAV 目录浏览共用组件（浏览页共用化）。
  *
  * 视觉契约（对照安卓 `WebDavBrowseScreen` + `DirectoryRow`）：
- * - 路径导航行：返回上级 SaltTextButton(SMALL) + 当前路径 13sp text2 单行省略；
+ * - 路径导航行：返回上级 MusesTextButton(SMALL) + 当前路径 13sp text2 单行省略；
  * - 加载态：居中 CircularProgressIndicator +「正在读取目录…」14sp text2；
  * - 空目录：居中 13sp text2（多选「当前目录没有可添加的子文件夹。」/ 单选「当前目录没有子文件夹。」）；
  * - 目录行：surface1 背景 + radius-sm + 目录图标 primary 28dp + 名称 16sp/600 单行省略 +
- *   路径 13sp text2 单行省略 + 尾部 SaltTextButton(SMALL)（单选「选择」/ 多选「进入」）；
+ *   路径 13sp text2 单行省略 + 尾部 MusesTextButton(SMALL)（单选「选择」/ 多选「进入」）；
  * - 多选模式：行首复选框（选中 SquareCheck primary / 未选 Square text2，24dp）；
  * - 多选底部确认按钮：全宽 SaltTextButton「添加选中的 N 个文件夹」；
  * - 错误态由调用方承载（安卓 AlertDialog / 桌面行内文案），本组件只收 `errorText` 做行内展示，
@@ -85,7 +84,7 @@ fun WebDavBrowseList(
     errorText: String? = null,
     onDismissError: (() -> Unit)? = null,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
 
     Column(modifier = modifier.fillMaxWidth()) {
         // .webdav-browser__nav（路径导航）
@@ -93,17 +92,17 @@ fun WebDavBrowseList(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SaltTextButton(
+            MusesTextButton(
                 onClick = onGoParent,
                 text = "返回上级",
                 enabled = canGoParent,
-                size = SaltTextButtonSize.SMALL,
+                size = MusesTextButtonSize.SMALL,
             )
             Spacer(Modifier.width(8.dp))
             Text(
                 text = currentPath,
                 fontSize = 13.sp,
-                color = salt.text2,
+                color = scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -125,7 +124,7 @@ fun WebDavBrowseList(
                 Text(
                     "正在读取目录…",
                     fontSize = 14.sp,
-                    color = salt.text2,
+                    color = scheme.onBackgroundVariant,
                 )
             }
         } else {
@@ -144,7 +143,7 @@ fun WebDavBrowseList(
                             "当前目录没有子文件夹。"
                         },
                         fontSize = 13.sp,
-                        color = salt.text2,
+                        color = scheme.onBackgroundVariant,
                     )
                 }
             } else {
@@ -172,7 +171,7 @@ fun WebDavBrowseList(
 
                 if (mode == "multiple" && selectedPaths.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
-                    SaltTextButton(
+                    MusesTextButton(
                         onClick = { onConfirmMultiple(selectedPaths.toList()) },
                         text = "添加选中的 ${selectedPaths.size} 个文件夹",
                         modifier = Modifier.fillMaxWidth().padding(bottom = 96.dp),
@@ -190,14 +189,14 @@ fun WebDavBrowseList(
                 Text(
                     text = errorText,
                     fontSize = 13.sp,
-                    color = salt.danger,
+                    color = scheme.error,
                     modifier = Modifier.weight(1f),
                 )
                 if (onDismissError != null) {
-                    SaltTextButton(
+                    MusesTextButton(
                         onClick = onDismissError,
                         text = "关闭",
-                        size = SaltTextButtonSize.SMALL,
+                        size = MusesTextButtonSize.SMALL,
                     )
                 }
             }
@@ -216,12 +215,12 @@ private fun WebDavBrowseRow(
     onSelect: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(salt.surface1, RoundedCornerShape(SaltRadius.sm))
+            .background(scheme.surface, RoundedCornerShape(8.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -229,7 +228,7 @@ private fun WebDavBrowseRow(
             Icon(
                 imageVector = if (isSelected) TablerIcons.CheckBox else TablerIcons.CheckBoxOutlineBlank,
                 contentDescription = if (isSelected) "取消选择" else "选择",
-                tint = if (isSelected) salt.primary else salt.text2,
+                tint = if (isSelected) scheme.primary else scheme.onBackgroundVariant,
                 modifier = Modifier
                     .size(24.dp)
                     .clickable { onSelect() },
@@ -240,7 +239,7 @@ private fun WebDavBrowseRow(
         Icon(
             imageVector = TablerIcons.Folder,
             contentDescription = null,
-            tint = salt.primary,
+            tint = scheme.primary,
             modifier = Modifier.size(28.dp),
         )
         Spacer(Modifier.width(12.dp))
@@ -250,23 +249,23 @@ private fun WebDavBrowseRow(
                 text = directory.name,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = salt.text,
+                color = scheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = directory.url,
                 fontSize = 13.sp,
-                color = salt.text2,
+                color = scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
 
-        SaltTextButton(
+        MusesTextButton(
             onClick = onConfirm,
             text = if (mode == "single") "选择" else "进入",
-            size = SaltTextButtonSize.SMALL,
+            size = MusesTextButtonSize.SMALL,
         )
     }
 }

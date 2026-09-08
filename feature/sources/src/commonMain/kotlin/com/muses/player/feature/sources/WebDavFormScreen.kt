@@ -1,5 +1,6 @@
 package com.muses.player.feature.sources
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,12 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
-import com.muses.player.core.ui.components.SaltNavbar
-import com.muses.player.core.ui.components.SaltTextButton
+import com.muses.player.core.ui.components.MusesNavbar
+import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.SourceFormCard
 import com.muses.player.core.ui.components.SourceFormInput
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltSpacing
 import kotlinx.coroutines.delay
 
 /**
@@ -51,7 +50,7 @@ fun WebDavFormScreen(
     modifier: Modifier = Modifier,
     viewModel: WebDavFormViewModel = koinViewModel(),
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val formState by viewModel.formState.collectAsState()
     val isEditMode = sourceId != null
 
@@ -80,14 +79,14 @@ fun WebDavFormScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(salt.surface),
+            .background(scheme.background),
     ) {
         // .source-webdav-page__navbar-wrap
-        SaltNavbar(
+        MusesNavbar(
             title = if (isEditMode) "编辑 WebDAV" else "添加 WebDAV",
             left = {
                 // m-navbar-back-link：返回箭头按钮
-                SaltIconButtonBack(onClick = onBack)
+                MusesIconButtonBack(onClick = onBack)
             },
         )
 
@@ -96,7 +95,7 @@ fun WebDavFormScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = SaltSpacing.spacingSub)
+                .padding(horizontal = 12.dp)
                 .padding(top = 8.dp),
         ) {
             // .source-webdav-page__form-fields：共用 SourceFormCard（受控字段经 VM 回调注入）
@@ -140,7 +139,7 @@ fun WebDavFormScreen(
                                 modifier = Modifier.weight(1f),
                                 onValueChange = {},
                             )
-                            SaltTextButton(
+                            MusesTextButton(
                                 text = "浏览目录",
                                 onClick = { viewModel.startEditBrowse(onBrowse) },
                             )
@@ -152,7 +151,7 @@ fun WebDavFormScreen(
             // 编辑模式第二动作：连接并浏览（共用卡只有一个主按钮，编辑态副按钮放卡外）
             if (isEditMode) {
                 Spacer(Modifier.height(12.dp))
-                SaltTextButton(
+                MusesTextButton(
                     text = "连接并浏览",
                     onClick = { viewModel.startEditBrowse(onBrowse) },
                     enabled = !formState.isVerifying && !formState.isSubmitting,
@@ -177,7 +176,7 @@ fun WebDavFormScreen(
                     Text(
                         if (formState.isVerifying) "正在验证连接…" else "正在保存…",
                         fontSize = 14.sp,
-                        color = salt.text2,
+                        color = scheme.onBackgroundVariant,
                     )
                 }
             }
@@ -189,7 +188,7 @@ fun WebDavFormScreen(
         AlertDialog(
             onDismissRequest = { viewModel.dismissError() },
             title = { Text("错误") },
-            text = { Text(message, color = salt.text2) },
+            text = { Text(message, color = scheme.onBackgroundVariant) },
             confirmButton = {
                 TextButton(onClick = { viewModel.dismissError() }) {
                     Text("确定")
@@ -201,8 +200,8 @@ fun WebDavFormScreen(
 
 /** navbar 返回箭头（对照 m-navbar-back-link） */
 @Composable
-private fun SaltIconButtonBack(onClick: () -> Unit) {
-    com.muses.player.core.ui.components.SaltIconButton(
+private fun MusesIconButtonBack(onClick: () -> Unit) {
+    com.muses.player.core.ui.components.MusesIconButton(
         onClick = onClick,
         contentDescription = "返回",
     ) {

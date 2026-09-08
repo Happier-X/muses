@@ -35,6 +35,8 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)
             // U17：歌词外围组件（Stubs.Artwork 封面 AsyncImage）进 commonMain
             implementation(libs.coil.compose)
+            // 直引 miuix（ui-shared 为 implementation 不透传）
+            implementation(libs.miuix.ui)
         }
 
         // U21：jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn（core:common 同款模式），

@@ -1,5 +1,6 @@
 package com.muses.player.core.ui.theme
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -39,12 +40,13 @@ fun GlassSurface(
     contentAlignment: Alignment = Alignment.TopStart,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val saltColors = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
+    // 原 GlassAlpha 梯度（Faint .06 / Subtle .10 / Medium .16 / Strong .24），基底改 miuix surface
     val surfaceColor = tint ?: when (level) {
-        GlassLevel.Faint -> saltColors.glassFaint
-        GlassLevel.Subtle -> saltColors.glassSubtle
-        GlassLevel.Medium -> saltColors.glassMedium
-        GlassLevel.Strong -> saltColors.glassStrong
+        GlassLevel.Faint -> scheme.surface.copy(alpha = 0.06f)
+        GlassLevel.Subtle -> scheme.surface.copy(alpha = 0.10f)
+        GlassLevel.Medium -> scheme.surface.copy(alpha = 0.16f)
+        GlassLevel.Strong -> scheme.surface.copy(alpha = 0.24f)
     }
 
     var backgroundModifier: Modifier = Modifier

@@ -1,5 +1,6 @@
 package com.muses.player.core.ui.components
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -42,9 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
-import com.muses.player.core.ui.theme.SaltSpacing
 
 /**
  * 曲库主页共用组件（曲库主页共用化）。
@@ -90,7 +88,7 @@ fun LibraryTabBar(
     onTabSelect: (LibraryTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -109,7 +107,7 @@ fun LibraryTabBar(
             ) {
                 Text(
                     text = tab.label,
-                    color = if (isSelected) salt.primary else salt.text2,
+                    color = if (isSelected) scheme.primary else scheme.onBackgroundVariant,
                     fontSize = 15.sp,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                 )
@@ -118,7 +116,7 @@ fun LibraryTabBar(
                     modifier = Modifier
                         .size(width = 20.dp, height = 2.dp)
                         .background(
-                            color = if (isSelected) salt.primary
+                            color = if (isSelected) scheme.primary
                             else androidx.compose.ui.graphics.Color.Transparent,
                             shape = CircleShape,
                         ),
@@ -146,7 +144,7 @@ fun LibrarySearchField(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -154,7 +152,7 @@ fun LibrarySearchField(
         Icon(
             TablerIcons.Search,
             contentDescription = null,
-            tint = salt.text2,
+            tint = scheme.onBackgroundVariant,
             modifier = Modifier.size(18.dp),
         )
         Box(
@@ -166,19 +164,19 @@ fun LibrarySearchField(
                 Text(
                     text = placeholder,
                     fontSize = 16.sp,
-                    color = salt.text2,
+                    color = scheme.onBackgroundVariant,
                 )
             }
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 singleLine = true,
-                textStyle = TextStyle(fontSize = 16.sp, color = salt.text),
-                cursorBrush = SolidColor(salt.primary),
+                textStyle = TextStyle(fontSize = 16.sp, color = scheme.onBackground),
+                cursorBrush = SolidColor(scheme.primary),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        SaltTextButton(text = "取消", onClick = onCancel)
+        MusesTextButton(text = "取消", onClick = onCancel)
     }
 }
 
@@ -207,7 +205,7 @@ fun LibrarySongList(
 ) {
     if (songs.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            SaltEmpty(
+            MusesEmpty(
                 title = emptyTitle,
                 description = emptyDescription,
                 icon = emptyIcon,
@@ -266,45 +264,45 @@ fun LibraryAlbumGrid(
     onAlbumClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(
-        start = SaltSpacing.spacing,
-        end = SaltSpacing.spacing,
-        top = SaltSpacing.spacing,
+        start = 16.dp,
+        end = 16.dp,
+        top = 16.dp,
         bottom = 96.dp,
     ),
     emptyTitle: String = "暂无专辑",
     emptyDescription: String? = "扫描完成后在此浏览专辑",
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     if (albums.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            SaltEmpty(title = emptyTitle, description = emptyDescription)
+            MusesEmpty(title = emptyTitle, description = emptyDescription)
         }
     } else {
         LazyVerticalGrid(
             columns = if (isTablet) GridCells.Adaptive(180.dp) else GridCells.Fixed(2),
             modifier = modifier.fillMaxSize(),
             contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(SaltSpacing.spacing),
-            horizontalArrangement = Arrangement.spacedBy(SaltSpacing.spacing),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             items(albums, key = { it.id }) { album ->
                 // __card：surface-1 圆角卡（对照 LibraryGridPages：radius-card + padding sub(12)）
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(SaltRadius.card))
-                        .background(salt.surface1)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(scheme.surface)
                         .clickable { onAlbumClick(album.id) }
-                        .padding(SaltSpacing.spacingSub),
-                    verticalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     // __cover：满宽 1:1，专辑 radius-sm
                     Box(
                         Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f)
-                            .clip(RoundedCornerShape(SaltRadius.sm))
-                            .background(salt.surface2),
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(scheme.surfaceVariant),
                         contentAlignment = Alignment.Center,
                     ) {
                         LibraryGridCover(uri = album.coverUri, modifier = Modifier.fillMaxSize())
@@ -316,7 +314,7 @@ fun LibraryAlbumGrid(
                             fontSize = 17.sp,
                             fontWeight = FontWeight.SemiBold,
                             lineHeight = (17 * 1.3).sp,
-                            color = salt.text,
+                            color = scheme.onBackground,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -324,7 +322,7 @@ fun LibraryAlbumGrid(
                             text = "${album.songCount} 首歌曲",
                             fontSize = 13.sp,
                             lineHeight = (13 * 1.35).sp,
-                            color = salt.text2,
+                            color = scheme.onBackgroundVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -332,7 +330,7 @@ fun LibraryAlbumGrid(
                             Text(
                                 text = album.artist,
                                 fontSize = 13.sp,
-                                color = salt.text2,
+                                color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -352,36 +350,36 @@ fun LibraryArtistGrid(
     onArtistClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(
-        start = SaltSpacing.spacing,
-        end = SaltSpacing.spacing,
-        top = SaltSpacing.spacing,
+        start = 16.dp,
+        end = 16.dp,
+        top = 16.dp,
         bottom = 96.dp,
     ),
     emptyTitle: String = "暂无艺术家",
     emptyDescription: String? = "扫描完成后在此浏览艺术家",
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     if (artists.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            SaltEmpty(title = emptyTitle, description = emptyDescription)
+            MusesEmpty(title = emptyTitle, description = emptyDescription)
         }
     } else {
         LazyVerticalGrid(
             columns = if (isTablet) GridCells.Adaptive(180.dp) else GridCells.Fixed(2),
             modifier = modifier.fillMaxSize(),
             contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(SaltSpacing.spacing),
-            horizontalArrangement = Arrangement.spacedBy(SaltSpacing.spacing),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             items(artists, key = { it.id }) { artist ->
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(SaltRadius.card))
-                        .background(salt.surface1)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(scheme.surface)
                         .clickable { onArtistClick(artist.id) }
-                        .padding(SaltSpacing.spacingSub),
-                    verticalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     // __cover：圆形（艺术家特有）
                     Box(
@@ -389,7 +387,7 @@ fun LibraryArtistGrid(
                             .fillMaxWidth()
                             .aspectRatio(1f)
                             .clip(CircleShape)
-                            .background(salt.surface2),
+                            .background(scheme.surfaceVariant),
                         contentAlignment = Alignment.Center,
                     ) {
                         LibraryGridCover(uri = artist.coverUri, modifier = Modifier.fillMaxSize())
@@ -405,7 +403,7 @@ fun LibraryArtistGrid(
                             fontSize = 17.sp,
                             fontWeight = FontWeight.SemiBold,
                             lineHeight = (17 * 1.3).sp,
-                            color = salt.text,
+                            color = scheme.onBackground,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Center,
@@ -414,14 +412,14 @@ fun LibraryArtistGrid(
                         Text(
                             text = "${artist.songCount} 首歌曲",
                             fontSize = 13.sp,
-                            color = salt.text2,
+                            color = scheme.onBackgroundVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = "${artist.albumCount} 张专辑",
                             fontSize = 13.sp,
-                            color = salt.text2,
+                            color = scheme.onBackgroundVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -438,8 +436,8 @@ fun LibraryArtistGrid(
  */
 @Composable
 private fun LibraryGridCover(uri: String?, modifier: Modifier = Modifier) {
-    val salt = LocalSaltColors.current
-    Box(modifier.background(salt.surface2), contentAlignment = Alignment.Center) {
+    val scheme = MiuixTheme.colorScheme
+    Box(modifier.background(scheme.surfaceVariant), contentAlignment = Alignment.Center) {
         if (!uri.isNullOrBlank()) {
             AsyncImage(
                 model = uri,
@@ -451,7 +449,7 @@ private fun LibraryGridCover(uri: String?, modifier: Modifier = Modifier) {
             Icon(
                 TablerIcons.MusicNote,
                 contentDescription = null,
-                tint = salt.text2,
+                tint = scheme.onBackgroundVariant,
                 modifier = Modifier.size(24.dp),
             )
         }

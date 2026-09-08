@@ -41,11 +41,10 @@ import kotlinx.coroutines.launch
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.HazeBlurStyleData
 import com.muses.player.core.ui.theme.LocalHazeBlurState
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltDarkColors
-import com.muses.player.core.ui.theme.SaltSpacing
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.muses.player.core.ui.theme.musesBottomBarHazeStyle
 import com.muses.player.core.uishared.platform.platformBlurModifier
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 滑动切歌：累计位移阈值（超过即切歌）。 */
 private val SwipeToSkipThreshold = 48.dp
@@ -109,8 +108,8 @@ fun MiniPlayerBar(
     /** 右滑 → 上一曲（null = 不支持滑动切歌） */
     onPrevious: (() -> Unit)? = null,
 ) {
-    val salt = LocalSaltColors.current
-    val isDark = salt === SaltDarkColors
+    val scheme = MiuixTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
     val capsuleShape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(40.dp)
 
     val borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.5f)
@@ -192,7 +191,7 @@ fun MiniPlayerBar(
             .then(
                 platformBlurModifier(
                     isDark = isDark,
-                    backgroundColor = salt.glassBg,
+                    backgroundColor = scheme.surface.copy(alpha = 0.75f),
                     hazeState = hazeState,
                     hazeStyleData = hazeStyle,
                 ),
@@ -204,11 +203,11 @@ fun MiniPlayerBar(
                 enabled = hasSong,
                 onClick = onOpenPlayer,
             )
-            .padding(horizontal = SaltSpacing.spacing),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(SaltSpacing.spacingSub),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SaltCover(uri = coverUri, size = 48.dp, radius = SaltCoverRadius.MD)
+        MusesCover(uri = coverUri, size = 48.dp, radius = MusesCoverRadius.MD)
 
         // __info：gap 3px，flex:1 min-width:0
         // 滑动区：仅本列跟手平移 + 接收水平拖动，对侧拖入纯文字切歌提示
@@ -245,7 +244,7 @@ fun MiniPlayerBar(
                     Text(
                         text = if (hintDirection < 0) "下一曲" else "上一曲",
                         fontSize = 13.sp,
-                        color = salt.text2,
+                        color = scheme.onBackgroundVariant,
                     )
                 }
             }
@@ -261,7 +260,7 @@ fun MiniPlayerBar(
                     fontSize = 15.sp,
                     lineHeight = (15f * 1.25f).sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = salt.text,
+                    color = scheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -269,7 +268,7 @@ fun MiniPlayerBar(
                     text = subtitle, // 「{artist} - {album}」由调用方拼装
                     fontSize = 13.sp,
                     lineHeight = (13f * 1.3f).sp,
-                    color = salt.text2,
+                    color = scheme.onBackgroundVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -290,19 +289,19 @@ fun MiniPlayerBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                SaltIconButton(
+                MusesIconButton(
                     onClick = onTogglePlayback,
                     imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill, // fill 风格播放/暂停
                     contentDescription = if (isPlaying) "暂停播放" else "继续播放",
                     enabled = hasSong, // :disabled="!currentSong || status==='loading'"
-                    tint = salt.text, // __btn { color: var(--m-text) }
+                    tint = scheme.onBackground, // __btn { color: var(--m-text) }
                     iconSizeOverride = 18.dp, // __icon { width: 18px }
                 )
-                SaltIconButton(
+                MusesIconButton(
                     onClick = onOpenQueue,
                     imageVector = TablerIcons.QueueMusic, // tabler playlist
                     contentDescription = "打开播放队列",
-                    tint = salt.text,
+                    tint = scheme.onBackground,
                     iconSizeOverride = 18.dp,
                 )
             }

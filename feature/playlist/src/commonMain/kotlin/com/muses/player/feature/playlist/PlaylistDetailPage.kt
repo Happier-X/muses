@@ -1,5 +1,6 @@
 package com.muses.player.feature.playlist
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,14 +28,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.model.Song
-import com.muses.player.core.ui.components.SaltCover
-import com.muses.player.core.ui.components.SaltCoverRadius
-import com.muses.player.core.ui.components.SaltEmpty
-import com.muses.player.core.ui.components.SaltIconButton
-import com.muses.player.core.ui.components.SaltListItem
-import com.muses.player.core.ui.components.SaltNavbar
+import com.muses.player.core.ui.components.MusesCover
+import com.muses.player.core.ui.components.MusesCoverRadius
+import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesIconButton
+import com.muses.player.core.ui.components.MusesListRow
+import com.muses.player.core.ui.components.MusesNavbar
 import com.muses.player.core.ui.theme.LocalHazeBlurState
-import com.muses.player.core.ui.theme.LocalSaltColors
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 
@@ -56,7 +56,7 @@ fun PlaylistDetailPage(
     viewModel: PlaylistDetailViewModel = koinViewModel(),
 ) {
     viewModel.bind(playlistId)
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val detail by viewModel.detail.collectAsState()
     val currentSongId by viewModel.currentSongId.collectAsState()
 
@@ -73,7 +73,7 @@ fun PlaylistDetailPage(
                 Modifier
                     .fillMaxSize()
                     .hazeSource(state = hazeState)
-                    .background(LocalSaltColors.current.surface),
+                    .background(MiuixTheme.colorScheme.background),
             ) {
                 when {
                     playlist == null -> {
@@ -83,7 +83,7 @@ fun PlaylistDetailPage(
                                 .padding(top = navbarTopPadding),
                             contentAlignment = Alignment.Center,
                         ) {
-                            SaltEmpty(title = "歌单不存在", description = "可能已被删除。")
+                            MusesEmpty(title = "歌单不存在", description = "可能已被删除。")
                         }
                     }
                     songs.isEmpty() -> {
@@ -93,7 +93,7 @@ fun PlaylistDetailPage(
                                 .padding(top = navbarTopPadding),
                             contentAlignment = Alignment.Center,
                         ) {
-                            SaltEmpty(
+                            MusesEmpty(
                                 title = "歌单是空的",
                                 description = "在歌曲页点「更多」→「加入歌单」添加歌曲。",
                             )
@@ -112,7 +112,7 @@ fun PlaylistDetailPage(
                                 .fillMaxWidth()
                                 .then(
                                     if (isPlaying) {
-                                        Modifier.background(salt.primary.copy(alpha = 0.1f))
+                                        Modifier.background(scheme.primary.copy(alpha = 0.1f))
                                     } else {
                                         Modifier
                                     },
@@ -130,11 +130,11 @@ fun PlaylistDetailPage(
                     }
                 }
             }
-            SaltNavbar(
+            MusesNavbar(
                 title = playlist?.name ?: "歌单",
                 modifier = Modifier.align(Alignment.TopCenter),
                 left = {
-                    SaltIconButton(
+                    MusesIconButton(
                         onClick = onBack,
                         contentDescription = "返回",
                     ) {
@@ -142,7 +142,7 @@ fun PlaylistDetailPage(
                     }
                 },
                 right = {
-                    SaltIconButton(
+                    MusesIconButton(
                         onClick = { viewModel.playAll() },
                         enabled = songs.isNotEmpty(),
                         contentDescription = "播放全部",
@@ -177,20 +177,19 @@ private fun DetailSongRow(
     onPlay: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    val salt = LocalSaltColors.current
-    SaltListItem(
+    val scheme = MiuixTheme.colorScheme
+    MusesListRow(
         title = song.title,
         subtitle = listOfNotNull(song.artist, song.album)
             .filter { it.isNotBlank() }
             .joinToString(" - ")
             .ifEmpty { null },
-        strongTitle = true,
         onClick = onPlay,
         leading = {
-            SaltCover(uri = song.coverUri, size = 48.dp, radius = SaltCoverRadius.SM)
+            MusesCover(uri = song.coverUri, size = 48.dp, radius = MusesCoverRadius.SM)
         },
         after = {
-            SaltIconButton(
+            MusesIconButton(
                 onClick = onRemove,
                 contentDescription = "从歌单移除 ${song.title}",
             ) {

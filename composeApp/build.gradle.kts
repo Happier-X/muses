@@ -62,6 +62,7 @@ kotlin {
             // :desktop 用 implementation 不透传 :core:common，composeApp 需直接依赖
             api(project(":core:common"))
             implementation(project(":core:ui-shared"))
+            implementation(libs.miuix.ui)
             // U11：desktopAppModules 引用 webdavCoreModule（feature:sources 对 webdav 为 implementation 不透传）
             implementation(project(":core:webdav"))
             // U2 桌面真模糊：壳层创建 HazeState 并对内容标记 hazeSource（消费层在 ui-shared）

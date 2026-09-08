@@ -1,5 +1,6 @@
 package com.muses.player.feature.sources
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,7 +51,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import com.muses.player.core.ui.theme.LocalHazeBlurState
-import com.muses.player.core.ui.theme.LocalSaltColors
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.text.input.KeyboardType
@@ -63,17 +63,16 @@ import com.muses.player.core.model.Source
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.muses.player.core.ui.components.SaltActionsSheet
-import com.muses.player.core.ui.components.SaltActionItem
+import com.muses.player.core.ui.components.MusesActionsSheet
+import com.muses.player.core.ui.components.MusesActionItem
 import com.muses.player.core.ui.components.SharedSourceItem
 import com.muses.player.core.ui.components.SourceListItem
-import com.muses.player.core.ui.components.SaltEmpty
-import com.muses.player.core.ui.components.SaltIconButton
-import com.muses.player.core.ui.components.SaltIconButtonSize
-import com.muses.player.core.ui.components.SaltNavbar
-import com.muses.player.core.ui.components.SaltTextButton
-import com.muses.player.core.ui.components.SaltToggle
-import com.muses.player.core.ui.theme.SaltSpacing
+import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesIconButton
+import com.muses.player.core.ui.components.MusesIconButtonSize
+import com.muses.player.core.ui.components.MusesNavbar
+import com.muses.player.core.ui.components.MusesTextButton
+import top.yukonga.miuix.kmp.basic.Switch
 import com.muses.player.core.model.SourceType
 
 // ── 主入口 ──────────────────────────────────────────
@@ -88,7 +87,7 @@ fun SourcesScreen(
     onOpenWebdavEdit: (sourceId: String) -> Unit = {},
     viewModel: SourcesViewModel = koinViewModel(),
 ) {
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
     val sources by viewModel.sources.collectAsState()
     val showAddForm by viewModel.showAddForm.collectAsState()
     // 扫描进度弹窗观察 scanner 内部进度流
@@ -104,7 +103,7 @@ fun SourcesScreen(
                 Modifier
                     .fillMaxSize()
                     .hazeSource(state = hazeState)
-                    .background(LocalSaltColors.current.surface),
+                    .background(MiuixTheme.colorScheme.background),
             ) {
                 Column(
                     modifier = Modifier
@@ -118,7 +117,7 @@ fun SourcesScreen(
                                 .weight(1f),
                             contentAlignment = Alignment.Center,
                         ) {
-                            SaltEmpty(
+                            MusesEmpty(
                                 title = "还没有音源",
                                 description = "点击右上角加号添加本地文件夹或 WebDAV 文件夹。",
                                 icon = TablerIcons.Radio,
@@ -143,13 +142,13 @@ fun SourcesScreen(
                     }
                 }
             }
-            SaltNavbar(
+            MusesNavbar(
                 title = "音源",
                 modifier = Modifier.align(Alignment.TopCenter),
                 right = {
-                    SaltIconButton(
+                    MusesIconButton(
                         onClick = { viewModel.openAddActionSheet() },
-                        size = SaltIconButtonSize.SM,
+                        size = MusesIconButtonSize.SM,
                         contentDescription = "添加音源",
                     ) {
                         Icon(TablerIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -167,21 +166,21 @@ fun SourcesScreen(
 
     // ---- m-actions：添加音源 ----
     if (viewModel.isAddActionSheetOpen) {
-        SaltActionsSheet(
+        MusesActionsSheet(
             opened = true,
             onDismiss = { viewModel.closeAddActionSheet() },
             label = "添加音源",
             items = listOf(
-                SaltActionItem(label = "添加本地文件夹", onClick = {
+                MusesActionItem(label = "添加本地文件夹", onClick = {
                     viewModel.closeAddActionSheet()
                     // 系统目录选择器：选完回调内建源，对齐 Web FilePicker.pickDirectory 语义
                     pickLocalFolder()
                 }),
-                SaltActionItem(label = "添加 WebDAV 文件夹", onClick = {
+                MusesActionItem(label = "添加 WebDAV 文件夹", onClick = {
                     viewModel.closeAddActionSheet()
                     onOpenWebdavAdd()
                 }),
-                SaltActionItem(label = "取消", onClick = { viewModel.closeAddActionSheet() }),
+                MusesActionItem(label = "取消", onClick = { viewModel.closeAddActionSheet() }),
             ),
         )
     }
@@ -195,7 +194,7 @@ fun SourcesScreen(
             text = {
                 Text(
                     "确定删除「${source.name}」吗？将同时清理该音源下的歌曲$credentialNote。",
-                    color = salt.text2,
+                    color = scheme.onBackgroundVariant,
                 )
             },
             confirmButton = {
@@ -262,11 +261,11 @@ fun SourcesScreen(
             title = { Text("扫描设置") },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // 「读取音乐标签」+ SaltToggle（对照 Web m-toggle）
+                    // 「读取音乐标签」+ miuix 开关
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("读取音乐标签", fontSize = 15.sp, color = salt.text)
+                        Text("读取音乐标签", fontSize = 15.sp, color = scheme.onBackground)
                         Spacer(Modifier.width(12.dp))
-                        SaltToggle(
+                        Switch(
                             checked = viewModel.scanReadTags,
                             onCheckedChange = { viewModel.updateScanReadTags(it) },
                         )
@@ -277,7 +276,7 @@ fun SourcesScreen(
                         "开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。",
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
-                        color = salt.text2,
+                        color = scheme.onBackgroundVariant,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -309,11 +308,11 @@ fun SourcesScreen(
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     // 阶段 h2 文案
-                    Text(stageText, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = salt.text)
+                    Text(stageText, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
                     Spacer(Modifier.height(12.dp))
                     when {
                         scanError != null -> {
-                            Text(scanError, fontSize = 13.sp, color = salt.danger)
+                            Text(scanError, fontSize = 13.sp, color = scheme.error)
                         }
                         !scanProgress.finished -> {
                             CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
@@ -323,7 +322,7 @@ fun SourcesScreen(
                                 Text(
                                     it,
                                     fontSize = 13.sp,
-                                    color = salt.text2,
+                                    color = scheme.onBackgroundVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -333,14 +332,14 @@ fun SourcesScreen(
                             Text(
                                 "已处理 ${scanProgress.current} / ${scanProgress.total}",
                                 fontSize = 13.sp,
-                                color = salt.text2,
+                                color = scheme.onBackgroundVariant,
                             )
                         }
                         else -> {
                             // 项目无统一 toast 组件，选最简方案：汇总文案直接在进度弹窗完成态内展示，
                             // 关闭时经 dismissScanProgress() 一并置空（不额外引入 SnackbarHost 脚手架）
                             viewModel.scanResultMessage?.let {
-                                Text(it, fontSize = 13.sp, color = salt.text2)
+                                Text(it, fontSize = 13.sp, color = scheme.onBackgroundVariant)
                             }
                         }
                     }
@@ -391,8 +390,8 @@ private fun SourceCardList(
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(
-            start = SaltSpacing.spacingSub,
-            end = SaltSpacing.spacingSub,
+            start = 12.dp,
+            end = 12.dp,
             top = 8.dp,
             bottom = 96.dp,
         ),

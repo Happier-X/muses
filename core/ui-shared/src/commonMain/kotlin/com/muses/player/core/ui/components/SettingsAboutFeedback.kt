@@ -1,5 +1,6 @@
 package com.muses.player.core.ui.components
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -14,9 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.ui.theme.LocalSaltColors
-import com.muses.player.core.ui.theme.SaltRadius
-import com.muses.player.core.ui.theme.SaltSpacing
 import com.muses.player.core.uishared.platform.PlatformToast
 import kotlinx.coroutines.launch
 
@@ -44,18 +42,18 @@ fun SettingsAboutFeedbackContent(
 ) {
     val scope = rememberCoroutineScope()
     var checking by remember { mutableStateOf(false) }
-    val salt = LocalSaltColors.current
+    val scheme = MiuixTheme.colorScheme
 
     // ---- 关于 ----
     SettingsBlockTitle(text = "关于")
     Column(
         modifier = Modifier
-            .padding(horizontal = SaltSpacing.spacingSub)
-            .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
+            .padding(horizontal = 12.dp)
+            .background(scheme.surface, RoundedCornerShape(12.dp))
             .padding(vertical = 4.dp),
     ) {
         // Muses 版本
-        SaltListItem(
+        MusesListRow(
             title = "Muses",
             subtitle = "应用版本 $versionName",
             onClick = null,
@@ -65,11 +63,11 @@ fun SettingsAboutFeedbackContent(
         )
         // 检查更新（桌面应用内更新接管时隐藏，避免重复入口）
         if (showCheckUpdate) {
-        SaltListItem(
+        MusesListRow(
             title = "检查更新",
             subtitle = if (checking) "正在检查更新…" else null,
             onClick = {
-                if (checking) return@SaltListItem
+                if (checking) return@MusesListRow
                 checking = true
                 scope.launch {
                     val result = onCheckUpdate(versionName)
@@ -102,11 +100,11 @@ fun SettingsAboutFeedbackContent(
     SettingsBlockTitle(text = "反馈")
     Column(
         modifier = Modifier
-            .padding(horizontal = SaltSpacing.spacingSub)
-            .background(salt.surface1, RoundedCornerShape(SaltRadius.card))
+            .padding(horizontal = 12.dp)
+            .background(scheme.surface, RoundedCornerShape(12.dp))
             .padding(vertical = 4.dp),
     ) {
-        SaltListItem(
+        MusesListRow(
             title = "复制报错日志",
             subtitle = errorLogSummary ?: "暂无报错记录",
             onClick = {
