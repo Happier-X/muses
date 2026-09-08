@@ -36,7 +36,18 @@ fun SaltTheme(
             colorScheme = scheme,
             typography = SaltTypography,
             shapes = SaltShapes,
-            content = content,
-        )
+        ) {
+            // miuix 桥接：明暗与 Salt 同源（跟随系统/显式覆盖），miuix 组件
+            // （SwitchPreference/Dialog/BottomSheet…）在 SaltTheme 内开箱即用，
+            // 与 Salt 组件互不干扰（各自读各自的 CompositionLocal）。
+            top.yukonga.miuix.kmp.theme.MiuixTheme(
+                colors = if (dark) {
+                    top.yukonga.miuix.kmp.theme.darkColorScheme()
+                } else {
+                    top.yukonga.miuix.kmp.theme.lightColorScheme()
+                },
+                content = content,
+            )
+        }
     }
 }

@@ -38,6 +38,10 @@ kotlin {
             implementation(libs.haze.blur)
             // Haze 公共类型（KMP：HazeState / HazeInput 等跨平台类型）
             implementation(libs.haze.utils)
+            // miuix（小米 HyperOS 风格 CMP 组件库 + Preference 行；KMP 父件按 target 解析，
+            // 版本线与本工程精确对齐见 toml 注释；SaltTheme 内桥接 MiuixTheme，明暗同源）
+            implementation(libs.miuix.ui)
+            implementation(libs.miuix.preference)
         }
 
         androidMain.dependencies {

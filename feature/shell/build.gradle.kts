@@ -43,6 +43,8 @@ kotlin {
             implementation(libs.coil.compose)
             implementation(libs.haze)
             implementation(libs.haze.blur)
+            // miuix 设置行（SwitchPreference；ui-shared 为 implementation 不透传，此处直连）
+            implementation(libs.miuix.preference)
         }
 
         // U22：jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn（core:common 同款模式），

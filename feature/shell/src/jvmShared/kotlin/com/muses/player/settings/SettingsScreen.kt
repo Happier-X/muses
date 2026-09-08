@@ -1,20 +1,11 @@
 package com.muses.player.settings
 
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -27,8 +18,6 @@ import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.ui.components.SettingsAboutFeedbackContent
 import com.muses.player.core.ui.components.SettingsBlockTitle
 import com.muses.player.core.ui.components.SettingsScreen
-import com.muses.player.core.ui.components.SaltToggle
-import com.muses.player.core.ui.theme.LocalSaltColors
 import com.muses.player.feature.shell.platform.AppVersionProvider
 import com.muses.player.feature.shell.platform.InAppUpdateSection
 import com.muses.player.feature.shell.platform.XiaomiIslandSettingRow
@@ -92,16 +81,18 @@ fun SettingsScreen(
                 val settingsRepository = koinInject<SettingsRepository>()
                 val lyricsEnabled by settingsRepository.miniPlayerLyricsEnabled.collectAsState(initial = false)
                 val coroutineScope = rememberCoroutineScope()
-                SettingsToggleItem(
+                // miuix 化首批：播放区开关行改 SwitchPreference（HyperOS 原生开关样式，
+                // 明暗经 SaltTheme 桥接的 MiuixTheme 同源；桌面同为 KMP 产物，一致渲染）
+                top.yukonga.miuix.kmp.preference.SwitchPreference(
                     title = "播放控件显示歌词",
-                    description = "开启后播放控件将使用当前歌词替换艺术家，长歌词会随播放自动滚动",
+                    summary = "开启后播放控件将使用当前歌词替换艺术家，长歌词会随播放自动滚动",
                     checked = lyricsEnabled,
                     onCheckedChange = { coroutineScope.launch { settingsRepository.setMiniPlayerLyricsEnabled(it) } },
                 )
                 val notificationLyricsEnabled by settingsRepository.notificationLyricsEnabled.collectAsState(initial = false)
-                SettingsToggleItem(
+                top.yukonga.miuix.kmp.preference.SwitchPreference(
                     title = "媒体通知显示歌词",
-                    description = "开启后通知卡片标题显示当前歌词，下方显示歌曲标题与艺术家",
+                    summary = "开启后通知卡片标题显示当前歌词，下方显示歌曲标题与艺术家",
                     checked = notificationLyricsEnabled,
                     onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
                 )
@@ -132,39 +123,4 @@ fun SettingsScreen(
     }
 }
 
-/**
- * 设置开关行：左侧标题+描述，右侧 SaltToggle。
- * 复刻 Web `.m-settings-item--toggle` 语义。
- */
-@Composable
-private fun SettingsToggleItem(
-    title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    val salt = LocalSaltColors.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Normal,
-                color = salt.text,
-            )
-            Text(
-                text = description,
-                fontSize = 13.sp,
-                lineHeight = (13f * 1.4f).sp,
-                color = salt.text2,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-        }
-        SaltToggle(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
+
