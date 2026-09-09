@@ -1,8 +1,7 @@
 // 应用壳 feature：KMP 双 target（android + jvm）。
-// U22 全量上收：MusesApp（CMP Navigation 导航壳）/NavDestination/TabsLayout/
-// MainViewModel（PlaybackPort 驱动）/SettingsScreen 进 commonMain——导航自 :app 的
-// androidx.navigation 换为 CMP Navigation（U18 已验证同包名委托），权限申请与
-// 平台动作（浏览器/剪贴板）抽 expect/actual（platform/），androidMain 仅余 actual。
+// U22 全量上收：MusesApp（导航壳）/NavDestination/TabsLayout/
+// MainViewModel（PlaybackPort 驱动）/SettingsScreen 进 commonMain；导航为 miuix-nav
+// 类型化路由（替代 CMP Navigation），权限申请与平台动作抽 expect/actual（platform/）。
 // 依赖面 = :core:common + :core:ui-shared + 全 feature 屏（导航路由消费）。
 // 形态同 :feature:library（android.kmp.library，不升级版本线）。
 plugins {
@@ -10,6 +9,8 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose.multiplatform)
+    // miuix-nav 路由 @Serializable 编译期支持（commonMain MusesRoute 密封层级）
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -33,8 +34,10 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
-            // U22：CMP Navigation（org.jetbrains.androidx.navigation，android 变体委托 androidx 同包名）
-            implementation(libs.jetbrains.navigation.compose)
+            // miuix-nav 自研导航运行时（连续栈深度 + HyperOS 转场 + 跟手返回，替代 CMP Navigation）；
+            // kotlinx-serialization-json 供路由栈 savedstate 序列化（Saver 经 json 实现）
+            implementation(libs.miuix.nav)
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.koin.core)

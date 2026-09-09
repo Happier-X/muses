@@ -225,7 +225,7 @@ fun AlbumDetailScreen(
     val songs = albumWithSongs?.songs?.map { it.toDomain() }.orEmpty()
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = MiuixTheme.colorScheme.background,
         topBar = {
             // MusesNavbar：左返回箭头（对照 Web LibraryDetailPage navbar）→ 原生小顶栏
             MusesTopBar(
@@ -283,7 +283,7 @@ fun ArtistDetailScreen(
     val songs = artistWithSongs?.songs?.map { it.toDomain() }.orEmpty()
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = MiuixTheme.colorScheme.background,
         topBar = {
             MusesTopBar(
                 title = artistWithSongs?.artist?.name ?: "艺术家",

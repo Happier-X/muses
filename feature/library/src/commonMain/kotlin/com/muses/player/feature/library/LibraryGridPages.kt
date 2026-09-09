@@ -71,7 +71,7 @@ fun AlbumsPage(
     val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = scheme.background,
         topBar = {
             MusesTopBar(title = "专辑", largeTitle = "专辑", scrollBehavior = topBarScrollBehavior)
         },
@@ -173,7 +173,7 @@ fun ArtistsPage(
     val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = scheme.background,
         topBar = {
             MusesTopBar(title = "艺术家", largeTitle = "艺术家", scrollBehavior = topBarScrollBehavior)
         },

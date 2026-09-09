@@ -1,6 +1,5 @@
 package com.muses.player.feature.scrape
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.repository.SongRepository
@@ -120,18 +119,13 @@ data class ReviewKeyword(
  * 重搜取消前次 job 时不吞其它 CancellationException。
  */
 class ScrapeReviewViewModel constructor(
-    savedStateHandle: SavedStateHandle,
+    songId: String?,
+    queueCsv: String?,
     private val editCloudMetaSearch: EditCloudMetaSearch,
     private val songRepository: SongRepository,
     private val writebackOrchestrator: WritebackOrchestrator,
     private val queueStore: com.muses.player.core.scrape.queue.ScrapeQueueStore,
 ) : ViewModel() {
-
-    companion object {
-        const val KEY_SONG_ID = "songId"
-        const val KEY_QUEUE = "queue"
-    }
-
     private val _state = MutableStateFlow<ScrapeReviewState>(ScrapeReviewState.Searching)
     val state: StateFlow<ScrapeReviewState> = _state.asStateFlow()
 
@@ -163,8 +157,7 @@ class ScrapeReviewViewModel constructor(
     private var searchAbortFlag: AtomicBoolean = AtomicBoolean(false)
 
     init {
-        val songId = savedStateHandle.get<String>(KEY_SONG_ID)
-        val queue = savedStateHandle.get<String>(KEY_QUEUE)
+        val queue = queueCsv
             ?.split(',')
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }

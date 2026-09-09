@@ -70,7 +70,7 @@ fun ScrapeScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = scheme.background,
         topBar = {
             // 大标题静态：状态机多列表，折叠联动改造成本高，暂不接 scrollBehavior
             MusesTopBar(title = "刮削", largeTitle = "刮削")

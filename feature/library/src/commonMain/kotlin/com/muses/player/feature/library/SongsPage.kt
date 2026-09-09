@@ -178,7 +178,7 @@ fun SongsPage(
     val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = scheme.background,
         topBar = {
             MusesTopBar(
                 title = "歌曲",

@@ -1,7 +1,10 @@
 package com.muses.player.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -14,16 +17,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.graphics.Color
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
+import top.yukonga.miuix.kmp.nav.core.NavBackStack
+import top.yukonga.miuix.kmp.nav.core.NavDisplay
+import top.yukonga.miuix.kmp.nav.core.NavKey
+import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
+import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import androidx.compose.ui.unit.dp
 import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.db.SongTags
@@ -233,7 +242,10 @@ class MainViewModel constructor(
  */
 @Composable
 fun MusesApp() {
-    val navController = rememberNavController()
+    // miuix-nav 返回栈（类型化路由，存栈恢复经 kotlinx.serialization；替代 CMP Navigation）
+    val backStack = rememberNavBackStack<MusesRoute>(MusesRoute.Songs)
+    // 当前栈顶（SnapshotStateList 读取即订阅，路由变化自动重组；对照原 currentBackStackEntryAsState）
+    val currentKey = backStack.lastOrNull()
 
     val viewModel: MainViewModel = koinViewModel()
 
@@ -247,33 +259,41 @@ fun MusesApp() {
     // 权限申请（安卓：READ_MEDIA_AUDIO/POST_NOTIFICATIONS；桌面空实现）
     PermissionsEffect()
 
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route
-    val current = NavDestination.fromRoute(currentRoute) ?: NavDestination.Songs
+    // S3 待审队列宿主 VM（MusesApp 作用域持有，review 回调直用；原按回退栈取 Scrape 页 entry 实例）
+    val scrapeVm: com.muses.player.feature.scrape.ScrapeViewModel = koinViewModel()
 
     // 沉浸式/队列改为状态驱动的 overlay（Box 叠加于 Tabs 之上），下滑漏出背后列表而非纯黑窗口
     var showPlayerOverlay by remember { mutableStateOf(false) }
     var showQueueOverlay by remember { mutableStateOf(false) }
 
     // 导航项组装
-    val primaryItems = NavDestination.Primary.map { dest -> dest.toNavItem(currentRoute, navController) }
-    val secondaryItems = NavDestination.Secondary.map { dest -> dest.toNavItem(currentRoute, navController) }
+    val primaryItems = NavDestination.Primary.map { dest -> dest.toNavItem(currentKey, backStack) }
+    val secondaryItems = NavDestination.Secondary.map { dest -> dest.toNavItem(currentKey, backStack) }
+    // 窄屏底部导航 4 栏：曲库（= 歌曲页）/音源/刮削/设置；首页（专辑/艺术家/歌单入口）后续加入即 5 栏
+    val bottomItems = listOf(
+        NavDestination.Songs.toNavItem(currentKey, backStack).copy(label = "曲库"),
+        NavDestination.Sources.toNavItem(currentKey, backStack),
+        NavDestination.Scrape.toNavItem(currentKey, backStack),
+        NavDestination.Settings.toNavItem(currentKey, backStack),
+    )
 
     val nowPlaying by viewModel.nowPlaying.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val miniPlayerLyricsEnabled by viewModel.miniPlayerLyricsEnabled.collectAsState()
     val currentLyricLine by viewModel.currentLyricLine.collectAsState()
 
-    // 阶段二槽位化：根 Scaffold 承载弹窗容器 + bottomBar 停靠迷你条。
-    // 导航（抽屉/aside）仍走自绘 TabsLayout（进 content 槽）；顶栏仍各屏自绘（任务#7 再换原生）。
-    // bottomBar 保留胶囊视觉（左右 18dp + 圆角），由悬浮改为停靠：content 自动留空，
-    // 各屏手动 `bottom = 96.dp` 留白同步拆除（见各屏改动），jump-fab 避让改为 16dp。
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        bottomBar = {
-            BoxWithConstraints(Modifier.navigationBarsPadding()) {
+    // 底部导航槽位化：根 Scaffold bottomBar = 迷你条（上）+ 窄屏导航栏（下）。
+    // 导航（aside/底栏）与内容叠层顺序由 Scaffold 统一保证，导航栏不再进 body，避免被 dock 盖住。
+    // 断点与 TabsLayout 同口径（BoxWithConstraints 视口宽 ≥768dp 即平板）。
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val isTabletBar = maxWidth >= TabletBreakpoint
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            bottomBar = {
+                Column(Modifier.fillMaxWidth()) {
+                    BoxWithConstraints(Modifier.navigationBarsPadding()) {
                 // 歌词模式：开关开启且有当前歌词行时，用歌词替换艺术家
                 val lyricLine = if (miniPlayerLyricsEnabled) currentLyricLine else null
                 val miniSubtitle = if (lyricLine != null) {
@@ -300,6 +320,25 @@ fun MusesApp() {
                         .padding(horizontal = 18.dp, vertical = 8.dp)
                         .fillMaxWidth(),
                 )
+                }
+                // 悬浮胶囊底栏（官方 FloatingNavigationBar，图标-only，label 进无障碍文案）：
+                // 外边距 18dp 与上方迷你条左右对齐；系统导航条边衬已由迷你条承担，
+                // 此处 defaultWindowInsetsPadding = false 避免双重留白
+                if (!isTabletBar) {
+                    FloatingNavigationBar(
+                        horizontalOutSidePadding = 18.dp,
+                        defaultWindowInsetsPadding = false,
+                    ) {
+                        bottomItems.forEach { item ->
+                            FloatingNavigationBarItem(
+                                selected = item.active,
+                                onClick = item.onClick,
+                                icon = item.icon,
+                                label = item.label,
+                            )
+                        }
+                    }
+                }
             }
         },
     ) { _ ->
@@ -314,7 +353,7 @@ fun MusesApp() {
             secondaryItems = secondaryItems,
             navVisible = true,
         ) {
-            AppNavHost(navController)
+            AppNavHost(backStack, scrapeVm)
         }
         if (showPlayerOverlay) {
             ShellBackHandler { showPlayerOverlay = false }
@@ -339,251 +378,199 @@ fun MusesApp() {
             QueueScreen(onClose = { showQueueOverlay = false })
         }
         }
+        }
     }
 }
 
 /** 导航项组装（图标/文案/激活判定均来自 NavDestination 的 Web 层映射） */
-@Composable
 private fun NavDestination.toNavItem(
-    currentRoute: String?,
-    navController: NavHostController,
+    currentKey: NavKey?,
+    backStack: NavBackStack,
 ): MusesNavItem = MusesNavItem(
     icon = icon,
     label = label,
-    active = isActive(currentRoute),
-    onClick = { navigateTo(navController, this) },
+    active = isActive(currentKey),
+    onClick = { navigateToTab(backStack, this) },
 )
 
+/**
+ * 幂等 push：栈顶即目标则不动（单例），否则先移除同值 key 再压栈。
+ * miuix-nav 同值重复 push 会在 reconcile 直接抛 IllegalArgumentException，
+ * 此处顺带承担连点防抖（对照官方指南「push 幂等」要求）。
+ */
+private fun NavBackStack.pushUnique(key: NavKey) {
+    if (lastOrNull() == key) return
+    remove(key)
+    add(key)
+}
+
+/** 回退：仅栈深 >1 时弹栈（miuix-nav 空栈非法；对照原 popBackStack 布尔语义）。 */
+private fun NavBackStack.pop() {
+    if (size > 1) removeAt(lastIndex)
+}
+
+/**
+ * 切 tab：清到 Songs 根后按需 push。
+ * 对照原 popUpTo(Songs){saveState} + launchSingleTop + restoreState；
+ * per-tab 状态不跨次保留（列表由 flow 重载，滚动回到顶部），详情返回栈不保留。
+ */
+private fun navigateToTab(backStack: NavBackStack, destination: NavDestination) {
+    if (destination == NavDestination.Songs) {
+        while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+        return
+    }
+    while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+    backStack.pushUnique(destination.routeKey)
+}
+
 @Composable
-private fun AppNavHost(navController: NavHostController) {
-    NavHost(
-        navController = navController,
-        startDestination = NavDestination.Songs.route,
+private fun AppNavHost(
+    backStack: NavBackStack,
+    /** S3 待审队列宿主 VM（MusesApp 作用域持有；原按回退栈取 Scrape 页 entry 实例） */
+    scrapeVm: com.muses.player.feature.scrape.ScrapeViewModel,
+) {
+    NavDisplay(
+        backStack = backStack,
         modifier = Modifier.fillMaxSize(),
     ) {
-        composable(NavDestination.Songs.route) {
+        entry<MusesRoute.Songs> {
             // U16：SongsPage 已上收 commonMain，经端口消费（不再依赖 Media3 具体类）
             val playback = org.koin.compose.koinInject<com.muses.player.core.playback.PlaybackPort>()
             // M3：刮削队列入队（ScrapeQueueStore 为 @Singleton，经 koinViewModel 载体注入）
-            val scrapeVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = koinViewModel()
+            val scrapeQueueVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = koinViewModel()
             SongsPage(
                 playback = playback,
-                onEnqueueScrape = { ids -> scrapeVm.enqueue(ids) },
+                onEnqueueScrape = { ids -> scrapeQueueVm.enqueue(ids) },
             )
         }
-        composable(NavDestination.Albums.route) {
+        entry<MusesRoute.Albums> {
             AlbumsPage(
                 onAlbumClick = { albumId ->
-                    navController.navigate(DetailRoutes.albumDetail(albumId))
+                    backStack.pushUnique(MusesRoute.AlbumDetail(albumId))
                 },
             )
         }
-        composable(NavDestination.Artists.route) {
+        entry<MusesRoute.Artists> {
             ArtistsPage(
                 onArtistClick = { artistId ->
-                    navController.navigate(DetailRoutes.artistDetail(artistId))
+                    backStack.pushUnique(MusesRoute.ArtistDetail(artistId))
                 },
             )
         }
-        composable(DetailRoutes.ALBUM_DETAIL) { backStackEntry ->
-            // U22：CMP Navigation 双端取参走 savedStateHandle（arguments 的 KMP SavedState 无 getString）
-            val albumId = backStackEntry.savedStateHandle.get<String>("albumId") ?: return@composable
+        entry<MusesRoute.AlbumDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
             val playerConnection = koinViewModel<com.muses.player.feature.player.PlayerViewModel>().playback
             AlbumDetailScreen(
-                albumId = albumId,
-                onBack = { navController.popBackStack() },
+                albumId = route.albumId,
+                onBack = { backStack.pop() },
                 // U9：播放连接经回调注入（详情屏已上收 commonMain，不再依赖 core:media）
                 onPlaySong = { songId, songs -> playerConnection.play(songId, songs) },
             )
         }
-        composable(DetailRoutes.ARTIST_DETAIL) { backStackEntry ->
-            val artistId = backStackEntry.savedStateHandle.get<String>("artistId") ?: return@composable
+        entry<MusesRoute.ArtistDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
             val playerConnection = koinViewModel<com.muses.player.feature.player.PlayerViewModel>().playback
             ArtistDetailScreen(
-                artistId = artistId,
-                onBack = { navController.popBackStack() },
+                artistId = route.artistId,
+                onBack = { backStack.pop() },
                 onPlaySong = { songId, songs -> playerConnection.play(songId, songs) },
             )
         }
-        composable(NavDestination.Playlists.route) {
+        entry<MusesRoute.Playlists> {
             PlaylistsPage(onOpenPlaylist = { playlistId ->
-                navController.navigate("playlist/$playlistId") { launchSingleTop = true }
+                backStack.pushUnique(MusesRoute.PlaylistDetail(playlistId))
             })
         }
-        composable(route = "playlist/{playlistId}") { backStackEntry ->
+        entry<MusesRoute.PlaylistDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
             PlaylistDetailPage(
-                playlistId = checkNotNull(backStackEntry.savedStateHandle.get<String>("playlistId")),
-                onBack = { navController.popBackStack() },
+                playlistId = route.playlistId,
+                onBack = { backStack.pop() },
             )
         }
-        // 刮削页随 M3 复刻
-        composable(NavDestination.Scrape.route) {
+        // 刮削页随 M3 复刻（VM 由宿主直持传入；原 ScrapeScreen 内 koinViewModel() entry 作用域已改显式注入）
+        entry<MusesRoute.Scrape> {
             com.muses.player.feature.scrape.ScrapeScreen(
+                viewModel = scrapeVm,
                 onOpenReview = { songId ->
-                    navController.navigate(DetailRoutes.scrapeReview(songId)) { launchSingleTop = true }
+                    backStack.pushUnique(MusesRoute.ScrapeReview(songId))
                 },
                 // S3 逐首审核：带 queue 上下文进入审核页（「应用并下一首」推进用）
                 onStartReviewQueue = { firstSongId, queue ->
-                    navController.navigate(DetailRoutes.scrapeReview(firstSongId, queue)) { launchSingleTop = true }
+                    backStack.pushUnique(
+                        MusesRoute.ScrapeReview(firstSongId, queue.joinToString(",")),
+                    )
                 },
             )
         }
         // 单曲刮削审核页（Tagger 式就地审核，design §2.1）
-        composable(
-            route = DetailRoutes.SCRAPE_REVIEW,
-            arguments = listOf(
-                androidx.navigation.navArgument("songId") { type = androidx.navigation.NavType.StringType },
-                androidx.navigation.navArgument("queue") {
-                    type = androidx.navigation.NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                },
-            ),
-        ) {
-            // S3：待审队列宿主在 Scrape 页的 VM 实例（跨 destination 共享，需按回退栈取同实例，
-            // 不可直接 koinViewModel()——那是审核页自己的 scope）
-            val scrapeEntry = remember(it) {
-                try {
-                    navController.getBackStackEntry(NavDestination.Scrape.route)
-                } catch (_: Exception) {
-                    null
-                }
-            }
-            val scrapeVm: com.muses.player.feature.scrape.ScrapeViewModel? = scrapeEntry?.let { entry ->
-                koinViewModel(viewModelStoreOwner = entry)
-            }
+        entry<MusesRoute.ScrapeReview>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+            // 路由直传参数经 Koin parametersOf 供给 VM（miuix-nav 无 SavedStateHandle）
+            val reviewVm: com.muses.player.feature.scrape.ScrapeReviewViewModel = koinViewModel(
+                parameters = { parametersOf(route.songId, route.queueCsv) },
+            )
             com.muses.player.feature.scrape.ScrapeReviewScreen(
-                onBack = { navController.popBackStack() },
+                viewModel = reviewVm,
+                onBack = { backStack.pop() },
                 // S3「应用并下一首」：同步预览（剔除已写回者）→ 推进待审队列 → 打开下一首（结束则返回）
                 onAppliedAndNext = { writtenSongId, _ ->
-                    scrapeVm?.refreshAfterExternalWriteback(writtenSongId)
-                    val next = scrapeVm?.advanceReview(writtenSongId)
+                    scrapeVm.refreshAfterExternalWriteback(writtenSongId)
+                    val next = scrapeVm.advanceReview(writtenSongId)
                     if (next != null) {
-                        val rest = scrapeVm?.pendingReviewQueue?.value.orEmpty()
-                        navController.navigate(DetailRoutes.scrapeReview(next, rest)) {
-                            popUpTo(DetailRoutes.SCRAPE_REVIEW) { inclusive = true }
-                            launchSingleTop = true
-                        }
+                        val rest = scrapeVm.pendingReviewQueue.value.orEmpty()
+                        // 对照原 popUpTo(REVIEW){inclusive} + navigate：同值替换（entry 重建，VM 随之重建）
+                        backStack.remove(route)
+                        backStack.add(MusesRoute.ScrapeReview(next, rest.joinToString(",")))
                     } else {
-                        navController.popBackStack()
+                        backStack.pop()
                     }
                 },
                 // S3 手动返回：清待审队列，不强推下一首
-                onManualBack = { scrapeVm?.cancelReviewQueue() },
+                onManualBack = { scrapeVm.cancelReviewQueue() },
             )
         }
-        composable(NavDestination.Sources.route) { SourcesScreen(
-            onOpenWebdavAdd = { navController.navigate(DetailRoutes.SOURCE_WEBDAV_ADD) },
-            onOpenWebdavEdit = { sourceId ->
-                navController.navigate(DetailRoutes.sourceWebdavEdit(sourceId))
-            },
-        ) }
-        // 注意顺序：browse 是固定段，必须在 {sourceId} 参数路由之前声明，
-        // 否则会被参数匹配吞掉（Navigation Compose 按声明顺序匹配）
-        composable(
-            route = "${DetailRoutes.SOURCE_WEBDAV_BROWSE}?mode={mode}" +
-                "&initialPath={initialPath}&serverUrl={serverUrl}" +
-                "&username={username}&password={password}",
-            arguments = listOf(
-                androidx.navigation.navArgument("mode") { defaultValue = "multiple" },
-                androidx.navigation.navArgument("initialPath") { defaultValue = "/" },
-                androidx.navigation.navArgument("serverUrl") { defaultValue = "" },
-                androidx.navigation.navArgument("username") { defaultValue = "" },
-                androidx.navigation.navArgument("password") { defaultValue = "" },
-            ),
-        ) { backStackEntry ->
-            val args = backStackEntry.savedStateHandle
-            WebDavBrowseScreen(
-                mode = args.get<String>("mode") ?: "multiple",
-                initialPath = args.get<String>("initialPath") ?: "/",
-                serverUrl = args.get<String>("serverUrl") ?: "",
-                username = args.get<String>("username") ?: "",
-                password = args.get<String>("password") ?: "",
-                onBack = { navController.popBackStack() },
-                onConfirm = { paths ->
-                    // 结果已由浏览页写入 WebDavBrowseResultHolder，这里只回退
-                    navController.popBackStack()
+        entry<MusesRoute.Sources> {
+            SourcesScreen(
+                onOpenWebdavAdd = { backStack.pushUnique(MusesRoute.WebDavAdd) },
+                onOpenWebdavEdit = { sourceId ->
+                    backStack.pushUnique(MusesRoute.WebDavEdit(sourceId))
                 },
             )
         }
-        composable(DetailRoutes.SOURCE_WEBDAV_ADD) {
+        entry<MusesRoute.WebDavAdd>(swipeDismiss = NavSwipeDirection.LeftToRight) {
             WebDavFormScreen(
                 sourceId = null,
-                onBack = { navController.popBackStack() },
+                onBack = { backStack.pop() },
+                // 连接信息直传类型化字段（原 URLEncoder query 入参；含密码，不落日志）
                 onBrowse = { mode, initialPath, serverUrl, username, password ->
-                    navigateToWebdavBrowse(
-                        navController, mode, initialPath, serverUrl, username, password,
+                    backStack.pushUnique(
+                        MusesRoute.WebDavBrowse(mode, initialPath, serverUrl, username, password),
                     )
                 },
             )
         }
-        composable(DetailRoutes.SOURCE_WEBDAV_EDIT) { backStackEntry ->
-            val sourceId = backStackEntry.savedStateHandle.get<String>("sourceId")
+        entry<MusesRoute.WebDavEdit>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
             WebDavFormScreen(
-                sourceId = sourceId,
-                onBack = { navController.popBackStack() },
+                sourceId = route.sourceId,
+                onBack = { backStack.pop() },
                 onBrowse = { mode, initialPath, serverUrl, username, password ->
-                    navigateToWebdavBrowse(
-                        navController, mode, initialPath, serverUrl, username, password,
+                    backStack.pushUnique(
+                        MusesRoute.WebDavBrowse(mode, initialPath, serverUrl, username, password),
                     )
                 },
             )
         }
-        composable(NavDestination.Settings.route) { SettingsScreen() }
-        composable(NavDestination.NowPlaying.route) {
-            // M3：编辑歌曲信息弹窗宿主（当前曲经 PlayerViewModel 反查）
-            val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
-            // U12：当前曲改由曲库实时流（SongEntity→领域模型），原 MediaItem 手拼字段等价
-            val currentSong by playerVm.currentSong.collectAsState()
-            var showEditMeta by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-            if (showEditMeta) {
-                val editSong = currentSong?.toDomain()
-                com.muses.player.feature.scrape.EditMetaSheet(
-                    song = editSong,
-                    onDismiss = { showEditMeta = false },
-                )
-            }
-            PlayerScreen(
-                onClose = { navController.popBackStack() },
-                onOpenQueue = { navController.navigate(NavDestination.Queue.route) },
-                onOpenEditMeta = { showEditMeta = true },
+        entry<MusesRoute.WebDavBrowse>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+            WebDavBrowseScreen(
+                mode = route.mode,
+                initialPath = route.initialPath,
+                serverUrl = route.serverUrl,
+                username = route.username,
+                password = route.password,
+                onBack = { backStack.pop() },
+                onConfirm = { _ ->
+                    // 结果已由浏览页写入 WebDavBrowseResultHolder，这里只回退
+                    backStack.pop()
+                },
             )
         }
-        composable(NavDestination.Queue.route) {
-            QueueScreen(onClose = { navController.popBackStack() })
-        }
-    }
-}
-
-/** 跳转目录浏览页：连接信息经 URL query 传参（含密码，不落日志） */
-private fun navigateToWebdavBrowse(
-    navController: NavHostController,
-    mode: String,
-    initialPath: String,
-    serverUrl: String,
-    username: String,
-    password: String,
-) {
-    val encoded = { value: String ->
-        java.net.URLEncoder.encode(value, "UTF-8")
-    }
-    navController.navigate(
-        "${DetailRoutes.SOURCE_WEBDAV_BROWSE}?mode=$mode" +
-            "&initialPath=${encoded(initialPath)}" +
-            "&serverUrl=${encoded(serverUrl)}" +
-            "&username=${encoded(username)}" +
-            "&password=${encoded(password)}",
-    )
-}
-
-private fun navigateTo(navController: NavHostController, destination: NavDestination) {
-    if (destination == NavDestination.Songs) {
-        navController.popBackStack(NavDestination.Songs.route, inclusive = false)
-        return
-    }
-    navController.navigate(destination.route) {
-        popUpTo(NavDestination.Songs.route) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
+        entry<MusesRoute.Settings> { SettingsScreen() }
     }
 }

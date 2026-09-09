@@ -84,7 +84,7 @@ fun ScrapeReviewScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = scheme.background,
         topBar = {
             MusesTopBar(
                 title = "刮削审核",

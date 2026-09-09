@@ -1,5 +1,6 @@
 package com.muses.player.feature.sources
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -61,7 +62,7 @@ fun WebDavBrowseScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = MiuixTheme.colorScheme.background,
         topBar = {
             MusesTopBar(
                 title = if (mode == "single") "选择目录" else "选择文件夹",

@@ -41,7 +41,7 @@ fun SettingsScreen(
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = MiuixTheme.colorScheme.background,
         topBar = {
             MusesTopBar(title = "设置")
         },

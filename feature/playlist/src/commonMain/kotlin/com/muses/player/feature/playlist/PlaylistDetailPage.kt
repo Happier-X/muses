@@ -57,7 +57,7 @@ fun PlaylistDetailPage(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = scheme.background,
         topBar = {
             MusesTopBar(
                 title = playlist?.name ?: "歌单",

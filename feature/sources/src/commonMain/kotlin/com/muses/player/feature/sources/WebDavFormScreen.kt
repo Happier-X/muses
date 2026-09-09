@@ -79,7 +79,7 @@ fun WebDavFormScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = scheme.background,
         topBar = {
             MusesTopBar(
                 title = if (isEditMode) "编辑 WebDAV" else "添加 WebDAV",
