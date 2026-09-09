@@ -347,7 +347,6 @@ fun MusesApp() {
         // 原版 Web overlay 打开仅锁主页面交互（pointer-events:none），DOM 全保留；
         // 之前按 overlayRoute 切 navVisible 会让 content（NavHost）在组合树换位销毁重建，
         // 底下列表停止绘制 → 下滑沉浸页露出纯黑（08-28 下滑露黑根因）。
-        // overlay 全屏在上层，主页面的 navbar/MiniPlayer 被盖住不可见、不可交互。
         TabsLayout(
             primaryItems = primaryItems,
             secondaryItems = secondaryItems,
@@ -355,30 +354,35 @@ fun MusesApp() {
         ) {
             AppNavHost(backStack, scrapeVm)
         }
-        if (showPlayerOverlay) {
-            ShellBackHandler { showPlayerOverlay = false }
-            Box(Modifier.fillMaxSize()) {
-                val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
-                // U12：当前曲改由曲库实时流（SongEntity→领域模型），原 MediaItem 手拼字段等价
-                val currentSong by playerVm.currentSong.collectAsState()
-                var showEditMeta by remember { mutableStateOf(false) }
-                if (showEditMeta) {
-                    val editSong = currentSong?.toDomain()
-                    com.muses.player.feature.scrape.EditMetaSheet(song = editSong, onDismiss = { showEditMeta = false })
-                }
-                PlayerScreen(
-                    onClose = { showPlayerOverlay = false },
-                    onOpenQueue = { showPlayerOverlay = false; showQueueOverlay = true },
-                    onOpenEditMeta = { showEditMeta = true },
-                )
+        }
+    }
+
+    // 沉浸式 overlay 与 Scaffold 平级（BoxWithConstraints 双子项）：Scaffold 的 bottomBar
+    // （MiniPlayerBar + 悬浮导航栏）绘制层级在 body 之上，overlay 若留在 body 内会被
+    // 白色迷你条/导航栏盖住沉浸页底部控件（MuMu 实测）；平级后 overlay 必然盖过
+    // bottomBar，恢复「全屏盖住不可见、不可交互」的预期层级。
+    if (showPlayerOverlay) {
+        ShellBackHandler { showPlayerOverlay = false }
+        Box(Modifier.fillMaxSize()) {
+            val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
+            // U12：当前曲改由曲库实时流（SongEntity→领域模型），原 MediaItem 手拼字段等价
+            val currentSong by playerVm.currentSong.collectAsState()
+            var showEditMeta by remember { mutableStateOf(false) }
+            if (showEditMeta) {
+                val editSong = currentSong?.toDomain()
+                com.muses.player.feature.scrape.EditMetaSheet(song = editSong, onDismiss = { showEditMeta = false })
             }
+            PlayerScreen(
+                onClose = { showPlayerOverlay = false },
+                onOpenQueue = { showPlayerOverlay = false; showQueueOverlay = true },
+                onOpenEditMeta = { showEditMeta = true },
+            )
         }
-        if (showQueueOverlay) {
-            // 队列已是 Dialog 弹窗：返回/遮罩点击由 Dialog 自行消费，此处不再套 ShellBackHandler
-            QueueScreen(onClose = { showQueueOverlay = false })
-        }
-        }
-        }
+    }
+    if (showQueueOverlay) {
+        // 队列已是 Dialog 弹窗：返回/遮罩点击由 Dialog 自行消费，此处不再套 ShellBackHandler
+        QueueScreen(onClose = { showQueueOverlay = false })
+    }
     }
 }
 
