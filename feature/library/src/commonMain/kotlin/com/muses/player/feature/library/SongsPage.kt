@@ -13,13 +13,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -28,7 +25,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import top.yukonga.miuix.kmp.basic.FabPosition
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
@@ -58,8 +59,7 @@ import kotlinx.coroutines.launch
 import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.model.Song
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.muses.player.core.ui.components.MusesActionsSheet
 import com.muses.player.core.ui.components.MusesActionItem
 import com.muses.player.core.ui.components.MusesCover
@@ -68,22 +68,19 @@ import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesListRow
-import com.muses.player.core.ui.components.MusesNavbar
 import com.muses.player.core.ui.components.MusesTextButton
+import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.theme.LocalHazeBlurState
 import com.muses.player.core.ui.theme.MusesShadowLayer
-import com.muses.player.core.ui.theme.musesBottomBarHazeStyle
 import com.muses.player.core.ui.theme.saltShadow
 import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.blur.hazeBlur
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 
 /**
  * 歌曲页 —— SongsPage.vue 一比一翻译。
  *
  * 结构对照（BEM 类名见各段注释）：
- * - `.songs-page__navbar`：MusesNavbar(title=歌曲, right=搜索) + subnavbar
+ * - `.songs-page__navbar`：MusesTopBar(title=歌曲, right=搜索) + bottomContent
  *   （工具条 ↔ 搜索栏二选一，同一块玻璃无分界线）
  * - 工具条 `.songs-page__toolbar-left`：随机播放按钮 + 歌曲总数；多选时加计数
  * - 列表行：MusesListRow(title, subtitle="artist - album",
@@ -168,38 +165,157 @@ fun SongsPage(
         selectedIds = emptySet()
     }
 
-    val outerHazeState = LocalHazeBlurState.current as? dev.chrisbanes.haze.HazeState
-    val navbarHazeState = rememberHazeState()
+    // 阶段二顶栏换原生：自绘 MusesNavbar 玻璃退役，haze 局部态随之下线；
+    // FAB 改吃 TabsLayout 全局 Haze（环境值直达，无需中转）。
     fun doEnqueue(ids: List<String>) {
         if (ids.isEmpty()) return
         onEnqueueScrape(ids)
         val msg = if (ids.size == 1) "已加入待刮削队列" else "已加入 ${ids.size} 首到待刮削队列"
         com.muses.player.core.uishared.platform.PlatformToast.show(msg)
     }
-    CompositionLocalProvider(LocalHazeBlurState provides navbarHazeState) {
-        Box(modifier = modifier.fillMaxSize()) {
-            val navbarTopPadding = with(LocalDensity.current) {
-                WindowInsets.statusBars.getTop(this).toDp()
-            }.coerceAtLeast(16.dp) + 44.dp + 56.dp
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .hazeSource(state = navbarHazeState)
-                    .background(scheme.background),
-            ) {
-                if (songs.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                MusesEmpty(
-                    title = "还没有歌曲",
-                    description = "请先到音源页添加并扫描音源。",
+    // 阶段二槽位化：顶栏进 Scaffold topBar（原生大标题折叠），列表进 content，
+    // FAB 进 floatingActionButton 槽（自动避让停靠迷你条），多选条见下方 E5 浮层。
+    val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        topBar = {
+            MusesTopBar(
+                title = "歌曲",
+                largeTitle = "歌曲",
+                actions = {
+                    MusesIconButton(onClick = {
+                        isSearching = true
+                        searchQuery = ""
+                        if (isMultiSelect) exitMultiSelect()
+                    }) {
+                        Icon(TablerIcons.Search, contentDescription = "搜索歌曲")
+                    }
+                },
+                bottomContent = {
+                    when {
+                        songs.isNotEmpty() && !isSearching -> {
+                            // .songs-page__toolbar-left：随机播放按钮 + 歌曲总数
+                            // 随机播放全部：随机挑一首作为起点（对齐原版 onShuffleAll
+                            // 「先 shuffle 再取随机第 0 首」——Media3 的 shuffleMode
+                            // 只影响后续顺序、不改变当前曲，固定 first 会永远播第一首），
+                            // 开 shuffle 保证后续顺序也随机
+                            val shuffleAll: () -> Unit = {
+                                if (songs.isNotEmpty()) {
+                                    playback?.apply {
+                                        play(songs.random().id, songs)
+                                        setShuffleEnabled(true)
+                                    }
+                                }
+                            }
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                // 图标与歌曲数同属一个可点区域（用户定案：点数字同样触发随机播放）
+                                Row(
+                                    Modifier.clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = shuffleAll,
+                                    ),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    MusesIconButton(onClick = shuffleAll) {
+                                        Icon(TablerIcons.Shuffle, contentDescription = "随机播放全部")
+                                    }
+                                    Text(
+                                        text = songs.size.toString(),
+                                        fontSize = 15.sp,
+                                        color = scheme.onBackground,
+                                    )
+                                }
+                                if (isMultiSelect) {
+                                    Text(
+                                        text = "已选中 ${selectedIds.size} 项",
+                                        fontSize = 15.sp,
+                                        color = scheme.onBackgroundVariant,
+                                        modifier = Modifier.padding(start = 12.dp),
+                                    )
+                                }
+                            }
+                        }
+
+                        songs.isNotEmpty() && isSearching -> {
+                            // .songs-page__searchbar
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    TablerIcons.Search,
+                                    contentDescription = null,
+                                    tint = scheme.onBackgroundVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Box(
+                                    Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = 8.dp),
+                                ) {
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            text = "在 ${songs.size} 首歌曲中搜索",
+                                            fontSize = 16.sp,
+                                            color = scheme.onBackgroundVariant,
+                                        )
+                                    }
+                                    BasicTextField(
+                                        value = searchQuery,
+                                        onValueChange = {
+                                            searchQuery = it
+                                            viewModel.updateSearchQuery(it)
+                                        },
+                                        singleLine = true,
+                                        textStyle = TextStyle(fontSize = 16.sp, color = scheme.onBackground),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                                MusesTextButton(text = "取消", onClick = { exitSearch() })
+                            }
+                        }
+                    }
+                },
+                scrollBehavior = topBarScrollBehavior,
+            )
+        },
+        floatingActionButton = {
+            if (showJumpBubble) {
+                JumpToCurrentFab(
+                    onClick = {
+                        val idx = songs.indexOfFirst { it.id == currentSongId }
+                        if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
+                    },
                 )
             }
-        } else {
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                state = listState,
-                contentPadding = PaddingValues(top = navbarTopPadding, bottom = 96.dp),
-            ) {
+        },
+        floatingActionButtonPosition = FabPosition.End,
+    ) { padding ->
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            if (songs.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    MusesEmpty(
+                        title = "还没有歌曲",
+                        description = "请先到音源页添加并扫描音源。",
+                    )
+                }
+            } else {
+                LazyColumn(
+                    Modifier
+                        .fillMaxSize()
+                        .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
+                    state = listState,
+                    contentPadding = PaddingValues(bottom = if (isMultiSelect) 64.dp else 16.dp),
+                ) {
                 itemsIndexed(songs, key = { _, song -> song.id }) { _, song ->
                     val checked = isMultiSelect && song.id in selectedIds
                     MusesListRow(
@@ -311,108 +427,6 @@ fun SongsPage(
         }
     }
 
-            MusesNavbar(
-            title = "歌曲",
-                modifier = Modifier.align(Alignment.TopCenter),
-            right = {
-                MusesIconButton(onClick = {
-                    isSearching = true
-                    searchQuery = ""
-                    if (isMultiSelect) exitMultiSelect()
-                }) {
-                    Icon(TablerIcons.Search, contentDescription = "搜索歌曲")
-                }
-            },
-            subnavbar = {
-                when {
-                    songs.isNotEmpty() && !isSearching -> {
-                        // .songs-page__toolbar-left：随机播放按钮 + 歌曲总数
-                        // 随机播放全部：随机挑一首作为起点（对齐原版 onShuffleAll
-                        // 「先 shuffle 再取随机第 0 首」——Media3 的 shuffleMode
-                        // 只影响后续顺序、不改变当前曲，固定 first 会永远播第一首），
-                        // 开 shuffle 保证后续顺序也随机
-                        val shuffleAll: () -> Unit = {
-                            if (songs.isNotEmpty()) {
-                                playback?.apply {
-                                    play(songs.random().id, songs)
-                                    setShuffleEnabled(true)
-                                }
-                            }
-                        }
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            // 图标与歌曲数同属一个可点区域（用户定案：点数字同样触发随机播放）
-                            Row(
-                                Modifier.clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = shuffleAll,
-                                ),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                MusesIconButton(onClick = shuffleAll) {
-                                    Icon(TablerIcons.Shuffle, contentDescription = "随机播放全部")
-                                }
-                                Text(
-                                    text = songs.size.toString(),
-                                    fontSize = 15.sp,
-                                    color = scheme.onBackground,
-                                )
-                            }
-                            if (isMultiSelect) {
-                                Text(
-                                    text = "已选中 ${selectedIds.size} 项",
-                                    fontSize = 15.sp,
-                                    color = scheme.onBackgroundVariant,
-                                    modifier = Modifier.padding(start = 12.dp),
-                                )
-                            }
-                        }
-                    }
-
-                    songs.isNotEmpty() && isSearching -> {
-                        // .songs-page__searchbar
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                TablerIcons.Search,
-                                contentDescription = null,
-                                tint = scheme.onBackgroundVariant,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Box(
-                                Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp),
-                            ) {
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        text = "在 ${songs.size} 首歌曲中搜索",
-                                        fontSize = 16.sp,
-                                        color = scheme.onBackgroundVariant,
-                                    )
-                                }
-                                BasicTextField(
-                                    value = searchQuery,
-                                    onValueChange = {
-                                        searchQuery = it
-                                        viewModel.updateSearchQuery(it)
-                                    },
-                                    singleLine = true,
-                                    textStyle = TextStyle(fontSize = 16.sp, color = scheme.onBackground),
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
-                            MusesTextButton(text = "取消", onClick = { exitSearch() })
-                        }
-                    }
-                }
-            },
-        )
 
     // ---- ⋮ 动作单（m-actions）----
     val currentId = actionSong?.id
@@ -439,8 +453,12 @@ fun SongsPage(
         ),
     )
 
-    // ---- 多选底部操作条（.songs-page__multibar）----
+    // ---- 多选底部操作条（.songs-page__multibar）：内容层底部浮层，位于停靠迷你条之上 ----
     if (isMultiSelect) {
+        Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
         MultiselectBottomBar(
             selectedCount = selectedIds.size,
             onDeleteSelected = {
@@ -463,38 +481,8 @@ fun SongsPage(
             },
             onCancel = { exitMultiSelect() },
         )
-    }
-
-    // ---- m-fab.songs-page__jump-fab：跳转到当前播放（与底部 MiniPlayer 同用全局 Haze，保证观感一致）----
-    if (showJumpBubble) {
-        // 使用外层 TabsLayout 的全局 HazeState，与底部胶囊同源
-        val fabHazeState = outerHazeState
-        if (fabHazeState != null) {
-            // 包一层以提供全局 Haze 给 FAB
-            CompositionLocalProvider(LocalHazeBlurState provides fabHazeState) {
-                JumpToCurrentFab(
-                    onClick = {
-                        val idx = songs.indexOfFirst { it.id == currentSongId }
-                        if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 96.dp),
-                )
-            }
-        } else {
-            JumpToCurrentFab(
-                onClick = {
-                    val idx = songs.indexOfFirst { it.id == currentSongId }
-                    if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 96.dp),
-            )
         }
     }
-        }
     }
 }
 
@@ -588,7 +576,6 @@ private fun MultiselectBottomBar(
         Modifier
             .fillMaxWidth()
             .background(scheme.surface)
-            .navigationBarsPadding()
             .padding(horizontal = 4.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {

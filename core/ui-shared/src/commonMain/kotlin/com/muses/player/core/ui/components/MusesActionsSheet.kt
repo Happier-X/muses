@@ -21,8 +21,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 底部弹出的操作单（miuix OverlayBottomSheet；原 SaltActionsSheet 的 Konsta Actions 语义）。
  *
  * label → sheet 标题；每行一个动作按钮（居中 17sp，危险动作用 error 色）；
- * 取消按钮独立在末尾。`renderInRootScaffold = false`：Muses 未使用 miuix Scaffold，
- * sheet 自带 Dialog 容器即可。
+ * 取消按钮独立在末尾。渲染宿主默认根 Scaffold 全屏（根 Scaffold 由壳层统一提供）。
  */
 data class MusesActionItem(
     val label: String,
@@ -43,7 +42,6 @@ fun MusesActionsSheet(
         show = opened,
         title = label,
         onDismissRequest = onDismiss,
-        renderInRootScaffold = false,
         content = {
             Column(Modifier.fillMaxWidth()) {
                 items.forEach { item ->

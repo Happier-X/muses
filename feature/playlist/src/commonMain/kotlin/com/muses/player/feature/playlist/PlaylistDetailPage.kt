@@ -5,25 +5,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Scaffold
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.model.Song
@@ -32,10 +28,7 @@ import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesListRow
-import com.muses.player.core.ui.components.MusesNavbar
-import com.muses.player.core.ui.theme.LocalHazeBlurState
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
+import com.muses.player.core.ui.components.MusesTopBar
 
 /**
  * 歌单详情页 —— PlaylistDetailPage.vue 一比一翻译。
@@ -62,46 +55,56 @@ fun PlaylistDetailPage(
     val playlist = detail?.playlist
     val songs = detail?.songs.orEmpty()
 
-    val hazeState = rememberHazeState()
-    CompositionLocalProvider(LocalHazeBlurState provides hazeState) {
-        Box(modifier = modifier.fillMaxSize()) {
-            val navbarTopPadding = with(LocalDensity.current) {
-                WindowInsets.statusBars.getTop(this).toDp()
-            }.coerceAtLeast(16.dp) + 44.dp
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .hazeSource(state = hazeState)
-                    .background(MiuixTheme.colorScheme.background),
-            ) {
-                when {
-                    playlist == null -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = navbarTopPadding),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            MusesEmpty(title = "歌单不存在", description = "可能已被删除。")
-                        }
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        topBar = {
+            MusesTopBar(
+                title = playlist?.name ?: "歌单",
+                onBack = onBack,
+                actions = {
+                    MusesIconButton(
+                        onClick = { viewModel.playAll() },
+                        enabled = songs.isNotEmpty(),
+                        contentDescription = "播放全部",
+                    ) {
+                        Icon(TablerIcons.Play, contentDescription = null)
                     }
-                    songs.isEmpty() -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = navbarTopPadding),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            MusesEmpty(
-                                title = "歌单是空的",
-                                description = "在歌曲页点「更多」→「加入歌单」添加歌曲。",
-                            )
-                        }
+                },
+            )
+        },
+    ) { padding ->
+        // overlay 层：与原外层 Box 严格对应（对话框/浮层挂载域，层级 1:1）
+        Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            when {
+                playlist == null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        MusesEmpty(title = "歌单不存在", description = "可能已被删除。")
                     }
+                }
+                songs.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        MusesEmpty(
+                            title = "歌单是空的",
+                            description = "在歌曲页点「更多」→「加入歌单」添加歌曲。",
+                        )
+                    }
+                }
                     else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(top = navbarTopPadding, bottom = 96.dp),
+                            contentPadding = PaddingValues(bottom = 16.dp),
                         ) {
                     items(songs.size, key = { songs[it].id }) { index ->
                         val song = songs[index]
@@ -129,27 +132,7 @@ fun PlaylistDetailPage(
                     }
                 }
             }
-            MusesNavbar(
-                title = playlist?.name ?: "歌单",
-                modifier = Modifier.align(Alignment.TopCenter),
-                left = {
-                    MusesIconButton(
-                        onClick = onBack,
-                        contentDescription = "返回",
-                    ) {
-                        Icon(TablerIcons.ArrowBack, contentDescription = null)
-                    }
-                },
-                right = {
-                    MusesIconButton(
-                        onClick = { viewModel.playAll() },
-                        enabled = songs.isNotEmpty(),
-                        contentDescription = "播放全部",
-                    ) {
-                        Icon(TablerIcons.Play, contentDescription = null)
-                    }
-                },
-            )
+                // 顶栏已上收 Scaffold topBar 槽（原生小顶栏 + 返回）
         }
     }
 

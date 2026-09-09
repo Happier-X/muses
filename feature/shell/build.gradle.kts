@@ -33,7 +33,6 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
-            implementation(compose.material3)
             // U22：CMP Navigation（org.jetbrains.androidx.navigation，android 变体委托 androidx 同包名）
             implementation(libs.jetbrains.navigation.compose)
             implementation(libs.androidx.lifecycle.viewmodel)
@@ -58,8 +57,7 @@ kotlin {
                 implementation(compose.ui)
                 implementation(compose.foundation)
                 implementation(compose.animation)
-                implementation(compose.material3)
-                // 第一阶段迁移：TabsLayout 改用 miuix Text/Icon，需直引 miuix-ui
+                // TabsLayout 用 miuix Text/Icon，需直引 miuix-ui
                 implementation(libs.miuix.ui)
             }
         }

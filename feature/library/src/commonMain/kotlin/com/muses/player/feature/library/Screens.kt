@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
@@ -36,7 +37,7 @@ import com.muses.player.core.ui.components.LibraryArtistItem
 import com.muses.player.core.ui.components.LibrarySearchField
 import com.muses.player.core.ui.components.LibrarySongList
 import com.muses.player.core.ui.components.SongItem
-import com.muses.player.core.ui.icons.TablerIcons
+import com.muses.player.core.ui.components.MusesTopBar
 
 // ── 曲库主页（共用化）：标签页 + 网格 + 搜索 ────────────────────────
 // U8 曲库主页共用化：本文件为三屏的「共用装配层」——ViewModel 订阅 + 实体映射 +
@@ -221,26 +222,24 @@ fun AlbumDetailScreen(
     viewModel.bind(albumId)
     val albumWithSongs by viewModel.albumWithSongs.collectAsState()
 
-    val scheme = MiuixTheme.colorScheme
-    androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxSize().background(scheme.background)) {
-        // MusesNavbar：左返回箭头（对照 Web LibraryDetailPage navbar）
-        com.muses.player.core.ui.components.MusesNavbar(
-            title = albumWithSongs?.album?.title ?: "专辑",
-            left = {
-                Icon(
-                    TablerIcons.ArrowBack,
-                    contentDescription = "返回",
-                    modifier = Modifier.clickable(onClick = onBack),
-                )
-            },
-        )
-        val songs = albumWithSongs?.songs?.map { it.toDomain() }.orEmpty()
+    val songs = albumWithSongs?.songs?.map { it.toDomain() }.orEmpty()
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        topBar = {
+            // MusesNavbar：左返回箭头（对照 Web LibraryDetailPage navbar）→ 原生小顶栏
+            MusesTopBar(
+                title = albumWithSongs?.album?.title ?: "专辑",
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         LibrarySongList(
             songs = songs.map { it.toSongItem() },
             currentSongId = null,
             onPlay = { songId -> onPlaySong(songId, songs) },
             emptyTitle = "专辑中暂无歌曲",
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().padding(padding),
         )
     }
 }
@@ -281,25 +280,23 @@ fun ArtistDetailScreen(
     viewModel.bind(artistId)
     val artistWithSongs by viewModel.artistWithSongs.collectAsState()
 
-    val scheme = MiuixTheme.colorScheme
-    androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxSize().background(scheme.background)) {
-        com.muses.player.core.ui.components.MusesNavbar(
-            title = artistWithSongs?.artist?.name ?: "艺术家",
-            left = {
-                Icon(
-                    TablerIcons.ArrowBack,
-                    contentDescription = "返回",
-                    modifier = Modifier.clickable(onClick = onBack),
-                )
-            },
-        )
-        val songs = artistWithSongs?.songs?.map { it.toDomain() }.orEmpty()
+    val songs = artistWithSongs?.songs?.map { it.toDomain() }.orEmpty()
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        topBar = {
+            MusesTopBar(
+                title = artistWithSongs?.artist?.name ?: "艺术家",
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         LibrarySongList(
             songs = songs.map { it.toSongItem() },
             currentSongId = null,
             onPlay = { songId -> onPlaySong(songId, songs) },
             emptyTitle = "艺术家暂无歌曲",
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().padding(padding),
         )
     }
 }

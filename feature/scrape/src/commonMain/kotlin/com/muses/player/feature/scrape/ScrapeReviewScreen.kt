@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -50,7 +49,8 @@ import coil3.compose.AsyncImage
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesIconButton
-import com.muses.player.core.ui.components.MusesNavbar
+import com.muses.player.core.ui.components.MusesTopBar
+import top.yukonga.miuix.kmp.basic.Scaffold
 import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.ScrapeBadgeBox
 import com.muses.player.core.ui.components.ScrapeCandidateRow
@@ -82,15 +82,25 @@ fun ScrapeReviewScreen(
     val state by viewModel.state.collectAsState()
     val keyword by viewModel.keyword.collectAsState()
 
-    Column(Modifier.fillMaxSize().background(scheme.background)) {
-        SaltReviewNavbar(
-            onBack = {
-                // 手动返回即清待审队列（S3：不强推下一首）
-                onManualBack()
-                onBack()
-            },
-        )
-
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        topBar = {
+            MusesTopBar(
+                title = "刮削审核",
+                onBack = {
+                    // 手动返回即清待审队列（S3：不强推下一首）
+                    onManualBack()
+                    onBack()
+                },
+            )
+        },
+    ) { padding ->
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
         when (val s = state) {
             is ScrapeReviewState.Searching -> SearchingContent(viewModel.currentSong?.title)
 
@@ -115,26 +125,11 @@ fun ScrapeReviewScreen(
                 onNext = { next -> onAppliedAndNext(viewModel.lastWrittenSongId.orEmpty(), next) },
             )
         }
+        }
     }
 }
 
-// ── 顶栏 ──────────────────────────────────────────────────
-
-@Composable
-private fun SaltReviewNavbar(onBack: () -> Unit) {
-    val scheme = MiuixTheme.colorScheme
-    MusesNavbar(
-        title = "刮削审核",
-        left = {
-            MusesIconButton(
-                onClick = onBack,
-                imageVector = TablerIcons.ArrowBack,
-                contentDescription = "返回",
-                tint = scheme.onBackground,
-            )
-        },
-    )
-}
+// (顶栏已并入 Scaffold topBar 槽：SaltReviewNavbar 退役)
 
 // ── Searching / Writing / Success / Empty 态 ──────────────
 
@@ -218,8 +213,7 @@ private fun EmptyContent(
             onClick = { viewModel.search() },
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 80.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
         ) {
             Text("重试")
         }
@@ -331,8 +325,7 @@ private fun ReviewContent(
             enabled = state.checkedFields.isNotEmpty(),
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 80.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
         ) {
             Text("应用" + if (state.checkedFields.isNotEmpty()) "（${state.checkedFields.size}）" else "")
         }

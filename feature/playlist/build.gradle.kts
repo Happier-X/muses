@@ -26,7 +26,6 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
-            implementation(compose.material3)
             // androidx.lifecycle 2.8+ 的 ViewModel/viewModelScope 为 KMP 工件
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.kotlinx.coroutines.core)

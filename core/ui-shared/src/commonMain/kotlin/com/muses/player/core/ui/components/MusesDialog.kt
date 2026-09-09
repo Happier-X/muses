@@ -22,6 +22,8 @@ import top.yukonga.miuix.kmp.overlay.OverlayDialog
  * - `message` 对应原 `text` 为纯文本的场景，走 `summary` 槽位；富文本或表单场景走 [content]。
  * - 按钮区统一用 [MusesTextButton] 横排右对齐，危险确认走 `destructive = true`（红色）。
  * - 不可取消场景（如扫描进度）：传 `onDismiss = {}` 且不传 `dismissText`，与原来保持一致。
+ * - 渲染宿主：默认 `renderInRootScaffold = true`，经根 Scaffold（MusesApp）全屏呈现，
+ *   根 Scaffold 由壳层统一提供，调用方无需关心。
  */
 @Composable
 fun MusesDialog(
@@ -40,7 +42,6 @@ fun MusesDialog(
         title = title,
         summary = message,
         onDismissRequest = onDismiss,
-        renderInRootScaffold = false,
         content = {
             Column(Modifier.fillMaxWidth()) {
                 content()

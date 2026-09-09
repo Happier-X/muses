@@ -79,10 +79,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
 
     // Compose（U24：app 无自有 UI，仅 MainActivity setContent 壳需要 runtime/ui 基线；
-    // SaltTheme/组件经 :core:ui-shared 与 :feature:shell 提供）
+    // MusesTheme/组件经 :core:ui-shared 与 :feature:shell 提供）
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
-    implementation(libs.compose.material3)
 
     // P2a Koin（BOM 统一 4.2.0，无散装版本号）
     implementation(platform(libs.koin.bom))

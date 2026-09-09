@@ -1,7 +1,6 @@
 package com.muses.player.feature.sources
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import com.muses.player.core.ui.components.MusesDialog
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.uishared.platform.PlatformToast
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
@@ -26,10 +25,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
-import com.muses.player.core.ui.components.MusesNavbar
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.SourceFormCard
 import com.muses.player.core.ui.components.SourceFormInput
@@ -76,25 +77,23 @@ fun WebDavFormScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(scheme.background),
-    ) {
-        // .source-webdav-page__navbar-wrap
-        MusesNavbar(
-            title = if (isEditMode) "编辑 WebDAV" else "添加 WebDAV",
-            left = {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        topBar = {
+            MusesTopBar(
+                title = if (isEditMode) "编辑 WebDAV" else "添加 WebDAV",
                 // m-navbar-back-link：返回箭头按钮
-                MusesIconButtonBack(onClick = onBack)
-            },
-        )
-
-        // .source-webdav-page__content：表单可滚动
+                navigationIcon = { MusesIconButtonBack(onClick = onBack) },
+            )
+        },
+    ) { padding ->
+        // .source-webdav-page__content：表单可滚动（content 槽顶替原外层 Column，层级 1:1）
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .padding(padding)
                 .padding(horizontal = 12.dp)
                 .padding(top = 8.dp),
         ) {

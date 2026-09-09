@@ -15,6 +15,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.graphics.Color
+import top.yukonga.miuix.kmp.basic.Scaffold
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -261,7 +264,46 @@ fun MusesApp() {
     val miniPlayerLyricsEnabled by viewModel.miniPlayerLyricsEnabled.collectAsState()
     val currentLyricLine by viewModel.currentLyricLine.collectAsState()
 
-    Box(Modifier.fillMaxSize()) {
+    // 阶段二槽位化：根 Scaffold 承载弹窗容器 + bottomBar 停靠迷你条。
+    // 导航（抽屉/aside）仍走自绘 TabsLayout（进 content 槽）；顶栏仍各屏自绘（任务#7 再换原生）。
+    // bottomBar 保留胶囊视觉（左右 18dp + 圆角），由悬浮改为停靠：content 自动留空，
+    // 各屏手动 `bottom = 96.dp` 留白同步拆除（见各屏改动），jump-fab 避让改为 16dp。
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            BoxWithConstraints(Modifier.navigationBarsPadding()) {
+                // 歌词模式：开关开启且有当前歌词行时，用歌词替换艺术家
+                val lyricLine = if (miniPlayerLyricsEnabled) currentLyricLine else null
+                val miniSubtitle = if (lyricLine != null) {
+                    lyricLine
+                } else if (maxWidth >= TabletBreakpoint) {
+                    // 宽屏（Windows/平板）「艺术家 - 专辑」
+                    nowPlaying?.subtitle ?: "未知艺术家 - 未知专辑"
+                } else {
+                    // 窄屏「艺术家」
+                    nowPlaying?.artist ?: "未知艺术家"
+                }
+                MiniPlayerBar(
+                    title = nowPlaying?.title ?: "暂无播放歌曲",
+                    subtitle = miniSubtitle,
+                    coverUri = nowPlaying?.coverUri,
+                    isPlaying = isPlaying,
+                    hasSong = nowPlaying != null,
+                    onOpenPlayer = { showPlayerOverlay = true },
+                    onTogglePlayback = { viewModel.playPause() },
+                    onOpenQueue = { showQueueOverlay = true },
+                    onNext = { viewModel.skipToNext() },
+                    onPrevious = { viewModel.skipToPrevious() },
+                    modifier = Modifier
+                        .padding(horizontal = 18.dp, vertical = 8.dp)
+                        .fillMaxWidth(),
+                )
+            }
+        },
+    ) { _ ->
+        Box(Modifier.fillMaxSize()) {
         // 结构恒定：overlay 打开时不得切换 TabsLayout 分支（navVisible 恒 true）——
         // 原版 Web overlay 打开仅锁主页面交互（pointer-events:none），DOM 全保留；
         // 之前按 overlayRoute 切 navVisible 会让 content（NavHost）在组合树换位销毁重建，
@@ -271,36 +313,6 @@ fun MusesApp() {
             primaryItems = primaryItems,
             secondaryItems = secondaryItems,
             navVisible = true,
-            bottomBar = {
-                BoxWithConstraints(Modifier.navigationBarsPadding()) {
-                    // 歌词模式：开关开启且有当前歌词行时，用歌词替换艺术家
-                    val lyricLine = if (miniPlayerLyricsEnabled) currentLyricLine else null
-                    val miniSubtitle = if (lyricLine != null) {
-                        lyricLine
-                    } else if (maxWidth >= TabletBreakpoint) {
-                        // 宽屏（Windows/平板）「艺术家 - 专辑」
-                        nowPlaying?.subtitle ?: "未知艺术家 - 未知专辑"
-                    } else {
-                        // 窄屏「艺术家」
-                        nowPlaying?.artist ?: "未知艺术家"
-                    }
-                    MiniPlayerBar(
-                        title = nowPlaying?.title ?: "暂无播放歌曲",
-                        subtitle = miniSubtitle,
-                        coverUri = nowPlaying?.coverUri,
-                        isPlaying = isPlaying,
-                        hasSong = nowPlaying != null,
-                        onOpenPlayer = { showPlayerOverlay = true },
-                        onTogglePlayback = { viewModel.playPause() },
-                        onOpenQueue = { showQueueOverlay = true },
-                        onNext = { viewModel.skipToNext() },
-                        onPrevious = { viewModel.skipToPrevious() },
-                        modifier = Modifier
-                            .padding(horizontal = 18.dp, vertical = 8.dp)
-                            .fillMaxWidth(),
-                    )
-                }
-            },
         ) {
             AppNavHost(navController)
         }
@@ -325,6 +337,7 @@ fun MusesApp() {
         if (showQueueOverlay) {
             // 队列已是 Dialog 弹窗：返回/遮罩点击由 Dialog 自行消费，此处不再套 ShellBackHandler
             QueueScreen(onClose = { showQueueOverlay = false })
+        }
         }
     }
 }

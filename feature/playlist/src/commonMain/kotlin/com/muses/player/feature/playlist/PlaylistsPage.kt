@@ -1,23 +1,22 @@
 package com.muses.player.feature.playlist
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,10 +24,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import com.muses.player.core.ui.theme.LocalHazeBlurState
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.ViewModel
@@ -43,7 +40,7 @@ import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesListRow
-import com.muses.player.core.ui.components.MusesNavbar
+import com.muses.player.core.ui.components.MusesTopBar
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -54,7 +51,7 @@ import kotlinx.coroutines.launch
  * 歌单页 —— PlaylistsPage.vue 一比一翻译。
  *
  * 结构对照（BEM 类名见各段注释）：
- * - navbar：MusesNavbar(title=歌单, right=新建按钮 32dp clear rounded + add 图标 16px)
+ * - navbar：MusesTopBar(title=歌单, largeTitle 折叠, actions=新建按钮)
  * - 空态：m-empty「还没有歌单 / 点右上角新建，或在歌曲页「更多」加入歌单。」(icon=list)
  * - 列表行 `.playlists-page__row`（min-height --m-list-row-h、hairline 分隔）：
  *   m-cover 48/radius-sm(placeholder=list) → 标题 17/600 单行省略 +
@@ -122,36 +119,58 @@ fun PlaylistsPage(
     var nameDialog by remember { mutableStateOf<NameDialogState?>(null) }
     var deleteTargetId by remember { mutableStateOf<String?>(null) }
 
-    val hazeState = rememberHazeState()
-    CompositionLocalProvider(LocalHazeBlurState provides hazeState) {
-        Box(modifier = modifier.fillMaxSize()) {
-            val navbarTopPadding = with(LocalDensity.current) {
-                WindowInsets.statusBars.getTop(this).toDp()
-            }.coerceAtLeast(16.dp) + 44.dp
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .hazeSource(state = hazeState)
-                    .background(MiuixTheme.colorScheme.background),
-            ) {
-                if (rows.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = navbarTopPadding),
-                        contentAlignment = Alignment.Center,
+    val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        topBar = {
+            MusesTopBar(
+                title = "歌单",
+                largeTitle = "歌单",
+                actions = {
+                    MusesIconButton(
+                        onClick = {
+                            nameDialog = NameDialogState(NameDialogMode.CREATE, initialName = "")
+                        },
+                        size = com.muses.player.core.ui.components.MusesIconButtonSize.SM,
+                        contentDescription = "新建歌单",
                     ) {
-                        MusesEmpty(
-                            title = "还没有歌单",
-                            description = "点右上角新建，或在歌曲页「更多」加入歌单。",
-                            icon = TablerIcons.QueueMusic,
+                        Icon(
+                            TablerIcons.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
                         )
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = navbarTopPadding, bottom = 96.dp),
-                    ) {
+                },
+                scrollBehavior = topBarScrollBehavior,
+            )
+        },
+    ) { padding ->
+        // overlay 层：与原外层 Box 严格对应（对话框/浮层挂载域，层级 1:1）
+        Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            if (rows.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    MusesEmpty(
+                        title = "还没有歌单",
+                        description = "点右上角新建，或在歌曲页「更多」加入歌单。",
+                        icon = TablerIcons.QueueMusic,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                ) {
                 items(rows, key = { it.playlist.id }) { row ->
                     MusesListRow(
                         title = row.name,
@@ -178,25 +197,7 @@ fun PlaylistsPage(
                     }
                 }
             }
-            MusesNavbar(
-                title = "歌单",
-                modifier = Modifier.align(Alignment.TopCenter),
-                right = {
-                    MusesIconButton(
-                        onClick = {
-                            nameDialog = NameDialogState(NameDialogMode.CREATE, initialName = "")
-                        },
-                        size = com.muses.player.core.ui.components.MusesIconButtonSize.SM,
-                        contentDescription = "新建歌单",
-                    ) {
-                        Icon(
-                            TablerIcons.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                },
-            )
+            // 顶栏已上收 Scaffold topBar 槽（原生大标题）
         }
     }
 

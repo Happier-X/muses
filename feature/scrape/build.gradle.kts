@@ -28,7 +28,6 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
-            implementation(compose.material3)
             // SavedStateHandle 随 lifecycle-viewmodel 2.8+ KMP 工件（ScrapeReviewViewModel 构造）
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.kotlinx.coroutines.core)

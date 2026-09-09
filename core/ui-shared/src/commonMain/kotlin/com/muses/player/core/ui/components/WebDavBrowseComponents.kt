@@ -150,7 +150,7 @@ fun WebDavBrowseList(
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
-                    contentPadding = PaddingValues(bottom = 96.dp),
+                    contentPadding = PaddingValues(bottom = 16.dp),
                 ) {
                     items(directories, key = { it.url }) { directory ->
                         WebDavBrowseRow(
@@ -174,7 +174,7 @@ fun WebDavBrowseList(
                     MusesTextButton(
                         onClick = { onConfirmMultiple(selectedPaths.toList()) },
                         text = "添加选中的 ${selectedPaths.size} 个文件夹",
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 96.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                     )
                 }
             }

@@ -27,7 +27,6 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
-            implementation(compose.material3)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
             // P2a Koin（统一 4.2.0；KMP sourceSets 不支持 platform(BOM)，toml 已显式挂版本）
@@ -48,7 +47,6 @@ kotlin {
                 implementation(compose.ui)
                 implementation(compose.foundation)
                 implementation(compose.animation)
-                implementation(compose.material3)
                 // U21：collectAsStateWithLifecycle（lifecycle 2.11 KMP 工件，双端可用）
                 implementation(libs.androidx.lifecycle.runtime.compose)
                 implementation(libs.coil.compose)

@@ -54,7 +54,6 @@ kotlin {
         }
 
         commonMain.dependencies {
-            implementation(compose.material3)
             implementation(compose.foundation)
             implementation(compose.ui)
             implementation(libs.kotlinx.coroutines.core)

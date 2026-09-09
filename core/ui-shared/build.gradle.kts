@@ -26,7 +26,6 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.ui)
             implementation(compose.foundation)
-            implementation(compose.material3)
             // Tabler Icons（KMP 坐标：outline + filled；注意空基座陷阱：不要单独声明 icons-tabler-cmp）
             implementation(libs.tabler.icons.cmp)
             implementation(libs.tabler.filled.icons.cmp)

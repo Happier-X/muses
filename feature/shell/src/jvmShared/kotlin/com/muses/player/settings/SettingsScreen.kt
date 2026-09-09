@@ -82,8 +82,7 @@ fun SettingsScreen(
                 val settingsRepository = koinInject<SettingsRepository>()
                 val lyricsEnabled by settingsRepository.miniPlayerLyricsEnabled.collectAsState(initial = false)
                 val coroutineScope = rememberCoroutineScope()
-                // miuix 化首批：播放区开关行改 SwitchPreference（HyperOS 原生开关样式，
-                // 明暗经 SaltTheme 桥接的 MiuixTheme 同源；桌面同为 KMP 产物，一致渲染）
+                // miuix 原生开关行（明暗经 MiuixTheme 同源；桌面同为 KMP 产物，一致渲染）
                 top.yukonga.miuix.kmp.preference.SwitchPreference(
                     title = "播放控件显示歌词",
                     summary = "开启后播放控件将使用当前歌词替换艺术家，长歌词会随播放自动滚动",

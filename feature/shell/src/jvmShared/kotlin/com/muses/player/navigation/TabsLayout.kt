@@ -104,7 +104,6 @@ data class MusesNavItem(
  * 双形态主框架。
  *
  * @param navVisible false 时隐藏侧边栏/抽屉（播放页/队列页等覆盖路由全屏呈现）
- * @param bottomBar 叠加在内容区之上的底部悬浮层（MiniPlayer）
  */
 @Composable
 fun TabsLayout(
@@ -112,7 +111,6 @@ fun TabsLayout(
     secondaryItems: List<MusesNavItem>,
     navVisible: Boolean,
     modifier: Modifier = Modifier,
-    bottomBar: @Composable () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     val hazeState = rememberHazeState()
@@ -133,7 +131,6 @@ fun TabsLayout(
                 TabletLayout(
                     primaryItems = primaryItems,
                     secondaryItems = secondaryItems,
-                    bottomBar = bottomBar,
                     hazeState = hazeState,
                     modifier = Modifier,
                     content = content,
@@ -143,7 +140,6 @@ fun TabsLayout(
                     primaryItems = primaryItems,
                     secondaryItems = secondaryItems,
                     containerWidth = maxWidth,
-                    bottomBar = bottomBar,
                     hazeState = hazeState,
                     content = content,
                 )
@@ -159,14 +155,12 @@ fun TabsLayout(
 /**
  * `.tabs-layout__aside` + `.tabs-layout__panel`（非卡片分组形态）。
  *
- * [bottomBar]（MiniPlayer）：Web 版 MiniPlayer 无平板覆盖段——平板下仍以
- * fixed left/right 18px 全宽胶囊悬浮，故 aside 形态照常渲染（z 序同手机）。
+ * 迷你条已停靠根 Scaffold bottomBar（阶段二），此处不再叠加悬浮层。
  */
 @Composable
 private fun TabletLayout(
     primaryItems: List<MusesNavItem>,
     secondaryItems: List<MusesNavItem>,
-    bottomBar: @Composable () -> Unit,
     hazeState: dev.chrisbanes.haze.HazeState,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
@@ -202,8 +196,6 @@ private fun TabletLayout(
                 content()
             }
         }
-        // MiniPlayer（z-index 1000）：视口级 fixed 全宽胶囊，浮于 aside 之上，真磨砂由 MiniPlayerBar 内部 hazeEffect 消费 hazeSource。
-        Box(Modifier.align(Alignment.BottomCenter)) { bottomBar() }
     }
 }
 
@@ -231,7 +223,6 @@ private fun PhoneLayout(
     primaryItems: List<MusesNavItem>,
     secondaryItems: List<MusesNavItem>,
     containerWidth: Dp,
-    bottomBar: @Composable () -> Unit,
     hazeState: dev.chrisbanes.haze.HazeState,
     content: @Composable () -> Unit,
 ) {
@@ -327,7 +318,8 @@ private fun PhoneLayout(
                 .offsetX { ((openFraction.value - 1f) * drawerWidthPx).roundToInt() },
         )
 
-        // __main：开态右移一个抽屉宽；向页内 MusesNavbar 提供汉堡打开回调；同时作为底部真磨砂的 hazeSource（与 bottomBar 同级）
+        // __main：开态右移一个抽屉宽；向页内 MusesTopBar 提供汉堡打开回调；同时作为 hazeSource
+        // （迷你条停靠根 Scaffold bottomBar 后仍在其下方，haze 真磨砂链路不变）
         Box(
             Modifier
                 .align(Alignment.TopStart)
@@ -355,8 +347,7 @@ private fun PhoneLayout(
             )
         }
 
-        // MiniPlayer（z-index 1000）：层级高于 drawer-dismiss，真磨砂由 MiniPlayerBar 内部 hazeEffect 消费上层 hazeSource
-        Box(Modifier.align(Alignment.BottomCenter)) { bottomBar() }
+        // 迷你条已停靠根 Scaffold bottomBar（阶段二），此处不再叠加悬浮层。
     }
 }
 

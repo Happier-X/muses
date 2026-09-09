@@ -2,7 +2,6 @@ package com.muses.player.feature.sources
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,13 +10,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,11 +25,13 @@ import com.muses.player.core.ui.components.MusesBottomSheet
 import com.muses.player.core.ui.components.MusesButton
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import com.muses.player.core.ui.components.MusesTextField
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,10 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import com.muses.player.core.ui.theme.LocalHazeBlurState
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -61,8 +58,7 @@ import com.muses.player.core.ui.components.SourceListItem
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
-import com.muses.player.core.ui.components.MusesNavbar
-import com.muses.player.core.ui.components.MusesTextButton
+import com.muses.player.core.ui.components.MusesTopBar
 import top.yukonga.miuix.kmp.basic.Switch
 import com.muses.player.core.model.SourceType
 
@@ -83,23 +79,37 @@ fun SourcesScreen(
     // 扫描进度弹窗观察 scanner 内部进度流
     val scanProgress by viewModel.scanProgress.collectAsState()
 
-    val hazeState = rememberHazeState()
-    CompositionLocalProvider(LocalHazeBlurState provides hazeState) {
-        Box(modifier = modifier.fillMaxSize()) {
-            val navbarTopPadding = with(LocalDensity.current) {
-                WindowInsets.statusBars.getTop(this).toDp()
-            }.coerceAtLeast(16.dp) + 44.dp
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .hazeSource(state = hazeState)
-                    .background(MiuixTheme.colorScheme.background),
+    val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        topBar = {
+            MusesTopBar(
+                title = "音源",
+                largeTitle = "音源",
+                actions = {
+                    MusesIconButton(
+                        onClick = { viewModel.openAddActionSheet() },
+                        size = MusesIconButtonSize.SM,
+                        contentDescription = "添加音源",
+                    ) {
+                        Icon(TablerIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                },
+                scrollBehavior = topBarScrollBehavior,
+            )
+        },
+    ) { padding ->
+        // overlay 层：与原外层 Box 严格对应（对话框/浮层挂载域，层级 1:1）
+        Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = navbarTopPadding),
-                ) {
                     if (sources.isEmpty()) {
                         Box(
                             Modifier
@@ -117,7 +127,9 @@ fun SourcesScreen(
                     } else {
                         SourceCardList(
                             sources = sources,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
                 onEdit = { source ->
                     // WebDAV：跳独立编辑表单页；本地：打开编辑表单弹窗
                     if (source.type == SourceType.WEBDAV) {
@@ -132,19 +144,7 @@ fun SourcesScreen(
                     }
                 }
             }
-            MusesNavbar(
-                title = "音源",
-                modifier = Modifier.align(Alignment.TopCenter),
-                right = {
-                    MusesIconButton(
-                        onClick = { viewModel.openAddActionSheet() },
-                        size = MusesIconButtonSize.SM,
-                        contentDescription = "添加音源",
-                    ) {
-                        Icon(TablerIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }
-                },
-            )
+            // 顶栏已上收 Scaffold topBar 槽（原生大标题）
         }
     }
 
@@ -352,7 +352,7 @@ private fun SourceCardList(
             start = 12.dp,
             end = 12.dp,
             top = 8.dp,
-            bottom = 96.dp,
+            bottom = 16.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

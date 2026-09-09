@@ -1,21 +1,20 @@
 package com.muses.player.feature.sources
 
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import com.muses.player.core.ui.components.MusesDialog
-import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
-import com.muses.player.core.ui.components.MusesNavbar
 import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.MusesTextButtonSize
+import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.WebDavBrowseItem
 import com.muses.player.core.ui.components.WebDavBrowseList
 /**
@@ -42,7 +41,6 @@ fun WebDavBrowseScreen(
     modifier: Modifier = Modifier,
     viewModel: WebDavBrowseViewModel = koinViewModel(),
 ) {
-    val scheme = MiuixTheme.colorScheme
     val browseState by viewModel.browseState.collectAsState()
 
     // 初始化
@@ -61,30 +59,30 @@ fun WebDavBrowseScreen(
         onConfirm(paths)
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(scheme.background),
-    ) {
-        // .source-webdav-browse-page__navbar-wrap
-        MusesNavbar(
-            title = if (mode == "single") "选择目录" else "选择文件夹",
-            left = {
-                MusesTextButton(
-                    text = "返回",
-                    onClick = {
-                        viewModel.clearSelection()
-                        onBack()
-                    },
-                    size = MusesTextButtonSize.SMALL,
-                )
-            },
-        )
-
-        // .source-webdav-browse-page__content
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        topBar = {
+            MusesTopBar(
+                title = if (mode == "single") "选择目录" else "选择文件夹",
+                navigationIcon = {
+                    MusesTextButton(
+                        text = "返回",
+                        onClick = {
+                            viewModel.clearSelection()
+                            onBack()
+                        },
+                        size = MusesTextButtonSize.SMALL,
+                    )
+                },
+            )
+        },
+    ) { padding ->
+        // .source-webdav-browse-page__content（content 槽顶替原外层 Column，层级 1:1）
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(padding)
                 .padding(horizontal = 12.dp)
                 .padding(top = 8.dp),
         ) {

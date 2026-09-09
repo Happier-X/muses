@@ -3,14 +3,12 @@ package com.muses.player.core.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -19,10 +17,11 @@ import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -30,7 +29,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 音源有独立模块（feature:sources 音源页），设置页不再重复承载，
  * 历史遗留的「Android 端 emptyList 占位死区块」随之消除）。
  *
- * 纯 UI 容器：吸顶 MusesNavbar + 滚动容器 + 底部 MiniPlayer 避让；
+ * 纯 UI 容器：原生小顶栏 + 滚动容器（Scaffold topBar 槽）；
  * - [extraContent]：平台专属扩展区域（Android 放「关于/反馈」，Desktop 留空）。
  *
  * 约束：commonMain 零安卓 import。
@@ -40,34 +39,26 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     extraContent: @Composable () -> Unit = {},
 ) {
-    val scheme = MiuixTheme.colorScheme
-
-    // ---- navbar 顶部避让 ----
-    // 与 MusesNavbar 同口径：CMP WindowInsets 跨平台取真实状态栏高度，桌面返回 0
-    val statusBarTop = with(LocalDensity.current) {
-        WindowInsets.statusBars.getTop(this).toDp()
-    }
-    val navbarPt = maxOf(16.dp, statusBarTop) + 44.dp
-
-    Box(modifier = modifier.fillMaxSize().background(scheme.background)) {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        topBar = {
+            MusesTopBar(title = "设置")
+        },
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(top = navbarPt + 8.dp),
+                .padding(padding)
+                .padding(top = 8.dp),
         ) {
             // ---- 平台扩展区域 ----
             extraContent()
 
-            // ---- 底部避让 MiniPlayer ----
-            Spacer(Modifier.height(96.dp))
+            // ---- 底部呼吸感（迷你条已停靠 bottomBar，Scaffold 自动留空） ----
+            Spacer(Modifier.height(16.dp))
         }
-
-        // ---- 吸顶导航栏 ----
-        MusesNavbar(
-            title = "设置",
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
     }
 }
 
