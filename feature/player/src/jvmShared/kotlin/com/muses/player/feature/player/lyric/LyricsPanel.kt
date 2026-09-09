@@ -1,5 +1,6 @@
 package com.muses.player.feature.player.lyric
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.text.BreakIterator
 import java.util.Locale
 import androidx.compose.animation.core.Animatable
@@ -100,7 +101,6 @@ import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.core.lyrics.model.withPseudoTiming
 import com.muses.player.feature.player.lyric.SettingsRuntime
 import com.muses.player.feature.player.lyric.AppVisibility
-import com.muses.player.feature.player.lyric.LyricsStyle
 import com.muses.player.feature.player.lyric.LocalFontFamily
 import com.muses.player.feature.player.lyric.LanTingProFontFamily
 import com.muses.player.feature.player.platform.platformRealtimeMs
@@ -209,38 +209,19 @@ fun LyricsPanel(
     isInterfaceHidden: Boolean = false,
     onInterfaceInteraction: () -> Unit = {},
     onInterfaceVisibilityChange: (Boolean) -> Unit = {},
-    allowAutomaticSkyline: Boolean = true,
     active: Boolean = true,
     externalDocument: com.muses.player.core.lyrics.model.LyricsDocument? = null,
 ) {
     androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier) {
-        // U21：横竖屏判定改用视口约束（原 LocalConfiguration 仅安卓可用）
-        if (allowAutomaticSkyline && maxWidth > maxHeight && SettingsRuntime.skylineEnabled) {
-            SkylineLyricsPanel(state, Modifier, onInterfaceInteraction, active)
-            return@BoxWithConstraints
-        }
-        when (SettingsRuntime.lyricsStyle) {
-            LyricsStyle.AppleMusic -> AppleMusicLyricsPanel(
-                state,
-                Modifier,
-                isInterfaceHidden,
-                onInterfaceInteraction,
-                onInterfaceVisibilityChange,
-                active,
-                externalDocument = externalDocument,
-            )
-            LyricsStyle.Eva -> EvaLyricsPanel(state, Modifier, onInterfaceInteraction, active)
-            LyricsStyle.TextPV -> TextPVLyricsPanel(state, Modifier, onInterfaceInteraction, active)
-            else -> AppleMusicLyricsPanel(
-                state,
-                Modifier,
-                isInterfaceHidden,
-                onInterfaceInteraction,
-                onInterfaceVisibilityChange,
-                active,
-                externalDocument = externalDocument,
-            )
-        }
+        AppleMusicLyricsPanel(
+            state,
+            Modifier,
+            isInterfaceHidden,
+            onInterfaceInteraction,
+            onInterfaceVisibilityChange,
+            active,
+            externalDocument = externalDocument,
+        )
     }
 }
 
@@ -908,7 +889,7 @@ private fun AppleMusicLyricsPanel(
                     text = errorMessage.orEmpty(),
                     modifier = Modifier.align(Alignment.Center).padding(24.dp),
                     color = Color.White.copy(alpha = 0.52f),
-                    fontSize = 15.sp,
+                    style = MiuixTheme.textStyles.body1,
                 )
             }
             document != null && lines.isEmpty() -> {
@@ -916,7 +897,7 @@ private fun AppleMusicLyricsPanel(
                     text = "暂无歌词",
                     modifier = Modifier.align(Alignment.Center),
                     color = Color.White.copy(alpha = 0.42f),
-                    fontSize = 18.sp,
+                    style = MiuixTheme.textStyles.title4,
                 )
             }
             document == null -> {
@@ -924,7 +905,7 @@ private fun AppleMusicLyricsPanel(
                     text = "暂无歌词",
                     modifier = Modifier.align(Alignment.Center),
                     color = Color.White.copy(alpha = 0.42f),
-                    fontSize = 18.sp,
+                    style = MiuixTheme.textStyles.title4,
                 )
             }
             else -> {

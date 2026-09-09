@@ -67,7 +67,7 @@ fun GlassSurface(
             .then(
                 if (borderEnabled) {
                     Modifier.border(
-                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
+                        border = BorderStroke(0.5.dp, scheme.outline),
                         shape = shape,
                     )
                 } else {

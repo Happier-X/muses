@@ -75,16 +75,16 @@ internal fun LyricShareDialog(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("取消", color = MiuixTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onDismiss).padding(8.dp))
-                Text("分享歌词", Modifier.weight(1f), color = foreground, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text("分享歌词", Modifier.weight(1f), color = foreground, style = MiuixTheme.textStyles.title4, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Text("全选", color = MiuixTheme.colorScheme.primary, modifier = Modifier.clickable { selected = lines.indices.toSet() }.padding(8.dp))
             }
 
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 AsyncImage(state.artworkUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp)))
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                    Text(state.title, color = foreground, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(state.title, color = foreground, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MiuixTheme.textStyles.title4, fontWeight = FontWeight.Bold)
                     Text(state.artist, maxLines = 1, overflow = TextOverflow.Ellipsis, color = foreground.copy(alpha = .58f))
-                    Text("已选择 ${selected.size} 行 · 无字符数量限制", fontSize = 12.sp, color = foreground.copy(alpha = .48f), modifier = Modifier.padding(top = 4.dp))
+                    Text("已选择 ${selected.size} 行 · 无字符数量限制", style = MiuixTheme.textStyles.footnote1, color = foreground.copy(alpha = .48f), modifier = Modifier.padding(top = 4.dp))
                 }
             }
 
@@ -109,12 +109,12 @@ internal fun LyricShareDialog(
                             }
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                     ) {
-                        Text(line.text, color = surfaceForeground, fontSize = 17.sp, lineHeight = 23.sp, fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal)
+                        Text(line.text, color = surfaceForeground, style = MiuixTheme.textStyles.main, lineHeight = 23.sp, fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal)
                     }
                 }
             }
 
-            error?.let { Text(it, color = MiuixTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+            error?.let { Text(it, color = MiuixTheme.colorScheme.error, style = MiuixTheme.textStyles.footnote1, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
             Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ShareButton("分享文本", Modifier.weight(1f), selected.isNotEmpty() && !generating) {
                     val chosen = selected.sorted().mapNotNull(lines::getOrNull)

@@ -174,7 +174,7 @@ fun WebDavFormScreen(
                     Spacer(Modifier.width(8.dp))
                     Text(
                         if (formState.isVerifying) "正在验证连接…" else "正在保存…",
-                        fontSize = 14.sp,
+                        style = MiuixTheme.textStyles.body2,
                         color = scheme.onBackgroundVariant,
                     )
                 }

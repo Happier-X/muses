@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -25,8 +26,8 @@ import kotlinx.coroutines.delay
 
 /**
  * 桌面 Toast 浮层（U2）：消费 [PlatformToast] 消息总线，底部居中短提示，
- * 2.2s 自动消退。对照安卓 Toast.LENGTH_SHORT 的停留节奏；样式取 Salt 深色胶囊
- * （与桌面壳 MusesDesktopApp 的 Catppuccin 底色一致）。
+ * 2.2s 自动消退。对照安卓 Toast.LENGTH_SHORT 的停留节奏；样式走 miuix 官方
+ * 默认颜色 token（surfaceVariant 胶囊 + onSurface 文本，明暗随主题）。
  *
  * 覆盖层不参与点击命中（无 pointerInput），浮层显示期间交互照常穿透。
  * 由桌面壳在内容顶层挂载一次：`DesktopToastOverlay()`。
@@ -61,18 +62,19 @@ fun DesktopToastOverlay(modifier: Modifier = Modifier) {
     }
 
     visibleText?.let { text ->
+        val scheme = MiuixTheme.colorScheme
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
             Box(
                 modifier = Modifier
                     .padding(bottom = 56.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xCC181825))
+                    .background(scheme.surfaceVariant.copy(alpha = 0.8f))
                     .padding(horizontal = 16.dp, vertical = 10.dp),
             ) {
                 Text(
                     text = text,
-                    color = Color(0xFFCDD6F4),
-                    fontSize = 14.sp,
+                    color = scheme.onSurface,
+                    style = MiuixTheme.textStyles.body2,
                     fontWeight = FontWeight.Medium,
                 )
             }

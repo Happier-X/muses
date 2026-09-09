@@ -128,7 +128,7 @@ fun AlbumsPage(
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 text = card.album.title,
-                                fontSize = 17.sp,
+                                style = MiuixTheme.textStyles.main,
                                 fontWeight = FontWeight.SemiBold,
                                 lineHeight = (17 * 1.3).sp,
                                 color = scheme.onBackground,
@@ -137,7 +137,7 @@ fun AlbumsPage(
                             )
                             Text(
                                 text = "${card.album.songCount} 首歌曲",
-                                fontSize = 13.sp,
+                                style = MiuixTheme.textStyles.footnote1,
                                 lineHeight = (13 * 1.35).sp,
                                 color = scheme.onBackgroundVariant,
                                 maxLines = 1,
@@ -145,7 +145,7 @@ fun AlbumsPage(
                             )
                             Text(
                                 text = card.album.artist ?: "",
-                                fontSize = 13.sp,
+                                style = MiuixTheme.textStyles.footnote1,
                                 color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -232,7 +232,7 @@ fun ArtistsPage(
                         ) {
                             Text(
                                 text = card.artist.name,
-                                fontSize = 17.sp,
+                                style = MiuixTheme.textStyles.main,
                                 fontWeight = FontWeight.SemiBold,
                                 lineHeight = (17 * 1.3).sp,
                                 color = scheme.onBackground,
@@ -243,14 +243,14 @@ fun ArtistsPage(
                             )
                             Text(
                                 text = "${card.artist.songCount} 首歌曲",
-                                fontSize = 13.sp,
+                                style = MiuixTheme.textStyles.footnote1,
                                 color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 text = "${card.artist.albumCount} 张专辑",
-                                fontSize = 13.sp,
+                                style = MiuixTheme.textStyles.footnote1,
                                 color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,

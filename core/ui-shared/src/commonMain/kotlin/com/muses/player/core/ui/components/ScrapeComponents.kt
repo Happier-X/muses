@@ -169,7 +169,7 @@ fun ScrapeCandidateRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = candidate.title,
-                fontSize = 14.sp,
+                style = MiuixTheme.textStyles.body2,
                 fontWeight = FontWeight.SemiBold,
                 color = if (selected) scheme.primary else scheme.onBackground,
                 maxLines = 1,
@@ -178,7 +178,7 @@ fun ScrapeCandidateRow(
             if (!candidate.subtitle.isNullOrBlank()) {
                 Text(
                     text = candidate.subtitle,
-                    fontSize = 12.sp,
+                    style = MiuixTheme.textStyles.footnote1,
                     color = scheme.onBackgroundVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -198,7 +198,7 @@ fun ScrapeCandidateRow(
                             .background(scheme.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     ) {
-                        Text(candidate.confidenceLabel, fontSize = 10.sp, color = scheme.primary)
+                        Text(candidate.confidenceLabel, style = MiuixTheme.textStyles.footnote2, color = scheme.primary)
                     }
                 }
             }
@@ -242,7 +242,7 @@ fun ScrapeProgressBar(
     ) {
         CircularProgressIndicator()
         Spacer(Modifier.height(20.dp))
-        Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
+        Text(title, style = MiuixTheme.textStyles.main, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
         Spacer(Modifier.height(8.dp))
         LinearProgressIndicator(
             progress = if (total > 0) current.toFloat() / total else 0f,
@@ -252,7 +252,7 @@ fun ScrapeProgressBar(
         if (!currentItem.isNullOrBlank()) {
             Text(
                 currentItem,
-                fontSize = 13.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -262,7 +262,7 @@ fun ScrapeProgressBar(
             Spacer(Modifier.height(12.dp))
             Text(
                 message,
-                fontSize = 13.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = scheme.primary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -383,7 +383,7 @@ fun ScrapeReviewFieldRow(
             }
             Text(
                 "${field.label}：$display",
-                fontSize = 12.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = if (field.checked) scheme.onBackground else scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -399,7 +399,7 @@ fun ScrapeReviewFieldRow(
                     .background(scheme.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
                     .padding(horizontal = 5.dp, vertical = 2.dp),
             ) {
-                Text("推荐", fontSize = 9.sp, color = scheme.primary)
+                Text("推荐", style = MiuixTheme.textStyles.footnote2, color = scheme.primary)
             }
         }
     }
@@ -428,7 +428,7 @@ fun ScrapeResultRow(
         Column(Modifier.weight(1f)) {
             Text(
                 result.title,
-                fontSize = 13.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -436,14 +436,14 @@ fun ScrapeResultRow(
             if (result.detail != null) {
                 Text(
                     result.detail,
-                    fontSize = 11.sp,
+                    style = MiuixTheme.textStyles.footnote2,
                     color = if (result.detailHighlight) scheme.primary else scheme.onBackgroundVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        Text(result.statusWire, fontSize = 13.sp, color = statusColor(result.statusKind))
+        Text(result.statusWire, style = MiuixTheme.textStyles.footnote1, color = statusColor(result.statusKind))
         if (result.retryText != null && onRetry != null) {
             Spacer(Modifier.size(8.dp))
             MusesTextButton(
@@ -463,15 +463,16 @@ fun ScrapeBadgeBox(text: String, modifier: Modifier = Modifier) {
             .background(scheme.surfaceVariant, RoundedCornerShape(4.dp))
             .padding(horizontal = 5.dp, vertical = 1.dp),
     ) {
-        Text(text, fontSize = 9.sp, color = scheme.onBackgroundVariant)
+        Text(text, style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
     }
 }
 
-/** 写回状态配色（对齐 ScrapeScreen statusColor 令牌）。 */
+/** 写回状态配色：error 走 miuix 官方 token；success/warning 无官方对应项，保留语义色 */
+@Composable
 private fun statusColor(kind: ScrapeStatusKind): Color = when (kind) {
     ScrapeStatusKind.SUCCESS -> Color(0xFF34C759)
     ScrapeStatusKind.WARNING -> Color(0xFFFF9500)
-    ScrapeStatusKind.ERROR -> Color(0xFFFF3B30)
+    ScrapeStatusKind.ERROR -> MiuixTheme.colorScheme.error
 }
 
 /**

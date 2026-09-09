@@ -210,7 +210,7 @@ fun WindowScope.DesktopTitleBar(
                 Text(
                     text = title,
                     color = scheme.onBackground,
-                    fontSize = 13.sp,
+                    style = MiuixTheme.textStyles.footnote1,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(start = 8.dp),
                 )

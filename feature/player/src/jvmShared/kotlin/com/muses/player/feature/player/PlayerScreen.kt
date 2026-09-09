@@ -656,7 +656,7 @@ private fun FixedSongHead(
         Text(
             text = title,
             color = Color.White.copy(alpha = 0.95f),
-            fontSize = 20.sp,
+            style = MiuixTheme.textStyles.title3,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 0.2.sp, // 0.01em × 20px
             maxLines = 1,
@@ -667,7 +667,7 @@ private fun FixedSongHead(
             Text(
                 text = artist,
                 color = Color.White.copy(alpha = 0.6f),
-                fontSize = 13.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 18.sp,
@@ -1062,7 +1062,7 @@ fun QueueScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("播放队列", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = scheme.onBackground)
+                        Text("播放队列", style = MiuixTheme.textStyles.main, fontWeight = FontWeight.Bold, color = scheme.onBackground)
                         Row {
                             if (queue.isNotEmpty()) {
                                 Icon(TablerIcons.Delete, contentDescription = "清空队列", tint = scheme.onBackground.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
@@ -1093,10 +1093,10 @@ fun QueueScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text(item.title, color = scheme.onBackground, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text(item.artist ?: "未知歌手", color = scheme.onBackgroundVariant, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(item.title, color = scheme.onBackground, style = MiuixTheme.textStyles.body1, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(item.artist ?: "未知歌手", color = scheme.onBackgroundVariant, style = MiuixTheme.textStyles.footnote1, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
-                                        Text((index + 1).toString(), color = scheme.onBackgroundVariant, fontSize = 13.sp)
+                                        Text((index + 1).toString(), color = scheme.onBackgroundVariant, style = MiuixTheme.textStyles.footnote1)
                                         Spacer(Modifier.width(12.dp))
                                         Icon(TablerIcons.Close, contentDescription = "从队列删除", tint = scheme.onBackgroundVariant, modifier = Modifier.size(18.dp).clickable { viewModel.removeQueueItemAt(index) })
                                     }

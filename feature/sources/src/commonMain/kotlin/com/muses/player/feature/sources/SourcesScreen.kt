@@ -241,7 +241,7 @@ fun SourcesScreen(
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("读取音乐标签", fontSize = 15.sp, color = scheme.onBackground)
+                    Text("读取音乐标签", style = MiuixTheme.textStyles.body1, color = scheme.onBackground)
                     Spacer(Modifier.width(12.dp))
                     Switch(
                         checked = viewModel.scanReadTags,
@@ -251,7 +251,7 @@ fun SourcesScreen(
                 Spacer(Modifier.height(12.dp))
                 Text(
                     "开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。",
-                    fontSize = 13.sp,
+                    style = MiuixTheme.textStyles.footnote1,
                     lineHeight = 18.sp,
                     color = scheme.onBackgroundVariant,
                     textAlign = TextAlign.Center,
@@ -278,11 +278,11 @@ fun SourcesScreen(
             confirmText = if (scanProgress.finished || scanError != null) "关闭" else null,
             onConfirm = { viewModel.dismissScanProgress() },
             content = {
-                Text(stageText, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
+                Text(stageText, style = MiuixTheme.textStyles.main, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
                 Spacer(Modifier.height(12.dp))
                 when {
                     scanError != null -> {
-                        Text(scanError, fontSize = 13.sp, color = scheme.error)
+                        Text(scanError, style = MiuixTheme.textStyles.footnote1, color = scheme.error)
                     }
                     !scanProgress.finished -> {
                         CircularProgressIndicator(modifier = Modifier.size(28.dp))
@@ -290,7 +290,7 @@ fun SourcesScreen(
                         scanProgress.currentFile?.let {
                             Text(
                                 it,
-                                fontSize = 13.sp,
+                                style = MiuixTheme.textStyles.footnote1,
                                 color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -299,13 +299,13 @@ fun SourcesScreen(
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "已处理 ${scanProgress.current} / ${scanProgress.total}",
-                            fontSize = 13.sp,
+                            style = MiuixTheme.textStyles.footnote1,
                             color = scheme.onBackgroundVariant,
                         )
                     }
                     else -> {
                         viewModel.scanResultMessage?.let {
-                            Text(it, fontSize = 13.sp, color = scheme.onBackgroundVariant)
+                            Text(it, style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
                         }
                     }
                 }
@@ -476,21 +476,21 @@ private fun AddSourceSheet(
                             ) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                                 Spacer(Modifier.width(8.dp))
-                                Text("正在测试连接…", fontSize = 14.sp, color = scheme.onBackgroundVariant)
+                                Text("正在测试连接…", style = MiuixTheme.textStyles.body2, color = scheme.onBackgroundVariant)
                             }
                         }
                         is TestState.Success -> {
                             Text(
                                 "连接成功 ✓",
                                 color = scheme.primary,
-                                fontSize = 14.sp,
+                                style = MiuixTheme.textStyles.body2,
                             )
                         }
                         is TestState.Failure -> {
                             Text(
                                 (form.testState as TestState.Failure).message,
                                 color = scheme.error,
-                                fontSize = 14.sp,
+                                style = MiuixTheme.textStyles.body2,
                             )
                         }
                         is TestState.Idle -> { /* no-op */ }

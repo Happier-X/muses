@@ -101,7 +101,7 @@ fun WebDavBrowseList(
             Spacer(Modifier.width(8.dp))
             Text(
                 text = currentPath,
-                fontSize = 13.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -123,7 +123,7 @@ fun WebDavBrowseList(
                 Spacer(Modifier.height(16.dp))
                 Text(
                     "正在读取目录…",
-                    fontSize = 14.sp,
+                    style = MiuixTheme.textStyles.body2,
                     color = scheme.onBackgroundVariant,
                 )
             }
@@ -142,7 +142,7 @@ fun WebDavBrowseList(
                         } else {
                             "当前目录没有子文件夹。"
                         },
-                        fontSize = 13.sp,
+                        style = MiuixTheme.textStyles.footnote1,
                         color = scheme.onBackgroundVariant,
                     )
                 }
@@ -188,7 +188,7 @@ fun WebDavBrowseList(
             ) {
                 Text(
                     text = errorText,
-                    fontSize = 13.sp,
+                    style = MiuixTheme.textStyles.footnote1,
                     color = scheme.error,
                     modifier = Modifier.weight(1f),
                 )
@@ -247,7 +247,7 @@ private fun WebDavBrowseRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = directory.name,
-                fontSize = 16.sp,
+                style = MiuixTheme.textStyles.body1,
                 fontWeight = FontWeight.SemiBold,
                 color = scheme.onBackground,
                 maxLines = 1,
@@ -255,7 +255,7 @@ private fun WebDavBrowseRow(
             )
             Text(
                 text = directory.url,
-                fontSize = 13.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

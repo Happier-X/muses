@@ -255,7 +255,7 @@ private fun MusesNavLink(
         // __nav-label：font-size 16px / --m-text
         Text(
             text = item.label,
-            fontSize = 16.sp,
+            style = MiuixTheme.textStyles.body1,
             fontWeight = FontWeight.Normal,
             color = scheme.onBackground,
         )

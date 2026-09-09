@@ -75,7 +75,7 @@ fun SourceListItem(
     ) {
         Text(
             text = item.name,
-            fontSize = 17.sp,
+            style = MiuixTheme.textStyles.main,
             lineHeight = 22.sp,
             fontWeight = FontWeight.SemiBold,
             color = scheme.onBackground,
@@ -83,7 +83,7 @@ fun SourceListItem(
         item.subtitle?.let {
             Text(
                 text = it,
-                fontSize = 13.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = scheme.onBackgroundVariant,
                 modifier = Modifier.padding(top = 2.dp),
             )
@@ -91,7 +91,7 @@ fun SourceListItem(
         item.detail?.let {
             Text(
                 text = it,
-                fontSize = 13.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = scheme.onBackgroundVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -144,7 +144,7 @@ fun SourceFormInput(
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = label,
-            fontSize = 14.sp,
+            style = MiuixTheme.textStyles.body2,
             fontWeight = FontWeight.Medium,
             color = scheme.onBackground,
             modifier = Modifier.padding(bottom = 4.dp),
@@ -167,14 +167,14 @@ fun SourceFormInput(
                 } else {
                     VisualTransformation.None
                 },
-                textStyle = TextStyle(fontSize = 16.sp, color = scheme.onBackground),
+                textStyle = MiuixTheme.textStyles.body1.copy(color = scheme.onBackground),
                 modifier = Modifier.fillMaxWidth(),
                 decorationBox = { innerTextField ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty()) {
                             Text(
                                 text = placeholder,
-                                fontSize = 16.sp,
+                                style = MiuixTheme.textStyles.body1,
                                 color = scheme.onBackground.copy(alpha = 0.3f),
                                 maxLines = 1,
                             )
@@ -188,7 +188,7 @@ fun SourceFormInput(
         error?.let {
             Text(
                 text = it,
-                fontSize = 12.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = scheme.error,
                 modifier = Modifier.padding(top = 4.dp),
             )
@@ -196,7 +196,7 @@ fun SourceFormInput(
         info?.let {
             Text(
                 text = it,
-                fontSize = 12.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = scheme.onBackgroundVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )

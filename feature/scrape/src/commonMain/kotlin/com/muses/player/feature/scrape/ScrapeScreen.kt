@@ -167,7 +167,7 @@ private fun QueueStateContent(
                 ) {
                     Text(
                         text = queueTitles[songId] ?: "待刮削歌曲",
-                        fontSize = 16.sp,
+                        style = MiuixTheme.textStyles.body1,
                         color = scheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -201,9 +201,9 @@ private fun WritingStateContent(state: ScrapePageState.Writing) {
     ) {
         CircularProgressIndicator()
         Spacer(Modifier.height(20.dp))
-        Text("正在写回 ${state.count} 首…", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
+        Text("正在写回 ${state.count} 首…", style = MiuixTheme.textStyles.main, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
         Spacer(Modifier.height(8.dp))
-        Text("正在写入文件与数据库，请稍候", fontSize = 13.sp, color = scheme.onBackgroundVariant)
+        Text("正在写入文件与数据库，请稍候", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
     }
 }
 
@@ -256,7 +256,7 @@ private fun PreviewStateContent(
                 buildString {
                     append("文本命中 $textHits · 封面命中 $coverHits · 共 ${state.items.size} 首")
                 },
-                fontSize = 13.sp,
+                style = MiuixTheme.textStyles.footnote1,
                 color = scheme.onBackgroundVariant,
                 modifier = Modifier.weight(1f),
             )
@@ -266,7 +266,7 @@ private fun PreviewStateContent(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("批量字段：", fontSize = 11.sp, color = scheme.onBackgroundVariant)
+            Text("批量字段：", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
             listOf("title" to "标题", "artist" to "歌手", "album" to "专辑", "cover" to "封面", "lyrics" to "歌词").forEach { (field, label) ->
                 MusesTextButton(text = label, onClick = {
                     val allHave = state.items.all { field in it.checkedFields }
@@ -280,7 +280,7 @@ private fun PreviewStateContent(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("不想一次性全勾？", fontSize = 11.sp, color = scheme.onBackgroundVariant)
+                Text("不想一次性全勾？", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
                 Spacer(Modifier.weight(1f))
                 MusesTextButton(text = "逐首审核（${state.items.size}）", onClick = onStartReviewQueue)
             }
@@ -292,7 +292,7 @@ private fun PreviewStateContent(
             ) {
                 Text(
                     throttleMessage,
-                    fontSize = 12.sp,
+                    style = MiuixTheme.textStyles.footnote1,
                     color = scheme.primary,
                     modifier = Modifier.weight(1f),
                 )
@@ -304,11 +304,11 @@ private fun PreviewStateContent(
         if (throttledIds.isNotEmpty() && state.items.isEmpty()) {
             // 空命中但有被限流的歌曲：给出单首重试入口
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("${throttledIds.size} 首触发限流，稍后重试", fontSize = 13.sp, color = scheme.onBackgroundVariant)
+                Text("${throttledIds.size} 首触发限流，稍后重试", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
                 Spacer(Modifier.height(8.dp))
                 throttledIds.take(5).forEach { sid ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(queueTitles[sid] ?: sid.take(8), fontSize = 12.sp, color = scheme.onBackgroundVariant, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(queueTitles[sid] ?: sid.take(8), style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         MusesTextButton(text = "重试", onClick = { onRetrySingle(sid) })
                     }
                 }
@@ -409,14 +409,14 @@ private fun NoMatchGroup(
                 onClick = { expanded = !expanded },
             )
             Spacer(Modifier.weight(1f))
-            Text("暂无匹配，可重试或改词重搜", fontSize = 11.sp, color = scheme.onBackgroundVariant)
+            Text("暂无匹配，可重试或改词重搜", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
         }
         if (expanded) {
             noMatchIds.forEach { sid ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         queueTitles[sid] ?: sid.take(8),
-                        fontSize = 12.sp,
+                        style = MiuixTheme.textStyles.footnote1,
                         color = scheme.onBackgroundVariant,
                         modifier = Modifier.weight(1f),
                         maxLines = 1,
@@ -446,7 +446,7 @@ private fun PreviewEditSheet(
         title = "编辑刮削结果",
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-            Text("仅影响本次写回，未勾选行不落库", fontSize = 12.sp, color = scheme.onBackgroundVariant)
+            Text("仅影响本次写回，未勾选行不落库", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
             Spacer(Modifier.height(16.dp))
             MusesTextField(
                 value = title,
@@ -527,19 +527,19 @@ private fun ResultStateContent(
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text(
             "成功 $success · 文件失败 $fileFailed · 失败 $failed",
-            fontSize = 15.sp,
+            style = MiuixTheme.textStyles.body1,
             fontWeight = FontWeight.SemiBold,
             color = scheme.onBackground,
         )
         Spacer(Modifier.height(4.dp))
         Text(
             "撤销仅恢复曲库，音频文件已写入不可逆",
-            fontSize = 11.sp,
+            style = MiuixTheme.textStyles.footnote2,
             color = scheme.onBackgroundVariant,
         )
         Spacer(Modifier.height(12.dp))
         if (throttleMessage != null) {
-            Text(throttleMessage, fontSize = 12.sp, color = scheme.primary)
+            Text(throttleMessage, style = MiuixTheme.textStyles.footnote1, color = scheme.primary)
             Spacer(Modifier.height(8.dp))
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -580,8 +580,8 @@ private fun ResultStateContent(
                             Box(Modifier.size(8.dp).background(scheme.primary, RoundedCornerShape(4.dp)))
                             Spacer(Modifier.size(8.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(queueTitles[sid] ?: sid.take(8), fontSize = 13.sp, color = scheme.onBackgroundVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("限流，稍后重试", fontSize = 11.sp, color = scheme.primary)
+                                Text(queueTitles[sid] ?: sid.take(8), style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("限流，稍后重试", style = MiuixTheme.textStyles.footnote2, color = scheme.primary)
                             }
                             MusesTextButton(text = "重试", onClick = { onRetrySingle(sid) })
                         }

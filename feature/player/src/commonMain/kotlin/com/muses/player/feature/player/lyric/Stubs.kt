@@ -83,26 +83,7 @@ object SettingsRuntime {
     const val lyricWordByWordEnabled: Boolean = true
     const val showLyricRomanization: Boolean = true
     const val showLyricTranslation: Boolean = true
-    const val skylineEnabled: Boolean = false
-    const val skylineAmbientBlur: Float = 2f
-    const val skylineAmbientDrift: Float = 1f
-    const val skylineAmbientFontSize: Float = 22f
-    const val skylineAmbientLines: Int = 5
-    const val skylineAmbientMaximumCharacters: Int = 12
-    const val skylineAmbientMaximumTilt: Float = 5f
-    const val skylineAmbientMaximumVisibleTexts: Int = 10
-    const val skylineAmbientOpacity: Float = 1f
-    const val skylineCurrentFontSize: Float = 28f
-    const val skylineCurrentMaximumScale: Float = 1.06f
-    const val skylineCurrentSpacing: Float = 12f
-    const val skylineCurrentWidth: Float = 1f
-    const val skylineNextFontSize: Float = 18f
-    const val skylineNextOpacity: Float = 0.5f
-    const val skylineShowSongInfo: Boolean = true
-    const val textPVAnimationSpeed: Float = 1f
-    const val textPVMotionIntensity: Float = 1f
     const val lyricFontScale: Float = 1f
-    val lyricsStyle: LyricsStyle = LyricsStyle.AppleMusic
     val lyricRenderingQuality: LyricsRenderingQuality = LyricsRenderingQuality.High
     val lyricRomanizationDisplayMode: LyricAnnotationDisplayMode = LyricAnnotationDisplayMode.AllLines
     val lyricLiftMode: LyricsGroupingMode = LyricsGroupingMode.Word
@@ -110,23 +91,15 @@ object SettingsRuntime {
     const val lyricLongToneStrength: Float = 1f
     const val lyricLongToneThresholdMs: Int = 950
     const val lyricLongPressShareEnabled: Boolean = true
-    val textPVStyle: TextPVStyle = TextPVStyle.BlueBold
 }
 
 object AppVisibility {
     const val isForeground: Boolean = true
 }
 
-enum class LyricsStyle { AppleMusic, Eva, TextPV }
 enum class LyricsRenderingQuality { Low, Balanced, High }
 enum class LyricAnnotationDisplayMode { AllLines, CurrentLine }
 enum class LyricsGroupingMode { Word, Line }
-
-enum class TextPVStyle {
-    BlueBold, KineticSplit, BluePlane, CyberGrunge, Geometric, RainCity, CyberpunkHUD,
-    EmotionCinema, HystericNight, SpiderWeb, StaggeredText, CalmVillain, GirlyClouds,
-    SweetPink, FlyMeToTheMoon, KawaiiPixel, CrimeScene, Haruhikage, Dynamic, Minimal, Cyber
-}
 
 val LocalFontFamily = staticCompositionLocalOf<FontFamily> { FontFamily.Default }
 val LanTingProFontFamily: FontFamily = FontFamily.Default

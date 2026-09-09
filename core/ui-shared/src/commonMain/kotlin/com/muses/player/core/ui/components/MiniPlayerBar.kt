@@ -112,7 +112,7 @@ fun MiniPlayerBar(
     val isDark = isSystemInDarkTheme()
     val capsuleShape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(40.dp)
 
-    val borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.5f)
+    val borderColor = scheme.outline
 
     val clickInteraction = remember { MutableInteractionSource() }
 
@@ -243,7 +243,7 @@ fun MiniPlayerBar(
                 ) {
                     Text(
                         text = if (hintDirection < 0) "下一曲" else "上一曲",
-                        fontSize = 13.sp,
+                        style = MiuixTheme.textStyles.footnote1,
                         color = scheme.onBackgroundVariant,
                     )
                 }
@@ -257,7 +257,7 @@ fun MiniPlayerBar(
             ) {
                 Text(
                     text = title, // 默认「暂无播放歌曲」由调用方按空态传
-                    fontSize = 15.sp,
+                    style = MiuixTheme.textStyles.body1,
                     lineHeight = (15f * 1.25f).sp,
                     fontWeight = FontWeight.SemiBold,
                     color = scheme.onBackground,
@@ -266,7 +266,7 @@ fun MiniPlayerBar(
                 )
                 Text(
                     text = subtitle, // 「{artist} - {album}」由调用方拼装
-                    fontSize = 13.sp,
+                    style = MiuixTheme.textStyles.footnote1,
                     lineHeight = (13f * 1.3f).sp,
                     color = scheme.onBackgroundVariant,
                     maxLines = 1,

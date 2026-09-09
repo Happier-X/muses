@@ -56,7 +56,7 @@ fun MusesActionsSheet(
                         Spacer(Modifier.weight(1f))
                         Text(
                             text = item.label,
-                            fontSize = 17.sp,
+                            style = MiuixTheme.textStyles.main,
                             fontWeight = FontWeight.Normal,
                             color = if (item.destructive) scheme.error else scheme.primary,
                         )
@@ -73,7 +73,7 @@ fun MusesActionsSheet(
                     Spacer(Modifier.weight(1f))
                     Text(
                         text = "取消",
-                        fontSize = 17.sp,
+                        style = MiuixTheme.textStyles.main,
                         fontWeight = FontWeight.SemiBold,
                         color = scheme.onBackground,
                     )

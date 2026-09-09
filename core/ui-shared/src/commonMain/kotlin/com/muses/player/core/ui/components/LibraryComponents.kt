@@ -108,7 +108,7 @@ fun LibraryTabBar(
                 Text(
                     text = tab.label,
                     color = if (isSelected) scheme.primary else scheme.onBackgroundVariant,
-                    fontSize = 15.sp,
+                    style = MiuixTheme.textStyles.body1,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                 )
                 Spacer(Modifier.height(4.dp))
@@ -163,7 +163,7 @@ fun LibrarySearchField(
             if (value.isEmpty()) {
                 Text(
                     text = placeholder,
-                    fontSize = 16.sp,
+                    style = MiuixTheme.textStyles.body1,
                     color = scheme.onBackgroundVariant,
                 )
             }
@@ -171,7 +171,7 @@ fun LibrarySearchField(
                 value = value,
                 onValueChange = onValueChange,
                 singleLine = true,
-                textStyle = TextStyle(fontSize = 16.sp, color = scheme.onBackground),
+                textStyle = MiuixTheme.textStyles.body1.copy(color = scheme.onBackground),
                 cursorBrush = SolidColor(scheme.primary),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -311,7 +311,7 @@ fun LibraryAlbumGrid(
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
                             text = album.title,
-                            fontSize = 17.sp,
+                            style = MiuixTheme.textStyles.main,
                             fontWeight = FontWeight.SemiBold,
                             lineHeight = (17 * 1.3).sp,
                             color = scheme.onBackground,
@@ -320,7 +320,7 @@ fun LibraryAlbumGrid(
                         )
                         Text(
                             text = "${album.songCount} 首歌曲",
-                            fontSize = 13.sp,
+                            style = MiuixTheme.textStyles.footnote1,
                             lineHeight = (13 * 1.35).sp,
                             color = scheme.onBackgroundVariant,
                             maxLines = 1,
@@ -329,7 +329,7 @@ fun LibraryAlbumGrid(
                         if (!album.artist.isNullOrBlank()) {
                             Text(
                                 text = album.artist,
-                                fontSize = 13.sp,
+                                style = MiuixTheme.textStyles.footnote1,
                                 color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -400,7 +400,7 @@ fun LibraryArtistGrid(
                     ) {
                         Text(
                             text = artist.name,
-                            fontSize = 17.sp,
+                            style = MiuixTheme.textStyles.main,
                             fontWeight = FontWeight.SemiBold,
                             lineHeight = (17 * 1.3).sp,
                             color = scheme.onBackground,
@@ -411,14 +411,14 @@ fun LibraryArtistGrid(
                         )
                         Text(
                             text = "${artist.songCount} 首歌曲",
-                            fontSize = 13.sp,
+                            style = MiuixTheme.textStyles.footnote1,
                             color = scheme.onBackgroundVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = "${artist.albumCount} 张专辑",
-                            fontSize = 13.sp,
+                            style = MiuixTheme.textStyles.footnote1,
                             color = scheme.onBackgroundVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

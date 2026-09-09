@@ -1,7 +1,6 @@
 package com.muses.player.feature.library
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import top.yukonga.miuix.kmp.basic.FabPosition
@@ -44,11 +43,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -70,11 +67,6 @@ import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesListRow
 import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.MusesTopBar
-import com.muses.player.core.ui.theme.LocalHazeBlurState
-import com.muses.player.core.ui.theme.MusesShadowLayer
-import com.muses.player.core.ui.theme.saltShadow
-import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.blur.hazeBlur
 
 /**
  * 歌曲页 —— SongsPage.vue 一比一翻译。
@@ -226,14 +218,14 @@ fun SongsPage(
                                     }
                                     Text(
                                         text = songs.size.toString(),
-                                        fontSize = 15.sp,
+                                        style = MiuixTheme.textStyles.body1,
                                         color = scheme.onBackground,
                                     )
                                 }
                                 if (isMultiSelect) {
                                     Text(
                                         text = "已选中 ${selectedIds.size} 项",
-                                        fontSize = 15.sp,
+                                        style = MiuixTheme.textStyles.body1,
                                         color = scheme.onBackgroundVariant,
                                         modifier = Modifier.padding(start = 12.dp),
                                     )
@@ -261,7 +253,7 @@ fun SongsPage(
                                     if (searchQuery.isEmpty()) {
                                         Text(
                                             text = "在 ${songs.size} 首歌曲中搜索",
-                                            fontSize = 16.sp,
+                                            style = MiuixTheme.textStyles.body1,
                                             color = scheme.onBackgroundVariant,
                                         )
                                     }
@@ -272,7 +264,7 @@ fun SongsPage(
                                             viewModel.updateSearchQuery(it)
                                         },
                                         singleLine = true,
-                                        textStyle = TextStyle(fontSize = 16.sp, color = scheme.onBackground),
+                                        textStyle = MiuixTheme.textStyles.body1.copy(color = scheme.onBackground),
                                         modifier = Modifier.fillMaxWidth(),
                                     )
                                 }
@@ -286,12 +278,20 @@ fun SongsPage(
         },
         floatingActionButton = {
             if (showJumpBubble) {
-                JumpToCurrentFab(
-                    onClick = {
-                        val idx = songs.indexOfFirst { it.id == currentSongId }
-                        if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
-                    },
-                )
+                // 壳层的迷你播放条 + 悬浮胶囊底栏是浮在 Scaffold 之上的，miuix Scaffold
+                // 感知不到它们；FAB 需手动抬升到两根条之上：
+                // 窄屏 = 迷你条 80dp（64+边距8×2）+ 胶囊底栏 ≈64dp；宽屏仅迷你条。
+                // 阈值 768dp 与 TabsLayout.TabletBreakpoint 同口径（跨模块 internal 不可见，此处置复）。
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    val fabClearance = if (maxWidth >= 768.dp) 96.dp else 148.dp
+                    JumpToCurrentFab(
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = fabClearance),
+                        onClick = {
+                            val idx = songs.indexOfFirst { it.id == currentSongId }
+                            if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
+                        },
+                    )
+                }
             }
         },
         floatingActionButtonPosition = FabPosition.End,
@@ -498,58 +498,14 @@ private fun JumpToCurrentFab(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MiuixTheme.colorScheme
-    val isDark = isSystemInDarkTheme()
-    val hazeState = LocalHazeBlurState.current as? dev.chrisbanes.haze.HazeState
-    // 悬浮钮按椒盐实拍更白：与顶部/底部 surface 0.08 区分，改用纯白基底提亮，避免偏灰
-    val fabHazeStyle = if (hazeState != null) {
-        if (isDark) {
-            dev.chrisbanes.haze.blur.HazeBlurStyle(
-                backgroundColor = androidx.compose.ui.graphics.Color(0xFF2A2A2A),
-                colorEffects = listOf(dev.chrisbanes.haze.blur.HazeColorEffect.tint(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.06f))),
-                blurRadius = 24.dp,
-                noiseFactor = 0.01f,
-            )
-        } else {
-            dev.chrisbanes.haze.blur.HazeBlurStyle(
-                backgroundColor = androidx.compose.ui.graphics.Color.White,
-                colorEffects = listOf(dev.chrisbanes.haze.blur.HazeColorEffect.tint(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.62f))),
-                blurRadius = 24.dp,
-                noiseFactor = 0.01f,
-            )
-        }
-    } else null
-    Box(
-        modifier = modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .saltShadow(
-                CircleShape,
-                // 与底部 MiniPlayer 同款悬浮：inset 高光 + 外投影 0 4px 16dp，避免仅 2/8 导致不浮
-                listOf(
-                    MusesShadowLayer(offsetY = 1.dp, color = Color.White.copy(alpha = if (isDark) 0.1f else 0.65f), inset = true),
-                    MusesShadowLayer(offsetY = 4.dp, blurRadius = 16.dp, color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.08f)),
-                ),
-            )
-            .then(
-                if (hazeState != null && fabHazeStyle != null) {
-                    Modifier.hazeBlur(input = HazeInput.Sources(hazeState), style = fabHazeStyle)
-                } else {
-                    Modifier.background(scheme.surface.copy(alpha = 0.75f), CircleShape)
-                },
-            )
-            .drawBehind {
-                // border 1px rgba(255,255,255,.5)（暗色 .12）—— 内高光已由 saltShadow 的 inset 承担
-                drawCircle(
-                    color = Color.White.copy(alpha = if (isDark) 0.12f else 0.5f),
-                    style = Stroke(width = 1.dp.toPx()),
-                )
-            }
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
+    // miuix 官方 FloatingActionButton（自带 shadowElevation 悬浮阴影），
+    // 尺寸沿用原 44dp；surfaceVariant 基底延续原玻璃钮的浅色观感
+    top.yukonga.miuix.kmp.basic.FloatingActionButton(
+        onClick = onClick,
+        modifier = modifier,
+        minWidth = 44.dp,
+        minHeight = 44.dp,
+        containerColor = scheme.surfaceVariant,
     ) {
         Icon(
             TablerIcons.MyLocation,

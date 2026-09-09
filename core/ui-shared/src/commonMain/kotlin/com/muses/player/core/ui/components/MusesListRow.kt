@@ -75,7 +75,7 @@ fun MusesListRow(
                 ) {
                     Text(
                         text = title,
-                        fontSize = 17.sp,
+                        style = MiuixTheme.textStyles.main,
                         lineHeight = (17f * 1.35f).sp,
                         color = scheme.onBackground,
                         maxLines = 1,
@@ -92,7 +92,7 @@ fun MusesListRow(
                 if (subtitle != null) {
                     Text(
                         text = subtitle,
-                        fontSize = 13.sp,
+                        style = MiuixTheme.textStyles.footnote1,
                         lineHeight = (13f * 1.35f).sp,
                         color = scheme.onBackgroundVariant,
                         maxLines = 1,

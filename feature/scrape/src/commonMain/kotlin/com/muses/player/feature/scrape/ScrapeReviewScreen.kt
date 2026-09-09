@@ -140,9 +140,9 @@ private fun SearchingContent(songTitle: String?) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator()
             Spacer(Modifier.height(12.dp))
-            Text("正在搜索候选…", fontSize = 13.sp, color = scheme.onBackgroundVariant)
+            Text("正在搜索候选…", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
             if (songTitle != null) {
-                Text(songTitle, fontSize = 12.sp, color = scheme.onBackgroundVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(songTitle, style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -155,8 +155,8 @@ private fun WritingContent() {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator()
             Spacer(Modifier.height(12.dp))
-            Text("正在写回…", fontSize = 13.sp, color = scheme.onBackgroundVariant)
-            Text("写入文件与数据库，WebDAV 曲目需数秒", fontSize = 12.sp, color = scheme.onBackgroundVariant)
+            Text("正在写回…", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
+            Text("写入文件与数据库，WebDAV 曲目需数秒", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
         }
     }
 }
@@ -170,7 +170,7 @@ private fun SuccessContent(
     val scheme = MiuixTheme.colorScheme
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("已更新", fontSize = 15.sp, color = scheme.primary, fontWeight = FontWeight.SemiBold)
+            Text("已更新", style = MiuixTheme.textStyles.body1, color = scheme.primary, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))
             if (nextSongId != null) {
                 // S3 批量模式：应用并下一首
@@ -201,10 +201,10 @@ private fun EmptyContent(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.height(24.dp))
-            Text(reason, fontSize = 14.sp, color = scheme.onBackgroundVariant)
+            Text(reason, style = MiuixTheme.textStyles.body2, color = scheme.onBackgroundVariant)
             if (reason == "暂无匹配") {
                 Spacer(Modifier.height(4.dp))
-                Text("可修改下方搜索词后重新搜索", fontSize = 12.sp, color = scheme.onBackgroundVariant)
+                Text("可修改下方搜索词后重新搜索", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
             }
             Spacer(Modifier.height(12.dp))
             SearchKeywordRow(keyword = keyword, viewModel = viewModel)
@@ -246,7 +246,7 @@ private fun ReviewContent(
             item(key = "text-fields") {
                 Column {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("应用字段：", fontSize = 12.sp, color = scheme.onBackgroundVariant)
+                        Text("应用字段：", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
                         Spacer(Modifier.weight(1f))
                         MusesTextButton(text = "全选", onClick = {
                             selectableFields(state).forEach { field ->
@@ -472,7 +472,7 @@ private fun TextFieldEditOverrides(state: ScrapeReviewState.Review, viewModel: S
 private fun TextCandidateStrip(state: ScrapeReviewState.Review, viewModel: ScrapeReviewViewModel) {
     val scheme = MiuixTheme.colorScheme
     Column {
-        Text("文本候选（${state.text.items.size}）", fontSize = 12.sp, color = scheme.onBackgroundVariant)
+        Text("文本候选（${state.text.items.size}）", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
         Spacer(Modifier.height(6.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(state.text.items) { index, hit ->
@@ -486,15 +486,15 @@ private fun TextCandidateStrip(state: ScrapeReviewState.Review, viewModel: Scrap
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(hit.source.wire, fontSize = 10.sp, color = scheme.primary, fontWeight = FontWeight.SemiBold)
+                        Text(hit.source.wire, style = MiuixTheme.textStyles.footnote2, color = scheme.primary, fontWeight = FontWeight.SemiBold)
                         if (index == state.text.defaultIndex) {
                             Spacer(Modifier.width(4.dp))
-                            Text("推荐", fontSize = 9.sp, color = scheme.onBackgroundVariant)
+                            Text("推荐", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
                         }
                     }
                     Text(
                         hit.title ?: "（无标题）",
-                        fontSize = 12.sp,
+                        style = MiuixTheme.textStyles.footnote1,
                         color = if (selected) scheme.onBackground else scheme.onBackgroundVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -522,9 +522,9 @@ private fun CoverSection(
                 enabled = state.cover.items.isNotEmpty(),
                 checkedColor = scheme.primary,
             )
-            Text("封面", fontSize = 12.sp, color = if ("cover" in state.checkedFields) scheme.onBackground else scheme.onBackgroundVariant)
+            Text("封面", style = MiuixTheme.textStyles.footnote1, color = if ("cover" in state.checkedFields) scheme.onBackground else scheme.onBackgroundVariant)
             Spacer(Modifier.weight(1f))
-            Text("候选 ${state.cover.items.size}", fontSize = 11.sp, color = scheme.onBackgroundVariant)
+            Text("候选 ${state.cover.items.size}", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
         }
         Spacer(Modifier.height(4.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -533,7 +533,7 @@ private fun CoverSection(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     MusesCover(uri = state.song.coverUri, size = 72.dp, radius = MusesCoverRadius.SM)
                     Spacer(Modifier.height(2.dp))
-                    Text("本地", fontSize = 9.sp, color = scheme.onBackgroundVariant)
+                    Text("本地", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
                 }
             }
             itemsIndexed(state.cover.items) { index, candidate ->
@@ -554,7 +554,7 @@ private fun CoverSection(
                         },
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(candidate.source.wire, fontSize = 9.sp, color = if (selected) scheme.primary else scheme.onBackgroundVariant)
+                    Text(candidate.source.wire, style = MiuixTheme.textStyles.footnote2, color = if (selected) scheme.primary else scheme.onBackgroundVariant)
                 }
             }
         }
@@ -573,12 +573,12 @@ private fun LyricsSection(state: ScrapeReviewState.Review, viewModel: ScrapeRevi
                 enabled = state.lyrics.items.isNotEmpty(),
                 checkedColor = scheme.primary,
             )
-            Text("歌词", fontSize = 12.sp, color = if ("lyrics" in state.checkedFields) scheme.onBackground else scheme.onBackgroundVariant)
+            Text("歌词", style = MiuixTheme.textStyles.footnote1, color = if ("lyrics" in state.checkedFields) scheme.onBackground else scheme.onBackgroundVariant)
             Spacer(Modifier.weight(1f))
-            Text("候选 ${state.lyrics.items.size}", fontSize = 11.sp, color = scheme.onBackgroundVariant)
+            Text("候选 ${state.lyrics.items.size}", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
         }
         if (state.lyrics.items.isEmpty()) {
-            Text("未命中歌词候选", fontSize = 12.sp, color = scheme.onBackgroundVariant, modifier = Modifier.padding(start = 44.dp))
+            Text("未命中歌词候选", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant, modifier = Modifier.padding(start = 44.dp))
         } else {
             state.lyrics.items.forEachIndexed { index, candidate ->
                 LyricsCandidateRow(
@@ -611,7 +611,7 @@ private fun LyricsCandidateRow(
             .padding(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${index + 1}", fontSize = 11.sp, color = if (selected) scheme.primary else scheme.onBackgroundVariant, fontWeight = FontWeight.SemiBold)
+            Text("${index + 1}", style = MiuixTheme.textStyles.footnote2, color = if (selected) scheme.primary else scheme.onBackgroundVariant, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(6.dp))
             ScrapeBadgeBox(text = candidate.source)
             Spacer(Modifier.size(4.dp))
@@ -621,7 +621,7 @@ private fun LyricsCandidateRow(
         // 预览前几行（时间轴行可能很长，只取前 90 字符）
         Text(
             candidate.text.take(90).replace('\n', ' '),
-            fontSize = 11.sp,
+            style = MiuixTheme.textStyles.footnote2,
             color = if (selected) scheme.onBackground else scheme.onBackgroundVariant,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,

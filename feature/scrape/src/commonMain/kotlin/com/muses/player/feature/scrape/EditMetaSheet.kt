@@ -84,7 +84,7 @@ fun EditMetaSheet(
                 Text(
                     "云端搜索失败，请检查网络后重试",
                     color = MiuixTheme.colorScheme.error,
-                    fontSize = 12.sp,
+                    style = MiuixTheme.textStyles.footnote1,
                 )
             }
 
@@ -98,7 +98,7 @@ fun EditMetaSheet(
                     Text("云端搜索中…")
                 }
                 ui.result != null -> {
-                    Text("封面候选", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MiuixTheme.colorScheme.onBackground)
+                    Text("封面候选", style = MiuixTheme.textStyles.body2, fontWeight = FontWeight.Medium, color = MiuixTheme.colorScheme.onBackground)
                     val covers = ui.result!!.cover
                     if (covers.status == EditDimStatus.OK && covers.items.isNotEmpty()) {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -120,16 +120,16 @@ fun EditMetaSheet(
                             }
                         }
                     } else {
-                        Text("未找到可用封面", fontSize = 12.sp, color = MiuixTheme.colorScheme.onBackgroundVariant)
+                        Text("未找到可用封面", style = MiuixTheme.textStyles.footnote1, color = MiuixTheme.colorScheme.onBackgroundVariant)
                     }
                     if (ui.result!!.lyrics.status == EditDimStatus.OK) {
                         Text(
                             "歌词已找到 ${ui.result!!.lyrics.items.size} 条候选（应用后写入）",
-                            fontSize = 12.sp,
+                            style = MiuixTheme.textStyles.footnote1,
                             color = MiuixTheme.colorScheme.onBackgroundVariant,
                         )
                     } else {
-                        Text("歌词聚合未接入或无结果，已跳过歌词维度", fontSize = 12.sp, color = MiuixTheme.colorScheme.onBackgroundVariant)
+                        Text("歌词聚合未接入或无结果，已跳过歌词维度", style = MiuixTheme.textStyles.footnote1, color = MiuixTheme.colorScheme.onBackgroundVariant)
                     }
                 }
             }

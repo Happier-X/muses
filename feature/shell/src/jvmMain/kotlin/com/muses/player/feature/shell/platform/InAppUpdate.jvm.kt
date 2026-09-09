@@ -146,7 +146,7 @@ actual fun InAppUpdateSection(
             if (notes.isNotEmpty()) {
                 Text(
                     text = notes,
-                    fontSize = 13.sp,
+                    style = MiuixTheme.textStyles.footnote1,
                     lineHeight = (13f * 1.5f).sp,
                     color = scheme.onBackgroundVariant,
                     maxLines = 5,
@@ -184,7 +184,7 @@ actual fun InAppUpdateSection(
                     } else {
                         "正在下载 ${formatMB(downloading.downloaded)}"
                     },
-                    fontSize = 13.sp,
+                    style = MiuixTheme.textStyles.footnote1,
                     color = scheme.onBackgroundVariant,
                 )
                 Spacer(Modifier.height(8.dp))

@@ -104,7 +104,7 @@ fun SongListItem(
             Text(
                 text = song.title,
                 color = if (isCurrent) scheme.primary else scheme.onBackground,
-                fontSize = 14.sp,
+                style = MiuixTheme.textStyles.body2,
                 fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -116,7 +116,7 @@ fun SongListItem(
                 Text(
                     text = subtitle,
                     color = scheme.onBackgroundVariant,
-                    fontSize = 12.sp,
+                    style = MiuixTheme.textStyles.footnote1,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

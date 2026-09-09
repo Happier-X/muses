@@ -133,7 +133,7 @@ private fun LibrarySearchEntry(
         Text(
             text = text,
             color = scheme.onBackgroundVariant,
-            fontSize = 14.sp,
+            style = MiuixTheme.textStyles.body2,
         )
     }
 }

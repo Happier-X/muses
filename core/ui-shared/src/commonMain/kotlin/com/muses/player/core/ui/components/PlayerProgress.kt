@@ -127,14 +127,12 @@ fun PlayerProgress(
             Text(
                 text = formatPlayerTime(displayPos),
                 color = Color.White.copy(alpha = 0.68f),
-                fontSize = 12.sp,
-                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
+                style = MiuixTheme.textStyles.footnote1.copy(fontFeatureSettings = "tnum"),
             )
             Text(
                 text = if (durationMs > 0) formatPlayerTime(durationMs) else "--:--",
                 color = Color.White.copy(alpha = 0.68f),
-                fontSize = 12.sp,
-                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
+                style = MiuixTheme.textStyles.footnote1.copy(fontFeatureSettings = "tnum"),
             )
         }
     }

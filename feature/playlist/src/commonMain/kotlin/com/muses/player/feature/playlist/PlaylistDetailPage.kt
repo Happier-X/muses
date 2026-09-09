@@ -151,7 +151,7 @@ fun PlaylistDetailPage(
     }
 }
 
-/** 单行：封面 48/sm + 标题/「artist - album」+ 移除按钮（#ff3b30） */
+/** 单行：封面 48/sm + 标题/「artist - album」+ 移除按钮（error 语义色） */
 @Composable
 private fun DetailSongRow(
     song: Song,
@@ -179,7 +179,7 @@ private fun DetailSongRow(
                     TablerIcons.Remove,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = Color(0xFFFF3B30),
+                    tint = scheme.error,
                 )
             }
         },

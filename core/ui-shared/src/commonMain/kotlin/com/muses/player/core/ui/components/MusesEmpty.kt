@@ -63,7 +63,7 @@ fun MusesEmpty(
         }
         Text(
             text = title,
-            fontSize = 17.sp,
+            style = MiuixTheme.textStyles.main,
             fontWeight = FontWeight.SemiBold,
             lineHeight = (17f * 1.35f).sp,
             color = scheme.onBackground,
@@ -72,7 +72,7 @@ fun MusesEmpty(
         if (description != null) {
             Text(
                 text = description,
-                fontSize = 15.sp,
+                style = MiuixTheme.textStyles.body1,
                 lineHeight = (15f * 1.4f).sp,
                 color = scheme.onBackgroundVariant,
                 textAlign = TextAlign.Center,
