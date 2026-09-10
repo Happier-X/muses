@@ -32,11 +32,8 @@ kotlin {
             // P2a Koin（统一 4.2.0；KMP sourceSets 不支持 platform(BOM)，toml 已显式挂版本）
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel)
-            // U19：Page 层 haze 玻璃（2.0 起 KMP 工件，双端同源）
-            implementation(libs.haze)
             // 直引 miuix（ui-shared 为 implementation 不透传）
             implementation(libs.miuix.ui)
-            implementation(libs.haze.blur)
         }
     }
 }

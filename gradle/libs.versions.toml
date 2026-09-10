@@ -33,7 +33,6 @@ robolectric = "4.16"
 androidxTestCore = "1.7.0"
 # M3 刮削引擎：DataStore JSON snapshot 序列化
 kotlinxSerialization = "1.9.0"
-haze = "2.0.0-alpha05"
 tablerIcons = "2.2.1"
 jna = "5.17.0"
 # miuix（小米 HyperOS 风格 CMP 组件库）：0.9.4-rc01 按 CMP 1.12.0-rc01 + Kotlin 2.4.10 构建
@@ -127,16 +126,16 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 # M3 刮削引擎：localStorage snapshot → DataStore JSON（S3/S4 使用）
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
-haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 # miuix KMP 父件（含 android+jvm 变体，Gradle 按 target 解析；同 tabler-cmp 模式）
 miuix-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-ui", version.ref = "miuix" }
 miuix-preference = { group = "top.yukonga.miuix.kmp", name = "miuix-preference", version.ref = "miuix" }
 # miuix-nav（自研 CMP 导航运行时：连续栈深度+HyperOS 转场+跟手返回；与 miuix-ui 同版本线）
 miuix-nav = { group = "top.yukonga.miuix.kmp", name = "miuix-nav", version.ref = "miuix" }
-haze-blur = { group = "dev.chrisbanes.haze", name = "haze-blur", version.ref = "haze" }
-# haze-utils 是 KMP 公共产物（含 HazeState / HazeInput 等跨平台类型），
-# commonMain 可直接引用；haze / haze-blur 是 Android only
-haze-utils = { group = "dev.chrisbanes.haze", name = "haze-utils", version.ref = "haze" }
+# miuix-blur（HyperOS 模糊效果库：LayerBackdrop/textureBlur/渐进模糊；Android 需 API 33+，
+# 低版本经 isRuntimeShaderSupported() 门控降级；与 miuix-ui 同版本线）
+miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur", version.ref = "miuix" }
+# miuix-shader（isRuntimeShaderSupported 等 RuntimeShader 能力检查；miuix-blur 对其不透传，需直连）
+miuix-shader = { group = "top.yukonga.miuix.kmp", name = "miuix-shader", version.ref = "miuix" }
 
 # S1 桌面凭据：Windows DPAPI 经 JNA（jna-platform 含 Crypt32Util；版本与 Gradle 自带 jna 5.17.0 对齐）
 jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }

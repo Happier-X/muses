@@ -38,10 +38,8 @@ kotlin {
             // Coil3 KMP + AddToPlaylistSheet（playlist commonMain），androidMain 不再有源码
             implementation(project(":feature:playlist"))
             implementation(libs.coil.compose)
-            implementation(libs.haze)
             // 直引 miuix（ui-shared 为 implementation 不透传）
             implementation(libs.miuix.ui)
-            implementation(libs.haze.blur)
         }
     }
 }

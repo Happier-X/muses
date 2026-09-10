@@ -7,7 +7,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -67,16 +66,11 @@ fun SettingsScreen(
     val actions = rememberShellPlatformActions()
     val versionProvider = koinInject<AppVersionProvider>()
 
-    val hazeState = rememberHazeState()
-    CompositionLocalProvider(
-        // 09-05 T2：MusesHaze 下线，统一经 ui-shared 的 LocalHazeBlurState 桥接
-        com.muses.player.core.ui.theme.LocalHazeBlurState provides hazeState,
-    ) {
-        // U15：设置页共享组件（音源区块已移除，独立音源页承载）；「关于/反馈」扩展区为
-        // 双端共享实现（SettingsAboutFeedbackContent），平台动作经回调注入。
-        SettingsScreen(
-            modifier = modifier,
-            extraContent = {
+    // U15：设置页共享组件（音源区块已移除，独立音源页承载）；「关于/反馈」扩展区为
+    // 双端共享实现（SettingsAboutFeedbackContent），平台动作经回调注入。
+    SettingsScreen(
+        modifier = modifier,
+        extraContent = {
                 // ---- 播放设置 ----
                 SettingsBlockTitle("播放")
                 val settingsRepository = koinInject<SettingsRepository>()
@@ -120,7 +114,6 @@ fun SettingsScreen(
                 )
             },
         )
-    }
 }
 
 

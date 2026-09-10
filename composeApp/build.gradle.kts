@@ -64,8 +64,6 @@ kotlin {
             implementation(libs.miuix.ui)
             // U11：desktopAppModules 引用 webdavCoreModule（feature:sources 对 webdav 为 implementation 不透传）
             implementation(project(":core:webdav"))
-            // U2 桌面真模糊：壳层创建 HazeState 并对内容标记 hazeSource（消费层在 ui-shared）
-            implementation(libs.haze)
             // U9 曲库共用化：桌面直接复用 :feature:library commonMain 的 Screen/ViewModel
             implementation(project(":feature:library"))
             // U11 音源共用化：桌面复用共享 WebDAV 浏览页（:feature:sources commonMain）

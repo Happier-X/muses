@@ -34,8 +34,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
  * `.tabs-layout` —— 主框架双形态导航。
@@ -75,11 +76,10 @@ fun TabsLayout(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val hazeState = rememberHazeState()
+    val backdrop = rememberLayerBackdrop()
     androidx.compose.runtime.CompositionLocalProvider(
-        // 09-05 T2：MusesHaze 下线，统一经 ui-shared 的 LocalHazeBlurState 桥接
-        // （Any? 擦除传递，Android actual 转 HazeState 消费）
-        com.muses.player.core.ui.theme.LocalHazeBlurState provides hazeState,
+        // miuix-blur：内容容器 layerBackdrop 捕获背景，磨砂表面经 LocalMusesBackdrop 消费
+        com.muses.player.core.ui.theme.LocalMusesBackdrop provides backdrop,
     ) {
         BoxWithConstraints(modifier.fillMaxSize()) {
             if (!navVisible) {
@@ -93,13 +93,13 @@ fun TabsLayout(
                 TabletLayout(
                     primaryItems = primaryItems,
                     secondaryItems = secondaryItems,
-                    hazeState = hazeState,
+                    backdrop = backdrop,
                     modifier = Modifier,
                     content = content,
                 )
             } else {
                 PhoneLayout(
-                    hazeState = hazeState,
+                    backdrop = backdrop,
                     content = content,
                 )
             }
@@ -120,7 +120,7 @@ fun TabsLayout(
 private fun TabletLayout(
     primaryItems: List<MusesNavItem>,
     secondaryItems: List<MusesNavItem>,
-    hazeState: dev.chrisbanes.haze.HazeState,
+    backdrop: LayerBackdrop,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -129,7 +129,7 @@ private fun TabletLayout(
         Row(
             Modifier
                 .fillMaxSize()
-                .hazeSource(state = hazeState),
+                .layerBackdrop(backdrop),
         ) {
             // 平板 aside 改为卡片形态（对齐手机抽屉的 NavGroupCard），
             // 主/次菜单各为一张圆角卡：surface-1 底、1px hairline、16dp 圆角、
@@ -168,7 +168,7 @@ private fun TabletLayout(
  */
 @Composable
 private fun PhoneLayout(
-    hazeState: dev.chrisbanes.haze.HazeState,
+    backdrop: LayerBackdrop,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -176,7 +176,7 @@ private fun PhoneLayout(
         modifier
             .fillMaxSize()
             .background(MiuixTheme.colorScheme.background)
-            .hazeSource(state = hazeState),
+            .layerBackdrop(backdrop),
     ) {
         content()
     }

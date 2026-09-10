@@ -7,6 +7,11 @@
 
     <!-- 本地库扫描：Android 13+ 细粒度音频权限（运行时请求在设置/音源页接线） -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- miuix-blur 声明 minSdk 33（RuntimeShader 硬下限），本应用 minSdk 29：
+         所有 blur 调用路径均经 isRuntimeShaderSupported() 门控，
+         API 29~32 设备走纯色降级，官方「能力检查门控 + 单 APK」模式 -->
+    <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />

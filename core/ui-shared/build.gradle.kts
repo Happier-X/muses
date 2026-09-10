@@ -31,16 +31,14 @@ kotlin {
             implementation(libs.tabler.filled.icons.cmp)
             // Coil 3（KMP 图片加载；commonMain 提供 AsyncImage API）
             implementation(libs.coil.compose)
-            // Haze（U2 纠偏：2.0 起为 KMP 工件——android/jvm 等变体已发布，Gradle 按 target 解析；
-            // 原「Android only」注释过时）。commonMain 声明使 androidMain/jvmMain actual 均可引用真模糊 API
-            implementation(libs.haze)
-            implementation(libs.haze.blur)
-            // Haze 公共类型（KMP：HazeState / HazeInput 等跨平台类型）
-            implementation(libs.haze.utils)
             // miuix（小米 HyperOS 风格 CMP 组件库 + Preference 行；KMP 父件按 target 解析，
             // 版本线与本工程精确对齐见 toml 注释；SaltTheme 内桥接 MiuixTheme，明暗同源）
             implementation(libs.miuix.ui)
             implementation(libs.miuix.preference)
+            // miuix-blur（HyperOS 模糊：LayerBackdrop/textureBlur；Android API 33+，经
+            // isRuntimeShaderSupported() 门控降级；commonMain 声明使 androidMain/jvmMain 均可引用）
+            implementation(libs.miuix.blur)
+            implementation(libs.miuix.shader)
         }
 
         androidMain.dependencies {
