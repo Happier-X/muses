@@ -44,7 +44,6 @@ import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MiniPlayerBar
 import com.muses.player.feature.shell.platform.PermissionsEffect
 import com.muses.player.feature.shell.platform.ShellBackHandler
-import com.muses.player.feature.shell.platform.smartBottomBarInsetsPadding
 import com.muses.player.feature.library.AlbumDetailScreen
 import com.muses.player.feature.library.AlbumsPage
 import com.muses.player.feature.library.ArtistDetailScreen
@@ -293,7 +292,7 @@ fun MusesApp() {
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 Column(Modifier.fillMaxWidth()) {
-                    BoxWithConstraints(Modifier.smartBottomBarInsetsPadding()) {
+                    BoxWithConstraints(Modifier) {
                 // 歌词模式：开关开启且有当前歌词行时，用歌词替换艺术家
                 val lyricLine = if (miniPlayerLyricsEnabled) currentLyricLine else null
                 val miniSubtitle = if (lyricLine != null) {
@@ -322,12 +321,10 @@ fun MusesApp() {
                 )
                 }
                 // 悬浮胶囊底栏（官方 FloatingNavigationBar，图标-only，label 进无障碍文案）：
-                // 外边距 18dp 与上方迷你条左右对齐；系统导航条边衬已由迷你条承担，
-                // 此处 defaultWindowInsetsPadding = false 避免双重留白
+                // 底部距离走官方默认 defaultWindowInsetsPadding = true（组件自吃导航条+手势提示条 inset）
                 if (!isTabletBar) {
                     FloatingNavigationBar(
                         horizontalOutSidePadding = 18.dp,
-                        defaultWindowInsetsPadding = false,
                     ) {
                         bottomItems.forEach { item ->
                             FloatingNavigationBarItem(
