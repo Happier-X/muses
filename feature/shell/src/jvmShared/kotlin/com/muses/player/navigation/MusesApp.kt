@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +44,7 @@ import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MiniPlayerBar
 import com.muses.player.feature.shell.platform.PermissionsEffect
 import com.muses.player.feature.shell.platform.ShellBackHandler
+import com.muses.player.feature.shell.platform.smartBottomBarInsetsPadding
 import com.muses.player.feature.library.AlbumDetailScreen
 import com.muses.player.feature.library.AlbumsPage
 import com.muses.player.feature.library.ArtistDetailScreen
@@ -293,7 +293,7 @@ fun MusesApp() {
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 Column(Modifier.fillMaxWidth()) {
-                    BoxWithConstraints(Modifier.navigationBarsPadding()) {
+                    BoxWithConstraints(Modifier.smartBottomBarInsetsPadding()) {
                 // 歌词模式：开关开启且有当前歌词行时，用歌词替换艺术家
                 val lyricLine = if (miniPlayerLyricsEnabled) currentLyricLine else null
                 val miniSubtitle = if (lyricLine != null) {
