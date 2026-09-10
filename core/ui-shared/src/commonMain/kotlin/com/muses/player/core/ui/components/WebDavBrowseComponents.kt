@@ -53,8 +53,8 @@ data class WebDavBrowseItem(
  * - 目录行：surface1 背景 + radius-sm + 目录图标 primary 28dp + 名称 16sp/600 单行省略 +
  *   路径 13sp text2 单行省略 + 尾部 MusesTextButton(SMALL)（单选「选择」/ 多选「进入」）；
  * - 多选模式：行首复选框（选中 SquareCheck primary / 未选 Square text2，24dp）；
- * - 多选底部确认按钮：全宽 SaltTextButton「添加选中的 N 个文件夹」；
- * - 错误态由调用方承载（安卓 AlertDialog / 桌面行内文案），本组件只收 `errorText` 做行内展示，
+ * - 多选底部确认按钮：全宽 MusesTextButton「添加选中的 N 个文件夹」；
+ * - 错误态由调用方承载（MusesDialog），本组件只收 `errorText` 做行内展示，
  *   `onDismissError` 为空时不渲染关闭按钮。
  *
  * 纯 UI 组件，零平台依赖，所有业务逻辑经回调注入。

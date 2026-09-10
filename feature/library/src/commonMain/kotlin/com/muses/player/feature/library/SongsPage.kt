@@ -162,7 +162,7 @@ fun SongsPage(
         if (ids.isEmpty()) return
         onEnqueueScrape(ids)
         val msg = if (ids.size == 1) "已加入待刮削队列" else "已加入 ${ids.size} 首到待刮削队列"
-        com.muses.player.core.uishared.platform.PlatformToast.show(msg)
+        com.muses.player.core.ui.components.MusesSnackbar.show(msg)
     }
     // 阶段二槽位化：顶栏进 Scaffold topBar（原生大标题折叠），列表进 content，
     // FAB 进 floatingActionButton 槽（自动避让停靠迷你条），多选条见下方 E5 浮层。

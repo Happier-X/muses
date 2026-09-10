@@ -1,14 +1,12 @@
 package com.muses.player.feature.player
 
+import com.muses.player.core.ui.components.MusesBottomSheet
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,8 +62,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import coil3.compose.AsyncImage
@@ -82,8 +78,6 @@ import com.muses.player.feature.player.lyric.LyricsPanel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-import top.yukonga.miuix.kmp.squircle.absoluteSquircleClip
-import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
@@ -316,7 +310,8 @@ fun PlayerScreen(
             }
         }
 
-        // 限流/播放错误条（深色浮层；原 M3 Snackbar，已收敛为自绘避免残留 M3）
+        // 限流/播放错误条（深色浮层，播放页沉浸风格：常驻至手动关闭，带重试/关闭；
+        // 一过性短提示走 MusesSnackbar，此处故意不用 Snackbar——自动消退会吞掉错误）
         if (playbackError != null) {
             Box(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
@@ -1021,88 +1016,56 @@ fun QueueScreen(
     val currentId by viewModel.currentSongId.collectAsStateWithLifecycle()
     val currentIndex = queue.indexOfFirst { it.songId == currentId }
     val scheme = MiuixTheme.colorScheme
-    // 入场：底部上滑（Dialog 内容组合即播一次；关闭直接走 onClose，无退场动画）
-    var entered by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { entered = true }
 
-    Dialog(
-        onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+    // 统一封装：miuix OverlayBottomSheet（遮罩/圆角/动画走官方，与加入歌单等同源）
+    MusesBottomSheet(
+        onDismiss = onClose,
+        title = "播放队列",
+        modifier = modifier,
     ) {
-        Box(Modifier.fillMaxSize()) {
-            // 遮罩：点击关闭（无涟漪，与 Salt 按压规范一致）
-            Box(
-                Modifier.fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onClose,
-                    ),
-            )
-            AnimatedVisibility(
-                visible = entered,
-                enter = slideInVertically(initialOffsetY = { it }),
-                modifier = Modifier.align(Alignment.BottomCenter),
+        Column(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.75f),
+        ) {
+            // 操作行（标题已由 sheet 提供，这里只留清空/关闭）
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(
-                    modifier = modifier.fillMaxWidth().fillMaxHeight(0.75f)
-                        .absoluteSquircleClip(topLeft = 20.dp, topRight = 20.dp, bottomRight = 0.dp, bottomLeft = 0.dp)
-                        .background(scheme.background)
-                        .navigationBarsPadding(),
-                ) {
-                    // 把手（纯视觉，拖拽关闭暂不做）
-                    Box(
-                        Modifier.align(Alignment.CenterHorizontally)
-                            .padding(top = 8.dp)
-                            .size(width = 36.dp, height = 4.dp)
-                            .squircleClip(2.dp)
-                            .background(scheme.onBackgroundVariant.copy(alpha = 0.35f)),
-                    )
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("播放队列", style = MiuixTheme.textStyles.main, fontWeight = FontWeight.Bold, color = scheme.onBackground)
-                        Row {
-                            if (queue.isNotEmpty()) {
-                                Icon(TablerIcons.Delete, contentDescription = "清空队列", tint = scheme.onBackground.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
-                                Spacer(Modifier.width(16.dp))
-                            }
-                            Icon(TablerIcons.Close, contentDescription = "关闭队列", tint = scheme.onBackground.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable(onClick = onClose))
-                        }
-                    }
+                if (queue.isNotEmpty()) {
+                    Icon(TablerIcons.Delete, contentDescription = "清空队列", tint = scheme.onBackground.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
+                    Spacer(Modifier.width(16.dp))
+                }
+                Icon(TablerIcons.Close, contentDescription = "关闭队列", tint = scheme.onBackground.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable(onClick = onClose))
+            }
 
-                    if (queue.isEmpty()) {
-                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Text("队列为空", color = scheme.onBackground.copy(alpha = 0.6f))
-                        }
-                    } else {
-                        val surfaceVariant = scheme.surfaceVariant
-                        val hairline = scheme.dividerLine
-                        // 底部内边距 16dp：弹窗内无迷你条，原 96dp 预留不再需要
-                        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                            itemsIndexed(queue, key = { _, item -> item.songId }) { index, item ->
-                                val isCurrent = index == currentIndex
-                                Box(
-                                    Modifier.background(if (isCurrent) surfaceVariant else Color.Transparent).drawBehind {
-                                        drawRect(color = hairline, topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f))
-                                    },
-                                ) {
-                                    Row(
-                                        Modifier.fillMaxWidth().clickable { viewModel.playAtIndex(index) }.padding(horizontal = 16.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text(item.title, color = scheme.onBackground, style = MiuixTheme.textStyles.body1, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text(item.artist ?: "未知歌手", color = scheme.onBackgroundVariant, style = MiuixTheme.textStyles.footnote1, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        }
-                                        Text((index + 1).toString(), color = scheme.onBackgroundVariant, style = MiuixTheme.textStyles.footnote1)
-                                        Spacer(Modifier.width(12.dp))
-                                        Icon(TablerIcons.Close, contentDescription = "从队列删除", tint = scheme.onBackgroundVariant, modifier = Modifier.size(18.dp).clickable { viewModel.removeQueueItemAt(index) })
-                                    }
+            if (queue.isEmpty()) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text("队列为空", color = scheme.onBackground.copy(alpha = 0.6f))
+                }
+            } else {
+                val surfaceVariant = scheme.surfaceVariant
+                val hairline = scheme.dividerLine
+                // 底部内边距 16dp：弹窗内无迷你条，原 96dp 预留不再需要
+                LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 16.dp)) {
+                    itemsIndexed(queue, key = { _, item -> item.songId }) { index, item ->
+                        val isCurrent = index == currentIndex
+                        Box(
+                            Modifier.background(if (isCurrent) surfaceVariant else Color.Transparent).drawBehind {
+                                drawRect(color = hairline, topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f))
+                            },
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().clickable { viewModel.playAtIndex(index) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(item.title, color = scheme.onBackground, style = MiuixTheme.textStyles.body1, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(item.artist ?: "未知歌手", color = scheme.onBackgroundVariant, style = MiuixTheme.textStyles.footnote1, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
+                                Text((index + 1).toString(), color = scheme.onBackgroundVariant, style = MiuixTheme.textStyles.footnote1)
+                                Spacer(Modifier.width(12.dp))
+                                Icon(TablerIcons.Close, contentDescription = "从队列删除", tint = scheme.onBackgroundVariant, modifier = Modifier.size(18.dp).clickable { viewModel.removeQueueItemAt(index) })
                             }
                         }
                     }

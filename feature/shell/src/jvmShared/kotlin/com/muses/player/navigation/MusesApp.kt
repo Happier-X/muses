@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import top.yukonga.miuix.kmp.nav.core.NavBackStack
@@ -42,6 +43,7 @@ import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MiniPlayerBar
+import com.muses.player.core.ui.components.MusesSnackbarHostContent
 import com.muses.player.feature.shell.platform.PermissionsEffect
 import com.muses.player.feature.shell.platform.ShellBackHandler
 import com.muses.player.feature.library.AlbumDetailScreen
@@ -265,6 +267,9 @@ fun MusesApp() {
     var showPlayerOverlay by remember { mutableStateOf(false) }
     var showQueueOverlay by remember { mutableStateOf(false) }
 
+    // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
+    val snackbarHostState = remember { SnackbarHostState() }
+
     // 导航项组装
     val primaryItems = NavDestination.Primary.map { dest -> dest.toNavItem(currentKey, backStack) }
     val secondaryItems = NavDestination.Secondary.map { dest -> dest.toNavItem(currentKey, backStack) }
@@ -290,6 +295,8 @@ fun MusesApp() {
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            // 全局短提示走官方 Snackbar 槽：定位/边距/动画全由宿主保证，绘制在底栏之上
+            snackbarHost = { MusesSnackbarHostContent(snackbarHostState) },
             bottomBar = {
                 Column(Modifier.fillMaxWidth()) {
                     BoxWithConstraints(Modifier) {
@@ -351,6 +358,13 @@ fun MusesApp() {
         ) {
             AppNavHost(backStack, scrapeVm)
         }
+        // 队列走 MusesBottomSheet（miuix OverlayBottomSheet）：必须组合在 Scaffold 内容层级内，
+        // 根弹窗宿主（LocalRootDialogStates 由 Scaffold 提供）才能接管渲染；之前跟沉浸页一样放
+        // Scaffold 外，宿主查不到导致 sheet 静默不显示（裸 Dialog 自带窗口才不受影响）。
+        // 宿主层绘制在 bottomBar 之上，不会被迷你条盖住；返回/遮罩由 sheet 自行消费，不套 BackHandler。
+        if (showQueueOverlay) {
+            QueueScreen(onClose = { showQueueOverlay = false })
+        }
         }
     }
 
@@ -375,10 +389,6 @@ fun MusesApp() {
                 onOpenEditMeta = { showEditMeta = true },
             )
         }
-    }
-    if (showQueueOverlay) {
-        // 队列已是 Dialog 弹窗：返回/遮罩点击由 Dialog 自行消费，此处不再套 ShellBackHandler
-        QueueScreen(onClose = { showQueueOverlay = false })
     }
     }
 }

@@ -10,14 +10,13 @@ import androidx.compose.ui.window.WindowState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.muses.player.core.ui.theme.MusesTheme
-import com.muses.player.core.uishared.platform.DesktopToastOverlay
 import com.muses.player.navigation.MusesApp
 import org.koin.compose.KoinApplication
 
 /**
  * 桌面主界面（U23 切共享壳）：标题栏（jvmMain 桌面专属：无边框窗口拖拽/控制）
  * + 双端共享 [MusesApp]（CMP Navigation + TabsLayout，1280 宽窗口天然落 aside
- * 260px 侧栏形态）+ 桌面 Toast 浮层。
+ * 260px 侧栏形态；全局短提示经 MusesSnackbar 挂在共享壳根 Scaffold 槽）。
  *
  * 历史：S3b 自绘 220dp 侧栏 + DesktopDestination enum 切屏（无返回栈）——U23 废弃，
  * 桌面获得与安卓一致的完整路由（曲库五页/歌单/详情/WebDAV/播放队列/刮削审核流）。
@@ -37,8 +36,6 @@ fun WindowScope.MusesDesktopApp(
                         MusesApp()
                     }
                 }
-                // U2：桌面 Toast 浮层（消费 PlatformToast 总线，覆盖于内容之上、不拦截点击）
-                DesktopToastOverlay()
             }
         }
     }

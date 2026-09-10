@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.work.Configuration
 import com.muses.player.core.data.log.CrashHandler
 import com.muses.player.core.data.log.ErrorLogCrashPersistence
-import com.muses.player.core.uishared.platform.PlatformToast
 import com.muses.player.di.appModules
 import org.jaudiotagger.tag.TagOptionSingleton
 import org.koin.android.ext.android.inject
@@ -22,8 +21,6 @@ class MusesApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        // 短提示通道初始化（未初始化时 PlatformToast.show 静默丢弃）
-        PlatformToast.init(this)
         startKoin {
             androidContext(this@MusesApplication)
             modules(appModules)

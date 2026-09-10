@@ -222,7 +222,7 @@ fun ScrapeCandidateRow(
  * - 居中菊花 + 「正在匹配 current / total」17sp/600 + LinearProgress + 当前歌名 13sp text2；
  * - [message] 非空时 primary 色 13sp 提示行（如限流「等待限流恢复…」）；
  * - [onCancel] = null 时不渲染取消按钮（安卓 matching 态沿用无取消行为）；
- *   非空时渲染 SaltTextButton「取消」。
+ *   非空时渲染 MusesTextButton「取消」。
  */
 @Composable
 fun ScrapeProgressBar(
@@ -289,7 +289,7 @@ fun ScrapeProgressBar(
  * - 头部复用 [ScrapeCandidateRow]（封面+标题+置信度）；
  * - 字段行复用 [ScrapeReviewFieldRow]（Checkbox +「本地值 → 候选值」）；
  * - [onConfirm]/[onSkip] 均 null 时不渲染底部按钮行（纯展示，如桌面选中预览）；
- *   非空时渲染「确认」/「跳过」SaltTextButton 行。
+ *   非空时渲染「确认」/「跳过」MusesTextButton 行。
  */
 @Composable
 fun ScrapeReviewCard(
@@ -412,7 +412,7 @@ fun ScrapeReviewFieldRow(
  *
  * 视觉契约（对照 ScrapeScreen ResultStateContent 行）：
  * - 8dp 状态圆点（success 绿 / file-failed 橙 / failed 红）+ 歌名 13sp text2 + 状态 13sp；
- * - [SharedWritebackResult.retryText] 非空时渲染 SaltTextButton 重试；
+ * - [SharedWritebackResult.retryText] 非空时渲染 MusesTextButton 重试；
  * - 详情文案 11sp 最多两行（限流提示经 detailHighlight 用 primary 色，其余 text2）。
  */
 @Composable

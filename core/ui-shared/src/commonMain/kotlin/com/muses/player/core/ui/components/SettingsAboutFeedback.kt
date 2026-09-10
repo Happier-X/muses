@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.uishared.platform.PlatformToast
+import com.muses.player.core.ui.components.MusesSnackbar
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 
@@ -27,7 +27,7 @@ import top.yukonga.miuix.kmp.squircle.squircleBackground
  * - [onOpenUrl]：打开新版本链接（安卓 Intent / 桌面 Desktop.browse）；
  * - [errorLogSummary] / [onDumpLogs]：报错日志摘要与全文（双端同源 ErrorLogStore）；
  * - [onCopyToClipboard]：剪贴板写入（平台动作）；
- * - 提示统一走 [PlatformToast]（安卓 Toast / 桌面 DesktopToastOverlay 浮层）。
+ * - 提示统一走 [MusesSnackbar]（miuix Snackbar，挂在 MusesApp 根 Scaffold 槽）。
  */
 @Composable
 fun SettingsAboutFeedbackContent(
@@ -72,7 +72,7 @@ fun SettingsAboutFeedbackContent(
                 scope.launch {
                     val result = onCheckUpdate(versionName)
                     if (result == null) {
-                        PlatformToast.show("检查更新失败，请稍后重试")
+                        MusesSnackbar.show("检查更新失败，请稍后重试")
                     } else {
                         val (tag, url) = result
                         val latestVer = tag.removePrefix("v")
@@ -80,10 +80,10 @@ fun SettingsAboutFeedbackContent(
                             .removeSuffix("-miui")
                             .substringBefore("-")
                         if (compareVersionsLocal(latestVer, currentVer) <= 0) {
-                            PlatformToast.show("已是最新版本")
+                            MusesSnackbar.show("已是最新版本")
                         } else {
                             onOpenUrl(url)
-                            PlatformToast.show("发现新版本 $tag")
+                            MusesSnackbar.show("发现新版本 $tag")
                         }
                     }
                     checking = false
@@ -111,10 +111,10 @@ fun SettingsAboutFeedbackContent(
                 scope.launch {
                     val text = onDumpLogs()
                     if (text == null) {
-                        PlatformToast.show("暂无可复制的日志")
+                        MusesSnackbar.show("暂无可复制的日志")
                     } else {
                         onCopyToClipboard(text)
-                        PlatformToast.show("已复制报错日志")
+                        MusesSnackbar.show("已复制报错日志")
                     }
                 }
             },

@@ -15,7 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.muses.player.core.ui.components.MusesDialog
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.uishared.platform.PlatformToast
+import com.muses.player.core.ui.components.MusesSnackbar
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -70,7 +70,7 @@ fun WebDavFormScreen(
     // 成功提示后稍作停留再返回音源列表（对照 scheduleLeave 800ms）
     formState.successMessage?.let { message ->
         LaunchedEffect(message) {
-            PlatformToast.show(message)
+            MusesSnackbar.show(message)
             delay(800)
             viewModel.dismissSuccess()
             onBack()
@@ -132,7 +132,6 @@ fun WebDavFormScreen(
                             SourceFormInput(
                                 label = "目录",
                                 value = formState.path,
-                                placeholder = "目录",
                                 error = formState.pathError,
                                 readOnly = true,
                                 modifier = Modifier.weight(1f),
@@ -182,7 +181,7 @@ fun WebDavFormScreen(
         }
     }
 
-    // 错误提示（m-toast center 观感用系统 Toast 承担行为层，样式待 SaltToast 组件落地统一；miuix MusesDialog）
+    // 错误提示（MusesDialog 对话框）
     formState.errorMessage?.let { message ->
         MusesDialog(
             onDismiss = { viewModel.dismissError() },

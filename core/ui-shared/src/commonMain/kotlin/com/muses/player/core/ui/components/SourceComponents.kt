@@ -4,21 +4,17 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -122,8 +118,10 @@ fun SourceListItem(
 }
 
 /**
- * 跨平台音源表单输入行 —— 对照 m-list-input：label 上、输入框下（40px 高透明底 input）、
- * info/error 辅助行（与安卓 WebDavFormScreen.WebDavFormInput 同视觉）。
+ * 跨平台音源表单输入行（miuix TextField 经 [MusesTextField]；标签空值时充当占位）。
+ *
+ * 示例占位（如网址示例）按 HyperOS 单标签风格收敛掉，以标签为准；
+ * info/error 辅助行保留在框下（与安卓 WebDavFormScreen 同视觉）。
  *
  * 纯 UI，零平台依赖。
  */
@@ -131,7 +129,6 @@ fun SourceListItem(
 fun SourceFormInput(
     label: String,
     value: String,
-    placeholder: String,
     modifier: Modifier = Modifier,
     info: String? = null,
     error: String? = null,
@@ -143,48 +140,20 @@ fun SourceFormInput(
     val scheme = MiuixTheme.colorScheme
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            style = MiuixTheme.textStyles.body2,
-            fontWeight = FontWeight.Medium,
-            color = scheme.onBackground,
-            modifier = Modifier.padding(bottom = 4.dp),
+        MusesTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = label,
+            singleLine = true,
+            readOnly = readOnly,
+            visualTransformation = if (isPassword) {
+                PasswordVisualTransformation()
+            } else {
+                VisualTransformation.None
+            },
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            modifier = Modifier.fillMaxWidth(),
         )
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                readOnly = readOnly,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                visualTransformation = if (isPassword) {
-                    PasswordVisualTransformation()
-                } else {
-                    VisualTransformation.None
-                },
-                textStyle = MiuixTheme.textStyles.body1.copy(color = scheme.onBackground),
-                modifier = Modifier.fillMaxWidth(),
-                decorationBox = { innerTextField ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (value.isEmpty()) {
-                            Text(
-                                text = placeholder,
-                                style = MiuixTheme.textStyles.body1,
-                                color = scheme.onBackground.copy(alpha = 0.3f),
-                                maxLines = 1,
-                            )
-                        }
-                        innerTextField()
-                    }
-                },
-            )
-        }
 
         error?.let {
             Text(
@@ -256,7 +225,6 @@ fun SourceFormCard(
             SourceFormInput(
                 label = "显示名称",
                 value = name,
-                placeholder = "显示名称",
                 error = nameError,
                 readOnly = busy,
                 onValueChange = onNameChange,
@@ -266,7 +234,6 @@ fun SourceFormCard(
         SourceFormInput(
             label = "服务器地址",
             value = url,
-            placeholder = "https://example.com/dav",
             error = urlError,
             keyboardType = KeyboardType.Uri,
             readOnly = busy,
@@ -276,7 +243,6 @@ fun SourceFormCard(
         SourceFormInput(
             label = "用户名",
             value = username,
-            placeholder = "用户名",
             error = usernameError,
             readOnly = busy,
             onValueChange = onUsernameChange,
@@ -285,7 +251,6 @@ fun SourceFormCard(
         SourceFormInput(
             label = passwordLabel,
             value = password,
-            placeholder = passwordLabel,
             info = passwordInfo,
             error = passwordError,
             isPassword = true,

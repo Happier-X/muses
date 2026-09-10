@@ -303,7 +303,7 @@ fun ArtistDetailScreen(
 }
 
 // ── 空态提示 ──────────────────────────────────────────
-// U8 共用化：空态统一由共用 SaltEmpty（经 LibrarySongList/LibraryAlbumGrid/LibraryArtistGrid）
+// U8 共用化：空态统一由共用 MusesEmpty（经 LibrarySongList/LibraryAlbumGrid/LibraryArtistGrid）
 // 承担；本函数保留作外部兼容（已无外部引用，新代码勿用）。
 
 @Composable

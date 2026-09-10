@@ -28,7 +28,7 @@ import com.muses.player.core.ui.components.MusesListRow
 import com.muses.player.core.ui.components.SettingsBlockTitle
 import com.muses.player.core.ui.components.SettingsIcon
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.uishared.platform.PlatformToast
+import com.muses.player.core.ui.components.MusesSnackbar
 import java.io.File
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -67,13 +67,13 @@ actual fun InAppUpdateSection(
             ui = UpdateUi.Checking
             val info = fetchWindowsRelease(versionName)
             if (info == null) {
-                PlatformToast.show("检查更新失败，请稍后重试")
+                MusesSnackbar.show("检查更新失败，请稍后重试")
                 ui = UpdateUi.Idle
                 return@launch
             }
             val latest = info.tag.removePrefix("v")
             if (compareVersions(latest, normalizeVersion(versionName)) <= 0) {
-                PlatformToast.show("已是最新版本")
+                MusesSnackbar.show("已是最新版本")
                 ui = UpdateUi.Idle
             } else {
                 ui = UpdateUi.Available(info)
@@ -96,13 +96,13 @@ actual fun InAppUpdateSection(
             }
             result
                 .onSuccess {
-                    PlatformToast.show("下载完成，点击安装")
+                    MusesSnackbar.show("下载完成，点击安装")
                     ui = UpdateUi.Ready(info, it)
                 }
                 .onFailure {
                     // 取消不提示（用户主动点取消下载，状态已回退）
                     if (downloadJob?.isCancelled == false) {
-                        PlatformToast.show("下载失败，请重试")
+                        MusesSnackbar.show("下载失败，请重试")
                         ui = UpdateUi.Available(info)
                     }
                 }
@@ -214,9 +214,9 @@ actual fun InAppUpdateSection(
                 subtitle = "${ready.file.name}（${formatMB(ready.file.length())}）已就绪",
                 onClick = {
                     if (launchWindowsInstaller(ready.file)) {
-                        PlatformToast.show("安装程序已启动，请按向导完成更新")
+                        MusesSnackbar.show("安装程序已启动，请按向导完成更新")
                     } else {
-                        PlatformToast.show("启动安装程序失败，请前往下载页手动安装")
+                        MusesSnackbar.show("启动安装程序失败，请前往下载页手动安装")
                         onOpenUrl(ready.info.htmlUrl)
                     }
                 },
