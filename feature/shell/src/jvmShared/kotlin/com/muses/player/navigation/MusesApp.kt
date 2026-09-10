@@ -433,6 +433,9 @@ private fun AppNavHost(
     NavDisplay(
         backStack = backStack,
         modifier = Modifier.fillMaxSize(),
+        effects = top.yukonga.miuix.kmp.nav.core.NavDisplayEffects(
+            cornerClipRadius = top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius(),
+        ),
     ) {
         entry<MusesRoute.Songs> {
             // U16：SongsPage 已上收 commonMain，经端口消费（不再依赖 Media3 具体类）
