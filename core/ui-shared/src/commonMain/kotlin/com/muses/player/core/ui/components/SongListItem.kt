@@ -1,5 +1,7 @@
 package com.muses.player.core.ui.components
 
+import top.yukonga.miuix.kmp.utils.SinkFeedback
+import top.yukonga.miuix.kmp.utils.pressable
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,7 +49,7 @@ data class SongItem(
  * - 标题：scheme.onBackground / 14sp，当前曲 primary 色 + SemiBold;
  * - 副标题：artist - albumTitle，scheme.onBackgroundVariant / 12sp，单行省略;
  * - 当前行：surface1 背景 + primary 色标题 + 尾部播放图标;
- * - 按压态：透明叠层（无涟漪），对齐 SaltListItem 约定;
+ * - 按压态：官方 pressable(SinkFeedback) 下沉反馈 + surface 变色叠层；
  * - 纯 UI 组件，零平台依赖，所有业务逻辑经回调注入。
  *
  * @param song 曲目数据
@@ -77,6 +79,8 @@ fun SongListItem(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
+            // 官方按压反馈（HyperOS 下沉效果），与下方 clickable 共享 interactionSource
+            .pressable(interactionSource = interactionSource, indication = SinkFeedback())
             .background(bgColor)
             .then(
                 if (onLongClick != null) {
