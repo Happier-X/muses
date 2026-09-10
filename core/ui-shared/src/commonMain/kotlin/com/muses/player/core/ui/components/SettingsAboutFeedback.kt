@@ -4,7 +4,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.uishared.platform.PlatformToast
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
  * 设置页「关于 + 反馈」扩展区块（U15 上收：原安卓装配层私有实现，桌面端接入后
@@ -49,7 +49,7 @@ fun SettingsAboutFeedbackContent(
     Column(
         modifier = Modifier
             .padding(horizontal = 12.dp)
-            .background(scheme.surface, RoundedCornerShape(12.dp))
+            .squircleBackground(scheme.surface, 12.dp)
             .padding(vertical = 4.dp),
     ) {
         // Muses 版本
@@ -101,7 +101,7 @@ fun SettingsAboutFeedbackContent(
     Column(
         modifier = Modifier
             .padding(horizontal = 12.dp)
-            .background(scheme.surface, RoundedCornerShape(12.dp))
+            .squircleBackground(scheme.surface, 12.dp)
             .padding(vertical = 4.dp),
     ) {
         MusesListRow(

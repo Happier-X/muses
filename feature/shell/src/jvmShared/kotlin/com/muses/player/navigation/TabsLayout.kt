@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -37,6 +36,9 @@ import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.squircle.squircleClip
+import top.yukonga.miuix.kmp.squircle.squircleBackground
+import top.yukonga.miuix.kmp.squircle.squircleBorder
 
 /**
  * `.tabs-layout` —— 主框架双形态导航。
@@ -197,12 +199,11 @@ private fun NavGroupCard(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MiuixTheme.colorScheme
-    val cardShape = RoundedCornerShape(16.dp)
     Column(
         modifier
             .padding(start = 18.dp, end = 12.dp)
-            .background(scheme.surface, cardShape)
-            .border(1.dp, scheme.dividerLine, cardShape)
+            .squircleBackground(scheme.surface, 16.dp)
+            .squircleBorder(1.dp, scheme.dividerLine, 16.dp)
             .padding(vertical = 8.dp),
     ) {
         items.forEach { item -> MusesNavLink(item, inDrawer = true) }
@@ -233,7 +234,7 @@ private fun MusesNavLink(
                 indication = null,
                 onClick = item.onClick,
             )
-            .clip(RoundedCornerShape(8.dp))
+            .squircleClip(8.dp)
             .padding(
                 start = if (inDrawer) 0.dp else 16.dp,
                 end = 16.dp,

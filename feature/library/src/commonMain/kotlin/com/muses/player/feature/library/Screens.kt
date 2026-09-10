@@ -38,6 +38,7 @@ import com.muses.player.core.ui.components.LibrarySearchField
 import com.muses.player.core.ui.components.LibrarySongList
 import com.muses.player.core.ui.components.SongItem
 import com.muses.player.core.ui.components.MusesTopBar
+import top.yukonga.miuix.kmp.squircle.squircleClip
 
 // ── 曲库主页（共用化）：标签页 + 网格 + 搜索 ────────────────────────
 // U8 曲库主页共用化：本文件为三屏的「共用装配层」——ViewModel 订阅 + 实体映射 +
@@ -120,7 +121,7 @@ private fun LibrarySearchEntry(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+            .squircleClip(8.dp)
             .background(scheme.surface)
             .clickable(
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },

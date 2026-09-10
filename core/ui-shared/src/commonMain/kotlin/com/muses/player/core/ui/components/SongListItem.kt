@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
+import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /**
  * 跨平台曲目行数据（平台无关，只承载展示信息）。
@@ -78,7 +78,7 @@ fun SongListItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .squircleClip(8.dp)
             // 官方按压反馈（HyperOS 下沉效果），与下方 clickable 共享 interactionSource
             .pressable(interactionSource = interactionSource, indication = SinkFeedback())
             .background(bgColor)

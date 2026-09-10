@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,6 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.muses.player.core.ui.icons.TablerIcons
+import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /**
  * `.player-page__cover-hero` —— 播放页封面 hero（aspect 1 正方形，圆角 12dp）。
@@ -36,7 +36,6 @@ fun PlayerCoverHero(
     screenWidth: Dp = 360.dp,
     isNarrowHeight: Boolean = false,
 ) {
-    val shape = RoundedCornerShape(12.dp)
     val maxHeroHeight = minOf(screenHeight * 0.5f, 420.dp)
     val narrowMaxWidth = if (isNarrowHeight) minOf(screenWidth * 0.34f, 150.dp) else null
     BoxWithConstraints(
@@ -55,7 +54,7 @@ fun PlayerCoverHero(
             modifier = Modifier
                 .size(targetSize)
                 .aspectRatio(1f)
-                .clip(shape)
+                .squircleClip(12.dp)
                 .background(Color.White.copy(alpha = 0.06f)),
             contentAlignment = Alignment.Center,
         ) {
@@ -66,7 +65,7 @@ fun PlayerCoverHero(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(shape),
+                        .squircleClip(12.dp),
                 )
             } else {
                 Icon(TablerIcons.MusicNoteOutlined, contentDescription = null, tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(64.dp))

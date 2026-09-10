@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -45,6 +44,7 @@ import com.muses.player.core.ui.icons.TablerIcons
 import java.awt.MouseInfo
 import java.awt.Toolkit
 import kotlinx.coroutines.withTimeoutOrNull
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
  * 自绘标题栏（无边框窗口的拖拽/控制条）：
@@ -197,7 +197,7 @@ fun WindowScope.DesktopTitleBar(
                 Box(
                     modifier = Modifier
                         .size(20.dp)
-                        .background(scheme.primary, shape = RoundedCornerShape(6.dp)),
+                        .squircleBackground(scheme.primary, 6.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

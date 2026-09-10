@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import com.muses.player.core.ui.components.MusesBottomSheet
 import com.muses.player.core.ui.components.MusesButton
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -47,6 +46,7 @@ import com.muses.player.core.ui.components.SharedReviewField
 import com.muses.player.core.ui.components.SharedScrapeCandidate
 import com.muses.player.core.ui.components.SharedWritebackResult
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
  * 刮削页 —— 对照 src/views/ScrapePage.vue 手机形态。
@@ -577,7 +577,7 @@ private fun ResultStateContent(
                 throttledIds.forEach { sid ->
                     item(key = "throttled-$sid") {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(8.dp).background(scheme.primary, RoundedCornerShape(4.dp)))
+                            Box(Modifier.size(8.dp).squircleBackground(scheme.primary, 4.dp))
                             Spacer(Modifier.size(8.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(queueTitles[sid] ?: sid.take(8), style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)

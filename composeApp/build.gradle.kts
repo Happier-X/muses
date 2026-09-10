@@ -62,6 +62,7 @@ kotlin {
             api(project(":core:common"))
             implementation(project(":core:ui-shared"))
             implementation(libs.miuix.ui)
+            implementation(libs.miuix.squircle)
             // U11：desktopAppModules 引用 webdavCoreModule（feature:sources 对 webdav 为 implementation 不透传）
             implementation(project(":core:webdav"))
             // U9 曲库共用化：桌面直接复用 :feature:library commonMain 的 Screen/ViewModel

@@ -9,7 +9,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -83,6 +82,9 @@ import com.muses.player.feature.player.lyric.LyricsPanel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.squircle.absoluteSquircleClip
+import top.yukonga.miuix.kmp.squircle.squircleClip
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
  * 沉浸式播放页 —— 一比一复刻 Capacitor PlayerPage.vue
@@ -318,7 +320,7 @@ fun PlayerScreen(
         if (playbackError != null) {
             Box(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
-                    .background(Color(0xCC1A1A1A), RoundedCornerShape(8.dp))
+                    .squircleBackground(Color(0xCC1A1A1A), 8.dp)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1045,7 +1047,7 @@ fun QueueScreen(
             ) {
                 Column(
                     modifier = modifier.fillMaxWidth().fillMaxHeight(0.75f)
-                        .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                        .absoluteSquircleClip(topLeft = 20.dp, topRight = 20.dp, bottomRight = 0.dp, bottomLeft = 0.dp)
                         .background(scheme.background)
                         .navigationBarsPadding(),
                 ) {
@@ -1054,7 +1056,7 @@ fun QueueScreen(
                         Modifier.align(Alignment.CenterHorizontally)
                             .padding(top = 8.dp)
                             .size(width = 36.dp, height = 4.dp)
-                            .clip(RoundedCornerShape(2.dp))
+                            .squircleClip(2.dp)
                             .background(scheme.onBackgroundVariant.copy(alpha = 0.35f)),
                     )
                     Row(

@@ -45,6 +45,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import com.muses.player.core.ui.theme.musesBackdropBlur
 import com.muses.player.core.ui.theme.musesBottomBarBlurStyle
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /** 滑动切歌：累计位移阈值（超过即切歌）。 */
 private val SwipeToSkipThreshold = 48.dp
@@ -216,7 +217,7 @@ fun MiniPlayerBar(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                .squircleClip(8.dp)
                 .draggable(
                     state = infoDragState,
                     orientation = Orientation.Horizontal,

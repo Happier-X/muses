@@ -33,6 +33,7 @@ import coil3.compose.AsyncImage
 import com.muses.player.core.model.Song
 import com.muses.player.core.scrape.editmeta.EditCloudMetaResult
 import com.muses.player.core.scrape.editmeta.EditDimStatus
+import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /**
  * 编辑歌曲信息弹窗 —— editmeta 三维云搜（文本/封面/歌词）+ 应用写回。
@@ -114,7 +115,7 @@ fun EditMetaSheet(
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier
                                             .size(84.dp)
-                                            .clip(RoundedCornerShape(8.dp)),
+                                            .squircleClip(8.dp),
                                     )
                                 }
                             }

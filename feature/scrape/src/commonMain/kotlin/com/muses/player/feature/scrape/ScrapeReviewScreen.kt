@@ -58,6 +58,8 @@ import com.muses.player.core.ui.components.ScrapeCoverThumb
 import com.muses.player.core.ui.components.ScrapeReviewFieldRow
 import com.muses.player.core.ui.components.SharedReviewField
 import com.muses.player.core.ui.components.SharedScrapeCandidate
+import top.yukonga.miuix.kmp.squircle.squircleClip
+import top.yukonga.miuix.kmp.squircle.squircleBorder
 
 /**
  * 单曲刮削审核页（Tagger 式「就地审核」全屏页，design §2.3）：
@@ -479,9 +481,9 @@ private fun TextCandidateStrip(state: ScrapeReviewState.Review, viewModel: Scrap
                 val selected = index == state.selectedTextIndex
                 Column(
                     Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .squircleClip(8.dp)
                         .background(if (selected) scheme.primary.copy(alpha = 0.12f) else scheme.surface)
-                        .border(1.dp, if (selected) scheme.primary else scheme.surfaceVariant, RoundedCornerShape(8.dp))
+                        .squircleBorder(1.dp, if (selected) scheme.primary else scheme.surfaceVariant, 8.dp)
                         .clickable { viewModel.selectTextCandidate(index) }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                 ) {
@@ -604,9 +606,9 @@ private fun LyricsCandidateRow(
         Modifier
             .fillMaxWidth()
             .padding(start = 44.dp, bottom = 6.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .squircleClip(8.dp)
             .background(if (selected) scheme.primary.copy(alpha = 0.12f) else scheme.surface)
-            .border(1.dp, if (selected) scheme.primary else scheme.surfaceVariant, RoundedCornerShape(8.dp))
+            .squircleBorder(1.dp, if (selected) scheme.primary else scheme.surfaceVariant, 8.dp)
             .clickable(onClick = onClick)
             .padding(8.dp),
     ) {

@@ -31,6 +31,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import top.yukonga.miuix.kmp.squircle.squircleClip
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
  * 刮削页共用组件（V3 刮削页共用化，U4 设置页模式：纯 UI + 回调）。
@@ -195,7 +197,7 @@ fun ScrapeCandidateRow(
                 if (candidate.confidenceLabel != null) {
                     Box(
                         Modifier
-                            .background(scheme.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                            .squircleBackground(scheme.primary.copy(alpha = 0.12f), 4.dp)
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     ) {
                         Text(candidate.confidenceLabel, style = MiuixTheme.textStyles.footnote2, color = scheme.primary)
@@ -306,7 +308,7 @@ fun ScrapeReviewCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(scheme.surface, RoundedCornerShape(12.dp))
+            .squircleBackground(scheme.surface, 12.dp)
             .border(
                 0.5.dp,
                 if (hasChecked) scheme.primary.copy(alpha = 0.5f) else scheme.dividerLine,
@@ -396,7 +398,7 @@ fun ScrapeReviewFieldRow(
         if (recommended) {
             Box(
                 Modifier
-                    .background(scheme.primary.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                    .squircleBackground(scheme.primary.copy(alpha = 0.12f), 4.dp)
                     .padding(horizontal = 5.dp, vertical = 2.dp),
             ) {
                 Text("推荐", style = MiuixTheme.textStyles.footnote2, color = scheme.primary)
@@ -422,7 +424,7 @@ fun ScrapeResultRow(
     val scheme = MiuixTheme.colorScheme
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.size(8.dp).background(statusColor(result.statusKind), RoundedCornerShape(4.dp)),
+            Modifier.size(8.dp).squircleBackground(statusColor(result.statusKind), 4.dp),
         )
         Spacer(Modifier.size(8.dp))
         Column(Modifier.weight(1f)) {
@@ -460,7 +462,7 @@ fun ScrapeBadgeBox(text: String, modifier: Modifier = Modifier) {
     val scheme = MiuixTheme.colorScheme
     Box(
         modifier
-            .background(scheme.surfaceVariant, RoundedCornerShape(4.dp))
+            .squircleBackground(scheme.surfaceVariant, 4.dp)
             .padding(horizontal = 5.dp, vertical = 1.dp),
     ) {
         Text(text, style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
@@ -491,7 +493,7 @@ fun ScrapeCoverThumb(
     Box(
         modifier
             .size(72.dp)
-            .clip(RoundedCornerShape(6.dp))
+            .squircleClip(6.dp)
             .background(scheme.surfaceVariant)
             .border(
                 width = if (selected) 2.dp else 0.5.dp,

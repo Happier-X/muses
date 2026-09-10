@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -39,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesTopBar
+import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /**
  * 专辑/艺术家页 —— AlbumsPage.vue / ArtistsPage.vue 一比一翻译。
@@ -107,7 +107,7 @@ fun AlbumsPage(
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .squircleClip(12.dp)
                             .background(scheme.surface)
                             .clickable { onAlbumClick(card.album.id) }
                             .padding(12.dp),
@@ -118,7 +118,7 @@ fun AlbumsPage(
                             Modifier
                                 .fillMaxWidth()
                                 .aspectRatio(1f)
-                                .clip(RoundedCornerShape(8.dp))
+                                .squircleClip(8.dp)
                                 .background(scheme.surfaceVariant),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -207,7 +207,7 @@ fun ArtistsPage(
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .squircleClip(12.dp)
                             .background(scheme.surface)
                             .clickable { onArtistClick(card.artist.id) }
                             .padding(12.dp),

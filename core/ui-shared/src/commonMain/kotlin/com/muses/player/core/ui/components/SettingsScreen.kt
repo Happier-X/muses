@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
  * 跨平台设置页共用组件（U4 设置页共用化；U15 移除内置音源管理区块——
@@ -86,7 +86,7 @@ fun SettingsIcon(icon: androidx.compose.ui.graphics.vector.ImageVector) {
         modifier = Modifier
             .padding(end = 12.dp)
             .size(36.dp)
-            .background(scheme.primary.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+            .squircleBackground(scheme.primary.copy(alpha = 0.12f), 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

@@ -43,6 +43,7 @@ import coil3.compose.AsyncImage
 import com.muses.player.core.lyrics.model.LyricLine
 import com.muses.player.feature.player.lyric.meloXLiquidButton
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.squircle.squircleClip
 
 @Composable
 internal fun LyricShareDialog(
@@ -80,7 +81,7 @@ internal fun LyricShareDialog(
             }
 
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                AsyncImage(state.artworkUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp)))
+                AsyncImage(state.artworkUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp).squircleClip(12.dp))
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     Text(state.title, color = foreground, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MiuixTheme.textStyles.title4, fontWeight = FontWeight.Bold)
                     Text(state.artist, maxLines = 1, overflow = TextOverflow.Ellipsis, color = foreground.copy(alpha = .58f))

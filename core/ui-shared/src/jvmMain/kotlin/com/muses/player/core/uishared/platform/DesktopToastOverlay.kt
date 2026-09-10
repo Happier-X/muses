@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.runtime.Composable
@@ -23,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /**
  * 桌面 Toast 浮层（U2）：消费 [PlatformToast] 消息总线，底部居中短提示，
@@ -67,7 +67,7 @@ fun DesktopToastOverlay(modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .padding(bottom = 56.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .squircleClip(10.dp)
                     .background(scheme.surfaceVariant.copy(alpha = 0.8f))
                     .padding(horizontal = 16.dp, vertical = 10.dp),
             ) {

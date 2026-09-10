@@ -40,6 +40,7 @@ kotlin {
             implementation(libs.coil.compose)
             // 直引 miuix（ui-shared 为 implementation 不透传）
             implementation(libs.miuix.ui)
+            implementation(libs.miuix.squircle)
         }
     }
 }

@@ -45,6 +45,7 @@ kotlin {
             implementation(libs.coil.compose)
             // miuix-blur（TabsLayout layerBackdrop 捕获背景；磨砂消费层在 ui-shared）
             implementation(libs.miuix.blur)
+            implementation(libs.miuix.squircle)
             // miuix 设置行（SwitchPreference；ui-shared 为 implementation 不透传，此处直连）
             implementation(libs.miuix.preference)
             // 第一阶段迁移：TabsLayout 等改用 miuix Text/Icon，需直引 miuix-ui

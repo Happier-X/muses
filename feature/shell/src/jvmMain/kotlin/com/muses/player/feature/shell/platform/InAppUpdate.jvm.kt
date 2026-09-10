@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +32,7 @@ import com.muses.player.core.uishared.platform.PlatformToast
 import java.io.File
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 actual val supportsInAppUpdate: Boolean = true
 
@@ -113,7 +113,7 @@ actual fun InAppUpdateSection(
     Column(
         modifier = Modifier
             .padding(horizontal = 12.dp)
-            .background(scheme.surface, RoundedCornerShape(12.dp))
+            .squircleBackground(scheme.surface, 12.dp)
             .padding(vertical = 4.dp),
     ) {
         // 主行：检查更新

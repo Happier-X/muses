@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -43,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.muses.player.core.ui.icons.TablerIcons
+import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /**
  * 曲库主页共用组件（曲库主页共用化）。
@@ -290,7 +290,7 @@ fun LibraryAlbumGrid(
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
+                        .squircleClip(12.dp)
                         .background(scheme.surface)
                         .clickable { onAlbumClick(album.id) }
                         .padding(12.dp),
@@ -301,7 +301,7 @@ fun LibraryAlbumGrid(
                         Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f)
-                            .clip(RoundedCornerShape(8.dp))
+                            .squircleClip(8.dp)
                             .background(scheme.surfaceVariant),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -375,7 +375,7 @@ fun LibraryArtistGrid(
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
+                        .squircleClip(12.dp)
                         .background(scheme.surface)
                         .clickable { onArtistClick(artist.id) }
                         .padding(12.dp),

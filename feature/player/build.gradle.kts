@@ -36,6 +36,7 @@ kotlin {
             implementation(libs.coil.compose)
             // 直引 miuix（ui-shared 为 implementation 不透传）
             implementation(libs.miuix.ui)
+            implementation(libs.miuix.squircle)
         }
 
         // U21：jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn（core:common 同款模式），

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -27,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
  * 跨平台 WebDAV 浏览条目（平台无关，只承载展示信息）。
@@ -220,7 +220,7 @@ private fun WebDavBrowseRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(scheme.surface, RoundedCornerShape(8.dp))
+            .squircleBackground(scheme.surface, 8.dp)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

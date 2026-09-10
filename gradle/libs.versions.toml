@@ -134,6 +134,9 @@ miuix-nav = { group = "top.yukonga.miuix.kmp", name = "miuix-nav", version.ref =
 # miuix-blur（HyperOS 模糊效果库：LayerBackdrop/textureBlur/渐进模糊；Android 需 API 33+，
 # 低版本经 isRuntimeShaderSupported() 门控降级；与 miuix-ui 同版本线）
 miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur", version.ref = "miuix" }
+# miuix-squircle（连续曲率平滑圆角：squircleClip/Background/Border；shader 变体 Android API 33+，
+# 低版本自动回退 RoundedCornerShape；miuix-ui 对其仅 runtime 传递，使用方需显式声明）
+miuix-squircle = { group = "top.yukonga.miuix.kmp", name = "miuix-squircle", version.ref = "miuix" }
 # miuix-shader（isRuntimeShaderSupported 等 RuntimeShader 能力检查；miuix-blur 对其不透传，需直连）
 miuix-shader = { group = "top.yukonga.miuix.kmp", name = "miuix-shader", version.ref = "miuix" }
 

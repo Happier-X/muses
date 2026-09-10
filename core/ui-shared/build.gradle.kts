@@ -38,6 +38,7 @@ kotlin {
             // miuix-blur（HyperOS 模糊：LayerBackdrop/textureBlur；Android API 33+，经
             // isRuntimeShaderSupported() 门控降级；commonMain 声明使 androidMain/jvmMain 均可引用）
             implementation(libs.miuix.blur)
+            implementation(libs.miuix.squircle)
             implementation(libs.miuix.shader)
         }
 

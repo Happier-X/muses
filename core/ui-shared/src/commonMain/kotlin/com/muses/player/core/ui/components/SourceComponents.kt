@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import top.yukonga.miuix.kmp.basic.Text
@@ -27,6 +26,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import top.yukonga.miuix.kmp.squircle.squircleBorder
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
  * 跨平台音源行数据（平台无关，只承载展示信息）。
@@ -69,8 +70,8 @@ fun SourceListItem(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(scheme.surface, RoundedCornerShape(12.dp))
-            .border(1.dp, scheme.dividerLine, RoundedCornerShape(12.dp))
+            .squircleBackground(scheme.surface, 12.dp)
+            .squircleBorder(1.dp, scheme.dividerLine, 12.dp)
             .padding(16.dp),
     ) {
         Text(
