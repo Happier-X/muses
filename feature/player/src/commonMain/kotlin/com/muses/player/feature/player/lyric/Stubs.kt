@@ -1,16 +1,12 @@
 package com.muses.player.feature.player.lyric
 
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.muses.player.core.lyrics.model.LyricLine
 import com.muses.player.core.lyrics.model.LyricsDocument
 
 data class PlaybackUiState(
@@ -90,7 +86,6 @@ object SettingsRuntime {
     val lyricLongToneDetectionMode: LyricsGroupingMode = LyricsGroupingMode.Word
     const val lyricLongToneStrength: Float = 1f
     const val lyricLongToneThresholdMs: Int = 950
-    const val lyricLongPressShareEnabled: Boolean = true
 }
 
 object AppVisibility {
@@ -110,7 +105,4 @@ object ProviderLyricsLoader {
     suspend fun load(state: PlaybackUiState): LyricsDocument? = null
 }
 
-fun normalizeLyricMatchText(text: String?): String = text?.trim()?.lowercase().orEmpty()
-suspend fun shareLyricImage(state: PlaybackUiState, lines: List<LyricLine>) {}
-fun Modifier.meloXLiquidButton(shape: RoundedCornerShape, enabled: Boolean, surfaceColor: Color): Modifier = this
 @Composable fun Artwork(url: String?, modifier: Modifier = Modifier) { AsyncImage(model = url, contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop) }

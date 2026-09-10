@@ -23,7 +23,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -104,7 +103,6 @@ import com.muses.player.feature.player.lyric.AppVisibility
 import com.muses.player.feature.player.lyric.LocalFontFamily
 import com.muses.player.feature.player.lyric.LanTingProFontFamily
 import com.muses.player.feature.player.platform.platformRealtimeMs
-import com.muses.player.feature.player.platform.rememberShareTextHandler
 import com.muses.player.feature.player.lyric.LyricsRenderingQuality
 import com.muses.player.feature.player.lyric.LyricAnnotationDisplayMode
 import com.muses.player.feature.player.lyric.LyricsGroupingMode
@@ -134,7 +132,7 @@ import kotlin.math.sqrt
  *
  * U21 跨平台化：原生 glyph 绘制（nativeCanvas.drawText + BlurMaskFilter + Typeface）
  * 重写为 TextMeasurer 单字布局 + TextStyle.Shadow 光晕/柔焦；时钟差用
- * platformRealtimeMs() expect/actual，分享走 rememberShareTextHandler()。
+ * platformRealtimeMs() expect/actual。
  */
 private object UpstreamLyrics {
     const val FONT_SIZE_SP = 24f
@@ -237,7 +235,6 @@ private fun AppleMusicLyricsPanel(
     externalDocument: com.muses.player.core.lyrics.model.LyricsDocument? = null,
 ) {
     val haptics = LocalHapticFeedback.current
-    val shareText = rememberShareTextHandler()
     val activeState = rememberUpdatedState(active)
     // Keep four future lines composed below the viewport. Their independent
     // cascade animations can then run before clipping reveals them.
@@ -254,7 +251,6 @@ private fun AppleMusicLyricsPanel(
     var lyrics by remember(mediaId, automaticLyricSelectionEnabled) { mutableStateOf<LyricsDocument?>(null) }
     var isLoading by remember(mediaId) { mutableStateOf(false) }
     var errorMessage by remember(mediaId) { mutableStateOf<String?>(null) }
-    var shareInitialIndex by remember(mediaId) { mutableStateOf<Int?>(null) }
 
     var anchorPositionMs by remember(mediaId) { mutableLongStateOf(state.positionMs) }
     var anchorRealtimeMs by remember(mediaId) { mutableLongStateOf(platformRealtimeMs()) }
@@ -1059,12 +1055,6 @@ private fun AppleMusicLyricsPanel(
                             },
                             tapSeekEnabled = SettingsRuntime.lyricTapSeekEnabled,
                             onClick = { onInterfaceInteraction(); state.seekTo(line.timeMs) },
-                            longPressShareEnabled = SettingsRuntime.lyricLongPressShareEnabled,
-                            onLongClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onInterfaceInteraction()
-                                shareInitialIndex = index
-                            },
                         )
 
                         if (index != lines.lastIndex) {
@@ -1109,16 +1099,6 @@ private fun AppleMusicLyricsPanel(
                     ),
             )
         }
-    }
-    shareInitialIndex?.let { initial ->
-        LyricShareDialog(
-            state = state,
-            lines = lines,
-            initialIndex = initial,
-            onDismiss = { shareInitialIndex = null },
-            // U21：分享句柄 expect/actual（安卓系统分享面板，桌面写剪贴板）
-            onShareText = shareText,
-        )
     }
 }
 
@@ -1199,10 +1179,8 @@ private fun UpstreamLyricLine(
     reserveTranslation: Boolean,
     reserveRomanization: Boolean,
     tapSeekEnabled: Boolean,
-    longPressShareEnabled: Boolean,
     onMeasured: (Int) -> Unit,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
 ) {
     val flipped = line.agent?.alignment == com.muses.player.core.lyrics.model.LyricAgentAlignment.Flipped
     val lineAlignment = if (flipped) Alignment.End else Alignment.Start
@@ -1227,10 +1205,9 @@ private fun UpstreamLyricLine(
                 alpha = rowAlpha
                 transformOrigin = TransformOrigin(if (flipped) 1f else 0f, 0f)
             }
-            .combinedClickable(
-                enabled = tapSeekEnabled || longPressShareEnabled,
+            .clickable(
+                enabled = tapSeekEnabled,
                 onClick = { if (tapSeekEnabled) onClick() },
-                onLongClick = { if (longPressShareEnabled) onLongClick() },
             )
             // The scale origin sits on the flipped-aware start edge, so the
             // reserved gutter goes to the opposite side where the text grows.
