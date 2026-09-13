@@ -317,12 +317,15 @@ fun SongsPage(
                 ) {
                 itemsIndexed(songs, key = { _, song -> song.id }) { _, song ->
                     val checked = isMultiSelect && song.id in selectedIds
+                    // 当前播放曲：标题用 primary 色区分（多选时以选中态为准，不叠加）
+                    val isCurrent = !isMultiSelect && song.id == currentSongId
                     MusesListRow(
                         modifier = Modifier.background(
                             // Web .songs-page__row.is-selected：rgba(var(--m-primary-rgb), .08)
                             color = if (checked) scheme.primary.copy(alpha = 0.08f) else Color.Transparent,
                             shape = RoundedCornerShape(8.dp),
                         ),
+                        titleColor = if (isCurrent) scheme.primary else null,
                         title = run {
                             val useMetaForTitle = song.id == currentSongId
                                 && song.metaSources?.title == null

@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
@@ -141,7 +140,7 @@ fun WindowScope.DesktopTitleBar(
         } while (event.changes.any { it.id == pointerId && it.pressed })
     }
 
-    Column(modifier = Modifier.fillMaxWidth().background(scheme.surface)) {
+    Column(modifier = Modifier.fillMaxWidth().background(scheme.background)) {
         Row(
             modifier = Modifier.fillMaxWidth().height(40.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -236,7 +235,6 @@ fun WindowScope.DesktopTitleBar(
                 onClick = onClose,
             )
         }
-        HorizontalDivider(color = scheme.dividerLine, thickness = 1.dp)
     }
 }
 

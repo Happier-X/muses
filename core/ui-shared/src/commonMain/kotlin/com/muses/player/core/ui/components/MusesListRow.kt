@@ -18,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +47,9 @@ fun MusesListRow(
     leading: (@Composable () -> Unit)? = null,
     after: @Composable RowScope.() -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    titleColor: Color? = null,
+    subtitleColor: Color? = null,
+    titleFontWeight: FontWeight? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
 
@@ -77,7 +82,8 @@ fun MusesListRow(
                         text = title,
                         style = MiuixTheme.textStyles.main,
                         lineHeight = (17f * 1.35f).sp,
-                        color = scheme.onBackground,
+                        color = titleColor ?: scheme.onBackground,
+                        fontWeight = titleFontWeight,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
@@ -94,7 +100,7 @@ fun MusesListRow(
                         text = subtitle,
                         style = MiuixTheme.textStyles.footnote1,
                         lineHeight = (13f * 1.35f).sp,
-                        color = scheme.onBackgroundVariant,
+                        color = subtitleColor ?: scheme.onBackgroundVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 2.dp),

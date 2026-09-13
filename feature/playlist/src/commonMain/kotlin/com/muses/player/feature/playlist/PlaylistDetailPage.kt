@@ -162,6 +162,7 @@ private fun DetailSongRow(
     val scheme = MiuixTheme.colorScheme
     MusesListRow(
         title = song.title,
+        titleColor = if (isPlaying) scheme.primary else null,
         subtitle = listOfNotNull(song.artist, song.album)
             .filter { it.isNotBlank() }
             .joinToString(" - ")

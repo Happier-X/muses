@@ -273,11 +273,13 @@ fun MusesApp() {
     // 导航项组装
     val primaryItems = NavDestination.Primary.map { dest -> dest.toNavItem(currentKey, backStack) }
     val secondaryItems = NavDestination.Secondary.map { dest -> dest.toNavItem(currentKey, backStack) }
-    // 窄屏底部导航 4 栏：曲库（= 歌曲页）/音源/刮削/设置；首页（专辑/艺术家/歌单入口）后续加入即 5 栏
+    // 窄屏底部导航 5 栏：曲库（= 歌曲页）+ 曲库三 siblings（专辑/艺术家/歌单）+ 设置；
+    // 与宽屏 Rail 同一套目的地：刮削/音源收进设置页「工具」入口（胶囊 7 图标约需 432dp，360dp 手机摆不下）。
     val bottomItems = listOf(
         NavDestination.Songs.toNavItem(currentKey, backStack).copy(label = "曲库"),
-        NavDestination.Sources.toNavItem(currentKey, backStack),
-        NavDestination.Scrape.toNavItem(currentKey, backStack),
+        NavDestination.Albums.toNavItem(currentKey, backStack),
+        NavDestination.Artists.toNavItem(currentKey, backStack),
+        NavDestination.Playlists.toNavItem(currentKey, backStack),
         NavDestination.Settings.toNavItem(currentKey, backStack),
     )
 
@@ -347,6 +349,11 @@ fun MusesApp() {
         },
     ) { _ ->
         Box(Modifier.fillMaxSize()) {
+        // 子页面系统返回 → 上一级；主页（栈深 1）不消费，留在本页。
+        // overlay 打开时不抢返回：沉浸页/队列各自消费（沉浸页见下方 ShellBackHandler，队列由 sheet 自行消费）。
+        ShellBackHandler(enabled = backStack.size > 1 && !showPlayerOverlay && !showQueueOverlay) {
+            backStack.pop()
+        }
         // 结构恒定：overlay 打开时不得切换 TabsLayout 分支（navVisible 恒 true）——
         // 原版 Web overlay 打开仅锁主页面交互（pointer-events:none），DOM 全保留；
         // 之前按 overlayRoute 切 navVisible 会让 content（NavHost）在组合树换位销毁重建，
@@ -421,17 +428,20 @@ private fun NavBackStack.pop() {
 }
 
 /**
- * 切 tab：清到 Songs 根后按需 push。
- * 对照原 popUpTo(Songs){saveState} + launchSingleTop + restoreState；
- * per-tab 状态不跨次保留（列表由 flow 重载，滚动回到顶部），详情返回栈不保留。
+ * 切 tab：主页单例替换 + 点当前 tab 直接回主页。
+ *
+ * - 目标已在栈内（含正处其子页面时点本 tab）：弹到目标之上全清，直接回到该主页；
+ * - 切到别的 tab：整栈替换为新主页单例（先 add 再从头清，全程非空，miuix-nav 空栈非法）；
+ * - 子页面栈不跨 tab 保留（列表由 flow 重载，滚动回到顶部），切走即丢弃，返回时逐级弹栈。
  */
 private fun navigateToTab(backStack: NavBackStack, destination: NavDestination) {
-    if (destination == NavDestination.Songs) {
-        while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+    val target = destination.routeKey
+    if (backStack.contains(target)) {
+        while (backStack.lastOrNull() != target) backStack.removeAt(backStack.lastIndex)
         return
     }
-    while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-    backStack.pushUnique(destination.routeKey)
+    backStack.add(target)
+    while (backStack.size > 1) backStack.removeAt(0)
 }
 
 @Composable
@@ -585,6 +595,12 @@ private fun AppNavHost(
                 },
             )
         }
-        entry<MusesRoute.Settings> { SettingsScreen() }
+        entry<MusesRoute.Settings> {
+            SettingsScreen(
+                // 窄屏底栏 5 项未含刮削/音源，经设置页「工具」区块进入；宽屏传 null 隐藏（Rail 自带）。
+                onOpenSources = { backStack.pushUnique(NavDestination.Sources.routeKey) },
+                onOpenScrape = { backStack.pushUnique(NavDestination.Scrape.routeKey) },
+            )
+        }
     }
 }

@@ -15,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import com.muses.player.core.appupdate.checkLatestRelease
 import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.SettingsRepository
+import com.muses.player.core.ui.components.MusesListRow
 import com.muses.player.core.ui.components.SettingsAboutFeedbackContent
 import com.muses.player.core.ui.components.SettingsBlockTitle
 import com.muses.player.core.ui.components.SettingsScreen
@@ -62,6 +63,10 @@ class SettingsViewModel constructor(
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = koinViewModel(),
+    // 窄屏底栏只摆 5 项（曲库/专辑/艺术家/歌单/设置）时，刮削/音源经此进入；
+    // 宽屏 Rail 自带这两项，传 null 即隐藏本区块。
+    onOpenSources: (() -> Unit)? = null,
+    onOpenScrape: (() -> Unit)? = null,
 ) {
     val actions = rememberShellPlatformActions()
     val versionProvider = koinInject<AppVersionProvider>()
@@ -99,6 +104,27 @@ fun SettingsScreen(
                         versionName = versionProvider.versionName,
                         onOpenUrl = actions.openUrl,
                     )
+                }
+
+                // ---- 工具（窄屏底栏未收纳项的入口；宽屏 Rail 自带时不传回调即隐藏） ----
+                if (onOpenSources != null || onOpenScrape != null) {
+                    SettingsBlockTitle("工具")
+                    onOpenSources?.let { open ->
+                        MusesListRow(
+                            title = "音源",
+                            subtitle = "本地目录 / WebDAV 管理与扫描",
+                            onClick = open,
+                            chevron = true,
+                        )
+                    }
+                    onOpenScrape?.let { open ->
+                        MusesListRow(
+                            title = "刮削",
+                            subtitle = "封面 / 歌词 / 标签补全队列",
+                            onClick = open,
+                            chevron = true,
+                        )
+                    }
                 }
 
                 // ---- 关于 ----
