@@ -169,7 +169,7 @@ fun SongsPage(
     val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = scheme.background,
+        containerColor = scheme.surface,
         topBar = {
             MusesTopBar(
                 title = "歌曲",
@@ -199,8 +199,11 @@ fun SongsPage(
                                     }
                                 }
                             }
+                            // 左右边距与歌曲行封面左缘对齐（行内边距 16dp，见 MusesListRow）
                             Row(
-                                Modifier.fillMaxWidth(),
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 // 图标与歌曲数同属一个可点区域（用户定案：点数字同样触发随机播放）
@@ -233,9 +236,11 @@ fun SongsPage(
                         }
 
                         songs.isNotEmpty() && isSearching -> {
-                            // .songs-page__searchbar
+                            // .songs-page__searchbar（左右边距同工具栏，与歌曲行对齐）
                             Row(
-                                Modifier.fillMaxWidth(),
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Icon(
@@ -277,18 +282,17 @@ fun SongsPage(
         },
         floatingActionButton = {
             if (showJumpBubble) {
-                // 壳层的迷你播放条 + 悬浮胶囊底栏是浮在 Scaffold 之上的，miuix Scaffold
-                // 感知不到它们；FAB 需手动抬升到两根条之上：
-                // 窄屏 = 迷你条 80dp（64+边距8×2）+ 胶囊底栏 ≈64dp；宽屏仅迷你条。
+                // 悬浮件浮在内容之上，miuix Scaffold 感知不到；FAB 手动抬升到两件套之上：
+                // 窄屏 = 迷你条 80dp（64+边距8×2）+ 胶囊底栏 88dp（minHeight 52+底部留白 36）；宽屏仅迷你条。
                 // 阈值 768dp 与 TabsLayout.TabletBreakpoint 同口径（跨模块 internal 不可见，此处置复）。
                 BoxWithConstraints(Modifier.fillMaxSize()) {
-                    val fabClearance = if (maxWidth >= 768.dp) 96.dp else 148.dp
+                    val fabClearance = if (maxWidth >= 768.dp) 104.dp else 192.dp
                     JumpToCurrentFab(
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = fabClearance),
-                        onClick = {
-                            val idx = songs.indexOfFirst { it.id == currentSongId }
-                            if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
-                        },
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = fabClearance, end = 16.dp),
+                    onClick = {
+                        val idx = songs.indexOfFirst { it.id == currentSongId }
+                        if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
+                    },
                     )
                 }
             }
@@ -313,7 +317,11 @@ fun SongsPage(
                         .fillMaxSize()
                         .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
                     state = listState,
-                    contentPadding = PaddingValues(bottom = if (isMultiSelect) 64.dp else 16.dp),
+                    // 末项避让底部悬浮件（悬浮件高度见 BottomChrome；空态分支不受影响）
+                    contentPadding = PaddingValues(
+                        bottom = (if (isMultiSelect) 64.dp else 16.dp) +
+                            com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                    ),
                 ) {
                 itemsIndexed(songs, key = { _, song -> song.id }) { _, song ->
                     val checked = isMultiSelect && song.id in selectedIds
@@ -326,6 +334,7 @@ fun SongsPage(
                             shape = RoundedCornerShape(8.dp),
                         ),
                         titleColor = if (isCurrent) scheme.primary else null,
+                        subtitleColor = if (isCurrent) scheme.primary else null,
                         title = run {
                             val useMetaForTitle = song.id == currentSongId
                                 && song.metaSources?.title == null
@@ -396,9 +405,15 @@ fun SongsPage(
                                     // Web .m-list-item__inner padding-left:12px —— 封面-标题间距对齐椒盐
                                     Spacer(Modifier.width(12.dp))
                                 } else {
-                                // Web .songs-page__cover 无封面覆盖：m-cover 容器仍恒定 54dp（透明底），
-                                // 内部居中 32dp 占位图标 opacity .45 —— 行首宽度与有封面状态一致
-                                Box(Modifier.size(54.dp), contentAlignment = Alignment.Center) {
+                                // Web .songs-page__cover 无封面覆盖：m-cover 容器仍恒定 54dp，灰槽底 + 内部居中 32dp 占位图标；
+                                // 灰槽保证与有封面行左缘一致（工具栏/封面左对齐的基准，见 bottomContent 16dp）。
+                                Box(
+                                    Modifier
+                                        .size(54.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(scheme.surfaceContainerHigh),
+                                    contentAlignment = Alignment.Center,
+                                ) {
                                     Icon(
                                         TablerIcons.MusicNote,
                                         contentDescription = null,
@@ -458,7 +473,9 @@ fun SongsPage(
     // ---- 多选底部操作条（.songs-page__multibar）：内容层底部浮层，位于停靠迷你条之上 ----
     if (isMultiSelect) {
         Box(
-            Modifier.fillMaxSize(),
+            Modifier
+                .fillMaxSize()
+                .padding(bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current),
             contentAlignment = Alignment.BottomCenter,
         ) {
         MultiselectBottomBar(

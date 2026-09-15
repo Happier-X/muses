@@ -82,7 +82,7 @@ fun SourcesScreen(
     val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = scheme.background,
+        containerColor = scheme.surface,
         topBar = {
             MusesTopBar(
                 title = "音源",
@@ -352,7 +352,8 @@ private fun SourceCardList(
             start = 12.dp,
             end = 12.dp,
             top = 8.dp,
-            bottom = 16.dp,
+            // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
+            bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

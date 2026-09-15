@@ -29,7 +29,7 @@ fun WindowScope.MusesDesktopApp(
     KoinApplication(application = { modules(desktopAppModules) }) {
         MusesTheme {
             Box(modifier = Modifier.fillMaxSize()) {
-                Column(modifier = Modifier.fillMaxSize().background(MiuixTheme.colorScheme.background)) {
+                Column(modifier = Modifier.fillMaxSize().background(MiuixTheme.colorScheme.surface)) {
                     DesktopTitleBar(windowState, onClose)
                     // 共享导航壳（hazeState 由 TabsLayout 内部 provide，磨砂导航/迷你条真磨砂）
                     Box(modifier = Modifier.weight(1f).fillMaxSize()) {

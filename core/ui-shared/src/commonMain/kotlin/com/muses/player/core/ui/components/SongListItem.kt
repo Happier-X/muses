@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,7 +49,8 @@ data class SongItem(
  * - 行高自适应，内缩 padding 12dp;
  * - 标题：scheme.onBackground / 14sp，当前曲 primary 色 + SemiBold;
  * - 副标题：artist - albumTitle，scheme.onBackgroundVariant / 12sp，单行省略;
- * - 当前行：surface1 背景 + primary 色标题 + 尾部播放图标;
+ * - 当前行：primary 10% 高亮底 + primary 色标题 + 尾部播放图标（与歌单详情行同口径）；
+ *   非当前行透明底，直接透出页面底（surface 灰），无斑马纹；
  * - 按压态：官方 pressable(SinkFeedback) 下沉反馈 + surface 变色叠层；
  * - 纯 UI 组件，零平台依赖，所有业务逻辑经回调注入。
  *
@@ -70,9 +72,9 @@ fun SongListItem(
     val pressed by interactionSource.collectIsPressedAsState()
 
     val bgColor = when {
-        isCurrent -> scheme.surface
+        isCurrent -> scheme.primary.copy(alpha = 0.1f)
         pressed -> scheme.surface.copy(alpha = 0.5f)
-        else -> scheme.background
+        else -> Color.Transparent
     }
 
     Row(
@@ -119,7 +121,7 @@ fun SongListItem(
             if (subtitle.isNotBlank()) {
                 Text(
                     text = subtitle,
-                    color = scheme.onBackgroundVariant,
+                    color = if (isCurrent) scheme.primary else scheme.onBackgroundVariant,
                     style = MiuixTheme.textStyles.footnote1,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

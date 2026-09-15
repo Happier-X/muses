@@ -62,7 +62,7 @@ fun WebDavBrowseScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MiuixTheme.colorScheme.background,
+        containerColor = MiuixTheme.colorScheme.surface,
         topBar = {
             MusesTopBar(
                 title = if (mode == "single") "选择目录" else "选择文件夹",

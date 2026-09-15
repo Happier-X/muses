@@ -71,7 +71,7 @@ fun AlbumsPage(
     val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = scheme.background,
+        containerColor = scheme.surface,
         topBar = {
             MusesTopBar(title = "专辑", largeTitle = "专辑", scrollBehavior = topBarScrollBehavior)
         },
@@ -97,7 +97,8 @@ fun AlbumsPage(
                     start = 16.dp,
                     end = 16.dp,
                     top = padding.calculateTopPadding(),
-                    bottom = 16.dp,
+                    // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
+                    bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                 ),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -173,7 +174,7 @@ fun ArtistsPage(
     val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = scheme.background,
+        containerColor = scheme.surface,
         topBar = {
             MusesTopBar(title = "艺术家", largeTitle = "艺术家", scrollBehavior = topBarScrollBehavior)
         },
@@ -198,7 +199,8 @@ fun ArtistsPage(
                     start = 16.dp,
                     end = 16.dp,
                     top = padding.calculateTopPadding(),
-                    bottom = 16.dp,
+                    // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
+                    bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                 ),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),

@@ -4,8 +4,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -28,7 +26,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
@@ -39,12 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.ui.theme.LocalMusesBackdrop
-import com.muses.player.core.ui.theme.MusesBlurStyleData
-import androidx.compose.foundation.isSystemInDarkTheme
-import com.muses.player.core.ui.theme.musesBackdropBlur
-import com.muses.player.core.ui.theme.musesBottomBarBlurStyle
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /** 滑动切歌：累计位移阈值（超过即切歌）。 */
@@ -79,10 +75,8 @@ private fun swipeSnapBackSpec() = spring<Float>(
  * 视觉契约：
  * - 高 64px；左右 18px 悬浮（定位由页面控制，此处只画胶囊本体）；
  *   底部避让 safe-bottom + 8px 同样由页面布局负责；
- * - 液态玻璃（真磨砂）：`--m-glass-bg` + miuix-blur `blur 20f` + 白/黑 tint（暗 0.42 / 明 0.56），
- *   `border-radius: 40px` 胶囊 + `border: 1px solid rgba(255,255,255,.5)`（暗色 .12）；
- *   磨砂由 [LocalMusesBackdrop] 提供的 backdrop 经 [musesBackdropBlur] 实时模糊（textureBlur），
- *   无 backdrop / RuntimeShader 不支持时回退为 0.75 alpha 的纯色底；
+ * - 与悬浮底栏同材质（官方 FloatingNavigationBar 一比一）：surfaceContainer 纯色底 +
+ *   squircle 50dp 胶囊 + dropShadow（Black 0.2 / radius 10dp）；无磨砂、无描边；
  * - box-shadow：`inset 0 1px 0 rgba(255,255,255,.65)`（暗 .1）+
  *   `0 4px 16px rgba(0,0,0,.08)`（暗 .35）；
  * - 行内 gap `--m-spacing-sub`(12px)、水平 padding `--m-spacing`(16px)；
@@ -110,17 +104,10 @@ fun MiniPlayerBar(
     onPrevious: (() -> Unit)? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
-    val isDark = isSystemInDarkTheme()
-    val capsuleShape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(40.dp)
-
-    val borderColor = scheme.outline
+    // 与悬浮底栏同材质：squircle 50dp 胶囊（官方 FloatingNavigationBar 同值）
+    val capsuleShape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(50.dp)
 
     val clickInteraction = remember { MutableInteractionSource() }
-
-    // 平台模糊风格数据
-    // LocalMusesBackdrop 由 app 层（TabsLayout）provide；null 或 RuntimeShader 不支持时纯色降级
-    val backdrop = LocalMusesBackdrop.current
-    val blurStyle: MusesBlurStyleData = musesBottomBarBlurStyle(isDark)
 
     // ── 滑动切歌：左滑（offset < 0）→ 下一曲，右滑（offset > 0）→ 上一曲 ──
     // 空态或未提供回调时禁用滑动；阈值以外的小幅拖动松手后忽略（不切歌）。
@@ -188,17 +175,12 @@ fun MiniPlayerBar(
             .height(64.dp)
             // TODO(U4): SaltShadows（android.graphics.BlurMaskFilter）暂不迁入 commonMain，
             // 完整阴影配方待 SaltShadows 完成跨平台抽象后恢复。
-            .clip(capsuleShape)
-            .then(
-                musesBackdropBlur(
-                    backdrop = backdrop,
-                    isDark = isDark,
-                    backgroundColor = scheme.surface.copy(alpha = 0.75f),
-                    style = blurStyle,
-                    shape = capsuleShape,
-                ),
+            // 与悬浮底栏同材质链：先投影再铺纯色（官方 FloatingNavigationBar 同顺序）
+            .dropShadow(
+                shape = capsuleShape,
+                shadow = Shadow(radius = 10.dp, color = Color.Black, alpha = 0.2f),
             )
-            .border(border = BorderStroke(1.dp, borderColor), shape = capsuleShape)
+            .squircleBackground(scheme.surfaceContainer, 50.dp)
             .clickable(
                 interactionSource = clickInteraction,
                 indication = null,

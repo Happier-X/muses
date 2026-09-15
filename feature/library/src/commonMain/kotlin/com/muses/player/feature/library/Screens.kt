@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -122,7 +123,7 @@ private fun LibrarySearchEntry(
         modifier = modifier
             .fillMaxWidth()
             .squircleClip(8.dp)
-            .background(scheme.surface)
+            .background(scheme.surfaceVariant)
             .clickable(
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 indication = null,
@@ -226,7 +227,7 @@ fun AlbumDetailScreen(
     val songs = albumWithSongs?.songs?.map { it.toDomain() }.orEmpty()
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MiuixTheme.colorScheme.background,
+        containerColor = MiuixTheme.colorScheme.surface,
         topBar = {
             // MusesNavbar：左返回箭头（对照 Web LibraryDetailPage navbar）→ 原生小顶栏
             MusesTopBar(
@@ -240,6 +241,10 @@ fun AlbumDetailScreen(
             currentSongId = null,
             onPlay = { songId -> onPlaySong(songId, songs) },
             emptyTitle = "专辑中暂无歌曲",
+            // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
+            contentPadding = PaddingValues(
+                bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+            ),
             modifier = Modifier.fillMaxSize().padding(padding),
         )
     }
@@ -284,7 +289,7 @@ fun ArtistDetailScreen(
     val songs = artistWithSongs?.songs?.map { it.toDomain() }.orEmpty()
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MiuixTheme.colorScheme.background,
+        containerColor = MiuixTheme.colorScheme.surface,
         topBar = {
             MusesTopBar(
                 title = artistWithSongs?.artist?.name ?: "艺术家",
@@ -297,6 +302,10 @@ fun ArtistDetailScreen(
             currentSongId = null,
             onPlay = { songId -> onPlaySong(songId, songs) },
             emptyTitle = "艺术家暂无歌曲",
+            // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
+            contentPadding = PaddingValues(
+                bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+            ),
             modifier = Modifier.fillMaxSize().padding(padding),
         )
     }

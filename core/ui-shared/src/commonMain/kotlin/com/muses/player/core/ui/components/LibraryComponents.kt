@@ -191,6 +191,7 @@ fun LibrarySearchField(
  * @param currentSongId 当前播放曲 id；null = 无高亮（安卓旧 Screens.kt 即无此概念）
  * @param onPlay 点播回调（调用方注入播放逻辑，传 songId）
  * @param onLongClick 长按回调（null = 不支持长按；安卓旧屏传「加入歌单」弹层）
+ * @param contentPadding 列表内边距（调用方按需叠加底部悬浮件避让，见 BottomChrome）
  */
 @Composable
 fun LibrarySongList(
@@ -202,6 +203,7 @@ fun LibrarySongList(
     emptyTitle: String = "曲库为空",
     emptyDescription: String? = null,
     emptyIcon: ImageVector? = TablerIcons.MusicNote,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     if (songs.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -214,6 +216,7 @@ fun LibrarySongList(
     } else {
         LazyColumn(
             modifier = modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             items(songs, key = { it.id }) { song ->
@@ -291,7 +294,7 @@ fun LibraryAlbumGrid(
                     Modifier
                         .fillMaxWidth()
                         .squircleClip(12.dp)
-                        .background(scheme.surface)
+                        .background(scheme.surfaceVariant)
                         .clickable { onAlbumClick(album.id) }
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -302,7 +305,7 @@ fun LibraryAlbumGrid(
                             .fillMaxWidth()
                             .aspectRatio(1f)
                             .squircleClip(8.dp)
-                            .background(scheme.surfaceVariant),
+                            .background(scheme.surface),
                         contentAlignment = Alignment.Center,
                     ) {
                         LibraryGridCover(uri = album.coverUri, modifier = Modifier.fillMaxSize())
@@ -376,7 +379,7 @@ fun LibraryArtistGrid(
                     Modifier
                         .fillMaxWidth()
                         .squircleClip(12.dp)
-                        .background(scheme.surface)
+                        .background(scheme.surfaceVariant)
                         .clickable { onArtistClick(artist.id) }
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -387,7 +390,7 @@ fun LibraryArtistGrid(
                             .fillMaxWidth()
                             .aspectRatio(1f)
                             .clip(CircleShape)
-                            .background(scheme.surfaceVariant),
+                            .background(scheme.surface),
                         contentAlignment = Alignment.Center,
                     ) {
                         LibraryGridCover(uri = artist.coverUri, modifier = Modifier.fillMaxSize())
@@ -437,7 +440,7 @@ fun LibraryArtistGrid(
 @Composable
 private fun LibraryGridCover(uri: String?, modifier: Modifier = Modifier) {
     val scheme = MiuixTheme.colorScheme
-    Box(modifier.background(scheme.surfaceVariant), contentAlignment = Alignment.Center) {
+    Box(modifier.background(scheme.surface), contentAlignment = Alignment.Center) {
         if (!uri.isNullOrBlank()) {
             AsyncImage(
                 model = uri,

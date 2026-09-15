@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,8 +22,8 @@ import androidx.compose.ui.draw.shadow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.ui.graphics.Color
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
@@ -270,11 +271,21 @@ fun MusesApp() {
     // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // 导航项组装
-    val primaryItems = NavDestination.Primary.map { dest -> dest.toNavItem(currentKey, backStack) }
-    val secondaryItems = NavDestination.Secondary.map { dest -> dest.toNavItem(currentKey, backStack) }
-    // 窄屏底部导航 5 栏：曲库（= 歌曲页）+ 曲库三 siblings（专辑/艺术家/歌单）+ 设置；
-    // 与宽屏 Rail 同一套目的地：刮削/音源收进设置页「工具」入口（胶囊 7 图标约需 432dp，360dp 手机摆不下）。
+    // 导航项组装：两端同一套 5 目的地（曲库/专辑/艺术家/歌单/设置）；
+    // 刮削/音源收进设置页「工具」入口（胶囊 7 图标约需 432dp，360dp 手机摆不下，Rail 亦同步精简）。
+    val railItems = listOf(
+        NavDestination.Songs,
+        NavDestination.Albums,
+        NavDestination.Artists,
+        NavDestination.Playlists,
+        NavDestination.Settings,
+    ).map { dest ->
+        dest.toNavItem(currentKey, backStack).let {
+            // 侧轨与底栏同文案：首项统一叫「曲库」
+            if (dest == NavDestination.Songs) it.copy(label = "曲库") else it
+        }
+    }
+    // 窄屏底部导航 5 栏：曲库（= 歌曲页）+ 曲库三 siblings（专辑/艺术家/歌单）+ 设置
     val bottomItems = listOf(
         NavDestination.Songs.toNavItem(currentKey, backStack).copy(label = "曲库"),
         NavDestination.Albums.toNavItem(currentKey, backStack),
@@ -293,9 +304,23 @@ fun MusesApp() {
     // 断点与 TabsLayout 同口径（BoxWithConstraints 视口宽 ≥768dp 即平板）。
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val isTabletBar = maxWidth >= TabletBreakpoint
+        // 与悬浮底栏等宽对齐：底栏为 wrap-content 居中，迷你条边距动态取 (屏宽-底栏宽)/2，两边一条线。
+        // 底栏宽按官方默认值推导（miuix 0.9.4-rc01，升级 miuix 后复核）：
+        // 5×(IconSize 28 + IconPadding 10×2) + 4×ItemSpacing 12 + 2×HorizontalPadding 12 = 312dp。
+        val tabBarWidth = with(FloatingNavigationBarDefaults) {
+            val item = IconSize.value + IconPadding.value * 2f
+            val n = bottomItems.size.toFloat()
+            (item * n + ItemSpacing.value * (n - 1f) + HorizontalPadding.value * 2f).dp
+        }
+        // 平板无底栏胶囊，迷你条保持 18dp；窄屏下限 18dp（屏太窄时底栏接近满宽，迷你条不再更窄）。
+        val chromeSideMargin = if (isTabletBar) {
+            18.dp
+        } else {
+            (((maxWidth.value - tabBarWidth.value) / 2f).dp).coerceAtLeast(18.dp)
+        }
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            containerColor = Color.Transparent,
+            containerColor = MiuixTheme.colorScheme.surface,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             // 全局短提示走官方 Snackbar 槽：定位/边距/动画全由宿主保证，绘制在底栏之上
             snackbarHost = { MusesSnackbarHostContent(snackbarHostState) },
@@ -325,16 +350,19 @@ fun MusesApp() {
                     onNext = { viewModel.skipToNext() },
                     onPrevious = { viewModel.skipToPrevious() },
                     modifier = Modifier
-                        .padding(horizontal = 18.dp, vertical = 8.dp)
+                        .padding(horizontal = chromeSideMargin, vertical = 8.dp)
                         .fillMaxWidth(),
                 )
                 }
                 // 悬浮胶囊底栏（官方 FloatingNavigationBar，图标-only，label 进无障碍文案）：
-                // 底部距离走官方默认 defaultWindowInsetsPadding = true（组件自吃导航条+手势提示条 inset）
+                // 官方默认底部留白 36dp（无系统 inset 时）实测偏大，外层整体下移收紧到 ~24dp；
+                // 注意 offset 必须包在组件外面：经 modifier 参数传进去只会偏移内部图标，背景不动。
+                // 手势区安全（>16dp），有系统导航条时组件自吃的 inset 另算，不会被盖住。
                 if (!isTabletBar) {
-                    FloatingNavigationBar(
-                        horizontalOutSidePadding = 18.dp,
-                    ) {
+                    Box(Modifier.offset(y = 12.dp)) {
+                        FloatingNavigationBar(
+                            horizontalOutSidePadding = 18.dp,
+                        ) {
                         bottomItems.forEach { item ->
                             FloatingNavigationBarItem(
                                 selected = item.active,
@@ -342,6 +370,7 @@ fun MusesApp() {
                                 icon = item.icon,
                                 label = item.label,
                             )
+                        }
                         }
                     }
                 }
@@ -359,8 +388,8 @@ fun MusesApp() {
         // 之前按 overlayRoute 切 navVisible 会让 content（NavHost）在组合树换位销毁重建，
         // 底下列表停止绘制 → 下滑沉浸页露出纯黑（08-28 下滑露黑根因）。
         TabsLayout(
-            primaryItems = primaryItems,
-            secondaryItems = secondaryItems,
+            primaryItems = railItems,
+            secondaryItems = emptyList(),
             navVisible = true,
         ) {
             AppNavHost(backStack, scrapeVm)

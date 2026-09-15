@@ -70,7 +70,7 @@ fun ScrapeScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = scheme.background,
+        containerColor = scheme.surface,
         topBar = {
             // 大标题静态：状态机多列表，折叠联动改造成本高，暂不接 scrollBehavior
             MusesTopBar(title = "刮削", largeTitle = "刮削")
@@ -180,7 +180,13 @@ private fun QueueStateContent(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+                // 底部操作条贴内容底：叠加悬浮件避让（悬浮件高度见 BottomChrome）
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 16.dp,
+                    bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                ),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             MusesButton(onClick = onClear, modifier = Modifier.weight(1f)) { Text("清空") }
@@ -379,7 +385,13 @@ private fun PreviewStateContent(
             }
         }
         Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+            Modifier.fillMaxWidth().padding(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                // 底部操作条贴内容底：叠加悬浮件避让（悬浮件高度见 BottomChrome）
+                bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+            ),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             MusesButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("取消") }

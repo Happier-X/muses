@@ -57,7 +57,7 @@ fun PlaylistDetailPage(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = scheme.background,
+        containerColor = scheme.surface,
         topBar = {
             MusesTopBar(
                 title = playlist?.name ?: "歌单",
@@ -104,7 +104,10 @@ fun PlaylistDetailPage(
                     else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 16.dp),
+                            contentPadding = PaddingValues(
+                                // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
+                                bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                            ),
                         ) {
                     items(songs.size, key = { songs[it].id }) { index ->
                         val song = songs[index]
@@ -163,6 +166,7 @@ private fun DetailSongRow(
     MusesListRow(
         title = song.title,
         titleColor = if (isPlaying) scheme.primary else null,
+        subtitleColor = if (isPlaying) scheme.primary else null,
         subtitle = listOfNotNull(song.artist, song.album)
             .filter { it.isNotBlank() }
             .joinToString(" - ")

@@ -81,7 +81,7 @@ fun ScrapeReviewScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = scheme.background,
+        containerColor = scheme.surface,
         topBar = {
             MusesTopBar(
                 title = "刮削审核",
@@ -210,7 +210,13 @@ private fun EmptyContent(
             onClick = { viewModel.search() },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 12.dp,
+                    // 底部按钮贴内容底：叠加悬浮件避让（悬浮件高度见 BottomChrome）
+                    bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                ),
         ) {
             Text("重试")
         }
@@ -322,7 +328,13 @@ private fun ReviewContent(
             enabled = state.checkedFields.isNotEmpty(),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 12.dp,
+                    // 底部按钮贴内容底：叠加悬浮件避让（悬浮件高度见 BottomChrome）
+                    bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                ),
         ) {
             Text("应用" + if (state.checkedFields.isNotEmpty()) "（${state.checkedFields.size}）" else "")
         }

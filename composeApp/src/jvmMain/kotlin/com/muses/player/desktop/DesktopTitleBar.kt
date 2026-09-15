@@ -140,7 +140,7 @@ fun WindowScope.DesktopTitleBar(
         } while (event.changes.any { it.id == pointerId && it.pressed })
     }
 
-    Column(modifier = Modifier.fillMaxWidth().background(scheme.background)) {
+    Column(modifier = Modifier.fillMaxWidth().background(scheme.surface)) {
         Row(
             modifier = Modifier.fillMaxWidth().height(40.dp),
             verticalAlignment = Alignment.CenterVertically,

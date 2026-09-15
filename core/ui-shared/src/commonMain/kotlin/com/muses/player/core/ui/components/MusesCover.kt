@@ -48,7 +48,7 @@ fun MusesCover(
         modifier = modifier
             .size(size)
             .clip(shape)
-            .background(scheme.surfaceVariant)
+            .background(scheme.surfaceContainerHigh)
             .then(
                 if (contentDescription != null) {
                     Modifier.semantics { this.contentDescription = contentDescription }

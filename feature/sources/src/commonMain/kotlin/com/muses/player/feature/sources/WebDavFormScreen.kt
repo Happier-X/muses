@@ -79,7 +79,7 @@ fun WebDavFormScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = scheme.background,
+        containerColor = scheme.surface,
         topBar = {
             MusesTopBar(
                 title = if (isEditMode) "编辑 WebDAV" else "添加 WebDAV",
@@ -95,7 +95,9 @@ fun WebDavFormScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
                 .padding(horizontal = 12.dp)
-                .padding(top = 8.dp),
+                .padding(top = 8.dp)
+                // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
+                .padding(bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current),
         ) {
             // .source-webdav-page__form-fields：共用 SourceFormCard（受控字段经 VM 回调注入）
             SourceFormCard(

@@ -122,7 +122,7 @@ fun PlaylistsPage(
     val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = scheme.background,
+        containerColor = scheme.surface,
         topBar = {
             MusesTopBar(
                 title = "歌单",
@@ -169,7 +169,10 @@ fun PlaylistsPage(
                     modifier = Modifier
                         .fillMaxSize()
                         .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
-                    contentPadding = PaddingValues(bottom = 16.dp),
+                    contentPadding = PaddingValues(
+                        // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
+                        bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                    ),
                 ) {
                 items(rows, key = { it.playlist.id }) { row ->
                     MusesListRow(

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
@@ -41,7 +42,7 @@ fun SettingsScreen(
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MiuixTheme.colorScheme.background,
+        containerColor = MiuixTheme.colorScheme.surface,
         topBar = {
             MusesTopBar(title = "设置")
         },
@@ -57,7 +58,8 @@ fun SettingsScreen(
             extraContent()
 
             // ---- 底部呼吸感（迷你条已停靠 bottomBar，Scaffold 自动留空） ----
-            Spacer(Modifier.height(16.dp))
+            // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
+            Spacer(Modifier.height(16.dp + LocalBottomChromePadding.current))
         }
     }
 }

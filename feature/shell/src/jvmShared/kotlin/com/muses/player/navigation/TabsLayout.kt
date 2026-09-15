@@ -29,7 +29,7 @@ import top.yukonga.miuix.kmp.squircle.squircleBackground
  * `.tabs-layout` —— 主框架双形态导航（miuix 官方分工）。
  *
  * - 宽屏（≥768px，Web 断点口径）→ 官方 [NavigationRail]（宽屏专用侧轨，折叠图标+展开药丸二态，
- *   主/次菜单以分割线分组，7 个目的地竖排全收纳）；
+ *   与窄屏底栏同一套 5 目的地）；
  * - 窄屏 → 官方 FloatingNavigationBar 底部胶囊（见 MusesApp bottomBar，图标-only）；
  * - 两端同一套目的地集合，选中态同源（NavDestination.isActive），切 tab/子页面压栈逻辑见 MusesApp。
  */
@@ -64,26 +64,34 @@ fun TabsLayout(
         com.muses.player.core.ui.theme.LocalMusesBackdrop provides backdrop,
     ) {
         BoxWithConstraints(modifier.fillMaxSize()) {
+            androidx.compose.runtime.CompositionLocalProvider(
+                // 底部悬浮件避让：窄屏 184dp / 宽屏 96dp（见 BottomChrome），列表页末项避让用，空态不留白
+                com.muses.player.core.ui.theme.LocalBottomChromePadding provides if (maxWidth >= TabletBreakpoint) {
+                    com.muses.player.core.ui.theme.TabletBottomChromePadding
+                } else {
+                    com.muses.player.core.ui.theme.PhoneBottomChromePadding
+                },
+            ) {
             if (!navVisible) {
                 // 覆盖路由形态：无导航 chrome，全屏内容
                 Box(Modifier.fillMaxSize()) { content() }
-                return@BoxWithConstraints
-            }
-
-            val isTablet = maxWidth >= TabletBreakpoint
-            if (isTablet) {
-                TabletLayout(
-                    primaryItems = primaryItems,
-                    secondaryItems = secondaryItems,
-                    backdrop = backdrop,
-                    modifier = Modifier,
-                    content = content,
-                )
             } else {
-                PhoneLayout(
-                    backdrop = backdrop,
-                    content = content,
-                )
+                val isTablet = maxWidth >= TabletBreakpoint
+                if (isTablet) {
+                    TabletLayout(
+                        primaryItems = primaryItems,
+                        secondaryItems = secondaryItems,
+                        backdrop = backdrop,
+                        modifier = Modifier,
+                        content = content,
+                    )
+                } else {
+                    PhoneLayout(
+                        backdrop = backdrop,
+                        content = content,
+                    )
+                }
+            }
             }
         }
     }
@@ -97,7 +105,7 @@ fun TabsLayout(
  * 宽屏侧轨形态：官方 [NavigationRail]（折叠 80dp 图标+文 / 展开 240dp 药丸，内建切换钮）。
  *
  * 配色/分隔/边距全走官方默认（surface 底 + 内容侧分割线 + 自吃系统边衬）；
- * 主/次菜单以一条分割线分组，7 个目的地竖排全收纳，与窄屏底栏同一集合。
+ * 与窄屏底栏同一套 5 目的地（次组为空时不画分割线）。
  * 迷你条已停靠根 Scaffold bottomBar，此处不再叠加悬浮层。
  */
 @Composable
@@ -109,7 +117,7 @@ private fun TabletLayout(
     content: @Composable () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
-    Box(modifier.background(scheme.background)) {
+    Box(modifier.background(scheme.surface)) {
         Row(
             Modifier
                 .fillMaxSize()
@@ -143,14 +151,17 @@ private fun TabletLayout(
                         label = item.label,
                     )
                 }
-                HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                secondaryItems.forEach { item ->
-                    NavigationRailItem(
-                        selected = item.active,
-                        onClick = item.onClick,
-                        icon = item.icon,
-                        label = item.label,
-                    )
+                // 次组为空（5 目的地精简态）时不画分割线
+                if (secondaryItems.isNotEmpty()) {
+                    HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    secondaryItems.forEach { item ->
+                        NavigationRailItem(
+                            selected = item.active,
+                            onClick = item.onClick,
+                            icon = item.icon,
+                            label = item.label,
+                        )
+                    }
                 }
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -173,10 +184,11 @@ private fun PhoneLayout(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    // 内容全 bleed（玻璃下穿随磨砂退役已不再适用，末项避让改由各列表消费 LocalBottomChromePadding）。
     Box(
         modifier
             .fillMaxSize()
-            .background(MiuixTheme.colorScheme.background)
+            .background(MiuixTheme.colorScheme.surface)
             .layerBackdrop(backdrop),
     ) {
         content()

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
+import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
@@ -150,7 +151,10 @@ fun WebDavBrowseList(
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
-                    contentPadding = PaddingValues(bottom = 16.dp),
+                    // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
+                    contentPadding = PaddingValues(
+                        bottom = 16.dp + LocalBottomChromePadding.current,
+                    ),
                 ) {
                     items(directories, key = { it.url }) { directory ->
                         WebDavBrowseRow(
@@ -174,7 +178,10 @@ fun WebDavBrowseList(
                     MusesTextButton(
                         onClick = { onConfirmMultiple(selectedPaths.toList()) },
                         text = "添加选中的 ${selectedPaths.size} 个文件夹",
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        // 底部按钮贴内容底：叠加悬浮件避让（悬浮件高度见 BottomChrome）
+                        modifier = Modifier.fillMaxWidth().padding(
+                            bottom = 16.dp + LocalBottomChromePadding.current,
+                        ),
                     )
                 }
             }

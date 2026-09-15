@@ -38,13 +38,13 @@ fun musesNavbarBlurStyle(isDark: Boolean): MusesBlurStyleData {
     val scheme = MiuixTheme.colorScheme
     return if (isDark) {
         MusesBlurStyleData(
-            backgroundColor = scheme.background,
+            backgroundColor = scheme.surface,
             tint = Color.Black.copy(alpha = 0.08f),
             blurRadius = 20f,
         )
     } else {
         MusesBlurStyleData(
-            backgroundColor = scheme.background,
+            backgroundColor = scheme.surface,
             tint = Color.White.copy(alpha = 0.08f),
             blurRadius = 20f,
         )

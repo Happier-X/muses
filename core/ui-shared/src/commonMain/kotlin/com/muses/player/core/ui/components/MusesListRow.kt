@@ -74,27 +74,16 @@ fun MusesListRow(
         ) {
             if (leading != null) leading()
             Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
-                Row(
-                    modifier = Modifier.heightIn(min = 28.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = title,
-                        style = MiuixTheme.textStyles.main,
-                        lineHeight = (17f * 1.35f).sp,
-                        color = titleColor ?: scheme.onBackground,
-                        fontWeight = titleFontWeight,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        after()
-                    }
-                }
+                Text(
+                    text = title,
+                    style = MiuixTheme.textStyles.main,
+                    lineHeight = (17f * 1.35f).sp,
+                    color = titleColor ?: scheme.onBackground,
+                    fontWeight = titleFontWeight,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 if (subtitle != null) {
                     Text(
                         text = subtitle,
@@ -103,9 +92,18 @@ fun MusesListRow(
                         color = subtitleColor ?: scheme.onBackgroundVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp),
                     )
                 }
+            }
+            // after 槽挂外层：与整行（标题+副标题）垂直居中；之前塞在标题行内只跟标题对齐。
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                after()
             }
             if (chevron) {
                 Icon(
