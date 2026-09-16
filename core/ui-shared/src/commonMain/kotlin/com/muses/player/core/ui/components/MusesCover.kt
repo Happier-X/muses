@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.size
 import top.yukonga.miuix.kmp.basic.Icon
 import com.muses.player.core.ui.icons.TablerIcons
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,7 +43,7 @@ fun MusesCover(
     contentDescription: String? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
-    val shape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(radius.value)
+    val shape: Shape = remember(radius.value) { androidx.compose.foundation.shape.RoundedCornerShape(radius.value) }
 
     Box(
         modifier = modifier

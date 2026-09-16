@@ -60,12 +60,18 @@ import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
  */
 class JvmPlayerPort(
     private val songLookup: suspend (songId: String) -> SongRef?,
+    private val songsExist: (suspend (ids: List<String>) -> Set<String>)? = null,
+    // 批量取引用：恢复时一次取回当前曲全量，避免过滤后再单查
+    private val songsLookup: (suspend (ids: List<String>) -> Map<String, SongRef>)? = null,
     private val sourceLookup: suspend (sourceId: String) -> SourceRef? = { null },
     private val passwordLookup: suspend (sourceId: String) -> String? = { null },
     private val playbackStateRepository: PlaybackStateRepository,
     private val recentPlaysRepository: RecentPlaysRepository,
     private val audioCache: DesktopWebDavAudioCache = DesktopWebDavAudioCache(),
-    private val errorLog: (tag: String, msg: String, e: Throwable?) -> Unit = { _, _, _ -> },
+    // 默认接桌面日志，避免直构造时静默丢日志；createDefault 同口径
+    private val errorLog: (tag: String, msg: String, e: Throwable?) -> Unit = { tag, msg, e ->
+        DesktopErrorLog.log(tag, msg, e)
+    },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     private val factoryProvider: () -> MediaPlayerFactory = { defaultFactory() },
     /**
@@ -134,6 +140,7 @@ class JvmPlayerPort(
     private var repeatMode: RepeatMode = RepeatMode.ALL
     private val attemptedSongIds = LinkedHashSet<String>()
     private var currentRef: SongRef? = null
+    private var lastPinnedUrl: String? = null
     private var pausedBySeek = false
 
     @Volatile private var factory: MediaPlayerFactory? = null
@@ -315,6 +322,8 @@ class JvmPlayerPort(
         persistJob?.cancel()
         prepareJob?.cancel()
         restoreJob?.cancel()
+        lastPinnedUrl?.let { audioCache.release(it) }
+        lastPinnedUrl = null
         runCatching { player?.controls()?.stop() }
         runCatching { player?.release() }
         player = null
@@ -364,6 +373,12 @@ class JvmPlayerPort(
                 return@launch
             }
             currentRef = ref
+            // 钉住播放中缓存文件，淘汰跳过；释放上一个
+            if (ref.sourceType == SourceType.WEBDAV) {
+                audioCache.acquire(ref.path)
+                lastPinnedUrl?.takeIf { it != ref.path }?.let { audioCache.release(it) }
+                lastPinnedUrl = ref.path
+            }
             _currentSongId.value = ref.id
             _currentMeta.value = null
             _durationMs.value = 0L
@@ -756,10 +771,19 @@ class JvmPlayerPort(
             return
         }
         if (snapshot.items.isEmpty()) return
-        // 已被曲库删除的歌曲自然过滤（对齐安卓侧 restoreFromSnapshot）
+        // 批量存在性：一次查全量替代 N 次逐条（无批量口径时回退逐条）
         val resolvedIds = mutableListOf<String>()
         var resolvedCurrentId = snapshot.currentSongId
-        for (item in snapshot.items) {
+        val batch = songsExist?.let { fn ->
+            runCatching {
+                snapshot.items.map { it.songId }.chunked(900).flatMap { fn(it) }
+            }.getOrNull()?.toSet()
+        }
+        if (batch != null) {
+            val order = snapshot.items.map { it.songId }
+            resolvedIds.addAll(order.filter { it in batch })
+        } else {
+            for (item in snapshot.items) {
             val exists = try {
                 songLookup(item.songId) != null
             } catch (e: CancellationException) {
@@ -768,6 +792,7 @@ class JvmPlayerPort(
                 false
             }
             if (exists) resolvedIds.add(item.songId)
+            }
         }
         if (resolvedIds.isEmpty()) return
         if (resolvedCurrentId != null && resolvedCurrentId !in resolvedIds) resolvedCurrentId = null
@@ -779,8 +804,12 @@ class JvmPlayerPort(
         val startIndex = resolvedCurrentId?.let { id -> items.indexOfFirst { it.songId == id } }
             ?.takeIf { it >= 0 } ?: 0
         queue.restore(items, original, shuffled, startIndex, resolvedCurrentId ?: items[startIndex].songId)
+        // 当前曲引用优先批量口径（已过滤存在性），失败回退单查
         currentRef = try {
-            songLookup(items[startIndex].songId)
+            val wanted = items[startIndex].songId
+            songsLookup?.let { fn ->
+                runCatching { fn(listOf(wanted))[wanted] }.getOrNull()
+            } ?: songLookup(wanted)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -867,6 +896,8 @@ class JvmPlayerPort(
         fun createDefault(
             db: MusesDatabase,
             songLookup: suspend (songId: String) -> SongRef?,
+            songsExist: (suspend (ids: List<String>) -> Set<String>)? = null,
+            songsLookup: (suspend (ids: List<String>) -> Map<String, SongRef>)? = null,
             sourceLookup: suspend (sourceId: String) -> SourceRef? = { null },
             passwordLookup: suspend (sourceId: String) -> String? = { null },
             audioCache: DesktopWebDavAudioCache = DesktopWebDavAudioCache(),
@@ -880,6 +911,8 @@ class JvmPlayerPort(
         ): JvmPlayerPort {
             return JvmPlayerPort(
                 songLookup = songLookup,
+                songsExist = songsExist,
+                songsLookup = songsLookup,
                 sourceLookup = sourceLookup,
                 passwordLookup = passwordLookup,
                 playbackStateRepository = PlaybackStateRepository(dataStore),

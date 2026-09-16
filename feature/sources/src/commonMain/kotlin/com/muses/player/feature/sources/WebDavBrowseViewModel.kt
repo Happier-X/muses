@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.muses.player.core.webdav.WebDavClient
 import com.muses.player.core.webdav.getParentWebDavPath
 import com.muses.player.core.webdav.normalizeWebDavPath
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,31 +31,38 @@ class WebDavBrowseViewModel constructor(
     private var serverUrl: String = ""
     private var username: String = ""
     private var password: String = ""
+    // 初始化一次性门闩：并发与重组重复调用安全；不同参数视为切账号重建
+    private val initialized = java.util.concurrent.atomic.AtomicBoolean(false)
+    private var loadJob: Job? = null
 
     val parentPath: String?
         get() = getParentWebDavPath(_browseState.value.currentPath)
 
-    /** 初始化（仅首次） */
+    /** 初始化（幂等：同参数重复调用直接返回，不同参数视为切账号重建） */
     fun init(mode: String, initialPath: String, serverUrl: String, username: String, password: String) {
-        if (this.serverUrl.isNotEmpty()) return // 已初始化
-
+        val normalizedPath = normalizeWebDavPath(initialPath)
+        if (!initialized.compareAndSet(false, true)) {
+            if (this.serverUrl == serverUrl && this.username == username &&
+                _browseState.value.currentPath == normalizedPath
+            ) return
+        }
         this.mode = mode
         this.serverUrl = serverUrl
         this.username = username
         this.password = password
 
-        val normalizedPath = normalizeWebDavPath(initialPath)
         _browseState.value = WebDavBrowseState(currentPath = normalizedPath)
 
         loadDirectories(normalizedPath)
     }
 
-    /** 加载目录内容 */
+    /** 加载目录内容（取消上一次未完成的加载，避免竞态覆盖） */
     private fun loadDirectories(path: String) {
         val currentState = _browseState.value
         _browseState.value = currentState.copy(isLoading = true, errorMessage = null)
 
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             try {
                 webDavClient.authenticate(username, password)
                 val url = buildWebDavUrl(serverUrl, path)

@@ -15,25 +15,20 @@ kotlin {
 
     android {
         namespace = "com.muses.player.feature.playlist"
-        compileSdk = 37
-        minSdk = 26
+        compileSdk = libs.versions.compileSdk.get().toInt()
+        minSdk = libs.versions.minSdk.get().toInt()
     }
 
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:common"))
             implementation(project(":core:ui-shared"))
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.ui)
+            // compose/miuix 经 ui-shared api 透传，此处不再重复声明
             // androidx.lifecycle 2.8+ 的 ViewModel/viewModelScope 为 KMP 工件
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
-            // P2a Koin（统一 4.2.0；KMP sourceSets 不支持 platform(BOM)，toml 已显式挂版本）
-            implementation(libs.koin.core)
-            implementation(libs.koin.compose.viewmodel)
-            // 直引 miuix（ui-shared 为 implementation 不透传）
-            implementation(libs.miuix.ui)
+            // P2a Koin（统一 4.2.0；KMP sourceSets 不支持 platform(BOM)，toml bundles 已收敛版本）
+            implementation(libs.bundles.koin.kmp)
         }
     }
 }

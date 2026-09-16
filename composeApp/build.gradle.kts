@@ -10,16 +10,19 @@ plugins {
 
 // U15：运行时版本号——CI 以 -Pmuses.desktop.version 注入（与下方 jpackage packageVersion
 // 同源同值），构建期写入资源文件，桌面设置页「检查更新」经 classpath 读取；
-// 本地/无属性时取最近 tag 本体（去 v 前缀、切掉 -22-gfa9f1883 这类后缀，
-// 如 v0.5.3-22-gfa9f1883 → 0.5.3，只显示干净版本号）；
-// 非 git 环境再回落 1.0.0（与 packageVersion 回落一致）。
-fun resolveDesktopVersion(): String {
-    (project.findProperty("muses.desktop.version") as String?)?.let { return it }
+// 配置缓存兼容：配置期只读属性与环境变量，不起 git 进程；git 兜底在任务执行期做。
+val musesDesktopVersionProvider = providers.provider {
+    (project.findProperty("muses.desktop.version") as String?)?.takeIf { it.isNotBlank() }
+        ?: System.getenv("MUSES_DESKTOP_VERSION")?.takeIf { it.isNotBlank() }
+        ?: "1.0.0"
+}
+// 配置期快照：执行期禁止碰 project，提前捕获
+val hasVersionOverride = (project.findProperty("muses.desktop.version") as String?).isNullOrBlank().not()
+val gitWorkDir: java.io.File = project.rootDir
+fun resolveGitTagVersion(workDir: java.io.File): String {
     return runCatching {
-        // 配置期直接起进程取 tag（providers.exec 的 result 不允许配置期 get，
-        // 会直接抛异常走回落；ProcessBuilder 最稳）
         val process = ProcessBuilder("git", "describe", "--tags", "--abbrev=0")
-            .directory(project.rootDir)
+            .directory(workDir)
             .redirectErrorStream(true)
             .start()
         check(process.waitFor(15, TimeUnit.SECONDS)) { "git describe 超时" }
@@ -31,16 +34,29 @@ fun resolveDesktopVersion(): String {
         "1.0.0"
     }
 }
-val musesDesktopVersion = resolveDesktopVersion()
 val desktopVersionDir = layout.buildDirectory.dir("generated/desktopVersion")
 val generateDesktopVersion by tasks.registering {
     outputs.file(desktopVersionDir.map { it.file("muses-desktop-version.txt") })
-    // 版本属性必须声明为任务输入：否则 -P 变化时任务 up-to-date 跳过，资源不重写
-    inputs.property("musesDesktopVersion", musesDesktopVersion)
+    // 版本属性声明为任务输入：-P 变化时重跑；未注入时执行期回退 git tag
+    inputs.property("musesDesktopVersion", musesDesktopVersionProvider)
     doLast {
+        var version = musesDesktopVersionProvider.get()
+        if (version == "1.0.0" && !hasVersionOverride) {
+            // 内联 git 查询：不调用脚本函数，避免配置缓存序列化脚本对象
+            version = runCatching {
+                val process = ProcessBuilder("git", "describe", "--tags", "--abbrev=0")
+                    .directory(gitWorkDir)
+                    .redirectErrorStream(true)
+                    .start()
+                check(process.waitFor(15, TimeUnit.SECONDS)) { "git describe 超时" }
+                check(process.exitValue() == 0) { "git describe 非零退出" }
+                process.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    .trim().removePrefix("v").takeIf { it.isNotEmpty() }
+            }.getOrNull() ?: "1.0.0"
+        }
         val out = desktopVersionDir.get().asFile.resolve("muses-desktop-version.txt")
         out.parentFile.mkdirs()
-        out.writeText(musesDesktopVersion)
+        out.writeText(version)
     }
 }
 
@@ -57,9 +73,10 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.ui)
             implementation(libs.kotlinx.coroutines.core)
-            api(project(":desktop"))
+            // 末端模块：api 与 implementation 对外无差异，用 implementation 避免 VLCJ/JNA 泄漏到编译类路径
+            implementation(project(":desktop"))
             // :desktop 用 implementation 不透传 :core:common，composeApp 需直接依赖
-            api(project(":core:common"))
+            implementation(project(":core:common"))
             implementation(project(":core:ui-shared"))
             implementation(libs.miuix.ui)
             implementation(libs.miuix.squircle)
@@ -92,6 +109,8 @@ kotlin {
             implementation(compose.desktop.currentOs)
             // Dispatchers.Main 在桌面 JVM 靠 swing dispatcher 提供（CMP 1.12 起不传递，见 toml 同条目注释）
             implementation(libs.kotlinx.coroutines.swing)
+            // 桌面远程封面经 composeApp 主类加载：ktor3 网络引擎为平台专属实现（ui-shared 只透传通用 API），此处显式声明
+            implementation(libs.coil.network.ktor3)
             // W4 桌面装配（任务 09-05-scrape-kmp）：JaudiotaggerTagPort 在 :core:common jvmShared，
             // 其 jaudiotagger 依赖为 implementation 作用域不透传，桌面消费 TagPort 需显式声明（同版本线）
             implementation(libs.jaudiotagger)
@@ -104,7 +123,10 @@ compose.desktop {
         mainClass = "com.muses.player.desktop.MainKt"
         // S4 打包：jpackage 需完整 JDK（含 jpackage.exe），Android Studio jbr 不带；
         // 本机 jdk-21.0.11+10 即打包用 JDK（与 :desktop jvmToolchain(21) 同版本线）。
-        javaHome = System.getenv("MUSES_DESKTOP_JDK") ?: "C:/Users/zhf52/java/jdk-21.0.11+10"
+        // jpackage 需完整 JDK：优先 MUSES_DESKTOP_JDK，否则用 Gradle 运行 JDK，不再写死本机绝对路径
+        javaHome = System.getenv("MUSES_DESKTOP_JDK")
+            ?: System.getProperty("org.gradle.java.home")
+            ?: System.getProperty("java.home")
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)

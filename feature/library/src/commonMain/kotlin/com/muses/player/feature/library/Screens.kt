@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -221,7 +222,7 @@ fun AlbumDetailScreen(
     viewModel: AlbumDetailViewModel = koinViewModel(),
     onPlaySong: (String, List<Song>) -> Unit = { _, _ -> },
 ) {
-    viewModel.bind(albumId)
+    LaunchedEffect(albumId) { viewModel.bind(albumId) }
     val albumWithSongs by viewModel.albumWithSongs.collectAsState()
 
     val songs = albumWithSongs?.songs?.map { it.toDomain() }.orEmpty()
@@ -283,7 +284,7 @@ fun ArtistDetailScreen(
     viewModel: ArtistDetailViewModel = koinViewModel(),
     onPlaySong: (String, List<Song>) -> Unit = { _, _ -> },
 ) {
-    viewModel.bind(artistId)
+    LaunchedEffect(artistId) { viewModel.bind(artistId) }
     val artistWithSongs by viewModel.artistWithSongs.collectAsState()
 
     val songs = artistWithSongs?.songs?.map { it.toDomain() }.orEmpty()

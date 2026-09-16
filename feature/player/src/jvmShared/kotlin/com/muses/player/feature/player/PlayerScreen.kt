@@ -1048,7 +1048,7 @@ fun QueueScreen(
                 val hairline = scheme.dividerLine
                 // 底部内边距 16dp：弹窗内无迷你条，原 96dp 预留不再需要
                 LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                    itemsIndexed(queue, key = { _, item -> item.songId }) { index, item ->
+                    itemsIndexed(queue, key = { _, item -> item.songId }, contentType = { _, _ -> "queue" }) { index, item ->
                         val isCurrent = index == currentIndex
                         Box(
                             Modifier.background(if (isCurrent) surfaceVariant else Color.Transparent).drawBehind {

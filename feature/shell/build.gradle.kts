@@ -18,8 +18,8 @@ kotlin {
 
     android {
         namespace = "com.muses.player.feature.shell"
-        compileSdk = 37
-        minSdk = 26
+        compileSdk = libs.versions.compileSdk.get().toInt()
+        minSdk = libs.versions.minSdk.get().toInt()
     }
 
     sourceSets {
@@ -31,25 +31,20 @@ kotlin {
             implementation(project(":feature:playlist"))
             implementation(project(":feature:scrape"))
             implementation(project(":feature:sources"))
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.ui)
+            // compose/miuix/coil 经 ui-shared api 透传，此处不再重复声明
             // miuix-nav 自研导航运行时（连续栈深度 + HyperOS 转场 + 跟手返回，替代 CMP Navigation）；
             // kotlinx-serialization-json 供路由栈 savedstate 序列化（Saver 经 json 实现）
             implementation(libs.miuix.nav)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.koin.core)
-            implementation(libs.koin.compose.viewmodel)
-            implementation(libs.coil.compose)
+            // P2a Koin（统一 4.2.0；KMP sourceSets 不支持 platform(BOM)，toml bundles 已收敛版本）
+            implementation(libs.bundles.koin.kmp)
             // miuix-blur（TabsLayout layerBackdrop 捕获背景；磨砂消费层在 ui-shared）
             implementation(libs.miuix.blur)
             implementation(libs.miuix.squircle)
-            // miuix 设置行（SwitchPreference；ui-shared 为 implementation 不透传，此处直连）
-            implementation(libs.miuix.preference)
-            // 第一阶段迁移：TabsLayout 等改用 miuix Text/Icon，需直引 miuix-ui
-            implementation(libs.miuix.ui)
+            // miuix 设置行（SwitchPreference；经 ui-shared api 透传）
+            // 第一阶段迁移：TabsLayout 等改用 miuix Text/Icon（经 ui-shared api 透传）
         }
 
         // U22：jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn（core:common 同款模式），
@@ -57,12 +52,8 @@ kotlin {
         val jvmShared by creating {
             dependsOn(commonMain.get())
             dependencies {
-                implementation(compose.runtime)
-                implementation(compose.ui)
-                implementation(compose.foundation)
+                // compose 基座经 commonMain 的 ui-shared api 透传；animation 系 ui-shared 未声明，仍需直引
                 implementation(compose.animation)
-                // TabsLayout 用 miuix Text/Icon，需直引 miuix-ui
-                implementation(libs.miuix.ui)
             }
         }
         jvmMain.get().dependsOn(jvmShared)

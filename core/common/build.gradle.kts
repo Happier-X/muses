@@ -19,8 +19,8 @@ kotlin {
 
     android {
         namespace = "com.muses.player.core.common"
-        compileSdk = 37
-        minSdk = 26
+        compileSdk = libs.versions.compileSdk.get().toInt()
+        minSdk = libs.versions.minSdk.get().toInt()
     }
 
     sourceSets {

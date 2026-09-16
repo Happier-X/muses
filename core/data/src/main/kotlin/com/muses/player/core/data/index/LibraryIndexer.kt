@@ -75,14 +75,19 @@ object LibraryIndexer {
             }
         }
 
+        // 预聚合：artistId -> songIds，避免每艺术家全量 filter（O(A*R) 降为 O(R)）
+        val songsByArtist: Map<String, List<String>> = songArtistRefs.groupBy(
+            keySelector = { it.second },
+            valueTransform = { it.first },
+        )
         val artistRows = artists.map { (lower, displayName) ->
-            val ownedSongs = songArtistRefs.filter { it.second == artistId(lower) }.map { it.first }
+            val ownedSongs = songsByArtist[artistId(lower)].orEmpty().distinct()
             val albumCount = ownedSongs.flatMap { songIdToAlbumKeys[it].orEmpty() }.distinct().size
             ArtistRow(
                 id = artistId(lower),
                 name = displayName,
                 albumCount = albumCount,
-                songCount = ownedSongs.distinct().size,
+                songCount = ownedSongs.size,
             )
         }
 

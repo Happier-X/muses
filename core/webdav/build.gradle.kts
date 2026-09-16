@@ -7,7 +7,6 @@
 plugins {
     alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.ksp)
 }
 
 kotlin {
@@ -15,8 +14,8 @@ kotlin {
 
     android {
         namespace = "com.muses.player.core.webdav"
-        compileSdk = 37
-        minSdk = 26
+        compileSdk = libs.versions.compileSdk.get().toInt()
+        minSdk = libs.versions.minSdk.get().toInt()
         // U11：androidUnitTest（Ktor MockEngine 429 单测等）需显式开启宿主测试（AGP9 KMP）
         withHostTest { }
     }
@@ -35,8 +34,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             // P2a Koin（统一 4.2.0；KMP sourceSets 不支持 platform(BOM)，toml 已显式挂版本）
             implementation(libs.koin.core)
-            // P2c：Ktor-client（CIO）双平台引擎；core:common 已 api 透传 ktor-client-core，此处显式声明兜底
-            implementation(libs.ktor.client.core)
+            // P2c：Ktor-client（CIO）双平台引擎；ktor-client-core 经 core:common api 透传，此处只留引擎
             implementation(libs.ktor.client.cio)
         }
         // U11：withTransactionCompat 同款问题不存在于此，但 androidMain 保留占位供 P2 actual 用

@@ -1,8 +1,5 @@
 package com.muses.player.feature.playlist
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.repository.PlaylistRepository
@@ -12,6 +9,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -29,8 +27,8 @@ open class PlaylistDetailCoreViewModel constructor(
 
     protected val playlistId = MutableStateFlow<String?>(null)
 
-    var renameVisible by mutableStateOf(false)
-        private set
+    private val _renameVisible = MutableStateFlow(false)
+    val renameVisible: StateFlow<Boolean> = _renameVisible.asStateFlow()
 
     val detail: StateFlow<PlaylistWithSongs?> = playlistId
         .flatMapLatest { id -> if (id == null) flowOf(null) else repository.observePlaylist(id) }
@@ -63,11 +61,11 @@ open class PlaylistDetailCoreViewModel constructor(
     }
 
     fun showRename() {
-        renameVisible = true
+        _renameVisible.value = true
     }
 
     fun dismissRename() {
-        renameVisible = false
+        _renameVisible.value = false
     }
 }
 

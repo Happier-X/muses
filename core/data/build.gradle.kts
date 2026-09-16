@@ -4,15 +4,15 @@ plugins {
 
 android {
     namespace = "com.muses.player.core.data"
-    compileSdk = 37
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        minSdk = 26
+        minSdk = libs.versions.minSdk.get().toInt()
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.toVersion(libs.versions.jvmTarget.get())
+        targetCompatibility = JavaVersion.toVersion(libs.versions.jvmTarget.get())
     }
 
     testOptions {
@@ -30,8 +30,7 @@ dependencies {
 
     // P2a Koin（BOM 统一 4.2.0）
     implementation(platform(libs.koin.bom))
-    implementation(libs.koin.core)
-    implementation(libs.koin.android)
+    implementation(libs.bundles.koin.android.set)
     implementation(libs.kotlinx.coroutines.core)
 
     // Room 曲库 + DataStore 设置/凭据密文（P2b：entities/DAO/MusesDatabase/Migrations 已迁 :core:common；

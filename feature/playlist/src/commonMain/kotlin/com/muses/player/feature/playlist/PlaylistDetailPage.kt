@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -47,13 +49,14 @@ fun PlaylistDetailPage(
     modifier: Modifier = Modifier,
     viewModel: PlaylistDetailViewModel = koinViewModel(),
 ) {
-    viewModel.bind(playlistId)
+    LaunchedEffect(playlistId) { viewModel.bind(playlistId) }
     val scheme = MiuixTheme.colorScheme
     val detail by viewModel.detail.collectAsState()
     val currentSongId by viewModel.currentSongId.collectAsState()
 
     val playlist = detail?.playlist
     val songs = detail?.songs.orEmpty()
+    val renameVisible by viewModel.renameVisible.collectAsState()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -109,8 +112,7 @@ fun PlaylistDetailPage(
                                 bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                             ),
                         ) {
-                    items(songs.size, key = { songs[it].id }) { index ->
-                        val song = songs[index]
+                    items(songs, key = { it.id }, contentType = { "song" }) { song ->
                         val isPlaying = currentSongId == song.id
                         Box(
                             modifier = Modifier
@@ -140,7 +142,7 @@ fun PlaylistDetailPage(
     }
 
     // 重命名入口在列表页操作面板；详情页保留对话框状态以防外部触发
-    if (viewModel.renameVisible) {
+    if (renameVisible) {
         NameEditDialog(
             title = "重命名歌单",
             initialName = playlist?.name.orEmpty(),

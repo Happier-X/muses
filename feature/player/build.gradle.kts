@@ -16,27 +16,19 @@ kotlin {
 
     android {
         namespace = "com.muses.player.feature.player"
-        compileSdk = 37
-        minSdk = 26
+        compileSdk = libs.versions.compileSdk.get().toInt()
+        minSdk = libs.versions.minSdk.get().toInt()
     }
 
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:common"))
             implementation(project(":core:ui-shared"))
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.ui)
+            // compose/miuix/coil 经 ui-shared api 透传，此处不再重复声明
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
-            // P2a Koin（统一 4.2.0；KMP sourceSets 不支持 platform(BOM)，toml 已显式挂版本）
-            implementation(libs.koin.core)
-            implementation(libs.koin.compose.viewmodel)
-            // U17：歌词外围组件（Stubs.Artwork 封面 AsyncImage）进 commonMain
-            implementation(libs.coil.compose)
-            // 直引 miuix（ui-shared 为 implementation 不透传）
-            implementation(libs.miuix.ui)
-            implementation(libs.miuix.squircle)
+            // P2a Koin（统一 4.2.0；KMP sourceSets 不支持 platform(BOM)，toml bundles 已收敛版本）
+            implementation(libs.bundles.koin.kmp)
         }
 
         // U21：jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn（core:common 同款模式），
@@ -44,13 +36,10 @@ kotlin {
         val jvmShared by creating {
             dependsOn(commonMain.get())
             dependencies {
-                implementation(compose.runtime)
-                implementation(compose.ui)
-                implementation(compose.foundation)
+                // compose 基座经 commonMain 的 ui-shared api 透传；animation/lifecycle/coil 系 ui-shared 未透传或平台相关，仍需直引
                 implementation(compose.animation)
                 // U21：collectAsStateWithLifecycle（lifecycle 2.11 KMP 工件，双端可用）
                 implementation(libs.androidx.lifecycle.runtime.compose)
-                implementation(libs.coil.compose)
             }
         }
         jvmMain.get().dependsOn(jvmShared)

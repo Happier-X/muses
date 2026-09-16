@@ -37,6 +37,8 @@ class EditMetaViewModel constructor(
     private val editCloudMetaSearch: EditCloudMetaSearch,
     private val songRepository: SongRepository,
     private val writebackOrchestrator: WritebackOrchestrator,
+    // 可选日志：Koin 原三参装配不受影响，传入后云搜失败可排查
+    private val errorLog: com.muses.player.core.data.log.ErrorLogStore? = null,
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(EditMetaUiState())
@@ -94,7 +96,11 @@ class EditMetaViewModel constructor(
                 // 前置 rethrow：VM 销毁时交回结构化并发（spec 陷阱 #14，禁止吞取消）
                 throw e
             } catch (e: Exception) {
-                // 网络等失败：保持输入，清结果并置失败标记（FailureCopy 语义在写回层）
+                // 网络等失败：保持输入，清结果并置失败标记；堆栈进日志便于排查
+                errorLog?.log(
+                    com.muses.player.core.data.log.ErrorLogStore.Level.WARN,
+                    "EditMeta", "云搜失败 songId=${state.songId}", e,
+                )
                 _ui.value = _ui.value.copy(searching = false, searchFailed = true, result = null)
             }
         }

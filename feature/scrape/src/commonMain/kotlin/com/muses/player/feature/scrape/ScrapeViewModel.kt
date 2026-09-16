@@ -2,78 +2,29 @@ package com.muses.player.feature.scrape
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muses.player.core.model.Song
 import com.muses.player.core.model.scrape.OnlineTextMatchFailReason
+import com.muses.player.core.model.scrape.OnlineTextMatchResult
 import com.muses.player.core.model.scrape.OnlineTextQuery
 import com.muses.player.core.model.scrape.ScrapeCandidate
 import com.muses.player.core.model.scrape.ScrapeChanges
-import com.muses.player.core.model.scrape.WritebackResult
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.scrape.cover.CoverMatcher
 import com.muses.player.core.scrape.cover.OnlineCoverMatchFailReason
+import com.muses.player.core.scrape.cover.OnlineCoverMatchResult
 import com.muses.player.core.scrape.cover.OnlineCoverQuery
 import com.muses.player.core.scrape.queue.ScrapeQueueStore
 import com.muses.player.core.scrape.text.TextMetaMatcher
 import com.muses.player.core.scrape.writeback.WritebackOrchestrator
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** 页面四态（对照 ScrapePage.vue pageState: queue/matching/preview/result） */
-sealed interface ScrapePageState {
-    /** 待刮削队列 */
-    data object Queue : ScrapePageState
-
-    /** 匹配中：currentItem 为正在匹配的歌名 */
-    data class Matching(val current: Int, val total: Int, val currentItem: String) : ScrapePageState
-
-    /** 候选预览确认（checkedIds 默认空 = 全不选，写回安全红线） */
-    data class Preview(
-        val items: List<PreviewCandidate>,
-        /**
-         * 未命中分组（S2）：双链均为 NO_MATCH 的 songId（非限流）。
-         * 与 [_throttledIds]（NETWORK/限流）分开，预览页分组列出、可单独重试或去审核改词重搜。
-         */
-        val noMatchIds: List<String> = emptyList(),
-    ) : ScrapePageState
-
-    /** 写回中：点“写回选中”后、文件/DB 落盘期间的过渡态，避免无反馈 */
-    data class Writing(val count: Int) : ScrapePageState
-
-    /** 写回结果 + 可撤销 journalId */
-    data class Result(val results: List<WritebackResult>, val journalId: String) : ScrapePageState
-}
-
-/** 预览行：歌曲 + 匹配到的变更 + 封面候选 + 勾选态（09-03 可编辑：保留原值供对比，edit* 为用户覆写副本） */
-data class PreviewCandidate(
-    val songId: String,
-    val songTitle: String,
-    val currentTitle: String = songTitle,
-    val currentArtist: String?,
-    val currentAlbum: String? = null,
-    val currentLyrics: String? = null,
-    val matchedTitle: String?,
-    val matchedArtist: String?,
-    val matchedAlbum: String?,
-    val matchedLyrics: String? = null,
-    /** 匹配置信度展示（HIGH/MEDIUM/LOW），null = 文本链未命中 */
-    val confidence: String?,
-    val coverUrl: String?,
-    val checked: Boolean = false,
-    val checkedFields: Set<String> = emptySet(),
-    val editTitle: String? = null,
-    val editArtist: String? = null,
-    val editAlbum: String? = null,
-    val editLyrics: String? = null,
-) {
-    fun resolvedTitle(): String? = editTitle ?: matchedTitle
-    fun resolvedArtist(): String? = editArtist ?: matchedArtist
-    fun resolvedAlbum(): String? = editAlbum ?: matchedAlbum
-    fun resolvedLyrics(): String? = editLyrics ?: matchedLyrics
-    fun hasLyricsChange(): Boolean = !resolvedLyrics().isNullOrBlank()
-}
 
 class ScrapeViewModel constructor(
     private val queueStore: ScrapeQueueStore,
@@ -147,6 +98,42 @@ class ScrapeViewModel constructor(
         viewModelScope.launch { queueStore.clear() }
     }
 
+    /** 文本与封面双链并发匹配（两路独立网络请求，原串行耗时相加，现取最慢一路） */
+    private suspend fun matchTextAndCover(song: Song): Pair<OnlineTextMatchResult, OnlineCoverMatchResult> =
+        coroutineScope {
+            val textDeferred = async {
+                try {
+                    textMetaMatcher.match(
+                        OnlineTextQuery(
+                            songId = song.id,
+                            title = song.title,
+                            path = song.path,
+                            artist = song.artist,
+                            album = song.album,
+                            durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(),
+                            metaSources = song.metaSources,
+                        ),
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK)
+                }
+            }
+            val coverDeferred = async {
+                try {
+                    coverMatcher.match(
+                        OnlineCoverQuery(songId = song.id, title = song.title, artist = song.artist, album = song.album),
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NETWORK)
+                }
+            }
+            textDeferred.await() to coverDeferred.await()
+        }
+
     /**
      * 「全部开始」：逐曲跑文本+封面匹配 → 聚合候选进 preview 态。
      * 命中进入人工确认；未命中（S2）按 NETWORK/NO_MATCH 分组列出：
@@ -183,32 +170,8 @@ class ScrapeViewModel constructor(
                 }
                 _pageState.value = ScrapePageState.Matching(index, ids.size, song.title)
 
-                val textOk = try {
-                    textMetaMatcher.match(
-                        OnlineTextQuery(
-                            songId = song.id,
-                            title = song.title,
-                            path = song.path,
-                            artist = song.artist,
-                            album = song.album,
-                            durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(),
-                            metaSources = song.metaSources,
-                        ),
-                    )
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK)
-                }
-                val coverOk = try {
-                    coverMatcher.match(
-                        OnlineCoverQuery(songId = song.id, title = song.title, artist = song.artist, album = song.album),
-                    )
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NETWORK)
-                }
+                // 双链并发（原串行文本→封面，耗时相加；现并发取最慢一路）
+                val (textOk, coverOk) = matchTextAndCover(song)
 
                 val hit = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.hit
                 val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
@@ -289,32 +252,8 @@ class ScrapeViewModel constructor(
             } ?: return@launch
             _pageState.value = ScrapePageState.Matching(1, 1, song.title)
             _throttleMessage.value = null
-            val textOk = try {
-                textMetaMatcher.match(
-                    OnlineTextQuery(
-                        songId = song.id,
-                        title = song.title,
-                        path = song.path,
-                        artist = song.artist,
-                        album = song.album,
-                        durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(),
-                        metaSources = song.metaSources,
-                    ),
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK)
-            }
-            val coverOk = try {
-                coverMatcher.match(
-                    OnlineCoverQuery(songId = song.id, title = song.title, artist = song.artist, album = song.album),
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NETWORK)
-            }
+            // 双链并发（与批量路径同 helper）
+            val (textOk, coverOk) = matchTextAndCover(song)
             val hit = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.hit
             val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
             if (hit == null && coverUrl == null) {
@@ -440,49 +379,31 @@ class ScrapeViewModel constructor(
     /** 预览行勾选切换（整首） */
     fun toggleChecked(songId: String) {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = state.copy(
-            items = state.items.map { if (it.songId == songId) it.copy(checked = !it.checked) else it },
-        )
+        _pageState.value = state.copy(items = state.items.toggleChecked(songId))
     }
 
     /** 全选 / 全不选（整首） */
     fun setAllChecked(checked: Boolean) {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = state.copy(items = state.items.map { it.copy(checked = checked) })
+        _pageState.value = state.copy(items = state.items.setAllChecked(checked))
     }
 
     /** 切换单首歌曲的单个字段勾选 */
     fun toggleField(songId: String, field: String) {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = state.copy(
-            items = state.items.map {
-                if (it.songId == songId) {
-                    val newChecked = it.checkedFields.toMutableSet()
-                    if (field in newChecked) newChecked.remove(field) else newChecked.add(field)
-                    it.copy(checkedFields = newChecked)
-                } else it
-            },
-        )
+        _pageState.value = state.copy(items = state.items.toggleField(songId, field))
     }
 
     /** 批量全选/全不选某字段（跨所有歌曲） */
     fun setAllFields(field: String, checked: Boolean) {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = state.copy(
-            items = state.items.map {
-                val newChecked = it.checkedFields.toMutableSet()
-                if (checked) newChecked.add(field) else newChecked.remove(field)
-                it.copy(checkedFields = newChecked)
-            },
-        )
+        _pageState.value = state.copy(items = state.items.setAllFields(field, checked))
     }
 
     /** 更新预览行编辑值（空串已在调用方转 null 表示回退匹配值） */
     fun updatePreviewItem(songId: String, title: String?, artist: String?, album: String?, lyrics: String? = null) {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = state.copy(
-            items = state.items.map { if (it.songId == songId) it.copy(editTitle = title, editArtist = artist, editAlbum = album, editLyrics = lyrics) else it },
-        )
+        _pageState.value = state.copy(items = state.items.updateItem(songId, title, artist, album, lyrics))
     }
 
     /** 确认写回：仅写回各首勾选的字段；逐曲结果进 result 态 */
@@ -496,8 +417,10 @@ class ScrapeViewModel constructor(
             try {
                 val candidates = mutableListOf<ScrapeCandidate>()
                 val changesMap = mutableMapOf<String, ScrapeChanges>()
+                // 批量取数：一次查全量替代逐首 N 次查询
+                val songsById = songRepository.getSongs(checkedItems.map { it.songId })
                 for (item in checkedItems) {
-                    val song = songRepository.getSong(item.songId) ?: continue
+                    val song = songsById[item.songId] ?: continue
                     candidates += ScrapeCandidate(songId = song.id, song = song)
                     changesMap[song.id] = ScrapeChanges(
                         title = item.resolvedTitle().takeIf { "title" in item.checkedFields },

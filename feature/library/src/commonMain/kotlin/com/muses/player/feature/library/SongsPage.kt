@@ -98,6 +98,15 @@ fun SongsPage(
     }
     val scheme = MiuixTheme.colorScheme
     val songs by viewModel.songs.collectAsState()
+    val deleteErrors by viewModel.deleteErrors.collectAsState()
+
+    // 批量删除部分失败时提示（消费后清零，避免重组重复提示）
+    LaunchedEffect(deleteErrors) {
+        if (deleteErrors > 0) {
+            com.muses.player.core.ui.components.MusesSnackbar.show("${deleteErrors} 首删除失败，请重试")
+            viewModel.consumeDeleteErrors()
+        }
+    }
 
     // ---- 跳转到当前播放（SongsPage.vue scrollToCurrentSong/jump-fab 组）----
     val listState = rememberLazyListState()
@@ -120,12 +129,14 @@ fun SongsPage(
         }
     }
 
+    // 歌曲 id → 下标映射：滚动帧与跳转查找 O(1)，避免每次全量 indexOfFirst
+    val songIndex = remember(songs) { songs.mapIndexed { i, s -> s.id to i }.toMap() }
+
     // 当前歌曲「在列表 / 在可视区」（snapshotFlow 响应滚动帧；visibleItemsInfo 即真实可视区，无 overscan）
-    val (currentInList, currentInViewport) = remember(currentSongId, songs) {
+    val (currentInList, currentInViewport) = remember(currentSongId, songs, songIndex) {
         snapshotFlow {
             if (currentSongId == null) return@snapshotFlow false to false
-            val idx = songs.indexOfFirst { it.id == currentSongId }
-            if (idx < 0) return@snapshotFlow false to false
+            val idx = songIndex[currentSongId] ?: return@snapshotFlow false to false
             val info = listState.layoutInfo
             val item = info.visibleItemsInfo.find { it.index == idx }
                 ?: return@snapshotFlow true to false
@@ -290,7 +301,7 @@ fun SongsPage(
                     JumpToCurrentFab(
                         modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = fabClearance, end = 16.dp),
                     onClick = {
-                        val idx = songs.indexOfFirst { it.id == currentSongId }
+                        val idx = songIndex[currentSongId] ?: -1
                         if (idx >= 0) scope.launch { listState.animateScrollToItem(idx) }
                     },
                     )
@@ -323,7 +334,7 @@ fun SongsPage(
                             com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                     ),
                 ) {
-                itemsIndexed(songs, key = { _, song -> song.id }) { _, song ->
+                itemsIndexed(songs, key = { _, song -> song.id }, contentType = { _, _ -> "song" }) { _, song ->
                     val checked = isMultiSelect && song.id in selectedIds
                     // 当前播放曲：标题用 primary 色区分（多选时以选中态为准，不叠加）
                     val isCurrent = !isMultiSelect && song.id == currentSongId

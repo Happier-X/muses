@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -48,15 +49,17 @@ class PlayerViewModel constructor(
     private val _dbDuration = MutableStateFlow(0L)
     val duration: StateFlow<Long> = combine(playback.duration, _dbDuration) { playerDur, dbDur ->
         if (playerDur > 0) playerDur else dbDur
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+    }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
     /** 循环/随机模式：Int 口径保持旧 UI 签名（PlayerControls 参数不变），数值冻结见 [PlaybackStates] */
     val repeatMode: StateFlow<Int> = playback.playerConfig
         .map { if (it.repeatMode == RepeatMode.ONE) PlaybackStates.REPEAT_MODE_ONE else PlaybackStates.REPEAT_MODE_ALL }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, PlaybackStates.REPEAT_MODE_ALL)
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlaybackStates.REPEAT_MODE_ALL)
     val shuffleModeEnabled: StateFlow<Boolean> = playback.playerConfig
         .map { it.shuffleEnabled }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** 队列展示行（songId → 曲库 title/artist 组合，保持队列顺序） */
     val queueRows: StateFlow<List<QueueRow>> = playback.queueSongIds
@@ -67,7 +70,8 @@ class PlayerViewModel constructor(
                 ids.mapNotNull { id -> byId[id]?.let { e -> QueueRow(e.id, e.title, e.artist) } }
             }
         }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** 当前曲实体（曲库实时流；播放页标题/艺术家展示，metaTitle/metaArtist 刮削优先） */
     val currentSong: StateFlow<com.muses.player.core.data.db.SongEntity?> = playback.currentSongId
@@ -75,7 +79,7 @@ class PlayerViewModel constructor(
             if (songId == null) flowOf(null)
             else songDao.observeById(songId)
         }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     // 位置轮询（约 500ms 一次）
     private val _position = MutableStateFlow(0L)
@@ -87,11 +91,21 @@ class PlayerViewModel constructor(
 
     private fun startPositionPolling() {
         viewModelScope.launch {
+            var tick = 0
+            // 合并轮询：100ms 一拍，位置每 5 拍更新一次，歌词每拍更新；暂停态降频到 1s
+            _position.value = playback.currentPosition()
+            _lyricPosition.value = playback.currentPosition().coerceAtMost(lastLineEndMs)
             while (true) {
+                val playing = playback.isPlaying.value
                 if (!_isSeeking.value) {
-                    _position.value = playback.currentPosition()
+                    tick++
+                    val pos = playback.currentPosition().coerceAtMost(lastLineEndMs)
+                    if (tick % 5 == 0) _position.value = pos
+                    if (playing || _lyricPosition.value == 0L || pos != _lyricPosition.value) {
+                        _lyricPosition.value = pos
+                    }
                 }
-                delay(500)
+                delay(if (playing) 100 else 1000)
             }
         }
     }
@@ -167,7 +181,8 @@ class PlayerViewModel constructor(
     /** 缓冲中提示位（时间行中央）：STATE_BUFFERING 直映（状态整型口径冻结，双端同值） */
     val isBuffering: StateFlow<Boolean> = playback.playbackState
         .map { it == PlaybackStates.STATE_BUFFERING }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** 翻译开关：切换时置空 translated/roman 后重新 toJson 注入（复刻 Web 层 #25 语义） */
     private val _translationEnabled = MutableStateFlow(true)
@@ -184,7 +199,6 @@ class PlayerViewModel constructor(
     init {
         startPositionPolling()
         observeCurrentSong()
-        startLyricPositionPolling()
     }
 
     /** 观察当前曲变化 → 订阅 Room 实时更新歌词/封面 → 解析映射并发布 payload */
@@ -255,25 +269,6 @@ class PlayerViewModel constructor(
     fun toggleTranslation() {
         _translationEnabled.value = !_translationEnabled.value
         refreshTranslationState()
-    }
-
-    /** 歌词进度轮询：比 UI 进度条更密的 ~100ms，驱动卡拉OK染色；钳制在末句 endTime 内
-     * 冷启动暂停态也需同步位置，否则重开沉浸页进度为 0（isPlaying=false 时轮询不更新导致） */
-    private fun startLyricPositionPolling() {
-        viewModelScope.launch {
-            // 冷启动立即同步一次，避免暂停态下首帧为 0
-            _lyricPosition.value = playback.currentPosition().coerceAtMost(lastLineEndMs)
-            while (true) {
-                if (!_isSeeking.value) {
-                    val pos = playback.currentPosition().coerceAtMost(lastLineEndMs)
-                    // 播放态实时更新；暂停态仅在位置变化时更新（避免无谓写入，但保证冷启动后有值）
-                    if (playback.isPlaying.value || _lyricPosition.value == 0L || pos != _lyricPosition.value) {
-                        _lyricPosition.value = pos
-                    }
-                }
-                delay(100)
-            }
-        }
     }
 }
 

@@ -73,7 +73,15 @@ fun FlowingLightBackdrop(
     var current by remember { mutableStateOf<ImageBitmap?>(null) }
     var previous by remember { mutableStateOf<ImageBitmap?>(null) }
     var transition by remember { mutableStateOf(1f) }
-    val coverCache = remember { mutableMapOf<String, ImageBitmap?>() }
+    // 有界缓存：最多 20 张，避免来回切歌无界增长；超限淘汰最早进入
+    val coverCache = remember { LinkedHashMap<String, ImageBitmap?>(24, 0.75f, true) }
+    fun putBounded(key: String, value: ImageBitmap?) {
+        coverCache[key] = value
+        if (coverCache.size > 20) {
+            val oldest = coverCache.keys.firstOrNull()
+            if (oldest != null) coverCache.remove(oldest)
+        }
+    }
     LaunchedEffect(coverUri) {
         if (coverUri.isNullOrBlank()) {
             previous = current
@@ -83,7 +91,7 @@ fun FlowingLightBackdrop(
             val bitmap = if (coverCache.containsKey(coverUri)) {
                 coverCache[coverUri]
             } else {
-                loadBackdropCover(coverUri).also { coverCache[coverUri] = it }
+                loadBackdropCover(coverUri).also { putBounded(coverUri, it) }
             }
             if (bitmap !== current) {
                 previous = current
@@ -109,6 +117,8 @@ fun FlowingLightBackdrop(
     // 绘制时钟下沉到 FlowLayers 独立 composable（见文件末尾）：帧时间 State 只被它读取，
     // 父级 FlowingLightBackdrop 不再订阅时间，不再每帧重组——之前时间 State 放在父级，
     // 每帧重组整棵沉浸页（含歌词/控制区），重组开销挤占帧时间，造成肉眼可见的跳变
+    // 静帧降级：flowSpeed 接近 0 时不启动帧时钟，timeSec 置 0 只渲染一帧
+    val staticMode = flowSpeed <= 0.05f
     val flowSpeedState = rememberUpdatedState(flowSpeed)
 
     Box(
@@ -163,6 +173,7 @@ fun FlowingLightBackdrop(
             previous = previous,
             transition = transition,
             flowSpeed = flowSpeedState.value,
+            staticMode = staticMode,
         )
 
         // 暗色遮罩：保证前景文字可读（顶部透流光、底部保控制区可读）
@@ -223,14 +234,17 @@ private fun FlowLayers(
     previous: ImageBitmap?,
     transition: Float,
     flowSpeed: Float,
+    staticMode: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    // 帧时钟：每帧写一次，触发本函数重组（只含 1 个 Canvas，不碰父级）
+    // 帧时钟：静帧模式下不循环，只渲染 timeSec=0 的一帧
     val frameTime = remember { mutableLongStateOf(0L) }
-    LaunchedEffect(Unit) {
-        val start = withFrameNanos { it }
-        while (true) {
-            withFrameNanos { now -> frameTime.longValue = now - start }
+    if (!staticMode) {
+        LaunchedEffect(Unit) {
+            val start = withFrameNanos { it }
+            while (true) {
+                withFrameNanos { now -> frameTime.longValue = now - start }
+            }
         }
     }
     val speed = flowSpeed.coerceAtLeast(0.2f)

@@ -73,9 +73,15 @@ class WebDavLibraryScanner constructor(
     private suspend fun discoverAudioFiles(rootUrl: String): List<WebDavItem> {
         val files = ArrayList<WebDavItem>()
         val queue = ArrayDeque<String>().apply { add(rootUrl) }
+        // 节流：深目录树逐目录发进度会高频重组，200ms 发一次足够展示"正在查找文件"
+        var lastEmitMs = 0L
         while (queue.isNotEmpty()) {
             val directory = queue.removeFirst()
-            progressInternal.value = ScanProgress(currentFile = directory)
+            val nowMs = System.currentTimeMillis()
+            if (lastEmitMs == 0L || nowMs - lastEmitMs >= 200 || queue.isEmpty()) {
+                progressInternal.value = ScanProgress(currentFile = directory)
+                lastEmitMs = nowMs
+            }
             for (item in webDavClient.list(directory)) {
                 if (item.isDirectory) {
                     queue.add(item.url)

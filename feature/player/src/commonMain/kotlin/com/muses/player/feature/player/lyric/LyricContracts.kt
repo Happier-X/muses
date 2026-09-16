@@ -1,5 +1,12 @@
 package com.muses.player.feature.player.lyric
 
+/**
+ * 歌词渲染契约（原名 Stubs.kt，易误读为过渡桩，改名以正名）。
+ *
+ * 本文件均为线上引用：[PlaybackUiState] 为面板入参，[SettingsRuntime] 为渲染调参
+ * 单一事实源（后续如需接入 DataStore 设置项，在此对象上扩展流即可，调用方无需改动），
+ * [AppVisibility] 预留前后台门控，[ProviderLyricsLoader] 为在线歌词扩展点。
+ */
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier

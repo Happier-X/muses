@@ -118,6 +118,7 @@ class MainViewModel constructor(
                 songDao.observeById(songId).map { song -> mergeNowPlaying(songId, song, meta) }
             }
         }
+        .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     // ── 迷你条歌词模式 ──
@@ -155,11 +156,12 @@ class MainViewModel constructor(
         }
     }
 
-    /** 歌词进度轮询：~100ms，根据播放位置查找当前歌词行 */
+    /** 歌词进度轮询：~100ms，根据播放位置查找当前歌词行；关闭时降频到 1s */
     private fun startLyricPositionPolling() {
         viewModelScope.launch {
             while (true) {
-                if (miniPlayerLyricsEnabled.value) {
+                val enabled = miniPlayerLyricsEnabled.value
+                if (enabled) {
                     val doc = lyricsDocument
                     val pos = playback.currentPosition()
                     val index = doc?.highlightedIndex(pos)
@@ -167,7 +169,7 @@ class MainViewModel constructor(
                 } else {
                     _currentLyricLine.value = null
                 }
-                delay(100)
+                delay(if (enabled) 100 else 1000)
             }
         }
     }

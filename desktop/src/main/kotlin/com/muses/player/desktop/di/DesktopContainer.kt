@@ -59,6 +59,8 @@ object DesktopContainer {
      */
     suspend fun playerPort(
         songLookup: (suspend (songId: String) -> JvmPlayerPort.SongRef?)? = null,
+        songsExist: (suspend (ids: List<String>) -> Set<String>)? = null,
+        songsLookup: (suspend (ids: List<String>) -> Map<String, JvmPlayerPort.SongRef>)? = null,
         sourceLookup: (suspend (sourceId: String) -> JvmPlayerPort.SourceRef?)? = null,
         passwordLookup: (suspend (sourceId: String) -> String?)? = null,
     ): JvmPlayerPort {
@@ -136,6 +138,32 @@ object DesktopContainer {
         return JvmPlayerPort.createDefault(
             db = db,
             songLookup = songLookup ?: defaultSongLookup,
+            songsLookup = songsLookup ?: { ids ->
+                ids.chunked(900).flatMap { chunk ->
+                    runCatching {
+                        chunk.mapNotNull { id ->
+                            db.songDao().getById(id)?.let { e ->
+                                id to JvmPlayerPort.SongRef(
+                                    id = e.id,
+                                    sourceId = e.sourceId,
+                                    path = e.path,
+                                    title = e.title,
+                                    artist = e.artist,
+                                    album = e.albumTitle,
+                                    coverUri = e.coverUri,
+                                    sourceType = runCatching { SourceType.valueOf(e.sourceType) }
+                                        .getOrDefault(SourceType.LOCAL),
+                                )
+                            }
+                        }
+                    }.getOrDefault(emptyList())
+                }.toMap()
+            },
+            songsExist = songsExist ?: { ids ->
+                ids.chunked(900).flatMap { chunk ->
+                    runCatching { db.songDao().getExistingIds(chunk) }.getOrDefault(emptyList())
+                }.toSet()
+            },
             sourceLookup = sourceLookup ?: defaultSourceLookup,
             passwordLookup = passwordLookup ?: { sourceId -> credentials.getPassword(sourceId) },
             onPlaybackStarted = lazyScan,

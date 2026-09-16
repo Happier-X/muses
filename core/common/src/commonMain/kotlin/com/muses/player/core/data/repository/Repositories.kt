@@ -16,6 +16,16 @@ import kotlinx.coroutines.flow.map
 /** 曲库仓库 */
 interface SongRepository {
     fun observeSongs(): Flow<List<Song>>
+    /** 搜索流：空串回全库，否则走数据库模糊匹配（分页前置，大库不全量进内存） */
+    fun observeSongs(query: String): Flow<List<Song>> =
+        observeSongs().map { songs ->
+            if (query.isBlank()) songs
+            else songs.filter { song ->
+                song.title.contains(query, ignoreCase = true) ||
+                    song.artist.orEmpty().contains(query, ignoreCase = true) ||
+                    song.album.orEmpty().contains(query, ignoreCase = true)
+            }
+        }
     /** 按 sourceId 替换该音源下全部歌曲（扫描完成后调用） */
     suspend fun replaceSourceSongs(sourceId: String, songs: List<Song>)
     /** 删除该音源下全部歌曲（删除音源时同步清理，对齐 Web reconcileSourceSongs(id, [])） */
@@ -24,6 +34,9 @@ interface SongRepository {
     suspend fun rebuildDerivedIndexes()
     /** 按 id 取单曲（M3 刮削写回链路） */
     suspend fun getSong(id: String): Song?
+    /** 批量取单曲（写回等多选链路一次查全量，分片防 IN 上限；默认逐条，Room 实现覆盖为单查询） */
+    suspend fun getSongs(ids: List<String>): Map<String, Song> =
+        ids.mapNotNull { id -> getSong(id)?.let { id to it } }.toMap()
     /** 单曲写入/更新（M3 刮削写回链路，对齐 Web upsertSong） */
     suspend fun upsert(song: Song)
 }
@@ -36,6 +49,9 @@ class RoomSongRepository constructor(
     override fun observeSongs(): Flow<List<Song>> =
         songDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
+    override fun observeSongs(query: String): Flow<List<Song>> =
+        songDao.observeSearch(query.trim()).map { entities -> entities.map { it.toDomain() } }
+
     override suspend fun replaceSourceSongs(sourceId: String, songs: List<Song>) {
         songDao.replaceSourceSongs(sourceId, songs.map { it.toEntity() })
         rebuildDerivedIndexes()
@@ -47,6 +63,13 @@ class RoomSongRepository constructor(
     }
 
     override suspend fun getSong(id: String): Song? = songDao.getById(id)?.toDomain()
+
+    override suspend fun getSongs(ids: List<String>): Map<String, Song> {
+        if (ids.isEmpty()) return emptyMap()
+        return ids.chunked(900).flatMap { chunk ->
+            runCatching { songDao.getByIds(chunk) }.getOrDefault(emptyList())
+        }.associate { it.id to it.toDomain() }
+    }
 
     override suspend fun upsert(song: Song) {
         songDao.upsert(song.toEntity())

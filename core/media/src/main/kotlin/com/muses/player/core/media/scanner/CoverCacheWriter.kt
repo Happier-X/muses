@@ -17,7 +17,10 @@ object CoverCacheWriter {
         return runCatching {
             val directory = File(context.cacheDir, "covers").apply { mkdirs() }
             val file = File(directory, "${sha256(cacheKey)}.jpg")
-            file.writeBytes(bytes)
+            // 幂等：重扫同文件不再复写（同名同大小直接复用，省一次磁盘写）
+            if (!file.exists() || file.length() != bytes.size.toLong()) {
+                file.writeBytes(bytes)
+            }
             Uri.fromFile(file).toString()
         }.getOrNull()
     }

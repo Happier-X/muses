@@ -159,7 +159,7 @@ private fun QueueStateContent(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            items(queueSongIds, key = { it }) { songId ->
+            items(queueSongIds, key = { it }, contentType = { "queue" }) { songId ->
                 // 队列只持久化 songId，歌名展示时反查库（对齐 Web 版队列行 title）
                 Row(
                     Modifier.fillMaxWidth(),
@@ -334,7 +334,7 @@ private fun PreviewStateContent(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(state.items, key = { it.songId }) { item ->
+            items(state.items, key = { it.songId }, contentType = { "preview" }) { item ->
                 // V3 共用化：预览卡 = 共用 ScrapeReviewCard（头部+逐字段勾选行），映射仅取展示字段
                 ScrapeReviewCard(
                     candidate = SharedScrapeCandidate(
@@ -555,7 +555,7 @@ private fun ResultStateContent(
             Spacer(Modifier.height(8.dp))
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            items(state.results, key = { it.songId }) { r ->
+            items(state.results, key = { it.songId }, contentType = { "result" }) { r ->
                 val throttled = isWritebackThrottled(r)
                 // V3 共用化：结果行 = 共用 ScrapeResultRow（圆点/状态 wire/详情/重试按钮）
                 ScrapeResultRow(

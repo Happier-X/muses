@@ -12,31 +12,33 @@ import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.model.Album
 import com.muses.player.core.model.Artist
 import com.muses.player.core.model.Song
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /** 歌曲列表 ViewModel */
 class SongsViewModel constructor(
-    songRepository: SongRepository,
+    private val songRepository: SongRepository,
     private val songDao: com.muses.player.core.data.dao.SongDao,
 ) : ViewModel() {
 
-    private val _allSongs: StateFlow<List<Song>> = songRepository.observeSongs()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
     private val _searchQuery = kotlinx.coroutines.flow.MutableStateFlow("")
 
-    val songs: StateFlow<List<Song>> = combine(_allSongs, _searchQuery) { songs, query ->
-        if (query.isBlank()) songs
-        else songs.filter { song ->
-            song.title.contains(query, ignoreCase = true) ||
-                song.artist.orEmpty().contains(query, ignoreCase = true) ||
-                song.album.orEmpty().contains(query, ignoreCase = true)
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    // 数据库搜索流：防抖后走 Room 模糊匹配，大库不全量进内存过滤
+    @OptIn(FlowPreview::class)
+    val songs: StateFlow<List<Song>> = _searchQuery
+        .debounce(300).distinctUntilChanged()
+        .flatMapLatest { query -> songRepository.observeSongs(query) }
+        .flowOn(Dispatchers.Default).distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
@@ -45,8 +47,23 @@ class SongsViewModel constructor(
     /** 批量删除歌曲（Room 外键 CASCADE 同步清理播放列表引用，语义对齐 653e466） */
     fun deleteByIds(ids: Collection<String>) {
         viewModelScope.launch {
-            ids.forEach { runCatching { songDao.deleteById(it) } }
+            var failed = 0
+            for (id in ids) {
+                runCatching { songDao.deleteById(id) }.onFailure { failed++ }
+            }
+            if (failed > 0) {
+                // 聚合失败数，调用方经 Snackbar 提示（避免静默丢失败）
+                _deleteErrors.value = failed
+            }
         }
+    }
+
+    private val _deleteErrors = kotlinx.coroutines.flow.MutableStateFlow(0)
+    val deleteErrors: StateFlow<Int> = _deleteErrors
+
+    /** 已展示失败提示后清零，避免重组重复提示 */
+    fun consumeDeleteErrors() {
+        _deleteErrors.value = 0
     }
 }
 
@@ -73,10 +90,11 @@ class AlbumDetailViewModel constructor(
     private val _albumId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     val albumWithSongs: StateFlow<AlbumWithSongs?> = _albumId
-        .combine(albumRepository.observeAlbums()) { id, _ -> id }
-        .map { id -> id?.let { albumRepository.observeAlbumWithSongs(it) } }
-        .map { flow -> flow?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null) }
-        .map { it?.value }
+        .flatMapLatest { id ->
+            if (id == null) kotlinx.coroutines.flow.flowOf(null)
+            else albumRepository.observeAlbumWithSongs(id)
+        }
+        .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun bind(albumId: String) {
@@ -109,10 +127,11 @@ class ArtistDetailViewModel constructor(
     private val _artistId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     val artistWithSongs: StateFlow<ArtistWithSongs?> = _artistId
-        .combine(artistRepository.observeArtists()) { id, _ -> id }
-        .map { id -> id?.let { artistRepository.observeArtistWithSongs(it) } }
-        .map { flow -> flow?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null) }
-        .map { it?.value }
+        .flatMapLatest { id ->
+            if (id == null) kotlinx.coroutines.flow.flowOf(null)
+            else artistRepository.observeArtistWithSongs(id)
+        }
+        .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun bind(artistId: String) {

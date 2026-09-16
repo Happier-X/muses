@@ -21,6 +21,10 @@ interface SongDao {
     @Query("SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC")
     fun observeAll(): Flow<List<SongEntity>>
 
+    /** 搜索流：空串回全库，否则标题/艺术家/专辑模糊匹配（Room 线程执行，不占主线程） */
+    @Query("SELECT * FROM songs WHERE :query = '' OR title LIKE '%' || :query || '%' COLLATE NOCASE OR artist LIKE '%' || :query || '%' COLLATE NOCASE OR albumTitle LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY title COLLATE NOCASE ASC")
+    fun observeSearch(query: String): Flow<List<SongEntity>>
+
     @Query("SELECT * FROM songs")
     suspend fun getAll(): List<SongEntity>
 
@@ -30,6 +34,14 @@ interface SongDao {
 
     @Query("SELECT * FROM songs WHERE id = :id")
     suspend fun getById(id: String): SongEntity?
+
+    /** 批量取单曲（写回等多选链路一次查全量，避免 N 次逐条；分片防 IN 参数上限） */
+    @Query("SELECT * FROM songs WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<SongEntity>
+
+    /** 批量存在性：恢复快照一次查全量，避免 N 次逐条查询 */
+    @Query("SELECT id FROM songs WHERE id IN (:ids)")
+    suspend fun getExistingIds(ids: List<String>): List<String>
 
     @Query("SELECT * FROM songs WHERE id = :id")
     fun observeById(id: String): Flow<SongEntity?>

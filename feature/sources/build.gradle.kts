@@ -16,8 +16,8 @@ kotlin {
 
     android {
         namespace = "com.muses.player.feature.sources"
-        compileSdk = 37
-        minSdk = 26
+        compileSdk = libs.versions.compileSdk.get().toInt()
+        minSdk = libs.versions.minSdk.get().toInt()
     }
 
     sourceSets {
@@ -25,16 +25,11 @@ kotlin {
             implementation(project(":core:common"))
             implementation(project(":core:webdav"))
             implementation(project(":core:ui-shared"))
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.ui)
+            // compose/miuix 经 ui-shared api 透传，此处不再重复声明
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
-            // P2a Koin（统一 4.2.0；KMP sourceSets 依赖处理器不支持 platform(BOM)，toml 已显式挂版本）
-            implementation(libs.koin.core)
-            implementation(libs.koin.compose.viewmodel)
-            // 直引 miuix Switch（ui-shared 为 implementation 不透传）
-            implementation(libs.miuix.ui)
+            // P2a Koin（统一 4.2.0；KMP sourceSets 依赖处理器不支持 platform(BOM)，toml bundles 已收敛版本）
+            implementation(libs.bundles.koin.kmp)
         }
 
         androidMain.dependencies {

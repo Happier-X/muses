@@ -3,6 +3,7 @@ package com.muses.player.desktop.cache
 import com.muses.player.core.data.platform.PlatformDirs
 import java.io.File
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * S2 桌面 WebDAV 音频磁盘缓存（对齐 `DiskWebDavAudioCache` 语义，不依赖安卓 Context/Uri）。
@@ -21,6 +22,17 @@ class DesktopWebDavAudioCache(
         const val CACHE_DIR = "webdav-cache"
         const val MAX_CACHE_BYTES = 500L * 1024L * 1024L
     }
+
+    // 原子计数器：避免每次 currentCacheSize 都遍历文件；-1 表示尚未初始化
+    private val cachedBytes = AtomicLong(-1L)
+    // 播放中保护：已钉住的 URL 不参与淘汰，避免播到一半被删
+    private val pinned = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    /** 钉住播放中文件（切歌时调用，淘汰跳过） */
+    fun acquire(url: String) { pinned.add(url) }
+
+    /** 释放旧播放文件 */
+    fun release(url: String) { pinned.remove(url) }
 
     data class CacheMeta(val eTag: String?, val lastModified: String?)
 
@@ -50,21 +62,42 @@ class DesktopWebDavAudioCache(
         if (!file.exists() || file.length() <= 0L) return
         val target = cacheFile(url)
         target.parentFile?.mkdirs()
+        // 原子落盘：先写 .partial 再重命名，避免播放读到半截文件
+        val partial = File(target.parentFile, "${target.name}.partial")
+        runCatching { partial.delete() }
+        file.copyTo(partial, overwrite = true)
+        val oldSize = if (target.exists()) target.length() else 0L
         if (target.exists()) target.delete()
-        file.copyTo(target, overwrite = true)
+        if (!partial.renameTo(target)) {
+            // 回退：重命名失败则直接覆盖拷贝
+            partial.copyTo(target, overwrite = true)
+            runCatching { partial.delete() }
+        }
         target.setLastModified(System.currentTimeMillis())
         writeMeta(url, eTag, lastModified)
+        if (cachedBytes.get() >= 0) cachedBytes.addAndGet(target.length() - oldSize)
         trimToLimit()
     }
 
-    fun maxCacheBytes(): Long = MAX_CACHE_BYTES
+    fun maxCacheBytes(): Long {
+        // 动态降档：可用空间不足时按四分之一限流，保底 128MB，上限 500MB
+        val usable = runCatching { rootDir.usableSpace }.getOrDefault(MAX_CACHE_BYTES)
+        if (usable <= 0) return MAX_CACHE_BYTES
+        return minOf(MAX_CACHE_BYTES, maxOf(128L * 1024L * 1024L, usable / 4))
+    }
 
-    fun currentCacheSize(): Long = cacheDir().listFiles()
-        ?.filter { it.isFile && !it.name.endsWith(".meta") }
-        ?.sumOf { it.length() } ?: 0L
+    fun currentCacheSize(): Long {
+        cachedBytes.get().takeIf { it >= 0 }?.let { return it }
+        val size = cacheDir().listFiles()
+            ?.filter { it.isFile && !it.name.endsWith(".meta") }
+            ?.sumOf { it.length() } ?: 0L
+        cachedBytes.set(size)
+        return size
+    }
 
     fun clear() {
         cacheDir().listFiles()?.forEach { it.delete() }
+        cachedBytes.set(0L)
     }
 
     /**
@@ -74,29 +107,39 @@ class DesktopWebDavAudioCache(
      */
     fun invalidate(url: String) {
         runCatching {
-            cacheFile(url).delete()
+            val target = cacheFile(url)
+            val size = if (target.exists()) target.length() else 0L
+            target.delete()
             metaFile(url).delete()
+            if (cachedBytes.get() >= 0) cachedBytes.addAndGet(-size)
         }
     }
 
     private fun trimToLimit() {
+        val limit = maxCacheBytes()
+        val total = currentCacheSize()
+        if (total <= limit) return
         val dir = cacheDir()
         val files = dir.listFiles()
             ?.filter { it.isFile && !it.name.endsWith(".meta") && !it.name.endsWith(".tmp") && !it.name.endsWith(".partial") }
             ?: return
         var totalSize = files.sumOf { it.length() }
-        if (totalSize <= MAX_CACHE_BYTES) return
-        val sorted = files.sortedBy { file ->
-            runCatching {
-                File(dir, file.nameWithoutExtension + ".meta").readLines().getOrNull(2)?.toLongOrNull() ?: 0L
-            }.getOrDefault(0L)
-        }
-        for (file in sorted) {
-            if (totalSize <= MAX_CACHE_BYTES) break
+        if (totalSize <= limit) return
+        // 钉住文件先排除；若全部被钉则直接返回不删
+        val pinnedNames = pinned.map { sha256(it) }.toSet()
+        val candidates = files.filter { f -> pinnedNames.none { f.name.startsWith(it) } }
+            .sortedBy { file ->
+                runCatching {
+                    File(dir, file.nameWithoutExtension + ".meta").readLines().getOrNull(2)?.toLongOrNull() ?: 0L
+                }.getOrDefault(0L)
+            }
+        for (file in candidates) {
+            if (totalSize <= limit) break
             val fileSize = file.length()
             if (file.delete()) totalSize -= fileSize
             File(dir, file.nameWithoutExtension + ".meta").delete()
         }
+        cachedBytes.set(totalSize)
     }
 
     private fun cacheFile(url: String): File {

@@ -17,29 +17,30 @@ kotlin {
 
     android {
         namespace = "com.muses.player.core.uishared"
-        compileSdk = 37
-        minSdk = 26
+        compileSdk = libs.versions.compileSdk.get().toInt()
+        minSdk = libs.versions.minSdk.get().toInt()
     }
 
     sourceSets {
         commonMain.dependencies {
-            implementation(compose.runtime)
-            implementation(compose.ui)
-            implementation(compose.foundation)
+            // api 透传：5 个 feature 直连 ui-shared，compose/miuix/coil/tabler 只需声明一次
+            api(compose.runtime)
+            api(compose.ui)
+            api(compose.foundation)
             // Tabler Icons（KMP 坐标：outline + filled；注意空基座陷阱：不要单独声明 icons-tabler-cmp）
-            implementation(libs.tabler.icons.cmp)
-            implementation(libs.tabler.filled.icons.cmp)
+            api(libs.tabler.icons.cmp)
+            api(libs.tabler.filled.icons.cmp)
             // Coil 3（KMP 图片加载；commonMain 提供 AsyncImage API）
-            implementation(libs.coil.compose)
+            api(libs.coil.compose)
             // miuix（小米 HyperOS 风格 CMP 组件库 + Preference 行；KMP 父件按 target 解析，
             // 版本线与本工程精确对齐见 toml 注释；SaltTheme 内桥接 MiuixTheme，明暗同源）
-            implementation(libs.miuix.ui)
-            implementation(libs.miuix.preference)
+            api(libs.miuix.ui)
+            api(libs.miuix.preference)
             // miuix-blur（HyperOS 模糊：LayerBackdrop/textureBlur；Android API 33+，经
             // isRuntimeShaderSupported() 门控降级；commonMain 声明使 androidMain/jvmMain 均可引用）
-            implementation(libs.miuix.blur)
-            implementation(libs.miuix.squircle)
-            implementation(libs.miuix.shader)
+            api(libs.miuix.blur)
+            api(libs.miuix.squircle)
+            api(libs.miuix.shader)
         }
 
         androidMain.dependencies {

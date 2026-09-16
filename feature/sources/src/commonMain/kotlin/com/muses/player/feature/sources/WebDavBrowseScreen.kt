@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import com.muses.player.core.ui.components.MusesDialog
 import top.yukonga.miuix.kmp.basic.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -44,8 +45,10 @@ fun WebDavBrowseScreen(
 ) {
     val browseState by viewModel.browseState.collectAsState()
 
-    // 初始化
-    viewModel.init(mode, initialPath, serverUrl, username, password)
+    // 初始化收敛到副作用：重组不再重复调用（ViewModel 侧幂等兜底）
+    LaunchedEffect(mode, initialPath, serverUrl, username) {
+        viewModel.init(mode, initialPath, serverUrl, username, password)
+    }
 
     /** 确认选择：结果写入跨页会话后回退（对照 setWebDavBrowseResult） */
     val confirmSelection: (List<String>) -> Unit = { paths ->

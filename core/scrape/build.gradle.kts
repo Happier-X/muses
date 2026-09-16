@@ -8,20 +8,19 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // 本模块缩为安卓装配瘦壳（ScrapeModule Koin + LyricsPorts 适配），依赖 core:common 即可。
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.ksp)
 }
 
 android {
     namespace = "com.muses.player.core.scrape"
-    compileSdk = 37
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        minSdk = 26
+        minSdk = libs.versions.minSdk.get().toInt()
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.toVersion(libs.versions.jvmTarget.get())
+        targetCompatibility = JavaVersion.toVersion(libs.versions.jvmTarget.get())
     }
 }
 
@@ -38,6 +37,5 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     // P2a Koin（BOM 统一 4.2.0；android 供 androidContext()）
     implementation(platform(libs.koin.bom))
-    implementation(libs.koin.core)
-    implementation(libs.koin.android)
+    implementation(libs.bundles.koin.android.set)
 }

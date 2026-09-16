@@ -7,16 +7,17 @@ plugins {
 
 android {
     namespace = "com.muses.player"
-    compileSdk = 37
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
         // 卡拉OK 歌词渲染依赖 Compose BlurEffect（API 31+ 才生效），下限由 26 抬到 29
-        minSdk = 29
-        targetSdk = 36
+        minSdk = libs.versions.minSdkApp.get().toInt()
+        targetSdk = libs.versions.targetSdk.get().toInt()
         // CI 发布经 -Pandroid.injected.version* 注入（tag 名/提交总数）；
         // AGP 9 中 DSL 显式赋值会覆盖 injected 属性，故必须在此主动读取
         versionCode = (findProperty("android.injected.versionCode") as String?)?.toInt() ?: 1
         versionName = (findProperty("android.injected.versionName") as String?) ?: "0.5.1"
+        resourceConfigurations += listOf("zh-rCN", "en")
     }
 
     // 渠道维度：主包 com.muses.player（覆盖安装旧 Web 版）+ MIUI 定制包
@@ -34,7 +35,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -43,8 +45,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.toVersion(libs.versions.jvmTarget.get())
+        targetCompatibility = JavaVersion.toVersion(libs.versions.jvmTarget.get())
     }
 
     buildFeatures {
@@ -85,8 +87,7 @@ dependencies {
 
     // P2a Koin（BOM 统一 4.2.0，无散装版本号）
     implementation(platform(libs.koin.bom))
-    implementation(libs.koin.core)
-    implementation(libs.koin.android)
+    implementation(libs.bundles.koin.android.set)
     implementation(libs.koin.compose.viewmodel)
 
     // WorkManager（ScanWorker 为 KoinComponent 懒注入，见 P2a R3）

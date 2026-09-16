@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import top.yukonga.miuix.kmp.basic.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,8 +37,10 @@ fun PlayerCoverHero(
     screenWidth: Dp = 360.dp,
     isNarrowHeight: Boolean = false,
 ) {
-    val maxHeroHeight = minOf(screenHeight * 0.5f, 420.dp)
-    val narrowMaxWidth = if (isNarrowHeight) minOf(screenWidth * 0.34f, 150.dp) else null
+    val maxHeroHeight = remember(screenHeight) { minOf(screenHeight * 0.5f, 420.dp) }
+    val narrowMaxWidth = remember(screenWidth, isNarrowHeight) {
+        if (isNarrowHeight) minOf(screenWidth * 0.34f, 150.dp) else null
+    }
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
@@ -46,9 +49,11 @@ fun PlayerCoverHero(
     ) {
         val availableWidth = maxWidth
         val availableHeight = maxHeight
-        val targetSize = when {
-            narrowMaxWidth != null -> narrowMaxWidth
-            else -> minOf(availableWidth, availableHeight)
+        val targetSize = remember(availableWidth, availableHeight, narrowMaxWidth) {
+            when {
+                narrowMaxWidth != null -> narrowMaxWidth
+                else -> minOf(availableWidth, availableHeight)
+            }
         }
         Box(
             modifier = Modifier

@@ -2,15 +2,21 @@
 # 与旧工程 android/ 保持同一版本线（已在本机验证可解析）
 agp = "9.3.2"
 kotlin = "2.4.10"
-ksp = "2.3.11"
+compose-multiplatform = "1.12.0-rc01"
+ksp = "2.3.12"
 # P2a Hilt→Koin：BOM 统一版本（AC3），各工件不散装版本号
 koin-bom = "4.2.0"
+# SDK 与工具链单源（各模块 android{} 统一引用，升降级只改此处）
+compileSdk = "37"
+minSdk = "26"
+minSdkApp = "29"
+targetSdk = "36"
+jvmTarget = "17"
 
 androidxCore = "1.19.0"
 composeBom = "2026.08.00"
 activityCompose = "1.13.0"
-# U18：CMP Navigation（org.jetbrains.androidx.navigation 双端工件；android 变体委托 androidx.navigation）
-jetbrainsNavigationCompose = "2.9.2"
+# CMP Navigation 已切 miuix-nav，版本号删除
 lifecycle = "2.11.0"
 media3 = "1.11.0"
 okhttp = "5.5.0"
@@ -43,11 +49,7 @@ miuix = "0.9.4-rc01"
 # U24：accompanist-lyrics-core 依赖摘除（唯一消费者 AmllMapper 死代码已随 U21 删除）
 # 歌词渲染层 lyrics-ui 已 vendor 为源码引入，不再作为外部依赖 —— 见 docs/THIRD_PARTY.md
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCore" }
-# Tabler Icons（outline；注意必须用 cmp-android 才有 ImageVector，纯 android 只有 VectorDrawable）
-tabler-icons = { group = "com.composables", name = "icons-tabler-outline-cmp-android", version.ref = "tablerIcons" }
-# Tabler Filled Icons（官方带圆角 fill，替换手写 FillIcons）
-tabler-filled-icons = { group = "com.composables", name = "icons-tabler-filled-cmp-android", version.ref = "tablerIcons" }
-# U0 地基新增（09-04-kmp-ui-shared）：KMP 共通坐标，现有 -cmp-android / okhttp 坐标不动
+# Tabler Icons：KMP 侧统一用 -cmp 父件（含 android+jvm 变体）；-cmp-android 死坐标已删除
 # 纠偏：design 原写 `-desktop`，中央仓库真实产物为 `-cmp`（KMP 父件，含 android+jvm 变体），同 2.2.1
 tabler-icons-cmp = { group = "com.composables", name = "icons-tabler-outline-cmp", version.ref = "tablerIcons" }
 tabler-filled-icons-cmp = { group = "com.composables", name = "icons-tabler-filled-cmp", version.ref = "tablerIcons" }
@@ -57,10 +59,7 @@ androidx-activity-compose = { group = "androidx.activity", name = "activity-comp
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 # U9：ViewModel/viewModelScope KMP 工件（2.8+ 官方多平台），feature:library commonMain 消费
 androidx-lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "lifecycle" }
-# U24：androidx-navigation-compose 直连坐标摘除（U18 起 :app/:feature:shell 统一走
-# jetbrains-navigation-compose，android 变体委托 androidx 同名类）
-# U18：CMP Navigation 双端坐标（T4 shell commonMain 直接消费；T0 先在 :app 试点替换）
-jetbrains-navigation-compose = { group = "org.jetbrains.androidx.navigation", name = "navigation-compose", version.ref = "jetbrainsNavigationCompose" }
+# navigation-compose 已切 miuix-nav，jetbrains 坐标删除（见 feature/shell 注释）
 
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 compose-ui = { group = "androidx.compose.ui", name = "ui" }
@@ -147,6 +146,12 @@ jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version.ref 
 # P3-S2 桌面解码：VLCJ 只进 :desktop 纯 JVM 模块，禁止进 :core:common（GPL 系见任务 spike.md §2，D1 已接受）
 vlcj = { group = "uk.co.caprica", name = "vlcj", version.ref = "vlcj" }
 
+# 依赖组：6 个 feature 的 KMP 注入对（core + compose-viewmodel）只收敛一处
+[bundles]
+koin-kmp = ["koin-core", "koin-compose-viewmodel"]
+# 安卓侧注入对（BOM 约束不能进组，仍逐处声明 platform；工件对收敛此处）
+koin-android-set = ["koin-core", "koin-android"]
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
@@ -156,8 +161,8 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 # P3-S3：JetBrains Compose Multiplatform 桌面插件（桌面窗口/打包/Skia 渲染）
-compose-multiplatform = { id = "org.jetbrains.compose", version = "1.12.0-rc01" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 androidx-room = { id = "androidx.room", version.ref = "room" }
-# miuix-nav 路由 @Serializable 需要（路由密封层级存栈恢复；与 kotlinxSerialization 同版本线）
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlinxSerialization" }
+# miuix-nav 路由 @Serializable 需要（与 kotlin 同版本线，插件版本必须跟 kotlin 走）
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

@@ -51,8 +51,11 @@ class LocalLibraryScanner constructor(
 
         for (item in items) {
             index++
-            progressInternal.value =
-                ScanProgress(current = index, total = items.size, currentFile = item.displayName)
+            // 节流：每 50 条或末项才发进度，避免万首扫描万次重组
+            if (index % 50 == 0 || index == items.size) {
+                progressInternal.value =
+                    ScanProgress(current = index, total = items.size, currentFile = item.displayName)
+            }
 
             val tags = if (readTags) readTagsSafely(item.data) else TagReaderResult.empty
             val song = Song(

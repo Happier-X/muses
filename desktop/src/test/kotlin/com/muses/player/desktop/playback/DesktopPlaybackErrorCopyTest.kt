@@ -11,11 +11,13 @@ class DesktopPlaybackErrorCopyTest {
 
     @Test
     fun 白名单9条与安卓侧逐字一致() {
-        assertEquals(9, DesktopPlaybackErrorCopy.SAFE_PLAYBACK_ERRORS.size)
+        // 白名单 = 安卓侧 9 条 + 桌面专属 VLC_MISSING（加条目时同步更新此处计数）
+        assertEquals(10, DesktopPlaybackErrorCopy.SAFE_PLAYBACK_ERRORS.size)
         assertTrue("音频文件不存在或已失效，请重新扫描音源。" in DesktopPlaybackErrorCopy.SAFE_PLAYBACK_ERRORS)
         assertTrue("WebDAV 认证失败，请检查账号或重新添加音源。" in DesktopPlaybackErrorCopy.SAFE_PLAYBACK_ERRORS)
         assertTrue("播放失败，请检查音频文件或网络连接。" in DesktopPlaybackErrorCopy.SAFE_PLAYBACK_ERRORS)
         assertTrue("触发限流，稍后重试" in DesktopPlaybackErrorCopy.SAFE_PLAYBACK_ERRORS)
+        assertTrue(DesktopPlaybackErrorCopy.VLC_MISSING in DesktopPlaybackErrorCopy.SAFE_PLAYBACK_ERRORS)
     }
 
     @Test

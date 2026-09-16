@@ -103,7 +103,7 @@ fun AlbumsPage(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                items(cards, key = { it.album.id }) { card ->
+                items(cards, key = { it.album.id }, contentType = { "album" }) { card ->
                     // __card：surface-1 圆角卡 + 按压 surface-2
                     Column(
                         Modifier
@@ -205,7 +205,7 @@ fun ArtistsPage(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                items(cards, key = { it.artist.id }) { card ->
+                items(cards, key = { it.artist.id }, contentType = { "artist" }) { card ->
                     Column(
                         Modifier
                             .fillMaxWidth()
