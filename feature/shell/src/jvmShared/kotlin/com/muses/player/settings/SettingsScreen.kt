@@ -1,9 +1,11 @@
 package com.muses.player.settings
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -15,10 +17,11 @@ import androidx.lifecycle.viewModelScope
 import com.muses.player.core.appupdate.checkLatestRelease
 import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.SettingsRepository
-import com.muses.player.core.ui.components.MusesListRow
 import com.muses.player.core.ui.components.SettingsAboutFeedbackContent
 import com.muses.player.core.ui.components.SettingsBlockTitle
+import com.muses.player.core.ui.components.SettingsIcon
 import com.muses.player.core.ui.components.SettingsScreen
+import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.feature.shell.platform.AppVersionProvider
 import com.muses.player.feature.shell.platform.InAppUpdateSection
 import com.muses.player.feature.shell.platform.XiaomiIslandSettingRow
@@ -27,6 +30,9 @@ import com.muses.player.feature.shell.platform.supportsInAppUpdate
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,33 +76,38 @@ fun SettingsScreen(
 ) {
     val actions = rememberShellPlatformActions()
     val versionProvider = koinInject<AppVersionProvider>()
+    val settingsRepository = koinInject<SettingsRepository>()
+    val coroutineScope = rememberCoroutineScope()
+    val lyricsEnabled by settingsRepository.miniPlayerLyricsEnabled.collectAsState(initial = false)
+    val notificationLyricsEnabled by settingsRepository.notificationLyricsEnabled.collectAsState(initial = false)
+    val latestSummary by viewModel.latestErrorSummary.collectAsState()
 
     // U15：设置页共享组件（音源区块已移除，独立音源页承载）；「关于/反馈」扩展区为
     // 双端共享实现（SettingsAboutFeedbackContent），平台动作经回调注入。
+    // 视觉：官方 Settings 范式——每个分组一张 Card，开关/入口行用 miuix Preference 系列。
     SettingsScreen(
         modifier = modifier,
         extraContent = {
                 // ---- 播放设置 ----
                 SettingsBlockTitle("播放")
-                val settingsRepository = koinInject<SettingsRepository>()
-                val lyricsEnabled by settingsRepository.miniPlayerLyricsEnabled.collectAsState(initial = false)
-                val coroutineScope = rememberCoroutineScope()
-                // miuix 原生开关行（明暗经 MiuixTheme 同源；桌面同为 KMP 产物，一致渲染）
-                top.yukonga.miuix.kmp.preference.SwitchPreference(
-                    title = "播放控件显示歌词",
-                    summary = "开启后播放控件将使用当前歌词替换艺术家，长歌词会随播放自动滚动",
-                    checked = lyricsEnabled,
-                    onCheckedChange = { coroutineScope.launch { settingsRepository.setMiniPlayerLyricsEnabled(it) } },
-                )
-                val notificationLyricsEnabled by settingsRepository.notificationLyricsEnabled.collectAsState(initial = false)
-                top.yukonga.miuix.kmp.preference.SwitchPreference(
-                    title = "媒体通知显示歌词",
-                    summary = "开启后通知卡片标题显示当前歌词，下方显示歌曲标题与艺术家",
-                    checked = notificationLyricsEnabled,
-                    onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
-                )
-                // 小米超级岛（仅 HyperOS 安卓渲染，桌面为空实现）
-                XiaomiIslandSettingRow()
+                Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                    SwitchPreference(
+                        title = "播放控件显示歌词",
+                        summary = "开启后播放控件将使用当前歌词替换艺术家，长歌词会随播放自动滚动",
+                        checked = lyricsEnabled,
+                        startAction = { SettingsIcon(TablerIcons.MusicNote) },
+                        onCheckedChange = { coroutineScope.launch { settingsRepository.setMiniPlayerLyricsEnabled(it) } },
+                    )
+                    SwitchPreference(
+                        title = "媒体通知显示歌词",
+                        summary = "开启后通知卡片标题显示当前歌词，下方显示歌曲标题与艺术家",
+                        checked = notificationLyricsEnabled,
+                        startAction = { SettingsIcon(TablerIcons.QueueMusic) },
+                        onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
+                    )
+                    // 小米超级岛（仅 HyperOS 安卓渲染，桌面为空实现）
+                    XiaomiIslandSettingRow()
+                }
 
                 // ---- 应用更新（Windows 应用内更新卡片；安卓空实现，走共享外链检查项） ----
                 if (supportsInAppUpdate) {
@@ -109,26 +120,27 @@ fun SettingsScreen(
                 // ---- 工具（窄屏底栏未收纳项的入口；宽屏 Rail 自带时不传回调即隐藏） ----
                 if (onOpenSources != null || onOpenScrape != null) {
                     SettingsBlockTitle("工具")
-                    onOpenSources?.let { open ->
-                        MusesListRow(
-                            title = "音源",
-                            subtitle = "本地目录 / WebDAV 管理与扫描",
-                            onClick = open,
-                            chevron = true,
-                        )
-                    }
-                    onOpenScrape?.let { open ->
-                        MusesListRow(
-                            title = "刮削",
-                            subtitle = "封面 / 歌词 / 标签补全队列",
-                            onClick = open,
-                            chevron = true,
-                        )
+                    Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                        onOpenSources?.let { open ->
+                            ArrowPreference(
+                                title = "音源",
+                                summary = "本地目录 / WebDAV 管理与扫描",
+                                startAction = { SettingsIcon(TablerIcons.Folder) },
+                                onClick = open,
+                            )
+                        }
+                        onOpenScrape?.let { open ->
+                            ArrowPreference(
+                                title = "刮削",
+                                summary = "封面 / 歌词 / 标签补全队列",
+                                startAction = { SettingsIcon(TablerIcons.Checklist) },
+                                onClick = open,
+                            )
+                        }
                     }
                 }
 
                 // ---- 关于 ----
-                val latestSummary by viewModel.latestErrorSummary.collectAsState()
                 SettingsAboutFeedbackContent(
                     versionName = versionProvider.versionName,
                     onOpenUrl = actions.openUrl,

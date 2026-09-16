@@ -1,26 +1,27 @@
 package com.muses.player.core.ui.components
 
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.components.MusesSnackbar
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.squircle.squircleBackground
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 /**
  * 设置页「关于 + 反馈」扩展区块（U15 上收：原安卓装配层私有实现，桌面端接入后
  * 两端设置页扩展内容完全一致）。
+ *
+ * 视觉走 miuix 官方 Settings 范式：[Card]（surface 底 + 16dp 平滑圆角）内叠放
+ * [ArrowPreference] / [BasicComponent]，图标经 startAction 槽注入（[SettingsIcon]）。
  *
  * 纯 UI + 平台动作回调注入：
  * - [onCheckUpdate]：检查更新（core:common [checkLatestRelease]），返回 (tag, url) 或 null=失败；
@@ -42,71 +43,57 @@ fun SettingsAboutFeedbackContent(
 ) {
     val scope = rememberCoroutineScope()
     var checking by remember { mutableStateOf(false) }
-    val scheme = MiuixTheme.colorScheme
 
     // ---- 关于 ----
     SettingsBlockTitle(text = "关于")
-    Column(
-        modifier = Modifier
-            .padding(horizontal = 12.dp)
-            .squircleBackground(scheme.surface, 12.dp)
-            .padding(vertical = 4.dp),
-    ) {
-        // Muses 版本
-        MusesListRow(
+    Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+        // Muses 版本（纯展示行，无点击）
+        BasicComponent(
             title = "Muses",
-            subtitle = "应用版本 $versionName",
-            onClick = null,
-            leading = {
-                SettingsIcon(icon = TablerIcons.Info)
-            },
+            summary = "应用版本 $versionName",
+            startAction = { SettingsIcon(icon = TablerIcons.Info) },
         )
         // 检查更新（桌面应用内更新接管时隐藏，避免重复入口）
         if (showCheckUpdate) {
-        MusesListRow(
-            title = "检查更新",
-            subtitle = if (checking) "正在检查更新…" else null,
-            onClick = {
-                if (checking) return@MusesListRow
-                checking = true
-                scope.launch {
-                    val result = onCheckUpdate(versionName)
-                    if (result == null) {
-                        MusesSnackbar.show("检查更新失败，请稍后重试")
-                    } else {
-                        val (tag, url) = result
-                        val latestVer = tag.removePrefix("v")
-                        val currentVer = versionName
-                            .removeSuffix("-miui")
-                            .substringBefore("-")
-                        if (compareVersionsLocal(latestVer, currentVer) <= 0) {
-                            MusesSnackbar.show("已是最新版本")
+            ArrowPreference(
+                title = "检查更新",
+                summary = if (checking) "正在检查更新…" else "对比最新版本，有更新时打开下载页",
+                enabled = !checking,
+                startAction = { SettingsIcon(icon = TablerIcons.Refresh) },
+                onClick = {
+                    if (checking) return@ArrowPreference
+                    checking = true
+                    scope.launch {
+                        val result = onCheckUpdate(versionName)
+                        if (result == null) {
+                            MusesSnackbar.show("检查更新失败，请稍后重试")
                         } else {
-                            onOpenUrl(url)
-                            MusesSnackbar.show("发现新版本 $tag")
+                            val (tag, url) = result
+                            val latestVer = tag.removePrefix("v")
+                            val currentVer = versionName
+                                .removeSuffix("-miui")
+                                .substringBefore("-")
+                            if (compareVersionsLocal(latestVer, currentVer) <= 0) {
+                                MusesSnackbar.show("已是最新版本")
+                            } else {
+                                onOpenUrl(url)
+                                MusesSnackbar.show("发现新版本 $tag")
+                            }
                         }
+                        checking = false
                     }
-                    checking = false
-                }
-            },
-            leading = {
-                SettingsIcon(icon = TablerIcons.Refresh)
-            },
-        )
+                },
+            )
         }
     }
 
     // ---- 反馈 ----（任务 08-26-settings-log-viewer）
     SettingsBlockTitle(text = "反馈")
-    Column(
-        modifier = Modifier
-            .padding(horizontal = 12.dp)
-            .squircleBackground(scheme.surface, 12.dp)
-            .padding(vertical = 4.dp),
-    ) {
-        MusesListRow(
+    Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+        ArrowPreference(
             title = "复制报错日志",
-            subtitle = errorLogSummary ?: "暂无报错记录",
+            summary = errorLogSummary ?: "暂无报错记录",
+            startAction = { SettingsIcon(icon = TablerIcons.BugReport) },
             onClick = {
                 scope.launch {
                     val text = onDumpLogs()
@@ -117,9 +104,6 @@ fun SettingsAboutFeedbackContent(
                         MusesSnackbar.show("已复制报错日志")
                     }
                 }
-            },
-            leading = {
-                SettingsIcon(icon = TablerIcons.BugReport)
             },
         )
     }

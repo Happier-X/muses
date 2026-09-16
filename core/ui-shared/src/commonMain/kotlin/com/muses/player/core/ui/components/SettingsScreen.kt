@@ -42,6 +42,7 @@ fun SettingsScreen(
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        // 与其他页面一致用 surface：Card 默认 surfaceContainer 底色，层次仍能拉开
         containerColor = MiuixTheme.colorScheme.surface,
         topBar = {
             MusesTopBar(title = "设置")
@@ -75,20 +76,18 @@ fun SettingsBlockTitle(text: String) {
 }
 
 /**
- * 设置项左侧图标容器 —— 36dp 圆角方形 + primary 浅底。
- * （rgba(var(--m-primary-rgb), 0.12)，明暗主题自动跟随）。
+ * 设置项左侧图标容器 —— 36dp 平滑圆角方形 + primary 浅底。
  *
- * 注意 Web margin-right → Compose `padding(end)` 必须放链最外层（先留间距再画壳），
- * 放 size/background 之后会收缩背景本身（布局陷阱 #7）。
+ * 供 miuix Preference 系列的 `startAction` 槽使用：[top.yukonga.miuix.kmp.basic.BasicComponent]
+ * 自带 start 内容与标题间 8dp 间距，这里不再自加 padding(end)，否则间距翻倍。
  */
 @Composable
 fun SettingsIcon(icon: androidx.compose.ui.graphics.vector.ImageVector) {
     val scheme = MiuixTheme.colorScheme
     Box(
         modifier = Modifier
-            .padding(end = 12.dp)
             .size(36.dp)
-            .squircleBackground(scheme.primary.copy(alpha = 0.12f), 8.dp),
+            .squircleBackground(scheme.primary.copy(alpha = 0.12f), 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

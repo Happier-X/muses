@@ -1,7 +1,6 @@
 package com.muses.player.feature.shell.platform
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +23,6 @@ import com.muses.player.core.appupdate.downloadWindowsInstaller
 import com.muses.player.core.appupdate.fetchWindowsRelease
 import com.muses.player.core.appupdate.launchWindowsInstaller
 import com.muses.player.core.appupdate.windowsUpdateDir
-import com.muses.player.core.ui.components.MusesListRow
 import com.muses.player.core.ui.components.SettingsBlockTitle
 import com.muses.player.core.ui.components.SettingsIcon
 import com.muses.player.core.ui.icons.TablerIcons
@@ -32,7 +30,9 @@ import com.muses.player.core.ui.components.MusesSnackbar
 import java.io.File
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.squircle.squircleBackground
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 actual val supportsInAppUpdate: Boolean = true
 
@@ -110,37 +110,28 @@ actual fun InAppUpdateSection(
     }
 
     SettingsBlockTitle(text = "应用更新")
-    Column(
-        modifier = Modifier
-            .padding(horizontal = 12.dp)
-            .squircleBackground(scheme.surface, 12.dp)
-            .padding(vertical = 4.dp),
-    ) {
+    Card(modifier = Modifier.padding(horizontal = 12.dp)) {
         // 主行：检查更新
-        MusesListRow(
+        ArrowPreference(
             title = "检查更新",
-            subtitle = when (ui) {
+            summary = when (ui) {
                 is UpdateUi.Checking -> "正在检查更新…"
                 is UpdateUi.Downloading -> "正在下载更新包…"
                 else -> "当前版本 $versionName"
             },
+            enabled = ui == UpdateUi.Idle,
+            startAction = { SettingsIcon(icon = TablerIcons.Refresh) },
             onClick = if (ui == UpdateUi.Idle) ::check else null,
-            leading = {
-                SettingsIcon(icon = TablerIcons.Refresh)
-            },
         )
 
         // 有新版：版本信息 + 更新内容预览 + 下载/下载页入口
         val available = ui as? UpdateUi.Available
         if (available != null) {
             val info = available.info
-            MusesListRow(
+            BasicComponent(
                 title = "发现新版本 ${info.tag}",
-                subtitle = "安装包约 ${formatMB(info.msiSizeBytes)}",
-                onClick = null,
-                leading = {
-                    SettingsIcon(icon = TablerIcons.Info)
-                },
+                summary = "安装包约 ${formatMB(info.msiSizeBytes)}",
+                startAction = { SettingsIcon(icon = TablerIcons.Info) },
             )
             val notes = info.notes.trim().take(400)
             if (notes.isNotEmpty()) {
@@ -151,31 +142,27 @@ actual fun InAppUpdateSection(
                     color = scheme.onBackgroundVariant,
                     maxLines = 5,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
-            MusesListRow(
+            ArrowPreference(
                 title = "下载更新",
-                subtitle = "下载完成后可直接安装",
+                summary = "下载完成后可直接安装",
+                startAction = { SettingsIcon(icon = TablerIcons.Download) },
                 onClick = { download(info) },
-                leading = {
-                    SettingsIcon(icon = TablerIcons.Download)
-                },
             )
-            MusesListRow(
+            ArrowPreference(
                 title = "前往下载页",
-                subtitle = "浏览器打开 Release 页面手动下载",
+                summary = "浏览器打开 Release 页面手动下载",
+                startAction = { SettingsIcon(icon = TablerIcons.Share) },
                 onClick = { onOpenUrl(info.htmlUrl) },
-                leading = {
-                    SettingsIcon(icon = TablerIcons.Info)
-                },
             )
         }
 
         // 下载中：进度条 + 百分比 + 取消
         val downloading = ui as? UpdateUi.Downloading
         if (downloading != null) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 val total = downloading.total
                 val percent = if (total > 0) (downloading.downloaded * 100 / total).toInt() else -1
                 Text(
@@ -190,18 +177,16 @@ actual fun InAppUpdateSection(
                 Spacer(Modifier.height(8.dp))
                 LinearProgressIndicator(
                     progress = if (total > 0) downloading.downloaded.toFloat() / total else 0f,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 )
             }
-            MusesListRow(
+            ArrowPreference(
                 title = "取消下载",
+                startAction = { SettingsIcon(icon = TablerIcons.Close) },
                 onClick = {
                     downloadJob?.cancel()
                     downloadJob = null
                     ui = UpdateUi.Available(downloading.info)
-                },
-                leading = {
-                    SettingsIcon(icon = TablerIcons.Refresh)
                 },
             )
         }
@@ -209,9 +194,10 @@ actual fun InAppUpdateSection(
         // 待安装：安装入口 + 重新下载
         val ready = ui as? UpdateUi.Ready
         if (ready != null) {
-            MusesListRow(
+            ArrowPreference(
                 title = "安装更新",
-                subtitle = "${ready.file.name}（${formatMB(ready.file.length())}）已就绪",
+                summary = "${ready.file.name}（${formatMB(ready.file.length())}）已就绪",
+                startAction = { SettingsIcon(icon = TablerIcons.CheckCircle) },
                 onClick = {
                     if (launchWindowsInstaller(ready.file)) {
                         MusesSnackbar.show("安装程序已启动，请按向导完成更新")
@@ -220,18 +206,13 @@ actual fun InAppUpdateSection(
                         onOpenUrl(ready.info.htmlUrl)
                     }
                 },
-                leading = {
-                    SettingsIcon(icon = TablerIcons.CheckCircle)
-                },
             )
-            MusesListRow(
+            ArrowPreference(
                 title = "重新下载",
+                startAction = { SettingsIcon(icon = TablerIcons.Download) },
                 onClick = {
                     ready.file.delete()
                     download(ready.info)
-                },
-                leading = {
-                    SettingsIcon(icon = TablerIcons.Download)
                 },
             )
         }
