@@ -130,36 +130,42 @@ internal fun Pointer.invokeGetObject(slot: Int, vararg args: Any?): Pointer {
     return out.value ?: throw SmtcException("vtable 槽 $slot 返回空对象")
 }
 
-// ── ButtonPressed 事件回调 COM 对象 ────────────────────────
+// ── ButtonPressed 事件回调 COM 对象 ──────────────────────
+//
+// 可见性说明（勿改回 private）：JNA 的 com.sun.jna.Structure 与这些类型跨包，
+// Structure.deriveLayout 经 Field.get 反射读取字段值；JVM 访问检查要求「字段 + 声明类」
+// 同时 public，Kotlin `private`（文件级）编译为 JVM 包级私有类，跨包反射即抛
+// IllegalAccessException（表现为「订阅 SMTC 按键事件失败」）。故统一用 internal
+// （JVM 上编译为 public，且不 mangle 类名/字段名）。
 
-private fun interface ComVoidFn : StdCallLibrary.StdCallCallback {
+internal fun interface ComVoidFn : StdCallLibrary.StdCallCallback {
     fun invoke(thisPtr: Pointer?): Int
 }
 
-private fun interface ComQueryInterfaceFn : StdCallLibrary.StdCallCallback {
+internal fun interface ComQueryInterfaceFn : StdCallLibrary.StdCallCallback {
     fun invoke(thisPtr: Pointer?, riid: Pointer?, out: PointerByReference?): Int
 }
 
-private fun interface ComGetIidsFn : StdCallLibrary.StdCallCallback {
+internal fun interface ComGetIidsFn : StdCallLibrary.StdCallCallback {
     fun invoke(thisPtr: Pointer?, iidCount: IntByReference?, iids: PointerByReference?): Int
 }
 
-private fun interface ComGetRuntimeClassNameFn : StdCallLibrary.StdCallCallback {
+internal fun interface ComGetRuntimeClassNameFn : StdCallLibrary.StdCallCallback {
     fun invoke(thisPtr: Pointer?, className: PointerByReference?): Int
 }
 
-private fun interface ComGetTrustLevelFn : StdCallLibrary.StdCallCallback {
+internal fun interface ComGetTrustLevelFn : StdCallLibrary.StdCallCallback {
     fun invoke(thisPtr: Pointer?, trustLevel: IntByReference?): Int
 }
 
 /** Invoke(sender, args)：ButtonPressed 事件入口（args 上取 get_Button）。 */
-private fun interface ComInvokeFn : StdCallLibrary.StdCallCallback {
+internal fun interface ComInvokeFn : StdCallLibrary.StdCallCallback {
     fun invoke(thisPtr: Pointer?, sender: Pointer?, args: Pointer?): Int
 }
 
 /** COM 回调对象的 vtable（IUnknown 3 + IInspectable 3 + Invoke），布局仿 JNA DispatchListener。 */
 @Structure.FieldOrder("queryInterface", "addRef", "release", "getIids", "getRuntimeClassName", "getTrustLevel", "invoke")
-private class CallbackVTable : Structure() {
+internal class CallbackVTable : Structure() {
     @JvmField var queryInterface: ComQueryInterfaceFn? = null
     @JvmField var addRef: ComVoidFn? = null
     @JvmField var release: ComVoidFn? = null

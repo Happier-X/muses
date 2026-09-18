@@ -136,6 +136,14 @@ compose.desktop {
             description = "Muses Music Player"
             vendor = "Muses"
 
+            // jpackage 运行时模块：compose-gradle-plugin 默认只给
+            // [java.base, java.desktop, java.logging, jdk.crypto.ec]（见插件 DEFAULT_RUNTIME_MODULES），
+            // 不显式追加会漏模块。androidx.datastore.preferences 的 protobuf 运行时
+            // （MessageSchema/UnsafeUtil）在类链接期引用 sun.misc.Unsafe，该类位于 jdk.unsupported
+            // 模块：缺失时打包版一读写 DataStore（设置页开关、播放配置、播放快照）即抛
+            // NoClassDefFoundError: sun/misc/Unsafe。开发态 ./gradlew run 走完整 JDK 故不显形。
+            modules("jdk.unsupported")
+
             // v0.5.2 实测：不配置则 MSI 装完无任何入口，用户找不到应用。
             // upgradeUuid 固定 UpgradeCode，缺省时每次构建随机，后续版本无法覆盖升级。
             windows {
