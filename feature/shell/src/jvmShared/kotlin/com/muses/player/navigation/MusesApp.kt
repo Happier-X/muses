@@ -41,6 +41,12 @@ import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.lyrics.model.LyricsDocument
+import com.muses.player.core.lyrics.parser.LxLyricParser
+import com.muses.player.core.model.Song
+import com.muses.player.core.model.online.NoOpOnlineTrackMetadataResolver
+import com.muses.player.core.model.online.OnlineTrackMetadataResolver
+import com.muses.player.core.model.online.OnlineTrackRef
+import com.muses.player.core.model.online.OnlineTrackSession
 import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MiniPlayerBar
@@ -99,6 +105,11 @@ class MainViewModel constructor(
     private val songDao: SongDao,
     private val songRepository: SongRepository,
     private val settingsRepository: SettingsRepository,
+    /**
+     * 在线曲目歌词端口（迷你条歌词模式用）。
+     * 缺省空实现：未装配在线音源时一切照旧，无需判空。
+     */
+    private val onlineMetadataResolver: OnlineTrackMetadataResolver = NoOpOnlineTrackMetadataResolver,
 ) : ViewModel() {
 
     val isPlaying: StateFlow<Boolean> = playback.isPlaying
@@ -111,13 +122,15 @@ class MainViewModel constructor(
     val nowPlaying: StateFlow<NowPlayingUiState?> = combine(
         playback.currentSongId,
         playback.currentMeta,
-    ) { songId, meta -> songId to meta }
-        .flatMapLatest { (songId, meta) ->
+        OnlineTrackSession.snapshot,
+    ) { songId, meta, online -> Triple(songId, meta, online) }
+        .flatMapLatest { (songId, meta, online) ->
             if (songId == null) {
                 flowOf(null)
             } else {
                 // 修复：改为 observeById Flow，使播放时回写后迷你条与列表一致（原 one-shot 不响应 DB 更新）
-                songDao.observeById(songId).map { song -> mergeNowPlaying(songId, song, meta) }
+                // 在线曲目不入库：同时订阅会话表快照，让「迟到登记」也能点亮迷你条标题/封面
+                songDao.observeById(songId).map { song -> mergeNowPlaying(songId, song, meta, online[songId]) }
             }
         }
         .distinctUntilChanged()
@@ -144,17 +157,43 @@ class MainViewModel constructor(
     /** 订阅当前曲歌词变化：切歌时解析歌词文本 → 更新 [lyricsDocument] */
     private fun observeLyrics() {
         viewModelScope.launch {
-            playback.currentSongId
-                .flatMapLatest { songId ->
-                    if (songId == null) flowOf(null)
-                    else songDao.observeById(songId)
+            combine(
+                playback.currentSongId,
+                OnlineTrackSession.snapshot,
+            ) { songId, online -> songId to online[songId] }
+                .distinctUntilChanged()
+                .flatMapLatest { (songId, online) ->
+                    if (songId == null) {
+                        flowOf(null to null)
+                    } else {
+                        songDao.observeById(songId).map { entity -> entity to online }
+                    }
                 }
-                .collect { songEntity ->
-                    val doc = withContext(Dispatchers.Default) {
-                        LyricsParser.parseDocument(songEntity?.lyrics)
+                .collect { (songEntity, online) ->
+                    val doc = when {
+                        songEntity != null -> withContext(Dispatchers.Default) {
+                            LyricsParser.parseDocument(songEntity.lyrics)
+                        }
+                        // 在线曲目不入库：歌词走洛雪脚本 `lyric` 动作（内存态，不写库）
+                        online != null -> loadOnlineLyrics(online)
+                        else -> null
                     }
                     lyricsDocument = doc
                 }
+        }
+    }
+
+    /**
+     * 在线曲目歌词：脚本 `lyric` 四字段 → [LxLyricParser]。
+     *
+     * 与播放页（`PlayerViewModel`）看似各自拉取，实则共享注入的 [OnlineTrackMetadataResolver]
+     * （装配时为 `CachedOnlineTrackMetadataResolver` 单例），同一首曲目只真正跑一次脚本。
+     */
+    private suspend fun loadOnlineLyrics(song: Song): LyricsDocument? {
+        val ref = OnlineTrackRef.parse(song.path) ?: return null
+        val lyrics = onlineMetadataResolver.resolveLyrics(ref) ?: return null
+        return withContext(Dispatchers.Default) {
+            LxLyricParser.parse(lyrics.lyric, lyrics.tlyric, lyrics.rlyric, lyrics.lxlyric)
         }
     }
 
@@ -180,8 +219,20 @@ class MainViewModel constructor(
         songId: String?,
         song: com.muses.player.core.data.db.SongEntity?,
         meta: PlaybackMeta?,
+        online: Song? = null,
     ): NowPlayingUiState? {
         if (songId == null) return null
+        // 在线曲目不入库：会话表条目即权威展示源（搜索结果的标题/艺术家/专辑/封面）
+        if (song == null && online != null) {
+            val onlineArtist = online.artist?.trim()?.takeIf { it.isNotEmpty() } ?: "未知艺术家"
+            val onlineAlbum = online.album?.trim()?.takeIf { it.isNotEmpty() } ?: "未知专辑"
+            return NowPlayingUiState(
+                title = online.title.trim().takeIf { it.isNotEmpty() } ?: "未知歌曲",
+                subtitle = "$onlineArtist - $onlineAlbum",
+                artist = onlineArtist,
+                coverUri = online.coverUri,
+            )
+        }
         val metaTitle = meta?.title?.trim()?.takeIf { it.isNotEmpty() }
         val metaArtist = meta?.artist?.trim()?.takeIf { it.isNotEmpty() }
         val metaAlbum = meta?.album?.trim()?.takeIf { it.isNotEmpty() }

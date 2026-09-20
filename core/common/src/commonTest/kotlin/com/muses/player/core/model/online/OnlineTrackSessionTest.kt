@@ -2,6 +2,7 @@ package com.muses.player.core.model.online
 
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.SourceType
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -68,5 +69,24 @@ class OnlineTrackSessionTest {
         OnlineTrackSession.remember(listOf(song("x", SourceType.ONLINE)))
         OnlineTrackSession.clear()
         assertEquals(0, OnlineTrackSession.size())
+    }
+
+    @Test
+    fun `observe 立即发出已登记条目`() = runTest {
+        OnlineTrackSession.clear()
+        OnlineTrackSession.remember(listOf(song("online:kw:9", SourceType.ONLINE)))
+        assertEquals("标题online:kw:9", OnlineTrackSession.observe("online:kw:9").first()?.title)
+        OnlineTrackSession.clear()
+    }
+
+    @Test
+    fun `先观察后登记也会收到补发`() = runTest {
+        // 消除「播放页先观察当前曲、播放链路后登记」的竞态（StateFlow 推送语义）
+        OnlineTrackSession.clear()
+        val flow = OnlineTrackSession.observe("late")
+        assertNull(flow.first())
+        OnlineTrackSession.remember(listOf(song("late", SourceType.ONLINE)))
+        assertEquals("标题late", flow.first()?.title)
+        OnlineTrackSession.clear()
     }
 }

@@ -1,5 +1,6 @@
 package com.muses.player.core.lxsdk.di
 
+import com.muses.player.core.lxsdk.LxOnlineMetadataResolver
 import com.muses.player.core.lxsdk.LxOnlineTrackResolver
 import com.muses.player.core.lxsdk.LxScriptRepository
 import com.muses.player.core.lxsdk.crypto.LxCrypto
@@ -7,6 +8,8 @@ import com.muses.player.core.lxsdk.crypto.LxCryptoJvm
 import com.muses.player.core.lxsdk.http.LxHttpClient
 import com.muses.player.core.lxsdk.store.FileLxScriptStore
 import com.muses.player.core.lxsdk.store.LxScriptStore
+import com.muses.player.core.model.online.CachedOnlineTrackMetadataResolver
+import com.muses.player.core.model.online.OnlineTrackMetadataResolver
 import com.muses.player.core.model.online.OnlineTrackResolver
 import org.koin.dsl.module
 
@@ -47,4 +50,15 @@ fun lxSdkModule() = module {
         )
     }
     single<OnlineTrackResolver> { LxOnlineTrackResolver(get()) }
+
+    /**
+     * 播放页封面/歌词端口（脚本 `pic` / `lyric` 动作）。
+     * 与直链端口同源共享 [LxScriptRepository]，复用同一批已加载引擎，不额外拉起 QuickJS runtime。
+     *
+     * 外层套 [CachedOnlineTrackMetadataResolver]：播放页与迷你条各自订阅当前曲，
+     * 同一首歌只应真正拉一次脚本（Koin 单例共享同一份缓存）。
+     */
+    single<OnlineTrackMetadataResolver> {
+        CachedOnlineTrackMetadataResolver(LxOnlineMetadataResolver(get()))
+    }
 }

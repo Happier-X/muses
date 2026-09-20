@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -64,6 +65,34 @@ class LxScriptRepositoryTest {
         })
         send(EVENT_NAMES.inited, {
           sources: { kw: { name: 'kw', type: 'music', actions: ['musicUrl'], qualitys: $qualitiesJsArray } },
+        })
+    """.trimIndent()
+
+    /** 声明 `musicUrl` + `lyric` + `pic` 的脚本：歌词返回四字段，封面返回固定 URL */
+    private fun scriptWithMetadata(platform: String = "kw"): String = """
+        /**
+         * @name 歌词封面源
+         */
+        const { EVENT_NAMES, on, send } = globalThis.lx
+        on(EVENT_NAMES.request, ({ action }) => {
+          if (action === 'lyric') {
+            return Promise.resolve({
+              lyric: '[00:01.000]<1000,100>你<1100,100>好',
+              tlyric: '[00:01.000]Hello',
+              rlyric: '[00:01.000]ni hao',
+              lxlyric: '[00:01.000]<1000,100>你<1100,100>好',
+            })
+          }
+          if (action === 'pic') return Promise.resolve('http://cdn.test/cover.jpg')
+          return Promise.reject(new Error('unsupported'))
+        })
+        send(EVENT_NAMES.inited, {
+          sources: {
+            $platform: {
+              name: '歌词封面源', type: 'music',
+              actions: ['musicUrl', 'lyric', 'pic'], qualitys: ['128k'],
+            },
+          },
         })
     """.trimIndent()
 
@@ -239,5 +268,55 @@ class LxScriptRepositoryTest {
             resolver.resolve(ref)
         }
         assertTrue(ex.message!!.isNotBlank())
+    }
+
+    @Test
+    fun `lyric 动作返回四字段`() = runTest {
+        val repo = repository()
+        repo.register("s1", scriptWithMetadata())
+
+        val lyric = repo.resolveLyric("kw", """{"songmid":"x"}""")
+        assertEquals("[00:01.000]Hello", lyric.tlyric)
+        assertEquals("[00:01.000]ni hao", lyric.rlyric)
+        assertTrue(lyric.lxlyric!!.contains("<1000,100>"), "实际：${lyric.lxlyric}")
+        assertTrue(!lyric.isEmpty)
+    }
+
+    @Test
+    fun `pic 动作返回封面地址`() = runTest {
+        val repo = repository()
+        repo.register("s1", scriptWithMetadata())
+        assertEquals("http://cdn.test/cover.jpg", repo.resolveCover("kw", "{}"))
+    }
+
+    @Test
+    fun `脚本未声明 lyric 与 pic 动作时报错`() = runTest {
+        val repo = repository()
+        // scriptFor 的 kw 只声明 musicUrl
+        repo.register("s1", scriptFor("kw"))
+        assertFailsWith<LxResolveException> { repo.resolveLyric("kw", "{}") }
+        assertFailsWith<LxResolveException> { repo.resolveCover("kw", "{}") }
+    }
+
+    @Test
+    fun `元数据适配器透传四字段`() = runTest {
+        val repo = repository()
+        repo.register("s1", scriptWithMetadata())
+        val resolver = LxOnlineMetadataResolver(repo)
+        val ref = OnlineTrackRef(platform = "kw", musicInfoJson = "{}", sourceId = "s1")
+
+        assertEquals("http://cdn.test/cover.jpg", resolver.resolveCover(ref))
+        val lyric = resolver.resolveLyrics(ref)
+        assertTrue(lyric != null && !lyric.isEmpty)
+        assertTrue(lyric.lxlyric!!.contains("你"))
+    }
+
+    @Test
+    fun `元数据适配器把失败折算为 null`() = runTest {
+        // 未导入任何脚本：端口契约要求静默（不抛错、不阻断播放）
+        val resolver = LxOnlineMetadataResolver(repository())
+        val ref = OnlineTrackRef(platform = "kw", musicInfoJson = "{}", sourceId = "none")
+        assertNull(resolver.resolveCover(ref))
+        assertNull(resolver.resolveLyrics(ref))
     }
 }

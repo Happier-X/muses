@@ -51,9 +51,6 @@ class PlayerConnection constructor(
     private val errorLogStore: ErrorLogStore = RingBufferErrorLogStore(),
 ) : PlaybackPort {
 
-    /** 在线曲目播放准备作用域（直链解析等 IO 密集操作，与 portScope 分离） */
-    private val onlinePrepScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     /** 最近一次播放失败的安全文案；用户主动操作后清空（P4 播放页消费） */
     override val playbackError: StateFlow<String?> = recoveryController.playbackError
 
@@ -232,25 +229,34 @@ class PlayerConnection constructor(
 
     private fun applyPlayback(songId: String, songs: List<com.muses.player.core.model.Song>) {
         val player = controller ?: return
-        // 在线曲目不入库：登记会话级临时表，供 songLookup 回退（enqueue/队列恢复按 id 查库的场景）
+        // 在线曲目不入库：登记会话级临时表，供 songLookup 回退（enqueue/队列恢复按 id 查库的场景）。
+        // **必须在 setMediaItems 之前同步登记**：登记表基于 StateFlow，写入即时可见；
+        // 若放在异步 scope 里，播放页可能先观察到当前曲、后收到登记，从而漏掉封面/歌词。
         if (songs.any { it.sourceType == SourceType.ONLINE }) {
-            onlinePrepScope.launch { OnlineTrackSession.remember(songs) }
+            OnlineTrackSession.remember(songs)
         }
         // 在线曲目与本地/WebDAV 走同一路径：MediaItem 持有稳定标识 URI，
         // 在线直链由 PlaybackService 的 ResolvingDataSource 在**打开时才**换取。
         // （初版在此对整队逐首预解析，20 首需等待约 30 秒才出声，见 OnlineResolvingDataSourceFactory 注释）
         val mediaItems = songs.map { song ->
+            val metadata = androidx.media3.common.MediaMetadata.Builder()
+                .setTitle(song.title)
+                .setArtist(song.artist)
+            // 不传 albumTitle：小米系统卡片 / 超级岛副标题直接读此字段，
+            // 播放条与通知口径统一为「标题/艺术家」，专辑信息仅保留在数据库（蓝牙场景暂不考虑）
+
+            // 在线曲目：搜索结果自带的远程封面直接作为通知/锁屏/系统卡片封面（**零额外请求**）。
+            // 此处**不**调脚本 `pic` 预解析：入队时逐首解析会让出声迟到数十秒
+            // （见 OnlineResolvingDataSourceFactory 注释）；脚本 pic 是播放页/迷你条的展示层增强。
+            if (song.sourceType == SourceType.ONLINE) {
+                song.coverUri
+                    ?.takeIf { it.startsWith("http", ignoreCase = true) }
+                    ?.let { metadata.setArtworkUri(Uri.parse(it)) }
+            }
             MediaItem.Builder()
                 .setMediaId(song.id)
                 .setUri(resolveUri(song))
-                .setMediaMetadata(
-                    androidx.media3.common.MediaMetadata.Builder()
-                        .setTitle(song.title)
-                        .setArtist(song.artist)
-                        // 不传 albumTitle：小米系统卡片 / 超级岛副标题直接读此字段，
-                        // 播放条与通知口径统一为「标题/艺术家」，专辑信息仅保留在数据库（蓝牙场景暂不考虑）
-                        .build()
-                )
+                .setMediaMetadata(metadata.build())
                 .build()
         }
         val index = mediaItems.indexOfFirst { it.mediaId == songId }

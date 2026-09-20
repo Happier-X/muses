@@ -228,6 +228,73 @@ class LxScriptRepository(
     }
 
     /**
+     * 解析歌词（脚本 `lyric` 动作）。
+     *
+     * 路由策略同 [resolveMusicUrl]：按 [platform] 找到第一个声明了该动作的脚本；
+     * 找不到可用脚本或脚本报错时抛 [LxResolveException]（上层转用户可读文案或静默忽略）。
+     */
+    suspend fun resolveLyric(platform: String, musicInfoJson: String): LxLyric =
+        routeToEngine(platform, LxAction.LYRIC, "歌词") { engine ->
+            engine.getLyric(platform, musicInfoJson)
+        }
+
+    /**
+     * 解析封面地址（脚本 `pic` 动作）。
+     *
+     * 失败语义同 [resolveLyric]：抛 [LxResolveException]。
+     */
+    suspend fun resolveCover(platform: String, musicInfoJson: String): String =
+        routeToEngine(platform, LxAction.PIC, "封面") { engine ->
+            engine.getPic(platform, musicInfoJson).url
+        }
+
+    /**
+     * 按 [platform] + [action] 路由到第一个可用引擎并执行 [call]。
+     *
+     * 与 [resolveMusicUrl] 的差异：不做音质选择（lyric/pic 与音质无关），
+     * 但沿用同一套「懒加载 → 声明校验 → 逐脚本尝试 → 汇总失败原因」口径。
+     */
+    private suspend fun <T> routeToEngine(
+        platform: String,
+        action: LxAction,
+        what: String,
+        call: suspend (LxScriptEngine) -> T,
+    ): T {
+        ensureSynced()
+        val candidates = mutex.withLock { scripts.toList() }
+        if (candidates.isEmpty()) {
+            throw LxResolveException("未导入任何音源脚本。")
+        }
+
+        val failures = mutableListOf<String>()
+        for (script in candidates) {
+            val loaded = script.ensureLoaded(crypto, httpClient, requestTimeoutMs)
+            if (!loaded) {
+                failures += "${script.meta.name ?: script.scriptId}: ${script.loadError}"
+                continue
+            }
+            val engine = script.engine ?: continue
+            val declared = engine.sources?.get(platform) ?: continue
+            if (!declared.supports(action)) continue
+            try {
+                return call(engine)
+            } catch (e: Exception) {
+                failures += "${script.meta.name ?: script.scriptId}: ${e.message}"
+            }
+        }
+
+        throw LxResolveException(
+            buildString {
+                append("无法为源 '$platform' 获取$what。")
+                if (failures.isNotEmpty()) {
+                    append("已尝试：")
+                    append(failures.joinToString("；"))
+                }
+            },
+        )
+    }
+
+    /**
      * 音质选择：请求档位可用则用之；否则**就近回退**。
      *
      * 回退方向规则：优先**向下**（更低档位体积更小、兼容性更好，不会让用户在移动网络上

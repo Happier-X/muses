@@ -3,7 +3,14 @@ package com.muses.player.feature.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.dao.SongDao
+import com.muses.player.core.data.db.SongEntity
 import com.muses.player.core.lyrics.model.LyricsDocument
+import com.muses.player.core.lyrics.parser.LxLyricParser
+import com.muses.player.core.model.Song
+import com.muses.player.core.model.online.NoOpOnlineTrackMetadataResolver
+import com.muses.player.core.model.online.OnlineTrackMetadataResolver
+import com.muses.player.core.model.online.OnlineTrackRef
+import com.muses.player.core.model.online.OnlineTrackSession
 import com.muses.player.core.model.playback.RepeatMode
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.playback.PlaybackStates
@@ -13,10 +20,12 @@ import com.muses.player.feature.player.lyric.toAmllLyricLines
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -33,11 +42,41 @@ data class QueueRow(
     val artist: String?,
 )
 
+/**
+ * 当前曲的元数据来源。
+ *
+ * 曲库曲目走 Room；在线曲目**不入库**，只活在 [OnlineTrackSession] 会话表里。
+ * 播放页对两者做同一套封面/歌词处理（仅数据来源不同）：
+ * 在线曲目的封面/歌词来自洛雪脚本的 `pic` / `lyric` 动作，内存态展示、不写库。
+ */
+private sealed interface CurrentTrack {
+    data class Local(val entity: SongEntity) : CurrentTrack
+    data class Online(val song: Song) : CurrentTrack
+}
+
+/**
+ * 当前曲展示信息（曲库实体 / 在线会话条目归一）。
+ *
+ * 播放页的标题·艺术家与「是否有歌」判定共用本对象：曲库曲目取 Room，
+ * 在线曲目取会话表条目（同様含标题/艺术家），避免播放页只认 Room 而在在线曲目下空白。
+ */
+data class CurrentSongMeta(
+    val songId: String,
+    val title: String,
+    val artist: String?,
+    val isOnline: Boolean,
+)
+
 /** 播放页 ViewModel：经 [PlaybackPort] 包装双端播放栈并提供位置轮询 */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlayerViewModel constructor(
     val playback: PlaybackPort,
     private val songDao: SongDao,
+    /**
+     * 在线曲目封面/歌词端口（洛雪脚本 `pic` / `lyric`）。
+     * 缺省空实现：宿主未装配在线音源时播放页照常工作，无需判空。
+     */
+    private val onlineMetadataResolver: OnlineTrackMetadataResolver = NoOpOnlineTrackMetadataResolver,
 ) : ViewModel() {
 
     val isPlaying: StateFlow<Boolean> = playback.isPlaying
@@ -166,6 +205,10 @@ class PlayerViewModel constructor(
     private val _stickyCover = MutableStateFlow<String?>(null)
     val stickyCover: StateFlow<String?> = _stickyCover.asStateFlow()
 
+    /** 当前曲展示信息（标题/艺术家）；同步发布，不等待封面·歌词网络拉取 */
+    private val _nowPlayingMeta = MutableStateFlow<CurrentSongMeta?>(null)
+    val nowPlayingMeta: StateFlow<CurrentSongMeta?> = _nowPlayingMeta.asStateFlow()
+
     /** 已解析 AMLL 行集：五行小窗与完整歌词同源 */
     private val _parsedLines = MutableStateFlow<List<AmllLyricLine>>(emptyList())
     val parsedLines: StateFlow<List<AmllLyricLine>> = _parsedLines.asStateFlow()
@@ -201,31 +244,71 @@ class PlayerViewModel constructor(
         observeCurrentSong()
     }
 
-    /** 观察当前曲变化 → 订阅 Room 实时更新歌词/封面 → 解析映射并发布 payload */
+    /**
+     * 观察当前曲变化 → 组合「曲库实体」与「在线会话条目」为同一份当前曲元数据
+     * → 解析封面/歌词并发布给播放页。
+     *
+     * 在线曲目不入库（见 [OnlineTrackSession]），Room 查不到；`combine` 让迟到的会话登记
+     * 也能再推一次值，避免「先观察、后登记」造成封面/歌词永久缺失的竞态。
+     */
     private fun observeCurrentSong() {
         viewModelScope.launch {
             playback.currentSongId
-                .flatMapLatest { songId ->
-                    if (songId == null) flowOf(null)
-                    else songDao.observeById(songId)
-                }
-                .collect { songEntity ->
-                    // 兜底封面：扫描未读到内嵌封面时，回退到播放器实时 metadata artwork
-                    // （对齐 app/NowPlayingUiState mediaMetadata 兜底链路，沉浸页封面缺失修复）
-                    val metaArtwork = playback.artworkUri.value
-                        ?.takeIf { it.isNotBlank() }
-                    refreshLyricsWithEntity(songEntity, metaArtwork)
-                }
+                .flatMapLatest { songId -> currentTrackFlow(songId) }
+                // collectLatest：切歌时取消上一首尚未完成的封面/歌词拉取
+                .collectLatest { track -> refreshCurrentTrack(track) }
         }
     }
 
-    private suspend fun refreshLyricsWithEntity(
-        song: com.muses.player.core.data.db.SongEntity?,
-        metadataArtwork: String? = null,
+    private fun currentTrackFlow(songId: String?): Flow<CurrentTrack?> {
+        if (songId == null) return flowOf(null)
+        return combine(
+            songDao.observeById(songId),
+            OnlineTrackSession.observe(songId),
+        ) { entity, online ->
+            entity?.let { CurrentTrack.Local(it) } ?: online?.let { CurrentTrack.Online(it) }
+        }.distinctUntilChanged()
+    }
+
+    private suspend fun refreshCurrentTrack(track: CurrentTrack?) {
+        // 标题/艺术家先发布：不等封面·歌词的网络拉取，否则在线曲目会先白一下标题
+        _nowPlayingMeta.value = when (track) {
+            null -> null
+            is CurrentTrack.Local -> CurrentSongMeta(
+                songId = track.entity.id,
+                title = track.entity.title,
+                artist = track.entity.artist,
+                isOnline = false,
+            )
+            is CurrentTrack.Online -> CurrentSongMeta(
+                songId = track.song.id,
+                title = track.song.title,
+                artist = track.song.artist,
+                isOnline = true,
+            )
+        }
+
+        // 兜底封面：扫描未读到内嵌封面时，回退到播放器实时 metadata artwork
+        // （对齐 app/NowPlayingUiState mediaMetadata 兜底链路，沉浸页封面缺失修复）
+        val metadataArtwork = playback.artworkUri.value?.takeIf { it.isNotBlank() }
+        when (track) {
+            null -> {
+                _dbDuration.value = 0L
+                _stickyCover.value = null
+                applyLyricsDocument(null)
+            }
+            is CurrentTrack.Local -> refreshLocalTrack(track.entity, metadataArtwork)
+            is CurrentTrack.Online -> refreshOnlineTrack(track.song, metadataArtwork)
+        }
+    }
+
+    /** 曲库曲目：歌词/封面取曲库列（刮削写回链路），metadata artwork 兜底封面 */
+    private suspend fun refreshLocalTrack(
+        song: SongEntity,
+        metadataArtwork: String?,
     ) {
         // 时长兜底：DB 时长在播放器未就绪时提供进度分母
         _dbDuration.value = when {
-            song == null -> 0L
             song.durationMs > 0 -> song.durationMs
             song.durationSec > 0 -> song.durationSec * 1000
             else -> 0L
@@ -234,20 +317,49 @@ class PlayerViewModel constructor(
         // 粘性封面：有新封面即更新；新曲无 SongEntity 封面 → 沿用 metadata artwork；仅无当前曲才清空
         // 修复：已刮削封面（metaCover 非空）时不回退旧文件封面，避免重刮削后封面被旧 ID3 覆盖
         when {
-            song == null -> _stickyCover.value = null
             !song.coverUri.isNullOrEmpty() -> _stickyCover.value = song.coverUri
-            song.metaCover != null -> {
-                // 刮削标记存在但 coverUri 为空：表示刮削清空封面，不回退旧 metadata，避免复活旧封面
-                _stickyCover.value = null
-            }
+            // 刮削标记存在但 coverUri 为空：表示刮削清空封面，不回退旧 metadata，避免复活旧封面
+            song.metaCover != null -> _stickyCover.value = null
             !metadataArtwork.isNullOrBlank() -> _stickyCover.value = metadataArtwork
             // 都无：保持旧粘性值（不闪默认底）
         }
 
         // TTML/LRC 解析与映射可能较重（大文件逐词行），移出主线程；结果回主线程赋值，避免跨线程可见性问题
         val document = withContext(Dispatchers.Default) {
-            LyricsParser.parseDocument(song?.lyrics)
+            LyricsParser.parseDocument(song.lyrics)
         }
+        applyLyricsDocument(document)
+    }
+
+    /**
+     * 在线曲目：不落库，封面/歌词走洛雪脚本的 `pic` / `lyric` 动作，**仅在内存态展示**
+     * （切歌重新取，不做持久化；与「在线曲目不入库」的整体设计一致）。
+     *
+     * 封面优先级：脚本 `pic`（数据源权威）→ 搜索结果自带的远程封面（[Song.coverUri]）→ 播放器实时 metadata。
+     * 三者都无时保持旧粘性值（与曲库曲目同语义，不闪默认底）。
+     *
+     * 封面与歌词**串行**拉取：二者共用同一个 QuickJS runtime，脚本 handler 未必并发安全，
+     * 串行换取最大兼容性（且脚本未声明动作时端口立即返回 null，无额外开销）。
+     */
+    private suspend fun refreshOnlineTrack(song: Song, metadataArtwork: String?) {
+        _dbDuration.value = song.durationMs
+
+        val ref = OnlineTrackRef.parse(song.path)
+        val scriptCover = ref?.let { onlineMetadataResolver.resolveCover(it) }
+        val cover = scriptCover?.takeIf { it.isNotBlank() }
+            ?: song.coverUri?.takeIf { it.isNotBlank() }
+            ?: metadataArtwork
+        if (!cover.isNullOrBlank()) _stickyCover.value = cover
+
+        val lyrics = ref?.let { onlineMetadataResolver.resolveLyrics(it) }
+        val document = withContext(Dispatchers.Default) {
+            lyrics?.let { LxLyricParser.parse(it.lyric, it.tlyric, it.rlyric, it.lxlyric) }
+        }
+        applyLyricsDocument(document)
+    }
+
+    /** 发布歌词文档：同步 AMLL 行集 / 末句结束时间 / 译文标记，并按翻译开关重建 payload */
+    private fun applyLyricsDocument(document: LyricsDocument?) {
         _lyricsDocument.value = document
         currentLines = document?.toAmllLyricLines() ?: emptyList()
         lastLineEndMs = currentLines.maxOfOrNull { it.endTime.toLong() } ?: Long.MAX_VALUE
