@@ -150,6 +150,10 @@ val prepareVlcRuntime by tasks.registering(Exec::class) {
         "-ExecutionPolicy", "Bypass",
         "-File", prepareScript.absolutePath,
         "-Destination", outDir.absolutePath,
+        // staging 必须显式落在 appResources 之外：appResources/windows/* 会被 jpackage 摊平进
+        // app/resources，staging（未裁剪的完整 VLC 约 180MB）留在该子树下就会被一起打进安装包
+        // （v0.6.4 首次发版实测 MSI 因此多出 57MB）。这里固定用 <build>/vlc-staging。
+        "-Staging", vlcAppResourcesDir.get().asFile.resolveSibling("vlc-staging").absolutePath,
     )
     doLast {
         if (!outDir.resolve("libvlc.dll").isFile) {

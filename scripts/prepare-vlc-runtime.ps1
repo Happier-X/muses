@@ -24,7 +24,14 @@ $portableDir = Join-Path $repoRoot 'spike-vlcj/vlc-portable/vlc-3.0.21'
 $portableZip = Join-Path $repoRoot 'spike-vlcj/vlc-portable/vlc-3.0.21-win64.zip'
 $trimScript = Join-Path $PSScriptRoot 'vlc-trim.ps1'
 if (-not $Staging) {
-    $Staging = Join-Path (Split-Path -Parent $Destination) 'vlc-staging'
+    # staging 必须落在 appResources **之外**：
+    # $Destination 形如 <build>/appResources/windows/vlc，而 jpackage 会把 appResources/windows/*
+    # 整个摊平进 app/resources——staging 若留在该子树下（如 windows/vlc-staging），
+    # 未裁剪的完整 VLC（约 180MB）会被一并打进安装包。
+    # v0.6.4 首次发版实测：MSI 因此从约 118MB 涨到 175MB（app/resources 下同时存在
+    # vlc 39.9MB 与 vlc-staging 180.6MB）。故取 appResources 的兄弟目录：<build>/vlc-staging。
+    $appResourcesRoot = Split-Path -Parent (Split-Path -Parent $Destination)  # <build>/appResources
+    $Staging = Join-Path (Split-Path -Parent $appResourcesRoot) 'vlc-staging' # <build>/vlc-staging
 }
 
 function Test-VlcDir([string]$path) {
