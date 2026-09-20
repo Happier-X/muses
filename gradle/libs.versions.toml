@@ -39,6 +39,8 @@ robolectric = "4.16"
 androidxTestCore = "1.7.0"
 # M3 刮削引擎：DataStore JSON snapshot 序列化
 kotlinxSerialization = "1.9.0"
+# 洛雪自定义音源：QuickJS 绑定（KMP android+jvm；1.0.14 POM 实测由 Kotlin 2.4.10 编译，与本项目同线）
+quickjs = "1.0.14"
 tablerIcons = "2.2.1"
 jna = "5.17.0"
 # miuix（小米 HyperOS 风格 CMP 组件库）：0.9.4-rc01 按 CMP 1.12.0-rc01 + Kotlin 2.4.10 构建
@@ -114,6 +116,9 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
 
 jaudiotagger = { group = "net.jthink", name = "jaudiotagger", version.ref = "jaudiotagger" }
+
+# 洛雪自定义音源脚本引擎：QuickJS 绑定（KMP 父件，android/jvm 变体自动解析）
+quickjs-kt = { module = "io.github.dokar3:quickjs-kt", version.ref = "quickjs" }
 
 work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 

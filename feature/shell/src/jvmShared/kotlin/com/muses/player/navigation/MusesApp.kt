@@ -57,6 +57,8 @@ import com.muses.player.feature.player.QueueScreen
 import com.muses.player.feature.player.lyric.LyricsParser
 import com.muses.player.feature.playlist.PlaylistDetailPage
 import com.muses.player.feature.playlist.PlaylistsPage
+import com.muses.player.feature.sources.LxScriptsScreen
+import com.muses.player.feature.sources.OnlineSearchScreen
 import com.muses.player.feature.sources.SourcesScreen
 import com.muses.player.feature.sources.WebDavBrowseScreen
 import com.muses.player.feature.sources.WebDavFormScreen
@@ -587,7 +589,15 @@ private fun AppNavHost(
                 onOpenWebdavEdit = { sourceId ->
                     backStack.pushUnique(MusesRoute.WebDavEdit(sourceId))
                 },
+                onOpenLxScripts = { backStack.pushUnique(MusesRoute.LxScripts) },
+                onOpenOnlineSearch = { backStack.pushUnique(MusesRoute.OnlineSearch) },
             )
+        }
+        entry<MusesRoute.LxScripts>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+            LxScriptsScreen(onBack = { backStack.pop() })
+        }
+        entry<MusesRoute.OnlineSearch>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+            OnlineSearchScreen(onBack = { backStack.pop() })
         }
         entry<MusesRoute.WebDavAdd>(swipeDismiss = NavSwipeDirection.LeftToRight) {
             WebDavFormScreen(

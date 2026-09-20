@@ -172,7 +172,13 @@ internal object DesktopScrapeGraph {
     private val fileWriter: AudioTagFileWriter = AudioTagFileWriter { song, changes, coverBytes ->
         when (song.sourceType) {
             SourceType.WEBDAV -> webdavWriter.write(song, changes, coverBytes)
-            else -> localWriter.write(song, changes, coverBytes)
+            // 在线音源曲目无本地文件，不支持标签写回（返回失败而非误走本地写入）
+            SourceType.ONLINE -> com.muses.player.core.model.scrape.FileWriteResult(
+                ok = false,
+                code = "online_unsupported",
+                message = "在线音源曲目不支持标签写回。",
+            )
+            SourceType.LOCAL -> localWriter.write(song, changes, coverBytes)
         }
     }
 

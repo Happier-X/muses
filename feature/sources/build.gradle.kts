@@ -24,6 +24,10 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":core:common"))
             implementation(project(":core:webdav"))
+            // 洛雪自定义音源：脚本存储接口 + 仓库（在线音源脚本管理页消费）
+            implementation(project(":core:lxsdk"))
+            // 在线搜索：各平台搜索 provider + 聚合服务（在线搜索页消费）
+            implementation(project(":core:search"))
             implementation(project(":core:ui-shared"))
             // compose/miuix 经 ui-shared api 透传，此处不再重复声明
             implementation(libs.androidx.lifecycle.viewmodel)

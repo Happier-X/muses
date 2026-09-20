@@ -21,7 +21,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- 在线音源必须开放明文 HTTP：
+         各平台解析出的播放直链普遍是 http://（如 car-er.kuwo.cn、
+         isure.stream.qqmusic.qq.com、fsandroid.tx.kugou.com、freetyst.nf.migu.cn），
+         API 28+ 默认拦截明文会导致在线曲目永久 BUFFERING。
+         这些 CDN 域名在运行时由脚本给出、无法预先枚举，故整体开放；
+         若后续要收紧，改为 networkSecurityConfig 白名单（需覆盖全部平台 CDN）。 -->
     <application
+        android:usesCleartextTraffic="true"
         android:name=".MusesApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

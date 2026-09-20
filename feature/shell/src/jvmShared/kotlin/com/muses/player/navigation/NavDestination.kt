@@ -43,7 +43,8 @@ enum class NavDestination(
         Playlists -> key == MusesRoute.Playlists || key is MusesRoute.PlaylistDetail
         Scrape -> key == MusesRoute.Scrape || key is MusesRoute.ScrapeReview
         Sources -> key == MusesRoute.Sources || key is MusesRoute.WebDavAdd ||
-            key is MusesRoute.WebDavEdit || key is MusesRoute.WebDavBrowse
+            key is MusesRoute.WebDavEdit || key is MusesRoute.WebDavBrowse ||
+            key is MusesRoute.LxScripts || key is MusesRoute.OnlineSearch
         Settings -> key == MusesRoute.Settings
     }
 

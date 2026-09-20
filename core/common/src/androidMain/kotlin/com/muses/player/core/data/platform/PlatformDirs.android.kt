@@ -4,8 +4,12 @@ import java.io.File
 
 /**
  * S1 androidMain actual：沿用安卓既有 filesDir/cacheDir 语义。
- * [initPlatformDirs] 须在首次使用前调用（DatabaseModule 装配处调用一次）；
+ * [initPlatformDirs] 须在首次使用前调用（**当前由 MusesApplication.onCreate 调用**，
+ * 早于 Koin 启动与任何功能访问；Android 侧首个消费者是音源脚本目录）。
  * 未初始化即调用抛错，重复传入不同值抛错防配错（与 DataStorePath.android 口径一致）。
+ *
+ * 历史注记：原注释声称「DatabaseModule 装配处调用一次」，但该调用实际从未存在，
+ * Android 侧此前也无消费者，故缺陷长期潜伏；2025-09 lxsdk 接入时才暴露为崩溃。
  */
 actual object PlatformDirs {
 

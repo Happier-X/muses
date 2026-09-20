@@ -6,6 +6,8 @@ import com.muses.player.core.data.repository.PlaybackStateRepository
 import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.data.store.createDataStore
 import com.muses.player.core.model.SourceType
+import com.muses.player.core.model.online.OnlineTrackRef
+import com.muses.player.core.model.online.OnlineTrackResolver
 import com.muses.player.core.model.playback.PlayerConfig
 import com.muses.player.core.model.playback.RepeatMode
 import com.muses.player.core.media.scanner.PlaybackLazyScan
@@ -81,7 +83,18 @@ class JvmPlayerPort(
      * 回流的展示口径（未刮削歌曲重播时用上文件侧更新数据）。失败不阻塞播放。
      */
     private val onPlaybackStarted: (suspend (songId: String, localFile: java.io.File) -> PlaybackLazyScan.FileTags?)? = null,
+    /**
+     * 在线音源直链解析器（洛雪自定义源脚本）。
+     * null = 当前构建未启用在线音源（播放在线曲目时报错提示，不崩）。
+     */
+    private val onlineResolver: OnlineTrackResolver? = null,
 ) : PlayerPort {
+
+    /** 播放目标：本地文件（LOCAL/WebDAV 缓存）或远程直链（在线音源） */
+    private sealed interface PlayTarget {
+        data class LocalFile(val file: File) : PlayTarget
+        data class RemoteUrl(val url: String) : PlayTarget
+    }
 
     /** 曲库解析出的播放引用（Song 实体的最小播放子集，避免桌面依赖 :core:data mapper）。 */
     data class SongRef(
@@ -190,7 +203,7 @@ class JvmPlayerPort(
         if (queue.state().currentSongId == null && currentRef == null) return
         // 暂停恢复：VLCJ 直接 play 即可；ENDED 后 play 重播当前曲
         if (_playbackState.value == JvmPlaybackStates.STATE_ENDED && currentRef != null) {
-            startPlayback(currentRef!!, 0L)
+            replayCurrent(currentRef!!)
             return
         }
         scope.launch { runCatching { p.controls().play() } }
@@ -350,8 +363,8 @@ class JvmPlayerPort(
                 onSongFailed(songId, DesktopPlaybackErrorCopy.FILE_NOT_FOUND)
                 return@launch
             }
-            val file: File? = try {
-                resolvePlayFile(ref)
+            val target: PlayTarget? = try {
+                resolvePlayTarget(ref)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: AuthFailedException) {
@@ -365,15 +378,22 @@ class JvmPlayerPort(
                 errorLog("JvmPlayerPort", "WebDAV 限流停止 url=${ref.path}", e)
                 return@launch
             } catch (e: Exception) {
-                errorLog("JvmPlayerPort", "解析播放文件失败 songId=$songId", e)
+                errorLog("JvmPlayerPort", "解析播放目标失败 songId=$songId", e)
                 null
             }
-            if (file == null || !file.exists() || file.length() <= 0L) {
-                onSongFailed(songId, DesktopPlaybackErrorCopy.FILE_NOT_FOUND)
+            if (target == null) {
+                onSongFailed(
+                    songId,
+                    if (ref.sourceType == SourceType.ONLINE) {
+                        onlineUnavailableCopy()
+                    } else {
+                        DesktopPlaybackErrorCopy.FILE_NOT_FOUND
+                    },
+                )
                 return@launch
             }
             currentRef = ref
-            // 钉住播放中缓存文件，淘汰跳过；释放上一个
+            // 钉住播放中缓存文件，淘汰跳过；释放上一个（仅 WebDAV 走缓存）
             if (ref.sourceType == SourceType.WEBDAV) {
                 audioCache.acquire(ref.path)
                 lastPinnedUrl?.takeIf { it != ref.path }?.let { audioCache.release(it) }
@@ -383,7 +403,7 @@ class JvmPlayerPort(
             _currentMeta.value = null
             _durationMs.value = 0L
             _positionMs.value = startPositionMs.coerceAtLeast(0L)
-            startPlayback(ref, startPositionMs)
+            startPlayback(ref, target, startPositionMs)
             // 最近播放登记（同曲去重置顶/上限50，对齐 RecentPlaysRepository 语义）
             runCatching {
                 val subtitle = listOfNotNull(ref.artist, ref.album).joinToString(" - ")
@@ -403,7 +423,7 @@ class JvmPlayerPort(
         }
     }
 
-    private fun startPlayback(ref: SongRef, startPositionMs: Long) {
+    private fun startPlayback(ref: SongRef, target: PlayTarget, startPositionMs: Long) {
         val p = player ?: run {
             ensurePlayer()
             player
@@ -411,24 +431,26 @@ class JvmPlayerPort(
             onSongFailed(ref.id, DesktopPlaybackErrorCopy.DEFAULT_ERROR)
             return
         }
-        val file = resolveCachedOrLocal(ref)
-        if (file == null) {
-            onSongFailed(ref.id, DesktopPlaybackErrorCopy.FILE_NOT_FOUND)
-            return
-        }
         // 绝对路径传法（spike §4 交接）：禁止 File.toURI()，Windows 畸形 MRL 会被当 DVD 打开
-        val accepted = runCatching { p.media().play(file.absolutePath) }.getOrDefault(false)
+        // 在线音源直接传 HTTP 直链（VLCJ 原生支持网络 MRL）
+        val mrl = when (target) {
+            is PlayTarget.LocalFile -> target.file.absolutePath
+            is PlayTarget.RemoteUrl -> target.url
+        }
+        val accepted = runCatching { p.media().play(mrl) }.getOrDefault(false)
         if (!accepted) {
             onSongFailed(ref.id, DesktopPlaybackErrorCopy.DEFAULT_ERROR)
             return
         }
-        // U26 播放懒扫描：播起来了才触发（读标签 + 回写库由调用方承载，异常内部消化不阻塞播放；
+        // U26 播放懒扫描：仅本地文件适用（在线曲目无本地文件可读）；
+        // 播起来了才触发（读标签 + 回写库由调用方承载，异常内部消化不阻塞播放；
         // 回传的文件标签快照同步发布 currentMeta，对齐安卓 ExoPlayer 内嵌标签解析后
         // onMediaMetadataChanged 回流的展示口径——未刮削歌曲重播时用上文件侧更新数据）
-        onPlaybackStarted?.let { hook ->
+        val localFile = (target as? PlayTarget.LocalFile)?.file
+        if (localFile != null) onPlaybackStarted?.let { hook ->
             val songId = ref.id
             scope.launch {
-                val tags = runCatching { hook(songId, file) }
+                val tags = runCatching { hook(songId, localFile) }
                     .onFailure { e ->
                         if (e is CancellationException) throw e
                         errorLog("JvmPlayerPort", "懒扫描钩子失败 songId=$songId", e)
@@ -459,8 +481,57 @@ class JvmPlayerPort(
             if (fallback.isAbsolute && fallback.exists()) fallback else null
         } else File(ref.path).takeIf { it.exists() && it.length() > 0L }
 
+    /**
+     * 解析播放目标：
+     * - ONLINE：调在线音源解析器异步换取 HTTP 直链（不做长期缓存——直链会过期，
+     *   每次播放都重新解析，避免用过期的缓存地址播放）；
+     * - 其余源：走既有本地/WebDAV 文件链路。
+     *
+     * 返回 null 表示不可播（在线未启用/引用损坏/文件不存在），由调用方归入失败链。
+     */
+    private suspend fun resolvePlayTarget(ref: SongRef): PlayTarget? {
+        if (ref.sourceType == SourceType.ONLINE) {
+            val resolver = onlineResolver ?: return null
+            val onlineRef = OnlineTrackRef.parse(ref.path) ?: return null
+            val resolved = resolver.resolve(onlineRef)
+            return PlayTarget.RemoteUrl(resolved.url)
+        }
+        val file = resolvePlayFile(ref)
+        return if (file.exists() && file.length() > 0L) PlayTarget.LocalFile(file) else null
+    }
+
+    /** 重播当前曲：重新解析播放目标（在线直链会过期，必须重新换取） */
+    private fun replayCurrent(ref: SongRef) {
+        scope.launch {
+            val target = try {
+                resolvePlayTarget(ref)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                errorLog("JvmPlayerPort", "重播解析失败 songId=${ref.id}", e)
+                null
+            }
+            if (target == null) {
+                onSongFailed(
+                    ref.id,
+                    if (ref.sourceType == SourceType.ONLINE) {
+                        onlineUnavailableCopy()
+                    } else {
+                        DesktopPlaybackErrorCopy.FILE_NOT_FOUND
+                    },
+                )
+                return@launch
+            }
+            startPlayback(ref, target, 0L)
+        }
+    }
+
     /** 本地直播 / WebDAV 整文件入缓存（Ktor Range 下载，不做边播边缓存对等）。 */
     private suspend fun resolvePlayFile(ref: SongRef): File = withContext(Dispatchers.IO) {
+        // 在线曲目不走文件链路（由 resolvePlayTarget 接管）；此处防御性拦截
+        if (ref.sourceType == SourceType.ONLINE) {
+            throw java.io.IOException("在线曲目需经 resolvePlayTarget 解析直链")
+        }
         if (ref.sourceType != SourceType.WEBDAV) {
             val f = File(ref.path)
             if (!f.exists() || f.length() <= 0L) throw java.io.FileNotFoundException(ref.path)
@@ -584,19 +655,33 @@ class JvmPlayerPort(
 
     // ── VLCJ 事件桥接 ──────────────────────────────────────
 
+    /**
+     * 工厂创建失败收敛：链接期失败（原生库/类缺失）或解析不到 VLC 目录时给安装/配置指引，
+     * 其余走通用文案；两种情况都写崩溃日志（不再静默）。
+     */
+    private fun reportFactoryFailure(e: Throwable) {
+        val nativeMissing = e is LinkageError || resolveVlcDir() == null
+        val hint = if (nativeMissing) {
+            DesktopPlaybackErrorCopy.VLC_MISSING
+        } else {
+            DesktopPlaybackErrorCopy.DEFAULT_ERROR
+        }
+        errorLog("JvmPlayerPort", "创建 VLCJ 工厂失败", e)
+        _playbackError.value = DesktopPlaybackErrorCopy.safeCopy(hint)
+    }
+
     private fun ensurePlayer() {
         if (player != null) return
         val f = try {
             factory ?: factoryProvider().also { factory = it }
         } catch (e: Exception) {
-            // VLC 原生库缺失（未装 VLC 且便携版不可用）是最常见原因：文案指明方向，不再只有日志
-            val hint = if (resolveVlcDir() == null) {
-                DesktopPlaybackErrorCopy.VLC_MISSING
-            } else {
-                DesktopPlaybackErrorCopy.DEFAULT_ERROR
-            }
-            errorLog("JvmPlayerPort", "创建 VLCJ 工厂失败", e)
-            _playbackError.value = DesktopPlaybackErrorCopy.safeCopy(hint)
+            reportFactoryFailure(e)
+            return
+        } catch (e: LinkageError) {
+            // VLC 原生库缺失时 VLCJ 抛的是 UnsatisfiedLinkError / NoClassDefFoundError（Error 系，
+            // 实测栈顶 MediaPlayerFactory.discoverNativeLibrary → LibVlc.<clinit>）：
+            // 原 catch(Exception) 接不住，会把崩溃直接抛给 UI
+            reportFactoryFailure(e)
             return
         }
         val p = try {
@@ -665,7 +750,7 @@ class JvmPlayerPort(
         // 单曲循环：重播当前曲
         if (repeatMode == RepeatMode.ONE && currentRef != null) {
             _playbackState.value = JvmPlaybackStates.STATE_READY
-            startPlayback(currentRef!!, 0L)
+            replayCurrent(currentRef!!)
             return
         }
         val order = queue.activeOrder().map { it.songId }
@@ -697,6 +782,14 @@ class JvmPlayerPort(
     }
 
     /** 单曲失败：登记 attempted → 沿 active order 回绕一次找候选 → 无候选才停止。 */
+    /**
+     * 在线曲目不可播的失败文案：未接入解析器（构建未启用在线音源）与解析失败
+     * （脚本未加载/源不支持/直链过期/引用损坏）病因不同、指引不同，分别给文案；
+     * 两条均在 [DesktopPlaybackErrorCopy.SAFE_PLAYBACK_ERRORS] 内，可原样落到 UI
+     * （否则会被 onSongFailed 里的 safeCopy 静默兜底成通用文案）。
+     */
+    private fun onlineUnavailableCopy(): String = onlineUnavailableCopyFor(onlineResolver != null)
+
     private fun onSongFailed(songId: String, copy: String) {
         attemptedSongIds.add(songId)
         val order = queue.activeOrder().map { it.songId }
@@ -845,32 +938,132 @@ class JvmPlayerPort(
     private class RateLimitedException(message: String) : Exception(message)
 
     companion object {
+        /** 随包内置 VLC 的目录名（位于 jpackage 的 app/resources 下，产物见 scripts/vlc-trim.ps1）。 */
+        private const val BUNDLED_VLC_DIR = "vlc"
+
+        /** 仓库开发期便携版（.gitignore 已忽略，仅本地/CI 下载后存在）。 */
+        private const val REPO_PORTABLE_VLC = "spike-vlcj/vlc-portable/vlc-3.0.21"
+
+        /** VLC 安装器写入注册表的键（64 位视图 + WOW6432Node 32 位视图）。 */
+        private val VLC_REGISTRY_KEYS = listOf(
+            "SOFTWARE\\VideoLAN\\VLC",
+            "SOFTWARE\\WOW6432Node\\VideoLAN\\VLC",
+        )
+
+        private fun isWindows(): Boolean =
+            System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
+
+        /** 目录是否可直接喂给 JNA：含 VLC 原生库。本桌面端只出 Windows 包，按 libvlc.dll 判定。 */
+        private fun hasLibVlc(dir: File): Boolean = File(dir, "libvlc.dll").isFile
+
         /**
          * VLC 原生库目录解析（优先级从高到低）：
          * 1. `MUSES_VLC_DIR` 环境变量 / `muses.vlc.dir` 系统属性（含 libvlc.dll 的目录）；
-         * 2. 仓库便携版 `spike-vlcj/vlc-portable/vlc-3.0.21`（开发期免安装）；
-         * 3. null = 交给 VLCJ/JNA 按系统路径自行发现（已安装 VLC 桌面版时）。
+         * 2. 随包内置 `<app resources>/vlc`（发行版内置裁剪后的纯音频 VLC，免装 VLC 桌面版）；
+         * 3. 仓库便携版 `spike-vlcj/vlc-portable/vlc-3.0.21`（开发期免安装）；
+         * 4. Windows 已安装的 VLC 桌面版（注册表 InstallDir / 约定安装路径 / PATH 上的 vlc.exe）；
+         * 5. null = 交给 VLCJ/JNA 按系统路径自行发现。
          */
-        fun resolveVlcDir(): java.io.File? {
-            val explicit = System.getenv("MUSES_VLC_DIR")?.takeIf { it.isNotBlank() }
-                ?: System.getProperty("muses.vlc.dir")?.takeIf { it.isNotBlank() }
-            explicit?.let {
-                val dir = java.io.File(it)
-                if (java.io.File(dir, "libvlc.dll").exists()) return dir
-            }
-            // 仓库便携版：从工作目录向上找仓库根（gradle run 的 cwd 即仓库根；jar 运行时回退系统发现）
-            var cursor: java.io.File? = java.io.File(System.getProperty("user.dir") ?: ".").absoluteFile
+        fun resolveVlcDir(): File? = vlcDirCandidates().firstOrNull(::hasLibVlc)
+
+        /** 候选目录（按优先级枚举，不做存在性校验）：供 [resolveVlcDir] 与单测共用。 */
+        internal fun vlcDirCandidates(): List<File> = buildList {
+            explicitVlcDir()?.let(::add)
+            bundledVlcDir()?.let(::add)
+            repoPortableVlcDir()?.let(::add)
+            addAll(installedVlcDirs())
+        }
+
+        /** 显式配置：`MUSES_VLC_DIR` 环境变量优先，其次 `muses.vlc.dir` 系统属性。 */
+        private fun explicitVlcDir(): File? =
+            (System.getenv("MUSES_VLC_DIR")?.takeIf { it.isNotBlank() }
+                ?: System.getProperty("muses.vlc.dir")?.takeIf { it.isNotBlank() })
+                ?.let(::File)
+
+        /**
+         * 随包内置：jpackage 把 `appResourcesRootDir` 落到 app/resources，
+         * Compose Multiplatform 运行期经该属性暴露其绝对路径（开发态亦有值，但无 vlc 子目录）。
+         */
+        private fun bundledVlcDir(): File? =
+            System.getProperty("compose.application.resources.dir")
+                ?.takeIf { it.isNotBlank() }
+                ?.let { File(it, BUNDLED_VLC_DIR) }
+
+        /** 仓库便携版：gradle run 的 cwd 即仓库根；向上 6 层兼容从子模块目录启动。 */
+        private fun repoPortableVlcDir(): File? {
+            var cursor: File? = File(System.getProperty("user.dir") ?: ".").absoluteFile
             repeat(6) {
-                val candidate = if (cursor != null) java.io.File(cursor, "spike-vlcj/vlc-portable/vlc-3.0.21") else null
-                if (candidate != null && java.io.File(candidate, "libvlc.dll").exists()) return candidate
+                val candidate = cursor?.let { File(it, REPO_PORTABLE_VLC) }
+                if (candidate != null && hasLibVlc(candidate)) return candidate
                 cursor = cursor?.parentFile
             }
             return null
         }
 
         /**
+         * 系统已安装的 VLC 桌面版候选目录：
+         * 注册表 InstallDir（非标准安装路径也能命中）→ 约定安装路径（含用户级安装）→ PATH。
+         * 非 Windows 返回空：由 VLCJ 自带的 NativeDiscovery 负责其它平台。
+         */
+        private fun installedVlcDirs(): List<File> {
+            if (!isWindows()) return emptyList()
+            return buildList {
+                registryVlcInstallDir()?.let { add(File(it)) }
+                System.getenv("ProgramFiles")?.takeIf { it.isNotBlank() }
+                    ?.let { add(File(it, "VideoLAN/VLC")) }
+                System.getenv("ProgramFiles(x86)")?.takeIf { it.isNotBlank() }
+                    ?.let { add(File(it, "VideoLAN/VLC")) }
+                // 用户级安装（无管理员权限时装到 %LOCALAPPDATA%\Programs）
+                System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() }
+                    ?.let { add(File(it, "Programs/VideoLAN/VLC")) }
+                System.getenv("PATH")?.split(File.pathSeparatorChar)?.forEach { entry ->
+                    if (entry.isNotBlank() && File(entry, "vlc.exe").isFile) add(File(entry))
+                }
+            }
+        }
+
+        /**
+         * 读注册表 `InstallDir`。JNA 的 Advapi32/WinReg 只在 Windows 可用，
+         * 故先过 [isWindows] 再触碰，并用 runCatching 吃掉无权限/键缺失。
+         */
+        private fun registryVlcInstallDir(): String? {
+            if (!isWindows()) return null
+            return runCatching {
+                val roots = listOf(
+                    com.sun.jna.platform.win32.WinReg.HKEY_LOCAL_MACHINE,
+                    com.sun.jna.platform.win32.WinReg.HKEY_CURRENT_USER,
+                )
+                VLC_REGISTRY_KEYS.firstNotNullOfOrNull { key ->
+                    roots.firstNotNullOfOrNull { root ->
+                        runCatching {
+                            com.sun.jna.platform.win32.Advapi32Util
+                                .registryGetStringValue(root, key, "InstallDir")
+                        }.getOrNull()
+                    }
+                }
+            }.getOrNull()
+        }
+
+        /**
+         * 在线曲目不可播时的文案选择：[resolverAvailable] = 是否接入了在线音源解析器。
+         * 未接入（构建未启用在线音源）与解析失败（脚本未加载/源不支持/直链过期/引用损坏）
+         * 病因不同、指引不同（去启用音源 vs 去检查脚本），故分给两条文案。
+         * 纯函数放 companion 以便单测锁定映射（实例侧经 [onlineUnavailableCopy] 传入解析器状态）。
+         */
+        internal fun onlineUnavailableCopyFor(resolverAvailable: Boolean): String =
+            if (resolverAvailable) {
+                DesktopPlaybackErrorCopy.ONLINE_RESOLVE_FAILED
+            } else {
+                DesktopPlaybackErrorCopy.ONLINE_RESOLVER_MISSING
+            }
+
+        /**
          * 默认 VLCJ 工厂：先解析原生库目录并设 `jna.library.path`（VLCJ 经 JNA 加载 libvlc），
-         * 再建 `--no-video --aout=directsound` 工厂。目录缺失时抛错由调用方记日志（不再静默）。
+         * 再建 `--no-video --aout=directsound` 工厂。
+         *
+         * JNA 每次 `loadLibrary` 都会重读该属性（NativeLibrary 内部 initPaths），
+         * 故即使 SMTC/DPAPI 已先行初始化 JNA，此处设置依然生效（已实测）。
+         * 解析不到目录时不设属性，交由 VLCJ 自带 NativeDiscovery 兜底。
          */
         fun defaultFactory(): MediaPlayerFactory {
             val vlcDir = resolveVlcDir()
@@ -908,6 +1101,8 @@ class JvmPlayerPort(
             onPlaybackStarted: (suspend (songId: String, localFile: java.io.File) -> PlaybackLazyScan.FileTags?)? = null,
             dataStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> =
                 com.muses.player.core.data.store.createDataStore(),
+            /** 在线音源直链解析器（洛雪自定义源脚本）；null = 未启用在线音源 */
+            onlineResolver: OnlineTrackResolver? = null,
         ): JvmPlayerPort {
             return JvmPlayerPort(
                 songLookup = songLookup,
@@ -921,6 +1116,7 @@ class JvmPlayerPort(
                 errorLog = errorLog,
                 scope = scope,
                 onPlaybackStarted = onPlaybackStarted,
+                onlineResolver = onlineResolver,
             )
         }
     }

@@ -103,6 +103,24 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      # 内置播放引擎：VLC 3.0.21 win64 官方包（GPL 系，随包分发义务见 docs/THIRD_PARTY.md）。
+      # 经 MUSES_VLC_ZIP 交给 scripts/prepare-vlc-runtime.ps1 解压 + 按 scripts/vlc-trim-keep.txt
+      # 裁成纯音频最小集（182MB → 约 40MB）后进 jpackage 的 app/resources/vlc，
+      # 让安装版免装 VLC 桌面版即可播放。
+      # SHA256 已与官方 vlc-3.0.21-win64.zip.sha256 核对一致
+      - name: Download VLC runtime
+        shell: pwsh
+        run: |
+          $url = "https://get.videolan.org/vlc/3.0.21/win64/vlc-3.0.21-win64.zip"
+          $out = "$env:RUNNER_TEMP\vlc-3.0.21-win64.zip"
+          $expected = "a0b7ec02b50adf6417eed014fb8df50af39690505a4225b85b3dc2ed17d14843"
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri $url -OutFile $out -MaximumRetryCount 3 -RetryIntervalSec 5
+          $hash = (Get-FileHash $out -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne $expected) { throw "VLC 包 SHA256 校验失败：$hash" }
+          Write-Host "VLC 包就绪：$out"
+          "MUSES_VLC_ZIP=$out" >> $env:GITHUB_ENV
+
       - name: Extract version from tag
         id: version
         shell: pwsh
@@ -122,6 +140,16 @@ jobs:
         run: |
           $env:MUSES_DESKTOP_JDK = $env:JAVA_HOME
           ./gradlew.bat :composeApp:packageMsi "-Pmuses.desktop.version=${{ steps.version.outputs.version }}"
+
+      # 内置 VLC 缺失时 prepareVlcRuntime 只告警不失败（本地无 VLC 源也能构建）：
+      # 发版必须拦住，否则发布出去的就是用户报「未找到 VLC 播放引擎」的那个包
+      - name: Verify bundled VLC
+        shell: pwsh
+        run: |
+          $dll = "composeApp/build/appResources/windows/vlc/libvlc.dll"
+          if (-not (Test-Path $dll)) { throw "内置 VLC 未产出：$dll（检查 MUSES_VLC_ZIP 与 scripts/vlc-trim.ps1）" }
+          $size = (Get-ChildItem "composeApp/build/appResources/windows/vlc" -Recurse -File | Measure-Object Length -Sum).Sum
+          Write-Host ("内置 VLC 校验通过：{0:N1} MB" -f ($size / 1MB))
 
       # 通配符定位产物：输出目录随 CMP 版本可能是 main/ 或 main-release/，
       # 覆盖两种变体，找不到即显式失败

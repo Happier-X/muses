@@ -4,7 +4,14 @@ package com.muses.player.desktop.playback
  * S2 桌面播放安全文案（复刻 `PlaybackErrorCopy.SAFE_PLAYBACK_ERRORS` 白名单，不依赖 Media3）。
  *
  * commonMain 不收桌面专属 API，`core:media` 为安卓模块桌面不可依赖，
- * 故白名单逐字复刻（9 条 + 兜底 + 限流停止文案），语义冻结对齐安卓侧。
+ * 故白名单逐字复刻安卓侧 9 条，语义冻结；**在此之上另有桌面专属 3 条**（安卓侧无对应文案）：
+ * `VLC_MISSING`（桌面播放引擎）、`ONLINE_RESOLVER_MISSING` / `ONLINE_RESOLVE_FAILED`（在线音源）。
+ *
+ * 桌面侧在线音源细化到「未接入解析器」与「解析失败」两种病因；安卓侧同类失败回落通用文案
+ * （`PlaybackErrorCopy` 已注明不保留在线常量），故两边白名单不再等长——改动时勿按条数硬对齐。
+ *
+ * ⚠️ 经 [safeCopy] 落地的文案**必须**在本白名单内，否则会被静默兜底成「播放失败，请稍后重试。」
+ * （新增文案时同步更新 `DesktopPlaybackErrorCopyTest` 的断言）。
  */
 object DesktopPlaybackErrorCopy {
 
@@ -19,6 +26,8 @@ object DesktopPlaybackErrorCopy {
         "播放失败，请检查音频文件或网络连接。",
         "触发限流，稍后重试",
         VLC_MISSING,
+        ONLINE_RESOLVER_MISSING,
+        ONLINE_RESOLVE_FAILED,
     )
 
     const val DEFAULT_ERROR = "播放失败，请稍后重试。"
@@ -33,8 +42,30 @@ object DesktopPlaybackErrorCopy {
     const val NETWORK = "播放失败，请检查音频文件或网络连接。"
     const val AUTH_FAILED = "WebDAV 认证失败，请检查账号或重新添加音源。"
 
-    /** VLC 原生库缺失（未装 VLC 桌面版且便携版不可用）：指引用户安装或设置 MUSES_VLC_DIR。 */
-    const val VLC_MISSING = "未找到 VLC 原生库：请安装 VLC 桌面版，或设置 MUSES_VLC_DIR 指向含 libvlc.dll 的目录。"
+    /**
+     * VLC 原生库缺失（发行版内置引擎缺失 + 未装 VLC 桌面版 + 未配置 MUSES_VLC_DIR）：三步指引，
+     * 从最可能可行的一条（重装带内置引擎的安装包）到进阶配置。
+     */
+    const val VLC_MISSING =
+        "未找到 VLC 播放引擎：请重新安装应用（安装包内含内置引擎），或安装 VLC 桌面版，" +
+            "也可用 MUSES_VLC_DIR 指向含 libvlc.dll 的目录。"
+
+    // ── 在线音源（洛雪自定义源脚本）──
+
+    /**
+     * 在线音源未启用（DI 未装配 `OnlineTrackResolver`，如构建裁剪或模块缺失）。
+     * 注意：「装了应用但没导入任何音源脚本」不归此条——那种情况解析器存在、resolve 失败，
+     * 走 [ONLINE_RESOLVE_FAILED]（引用户去检查/导入脚本）。
+     * 当前 `DesktopContainer` 总是装配解析器，故本条属防御分支（装配缺失告警）。
+     * 经 [safeCopy] 流向 UI，故必须在 [SAFE_PLAYBACK_ERRORS] 内（已入）。
+     */
+    const val ONLINE_RESOLVER_MISSING = "未启用在线音源，无法播放该曲目。"
+
+    /**
+     * 在线曲目直链解析失败（脚本未导入/源不支持/直链过期/曲目引用损坏）。
+     * 经 [safeCopy] 流向 UI，故必须在 [SAFE_PLAYBACK_ERRORS] 内（已入）。
+     */
+    const val ONLINE_RESOLVE_FAILED = "在线音源解析失败，请检查音源脚本是否可用。"
 
     /** 白名单内原样、否则兜底（对齐 `PlaybackErrorCopy.safeCopy`）。 */
     fun safeCopy(message: String?): String =

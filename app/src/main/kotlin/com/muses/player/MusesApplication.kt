@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.work.Configuration
 import com.muses.player.core.data.log.CrashHandler
 import com.muses.player.core.data.log.ErrorLogCrashPersistence
+import com.muses.player.core.data.platform.PlatformDirs
 import com.muses.player.di.appModules
 import org.jaudiotagger.tag.TagOptionSingleton
 import org.koin.android.ext.android.inject
@@ -21,6 +22,11 @@ class MusesApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // 平台目录初始化：必须在任何可能访问平台目录的功能之前。
+        // 修正既有缺陷——PlatformDirs.android.kt 的文档声称「DatabaseModule 装配处调用」，
+        // 但全仓从未有调用点（Android 侧此前无消费者）。lxsdk 的音源脚本目录是首个消费者，
+        // 未初始化会崩：IllegalArgumentException: initPlatformDirs 未初始化就调用 appDataDir。
+        PlatformDirs.initPlatformDirs(filesDir, cacheDir)
         startKoin {
             androidContext(this@MusesApplication)
             modules(appModules)

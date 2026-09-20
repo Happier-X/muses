@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -34,6 +35,14 @@ interface SettingsRepository {
     suspend fun setMiniPlayerLyricsEnabled(enabled: Boolean)
 
     suspend fun setNotificationLyricsEnabled(enabled: Boolean)
+
+    /**
+     * 在线音源首选音质（洛雪音质 key，如 `320k`/`flac`/`hires`/`master`）。
+     * 仅作**偏好**：脚本未声明该档位时会就近回退（见 LxScriptRepository.pickQuality）。
+     */
+    val onlinePreferredQuality: Flow<String>
+
+    suspend fun setOnlinePreferredQuality(qualityKey: String)
 
     suspend fun setXiaomiIslandEnabled(enabled: Boolean)
 
@@ -75,6 +84,13 @@ class DataStoreSettingsRepository constructor(
         dataStore.edit { prefs -> prefs[NOTIFICATION_LYRICS_ENABLED] = enabled }
     }
 
+    override val onlinePreferredQuality: Flow<String>
+        get() = dataStore.data.map { prefs -> prefs[ONLINE_PREFERRED_QUALITY] ?: DEFAULT_ONLINE_QUALITY }
+
+    override suspend fun setOnlinePreferredQuality(qualityKey: String) {
+        dataStore.edit { prefs -> prefs[ONLINE_PREFERRED_QUALITY] = qualityKey }
+    }
+
     override suspend fun setXiaomiIslandEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[XIAOMI_ISLAND_ENABLED] = enabled }
     }
@@ -85,5 +101,9 @@ class DataStoreSettingsRepository constructor(
         val MINI_PLAYER_LYRICS_ENABLED = booleanPreferencesKey("mini_player_lyrics_enabled")
         val NOTIFICATION_LYRICS_ENABLED = booleanPreferencesKey("notification_lyrics_enabled")
         val XIAOMI_ISLAND_ENABLED = booleanPreferencesKey("xiaomi_island_enabled")
+        val ONLINE_PREFERRED_QUALITY = stringPreferencesKey("online_preferred_quality")
+
+        /** 默认 320k：全平台可用、体积与兼容性最稳（高音质档由用户显式选择） */
+        const val DEFAULT_ONLINE_QUALITY = "320k"
     }
 }

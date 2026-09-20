@@ -10,6 +10,8 @@ kotlin {
 
 dependencies {
     implementation(project(":core:common"))
+    // 洛雪自定义音源（在线音源）：引擎 + 脚本存储（OnlineTrackResolver 端口在 :core:common）
+    implementation(project(":core:lxsdk"))
     // 与 :core:common 同版本线（只复用、不升级）：
     // room/datastore/JNA 在 :core:common 内为 implementation 作用域，不透传给 JVM 消费方，
     // 桌面侧直接调用 createJvmDatabase/DataStore/PlatformCryptoEngine，故在此显式声明同版本。

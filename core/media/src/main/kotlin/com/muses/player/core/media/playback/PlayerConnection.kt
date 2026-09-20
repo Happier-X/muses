@@ -12,17 +12,21 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import com.muses.player.core.data.log.ErrorLogStore
+import com.muses.player.core.data.log.RingBufferErrorLogStore
 import com.muses.player.core.media.scanner.CoverCacheWriter
 import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.model.SourceType
+import com.muses.player.core.model.online.OnlineTrackSession
 import com.muses.player.core.model.playback.PlayerConfig
 import com.muses.player.core.model.playback.RepeatMode
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.webdav.WebDavAudioCache
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,7 +47,12 @@ class PlayerConnection constructor(
     private val recoveryController: PlaybackRecoveryController,
     private val webDavCache: WebDavAudioCache,
     private val songDao: com.muses.player.core.data.dao.SongDao,
+    /** 播放失败/解析失败日志（R2 埋点，与 PlaybackService 同源） */
+    private val errorLogStore: ErrorLogStore = RingBufferErrorLogStore(),
 ) : PlaybackPort {
+
+    /** 在线曲目播放准备作用域（直链解析等 IO 密集操作，与 portScope 分离） */
+    private val onlinePrepScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** 最近一次播放失败的安全文案；用户主动操作后清空（P4 播放页消费） */
     override val playbackError: StateFlow<String?> = recoveryController.playbackError
@@ -223,6 +232,13 @@ class PlayerConnection constructor(
 
     private fun applyPlayback(songId: String, songs: List<com.muses.player.core.model.Song>) {
         val player = controller ?: return
+        // 在线曲目不入库：登记会话级临时表，供 songLookup 回退（enqueue/队列恢复按 id 查库的场景）
+        if (songs.any { it.sourceType == SourceType.ONLINE }) {
+            onlinePrepScope.launch { OnlineTrackSession.remember(songs) }
+        }
+        // 在线曲目与本地/WebDAV 走同一路径：MediaItem 持有稳定标识 URI，
+        // 在线直链由 PlaybackService 的 ResolvingDataSource 在**打开时才**换取。
+        // （初版在此对整队逐首预解析，20 首需等待约 30 秒才出声，见 OnlineResolvingDataSourceFactory 注释）
         val mediaItems = songs.map { song ->
             MediaItem.Builder()
                 .setMediaId(song.id)
@@ -247,7 +263,7 @@ class PlayerConnection constructor(
 
     /**
      * 解析播放 URI：WebDAV 曲目查缓存命中转 file://；未命中走 HTTP URL（由 OkHttp 认证
-     * interceptor 注入 Authorization）。其余源直接用 path。
+     * interceptor 注入 Authorization）。其余源（含在线已解析直链）直接用 path。
      *
      * play() 在主线程调用（Media3 契约）；[WebDavAudioCache.getCachedFile] 仅做文件 stat 检查，开销可接受。
      */

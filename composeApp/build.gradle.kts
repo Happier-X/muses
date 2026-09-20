@@ -82,6 +82,9 @@ kotlin {
             implementation(libs.miuix.squircle)
             // U11：desktopAppModules 引用 webdavCoreModule（feature:sources 对 webdav 为 implementation 不透传）
             implementation(project(":core:webdav"))
+            // 洛雪自定义音源 + 在线搜索：desktopAppModules 装配 lxSdkModule/searchModule
+            implementation(project(":core:lxsdk"))
+            implementation(project(":core:search"))
             // U9 曲库共用化：桌面直接复用 :feature:library commonMain 的 Screen/ViewModel
             implementation(project(":feature:library"))
             // U11 音源共用化：桌面复用共享 WebDAV 浏览页（:feature:sources commonMain）
@@ -118,6 +121,39 @@ kotlin {
     }
 }
 
+// ── 随包内置 VLC 运行时（Windows 免装 VLC 桌面版）────────────────────────────
+// 源优先级见 scripts/prepare-vlc-runtime.ps1（MUSES_VLC_ZIP > MUSES_VLC_DIR > 仓库 spike-vlcj）。
+// 产出 build/appResources/windows/vlc：appResourcesRootDir 必须按 jpackage 的 resource-dir 语义
+// 分层（common/ 全平台、windows/ 仅 Windows），放根目录会被 jpackage 忽略——实测直放根目录时
+// app/resources 为空。经 prepareAppResources 后落到 app/resources/vlc；运行期由
+// JvmPlayerPort.resolveVlcDir() 从系统属性 `compose.application.resources.dir` 读回。
+// 裁剪白名单：scripts/vlc-trim-keep.txt（纯音频最小集）。
+val vlcAppResourcesDir = layout.buildDirectory.dir("appResources")
+val prepareVlcRuntime by tasks.registering(Exec::class) {
+    group = "compose desktop"
+    description = "裁剪并准备随包内置的 VLC 原生库（app/resources/vlc）"
+    val outDir = vlcAppResourcesDir.get().asFile.resolve("windows/vlc")
+    outputs.dir(outDir)
+    // VLC 源在 .gitignore 内（可由 CI 下载或本地存在），可随时增删：禁用 up-to-date 与构建缓存
+    outputs.upToDateWhen { false }
+    val prepareScript = rootProject.layout.projectDirectory.file("scripts/prepare-vlc-runtime.ps1").asFile
+    // 打包 MSI/EXE 只可能在 Windows 上：非 Windows 跳过（不阻塞其它平台构建）
+    onlyIf { prepareScript.isFile && System.getProperty("os.name").startsWith("Windows", ignoreCase = true) }
+    workingDir = rootProject.projectDir
+    commandLine(
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", prepareScript.absolutePath,
+        "-Destination", outDir.absolutePath,
+    )
+    doLast {
+        if (!outDir.resolve("libvlc.dll").isFile) {
+            logger.warn("[muses] 未产出内置 VLC：安装包不含播放引擎，用户需自装 VLC 桌面版")
+        }
+    }
+}
+
 compose.desktop {
     application {
         mainClass = "com.muses.player.desktop.MainKt"
@@ -130,6 +166,9 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
+            // 随包内置 VLC 运行时（jpackage --resource-dir → app/resources/vlc），
+            // 缺省值是 src/jvmMain/resources，本仓库无该目录故直接指向构建产出（见 prepareVlcRuntime）
+            appResourcesRootDir.set(vlcAppResourcesDir)
             packageName = "Muses"
             // CI 发版经 -Pmuses.desktop.version 从 tag 注入，本地不传时回落 1.0.0
             packageVersion = (project.findProperty("muses.desktop.version") as String?) ?: "1.0.0"
@@ -164,4 +203,18 @@ compose.desktop {
 // 隐式依赖在 Gradle 9.6.1 校验下直接 FAIL）
 tasks.matching { it.name == "jvmProcessResources" }.configureEach {
     dependsOn(generateDesktopVersion)
+}
+
+// jpackage 打包任务依赖内置 VLC 准备：appResourcesRootDir 是普通 DSL 属性而非任务输入，
+// 不显式接线则 prepareAppResources（插件侧收集 app/resources 的任务）与 prepareVlcRuntime
+// 无先后关系，可能打出不含 VLC 的安装包
+tasks.matching {
+    it.name.startsWith("package") ||
+        it.name == "prepareAppResources" ||
+        it.name == "createDistributable" ||
+        it.name.startsWith("createReleaseDistributable") ||
+        it.name == "runDistributable" ||
+        it.name == "runReleaseDistributable"
+}.configureEach {
+    dependsOn(prepareVlcRuntime)
 }

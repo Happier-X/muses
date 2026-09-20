@@ -9,6 +9,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -92,14 +93,35 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         val okHttpFactory = OkHttpDataSource.Factory(okHttpClient)
+        // 在线音源：muslx:// → HTTP 直链的换取放在**缓存内层**。
+        // 这样缓存键是稳定的 muslx:// 标识（而非每次都变的签名 URL），重播可命中缓存；
+        // 解析发生在真正 open 时，点播放立即出声、切歌按需解析，天然规避直链过期。
+        val onlineResolver = runCatching {
+            org.koin.core.context.GlobalContext.get().getOrNull<com.muses.player.core.model.online.OnlineTrackResolver>()
+        }.getOrNull()
+        val networkFactory: DataSource.Factory = if (onlineResolver == null) {
+            okHttpFactory
+        } else {
+            OnlineResolvingDataSourceFactory(
+                upstreamFactory = okHttpFactory,
+                resolver = onlineResolver,
+                onResolveError = { uri, e ->
+                    errorLogStore.log(
+                        ErrorLogStore.Level.WARN, "Playback",
+                        "在线直链解析失败（DataSource 打开期）uri=${uri.take(60)}：${e?.message}",
+                        e,
+                    )
+                },
+            )
+        }
         // CacheDataSource 边播边缓存：首次播放仍立即出声，但 ExoPlayer 对未知时长 mp3/flac 的
         // 探测性重复打开会命中本地缓存不再发网络请求，避免触发网关（Cloudflare）限流；
         // 出错时回落上游不阻断播放。file:// 由 DefaultDataSource 外层分派，不经缓存。
         val cacheFactory = CacheDataSource.Factory()
             .setCache(playbackCache)
-            .setUpstreamDataSourceFactory(okHttpFactory)
+            .setUpstreamDataSourceFactory(networkFactory)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-        val dataSourceFactory = DefaultDataSource.Factory(this, cacheFactory)
+        val dataSourceFactory: DataSource.Factory = DefaultDataSource.Factory(this, cacheFactory)
         // MP3 CBR 时长估算：HTTP 流播（WebDAV）默认 Mp3Extractor 不估算时长（duration=TIME_UNSET），
         // 沉浸页进度条总时长显示 --:-- 且禁用；开 CBR seek flag 后按比特率估算 duration + seek 能力
         val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()

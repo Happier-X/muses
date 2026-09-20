@@ -11,6 +11,12 @@ import com.muses.player.core.data.repository.RoomArtistRepository
 import com.muses.player.core.data.repository.RoomSongRepository
 import com.muses.player.core.media.scanner.PlaybackLazyScan
 import com.muses.player.core.model.SourceType
+import com.muses.player.core.model.online.OnlineTrackResolver
+import com.muses.player.core.model.online.OnlineTrackSession
+import com.muses.player.core.lxsdk.LxOnlineTrackResolver
+import com.muses.player.core.lxsdk.LxScriptRepository
+import com.muses.player.core.lxsdk.crypto.LxCryptoJvm
+import com.muses.player.core.lxsdk.store.FileLxScriptStore
 import com.muses.player.core.scrape.ports.JaudiotaggerTagPort
 import com.muses.player.desktop.cache.DesktopWebDavAudioCache
 import com.muses.player.desktop.playback.DesktopErrorLog
@@ -50,6 +56,30 @@ object DesktopContainer {
 
     fun audioCache(): DesktopWebDavAudioCache = DesktopWebDavAudioCache()
 
+    // ── 在线音源（洛雪自定义源脚本）────────────────────────
+
+    /**
+     * 在线音源脚本仓库单例。
+     *
+     * 懒初始化：启动时把已导入且启用的脚本登记进仓库（只记源码，
+     * 首次真正用到某平台时才创建 QuickJS runtime）。
+     */
+    @Volatile private var lxRepository: LxScriptRepository? = null
+
+    fun lxScripts(): LxScriptRepository =
+        lxRepository ?: synchronized(this) {
+            lxRepository ?: LxScriptRepository(
+                crypto = LxCryptoJvm(),
+                // 懒同步：首次真正用到仓库时才读脚本目录（避免构造期访问 PlatformDirs）
+                storedScriptsProvider = {
+                    FileLxScriptStore().list().filter { it.enabled }.map { it.id to it.source }
+                },
+            ).also { lxRepository = it }
+        }
+
+    /** 在线音源直链解析器（供 [JvmPlayerPort] 注入）；未导入脚本时仍可注入，播放时报错提示 */
+    fun onlineResolver(): OnlineTrackResolver = LxOnlineTrackResolver(lxScripts())
+
     /** 凭据仓库（commonMain [CredentialsRepository] 实现；DataStore 单实例由类内 lazy 保证）。 */
     fun credentials(): DesktopCredentials = DesktopCredentials()
 
@@ -67,6 +97,7 @@ object DesktopContainer {
         val db = database()
         val credentials = DesktopCredentials()
         val defaultSongLookup: suspend (String) -> JvmPlayerPort.SongRef? = { songId ->
+            // 先查库；在线曲目不入库，回退到会话级临时登记表
             db.songDao().getById(songId)?.let { e ->
                 JvmPlayerPort.SongRef(
                     id = e.id,
@@ -78,6 +109,17 @@ object DesktopContainer {
                     coverUri = e.coverUri,
                     sourceType = runCatching { SourceType.valueOf(e.sourceType) }
                         .getOrDefault(SourceType.LOCAL),
+                )
+            } ?: OnlineTrackSession.find(songId)?.let { song ->
+                JvmPlayerPort.SongRef(
+                    id = song.id,
+                    sourceId = song.sourceId,
+                    path = song.path,
+                    title = song.title,
+                    artist = song.artist,
+                    album = song.album,
+                    coverUri = song.coverUri,
+                    sourceType = SourceType.ONLINE,
                 )
             }
         }
@@ -170,6 +212,8 @@ object DesktopContainer {
             // 同文件多 DataStore 实例会抛 multiple DataStores active：复用进程单例，
             // 与 DesktopCredentials（凭据）/Koin 设置仓储/播放状态共用同一实例
             dataStore = settingsStore,
+            // 在线音源直链解析（洛雪自定义源脚本）
+            onlineResolver = onlineResolver(),
         )
     }
 

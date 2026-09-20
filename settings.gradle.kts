@@ -33,6 +33,11 @@ include(":core:data")
 include(":core:webdav")
 include(":core:media")
 include(":core:scrape")
+// 洛雪自定义音源脚本引擎（纯引擎层：QuickJS + Ktor，不碰 UI/播放）
+include(":core:lxsdk")
+
+// 在线搜索（各平台官方接口直连，为在线音源提供 songmid）
+include(":core:search")
 include(":feature:scrape")
 include(":feature:library")
 include(":feature:player")

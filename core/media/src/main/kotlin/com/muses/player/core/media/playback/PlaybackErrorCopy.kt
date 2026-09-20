@@ -32,6 +32,9 @@ object PlaybackErrorCopy {
     /** 08-27-webdav-playback-429：限流可自愈文案，新版提示与白名单一致 */
     const val RATE_LIMITED_RETRY = "触发限流，稍后重试"
 
+    // 注：在线音源（洛雪自定义源脚本）的失败文案已下沉到 OnlineResolvingDataSourceFactory
+    // 与搜索页提示（「还没有能解析 XX 的音源脚本」），此处不再保留未使用的常量。
+
     /**
      * PlaybackException errorCode → 白名单文案。
      * 映射关系（对齐 Web 原生插件的错误分类习惯）：

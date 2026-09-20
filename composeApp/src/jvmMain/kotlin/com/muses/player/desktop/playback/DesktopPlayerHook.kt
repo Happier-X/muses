@@ -184,6 +184,8 @@ class DesktopPlayerHook(
                     _status.value = "曲库为空，请先扫描音源"
                     return@launch
                 }
+                // 在线曲目不入库：登记会话级临时表，供 songLookup 回退解析（否则查库失败报文件不存在）
+                com.muses.player.core.model.online.OnlineTrackSession.remember(songs)
                 val port = ensurePlayer()
                 val index = ids.indexOf(songId).coerceAtLeast(0)
                 port.enqueue(ids, index)

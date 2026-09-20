@@ -53,6 +53,14 @@ sealed interface MusesRoute : NavKey {
     @Serializable
     data object Sources : MusesRoute
 
+    /** 在线音源脚本管理（洛雪自定义源） */
+    @Serializable
+    data object LxScripts : MusesRoute
+
+    /** 在线搜索（各平台官方接口） */
+    @Serializable
+    data object OnlineSearch : MusesRoute
+
     @Serializable
     data object WebDavAdd : MusesRoute
 

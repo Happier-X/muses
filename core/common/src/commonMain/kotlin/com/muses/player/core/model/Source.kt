@@ -7,6 +7,14 @@ enum class SourceType {
 
     /** WebDAV 服务 */
     WEBDAV,
+
+    /**
+     * 在线音源（洛雪自定义源脚本）。
+     * 曲目的 [Song.path] 不指向实体文件，而是 [com.muses.player.core.model.online.OnlineTrackUri]
+     * 编码的「可解析引用」，播放前需经 [com.muses.player.core.model.online.OnlineTrackResolver]
+     * 异步换取 HTTP 直链。
+     */
+    ONLINE,
 }
 
 /**

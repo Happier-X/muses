@@ -66,6 +66,10 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:webdav"))
     implementation(project(":core:media"))
+    // 洛雪自定义音源（在线音源）：引擎 + 脚本存储 + OnlineTrackResolver 装配
+    implementation(project(":core:lxsdk"))
+    // 在线搜索：5 平台 provider + 聚合服务
+    implementation(project(":core:search"))
     // P2a：AppKoinModule 直接聚合 lyrics/scrape 的 Koin 模块，需直连依赖（implementation 非传递）
     // 09-05-lyrics-kmp X3：lyricsModule 已上收 :core:common jvmShared 同包名，随 core:common 依赖可达
     implementation(project(":core:scrape"))

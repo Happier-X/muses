@@ -1,0 +1,69 @@
+﻿# Muses 内置 VLC 运行时最小保留清单（VLC 3.0.21 win64）
+#
+# 用途：发行版随包内置一份纯音频播放所需的 VLC 原生库（免装 VLC 桌面版）。
+# 规则（见 prepare-vlc-runtime.ps1）：
+#   [root] 段为便携目录顶层文件；
+#   [dir]  段为 plugins 下「整目录保留」；
+#   [file] 段为 plugins 下「按文件名保留」，前缀 = 所属插件子目录。
+# 说明：本应用是纯音频播放（MediaPlayerFactory 固定传 --no-video），
+#      故不保留 gui / video_* / d3d* / spu / text_renderer / visualization 等插件。
+#      音频解码由 mpg123/faad/flac/vorbis/opus 等专用插件承担，已实测覆盖 mp3/m4a/flac/wav/ogg；
+#      另保留 libavcodec（16.5MB）兜底 alac/ape/wma 等无专用解码器的格式，
+#      libmft 走 Windows Media Foundation 兜底。
+#      注意：libes_plugin.dll（elementary stream demux）不可删——裸 mp3/aac 靠它解复用。
+
+[root]
+libvlc.dll
+libvlccore.dll
+COPYING.txt
+AUTHORS.txt
+THANKS.txt
+README.txt
+NEWS.txt
+
+[dir]
+audio_output
+audio_filter
+audio_mixer
+misc
+packetizer
+meta_engine
+stream_filter
+lua
+
+[file]
+access/libfilesystem_plugin.dll
+access/libhttp_plugin.dll
+access/libhttps_plugin.dll
+access/libaccess_imem_plugin.dll
+access/libimem_plugin.dll
+codec/libavcodec_plugin.dll
+codec/libmft_plugin.dll
+codec/libmpg123_plugin.dll
+codec/libfaad_plugin.dll
+codec/libflac_plugin.dll
+codec/libvorbis_plugin.dll
+codec/libopus_plugin.dll
+codec/libdca_plugin.dll
+codec/liba52_plugin.dll
+codec/libspeex_plugin.dll
+codec/liblpcm_plugin.dll
+codec/libaraw_plugin.dll
+codec/libadpcm_plugin.dll
+codec/libaes3_plugin.dll
+codec/libg711_plugin.dll
+demux/libes_plugin.dll
+demux/libasf_plugin.dll
+demux/libmp4_plugin.dll
+demux/libflacsys_plugin.dll
+demux/libogg_plugin.dll
+demux/libwav_plugin.dll
+demux/libaiff_plugin.dll
+demux/libau_plugin.dll
+demux/libcaf_plugin.dll
+demux/libvoc_plugin.dll
+demux/libtta_plugin.dll
+demux/librawaud_plugin.dll
+demux/libmkv_plugin.dll
+demux/libplaylist_plugin.dll
+demux/libadaptive_plugin.dll
