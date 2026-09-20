@@ -107,18 +107,58 @@ jobs:
       # 经 MUSES_VLC_ZIP 交给 scripts/prepare-vlc-runtime.ps1 解压 + 按 scripts/vlc-trim-keep.txt
       # 裁成纯音频最小集（182MB → 约 40MB）后进 jpackage 的 app/resources/vlc，
       # 让安装版免装 VLC 桌面版即可播放。
-      # SHA256 已与官方 vlc-3.0.21-win64.zip.sha256 核对一致
+      #
+      # 用 curl.exe 而非 Invoke-WebRequest：v0.6.4 首次发版实测 IWR 在 runner 上 1.8s 就返回了
+      # 一份小文件（get.videolan.org 302 到 mirror-hk 后内容被换掉），SHA256 校验直接失败；
+      # 本机对照测试 curl.exe 完全正确。--fail 保证 HTTP 4xx/5xx 非零退出，不会把错误页当 zip 存下。
+      - name: Cache VLC zip
+        id: vlc-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vlc-3.0.21-win64.zip
+          key: vlc-3.0.21-win64.zip-a0b7ec02b50adf64
+
       - name: Download VLC runtime
         shell: pwsh
         run: |
           $url = "https://get.videolan.org/vlc/3.0.21/win64/vlc-3.0.21-win64.zip"
           $out = "$env:RUNNER_TEMP\vlc-3.0.21-win64.zip"
           $expected = "a0b7ec02b50adf6417eed014fb8df50af39690505a4225b85b3dc2ed17d14843"
-          $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest -Uri $url -OutFile $out -MaximumRetryCount 3 -RetryIntervalSec 5
-          $hash = (Get-FileHash $out -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($hash -ne $expected) { throw "VLC 包 SHA256 校验失败：$hash" }
-          Write-Host "VLC 包就绪：$out"
+
+          # 缓存命中（或上一次残留）：校验通过则直接用，省一次 74MB 下载
+          if (Test-Path $out) {
+            $h = (Get-FileHash $out -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($h -eq $expected) {
+              Write-Host "VLC 包命中缓存：$out"
+              "MUSES_VLC_ZIP=$out" >> $env:GITHUB_ENV
+              exit 0
+            }
+            Write-Host "缓存文件校验不过（hash=$h），丢弃重下"
+            Remove-Item $out -Force
+          }
+
+          $ok = $false
+          foreach ($attempt in 1..3) {
+            curl.exe -L --fail --silent --show-error --retry 2 --retry-delay 5 -o $out $url
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "curl 失败（第 $attempt 次，exit=$LASTEXITCODE）"
+              Start-Sleep -Seconds 5
+              continue
+            }
+            $size = (Get-Item $out).Length
+            $hash = (Get-FileHash $out -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($hash -eq $expected) {
+              Write-Host "VLC 包就绪：$out（$size 字节）"
+              $ok = $true
+              break
+            }
+            # 失败时打印可诊断信息（大小 + 头部），下次再挂能一眼看出是不是错误页
+            $head = (Get-Content $out -TotalCount 1 -ErrorAction SilentlyContinue)
+            Write-Host "校验失败（第 $attempt 次）：size=$size hash=$hash head=$($head -replace '\s+',' ' | Select-Object -First 1)"
+            Remove-Item $out -Force
+            Start-Sleep -Seconds 5
+          }
+          if (-not $ok) { throw "VLC 包 SHA256 校验多次未通过（见上方 size/hash/head）" }
           "MUSES_VLC_ZIP=$out" >> $env:GITHUB_ENV
 
       - name: Extract version from tag
