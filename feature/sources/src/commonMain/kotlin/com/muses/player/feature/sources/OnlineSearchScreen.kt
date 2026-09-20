@@ -59,6 +59,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 fun OnlineSearchScreen(
     onBack: () -> Unit,
+    /** 首页搜索框带入的关键词；非空则进入即自动搜索（空串 = 保持旧的无参进入行为） */
+    initialKeyword: String = "",
     viewModel: OnlineSearchViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -68,6 +70,16 @@ fun OnlineSearchScreen(
 
     // 首次进入即汇总脚本声明的音质档位（决定音质行展示哪些选项）
     LaunchedEffect(Unit) { viewModel.refreshAvailableQualities() }
+
+    // 首页带入关键词：预填后立即搜一次。
+    // 前置判定 keyword 不一致，除了防重，还兼顾「用户从页内改过关键词后再回退重进」的语义：
+    // 路由里带的关键词才是这一刻的意图，页内修改不应被重置。
+    LaunchedEffect(initialKeyword) {
+        if (initialKeyword.isNotBlank() && state.keyword != initialKeyword) {
+            viewModel.prefillKeyword(initialKeyword)
+            viewModel.search()
+        }
+    }
 
     Scaffold(
         topBar = {

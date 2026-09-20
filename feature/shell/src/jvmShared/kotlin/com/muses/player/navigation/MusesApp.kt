@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +14,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -22,9 +28,6 @@ import androidx.compose.ui.draw.shadow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.WindowInsets
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBarDefaults
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import org.koin.compose.viewmodel.koinViewModel
@@ -64,6 +67,7 @@ import com.muses.player.feature.player.lyric.LyricsParser
 import com.muses.player.feature.playlist.PlaylistDetailPage
 import com.muses.player.feature.playlist.PlaylistsPage
 import com.muses.player.feature.sources.LxScriptsScreen
+import com.muses.player.feature.home.HomeScreen
 import com.muses.player.feature.sources.OnlineSearchScreen
 import com.muses.player.feature.sources.SourcesScreen
 import com.muses.player.feature.sources.WebDavBrowseScreen
@@ -300,9 +304,38 @@ class MainViewModel constructor(
 @Composable
 fun MusesApp() {
     // miuix-nav 返回栈（类型化路由，存栈恢复经 kotlinx.serialization；替代 CMP Navigation）
-    val backStack = rememberNavBackStack<MusesRoute>(MusesRoute.Songs)
+    // 启动落地首页（首页 = 搜索框 + 排行榜 + 猜你喜欢）
+    val backStack = rememberNavBackStack<MusesRoute>(MusesRoute.Home)
     // 当前栈顶（SnapshotStateList 读取即订阅，路由变化自动重组；对照原 currentBackStackEntryAsState）
     val currentKey = backStack.lastOrNull()
+
+    // 窄屏推屏抽屉：状态在壳层持有，好让内容（TabsLayout）与迷你条（bottomBar）用同一进度位移
+    // （两者是 Scaffold 的兄弟槽，CompositionLocal 传不过去）
+    val phoneDrawerAnim = remember { Animatable(0f) }
+    var phoneDrawerOpen by remember { mutableStateOf(false) }
+    // 拖拽中的实时进度（非 null = 拖拽中）：跟手期间绕过动画直接写值
+    var phoneDrawerDrag by remember { mutableStateOf<Float?>(null) }
+    val phoneDrawerProgress = phoneDrawerDrag ?: phoneDrawerAnim.value
+    val phoneDrawerScope = rememberCoroutineScope()
+
+    /**
+     * 结算抽屉开合（点击与手势松手共用）。
+     *
+     * 必须先 [Animatable.snapTo] 承接拖拽位置再交回动画值：
+     * 若直接置空拖拽值，显示值会瞬间回落到动画的旧值（松手跳一下）。
+     */
+    fun settlePhoneDrawer(targetOpen: Boolean) {
+        val from = phoneDrawerProgress
+        phoneDrawerOpen = targetOpen
+        phoneDrawerScope.launch {
+            phoneDrawerAnim.snapTo(from)
+            phoneDrawerDrag = null
+            phoneDrawerAnim.animateTo(
+                targetValue = if (targetOpen) 1f else 0f,
+                animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+            )
+        }
+    }
 
     val viewModel: MainViewModel = koinViewModel()
 
@@ -326,9 +359,10 @@ fun MusesApp() {
     // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // 导航项组装：两端同一套 5 目的地（曲库/专辑/艺术家/歌单/设置）；
-    // 刮削/音源收进设置页「工具」入口（胶囊 7 图标约需 432dp，360dp 手机摆不下，Rail 亦同步精简）。
-    val railItems = listOf(
+    // 导航项组装（宽屏侧轨与窄屏抽屉**共用同一份**）：首页 + 曲库 5 目的地（首页/曲库/专辑/艺术家/歌单/设置）。
+    // 刮削/音源收进设置页「工具」入口（Rail 图标过多会拥挤，两端同步精简）。
+    val navItems = listOf(
+        NavDestination.Home,
         NavDestination.Songs,
         NavDestination.Albums,
         NavDestination.Artists,
@@ -336,43 +370,24 @@ fun MusesApp() {
         NavDestination.Settings,
     ).map { dest ->
         dest.toNavItem(currentKey, backStack).let {
-            // 侧轨与底栏同文案：首项统一叫「曲库」
+            // 侧轨与抽屉同文案：首项统一叫「曲库」
             if (dest == NavDestination.Songs) it.copy(label = "曲库") else it
         }
     }
-    // 窄屏底部导航 5 栏：曲库（= 歌曲页）+ 曲库三 siblings（专辑/艺术家/歌单）+ 设置
-    val bottomItems = listOf(
-        NavDestination.Songs.toNavItem(currentKey, backStack).copy(label = "曲库"),
-        NavDestination.Albums.toNavItem(currentKey, backStack),
-        NavDestination.Artists.toNavItem(currentKey, backStack),
-        NavDestination.Playlists.toNavItem(currentKey, backStack),
-        NavDestination.Settings.toNavItem(currentKey, backStack),
-    )
 
     val nowPlaying by viewModel.nowPlaying.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val miniPlayerLyricsEnabled by viewModel.miniPlayerLyricsEnabled.collectAsState()
     val currentLyricLine by viewModel.currentLyricLine.collectAsState()
 
-    // 底部导航槽位化：根 Scaffold bottomBar = 迷你条（上）+ 窄屏导航栏（下）。
-    // 导航（aside/底栏）与内容叠层顺序由 Scaffold 统一保证，导航栏不再进 body，避免被 dock 盖住。
+    // 底部槽位只剩迷你条（窄屏导航已改侧滑抽屉，不再有悬浮底栏）。
+    // 导航（侧轨/抽屉）与内容叠层顺序由 TabsLayout 保证，导航不再进 body。
     // 断点与 TabsLayout 同口径（BoxWithConstraints 视口宽 ≥768dp 即平板）。
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val isTabletBar = maxWidth >= TabletBreakpoint
-        // 与悬浮底栏等宽对齐：底栏为 wrap-content 居中，迷你条边距动态取 (屏宽-底栏宽)/2，两边一条线。
-        // 底栏宽按官方默认值推导（miuix 0.9.4-rc01，升级 miuix 后复核）：
-        // 5×(IconSize 28 + IconPadding 10×2) + 4×ItemSpacing 12 + 2×HorizontalPadding 12 = 312dp。
-        val tabBarWidth = with(FloatingNavigationBarDefaults) {
-            val item = IconSize.value + IconPadding.value * 2f
-            val n = bottomItems.size.toFloat()
-            (item * n + ItemSpacing.value * (n - 1f) + HorizontalPadding.value * 2f).dp
-        }
-        // 平板无底栏胶囊，迷你条保持 18dp；窄屏下限 18dp（屏太窄时底栏接近满宽，迷你条不再更窄）。
-        val chromeSideMargin = if (isTabletBar) {
-            18.dp
-        } else {
-            (((maxWidth.value - tabBarWidth.value) / 2f).dp).coerceAtLeast(18.dp)
-        }
+        // 迷你条边距：两屏一致（18dp）——原窄屏按悬浮底栏宽度对齐的逻辑随底栏下线一并移除
+        val chromeSideMargin = 18.dp
+        // 推屏位移量：与 TabsLayout 的侧栏宽度同一常量
+        val phoneDrawerWidthPx = with(LocalDensity.current) { PhoneDrawerWidth.toPx() }
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MiuixTheme.colorScheme.surface,
@@ -380,7 +395,13 @@ fun MusesApp() {
             // 全局短提示走官方 Snackbar 槽：定位/边距/动画全由宿主保证，绘制在底栏之上
             snackbarHost = { MusesSnackbarHostContent(snackbarHostState) },
             bottomBar = {
-                Column(Modifier.fillMaxWidth()) {
+                // 迷你条随推屏同步右移（与内容共用壳层的 phoneDrawerProgress）：
+                // 不位移会出现「内容被推开、底部条不动」的穿帮
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer { translationX = phoneDrawerWidthPx * phoneDrawerProgress },
+                ) {
                     BoxWithConstraints(Modifier) {
                 // 歌词模式：开关开启且有当前歌词行时，用歌词替换艺术家
                 val lyricLine = if (miniPlayerLyricsEnabled) currentLyricLine else null
@@ -409,26 +430,6 @@ fun MusesApp() {
                         .fillMaxWidth(),
                 )
                 }
-                // 悬浮胶囊底栏（官方 FloatingNavigationBar，图标-only，label 进无障碍文案）：
-                // 官方默认底部留白 36dp（无系统 inset 时）实测偏大，外层整体下移收紧到 ~24dp；
-                // 注意 offset 必须包在组件外面：经 modifier 参数传进去只会偏移内部图标，背景不动。
-                // 手势区安全（>16dp），有系统导航条时组件自吃的 inset 另算，不会被盖住。
-                if (!isTabletBar) {
-                    Box(Modifier.offset(y = 12.dp)) {
-                        FloatingNavigationBar(
-                            horizontalOutSidePadding = 18.dp,
-                        ) {
-                        bottomItems.forEach { item ->
-                            FloatingNavigationBarItem(
-                                selected = item.active,
-                                onClick = item.onClick,
-                                icon = item.icon,
-                                label = item.label,
-                            )
-                        }
-                        }
-                    }
-                }
             }
         },
     ) { _ ->
@@ -443,9 +444,16 @@ fun MusesApp() {
         // 之前按 overlayRoute 切 navVisible 会让 content（NavHost）在组合树换位销毁重建，
         // 底下列表停止绘制 → 下滑沉浸页露出纯黑（08-28 下滑露黑根因）。
         TabsLayout(
-            primaryItems = railItems,
+            primaryItems = navItems,
             secondaryItems = emptyList(),
             navVisible = true,
+            phoneDrawer = PhoneDrawerState(
+                open = phoneDrawerOpen,
+                progress = phoneDrawerProgress,
+                onOpen = { settlePhoneDrawer(true) },
+                onClose = { settlePhoneDrawer(false) },
+                onDragProgress = { phoneDrawerDrag = it },
+            ),
         ) {
             AppNavHost(backStack, scrapeVm)
         }
@@ -641,14 +649,28 @@ private fun AppNavHost(
                     backStack.pushUnique(MusesRoute.WebDavEdit(sourceId))
                 },
                 onOpenLxScripts = { backStack.pushUnique(MusesRoute.LxScripts) },
-                onOpenOnlineSearch = { backStack.pushUnique(MusesRoute.OnlineSearch) },
+                // 音源页进入搜索页不带关键词（旧无参语义）
+                onOpenOnlineSearch = { backStack.pushUnique(MusesRoute.OnlineSearch()) },
             )
         }
         entry<MusesRoute.LxScripts>(swipeDismiss = NavSwipeDirection.LeftToRight) {
             LxScriptsScreen(onBack = { backStack.pop() })
         }
-        entry<MusesRoute.OnlineSearch>(swipeDismiss = NavSwipeDirection.LeftToRight) {
-            OnlineSearchScreen(onBack = { backStack.pop() })
+        entry<MusesRoute.Home> {
+            HomeScreen(
+                // 首页搜索框把关键词一并带入在线搜索页（进入即搜）
+                onOpenOnlineSearch = { keyword ->
+                    backStack.pushUnique(MusesRoute.OnlineSearch(keyword))
+                },
+                // AI 推荐配置入口：设置页「AI 推荐」分组
+                onOpenAiSettings = { backStack.pushUnique(MusesRoute.Settings) },
+            )
+        }
+        entry<MusesRoute.OnlineSearch>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+            OnlineSearchScreen(
+                onBack = { backStack.pop() },
+                initialKeyword = route.keyword,
+            )
         }
         entry<MusesRoute.WebDavAdd>(swipeDismiss = NavSwipeDirection.LeftToRight) {
             WebDavFormScreen(

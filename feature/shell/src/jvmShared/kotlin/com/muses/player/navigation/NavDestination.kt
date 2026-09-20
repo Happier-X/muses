@@ -23,6 +23,9 @@ enum class NavDestination(
     /** Web 层同款语义的图标（括号内为 Tabler 原名） */
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
 ) {
+    // ---- 首页（U27 新增：搜索框 + 排行榜 + 猜你喜欢，启动默认页）----
+    Home(MusesRoute.Home, "首页", TablerIcons.Home),
+
     // ---- 主菜单（曲库）：primaryNavItems = navItems.slice(0, 4) ----
     Songs(MusesRoute.Songs, "歌曲", TablerIcons.MusicNote),            // music (Music)
     Albums(MusesRoute.Albums, "专辑", TablerIcons.Album),               // albums (Disc)
@@ -37,6 +40,7 @@ enum class NavDestination(
 
     /** 对照 TabsPage.vue 的 isNavActive(item)：tab 本体 + 其详情/子页均算激活 */
     fun isActive(key: NavKey?): Boolean = when (this) {
+        Home -> key == MusesRoute.Home
         Songs -> key == MusesRoute.Songs
         Albums -> key == MusesRoute.Albums || key is MusesRoute.AlbumDetail
         Artists -> key == MusesRoute.Artists || key is MusesRoute.ArtistDetail
@@ -49,8 +53,8 @@ enum class NavDestination(
     }
 
     companion object {
-        /** 侧边栏主导航组（曲库），顺序对照 primaryNavItems */
-        val Primary: List<NavDestination> = listOf(Songs, Albums, Artists, Playlists)
+        /** 侧边栏主导航组（首页 + 曲库），顺序对照 primaryNavItems 前置首页 */
+        val Primary: List<NavDestination> = listOf(Home, Songs, Albums, Artists, Playlists)
 
         /** 侧边栏辅助导航组（工具），顺序对照 secondaryNavItems */
         val Secondary: List<NavDestination> = listOf(Scrape, Sources, Settings)

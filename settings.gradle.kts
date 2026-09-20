@@ -38,6 +38,10 @@ include(":core:lxsdk")
 
 // 在线搜索（各平台官方接口直连，为在线音源提供 songmid）
 include(":core:search")
+// AI 推荐（曲库画像 → LLM → 歌名/歌手 → 平台匹配，供首页「猜你喜欢」）
+include(":core:ai")
+// 首页（搜索框 + 排行榜 + 猜你喜欢）
+include(":feature:home")
 include(":feature:scrape")
 include(":feature:library")
 include(":feature:player")

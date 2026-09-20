@@ -85,10 +85,14 @@ kotlin {
             // 洛雪自定义音源 + 在线搜索：desktopAppModules 装配 lxSdkModule/searchModule
             implementation(project(":core:lxsdk"))
             implementation(project(":core:search"))
+            // AI 推荐（曲库画像 → LLM → 平台匹配）：aiModule 装配需可见
+            implementation(project(":core:ai"))
             // U9 曲库共用化：桌面直接复用 :feature:library commonMain 的 Screen/ViewModel
             implementation(project(":feature:library"))
             // U11 音源共用化：桌面复用共享 WebDAV 浏览页（:feature:sources commonMain）
             implementation(project(":feature:sources"))
+            // 首页（搜索框 + 排行榜 + 猜你喜欢）：homeCoreModule 装配
+            implementation(project(":feature:home"))
             // U12 播放端口统一：desktopAppModules 装载 playerModule（共享 PlayerViewModel/端口绑定）
             implementation(project(":feature:player"))
             // U14 刮削共用化：桌面复用共享 ScrapeScreen（手搓装配层删除）

@@ -31,6 +31,10 @@ kotlin {
             implementation(project(":feature:playlist"))
             implementation(project(":feature:scrape"))
             implementation(project(":feature:sources"))
+            // 首页（搜索框 + 排行榜 + 猜你喜欢）：MusesApp 注册 Home entry
+            implementation(project(":feature:home"))
+            // AI 推荐：设置页 AI 分组需注入 AiChatClient 做连接测试
+            implementation(project(":core:ai"))
             // compose/miuix/coil 经 ui-shared api 透传，此处不再重复声明
             // miuix-nav 自研导航运行时（连续栈深度 + HyperOS 转场 + 跟手返回，替代 CMP Navigation）；
             // kotlinx-serialization-json 供路由栈 savedstate 序列化（Saver 经 json 实现）

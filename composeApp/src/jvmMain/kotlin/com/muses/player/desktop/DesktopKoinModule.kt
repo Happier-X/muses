@@ -14,6 +14,7 @@ import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.desktop.di.DesktopContainer
 import com.muses.player.desktop.playback.DesktopPlayerHook
 import com.muses.player.desktop.di.DesktopCredentials
+import com.muses.player.core.ai.di.aiModule
 import com.muses.player.core.lxsdk.di.lxSdkModule
 import com.muses.player.core.search.di.searchModule
 import com.muses.player.core.webdav.webdavCoreModule
@@ -172,7 +173,11 @@ val desktopAppModules: List<Module> = listOf(
     scrapeFeatureModule,
     webdavCoreModule,
     sourcesCoreModule,
+    // 首页 VM（搜索框 + 排行榜 + 猜你喜欢）
+    com.muses.player.feature.home.homeCoreModule,
     // 洛雪自定义音源（在线音源引擎 + 脚本存储）+ 在线搜索（5 平台 provider）
     lxSdkModule(),
     searchModule(),
+    // AI 推荐（曲库画像 → LLM → 平台匹配，首页「猜你喜欢」）
+    aiModule(),
 )

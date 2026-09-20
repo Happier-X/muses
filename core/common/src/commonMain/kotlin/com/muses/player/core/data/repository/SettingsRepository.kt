@@ -47,6 +47,28 @@ interface SettingsRepository {
     suspend fun setXiaomiIslandEnabled(enabled: Boolean)
 
     suspend fun updateLastScanTimestamp(timestampMillis: Long)
+
+    // ── AI 推荐（首页「猜你喜欢」，见 :core:ai）──
+
+    /** AI 推荐开关：关（默认）时首页不展示「猜你喜欢」区块 */
+    val aiRecommendEnabled: Flow<Boolean>
+
+    /** AI 服务商 key（见 :core:ai 的 `AiProviderPreset`；`custom` = 自填地址） */
+    val aiProviderKey: Flow<String>
+
+    /** AI 服务地址（OpenAI 兼容 baseUrl）；空 = 用所选服务商的预设地址 */
+    val aiBaseUrl: Flow<String>
+
+    /** AI 模型名；空 = 用所选服务商的默认模型 */
+    val aiModel: Flow<String>
+
+    suspend fun setAiRecommendEnabled(enabled: Boolean)
+
+    suspend fun setAiProviderKey(providerKey: String)
+
+    suspend fun setAiBaseUrl(baseUrl: String)
+
+    suspend fun setAiModel(model: String)
 }
 
 class DataStoreSettingsRepository constructor(
@@ -95,6 +117,34 @@ class DataStoreSettingsRepository constructor(
         dataStore.edit { prefs -> prefs[XIAOMI_ISLAND_ENABLED] = enabled }
     }
 
+    override val aiRecommendEnabled: Flow<Boolean>
+        get() = dataStore.data.map { prefs -> prefs[AI_RECOMMEND_ENABLED] == true }
+
+    override val aiProviderKey: Flow<String>
+        get() = dataStore.data.map { prefs -> prefs[AI_PROVIDER_KEY] ?: DEFAULT_AI_PROVIDER }
+
+    override val aiBaseUrl: Flow<String>
+        get() = dataStore.data.map { prefs -> prefs[AI_BASE_URL].orEmpty() }
+
+    override val aiModel: Flow<String>
+        get() = dataStore.data.map { prefs -> prefs[AI_MODEL].orEmpty() }
+
+    override suspend fun setAiRecommendEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[AI_RECOMMEND_ENABLED] = enabled }
+    }
+
+    override suspend fun setAiProviderKey(providerKey: String) {
+        dataStore.edit { prefs -> prefs[AI_PROVIDER_KEY] = providerKey }
+    }
+
+    override suspend fun setAiBaseUrl(baseUrl: String) {
+        dataStore.edit { prefs -> prefs[AI_BASE_URL] = baseUrl }
+    }
+
+    override suspend fun setAiModel(model: String) {
+        dataStore.edit { prefs -> prefs[AI_MODEL] = model }
+    }
+
     private companion object {
         val LAST_SCAN_TIMESTAMP = longPreferencesKey("last_scan_timestamp")
         val AUTO_SCRAPE_ENABLED = booleanPreferencesKey("auto_scrape_enabled")
@@ -102,8 +152,15 @@ class DataStoreSettingsRepository constructor(
         val NOTIFICATION_LYRICS_ENABLED = booleanPreferencesKey("notification_lyrics_enabled")
         val XIAOMI_ISLAND_ENABLED = booleanPreferencesKey("xiaomi_island_enabled")
         val ONLINE_PREFERRED_QUALITY = stringPreferencesKey("online_preferred_quality")
+        val AI_RECOMMEND_ENABLED = booleanPreferencesKey("ai_recommend_enabled")
+        val AI_PROVIDER_KEY = stringPreferencesKey("ai_provider_key")
+        val AI_BASE_URL = stringPreferencesKey("ai_base_url")
+        val AI_MODEL = stringPreferencesKey("ai_model")
 
         /** 默认 320k：全平台可用、体积与兼容性最稳（高音质档由用户显式选择） */
         const val DEFAULT_ONLINE_QUALITY = "320k"
+
+        /** 默认服务商（深寻）：国内可用、OpenAI 兼容、价格低，适合作为开箱默认 */
+        const val DEFAULT_AI_PROVIDER = "deepseek"
     }
 }

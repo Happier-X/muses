@@ -109,6 +109,9 @@ fun SettingsScreen(
                     XiaomiIslandSettingRow()
                 }
 
+                // ---- AI 推荐（首页「猜你喜欢」的配置面：服务商/模型/Key） ----
+                AiRecommendSettingSection()
+
                 // ---- 应用更新（Windows 应用内更新卡片；安卓空实现，走共享外链检查项） ----
                 if (supportsInAppUpdate) {
                     InAppUpdateSection(

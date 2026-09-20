@@ -124,6 +124,14 @@ class OnlineSearchViewModel(
         _state.value = _state.value.copy(keyword = value)
     }
 
+    /**
+     * 预填关键词（首页搜索框带入）。
+     * 只改 keyword，不动已搜结果：调用方随后自行调 [search] 触发新搜索。
+     */
+    fun prefillKeyword(value: String) {
+        _state.value = _state.value.copy(keyword = value)
+    }
+
     fun setFilter(platform: String?) {
         _state.value = _state.value.copy(filterPlatform = platform)
     }

@@ -11,6 +11,12 @@ import com.composables.icons.tabler.outline.*
  * 该库扩展属性保留 tabler 原始 kebab 命名，如 Arrows_shuffle / Menu_2）
  */
 object TablerIcons {
+    // 首页
+    val Home: ImageVector = Tabler.Outline.Home
+
+    // AI 推荐
+    val Sparkles: ImageVector = Tabler.Outline.Sparkles
+
     // 音乐相关
     val MusicNote: ImageVector = Tabler.Outline.Music
     val MusicNoteOutlined: ImageVector = Tabler.Outline.Music

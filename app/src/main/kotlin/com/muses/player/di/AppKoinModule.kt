@@ -5,6 +5,7 @@ import com.muses.player.core.data.di.databaseModule
 import com.muses.player.core.data.repository.repositoryModule
 import com.muses.player.core.data.tag.tagModule
 import com.muses.player.core.lyrics.di.lyricsModule
+import com.muses.player.core.ai.di.aiModule
 import com.muses.player.core.lxsdk.di.lxSdkModule
 import com.muses.player.core.media.playback.playbackModule
 import com.muses.player.core.search.di.searchModule
@@ -21,6 +22,8 @@ import com.muses.player.feature.scrape.scrapeFeatureModule
 // 绑定安卓扫描端口（MediaStore/WebDAV 扫描器）
 import com.muses.player.feature.sources.sourcesCoreModule
 import com.muses.player.feature.sources.sourcesPlatformModule
+// 首页 VM（搜索框 + 排行榜 + 猜你喜欢）
+import com.muses.player.feature.home.homeCoreModule
 // U22：壳层 VM（MainViewModel/SettingsViewModel）装配移入 :feature:shell shellModule；
 // app 侧仅保留平台绑定（版本号注入共享壳）
 import com.muses.player.feature.shell.di.shellModule
@@ -47,6 +50,8 @@ val appModules = listOf(
     lxSdkModule(),
     // 在线搜索（5 平台 provider + 聚合服务）
     searchModule(),
+    // AI 推荐（曲库画像 → LLM → 平台匹配，首页「猜你喜欢」）
+    aiModule(),
     scrapeModule,
     webdavModule,
     webdavCoreModule,
@@ -56,6 +61,7 @@ val appModules = listOf(
     scrapeFeatureModule,
     sourcesPlatformModule,
     sourcesCoreModule,
+    homeCoreModule,
     shellModule,
     appPlatformModule,
 )

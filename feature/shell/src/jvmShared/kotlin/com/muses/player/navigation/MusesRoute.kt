@@ -17,6 +17,10 @@ import top.yukonga.miuix.kmp.nav.core.NavKey
  */
 @Serializable
 sealed interface MusesRoute : NavKey {
+    /** 首页：搜索框 + 排行榜 + 猜你喜欢（启动默认页） */
+    @Serializable
+    data object Home : MusesRoute
+
     // ---- 主菜单（曲库）----
     @Serializable
     data object Songs : MusesRoute
@@ -57,9 +61,14 @@ sealed interface MusesRoute : NavKey {
     @Serializable
     data object LxScripts : MusesRoute
 
-    /** 在线搜索（各平台官方接口） */
+    /**
+     * 在线搜索（各平台官方接口）。
+     *
+     * [keyword] 非空时进入即自动搜索——首页搜索框把关键词带入，避免用户再输一遍；
+     * 从音源页等入口进入时传空串（等同旧的无参 object 语义）。
+     */
     @Serializable
-    data object OnlineSearch : MusesRoute
+    data class OnlineSearch(val keyword: String = "") : MusesRoute
 
     @Serializable
     data object WebDavAdd : MusesRoute

@@ -70,6 +70,8 @@ dependencies {
     implementation(project(":core:lxsdk"))
     // 在线搜索：5 平台 provider + 聚合服务
     implementation(project(":core:search"))
+    // AI 推荐（曲库画像 → LLM → 平台匹配）：aiModule 装配需本模块可见
+    implementation(project(":core:ai"))
     // P2a：AppKoinModule 直接聚合 lyrics/scrape 的 Koin 模块，需直连依赖（implementation 非传递）
     // 09-05-lyrics-kmp X3：lyricsModule 已上收 :core:common jvmShared 同包名，随 core:common 依赖可达
     implementation(project(":core:scrape"))
@@ -77,6 +79,8 @@ dependencies {
     implementation(project(":feature:playlist"))
     implementation(project(":feature:player"))
     implementation(project(":feature:sources"))
+    // 首页（搜索框 + 排行榜 + 猜你喜欢）：homeCoreModule 装配
+    implementation(project(":feature:home"))
     // U22：应用壳（MusesApp/TabsLayout/SettingsScreen + CMP Navigation 导航）双端共享
     implementation(project(":feature:shell"))
 
