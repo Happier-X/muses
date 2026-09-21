@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MusesTopBar
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TabRow
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 曲库页的 Tab 文案（顺序即索引，勿随意调整） */
@@ -47,7 +47,9 @@ fun LibraryScreen(
             MusesTopBar(
                 title = "曲库",
                 bottomContent = {
-                    TabRow(
+                    // 带轮廓的 TabRow（miuix 官方另一种形态）：未选中项描边、选中项实底，
+                    // 与 HyperOS 设置页的分段切换同款
+                    TabRowWithContour(
                         tabs = LibraryTabs,
                         selectedTabIndex = selectedTab,
                         onTabSelected = { selectedTab = it },
