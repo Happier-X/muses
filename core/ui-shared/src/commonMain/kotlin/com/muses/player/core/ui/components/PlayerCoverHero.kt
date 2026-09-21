@@ -70,8 +70,6 @@ fun PlayerCoverHero(
                     Modifier.sharedElement(
                         sharedContentState = rememberSharedContentState(sharedArtworkKey),
                         animatedVisibilityScope = sharedArtworkVisibility,
-                        renderInOverlayDuringTransition = true,
-                        zIndexInOverlay = 100f,
                     )
                 }
             } else {

@@ -59,8 +59,6 @@ fun MusesCover(
             Modifier.sharedElement(
                 sharedContentState = rememberSharedContentState(sharedArtworkKey),
                 animatedVisibilityScope = visibilityScope,
-                renderInOverlayDuringTransition = true,
-                zIndexInOverlay = 100f,
             )
         }
     } else {

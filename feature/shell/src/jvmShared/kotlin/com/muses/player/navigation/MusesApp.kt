@@ -2,7 +2,10 @@ package com.muses.player.navigation
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
@@ -586,8 +589,14 @@ fun MusesApp() {
                                 sharedContentState = this@SharedTransitionLayout
                                     .rememberSharedContentState(PlayerShellKey),
                                 animatedVisibilityScope = this,
+                                enter = EnterTransition.None,
+                                exit = ExitTransition.None,
                                 boundsTransform = PlayerShellBoundsTransform,
-                                resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+                                // 早前以为这一版没有 ScaleToBounds：其实缩放绘制是函数
+                            // `ResizeMode.scaleToBounds()`。但它实测不改变「内容按全屏绘制」的现象
+                            // （沉浸页仍是整块涌在外面），真正让内容被限制进卡片的是 RemeasureToBounds
+                            // + 去掉默认 fade + 外层 clipToBounds 这套组合。
+                            resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
                             )
                             .padding(horizontal = chromeSideMargin, vertical = 8.dp)
                             .fillMaxWidth(),
@@ -696,17 +705,30 @@ fun MusesApp() {
                 LocalPlayerAnimatedVisibilityScope provides this,
                 LocalPlayerArtworkKey provides PlayerArtworkSharedKey,
             ) {
-            Box(
-                Modifier
+            ScaleToBoundsBox(
+                // 全屏基准：最外层 BoxWithConstraints 的约束（沉浸页 overlay 与 Scaffold 平级，同一作用域）
+                fullWidth = maxWidth,
+                fullHeight = maxHeight,
+                modifier = Modifier
                     .fillMaxSize()
                     // 与迷你条共享同一个元素（同 key）：打开时从迷你条矩形长成全屏，收起时缩回去。
                     .sharedBounds(
                         sharedContentState = this@SharedTransitionLayout
                             .rememberSharedContentState(PlayerShellKey),
                         animatedVisibilityScope = this,
+                        // 外壳的 enter/exit 必须是 None：默认是 fadeIn/fadeOut，会在整条转场上
+                        // 再叠一层「整个沉浸页淡入淡出」，把 sharedBounds 的形变盖掉——
+                        // 真机上看到的就是「一大块背景透明地浮在外面」而不是「圆角矩形长出来」。
+                        // 形变完全交给 boundsTransform（与 animateTo 同一条 380ms 时间线）。
+                        enter = EnterTransition.None,
+                        exit = ExitTransition.None,
                         boundsTransform = PlayerShellBoundsTransform,
+                        // 与迷你条侧同口径（见该处注释：靠 RemeasureToBounds + 外层 clip 限制溢出）
                         resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
-                    ),
+                    )
+                    // 形变中的外壳必须裁剪：否则内部的 fillMaxSize 背景（深色底 / 流光图）
+                    // 仍按全屏绘制，转场时就会看到「沉浸页背景溢出到矩形之外」。
+                    .clipToBounds(),
             ) {
                 val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
                 // U12：当前曲改由曲库实时流（SongEntity→领域模型），原 MediaItem 手拼字段等价
@@ -770,6 +792,47 @@ private val PlayerShellBoundsTransform = BoundsTransform { _, _ ->
  * 配合 FastOutSlowInEasing 前段推进快，太短会显得「一下就到」。
  */
 private const val PlayerTransitionDurationMillis = 380
+
+/**
+ * 在 sharedBounds 的形变矩形里，让内容**以全屏尺寸布局后再整体缩放**填满该矩形
+ * （等价于 `ResizeMode.ScaleToBounds`，但本版本要靠自己做）。
+ *
+ * 为什么不用 ResizeMode 自带的两种模式：
+ * - `scaleToBounds()`：本版本对 sharedBounds 实测不起作用——内容仍按全屏尺寸绘制，
+ *   转场时整个沉浸页背景涌到卡片外面（就是 issue #53 后续这条报障）；
+ * - `RemeasureToBounds`：会真的重排内容，沉浸页缩到卡片尺寸时布局塔掉
+ *   （封面吃掉全部空间、标题与控制被挤到矩形外）。
+ *
+ * 所以这里把「布局」与「绘制」拆开：布局固定用全屏约束（内容长什么样与全屏态完全一致），
+ * 再用 `scaleX/scaleY` 把绘制结果缩放填满当前形变矩形——即椒盐音乐那种
+ * 「整个播放面板连内容一起缩放」的效果，外框由外层 `clipToBounds()` 兜底。
+ */
+@Composable
+private fun ScaleToBoundsBox(
+    fullWidth: Dp,
+    fullHeight: Dp,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    // fullWidth/fullHeight 必须传「全屏尺寸」（取最外层 BoxWithConstraints 的 maxWidth/maxHeight）：
+    // 不能依赖 LocalWindowInfo.containerSize（实测拿不到可靠值，会让缩放退化成 1 而只剩裁剪）。
+    BoxWithConstraints(modifier) {
+        val scaleX = if (fullWidth > 0.dp) maxWidth / fullWidth else 1f
+        val scaleY = if (fullHeight > 0.dp) maxHeight / fullHeight else 1f
+        Box(
+            modifier = Modifier
+                .requiredSize(fullWidth, fullHeight)
+                .graphicsLayer {
+                    this.scaleX = scaleX
+                    this.scaleY = scaleY
+                    // 左上角对齐：形变矩形与全屏内容的度量原点一致，缩放不会飘移
+                    transformOrigin = TransformOrigin(0f, 0f)
+                },
+        ) {
+            content()
+        }
+    }
+}
 
 /** 导航项组装（图标/文案/激活判定均来自 NavDestination 的 Web 层映射） */
 private fun NavDestination.toNavItem(
