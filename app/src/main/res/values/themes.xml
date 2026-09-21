@@ -5,6 +5,9 @@
         <item name="android:windowBackground">@color/salt_window_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- 与 MainActivity 里的 window.isNavigationBarContrastEnforced = false 同义（双保险）：
+             禁止系统给导航栏叠「对比度 scrim」，否则浅色页面底部会出现一条白/浅色带 -->
+        <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>
