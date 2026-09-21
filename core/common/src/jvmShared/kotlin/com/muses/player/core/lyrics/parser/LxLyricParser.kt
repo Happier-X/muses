@@ -57,6 +57,19 @@ object LxLyricParser {
         tlyric: String? = null,
         rlyric: String? = null,
         lxlyric: String? = null,
+    ): LyricsDocument? = try {
+        parseInternal(lyric, tlyric, rlyric, lxlyric)
+    } catch (_: Exception) {
+        // 脚本返回的歌词形态千奇百怪：解析异常一律按「无歌词」处理。
+        // 不能把异常抛给播放页——那会中断整条元数据观察链，导致之后切歌永久不再更新封面/歌词。
+        null
+    }
+
+    private fun parseInternal(
+        lyric: String?,
+        tlyric: String?,
+        rlyric: String?,
+        lxlyric: String?,
     ): LyricsDocument? {
         // 主歌词：优先逐字（lxlyric，或 lyric 里残留逐字标记），退化为行级 LRC
         val wordSource = lxlyric?.takeIf { it.isNotBlank() }

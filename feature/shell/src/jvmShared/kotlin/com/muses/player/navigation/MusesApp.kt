@@ -43,6 +43,8 @@ import com.muses.player.core.data.db.SongTags
 import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.data.repository.SongRepository
+import com.muses.player.core.lyrics.LyricsMatcher
+import com.muses.player.core.lyrics.matchDocument
 import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.core.lyrics.parser.LxLyricParser
 import com.muses.player.core.model.Song
@@ -114,6 +116,8 @@ class MainViewModel constructor(
      * 缺省空实现：未装配在线音源时一切照旧，无需判空。
      */
     private val onlineMetadataResolver: OnlineTrackMetadataResolver = NoOpOnlineTrackMetadataResolver,
+    /** Muses 在线歌词匹配（AMLL → 平台五源 → LRCLIB）：脚本 `lyric` 取不到时兜底 */
+    private val lyricsMatcher: LyricsMatcher? = null,
 ) : ViewModel() {
 
     val isPlaying: StateFlow<Boolean> = playback.isPlaying
@@ -188,17 +192,38 @@ class MainViewModel constructor(
     }
 
     /**
-     * 在线曲目歌词：脚本 `lyric` 四字段 → [LxLyricParser]。
+     * 在线曲目歌词：**脚本 `lyric` 优先 → Muses 在线歌词匹配兜底**（同播放页口径）。
      *
      * 与播放页（`PlayerViewModel`）看似各自拉取，实则共享注入的 [OnlineTrackMetadataResolver]
      * （装配时为 `CachedOnlineTrackMetadataResolver` 单例），同一首曲目只真正跑一次脚本。
      */
     private suspend fun loadOnlineLyrics(song: Song): LyricsDocument? {
         val ref = OnlineTrackRef.parse(song.path) ?: return null
-        val lyrics = onlineMetadataResolver.resolveLyrics(ref) ?: return null
-        return withContext(Dispatchers.Default) {
-            LxLyricParser.parse(lyrics.lyric, lyrics.tlyric, lyrics.rlyric, lyrics.lxlyric)
+        val lyrics = try {
+            onlineMetadataResolver.resolveLyrics(ref)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
         }
+        if (lyrics != null) {
+            // 解析器自身已带异常兜底（LxLyricParser.parse）；此处再包一层是防御未来替换实现
+            val fromScript = withContext(Dispatchers.Default) {
+                runCatching {
+                    LxLyricParser.parse(lyrics.lyric, lyrics.tlyric, lyrics.rlyric, lyrics.lxlyric)
+                }.getOrNull()
+            }
+            if (fromScript != null && fromScript.lines.isNotEmpty()) return fromScript
+        }
+        // 脚本没给歌词（多数洛雪脚本只声明 musicUrl）→ 回退 Muses 在线歌词匹配
+        return lyricsMatcher?.matchDocument(
+            songId = song.id,
+            title = song.title,
+            artist = song.artist,
+            album = song.album,
+            durationMs = song.durationMs,
+            durationSec = song.durationSec,
+        )
     }
 
     /** 歌词进度轮询：~100ms，根据播放位置查找当前歌词行；关闭时降频到 1s */

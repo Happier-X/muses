@@ -44,5 +44,11 @@ kotlin {
         }
         jvmMain.get().dependsOn(jvmShared)
         androidMain.get().dependsOn(jvmShared)
+
+        // 播放页 VM 单测（在线曲目封面/歌词链路的端到端编排）：纯 JVM 跑，需 coroutines-test
+        jvmTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
     }
 }

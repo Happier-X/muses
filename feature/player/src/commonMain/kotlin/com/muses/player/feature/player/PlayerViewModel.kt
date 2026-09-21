@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.db.SongEntity
+import com.muses.player.core.lyrics.LyricsMatcher
+import com.muses.player.core.lyrics.matchDocument
 import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.core.lyrics.parser.LxLyricParser
 import com.muses.player.core.model.Song
@@ -14,9 +16,13 @@ import com.muses.player.core.model.online.OnlineTrackSession
 import com.muses.player.core.model.playback.RepeatMode
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.playback.PlaybackStates
+import com.muses.player.core.scrape.cover.CoverMatcher
+import com.muses.player.core.scrape.cover.OnlineCoverMatchResult
+import com.muses.player.core.scrape.cover.OnlineCoverQuery
 import com.muses.player.feature.player.lyric.AmllLyricLine
 import com.muses.player.feature.player.lyric.LyricsParser
 import com.muses.player.feature.player.lyric.toAmllLyricLines
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -67,6 +73,22 @@ data class CurrentSongMeta(
     val isOnline: Boolean,
 )
 
+/** 当前曲 → 展示信息（曲库实体与在线会话条目归一） */
+private fun CurrentTrack.toMeta(): CurrentSongMeta = when (this) {
+    is CurrentTrack.Local -> CurrentSongMeta(
+        songId = entity.id,
+        title = entity.title,
+        artist = entity.artist,
+        isOnline = false,
+    )
+    is CurrentTrack.Online -> CurrentSongMeta(
+        songId = song.id,
+        title = song.title,
+        artist = song.artist,
+        isOnline = true,
+    )
+}
+
 /** 播放页 ViewModel：经 [PlaybackPort] 包装双端播放栈并提供位置轮询 */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlayerViewModel constructor(
@@ -77,6 +99,16 @@ class PlayerViewModel constructor(
      * 缺省空实现：宿主未装配在线音源时播放页照常工作，无需判空。
      */
     private val onlineMetadataResolver: OnlineTrackMetadataResolver = NoOpOnlineTrackMetadataResolver,
+    /**
+     * Muses 在线歌词匹配（AMLL → 平台五源 → LRCLIB）。
+     * 脚本 `lyric` 取不到时的兜底——多数洛雪脚本只声明 `musicUrl`。
+     */
+    private val lyricsMatcher: LyricsMatcher? = null,
+    /**
+     * Muses 在线封面匹配（iTunes → kw → tx → wy → kg → mg）。
+     * 脚本 `pic` 与搜索结果自带封面都缺失时的兜底。
+     */
+    private val coverMatcher: CoverMatcher? = null,
 ) : ViewModel() {
 
     val isPlaying: StateFlow<Boolean> = playback.isPlaying
@@ -272,33 +304,27 @@ class PlayerViewModel constructor(
 
     private suspend fun refreshCurrentTrack(track: CurrentTrack?) {
         // 标题/艺术家先发布：不等封面·歌词的网络拉取，否则在线曲目会先白一下标题
-        _nowPlayingMeta.value = when (track) {
-            null -> null
-            is CurrentTrack.Local -> CurrentSongMeta(
-                songId = track.entity.id,
-                title = track.entity.title,
-                artist = track.entity.artist,
-                isOnline = false,
-            )
-            is CurrentTrack.Online -> CurrentSongMeta(
-                songId = track.song.id,
-                title = track.song.title,
-                artist = track.song.artist,
-                isOnline = true,
-            )
-        }
+        _nowPlayingMeta.value = track?.toMeta()
 
         // 兜底封面：扫描未读到内嵌封面时，回退到播放器实时 metadata artwork
         // （对齐 app/NowPlayingUiState mediaMetadata 兜底链路，沉浸页封面缺失修复）
         val metadataArtwork = playback.artworkUri.value?.takeIf { it.isNotBlank() }
-        when (track) {
-            null -> {
-                _dbDuration.value = 0L
-                _stickyCover.value = null
-                applyLyricsDocument(null)
+        try {
+            when (track) {
+                null -> {
+                    _dbDuration.value = 0L
+                    _stickyCover.value = null
+                    applyLyricsDocument(null)
+                }
+                is CurrentTrack.Local -> refreshLocalTrack(track.entity, metadataArtwork)
+                is CurrentTrack.Online -> refreshOnlineTrack(track.song, metadataArtwork)
             }
-            is CurrentTrack.Local -> refreshLocalTrack(track.entity, metadataArtwork)
-            is CurrentTrack.Online -> refreshOnlineTrack(track.song, metadataArtwork)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // 单曲元数据失败（脚本歌词形态奇怪、解析器异常等）**不得中断整条观察链**：
+            // 否则一次异常会让之后切歌永久不再更新封面/歌词（只清歌词，封面保留粘性值）。
+            applyLyricsDocument(null)
         }
     }
 
@@ -332,30 +358,76 @@ class PlayerViewModel constructor(
     }
 
     /**
-     * 在线曲目：不落库，封面/歌词走洛雪脚本的 `pic` / `lyric` 动作，**仅在内存态展示**
+     * 在线曲目：不落库，封面/歌词**先问洛雪脚本、再回退 Muses 匹配系统**，仅在内存态展示
      * （切歌重新取，不做持久化；与「在线曲目不入库」的整体设计一致）。
      *
-     * 封面优先级：脚本 `pic`（数据源权威）→ 搜索结果自带的远程封面（[Song.coverUri]）→ 播放器实时 metadata。
-     * 三者都无时保持旧粘性值（与曲库曲目同语义，不闪默认底）。
+     * 封面优先级：脚本 `pic` → 搜索结果自带的远程封面（[Song.coverUri]）→ 封面六源匹配
+     * → 播放器实时 metadata。都拿不到时保持旧粘性值（与曲库曲目同语义，不闪默认底）。
      *
-     * 封面与歌词**串行**拉取：二者共用同一个 QuickJS runtime，脚本 handler 未必并发安全，
-     * 串行换取最大兼容性（且脚本未声明动作时端口立即返回 null，无额外开销）。
+     * 顺序说明：歌词先于封面匹配解析（歌词是主诉且脚本取不到时立刻回退）；封面匹配链较慢
+     * （六源串行），只在脚本与搜索结果都没有封面时才跑，不让它拖住歌词上屏。
+     * 封面与歌词与脚本的两次调用**串行**：二者共用同一个 QuickJS runtime，脚本 handler
+     * 未必并发安全（且脚本未声明动作时端口立即返回 null，无额外开销）。
      */
     private suspend fun refreshOnlineTrack(song: Song, metadataArtwork: String?) {
         _dbDuration.value = song.durationMs
 
         val ref = OnlineTrackRef.parse(song.path)
         val scriptCover = ref?.let { onlineMetadataResolver.resolveCover(it) }
-        val cover = scriptCover?.takeIf { it.isNotBlank() }
+        var cover = scriptCover?.takeIf { it.isNotBlank() }
             ?: song.coverUri?.takeIf { it.isNotBlank() }
-            ?: metadataArtwork
-        if (!cover.isNullOrBlank()) _stickyCover.value = cover
 
-        val lyrics = ref?.let { onlineMetadataResolver.resolveLyrics(it) }
-        val document = withContext(Dispatchers.Default) {
-            lyrics?.let { LxLyricParser.parse(it.lyric, it.tlyric, it.rlyric, it.lxlyric) }
+        applyLyricsDocument(resolveOnlineLyrics(song, ref))
+
+        if (cover.isNullOrBlank()) cover = matchOnlineCover(song)
+        val effectiveCover = cover?.takeIf { it.isNotBlank() } ?: metadataArtwork
+        if (!effectiveCover.isNullOrBlank()) _stickyCover.value = effectiveCover
+    }
+
+    /**
+     * 在线曲目歌词：**脚本 `lyric` 优先 → Muses 在线歌词匹配兜底**。
+     *
+     * 兜底为何必要：多数洛雪脚本只声明 `musicUrl`（歌词/封面在洛雪桌面端由主程序自己的
+     * 接口取，不归自定义源脚本），所以「只问脚本」会让绝大多数在线曲目没有歌词。
+     */
+    private suspend fun resolveOnlineLyrics(song: Song, ref: OnlineTrackRef?): LyricsDocument? {
+        val fromScript = ref?.let { onlineMetadataResolver.resolveLyrics(it) }
+        if (fromScript != null) {
+            val document = withContext(Dispatchers.Default) {
+                LxLyricParser.parse(fromScript.lyric, fromScript.tlyric, fromScript.rlyric, fromScript.lxlyric)
+            }
+            if (document != null && document.lines.isNotEmpty()) return document
         }
-        applyLyricsDocument(document)
+        return matchOnlineLyrics(song)
+    }
+
+    /** Muses 在线歌词匹配（AMLL → 平台五源 → LRCLIB）→ 按返回格式解析成 [LyricsDocument] */
+    private suspend fun matchOnlineLyrics(song: Song): LyricsDocument? =
+        lyricsMatcher?.matchDocument(
+            songId = song.id,
+            title = song.title,
+            artist = song.artist,
+            album = song.album,
+            durationMs = song.durationMs,
+            durationSec = song.durationSec,
+        )
+
+    /** Muses 在线封面匹配（六源）；未命中/失败返回 null（负缓存由 matcher 自管） */
+    private suspend fun matchOnlineCover(song: Song): String? {
+        val matcher = coverMatcher ?: return null
+        return when (
+            val result = matcher.match(
+                OnlineCoverQuery(
+                    songId = song.id,
+                    title = song.title,
+                    artist = song.artist,
+                    album = song.album,
+                ),
+            )
+        ) {
+            is OnlineCoverMatchResult.Ok -> result.remoteUrl
+            is OnlineCoverMatchResult.Fail -> null
+        }
     }
 
     /** 发布歌词文档：同步 AMLL 行集 / 末句结束时间 / 译文标记，并按翻译开关重建 payload */

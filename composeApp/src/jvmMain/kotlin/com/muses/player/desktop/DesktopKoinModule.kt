@@ -156,6 +156,8 @@ fun desktopLibraryModule(): Module = module {
     single { com.muses.player.desktop.DesktopScrapeGraph.queueStore }
     single { com.muses.player.desktop.DesktopScrapeGraph.textMetaMatcher }
     single { com.muses.player.desktop.DesktopScrapeGraph.coverMatcher }
+    // 在线曲目歌词回退（脚本 `lyric` 取不到时）：与安卓 lyricsModule 同口径的 LyricsMatcher
+    single { com.muses.player.desktop.DesktopScrapeGraph.lyricsMatcher }
     single { com.muses.player.desktop.DesktopScrapeGraph.orchestrator }
     single { com.muses.player.desktop.DesktopScrapeGraph.editSearch }
     // ScrapeReviewViewModel 构造首参（安卓由 Koin 导航参数供给，桌面无路由栈显式给空 handle）
