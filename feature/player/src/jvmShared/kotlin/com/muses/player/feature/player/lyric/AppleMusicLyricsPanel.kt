@@ -342,6 +342,25 @@ internal fun AppleMusicLyricsPanel(
     }
     val cascadeScrollProgress = remember(document) { Animatable(1f) }
     var cascadeDistancePx by remember(document) { mutableStateOf(0f) }
+
+    /**
+     * 本次 cascade 中**实际滚出去**的像素（浮点记账）。
+     *
+     * 行的虚拟偏移必须用它做「滚动补偿」，不能用「应滚量 × 动画进度」：后者与 LazyColumn
+     * 实际落位（layoutInfo.offset，整数且滞后一帧）存在残差，残差随两条曲线收敛节奏变号，
+     * 收尾时视觉位置会在 388.4～389.4 之间来回摆（实测，就是「高亮行抖一下」）。
+     * 用实际滚动量则与列表位置严格互补，视觉位置只由该行自己的 spring 驱动。
+     */
+    var appliedScrollPx by remember(document) { mutableStateOf(0f) }
+
+    /**
+     * 本次 cascade 开始时各行的**布局基线**（layoutInfo.offset，浮点化）。
+     *
+     * 用来补偿 LazyColumn 的整数落位：行在列表里的位置是 `round(base - applied)`，
+     * 取整残差会留在「itemY + translationY」里（实测收尾时 ± 0.5px 来回摆）。
+     * 我们在渲染时把残差加回 translationY，使行视觉位置变成纯浮点（`base - applied + off`）。
+     */
+    var cascadeBaseOffsets by remember(document) { mutableStateOf<Map<Int, Float>>(emptyMap()) }
     var cascadeInitialOffsets by remember(document) {
         mutableStateOf<Map<Int, Float>>(emptyMap())
     }
@@ -418,16 +437,29 @@ internal fun AppleMusicLyricsPanel(
         val initial = cascadeInitialOffsets[index]
             ?: return settledMovementOffset(index, visualFocusIndex)
         val destination = cascadeDestinationOffsets[index] ?: 0f
-        val scrollProgress = cascadeScrollProgress.value
         val lineProgress = cascadeLineProgress[index].value
-        return initial + cascadeDistancePx * scrollProgress -
+        return initial + appliedScrollPx -
             (cascadeDistancePx + initial - destination) * lineProgress
+    }
+
+    /**
+     * LazyColumn 取整残差的补偿量：`frac(base - applied)`。
+     *
+     * 行实际布局位置 = `round(base - applied)`（已实测与预测完全一致），
+     * 而我们要的视觉位置是 `base - applied + off`；
+     * 二者相减就是这里返回的残差，加到 translationY 上即可得到纯浮点的行位置。
+     */
+    fun roundingCorrection(index: Int): Float {
+        val base = cascadeBaseOffsets[index] ?: return 0f
+        val currentBase = base - appliedScrollPx
+        return currentBase - kotlin.math.round(currentBase)
     }
 
     suspend fun clearCascadePresentation(focusIndex: Int) {
         visualFocusIndex = focusIndex
         cascadeInitialOffsets = emptyMap()
         cascadeDestinationOffsets = emptyMap()
+        cascadeBaseOffsets = emptyMap()
         cascadeDistancePx = 0f
         cascadeScrollProgress.snapTo(1f)
     }
@@ -711,6 +743,14 @@ internal fun AppleMusicLyricsPanel(
             val destinations = movingIndexes.associateWith { settledMovementOffset(it, nextIndex) }
 
             cascadeDistancePx = movementDistance
+            appliedScrollPx = 0f
+            cascadeBaseOffsets = movingIndexes.associateWith { index ->
+                // 可见行才有真实布局位置；缓存外的行不会参与绘制，给 0 即可
+                listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == index + 1 }
+                    ?.offset?.toFloat()
+                    ?: 0f
+            }
             cascadeInitialOffsets = carriedOffsets
             cascadeDestinationOffsets = destinations
             cascadeScrollProgress.snapTo(0f)
@@ -739,6 +779,8 @@ internal fun AppleMusicLyricsPanel(
                         ) {
                             val delta = (value - previousScrollProgress) * movementDistance
                             scrollBy(delta)
+                            // 记账：虚拟偏移的滚动补偿项必须与此严格一致
+                            appliedScrollPx += delta
                             previousScrollProgress = value
                         }
                     }
@@ -856,7 +898,7 @@ internal fun AppleMusicLyricsPanel(
                             interlude != null
                         val interludeHeightPx = if (showsInterlude) with(density) { 56.dp.toPx() } else 0f
                         val height = estimatedHeight(index) + interludeHeightPx
-                        val visualOffset = currentMovementOffset(index)
+                        val visualOffset = currentMovementOffset(index) + roundingCorrection(index)
                         val frameMinY = visibleItemsByIndex[index + 1]?.offset?.toFloat()
                             ?: focusAnchorY + (index - visualFocusIndex) * lyricStridePx
                         val visualMidY = frameMinY + visualOffset + height * 0.5f
