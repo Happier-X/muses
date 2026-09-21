@@ -2,15 +2,20 @@ package com.muses.player.feature.library
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MusesTopBar
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -47,13 +52,20 @@ fun LibraryScreen(
             MusesTopBar(
                 title = "曲库",
                 bottomContent = {
-                    // 带轮廓的 TabRow（miuix 官方另一种形态）：未选中项描边、选中项实底，
-                    // 与 HyperOS 设置页的分段切换同款
-                    TabRowWithContour(
-                        tabs = LibraryTabs,
-                        selectedTabIndex = selectedTab,
-                        onTabSelected = { selectedTab = it },
-                    )
+                    // 紧凑居中：miuix 的 TabRow 每个 tab 限宽 76~98dp，直接 
+                    // fillMaxWidth 会均分成三个大胶囊（观感像 iOS 分段控件，与 HyperOS 的分段相去较远）。
+                    // 这里把整条限宽后居中，三个 tab 保持组件默认尺寸。
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        // 必须用「限宽的外层 Box」收窄约束：把 width 传给 TabRow 自己的 modifier
+                        // 没用——它内部是先 fillMaxWidth() 再 then(modifier)，只会把内容再往里挤。
+                        Box(Modifier.width(252.dp)) {
+                            TabRowWithContour(
+                                tabs = LibraryTabs,
+                                selectedTabIndex = selectedTab,
+                                onTabSelected = { selectedTab = it },
+                            )
+                        }
+                    }
                 },
             )
         },
