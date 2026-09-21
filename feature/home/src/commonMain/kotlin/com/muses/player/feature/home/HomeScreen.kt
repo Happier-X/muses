@@ -84,7 +84,6 @@ fun HomeScreen(
         topBar = {
             MusesTopBar(
                 title = "首页",
-                largeTitle = "首页",
                 scrollBehavior = topBarScrollBehavior,
             )
         },

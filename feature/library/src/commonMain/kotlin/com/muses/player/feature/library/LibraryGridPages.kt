@@ -73,7 +73,7 @@ fun AlbumsPage(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
         topBar = {
-            MusesTopBar(title = "专辑", largeTitle = "专辑", scrollBehavior = topBarScrollBehavior)
+            MusesTopBar(title = "专辑", scrollBehavior = topBarScrollBehavior)
         },
     ) { padding ->
         // __grid：顶栏停靠后内容自顶栏下方起排（玻璃下穿 + 真磨砂随自绘 navbar 退役）
@@ -176,7 +176,7 @@ fun ArtistsPage(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
         topBar = {
-            MusesTopBar(title = "艺术家", largeTitle = "艺术家", scrollBehavior = topBarScrollBehavior)
+            MusesTopBar(title = "艺术家", scrollBehavior = topBarScrollBehavior)
         },
     ) { padding ->
         if (cards.isEmpty()) {

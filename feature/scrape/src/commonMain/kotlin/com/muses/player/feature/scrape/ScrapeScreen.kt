@@ -73,7 +73,7 @@ fun ScrapeScreen(
         containerColor = scheme.surface,
         topBar = {
             // 大标题静态：状态机多列表，折叠联动改造成本高，暂不接 scrollBehavior
-            MusesTopBar(title = "刮削", largeTitle = "刮削")
+            MusesTopBar(title = "刮削")
         },
     ) { padding ->
         Column(

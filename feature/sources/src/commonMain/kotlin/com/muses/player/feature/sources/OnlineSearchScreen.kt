@@ -85,7 +85,6 @@ fun OnlineSearchScreen(
         topBar = {
             MusesTopBar(
                 title = "在线搜索",
-                largeTitle = "在线搜索",
                 onBack = onBack,
             )
         },

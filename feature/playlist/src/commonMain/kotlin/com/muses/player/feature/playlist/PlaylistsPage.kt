@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
  * 歌单页 —— PlaylistsPage.vue 一比一翻译。
  *
  * 结构对照（BEM 类名见各段注释）：
- * - navbar：MusesTopBar(title=歌单, largeTitle 折叠, actions=新建按钮)
+ * - navbar：MusesTopBar(title=歌单, actions=新建按钮)
  * - 空态：m-empty「还没有歌单 / 点右上角新建，或在歌曲页「更多」加入歌单。」(icon=list)
  * - 列表行 `.playlists-page__row`（min-height --m-list-row-h、hairline 分隔）：
  *   m-cover 48/radius-sm(placeholder=list) → 标题 17/600 单行省略 +
@@ -126,7 +126,6 @@ fun PlaylistsPage(
         topBar = {
             MusesTopBar(
                 title = "歌单",
-                largeTitle = "歌单",
                 actions = {
                     MusesIconButton(
                         onClick = {

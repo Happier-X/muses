@@ -75,7 +75,6 @@ fun LxScriptsScreen(
         topBar = {
             MusesTopBar(
                 title = "在线音源脚本",
-                largeTitle = "在线音源脚本",
                 onBack = onBack,
                 actions = {
                     MusesIconButton(

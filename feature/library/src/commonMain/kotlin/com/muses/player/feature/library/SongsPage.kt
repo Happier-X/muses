@@ -184,7 +184,6 @@ fun SongsPage(
         topBar = {
             MusesTopBar(
                 title = "歌曲",
-                largeTitle = "歌曲",
                 actions = {
                     MusesIconButton(onClick = {
                         isSearching = true

@@ -91,7 +91,6 @@ fun SourcesScreen(
         topBar = {
             MusesTopBar(
                 title = "音源",
-                largeTitle = "音源",
                 actions = {
                     MusesIconButton(
                         onClick = { viewModel.openAddActionSheet() },
