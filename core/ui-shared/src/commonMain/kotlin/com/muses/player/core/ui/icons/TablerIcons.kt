@@ -14,6 +14,9 @@ object TablerIcons {
     // 首页
     val Home: ImageVector = Tabler.Outline.Home
 
+    /** 探索（原「首页」）：罗盘 */
+    val Compass: ImageVector = Tabler.Outline.Compass
+
     // AI 推荐
     val Sparkles: ImageVector = Tabler.Outline.Sparkles
 

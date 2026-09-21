@@ -9,6 +9,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,6 +41,11 @@ data class SongItem(
     val title: String,
     val artist: String? = null,
     val albumTitle: String? = null,
+    /**
+     * 封面（远程 URL 或本地 URI）。
+     * null = **不渲染封面位**，保持纯文字行的既有视觉（曲库/歌单等列表未传时不受影响）。
+     */
+    val coverUri: String? = null,
 )
 
 /**
@@ -103,6 +109,17 @@ fun SongListItem(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // 封面（可选）：传了才渲染，避免影响既有纯文字列表（曲库/歌单等）的视觉
+        song.coverUri?.let { uri ->
+            MusesCover(
+                uri = uri,
+                size = 44.dp,
+                radius = MusesCoverRadius.SM,
+                contentDescription = null,
+            )
+            Spacer(Modifier.width(12.dp))
+        }
+
         // 文字区：标题 + 副标题
         androidx.compose.foundation.layout.Column(
             modifier = Modifier.weight(1f),

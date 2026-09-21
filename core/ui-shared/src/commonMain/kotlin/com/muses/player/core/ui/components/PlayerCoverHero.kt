@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import coil3.compose.AsyncImage
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.squircle.squircleClip
@@ -29,6 +31,7 @@ import top.yukonga.miuix.kmp.squircle.squircleClip
  * 对齐 Capacitor player-page__cover-hero：容器 max-height min(50vh,420px) +
  * cover-hero-img aspect 1 contain。封面加载走 Coil（file://`/`content://`/`data:`/`https:` 均可）。
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PlayerCoverHero(
     coverUri: String?,
@@ -55,8 +58,28 @@ fun PlayerCoverHero(
                 else -> minOf(availableWidth, availableHeight)
             }
         }
+        // 封面共享元素：两端同 key（迷你条与沉浸页正封），转场时由 Compose 把封面
+        // 从迷你条尺寸插值到全屏正封尺寸；比只共享外壳更绲滑。
+        // 仅当外层提供了作用域与 key 时才加（见 PlayerTransitionLocals）。
+        val sharedArtworkScope = LocalPlayerSharedTransitionScope.current
+        val sharedArtworkVisibility = LocalPlayerAnimatedVisibilityScope.current
+        val sharedArtworkKey = LocalPlayerArtworkKey.current
+        val artworkSharedModifier =
+            if (sharedArtworkKey != null && sharedArtworkScope != null && sharedArtworkVisibility != null) {
+                with(sharedArtworkScope) {
+                    Modifier.sharedElement(
+                        sharedContentState = rememberSharedContentState(sharedArtworkKey),
+                        animatedVisibilityScope = sharedArtworkVisibility,
+                        renderInOverlayDuringTransition = true,
+                        zIndexInOverlay = 100f,
+                    )
+                }
+            } else {
+                Modifier
+            }
         Box(
             modifier = Modifier
+                .then(artworkSharedModifier)
                 .size(targetSize)
                 .aspectRatio(1f)
                 .squircleClip(12.dp)

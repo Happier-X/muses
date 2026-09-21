@@ -36,6 +36,8 @@ import com.muses.player.core.ai.AiRecommendedTrack
 import com.muses.player.core.search.OnlineChart
 import com.muses.player.core.search.OnlineSearchResult
 import com.muses.player.core.ui.components.MusesButton
+import com.muses.player.core.ui.components.MusesCover
+import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesTextField
@@ -54,7 +56,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 首页：顶部搜索框 + 排行榜 + 猜你喜欢。
+ * 探索（原「首页」）：顶部搜索框 + 排行榜 + 猜你喜欢。
  *
  * 交互约定：
  * - 搜索框只负责**收集关键词并跳转**在线搜索页（搜索 UI/状态机在 :feature:sources，不重复造）；
@@ -80,7 +82,7 @@ fun HomeScreen(
         containerColor = scheme.surface,
         topBar = {
             MusesTopBar(
-                title = "首页",
+                title = "探索",
             )
         },
     ) { padding ->
@@ -163,6 +165,8 @@ fun HomeScreen(
                             title = song.name,
                             artist = song.artist,
                             albumTitle = song.album,
+                            // 榜单歌曲带远程封面（各平台 provider 已补齐；缺失时落占位音符）
+                            coverUri = song.coverUrl,
                         ),
                         isCurrent = false,
                         onClick = { viewModel.playChartSong(index) },
@@ -247,7 +251,6 @@ fun HomeScreen(
                             key = { _, track: AiRecommendedTrack -> "rec-${track.result.platform}-${track.result.songId}" },
                         ) { index, track ->
                             RecommendRow(
-                                index = index,
                                 track = track,
                                 platformLabel = track.result.platform.let { platformNames[it] ?: it },
                                 onClick = { viewModel.playRecommend(index) },
@@ -327,10 +330,9 @@ private fun HomePill(
     }
 }
 
-/** AI 推荐行：序号 + 歌名 +（歌手 · 推荐理由）+ 平台标签 */
+/** AI 推荐行：封面 + 歌名 +（歌手 · 推荐理由）+ 平台标签 */
 @Composable
 private fun RecommendRow(
-    index: Int,
     track: AiRecommendedTrack,
     platformLabel: String,
     onClick: () -> Unit,
@@ -341,15 +343,18 @@ private fun RecommendRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "${index + 1}",
-            fontSize = 13.sp,
-            color = scheme.onSurfaceVariantSummary,
-            modifier = Modifier.width(24.dp),
+        // 封面：与榜单/搜索列表同一视觉口径（远程 URL 经 Coil 双端加载，缺失/失败落稳定占位）。
+        // 不展示序号：封面已承担行首的视觉锚点，再加序号会拥挤。
+        MusesCover(
+            uri = track.result.coverUrl,
+            size = 44.dp,
+            radius = MusesCoverRadius.SM,
+            contentDescription = null,
         )
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 text = track.result.name,

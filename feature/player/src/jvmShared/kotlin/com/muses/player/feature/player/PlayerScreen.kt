@@ -46,7 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -102,6 +102,22 @@ fun PlayerScreen(
     viewModel: PlayerViewModel = koinViewModel(),
     onOpenQueue: () -> Unit = {},
     onOpenEditMeta: () -> Unit = {},
+    /**
+     * 下滑跟手中：上报收起进度（0 = 完全展开，1 = 已收起）。
+     *
+     * 非 null 时由**宿主**的 `SeekableTransitionState.seekTo(fraction)` 驱动
+     * 「迷你条 ↔ 沉浸页」的 sharedBounds 形变，本页不再自己做位移（否则与转场双重叠加）。
+     */
+    onSeekCollapse: ((Float) -> Unit)? = null,
+    /** 下滑松手：上报是否应当收起（true = 收起回迷你条） */
+    onSettleCollapse: ((Boolean) -> Unit)? = null,
+    /**
+     * 是否正处于「迷你条 ↔ 沉浸页」的 sharedBounds 转场中。
+     *
+     * 转场中 sharedBounds 会逐帧重排整个沉浸页内容树，而 [FlowingLightBackdrop] 是全屏图片 +
+     * 28dp 模糊，重排代价极高（实测掉帧明显）。所以转场期间换成纯色底，转场结束再恢复流光背景。
+     */
+    isTransitioning: Boolean = false,
 ) {
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val position by viewModel.position.collectAsStateWithLifecycle()
@@ -165,7 +181,10 @@ fun PlayerScreen(
     // 外层：m-popup 背景透明（对齐 .player-page__popup background: transparent !important）——
     // 无 scrim 黑化，drag-layer 下滑时直接漏出底下列表（原版 1:1）
     BoxWithConstraints(
-        modifier = modifier.fillMaxSize(),
+        // clipToBounds：父层（宿主里的 sharedBounds 容器）在转场中会被插值成迷你条大小，
+        // 这里必须裁剪，否则内部的 fillMaxSize 背景/毛玻璃层仍按全屏绘制，
+        // 收起时就会看到「内容缩了、背景还是一大块矩形」。
+        modifier = modifier.fillMaxSize().clipToBounds(),
     ) {
         // U21：屏幕尺寸取自视口约束（原 LocalConfiguration 仅安卓可用）
         val screenWidth = maxWidth
@@ -209,33 +228,56 @@ fun PlayerScreen(
                                 if (ignoreDrag) return@detectVerticalDragGestures
                                 if (dragAmount > 0f || accumulatedY > 0f) {
                                     accumulatedY = (accumulatedY + dragAmount).coerceAtLeast(0f)
-                                    dragOffsetY = accumulatedY
+                                    if (onSeekCollapse != null) {
+                                        // 跟手：把进度交给宿主的 SeekableTransitionState，由它驱动
+                                        // 「迷你条↔沉浸页」的形变；本页不再自己做位移，避免双重叠加
+                                        onSeekCollapse((accumulatedY / dismissThresholdPx).coerceIn(0f, 1f))
+                                    } else {
+                                        dragOffsetY = accumulatedY
+                                    }
                                 }
                             },
                             onDragEnd = {
                                 if (ignoreDrag) { ignoreDrag = false; return@detectVerticalDragGestures }
                                 isDraggingVertically = false
-                                if (accumulatedY >= dismissThresholdPx) { clearDragImmediate(); onClose() }
-                                else if (accumulatedY > 0f) { val from = accumulatedY; scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f } }
+                                if (onSettleCollapse != null) {
+                                    // 松手：是否收起交给宿主，由它从当前 fraction 续接动画
+                                    onSettleCollapse(accumulatedY >= dismissThresholdPx)
+                                } else if (accumulatedY >= dismissThresholdPx) {
+                                    clearDragImmediate(); onClose()
+                                } else if (accumulatedY > 0f) {
+                                    val from = accumulatedY
+                                    scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f }
+                                }
                                 accumulatedY = 0f
                             },
                             onDragCancel = {
                                 if (ignoreDrag) { ignoreDrag = false; return@detectVerticalDragGestures }
                                 isDraggingVertically = false
-                                if (accumulatedY > 0f) { val from = accumulatedY; scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f } }
+                                if (onSettleCollapse != null) {
+                                    onSettleCollapse(false)
+                                } else if (accumulatedY > 0f) {
+                                    val from = accumulatedY
+                                    scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f }
+                                }
                                 accumulatedY = 0f
                             },
                         )
                     }
                 )
         ) {
-            // FlowingLightBackdrop + 手机/平板双形态
-            FlowingLightBackdrop(
-                coverUri = stickyCover,
-                hasLyric = parsedLines.isNotEmpty(),
-                modifier = Modifier.fillMaxSize(),
-                flowSpeed = 2f,
-            )
+            // 转场中跳过流光背景：它是全屏 AsyncImage + blur(28dp)，在 sharedBounds 逐帧重排时
+            // 代价极高（主要掉帧源）；用纯色顶一下，转场结束后再恢复。
+            if (isTransitioning) {
+                Box(Modifier.fillMaxSize().background(Color(0xFF05070D)))
+            } else {
+                FlowingLightBackdrop(
+                    coverUri = stickyCover,
+                    hasLyric = parsedLines.isNotEmpty(),
+                    modifier = Modifier.fillMaxSize().clipToBounds(),
+                    flowSpeed = 2f,
+                )
+            }
             var activePanel by remember { mutableStateOf(0) }
             LaunchedEffect(activePanel) { isLyricPanelActive = activePanel == 1 }
             if (isTabletLayout) {

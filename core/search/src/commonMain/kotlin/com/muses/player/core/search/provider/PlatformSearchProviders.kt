@@ -78,8 +78,8 @@ class TxSearchProvider(
                 artist = singer,
                 album = album,
                 durationMs = interval?.times(1000),
-                // QQ 封面需要 album.pmid 拼 URL；搜索响应里常为空，交由上层兜底占位
-                coverUrl = null,
+                // 封面用专辑 mid 拼（y.gtimg.cn 标准格式）；mid 缺失时留空由 UI 落占位
+                coverUrl = qqCoverUrl(albumObj),
                 musicInfoJson = buildMusicInfo(
                     "songmid" to mid,
                     "mid" to mid,
@@ -152,7 +152,10 @@ class KgSearchProvider(
                 artist = artist,
                 album = album,
                 durationMs = durationSec?.times(1000),
-                coverUrl = item.str("AlbumImage")?.takeIf { it.startsWith("http") },
+                // 封面：实测 `AlbumImage` 恒为空串，真正有值的是 `Image`（且带 `{size}` 占位符）
+                coverUrl = (item.str("AlbumImage") ?: item.str("Image"))
+                    ?.replace("{size}", "240")
+                    ?.takeIf { it.startsWith("http") },
                 musicInfoJson = buildMusicInfo(
                     "hash" to hash,
                     "songmid" to hash,
@@ -230,8 +233,8 @@ class WySearchProvider(
                 artist = artist,
                 album = album,
                 durationMs = durationMs,
-                // 封面需 picId 经 AES 转 URL 加密，成本高；此处留空由 UI 占位
-                coverUrl = null,
+                // 该接口通常只给加密 picId（转 URL 需 AES，成本高）；若响应已带明文 picUrl 则直接用
+                coverUrl = albumObj?.str("picUrl")?.takeIf { it.startsWith("http") },
                 musicInfoJson = buildMusicInfo(
                     "songmid" to id,
                     "id" to id,

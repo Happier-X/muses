@@ -1,5 +1,7 @@
 package com.muses.player.core.ui.components
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -34,6 +36,7 @@ enum class MusesCoverRadius(val value: Dp) {
  * - 占位图标 `--m-list-icon`(24px)，tabler music；
  * - 图片 `object-fit: cover`；圆角按 [radius] 档位。
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MusesCover(
     uri: String?,
@@ -41,12 +44,32 @@ fun MusesCover(
     size: Dp = 52.dp,
     radius: MusesCoverRadius = MusesCoverRadius.MD,
     contentDescription: String? = null,
+    /**
+     * 非 null 时本封面参与「迷你条 ↔ 沉浸页」的共享元素转场（两端必须传同一个 key）。
+     * 作用域从 CompositionLocal 取（见 PlayerTransitionLocals），因此调用方无需持有 scope。
+     */
+    sharedArtworkKey: String? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
     val shape: Shape = remember(radius.value) { androidx.compose.foundation.shape.RoundedCornerShape(radius.value) }
+    val sharedScope = LocalPlayerSharedTransitionScope.current
+    val visibilityScope = LocalPlayerAnimatedVisibilityScope.current
+    val sharedModifier = if (sharedArtworkKey != null && sharedScope != null && visibilityScope != null) {
+        with(sharedScope) {
+            Modifier.sharedElement(
+                sharedContentState = rememberSharedContentState(sharedArtworkKey),
+                animatedVisibilityScope = visibilityScope,
+                renderInOverlayDuringTransition = true,
+                zIndexInOverlay = 100f,
+            )
+        }
+    } else {
+        Modifier
+    }
 
     Box(
         modifier = modifier
+            .then(sharedModifier)
             .size(size)
             .clip(shape)
             .background(scheme.surfaceContainerHigh)

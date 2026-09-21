@@ -32,7 +32,10 @@ class ChartProviderSmokeTest {
         assertTrue(page.results.isNotEmpty(), "QQ 榜单歌曲为空")
         val first = page.results.first()
         assertTrue(first.musicInfoJson.contains("songmid"), "QQ musicInfo 缺 songmid：${first.musicInfoJson}")
-        println("[smoke] QQ 歌曲 ${page.results.size} 首，首曲=${first.name} - ${first.artist}")
+        // 封面回归：QQ 两个接口都不直接给封面 URL，靠 album.mid 拼（改坏了首页/搜索就会大面积落占位）
+        val withCover = page.results.count { !it.coverUrl.isNullOrBlank() }
+        println("[smoke] QQ 歌曲 ${page.results.size} 首，首曲=${first.name} - ${first.artist}，有封面 $withCover/${page.results.size}，示例=${first.coverUrl}")
+        assertTrue(withCover >= page.results.size / 2, "QQ 榜单封面拼接失败（仅 $withCover/${page.results.size}）")
     }
 
     @Test
@@ -63,5 +66,24 @@ class ChartProviderSmokeTest {
         val first = page.results.first()
         assertTrue(first.musicInfoJson.contains("\"id\""), "网易 musicInfo 缺 id：${first.musicInfoJson}")
         println("[smoke] 网易歌曲 ${page.results.size} 首，首曲=${first.name} - ${first.artist}")
+    }
+
+    @Test
+    fun QQ搜索封面可拼接() = runBlocking {
+        if (!enabled()) return@runBlocking println("SKIP ChartProviderSmokeTest：未设置 MUSES_ONLINE_SMOKE=1")
+        val page = com.muses.player.core.search.provider.TxSearchProvider().search("周杰伦", page = 1, pageSize = 10)
+        val withCover = page.results.count { !it.coverUrl.isNullOrBlank() }
+        println("[smoke] QQ 搜索 ${page.results.size} 首，有封面 $withCover，示例=${page.results.firstOrNull()?.coverUrl}")
+        assertTrue(withCover >= page.results.size / 2, "QQ 搜索封面拼接失败（仅 $withCover/${page.results.size}）")
+    }
+
+    @Test
+    fun 酷狗与网易搜索封面() = runBlocking {
+        if (!enabled()) return@runBlocking println("SKIP ChartProviderSmokeTest：未设置 MUSES_ONLINE_SMOKE=1")
+        val kg = com.muses.player.core.search.provider.KgSearchProvider().search("周杰伦", page = 1, pageSize = 10)
+        val wy = com.muses.player.core.search.provider.WySearchProvider().search("周杰伦", page = 1, pageSize = 10)
+        println("[smoke] 酷狗搜索有封面 ${kg.results.count { !it.coverUrl.isNullOrBlank() }}/${kg.results.size}，示例=${kg.results.firstOrNull()?.coverUrl}")
+        println("[smoke] 网易搜索有封面 ${wy.results.count { !it.coverUrl.isNullOrBlank() }}/${wy.results.size}，示例=${wy.results.firstOrNull()?.coverUrl}")
+        assertTrue(kg.results.any { !it.coverUrl.isNullOrBlank() }, "酷狗搜索封面缺失")
     }
 }

@@ -83,6 +83,8 @@ fun SongsPage(
     /** M3：加入待刮削队列（经回调注入，feature:library 不直接依赖 core:scrape） */
     onEnqueueScrape: (List<String>) -> Unit = {},
     modifier: Modifier = Modifier,
+    /** 作为「曲库」Tab 的内容嵌入时为 false：顶栏（标题 + 搜索 + 工具栏）交由外部容器统一提供 */
+    showTopBar: Boolean = true,
     viewModel: SongsViewModel = koinViewModel(),
 ) {
     // 非 null 时弹出「加入播放列表」弹层（复用 M2 AddToPlaylistSheet）
@@ -180,6 +182,7 @@ fun SongsPage(
         topBar = {
             MusesTopBar(
                 title = "歌曲",
+                visible = showTopBar,
                 actions = {
                     MusesIconButton(onClick = {
                         isSearching = true

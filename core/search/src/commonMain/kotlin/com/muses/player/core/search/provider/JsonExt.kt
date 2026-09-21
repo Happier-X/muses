@@ -95,6 +95,18 @@ internal fun buildMusicInfo(
     }.toString()
 }
 
+/**
+ * QQ 音乐封面 URL：用专辑 mid 拼（`y.gtimg.cn` 标准格式，无需签名/加密）。
+ *
+ * 搜索与榜单两个接口都不直接给封面 URL，但都给专辑 `mid`/`pmid`（实测 `album.mid` 可用），
+ * 故统一在此拼接；`pmid` 形如 `001GLIOL3e4u8j_1`，取其 `_` 前部分。
+ */
+internal fun qqCoverUrl(album: JsonObject?): String? {
+    val albumMid = album?.str("mid") ?: album?.str("pmid")?.substringBefore('_')
+    return albumMid?.takeIf { it.isNotBlank() }
+        ?.let { "https://y.gtimg.cn/music/photo_new/T002R300x300M000$it.jpg" }
+}
+
 /** 平台展示名到 key 的统一（用于结果模型） */
 internal const val PLATFORM_KW = "kw"
 internal const val PLATFORM_KG = "kg"

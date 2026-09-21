@@ -61,6 +61,8 @@ import top.yukonga.miuix.kmp.squircle.squircleClip
 fun AlbumsPage(
     onAlbumClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** 作为「曲库」Tab 的内容嵌入时为 false（顶栏交由外部容器提供） */
+    showTopBar: Boolean = true,
     viewModel: AlbumCardsViewModel = koinViewModel(),
 ) {
     val scheme = MiuixTheme.colorScheme
@@ -69,7 +71,7 @@ fun AlbumsPage(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
         topBar = {
-            MusesTopBar(title = "专辑")
+            MusesTopBar(title = "专辑", visible = showTopBar)
         },
     ) { padding ->
         // __grid：顶栏停靠后内容自顶栏下方起排（玻璃下穿 + 真磨砂随自绘 navbar 退役）
@@ -162,6 +164,8 @@ fun AlbumsPage(
 fun ArtistsPage(
     onArtistClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** 作为「曲库」Tab 的内容嵌入时为 false（顶栏交由外部容器提供） */
+    showTopBar: Boolean = true,
     viewModel: ArtistCardsViewModel = koinViewModel(),
 ) {
     val scheme = MiuixTheme.colorScheme
@@ -170,7 +174,7 @@ fun ArtistsPage(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
         topBar = {
-            MusesTopBar(title = "艺术家")
+            MusesTopBar(title = "艺术家", visible = showTopBar)
         },
     ) { padding ->
         if (cards.isEmpty()) {

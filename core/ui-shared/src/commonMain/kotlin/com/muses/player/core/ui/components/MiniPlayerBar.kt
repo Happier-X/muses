@@ -35,6 +35,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -98,6 +99,18 @@ fun MiniPlayerBar(
     modifier: Modifier = Modifier,
     /** 是否有当前曲目（false = 空态：整条不可点、播放键禁用） */
     hasSong: Boolean = true,
+    /** 是否显示队列按钮（融合态等窄宽度场景可关，给标题让出宽度） */
+    showQueueButton: Boolean = true,
+    /**
+     * 封面边长。
+     *
+     * 参考实现 Halcyon 的常规迷你条为 44dp、紧凑态为 38dp；我们统一 44dp 时，在 56dp 高的
+     * 胶囊里只剩 6dp 余量，观感偏满（用户反馈「封面有点大」），故常规态收到 **40dp**，
+     * 融合态由调用方传 38dp。
+     */
+    coverSize: Dp = 40.dp,
+    /** 是否参与「迷你条 ↔ 沉浸页」的封面共享转场（沉浸页打开时才为 true，避免与收起态同时存在两份） */
+    sharedArtwork: Boolean = true,
     /** 左滑 → 下一曲（null = 不支持滑动切歌） */
     onNext: (() -> Unit)? = null,
     /** 右滑 → 上一曲（null = 不支持滑动切歌） */
@@ -172,7 +185,8 @@ fun MiniPlayerBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(64.dp)
+            // 对齐 Halcyon 的迷你条尺寸：内容高 56dp（其封面 44dp + padding 6×2）
+            .height(56.dp)
             // TODO(U4): SaltShadows（android.graphics.BlurMaskFilter）暂不迁入 commonMain，
             // 完整阴影配方待 SaltShadows 完成跨平台抽象后恢复。
             // 与悬浮底栏同材质链：先投影再铺纯色（官方 FloatingNavigationBar 同顺序）
@@ -187,11 +201,19 @@ fun MiniPlayerBar(
                 enabled = hasSong,
                 onClick = onOpenPlayer,
             )
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        MusesCover(uri = coverUri, size = 48.dp, radius = MusesCoverRadius.MD)
+        MusesCover(
+            uri = coverUri,
+            size = coverSize,
+            // 与沉浸页正封（PlayerCoverHero 的 squircleClip(12.dp)）保持同一圆角：
+            // sharedElement 只插值 bounds，两端圆角/形状不一致时转场中会突变，
+            // 看起来就是「封面尺寸没渐变」而不是丝滑缩放。
+            radius = MusesCoverRadius.MD,
+            sharedArtworkKey = if (sharedArtwork) PlayerArtworkSharedKey else null,
+        )
 
         // __info：gap 3px，flex:1 min-width:0
         // 滑动区：仅本列跟手平移 + 接收水平拖动，对侧拖入纯文字切歌提示
@@ -281,13 +303,15 @@ fun MiniPlayerBar(
                     tint = scheme.onBackground, // __btn { color: var(--m-text) }
                     iconSizeOverride = 18.dp, // __icon { width: 18px }
                 )
-                MusesIconButton(
-                    onClick = onOpenQueue,
-                    imageVector = TablerIcons.QueueMusic, // tabler playlist
-                    contentDescription = "打开播放队列",
-                    tint = scheme.onBackground,
-                    iconSizeOverride = 18.dp,
-                )
+                if (showQueueButton) {
+                    MusesIconButton(
+                        onClick = onOpenQueue,
+                        imageVector = TablerIcons.QueueMusic, // tabler playlist
+                        contentDescription = "打开播放队列",
+                        tint = scheme.onBackground,
+                        iconSizeOverride = 18.dp,
+                    )
+                }
             }
         }
     }

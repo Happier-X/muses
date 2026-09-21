@@ -28,7 +28,14 @@ fun MusesTopBar(
     navigationIcon: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     bottomContent: @Composable () -> Unit = {},
+    /**
+     * false = 不渲染（供「容器已提供统一顶栏 + Tab」的嵌入场景，如曲库页的三个子页）。
+     * 在函数入口直接 return，比在每个调用处包 `if` 简单得多（调用点带有几十行的
+     * actions / bottomContent lambda，包 if 会很难改）。
+     */
+    visible: Boolean = true,
 ) {
+    if (!visible) return
     val openDrawer = LocalMusesOpenDrawer.current
     val icon: @Composable () -> Unit = navigationIcon ?: {
         if (onBack != null) {

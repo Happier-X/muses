@@ -126,7 +126,7 @@ class QqChartProvider(
                 artist = singer,
                 album = album,
                 durationMs = interval?.times(1000),
-                coverUrl = null,
+                coverUrl = qqCoverUrl(item.obj("album")),
                 musicInfoJson = buildMusicInfo(
                     "songmid" to mid,
                     name = name,

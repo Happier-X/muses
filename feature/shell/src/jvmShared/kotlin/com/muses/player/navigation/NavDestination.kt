@@ -23,8 +23,8 @@ enum class NavDestination(
     /** Web 层同款语义的图标（括号内为 Tabler 原名） */
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
 ) {
-    // ---- 首页（U27 新增：搜索框 + 排行榜 + 猜你喜欢，启动默认页）----
-    Home(MusesRoute.Home, "首页", TablerIcons.Home),
+    // ---- 探索（U27 新增：搜索框 + 排行榜 + 猜你喜欢，启动默认页）----
+    Home(MusesRoute.Home, "探索", TablerIcons.Compass),
 
     // ---- 主菜单（曲库）：primaryNavItems = navItems.slice(0, 4) ----
     Songs(MusesRoute.Songs, "歌曲", TablerIcons.MusicNote),            // music (Music)
@@ -53,8 +53,8 @@ enum class NavDestination(
     }
 
     companion object {
-        /** 侧边栏主导航组（首页 + 曲库），顺序对照 primaryNavItems 前置首页 */
-        val Primary: List<NavDestination> = listOf(Home, Songs, Albums, Artists, Playlists)
+        /** 主导航组（探索 + 曲库）：顺序对照 primaryNavItems、前置探索；歌单已按产品侧要求移除 */
+        val Primary: List<NavDestination> = listOf(Home, Songs, Albums, Artists)
 
         /** 侧边栏辅助导航组（工具），顺序对照 secondaryNavItems */
         val Secondary: List<NavDestination> = listOf(Scrape, Sources, Settings)
