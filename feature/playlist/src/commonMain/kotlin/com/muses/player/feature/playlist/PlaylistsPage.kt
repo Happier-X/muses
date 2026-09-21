@@ -12,9 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -25,7 +23,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.ViewModel
@@ -119,7 +116,6 @@ fun PlaylistsPage(
     var nameDialog by remember { mutableStateOf<NameDialogState?>(null) }
     var deleteTargetId by remember { mutableStateOf<String?>(null) }
 
-    val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
@@ -141,7 +137,6 @@ fun PlaylistsPage(
                         )
                     }
                 },
-                scrollBehavior = topBarScrollBehavior,
             )
         },
     ) { padding ->
@@ -166,8 +161,7 @@ fun PlaylistsPage(
             } else {
                 LazyColumn(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
+                        .fillMaxSize(),
                     contentPadding = PaddingValues(
                         // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
                         bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,

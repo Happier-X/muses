@@ -5,7 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 
 /**
@@ -29,7 +28,6 @@ fun MusesTopBar(
     navigationIcon: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     bottomContent: @Composable () -> Unit = {},
-    scrollBehavior: ScrollBehavior? = null,
 ) {
     val openDrawer = LocalMusesOpenDrawer.current
     val icon: @Composable () -> Unit = navigationIcon ?: {
@@ -49,7 +47,6 @@ fun MusesTopBar(
         navigationIcon = icon,
         actions = actions,
         bottomContent = bottomContent,
-        scrollBehavior = scrollBehavior,
         modifier = modifier,
     )
 }

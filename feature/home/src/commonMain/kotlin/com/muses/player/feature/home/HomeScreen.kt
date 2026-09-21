@@ -48,11 +48,9 @@ import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -73,7 +71,6 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val scheme = MiuixTheme.colorScheme
-    val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     val chart = state.chart
     val recommend = state.recommend
     val platformNames = chart.platformNames
@@ -84,7 +81,6 @@ fun HomeScreen(
         topBar = {
             MusesTopBar(
                 title = "首页",
-                scrollBehavior = topBarScrollBehavior,
             )
         },
     ) { padding ->

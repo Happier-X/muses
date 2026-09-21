@@ -26,9 +26,7 @@ import com.muses.player.core.ui.components.MusesButton
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import com.muses.player.core.ui.components.MusesTextField
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
@@ -84,7 +82,6 @@ fun SourcesScreen(
     // 扫描进度弹窗观察 scanner 内部进度流
     val scanProgress by viewModel.scanProgress.collectAsState()
 
-    val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
@@ -100,7 +97,6 @@ fun SourcesScreen(
                         Icon(TablerIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
                 },
-                scrollBehavior = topBarScrollBehavior,
             )
         },
     ) { padding ->
@@ -134,8 +130,7 @@ fun SourcesScreen(
                             onOpenLxScripts = onOpenLxScripts,
                             onOpenOnlineSearch = onOpenOnlineSearch,
                             modifier = Modifier
-                                .fillMaxSize()
-                                .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
+                                .fillMaxSize(),
                 onEdit = { source ->
                     // WebDAV：跳独立编辑表单页；本地：打开编辑表单弹窗
                     if (source.type == SourceType.WEBDAV) {

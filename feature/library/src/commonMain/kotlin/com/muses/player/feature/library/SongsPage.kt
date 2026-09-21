@@ -25,9 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import top.yukonga.miuix.kmp.basic.FabPosition
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
@@ -55,7 +53,6 @@ import kotlinx.coroutines.launch
 import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.model.Song
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.muses.player.core.ui.components.MusesActionsSheet
 import com.muses.player.core.ui.components.MusesActionItem
 import com.muses.player.core.ui.components.MusesCover
@@ -177,7 +174,6 @@ fun SongsPage(
     }
     // 阶段二槽位化：顶栏进 Scaffold topBar（原生大标题折叠），列表进 content，
     // FAB 进 floatingActionButton 槽（自动避让停靠迷你条），多选条见下方 E5 浮层。
-    val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
@@ -287,7 +283,6 @@ fun SongsPage(
                         }
                     }
                 },
-                scrollBehavior = topBarScrollBehavior,
             )
         },
         floatingActionButton = {
@@ -324,8 +319,7 @@ fun SongsPage(
             } else {
                 LazyColumn(
                     Modifier
-                        .fillMaxSize()
-                        .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
+                        .fillMaxSize(),
                     state = listState,
                     // 末项避让底部悬浮件（悬浮件高度见 BottomChrome；空态分支不受影响）
                     contentPadding = PaddingValues(

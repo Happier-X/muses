@@ -17,9 +17,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
@@ -29,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,12 +65,11 @@ fun AlbumsPage(
 ) {
     val scheme = MiuixTheme.colorScheme
     val cards by viewModel.cards.collectAsState()
-    val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
         topBar = {
-            MusesTopBar(title = "专辑", scrollBehavior = topBarScrollBehavior)
+            MusesTopBar(title = "专辑")
         },
     ) { padding ->
         // __grid：顶栏停靠后内容自顶栏下方起排（玻璃下穿 + 真磨砂随自绘 navbar 退役）
@@ -91,8 +87,7 @@ fun AlbumsPage(
                 // Web ≥768px：repeat(auto-fill, minmax(180px, 1fr))；手机恒两列
                 columns = if (isTabletWidth()) GridCells.Adaptive(180.dp) else GridCells.Fixed(2),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
+                    .fillMaxSize(),
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
@@ -171,12 +166,11 @@ fun ArtistsPage(
 ) {
     val scheme = MiuixTheme.colorScheme
     val cards by viewModel.cards.collectAsState()
-    val topBarScrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
         topBar = {
-            MusesTopBar(title = "艺术家", scrollBehavior = topBarScrollBehavior)
+            MusesTopBar(title = "艺术家")
         },
     ) { padding ->
         if (cards.isEmpty()) {
@@ -193,8 +187,7 @@ fun ArtistsPage(
                 // 同专辑页：Web ≥768px auto-fill minmax(180px, 1fr)
                 columns = if (isTabletWidth()) GridCells.Adaptive(180.dp) else GridCells.Fixed(2),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
+                    .fillMaxSize(),
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
