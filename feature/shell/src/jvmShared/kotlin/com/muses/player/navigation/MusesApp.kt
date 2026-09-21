@@ -41,7 +41,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -397,11 +396,6 @@ fun MusesApp() {
 
         // 沉浸式/队列改为状态驱动的 overlay（Box 叠加于 Tabs 之上），下滑漏出背后列表而非纯黑窗口
         var showPlayerOverlay by remember { mutableStateOf(false) }
-    // 收纳进度（0 = 全屏展开，1 = 已收到迷你条）。
-    // 手势拖动时由 PlayerScreen 回调逐帧写入（跟手），松手后归零；
-    // 用它驱动转场中的圆角与深色遮盖——SeekableTransitionState.fraction 实测在
-    // 拖动过程中始终为 0，拿不到中间进度。
-    var playerCollapseProgress by remember { mutableFloatStateOf(0f) }
     // 「迷你条 ↔ 沉浸页」的可中断转场（对齐 MeloX 的 MeloXApp）：
     // 用 SeekableTransitionState + rememberTransition，然后由 Transition.AnimatedVisibility(visible = { ... })
     // 驱动两侧的进出——它能感知 seekTo 写入的中间进度，所以手势可以跟手。
@@ -418,9 +412,14 @@ fun MusesApp() {
         // 必须与 PlayerShellBoundsTransform 用同一条时间线：
         // 否则封面（sharedElement 受 playerTransition 驱动）会比外壳先跑完，
         // 看上去就是「封面一上来就全尺寸」而不是随容器逐渐放大。
+        // 注：刻意用 Compose 原生动画（跟随系统「动画程序时长缩放」），
+        // 不用 withFrameNanos 手写帧驱动绕开它——理由见 changelog/v0.6.6。
         playerTransitionState.animateTo(
             targetState = showPlayerOverlay,
-            animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
+            animationSpec = tween(
+                durationMillis = PlayerTransitionDurationMillis,
+                easing = FastOutSlowInEasing,
+            ),
         )
     }
         var showQueueOverlay by remember { mutableStateOf(false) }
@@ -723,8 +722,7 @@ fun MusesApp() {
                     onOpenEditMeta = { showEditMeta = true },
                     isTransitioning = playerTransitioning,
                     onSeekCollapse = { fraction ->
-                        // 跟手：进度用于圆角/深色遮盖，同时 seek 转场本体，两者逐帧同步
-                        playerCollapseProgress = fraction.coerceIn(0f, 1f)
+                        // 跟手：手指每帧把进度写进转场本体（外壳 bounds 与封面共享元素都跟着它走）
                         scope.launch {
                             playerTransitionState.seekTo(
                                 fraction = fraction.coerceIn(0f, 0.999f),
@@ -733,8 +731,7 @@ fun MusesApp() {
                         }
                     },
                     onSettleCollapse = { collapse ->
-                        // 松手：进度归零，由转场本体从当前 fraction 续接动画
-                        playerCollapseProgress = 0f
+                        // 松手：由转场本体从当前 fraction 续接动画
                         scope.launch { playerTransitionState.animateTo(targetState = !collapse) }
                         if (collapse) showPlayerOverlay = false
                     },
@@ -762,11 +759,17 @@ private const val PlayerShellKey = "muses-player-shell"
  * 但容器还在变形」的割裂感，统一 tween 才是可预期的单一时间线。
  */
 private val PlayerShellBoundsTransform = BoundsTransform { _, _ ->
-    // 260ms（MeloX 为 360ms）：本项目沉浸页更重（歌词面板 + 模糊背景 + 多层覆盖），
-    // 而 sharedBounds 默认的 RemeasureToBounds 会在转场中逐帧重排内容树，
-    // 时长越长卡顿越明显；缩短到 260ms 观感上明显更跟手。
-    tween(durationMillis = 380, easing = FastOutSlowInEasing)
+    // 与 [PlayerTransitionDurationMillis] 同一条时间线：外壳 bounds 与封面共享元素
+    // 必须同时到点，否则会出现「内容已就位但容器还在变形」的割裂感。
+    tween(durationMillis = PlayerTransitionDurationMillis, easing = FastOutSlowInEasing)
 }
+
+/**
+ * 「迷你条 ↔ 沉浸页」转场时长（[PlayerShellBoundsTransform] 与 `animateTo` 同源）。
+ * 380ms 略长于 MeloX 的 360ms：本项目沉浸页更重（歌词面板 + 模糊背景 + 多层覆盖），
+ * 配合 FastOutSlowInEasing 前段推进快，太短会显得「一下就到」。
+ */
+private const val PlayerTransitionDurationMillis = 380
 
 /** 导航项组装（图标/文案/激活判定均来自 NavDestination 的 Web 层映射） */
 private fun NavDestination.toNavItem(
