@@ -51,9 +51,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import top.yukonga.miuix.kmp.basic.Icon
@@ -422,9 +419,8 @@ fun MusesApp() {
         },
         label = "player-shell-progress",
     ) { visible -> if (visible) 1f else 0f }
-    // 迷你条在窗口中的真实矩形（px）：沉浸页开合的形变起点，由迷你条自己上报。
-    // 注意它只在迷你条分支存在时更新；打开瞬间该分支退出，但这里保留最后一次的值。
-    var miniBarBounds by remember { mutableStateOf<Rect?>(null) }
+    // 沉浸页开合改成「等比浮入」后不再需要迷你条矩形做形变起点（见 PlayerShellBox），
+    // 所以 miniBarBounds 及其上报链路已移除。
     LaunchedEffect(showPlayerOverlay) {
         // 外部开关（点迷你条 / 点关闭按钮 / 返回键）触发时把转场跑到目标态；
         // 手势松手后的续接由 onSettleCollapse 直接 animateTo，不走这里。
@@ -552,8 +548,6 @@ fun MusesApp() {
                             onOpenSearch = { backStack.pushUnique(MusesRoute.OnlineSearch()) },
                             sideMargin = chromeSideMargin,
                             compactProgress = compactProgress,
-                            // 融合态下点开沉浸页的形变起点：用这条胶囊里的播放器矩形
-                            onPlayerBounds = { miniBarBounds = it },
                         )
                     } else {
                     // 底部槽位 = 迷你条（上）+ 窄屏悬浮导航栏（下），导航（aside/底栏）与内容叠层顺序
@@ -595,11 +589,8 @@ fun MusesApp() {
                         onNext = { viewModel.skipToNext() },
                         onPrevious = { viewModel.skipToPrevious() },
                         modifier = Modifier
-                            // 上报自身矩形：沉浸页开合时由它算出形变起点（见 PlayerShellBox）。
-                            // 不再参与 sharedBounds —— 形变完全由宿主侧自己算，避免两套变换叠加。
                             .padding(horizontal = chromeSideMargin, vertical = 8.dp)
-                            .fillMaxWidth()
-                            .onGloballyPositioned { miniBarBounds = it.boundsInWindow() },
+                            .fillMaxWidth(),
                     )
                     }
                     }
@@ -708,11 +699,9 @@ fun MusesApp() {
                 // 全屏基准：最外层 BoxWithConstraints 的约束（沉浸页 overlay 与 Scaffold 平级，同一作用域）
                 fullWidth = maxWidth,
                 fullHeight = maxHeight,
-                // 形变起点 = 迷你条上报的真实矩形，终点 = 全屏；进度来自 transition
-                // 注意传 lambda：数值在这里取出来会每帧重组整棵沉浸页（转场掉帧的主因）
-                miniBounds = miniBarBounds,
+                // 进度来自 transition；注意传 lambda：在这里取值会每帧重组整棵沉浸页
                 progress = { shellProgress },
-                // 形变全靠自算的缩放，所以这里只需把溢出裁掉
+                // 变换全靠 graphicsLayer，所以这里只需把溢出裁掉
                 modifier = Modifier.fillMaxSize().clipToBounds(),
             ) {
                 val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
@@ -773,57 +762,41 @@ private const val PlayerTransitionDurationMillis = 380
 private fun PlayerShellBox(
     fullWidth: Dp,
     fullHeight: Dp,
-    /** 迷你条在窗口中的真实矩形（px）；null 时不做形变（退化为全屏） */
-    miniBounds: Rect?,
     /**
-     * 转场进度：0 = 迷你条态，1 = 全屏沉浸态。
+     * 转场进度：0 = 起始（屏幕外下方），1 = 全屏沉浸态。
      *
      * **必须传 lambda**（内部才读 State）——不能在调用处就取出数值再当参数传：
      * 那样每帧都会重组整棵沉浸页（歌词 + 封面 + 模糊背景），就是「转场不丝滑」的真正原因。
-     * 在 `offset` / `graphicsLayer` 的 lambda 里读，只会使该层失效并重绘，不触发重组。
      */
     progress: () -> Float,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
-    // 迷你条态圆角 = 迷你条胶囊半径（56dp 高的一半），到全屏收到 0
+    // 起始圆角 = 迷你条胶囊半径（56dp 高的一半），到全屏收到 0
     val cornerRadiusPx = with(density) { PlayerShellCardCorner.toPx() }
     BoxWithConstraints(modifier) {
-        val fullWidthPx = with(density) { fullWidth.toPx() }.coerceAtLeast(1f)
         val fullHeightPx = with(density) { fullHeight.toPx() }.coerceAtLeast(1f)
-        val start = miniBounds
         Box(
             modifier = Modifier
-                // 布局固定用全屏约束：内容长什么样与全屏态完全一致，只缩放「绘制结果」
+                // 布局固定用全屏约束：内容长什么样与全屏态完全一致，只做整体变换
                 .requiredSize(fullWidth, fullHeight)
-                // 先平移到形变矩形位置，再以左上角为原点缩放（两者互不干扰）
+                // 从屏幕下方浮入（迷你条本来就在屏幕底部，观感上就是「从迷你条位置升起」）
                 .offset {
-                    if (start == null) {
-                        IntOffset.Zero
-                    } else {
-                        val p = progress().coerceIn(0f, 1f)
-                        IntOffset(
-                            (start.left * (1f - p)).roundToInt(),
-                            (start.top * (1f - p)).roundToInt(),
-                        )
-                    }
+                    val p = progress().coerceIn(0f, 1f)
+                    IntOffset(0, (fullHeightPx * (1f - p)).roundToInt())
                 }
                 .graphicsLayer {
                     val p = progress().coerceIn(0f, 1f)
-                    scaleX = if (start != null) {
-                        (start.width + (fullWidthPx - start.width) * p) / fullWidthPx
-                    } else {
-                        1f
-                    }
-                    scaleY = if (start != null) {
-                        (start.height + (fullHeightPx - start.height) * p) / fullHeightPx
-                    } else {
-                        1f
-                    }
-                    transformOrigin = TransformOrigin(0f, 0f)
+                    // 等比缩放（scaleX == scaleY）：整页一起放大，内容不变形。
+                    // 之前是 scaleX/scaleY 分开按「迷你条矩形 → 全屏」插值，而迷你条是宽扁矩形，
+                    // 于是文字与封面被横向拉伸/竖向压缩——那正是「不自然、不丝滑」的来源。
+                    val s = PlayerShellStartScale + (1f - PlayerShellStartScale) * p
+                    scaleX = s
+                    scaleY = s
+                    // 以底部中心为原点：缩放时卡片底部不动，向上展开
+                    transformOrigin = TransformOrigin(0.5f, 1f)
                     clip = true
-                    // 卡片圆角：迷你条态是胶囊半径，靠全屏时收到 0（太小会看着像方块）
                     shape = RoundedCornerShape(CornerSize(cornerRadiusPx * (1f - p)))
                 },
         ) {
@@ -832,8 +805,17 @@ private fun PlayerShellBox(
     }
 }
 
-/** 转场中卡片的圆角基数：迷你条胶囊半径（迷你条高 56dp 的一半），全屏时收到 0 */
+/**
+ * 转场中卡片的圆角基数：迷你条胶囊半径（迷你条高 56dp 的一半），全屏时收到 0。
+ * 之前只有 12dp，转场中期剩几 dp，看着就是个方块。
+ */
 private val PlayerShellCardCorner = 28.dp
+
+/**
+ * 转场起始缩放（等比）：卡片比屏幕略小，浮入时自带「卡片浮起」的层次感，到全屏时回到 1。
+ * 椒盐音乐那种展开就是「整页一起等比放大」而不是「宽扁矩形拉成全屏」。
+ */
+private const val PlayerShellStartScale = 0.92f
 
 
 /** 导航项组装（图标/文案/激活判定均来自 NavDestination 的 Web 层映射） */
@@ -1090,12 +1072,6 @@ private fun CompactPlayerDock(
     onOpenSearch: () -> Unit,
     sideMargin: Dp,
     compactProgress: Float,
-    /**
-     * 上报中间迷你播放器在窗口中的矩形（px）：沉浸页开合时作为形变起点。
-     * 融合态与展开态用的是两个不同的 [MiniPlayerBar] 实例（两行 → 一行的布局不同），
-     * 两边都必须上报，否则在融合态下点开沉浸页会用上一次展开态的旧矩形做起点（位置会跳）。
-     */
-    onPlayerBounds: (Rect) -> Unit,
 ) {
     val collapse = compactProgress.coerceIn(0f, 1f)
     // 借鉴 Halcyon：同一弹簧进度驱动图标缩放（连续插值，过渡不跳变）
@@ -1128,10 +1104,7 @@ private fun CompactPlayerDock(
                 onOpenQueue = onOpenQueue,
                 // 融合态宽度被两侧 pill 占去大半：关队列按钮，把宽度让给标题
                 showQueueButton = false,
-                // 与展开态同口径：上报自身矩形供沉浸页开合做形变起点
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { onPlayerBounds(it.boundsInWindow()) },
+                modifier = Modifier.fillMaxWidth(),
             )
         }
         // 右：搜索
