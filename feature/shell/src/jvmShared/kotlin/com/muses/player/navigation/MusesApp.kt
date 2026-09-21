@@ -28,13 +28,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.fadeIn
@@ -49,15 +49,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import com.muses.player.core.ui.components.LocalPlayerAnimatedVisibilityScope
-import com.muses.player.core.ui.components.LocalPlayerArtworkKey
 import com.muses.player.core.ui.components.LocalPlayerSharedTransitionScope
 import com.muses.player.core.ui.components.MusesBottomDock
 import com.muses.player.core.ui.components.MusesBottomDockItem
-import com.muses.player.core.ui.components.PlayerArtworkSharedKey
 import com.muses.player.core.ui.components.MusesDockActionPill
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -135,6 +139,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /** MiniPlayerBar 的数据快照（对照 MiniPlayer.vue 的 playerState.currentSong 消费口径） */
 data class NowPlayingUiState(
@@ -409,12 +414,22 @@ fun MusesApp() {
         label = "muses-player-transition",
     )
     val scope = rememberCoroutineScope()
+    // 转场进度（0 = 迷你条态，1 = 全屏沉浸态）：由 Compose transition 驱动，所以照旧跟随系统
+    // 「动画程序时长缩放」；沉浸页下滑跟手时 seekTo 写入的中间进度也会逐帧体现在这里。
+    val shellProgress by playerTransition.animateFloat(
+        transitionSpec = {
+            tween(durationMillis = PlayerTransitionDurationMillis, easing = FastOutSlowInEasing)
+        },
+        label = "player-shell-progress",
+    ) { visible -> if (visible) 1f else 0f }
+    // 迷你条在窗口中的真实矩形（px）：沉浸页开合的形变起点，由迷你条自己上报。
+    // 注意它只在迷你条分支存在时更新；打开瞬间该分支退出，但这里保留最后一次的值。
+    var miniBarBounds by remember { mutableStateOf<Rect?>(null) }
     LaunchedEffect(showPlayerOverlay) {
         // 外部开关（点迷你条 / 点关闭按钮 / 返回键）触发时把转场跑到目标态；
         // 手势松手后的续接由 onSettleCollapse 直接 animateTo，不走这里。
-        // 必须与 PlayerShellBoundsTransform 用同一条时间线：
-        // 否则封面（sharedElement 受 playerTransition 驱动）会比外壳先跑完，
-        // 看上去就是「封面一上来就全尺寸」而不是随容器逐渐放大。
+        // 必须与 PlayerShellBox 的进度动画用同一条时间线：
+        // 否则卡片已经到位、内容还在缩，观感上就是「卡一下再定住」。
         // 注：刻意用 Compose 原生动画（跟随系统「动画程序时长缩放」），
         // 不用 withFrameNanos 手写帧驱动绕开它——理由见 changelog/v0.6.6。
         playerTransitionState.animateTo(
@@ -565,7 +580,6 @@ fun MusesApp() {
                         CompositionLocalProvider(
                             LocalPlayerSharedTransitionScope provides this@SharedTransitionLayout,
                             LocalPlayerAnimatedVisibilityScope provides this,
-                            LocalPlayerArtworkKey provides PlayerArtworkSharedKey,
                         ) {
                     MiniPlayerBar(
                         title = nowPlaying?.title ?: "暂无播放歌曲",
@@ -579,27 +593,11 @@ fun MusesApp() {
                         onNext = { viewModel.skipToNext() },
                         onPrevious = { viewModel.skipToPrevious() },
                         modifier = Modifier
-                            // 与沉浸页共享同一个元素：打开/收起时由 Compose 直接把迷你条矩形
-                            // 长成全屏（对齐参考实现 MeloX 的 sharedBounds）。
-                            // resizeMode 保持默认（ScaleToBounds 在当前 Compose 版本不存在）。
-                            // 转场丝滑度靠「减负」：已去掉动态圆角与深色遮盖（它们每帧都要
-                            // 重建 clip 路径 + 全屏重绘，是卡顿的主要来源）。
-                            // enter/exit 均为 None，形变完全由这条 bounds 动画驱动，不做淡入淡出。
-                            .sharedBounds(
-                                sharedContentState = this@SharedTransitionLayout
-                                    .rememberSharedContentState(PlayerShellKey),
-                                animatedVisibilityScope = this,
-                                enter = EnterTransition.None,
-                                exit = ExitTransition.None,
-                                boundsTransform = PlayerShellBoundsTransform,
-                                // 早前以为这一版没有 ScaleToBounds：其实缩放绘制是函数
-                            // `ResizeMode.scaleToBounds()`。但它实测不改变「内容按全屏绘制」的现象
-                            // （沉浸页仍是整块涌在外面），真正让内容被限制进卡片的是 RemeasureToBounds
-                            // + 去掉默认 fade + 外层 clipToBounds 这套组合。
-                            resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
-                            )
+                            // 上报自身矩形：沉浸页开合时由它算出形变起点（见 PlayerShellBox）。
+                            // 不再参与 sharedBounds —— 形变完全由宿主侧自己算，避免两套变换叠加。
                             .padding(horizontal = chromeSideMargin, vertical = 8.dp)
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .onGloballyPositioned { miniBarBounds = it.boundsInWindow() },
                     )
                     }
                     }
@@ -703,32 +701,16 @@ fun MusesApp() {
             CompositionLocalProvider(
                 LocalPlayerSharedTransitionScope provides this@SharedTransitionLayout,
                 LocalPlayerAnimatedVisibilityScope provides this,
-                LocalPlayerArtworkKey provides PlayerArtworkSharedKey,
             ) {
-            ScaleToBoundsBox(
+            PlayerShellBox(
                 // 全屏基准：最外层 BoxWithConstraints 的约束（沉浸页 overlay 与 Scaffold 平级，同一作用域）
                 fullWidth = maxWidth,
                 fullHeight = maxHeight,
-                modifier = Modifier
-                    .fillMaxSize()
-                    // 与迷你条共享同一个元素（同 key）：打开时从迷你条矩形长成全屏，收起时缩回去。
-                    .sharedBounds(
-                        sharedContentState = this@SharedTransitionLayout
-                            .rememberSharedContentState(PlayerShellKey),
-                        animatedVisibilityScope = this,
-                        // 外壳的 enter/exit 必须是 None：默认是 fadeIn/fadeOut，会在整条转场上
-                        // 再叠一层「整个沉浸页淡入淡出」，把 sharedBounds 的形变盖掉——
-                        // 真机上看到的就是「一大块背景透明地浮在外面」而不是「圆角矩形长出来」。
-                        // 形变完全交给 boundsTransform（与 animateTo 同一条 380ms 时间线）。
-                        enter = EnterTransition.None,
-                        exit = ExitTransition.None,
-                        boundsTransform = PlayerShellBoundsTransform,
-                        // 与迷你条侧同口径（见该处注释：靠 RemeasureToBounds + 外层 clip 限制溢出）
-                        resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
-                    )
-                    // 形变中的外壳必须裁剪：否则内部的 fillMaxSize 背景（深色底 / 流光图）
-                    // 仍按全屏绘制，转场时就会看到「沉浸页背景溢出到矩形之外」。
-                    .clipToBounds(),
+                // 形变起点 = 迷你条上报的真实矩形，终点 = 全屏；进度来自 transition
+                miniBounds = miniBarBounds,
+                progress = shellProgress,
+                // 形变全靠自算的缩放，所以这里只需把溢出裁掉
+                modifier = Modifier.fillMaxSize().clipToBounds(),
             ) {
                 val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
                 // U12：当前曲改由曲库实时流（SongEntity→领域模型），原 MediaItem 手拼字段等价
@@ -766,73 +748,76 @@ fun MusesApp() {
 }
 
 /**
- * 迷你条 ↔ 沉浸页的共享元素键。
- *
- * 两者用同一个 key 做 `sharedBounds`，转场时 Compose 会把起始矩形（迷你条）逐帧插值到
- * 目标矩形（全屏），从而得到「从迷你播放条上展开 / 收起」的效果，而不是普通的整页滑动。
- */
-private const val PlayerShellKey = "muses-player-shell"
-
-/**
- * 共享元素边界动画的时间线。
- *
- * 对齐参考实现 MeloX 的 `MeloXPlayerShellBoundsTransform`：360ms + FastOutSlowInEasing。
- * 注意不能用默认的 spring —— 弹簧会让父子元素各自提前/推迟到达，转场中会出现「内容已经就位
- * 但容器还在变形」的割裂感，统一 tween 才是可预期的单一时间线。
- */
-private val PlayerShellBoundsTransform = BoundsTransform { _, _ ->
-    // 与 [PlayerTransitionDurationMillis] 同一条时间线：外壳 bounds 与封面共享元素
-    // 必须同时到点，否则会出现「内容已就位但容器还在变形」的割裂感。
-    tween(durationMillis = PlayerTransitionDurationMillis, easing = FastOutSlowInEasing)
-}
-
-/**
- * 「迷你条 ↔ 沉浸页」转场时长（[PlayerShellBoundsTransform] 与 `animateTo` 同源）。
+ * 「迷你条 ↔ 沉浸页」转场时长（`animateTo` 与 [PlayerShellBox] 的进度动画同源）。
  * 380ms 略长于 MeloX 的 360ms：本项目沉浸页更重（歌词面板 + 模糊背景 + 多层覆盖），
  * 配合 FastOutSlowInEasing 前段推进快，太短会显得「一下就到」。
  */
 private const val PlayerTransitionDurationMillis = 380
 
 /**
- * 在 sharedBounds 的形变矩形里，让内容**以全屏尺寸布局后再整体缩放**填满该矩形
- * （等价于 `ResizeMode.ScaleToBounds`，但本版本要靠自己做）。
+ * 「迷你条 ↔ 沉浸页」的形变：让**整个沉浸页连内容一起**从迷你条矩形缩放/平移到全屏。
  *
- * 为什么不用 ResizeMode 自带的两种模式：
- * - `scaleToBounds()`：本版本对 sharedBounds 实测不起作用——内容仍按全屏尺寸绘制，
- *   转场时整个沉浸页背景涌到卡片外面（就是 issue #53 后续这条报障）；
- * - `RemeasureToBounds`：会真的重排内容，沉浸页缩到卡片尺寸时布局塔掉
- *   （封面吃掉全部空间、标题与控制被挤到矩形外）。
+ * 为什么不用 `Modifier.sharedBounds` 自带的形变（对齐参考实现 MeloX 的那种）：本版本
+ * （CMP 1.12）实测两种 `ResizeMode` 都不会把形变矩形的尺寸交给内容——`scaleToBounds()` 没有
+ * 效果、`RemeasureToBounds` 只表现为「把按全屏布局的内容裁到矩形里」，于是转场中只看得到
+ * 封面那一块，背景与文字都叠在卡片外（就是 issue #53 后续这条报障）。
  *
- * 所以这里把「布局」与「绘制」拆开：布局固定用全屏约束（内容长什么样与全屏态完全一致），
- * 再用 `scaleX/scaleY` 把绘制结果缩放填满当前形变矩形——即椒盐音乐那种
- * 「整个播放面板连内容一起缩放」的效果，外框由外层 `clipToBounds()` 兜底。
+ * 所以这里自己算：起点取迷你条上报的真实矩形，终点是全屏，进度来自 Compose `transition`
+ * （所以照旧跟随系统动画设置，下滑跟手的 `seekTo` 也会逐帧体现在进度上），
+ * 再用 `graphicsLayer` 把「以全屏布局的内容」整体缩放/平移到当前矩形。
  */
 @Composable
-private fun ScaleToBoundsBox(
+private fun PlayerShellBox(
     fullWidth: Dp,
     fullHeight: Dp,
+    /** 迷你条在窗口中的真实矩形（px）；null 时不做形变（退化为全屏） */
+    miniBounds: Rect?,
+    /** 0 = 迷你条态，1 = 全屏沉浸态 */
+    progress: Float,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    // fullWidth/fullHeight 必须传「全屏尺寸」（取最外层 BoxWithConstraints 的 maxWidth/maxHeight）：
-    // 不能依赖 LocalWindowInfo.containerSize（实测拿不到可靠值，会让缩放退化成 1 而只剩裁剪）。
+    val density = LocalDensity.current
     BoxWithConstraints(modifier) {
-        val scaleX = if (fullWidth > 0.dp) maxWidth / fullWidth else 1f
-        val scaleY = if (fullHeight > 0.dp) maxHeight / fullHeight else 1f
+        val fullWidthPx = with(density) { fullWidth.toPx() }.coerceAtLeast(1f)
+        val fullHeightPx = with(density) { fullHeight.toPx() }.coerceAtLeast(1f)
+        val p = progress.coerceIn(0f, 1f)
+        val start = miniBounds
+        // 形变矩形的左上角（终点是 0,0）
+        val offsetX = if (start != null) start.left * (1f - p) else 0f
+        val offsetY = if (start != null) start.top * (1f - p) else 0f
+        // 缩放比：从迷你条尺寸插值到全屏尺寸
+        val scaleX = if (start != null) {
+            (start.width + (fullWidthPx - start.width) * p) / fullWidthPx
+        } else {
+            1f
+        }
+        val scaleY = if (start != null) {
+            (start.height + (fullHeightPx - start.height) * p) / fullHeightPx
+        } else {
+            1f
+        }
+        // 迷你条态保留一点圆角（与迷你条胶囊观感衔接），到全屏时归零
+        val cornerPx = with(density) { 12.dp.toPx() } * (1f - p)
         Box(
             modifier = Modifier
+                // 布局固定用全屏约束：内容长什么样与全屏态完全一致，只缩放「绘制结果」
                 .requiredSize(fullWidth, fullHeight)
+                // 先平移到形变矩形位置，再以左上角为原点缩放（两者互不干扰）
+                .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
                 .graphicsLayer {
                     this.scaleX = scaleX
                     this.scaleY = scaleY
-                    // 左上角对齐：形变矩形与全屏内容的度量原点一致，缩放不会飘移
                     transformOrigin = TransformOrigin(0f, 0f)
+                    clip = true
+                    shape = RoundedCornerShape(CornerSize(cornerPx))
                 },
         ) {
             content()
         }
     }
 }
+
 
 /** 导航项组装（图标/文案/激活判定均来自 NavDestination 的 Web 层映射） */
 private fun NavDestination.toNavItem(
