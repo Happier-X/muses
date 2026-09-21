@@ -709,8 +709,9 @@ fun MusesApp() {
                 fullWidth = maxWidth,
                 fullHeight = maxHeight,
                 // 形变起点 = 迷你条上报的真实矩形，终点 = 全屏；进度来自 transition
+                // 注意传 lambda：数值在这里取出来会每帧重组整棵沉浸页（转场掉帧的主因）
                 miniBounds = miniBarBounds,
-                progress = shellProgress,
+                progress = { shellProgress },
                 // 形变全靠自算的缩放，所以这里只需把溢出裁掉
                 modifier = Modifier.fillMaxSize().clipToBounds(),
             ) {
@@ -774,51 +775,65 @@ private fun PlayerShellBox(
     fullHeight: Dp,
     /** 迷你条在窗口中的真实矩形（px）；null 时不做形变（退化为全屏） */
     miniBounds: Rect?,
-    /** 0 = 迷你条态，1 = 全屏沉浸态 */
-    progress: Float,
+    /**
+     * 转场进度：0 = 迷你条态，1 = 全屏沉浸态。
+     *
+     * **必须传 lambda**（内部才读 State）——不能在调用处就取出数值再当参数传：
+     * 那样每帧都会重组整棵沉浸页（歌词 + 封面 + 模糊背景），就是「转场不丝滑」的真正原因。
+     * 在 `offset` / `graphicsLayer` 的 lambda 里读，只会使该层失效并重绘，不触发重组。
+     */
+    progress: () -> Float,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
+    // 迷你条态圆角 = 迷你条胶囊半径（56dp 高的一半），到全屏收到 0
+    val cornerRadiusPx = with(density) { PlayerShellCardCorner.toPx() }
     BoxWithConstraints(modifier) {
         val fullWidthPx = with(density) { fullWidth.toPx() }.coerceAtLeast(1f)
         val fullHeightPx = with(density) { fullHeight.toPx() }.coerceAtLeast(1f)
-        val p = progress.coerceIn(0f, 1f)
         val start = miniBounds
-        // 形变矩形的左上角（终点是 0,0）
-        val offsetX = if (start != null) start.left * (1f - p) else 0f
-        val offsetY = if (start != null) start.top * (1f - p) else 0f
-        // 缩放比：从迷你条尺寸插值到全屏尺寸
-        val scaleX = if (start != null) {
-            (start.width + (fullWidthPx - start.width) * p) / fullWidthPx
-        } else {
-            1f
-        }
-        val scaleY = if (start != null) {
-            (start.height + (fullHeightPx - start.height) * p) / fullHeightPx
-        } else {
-            1f
-        }
-        // 迷你条态保留一点圆角（与迷你条胶囊观感衔接），到全屏时归零
-        val cornerPx = with(density) { 12.dp.toPx() } * (1f - p)
         Box(
             modifier = Modifier
                 // 布局固定用全屏约束：内容长什么样与全屏态完全一致，只缩放「绘制结果」
                 .requiredSize(fullWidth, fullHeight)
                 // 先平移到形变矩形位置，再以左上角为原点缩放（两者互不干扰）
-                .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+                .offset {
+                    if (start == null) {
+                        IntOffset.Zero
+                    } else {
+                        val p = progress().coerceIn(0f, 1f)
+                        IntOffset(
+                            (start.left * (1f - p)).roundToInt(),
+                            (start.top * (1f - p)).roundToInt(),
+                        )
+                    }
+                }
                 .graphicsLayer {
-                    this.scaleX = scaleX
-                    this.scaleY = scaleY
+                    val p = progress().coerceIn(0f, 1f)
+                    scaleX = if (start != null) {
+                        (start.width + (fullWidthPx - start.width) * p) / fullWidthPx
+                    } else {
+                        1f
+                    }
+                    scaleY = if (start != null) {
+                        (start.height + (fullHeightPx - start.height) * p) / fullHeightPx
+                    } else {
+                        1f
+                    }
                     transformOrigin = TransformOrigin(0f, 0f)
                     clip = true
-                    shape = RoundedCornerShape(CornerSize(cornerPx))
+                    // 卡片圆角：迷你条态是胶囊半径，靠全屏时收到 0（太小会看着像方块）
+                    shape = RoundedCornerShape(CornerSize(cornerRadiusPx * (1f - p)))
                 },
         ) {
             content()
         }
     }
 }
+
+/** 转场中卡片的圆角基数：迷你条胶囊半径（迷你条高 56dp 的一半），全屏时收到 0 */
+private val PlayerShellCardCorner = 28.dp
 
 
 /** 导航项组装（图标/文案/激活判定均来自 NavDestination 的 Web 层映射） */
