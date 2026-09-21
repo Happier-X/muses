@@ -242,6 +242,64 @@ class PlayerViewModelCurrentTrackTest {
     }
 
     @Test
+    fun `脚本歌词在 musicUrl 之后才就绪时 延迟重试会替换匹配结果`() = runBlocking {
+        // 复刻实测到的脚本时序（星海音乐源）：`lyric` 只是 `musicUrl` 的副产品，
+        // 直链未解析前问 lyric 恒为空；解析完成后才有值。
+        val song = onlineSong(id = "online:kw:3")
+        OnlineTrackSession.remember(listOf(song))
+        val resolver = object : OnlineTrackMetadataResolver {
+            private var lyricCalls = 0
+            override suspend fun resolveCover(ref: OnlineTrackRef): String? = null
+            override suspend fun resolveLyrics(ref: OnlineTrackRef): OnlineTrackLyrics? {
+                lyricCalls++
+                // 脚本带真实逐字 → 值得替换掉行级匹配结果
+                return if (lyricCalls >= 2) {
+                    OnlineTrackLyrics(lxlyric = "[00:01.000]<1000,200>脚<1200,200>本")
+                } else {
+                    null
+                }
+            }
+        }
+        val matcher = LyricsMatcher(
+            FakeAmll(AmllMatchResult.Ok(ttml = ttml, rawLyricFile = "a.ttml", score = 100)),
+            emptyList(),
+        )
+        val port = FakePort()
+        val viewModel = PlayerViewModel(port, FakeSongDao(), resolver, matcher, null)
+
+        port.setCurrentSong(song.id)
+        // ① 不等待：立即用匹配结果兜底上屏
+        awaitUntil { viewModel.lyricsDocument.value?.lines?.first()?.text == "匹配到的歌词" }
+        // ② 重试拿到脚本逐字歌词后替换掉匹配结果
+        awaitUntil(timeoutMs = 8_000L) {
+            viewModel.lyricsDocument.value?.lines?.first()?.text == "脚本"
+        }
+
+        viewModel.viewModelScope.cancel()
+    }
+
+    @Test
+    fun `脚本行级歌词不会覆盖匹配结果（避免脏时间轴）`() = runBlocking {
+        // 实测：脚本给的平台 LRC 会把末尾 credits 全标成 [00:00.00]，覆盖后歌词会停在制作名单上
+        val song = onlineSong(id = "online:kw:4")
+        OnlineTrackSession.remember(listOf(song))
+        val resolver = FakeMetadataResolver(lyrics = OnlineTrackLyrics(lyric = "[00:00.000]录音室：Show Music"))
+        val matcher = LyricsMatcher(
+            FakeAmll(AmllMatchResult.Ok(ttml = ttml, rawLyricFile = "a.ttml", score = 100)),
+            emptyList(),
+        )
+        val port = FakePort()
+        val viewModel = PlayerViewModel(port, FakeSongDao(), resolver, matcher, null)
+
+        port.setCurrentSong(song.id)
+        awaitUntil { viewModel.lyricsDocument.value != null }
+        delay(2_500) // 跨过第一次重试窗口，确认没被脚本行级歌词换掉
+        assertEquals("匹配到的歌词", viewModel.lyricsDocument.value?.lines?.first()?.text)
+
+        viewModel.viewModelScope.cancel()
+    }
+
+    @Test
     fun `曲库曲目 歌词仍来自曲库列`() = runBlocking {
         val entity = SongEntity(
             id = "local:1",

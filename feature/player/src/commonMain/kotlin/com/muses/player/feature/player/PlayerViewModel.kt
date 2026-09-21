@@ -10,6 +10,7 @@ import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.core.lyrics.parser.LxLyricParser
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.online.NoOpOnlineTrackMetadataResolver
+import com.muses.player.core.model.online.OnlineTrackLyrics
 import com.muses.player.core.model.online.OnlineTrackMetadataResolver
 import com.muses.player.core.model.online.OnlineTrackRef
 import com.muses.player.core.model.online.OnlineTrackSession
@@ -271,6 +272,17 @@ class PlayerViewModel constructor(
     private var currentLines: List<AmllLyricLine> = emptyList()
     private var lastLineEndMs: Long = Long.MAX_VALUE
 
+    private companion object {
+        /**
+         * 脚本元数据重试间隔（累计 4.5s）。
+         *
+         * 依据：脚本的 `lyric` / `pic` 常常只是 `musicUrl` 的副产品（直链请求时顺带写脚本内缓存），
+         * 而直链是「打开媒体时才换取」——实测切歌瞬间问必然为空，需等解析完成后再补一次。
+         * 命中即提前结束（不白等）；切歌时整个 refresh 被 collectLatest 取消，不会堆积。
+         */
+        val SCRIPT_METADATA_RETRY_DELAYS_MS = longArrayOf(1_500L, 3_000L)
+    }
+
     init {
         startPositionPolling()
         observeCurrentSong()
@@ -364,42 +376,92 @@ class PlayerViewModel constructor(
      * 封面优先级：脚本 `pic` → 搜索结果自带的远程封面（[Song.coverUri]）→ 封面六源匹配
      * → 播放器实时 metadata。都拿不到时保持旧粘性值（与曲库曲目同语义，不闪默认底）。
      *
-     * 顺序说明：歌词先于封面匹配解析（歌词是主诉且脚本取不到时立刻回退）；封面匹配链较慢
-     * （六源串行），只在脚本与搜索结果都没有封面时才跑，不让它拖住歌词上屏。
-     * 封面与歌词与脚本的两次调用**串行**：二者共用同一个 QuickJS runtime，脚本 handler
-     * 未必并发安全（且脚本未声明动作时端口立即返回 null，无额外开销）。
+     * ## 时序与选优（实测得出，别随手改）
+     * ① 不少脚本（如「星海音乐源」）把 `lyric` / `pic` 做成 **`musicUrl` 的副产品**：
+     *    直链请求时顺带把歌词/封面写进脚本内缓存，`lyric` / `pic` 动作只读缓存；
+     *    而 Muses 的直链是「打开媒体时才换取」→ **切歌瞬间问 lyric 必然为空**。
+     *    所以延迟重试脚本（等直链解析完）。
+     * ② 但**不能无脑用脚本歌词覆盖匹配结果**：实测脚本给的平台 LRC 会把末尾 credits
+     *    全标成 `[00:00.00]`（时间轴脏），覆盖后歌词会停在末尾制作名单上。
+     *    故只在「当前无歌词」或「脚本带真实逐字时间轴而当前没有」时采用脚本结果。
+     * ③ 封面六源匹配放最后（链慢，不拖住歌词上屏）。
      */
     private suspend fun refreshOnlineTrack(song: Song, metadataArtwork: String?) {
         _dbDuration.value = song.durationMs
-
         val ref = OnlineTrackRef.parse(song.path)
-        val scriptCover = ref?.let { onlineMetadataResolver.resolveCover(it) }
-        var cover = scriptCover?.takeIf { it.isNotBlank() }
+
+        // ① 立即取一次脚本元数据 + 上屏（歌词：脚本逐字 > 匹配结果 > 脚本行级）
+        var script = scriptMetadata(ref)
+        var cover = script?.cover?.takeIf { it.isNotBlank() }
             ?: song.coverUri?.takeIf { it.isNotBlank() }
+        var document = pickLyrics(parseScriptLyrics(script?.lyrics), song)
+        applyLyricsDocument(document)
+        // 已知封面（脚本 pic / 搜索结果）**立即上屏**，不等重试：搜索结果的远程封面本就现成，
+        // 让它跟歌词一起等 1.5s 会白闪一下默认底
+        cover?.let { _stickyCover.value = it }
 
-        applyLyricsDocument(resolveOnlineLyrics(song, ref))
+        // ② 脚本缓存要等 musicUrl（打开媒体时）才写入 → 延迟重试补齐
+        // 触发条件看「还在意的东西缺不缺」：歌词想要逐字（行级算缺），或封面还没着落
+        var lyricsSettled = document?.hasSyllables() == true
+        if (ref != null && (!lyricsSettled || cover.isNullOrBlank())) {
+            for (delayMs in SCRIPT_METADATA_RETRY_DELAYS_MS) {
+                delay(delayMs)
+                val retry = scriptMetadata(ref) ?: continue
+                val retryDoc = parseScriptLyrics(retry.lyrics)
+                if (retryDoc != null) {
+                    // 脚本已给出歌词：带逐字而当前没有 → 采用；无论采用与否都不再指望歌词重试
+                    if (!lyricsSettled && retryDoc.hasSyllables()) {
+                        document = retryDoc
+                        applyLyricsDocument(retryDoc)
+                    }
+                    lyricsSettled = true
+                }
+                if (cover.isNullOrBlank() && !retry.cover.isNullOrBlank()) {
+                    cover = retry.cover
+                    _stickyCover.value = retry.cover
+                }
+                if (lyricsSettled && !cover.isNullOrBlank()) break
+            }
+        }
 
+        // ③ 封面仍未拿到 → 六源匹配（慢，放最后，不拖住歌词上屏）
         if (cover.isNullOrBlank()) cover = matchOnlineCover(song)
         val effectiveCover = cover?.takeIf { it.isNotBlank() } ?: metadataArtwork
         if (!effectiveCover.isNullOrBlank()) _stickyCover.value = effectiveCover
     }
 
     /**
-     * 在线曲目歌词：**脚本 `lyric` 优先 → Muses 在线歌词匹配兜底**。
+     * 歌词选优：脚本**逐字** > Muses 匹配结果 > 脚本行级（行级时才比时间轴干净度）。
      *
-     * 兜底为何必要：多数洛雪脚本只声明 `musicUrl`（歌词/封面在洛雪桌面端由主程序自己的
-     * 接口取，不归自定义源脚本），所以「只问脚本」会让绝大多数在线曲目没有歌词。
+     * 选优而非无脑「脚本优先」的原因见 [refreshOnlineTrack] 注释 ②。
      */
-    private suspend fun resolveOnlineLyrics(song: Song, ref: OnlineTrackRef?): LyricsDocument? {
-        val fromScript = ref?.let { onlineMetadataResolver.resolveLyrics(it) }
-        if (fromScript != null) {
-            val document = withContext(Dispatchers.Default) {
-                LxLyricParser.parse(fromScript.lyric, fromScript.tlyric, fromScript.rlyric, fromScript.lxlyric)
-            }
-            if (document != null && document.lines.isNotEmpty()) return document
-        }
-        return matchOnlineLyrics(song)
+    private suspend fun pickLyrics(scriptDoc: LyricsDocument?, song: Song): LyricsDocument? {
+        if (scriptDoc?.hasSyllables() == true) return scriptDoc
+        val matched = matchOnlineLyrics(song)
+        return matched ?: scriptDoc
     }
+
+    /** 是否带真实逐字时间轴（行级歌词不算） */
+    private fun LyricsDocument.hasSyllables(): Boolean = lines.any { it.syllables.isNotEmpty() }
+
+    /** 一次脚本元数据取用（`pic` + `lyric`）；两者都空视为无结果 */
+    private suspend fun scriptMetadata(ref: OnlineTrackRef?): ScriptMetadata? {
+        if (ref == null) return null
+        val cover = onlineMetadataResolver.resolveCover(ref)
+        val lyrics = onlineMetadataResolver.resolveLyrics(ref)
+        if (cover.isNullOrBlank() && lyrics == null) return null
+        return ScriptMetadata(cover = cover, lyrics = lyrics)
+    }
+
+    /** 脚本四字段 → [LyricsDocument]（解析重活移出主线程；空结果视为未命中） */
+    private suspend fun parseScriptLyrics(lyrics: OnlineTrackLyrics?): LyricsDocument? {
+        if (lyrics == null) return null
+        return withContext(Dispatchers.Default) {
+            LxLyricParser.parse(lyrics.lyric, lyrics.tlyric, lyrics.rlyric, lyrics.lxlyric)
+        }?.takeIf { it.lines.isNotEmpty() }
+    }
+
+    private data class ScriptMetadata(val cover: String?, val lyrics: OnlineTrackLyrics?)
 
     /** Muses 在线歌词匹配（AMLL → 平台五源 → LRCLIB）→ 按返回格式解析成 [LyricsDocument] */
     private suspend fun matchOnlineLyrics(song: Song): LyricsDocument? =
