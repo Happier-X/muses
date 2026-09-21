@@ -552,6 +552,8 @@ fun MusesApp() {
                             onOpenSearch = { backStack.pushUnique(MusesRoute.OnlineSearch()) },
                             sideMargin = chromeSideMargin,
                             compactProgress = compactProgress,
+                            // 融合态下点开沉浸页的形变起点：用这条胶囊里的播放器矩形
+                            onPlayerBounds = { miniBarBounds = it },
                         )
                     } else {
                     // 底部槽位 = 迷你条（上）+ 窄屏悬浮导航栏（下），导航（aside/底栏）与内容叠层顺序
@@ -1073,6 +1075,12 @@ private fun CompactPlayerDock(
     onOpenSearch: () -> Unit,
     sideMargin: Dp,
     compactProgress: Float,
+    /**
+     * 上报中间迷你播放器在窗口中的矩形（px）：沉浸页开合时作为形变起点。
+     * 融合态与展开态用的是两个不同的 [MiniPlayerBar] 实例（两行 → 一行的布局不同），
+     * 两边都必须上报，否则在融合态下点开沉浸页会用上一次展开态的旧矩形做起点（位置会跳）。
+     */
+    onPlayerBounds: (Rect) -> Unit,
 ) {
     val collapse = compactProgress.coerceIn(0f, 1f)
     // 借鉴 Halcyon：同一弹簧进度驱动图标缩放（连续插值，过渡不跳变）
@@ -1105,7 +1113,10 @@ private fun CompactPlayerDock(
                 onOpenQueue = onOpenQueue,
                 // 融合态宽度被两侧 pill 占去大半：关队列按钮，把宽度让给标题
                 showQueueButton = false,
-                modifier = Modifier.fillMaxWidth(),
+                // 与展开态同口径：上报自身矩形供沉浸页开合做形变起点
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { onPlayerBounds(it.boundsInWindow()) },
             )
         }
         // 右：搜索
