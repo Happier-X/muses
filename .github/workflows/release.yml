@@ -74,7 +74,7 @@ jobs:
           echo "" >> release_body.md
           echo "### 构建产物" >> release_body.md
           echo "- \`muses-v${{ steps.version.outputs.version }}.apk\` — 安卓端（Compose Multiplatform 双端共享界面，包名 \`com.muses.player\`）" >> release_body.md
-          echo "- \`muses-v${{ steps.version.outputs.version }}-mi.apk\` — 安卓端车机包（CarWith 媒体卡片适配，包名 \`com.tencent.qqmusic\`）" >> release_body.md
+          echo "- \`muses-v${{ steps.version.outputs.version }}-mi.apk\` — 安卓端 MIUI 定制包（包名 \`com.miui.player\`）" >> release_body.md
           echo "- \`Muses-v${{ steps.version.outputs.version }}.msi\` — Windows 桌面端（Compose Multiplatform 双端共享界面 + jpackage）" >> release_body.md
 
       - name: Upload Android artifacts

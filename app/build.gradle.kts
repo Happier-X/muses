@@ -24,9 +24,9 @@ android {
         localeFilters += listOf("zh-rCN", "en")
     }
 
-    // 渠道维度：主包 com.muses.player（覆盖安装旧 Web 版）+ 车机定制包
-    // 车机包沿用 QQ 音乐包名 com.tencent.qqmusic：CarWith 的音乐卡片能力按包名白名单下发，
-    // 非白名单包名不会拿到歌词卡片/媒体卡片适配。仅用于自用设备的互操作，请勿对外分发冒充官方应用。
+    // 渠道维度：主包 com.muses.player（覆盖安装旧 Web 版）+ MIUI 定制包
+    // MIUI 定制包沿用 com.miui.player：v0.6.7 曾改为 com.tencent.qqmusic 以套用 CarWith 的
+    // 音乐/歌词卡片白名单，但换包名会丢旧包本地数据、且与官方 QQ 音乐互斥，故回退。
     flavorDimensions += "channel"
     productFlavors {
         create("muses") {
@@ -35,7 +35,7 @@ android {
         }
         create("miui") {
             dimension = "channel"
-            applicationId = "com.tencent.qqmusic"
+            applicationId = "com.miui.player"
         }
     }
 
