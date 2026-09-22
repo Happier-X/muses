@@ -79,7 +79,7 @@ class PlaybackService : MediaSessionService() {
     private var metadataModified = false
     /** 当前曲歌词行缓存（解析一次，position 轮询只做二分查找） */
     private var lyricsLines: List<com.muses.player.core.lyrics.model.LyricLine>? = null
-    /** 当前曲歌词 LRC 全文原样（随 [SessionLyricsBridge] 注入平台会话 LYRICS key，CarWith/蓝牙车机读取） */
+    /** 当前曲歌词 LRC 全文原样（随 [SessionLyricsBridge] 注入平台会话 LYRICS key） */
     private var lyricsRaw: String? = null
 
     // ExoPlayer 强制主线程访问（player-accessed-on-wrong-thread 崩溃防护），
@@ -296,19 +296,28 @@ class PlaybackService : MediaSessionService() {
     /** 根据播放位置更新 MediaMetadata：标题=歌词行，艺术家=原始标题-原始艺术家 */
     private fun updateNotificationMetadataWithLyric(player: Player) {
         val session = mediaSession ?: return
-        // 每轮把 LYRICS 全文同步到平台会话（幂等短路；media3 重建 metadata 丢 key 后 ≤100ms 自动补回）
-        SessionLyricsBridge.push(session, lyricsRaw)
         val lines = lyricsLines
+        val lyricLine = lines?.takeIf { it.isNotEmpty() }?.let { list ->
+            val index = com.muses.player.core.lyrics.model.LyricsDocument(
+                lines = list,
+            ).highlightedIndex(player.currentPosition)
+            index?.let { list.getOrNull(it)?.text?.trim() }?.takeIf { it.isNotEmpty() }
+        }
+        // 每轮把歌词同步到平台会话（幂等短路；media3 重建 metadata 丢 key 后 ≤100ms 自动补回）：
+        // LYRICS 全文 + vivo Jovi InCar 的 ucar.* 三个 key（椒盐同款协议，见 SessionLyricsBridge）
+        SessionLyricsBridge.push(
+            session,
+            lyricsRaw = lyricsRaw,
+            ucarTitle = originalTitle?.toString(),
+            ucarArtist = originalArtist?.toString(),
+            ucarLine = lyricLine,
+        )
         if (lines.isNullOrEmpty()) {
             if (metadataModified) restoreNotificationMetadata(player)
             return
         }
-        val pos = player.currentPosition
-        val index = com.muses.player.core.lyrics.model.LyricsDocument(
-            lines = lines,
-        ).highlightedIndex(pos)
-        val lyricLine = index?.let { lines.getOrNull(it)?.text?.trim() }?.takeIf { it.isNotEmpty() }
-            ?: return
+        // 前奏/间奏无匹配行：保持上一次的歌词行，不闪回歌名
+        if (lyricLine == null) return
         val origTitle = originalTitle?.toString() ?: ""
         val origArtist = originalArtist?.toString() ?: ""
         val metadata = androidx.media3.common.MediaMetadata.Builder()
@@ -339,7 +348,7 @@ class PlaybackService : MediaSessionService() {
         metadataModified = false
         lyricsLines = null
         lyricsRaw = null
-        // 关歌词模式/切歌走此恢复：清掉平台会话里的 LYRICS（media3 若已重建 metadata 则幂等跳过）
+        // 关歌词模式/切歌走此恢复：清掉平台会话里的歌词 key（media3 若已重建 metadata 则幂等跳过）
         SessionLyricsBridge.push(mediaSession, null)
     }
 

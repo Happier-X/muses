@@ -8,11 +8,20 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 /**
- * 平台 MediaSession 歌词桥：向系统会话 metadata 注入 `android.media.metadata.LYRICS` 全文字段。
+ * 平台 MediaSession 歌词桥：向系统会话 metadata 注入歌词相关 key。
  *
- * 背景：CarWith / 蓝牙车机读取"当前活跃媒体会话" metadata 中的 LYRICS key 显示歌词
- * （洛雪音乐、椒盐音乐的"蓝牙歌词/车载歌词"即走此字段）。media3 的 [androidx.media3.common.MediaMetadata]
- * 是白名单字段对象，携带不了自定义 key；本桥绕过它，直取 media3 内置的 legacy
+ * 写入的 key（均以裸 Bundle 注入，绕过 media3 的 [androidx.media3.common.MediaMetadata] 白名单）：
+ * - `android.media.metadata.LYRICS`：LRC 全文（蓝牙车机/第三方读取）
+ * - `ucar.media.metadata.UCAR_TITLE` / `UCAR_ARTIST` / `LYRICS_LINE`：**vivo 智能车载（Jovi InCar）
+ *   私有协议**，2026-09 从椒盐音乐 12.3.2 反编译还原（`参考/decompiled/ANALYSIS.md` 第 6 节）——
+ *   椒盐在“vivo 智能车载歌词”开启时写这三个 key（歌名 / 艺术家 / 当前歌词行）
+ *
+ * 关于 CarWith：椒盐/洛雪能让 CarWith 显示歌词，靠的是把当前歌词行写进**标准 TITLE**
+ * （见 `PlaybackService` 的通知歌词模式），不是 LYRICS 字段、也与包名无关；本桥的 LYRICS
+ * 注入属 fail-soft 兜底，未在真机证实，保留不影响播放与通知。
+ *
+ * 背景：车机/状态栏歌词普遍读“当前活跃媒体会话” metadata。media3 的 MediaMetadata 是
+ * 白名单字段对象，携带不了自定义 key；本桥绕过它，直取 media3 内置的 legacy
  * MediaSessionCompat（对外平台 token 即出自该会话），裸 Bundle 注入后回写。
  *
  * 反射链（media3-session 自带 legacy 包，逐层缓存，全部是三方库内部字段 + 其 public API，
@@ -24,11 +33,11 @@ import java.lang.reflect.Method
  * ```
  *
  * 行为约定：
- * - **幂等短路**：回写前经 controller 读系统会话现有 metadata，LYRICS 与目标相同直接返回。
- *   media3 每次整体重建 metadata（白名单重建）都会丢掉 LYRICS，下一次 [push]
+ * - **幂等短路**：回写前经 controller 读系统会话现有 metadata，目标 key 与现状全部一致则直接返回。
+ *   media3 每次整体重建 metadata（白名单重建）都会丢掉这些 key，下一次 [push]
  *   （随 100ms 歌词轮询）自动补回——最终一致，丢失窗口 ≤ 轮询周期。
  * - **fail-soft**：任一步骤失败仅打一条 w 日志并永久禁用本桥，绝不影响播放与通知。
- * - 除注入的 LYRICS 外，bundle 其余内容（title/artist/封面等）以系统会话当前值为基底原样保留。
+ * - 除写入的 key 外，bundle 其余内容（title/artist/封面等）以系统会话当前值为基底原样保留。
  *
  * 注意：读现状走 MediaControllerCompat.getMetadata()（binder 到系统会话服务），主线程同步调用
  * 是 androidx 官方常规用法；幂等短路保证无变化时只读不写。
@@ -37,8 +46,14 @@ internal object SessionLyricsBridge {
 
     private const val TAG = "SessionLyricsBridge"
 
-    /** 与洛雪/椒盐对齐的全文歌词 key（平台 MediaMetadata.METADATA_KEY_LYRICS 的字面量） */
+    /** 全文歌词 key（平台 MediaMetadata.METADATA_KEY_LYRICS 的字面量） */
     private const val KEY_LYRICS = "android.media.metadata.LYRICS"
+
+    // vivo 智能车载（Jovi InCar）私有协议：2026-09 由椒盐音乐 12.3.2 字符串解密还原
+    // （参考/decompiled/ANALYSIS.md 第 6 节；密钥常量对应 ucar.media.metadata.* 命名空间）
+    private const val KEY_UCAR_TITLE = "ucar.media.metadata.UCAR_TITLE"
+    private const val KEY_UCAR_ARTIST = "ucar.media.metadata.UCAR_ARTIST"
+    private const val KEY_UCAR_LYRICS_LINE = "ucar.media.metadata.LYRICS_LINE"
 
     @Volatile
     private var dead = false
@@ -58,10 +73,20 @@ internal object SessionLyricsBridge {
     private var initialized = false
 
     /**
-     * 把 [lyricsRaw]（LRC 全文原文）写入平台会话 metadata 的 LYRICS key；null 表示移除该 key。
-     * 可高频调用：幂等短路保证重复调用开销 ≈ 一次 binder 读。
+     * 把歌词相关的 key 同步到平台会话 metadata：
+     * - [lyricsRaw] → `android.media.metadata.LYRICS`（LRC 全文）
+     * - [ucarTitle] / [ucarArtist] → vivo Jovi InCar 的 `UCAR_TITLE` / `UCAR_ARTIST`
+     * - [ucarLine] → vivo Jovi InCar 的 `LYRICS_LINE`（当前歌词行）
+     *
+     * 传 null 表示移除对应 key。可高频调用：幂等短路保证无变化时开销 ≈ 一次 binder 读。
      */
-    fun push(media3Session: MediaSession?, lyricsRaw: String?) {
+    fun push(
+        media3Session: MediaSession?,
+        lyricsRaw: String?,
+        ucarTitle: String? = null,
+        ucarArtist: String? = null,
+        ucarLine: String? = null,
+    ) {
         if (dead || media3Session == null) return
         if (!ensureInitialized()) return
         try {
@@ -72,18 +97,22 @@ internal object SessionLyricsBridge {
             val currentMeta = getMetadataMethod!!.invoke(controller)
             val existing = currentMeta?.let { getBundleMethod!!.invoke(it) as Bundle? }
 
-            if (existing?.getString(KEY_LYRICS) == lyricsRaw) return
+            val targets = arrayOf(
+                KEY_LYRICS to lyricsRaw,
+                KEY_UCAR_TITLE to ucarTitle,
+                KEY_UCAR_ARTIST to ucarArtist,
+                KEY_UCAR_LYRICS_LINE to ucarLine,
+            )
+            if (targets.all { (key, value) -> existing?.getString(key) == value }) return
 
             val bundle = if (existing == null) Bundle() else Bundle(existing)
-            if (lyricsRaw == null) {
-                bundle.remove(KEY_LYRICS)
-            } else {
-                bundle.putString(KEY_LYRICS, lyricsRaw)
+            for ((key, value) in targets) {
+                if (value == null) bundle.remove(key) else bundle.putString(key, value)
             }
             setMetadataMethod!!.invoke(compat, compatMetaCtor!!.newInstance(bundle))
         } catch (t: Throwable) {
             dead = true
-            Log.w(TAG, "注入 LYRICS 失败，已禁用该桥（不影响播放/通知）", t)
+            Log.w(TAG, "注入会话歌词 key 失败，已禁用该桥（不影响播放/通知）", t)
         }
     }
 
