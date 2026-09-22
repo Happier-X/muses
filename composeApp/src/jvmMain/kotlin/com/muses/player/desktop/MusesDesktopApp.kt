@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import com.muses.player.core.ui.theme.MusesTheme
 import com.muses.player.navigation.MusesApp
 import org.koin.compose.KoinApplication
+import org.koin.dsl.koinConfiguration
 
 /**
  * 桌面主界面（U23 切共享壳）：标题栏（jvmMain 桌面专属：无边框窗口拖拽/控制）
@@ -26,7 +27,7 @@ fun WindowScope.MusesDesktopApp(
     windowState: WindowState,
     onClose: () -> Unit,
 ) {
-    KoinApplication(application = { modules(desktopAppModules) }) {
+    KoinApplication(configuration = koinConfiguration { modules(desktopAppModules) }) {
         MusesTheme {
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize().background(MiuixTheme.colorScheme.surface)) {

@@ -24,7 +24,7 @@ kotlin {
     sourceSets {
         // jvmShared 中间层：androidMain 与 jvmMain 共同 dependsOn，
         // JCE 系实现（LxCryptoJvm）一份代码双端编译
-        val jvmShared by creating {
+        val jvmShared = create("jvmShared") {
             dependsOn(commonMain.get())
             dependencies {
                 // Koin 装配（lxSdkModule）；KMP sourceSets 不支持 platform(BOM)，

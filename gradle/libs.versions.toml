@@ -1,11 +1,11 @@
 [versions]
 # 与旧工程 android/ 保持同一版本线（已在本机验证可解析）
-agp = "9.3.2"
-kotlin = "2.4.10"
-compose-multiplatform = "1.12.0-rc01"
+agp = "9.4.1"
+kotlin = "2.4.20"
+compose-multiplatform = "1.12.0"
 ksp = "2.3.12"
 # P2a Hilt→Koin：BOM 统一版本（AC3），各工件不散装版本号
-koin-bom = "4.2.0"
+koin-bom = "4.2.2"
 # SDK 与工具链单源（各模块 android{} 统一引用，升降级只改此处）
 compileSdk = "37"
 minSdk = "26"
@@ -14,38 +14,40 @@ targetSdk = "36"
 jvmTarget = "17"
 
 androidxCore = "1.19.0"
-composeBom = "2026.08.00"
+composeBom = "2026.09.00"
 activityCompose = "1.13.0"
 # CMP Navigation 已切 miuix-nav，版本号删除
 lifecycle = "2.11.0"
-media3 = "1.11.0"
+media3 = "1.11.1"
 okhttp = "5.5.0"
-# P2c Ktor-client（CIO）：3.5.x 线 S0 spike 实测锁定 3.5.2
-# （mavenCentral 200 验证：client-core/cio/mock 全构件存在；传递 coroutines 1.11.0 与本项目一致）
-ktor = "3.5.2"
-# Ktor 3.5.2 官方传递版本（ktor-io-jvm POM 实测）：kotlinx.io.IOException 供给
+# P2c Ktor-client（CIO）：升 3.6.0 最新稳定
+# （mavenCentral 200 验证：client-core/cio/mock 全构件存在；POM 实测传递 coroutines 1.11.0 与本项目一致）
+ktor = "3.6.0"
+# Ktor 3.6.0 官方传递版本（ktor-io-jvm 3.6.0 POM 实测）：kotlinx.io.IOException 供给
 kotlinxIo = "0.9.1"
-coil = "3.5.0"
-room = "2.8.4"
-sqlite = "2.6.2"
-okio = "3.9.0"
+coil = "3.6.3"
+room = "2.8.5"
+sqlite = "2.7.1"
+okio = "3.18.2"
 datastore = "1.2.1"
 coroutines = "1.11.0"
 junit = "4.13.2"
 jaudiotagger = "3.0.1"
-vlcj = "4.8.2"
+vlcj = "4.12.1"
 workManager = "2.11.2"
-robolectric = "4.16"
+robolectric = "4.17"
 androidxTestCore = "1.7.0"
 # M3 刮削引擎：DataStore JSON snapshot 序列化
-kotlinxSerialization = "1.9.0"
-# 洛雪自定义音源：QuickJS 绑定（KMP android+jvm；1.0.14 POM 实测由 Kotlin 2.4.10 编译，与本项目同线）
-quickjs = "1.0.14"
+kotlinxSerialization = "1.11.0"
+# 洛雪自定义音源：QuickJS 绑定（KMP android+jvm；1.0.15 最新稳定，与本项目 Kotlin 2.4.x 线兼容）
+quickjs = "1.0.15"
 tablerIcons = "2.2.1"
-jna = "5.17.0"
-# miuix（小米 HyperOS 风格 CMP 组件库）：0.9.4-rc01 按 CMP 1.12.0-rc01 + Kotlin 2.4.10 构建
-#（.module 实测），与本工程版本线精确对齐
-miuix = "0.9.4-rc01"
+jna = "5.19.1"
+# miuix（小米 HyperOS 风格 CMP 组件库）：0.9.4 正式版
+#（.module 实测 release、Gradle 9.7.1 构建），与本工程 CMP 1.12.0 + Kotlin 2.4.x 版本线对齐
+# 0.9.4 release notes 8 项破坏性变更已逐条核查（2026-09-20）：miuix-nav 已迁、minSdk 26>24、
+# RadioBtn/NavItem/InputField/PullToRefresh 项目未用；OverlayDialog 居中圆角新默认 32dp 已接受（不显式传）
+miuix = "0.9.4"
 
 [libraries]
 # U24：accompanist-lyrics-core 依赖摘除（唯一消费者 AmllMapper 死代码已随 U21 删除）
@@ -55,7 +57,7 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 # 纠偏：design 原写 `-desktop`，中央仓库真实产物为 `-cmp`（KMP 父件，含 android+jvm 变体），同 2.2.1
 tabler-icons-cmp = { group = "com.composables", name = "icons-tabler-outline-cmp", version.ref = "tablerIcons" }
 tabler-filled-icons-cmp = { group = "com.composables", name = "icons-tabler-filled-cmp", version.ref = "tablerIcons" }
-# Coil 桌面网络引擎：3.5.0 线真实产物为 ktor3（design 原写的 coil-network-ktor 止于 3.0.0-alpha08）
+# Coil 桌面网络引擎：3.6.x 线真实产物为 ktor3（design 原写的 coil-network-ktor 止于 3.0.0-alpha08）
 coil-network-ktor3 = { group = "io.coil-kt.coil3", name = "coil-network-ktor3", version.ref = "coil" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
@@ -64,14 +66,20 @@ androidx-lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle
 # navigation-compose 已切 miuix-nav，jetbrains 坐标删除（见 feature/shell 注释）
 
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+# CMP 1.12 起 compose.runtime/ui/foundation/animation 等 accessor 弃用（Specify dependency directly）
+# 坐标收敛进版本目录：版本仍随 compose-multiplatform 插件同线，保持单源；字符串与旧 accessor 逐字节等价
+jb-compose-runtime = { group = "org.jetbrains.compose.runtime", name = "runtime", version.ref = "compose-multiplatform" }
+jb-compose-foundation = { group = "org.jetbrains.compose.foundation", name = "foundation", version.ref = "compose-multiplatform" }
+jb-compose-ui = { group = "org.jetbrains.compose.ui", name = "ui", version.ref = "compose-multiplatform" }
+jb-compose-animation = { group = "org.jetbrains.compose.animation", name = "animation", version.ref = "compose-multiplatform" }
 compose-ui = { group = "androidx.compose.ui", name = "ui" }
 compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 
-# P2a：Koin 4.2.0 BOM（CMP 就绪，P3 复用；无 version 经 BOM 统一）
-# Koin 工件显式挂 4.2.0（与 BOM 同线）：KMP sourceSets 依赖处理器不支持 platform(BOM)，
+# P2a：Koin 4.2.2 BOM（CMP 就绪，P3 复用；无 version 经 BOM 统一）
+# Koin 工件显式挂 4.2.2（与 BOM 同线）：KMP sourceSets 依赖处理器不支持 platform(BOM)，
 # feature:library/composeApp 的 commonMain 需直连版本（安卓侧仍走 BOM，同一版本线无冲突）
 koin-bom = { group = "io.insert-koin", name = "koin-bom", version.ref = "koin-bom" }
 koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin-bom" }
@@ -88,13 +96,13 @@ media3-datasource-okhttp = { group = "androidx.media3", name = "media3-datasourc
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 
-# P2c Ktor-client（AC4：版本经 BOM 统一，无散装版本；S0 锁定 3.5.2）
+# P2c Ktor-client（AC4：版本经 BOM 统一，无散装版本；现升 3.6.0 最新稳定）
 ktor-bom = { module = "io.ktor:ktor-bom", version.ref = "ktor" }
-# U11：KMP sourceSets 不支持 platform(BOM)，core:webdav commonMain 直连 3.5.2（与 BOM 同线）
+# U11：KMP sourceSets 不支持 platform(BOM)，core:webdav commonMain 直连 3.6.0（与 BOM 同线）
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
 ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
-# Ktor 3.5.2 官方传递版本（S0 实测 ktor-io-jvm POM）：kotlinx.io.IOException 供给
+# Ktor 3.6.0 官方传递版本（POM 实测 ktor-io-jvm 3.6.0）：kotlinx.io.IOException 供给
 kotlinx-io-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-io-core", version.ref = "kotlinxIo" }
 
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
@@ -144,7 +152,7 @@ miuix-squircle = { group = "top.yukonga.miuix.kmp", name = "miuix-squircle", ver
 # miuix-shader（isRuntimeShaderSupported 等 RuntimeShader 能力检查；miuix-blur 对其不透传，需直连）
 miuix-shader = { group = "top.yukonga.miuix.kmp", name = "miuix-shader", version.ref = "miuix" }
 
-# S1 桌面凭据：Windows DPAPI 经 JNA（jna-platform 含 Crypt32Util；版本与 Gradle 自带 jna 5.17.0 对齐）
+# S1 桌面凭据：Windows DPAPI 经 JNA（jna-platform 含 Crypt32Util；5.19.1 最新稳定线）
 jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version.ref = "jna" }
 

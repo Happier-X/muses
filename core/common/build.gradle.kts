@@ -65,17 +65,17 @@ kotlin {
         // jaudiotagger 为纯 JVM 库（android/jvm 均可加载），implementation 不向上游传递。
         // 09-05-lyrics-kmp X3：lyrics 主源码 + LyricsModule（koin-core DSL，纯 Kotlin 无安卓依赖）
         // 上收 jvmShared 同包名，安卓 AppKoinModule 装配零改动；koin-core 版本经 BOM 约束（见底部）。
-        val jvmShared by creating {
+        val jvmShared = create("jvmShared") {
             dependsOn(commonMain.get())
             dependencies {
                 implementation(libs.jaudiotagger)
                 implementation(libs.koin.core)
                 // 09-05-desktop-player-lyrics Y1：SimpleLyricsPanel 上收（纯 Compose 面板，
                 // android/jvm 双端共用；插件组合同 :core:ui-shared，不升级版本线）
-                implementation(compose.runtime)
-                implementation(compose.ui)
-                implementation(compose.foundation)
-                implementation(compose.animation)
+                implementation(libs.jb.compose.runtime)
+                implementation(libs.jb.compose.ui)
+                implementation(libs.jb.compose.foundation)
+                implementation(libs.jb.compose.animation)
                 // SimpleLyricsPanel 用 miuix Text，需直引 miuix-ui
                 implementation(libs.miuix.ui)
             }

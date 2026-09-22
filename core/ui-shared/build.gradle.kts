@@ -24,9 +24,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             // api 透传：5 个 feature 直连 ui-shared，compose/miuix/coil/tabler 只需声明一次
-            api(compose.runtime)
-            api(compose.ui)
-            api(compose.foundation)
+            api(libs.jb.compose.runtime)
+            api(libs.jb.compose.ui)
+            api(libs.jb.compose.foundation)
             // Tabler Icons（KMP 坐标：outline + filled；注意空基座陷阱：不要单独声明 icons-tabler-cmp）
             api(libs.tabler.icons.cmp)
             api(libs.tabler.filled.icons.cmp)

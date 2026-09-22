@@ -33,11 +33,11 @@ kotlin {
 
         // U21：jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn（core:common 同款模式），
         // 播放屏/歌词面板一份代码双端编译；引用 core:common jvmShared 的 AmllLyricLine 等类型。
-        val jvmShared by creating {
+        val jvmShared = create("jvmShared") {
             dependsOn(commonMain.get())
             dependencies {
                 // compose 基座经 commonMain 的 ui-shared api 透传；animation/lifecycle/coil 系 ui-shared 未透传或平台相关，仍需直引
-                implementation(compose.animation)
+                implementation(libs.jb.compose.animation)
                 // U21：collectAsStateWithLifecycle（lifecycle 2.11 KMP 工件，双端可用）
                 implementation(libs.androidx.lifecycle.runtime.compose)
             }

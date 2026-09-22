@@ -35,7 +35,7 @@ fun resolveGitTagVersion(workDir: java.io.File): String {
     }
 }
 val desktopVersionDir = layout.buildDirectory.dir("generated/desktopVersion")
-val generateDesktopVersion by tasks.registering {
+val generateDesktopVersion = tasks.register("generateDesktopVersion") {
     outputs.file(desktopVersionDir.map { it.file("muses-desktop-version.txt") })
     // 版本属性声明为任务输入：-P 变化时重跑；未注入时执行期回退 git tag
     inputs.property("musesDesktopVersion", musesDesktopVersionProvider)
@@ -70,8 +70,8 @@ kotlin {
         }
 
         commonMain.dependencies {
-            implementation(compose.foundation)
-            implementation(compose.ui)
+            implementation(libs.jb.compose.foundation)
+            implementation(libs.jb.compose.ui)
             implementation(libs.kotlinx.coroutines.core)
             // 末端模块：api 与 implementation 对外无差异，用 implementation 避免 VLCJ/JNA 泄漏到编译类路径
             implementation(project(":desktop"))
@@ -133,7 +133,7 @@ kotlin {
 // JvmPlayerPort.resolveVlcDir() 从系统属性 `compose.application.resources.dir` 读回。
 // 裁剪白名单：scripts/vlc-trim-keep.txt（纯音频最小集）。
 val vlcAppResourcesDir = layout.buildDirectory.dir("appResources")
-val prepareVlcRuntime by tasks.registering(Exec::class) {
+val prepareVlcRuntime = tasks.register<Exec>("prepareVlcRuntime") {
     group = "compose desktop"
     description = "裁剪并准备随包内置的 VLC 原生库（app/resources/vlc）"
     val outDir = vlcAppResourcesDir.get().asFile.resolve("windows/vlc")

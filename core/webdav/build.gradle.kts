@@ -23,7 +23,7 @@ kotlin {
     sourceSets {
         // U11：jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn（同 :core:common 接法），
         // KtorWebDavClient/AuthRegistry/WebDavUtils（java.io/java.net/runBlocking）一份代码双端编译
-        val jvmShared by creating {
+        val jvmShared = create("jvmShared") {
             dependsOn(commonMain.get())
         }
         jvmMain.get().dependsOn(jvmShared)
@@ -43,8 +43,8 @@ kotlin {
             implementation(libs.okhttp)
         }
         // U11：AGP9 把 androidUnitTest 更名 androidHostTest 且默认关闭（withHostTest 显式开启）；
-        // 源集由 withHostTest 创建，此处 by getting 挂依赖
-        val androidHostTest by getting {
+        // 源集由 withHostTest 创建，此处 getByName 挂依赖
+        val androidHostTest = getByName("androidHostTest").apply {
             dependencies {
                 implementation(libs.junit)
                 // Ktor MockEngine（WebDavClient 429 单测，不再走真实 socket）

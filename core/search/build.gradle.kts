@@ -24,7 +24,7 @@ kotlin {
 
     sourceSets {
         // jvmShared 中间层：androidMain 与 jvmMain 共同 dependsOn（Koin 装配一份双端共用）
-        val jvmShared by creating {
+        val jvmShared = create("jvmShared") {
             dependsOn(commonMain.get())
             dependencies {
                 implementation(libs.koin.core)

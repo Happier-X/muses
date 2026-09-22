@@ -53,11 +53,11 @@ kotlin {
 
         // U22：jvmShared 中间层由 jvmMain 与 androidMain 共同 dependsOn（core:common 同款模式），
         // 导航壳一份代码双端编译；URLEncoder/SimpleDateFormat 等 JVM API 在此可用。
-        val jvmShared by creating {
+        val jvmShared = create("jvmShared") {
             dependsOn(commonMain.get())
             dependencies {
                 // compose 基座经 commonMain 的 ui-shared api 透传；animation 系 ui-shared 未声明，仍需直引
-                implementation(compose.animation)
+                implementation(libs.jb.compose.animation)
             }
         }
         jvmMain.get().dependsOn(jvmShared)

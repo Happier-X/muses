@@ -17,7 +17,11 @@ android {
         // AGP 9 中 DSL 显式赋值会覆盖 injected 属性，故必须在此主动读取
         versionCode = (findProperty("android.injected.versionCode") as String?)?.toInt() ?: 1
         versionName = (findProperty("android.injected.versionName") as String?) ?: "0.5.1"
-        resourceConfigurations += listOf("zh-rCN", "en")
+    }
+
+    // 语言资源过滤（zh-rCN/en）：AGP 9.4 趡牌 defaultConfig.resourceConfigurations，迁至 androidResources.localeFilters
+    androidResources {
+        localeFilters += listOf("zh-rCN", "en")
     }
 
     // 渠道维度：主包 com.muses.player（覆盖安装旧 Web 版）+ MIUI 定制包
