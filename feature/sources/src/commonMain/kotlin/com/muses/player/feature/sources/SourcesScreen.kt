@@ -171,7 +171,6 @@ fun SourcesScreen(
                     viewModel.closeAddActionSheet()
                     onOpenWebdavAdd()
                 }),
-                MusesActionItem(label = "取消", onClick = { viewModel.closeAddActionSheet() }),
             ),
         )
     }

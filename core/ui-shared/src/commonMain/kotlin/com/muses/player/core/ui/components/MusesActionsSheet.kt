@@ -21,7 +21,9 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 底部弹出的操作单（miuix OverlayBottomSheet；原 SaltActionsSheet 的 Konsta Actions 语义）。
  *
  * label → sheet 标题；每行一个动作按钮（居中 17sp，危险动作用 error 色）；
- * 取消按钮独立在末尾。渲染宿主默认根 Scaffold 全屏（根 Scaffold 由壳层统一提供）。
+ * **取消按钮由本组件固定在末尾**（点击调 [onDismiss]）——调用方的 `items` 不要再传「取消」，
+ * 否则弹窗里会出现两个取消。
+ * 渲染宿主默认根 Scaffold 全屏（根 Scaffold 由壳层统一提供）。
  */
 data class MusesActionItem(
     val label: String,

@@ -197,7 +197,7 @@ fun PlaylistsPage(
         }
     }
 
-    // ---- m-actions：歌单操作（重命名 / 删除 / 取消）----
+    // ---- m-actions：歌单操作（重命名 / 删除）----
     actionsTargetId?.let { targetId ->
         MusesActionsSheet(
             opened = true,
@@ -213,7 +213,6 @@ fun PlaylistsPage(
                     deleteTargetId = targetId
                     actionsTargetId = null
                 }),
-                MusesActionItem(label = "取消", onClick = { actionsTargetId = null }),
             ),
         )
     }
