@@ -4,6 +4,7 @@ import com.muses.player.core.ui.components.MusesBottomSheet
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -118,6 +119,17 @@ fun PlayerScreen(
      * 28dp 模糊，重排代价极高（实测掉帧明显）。所以转场期间换成纯色底，转场结束再恢复流光背景。
      */
     isTransitioning: Boolean = false,
+    /**
+     * 转场进度：0 = 迷你条态，1 = 全屏沉浸态。
+     *
+     * 用来实现椒盐那套观感：**只有封面用 share element 从迷你条封面长大到全屏**，
+     * 其余内容（标题 / 歌词 / 进度条 / 控制按钮）随进度渐隐，
+     * 所以点开时先看到「封面飞出来」，内容在后半段才浮现；收起时恰好相反。
+     *
+     * 传 lambda（内部才读 State）：这里的调用者是宿主的 graphicsLayer / alpha，
+     * 若在组合期取值，转场中每帧都会重组整棵沉浸页。
+     */
+    transitionProgress: () -> Float = { 1f },
 ) {
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val position by viewModel.position.collectAsStateWithLifecycle()
@@ -268,6 +280,9 @@ fun PlayerScreen(
         ) {
             // 转场中跳过流光背景：它是全屏 AsyncImage + blur(28dp)，在 sharedBounds 逐帧重排时
             // 代价极高（主要掉帧源）；用纯色顶一下，转场结束后再恢复。
+            // 不用 alpha 渐变过渡：那要求它整时段都参与绘制，恰好把掉帧源又请回来了。
+            // 视觉上不跳的原因：转场中「非封面内容」也基本不可见（见 contentAlphaFor），
+            // 背景色差异被内容渐隐盖住。
             if (isTransitioning) {
                 Box(Modifier.fillMaxSize().background(Color(0xFF05070D)))
             } else {
@@ -311,6 +326,7 @@ fun PlayerScreen(
                     maxWidth = screenWidth,
                     maxHeight = screenHeight,
                     onLyricAtTopChange = { isLyricAtTop = it },
+                    transitionProgress = transitionProgress,
                 )
             } else {
                 PhoneImmersiveLayout(
@@ -347,6 +363,7 @@ fun PlayerScreen(
                     isDragging = isDraggingVertically,
                     onActivePanelChange = { activePanel = it },
                     onLyricAtTopChange = { isLyricAtTop = it },
+                    transitionProgress = transitionProgress,
                 )
             }
         }
@@ -454,6 +471,24 @@ private fun PlayerBackground(
 
 // ---------- 手机布局：固定头部 + 双面板 0.22s easeOut ----------
 
+/**
+ * 「非封面内容」的可见度：把转场进度映射成 alpha。
+ *
+ * 椒盐那套转场只看得到封面（它走 share element，从迷你条封面长到全屏），
+ * 标题/歌词/控制按钮跟封面同时长大就会显得杂乱；让它们在后半段才浮现，
+ * 观感就是「封面先飞出来，内容再浮现」。用近似 [FastOutLinearInEasing] 的曲线让内容开得快、收得慢。
+ *
+ * 阈值 0.45：前半段（封面已经跑完大半路径）内容完全不可见，避免与迷你条封面重叠。
+ */
+private fun contentAlphaFor(progress: Float): Float {
+    val t = ((progress - ContentAlphaStartAt) / (1f - ContentAlphaStartAt)).coerceIn(0f, 1f)
+    // FastOutLinearIn = cubic-bezier(0.4, 0.0, 1.0, 1.0)：起步快、尾部缓，内容“刷”地浮现
+    return FastOutLinearInEasing.transform(t)
+}
+
+/** 内容开始浮现的转场进度（见 [contentAlphaFor]） */
+private const val ContentAlphaStartAt = 0.45f
+
 @Composable
 private fun PhoneImmersiveLayout(
     title: String,
@@ -489,6 +524,8 @@ private fun PhoneImmersiveLayout(
     isDragging: Boolean,
     onActivePanelChange: (Int) -> Unit = {},
     onLyricAtTopChange: (Boolean) -> Unit = {},
+    /** 转场进度（见 [PlayerScreen]）：驱动「非封面内容」渐隐 */
+    transitionProgress: () -> Float = { 1f },
 ) {
     var activePanel by remember { mutableStateOf(0) }
     // 进度条手势进行中时禁用 pager 横滑：杜绝 seek 拖动被当成切页（由 ProgressSection.onSeekDragActive 驱动）
@@ -508,6 +545,11 @@ private fun PhoneImmersiveLayout(
         }
     }
 
+    // 「非封面内容」统一可见度：标题 / 歌词 / 控制都据此渐隐，
+    // 而封面（InfoPanel 里的 CoverHero）不受影响——它走 share element，由宿主插值 bounds。
+    // 注意用 graphicsLayer 且**延迟读进度**（不在此处取值，否则每帧重组整棵页面）。
+    val contentAlpha = Modifier.graphicsLayer { alpha = contentAlphaFor(transitionProgress()) }
+
     Column(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
     ) {
@@ -518,7 +560,8 @@ private fun PhoneImmersiveLayout(
             artist = artist,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 0.dp),
+                .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 0.dp)
+                .then(contentAlpha),
         )
 
         // 已移除手机端额外小圆点指示器：对齐 Capacitor 原版无指示器（PRD R7 1:1）
@@ -557,12 +600,15 @@ private fun PhoneImmersiveLayout(
                     maxWidth = maxWidth,
                     maxHeight = maxHeight,
                     onSeekDragActive = { isSeekDragging = it },
+                    contentAlpha = { contentAlphaFor(transitionProgress()) },
                 )
                 1 -> LyricsPanel(
                     document = lyricsDocument,
                     positionMs = lyricPosition,
                     isPlaying = isPlaying,
                     onSeek = onSeek,
+                    // 歌词面板整体都是「非封面内容」，直接整块渐隐
+                    modifier = Modifier.graphicsLayer { alpha = contentAlphaFor(transitionProgress()) },
                 )
             }
         }
@@ -600,6 +646,8 @@ private fun TabletImmersiveLayout(
     maxWidth: Dp,
     maxHeight: Dp,
     onLyricAtTopChange: (Boolean) -> Unit = {},
+    /** 转场进度（见 [PlayerScreen]）：驱动「非封面内容」渐隐 */
+    transitionProgress: () -> Float = { 1f },
 ) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         // 平板不渲染固定头部，由面板内头部承担
@@ -742,6 +790,11 @@ private fun InfoPanel(
     maxWidth: Dp = 360.dp,
     maxHeight: Dp = 800.dp,
     onSeekDragActive: (Boolean) -> Unit = {},
+    /**
+     * 「非封面内容」的可见度 lambda（传 lambda 不传值：转场中每帧都要重算，
+     * 而取值的调用点在 graphicsLayer 里，不会触发重组）。
+     */
+    contentAlpha: () -> Float = { 1f },
 ) {
     // info-panel：panel padding calc(16+safe) 24 16（对齐 .player-overlay .panel）；
     // info-inner gap 14、padding-top 16、song-meta margin-bottom 18（对齐 .info-panel-inner）
@@ -775,34 +828,37 @@ private fun InfoPanel(
         )
         Spacer(Modifier.height(innerGap))
         // 手机控件区：player-page__info-controls（平板 display:none，由底部条承担）
+        // 整块随转场进度渐隐：椒盐转场里只有封面在动，进度条/按钮是浮出来的
         if (!isTablet) {
-            ProgressSection(
-                position = position,
-                duration = duration,
-                onSeekStart = onSeekStart,
-                onSeekEnd = onSeekEnd,
-                screenHeight = maxHeight,
-                onSeekDragActive = onSeekDragActive,
-            )
-            Spacer(Modifier.height(innerGap))
-            ControlsRow(
-                isPlaying = isPlaying,
-                onPrevious = onPrevious,
-                onPlayPause = onPlayPause,
-                onNext = onNext,
-                screenWidth = maxWidth,
-                screenHeight = maxHeight,
-            )
-            Spacer(Modifier.height(innerGap))
-            ModeBarRow(
-                repeatMode = repeatMode,
-                shuffleEnabled = shuffleEnabled,
-                onToggleRepeat = onToggleRepeat,
-                onToggleShuffle = onToggleShuffle,
-                onOpenQueue = onOpenQueue,
-                onOpenEditMeta = onOpenEditMeta,
-                screenHeight = maxHeight,
-            )
+            Column(Modifier.graphicsLayer { alpha = contentAlpha() }) {
+                ProgressSection(
+                    position = position,
+                    duration = duration,
+                    onSeekStart = onSeekStart,
+                    onSeekEnd = onSeekEnd,
+                    screenHeight = maxHeight,
+                    onSeekDragActive = onSeekDragActive,
+                )
+                Spacer(Modifier.height(innerGap))
+                ControlsRow(
+                    isPlaying = isPlaying,
+                    onPrevious = onPrevious,
+                    onPlayPause = onPlayPause,
+                    onNext = onNext,
+                    screenWidth = maxWidth,
+                    screenHeight = maxHeight,
+                )
+                Spacer(Modifier.height(innerGap))
+                ModeBarRow(
+                    repeatMode = repeatMode,
+                    shuffleEnabled = shuffleEnabled,
+                    onToggleRepeat = onToggleRepeat,
+                    onToggleShuffle = onToggleShuffle,
+                    onOpenQueue = onOpenQueue,
+                    onOpenEditMeta = onOpenEditMeta,
+                    screenHeight = maxHeight,
+                )
+            }
         } else {
             Spacer(Modifier.height(12.dp))
         }
