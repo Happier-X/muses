@@ -22,7 +22,7 @@ val sourcesCoreModule = module {
         val port: PlaybackPort = get()
         SourcesViewModel(
             get(), get(), get(), get(), get(),
-            get(), get(), get(), get(), get(),
+            get(), get(), get(), get(),
             get(),
             onRemoveFromQueue = port::removeFromQueue,
         )

@@ -62,9 +62,15 @@ fun WebDavFormScreen(
         }
     }
 
-    // 从浏览页返回：消费带回的结果（single 回填目录 / multiple 批量建源）
-    LaunchedEffect(Unit) {
-        viewModel.consumeBrowseResult()
+    // 消费浏览页带回的结果（single 回填目录 / multiple 批量建源）。
+    // 观察 holder 的 StateFlow 而不是用 LaunchedEffect(Unit)：miuix-nav 在浏览页期间保留
+    // 表单页组合时，返回不会重新组合，一次性副作用会漏掉结果——表现为「点了添加没反应，
+    // 第二次进来才提示添加成功」（结果残留在 holder，被下一次进入消费）。
+    val pendingBrowse = WebDavBrowseResultHolder.result.collectAsState().value
+    LaunchedEffect(pendingBrowse) {
+        if (pendingBrowse != null) {
+            viewModel.consumeBrowseResult()
+        }
     }
 
     // 成功提示后稍作停留再返回音源列表（对照 scheduleLeave 800ms）

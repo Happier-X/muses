@@ -18,7 +18,6 @@ import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.scrape.queue.ScrapeQueueStore
 import com.muses.player.core.webdav.WebDavAuthRegistry
-import com.muses.player.core.webdav.WebDavClient
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
@@ -29,27 +28,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
-/** 添加音源表单状态 */
-data class AddSourceForm(
-    val name: String = "",
-    val type: SourceType = SourceType.LOCAL,
-    // 本地目录
-    val localPath: String = "",
-    // WebDAV
-    val webdavUrl: String = "",
-    val webdavUsername: String = "",
-    val webdavPassword: String = "",
-    // 测试连接
-    val testState: TestState = TestState.Idle,
-)
-
-sealed class TestState {
-    data object Idle : TestState()
-    data object Testing : TestState()
-    data object Success : TestState()
-    data class Failure(val message: String) : TestState()
-}
 
 /**
  * 音源 ViewModel（U20 全量上收 commonMain）：数据核 + 页面扩展一体——音源 CRUD/表单/
@@ -68,7 +46,6 @@ class SourcesViewModel constructor(
     private val songDao: SongDao,
     private val scrapeQueueStore: ScrapeQueueStore,
     private val credentialsRepository: CredentialsRepository,
-    private val webDavClient: WebDavClient,
     private val webDavAuthRegistry: WebDavAuthRegistry,
     private val playbackStateRepository: PlaybackStateRepository,
     private val recentPlaysRepository: RecentPlaysRepository,
@@ -78,12 +55,6 @@ class SourcesViewModel constructor(
 
     val sources: StateFlow<List<Source>> = sourceRepository.observeSources()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    private val _addForm = MutableStateFlow(AddSourceForm())
-    val addForm: StateFlow<AddSourceForm> = _addForm
-
-    private val _showAddForm = MutableStateFlow(false)
-    val showAddForm: StateFlow<Boolean> = _showAddForm
 
     // ── Salt 复刻交互状态（SourcesPage.vue ref 组）──────────
 
@@ -134,12 +105,6 @@ class SourcesViewModel constructor(
 
     fun closeAddActionSheet() {
         isAddActionSheetOpen = false
-    }
-
-    /** 按类型预填并打开添加表单（action sheet 两个入口） */
-    fun showAddFormForType(type: SourceType) {
-        updateFormType(type)
-        showAddForm()
     }
 
     fun confirmDelete(source: Source) {
@@ -265,95 +230,6 @@ class SourcesViewModel constructor(
             } catch (_: Exception) {
                 // 建源失败静默（对齐 Web FilePicker 取消语义）
             }
-        }
-    }
-
-    fun showAddForm() {
-        _showAddForm.value = true
-        _addForm.value = AddSourceForm()
-    }
-
-    fun dismissAddForm() {
-        _showAddForm.value = false
-        _addForm.value = AddSourceForm()
-    }
-
-    fun updateFormName(name: String) {
-        _addForm.value = _addForm.value.copy(name = name)
-    }
-
-    fun updateFormType(type: SourceType) {
-        _addForm.value = _addForm.value.copy(type = type)
-    }
-
-    fun updateFormLocalPath(path: String) {
-        _addForm.value = _addForm.value.copy(localPath = path)
-    }
-
-    fun updateFormWebdavUrl(url: String) {
-        _addForm.value = _addForm.value.copy(webdavUrl = url)
-    }
-
-    fun updateFormWebdavUsername(username: String) {
-        _addForm.value = _addForm.value.copy(webdavUsername = username)
-    }
-
-    fun updateFormWebdavPassword(password: String) {
-        _addForm.value = _addForm.value.copy(webdavPassword = password)
-    }
-
-    /** 测试 WebDAV 连接 */
-    fun testConnection() {
-        val form = _addForm.value
-        if (form.webdavUrl.isBlank()) {
-            _addForm.value = form.copy(testState = TestState.Failure("请输入服务器地址"))
-            return
-        }
-
-        _addForm.value = form.copy(testState = TestState.Testing)
-        viewModelScope.launch {
-            try {
-                webDavClient.authenticate(form.webdavUsername, form.webdavPassword)
-                val ok = webDavClient.probe(form.webdavUrl)
-                _addForm.value = _addForm.value.copy(
-                    testState = if (ok) TestState.Success else TestState.Failure("连接失败"),
-                )
-            } catch (e: Exception) {
-                _addForm.value = _addForm.value.copy(
-                    testState = TestState.Failure(e.message ?: "连接失败"),
-                )
-            }
-        }
-    }
-
-    /** 保存音源 */
-    fun saveSource() {
-        val form = _addForm.value
-        if (form.name.isBlank()) return
-
-        viewModelScope.launch {
-            val now = platformNowMs()
-            val id = Uuid.random().toString()
-            val source = Source(
-                id = id,
-                name = form.name.trim(),
-                type = form.type,
-                url = if (form.type == SourceType.WEBDAV) form.webdavUrl.trim() else null,
-                path = if (form.type == SourceType.LOCAL) form.localPath.trim() else null,
-                username = if (form.type == SourceType.WEBDAV) form.webdavUsername.trim().ifEmpty { null } else null,
-                createdAt = now,
-                updatedAt = now,
-            )
-            sourceRepository.upsert(source)
-
-            // WebDAV 密码加密存储
-            if (form.type == SourceType.WEBDAV && form.webdavPassword.isNotEmpty()) {
-                credentialsRepository.savePassword(id, form.webdavPassword)
-            }
-            // 源新增后立即同步播放认证注册表，避免播放流播首次请求才懒加载到旧数据
-            webDavAuthRegistry.refresh()
-
-            dismissAddForm()
         }
     }
 

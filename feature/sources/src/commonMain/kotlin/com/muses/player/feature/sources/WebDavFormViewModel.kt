@@ -107,7 +107,7 @@ class WebDavFormViewModel constructor(
     }
 
     /**
-     * 消费目录浏览页带回的结果（表单页重新组合时调用，take 语义）：
+     * 消费目录浏览页带回的结果（表单页观察到 holder 有新值时调用，take 语义）：
      * - 编辑模式（single）：回填目录字段；
      * - 添加模式（multiple）：批量建源，成功后提示并返回。
      * 对照 SourceWebDavPage.vue 的 consumeBrowseResult。

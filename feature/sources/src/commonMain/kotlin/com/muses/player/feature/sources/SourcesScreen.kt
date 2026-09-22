@@ -1,7 +1,6 @@
 package com.muses.player.feature.sources
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,17 +17,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import com.muses.player.core.ui.components.MusesDialog
 import com.muses.player.core.ui.icons.TablerIcons
-import com.muses.player.core.ui.components.MusesBottomSheet
-import com.muses.player.core.ui.components.MusesButton
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import com.muses.player.core.ui.components.MusesTextField
-import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -40,8 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,7 +71,6 @@ fun SourcesScreen(
 ) {
     val scheme = MiuixTheme.colorScheme
     val sources by viewModel.sources.collectAsState()
-    val showAddForm by viewModel.showAddForm.collectAsState()
     // 扫描进度弹窗观察 scanner 内部进度流
     val scanProgress by viewModel.scanProgress.collectAsState()
 
@@ -312,22 +304,6 @@ fun SourcesScreen(
             },
         )
     }
-
-    // ---- AddSourceSheet（保留既有底部弹窗表单）----
-    if (showAddForm) {
-        AddSourceSheet(
-            form = viewModel.addForm.collectAsState().value,
-            onDismiss = { viewModel.dismissAddForm() },
-            onTestConnection = { viewModel.testConnection() },
-            onSave = { viewModel.saveSource() },
-            onUpdateName = { viewModel.updateFormName(it) },
-            onUpdateType = { viewModel.updateFormType(it) },
-            onUpdateLocalPath = { viewModel.updateFormLocalPath(it) },
-            onUpdateWebdavUrl = { viewModel.updateFormWebdavUrl(it) },
-            onUpdateWebdavUsername = { viewModel.updateFormWebdavUsername(it) },
-            onUpdateWebdavPassword = { viewModel.updateFormWebdavPassword(it) },
-        )
-    }
 }
 
 // ── 音源卡片列表（.sources-page__list / __card）──────────────
@@ -445,151 +421,4 @@ private fun Source.toSharedSourceItem() = SharedSourceItem(
     },
     detail = path ?: url.orEmpty(),
 )
-
-// ── 添加音源底部弹窗（miuix MusesBottomSheet + TabRow 类型选择）──────────────────────────────────────────
-
-@Composable
-private fun AddSourceSheet(
-    form: AddSourceForm,
-    onDismiss: () -> Unit,
-    onTestConnection: () -> Unit,
-    onSave: () -> Unit,
-    onUpdateName: (String) -> Unit,
-    onUpdateType: (SourceType) -> Unit,
-    onUpdateLocalPath: (String) -> Unit,
-    onUpdateWebdavUrl: (String) -> Unit,
-    onUpdateWebdavUsername: (String) -> Unit,
-    onUpdateWebdavPassword: (String) -> Unit,
-) {
-    val scheme = MiuixTheme.colorScheme
-    MusesBottomSheet(
-        onDismiss = onDismiss,
-        title = "添加音源",
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-        ) {
-
-
-            // 名称
-            MusesTextField(
-                value = form.name,
-                onValueChange = onUpdateName,
-                label = "音源名称",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(12.dp))
-
-            // 类型选择（miuix TabRow 双选项）
-            TabRow(
-                tabs = listOf("本地目录", "WebDAV"),
-                selectedTabIndex = if (form.type == SourceType.LOCAL) 0 else 1,
-                onTabSelected = { onUpdateType(if (it == 0) SourceType.LOCAL else SourceType.WEBDAV) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(16.dp))
-
-            // 根据类型显示不同表单
-            AnimatedVisibility(visible = form.type == SourceType.LOCAL) {
-                Column {
-                    MusesTextField(
-                        value = form.localPath,
-                        onValueChange = onUpdateLocalPath,
-                        label = "目录路径（SAF tree URI）",
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-
-            AnimatedVisibility(visible = form.type == SourceType.WEBDAV) {
-                Column {
-                    MusesTextField(
-                        value = form.webdavUrl,
-                        onValueChange = onUpdateWebdavUrl,
-                        label = "服务器地址",
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    MusesTextField(
-                        value = form.webdavUsername,
-                        onValueChange = onUpdateWebdavUsername,
-                        label = "用户名",
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    MusesTextField(
-                        value = form.webdavPassword,
-                        onValueChange = onUpdateWebdavPassword,
-                        label = "密码",
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    )
-                    Spacer(Modifier.height(12.dp))
-
-                    // 测试连接按钮
-                    when (form.testState) {
-                        is TestState.Testing -> {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                Spacer(Modifier.width(8.dp))
-                                Text("正在测试连接…", style = MiuixTheme.textStyles.body2, color = scheme.onBackgroundVariant)
-                            }
-                        }
-                        is TestState.Success -> {
-                            Text(
-                                "连接成功 ✓",
-                                color = scheme.primary,
-                                style = MiuixTheme.textStyles.body2,
-                            )
-                        }
-                        is TestState.Failure -> {
-                            Text(
-                                (form.testState as TestState.Failure).message,
-                                color = scheme.error,
-                                style = MiuixTheme.textStyles.body2,
-                            )
-                        }
-                        is TestState.Idle -> { /* no-op */ }
-                    }
-
-                    MusesButton(
-                        onClick = onTestConnection,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = form.testState !is TestState.Testing,
-                    ) {
-                        Icon(TablerIcons.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("测试连接")
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            // 保存按钮
-            MusesButton(
-                onClick = onSave,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = form.name.isNotBlank() && (
-                    (form.type == SourceType.LOCAL && form.localPath.isNotBlank()) ||
-                        (form.type == SourceType.WEBDAV && form.webdavUrl.isNotBlank())
-                    ),
-            ) {
-                Text("保存")
-            }
-            Spacer(Modifier.height(16.dp))
-        }
-    }
-}
 
