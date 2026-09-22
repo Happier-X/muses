@@ -1,19 +1,13 @@
 package com.muses.player.navigation
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.shadow.Shadow
-import top.yukonga.miuix.kmp.squircle.squircleBackground
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.muses.player.core.ui.icons.TablerIcons
@@ -55,7 +49,6 @@ import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
-import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import com.muses.player.core.ui.components.LocalPlayerAnimatedVisibilityScope
 import com.muses.player.core.ui.components.LocalPlayerSharedTransitionScope
@@ -1122,11 +1115,14 @@ private fun CompactPlayerDock(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 左：当前 tab（点击展开回两行）
-        DockIconPill(
+        // 左：当前 tab（点击展开回两行）。与分离态搜索钮共用 MusesDockActionPill，
+        // 按压反馈（放大 + primary 叠底）天然一致，不会再出现默认水波纹的方形灰框。
+        MusesDockActionPill(
             icon = tabIcon,
-            contentDescription = "展开导航",
+            label = "展开导航",
+            selected = false,
             onClick = onExpand,
+            iconSize = DockPillIconSize,
             iconScale = iconScale,
         )
         // 中：迷你播放器（复用既有组件，weight 占满剩余宽度）
@@ -1147,53 +1143,20 @@ private fun CompactPlayerDock(
             )
         }
         // 右：搜索
-        DockIconPill(
+        MusesDockActionPill(
             icon = TablerIcons.Search,
-            contentDescription = "搜索",
+            label = "搜索",
+            selected = false,
             onClick = onOpenSearch,
+            iconSize = DockPillIconSize,
             iconScale = iconScale,
         )
     }
 }
 
-/** 融合胶囊两侧图标 pill 的边长（正方形，圆角取半宽即正圆）；与迷你条同高 56dp */
-private val DockPillSize = 56.dp
-
 /**
- * 融合胶囊两侧的图标 pill。
+ * 融合胶囊两侧图标 pill 的**图标**尺寸（外框直接用 [MusesDockActionPill] 默认的 56dp，与迷你条同高）。
  *
- * **材质与 [MiniPlayerBar] 严格同款**（否则三部分拼在一行会明显「不是一套」）：
- * `surfaceContainer` 底 + 官方 `dropShadow` 阴影（radius 10dp / 黑 20%）+ squircle 平滑圆角。
- * 尺寸为 **60dp 正方形**（圆角取半宽 = 正圆）：圆形必须用正方形，早期用「48×64 竖胶囊」会渲染成圆角矩形而不是圆；
- * 60dp 是在「与迷你条 64dp 尽量齐高」与「给中间标题留宽」之间的折中（高度差 4dp 肉眼基本不可辨）。
- *
- * [iconScale] 由上层按 compactProgress 插值传入，使融合/展开过程中图标尺寸连续变化。
+ * 比底栏的 24dp 略收（22dp）：pill 里只有图标没有文字，24dp 在圆形里会显得撑。
  */
-@Composable
-private fun DockIconPill(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    iconScale: Float = 1f,
-) {
-    val scheme = MiuixTheme.colorScheme
-    val shape = RoundedCornerShape(50)
-    Box(
-        modifier = Modifier
-            .size(DockPillSize)
-            .dropShadow(
-                shape = shape,
-                shadow = Shadow(radius = 10.dp, color = Color.Black, alpha = 0.2f),
-            )
-            .squircleBackground(scheme.surfaceContainer, DockPillSize / 2)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = scheme.onSurface,
-            modifier = Modifier.size(22.dp * iconScale),
-        )
-    }
-}
+private val DockPillIconSize = 22.dp

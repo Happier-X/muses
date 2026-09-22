@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.Icon
@@ -192,12 +193,22 @@ private fun MusesBottomDockTab(
 }
 
 /**
- * 底栏旁的**独立动作钮**（对齐 Halcyon 的 `BottomDockActionPill`）：64×64 正方形，
+ * 底栏旁的**独立动作钮**（对齐 Halcyon 的 `BottomDockActionPill`）：正方形，
  * 与 [MusesBottomDock] 同材质（`surfaceContainer` + `dropShadow` + squircle 圆角），
  * 只有图标没有文字，用来承载「搜索」这类非导航动作。
  *
- * 交互对齐 Halcyon：按压时整体放大 1.06 倍；选中（停在搜索页）时叠一层 8% 的 `onSurface` 底
- * 并把图标换成 `primary`。
+ * 交互对齐 Halcyon：按压时整体放大 1.06 倍；选中（停在搜索页）时叠一层与
+ * [MusesBottomDock] 选中气泡**同款**的 `primary` 15% 胶囊底（同一 [DockIndicatorAlpha]），
+ * 并把图标换成 `primary`——保证与左侧 TabBar 的选中态是同一套视觉。
+ *
+ * **滚动融合胶囊两侧的图标 pill（展开导航 / 搜索）也复用本组件**（[size] / [iconSize] / [iconScale]
+ * 就是为它留的口子）：两处同源，按压反馈才不可能再漂移。此前融合态另起一套 `clickable` 默认
+ * indication 的实现，按压时会在 pill 上糊出一个**方形**灰色水波纹，与分离态（`indication = null`
+ * 的「放大 + 15% 叠底」）明显不是一套——即 08-30 反馈的「融合态点搜索/左侧会多一个灰框」。
+ *
+ * @param size 外框边长，默认 [DockActionSize]（56dp）
+ * @param iconSize 图标基准尺寸，默认 [DockIconSize]（24dp）
+ * @param iconScale 上层按融合进度插值的图标缩放（展开 ↔ 融合过渡时连续变化）
  */
 @Composable
 fun MusesDockActionPill(
@@ -206,6 +217,9 @@ fun MusesDockActionPill(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    size: Dp = DockActionSize,
+    iconSize: Dp = DockIconSize,
+    iconScale: Float = 1f,
 ) {
     val scheme = MiuixTheme.colorScheme
     val shape = RoundedCornerShape(50)
@@ -217,17 +231,13 @@ fun MusesDockActionPill(
         label = "dock-action-scale",
     )
     val overlayAlpha by animateFloatAsState(
-        targetValue = when {
-            pressed -> 1f
-            selected -> 0.72f
-            else -> 0f
-        },
+        targetValue = if (pressed || selected) 1f else 0f,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 700f),
         label = "dock-action-overlay",
     )
     Box(
         modifier = modifier
-            .size(DockActionSize)
+            .size(size)
             .dropShadow(
                 shape = shape,
                 shadow = Shadow(radius = 10.dp, color = Color.Black, alpha = 0.2f),
@@ -239,7 +249,8 @@ fun MusesDockActionPill(
                 scaleY = scale
             }
             .background(
-                color = scheme.onSurface.copy(alpha = 0.08f * overlayAlpha),
+                // 选中/按压叠底与 TabBar 选中气泡同色同透明度（primary 15%），统一两处选中态
+                color = scheme.primary.copy(alpha = DockIndicatorAlpha * overlayAlpha),
                 shape = shape,
             )
             .clickable(
@@ -253,7 +264,7 @@ fun MusesDockActionPill(
             imageVector = icon,
             contentDescription = label,
             tint = if (selected) scheme.primary else scheme.onSurface,
-            modifier = Modifier.size(DockIconSize),
+            modifier = Modifier.size(iconSize * iconScale),
         )
     }
 }
