@@ -42,6 +42,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -289,14 +292,32 @@ fun SongsPage(
         },
         floatingActionButton = {
             if (showJumpBubble) {
-                // 悬浮件浮在内容之上，miuix Scaffold 感知不到；FAB 手动抬升到两件套之上：
-                // 避让与列表末项同口径 = LocalBottomChromePadding（窄屏 128dp / 宽屏 80dp
-                // + 系统导航 inset + 8dp 保底，见 BottomChrome.kt）+ 16dp 呼吸；多选条再叠 64dp。
-                // 旧值硬编码 192/104，是按迷你条 80dp + 底栏 88dp 的旧 chrome 尺寸推的，
-                // chrome 收窄到 56dp 两件套后窄屏比实际高出约 40dp（反馈「悬浮按钮太高」）。
-                Box(Modifier.fillMaxSize()) {
-                    val fabClearance = com.muses.player.core.ui.theme.LocalBottomChromePadding.current +
-                        (if (isMultiSelect) 64.dp else 16.dp)
+                // 悬浮件浮在内容之上，miuix Scaffold 感知不到；FAB 手动抬升到 chrome 之上。
+                // 定位源 = LocalBottomChromeElevation（迷你条可见顶的窗口坐标，壳层逐帧上报）
+                // 与本 slot 实测底（窗口坐标）同系相减 → FAB 底 = 迷你条顶 - 16dp 呼吸，
+                // 展开两件套 / 滚动融合一行两态都贴合（对齐 Halcyon：FAB bottom=176dp ≈
+                // 其展开态 chrome 顶 + 少量呼吸）。不用节点总高 / 距屏底口径：FAB slot
+                // 自带内缩（实测 12dp，与 WindowInsets 无关），距屏底口径会多空一截。
+                // 列表 contentPadding 仍恒定（防滚动死角，见 BottomChrome）；
+                // 多选条位置恒定 → 仍按恒定口径 + 64dp。
+                var fabSlotBottom by remember { mutableStateOf(0f) }
+                Box(
+                    Modifier.fillMaxSize().onGloballyPositioned { coords ->
+                        fabSlotBottom = coords.boundsInWindow().bottom
+                    },
+                ) {
+                    val fabClearance = if (isMultiSelect) {
+                        com.muses.player.core.ui.theme.LocalBottomChromePadding.current + 64.dp
+                    } else {
+                        val chromeTop = com.muses.player.core.ui.theme.LocalBottomChromeElevation.current.value
+                        val slotBottom = with(LocalDensity.current) { fabSlotBottom.toDp() }
+                        // 首帧 slot 还没上报时退回恒定口径，避免 clearance 归零压住 chrome
+                        if (fabSlotBottom == 0f) {
+                            com.muses.player.core.ui.theme.LocalBottomChromePadding.current + 16.dp
+                        } else {
+                            slotBottom - chromeTop + 16.dp
+                        }
+                    }
                     JumpToCurrentFab(
                         modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = fabClearance, end = 16.dp),
                     onClick = {

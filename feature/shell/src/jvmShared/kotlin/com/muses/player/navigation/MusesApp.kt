@@ -509,6 +509,21 @@ fun MusesApp() {
             // 关键是避让值**恒定**——一旦随滚动融合变化，就会出现「避让变小后列表位置不跟着变 →
             // 展开回去时底部内容被多出的 chrome 盖住、且已到底再也滚不出来」的死角。
             val chromeSideMargin = 18.dp
+            // 底部 chrome 可见顶的窗口坐标（悬浮 FAB 定位源，见 LocalBottomChromeElevation）：
+            // 直接取迷你条**可见**矩形顶（融合/展开两态都由 reportMiniBarBounds 上报，
+            // 且两态它都是最靠上的可见件）。不用 bottomBar 节点总高——节点含透明 padding，
+            // 实测比可见胶囊顶高 20dp，FAB 跟着悬空（反馈「还是离得挺远」）。
+            // 也不换算「距屏底」——FAB slot 自带内缩且与 WindowInsets 无关（手势导航下
+            // nav=0），FAB 侧用同一窗口坐标系实测 slot 底相减即可，与 inset 来源无关。
+            val bottomBarElevation = remember { mutableStateOf(com.muses.player.core.ui.theme.PhoneBottomChromePadding) }
+            val shellDensity = LocalDensity.current
+            LaunchedEffect(miniBarBounds) {
+                val bounds = miniBarBounds ?: return@LaunchedEffect
+                bottomBarElevation.value = with(shellDensity) { bounds.top.toDp() }
+            }
+            CompositionLocalProvider(
+                com.muses.player.core.ui.theme.LocalBottomChromeElevation provides bottomBarElevation,
+            ) {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = MiuixTheme.colorScheme.surface,
@@ -521,6 +536,8 @@ fun MusesApp() {
                         // 吃系统导航栏/手势条 inset + 8dp 保底视觉抬升（对齐 Halcyon 的 MainBottomDock）：
                         // 部分 OEM（ColorOS 某些模式）在显示手势条时会上报 nav inset = 0，
                         // 仅靠 inset 会让底栏贴住手势条；8dp 保证始终有一点呼吸。
+                        // （FAB 定位不用这里的节点总高：节点含透明 padding 不等于可见顶，
+                        //   改由 miniBarBounds 可见矩形上报，见上方 bottomBarElevation。）
                         modifier = Modifier
                             .navigationBarsPadding()
                             .padding(bottom = 8.dp),
@@ -675,6 +692,7 @@ fun MusesApp() {
             }
             }
         }
+            } // CompositionLocalProvider 闭合：包住整个 Scaffold（FAB 槽也在内）
 
         // 沉浸式 overlay 与 Scaffold 平级（BoxWithConstraints 双子项）：Scaffold 的 bottomBar
         // （MiniPlayerBar + 悬浮导航栏）绘制层级在 body 之上，overlay 若留在 body 内会被
