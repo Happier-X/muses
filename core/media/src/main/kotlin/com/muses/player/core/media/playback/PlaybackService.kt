@@ -79,6 +79,8 @@ class PlaybackService : MediaSessionService() {
     private var metadataModified = false
     /** 当前曲歌词行缓存（解析一次，position 轮询只做二分查找） */
     private var lyricsLines: List<com.muses.player.core.lyrics.model.LyricLine>? = null
+    /** 当前曲歌词 LRC 全文原样（随 [SessionLyricsBridge] 注入平台会话 LYRICS key，CarWith/蓝牙车机读取） */
+    private var lyricsRaw: String? = null
 
     // ExoPlayer 强制主线程访问（player-accessed-on-wrong-thread 崩溃防护），
     // 服务生命周期本就在主线程；Room/DataStore 挂起调用内部自行切 IO
@@ -279,11 +281,13 @@ class PlaybackService : MediaSessionService() {
     private suspend fun parseCurrentSongLyrics(player: Player) {
         val songId = player.currentMediaItem?.mediaId ?: run {
             lyricsLines = null
+            lyricsRaw = null
             return
         }
         val song = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             songDao.getById(songId)
         }
+        lyricsRaw = song?.lyrics
         lyricsLines = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
             com.muses.player.feature.player.lyric.LyricsParser.parseDocument(song?.lyrics)?.lines
         }
@@ -292,6 +296,8 @@ class PlaybackService : MediaSessionService() {
     /** 根据播放位置更新 MediaMetadata：标题=歌词行，艺术家=原始标题-原始艺术家 */
     private fun updateNotificationMetadataWithLyric(player: Player) {
         val session = mediaSession ?: return
+        // 每轮把 LYRICS 全文同步到平台会话（幂等短路；media3 重建 metadata 丢 key 后 ≤100ms 自动补回）
+        SessionLyricsBridge.push(session, lyricsRaw)
         val lines = lyricsLines
         if (lines.isNullOrEmpty()) {
             if (metadataModified) restoreNotificationMetadata(player)
@@ -332,6 +338,9 @@ class PlaybackService : MediaSessionService() {
         )
         metadataModified = false
         lyricsLines = null
+        lyricsRaw = null
+        // 关歌词模式/切歌走此恢复：清掉平台会话里的 LYRICS（media3 若已重建 metadata 则幂等跳过）
+        SessionLyricsBridge.push(mediaSession, null)
     }
 
     /**
