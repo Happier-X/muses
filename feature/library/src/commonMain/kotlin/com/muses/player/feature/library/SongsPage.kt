@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -291,10 +290,13 @@ fun SongsPage(
         floatingActionButton = {
             if (showJumpBubble) {
                 // 悬浮件浮在内容之上，miuix Scaffold 感知不到；FAB 手动抬升到两件套之上：
-                // 窄屏 = 迷你条 80dp（64+边距8×2）+ 胶囊底栏 88dp（minHeight 52+底部留白 36）；宽屏仅迷你条。
-                // 阈值 768dp 与 TabsLayout.TabletBreakpoint 同口径（跨模块 internal 不可见，此处置复）。
-                BoxWithConstraints(Modifier.fillMaxSize()) {
-                    val fabClearance = if (maxWidth >= 768.dp) 104.dp else 192.dp
+                // 避让与列表末项同口径 = LocalBottomChromePadding（窄屏 128dp / 宽屏 80dp
+                // + 系统导航 inset + 8dp 保底，见 BottomChrome.kt）+ 16dp 呼吸；多选条再叠 64dp。
+                // 旧值硬编码 192/104，是按迷你条 80dp + 底栏 88dp 的旧 chrome 尺寸推的，
+                // chrome 收窄到 56dp 两件套后窄屏比实际高出约 40dp（反馈「悬浮按钮太高」）。
+                Box(Modifier.fillMaxSize()) {
+                    val fabClearance = com.muses.player.core.ui.theme.LocalBottomChromePadding.current +
+                        (if (isMultiSelect) 64.dp else 16.dp)
                     JumpToCurrentFab(
                         modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = fabClearance, end = 16.dp),
                     onClick = {
