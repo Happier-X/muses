@@ -20,7 +20,7 @@ import org.koin.dsl.koinConfiguration
  * 260px 侧栏形态；全局短提示经 MusesSnackbar 挂在共享壳根 Scaffold 槽）。
  *
  * 历史：S3b 自绘 220dp 侧栏 + DesktopDestination enum 切屏（无返回栈）——U23 废弃，
- * 桌面获得与安卓一致的完整路由（曲库五页/歌单/详情/WebDAV/播放队列/刮削审核流）。
+ * 桌面获得与安卓一致的完整路由（曲库/详情/WebDAV/播放队列/刮削审核流）。
  */
 @Composable
 fun WindowScope.MusesDesktopApp(

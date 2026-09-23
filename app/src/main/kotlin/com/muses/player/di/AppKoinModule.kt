@@ -15,8 +15,6 @@ import com.muses.player.core.webdav.webdavCoreModule
 import com.muses.player.core.webdav.webdavModule
 import com.muses.player.feature.library.libraryModule
 import com.muses.player.feature.player.playerModule
-// U19：playlist 全量上收 commonMain，playlistCoreModule 单装配（原 playlistModule 并入后废弃）
-import com.muses.player.feature.playlist.playlistCoreModule
 import com.muses.player.feature.scrape.scrapeFeatureModule
 // U20：sources 全量上收 commonMain——sourcesCoreModule 装配共享 VM，sourcesPlatformModule
 // 绑定安卓扫描端口（MediaStore/WebDAV 扫描器）
@@ -57,7 +55,6 @@ val appModules = listOf(
     webdavCoreModule,
     libraryModule,
     playerModule,
-    playlistCoreModule,
     scrapeFeatureModule,
     sourcesPlatformModule,
     sourcesCoreModule,

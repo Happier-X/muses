@@ -126,13 +126,6 @@ fun desktopLibraryModule(): Module = module {
     single<AlbumRepository> { RoomAlbumRepository(get()) }
     single<ArtistRepository> { RoomArtistRepository(get()) }
     single<SourceRepository> { RoomSourceRepository(get()) }
-    // 歌单仓库（桌面库与安卓同实现：RoomPlaylistRepository；缺失会导致歌单页
-    // PlaylistsViewModel 构造失败 "Could not create instance"）
-    single<com.muses.player.core.data.repository.PlaylistRepository> {
-        com.muses.player.core.data.repository.RoomPlaylistRepository(
-            com.muses.player.desktop.di.DesktopContainer.database(),
-        )
-    }
     // WebDAV 凭据（DPAPI，见 [DesktopCredentials]）
     single<CredentialsRepository> { DesktopCredentials() }
     // WebDAV 链路日志（桌面无 CrashHandler 落盘链，环形缓冲即可）
@@ -169,8 +162,7 @@ val desktopAppModules: List<Module> = listOf(
     desktopLibraryModule(),
     libraryModule,
     playerModule,
-    // U23：共享壳路由消费的歌单 VM + 壳层 VM（Main/Settings）
-    com.muses.player.feature.playlist.playlistCoreModule,
+    // U23：共享壳路由消费的壳层 VM（Main/Settings）
     com.muses.player.feature.shell.di.shellModule,
     scrapeFeatureModule,
     webdavCoreModule,

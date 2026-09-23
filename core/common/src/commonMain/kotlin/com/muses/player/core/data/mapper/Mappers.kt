@@ -2,12 +2,10 @@ package com.muses.player.core.data.mapper
 
 import com.muses.player.core.data.db.AlbumEntity
 import com.muses.player.core.data.db.ArtistEntity
-import com.muses.player.core.data.db.PlaylistEntity
 import com.muses.player.core.data.db.SongEntity
 import com.muses.player.core.data.db.SourceEntity
 import com.muses.player.core.model.Album
 import com.muses.player.core.model.Artist
-import com.muses.player.core.model.Playlist
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
@@ -85,20 +83,6 @@ fun ArtistEntity.toDomain(): Artist = Artist(
     name = name,
     albumCount = albumCount,
     songCount = songCount,
-)
-
-fun PlaylistEntity.toDomain(): Playlist = Playlist(
-    id = id,
-    name = name,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-)
-
-fun Playlist.toEntity(): PlaylistEntity = PlaylistEntity(
-    id = id,
-    name = name,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
 )
 
 fun SourceEntity.toDomain(): Source = Source(

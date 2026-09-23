@@ -36,7 +36,6 @@ dependencies {
     // Room 曲库 + DataStore 设置/凭据密文（P2b：entities/DAO/MusesDatabase/Migrations 已迁 :core:common；
     // 本模块仅留平台接线 DatabaseModule，故删 ksp(room-compiler)/schemaLocation/room-testing）
     api(libs.room.runtime)
-    implementation(libs.room.ktx)
     implementation(libs.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
 

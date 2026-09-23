@@ -4,9 +4,9 @@ import androidx.room.migration.Migration
 import androidx.sqlite.SQLiteConnection
 
 /**
- * 曲库升级链（v1→v6）。P2b 由 SupportSQLiteDatabase 口径改写为 KMP 口径
+ * 曲库升级链（v1→v7）。P2b 由 SupportSQLiteDatabase 口径改写为 KMP 口径
  * （migrate(SQLiteConnection) + prepare/step），SQL 语句逐字保留、语义冻结。
- * DB 名 muses.db、schema v6、key 名冻结，禁止任何 schema 改动（design §5 回滚红线）。
+ * DB 名 muses.db、key 名冻结；schema 更新必须追加迁移，禁止破坏已有用户数据。
  */
 private fun SQLiteConnection.exec(sql: String) {
     prepare(sql).use { it.step() }
@@ -101,5 +101,13 @@ val MIGRATION_5_6: Migration = object : Migration(5, 6) {
         connection.exec("CREATE INDEX IF NOT EXISTS `index_songs_sourceId` ON `songs` (`sourceId`)")
         connection.exec("CREATE INDEX IF NOT EXISTS `index_songs_title` ON `songs` (`title`)")
         connection.exec("CREATE INDEX IF NOT EXISTS `index_songs_albumTitle` ON `songs` (`albumTitle`)")
+    }
+}
+
+/** v6 → v7：移除已下线的歌单表，保留歌曲与音源数据 */
+val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.exec("DROP TABLE IF EXISTS `playlist_songs`")
+        connection.exec("DROP TABLE IF EXISTS `playlists`")
     }
 }

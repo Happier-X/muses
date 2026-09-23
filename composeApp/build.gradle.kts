@@ -97,9 +97,8 @@ kotlin {
             implementation(project(":feature:player"))
             // U14 刮削共用化：桌面复用共享 ScrapeScreen（手搓装配层删除）
             implementation(project(":feature:scrape"))
-            // U23 桌面切共享壳：MusesApp（CMP Navigation 导航壳）+ 歌单 VM 装配
+            // U23 桌面切共享壳：MusesApp（CMP Navigation 导航壳）装配
             implementation(project(":feature:shell"))
-            implementation(project(":feature:playlist"))
             // 共享 ViewModel 经 Koin 注入（koinViewModel() 在 compose-viewmodel，KMP 工件；
             // KMP sourceSets 不支持 platform(BOM)，toml 已显式挂 4.2.0）
             implementation(libs.koin.core)

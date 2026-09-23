@@ -69,7 +69,7 @@ class SettingsViewModel constructor(
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = koinViewModel(),
-    // 窄屏底栏只摆 5 项（曲库/专辑/艺术家/歌单/设置）时，刮削/音源经此进入；
+    // 窄屏底栏只保留「探索 / 曲库 / 设置」三项时，刮削/音源经此进入；
     // 宽屏 Rail 自带这两项，传 null 即隐藏本区块。
     onOpenSources: (() -> Unit)? = null,
     onOpenScrape: (() -> Unit)? = null,

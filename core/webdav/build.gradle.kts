@@ -37,7 +37,6 @@ kotlin {
             // P2c：Ktor-client（CIO）双平台引擎；ktor-client-core 经 core:common api 透传，此处只留引擎
             implementation(libs.ktor.client.cio)
         }
-        // U11：withTransactionCompat 同款问题不存在于此，但 androidMain 保留占位供 P2 actual 用
         androidMain.dependencies {
             // OkHttp 仅供 Media3 流播数据源 + AudioTagReader Range（P2c 豁免，见 WebDavModule）
             implementation(libs.okhttp)

@@ -41,6 +41,9 @@ class MigrationsTest {
         return columns
     }
 
+    private fun SQLiteConnection.tableExists(table: String): Boolean =
+        querySingleText("SELECT name FROM sqlite_master WHERE type = 'table' AND name = '$table'") != null
+
     private fun SQLiteConnection.querySingleText(sql: String): String? {
         prepare(sql).use { stmt ->
             if (!stmt.step()) return null
@@ -90,6 +93,29 @@ class MigrationsTest {
             assertFalse(columns.contains("replayGainTrackDb"), "不应再有 replayGainTrackDb")
             assertTrue(columns.contains("title"))
             assertEquals("s1", connection.querySingleText("SELECT `id` FROM `songs` WHERE `id`='s1'"))
+        }
+    }
+
+    @Test
+    fun migration_6_7_移除歌单表并保留歌曲() {
+        withMemoryDatabase(6, onCreate = { connection ->
+            connection.exec(
+                "CREATE TABLE `songs` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, PRIMARY KEY(`id`))",
+            )
+            connection.exec("CREATE TABLE `playlists` (`id` TEXT NOT NULL, PRIMARY KEY(`id`))")
+            connection.exec(
+                "CREATE TABLE `playlist_songs` (`playlistId` TEXT NOT NULL, `songId` TEXT NOT NULL, " +
+                    "`position` INTEGER NOT NULL, PRIMARY KEY(`playlistId`, `position`))",
+            )
+            connection.exec("INSERT INTO `songs` VALUES ('s1', '歌曲')")
+            connection.exec("INSERT INTO `playlists` VALUES ('p1')")
+            connection.exec("INSERT INTO `playlist_songs` VALUES ('p1', 's1', 0)")
+        }) { connection ->
+            MIGRATION_6_7.migrate(connection)
+
+            assertFalse(connection.tableExists("playlists"))
+            assertFalse(connection.tableExists("playlist_songs"))
+            assertEquals("s1", connection.querySingleText("SELECT `id` FROM `songs` WHERE `id` = 's1'"))
         }
     }
 

@@ -82,7 +82,6 @@ dependencies {
     // 09-05-lyrics-kmp X3：lyricsModule 已上收 :core:common jvmShared 同包名，随 core:common 依赖可达
     implementation(project(":core:scrape"))
     implementation(project(":feature:library"))
-    implementation(project(":feature:playlist"))
     implementation(project(":feature:player"))
     implementation(project(":feature:sources"))
     // 首页（搜索框 + 排行榜 + 猜你喜欢）：homeCoreModule 装配

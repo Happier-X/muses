@@ -66,7 +66,7 @@ import top.yukonga.miuix.kmp.squircle.squircleClip
 // 标签页
 // ---------------------------------------------------------------------------
 
-/** 曲库主页标签页（对照安卓 NavDestination.Primary 的曲库三项：歌曲/专辑/艺术家；歌单属另一 feature，不在此列） */
+/** 曲库主页标签页（对照安卓 NavDestination.Primary 的曲库三项：歌曲/专辑/艺术家） */
 enum class LibraryTab(val label: String) {
     Songs("歌曲"),
     Albums("专辑"),
@@ -190,7 +190,7 @@ fun LibrarySearchField(
  * @param songs 调用方映射后的展示数据（安卓 Song→SongItem / 桌面 SongEntity→SongItem）
  * @param currentSongId 当前播放曲 id；null = 无高亮（安卓旧 Screens.kt 即无此概念）
  * @param onPlay 点播回调（调用方注入播放逻辑，传 songId）
- * @param onLongClick 长按回调（null = 不支持长按；安卓旧屏传「加入歌单」弹层）
+ * @param onLongClick 长按回调（null = 不支持长按）
  * @param contentPadding 列表内边距（调用方按需叠加底部悬浮件避让，见 BottomChrome）
  */
 @Composable

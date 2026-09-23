@@ -3,7 +3,7 @@
 // SAF 选目录抽为 rememberLocalFolderPicker expect/actual（androidMain=SAF，
 // jvmMain=Swing），扫描经 commonMain [LibraryScanPort] 注入（androidMain 绑定
 // MediaStore/WebDAV 两扫描器），haze 2.0 为 KMP 工件。
-// 形态与约束同 :feature:library / :feature:playlist（android.kmp.library，不升级版本线）。
+// 形态与约束同 :feature:library（android.kmp.library，不升级版本线）。
 plugins {
     alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.kotlin.multiplatform)

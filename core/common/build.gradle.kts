@@ -46,10 +46,6 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
         }
-        // U10：withTransactionCompat 安卓 actual 走 room-ktx 真事务（room-ktx 为 android 工件）
-        androidMain.dependencies {
-            implementation(libs.room.ktx)
-        }
         // S1：桌面凭据 DPAPI 经 JNA（仅 jvmMain 可见，不进 commonMain；VLCJ 同理零渗入）
         jvmMain.dependencies {
             implementation(libs.jna)

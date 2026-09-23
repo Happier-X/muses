@@ -32,8 +32,6 @@ private val LibraryTabs = listOf("歌曲", "专辑", "艺术家")
  * 三个子页以 `showTopBar = false` 嵌入：顶栏与 Tab 由本容器统一提供，避免出现
  * 「曲库 + 歌曲」两层标题。注意 `SongsPage` 的顶栏里还带「随机播放 + 歌曲总数 + 搜索」工具栏，
  * 嵌入模式下会一并隐藏（如需保留，应把该工具栏上提到本容器）。
- *
- * 歌单按产品侧要求已从导航移除，故这里不设对应 Tab。
  */
 @Composable
 fun LibraryScreen(

@@ -8,7 +8,7 @@ import java.io.File
  * S1 桌面 Room 接线（design §5）。
  *
  * - DB 文件：`<appDataDir>/muses.db`，DB 名冻结，与安卓侧 DatabaseModule.DB_NAME 一致；
- * - 升级链：MIGRATION_1_2/2_3/3_4/4_5/5_6 全挂载，schema v6 冻结；
+ * - 升级链：MIGRATION_1_2/2_3/3_4/4_5/5_6/6_7 全挂载；
  * - 驱动/查询上下文：统一收口 commonMain [getRoomDatabase]
  *   （BundledSQLiteDriver + IO 上下文），桌面侧不另起实现；
  * - JVM Room.databaseBuilder 口径：`Room.databaseBuilder(path, ctor)`，
@@ -24,7 +24,7 @@ fun createJvmDatabase(): MusesDatabase = getRoomDatabase(
         File(PlatformDirs.appDataDir(), JVM_DB_NAME).absolutePath,
         MusesDatabaseConstructor::initialize,
     )
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6),
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7),
 )
 
 /** 内存库（测试/原型用，不落盘）。 */
@@ -40,5 +40,5 @@ fun createJvmDatabaseAt(path: String): MusesDatabase = getRoomDatabase(
         path,
         MusesDatabaseConstructor::initialize,
     )
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6),
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7),
 )

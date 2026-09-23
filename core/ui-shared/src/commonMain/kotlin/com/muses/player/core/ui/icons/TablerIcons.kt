@@ -24,7 +24,6 @@ object TablerIcons {
     val MusicNote: ImageVector = Tabler.Outline.Music
     val MusicNoteOutlined: ImageVector = Tabler.Outline.Music
     val QueueMusic: ImageVector = Tabler.Outline.Playlist
-    val PlaylistPlay: ImageVector = Tabler.Outline.Playlist
 
     // 播放控制（stroke 风格）
     val Play: ImageVector = Tabler.Outline.PlayerPlay

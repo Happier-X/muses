@@ -43,7 +43,7 @@ data class SongItem(
     val albumTitle: String? = null,
     /**
      * 封面（远程 URL 或本地 URI）。
-     * null = **不渲染封面位**，保持纯文字行的既有视觉（曲库/歌单等列表未传时不受影响）。
+     * null = **不渲染封面位**，保持纯文字行的既有视觉（曲库列表未传时不受影响）。
      */
     val coverUri: String? = null,
 )
@@ -55,7 +55,7 @@ data class SongItem(
  * - 行高自适应，内缩 padding 12dp;
  * - 标题：scheme.onBackground / 14sp，当前曲 primary 色 + SemiBold;
  * - 副标题：artist - albumTitle，scheme.onBackgroundVariant / 12sp，单行省略;
- * - 当前行：primary 10% 高亮底 + primary 色标题 + 尾部播放图标（与歌单详情行同口径）；
+ * - 当前行：primary 10% 高亮底 + primary 色标题 + 尾部播放图标；
  *   非当前行透明底，直接透出页面底（surface 灰），无斑马纹；
  * - 按压态：官方 pressable(SinkFeedback) 下沉反馈 + surface 变色叠层；
  * - 纯 UI 组件，零平台依赖，所有业务逻辑经回调注入。
@@ -63,7 +63,7 @@ data class SongItem(
  * @param song 曲目数据
  * @param isCurrent 是否为当前播放曲
  * @param onClick 点击回调
- * @param onLongClick 长按回调（null = 不支持长按；安卓旧曲库屏传入「加入歌单」弹层）
+ * @param onLongClick 长按回调（null = 不支持长按）
  */
 @Composable
 fun SongListItem(
@@ -109,7 +109,7 @@ fun SongListItem(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 封面（可选）：传了才渲染，避免影响既有纯文字列表（曲库/歌单等）的视觉
+        // 封面（可选）：传了才渲染，避免影响既有纯文字列表（曲库）的视觉
         song.coverUri?.let { uri ->
             MusesCover(
                 uri = uri,

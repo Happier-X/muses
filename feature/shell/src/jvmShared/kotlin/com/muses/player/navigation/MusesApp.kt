@@ -3,6 +3,7 @@ package com.muses.player.navigation
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.graphicsLayer
@@ -21,37 +22,38 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.SeekableTransitionState
-import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.SeekableTransitionState
+import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import top.yukonga.miuix.kmp.basic.Text
-import com.muses.player.core.ui.components.LocalPlayerAnimatedVisibilityScope
-import com.muses.player.core.ui.components.LocalPlayerArtworkKey
-import com.muses.player.core.ui.components.LocalPlayerSharedTransitionScope
-import com.muses.player.core.ui.components.PlayerArtworkSharedKey
 import com.muses.player.core.ui.components.MusesBottomDock
 import com.muses.player.core.ui.components.MusesBottomDockItem
 import com.muses.player.core.ui.components.MusesDockActionPill
@@ -63,6 +65,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.shadow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -95,7 +98,11 @@ import com.muses.player.core.model.online.OnlineTrackSession
 import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MiniPlayerBar
+import com.muses.player.core.ui.components.LocalPlayerAnimatedVisibilityScope
+import com.muses.player.core.ui.components.LocalPlayerArtworkKey
+import com.muses.player.core.ui.components.LocalPlayerSharedTransitionScope
 import com.muses.player.core.ui.components.MusesSnackbarHostContent
+import com.muses.player.core.ui.components.PlayerArtworkSharedKey
 import com.muses.player.feature.shell.platform.PermissionsEffect
 import com.muses.player.feature.shell.platform.ShellBackHandler
 import com.muses.player.feature.library.AlbumDetailScreen
@@ -106,8 +113,6 @@ import com.muses.player.feature.library.LibraryScreen
 import com.muses.player.feature.player.PlayerScreen
 import com.muses.player.feature.player.QueueScreen
 import com.muses.player.feature.player.lyric.LyricsParser
-import com.muses.player.feature.playlist.PlaylistDetailPage
-import com.muses.player.feature.playlist.PlaylistsPage
 import com.muses.player.feature.sources.LxScriptsScreen
 import com.muses.player.feature.home.HomeScreen
 import com.muses.player.feature.sources.OnlineSearchScreen
@@ -118,6 +123,7 @@ import com.muses.player.settings.SettingsScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -131,6 +137,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /** MiniPlayerBar 的数据快照（对照 MiniPlayer.vue 的 playerState.currentSong 消费口径） */
 data class NowPlayingUiState(
@@ -366,10 +373,18 @@ class MainViewModel constructor(
  * CMP Navigation NavHost + MiniPlayer 叠加。原 M1 的 ModalNavigationDrawer/Scaffold/
  * TopAppBar 骨架已由 TabsPage.vue 对照实现整体替换。
  */
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
+@OptIn(ExperimentalSharedTransitionApi::class)
 fun MusesApp() {
     SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+        CompositionLocalProvider(LocalPlayerSharedTransitionScope provides this) {
+            MusesAppContent()
+        }
+    }
+}
+
+@Composable
+private fun MusesAppContent() {
         // miuix-nav 返回栈（类型化路由，存栈恢复经 kotlinx.serialization；替代 CMP Navigation）
         // 启动落地首页（首页 = 搜索框 + 排行榜 + 猜你喜欢）
         val backStack = rememberNavBackStack<MusesRoute>(MusesRoute.Home)
@@ -393,48 +408,86 @@ fun MusesApp() {
         // S3 待审队列宿主 VM（MusesApp 作用域持有，review 回调直用；原按回退栈取 Scrape 页 entry 实例）
         val scrapeVm: com.muses.player.feature.scrape.ScrapeViewModel = koinViewModel()
 
-        // 沉浸式/队列改为状态驱动的 overlay（Box 叠加于 Tabs 之上），下滑漏出背后列表而非纯黑窗口
+        // 打开时面板用较长的舒展节奏从迷你条扩展，文字和控制区延后显现；
+        // 收起仍按原节奏缩回，封面通过共享元素在两端之间飞行。
         var showPlayerOverlay by remember { mutableStateOf(false) }
-    // 「迷你条 ↔ 沉浸页」的可中断转场（对齐 MeloX 的 MeloXApp）：
-    // 用 SeekableTransitionState + rememberTransition，然后由 Transition.AnimatedVisibility(visible = { ... })
-    // 驱动两侧的进出——它能感知 seekTo 写入的中间进度，所以手势可以跟手。
-    // 关键：不能用 AnimatedContent(targetState = seekableState)（内容与状态解耦后它不再做进出，会关不掉）。
-    val playerTransitionState = remember { SeekableTransitionState(showPlayerOverlay) }
-    val playerTransition = rememberTransition(
-        transitionState = playerTransitionState,
-        label = "muses-player-transition",
-    )
-    val scope = rememberCoroutineScope()
-    // 转场进度（0 = 迷你条态，1 = 全屏沉浸态）：由 Compose transition 驱动，所以照旧跟随系统
-    // 「动画程序时长缩放」；沉浸页下滑跟手时 seekTo 写入的中间进度也会逐帧体现在这里。
-    val shellProgress by playerTransition.animateFloat(
-        transitionSpec = {
-            tween(durationMillis = PlayerTransitionDurationMillis, easing = FastOutSlowInEasing)
-        },
-        label = "player-shell-progress",
-    ) { visible -> if (visible) 1f else 0f }
-    // 迷你条在窗口中的真实矩形（px）：沉浸页开合的**形变起点**。
-    // 迷你条是宽扁平矩形、沉浸页是全屏，用自己的矩形当起点能让用户看到「从迷你条长出来」；
-    // 之前删掉这条链路、改成「从屏幕下方浮入」后，观感就变成了「一块卡片无中生有」
-    // （用户报障：并没有从迷你播放条弹过渡到沉浸式播放页面）。
-    // 融合态（CompactPlayerDock）与展开态各有一个 MiniPlayerBar 实例，两者都要上报，
-    // 否则融合态下点开沉浸页会拿不到起始矩形。
-    var miniBarBounds by remember { mutableStateOf<Rect?>(null) }
-    LaunchedEffect(showPlayerOverlay) {
-        // 外部开关（点迷你条 / 点关闭按钮 / 返回键）触发时把转场跑到目标态；
-        // 手势松手后的续接由 onSettleCollapse 直接 animateTo，不走这里。
-        // 必须与 PlayerShellBox 的进度动画用同一条时间线：
-        // 否则卡片已经到位、内容还在缩，观感上就是「卡一下再定住」。
-        // 注：刻意用 Compose 原生动画（跟随系统「动画程序时长缩放」），
-        // 不用 withFrameNanos 手写帧驱动绕开它——理由见 changelog/v0.6.6。
-        playerTransitionState.animateTo(
-            targetState = showPlayerOverlay,
-            animationSpec = tween(
-                durationMillis = PlayerTransitionDurationMillis,
-                easing = FastOutSlowInEasing,
-            ),
+        val playerOpen = showPlayerOverlay
+        val playerTransitionState = remember { SeekableTransitionState(showPlayerOverlay) }
+        val playerTransition = rememberTransition(
+            transitionState = playerTransitionState,
+            label = "immersive-player-page",
         )
-    }
+        val playerTransitionScope = rememberCoroutineScope()
+        var playerTransitionJob by remember { mutableStateOf<Job?>(null) }
+        fun animatePlayerTo(target: Boolean) {
+            playerTransitionJob?.cancel()
+            playerTransitionJob = playerTransitionScope.launch {
+                playerTransitionState.animateTo(
+                    targetState = target,
+                    animationSpec = tween(
+                        durationMillis = if (target) PlayerOpenDurationMillis else PlayerTransitionMillis,
+                        easing = FastOutSlowInEasing,
+                    ),
+                )
+            }
+        }
+        fun seekPlayerTo(fraction: Float) {
+            // 手势每帧只保留最新一次 seek，防止快速拖动时旧协程覆盖新进度。
+            playerTransitionJob?.cancel()
+            playerTransitionJob = playerTransitionScope.launch {
+                playerTransitionState.seekTo(
+                    fraction = fraction.coerceIn(0f, 0.999f),
+                    targetState = false,
+                )
+            }
+        }
+        fun openPlayer() {
+            showPlayerOverlay = true
+            animatePlayerTo(target = true)
+        }
+        fun closePlayer() {
+            showPlayerOverlay = false
+            animatePlayerTo(target = false)
+        }
+        fun settlePlayer(collapse: Boolean) {
+            val target = !collapse
+            playerTransitionJob?.cancel()
+            playerTransitionJob = playerTransitionScope.launch {
+                playerTransitionState.animateTo(
+                    targetState = target,
+                    animationSpec = spring(dampingRatio = 1f, stiffness = 675f),
+                )
+                showPlayerOverlay = target
+            }
+        }
+        val playerProgress by playerTransition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) PlayerOpenDurationMillis else PlayerTransitionMillis,
+                    easing = FastOutSlowInEasing,
+                )
+            },
+            label = "immersive-player-progress",
+        ) { expanded -> if (expanded) 1f else 0f }
+        val playerContentProgress by playerTransition.animateFloat(
+            transitionSpec = {
+                if (targetState) {
+                    tween(
+                        durationMillis = PlayerContentRevealDurationMillis,
+                        delayMillis = PlayerContentRevealDelayMillis,
+                        easing = FastOutSlowInEasing,
+                    )
+                } else {
+                    snap()
+                }
+            },
+            label = "immersive-player-content-reveal",
+        ) { expanded -> if (expanded) 1f else 0f }
+        // 手势 seek 的 targetState 暂时设为 false；保留显式打开态，避免尚未结算时卸载面板。
+        val playerOverlayMounted = showPlayerOverlay || playerTransition.currentState || playerTransition.targetState
+        // 迷你条在窗口中的真实矩形（px）：底部 chrome 可见顶的上报源（悬浮 FAB 定位见 bottomBarElevation）。
+        // 融合态（CompactPlayerDock）与展开态各有一个实例，两者都要上报，缺一会拿到过期矩形。
+        var miniBarBounds by remember { mutableStateOf<Rect?>(null) }
         var showQueueOverlay by remember { mutableStateOf(false) }
 
         // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
@@ -442,7 +495,6 @@ fun MusesApp() {
 
         // 导航项组装（宽屏侧轨与窄屏底栏共用同一份来源）。
         // 刮削/音源收进设置页「工具」入口（胶囊图标过多会拥挤，两端同步精简）。
-        // 歌单已按产品侧要求从导航移除（路由与页面保留，不再暴露入口）。
         val navItems = listOf(
             NavDestination.Home,
             NavDestination.Songs,
@@ -456,7 +508,7 @@ fun MusesApp() {
             }
         }
         // 窄屏悬浮底栏项：**只保留「探索 / 曲库 / 设置」三项**（产品侧决定；
-        // 专辑/艺术家/歌单在窄屏目前没有其他入口，宽屏侧轨仍保留全部 6 项）。
+        // 专辑/艺术家在窄屏经曲库页内部 Tab 进入）。
         val bottomItems = listOf(
             NavDestination.Home.toNavItem(currentKey, backStack),
             NavDestination.Songs.toNavItem(currentKey, backStack).copy(label = "曲库"),
@@ -558,12 +610,13 @@ fun MusesApp() {
                             isPlaying = isPlaying,
                             hasSong = nowPlaying != null,
                             onExpand = { bottomDockCompact = false },
-                            onOpenPlayer = { showPlayerOverlay = true },
+                            onOpenPlayer = { openPlayer() },
                             onTogglePlayback = { viewModel.playPause() },
                             onOpenQueue = { showQueueOverlay = true },
                             onOpenSearch = { backStack.pushUnique(MusesRoute.OnlineSearch()) },
                             sideMargin = chromeSideMargin,
                             compactProgress = compactProgress,
+                            playerTransitionProgress = if (playerOverlayMounted) 1f else 0f,
                             onPlayerBounds = { miniBarBounds = it },
                         )
                     } else {
@@ -583,25 +636,13 @@ fun MusesApp() {
                         // 窄屏「艺术家」
                         nowPlaying?.artist ?: "未知艺术家"
                     }
-                    playerTransition.AnimatedVisibility(
-                        visible = { !it },
-                        // 与沉浸页对偶的淡出：两者合成「迷你条 ↔ 播放页」的 crossfade
-                        enter = fadeIn(tween(PlayerTransitionFadeMillis)),
-                        exit = fadeOut(tween(PlayerTransitionFadeMillis)),
-                    ) {
-                        // 封面共享元素需要作用域；迷你条与沉浸页各自 provide，
-                        // 两端用同一个 key，转场时 Compose 会把封面从迷你条尺寸插值到全屏。
-                        CompositionLocalProvider(
-                            LocalPlayerSharedTransitionScope provides this@SharedTransitionLayout,
-                            LocalPlayerAnimatedVisibilityScope provides this,
-                        ) {
                     MiniPlayerBar(
                         title = nowPlaying?.title ?: "暂无播放歌曲",
                         subtitle = miniSubtitle,
                         coverUri = nowPlaying?.coverUri,
                         isPlaying = isPlaying,
                         hasSong = nowPlaying != null,
-                        onOpenPlayer = { showPlayerOverlay = true },
+                        onOpenPlayer = { openPlayer() },
                         onTogglePlayback = { viewModel.playPause() },
                         onOpenQueue = { showQueueOverlay = true },
                         onNext = { viewModel.skipToNext() },
@@ -609,10 +650,9 @@ fun MusesApp() {
                         modifier = Modifier
                             .padding(horizontal = chromeSideMargin, vertical = 8.dp)
                             .fillMaxWidth()
+                            .graphicsLayer { alpha = if (playerOverlayMounted) 0f else 1f }
                             .reportMiniBarBounds { miniBarBounds = it },
                     )
-                    }
-                    }
                     }
                     // 悬浮胶囊底栏（自研 MusesBottomDock，图标 + 文字，选中态为滑动胶囊）：
                     // 与迷你条只留迷你条自身的 8dp 下边距作间隙。曾额外 `.offset(y = 12.dp)` 下移底栏
@@ -666,7 +706,7 @@ fun MusesApp() {
             ) {
             // 子页面系统返回 → 上一级；主页（栈深 1）不消费，留在本页。
             // overlay 打开时不抢返回：沉浸页/队列各自消费（沉浸页见下方 ShellBackHandler，队列由 sheet 自行消费）。
-            ShellBackHandler(enabled = backStack.size > 1 && !showPlayerOverlay && !showQueueOverlay) {
+            ShellBackHandler(enabled = backStack.size > 1 && !playerOpen && !showQueueOverlay) {
                 backStack.pop()
             }
             // 结构恒定：overlay 打开时不得切换 TabsLayout 分支（navVisible 恒 true）——
@@ -694,37 +734,56 @@ fun MusesApp() {
             }
         }
             } // CompositionLocalProvider 闭合：包住整个 Scaffold（FAB 槽也在内）
-
-        // 沉浸式 overlay 与 Scaffold 平级（BoxWithConstraints 双子项）：Scaffold 的 bottomBar
-        // （MiniPlayerBar + 悬浮导航栏）绘制层级在 body 之上，overlay 若留在 body 内会被
-        // 白色迷你条/导航栏盖住沉浸页底部控件（MuMu 实测）；平级后 overlay 必然盖过
-        // bottomBar，恢复「全屏盖住不可见、不可交互」的预期层级。
-        playerTransition.AnimatedVisibility(
-            visible = { it },
-            // 椒盐的播放页转场 = **页面淡入 + 封面共享元素飞行**（反编译证据：a22.java:1099 用
-            // Crossfade + tween、f52.java:700 用 AnimatedContent），不是把整页缩放。
-            enter = fadeIn(tween(PlayerTransitionFadeMillis)),
-            exit = fadeOut(tween(PlayerTransitionFadeMillis)),
-        ) {
-            ShellBackHandler { showPlayerOverlay = false }
-            // 转场进行中（currentState 与 targetState 不一致）：沉浸页里最贵的模糊流光背景
-            // 换成纯色，避免 sharedBounds 逐帧重排它导致掉帧。
-            val playerTransitioning =
-                playerTransitionState.currentState != playerTransitionState.targetState
-            // 沉浸页侧同样 provide（scope 用本分支自己的 AnimatedVisibilityScope），
-            // key 与迷你条一致——这是封面能「飞」过去的关键。
-            CompositionLocalProvider(
-                LocalPlayerSharedTransitionScope provides this@SharedTransitionLayout,
-                LocalPlayerAnimatedVisibilityScope provides this,
-                // 沉浸页正封的共享元素 key：缺失时 PlayerCoverHero 读到 null，封面就不参与
-                // 「迷你条 ↔ 沉浸页」的共享转场（表现为转场中封面只是淡入、没有从迷你条飞出来）。
-                LocalPlayerArtworkKey provides PlayerArtworkSharedKey,
+        } // BoxWithConstraints 关（主屏常驻，动画中不位移/不淡化）
+        // 整个播放页从迷你条的实际矩形放大到全屏，而非只裁剪一张已经铺满屏幕的页面；
+        // 封面再由共享元素保持独立的图像过渡。打开和收起共用同一几何进度，空间路径互为反向。
+        if (playerOverlayMounted) {
+            playerTransition.AnimatedVisibility(
+                visible = { it },
+                enter = EnterTransition.None,
+                exit = ExitTransition.None,
             ) {
-            Box(
-                // 不做整页形变：形变只发生在封面那条 sharedElement 上（迷你条封面 ↔ 沉浸页正封），
-                // 页面本身只淡入——见 PlayerTransitionFadeMillis 的说明。
-                modifier = Modifier.fillMaxSize().clipToBounds(),
-            ) {
+                val playerVisibilityScope = this
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val density = LocalDensity.current
+                val fullWidthPx = with(density) { maxWidth.toPx() }
+                val fullHeightPx = with(density) { maxHeight.toPx() }
+                val source = miniBarBounds
+                val sourceWidth = (source?.width ?: fullWidthPx).coerceIn(1f, fullWidthPx)
+                val sourceHeight = (source?.height ?: with(density) { 72.dp.toPx() })
+                    .coerceIn(1f, fullHeightPx)
+                val sourceLeft = (source?.left ?: 0f).coerceIn(0f, fullWidthPx - sourceWidth)
+                val sourceTop = (source?.top ?: fullHeightPx - sourceHeight)
+                    .coerceIn(0f, fullHeightPx - sourceHeight)
+                val p = playerProgress.coerceIn(0f, 1f)
+                val panelLeft = sourceLeft * (1f - p)
+                val panelTop = sourceTop * (1f - p)
+                val panelRect = Rect(
+                    left = panelLeft,
+                    top = panelTop,
+                    right = panelLeft + sourceWidth + (fullWidthPx - sourceWidth) * p,
+                    bottom = panelTop + sourceHeight + (fullHeightPx - sourceHeight) * p,
+                )
+                val pageScaleX = (sourceWidth + (fullWidthPx - sourceWidth) * p) / fullWidthPx
+                val pageScaleY = (sourceHeight + (fullHeightPx - sourceHeight) * p) / fullHeightPx
+                val pageTranslationX = sourceLeft * (1f - p)
+                val pageTranslationY = sourceTop * (1f - p)
+                val radius = with(density) { 28.dp.toPx() } * (1f - p)
+                Box(
+                    modifier = Modifier.fillMaxSize().drawWithCache {
+                        val path = Path().apply {
+                            addRoundRect(RoundRect(panelRect, CornerRadius(radius, radius)))
+                        }
+                        onDrawWithContent {
+                            val contentScope = this
+                            clipPath(path) {
+                                drawRect(androidx.compose.ui.graphics.Color(0xFF05070D))
+                                contentScope.drawContent()
+                            }
+                        }
+                    },
+                ) {
+            ShellBackHandler { closePlayer() }
                 val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
                 // U12：当前曲改由曲库实时流（SongEntity→领域模型），原 MediaItem 手拼字段等价
                 val currentSong by playerVm.currentSong.collectAsState()
@@ -739,64 +798,99 @@ fun MusesApp() {
                 // 按钮看起来就像没用 miuix IconButton（MuMu 实测：浅色按住仅图标
                 // 字形区变暗，深色才有完整圆角反馈块）。页内文字/图标本就全显式
                 // 白色，切深色无视觉副作用；队列/编辑 sheet 在作用域外，不受影响。
-                MusesTheme(useDarkTheme = true) {
-                    PlayerScreen(
-                        onClose = { showPlayerOverlay = false },
-                        onOpenQueue = { showPlayerOverlay = false; showQueueOverlay = true },
-                        onOpenEditMeta = { showEditMeta = true },
-                        isTransitioning = playerTransitioning,
-                        transitionProgress = { shellProgress },
-                        onSeekCollapse = { fraction ->
-                            // 跟手：手指每帧把进度写进转场本体（外壳 bounds 与封面共享元素都跟着它走）
-                            scope.launch {
-                                playerTransitionState.seekTo(
-                                    fraction = fraction.coerceIn(0f, 0.999f),
-                                    targetState = false,
+                CompositionLocalProvider(
+                    LocalPlayerAnimatedVisibilityScope provides playerVisibilityScope,
+                    LocalPlayerArtworkKey provides PlayerArtworkSharedKey,
+                ) {
+                    MusesTheme(useDarkTheme = true) {
+                        PlayerScreen(
+                            // 对整页做与面板完全一致的缩放/位移：p=0 时页面正好落在迷你条矩形内，
+                            // p=1 时恢复全屏布局。外层 round-rect clip 负责裁切圆角，封面共享元素负责图像本身。
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                                    scaleX = pageScaleX
+                                    scaleY = pageScaleY
+                                    translationX = pageTranslationX
+                                    translationY = pageTranslationY
+                                },
+                            onClose = { closePlayer() },
+                            onOpenQueue = { closePlayer(); showQueueOverlay = true },
+                            onOpenEditMeta = { showEditMeta = true },
+                            isTransitioning = playerTransition.currentState != playerTransition.targetState,
+                            // 打开时让封面先飞行，文字和控制区稍后显现；收起时保持内容可见，随面板裁剪回去。
+                            transitionProgress = {
+                                if (playerTransition.targetState) playerContentProgress else 1f
+                            },
+                            // 下拉时按手指位移收缩面板；松手后由 Pager 风格的弹簧吸附到展开或收起态。
+                            onSeekCollapse = { fraction -> seekPlayerTo(fraction) },
+                            onSettleCollapse = { collapse -> settlePlayer(collapse) },
+                        )
+                    }
+                }
+                if (source != null && p < 1f) {
+                    val transitionSubtitle = if (miniPlayerLyricsEnabled) {
+                        currentLyricLine ?: nowPlaying?.artist ?: "未知艺术家"
+                    } else {
+                        nowPlaying?.artist ?: "未知艺术家"
+                    }
+                    playerTransition.AnimatedVisibility(
+                        visible = { !it },
+                        enter = EnterTransition.None,
+                        exit = ExitTransition.None,
+                    ) {
+                        val miniVisibilityScope = this
+                        CompositionLocalProvider(
+                            LocalPlayerAnimatedVisibilityScope provides miniVisibilityScope,
+                        ) {
+                            Box(
+                                Modifier
+                                    .offset { IntOffset(sourceLeft.roundToInt(), sourceTop.roundToInt()) }
+                                    .size(
+                                        width = with(density) { sourceWidth.toDp() },
+                                        height = with(density) { sourceHeight.toDp() },
+                                    )
+                                    .graphicsLayer { alpha = 1f - p },
+                            ) {
+                                MiniPlayerBar(
+                                    title = nowPlaying?.title ?: "暂无播放歌曲",
+                                    subtitle = transitionSubtitle,
+                                    coverUri = nowPlaying?.coverUri,
+                                    isPlaying = isPlaying,
+                                    hasSong = nowPlaying != null,
+                                    onOpenPlayer = { openPlayer() },
+                                    onTogglePlayback = { viewModel.playPause() },
+                                    onOpenQueue = { showQueueOverlay = true },
+                                    onNext = { viewModel.skipToNext() },
+                                    onPrevious = { viewModel.skipToPrevious() },
+                                    modifier = Modifier.fillMaxSize(),
+                                    sharedArtwork = true,
                                 )
                             }
-                        },
-                        onSettleCollapse = { collapse ->
-                            // 松手：由转场本体从当前 fraction 续接动画
-                            scope.launch { playerTransitionState.animateTo(targetState = !collapse) }
-                            if (collapse) showPlayerOverlay = false
-                        },
-                    )
+                        }
+                    }
                 }
+            }
             }
         }
         }
-        }
-    }
 }
 
 /**
- * 「迷你条 ↔ 沉浸页」转场时长（`animateTo` 与 [PlayerShellBox] 的进度动画同源）。
- * 380ms 略长于 MeloX 的 360ms：本项目沉浸页更重（歌词面板 + 模糊背景 + 多层覆盖），
- * 配合 FastOutSlowInEasing 前段推进快，太短会显得「一下就到」。
+ * 椒盐点击切换播放页使用 300ms FastOutSlowIn tween；拖动松手使用 Pager 的弹簧吸附。
  */
-private const val PlayerTransitionDurationMillis = 380
-
-/**
- * 「迷你条 ↔ 沉浸页」的淡入淡出时长。
- *
- * 椒盐的播放页转场 = **页面淡入淡出 + 封面共享元素**（反编译证据：`a22.java:1099` 用
- * `Crossfade` + `tween(durationMillis = …)`，`f52.java:700` 用 `AnimatedContent`），
- * 形变只发生在封面那一条 sharedElement 上（迷你条封面 ↔ 沉浸页正封，key 见
- * `PlayerArtworkSharedKey`），页面本身不做缩放。
- *
- * 历史教训：这里曾用 `graphicsLayer` 把整页按迷你条矩形等比缩放，后来又改用
- * `Modifier.sharedBounds` 做容器形变；两者观感都是「整页被压小再放大」，与椒盐差得远，
- * 且 sharedBounds 版本在 MuMu 上明显掉帧（每帧重排/重绘整棵沉浸页）。已按椒盐改回
- * 「页面淡入 + 封面飞行」。
- */
-private const val PlayerTransitionFadeMillis = 300
+private const val PlayerTransitionMillis = 300
+private const val PlayerOpenDurationMillis = 380
+private const val PlayerContentRevealDelayMillis = 90
+private const val PlayerContentRevealDurationMillis = 240
 
 
 /**
  * 迷你条矩形上报：把迷你条在**窗口坐标系**中的真实矩形写到 [onBounds]（px）。
  *
- * 用 `boundsInWindow` 而非 `boundsInRoot`：沉浸页 overlay 与 Scaffold 平级、同为
- * 最外层 BoxWithConstraints 的子项，两者坐标系一致，窗口坐标能直接拿来做形变起点。
+ * 用 `boundsInWindow` 而非 `boundsInRoot`：悬浮底栏根据窗口坐标定位，避免透明 padding
+ * 影响可见顶的位置。播放页开合会读取这组窗口坐标作为扩展/收缩的起始矩形。
  * 空态（无当前曲）时迷你条整条不可点、也不会开沉浸页，但照旧上报——
  * 多一次上报的成本可忽略，避免了「刚选好歌就点开」时矩形还是旧值的分支。
  */
@@ -902,17 +996,6 @@ private fun AppNavHost(
                 artistId = route.artistId,
                 onBack = { backStack.pop() },
                 onPlaySong = { songId, songs -> playerConnection.play(songId, songs) },
-            )
-        }
-        entry<MusesRoute.Playlists> {
-            PlaylistsPage(onOpenPlaylist = { playlistId ->
-                backStack.pushUnique(MusesRoute.PlaylistDetail(playlistId))
-            })
-        }
-        entry<MusesRoute.PlaylistDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
-            PlaylistDetailPage(
-                playlistId = route.playlistId,
-                onBack = { backStack.pop() },
             )
         }
         // 刮削页随 M3 复刻（VM 由宿主直持传入；原 ScrapeScreen 内 koinViewModel() entry 作用域已改显式注入）
@@ -1057,7 +1140,8 @@ private fun CompactPlayerDock(
     onOpenSearch: () -> Unit,
     sideMargin: Dp,
     compactProgress: Float,
-    /** 上报迷你条在窗口中的矩形（沉浸页开合用它当形变起点） */
+    playerTransitionProgress: Float,
+    /** 上报迷你条在窗口中的矩形（用于悬浮底栏定位） */
     onPlayerBounds: (Rect) -> Unit,
 ) {
     val collapse = compactProgress.coerceIn(0f, 1f)
@@ -1094,7 +1178,10 @@ private fun CompactPlayerDock(
                 onOpenQueue = onOpenQueue,
                 // 融合态宽度被两侧 pill 占去大半：关队列按钮，把宽度让给标题
                 showQueueButton = false,
-                modifier = Modifier.fillMaxWidth().reportMiniBarBounds(onPlayerBounds),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer { alpha = 1f - playerTransitionProgress }
+                    .reportMiniBarBounds(onPlayerBounds),
             )
         }
         // 右：搜索

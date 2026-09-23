@@ -47,9 +47,7 @@ import top.yukonga.miuix.kmp.squircle.squircleClip
 // 回调注入，纯 UI 片段（tab 栏/搜索框/列表/网格）调用 :core:ui-shared 的
 // LibraryComponents。播放页、刮削页不在此列。
 // U9 KMP 上收：commonMain 双端共用（android + 桌面 jvm）。
-// - 播放连接不进 commonMain：onPlaySong 由宿主注入（安卓传 PlayerConnection，桌面传播放端口）；
-// - 「加入播放列表」弹层经 addToPlaylistContent slot 注入（桌面暂无播放列表 UI，
-//   传 null 时长按仅不弹菜单，行为与原桌面版一致）。
+// - 播放连接不进 commonMain：onPlaySong 由宿主注入（安卓传 PlayerConnection，桌面传播放端口）。
 
 // ── 歌曲列表 ──────────────────────────────────────────
 // U8 共用化：列表区调用共用 LibrarySongList（实体→SongItem 映射 + 播放/长按回调注入）。
@@ -61,18 +59,10 @@ fun SongsScreen(
     viewModel: SongsViewModel = koinViewModel(),
     /** 播放回调（宿主注入播放连接/端口；songId + 当前全列表供入队） */
     onPlaySong: (String, List<Song>) -> Unit = { _, _ -> },
-    /** 「加入播放列表」弹层 slot（安卓传 AddToPlaylistSheet 装配；null = 长按无菜单） */
-    addToPlaylistContent: (@Composable (songIds: List<String>, onDismiss: () -> Unit) -> Unit)? = null,
 ) {
     val songs by viewModel.songs.collectAsState()
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    // 非 null 时弹出「加入播放列表」底部弹层（M2）
-    var addToPlaylistTarget by remember { mutableStateOf<List<String>?>(null) }
-
-    if (addToPlaylistTarget != null && addToPlaylistContent != null) {
-        addToPlaylistContent(addToPlaylistTarget!!) { addToPlaylistTarget = null }
-    }
 
     Column(modifier = modifier) {
         if (showSearch) {
@@ -102,9 +92,7 @@ fun SongsScreen(
             songs = songs.map { it.toSongItem() },
             currentSongId = null,
             onPlay = { songId -> onPlaySong(songId, songs) },
-            onLongClick = if (addToPlaylistContent != null) {
-                { songId -> addToPlaylistTarget = listOf(songId) }
-            } else null,
+            onLongClick = null,
             emptyTitle = "曲库为空",
             emptyDescription = if (showSearch) null else "请先在「音源」中添加本地目录或 WebDAV 并扫描",
             modifier = Modifier.fillMaxSize(),

@@ -31,8 +31,7 @@ kotlin {
             // P2a Koin（统一 4.2.0；KMP sourceSets 不支持 platform(BOM)，toml bundles 已收敛版本）
             implementation(libs.bundles.koin.kmp)
             // U16：Page 层（多选/haze 玻璃/跳转 FAB/网格封面）全量上收——haze 2.0 KMP +
-            // Coil3 KMP + AddToPlaylistSheet（playlist commonMain），androidMain 不再有源码
-            implementation(project(":feature:playlist"))
+            // Coil3 KMP，androidMain 不再有源码
         }
     }
 }

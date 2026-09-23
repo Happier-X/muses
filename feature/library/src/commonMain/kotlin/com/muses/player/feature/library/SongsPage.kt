@@ -89,14 +89,6 @@ fun SongsPage(
     showTopBar: Boolean = true,
     viewModel: SongsViewModel = koinViewModel(),
 ) {
-    // 非 null 时弹出「加入播放列表」弹层（复用 M2 AddToPlaylistSheet）
-    var addToPlaylistTarget by remember { mutableStateOf<List<String>?>(null) }
-    addToPlaylistTarget?.let { songIds ->
-        com.muses.player.feature.playlist.AddToPlaylistSheet(
-            songIds = songIds,
-            onDismiss = { addToPlaylistTarget = null },
-        )
-    }
     val scheme = MiuixTheme.colorScheme
     val songs by viewModel.songs.collectAsState()
     val deleteErrors by viewModel.deleteErrors.collectAsState()
@@ -491,12 +483,6 @@ fun SongsPage(
                 // TODO(P2b)：PlayerConnection 补 addToQueue 后接线
                 actionSong = null
             }),
-            MusesActionItem(label = "加入歌单…", onClick = {
-                // 等动作单关闭后再开歌单弹层（Web 层 180ms 延迟同语义）
-                val ids = listOfNotNull(currentId)
-                actionSong = null
-                if (ids.isNotEmpty()) addToPlaylistTarget = ids
-            }),
         ),
     )
 
@@ -512,10 +498,6 @@ fun SongsPage(
             selectedCount = selectedIds.size,
             onDeleteSelected = {
                 viewModel.deleteByIds(selectedIds)
-                exitMultiSelect()
-            },
-            onAddToPlaylist = {
-                if (selectedIds.isNotEmpty()) addToPlaylistTarget = selectedIds.toList()
                 exitMultiSelect()
             },
             onPlaySelected = {
@@ -570,7 +552,6 @@ private fun JumpToCurrentFab(
 private fun MultiselectBottomBar(
     selectedCount: Int,
     onDeleteSelected: () -> Unit,
-    onAddToPlaylist: () -> Unit,
     onPlaySelected: () -> Unit,
     onCancel: () -> Unit,
     onEnqueueScrape: () -> Unit = {},
@@ -585,7 +566,6 @@ private fun MultiselectBottomBar(
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         MusesTextButton(text = "永久删除", destructive = true, enabled = !disabled, onClick = onDeleteSelected)
-        MusesTextButton(text = "添加到歌单", enabled = !disabled, onClick = onAddToPlaylist)
         // M3：批量加入待刮削队列（刮削页统一处理）
         MusesTextButton(text = "加入待刮削", enabled = !disabled, onClick = onEnqueueScrape)
         MusesTextButton(text = "播放选中队列", enabled = !disabled, onClick = onPlaySelected)

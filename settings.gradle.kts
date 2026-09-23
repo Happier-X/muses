@@ -45,7 +45,6 @@ include(":feature:home")
 include(":feature:scrape")
 include(":feature:library")
 include(":feature:player")
-include(":feature:playlist")
 include(":feature:sources")
 
 // U22：应用壳（MusesApp/TabsLayout/MainViewModel/SettingsScreen 双端共享，CMP Navigation）

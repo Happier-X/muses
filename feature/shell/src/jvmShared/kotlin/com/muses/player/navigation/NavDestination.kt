@@ -6,7 +6,7 @@ import top.yukonga.miuix.kmp.nav.core.NavKey
 /**
  * 顶层导航项 —— 文案/图标/分组一比一对照 `TabsPage.vue` 的 `navItems`：
  *
- *   primary   = 歌曲/专辑/艺术家/歌单
+ *   primary   = 歌曲/专辑/艺术家
  *   secondary = 刮削/音源/设置
  *
  * 路由本体已类型化（[MusesRoute]，miuix-nav @Serializable 密封层级）；
@@ -30,7 +30,6 @@ enum class NavDestination(
     Songs(MusesRoute.Songs, "歌曲", TablerIcons.MusicNote),            // music (Music)
     Albums(MusesRoute.Albums, "专辑", TablerIcons.Album),               // albums (Disc)
     Artists(MusesRoute.Artists, "艺术家", TablerIcons.Person),          // user (MicVocal)
-    Playlists(MusesRoute.Playlists, "歌单", TablerIcons.QueueMusic),    // playlist (ListMusic)
 
     // ---- 次菜单（工具）：secondaryNavItems = navItems.slice(4) ----
     Scrape(MusesRoute.Scrape, "刮削", TablerIcons.Checklist),          // listCheck
@@ -44,7 +43,6 @@ enum class NavDestination(
         Songs -> key == MusesRoute.Songs
         Albums -> key == MusesRoute.Albums || key is MusesRoute.AlbumDetail
         Artists -> key == MusesRoute.Artists || key is MusesRoute.ArtistDetail
-        Playlists -> key == MusesRoute.Playlists || key is MusesRoute.PlaylistDetail
         Scrape -> key == MusesRoute.Scrape || key is MusesRoute.ScrapeReview
         Sources -> key == MusesRoute.Sources || key is MusesRoute.WebDavAdd ||
             key is MusesRoute.WebDavEdit || key is MusesRoute.WebDavBrowse ||
@@ -53,7 +51,7 @@ enum class NavDestination(
     }
 
     companion object {
-        /** 主导航组（探索 + 曲库）：顺序对照 primaryNavItems、前置探索；歌单已按产品侧要求移除 */
+        /** 主导航组（探索 + 曲库）：顺序对照 primaryNavItems、前置探索 */
         val Primary: List<NavDestination> = listOf(Home, Songs, Albums, Artists)
 
         /** 侧边栏辅助导航组（工具），顺序对照 secondaryNavItems */

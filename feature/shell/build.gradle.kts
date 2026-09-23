@@ -28,7 +28,6 @@ kotlin {
             implementation(project(":core:ui-shared"))
             implementation(project(":feature:library"))
             implementation(project(":feature:player"))
-            implementation(project(":feature:playlist"))
             implementation(project(":feature:scrape"))
             implementation(project(":feature:sources"))
             // 首页（搜索框 + 排行榜 + 猜你喜欢）：MusesApp 注册 Home entry

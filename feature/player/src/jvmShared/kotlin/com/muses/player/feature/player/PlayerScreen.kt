@@ -4,7 +4,6 @@ import com.muses.player.core.ui.components.MusesBottomSheet
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -107,27 +106,24 @@ fun PlayerScreen(
      * 下滑跟手中：上报收起进度（0 = 完全展开，1 = 已收起）。
      *
      * 非 null 时由**宿主**的 `SeekableTransitionState.seekTo(fraction)` 驱动
-     * 「迷你条 ↔ 沉浸页」的 sharedBounds 形变，本页不再自己做位移（否则与转场双重叠加）。
+     * 全屏播放页纵向位移，本页不再叠加自己的拖动位移。
      */
     onSeekCollapse: ((Float) -> Unit)? = null,
     /** 下滑松手：上报是否应当收起（true = 收起回迷你条） */
     onSettleCollapse: ((Boolean) -> Unit)? = null,
     /**
-     * 是否正处于「迷你条 ↔ 沉浸页」的 sharedBounds 转场中。
+     * 是否正处于主屏与全屏播放页之间的转场中。
      *
-     * 转场中 sharedBounds 会逐帧重排整个沉浸页内容树，而 [FlowingLightBackdrop] 是全屏图片 +
-     * 28dp 模糊，重排代价极高（实测掉帧明显）。所以转场期间换成纯色底，转场结束再恢复流光背景。
+     * 转场中 [FlowingLightBackdrop] 的全屏模糊层会持续重绘，代价较高。所以转场期间换成纯色底，
+     * 转场结束再恢复流光背景。
      */
     isTransitioning: Boolean = false,
     /**
-     * 转场进度：0 = 迷你条态，1 = 全屏沉浸态。
+     * 内容显现进度：0 = 标题/歌词/控制区隐藏，1 = 完全显示。
      *
-     * 用来实现椒盐那套观感：**只有封面用 share element 从迷你条封面长大到全屏**，
-     * 其余内容（标题 / 歌词 / 进度条 / 控制按钮）随进度渐隐，
-     * 所以点开时先看到「封面飞出来」，内容在后半段才浮现；收起时恰好相反。
+     * 封面不跟随此透明度，由共享元素独立飞行；宿主在打开时延迟推进，收起时保持为 1。
      *
-     * 传 lambda（内部才读 State）：这里的调用者是宿主的 graphicsLayer / alpha，
-     * 若在组合期取值，转场中每帧都会重组整棵沉浸页。
+     * 传 lambda（内部才读 State），避免转场中每帧重组整棵沉浸页。
      */
     transitionProgress: () -> Float = { 1f },
 ) {
@@ -193,9 +189,7 @@ fun PlayerScreen(
     // 外层：m-popup 背景透明（对齐 .player-page__popup background: transparent !important）——
     // 无 scrim 黑化，drag-layer 下滑时直接漏出底下列表（原版 1:1）
     BoxWithConstraints(
-        // clipToBounds：父层（宿主里的 sharedBounds 容器）在转场中会被插值成迷你条大小，
-        // 这里必须裁剪，否则内部的 fillMaxSize 背景/毛玻璃层仍按全屏绘制，
-        // 收起时就会看到「内容缩了、背景还是一大块矩形」。
+        // clipToBounds：宿主在转场中平移整页，这里裁掉视口外内容，避免屏外绘制。
         modifier = modifier.fillMaxSize().clipToBounds(),
     ) {
         // U21：屏幕尺寸取自视口约束（原 LocalConfiguration 仅安卓可用）
@@ -241,9 +235,9 @@ fun PlayerScreen(
                                 if (dragAmount > 0f || accumulatedY > 0f) {
                                     accumulatedY = (accumulatedY + dragAmount).coerceAtLeast(0f)
                                     if (onSeekCollapse != null) {
-                                        // 跟手：把进度交给宿主的 SeekableTransitionState，由它驱动
-                                        // 「迷你条↔沉浸页」的形变；本页不再自己做位移，避免双重叠加
-                                        onSeekCollapse((accumulatedY / dismissThresholdPx).coerceIn(0f, 1f))
+                                        // 跟手位移按整页高度归一化，保证手指拖多少、全屏页就移动多少；
+                                        // 松手阈值仍单独决定最终吸附到展开态还是收起态。
+                                        onSeekCollapse((accumulatedY / size.height.coerceAtLeast(1)).coerceIn(0f, 0.999f))
                                     } else {
                                         dragOffsetY = accumulatedY
                                     }
@@ -278,8 +272,8 @@ fun PlayerScreen(
                     }
                 )
         ) {
-            // 转场中跳过流光背景：它是全屏 AsyncImage + blur(28dp)，在 sharedBounds 逐帧重排时
-            // 代价极高（主要掉帧源）；用纯色顶一下，转场结束后再恢复。
+            // 转场中跳过流光背景：它是全屏 AsyncImage + blur(28dp)，持续重绘代价较高；
+            // 用纯色顶一下，转场结束后再恢复。
             // 不用 alpha 渐变过渡：那要求它整时段都参与绘制，恰好把掉帧源又请回来了。
             // 视觉上不跳的原因：转场中「非封面内容」也基本不可见（见 contentAlphaFor），
             // 背景色差异被内容渐隐盖住。
@@ -471,25 +465,8 @@ private fun PlayerBackground(
 
 // ---------- 手机布局：固定头部 + 双面板 0.22s easeOut ----------
 
-/**
- * 「非封面内容」的可见度：把转场进度映射成 alpha。
- *
- * 椒盐那套转场只看得到封面（它走 share element，从迷你条封面长到全屏），
- * 标题/歌词/控制按钮跟封面同时长大就会显得杂乱；让它们在后半段才浮现，
- * 观感就是「封面先飞出来，内容再浮现」。用近似 [FastOutLinearInEasing] 的曲线让内容开得快、收得慢。
- *
- * 阈值 0.45：前半段（封面已经跑完大半路径）内容完全不可见，避免与迷你条封面重叠。
- */
-/**
- * 「非封面内容」的透明度：**恒为 1，不做渐隐**。
- *
- * 曾按转场进度做渐隐（「封面先飞出来、内容再浮现」），但实测该进度在**转场结束后会变成 0**
- * （MuMu 复现：打开沉浸页后只剩封面，标题/进度条/控制栏全部 alpha=0；把本函数临时恒置 1
- * 内容就全回来了）。页面本身已随 `fadeIn/fadeOut` 淡入淡出，内容跟着页面出现即可，
- * 不需要再叠一层用转场进度驱动的渐隐。
- */
-@Suppress("UNUSED_PARAMETER")
-private fun contentAlphaFor(progress: Float): Float = 1f
+/** 打开时封面先飞到正封，标题、歌词与控制区再按宿主进度淡入。 */
+private fun contentAlphaFor(progress: Float): Float = progress.coerceIn(0f, 1f)
 
 @Composable
 private fun PhoneImmersiveLayout(
@@ -1123,7 +1100,7 @@ fun QueueScreen(
     val currentIndex = queue.indexOfFirst { it.songId == currentId }
     val scheme = MiuixTheme.colorScheme
 
-    // 统一封装：miuix OverlayBottomSheet（遮罩/圆角/动画走官方，与加入歌单等同源）
+    // 统一封装：miuix OverlayBottomSheet（遮罩/圆角/动画走官方）
     MusesBottomSheet(
         onDismiss = onClose,
         title = "播放队列",

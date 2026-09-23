@@ -4,6 +4,7 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import top.yukonga.miuix.kmp.basic.Icon
 import com.muses.player.core.ui.icons.TablerIcons
@@ -67,7 +68,6 @@ fun MusesCover(
 
     Box(
         modifier = modifier
-            .then(sharedModifier)
             .size(size)
             .clip(shape)
             .background(scheme.surfaceContainerHigh)
@@ -93,7 +93,10 @@ fun MusesCover(
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(size)
+                    // 共享转场必须加在真正绘制位图的节点上。若加在固定 size 的外壳，
+                    // 外壳 bounds 会变大，但 AsyncImage 仍按迷你封面的固定尺寸绘制。
+                    .then(sharedModifier)
+                    .fillMaxSize()
                     .clip(shape),
             )
         }

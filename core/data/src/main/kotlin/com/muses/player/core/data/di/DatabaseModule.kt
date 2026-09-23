@@ -12,6 +12,7 @@ import com.muses.player.core.data.db.MIGRATION_2_3
 import com.muses.player.core.data.db.MIGRATION_3_4
 import com.muses.player.core.data.db.MIGRATION_4_5
 import com.muses.player.core.data.db.MIGRATION_5_6
+import com.muses.player.core.data.db.MIGRATION_6_7
 import com.muses.player.core.data.db.MusesDatabase
 import com.muses.player.core.data.db.getRoomDatabase
 import com.muses.player.core.data.store.createDataStore
@@ -24,7 +25,7 @@ import org.koin.dsl.module
  * `@Provides @Singleton`→`single`；无作用域的 DAO 提供→`factory`（见 design.md 映射表）。
  *
  * P2b-S3：平台 builder 接线——`Room.databaseBuilder` 拿 Builder（DB 名 muses.db 冻结，
- * 5 个 Migration 原样挂载），收口到 commonMain [getRoomDatabase]
+ * 6 个 Migration 原样挂载），收口到 commonMain [getRoomDatabase]
  *（BundledSQLiteDriver + IO 上下文）；DataStore 改 KMP 口径 createWithPath
  *（文件名/路径与旧 `File(filesDir, DATASTORE_NAME)` 同文件，行为零变化）。
  */
@@ -33,7 +34,7 @@ val databaseModule = module {
     single<MusesDatabase> {
         getRoomDatabase(
             Room.databaseBuilder<MusesDatabase>(androidContext(), DB_NAME)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6),
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7),
         )
     }
 

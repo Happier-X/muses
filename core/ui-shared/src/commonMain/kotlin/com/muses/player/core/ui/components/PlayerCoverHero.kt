@@ -77,7 +77,6 @@ fun PlayerCoverHero(
             }
         Box(
             modifier = Modifier
-                .then(artworkSharedModifier)
                 .size(targetSize)
                 .aspectRatio(1f)
                 .squircleClip(12.dp)
@@ -90,6 +89,9 @@ fun PlayerCoverHero(
                     contentDescription = "封面",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
+                        // 与迷你条一样，把共享元素放到位图节点上而非尺寸外壳，
+                        // 避免只插值容器 bounds、图片仍停留在迷你尺寸。
+                        .then(artworkSharedModifier)
                         .fillMaxSize()
                         .squircleClip(12.dp),
                 )

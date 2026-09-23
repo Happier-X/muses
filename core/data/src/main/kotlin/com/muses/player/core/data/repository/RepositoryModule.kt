@@ -30,9 +30,6 @@ val repositoryModule = module {
     singleOf(::RoomArtistRepository)
     single<ArtistRepository> { get<RoomArtistRepository>() }
 
-    singleOf(::RoomPlaylistRepository)
-    single<PlaylistRepository> { get<RoomPlaylistRepository>() }
-
     singleOf(::DataStoreSettingsRepository)
     single<SettingsRepository> { get<DataStoreSettingsRepository>() }
 

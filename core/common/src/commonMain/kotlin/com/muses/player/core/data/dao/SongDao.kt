@@ -62,7 +62,7 @@ interface SongDao {
     @Query("DELETE FROM songs WHERE sourceId = :sourceId")
     suspend fun deleteBySource(sourceId: String)
 
-    /** 删除单曲（playlist_songs 外键 CASCADE 联动清理关联行） */
+    /** 删除单曲 */
     @Query("DELETE FROM songs WHERE id = :id")
     suspend fun deleteById(id: String)
 
