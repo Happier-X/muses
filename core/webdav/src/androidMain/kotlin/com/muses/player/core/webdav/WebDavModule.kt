@@ -1,5 +1,6 @@
 package com.muses.player.core.webdav
 
+import java.net.Proxy
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import org.koin.core.module.dsl.singleOf
@@ -34,6 +35,9 @@ val webdavModule = module {
     single<OkHttpClient>(named(STREAMING_OKHTTP_QUALIFIER)) {
         val registry: WebDavAuthRegistry = get()
         OkHttpClient.Builder()
+            // 安卓设备可能配置了只供浏览器使用的系统 HTTP 代理（例如 MuMu/Clash）。
+            // WebDAV HTTPS 流播经该代理会在 CONNECT 隧道阶段断开；此客户端直连源站。
+            .proxy(Proxy.NO_PROXY)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
