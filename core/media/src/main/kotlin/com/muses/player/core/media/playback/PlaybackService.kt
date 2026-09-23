@@ -81,6 +81,8 @@ class PlaybackService : MediaSessionService() {
     private var lyricsLines: List<com.muses.player.core.lyrics.model.LyricLine>? = null
     /** 当前曲歌词 LRC 全文原样（随 [SessionLyricsBridge] 注入平台会话 LYRICS key） */
     private var lyricsRaw: String? = null
+    /** 歌词模式已写入当前曲的替换 metadata（值相等即本轮跳过 replaceMediaItem） */
+    private var appliedLyricMetadata: androidx.media3.common.MediaMetadata? = null
 
     // ExoPlayer 强制主线程访问（player-accessed-on-wrong-thread 崩溃防护），
     // 服务生命周期本就在主线程；Room/DataStore 挂起调用内部自行切 IO
@@ -260,6 +262,7 @@ class PlaybackService : MediaSessionService() {
                 val currentId = player.currentMediaItem?.mediaId
                 if (currentId != lastSongId) {
                     metadataModified = false
+                    appliedLyricMetadata = null
                     snapshotOriginalMetadata(player)
                     parseCurrentSongLyrics(player)
                     lastSongId = currentId
@@ -273,8 +276,12 @@ class PlaybackService : MediaSessionService() {
     private fun snapshotOriginalMetadata(player: Player) {
         if (metadataModified) return
         val item = player.currentMediaItem ?: return
-        originalTitle = item.mediaMetadata.title
-        originalArtist = item.mediaMetadata.artist
+        // 快照优先走 Room：媒体元数据的 title 可能是「标题-艺术家」等解析拼接值，
+        // 而 artist 字段才是库里的原始艺术家；车机展示的 ucar.* 直接依赖该快照。
+        // 查库失败（如在线曲目）回退媒体元数据，行为不变。
+        val dbSong = runBlocking { withTimeoutOrNull(500) { songDao.getById(item.mediaId) } }
+        originalTitle = dbSong?.title ?: item.mediaMetadata.title
+        originalArtist = dbSong?.artist ?: item.mediaMetadata.artist
     }
 
     /** 从 Room 读取歌词并解析 */
@@ -324,11 +331,15 @@ class PlaybackService : MediaSessionService() {
             .setTitle(lyricLine)
             .setArtist("$origTitle - $origArtist")
             .build()
+        // 相同值跳过：媒体元数据没变就不反复 replaceMediaItem（每轮 Timeline 变更都会触发
+        // 持久化保存），车机端同值 setMetadata 也少一次通知刷新。
+        if (metadata == appliedLyricMetadata) return
         val current = player.currentMediaItem ?: return
         player.replaceMediaItem(
             player.currentMediaItemIndex,
             current.buildUpon().setMediaMetadata(metadata).build(),
         )
+        appliedLyricMetadata = metadata
         metadataModified = true
     }
 
@@ -346,6 +357,7 @@ class PlaybackService : MediaSessionService() {
             current.buildUpon().setMediaMetadata(metadata).build(),
         )
         metadataModified = false
+        appliedLyricMetadata = null
         lyricsLines = null
         lyricsRaw = null
         // 关歌词模式/切歌走此恢复：清掉平台会话里的歌词 key（media3 若已重建 metadata 则幂等跳过）
@@ -470,8 +482,10 @@ class PlaybackService : MediaSessionService() {
 
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-                // 通知歌词模式：切歌时重置标记，由轮询检测 songId 变化后重新快照+应用
+                // 通知歌词模式：切歌时重置标记，由轮询检测 songId 变化后重新快照+应用；
+                // 清掉上一首的替换值，避免与新曲 metadata 相等时误判跳过
                 metadataModified = false
+                appliedLyricMetadata = null
                 scheduleSnapshotSave(player)
                 val currentId = player.currentMediaItem?.mediaId
                 if (currentId != null) {
