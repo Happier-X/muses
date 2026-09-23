@@ -832,7 +832,14 @@ private fun InfoPanel(
         // 手机控件区：player-page__info-controls（平板 display:none，由底部条承担）
         // 整块随转场进度渐隐：椒盐转场里只有封面在动，进度条/按钮是浮出来的
         if (!isTablet) {
-            Column(Modifier.graphicsLayer { alpha = contentAlpha() }) {
+            // horizontalAlignment 必须显式居中：这层是转场渐隐包裹 Column，
+            // 外层 InfoPanel 的 CenterHorizontally 不会传导给子级布局参数，
+            // 缺省 Start 会让 wrap-content 的 PlayerControls 贴左、与
+            // fillMaxWidth 的进度条错位（MuMu 实测三键组中心 331 vs 540）。
+            Column(
+                modifier = Modifier.graphicsLayer { alpha = contentAlpha() },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 ProgressSection(
                     position = position,
                     duration = duration,

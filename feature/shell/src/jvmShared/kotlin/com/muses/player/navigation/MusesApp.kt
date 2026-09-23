@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.muses.player.core.ui.icons.TablerIcons
+import com.muses.player.core.ui.theme.MusesTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -732,27 +733,35 @@ fun MusesApp() {
                     val editSong = currentSong?.toDomain()
                     com.muses.player.feature.scrape.EditMetaSheet(song = editSong, onDismiss = { showEditMeta = false })
                 }
-                PlayerScreen(
-                    onClose = { showPlayerOverlay = false },
-                    onOpenQueue = { showPlayerOverlay = false; showQueueOverlay = true },
-                    onOpenEditMeta = { showEditMeta = true },
-                    isTransitioning = playerTransitioning,
-                    transitionProgress = { shellProgress },
-                    onSeekCollapse = { fraction ->
-                        // 跟手：手指每帧把进度写进转场本体（外壳 bounds 与封面共享元素都跟着它走）
-                        scope.launch {
-                            playerTransitionState.seekTo(
-                                fraction = fraction.coerceIn(0f, 0.999f),
-                                targetState = false,
-                            )
-                        }
-                    },
-                    onSettleCollapse = { collapse ->
-                        // 松手：由转场本体从当前 fraction 续接动画
-                        scope.launch { playerTransitionState.animateTo(targetState = !collapse) }
-                        if (collapse) showPlayerOverlay = false
-                    },
-                )
+                // 沉浸页背景硬编码近黑（0xFF05070D），不随系统明暗——必须在页级
+                // 强制深色主题作用域：否则浅色系统下 miuix 按压反馈色
+                // （MiuixIndication 取 onBackground = 深色）叠在近黑背景上完全不可见，
+                // 按钮看起来就像没用 miuix IconButton（MuMu 实测：浅色按住仅图标
+                // 字形区变暗，深色才有完整圆角反馈块）。页内文字/图标本就全显式
+                // 白色，切深色无视觉副作用；队列/编辑 sheet 在作用域外，不受影响。
+                MusesTheme(useDarkTheme = true) {
+                    PlayerScreen(
+                        onClose = { showPlayerOverlay = false },
+                        onOpenQueue = { showPlayerOverlay = false; showQueueOverlay = true },
+                        onOpenEditMeta = { showEditMeta = true },
+                        isTransitioning = playerTransitioning,
+                        transitionProgress = { shellProgress },
+                        onSeekCollapse = { fraction ->
+                            // 跟手：手指每帧把进度写进转场本体（外壳 bounds 与封面共享元素都跟着它走）
+                            scope.launch {
+                                playerTransitionState.seekTo(
+                                    fraction = fraction.coerceIn(0f, 0.999f),
+                                    targetState = false,
+                                )
+                            }
+                        },
+                        onSettleCollapse = { collapse ->
+                            // 松手：由转场本体从当前 fraction 续接动画
+                            scope.launch { playerTransitionState.animateTo(targetState = !collapse) }
+                            if (collapse) showPlayerOverlay = false
+                        },
+                    )
+                }
             }
         }
         }
