@@ -45,6 +45,7 @@ object TablerIcons {
     val ArrowForward: ImageVector = Tabler.Outline.ArrowRight
     val ChevronRight: ImageVector = Tabler.Outline.ChevronRight
     val ChevronLeft: ImageVector = Tabler.Outline.ChevronLeft
+    val ChevronDown: ImageVector = Tabler.Outline.ChevronDown
 
     // 操作
     val Close: ImageVector = Tabler.Outline.X
