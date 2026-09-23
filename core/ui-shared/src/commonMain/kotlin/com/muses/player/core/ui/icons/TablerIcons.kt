@@ -41,8 +41,8 @@ object TablerIcons {
     val SkipPreviousFill: ImageVector = Tabler.Filled.PlayerSkipBack
     val SkipNextFill: ImageVector = Tabler.Filled.PlayerSkipForward
 
-    // 导航
-    val ArrowBack: ImageVector = Tabler.Outline.ArrowLeft
+    // 导航（返回统一用 < 尖角样式，不用 <- 带杆箭头）
+    val ArrowBack: ImageVector = Tabler.Outline.ChevronLeft
     val ArrowForward: ImageVector = Tabler.Outline.ArrowRight
     val ChevronRight: ImageVector = Tabler.Outline.ChevronRight
     val ChevronLeft: ImageVector = Tabler.Outline.ChevronLeft
