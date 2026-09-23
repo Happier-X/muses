@@ -7,7 +7,8 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -54,6 +55,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -78,6 +81,7 @@ import com.muses.player.feature.player.lyric.LyricsPanel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import kotlin.math.abs
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
@@ -213,65 +217,88 @@ fun PlayerScreen(
                 .offset { IntOffset(0, dragOffsetY.roundToInt()) }
                 .background(Color(0xFF05070D))
                 .then(
-                    // 展开转场期间不接收收起手势。打开迷你条的触摸序列可能延续到
-                    // 全屏层刚挂载的首帧；若此时被拖动识别器接管，会把刚开始的展开
-                    // seek 回迷你条，并留下不可交互的半展开页面（真机首次打开可复现）。
-                    if ((isLyricPanelActive && !isLyricAtTop) || isTransitioning) Modifier
+                    // 歌词未滚到顶时保留歌词列表自己的纵向滚动；其他页面区域由外层在 Initial
+                    // pass 观察手势，避免子级 Pager/进度条先消费事件导致下拉识别被取消。
+                    if (isLyricPanelActive && !isLyricAtTop) Modifier
                     else Modifier.pointerInput(isTabletLayout, dismissThresholdPx) {
-                        var accumulatedY = 0f
-                        var ignoreDrag = false
                         val bottomExclusionPx = with(density) { 180.dp.toPx() }
-                        detectVerticalDragGestures(
-                            onDragStart = { offset: Offset ->
-                                // 底部模式/控制区（约 180dp）不参与下滑关闭，避免与底部按钮点击冲突
-                                if (offset.y > size.height - bottomExclusionPx) {
-                                    ignoreDrag = true
-                                    isDraggingVertically = false
-                                } else {
-                                    ignoreDrag = false
-                                    accumulatedY = 0f
-                                    isDraggingVertically = true
-                                }
-                            },
-                            onVerticalDrag = { _: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
-                                if (ignoreDrag) return@detectVerticalDragGestures
-                                if (dragAmount > 0f || accumulatedY > 0f) {
-                                    accumulatedY = (accumulatedY + dragAmount).coerceAtLeast(0f)
-                                    if (onSeekCollapse != null) {
-                                        // 跟手位移按整页高度归一化，保证手指拖多少、全屏页就移动多少；
-                                        // 松手阈值仍单独决定最终吸附到展开态还是收起态。
-                                        onSeekCollapse((accumulatedY / size.height.coerceAtLeast(1)).coerceIn(0f, 0.999f))
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            // 底部模式/控制区（约 180dp）不参与下拉关闭，避免与控制按钮冲突。
+                            if (down.position.y <= size.height - bottomExclusionPx) {
+                                var totalX = 0f
+                                var totalY = 0f
+                                var accumulatedY = 0f
+                                var dragging = false
+                                var finished = false
+                                var cancelled = false
+                                val touchSlop = viewConfiguration.touchSlop
+
+                                while (!finished && !cancelled) {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    val change = event.changes.firstOrNull { it.id == down.id }
+                                    if (change == null) {
+                                        cancelled = true
+                                        continue
+                                    }
+                                    val delta = change.positionChange()
+                                    if (!dragging) {
+                                        totalX += delta.x
+                                        totalY += delta.y
+                                        // 横向意图交给面板 Pager；只有明确向下越过 touch slop 才接管。
+                                        if (abs(totalX) > touchSlop && abs(totalX) > abs(totalY)) {
+                                            cancelled = true
+                                            continue
+                                        }
+                                        if (totalY > touchSlop && totalY > abs(totalX)) {
+                                            dragging = true
+                                            isDraggingVertically = true
+                                            accumulatedY = (totalY - touchSlop).coerceAtLeast(0f)
+                                            change.consume()
+                                        }
                                     } else {
-                                        dragOffsetY = accumulatedY
+                                        accumulatedY = (accumulatedY + delta.y).coerceAtLeast(0f)
+                                        change.consume()
+                                        if (onSeekCollapse != null) {
+                                            onSeekCollapse((accumulatedY / size.height.coerceAtLeast(1)).coerceIn(0f, 0.999f))
+                                        } else {
+                                            dragOffsetY = accumulatedY
+                                        }
+                                    }
+                                    finished = !change.pressed
+                                }
+
+                                if (dragging) {
+                                    isDraggingVertically = false
+                                    if (finished) {
+                                        if (onSettleCollapse != null) {
+                                            onSettleCollapse(accumulatedY >= dismissThresholdPx)
+                                        } else if (accumulatedY >= dismissThresholdPx) {
+                                            clearDragImmediate()
+                                            onClose()
+                                        } else if (accumulatedY > 0f) {
+                                            val from = accumulatedY
+                                            scope.launch {
+                                                val anim = Animatable(from)
+                                                anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }
+                                                dragOffsetY = 0f
+                                            }
+                                        }
+                                    } else {
+                                        if (onSettleCollapse != null) {
+                                            onSettleCollapse(false)
+                                        } else if (accumulatedY > 0f) {
+                                            val from = accumulatedY
+                                            scope.launch {
+                                                val anim = Animatable(from)
+                                                anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }
+                                                dragOffsetY = 0f
+                                            }
+                                        }
                                     }
                                 }
-                            },
-                            onDragEnd = {
-                                if (ignoreDrag) { ignoreDrag = false; return@detectVerticalDragGestures }
-                                isDraggingVertically = false
-                                if (onSettleCollapse != null) {
-                                    // 松手：是否收起交给宿主，由它从当前 fraction 续接动画
-                                    onSettleCollapse(accumulatedY >= dismissThresholdPx)
-                                } else if (accumulatedY >= dismissThresholdPx) {
-                                    clearDragImmediate(); onClose()
-                                } else if (accumulatedY > 0f) {
-                                    val from = accumulatedY
-                                    scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f }
-                                }
-                                accumulatedY = 0f
-                            },
-                            onDragCancel = {
-                                if (ignoreDrag) { ignoreDrag = false; return@detectVerticalDragGestures }
-                                isDraggingVertically = false
-                                if (onSettleCollapse != null) {
-                                    onSettleCollapse(false)
-                                } else if (accumulatedY > 0f) {
-                                    val from = accumulatedY
-                                    scope.launch { val anim = androidx.compose.animation.core.Animatable(from); anim.animateTo(0f, tween(220, easing = reboundEasing)) { dragOffsetY = value }; dragOffsetY = 0f }
-                                }
-                                accumulatedY = 0f
-                            },
-                        )
+                            }
+                        }
                     }
                 )
         ) {

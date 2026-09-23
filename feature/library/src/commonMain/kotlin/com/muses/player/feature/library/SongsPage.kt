@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -173,6 +174,8 @@ fun SongsPage(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
+        // 应用外层 Scaffold 管理系统栏；歌曲页的内容区不重复叠加一份系统栏 inset。
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             MusesTopBar(
                 title = "歌曲",

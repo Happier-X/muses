@@ -411,12 +411,12 @@ private fun MusesAppContent() {
         // 打开时面板用较长的舒展节奏从迷你条扩展，文字和控制区延后显现；
         // 收起仍按原节奏缩回，封面通过共享元素在两端之间飞行。
         var showPlayerOverlay by remember { mutableStateOf(false) }
-        val playerOpen = showPlayerOverlay
         val playerTransitionState = remember { SeekableTransitionState(showPlayerOverlay) }
         val playerTransition = rememberTransition(
             transitionState = playerTransitionState,
             label = "immersive-player-page",
         )
+        val playerOpen = showPlayerOverlay
         val playerTransitionScope = rememberCoroutineScope()
         var playerTransitionJob by remember { mutableStateOf<Job?>(null) }
         fun animatePlayerTo(target: Boolean) {
@@ -443,7 +443,13 @@ private fun MusesAppContent() {
         }
         fun openPlayer() {
             showPlayerOverlay = true
-            animatePlayerTo(target = true)
+            // SeekableTransitionState.animateTo 在 Android 上会偶发停在 fraction=0，
+            // 此时迷你条已隐藏、全屏页仍被裁在迷你条尺寸，只剩黑色空面板。点击打开是明确的
+            // 状态切换，直接落到展开端点；下滑收起仍保留可跟手 seek 与弹簧吸附。
+            playerTransitionJob?.cancel()
+            playerTransitionJob = playerTransitionScope.launch {
+                playerTransitionState.seekTo(fraction = 1f, targetState = true)
+            }
         }
         fun closePlayer() {
             showPlayerOverlay = false
@@ -451,6 +457,7 @@ private fun MusesAppContent() {
         }
         fun settlePlayer(collapse: Boolean) {
             val target = !collapse
+            showPlayerOverlay = target
             playerTransitionJob?.cancel()
             playerTransitionJob = playerTransitionScope.launch {
                 playerTransitionState.animateTo(
@@ -483,7 +490,7 @@ private fun MusesAppContent() {
             },
             label = "immersive-player-content-reveal",
         ) { expanded -> if (expanded) 1f else 0f }
-        // 手势 seek 的 targetState 暂时设为 false；保留显式打开态，避免尚未结算时卸载面板。
+        // seek 时 targetState 暂时为 false，显式显示状态保证播放页直到手势吸附结束仍保持挂载。
         val playerOverlayMounted = showPlayerOverlay || playerTransition.currentState || playerTransition.targetState
         // 迷你条在窗口中的真实矩形（px）：底部 chrome 可见顶的上报源（悬浮 FAB 定位见 bottomBarElevation）。
         // 融合态（CompactPlayerDock）与展开态各有一个实例，两者都要上报，缺一会拿到过期矩形。
@@ -735,8 +742,9 @@ private fun MusesAppContent() {
         }
             } // CompositionLocalProvider 闭合：包住整个 Scaffold（FAB 槽也在内）
         } // BoxWithConstraints 关（主屏常驻，动画中不位移/不淡化）
-        // 整个播放页从迷你条的实际矩形放大到全屏，而非只裁剪一张已经铺满屏幕的页面；
-        // 封面再由共享元素保持独立的图像过渡。打开和收起共用同一几何进度，空间路径互为反向。
+        // 外层圆角面板从迷你条实际矩形扩展到全屏；播放页内部始终按全屏比例布局，
+        // 仅封面由共享元素单独放大，避免把正方形封面随整页非等比压进迷你条。
+        // 打开和收起共用同一几何进度，空间路径互为反向。
         if (playerOverlayMounted) {
             playerTransition.AnimatedVisibility(
                 visible = { it },
@@ -764,10 +772,6 @@ private fun MusesAppContent() {
                     right = panelLeft + sourceWidth + (fullWidthPx - sourceWidth) * p,
                     bottom = panelTop + sourceHeight + (fullHeightPx - sourceHeight) * p,
                 )
-                val pageScaleX = (sourceWidth + (fullWidthPx - sourceWidth) * p) / fullWidthPx
-                val pageScaleY = (sourceHeight + (fullHeightPx - sourceHeight) * p) / fullHeightPx
-                val pageTranslationX = sourceLeft * (1f - p)
-                val pageTranslationY = sourceTop * (1f - p)
                 val radius = with(density) { 28.dp.toPx() } * (1f - p)
                 Box(
                     modifier = Modifier.fillMaxSize().drawWithCache {
@@ -804,17 +808,9 @@ private fun MusesAppContent() {
                 ) {
                     MusesTheme(useDarkTheme = true) {
                         PlayerScreen(
-                            // 对整页做与面板完全一致的缩放/位移：p=0 时页面正好落在迷你条矩形内，
-                            // p=1 时恢复全屏布局。外层 round-rect clip 负责裁切圆角，封面共享元素负责图像本身。
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer {
-                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
-                                    scaleX = pageScaleX
-                                    scaleY = pageScaleY
-                                    translationX = pageTranslationX
-                                    translationY = pageTranslationY
-                                },
+                            // 外层面板负责从迷你条扩展到全屏并裁剪；页面保持全屏尺寸，
+                            // 共享封面才能从迷你方图按比例插值到播放页正封。
+                            modifier = Modifier.fillMaxSize(),
                             onClose = { closePlayer() },
                             onOpenQueue = { closePlayer(); showQueueOverlay = true },
                             onOpenEditMeta = { showEditMeta = true },

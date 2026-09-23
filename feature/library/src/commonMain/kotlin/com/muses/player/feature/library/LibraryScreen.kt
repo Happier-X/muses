@@ -1,11 +1,18 @@
 package com.muses.player.feature.library
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MusesTopBar
+import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -27,7 +35,8 @@ import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.overlay.OverlayListPopup
+import top.yukonga.miuix.kmp.window.WindowListPopup
+import org.koin.compose.viewmodel.koinViewModel
 
 /** 曲库页的 Tab 文案（顺序即索引，勿随意调整） */
 private val LibraryTabs = listOf("歌曲", "专辑", "艺术家")
@@ -39,8 +48,7 @@ private val LibraryTabs = listOf("歌曲", "专辑", "艺术家")
  * （原先各自是顶层 Tab）；改由曲库页内部切换，既补回入口，也符合「曲库」这个命名。
  *
  * 三个子页以 `showTopBar = false` 嵌入：顶栏与切换由本容器统一提供，避免出现
- * 「曲库 + 歌曲」两层标题。注意 `SongsPage` 的顶栏里还带「随机播放 + 歌曲总数 + 搜索」工具栏，
- * 嵌入模式下会一并隐藏（如需保留，应把该工具栏上提到本容器）。
+ * 「曲库 + 歌曲」两层标题；歌曲页的随机播放工具条由本容器紧凑呈现。
  */
 @Composable
 fun LibraryScreen(
@@ -53,6 +61,8 @@ fun LibraryScreen(
     val scheme = MiuixTheme.colorScheme
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showTabPopup by remember { mutableStateOf(false) }
+    val songsViewModel: SongsViewModel = koinViewModel()
+    val songs by songsViewModel.songs.collectAsState()
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
@@ -76,10 +86,10 @@ fun LibraryScreen(
                                 modifier = Modifier.size(16.dp),
                             )
                         }
-                        OverlayListPopup(
+                        WindowListPopup(
                             show = showTabPopup,
                             alignment = PopupPositionProvider.Align.End,
-                            enableWindowDim = false,
+                            enableWindowDim = true,
                             onDismissRequest = { showTabPopup = false },
                         ) {
                             ListPopupColumn {
@@ -102,25 +112,61 @@ fun LibraryScreen(
             )
         },
     ) { padding ->
-        Box(
+        Column(
             Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            when (selectedTab) {
-                0 -> SongsPage(
-                    playback = playback,
-                    onEnqueueScrape = onEnqueueScrape,
-                    showTopBar = false,
-                )
-                1 -> AlbumsPage(
-                    onAlbumClick = onAlbumClick,
-                    showTopBar = false,
-                )
-                else -> ArtistsPage(
-                    onArtistClick = onArtistClick,
-                    showTopBar = false,
-                )
+            if (selectedTab == 0 && songs.isNotEmpty()) {
+                val shuffleAll: () -> Unit = {
+                    playback?.apply {
+                        play(songs.random().id, songs)
+                        setShuffleEnabled(true)
+                    }
+                }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = shuffleAll,
+                        ),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        MusesIconButton(onClick = shuffleAll) {
+                            Icon(TablerIcons.Shuffle, contentDescription = "随机播放全部")
+                        }
+                        Text(
+                            text = songs.size.toString(),
+                            style = MiuixTheme.textStyles.body1,
+                            color = scheme.onBackground,
+                        )
+                    }
+                }
+            }
+            Box(Modifier.weight(1f)) {
+                when (selectedTab) {
+                    0 -> SongsPage(
+                        playback = playback,
+                        onEnqueueScrape = onEnqueueScrape,
+                        showTopBar = false,
+                        viewModel = songsViewModel,
+                    )
+                    1 -> AlbumsPage(
+                        onAlbumClick = onAlbumClick,
+                        showTopBar = false,
+                    )
+                    else -> ArtistsPage(
+                        onArtistClick = onArtistClick,
+                        showTopBar = false,
+                    )
+                }
             }
         }
     }
