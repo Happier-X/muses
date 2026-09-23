@@ -213,7 +213,10 @@ fun PlayerScreen(
                 .offset { IntOffset(0, dragOffsetY.roundToInt()) }
                 .background(Color(0xFF05070D))
                 .then(
-                    if (isLyricPanelActive && !isLyricAtTop) Modifier
+                    // 展开转场期间不接收收起手势。打开迷你条的触摸序列可能延续到
+                    // 全屏层刚挂载的首帧；若此时被拖动识别器接管，会把刚开始的展开
+                    // seek 回迷你条，并留下不可交互的半展开页面（真机首次打开可复现）。
+                    if ((isLyricPanelActive && !isLyricAtTop) || isTransitioning) Modifier
                     else Modifier.pointerInput(isTabletLayout, dismissThresholdPx) {
                         var accumulatedY = 0f
                         var ignoreDrag = false
