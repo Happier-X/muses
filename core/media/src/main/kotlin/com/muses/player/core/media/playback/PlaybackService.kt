@@ -28,6 +28,7 @@ import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.tag.AudioTagReader
 import com.muses.player.core.media.scanner.LocalLibraryScanner
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -83,6 +84,10 @@ class PlaybackService : MediaSessionService() {
     private var lyricsRaw: String? = null
     /** 歌词模式已写入当前曲的替换 metadata（值相等即本轮跳过 replaceMediaItem） */
     private var appliedLyricMetadata: androidx.media3.common.MediaMetadata? = null
+    /** 流媒体标签晚到后可能重新覆盖会话，限制重新写入频率。 */
+    private var lastLyricReassertAt = 0L
+    /** 仅真正切歌才清理歌词状态，歌词替换本身也可能触发转场事件。 */
+    private var transitionSongId: String? = null
 
     // ExoPlayer 强制主线程访问（player-accessed-on-wrong-thread 崩溃防护），
     // 服务生命周期本就在主线程；Room/DataStore 挂起调用内部自行切 IO
@@ -240,46 +245,59 @@ class PlaybackService : MediaSessionService() {
     private fun startNotificationLyricsMonitoring(player: Player) {
         serviceScope.launch {
             var enabled = false
-            // 后台收集开关状态
+            // 开关收集与轮询独立；单次读库/解析失败不能结束整条歌词推送链。
             launch {
                 settingsRepository.notificationLyricsEnabled.collect {
                     enabled = it
                     if (!it) restoreNotificationMetadata(player)
                 }
             }
-            kotlinx.coroutines.delay(50) // 等首次值到达
-            // 位置轮询 + 切歌检测
             var lastSongId: String? = null
-            snapshotOriginalMetadata(player)
-            parseCurrentSongLyrics(player)
-            lastSongId = player.currentMediaItem?.mediaId
+            var lastLyricsRetryAt = 0L
             while (true) {
                 kotlinx.coroutines.delay(100)
                 if (!enabled) {
                     lastSongId = null
                     continue
                 }
-                val currentId = player.currentMediaItem?.mediaId
-                if (currentId != lastSongId) {
-                    metadataModified = false
-                    appliedLyricMetadata = null
-                    snapshotOriginalMetadata(player)
-                    parseCurrentSongLyrics(player)
-                    lastSongId = currentId
+                try {
+                    val currentId = player.currentMediaItem?.mediaId
+                    if (currentId != lastSongId) {
+                        metadataModified = false
+                        appliedLyricMetadata = null
+                        snapshotOriginalMetadata(player)
+                        parseCurrentSongLyrics(player)
+                        lastSongId = currentId
+                        lastLyricsRetryAt = android.os.SystemClock.elapsedRealtime()
+                    } else if (currentId != null && lyricsLines.isNullOrEmpty() &&
+                        android.os.SystemClock.elapsedRealtime() - lastLyricsRetryAt >= 2_000L
+                    ) {
+                        // 切歌时懒扫描/在线匹配可能尚未写回歌词，稍后再读一次曲库。
+                        parseCurrentSongLyrics(player)
+                        lastLyricsRetryAt = android.os.SystemClock.elapsedRealtime()
+                    }
+                    updateNotificationMetadataWithLyric(player)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    errorLogStore.log(ErrorLogStore.Level.WARN, "NotificationLyrics", "歌词通知更新失败，下轮重试：${e.message}", e)
+                    // 快照或解析失败时，下轮重新加载当前曲；避免轮询永久停在旧状态。
+                    lastSongId = null
                 }
-                updateNotificationMetadataWithLyric(player)
             }
         }
     }
 
     /** 快照原始元数据（只在首次或切歌时调用，防歌词模式下读到脏值） */
-    private fun snapshotOriginalMetadata(player: Player) {
+    private suspend fun snapshotOriginalMetadata(player: Player) {
         if (metadataModified) return
         val item = player.currentMediaItem ?: return
         // 快照优先走 Room：媒体元数据的 title 可能是「标题-艺术家」等解析拼接值，
         // 而 artist 字段才是库里的原始艺术家；车机展示的 ucar.* 直接依赖该快照。
         // 查库失败（如在线曲目）回退媒体元数据，行为不变。
-        val dbSong = runBlocking { withTimeoutOrNull(500) { songDao.getById(item.mediaId) } }
+        val dbSong = withTimeoutOrNull(500) {
+            kotlinx.coroutines.withContext(Dispatchers.IO) { songDao.getById(item.mediaId) }
+        }
         originalTitle = dbSong?.title ?: item.mediaMetadata.title
         originalArtist = dbSong?.artist ?: item.mediaMetadata.artist
     }
@@ -325,7 +343,13 @@ class PlaybackService : MediaSessionService() {
                 .build()
             // 相同值跳过：媒体元数据没变就不反复 replaceMediaItem（每轮 Timeline 变更都会触发
             // 持久化保存），车机端同值 setMetadata 也少一次通知刷新。
-            if (metadata != appliedLyricMetadata) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            val sessionOverwritten = player.mediaMetadata.let {
+                it.title != metadata.title || it.artist != metadata.artist
+            }
+            if (metadata != appliedLyricMetadata ||
+                (sessionOverwritten && now - lastLyricReassertAt >= 1_000L)
+            ) {
                 val current = player.currentMediaItem ?: return
                 player.replaceMediaItem(
                     player.currentMediaItemIndex,
@@ -333,6 +357,7 @@ class PlaybackService : MediaSessionService() {
                 )
                 appliedLyricMetadata = metadata
                 metadataModified = true
+                lastLyricReassertAt = now
             }
         }
         // 注入会话歌词 key 放在 replaceMediaItem **之后**：替换会让 media3 整体重建 metadata
@@ -486,14 +511,14 @@ class PlaybackService : MediaSessionService() {
 
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-                // 通知歌词模式：切歌时重置标记，由轮询检测 songId 变化后重新快照+应用；
-                // 清掉上一首的替换值，避免与新曲 metadata 相等时误判跳过
-                metadataModified = false
-                appliedLyricMetadata = null
-                scheduleSnapshotSave(player)
+                // 替换当前曲的歌词 metadata 也可能产生转场事件，只有 songId 真正变化才重置。
                 val currentId = player.currentMediaItem?.mediaId
-                if (currentId != null) {
-                    serviceScope.launch {
+                if (currentId != transitionSongId) {
+                    metadataModified = false
+                    appliedLyricMetadata = null
+                    transitionSongId = currentId
+                    scheduleSnapshotSave(player)
+                    if (currentId != null) serviceScope.launch {
                         val entity = songDao.getById(currentId)
                         entity?.toDomain()?.let { song ->
                             recentPlaysRepository.record(
