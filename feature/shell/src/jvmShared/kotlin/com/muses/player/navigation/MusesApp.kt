@@ -1,7 +1,5 @@
 package com.muses.player.navigation
 
-import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
@@ -45,13 +43,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
 import top.yukonga.miuix.kmp.basic.Text
 import com.muses.player.core.ui.components.LocalPlayerAnimatedVisibilityScope
+import com.muses.player.core.ui.components.LocalPlayerArtworkKey
 import com.muses.player.core.ui.components.LocalPlayerSharedTransitionScope
+import com.muses.player.core.ui.components.PlayerArtworkSharedKey
 import com.muses.player.core.ui.components.MusesBottomDock
 import com.muses.player.core.ui.components.MusesBottomDockItem
 import com.muses.player.core.ui.components.MusesDockActionPill
@@ -585,8 +584,9 @@ fun MusesApp() {
                     }
                     playerTransition.AnimatedVisibility(
                         visible = { !it },
-                        enter = EnterTransition.None,
-                        exit = ExitTransition.None,
+                        // 与沉浸页对偶的淡出：两者合成「迷你条 ↔ 播放页」的 crossfade
+                        enter = fadeIn(tween(PlayerTransitionFadeMillis)),
+                        exit = fadeOut(tween(PlayerTransitionFadeMillis)),
                     ) {
                         // 封面共享元素需要作用域；迷你条与沉浸页各自 provide，
                         // 两端用同一个 key，转场时 Compose 会把封面从迷你条尺寸插值到全屏。
@@ -700,8 +700,10 @@ fun MusesApp() {
         // bottomBar，恢复「全屏盖住不可见、不可交互」的预期层级。
         playerTransition.AnimatedVisibility(
             visible = { it },
-            enter = EnterTransition.None,
-            exit = ExitTransition.None,
+            // 椒盐的播放页转场 = **页面淡入 + 封面共享元素飞行**（反编译证据：a22.java:1099 用
+            // Crossfade + tween、f52.java:700 用 AnimatedContent），不是把整页缩放。
+            enter = fadeIn(tween(PlayerTransitionFadeMillis)),
+            exit = fadeOut(tween(PlayerTransitionFadeMillis)),
         ) {
             ShellBackHandler { showPlayerOverlay = false }
             // 转场进行中（currentState 与 targetState 不一致）：沉浸页里最贵的模糊流光背景
@@ -713,16 +715,13 @@ fun MusesApp() {
             CompositionLocalProvider(
                 LocalPlayerSharedTransitionScope provides this@SharedTransitionLayout,
                 LocalPlayerAnimatedVisibilityScope provides this,
+                // 沉浸页正封的共享元素 key：缺失时 PlayerCoverHero 读到 null，封面就不参与
+                // 「迷你条 ↔ 沉浸页」的共享转场（表现为转场中封面只是淡入、没有从迷你条飞出来）。
+                LocalPlayerArtworkKey provides PlayerArtworkSharedKey,
             ) {
-            PlayerShellBox(
-                // 全屏基准：最外层 BoxWithConstraints 的约束（沉浸页 overlay 与 Scaffold 平级，同一作用域）
-                fullWidth = maxWidth,
-                fullHeight = maxHeight,
-                // 起始矩形：迷你条真实位置（未上报时退化为「从底部等比浮入」兜底）
-                miniBounds = miniBarBounds,
-                // 进度来自 transition；注意传 lambda：在这里取值会每帧重组整棵沉浸页
-                progress = { shellProgress },
-                // 变换全靠 graphicsLayer，所以这里只需把溢出裁掉
+            Box(
+                // 不做整页形变：形变只发生在封面那条 sharedElement 上（迷你条封面 ↔ 沉浸页正封），
+                // 页面本身只淡入——见 PlayerTransitionFadeMillis 的说明。
                 modifier = Modifier.fillMaxSize().clipToBounds(),
             ) {
                 val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
@@ -769,90 +768,19 @@ fun MusesApp() {
 private const val PlayerTransitionDurationMillis = 380
 
 /**
- * 「迷你条 ↔ 沉浸页」的形变：让**整个沉浸页连内容一起**从迷你条矩形缩放/平移到全屏。
+ * 「迷你条 ↔ 沉浸页」的淡入淡出时长。
  *
- * 为什么不用 `Modifier.sharedBounds` 自带的形变（对齐参考实现 MeloX 的那种）：本版本
- * （CMP 1.12）实测两种 `ResizeMode` 都不会把形变矩形的尺寸交给内容——`scaleToBounds()` 没有
- * 效果、`RemeasureToBounds` 只表现为「把按全屏布局的内容裁到矩形里」，于是转场中只看得到
- * 封面那一块，背景与文字都叠在卡片外（就是 issue #53 后续这条报障）。
+ * 椒盐的播放页转场 = **页面淡入淡出 + 封面共享元素**（反编译证据：`a22.java:1099` 用
+ * `Crossfade` + `tween(durationMillis = …)`，`f52.java:700` 用 `AnimatedContent`），
+ * 形变只发生在封面那一条 sharedElement 上（迷你条封面 ↔ 沉浸页正封，key 见
+ * `PlayerArtworkSharedKey`），页面本身不做缩放。
  *
- * 所以这里自己算：起点取迷你条上报的真实矩形，终点是全屏，进度来自 Compose `transition`
- * （所以照旧跟随系统动画设置，下滑跟手的 `seekTo` 也会逐帧体现在进度上），
- * 再用 `graphicsLayer` 把「以全屏布局的内容」整体缩放/平移到当前矩形。
- *
- * 为什么必须拿到迷你条矩形（而不是「从屏幕下方浮入」）：浮入的起点在屏外底部，与迷你条
- * 之间没有任何几何联系，观感就只是「一块卡片从下面冒出来」——这正是用户报障
- * 「并没有从迷你播放条弹过渡到沉浸式播放页面」的原因。
+ * 历史教训：这里曾用 `graphicsLayer` 把整页按迷你条矩形等比缩放，后来又改用
+ * `Modifier.sharedBounds` 做容器形变；两者观感都是「整页被压小再放大」，与椒盐差得远，
+ * 且 sharedBounds 版本在 MuMu 上明显掉帧（每帧重排/重绘整棵沉浸页）。已按椒盐改回
+ * 「页面淡入 + 封面飞行」。
  */
-@Composable
-private fun PlayerShellBox(
-    fullWidth: Dp,
-    fullHeight: Dp,
-    /**
-     * 迷你条在窗口中的真实矩形（px）；null = 尚未上报（退化为「从底部等比浮入」兜底）。
-     */
-    miniBounds: Rect?,
-    /**
-     * 转场进度：0 = 迷你条态，1 = 全屏沉浸态。
-     *
-     * **必须传 lambda**（内部才读 State）——不能在调用处就取出数值再当参数传：
-     * 那样每帧都会重组整棵沉浸页（歌词 + 封面 + 模糊背景），就是「转场不丝滑」的真正原因。
-     */
-    progress: () -> Float,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    val density = LocalDensity.current
-    // 起始圆角 = 迷你条胶囊半径（迷你条高 56dp 的一半），到全屏收到 0
-    val cornerRadiusPx = with(density) { PlayerShellCardCorner.toPx() }
-    BoxWithConstraints(modifier) {
-        val fullWidthPx = with(density) { fullWidth.toPx() }.coerceAtLeast(1f)
-        val fullHeightPx = with(density) { fullHeight.toPx() }.coerceAtLeast(1f)
-        Box(
-            modifier = Modifier
-                // 布局固定用全屏约束：内容长什么样与全屏态完全一致，只做整体变换
-                .requiredSize(fullWidth, fullHeight)
-                .graphicsLayer {
-                    val p = progress().coerceIn(0f, 1f)
-                    // 起点缩放**只按宽度比**：miniBounds.w / fullWidth。
-                    // 迷你条是宽扁矩形、全屏接近竖屏，若 scaleX / scaleY 各自插值等于把整页
-                    // 横向拉伸 + 竖向压缩（更早那版「不自然」的根因）。等比缩放保证内容永不变形，
-                    // 而按宽度取比能让起点时卡片横向与迷你条等宽，视觉上承接于迷你条。
-                    val startScale = miniBounds
-                        ?.let { (it.width / fullWidthPx).coerceIn(0.12f, 1f) }
-                        ?: PlayerShellStartScale
-                    val s = startScale + (1f - startScale) * p
-                    scaleX = s
-                    scaleY = s
-                    // 平移到迷你条位置：把卡片（全屏大小、以自身中心为基准）的中心
-                    // 对齐到迷你条中心；p = 1 时位移归零即全屏。
-                    // 用 translation 而非 offset：不进布局，避免每帧重新摆放内容。
-                    val targetCx = miniBounds?.let { it.left + it.width / 2f } ?: (fullWidthPx / 2f)
-                    val targetCy = miniBounds?.let { it.top + it.height / 2f } ?: fullHeightPx
-                    translationX = (targetCx - fullWidthPx / 2f) * (1f - p)
-                    translationY = (targetCy - fullHeightPx / 2f) * (1f - p)
-                    // 以卡片中心为原点缩放：配合「中心对齐」的平移，卡片始终围绕迷你条中心生长
-                    transformOrigin = TransformOrigin(0.5f, 0.5f)
-                    clip = true
-                    shape = RoundedCornerShape(CornerSize(cornerRadiusPx * (1f - p)))
-                },
-        ) {
-            content()
-        }
-    }
-}
-
-/**
- * 转场中卡片的圆角基数：迷你条胶囊半径（迷你条高 56dp 的一半），全屏时收到 0。
- * 之前只有 12dp，转场中期剩几 dp，看着就是个方块。
- */
-private val PlayerShellCardCorner = 28.dp
-
-/**
- * 起点缩放的**兜底值**：仅当迷你条矩形尚未上报（首帧）时使用。
- * 正常路径下起点缩放由迷你条实际宽度算出，保证与迷你条等宽对齐。
- */
-private const val PlayerShellStartScale = 0.92f
+private const val PlayerTransitionFadeMillis = 300
 
 
 /**

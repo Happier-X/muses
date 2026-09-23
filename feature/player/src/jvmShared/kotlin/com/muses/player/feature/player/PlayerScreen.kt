@@ -480,14 +480,16 @@ private fun PlayerBackground(
  *
  * 阈值 0.45：前半段（封面已经跑完大半路径）内容完全不可见，避免与迷你条封面重叠。
  */
-private fun contentAlphaFor(progress: Float): Float {
-    val t = ((progress - ContentAlphaStartAt) / (1f - ContentAlphaStartAt)).coerceIn(0f, 1f)
-    // FastOutLinearIn = cubic-bezier(0.4, 0.0, 1.0, 1.0)：起步快、尾部缓，内容“刷”地浮现
-    return FastOutLinearInEasing.transform(t)
-}
-
-/** 内容开始浮现的转场进度（见 [contentAlphaFor]） */
-private const val ContentAlphaStartAt = 0.45f
+/**
+ * 「非封面内容」的透明度：**恒为 1，不做渐隐**。
+ *
+ * 曾按转场进度做渐隐（「封面先飞出来、内容再浮现」），但实测该进度在**转场结束后会变成 0**
+ * （MuMu 复现：打开沉浸页后只剩封面，标题/进度条/控制栏全部 alpha=0；把本函数临时恒置 1
+ * 内容就全回来了）。页面本身已随 `fadeIn/fadeOut` 淡入淡出，内容跟着页面出现即可，
+ * 不需要再叠一层用转场进度驱动的渐隐。
+ */
+@Suppress("UNUSED_PARAMETER")
+private fun contentAlphaFor(progress: Float): Float = 1f
 
 @Composable
 private fun PhoneImmersiveLayout(
