@@ -310,8 +310,34 @@ class PlaybackService : MediaSessionService() {
             ).highlightedIndex(player.currentPosition)
             index?.let { list.getOrNull(it)?.text?.trim() }?.takeIf { it.isNotEmpty() }
         }
-        // 每轮把歌词同步到平台会话（幂等短路；media3 重建 metadata 丢 key 后 ≤100ms 自动补回）：
-        // LYRICS 全文 + vivo Jovi InCar 的 ucar.* 三个 key（椒盐同款协议，见 SessionLyricsBridge）
+        if (lines.isNullOrEmpty()) {
+            if (metadataModified) restoreNotificationMetadata(player)
+            return
+        }
+        val origTitle = originalTitle?.toString() ?: ""
+        val origArtist = originalArtist?.toString() ?: ""
+        // 标题位=歌词行，副标题位（通知 content text / 车机 ARTIST）=「原始标题 - 原始艺术家」；
+        // 前奏/间奏无匹配行：保持上一次的歌词行，不闪回歌名
+        if (lyricLine != null) {
+            val metadata = androidx.media3.common.MediaMetadata.Builder()
+                .setTitle(lyricLine)
+                .setArtist("$origTitle - $origArtist")
+                .build()
+            // 相同值跳过：媒体元数据没变就不反复 replaceMediaItem（每轮 Timeline 变更都会触发
+            // 持久化保存），车机端同值 setMetadata 也少一次通知刷新。
+            if (metadata != appliedLyricMetadata) {
+                val current = player.currentMediaItem ?: return
+                player.replaceMediaItem(
+                    player.currentMediaItemIndex,
+                    current.buildUpon().setMediaMetadata(metadata).build(),
+                )
+                appliedLyricMetadata = metadata
+                metadataModified = true
+            }
+        }
+        // 注入会话歌词 key 放在 replaceMediaItem **之后**：替换会让 media3 整体重建 metadata
+        // （白名单重建），把刚注入的 LYRICS/ucar.* 抹掉——先注入后替换等于每换一行歌词都
+        // 白注入一次、空窗到下一轮轮询（≤100ms）；先替换再注入则 key 在本次即生效。
         SessionLyricsBridge.push(
             session,
             lyricsRaw = lyricsRaw,
@@ -319,28 +345,6 @@ class PlaybackService : MediaSessionService() {
             ucarArtist = originalArtist?.toString(),
             ucarLine = lyricLine,
         )
-        if (lines.isNullOrEmpty()) {
-            if (metadataModified) restoreNotificationMetadata(player)
-            return
-        }
-        // 前奏/间奏无匹配行：保持上一次的歌词行，不闪回歌名
-        if (lyricLine == null) return
-        val origTitle = originalTitle?.toString() ?: ""
-        val origArtist = originalArtist?.toString() ?: ""
-        val metadata = androidx.media3.common.MediaMetadata.Builder()
-            .setTitle(lyricLine)
-            .setArtist("$origTitle - $origArtist")
-            .build()
-        // 相同值跳过：媒体元数据没变就不反复 replaceMediaItem（每轮 Timeline 变更都会触发
-        // 持久化保存），车机端同值 setMetadata 也少一次通知刷新。
-        if (metadata == appliedLyricMetadata) return
-        val current = player.currentMediaItem ?: return
-        player.replaceMediaItem(
-            player.currentMediaItemIndex,
-            current.buildUpon().setMediaMetadata(metadata).build(),
-        )
-        appliedLyricMetadata = metadata
-        metadataModified = true
     }
 
     /** 恢复原始 MediaMetadata（关闭歌词模式或切歌时） */
