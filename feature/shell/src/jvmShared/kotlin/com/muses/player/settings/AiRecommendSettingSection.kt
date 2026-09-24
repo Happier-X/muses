@@ -173,19 +173,19 @@ fun AiSettingsScreen(
                     label = "名称",
                     value = nameInput,
                     onValueChange = { nameInput = it },
-                    placeholder = "请输入名称",
+                    placeholder = "名称",
                 )
                 AiInputRow(
                     label = "服务地址",
                     value = baseUrlInput,
                     onValueChange = { baseUrlInput = it },
-                    placeholder = "请输入服务地址",
+                    placeholder = "服务地址",
                 )
                 AiInputRow(
                     label = "API Key",
                     value = apiKeyInput,
                     onValueChange = { apiKeyInput = it },
-                    placeholder = if (hasStoredKey) "已保存（留空不修改）" else "请输入 API Key",
+                    placeholder = if (hasStoredKey) "已保存（留空不修改）" else "API Key",
                     password = true,
                 )
 
@@ -311,7 +311,7 @@ private fun AiModelRow(
                 value = modelInput,
                 onValueChange = onModelChange,
                 modifier = Modifier.weight(1f),
-                label = "请输入模型",
+                label = "模型",
                 singleLine = true,
             )
             Spacer(Modifier.width(8.dp))

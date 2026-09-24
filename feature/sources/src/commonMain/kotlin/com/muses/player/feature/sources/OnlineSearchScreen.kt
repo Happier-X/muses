@@ -51,7 +51,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 在线搜索页（独立页面）。
+ * 搜索页（曲库与在线结果）。
  *
  * 交互：输入关键词 → 5 平台并行搜索 → 按平台分组展示 → 点结果直接播放。
  * 部分平台失败不影响其它平台（失败原因就地展示在该平台分组下）。
@@ -59,11 +59,14 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 fun OnlineSearchScreen(
     onBack: () -> Unit,
+    onAlbumClick: (String) -> Unit = {},
+    onArtistClick: (String) -> Unit = {},
     /** 首页搜索框带入的关键词；非空则进入即自动搜索（空串 = 保持旧的无参进入行为） */
     initialKeyword: String = "",
     viewModel: OnlineSearchViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val libraryResults by viewModel.libraryResults.collectAsState()
     val availableQualities by viewModel.availableQualities.collectAsState()
     val preferredQuality by viewModel.preferredQuality.collectAsState()
     val scheme = MiuixTheme.colorScheme
@@ -84,7 +87,7 @@ fun OnlineSearchScreen(
     Scaffold(
         topBar = {
             MusesTopBar(
-                title = "在线搜索",
+                title = "搜索",
                 onBack = onBack,
             )
         },
@@ -99,7 +102,7 @@ fun OnlineSearchScreen(
                     value = state.keyword,
                     onValueChange = viewModel::updateKeyword,
                     modifier = Modifier.weight(1f),
-                    label = "搜索歌曲、歌手",
+                    label = "搜索歌曲、专辑、艺术家",
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { viewModel.search() }),
@@ -110,64 +113,6 @@ fun OnlineSearchScreen(
                     enabled = !state.searching,
                 ) {
                     Text(if (state.searching) "搜索中" else "搜索")
-                }
-            }
-
-            // ── 平台筛选胶囊 ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                PlatformPill(
-                    label = "全部",
-                    selected = state.filterPlatform == null,
-                    onClick = { viewModel.setFilter(null) },
-                )
-                state.platforms.forEach { p ->
-                    PlatformPill(
-                        label = p.displayName,
-                        selected = state.filterPlatform == p.platform,
-                        // 该平台有结果时显示条数，便于一眼看出哪个平台可用
-                        badge = p.results.size.takeIf { it > 0 }?.toString(),
-                        onClick = { viewModel.setFilter(p.platform) },
-                    )
-                }
-            }
-
-            // ── 音质选择（仅列出已加载脚本实际声明的档位）──
-            if (availableQualities.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "音质",
-                        fontSize = 12.sp,
-                        color = scheme.onSurfaceVariantSummary,
-                    )
-                    availableQualities.forEach { q ->
-                        PlatformPill(
-                            label = q.label,
-                            selected = preferredQuality == q.key,
-                            onClick = { viewModel.setPreferredQuality(q.key) },
-                        )
-                    }
-                }
-                // 高音质档提示：可能返回加密容器（如酷我 .mflac/.mgg）或播放器不支持的编码
-                if (LxQuality.fromKey(preferredQuality)?.isHighTier == true) {
-                    Text(
-                        text = "高音质档取决于音源脚本能力，可能因加密容器/编码不受支持而失败。",
-                        fontSize = 11.sp,
-                        color = scheme.onSurfaceVariantSummary,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                    )
                 }
             }
 
@@ -205,25 +150,11 @@ fun OnlineSearchScreen(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-
             when {
-                state.searching && state.totalResults == 0 -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                }
-                state.searched && state.totalResults == 0 -> {
-                    MusesEmpty(
-                        title = "没有找到相关歌曲",
-                        description = "换个关键词试试；部分平台可能需要网络可达。",
-                        icon = TablerIcons.Search,
-                    )
-                }
                 !state.searched -> {
                     MusesEmpty(
-                        title = "在线搜索",
-                        description = "输入关键词，从酷我/QQ/网易云/酷狗/咪咕同时搜索。\n播放需要先导入可用的音源脚本。",
+                        title = "搜索",
+                        description = "输入关键词，搜索曲库中的歌曲、专辑、艺术家及在线歌曲。",
                         icon = TablerIcons.Search,
                     )
                 }
@@ -237,6 +168,92 @@ fun OnlineSearchScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
+                        item(key = "library-title") { SearchSectionTitle("曲库") }
+                        if (libraryResults.keyword == state.searchedKeyword) {
+                            val songs = libraryResults.songs
+                            if (songs.isNotEmpty()) {
+                                item(key = "songs-title") { SearchSectionTitle("歌曲") }
+                                items(songs, key = { "song-${it.id}" }) { song ->
+                                    LibraryResultRow(song.title, song.artist.orEmpty(), "播放") {
+                                        viewModel.playLibrarySong(song.id, songs)
+                                    }
+                                }
+                            }
+                            if (libraryResults.albums.isNotEmpty()) {
+                                item(key = "albums-title") { SearchSectionTitle("专辑") }
+                                items(libraryResults.albums, key = { "album-${it.id}" }) { album ->
+                                    LibraryResultRow(album.title, album.artist.orEmpty(), "${album.songCount} 首") {
+                                        onAlbumClick(album.id)
+                                    }
+                                }
+                            }
+                            if (libraryResults.artists.isNotEmpty()) {
+                                item(key = "artists-title") { SearchSectionTitle("艺术家") }
+                                items(libraryResults.artists, key = { "artist-${it.id}" }) { artist ->
+                                    LibraryResultRow(artist.name, "${artist.songCount} 首歌曲", "查看") {
+                                        onArtistClick(artist.id)
+                                    }
+                                }
+                            }
+                            if (songs.isEmpty() && libraryResults.albums.isEmpty() && libraryResults.artists.isEmpty()) {
+                                item(key = "library-empty") {
+                                    Text("曲库暂无匹配内容", color = scheme.onSurfaceVariantSummary)
+                                }
+                            }
+                        } else {
+                            item(key = "library-loading") { CircularProgressIndicator() }
+                        }
+                        item(key = "online-title") {
+                            SearchSectionTitle("在线")
+                        }
+                        item(key = "platform-filters") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                PlatformPill("全部", state.filterPlatform == null, { viewModel.setFilter(null) })
+                                state.platforms.forEach { platform ->
+                                    PlatformPill(
+                                        label = platform.displayName,
+                                        selected = state.filterPlatform == platform.platform,
+                                        onClick = { viewModel.setFilter(platform.platform) },
+                                        badge = platform.results.size.takeIf { it > 0 }?.toString(),
+                                    )
+                                }
+                            }
+                        }
+                        if (availableQualities.isNotEmpty()) {
+                            item(key = "qualities") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text("音质", fontSize = 12.sp, color = scheme.onSurfaceVariantSummary)
+                                    availableQualities.forEach { quality ->
+                                        PlatformPill(
+                                            quality.label,
+                                            preferredQuality == quality.key,
+                                            { viewModel.setPreferredQuality(quality.key) },
+                                        )
+                                    }
+                                }
+                            }
+                            if (LxQuality.fromKey(preferredQuality)?.isHighTier == true) {
+                                item(key = "quality-hint") {
+                                    Text(
+                                        "高音质档取决于音源脚本能力，可能因加密容器/编码不受支持而失败。",
+                                        fontSize = 11.sp,
+                                        color = scheme.onSurfaceVariantSummary,
+                                    )
+                                }
+                            }
+                        }
+                        if (!state.searching && state.totalResults == 0) {
+                            item(key = "online-empty") {
+                                Text("在线暂无匹配内容", color = scheme.onSurfaceVariantSummary)
+                            }
+                        }
                         state.visiblePlatforms.forEach { platform ->
                             item(key = "hdr-${platform.platform}") {
                                 PlatformSectionHeader(platform)
@@ -263,6 +280,42 @@ fun OnlineSearchScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SearchSectionTitle(title: String) {
+    Text(
+        text = title,
+        modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp),
+        fontSize = 17.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = MiuixTheme.colorScheme.onSurface,
+    )
+}
+
+@Composable
+private fun LibraryResultRow(title: String, subtitle: String, detail: String, onClick: () -> Unit) {
+    val scheme = MiuixTheme.colorScheme
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        subtitle,
+                        fontSize = 12.sp,
+                        color = scheme.onSurfaceVariantSummary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Text(detail, fontSize = 12.sp, color = scheme.onSurfaceVariantSummary)
         }
     }
 }

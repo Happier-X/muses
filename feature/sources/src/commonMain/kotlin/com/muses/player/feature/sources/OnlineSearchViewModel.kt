@@ -3,6 +3,11 @@ package com.muses.player.feature.sources
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.model.Song
+import com.muses.player.core.model.Album
+import com.muses.player.core.model.Artist
+import com.muses.player.core.data.repository.SongRepository
+import com.muses.player.core.data.repository.AlbumRepository
+import com.muses.player.core.data.repository.ArtistRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.lxsdk.LxQuality
 import com.muses.player.core.lxsdk.LxScriptRepository
@@ -12,10 +17,14 @@ import com.muses.player.core.search.OnlineSearchResult
 import com.muses.player.core.search.OnlineSearchService
 import com.muses.player.core.search.PlatformSearchOutcome
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -38,6 +47,7 @@ data class OnlineSearchUiState(
     val searching: Boolean = false,
     /** 已发起过搜索（用于区分「未搜」与「无结果」） */
     val searched: Boolean = false,
+    val searchedKeyword: String = "",
     val platforms: List<PlatformSearchState> = emptyList(),
     /** 当前平台筛选；null = 全部平台 */
     val filterPlatform: String? = null,
@@ -50,8 +60,15 @@ data class OnlineSearchUiState(
     val totalResults: Int get() = platforms.sumOf { it.results.size }
 }
 
+data class LibrarySearchResults(
+    val keyword: String = "",
+    val songs: List<Song> = emptyList(),
+    val albums: List<Album> = emptyList(),
+    val artists: List<Artist> = emptyList(),
+)
+
 /**
- * 在线搜索 ViewModel。
+ * 曲库及在线搜索 ViewModel。
  *
  * 能力：
  * - 多平台并行搜索（部分平台失败不影响其它平台，失败原因按平台展示）；
@@ -62,12 +79,16 @@ data class OnlineSearchUiState(
  * 播放为什么登记 [OnlineTrackSession]：在线曲目不入库，而桌面播放链路按 songId 查库，
  * 登记后 songLookup 才有回退来源（详见该类注释）。
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class OnlineSearchViewModel(
     private val searchService: OnlineSearchService,
     private val playback: PlaybackPort,
     /** 音源脚本仓库：播放前校验该平台是否有可用脚本，避免「点了没反应」 */
     private val scriptRepository: LxScriptRepository,
     private val settingsRepository: SettingsRepository,
+    private val songRepository: SongRepository,
+    private val albumRepository: AlbumRepository,
+    private val artistRepository: ArtistRepository,
     /** 在线曲目归属的音源 id（脚本仓库按平台路由，此值仅作标识） */
     private val onlineSourceId: String = "online",
 ) : ViewModel() {
@@ -80,6 +101,26 @@ class OnlineSearchViewModel(
         ),
     )
     val state: StateFlow<OnlineSearchUiState> = _state.asStateFlow()
+
+    private val submittedKeyword = MutableStateFlow("")
+    val libraryResults: StateFlow<LibrarySearchResults> = submittedKeyword.flatMapLatest { keyword ->
+        if (keyword.isBlank()) flowOf(LibrarySearchResults())
+        else combine(
+            songRepository.observeSongs(keyword),
+            albumRepository.observeAlbums(),
+            artistRepository.observeArtists(),
+        ) { songs, albums, artists ->
+            LibrarySearchResults(
+                keyword = keyword,
+                songs = songs,
+                albums = albums.filter {
+                    it.title.contains(keyword, ignoreCase = true) ||
+                        it.artist.orEmpty().contains(keyword, ignoreCase = true)
+                },
+                artists = artists.filter { it.name.contains(keyword, ignoreCase = true) },
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibrarySearchResults())
 
     private var searchJob: Job? = null
 
@@ -143,12 +184,14 @@ class OnlineSearchViewModel(
             _state.value = _state.value.copy(message = "请输入搜索关键词")
             return
         }
+        submittedKeyword.value = keyword
         refreshAvailableQualities()
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             _state.value = _state.value.copy(
                 searching = true,
                 searched = true,
+                searchedKeyword = keyword,
                 message = null,
                 platforms = searchService.platforms.map { p ->
                     PlatformSearchState(
@@ -166,7 +209,7 @@ class OnlineSearchViewModel(
 
     /** 加载更多（仅对当前筛选的平台，或全部平台） */
     fun loadMore(platform: String) {
-        val keyword = _state.value.keyword.trim()
+        val keyword = _state.value.searchedKeyword
         if (keyword.isEmpty()) return
         val current = _state.value.platforms.firstOrNull { it.platform == platform } ?: return
         if (current.loading || current.loadingMore || !current.hasMore) return
@@ -220,6 +263,10 @@ class OnlineSearchViewModel(
             OnlineTrackSession.remember(songs)
             playback.play(target.toSong(onlineSourceId, quality).id, songs)
         }
+    }
+
+    fun playLibrarySong(songId: String, songs: List<Song>) {
+        playback.play(songId, songs)
     }
 
     /** 是否存在已加载且声明了该平台的脚本 */

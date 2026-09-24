@@ -1,8 +1,6 @@
 package com.muses.player.core.ui.components
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,8 +25,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import top.yukonga.miuix.kmp.squircle.squircleBorder
-import top.yukonga.miuix.kmp.squircle.squircleBackground
+import com.muses.player.core.ui.icons.TablerIcons
 
 /**
  * 跨平台音源行数据（平台无关，只承载展示信息）。
@@ -42,10 +44,7 @@ data class SharedSourceItem(
 /**
  * 跨平台音源行（音源管理共用化）。
  *
- * 视觉契约（对照安卓 SourcesScreen.SourceCardList 卡片）：
- * - surface1 背景 + radius-card + hairline 边框，内缩 16dp；
- * - name 17sp/600 → subtitle 13sp text2 → detail 单行省略 13sp text2；
- * - actions 右对齐（编辑 / 删除 danger / 扫描可选）。
+ * 使用 miuix 官方 Card 展示音源信息与操作，保留名称、说明、路径及操作按钮布局。
  *
  * 纯 UI 组件，零平台依赖，所有业务逻辑经回调注入。
  *
@@ -63,55 +62,51 @@ fun SourceListItem(
     onScan: (() -> Unit)? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .squircleBackground(scheme.surface, 12.dp)
-            .squircleBorder(1.dp, scheme.dividerLine, 12.dp)
-            .padding(16.dp),
-    ) {
-        Text(
-            text = item.name,
-            style = MiuixTheme.textStyles.main,
-            lineHeight = 22.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = scheme.onBackground,
-        )
-        item.subtitle?.let {
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = it,
-                style = MiuixTheme.textStyles.footnote1,
-                color = scheme.onBackgroundVariant,
-                modifier = Modifier.padding(top = 2.dp),
+                text = item.name,
+                style = MiuixTheme.textStyles.main,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = scheme.onBackground,
             )
-        }
-        item.detail?.let {
-            Text(
-                text = it,
-                style = MiuixTheme.textStyles.footnote1,
-                color = scheme.onBackgroundVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            MusesTextButton(text = "编辑", onClick = onEdit)
-            Spacer(Modifier.width(12.dp))
-            MusesTextButton(
-                text = "删除",
-                onClick = onDelete,
-                destructive = true,
-            )
-            if (onScan != null) {
+            item.subtitle?.let {
+                Text(
+                    text = it,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = scheme.onBackgroundVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            item.detail?.let {
+                Text(
+                    text = it,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = scheme.onBackgroundVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MusesTextButton(text = "编辑", onClick = onEdit)
                 Spacer(Modifier.width(12.dp))
-                MusesTextButton(text = "扫描", onClick = onScan)
+                MusesTextButton(
+                    text = "删除",
+                    onClick = onDelete,
+                    destructive = true,
+                )
+                if (onScan != null) {
+                    Spacer(Modifier.width(12.dp))
+                    MusesTextButton(text = "扫描", onClick = onScan)
+                }
             }
         }
     }
@@ -138,6 +133,7 @@ fun SourceFormInput(
     onValueChange: (String) -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
+    var passwordVisible by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         MusesTextField(
@@ -146,13 +142,29 @@ fun SourceFormInput(
             label = label,
             singleLine = true,
             readOnly = readOnly,
-            visualTransformation = if (isPassword) {
+            visualTransformation = if (isPassword && !passwordVisible) {
                 PasswordVisualTransformation()
             } else {
                 VisualTransformation.None
             },
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = if (isPassword) KeyboardType.Password else keyboardType,
+            ),
             modifier = Modifier.fillMaxWidth(),
+            trailingIcon = if (isPassword) {
+                {
+                    MusesIconButton(
+                        onClick = { passwordVisible = !passwordVisible },
+                        imageVector = if (passwordVisible) TablerIcons.EyeOff else TablerIcons.Eye,
+                        contentDescription = if (passwordVisible) "隐藏密码" else "显示密码",
+                        size = MusesIconButtonSize.SM,
+                        tint = scheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(end = 4.dp),
+                    )
+                }
+            } else {
+                null
+            },
         )
 
         error?.let {

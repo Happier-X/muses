@@ -15,7 +15,7 @@ val sourcesCoreModule = module {
     // 在线搜索页（多平台并行搜索 + 点结果直接播放）
     viewModel {
         val port: PlaybackPort = get()
-        OnlineSearchViewModel(get(), port, get(), get())
+        OnlineSearchViewModel(get(), port, get(), get(), get(), get(), get())
     }
     viewModel { WebDavFormViewModel(get(), get(), get()) }
     viewModel {

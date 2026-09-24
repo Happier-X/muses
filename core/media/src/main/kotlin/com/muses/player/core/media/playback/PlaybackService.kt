@@ -68,10 +68,6 @@ class PlaybackService : MediaSessionService() {
 
     private var saveJob: kotlinx.coroutines.Job? = null
 
-    /** 小米超级岛开关缓存（DataStore 默认开；非 HyperOS 设备上 decorate 直接 no-op） */
-    @Volatile
-    private var islandEnabled: Boolean = true
-
     // ── 通知歌词模式 ──
     /** 原始元数据（切歌时快照；开启歌词模式后不从 player.currentMediaItem 读，防脏读） */
     private var originalTitle: CharSequence? = null
@@ -171,8 +167,8 @@ class PlaybackService : MediaSessionService() {
         }
         // 小米超级岛/焦点通知：Provider 委托包装基 provider，createNotification 返回前
         // 追加岛参数（标题/封面取通知自带值，与歌词通知模式的替换结果自动一致；
-        // largeIcon 就绪后 Media3 重建通知，岛参数随之刷新。非 HyperOS/开关关闭/
-        // 无白名单时均为 no-op）。不直接在匿名子类 override：本版 media3 基类该方法非 open。
+        // largeIcon 就绪后 Media3 重建通知，岛参数随之刷新。非 HyperOS/无白名单时为 no-op。
+        // 不直接在匿名子类 override：本版 media3 基类该方法非 open。
         baseProvider.setSmallIcon(android.R.drawable.ic_media_play)
         val notificationProvider = object : androidx.media3.session.MediaNotification.Provider {
             override fun createNotification(
@@ -185,7 +181,7 @@ class PlaybackService : MediaSessionService() {
                     com.muses.player.core.media.island.XiaomiIslandNotification.decorate(
                         this@PlaybackService,
                         it.notification,
-                        islandEnabled,
+                        true,
                     )
                 }
             }
@@ -200,11 +196,6 @@ class PlaybackService : MediaSessionService() {
                 baseProvider.getNotificationChannelInfo()
         }
         setMediaNotificationProvider(notificationProvider)
-
-        // 小米超级岛开关：后台收集，通知构建时读缓存值（首帧用默认 true，无竞态影响）
-        serviceScope.launch {
-            settingsRepository.xiaomiIslandEnabled.collect { islandEnabled = it }
-        }
 
         // 播放持久化（任务 08-25-native-playback-persistence / P1）
         player.addListener(persistenceListener)

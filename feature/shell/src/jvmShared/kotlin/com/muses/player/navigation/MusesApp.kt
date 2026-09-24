@@ -473,6 +473,9 @@ private fun MusesAppContent() {
         // 融合态（CompactPlayerDock）与展开态各有一个实例，两者都要上报，缺一会拿到过期矩形。
         var miniBarBounds by remember { mutableStateOf<Rect?>(null) }
         var showQueueOverlay by remember { mutableStateOf(false) }
+        var showEditMeta by remember { mutableStateOf(false) }
+        val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
+        val currentSong by playerVm.currentSong.collectAsState()
 
         // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
         val snackbarHostState = remember { SnackbarHostState() }
@@ -712,149 +715,158 @@ private fun MusesAppContent() {
             // 根弹窗宿主（LocalRootDialogStates 由 Scaffold 提供）才能接管渲染；之前跟沉浸页一样放
             // Scaffold 外，宿主查不到导致 sheet 静默不显示（裸 Dialog 自带窗口才不受影响）。
             // 宿主层绘制在 bottomBar 之上，不会被迷你条盖住；返回/遮罩由 sheet 自行消费，不套 BackHandler。
-            if (showQueueOverlay) {
+            if (showQueueOverlay && !playerOverlayMounted) {
                 QueueScreen(onClose = { showQueueOverlay = false })
             }
             }
         }
             } // CompositionLocalProvider 闭合：包住整个 Scaffold（FAB 槽也在内）
         } // BoxWithConstraints 关（主屏常驻，动画中不位移/不淡化）
-        // 外层圆角面板从迷你条实际矩形扩展到全屏；播放页内部始终按全屏比例布局，
-        // 仅封面由共享元素单独放大，避免把正方形封面随整页非等比压进迷你条。
-        // 打开和收起共用同一几何进度，空间路径互为反向。
         if (playerOverlayMounted) {
-            BoxWithConstraints(Modifier.fillMaxSize()) {
-                val density = LocalDensity.current
-                val fullWidthPx = with(density) { maxWidth.toPx() }
-                val fullHeightPx = with(density) { maxHeight.toPx() }
-                val source = miniBarBounds
-                val sourceWidth = (source?.width ?: fullWidthPx).coerceIn(1f, fullWidthPx)
-                val sourceHeight = (source?.height ?: with(density) { 72.dp.toPx() })
-                    .coerceIn(1f, fullHeightPx)
-                val sourceLeft = (source?.left ?: 0f).coerceIn(0f, fullWidthPx - sourceWidth)
-                val sourceTop = (source?.top ?: fullHeightPx - sourceHeight)
-                    .coerceIn(0f, fullHeightPx - sourceHeight)
-                val miniSurfaceColor = MiuixTheme.colorScheme.surfaceContainer
-                val miniArtworkSize = with(density) { 40.dp.toPx() }
-                val coverLeft = sourceLeft + with(density) { 12.dp.toPx() }
-                val coverTop = sourceTop + (sourceHeight - miniArtworkSize) / 2f
-                val artworkMorph = remember(coverLeft, coverTop, miniArtworkSize, playerProgressState) {
-                    PlayerArtworkMorph(
-                        sourceBounds = Rect(
-                            coverLeft, coverTop,
-                            coverLeft + miniArtworkSize, coverTop + miniArtworkSize,
-                        ),
-                        progress = { playerProgressState.value },
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            ) { _ ->
+                Box(Modifier.fillMaxSize()) {
+                    ImmersivePlayerOverlay(
+                        playerProgress = playerProgress,
+                        readPlayerProgress = { playerProgressState.value },
+                        sheetOpen = showEditMeta || showQueueOverlay,
+                        miniBarBounds = miniBarBounds,
+                        miniPlayerLyricsEnabled = miniPlayerLyricsEnabled,
+                        currentLyricLine = currentLyricLine,
+                        nowPlaying = nowPlaying,
+                        isPlaying = isPlaying,
+                        onClose = { closePlayer() },
+                        onOpenPlayer = { openPlayer() },
+                        onTogglePlayback = { viewModel.playPause() },
+                        onOpenQueue = { showQueueOverlay = true },
+                        onOpenEditMeta = { showEditMeta = true },
+                        onNext = { viewModel.skipToNext() },
+                        onPrevious = { viewModel.skipToPrevious() },
+                        onSeekCollapse = { fraction -> seekPlayerTo(fraction) },
+                        onSettleCollapse = { collapse, fraction -> settlePlayer(collapse, fraction) },
                     )
-                }
-                Box(
-                    modifier = Modifier.fillMaxSize().drawWithContent {
-                        val p = playerProgressState.value.coerceIn(0f, 1f)
-                        val panelLeft = sourceLeft * (1f - p)
-                        val panelTop = sourceTop * (1f - p)
-                        val panelRect = Rect(
-                            left = panelLeft,
-                            top = panelTop,
-                            right = panelLeft + sourceWidth + (fullWidthPx - sourceWidth) * p,
-                            bottom = panelTop + sourceHeight + (fullHeightPx - sourceHeight) * p,
-                        )
-                        val radius = with(density) { 28.dp.toPx() } * (1f - p)
-                        val path = Path().apply {
-                            addRoundRect(RoundRect(panelRect, CornerRadius(radius, radius)))
-                        }
-                        clipPath(path) {
-                            drawRect(miniSurfaceColor)
-                            this@drawWithContent.drawContent()
-                        }
-                    },
-                ) {
-            ShellBackHandler { closePlayer() }
-                val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
-                // U12：当前曲改由曲库实时流（SongEntity→领域模型），原 MediaItem 手拼字段等价
-                val currentSong by playerVm.currentSong.collectAsState()
-                var showEditMeta by remember { mutableStateOf(false) }
-                if (showEditMeta) {
-                    val editSong = currentSong?.toDomain()
-                    com.muses.player.feature.scrape.EditMetaSheet(song = editSong, onDismiss = { showEditMeta = false })
-                }
-                // 沉浸页背景硬编码近黑（0xFF05070D），不随系统明暗——必须在页级
-                // 强制深色主题作用域：否则浅色系统下 miuix 按压反馈色
-                // （MiuixIndication 取 onBackground = 深色）叠在近黑背景上完全不可见，
-                // 按钮看起来就像没用 miuix IconButton（MuMu 实测：浅色按住仅图标
-                // 字形区变暗，深色才有完整圆角反馈块）。页内文字/图标本就全显式
-                // 白色，切深色无视觉副作用；队列/编辑 sheet 在作用域外，不受影响。
-                CompositionLocalProvider(
-                    LocalPlayerArtworkMorph provides artworkMorph,
-                ) {
-                    MusesTheme(useDarkTheme = true) {
-                        PlayerScreen(
-                            // 外层面板负责从迷你条扩展到全屏并裁剪；页面保持全屏尺寸，
-                            // 共享封面才能从迷你方图按比例插值到播放页正封。
-                            modifier = Modifier.fillMaxSize(),
-                            onClose = { closePlayer() },
-                            onOpenQueue = { closePlayer(); showQueueOverlay = true },
-                            onOpenEditMeta = { showEditMeta = true },
-                            // 封面独立缩放；下方控件留在原位，由面板边界自然裁剪。
-                            transitionProgress = {
-                                ((playerProgressState.value - 0.05f) / 0.2f).coerceIn(0f, 1f)
-                            },
-                            collapseOffsetY = {
-                                sourceTop * (1f - playerProgressState.value.coerceIn(0f, 1f))
-                            },
-                            headingCollapseAlpha = {
-                                ((playerProgressState.value.coerceIn(0f, 1f) - 0.75f) / 0.25f)
-                                    .coerceIn(0f, 1f)
-                            },
-                            backgroundAlpha = {
-                                (playerProgressState.value.coerceIn(0f, 1f) / 0.25f).coerceIn(0f, 1f)
-                            },
-                            initialCoverUri = nowPlaying?.coverUri,
-                            // 下拉时按手指位移收缩面板；松手后由 Pager 风格的弹簧吸附到展开或收起态。
-                            onSeekCollapse = { fraction -> seekPlayerTo(fraction) },
-                            onSettleCollapse = { collapse, fraction -> settlePlayer(collapse, fraction) },
+                    if (showQueueOverlay) {
+                        QueueScreen(onClose = { showQueueOverlay = false })
+                    }
+                    if (showEditMeta) {
+                        com.muses.player.feature.scrape.EditMetaSheet(
+                            song = currentSong?.toDomain(),
+                            onDismiss = { showEditMeta = false },
                         )
                     }
-                }
-                if (source != null && playerProgress < 0.16f) {
-                    val transitionSubtitle = if (miniPlayerLyricsEnabled) {
-                        currentLyricLine ?: nowPlaying?.artist ?: "未知艺术家"
-                    } else {
-                        nowPlaying?.artist ?: "未知艺术家"
-                    }
-                            Box(
-                                Modifier
-                                    .offset { IntOffset(sourceLeft.roundToInt(), sourceTop.roundToInt()) }
-                                    .size(
-                                        width = with(density) { sourceWidth.toDp() },
-                                        height = with(density) { sourceHeight.toDp() },
-                                    )
-                                    // 只让迷你条的文字和按钮参与起止段交接，避免在展开页上留下歌词残影。
-                                    .graphicsLayer {
-                                        alpha = (1f - playerProgressState.value / 0.16f).coerceIn(0f, 1f)
-                                    },
-                            ) {
-                                MiniPlayerBar(
-                                    title = nowPlaying?.title ?: "暂无播放歌曲",
-                                    subtitle = transitionSubtitle,
-                                    coverUri = nowPlaying?.coverUri,
-                                    isPlaying = isPlaying,
-                                    hasSong = nowPlaying != null,
-                                    onOpenPlayer = { openPlayer() },
-                                    onTogglePlayback = { viewModel.playPause() },
-                                    onOpenQueue = { showQueueOverlay = true },
-                                    onNext = { viewModel.skipToNext() },
-                                    onPrevious = { viewModel.skipToPrevious() },
-                                    modifier = Modifier.fillMaxSize(),
-                                    sharedArtwork = false,
-                                    drawSurface = false,
-                                    // 转场封面贯穿始终；此处再画一张会在收起末段叠成双封面。
-                                    drawArtwork = false,
-                                )
-                            }
                 }
             }
         }
+}
+
+@Composable
+private fun ImmersivePlayerOverlay(
+    playerProgress: Float,
+    readPlayerProgress: () -> Float,
+    sheetOpen: Boolean,
+    miniBarBounds: Rect?,
+    miniPlayerLyricsEnabled: Boolean,
+    currentLyricLine: String?,
+    nowPlaying: NowPlayingUiState?,
+    isPlaying: Boolean,
+    onClose: () -> Unit,
+    onOpenPlayer: () -> Unit,
+    onTogglePlayback: () -> Unit,
+    onOpenQueue: () -> Unit,
+    onOpenEditMeta: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onSeekCollapse: (Float) -> Unit,
+    onSettleCollapse: (Boolean, Float) -> Unit,
+) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val density = LocalDensity.current
+        val fullWidthPx = with(density) { maxWidth.toPx() }
+        val fullHeightPx = with(density) { maxHeight.toPx() }
+        val source = miniBarBounds
+        val sourceWidth = (source?.width ?: fullWidthPx).coerceIn(1f, fullWidthPx)
+        val sourceHeight = (source?.height ?: with(density) { 72.dp.toPx() }).coerceIn(1f, fullHeightPx)
+        val sourceLeft = (source?.left ?: 0f).coerceIn(0f, fullWidthPx - sourceWidth)
+        val sourceTop = (source?.top ?: fullHeightPx - sourceHeight).coerceIn(0f, fullHeightPx - sourceHeight)
+        val miniSurfaceColor = MiuixTheme.colorScheme.surfaceContainer
+        val miniArtworkSize = with(density) { 40.dp.toPx() }
+        val coverLeft = sourceLeft + with(density) { 12.dp.toPx() }
+        val coverTop = sourceTop + (sourceHeight - miniArtworkSize) / 2f
+        val artworkMorph = remember(coverLeft, coverTop, miniArtworkSize) {
+            PlayerArtworkMorph(
+                sourceBounds = Rect(coverLeft, coverTop, coverLeft + miniArtworkSize, coverTop + miniArtworkSize),
+                progress = readPlayerProgress,
+            )
         }
+        Box(
+            modifier = Modifier.fillMaxSize().drawWithContent {
+                val progress = readPlayerProgress().coerceIn(0f, 1f)
+                val panelLeft = sourceLeft * (1f - progress)
+                val panelTop = sourceTop * (1f - progress)
+                val panelRect = Rect(
+                    left = panelLeft,
+                    top = panelTop,
+                    right = panelLeft + sourceWidth + (fullWidthPx - sourceWidth) * progress,
+                    bottom = panelTop + sourceHeight + (fullHeightPx - sourceHeight) * progress,
+                )
+                val radius = with(density) { 28.dp.toPx() } * (1f - progress)
+                val path = Path().apply { addRoundRect(RoundRect(panelRect, CornerRadius(radius, radius))) }
+                clipPath(path) {
+                    drawRect(miniSurfaceColor)
+                    this@drawWithContent.drawContent()
+                }
+            },
+        ) {
+            ShellBackHandler(enabled = !sheetOpen) { onClose() }
+            CompositionLocalProvider(LocalPlayerArtworkMorph provides artworkMorph) {
+                MusesTheme(useDarkTheme = true) {
+                    PlayerScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onClose = onClose,
+                        onOpenQueue = onOpenQueue,
+                        onOpenEditMeta = onOpenEditMeta,
+                        transitionProgress = { ((readPlayerProgress() - 0.05f) / 0.2f).coerceIn(0f, 1f) },
+                        collapseOffsetY = { sourceTop * (1f - readPlayerProgress().coerceIn(0f, 1f)) },
+                        headingCollapseAlpha = { ((readPlayerProgress().coerceIn(0f, 1f) - 0.75f) / 0.25f).coerceIn(0f, 1f) },
+                        backgroundAlpha = { (readPlayerProgress().coerceIn(0f, 1f) / 0.25f).coerceIn(0f, 1f) },
+                        initialCoverUri = nowPlaying?.coverUri,
+                        onSeekCollapse = onSeekCollapse,
+                        onSettleCollapse = onSettleCollapse,
+                    )
+                }
+            }
+            if (source != null && playerProgress < 0.16f) {
+                val transitionSubtitle = if (miniPlayerLyricsEnabled) currentLyricLine ?: nowPlaying?.artist ?: "未知艺术家"
+                else nowPlaying?.artist ?: "未知艺术家"
+                Box(
+                    Modifier
+                        .offset { IntOffset(sourceLeft.roundToInt(), sourceTop.roundToInt()) }
+                        .size(width = with(density) { sourceWidth.toDp() }, height = with(density) { sourceHeight.toDp() })
+                        .graphicsLayer { alpha = (1f - readPlayerProgress() / 0.16f).coerceIn(0f, 1f) },
+                ) {
+                    MiniPlayerBar(
+                        title = nowPlaying?.title ?: "暂无播放歌曲",
+                        subtitle = transitionSubtitle,
+                        coverUri = nowPlaying?.coverUri,
+                        isPlaying = isPlaying,
+                        hasSong = nowPlaying != null,
+                        onOpenPlayer = onOpenPlayer,
+                        onTogglePlayback = onTogglePlayback,
+                        onOpenQueue = onOpenQueue,
+                        onNext = onNext,
+                        onPrevious = onPrevious,
+                        modifier = Modifier.fillMaxSize(),
+                        sharedArtwork = false,
+                        drawSurface = false,
+                        drawArtwork = false,
+                    )
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -1045,6 +1057,8 @@ private fun AppNavHost(
         entry<MusesRoute.OnlineSearch>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
             OnlineSearchScreen(
                 onBack = { backStack.pop() },
+                onAlbumClick = { albumId -> backStack.pushUnique(MusesRoute.AlbumDetail(albumId)) },
+                onArtistClick = { artistId -> backStack.pushUnique(MusesRoute.ArtistDetail(artistId)) },
                 initialKeyword = route.keyword,
             )
         }

@@ -21,7 +21,6 @@ import com.muses.player.core.ui.components.SettingsBlockTitle
 import com.muses.player.core.ui.components.SettingsScreen
 import com.muses.player.feature.shell.platform.AppVersionProvider
 import com.muses.player.feature.shell.platform.InAppUpdateSection
-import com.muses.player.feature.shell.platform.XiaomiIslandSettingRow
 import com.muses.player.feature.shell.platform.rememberShellPlatformActions
 import com.muses.player.feature.shell.platform.supportsInAppUpdate
 
@@ -94,8 +93,6 @@ fun SettingsScreen(
                         checked = notificationLyricsEnabled,
                         onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
                     )
-                    // 小米超级岛（仅 HyperOS 安卓渲染，桌面为空实现）
-                    XiaomiIslandSettingRow()
                 }
 
                 // ---- AI 推荐（一级只留总开关；地址/模型/Key 收进二级页） ----
@@ -141,5 +138,4 @@ fun SettingsScreen(
             },
         )
 }
-
 

@@ -66,13 +66,15 @@ class WebDavFormViewModel constructor(
                 return@launch
             }
 
+            val password = runCatching { credentialsRepository.getPassword(sourceId) }.getOrNull().orEmpty()
+
             _formState.value = current.copy(
                 editingSourceId = sourceId,
                 editingSource = source,
                 name = source.name,
                 serverUrl = source.url ?: "",
                 username = source.username ?: "",
-                password = "", // 密码留空表示保留原密码
+                password = password,
                 path = source.path ?: "/",
             )
         }
