@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -17,6 +18,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -64,13 +69,24 @@ fun PlayerCoverHero(
         val sharedArtworkScope = LocalPlayerSharedTransitionScope.current
         val sharedArtworkVisibility = LocalPlayerAnimatedVisibilityScope.current
         val sharedArtworkKey = LocalPlayerArtworkKey.current
+        val artworkOverlayClip = LocalPlayerArtworkOverlayClip.current
+        val artworkMorph = LocalPlayerArtworkMorph.current
+        val density = LocalDensity.current
         val artworkSharedModifier =
-            if (sharedArtworkKey != null && sharedArtworkScope != null && sharedArtworkVisibility != null) {
+            if (artworkMorph == null && sharedArtworkKey != null && sharedArtworkScope != null && sharedArtworkVisibility != null) {
                 with(sharedArtworkScope) {
-                    Modifier.sharedElement(
-                        sharedContentState = rememberSharedContentState(sharedArtworkKey),
-                        animatedVisibilityScope = sharedArtworkVisibility,
-                    )
+                    if (artworkOverlayClip != null) {
+                        Modifier.sharedElement(
+                            sharedContentState = rememberSharedContentState(sharedArtworkKey),
+                            animatedVisibilityScope = sharedArtworkVisibility,
+                            clipInOverlayDuringTransition = artworkOverlayClip,
+                        )
+                    } else {
+                        Modifier.sharedElement(
+                            sharedContentState = rememberSharedContentState(sharedArtworkKey),
+                            animatedVisibilityScope = sharedArtworkVisibility,
+                        )
+                    }
                 }
             } else {
                 Modifier
@@ -79,8 +95,11 @@ fun PlayerCoverHero(
             modifier = Modifier
                 .size(targetSize)
                 .aspectRatio(1f)
-                .squircleClip(12.dp)
-                .background(Color.White.copy(alpha = 0.06f)),
+                .onGloballyPositioned { artworkMorph?.targetBounds = it.boundsInWindow() }
+                .then(if (artworkMorph == null) Modifier.squircleClip(12.dp) else Modifier)
+                // 有封面时外壳不能留底色：共享元素移动的是图片节点，
+                // 外壳背景仍在原尺寸绘制，会在收起时留下半透明方框。
+                .background(if (coverUri.isNullOrBlank()) Color.White.copy(alpha = 0.06f) else Color.Transparent),
             contentAlignment = Alignment.Center,
         ) {
             if (!coverUri.isNullOrBlank()) {
@@ -89,11 +108,30 @@ fun PlayerCoverHero(
                     contentDescription = "封面",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
+                        .then(if (artworkMorph != null) Modifier.graphicsLayer {
+                            clip = true
+                            val target = artworkMorph.targetBounds
+                            if (target != null && target.width > 0f) {
+                                val p = artworkMorph.progress().coerceIn(0f, 1f)
+                                val source = artworkMorph.sourceBounds
+                                val sourceScale = source.width / target.width
+                                val scale = sourceScale + (1f - sourceScale) * p
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = (source.center.x - target.center.x) * (1f - p)
+                                translationY = (source.center.y - target.center.y) * (1f - p)
+                                // 图层整体会缩放，裁剪半径须反向补偿；屏幕上的圆角始终为 12dp。
+                                shape = RoundedCornerShape(with(density) { (12.dp.toPx() / scale).toDp() })
+                            } else {
+                                shape = RoundedCornerShape(12.dp)
+                            }
+                        } else Modifier)
                         // 与迷你条一样，把共享元素放到位图节点上而非尺寸外壳，
                         // 避免只插值容器 bounds、图片仍停留在迷你尺寸。
                         .then(artworkSharedModifier)
                         .fillMaxSize()
-                        .squircleClip(12.dp),
+                        .then(if (artworkMorph == null) Modifier.squircleClip(12.dp) else Modifier)
+                        .background(Color.White.copy(alpha = 0.06f)),
                 )
             } else {
                 Icon(TablerIcons.MusicNoteOutlined, contentDescription = null, tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(64.dp))

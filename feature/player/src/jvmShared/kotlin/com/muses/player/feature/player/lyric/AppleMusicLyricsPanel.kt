@@ -53,7 +53,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,7 +72,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
@@ -85,7 +83,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -130,7 +127,6 @@ internal fun AppleMusicLyricsPanel(
     active: Boolean = true,
     externalDocument: com.muses.player.core.lyrics.model.LyricsDocument? = null,
 ) {
-    val haptics = LocalHapticFeedback.current
     val activeState = rememberUpdatedState(active)
     // Keep four future lines composed below the viewport. Their independent
     // cascade animations can then run before clipping reveals them.
@@ -384,24 +380,7 @@ internal fun AppleMusicLyricsPanel(
     val latestInterfaceHidden = rememberUpdatedState(isInterfaceHidden)
     val latestVisibilityCallback = rememberUpdatedState(onInterfaceVisibilityChange)
     val latestInteractionCallback = rememberUpdatedState(onInterfaceInteraction)
-    var lastCanScrollForward by remember(document) { mutableStateOf(true) }
-    var lastCanScrollBackward by remember(document) { mutableStateOf(true) }
     var initialLyricsPositioned by remember(renderedDocument) { mutableStateOf(lines.isEmpty()) }
-    LaunchedEffect(document) {
-        snapshotFlow { listState.canScrollForward to listState.canScrollBackward }
-            .collect { (canForward, canBackward) ->
-                if (SettingsRuntime.hapticFeedbackEnabled) {
-                    if (lastCanScrollForward && !canForward) {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    }
-                    if (lastCanScrollBackward && !canBackward) {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    }
-                }
-                lastCanScrollForward = canForward
-                lastCanScrollBackward = canBackward
-            }
-    }
 
     val lyricFontScale = SettingsRuntime.lyricFontScale
     val lyricSpacingScale = SettingsRuntime.lyricSpacingScale

@@ -55,12 +55,21 @@ fun MusesCover(
     val shape: Shape = remember(radius.value) { androidx.compose.foundation.shape.RoundedCornerShape(radius.value) }
     val sharedScope = LocalPlayerSharedTransitionScope.current
     val visibilityScope = LocalPlayerAnimatedVisibilityScope.current
+    val artworkOverlayClip = LocalPlayerArtworkOverlayClip.current
     val sharedModifier = if (sharedArtworkKey != null && sharedScope != null && visibilityScope != null) {
         with(sharedScope) {
-            Modifier.sharedElement(
-                sharedContentState = rememberSharedContentState(sharedArtworkKey),
-                animatedVisibilityScope = visibilityScope,
-            )
+            if (artworkOverlayClip != null) {
+                Modifier.sharedElement(
+                    sharedContentState = rememberSharedContentState(sharedArtworkKey),
+                    animatedVisibilityScope = visibilityScope,
+                    clipInOverlayDuringTransition = artworkOverlayClip,
+                )
+            } else {
+                Modifier.sharedElement(
+                    sharedContentState = rememberSharedContentState(sharedArtworkKey),
+                    animatedVisibilityScope = visibilityScope,
+                )
+            }
         }
     } else {
         Modifier

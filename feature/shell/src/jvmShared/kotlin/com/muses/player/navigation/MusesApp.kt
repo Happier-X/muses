@@ -3,7 +3,6 @@ package com.muses.player.navigation
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.graphicsLayer
@@ -24,21 +23,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.SeekableTransitionState
-import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.shadow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -98,11 +93,10 @@ import com.muses.player.core.model.online.OnlineTrackSession
 import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MiniPlayerBar
-import com.muses.player.core.ui.components.LocalPlayerAnimatedVisibilityScope
-import com.muses.player.core.ui.components.LocalPlayerArtworkKey
+import com.muses.player.core.ui.components.LocalPlayerArtworkMorph
+import com.muses.player.core.ui.components.PlayerArtworkMorph
 import com.muses.player.core.ui.components.LocalPlayerSharedTransitionScope
 import com.muses.player.core.ui.components.MusesSnackbarHostContent
-import com.muses.player.core.ui.components.PlayerArtworkSharedKey
 import com.muses.player.feature.shell.platform.PermissionsEffect
 import com.muses.player.feature.shell.platform.ShellBackHandler
 import com.muses.player.feature.library.AlbumDetailScreen
@@ -411,19 +405,15 @@ private fun MusesAppContent() {
         // 打开时面板用较长的舒展节奏从迷你条扩展，文字和控制区延后显现；
         // 收起仍按原节奏缩回，封面通过共享元素在两端之间飞行。
         var showPlayerOverlay by remember { mutableStateOf(false) }
-        val playerTransitionState = remember { SeekableTransitionState(showPlayerOverlay) }
-        val playerTransition = rememberTransition(
-            transitionState = playerTransitionState,
-            label = "immersive-player-page",
-        )
+        val playerProgressState = remember { Animatable(0f) }
         val playerOpen = showPlayerOverlay
         val playerTransitionScope = rememberCoroutineScope()
         var playerTransitionJob by remember { mutableStateOf<Job?>(null) }
         fun animatePlayerTo(target: Boolean) {
             playerTransitionJob?.cancel()
             playerTransitionJob = playerTransitionScope.launch {
-                playerTransitionState.animateTo(
-                    targetState = target,
+                playerProgressState.animateTo(
+                    targetValue = if (target) 1f else 0f,
                     animationSpec = tween(
                         durationMillis = if (target) PlayerOpenDurationMillis else PlayerTransitionMillis,
                         easing = FastOutSlowInEasing,
@@ -435,63 +425,49 @@ private fun MusesAppContent() {
             // 手势每帧只保留最新一次 seek，防止快速拖动时旧协程覆盖新进度。
             playerTransitionJob?.cancel()
             playerTransitionJob = playerTransitionScope.launch {
-                playerTransitionState.seekTo(
-                    fraction = fraction.coerceIn(0f, 0.999f),
-                    targetState = false,
-                )
+                playerProgressState.snapTo(1f - fraction.coerceIn(0f, 0.999f))
             }
         }
         fun openPlayer() {
             showPlayerOverlay = true
-            // SeekableTransitionState.animateTo 在 Android 上会偶发停在 fraction=0，
-            // 此时迷你条已隐藏、全屏页仍被裁在迷你条尺寸，只剩黑色空面板。点击打开是明确的
-            // 状态切换，直接落到展开端点；下滑收起仍保留可跟手 seek 与弹簧吸附。
             playerTransitionJob?.cancel()
             playerTransitionJob = playerTransitionScope.launch {
-                playerTransitionState.seekTo(fraction = 1f, targetState = true)
+                playerProgressState.snapTo(0f)
+                // 先让播放页和封面完成首帧布局，再开始插值，避免首帧直接跳到大面板。
+                withFrameNanos { }
+                withFrameNanos { }
+                playerProgressState.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(PlayerOpenDurationMillis, easing = FastOutSlowInEasing),
+                )
             }
         }
         fun closePlayer() {
             showPlayerOverlay = false
             animatePlayerTo(target = false)
         }
-        fun settlePlayer(collapse: Boolean) {
+        fun settlePlayer(collapse: Boolean, releasedFraction: Float) {
             val target = !collapse
             showPlayerOverlay = target
             playerTransitionJob?.cancel()
             playerTransitionJob = playerTransitionScope.launch {
-                playerTransitionState.animateTo(
-                    targetState = target,
-                    animationSpec = spring(dampingRatio = 1f, stiffness = 675f),
-                )
-                showPlayerOverlay = target
-            }
-        }
-        val playerProgress by playerTransition.animateFloat(
-            transitionSpec = {
-                tween(
-                    durationMillis = if (targetState) PlayerOpenDurationMillis else PlayerTransitionMillis,
-                    easing = FastOutSlowInEasing,
-                )
-            },
-            label = "immersive-player-progress",
-        ) { expanded -> if (expanded) 1f else 0f }
-        val playerContentProgress by playerTransition.animateFloat(
-            transitionSpec = {
-                if (targetState) {
-                    tween(
-                        durationMillis = PlayerContentRevealDurationMillis,
-                        delayMillis = PlayerContentRevealDelayMillis,
-                        easing = FastOutSlowInEasing,
+                val startFraction = releasedFraction.coerceIn(0f, 0.999f)
+                playerProgressState.snapTo(1f - startFraction)
+                if (collapse) {
+                    playerProgressState.animateTo(
+                        targetValue = 0f,
+                        animationSpec = spring(dampingRatio = 1f, stiffness = 675f),
                     )
                 } else {
-                    snap()
+                    playerProgressState.animateTo(
+                        targetValue = 1f,
+                        animationSpec = tween(220, easing = CubicBezierEasing(0f, 0f, 0.58f, 1f)),
+                    )
                 }
-            },
-            label = "immersive-player-content-reveal",
-        ) { expanded -> if (expanded) 1f else 0f }
-        // seek 时 targetState 暂时为 false，显式显示状态保证播放页直到手势吸附结束仍保持挂载。
-        val playerOverlayMounted = showPlayerOverlay || playerTransition.currentState || playerTransition.targetState
+            }
+        }
+        val playerProgress = playerProgressState.value.coerceIn(0f, 1f)
+        val playerOverlayMounted = showPlayerOverlay || playerProgress > 0f
         // 迷你条在窗口中的真实矩形（px）：底部 chrome 可见顶的上报源（悬浮 FAB 定位见 bottomBarElevation）。
         // 融合态（CompactPlayerDock）与展开态各有一个实例，两者都要上报，缺一会拿到过期矩形。
         var miniBarBounds by remember { mutableStateOf<Rect?>(null) }
@@ -746,12 +722,6 @@ private fun MusesAppContent() {
         // 仅封面由共享元素单独放大，避免把正方形封面随整页非等比压进迷你条。
         // 打开和收起共用同一几何进度，空间路径互为反向。
         if (playerOverlayMounted) {
-            playerTransition.AnimatedVisibility(
-                visible = { it },
-                enter = EnterTransition.None,
-                exit = ExitTransition.None,
-            ) {
-                val playerVisibilityScope = this
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val density = LocalDensity.current
                 val fullWidthPx = with(density) { maxWidth.toPx() }
@@ -763,27 +733,37 @@ private fun MusesAppContent() {
                 val sourceLeft = (source?.left ?: 0f).coerceIn(0f, fullWidthPx - sourceWidth)
                 val sourceTop = (source?.top ?: fullHeightPx - sourceHeight)
                     .coerceIn(0f, fullHeightPx - sourceHeight)
-                val p = playerProgress.coerceIn(0f, 1f)
-                val panelLeft = sourceLeft * (1f - p)
-                val panelTop = sourceTop * (1f - p)
-                val panelRect = Rect(
-                    left = panelLeft,
-                    top = panelTop,
-                    right = panelLeft + sourceWidth + (fullWidthPx - sourceWidth) * p,
-                    bottom = panelTop + sourceHeight + (fullHeightPx - sourceHeight) * p,
-                )
-                val radius = with(density) { 28.dp.toPx() } * (1f - p)
+                val miniSurfaceColor = MiuixTheme.colorScheme.surfaceContainer
+                val miniArtworkSize = with(density) { 40.dp.toPx() }
+                val coverLeft = sourceLeft + with(density) { 12.dp.toPx() }
+                val coverTop = sourceTop + (sourceHeight - miniArtworkSize) / 2f
+                val artworkMorph = remember(coverLeft, coverTop, miniArtworkSize, playerProgressState) {
+                    PlayerArtworkMorph(
+                        sourceBounds = Rect(
+                            coverLeft, coverTop,
+                            coverLeft + miniArtworkSize, coverTop + miniArtworkSize,
+                        ),
+                        progress = { playerProgressState.value },
+                    )
+                }
                 Box(
-                    modifier = Modifier.fillMaxSize().drawWithCache {
+                    modifier = Modifier.fillMaxSize().drawWithContent {
+                        val p = playerProgressState.value.coerceIn(0f, 1f)
+                        val panelLeft = sourceLeft * (1f - p)
+                        val panelTop = sourceTop * (1f - p)
+                        val panelRect = Rect(
+                            left = panelLeft,
+                            top = panelTop,
+                            right = panelLeft + sourceWidth + (fullWidthPx - sourceWidth) * p,
+                            bottom = panelTop + sourceHeight + (fullHeightPx - sourceHeight) * p,
+                        )
+                        val radius = with(density) { 28.dp.toPx() } * (1f - p)
                         val path = Path().apply {
                             addRoundRect(RoundRect(panelRect, CornerRadius(radius, radius)))
                         }
-                        onDrawWithContent {
-                            val contentScope = this
-                            clipPath(path) {
-                                drawRect(androidx.compose.ui.graphics.Color(0xFF05070D))
-                                contentScope.drawContent()
-                            }
+                        clipPath(path) {
+                            drawRect(miniSurfaceColor)
+                            this@drawWithContent.drawContent()
                         }
                     },
                 ) {
@@ -803,8 +783,7 @@ private fun MusesAppContent() {
                 // 字形区变暗，深色才有完整圆角反馈块）。页内文字/图标本就全显式
                 // 白色，切深色无视觉副作用；队列/编辑 sheet 在作用域外，不受影响。
                 CompositionLocalProvider(
-                    LocalPlayerAnimatedVisibilityScope provides playerVisibilityScope,
-                    LocalPlayerArtworkKey provides PlayerArtworkSharedKey,
+                    LocalPlayerArtworkMorph provides artworkMorph,
                 ) {
                     MusesTheme(useDarkTheme = true) {
                         PlayerScreen(
@@ -814,32 +793,33 @@ private fun MusesAppContent() {
                             onClose = { closePlayer() },
                             onOpenQueue = { closePlayer(); showQueueOverlay = true },
                             onOpenEditMeta = { showEditMeta = true },
-                            isTransitioning = playerTransition.currentState != playerTransition.targetState,
-                            // 打开时让封面先飞行，文字和控制区稍后显现；收起时保持内容可见，随面板裁剪回去。
+                            // 封面独立缩放；下方控件留在原位，由面板边界自然裁剪。
                             transitionProgress = {
-                                if (playerTransition.targetState) playerContentProgress else 1f
+                                ((playerProgressState.value - 0.05f) / 0.2f).coerceIn(0f, 1f)
                             },
+                            collapseOffsetY = {
+                                sourceTop * (1f - playerProgressState.value.coerceIn(0f, 1f))
+                            },
+                            headingCollapseAlpha = {
+                                ((playerProgressState.value.coerceIn(0f, 1f) - 0.75f) / 0.25f)
+                                    .coerceIn(0f, 1f)
+                            },
+                            backgroundAlpha = {
+                                (playerProgressState.value.coerceIn(0f, 1f) / 0.25f).coerceIn(0f, 1f)
+                            },
+                            initialCoverUri = nowPlaying?.coverUri,
                             // 下拉时按手指位移收缩面板；松手后由 Pager 风格的弹簧吸附到展开或收起态。
                             onSeekCollapse = { fraction -> seekPlayerTo(fraction) },
-                            onSettleCollapse = { collapse -> settlePlayer(collapse) },
+                            onSettleCollapse = { collapse, fraction -> settlePlayer(collapse, fraction) },
                         )
                     }
                 }
-                if (source != null && p < 1f) {
+                if (source != null && playerProgress < 0.16f) {
                     val transitionSubtitle = if (miniPlayerLyricsEnabled) {
                         currentLyricLine ?: nowPlaying?.artist ?: "未知艺术家"
                     } else {
                         nowPlaying?.artist ?: "未知艺术家"
                     }
-                    playerTransition.AnimatedVisibility(
-                        visible = { !it },
-                        enter = EnterTransition.None,
-                        exit = ExitTransition.None,
-                    ) {
-                        val miniVisibilityScope = this
-                        CompositionLocalProvider(
-                            LocalPlayerAnimatedVisibilityScope provides miniVisibilityScope,
-                        ) {
                             Box(
                                 Modifier
                                     .offset { IntOffset(sourceLeft.roundToInt(), sourceTop.roundToInt()) }
@@ -847,7 +827,10 @@ private fun MusesAppContent() {
                                         width = with(density) { sourceWidth.toDp() },
                                         height = with(density) { sourceHeight.toDp() },
                                     )
-                                    .graphicsLayer { alpha = 1f - p },
+                                    // 只让迷你条的文字和按钮参与起止段交接，避免在展开页上留下歌词残影。
+                                    .graphicsLayer {
+                                        alpha = (1f - playerProgressState.value / 0.16f).coerceIn(0f, 1f)
+                                    },
                             ) {
                                 MiniPlayerBar(
                                     title = nowPlaying?.title ?: "暂无播放歌曲",
@@ -861,13 +844,13 @@ private fun MusesAppContent() {
                                     onNext = { viewModel.skipToNext() },
                                     onPrevious = { viewModel.skipToPrevious() },
                                     modifier = Modifier.fillMaxSize(),
-                                    sharedArtwork = true,
+                                    sharedArtwork = false,
+                                    drawSurface = false,
+                                    // 转场封面贯穿始终；此处再画一张会在收起末段叠成双封面。
+                                    drawArtwork = false,
                                 )
                             }
-                        }
-                    }
                 }
-            }
             }
         }
         }
@@ -878,8 +861,6 @@ private fun MusesAppContent() {
  */
 private const val PlayerTransitionMillis = 300
 private const val PlayerOpenDurationMillis = 380
-private const val PlayerContentRevealDelayMillis = 90
-private const val PlayerContentRevealDurationMillis = 240
 
 
 /**

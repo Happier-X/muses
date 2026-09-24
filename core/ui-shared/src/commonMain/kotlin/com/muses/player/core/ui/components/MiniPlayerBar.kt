@@ -111,6 +111,10 @@ fun MiniPlayerBar(
     coverSize: Dp = 40.dp,
     /** 是否参与「迷你条 ↔ 沉浸页」的封面共享转场（沉浸页打开时才为 true，避免与收起态同时存在两份） */
     sharedArtwork: Boolean = true,
+    /** 转场时由宿主面板绘制同一块背景，迷你条只绘制内容。 */
+    drawSurface: Boolean = true,
+    /** 宿主转场接管封面绘制时隐藏此处的静态封面。 */
+    drawArtwork: Boolean = true,
     /** 左滑 → 下一曲（null = 不支持滑动切歌） */
     onNext: (() -> Unit)? = null,
     /** 右滑 → 上一曲（null = 不支持滑动切歌） */
@@ -190,11 +194,15 @@ fun MiniPlayerBar(
             // TODO(U4): SaltShadows（android.graphics.BlurMaskFilter）暂不迁入 commonMain，
             // 完整阴影配方待 SaltShadows 完成跨平台抽象后恢复。
             // 与悬浮底栏同材质链：先投影再铺纯色（官方 FloatingNavigationBar 同顺序）
-            .dropShadow(
-                shape = capsuleShape,
-                shadow = Shadow(radius = 10.dp, color = Color.Black, alpha = 0.2f),
+            .then(
+                if (drawSurface) Modifier
+                    .dropShadow(
+                        shape = capsuleShape,
+                        shadow = Shadow(radius = 10.dp, color = Color.Black, alpha = 0.2f),
+                    )
+                    .squircleBackground(scheme.surfaceContainer, 50.dp)
+                else Modifier,
             )
-            .squircleBackground(scheme.surfaceContainer, 50.dp)
             .clickable(
                 interactionSource = clickInteraction,
                 indication = null,
@@ -207,6 +215,7 @@ fun MiniPlayerBar(
     ) {
         MusesCover(
             uri = coverUri,
+            modifier = Modifier.graphicsLayer { alpha = if (drawArtwork) 1f else 0f },
             size = coverSize,
             // 与沉浸页正封（PlayerCoverHero 的 squircleClip(12.dp)）保持同一圆角：
             // sharedElement 只插值 bounds，两端圆角/形状不一致时转场中会突变，

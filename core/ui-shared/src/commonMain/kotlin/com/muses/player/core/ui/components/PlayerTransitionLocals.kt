@@ -3,6 +3,10 @@ package com.muses.player.core.ui.components
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Rect
 
 /**
  * 「迷你条 ↔ 沉浸页」转场用的作用域与共享元素 key。
@@ -19,6 +23,25 @@ import androidx.compose.runtime.staticCompositionLocalOf
 val LocalPlayerSharedTransitionScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
 val LocalPlayerAnimatedVisibilityScope = staticCompositionLocalOf<AnimatedVisibilityScope?> { null }
 val LocalPlayerArtworkKey = staticCompositionLocalOf<String?> { null }
+/** 共享封面在转场浮层中的裁剪边界，由播放页宿主同步提供。 */
+val LocalPlayerArtworkOverlayClip = staticCompositionLocalOf<SharedTransitionScope.OverlayClip?> { null }
+
+/** 与面板共用动画进度的封面位置；坐标均使用窗口坐标。 */
+class PlayerArtworkMorph(val sourceBounds: Rect, val progress: () -> Float) {
+    var targetBounds by mutableStateOf<Rect?>(null)
+
+    fun currentBounds(): Rect? {
+        val target = targetBounds ?: return null
+        val p = progress().coerceIn(0f, 1f)
+        return Rect(
+            left = sourceBounds.left + (target.left - sourceBounds.left) * p,
+            top = sourceBounds.top + (target.top - sourceBounds.top) * p,
+            right = sourceBounds.right + (target.right - sourceBounds.right) * p,
+            bottom = sourceBounds.bottom + (target.bottom - sourceBounds.bottom) * p,
+        )
+    }
+}
+val LocalPlayerArtworkMorph = staticCompositionLocalOf<PlayerArtworkMorph?> { null }
 
 /** 封面共享元素的 key（迷你条与沉浸页正封共用，转场时由 Compose 把封面从迷你条尺寸插值到全屏） */
 const val PlayerArtworkSharedKey = "muses-player-artwork"

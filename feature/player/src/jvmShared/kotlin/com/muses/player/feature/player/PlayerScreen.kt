@@ -49,15 +49,20 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,6 +76,7 @@ import coil3.compose.AsyncImage
 import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.ui.components.PlayerControls
 import com.muses.player.core.ui.components.PlayerCoverHero
+import com.muses.player.core.ui.components.LocalPlayerArtworkMorph
 import com.muses.player.core.ui.components.PlayerModeBar
 import com.muses.player.core.ui.components.PlayerProgress
 import com.muses.player.core.ui.components.MusesIconButton
@@ -109,27 +115,28 @@ fun PlayerScreen(
     /**
      * 下滑跟手中：上报收起进度（0 = 完全展开，1 = 已收起）。
      *
-     * 非 null 时由**宿主**的 `SeekableTransitionState.seekTo(fraction)` 驱动
+     * 非 null 时由宿主统一的动画进度驱动
      * 全屏播放页纵向位移，本页不再叠加自己的拖动位移。
      */
     onSeekCollapse: ((Float) -> Unit)? = null,
-    /** 下滑松手：上报是否应当收起（true = 收起回迷你条） */
-    onSettleCollapse: ((Boolean) -> Unit)? = null,
-    /**
-     * 是否正处于主屏与全屏播放页之间的转场中。
-     *
-     * 转场中 [FlowingLightBackdrop] 的全屏模糊层会持续重绘，代价较高。所以转场期间换成纯色底，
-     * 转场结束再恢复流光背景。
-     */
-    isTransitioning: Boolean = false,
+    /** 下滑松手：上报收起决定及最终拖动进度，让宿主从手指松开的位置接续动画。 */
+    onSettleCollapse: ((Boolean, Float) -> Unit)? = null,
     /**
      * 内容显现进度：0 = 标题/歌词/控制区隐藏，1 = 完全显示。
      *
-     * 封面不跟随此透明度，由共享元素独立飞行；宿主在打开时延迟推进，收起时保持为 1。
+     * 封面不跟随此透明度，由同一面板进度单独缩放和移动。
      *
      * 传 lambda（内部才读 State），避免转场中每帧重组整棵沉浸页。
      */
     transitionProgress: () -> Float = { 1f },
+    /** 面板收缩时非封面元素随顶部边界下移的像素距离。 */
+    collapseOffsetY: () -> Float = { 0f },
+    /** 封面上方标题与艺术家的收起渐隐进度。 */
+    headingCollapseAlpha: () -> Float = { 1f },
+    /** 背景在同一块面板中由迷你条底色过渡到沉浸页流光的进度。 */
+    backgroundAlpha: () -> Float = { 1f },
+    /** 宿主已持有的封面，供页面首次挂载时立即绘制转场封面。 */
+    initialCoverUri: String? = null,
 ) {
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val position by viewModel.position.collectAsStateWithLifecycle()
@@ -147,6 +154,7 @@ fun PlayerScreen(
         isPlaying = isPlaying,
     )
     val stickyCover by viewModel.stickyCover.collectAsStateWithLifecycle()
+    val displayCover = stickyCover ?: initialCoverUri
     val playbackError by viewModel.playbackError.collectAsStateWithLifecycle()
 
     // U21：屏幕尺寸改用视口约束（见下方 BoxWithConstraints），原 LocalConfiguration 仅安卓可用
@@ -215,7 +223,6 @@ fun PlayerScreen(
                 // 触发全窗口重绘 → 下滑暴露的新区域必然重绘底层主页面列表；
                 // graphicsLayer 纯位移只做合成、暴露区不重绘（露窗口底色，绿屏实验证实）
                 .offset { IntOffset(0, dragOffsetY.roundToInt()) }
-                .background(Color(0xFF05070D))
                 .then(
                     // 歌词未滚到顶时保留歌词列表自己的纵向滚动；其他页面区域由外层在 Initial
                     // pass 观察手势，避免子级 Pager/进度条先消费事件导致下拉识别被取消。
@@ -272,7 +279,10 @@ fun PlayerScreen(
                                     isDraggingVertically = false
                                     if (finished) {
                                         if (onSettleCollapse != null) {
-                                            onSettleCollapse(accumulatedY >= dismissThresholdPx)
+                                            onSettleCollapse(
+                                                accumulatedY >= dismissThresholdPx,
+                                                (accumulatedY / size.height.coerceAtLeast(1)).coerceIn(0f, 0.999f),
+                                            )
                                         } else if (accumulatedY >= dismissThresholdPx) {
                                             clearDragImmediate()
                                             onClose()
@@ -286,7 +296,10 @@ fun PlayerScreen(
                                         }
                                     } else {
                                         if (onSettleCollapse != null) {
-                                            onSettleCollapse(false)
+                                            onSettleCollapse(
+                                                false,
+                                                (accumulatedY / size.height.coerceAtLeast(1)).coerceIn(0f, 0.999f),
+                                            )
                                         } else if (accumulatedY > 0f) {
                                             val from = accumulatedY
                                             scope.launch {
@@ -302,28 +315,22 @@ fun PlayerScreen(
                     }
                 )
         ) {
-            // 转场中跳过流光背景：它是全屏 AsyncImage + blur(28dp)，持续重绘代价较高；
-            // 用纯色顶一下，转场结束后再恢复。
-            // 不用 alpha 渐变过渡：那要求它整时段都参与绘制，恰好把掉帧源又请回来了。
-            // 视觉上不跳的原因：转场中「非封面内容」也基本不可见（见 contentAlphaFor），
-            // 背景色差异被内容渐隐盖住。
-            if (isTransitioning) {
-                Box(Modifier.fillMaxSize().background(Color(0xFF05070D)))
-            } else {
-                FlowingLightBackdrop(
-                    coverUri = stickyCover,
-                    hasLyric = parsedLines.isNotEmpty(),
-                    modifier = Modifier.fillMaxSize().clipToBounds(),
-                    flowSpeed = 2f,
-                )
-            }
+            // 流光与迷你条底色共用宿主的一块面板，避免末尾叠出第二层胶囊。
+            FlowingLightBackdrop(
+                coverUri = displayCover,
+                hasLyric = parsedLines.isNotEmpty(),
+                modifier = Modifier.fillMaxSize().clipToBounds().graphicsLayer {
+                    alpha = backgroundAlpha().coerceIn(0f, 1f)
+                },
+                flowSpeed = 2f,
+            )
             var activePanel by remember { mutableStateOf(0) }
             LaunchedEffect(activePanel) { isLyricPanelActive = activePanel == 1 }
             if (isTabletLayout) {
                 TabletImmersiveLayout(
                     title = title,
                     artist = artist,
-                    coverUri = stickyCover,
+                    coverUri = displayCover,
                     lines = parsedLines,
                     lyricsDocument = lyricsDocument,
                     lyricPosition = lyricPosition,
@@ -351,12 +358,14 @@ fun PlayerScreen(
                     maxHeight = screenHeight,
                     onLyricAtTopChange = { isLyricAtTop = it },
                     transitionProgress = transitionProgress,
+                    collapseOffsetY = collapseOffsetY,
+                    headingCollapseAlpha = headingCollapseAlpha,
                 )
             } else {
                 PhoneImmersiveLayout(
                     title = title,
                     artist = artist,
-                    coverUri = stickyCover,
+                    coverUri = displayCover,
                     lines = parsedLines,
                     lyricsDocument = lyricsDocument,
                     lyricPosition = lyricPosition,
@@ -388,6 +397,8 @@ fun PlayerScreen(
                     onActivePanelChange = { activePanel = it },
                     onLyricAtTopChange = { isLyricAtTop = it },
                     transitionProgress = transitionProgress,
+                    collapseOffsetY = collapseOffsetY,
+                    headingCollapseAlpha = headingCollapseAlpha,
                 )
             }
         }
@@ -535,6 +546,8 @@ private fun PhoneImmersiveLayout(
     onLyricAtTopChange: (Boolean) -> Unit = {},
     /** 转场进度（见 [PlayerScreen]）：驱动「非封面内容」渐隐 */
     transitionProgress: () -> Float = { 1f },
+    collapseOffsetY: () -> Float = { 0f },
+    headingCollapseAlpha: () -> Float = { 1f },
 ) {
     var activePanel by remember { mutableStateOf(0) }
     // 进度条手势进行中时禁用 pager 横滑：杜绝 seek 拖动被当成切页（由 ProgressSection.onSeekDragActive 驱动）
@@ -557,7 +570,10 @@ private fun PhoneImmersiveLayout(
     // 「非封面内容」统一可见度：标题 / 歌词 / 控制都据此渐隐，
     // 而封面（InfoPanel 里的 CoverHero）不受影响——它走 share element，由宿主插值 bounds。
     // 注意用 graphicsLayer 且**延迟读进度**（不在此处取值，否则每帧重组整棵页面）。
-    val contentAlpha = Modifier.graphicsLayer { alpha = contentAlphaFor(transitionProgress()) }
+    val headingTransform = Modifier.graphicsLayer {
+        translationY = collapseOffsetY()
+        alpha = contentAlphaFor(transitionProgress()) * headingCollapseAlpha()
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -570,7 +586,7 @@ private fun PhoneImmersiveLayout(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 0.dp)
-                .then(contentAlpha),
+                .then(headingTransform),
         )
 
         // 已移除手机端额外小圆点指示器：对齐 Capacitor 原版无指示器（PRD R7 1:1）
@@ -617,7 +633,10 @@ private fun PhoneImmersiveLayout(
                     isPlaying = isPlaying,
                     onSeek = onSeek,
                     // 歌词面板整体都是「非封面内容」，直接整块渐隐
-                    modifier = Modifier.graphicsLayer { alpha = contentAlphaFor(transitionProgress()) },
+                    modifier = Modifier.graphicsLayer {
+                        translationY = collapseOffsetY()
+                        alpha = contentAlphaFor(transitionProgress())
+                    },
                 )
             }
         }
@@ -657,6 +676,8 @@ private fun TabletImmersiveLayout(
     onLyricAtTopChange: (Boolean) -> Unit = {},
     /** 转场进度（见 [PlayerScreen]）：驱动「非封面内容」渐隐 */
     transitionProgress: () -> Float = { 1f },
+    collapseOffsetY: () -> Float = { 0f },
+    headingCollapseAlpha: () -> Float = { 1f },
 ) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         // 平板不渲染固定头部，由面板内头部承担
@@ -680,7 +701,11 @@ private fun TabletImmersiveLayout(
                     artist = artist,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 12.dp),
+                        .padding(top = 4.dp, bottom = 12.dp)
+                        .graphicsLayer {
+                            translationY = collapseOffsetY()
+                            alpha = contentAlphaFor(transitionProgress()) * headingCollapseAlpha()
+                        },
                 )
                 // 封面居中（平板 info-inner justify-content center）：CoverHero 响应式 min(50vh,420) contain
                 Box(
@@ -703,7 +728,11 @@ private fun TabletImmersiveLayout(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    .graphicsLayer {
+                        translationY = collapseOffsetY()
+                        alpha = contentAlphaFor(transitionProgress())
+                    },
             ) {
                 // 歌词面板（V2 范围外，不动）：NativeLyricsPanel 手势分流保持原生
                 LyricsPanel(
@@ -715,24 +744,28 @@ private fun TabletImmersiveLayout(
             }
         }
         // 底部全宽控制条：player-page__bottom-bar（仅平板，flex none，z 10，渐变背景）
-        TabletBottomBar(
-            position = position,
-            duration = duration,
-            isPlaying = isPlaying,
-            repeatMode = repeatMode,
-            shuffleEnabled = shuffleEnabled,
-            onSeekStart = onSeekStart,
-            onSeekEnd = onSeekEnd,
-            onPlayPause = onPlayPause,
-            onPrevious = onPrevious,
-            onNext = onNext,
-            onToggleRepeat = onToggleRepeat,
-            onToggleShuffle = onToggleShuffle,
-            onOpenQueue = onOpenQueue,
-            onOpenEditMeta = onOpenEditMeta,
-            screenWidth = maxWidth,
-            screenHeight = maxHeight,
-        )
+        Box(Modifier.graphicsLayer {
+            alpha = contentAlphaFor(transitionProgress())
+        }) {
+            TabletBottomBar(
+                position = position,
+                duration = duration,
+                isPlaying = isPlaying,
+                repeatMode = repeatMode,
+                shuffleEnabled = shuffleEnabled,
+                onSeekStart = onSeekStart,
+                onSeekEnd = onSeekEnd,
+                onPlayPause = onPlayPause,
+                onPrevious = onPrevious,
+                onNext = onNext,
+                onToggleRepeat = onToggleRepeat,
+                onToggleShuffle = onToggleShuffle,
+                onOpenQueue = onOpenQueue,
+                onOpenEditMeta = onOpenEditMeta,
+                screenWidth = maxWidth,
+                screenHeight = maxHeight,
+            )
+        }
     }
 }
 
@@ -809,6 +842,10 @@ private fun InfoPanel(
     // info-inner gap 14、padding-top 16、song-meta margin-bottom 18（对齐 .info-panel-inner）
     // 断点收紧（对齐全局 media query）：≤720 gap 4、≤520 gap 2
     val shortHeight = maxHeight <= 720.dp
+    val artworkMorph = LocalPlayerArtworkMorph.current
+    var controlsTopInWindow by remember { mutableFloatStateOf(Float.NaN) }
+    val coverClearancePx = with(LocalDensity.current) { 8.dp.toPx() }
+    val coverRevealFadePx = with(LocalDensity.current) { 18.dp.toPx() }
     val innerGap = when {
         isNarrowHeight -> 2.dp
         shortHeight -> 4.dp
@@ -837,14 +874,34 @@ private fun InfoPanel(
         )
         Spacer(Modifier.height(innerGap))
         // 手机控件区：player-page__info-controls（平板 display:none，由底部条承担）
-        // 整块随转场进度渐隐：椒盐转场里只有封面在动，进度条/按钮是浮出来的
+        // 控件保持在全屏布局原位；封面经过时用短渐变柔和隐藏重叠部分。
         if (!isTablet) {
             // horizontalAlignment 必须显式居中：这层是转场渐隐包裹 Column，
             // 外层 InfoPanel 的 CenterHorizontally 不会传导给子级布局参数，
             // 缺省 Start 会让 wrap-content 的 PlayerControls 贴左、与
             // fillMaxWidth 的进度条错位（MuMu 实测三键组中心 331 vs 540）。
             Column(
-                modifier = Modifier.graphicsLayer { alpha = contentAlpha() },
+                modifier = Modifier
+                    .onGloballyPositioned { controlsTopInWindow = it.boundsInWindow().top }
+                    .graphicsLayer {
+                        alpha = contentAlpha()
+                        compositingStrategy = CompositingStrategy.Offscreen
+                    }
+                    .drawWithContent {
+                        drawContent()
+                        val coverBottom = artworkMorph?.currentBounds()?.bottom
+                        if (coverBottom != null && !controlsTopInWindow.isNaN()) {
+                            val fadeStart = coverBottom + coverClearancePx - controlsTopInWindow
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color.Black),
+                                    startY = fadeStart,
+                                    endY = fadeStart + coverRevealFadePx,
+                                ),
+                                blendMode = BlendMode.DstIn,
+                            )
+                        }
+                    },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 ProgressSection(
