@@ -13,23 +13,18 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.muses.player.core.appupdate.checkLatestRelease
 import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.ui.components.SettingsAboutFeedbackContent
 import com.muses.player.core.ui.components.SettingsBlockTitle
-import com.muses.player.core.ui.components.SettingsIcon
 import com.muses.player.core.ui.components.SettingsScreen
-import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.feature.shell.platform.AppVersionProvider
 import com.muses.player.feature.shell.platform.InAppUpdateSection
 import com.muses.player.feature.shell.platform.XiaomiIslandSettingRow
 import com.muses.player.feature.shell.platform.rememberShellPlatformActions
 import com.muses.player.feature.shell.platform.supportsInAppUpdate
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -40,10 +35,6 @@ import java.util.Locale
 class SettingsViewModel constructor(
     private val errorLogStore: ErrorLogStore,
 ) : ViewModel() {
-
-    /** 最近错误摘要 —— 供「复制报错日志」条目副标题 */
-    val latestErrorSummary: StateFlow<String?> = errorLogStore.latestSummary
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
      * 复制用日志全文：文件头（版本 + 导出时间）+ 缓冲正文（含上次会话崩溃段）。
@@ -73,6 +64,8 @@ fun SettingsScreen(
     // 宽屏 Rail 自带这两项，传 null 即隐藏本区块。
     onOpenSources: (() -> Unit)? = null,
     onOpenScrape: (() -> Unit)? = null,
+    // AI 服务配置二级页入口（设置页「AI 推荐」→「AI 服务」箭头进入）。
+    onOpenAiSettings: () -> Unit,
 ) {
     val actions = rememberShellPlatformActions()
     val versionProvider = koinInject<AppVersionProvider>()
@@ -80,7 +73,7 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     val lyricsEnabled by settingsRepository.miniPlayerLyricsEnabled.collectAsState(initial = false)
     val notificationLyricsEnabled by settingsRepository.notificationLyricsEnabled.collectAsState(initial = false)
-    val latestSummary by viewModel.latestErrorSummary.collectAsState()
+
 
     // U15：设置页共享组件（音源区块已移除，独立音源页承载）；「关于/反馈」扩展区为
     // 双端共享实现（SettingsAboutFeedbackContent），平台动作经回调注入。
@@ -92,25 +85,21 @@ fun SettingsScreen(
                 SettingsBlockTitle("播放")
                 Card(modifier = Modifier.padding(horizontal = 12.dp)) {
                     SwitchPreference(
-                        title = "播放控件显示歌词",
-                        summary = "开启后播放控件将使用当前歌词替换艺术家，长歌词会随播放自动滚动",
+                        title = "播放控件歌词",
                         checked = lyricsEnabled,
-                        startAction = { SettingsIcon(TablerIcons.MusicNote) },
                         onCheckedChange = { coroutineScope.launch { settingsRepository.setMiniPlayerLyricsEnabled(it) } },
                     )
                     SwitchPreference(
-                        title = "媒体通知显示歌词",
-                        summary = "开启后通知卡片标题显示当前歌词，下方显示歌曲标题与艺术家",
+                        title = "通知栏歌词",
                         checked = notificationLyricsEnabled,
-                        startAction = { SettingsIcon(TablerIcons.QueueMusic) },
                         onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
                     )
                     // 小米超级岛（仅 HyperOS 安卓渲染，桌面为空实现）
                     XiaomiIslandSettingRow()
                 }
 
-                // ---- AI 推荐（首页「猜你喜欢」的配置面：服务商/模型/Key） ----
-                AiRecommendSettingSection()
+                // ---- AI 推荐（一级只留总开关；地址/模型/Key 收进二级页） ----
+                AiRecommendSettingSection(onOpenAiSettings = onOpenAiSettings)
 
                 // ---- 应用更新（Windows 应用内更新卡片；安卓空实现，走共享外链检查项） ----
                 if (supportsInAppUpdate) {
@@ -127,16 +116,12 @@ fun SettingsScreen(
                         onOpenSources?.let { open ->
                             ArrowPreference(
                                 title = "音源",
-                                summary = "本地目录 / WebDAV 管理与扫描",
-                                startAction = { SettingsIcon(TablerIcons.Folder) },
                                 onClick = open,
                             )
                         }
                         onOpenScrape?.let { open ->
                             ArrowPreference(
                                 title = "刮削",
-                                summary = "封面 / 歌词 / 标签补全队列",
-                                startAction = { SettingsIcon(TablerIcons.Checklist) },
                                 onClick = open,
                             )
                         }
@@ -149,7 +134,7 @@ fun SettingsScreen(
                     onOpenUrl = actions.openUrl,
                     onCopyToClipboard = actions.copyToClipboard,
                     onCheckUpdate = { current -> checkLatestRelease(current) },
-                    errorLogSummary = latestSummary,
+
                     onDumpLogs = { viewModel.dumpLogs() },
                     showCheckUpdate = !supportsInAppUpdate,
                 )

@@ -1,32 +1,39 @@
 package com.muses.player.core.ui.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.components.MusesSnackbar
+import com.muses.player.core.ui.icons.TablerIcons
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 设置页「关于 + 反馈」扩展区块（U15 上收：原安卓装配层私有实现，桌面端接入后
  * 两端设置页扩展内容完全一致）。
  *
  * 视觉走 miuix 官方 Settings 范式：[Card]（surface 底 + 16dp 平滑圆角）内叠放
- * [ArrowPreference] / [BasicComponent]，图标经 startAction 槽注入（[SettingsIcon]）。
+ * [ArrowPreference] / [BasicComponent]，保持简洁的信息行与操作行。
  *
  * 纯 UI + 平台动作回调注入：
  * - [onCheckUpdate]：检查更新（core:common [checkLatestRelease]），返回 (tag, url) 或 null=失败；
  * - [onOpenUrl]：打开新版本链接（安卓 Intent / 桌面 Desktop.browse）；
- * - [errorLogSummary] / [onDumpLogs]：报错日志摘要与全文（双端同源 ErrorLogStore）；
+ * - [onDumpLogs]：读取报错日志全文（双端同源 ErrorLogStore）；
  * - [onCopyToClipboard]：剪贴板写入（平台动作）；
  * - 提示统一走 [MusesSnackbar]（miuix Snackbar，挂在 MusesApp 根 Scaffold 槽）。
  */
@@ -36,7 +43,6 @@ fun SettingsAboutFeedbackContent(
     onOpenUrl: (String) -> Unit,
     onCopyToClipboard: (String) -> Unit,
     onCheckUpdate: suspend (String) -> Pair<String, String>?,
-    errorLogSummary: String?,
     onDumpLogs: suspend () -> String?,
     /** 桌面 Windows 用应用内更新卡片替代此外链检查项时置 false（安卓保持 true） */
     showCheckUpdate: Boolean = true,
@@ -50,18 +56,34 @@ fun SettingsAboutFeedbackContent(
         // Muses 版本（纯展示行，无点击）
         BasicComponent(
             title = "Muses",
-            summary = "应用版本 $versionName",
-            startAction = { SettingsIcon(icon = TablerIcons.Info) },
+            endActions = {
+                Text(text = versionName.removeSuffix("-miui").substringBefore("-"))
+            },
         )
         // 检查更新（桌面应用内更新接管时隐藏，避免重复入口）
         if (showCheckUpdate) {
-            ArrowPreference(
+            BasicComponent(
                 title = "检查更新",
-                summary = if (checking) "正在检查更新…" else "对比最新版本，有更新时打开下载页",
                 enabled = !checking,
-                startAction = { SettingsIcon(icon = TablerIcons.Refresh) },
+                endActions = {
+                    Box(
+                        modifier = Modifier.size(20.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (checking) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        } else {
+                            Icon(
+                                imageVector = TablerIcons.ChevronRight,
+                                contentDescription = null,
+                                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                },
                 onClick = {
-                    if (checking) return@ArrowPreference
+                    if (checking) return@BasicComponent
                     checking = true
                     scope.launch {
                         val result = onCheckUpdate(versionName)
@@ -91,9 +113,7 @@ fun SettingsAboutFeedbackContent(
     SettingsBlockTitle(text = "反馈")
     Card(modifier = Modifier.padding(horizontal = 12.dp)) {
         ArrowPreference(
-            title = "复制报错日志",
-            summary = errorLogSummary ?: "暂无报错记录",
-            startAction = { SettingsIcon(icon = TablerIcons.BugReport) },
+            title = "报错日志",
             onClick = {
                 scope.launch {
                     val text = onDumpLogs()

@@ -39,7 +39,7 @@ class AiRecommendService(
         count: Int = DEFAULT_COUNT,
     ): AiRecommendResult {
         if (!config.isUsable) {
-            throw AiException("AI 推荐尚未配置完成：请先填写服务商、模型与 API Key")
+            throw AiException("AI 推荐尚未配置完成：请先填写服务地址、模型与 API Key")
         }
         if (profile.isEmpty) {
             return AiRecommendResult(emptyList(), suggested = 0, unmatched = emptyList())

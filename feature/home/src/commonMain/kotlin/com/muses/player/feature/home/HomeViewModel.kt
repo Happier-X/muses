@@ -46,7 +46,7 @@ data class ChartSectionState(
 data class RecommendSectionState(
     /** 设置页是否已打开 AI 推荐开关 */
     val enabled: Boolean = false,
-    /** 服务商/模型/Key 是否齐备（决定 UI 是「去配置」还是「去开启」） */
+    /** 地址/模型/Key 是否齐备（决定 UI 是「去配置」还是「去开启」） */
     val configured: Boolean = false,
     val loading: Boolean = false,
     val result: AiRecommendResult? = null,
@@ -315,14 +315,12 @@ class HomeViewModel(
 
     /** 现取现用 AI 配置：Key 从加密凭据库读，不常驻 VM 字段 */
     private suspend fun readAiConfig(): AiRecommendConfig {
-        val providerKey = runCatching { settingsRepository.aiProviderKey.first() }.getOrDefault("")
         val baseUrl = runCatching { settingsRepository.aiBaseUrl.first() }.getOrDefault("")
         val model = runCatching { settingsRepository.aiModel.first() }.getOrDefault("")
         val apiKey = runCatching { credentialsRepository.getPassword(AI_API_KEY_SOURCE_ID) }
             .getOrNull()
             .orEmpty()
         return AiRecommendConfig(
-            providerKey = providerKey,
             baseUrl = baseUrl,
             model = model,
             apiKey = apiKey,

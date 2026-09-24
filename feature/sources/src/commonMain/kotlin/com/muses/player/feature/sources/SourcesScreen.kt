@@ -59,14 +59,14 @@ import com.muses.player.core.model.SourceType
 @Composable
 fun SourcesScreen(
     modifier: Modifier = Modifier,
+    /** 从设置页进入时返回上级；顶层入口不传时仅显示标题 */
+    onBack: (() -> Unit)? = null,
     /** 跳转 WebDAV 添加表单页（P5：对照 Web 层 /tabs/sources/webdav） */
     onOpenWebdavAdd: () -> Unit = {},
     /** 跳转 WebDAV 编辑表单页（对照 /tabs/sources/webdav/:id） */
     onOpenWebdavEdit: (sourceId: String) -> Unit = {},
     /** 跳转在线音源脚本管理页（洛雪自定义源） */
     onOpenLxScripts: () -> Unit = {},
-    /** 跳转在线搜索页（各平台官方接口） */
-    onOpenOnlineSearch: () -> Unit = {},
     viewModel: SourcesViewModel = koinViewModel(),
 ) {
     val scheme = MiuixTheme.colorScheme
@@ -80,6 +80,7 @@ fun SourcesScreen(
         topBar = {
             MusesTopBar(
                 title = "音源",
+                onBack = onBack,
                 actions = {
                     MusesIconButton(
                         onClick = { viewModel.openAddActionSheet() },
@@ -119,8 +120,6 @@ fun SourcesScreen(
                     } else {
                         SourceCardList(
                             sources = sources,
-                            onOpenLxScripts = onOpenLxScripts,
-                            onOpenOnlineSearch = onOpenOnlineSearch,
                             modifier = Modifier
                                 .fillMaxSize(),
                 onEdit = { source ->
@@ -162,6 +161,10 @@ fun SourcesScreen(
                 MusesActionItem(label = "添加 WebDAV 文件夹", onClick = {
                     viewModel.closeAddActionSheet()
                     onOpenWebdavAdd()
+                }),
+                MusesActionItem(label = "添加 LX 音源", onClick = {
+                    viewModel.closeAddActionSheet()
+                    onOpenLxScripts()
                 }),
             ),
         )
@@ -321,10 +324,6 @@ private fun SourceCardList(
     onDelete: (Source) -> Unit,
     /** 扫描入口（对照 Web .sources-page__scan-btn） */
     onScan: (Source) -> Unit,
-    /** 在线音源脚本管理入口（洛雪自定义源） */
-    onOpenLxScripts: () -> Unit = {},
-    /** 在线搜索入口 */
-    onOpenOnlineSearch: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier,
@@ -337,73 +336,12 @@ private fun SourceCardList(
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // 在线音源入口：置顶（搜索 + 脚本管理），与本地/WebDAV 音源并列
-        item(key = "__online_search_entry__") {
-            SourcesEntryCard(
-                title = "在线搜索",
-                description = "从酷我/QQ/网易云/酷狗/咪咕搜索并播放在线歌曲",
-                icon = TablerIcons.Search,
-                onClick = onOpenOnlineSearch,
-            )
-        }
-        item(key = "__lx_scripts_entry__") {
-            SourcesEntryCard(
-                title = "在线音源脚本",
-                description = "导入洛雪自定义源脚本，用于解析在线歌曲播放地址",
-                icon = TablerIcons.File,
-                onClick = onOpenLxScripts,
-            )
-        }
         items(sources, key = { it.id }) { source ->
             SourceListItem(
                 item = source.toSharedSourceItem(),
                 onEdit = { onEdit(source) },
                 onDelete = { onDelete(source) },
                 onScan = { onScan(source) },
-            )
-        }
-    }
-}
-
-/** 音源页功能入口卡（在线搜索 / 在线音源脚本） */
-@Composable
-private fun SourcesEntryCard(
-    title: String,
-    description: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = MiuixTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = description,
-                    fontSize = 12.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-            }
-            Icon(
-                imageVector = TablerIcons.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
         }
     }

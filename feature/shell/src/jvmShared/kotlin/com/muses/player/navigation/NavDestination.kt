@@ -33,7 +33,6 @@ enum class NavDestination(
 
     // ---- 次菜单（工具）：secondaryNavItems = navItems.slice(4) ----
     Scrape(MusesRoute.Scrape, "刮削", TablerIcons.Checklist),          // listCheck
-    Sources(MusesRoute.Sources, "音源", TablerIcons.Folder),           // broadcast (Web 层映射 Folder)
     Settings(MusesRoute.Settings, "设置", TablerIcons.Settings),       // settings
     ;
 
@@ -44,10 +43,10 @@ enum class NavDestination(
         Albums -> key == MusesRoute.Albums || key is MusesRoute.AlbumDetail
         Artists -> key == MusesRoute.Artists || key is MusesRoute.ArtistDetail
         Scrape -> key == MusesRoute.Scrape || key is MusesRoute.ScrapeReview
-        Sources -> key == MusesRoute.Sources || key is MusesRoute.WebDavAdd ||
+        Settings -> key == MusesRoute.Settings || key is MusesRoute.AiSettings ||
+            key == MusesRoute.Sources || key is MusesRoute.WebDavAdd ||
             key is MusesRoute.WebDavEdit || key is MusesRoute.WebDavBrowse ||
-            key is MusesRoute.LxScripts || key is MusesRoute.OnlineSearch
-        Settings -> key == MusesRoute.Settings
+            key is MusesRoute.LxScripts || key == MusesRoute.Scrape
     }
 
     companion object {
@@ -55,6 +54,6 @@ enum class NavDestination(
         val Primary: List<NavDestination> = listOf(Home, Songs, Albums, Artists)
 
         /** 侧边栏辅助导航组（工具），顺序对照 secondaryNavItems */
-        val Secondary: List<NavDestination> = listOf(Scrape, Sources, Settings)
+        val Secondary: List<NavDestination> = listOf(Scrape, Settings)
     }
 }

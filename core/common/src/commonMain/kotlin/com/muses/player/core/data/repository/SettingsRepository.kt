@@ -53,18 +53,18 @@ interface SettingsRepository {
     /** AI 推荐开关：关（默认）时首页不展示「猜你喜欢」区块 */
     val aiRecommendEnabled: Flow<Boolean>
 
-    /** AI 服务商 key（见 :core:ai 的 `AiProviderPreset`；`custom` = 自填地址） */
-    val aiProviderKey: Flow<String>
+    /** AI 服务名称（用户自填，仅展示用，如 DeepSeek） */
+    val aiServiceName: Flow<String>
 
-    /** AI 服务地址（OpenAI 兼容 baseUrl）；空 = 用所选服务商的预设地址 */
+    /** AI 服务地址（OpenAI 兼容 baseUrl，含版本段，如 https://host/v1） */
     val aiBaseUrl: Flow<String>
 
-    /** AI 模型名；空 = 用所选服务商的默认模型 */
+    /** AI 模型名 */
     val aiModel: Flow<String>
 
     suspend fun setAiRecommendEnabled(enabled: Boolean)
 
-    suspend fun setAiProviderKey(providerKey: String)
+    suspend fun setAiServiceName(name: String)
 
     suspend fun setAiBaseUrl(baseUrl: String)
 
@@ -120,8 +120,8 @@ class DataStoreSettingsRepository constructor(
     override val aiRecommendEnabled: Flow<Boolean>
         get() = dataStore.data.map { prefs -> prefs[AI_RECOMMEND_ENABLED] == true }
 
-    override val aiProviderKey: Flow<String>
-        get() = dataStore.data.map { prefs -> prefs[AI_PROVIDER_KEY] ?: DEFAULT_AI_PROVIDER }
+    override val aiServiceName: Flow<String>
+        get() = dataStore.data.map { prefs -> prefs[AI_SERVICE_NAME].orEmpty() }
 
     override val aiBaseUrl: Flow<String>
         get() = dataStore.data.map { prefs -> prefs[AI_BASE_URL].orEmpty() }
@@ -133,8 +133,8 @@ class DataStoreSettingsRepository constructor(
         dataStore.edit { prefs -> prefs[AI_RECOMMEND_ENABLED] = enabled }
     }
 
-    override suspend fun setAiProviderKey(providerKey: String) {
-        dataStore.edit { prefs -> prefs[AI_PROVIDER_KEY] = providerKey }
+    override suspend fun setAiServiceName(name: String) {
+        dataStore.edit { prefs -> prefs[AI_SERVICE_NAME] = name }
     }
 
     override suspend fun setAiBaseUrl(baseUrl: String) {
@@ -153,14 +153,11 @@ class DataStoreSettingsRepository constructor(
         val XIAOMI_ISLAND_ENABLED = booleanPreferencesKey("xiaomi_island_enabled")
         val ONLINE_PREFERRED_QUALITY = stringPreferencesKey("online_preferred_quality")
         val AI_RECOMMEND_ENABLED = booleanPreferencesKey("ai_recommend_enabled")
-        val AI_PROVIDER_KEY = stringPreferencesKey("ai_provider_key")
+        val AI_SERVICE_NAME = stringPreferencesKey("ai_service_name")
         val AI_BASE_URL = stringPreferencesKey("ai_base_url")
         val AI_MODEL = stringPreferencesKey("ai_model")
 
         /** 默认 320k：全平台可用、体积与兼容性最稳（高音质档由用户显式选择） */
         const val DEFAULT_ONLINE_QUALITY = "320k"
-
-        /** 默认服务商（深寻）：国内可用、OpenAI 兼容、价格低，适合作为开箱默认 */
-        const val DEFAULT_AI_PROVIDER = "deepseek"
     }
 }

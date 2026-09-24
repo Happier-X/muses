@@ -95,32 +95,26 @@ class AiRecommendParsingTest {
     }
 
     @Test
-    fun 配置解析预设默认值与可用性() {
-        // 留空 → 用预设默认
-        val presetOnly = AiRecommendConfig(providerKey = "deepseek", apiKey = "sk-test")
-        assertEquals("https://api.deepseek.com/v1", presetOnly.resolvedBaseUrl)
-        assertEquals("deepseek-chat", presetOnly.resolvedModel)
-        assertTrue(presetOnly.isUsable)
-
-        // 自定义覆盖预设（含尾斜杠要去掉，避免拼出 //chat/completions）
-        val overridden = AiRecommendConfig(
-            providerKey = "deepseek",
+    fun 配置解析去尾斜杠与可用性() {
+        // 完整自填 → 可用
+        val full = AiRecommendConfig(
             baseUrl = "https://my-relay.example.com/v1/",
             model = "my-model",
             apiKey = "sk-test",
         )
-        assertEquals("https://my-relay.example.com/v1", overridden.resolvedBaseUrl)
-        assertEquals("my-model", overridden.resolvedModel)
+        // 尾斜杠要去掉，避免拼出 //chat/completions
+        assertEquals("https://my-relay.example.com/v1", full.resolvedBaseUrl)
+        assertEquals("my-model", full.resolvedModel)
+        assertTrue(full.isUsable)
 
-        // 自定义服务商但没填地址 → 不可用
-        val customEmpty = AiRecommendConfig(providerKey = "custom", apiKey = "sk-test")
-        assertFalse(customEmpty.isUsable)
+        // 缺地址 → 不可用
+        assertFalse(AiRecommendConfig(model = "m", apiKey = "sk-test").isUsable)
+
+        // 缺模型 → 不可用
+        assertFalse(AiRecommendConfig(baseUrl = "https://host/v1", apiKey = "sk-test").isUsable)
 
         // 缺 Key → 不可用
-        assertFalse(AiRecommendConfig(providerKey = "deepseek").isUsable)
-
-        // 未知服务商回落默认预设（不至于因配置串损坏而崩）
-        assertEquals(AiProviderPreset.DEEPSEEK, AiProviderPreset.fromKey("not-exist"))
+        assertFalse(AiRecommendConfig(baseUrl = "https://host/v1", model = "m").isUsable)
     }
 
     @Test

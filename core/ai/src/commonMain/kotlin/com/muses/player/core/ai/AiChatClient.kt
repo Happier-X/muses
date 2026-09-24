@@ -3,6 +3,7 @@ package com.muses.player.core.ai
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -100,6 +101,42 @@ class AiChatClient(
             throw AiException(err?.let { "AI 服务报错：$it" } ?: "AI 响应缺少 content：${text.take(200)}")
         }
         return content
+    }
+
+    /**
+     * 拉取模型列表（OpenAI 兼容 `GET {baseUrl}/models`）。
+     *
+     * 返回模型 id 列表（去重保序）；失败时抛 [AiException]（调用方转状态文案）。
+     */
+    suspend fun listModels(baseUrl: String, apiKey: String): List<String> {
+        val url = "${baseUrl.trim().trimEnd('/')}/models"
+        val response = try {
+            client.get(url) {
+                header(HttpHeaders.Authorization, "Bearer $apiKey")
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw AiException("获取模型列表失败：${e.message}", e)
+        }
+        val text = try {
+            response.bodyAsText()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw AiException("模型列表读取失败：${e.message}", e)
+        }
+        if (!response.status.isSuccess()) {
+            throw AiException("模型列表返回 ${response.status.value}：${text.take(200)}")
+        }
+        val root = runCatching { AiJson.parseToJsonElement(text) as? JsonObject }.getOrNull()
+            ?: throw AiException("模型列表不是合法 JSON：${text.take(200)}")
+        val data = root["data"] as? JsonArray ?: throw AiException("模型列表缺少 data：${text.take(200)}")
+        return data.mapNotNull { item ->
+            (item as? JsonObject)?.get("id")
+                ?.let { it as? JsonPrimitive }
+                ?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+        }.distinct()
     }
 
     companion object {

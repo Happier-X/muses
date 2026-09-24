@@ -113,6 +113,7 @@ import com.muses.player.feature.sources.OnlineSearchScreen
 import com.muses.player.feature.sources.SourcesScreen
 import com.muses.player.feature.sources.WebDavBrowseScreen
 import com.muses.player.feature.sources.WebDavFormScreen
+import com.muses.player.settings.AiSettingsScreen
 import com.muses.player.settings.SettingsScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -979,6 +980,7 @@ private fun AppNavHost(
         entry<MusesRoute.Scrape> {
             com.muses.player.feature.scrape.ScrapeScreen(
                 viewModel = scrapeVm,
+                onBack = { backStack.pop() },
                 onOpenReview = { songId ->
                     backStack.pushUnique(MusesRoute.ScrapeReview(songId))
                 },
@@ -1018,13 +1020,12 @@ private fun AppNavHost(
         }
         entry<MusesRoute.Sources> {
             SourcesScreen(
+                onBack = { backStack.pop() },
                 onOpenWebdavAdd = { backStack.pushUnique(MusesRoute.WebDavAdd) },
                 onOpenWebdavEdit = { sourceId ->
                     backStack.pushUnique(MusesRoute.WebDavEdit(sourceId))
                 },
                 onOpenLxScripts = { backStack.pushUnique(MusesRoute.LxScripts) },
-                // 音源页进入搜索页不带关键词（旧无参语义）
-                onOpenOnlineSearch = { backStack.pushUnique(MusesRoute.OnlineSearch()) },
             )
         }
         entry<MusesRoute.LxScripts>(swipeDismiss = NavSwipeDirection.LeftToRight) {
@@ -1036,8 +1037,9 @@ private fun AppNavHost(
                 onOpenOnlineSearch = { keyword ->
                     backStack.pushUnique(MusesRoute.OnlineSearch(keyword))
                 },
-                // AI 推荐配置入口：设置页「AI 推荐」分组
+                // AI 推荐配置入口：「去开启」落设置页总开关，「去配置」直达 AI 服务二级页
                 onOpenAiSettings = { backStack.pushUnique(MusesRoute.Settings) },
+                onOpenAiConfig = { backStack.pushUnique(MusesRoute.AiSettings) },
             )
         }
         entry<MusesRoute.OnlineSearch>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
@@ -1086,9 +1088,13 @@ private fun AppNavHost(
         entry<MusesRoute.Settings> {
             SettingsScreen(
                 // 窄屏底栏 5 项未含刮削/音源，经设置页「工具」区块进入；宽屏传 null 隐藏（Rail 自带）。
-                onOpenSources = { backStack.pushUnique(NavDestination.Sources.routeKey) },
-                onOpenScrape = { backStack.pushUnique(NavDestination.Scrape.routeKey) },
+                onOpenSources = { backStack.pushUnique(MusesRoute.Sources) },
+                onOpenScrape = { backStack.pushUnique(MusesRoute.Scrape) },
+                onOpenAiSettings = { backStack.pushUnique(MusesRoute.AiSettings) },
             )
+        }
+        entry<MusesRoute.AiSettings>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+            AiSettingsScreen(onBack = { backStack.pop() })
         }
     }
 }

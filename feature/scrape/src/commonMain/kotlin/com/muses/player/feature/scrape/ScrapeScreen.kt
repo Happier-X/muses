@@ -56,6 +56,7 @@ import top.yukonga.miuix.kmp.squircle.squircleBackground
 fun ScrapeScreen(
     modifier: Modifier = Modifier,
     viewModel: ScrapeViewModel = koinViewModel(),
+    onBack: (() -> Unit)? = null,
     /** S2：打开审核页（单曲改词重搜；由 app 宿主接导航到 ScrapeReview 路由） */
     onOpenReview: (String) -> Unit = {},
     /**
@@ -69,11 +70,11 @@ fun ScrapeScreen(
     val queueSongIds by viewModel.queueSongIds.collectAsState()
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().background(scheme.surface),
         containerColor = scheme.surface,
         topBar = {
             // 大标题静态：状态机多列表，折叠联动改造成本高，暂不接 scrollBehavior
-            MusesTopBar(title = "刮削")
+            MusesTopBar(title = "刮削", onBack = onBack)
         },
     ) { padding ->
         Column(

@@ -67,8 +67,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun HomeScreen(
     /** 携带关键词跳到在线搜索页（空串 = 只进页面不搜） */
     onOpenOnlineSearch: (String) -> Unit,
-    /** 跳设置页（AI 推荐配置入口） */
+    /** 跳设置页（AI 推荐总开关入口） */
     onOpenAiSettings: () -> Unit,
+    /** 跳 AI 服务二级页（地址/模型/Key 配置入口） */
+    onOpenAiConfig: () -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -207,10 +209,10 @@ fun HomeScreen(
                 !recommend.configured -> item(key = "rec-unconfigured") {
                     AiHintCard(
                         title = "还差一步：配置 AI 服务",
-                        description = "选择服务商（DeepSeek / Kimi / 智谱 / 通义 / 自定义）并填入 API Key，" +
+                        description = "填写服务地址、模型并填入 API Key，" +
                             "Key 会加密保存在本机。",
                         actionLabel = "去配置",
-                        onAction = onOpenAiSettings,
+                        onAction = onOpenAiConfig,
                     )
                 }
                 recommend.loading -> item(key = "rec-loading") {

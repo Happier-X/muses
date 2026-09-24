@@ -11,6 +11,10 @@ import com.composables.icons.tabler.outline.*
  * 该库扩展属性保留 tabler 原始 kebab 命名，如 Arrows_shuffle / Menu_2）
  */
 object TablerIcons {
+    // 密码可见性切换（小眼睛）
+    val Eye: ImageVector = Tabler.Outline.Eye
+    val EyeOff: ImageVector = Tabler.Outline.EyeOff
+
     // 首页
     val Home: ImageVector = Tabler.Outline.Home
 

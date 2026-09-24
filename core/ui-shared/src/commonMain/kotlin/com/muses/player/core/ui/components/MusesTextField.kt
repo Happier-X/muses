@@ -31,6 +31,8 @@ fun MusesTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    /** miuix TextField 官方尾部图标槽；密码框的眼睛按钮应通过这里传入 */
+    trailingIcon: (@Composable () -> Unit)? = null,
 ) {
     TextField(
         value = value,
@@ -46,5 +48,6 @@ fun MusesTextField(
         visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
+        trailingIcon = trailingIcon,
     )
 }
