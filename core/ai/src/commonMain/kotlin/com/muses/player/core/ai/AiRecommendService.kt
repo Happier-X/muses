@@ -45,16 +45,43 @@ class AiRecommendService(
             return AiRecommendResult(emptyList(), suggested = 0, unmatched = emptyList())
         }
 
-        val content = chat.complete(
-            config = config,
-            systemPrompt = SYSTEM_PROMPT,
-            userPrompt = buildUserPrompt(profile, count),
-        )
-        val suggestions = parseSuggestions(content).deduplicate().take(count)
-        if (suggestions.isEmpty()) {
-            throw AiException("AI 未返回可用的歌曲建议（返回内容无法解析为歌曲列表）")
+        val tracks = mutableListOf<AiRecommendedTrack>()
+        val unmatched = mutableListOf<AiSongSuggestion>()
+        val attempted = mutableSetOf<String>()
+        val attemptedNames = mutableListOf<String>()
+        var suggested = 0
+        repeat(5) {
+            if (tracks.size >= count) return AiRecommendResult(tracks.take(count), suggested, unmatched)
+            val content = try {
+                chat.complete(config, SYSTEM_PROMPT, buildUserPrompt(profile, count) +
+                    if (attemptedNames.isEmpty()) "" else "\n本次已尝试的歌曲不要重复：${attemptedNames.takeLast(60).joinToString("；")}。")
+            } catch (error: Exception) {
+                if (tracks.isNotEmpty()) return AiRecommendResult(tracks, suggested, unmatched)
+                throw error
+            }
+            val suggestions = parseSuggestions(content).deduplicate()
+                .filter { suggestion ->
+                    val key = "${suggestion.name.normalizeForMatch()}|${suggestion.artist.normalizeForMatch()}"
+                    if (key.substringBefore('|').isEmpty() || !attempted.add(key)) return@filter false
+                    attemptedNames += "${suggestion.name} - ${suggestion.artist.orEmpty()}"
+                    !profile.containsSong(suggestion.name, suggestion.artist)
+                }
+                .take(count)
+            if (suggestions.isEmpty()) {
+                if (tracks.isEmpty()) throw AiException("AI 未返回曲库之外的可用歌曲建议")
+                return AiRecommendResult(tracks, suggested, unmatched)
+            }
+            val batch = matcher.match(suggestions)
+            suggested += batch.suggested
+            unmatched += batch.unmatched
+            batch.tracks.forEach { track ->
+                if (!profile.containsSong(track.result.name, track.result.artist) &&
+                    tracks.none { existing -> existing.result.name.normalizeForMatch() == track.result.name.normalizeForMatch() &&
+                        existing.result.artist.normalizeForMatch() == track.result.artist.normalizeForMatch() }
+                ) tracks += track
+            }
         }
-        return matcher.match(suggestions)
+        return AiRecommendResult(tracks.take(count), suggested, unmatched)
     }
 
     companion object {
@@ -80,6 +107,13 @@ class AiRecommendService(
             appendLine("【任务】请推荐 $count 首歌曲，严格按上述 JSON 数组格式输出（只输出数组本身）。")
         }.trimEnd()
     }
+}
+
+/** 无歌手标签按歌名保守排除；有歌手时兼容合唱、分隔符等平台写法。 */
+fun LibraryProfile.containsSong(name: String, artist: String?): Boolean {
+    val artists = ownedSongs[name.normalizeForMatch()] ?: return false
+    val target = artist.normalizeForMatch()
+    return target.isEmpty() || artists.any { it.isEmpty() || it.contains(target) || target.contains(it) }
 }
 
 /**

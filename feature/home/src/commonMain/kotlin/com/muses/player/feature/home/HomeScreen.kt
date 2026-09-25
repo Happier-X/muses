@@ -40,7 +40,6 @@ import com.muses.player.core.ui.components.MusesButton
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesEmpty
-import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesTextField
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.SongItem
@@ -186,14 +185,7 @@ fun HomeScreen(
                 ) {
                     Box(Modifier.weight(1f)) { SmallTitle(text = "猜你喜欢") }
                     if (recommend.enabled && recommend.configured) {
-                        MusesIconButton(onClick = { viewModel.refreshRecommend() }) {
-                            Icon(
-                                imageVector = TablerIcons.Refresh,
-                                contentDescription = "换一批推荐",
-                                tint = scheme.primary,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
+                        Text("每日更新", fontSize = 11.sp, color = scheme.onSurfaceVariantSummary)
                     }
                 }
             }
@@ -232,7 +224,7 @@ fun HomeScreen(
                     item(key = "rec-summary") {
                         Text(
                             text = buildString {
-                                append("AI 推荐 ${result.suggested} 首，匹配到 ${result.matched} 首")
+                                append("今日推荐 ${result.matched}/20 首")
                                 if (result.unmatched.isNotEmpty()) {
                                     append("（${result.unmatched.size} 首在各平台未找到，已丢弃）")
                                 }
@@ -243,11 +235,14 @@ fun HomeScreen(
                     }
                     if (result.tracks.isEmpty()) {
                         item(key = "rec-empty") {
-                            MusesEmpty(
-                                title = "这次没匹配到可播放的推荐",
-                                description = "AI 有时会给出平台搜不到的曲目；点右上角刷新换一批。",
-                                icon = TablerIcons.Refresh,
-                            )
+                            Column {
+                                MusesEmpty(
+                                    title = "这次没匹配到可播放的推荐",
+                                    description = "AI 有时会给出平台搜不到的曲目，可重试。",
+                                    icon = TablerIcons.Refresh,
+                                )
+                                MusesButton(onClick = { viewModel.refreshRecommend() }) { Text("重试") }
+                            }
                         }
                     } else {
                         itemsIndexed(

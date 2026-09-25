@@ -21,6 +21,8 @@ data class LibraryProfile(
     val topAlbums: List<Pair<String, Int>>,
     /** 抽样曲目（`歌名 - 歌手`），供 AI 感知具体口味 */
     val sampleTracks: List<String>,
+    /** 本地与 WebDAV 全量歌曲，仅供本地过滤，不进入提示词。 */
+    val ownedSongs: Map<String, Set<String>> = emptyMap(),
 ) {
     val isEmpty: Boolean get() = totalSongs == 0
 
@@ -113,6 +115,11 @@ class LibraryProfileBuilder(
             topArtists = artists,
             topAlbums = albums,
             sampleTracks = sampleTracks,
+            ownedSongs = songs.asSequence()
+                .filter { it.sourceType == "LOCAL" || it.sourceType == "WEBDAV" }
+                .groupBy { it.title.normalizeForMatch() }
+                .filterKeys { it.isNotEmpty() }
+                .mapValues { (_, entries) -> entries.map { it.artist.normalizeForMatch() }.toSet() },
         )
     }
 }

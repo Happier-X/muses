@@ -7,7 +7,9 @@ import com.muses.player.core.ai.AiException
 import com.muses.player.core.ai.AiRecommendConfig
 import com.muses.player.core.ai.AiRecommendResult
 import com.muses.player.core.ai.AiRecommendService
+import com.muses.player.core.ai.DailyRecommendSnapshot
 import com.muses.player.core.ai.LibraryProfileBuilder
+import com.muses.player.core.ai.localRecommendDay
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.lxsdk.LxQuality
@@ -20,6 +22,7 @@ import com.muses.player.core.search.OnlineChartService
 import com.muses.player.core.search.OnlineSearchResult
 import com.muses.player.core.search.PlatformChartsOutcome
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +53,7 @@ data class RecommendSectionState(
     val configured: Boolean = false,
     val loading: Boolean = false,
     val result: AiRecommendResult? = null,
+    val day: String? = null,
     val error: String? = null,
 ) {
     /** 首次进入且尚未取过结果 */
@@ -101,6 +105,14 @@ class HomeViewModel(
     init {
         loadCharts()
         refreshRecommend()
+        viewModelScope.launch {
+            while (true) {
+                delay(60_000)
+                if (_state.value.recommend.day != null && _state.value.recommend.day != localRecommendDay()) {
+                    refreshRecommend()
+                }
+            }
+        }
     }
 
     fun updateKeyword(value: String) {
@@ -205,7 +217,7 @@ class HomeViewModel(
 
     // ── 猜你喜欢 ──
 
-    /** 刷新 AI 推荐（画像抽样随机，故每次结果有变化） */
+    /** 每日只生成一次；失败可重试，切换日期后自动重新生成。 */
     fun refreshRecommend() {
         if (_state.value.recommend.loading) return
         recommendJob?.cancel()
@@ -222,6 +234,8 @@ class HomeViewModel(
                         enabled = false,
                         configured = config.isUsable,
                         loading = false,
+                        result = null,
+                        day = null,
                         error = null,
                     ),
                 )
@@ -229,7 +243,7 @@ class HomeViewModel(
             }
             if (!config.isUsable) {
                 _state.value = _state.value.copy(
-                    recommend = _state.value.recommend.copy(enabled = true, configured = false, loading = false, error = null),
+                    recommend = _state.value.recommend.copy(enabled = true, configured = false, loading = false, result = null, day = null, error = null),
                 )
                 return@launch
             }
@@ -249,14 +263,31 @@ class HomeViewModel(
                 return@launch
             }
 
+            val today = localRecommendDay()
+            val cached = DailyRecommendSnapshot.decode(
+                runCatching { settingsRepository.aiDailyRecommend.first() }.getOrDefault(""), today, profile,
+            )
+            if (cached != null) {
+                _state.value = _state.value.copy(
+                    recommend = _state.value.recommend.copy(loading = false, result = cached, day = today, error = null),
+                )
+                return@launch
+            }
+
             runCatching { recommendService.recommend(profile, config) }.fold(
                 onSuccess = { result ->
+                    if (result.tracks.isNotEmpty() && localRecommendDay() == today) {
+                        runCatching {
+                            settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(today, result))
+                        }
+                    }
                     _state.value = _state.value.copy(
                         recommend = _state.value.recommend.copy(
                             loading = false,
                             result = result,
+                            day = today,
                             error = if (result.allUnmatched) {
-                                "AI 推荐的歌都没能在平台上匹配到，可点刷新重试"
+                                "AI 推荐的歌都没能在平台上匹配到，可点重试"
                             } else {
                                 null
                             },

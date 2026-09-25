@@ -52,6 +52,7 @@ interface SettingsRepository {
 
     /** AI 模型名 */
     val aiModel: Flow<String>
+    val aiDailyRecommend: Flow<String>
 
     suspend fun setAiRecommendEnabled(enabled: Boolean)
 
@@ -60,6 +61,8 @@ interface SettingsRepository {
     suspend fun setAiBaseUrl(baseUrl: String)
 
     suspend fun setAiModel(model: String)
+
+    suspend fun setAiDailyRecommend(snapshot: String)
 }
 
 class DataStoreSettingsRepository constructor(
@@ -113,6 +116,9 @@ class DataStoreSettingsRepository constructor(
     override val aiModel: Flow<String>
         get() = dataStore.data.map { prefs -> prefs[AI_MODEL].orEmpty() }
 
+    override val aiDailyRecommend: Flow<String>
+        get() = dataStore.data.map { prefs -> prefs[AI_DAILY_RECOMMEND].orEmpty() }
+
     override suspend fun setAiRecommendEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[AI_RECOMMEND_ENABLED] = enabled }
     }
@@ -129,6 +135,10 @@ class DataStoreSettingsRepository constructor(
         dataStore.edit { prefs -> prefs[AI_MODEL] = model }
     }
 
+    override suspend fun setAiDailyRecommend(snapshot: String) {
+        dataStore.edit { prefs -> prefs[AI_DAILY_RECOMMEND] = snapshot }
+    }
+
     private companion object {
         val LAST_SCAN_TIMESTAMP = longPreferencesKey("last_scan_timestamp")
         val AUTO_SCRAPE_ENABLED = booleanPreferencesKey("auto_scrape_enabled")
@@ -139,6 +149,7 @@ class DataStoreSettingsRepository constructor(
         val AI_SERVICE_NAME = stringPreferencesKey("ai_service_name")
         val AI_BASE_URL = stringPreferencesKey("ai_base_url")
         val AI_MODEL = stringPreferencesKey("ai_model")
+        val AI_DAILY_RECOMMEND = stringPreferencesKey("ai_daily_recommend")
 
         /** 默认 320k：全平台可用、体积与兼容性最稳（高音质档由用户显式选择） */
         const val DEFAULT_ONLINE_QUALITY = "320k"
