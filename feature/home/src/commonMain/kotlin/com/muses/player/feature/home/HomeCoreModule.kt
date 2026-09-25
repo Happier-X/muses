@@ -21,6 +21,7 @@ val homeCoreModule = module {
             credentialsRepository = get(),
             scriptRepository = get(),
             playback = port,
+            songRepository = get(),
         )
     }
 }

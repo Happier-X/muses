@@ -38,6 +38,22 @@ class DailyRecommendSnapshotTest {
         assertNull(DailyRecommendSnapshot.decode("已损坏", "2026-09-25", profile))
     }
 
+    @Test
+    fun 已显示推荐在歌曲进入曲库后会被剔除() {
+        val result = AiRecommendResult(
+            listOf(track("光年之外", "邓紫棋"), track("海阔天空", "Beyond")),
+            2, emptyList(),
+        )
+        val webDavProfile = LibraryProfile(
+            1, emptyList(), emptyList(), emptyList(), emptyList(),
+            mapOf("光年之外".normalizeForMatch() to setOf("邓紫棋".normalizeForMatch())),
+        )
+
+        val filtered = result.excludingOwnedSongs(webDavProfile)
+
+        assertEquals(listOf("海阔天空"), filtered.tracks.map { it.result.name })
+    }
+
     private fun track(name: String, artist: String): AiRecommendedTrack = AiRecommendedTrack(
         AiSongSuggestion(name, artist, "推荐理由"),
         OnlineSearchResult("wy", name, name, artist, null, null, null, "{}"),

@@ -9,8 +9,10 @@ import com.muses.player.core.ai.AiRecommendResult
 import com.muses.player.core.ai.AiRecommendService
 import com.muses.player.core.ai.DailyRecommendSnapshot
 import com.muses.player.core.ai.LibraryProfileBuilder
+import com.muses.player.core.ai.excludingOwnedSongs
 import com.muses.player.core.ai.localRecommendDay
 import com.muses.player.core.data.repository.CredentialsRepository
+import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.lxsdk.LxQuality
 import com.muses.player.core.lxsdk.LxScriptRepository
@@ -27,6 +29,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -84,6 +88,7 @@ class HomeViewModel(
     private val credentialsRepository: CredentialsRepository,
     private val scriptRepository: LxScriptRepository,
     private val playback: PlaybackPort,
+    private val songRepository: SongRepository,
     /** 在线曲目归属的音源标识（与在线搜索页同值，仅作标识） */
     private val onlineSourceId: String = "online",
 ) : ViewModel() {
@@ -103,6 +108,26 @@ class HomeViewModel(
     init {
         loadCharts()
         refreshRecommend()
+        viewModelScope.launch {
+            songRepository.observeSongs().drop(1).collect {
+                val current = _state.value.recommend
+                val result = current.result ?: return@collect
+                val profile = runCatching { profileBuilder.build() }.getOrNull() ?: return@collect
+                val filtered = result.excludingOwnedSongs(profile)
+                if (filtered.tracks.size == result.tracks.size) return@collect
+                _state.value = _state.value.copy(
+                    recommend = current.copy(
+                        result = filtered,
+                        error = if (filtered.tracks.isEmpty()) "今日推荐歌曲已全部存在于曲库中" else current.error,
+                    ),
+                )
+                if (filtered.tracks.isNotEmpty() && current.day == localRecommendDay()) {
+                    runCatching {
+                        settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(current.day, filtered))
+                    }
+                }
+            }
+        }
         viewModelScope.launch {
             while (true) {
                 delay(60_000)
@@ -270,17 +295,21 @@ class HomeViewModel(
 
             runCatching { recommendService.recommend(profile, config) }.fold(
                 onSuccess = { result ->
-                    if (result.tracks.isNotEmpty() && localRecommendDay() == today) {
+                    val latestProfile = runCatching { profileBuilder.build() }.getOrNull() ?: profile
+                    val filteredResult = result.excludingOwnedSongs(latestProfile)
+                    if (filteredResult.tracks.isNotEmpty() && localRecommendDay() == today) {
                         runCatching {
-                            settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(today, result))
+                            settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(today, filteredResult))
                         }
                     }
                     _state.value = _state.value.copy(
                         recommend = _state.value.recommend.copy(
                             loading = false,
-                            result = result,
+                            result = filteredResult,
                             day = today,
-                            error = if (result.allUnmatched) {
+                            error = if (filteredResult.tracks.isEmpty() && result.tracks.isNotEmpty()) {
+                                "今日推荐歌曲已全部存在于曲库中"
+                            } else if (filteredResult.allUnmatched) {
                                 "AI 推荐的歌都没能在平台上匹配到，可点重试"
                             } else {
                                 null

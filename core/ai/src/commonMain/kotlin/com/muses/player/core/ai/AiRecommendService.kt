@@ -116,6 +116,10 @@ fun LibraryProfile.containsSong(name: String, artist: String?): Boolean {
     return target.isEmpty() || artists.any { it.isEmpty() || it.contains(target) || target.contains(it) }
 }
 
+/** 从已生成的结果中剔除后来进入曲库的歌曲。 */
+fun AiRecommendResult.excludingOwnedSongs(profile: LibraryProfile): AiRecommendResult =
+    copy(tracks = tracks.filterNot { profile.containsSong(it.result.name, it.result.artist) })
+
 /**
  * 建议 → 平台真实曲目 的匹配器。
  *
