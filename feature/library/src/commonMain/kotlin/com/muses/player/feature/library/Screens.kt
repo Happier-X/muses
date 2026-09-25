@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -217,6 +218,7 @@ fun AlbumDetailScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MiuixTheme.colorScheme.surface,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             // MusesNavbar：左返回箭头（对照 Web LibraryDetailPage navbar）→ 原生小顶栏
             MusesTopBar(
@@ -279,6 +281,7 @@ fun ArtistDetailScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MiuixTheme.colorScheme.surface,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             MusesTopBar(
                 title = artistWithSongs?.artist?.name ?: "艺术家",

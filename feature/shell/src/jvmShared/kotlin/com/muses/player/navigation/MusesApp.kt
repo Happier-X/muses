@@ -364,9 +364,7 @@ class MainViewModel constructor(
 }
 
 /**
- * 主框架入口（U22 双端共享）—— P1 复刻版：TabsLayout 双形态导航（aside/drawer）+
- * CMP Navigation NavHost + MiniPlayer 叠加。原 M1 的 ModalNavigationDrawer/Scaffold/
- * TopAppBar 骨架已由 TabsPage.vue 对照实现整体替换。
+ * 主框架入口：手机和平板共用底部导航、迷你播放器与页面返回栈。
  */
 @Composable
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -386,8 +384,7 @@ private fun MusesAppContent() {
         // 当前栈顶（SnapshotStateList 读取即订阅，路由变化自动重组；对照原 currentBackStackEntryAsState）
         val currentKey = backStack.lastOrNull()
 
-        // 窄屏底部导航已回到「悬浮迷你条 + 官方 FloatingNavigationBar 胶囊」：
-        // 两件都是自包含组件，无需壳层共享状态（早前的推屏抽屉因需同步位移才引入 PhoneDrawerState）。
+        // 底部迷你条和导航胶囊在手机、平板上共用。
         val viewModel: MainViewModel = koinViewModel()
 
         // 连接播放服务
@@ -480,22 +477,7 @@ private fun MusesAppContent() {
         // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
         val snackbarHostState = remember { SnackbarHostState() }
 
-        // 导航项组装（宽屏侧轨与窄屏底栏共用同一份来源）。
-        // 刮削/音源收进设置页「工具」入口（胶囊图标过多会拥挤，两端同步精简）。
-        val navItems = listOf(
-            NavDestination.Home,
-            NavDestination.Songs,
-            NavDestination.Albums,
-            NavDestination.Artists,
-            NavDestination.Settings,
-        ).map { dest ->
-            dest.toNavItem(currentKey, backStack).let {
-                // 侧轨与底栏同文案：首项统一叫「曲库」
-                if (dest == NavDestination.Songs) it.copy(label = "曲库") else it
-            }
-        }
-        // 窄屏悬浮底栏项：**只保留「探索 / 曲库 / 设置」三项**（产品侧决定；
-        // 专辑/艺术家在窄屏经曲库页内部 Tab 进入）。
+        // 手机和平板共用「探索 / 曲库 / 设置」三个底部入口。
         val bottomItems = listOf(
             NavDestination.Home.toNavItem(currentKey, backStack),
             NavDestination.Songs.toNavItem(currentKey, backStack).copy(label = "曲库"),
@@ -538,11 +520,9 @@ private fun MusesAppContent() {
             label = "bottom-dock-compact",
         )
 
-        // 底部导航槽位化：根 Scaffold bottomBar = 迷你条（上）+ 窄屏悬浮导航栏（下）。
-        // 导航（aside/底栏）与内容叠层顺序由 Scaffold 统一保证，导航栏不再进 body，避免被 dock 盖住。
-        // 断点与 TabsLayout 同口径（BoxWithConstraints 视口宽 ≥768dp 即平板）。
+        // 根 Scaffold bottomBar 同时承载手机和平板的迷你条与悬浮导航。
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val isTabletBar = maxWidth >= TabletBreakpoint
+            val isWideSubtitle = maxWidth >= TabletBreakpoint
             // 内容区保持**全屏**（不挤压）：内容可以一直滚到屏幕底、从悬浮 chrome 背后穿过，
             // 这是悬浮 Dock 该有的观感。避免遮挡靠各页面统一的 contentPadding 避让（见 TabsLayout），
             // 关键是避让值**恒定**——一旦随滚动融合变化，就会出现「避让变小后列表位置不跟着变 →
@@ -607,16 +587,15 @@ private fun MusesAppContent() {
                             onPlayerBounds = { miniBarBounds = it },
                         )
                     } else {
-                    // 底部槽位 = 迷你条（上）+ 窄屏悬浮导航栏（下），导航（aside/底栏）与内容叠层顺序
-                    // 由 Scaffold 统一保证，导航栏不再进 body（避免被 dock 盖住）。
+                    // 底部槽位 = 迷你条（上）+ 悬浮导航栏（下）。
                     // 迷你条与底栏同为悬浮胶囊，上下叠放（形态对齐 Halcyon 的悬浮 Dock）。
                     Column(Modifier.fillMaxWidth()) {
-                        BoxWithConstraints(Modifier) {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     // 歌词模式：开关开启且有当前歌词行时，用歌词替换艺术家
                     val lyricLine = if (miniPlayerLyricsEnabled) currentLyricLine else null
                     val miniSubtitle = if (lyricLine != null) {
                         lyricLine
-                    } else if (maxWidth >= TabletBreakpoint) {
+                    } else if (isWideSubtitle) {
                         // 宽屏（Windows/平板）「艺术家 - 专辑」
                         nowPlaying?.subtitle ?: "未知艺术家 - 未知专辑"
                     } else {
@@ -635,8 +614,8 @@ private fun MusesAppContent() {
                         onNext = { viewModel.skipToNext() },
                         onPrevious = { viewModel.skipToPrevious() },
                         modifier = Modifier
-                            .padding(horizontal = chromeSideMargin, vertical = 8.dp)
                             .fillMaxWidth()
+                            .padding(horizontal = chromeSideMargin, vertical = 8.dp)
                             .graphicsLayer { alpha = if (playerOverlayMounted) 0f else 1f }
                             .reportMiniBarBounds { miniBarBounds = it },
                     )
@@ -645,10 +624,7 @@ private fun MusesAppContent() {
                     // 与迷你条只留迷你条自身的 8dp 下边距作间隙。曾额外 `.offset(y = 12.dp)` 下移底栏
                     // 去「收紧底部留白」，但那会让迷你条与底栏之间空出 20dp，观感松散（已移除）。
                     // 注意任何位移必须包在组件外面：经 modifier 参数传进去只会偏移内部内容，背景不动。
-                    if (!isTabletBar) {
-                        // 左右边距必须由**外层 Box 的 padding**提供：
-                        // 若写在 MusesBottomDock 自己的 modifier 链上（fillMaxWidth().padding()），
-                        // 胶囊背景仍按全宽绘制，窄屏下右侧会贴到屏幕边缘被裁（360dp 实测）。
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         // 导航胶囊 + 右侧独立搜索钮并排（对齐 Halcyon：其底部 dock 旁还有一个
                         // `BottomDockActionPill`，64×64 正方形、只有图标、与 dock 同材质）。
                         // 左右边距必须由**外层 Row 的 padding**提供：
@@ -657,7 +633,7 @@ private fun MusesAppContent() {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 18.dp),
+                                .padding(horizontal = chromeSideMargin),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
@@ -696,19 +672,7 @@ private fun MusesAppContent() {
             ShellBackHandler(enabled = backStack.size > 1 && !playerOpen && !showQueueOverlay) {
                 backStack.pop()
             }
-            // 结构恒定：overlay 打开时不得切换 TabsLayout 分支（navVisible 恒 true）——
-            // 原版 Web overlay 打开仅锁主页面交互（pointer-events:none），DOM 全保留；
-            // 之前按 overlayRoute 切 navVisible 会让 content（NavHost）在组合树换位销毁重建，
-            // 底下列表停止绘制 → 下滑沉浸页露出纯黑（08-28 下滑露黑根因）。
-            TabsLayout(
-                primaryItems = navItems,
-                secondaryItems = emptyList(),
-                navVisible = true,
-                // 列表末项避让**恒用展开态净高**（TabsLayout 默认 148dp）：
-                // 曾按融合进度插值（展开 148 / 融合 72），但避让变小时列表滚动位置不会跟着变，
-                // 从融合态展开回去时底部内容会被多出来的 76dp chrome 遮住（MuMu 实测：推荐卡的按钮被迷你条盖住）。
-                // 恒定值的代价：融合态滞底时会多出一段空白——远好于「内容被遮看不到」。
-            ) {
+            TabsLayout {
                 AppNavHost(backStack, scrapeVm)
             }
             // 队列走 MusesBottomSheet（miuix OverlayBottomSheet）：必须组合在 Scaffold 内容层级内，
@@ -945,7 +909,7 @@ private fun AppNavHost(
         ),
     ) {
         entry<MusesRoute.Songs> {
-            // 曲库容器：内含「歌曲 / 专辑 / 艺术家」三个 Tab（窄屏底栏精简为三项后，
+            // 曲库容器：内含「歌曲 / 专辑 / 艺术家」三个 Tab（底栏精简为三项后，
             // 专辑/艺术家的入口改由此提供）。U16：SongsPage 经 PlaybackPort 消费。
             val playback = org.koin.compose.koinInject<com.muses.player.core.playback.PlaybackPort>()
             // M3：刮削队列入队（ScrapeQueueStore 为 @Singleton，经 koinViewModel 载体注入）
@@ -1101,7 +1065,7 @@ private fun AppNavHost(
         }
         entry<MusesRoute.Settings> {
             SettingsScreen(
-                // 窄屏底栏 5 项未含刮削/音源，经设置页「工具」区块进入；宽屏传 null 隐藏（Rail 自带）。
+                // 刮削与音源通过设置页「工具」区块进入。
                 onOpenSources = { backStack.pushUnique(MusesRoute.Sources) },
                 onOpenScrape = { backStack.pushUnique(MusesRoute.Scrape) },
                 onOpenAiSettings = { backStack.pushUnique(MusesRoute.AiSettings) },
@@ -1144,13 +1108,14 @@ private fun CompactPlayerDock(
     val collapse = compactProgress.coerceIn(0f, 1f)
     // 借鉴 Halcyon：同一弹簧进度驱动图标缩放（连续插值，过渡不跳变）
     val iconScale = 1f - 0.14f * collapse
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = sideMargin, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = sideMargin, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
         // 左：当前 tab（点击展开回两行）。与分离态搜索钮共用 MusesDockActionPill，
         // 按压反馈（放大 + primary 叠底）天然一致，不会再出现默认水波纹的方形灰框。
         MusesDockActionPill(
@@ -1190,6 +1155,7 @@ private fun CompactPlayerDock(
             iconSize = DockPillIconSize,
             iconScale = iconScale,
         )
+        }
     }
 }
 

@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
  * - 迷你条 56dp + 上下边距 8×2 = 72dp（对齐 Halcyon 后的尺寸）；
  * - 悬浮底栏 56dp（自研 MusesBottomDock，图标 + 文字；与迷你条等高）。
  *
- * 窄屏两件套全在 → 128dp（净高）；宽屏只有迷你条（Rail 在侧边）→ 80dp。
+ * 手机和平板都显示两件套 → 128dp（净高）。
  * 系统导航栏/手势条 inset 由壳层统一叠加（bottomBar 用 navigationBarsPadding + 8dp 保底抬升），
  * 见 TabsLayout 的 `chromeBottomInset`。
  *
@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.dp
  * navInset + 116/120/130/160dp，完全不感知 dock 融合态）。
  */
 val PhoneBottomChromePadding: Dp = 128.dp
-val TabletBottomChromePadding: Dp = 80.dp
 
 val LocalBottomChromePadding = compositionLocalOf { PhoneBottomChromePadding }
 

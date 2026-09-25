@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -70,6 +71,7 @@ fun AlbumsPage(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             MusesTopBar(title = "专辑", visible = showTopBar)
         },
@@ -173,6 +175,7 @@ fun ArtistsPage(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             MusesTopBar(title = "艺术家", visible = showTopBar)
         },
