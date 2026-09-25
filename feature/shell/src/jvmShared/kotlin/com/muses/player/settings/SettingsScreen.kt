@@ -25,7 +25,6 @@ import com.muses.player.feature.shell.platform.rememberShellPlatformActions
 import com.muses.player.feature.shell.platform.supportsInAppUpdate
 
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -59,10 +58,7 @@ class SettingsViewModel constructor(
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = koinViewModel(),
-    // 窄屏底栏只保留「探索 / 曲库 / 设置」三项时，刮削/音源经此进入；
-    // 宽屏 Rail 自带这两项，传 null 即隐藏本区块。
-    onOpenSources: (() -> Unit)? = null,
-    onOpenScrape: (() -> Unit)? = null,
+    onBack: () -> Unit,
     // AI 服务配置二级页入口（设置页「AI 推荐」→「AI 服务」箭头进入）。
     onOpenAiSettings: () -> Unit,
 ) {
@@ -79,6 +75,7 @@ fun SettingsScreen(
     // 视觉：官方 Settings 范式——每个分组一张 Card，开关/入口行用 miuix Preference 系列。
     SettingsScreen(
         modifier = modifier,
+        onBack = onBack,
         extraContent = {
                 // ---- 播放设置 ----
                 SettingsBlockTitle("播放")
@@ -106,25 +103,6 @@ fun SettingsScreen(
                     )
                 }
 
-                // ---- 工具（窄屏底栏未收纳项的入口；宽屏 Rail 自带时不传回调即隐藏） ----
-                if (onOpenSources != null || onOpenScrape != null) {
-                    SettingsBlockTitle("工具")
-                    Card(modifier = Modifier.padding(horizontal = 12.dp)) {
-                        onOpenSources?.let { open ->
-                            ArrowPreference(
-                                title = "音源",
-                                onClick = open,
-                            )
-                        }
-                        onOpenScrape?.let { open ->
-                            ArrowPreference(
-                                title = "刮削",
-                                onClick = open,
-                            )
-                        }
-                    }
-                }
-
                 // ---- 关于 ----
                 SettingsAboutFeedbackContent(
                     versionName = versionProvider.versionName,
@@ -138,4 +116,3 @@ fun SettingsScreen(
             },
         )
 }
-

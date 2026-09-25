@@ -115,6 +115,9 @@ import com.muses.player.feature.sources.WebDavBrowseScreen
 import com.muses.player.feature.sources.WebDavFormScreen
 import com.muses.player.settings.AiSettingsScreen
 import com.muses.player.settings.SettingsScreen
+import com.muses.player.settings.MineScreen
+import com.muses.player.settings.StatisticsScreen
+import com.muses.player.settings.HistoryScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -477,11 +480,11 @@ private fun MusesAppContent() {
         // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
         val snackbarHostState = remember { SnackbarHostState() }
 
-        // 手机和平板共用「探索 / 曲库 / 设置」三个底部入口。
+        // 手机和平板共用「探索 / 曲库 / 我的」三个底部入口。
         val bottomItems = listOf(
             NavDestination.Home.toNavItem(currentKey, backStack),
             NavDestination.Songs.toNavItem(currentKey, backStack).copy(label = "曲库"),
-            NavDestination.Settings.toNavItem(currentKey, backStack),
+            NavDestination.Mine.toNavItem(currentKey, backStack),
         )
 
         val nowPlaying by viewModel.nowPlaying.collectAsState()
@@ -1059,11 +1062,24 @@ private fun AppNavHost(
                 },
             )
         }
-        entry<MusesRoute.Settings> {
-            SettingsScreen(
-                // 刮削与音源通过设置页「工具」区块进入。
+        entry<MusesRoute.Mine> {
+            MineScreen(
                 onOpenSources = { backStack.pushUnique(MusesRoute.Sources) },
                 onOpenScrape = { backStack.pushUnique(MusesRoute.Scrape) },
+                onOpenStatistics = { backStack.pushUnique(MusesRoute.Statistics) },
+                onOpenHistory = { backStack.pushUnique(MusesRoute.History) },
+                onOpenSettings = { backStack.pushUnique(MusesRoute.Settings) },
+            )
+        }
+        entry<MusesRoute.Statistics>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+            StatisticsScreen(onBack = { backStack.pop() })
+        }
+        entry<MusesRoute.History>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+            HistoryScreen(onBack = { backStack.pop() })
+        }
+        entry<MusesRoute.Settings>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+            SettingsScreen(
+                onBack = { backStack.pop() },
                 onOpenAiSettings = { backStack.pushUnique(MusesRoute.AiSettings) },
             )
         }

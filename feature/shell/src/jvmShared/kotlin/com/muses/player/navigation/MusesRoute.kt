@@ -7,7 +7,7 @@ import top.yukonga.miuix.kmp.nav.core.NavKey
  * 类型化路由（miuix-nav）：密封接口 + @Serializable data 路由。
  *
  * 对照原 string 路由表（NavDestination.route / DetailRoutes）一比一映射：
- * - 顶层 tabs：Songs/Albums/Artists/Scrape/Sources/Settings（无参 data object）
+ * - 顶层 tabs：Home/Songs/Mine（无参 data object）
  * - 详情/表单：AlbumDetail/ArtistDetail/WebDavEdit（单 id 参数）
  * - 刮削审核：ScrapeReview(songId + queueCsv，逗号分隔队列上下文，对照原 URL query）
  * - WebDAV 浏览：WebDavBrowse（连接信息直传字段，原 URLEncoder query 入参）
@@ -20,6 +20,9 @@ sealed interface MusesRoute : NavKey {
     /** 首页：搜索框 + 排行榜 + 猜你喜欢（启动默认页） */
     @Serializable
     data object Home : MusesRoute
+
+    @Serializable
+    data object Mine : MusesRoute
 
     // ---- 主菜单（曲库）----
     @Serializable
@@ -85,6 +88,12 @@ sealed interface MusesRoute : NavKey {
 
     @Serializable
     data object Settings : MusesRoute
+
+    @Serializable
+    data object Statistics : MusesRoute
+
+    @Serializable
+    data object History : MusesRoute
 
     /** AI 服务配置二级页（设置页「AI 推荐」→ 箭头进入：地址/模型/Key） */
     @Serializable

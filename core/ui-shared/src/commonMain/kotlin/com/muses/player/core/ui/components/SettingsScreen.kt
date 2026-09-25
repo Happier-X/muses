@@ -38,6 +38,7 @@ import top.yukonga.miuix.kmp.squircle.squircleBackground
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
     extraContent: @Composable () -> Unit = {},
 ) {
     Scaffold(
@@ -45,7 +46,7 @@ fun SettingsScreen(
         // 与其他页面一致用 surface：Card 默认 surfaceContainer 底色，层次仍能拉开
         containerColor = MiuixTheme.colorScheme.surface,
         topBar = {
-            MusesTopBar(title = "设置")
+            MusesTopBar(title = "设置", onBack = onBack)
         },
     ) { padding ->
         Column(

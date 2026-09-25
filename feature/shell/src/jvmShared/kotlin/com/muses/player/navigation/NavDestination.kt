@@ -4,10 +4,8 @@ import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.nav.core.NavKey
 
 /**
- * 顶层导航项 —— 文案/图标/分组一比一对照 `TabsPage.vue` 的 `navItems`：
- *
- *   primary   = 歌曲/专辑/艺术家
- *   secondary = 刮削/音源/设置
+ * 顶层导航项：底栏为探索/曲库/我的，曲库内部提供歌曲/专辑/艺术家，
+ * 我的页面提供音源/刮削/统计/历史记录/设置。
  *
  * 路由本体已类型化（[MusesRoute]，miuix-nav @Serializable 密封层级）；
  * 本 enum 只保留展示层（label/icon）与分组/激活判定：
@@ -31,9 +29,9 @@ enum class NavDestination(
     Albums(MusesRoute.Albums, "专辑", TablerIcons.Album),               // albums (Disc)
     Artists(MusesRoute.Artists, "艺术家", TablerIcons.Person),          // user (MicVocal)
 
-    // ---- 次菜单（工具）：secondaryNavItems = navItems.slice(4) ----
+    // ---- 我的与工具 ----
     Scrape(MusesRoute.Scrape, "刮削", TablerIcons.Checklist),          // listCheck
-    Settings(MusesRoute.Settings, "设置", TablerIcons.Settings),       // settings
+    Mine(MusesRoute.Mine, "我的", TablerIcons.Person),
     ;
 
     /** 对照 TabsPage.vue 的 isNavActive(item)：tab 本体 + 其详情/子页均算激活 */
@@ -43,17 +41,20 @@ enum class NavDestination(
         Albums -> key == MusesRoute.Albums || key is MusesRoute.AlbumDetail
         Artists -> key == MusesRoute.Artists || key is MusesRoute.ArtistDetail
         Scrape -> key == MusesRoute.Scrape || key is MusesRoute.ScrapeReview
-        Settings -> key == MusesRoute.Settings || key is MusesRoute.AiSettings ||
+        Mine -> key == MusesRoute.Mine || key == MusesRoute.Settings ||
+            key == MusesRoute.Statistics || key == MusesRoute.History ||
+            key is MusesRoute.AiSettings ||
             key == MusesRoute.Sources || key is MusesRoute.WebDavAdd ||
             key is MusesRoute.WebDavEdit || key is MusesRoute.WebDavBrowse ||
-            key is MusesRoute.LxScripts || key == MusesRoute.Scrape
+            key is MusesRoute.LxScripts || key == MusesRoute.Scrape ||
+            key is MusesRoute.ScrapeReview
     }
 
     companion object {
         /** 主导航组（探索 + 曲库）：顺序对照 primaryNavItems、前置探索 */
         val Primary: List<NavDestination> = listOf(Home, Songs, Albums, Artists)
 
-        /** 侧边栏辅助导航组（工具），顺序对照 secondaryNavItems */
-        val Secondary: List<NavDestination> = listOf(Scrape, Settings)
+        /** 工具与我的入口 */
+        val Secondary: List<NavDestination> = listOf(Scrape, Mine)
     }
 }
