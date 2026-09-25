@@ -44,6 +44,11 @@ spike-vlcj/
 spike-lx/
 
 # 调试截图 & UI dump & 临时文件
+/tmp/
+/.tmp/
+/mumu-*.png
+/muses_*.png
+/ui.xml
 mx_*.png
 uix*.xml
 uixd.xml
