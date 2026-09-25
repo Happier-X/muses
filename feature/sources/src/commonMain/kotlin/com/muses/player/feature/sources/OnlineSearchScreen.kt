@@ -20,8 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,17 +28,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.lxsdk.LxQuality
 import com.muses.player.core.search.OnlineSearchResult
-import com.muses.player.core.ui.components.MusesButton
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
-import com.muses.player.core.ui.components.MusesTextField
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.icons.TablerIcons
 import org.koin.compose.viewmodel.koinViewModel
@@ -48,6 +43,8 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -59,10 +56,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  */
 @Composable
 fun OnlineSearchScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     onAlbumClick: (String) -> Unit = {},
     onArtistClick: (String) -> Unit = {},
-    /** 首页搜索框带入的关键词；非空则进入即自动搜索（空串 = 保持旧的无参进入行为） */
+    /** 外部传入的搜索词；非空时进入页面自动搜索。 */
     initialKeyword: String = "",
     viewModel: OnlineSearchViewModel = koinViewModel(),
 ) {
@@ -101,22 +98,21 @@ fun OnlineSearchScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MusesTextField(
-                    value = state.keyword,
-                    onValueChange = viewModel::updateKeyword,
+                SearchBar(
                     modifier = Modifier.weight(1f),
-                    label = "搜索歌曲、专辑、艺术家",
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { viewModel.search() }),
-                )
-                Spacer(Modifier.width(8.dp))
-                MusesButton(
-                    onClick = { viewModel.search() },
-                    enabled = !state.searching,
-                ) {
-                    Text(if (state.searching) "搜索中" else "搜索")
-                }
+                    inputField = {
+                        InputField(
+                            query = state.keyword,
+                            onQueryChange = viewModel::updateKeyword,
+                            onSearch = { viewModel.search() },
+                            expanded = false,
+                            onExpandedChange = {},
+                            label = "搜索曲库或在线",
+                        )
+                    },
+                    expanded = false,
+                    onExpandedChange = {},
+                ) {}
             }
 
             // 提示横幅（如「该平台无可用脚本」）：点按可关闭

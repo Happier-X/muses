@@ -4,7 +4,7 @@ import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.nav.core.NavKey
 
 /**
- * 顶层导航项：底栏为探索/曲库/我的，曲库内部提供歌曲/专辑/艺术家，
+ * 顶层导航项：底栏为探索/曲库/我的，搜索由独立主导航按钮进入；曲库内部提供歌曲/专辑/艺术家，
  * 我的页面提供音源/刮削/统计/历史记录/设置。
  *
  * 路由本体已类型化（[MusesRoute]，miuix-nav @Serializable 密封层级）；
@@ -23,6 +23,7 @@ enum class NavDestination(
 ) {
     // ---- 探索（U27 新增：搜索框 + 排行榜 + 猜你喜欢，启动默认页）----
     Home(MusesRoute.Home, "探索", TablerIcons.Compass),
+    Search(MusesRoute.OnlineSearch(), "搜索", TablerIcons.Search),
 
     // ---- 主菜单（曲库）：primaryNavItems = navItems.slice(0, 4) ----
     Songs(MusesRoute.Songs, "歌曲", TablerIcons.MusicNote),            // music (Music)
@@ -37,6 +38,7 @@ enum class NavDestination(
     /** 对照 TabsPage.vue 的 isNavActive(item)：tab 本体 + 其详情/子页均算激活 */
     fun isActive(key: NavKey?): Boolean = when (this) {
         Home -> key == MusesRoute.Home
+        Search -> key is MusesRoute.OnlineSearch
         Songs -> key == MusesRoute.Songs
         Albums -> key == MusesRoute.Albums || key is MusesRoute.AlbumDetail
         Artists -> key == MusesRoute.Artists || key is MusesRoute.ArtistDetail
@@ -51,8 +53,8 @@ enum class NavDestination(
     }
 
     companion object {
-        /** 主导航组（探索 + 曲库）：顺序对照 primaryNavItems、前置探索 */
-        val Primary: List<NavDestination> = listOf(Home, Songs, Albums, Artists)
+        /** 主导航组（探索、搜索与曲库）。 */
+        val Primary: List<NavDestination> = listOf(Home, Search, Songs, Albums, Artists)
 
         /** 工具与我的入口 */
         val Secondary: List<NavDestination> = listOf(Scrape, Mine)

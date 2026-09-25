@@ -510,7 +510,12 @@ private fun MusesAppContent() {
         }
         // 无歌曲时不进入紧凑形态（没内容可融合）；当前 tab 图标用于融合胶囊左侧
         val dockCompact = bottomDockCompact && nowPlaying != null
-        val currentTabItem = bottomItems.firstOrNull { it.active } ?: bottomItems.first()
+        val currentTabItem = bottomItems.firstOrNull { it.active }
+            ?: if (NavDestination.Search.isActive(currentKey)) {
+                NavDestination.Search.toNavItem(currentKey, backStack)
+            } else {
+                bottomItems.first()
+            }
         // 路由变化时重置为展开态（对齐 Halcyon 的 LaunchedEffect(currentRoute, canCompact)）：
         // 否则从列表页滚着进子页（如在线搜索/详情）时，底栏会带着上一页的融合态打开，
         // 底栏显示成三部分而非完整导航。
@@ -583,7 +588,7 @@ private fun MusesAppContent() {
                             onOpenPlayer = { openPlayer() },
                             onTogglePlayback = { viewModel.playPause() },
                             onOpenQueue = { showQueueOverlay = true },
-                            onOpenSearch = { backStack.pushUnique(MusesRoute.OnlineSearch()) },
+                            onOpenSearch = { navigateToTab(backStack, NavDestination.Search) },
                             sideMargin = chromeSideMargin,
                             compactProgress = compactProgress,
                             playerTransitionProgress = if (playerOverlayMounted) 1f else 0f,
@@ -654,8 +659,8 @@ private fun MusesAppContent() {
                             MusesDockActionPill(
                                 icon = TablerIcons.Search,
                                 label = "搜索",
-                                selected = backStack.lastOrNull() is MusesRoute.OnlineSearch,
-                                onClick = { backStack.pushUnique(MusesRoute.OnlineSearch()) },
+                                selected = NavDestination.Search.isActive(currentKey),
+                                onClick = { navigateToTab(backStack, NavDestination.Search) },
                             )
                         }
                     }
@@ -1017,12 +1022,11 @@ private fun AppNavHost(
                 onOpenAiConfig = { backStack.pushUnique(MusesRoute.AiSettings) },
             )
         }
-        entry<MusesRoute.OnlineSearch>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+        entry<MusesRoute.OnlineSearch> {
             OnlineSearchScreen(
-                onBack = { backStack.pop() },
+                onBack = null,
                 onAlbumClick = { albumId -> backStack.pushUnique(MusesRoute.AlbumDetail(albumId)) },
                 onArtistClick = { artistId -> backStack.pushUnique(MusesRoute.ArtistDetail(artistId)) },
-                initialKeyword = route.keyword,
             )
         }
         entry<MusesRoute.WebDavAdd>(swipeDismiss = NavSwipeDirection.LeftToRight) {
