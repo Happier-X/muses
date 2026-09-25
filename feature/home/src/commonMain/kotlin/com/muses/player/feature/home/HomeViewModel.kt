@@ -62,7 +62,6 @@ data class RecommendSectionState(
 
 /** 首页整体状态 */
 data class HomeUiState(
-    val keyword: String = "",
     val chart: ChartSectionState = ChartSectionState(),
     val recommend: RecommendSectionState = RecommendSectionState(),
     /** 一次性提示（如「该平台没有可用音源脚本」），展示后可清除 */
@@ -70,10 +69,9 @@ data class HomeUiState(
 )
 
 /**
- * 首页 ViewModel：搜索框 + 排行榜 + 猜你喜欢。
+ * 首页 ViewModel：排行榜 + 猜你喜欢。
  *
  * 职责边界：
- * - 搜索**不在此处执行**：首页只需把关键词交给在线搜索页（避免两套搜索 UI/状态机）；
  * - 榜单与推荐都产出 [OnlineSearchResult]，经同一 `play` 链路入队（脚本校验 → 会话登记 → 播放端口），
  *   与在线搜索页行为一致；
  * - AI Key 现取现用，不在 VM 里长持（见 [readAiConfig]）。
@@ -113,10 +111,6 @@ class HomeViewModel(
                 }
             }
         }
-    }
-
-    fun updateKeyword(value: String) {
-        _state.value = _state.value.copy(keyword = value)
     }
 
     fun clearMessage() {

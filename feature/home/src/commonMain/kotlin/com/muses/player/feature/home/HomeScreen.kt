@@ -20,8 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,7 +37,6 @@ import com.muses.player.core.ui.components.MusesButton
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesEmpty
-import com.muses.player.core.ui.components.MusesTextField
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.SongItem
 import com.muses.player.core.ui.components.SongListItem
@@ -56,17 +52,14 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 探索（原「首页」）：顶部搜索框 + 排行榜 + 猜你喜欢。
+ * 探索（原「首页」）：排行榜 + 猜你喜欢。
  *
  * 交互约定：
- * - 搜索框只负责**收集关键词并跳转**在线搜索页（搜索 UI/状态机在 :feature:sources，不重复造）；
  * - 排行榜：平台胶囊 → 榜单胶囊 → 点歌即播（榜单歌曲与搜索结果同构，走同一条播放链路）；
  * - 猜你喜欢：AI 读曲库画像出「歌名+歌手」，再回平台精确匹配；未启用/未配置时给明确入口。
  */
 @Composable
 fun HomeScreen(
-    /** 携带关键词跳到在线搜索页（空串 = 只进页面不搜） */
-    onOpenOnlineSearch: (String) -> Unit,
     /** 跳设置页（AI 推荐总开关入口） */
     onOpenAiSettings: () -> Unit,
     /** 跳 AI 服务二级页（地址/模型/Key 配置入口） */
@@ -98,15 +91,6 @@ fun HomeScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            // ── 搜索框 ──
-            item(key = "search") {
-                SearchRow(
-                    keyword = state.keyword,
-                    onKeywordChange = viewModel::updateKeyword,
-                    onSubmit = { onOpenOnlineSearch(state.keyword.trim()) },
-                )
-            }
-
             // 一次性提示（如「该平台没有可用音源脚本」）
             state.message?.let { message ->
                 item(key = "message") {
@@ -261,31 +245,6 @@ fun HomeScreen(
 
             item(key = "bottom-space") { Spacer(Modifier.height(8.dp)) }
         }
-    }
-}
-
-/** 搜索行：输入 + 回车/按钮 → 跳在线搜索页（带关键词） */
-@Composable
-private fun SearchRow(
-    keyword: String,
-    onKeywordChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MusesTextField(
-            value = keyword,
-            onValueChange = onKeywordChange,
-            modifier = Modifier.weight(1f),
-            label = "搜索歌曲、歌手",
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
-        )
-        Spacer(Modifier.width(8.dp))
-        MusesButton(onClick = onSubmit) { Text("搜索") }
     }
 }
 

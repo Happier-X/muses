@@ -379,7 +379,7 @@ fun MusesApp() {
 @Composable
 private fun MusesAppContent() {
         // miuix-nav 返回栈（类型化路由，存栈恢复经 kotlinx.serialization；替代 CMP Navigation）
-        // 启动落地首页（首页 = 搜索框 + 排行榜 + 猜你喜欢）
+        // 启动落地首页（探索 = 排行榜 + 猜你喜欢）
         val backStack = rememberNavBackStack<MusesRoute>(MusesRoute.Home)
         // 当前栈顶（SnapshotStateList 读取即订阅，路由变化自动重组；对照原 currentBackStackEntryAsState）
         val currentKey = backStack.lastOrNull()
@@ -1009,10 +1009,6 @@ private fun AppNavHost(
         }
         entry<MusesRoute.Home> {
             HomeScreen(
-                // 首页搜索框把关键词一并带入在线搜索页（进入即搜）
-                onOpenOnlineSearch = { keyword ->
-                    backStack.pushUnique(MusesRoute.OnlineSearch(keyword))
-                },
                 // AI 推荐配置入口：「去开启」落设置页总开关，「去配置」直达 AI 服务二级页
                 onOpenAiSettings = { backStack.pushUnique(MusesRoute.Settings) },
                 onOpenAiConfig = { backStack.pushUnique(MusesRoute.AiSettings) },
