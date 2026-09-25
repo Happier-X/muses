@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +31,9 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  *   图标 `--m-list-icon`(24px)；
  * - 标题 17px / 600 / 1.35 / `--m-text`；
  * - 描述 15px / 1.4 / `--m-text-2`。
+ *
+ * 宽度必须占满可用空间：否则宽屏（平板/桌面）下容器宽度只等于最宽文案，
+ * 居中只是「在自身内容里居中」，整体会被父级按左对齐摆放而偏左。
  */
 @Composable
 fun MusesEmpty(
@@ -41,7 +45,7 @@ fun MusesEmpty(
     val scheme = MiuixTheme.colorScheme
 
     Column(
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 56.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 56.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
