@@ -2,7 +2,8 @@ package com.muses.player.feature.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,20 +19,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ai.AiRecommendedTrack
-import com.muses.player.core.search.OnlineChart
 import com.muses.player.core.search.OnlineSearchResult
 import com.muses.player.core.ui.components.MusesButton
 import com.muses.player.core.ui.components.MusesCover
@@ -48,14 +49,19 @@ import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.SinkFeedback
+import top.yukonga.miuix.kmp.utils.pressable
 
 /**
  * 探索（原「首页」）：排行榜 + 猜你喜欢。
  *
  * 交互约定：
- * - 排行榜：平台胶囊 → 榜单胶囊 → 点歌即播（榜单歌曲与搜索结果同构，走同一条播放链路）；
+ * - 排行榜：平台与榜单各一行 miuix TabRow（平台为主、榜单为次，用尺寸拉开层级）→ 点歌即播
+ *   （榜单歌曲与搜索结果同构，走同一条播放链路）；
  * - 猜你喜欢：AI 读曲库画像出「歌名+歌手」，再回平台精确匹配；未启用/未配置时给明确入口。
  */
 @Composable
@@ -99,32 +105,34 @@ fun HomeScreen(
             }
 
             // ── 排行榜 ──
-            item(key = "chart-title") { SmallTitle(text = "排行榜") }
+            item(key = "chart-title") { SmallTitle(text = "排行榜", insideMargin = SectionTitleMargin) }
 
             if (chart.platforms.isNotEmpty()) {
                 item(key = "chart-platforms") {
-                    PillRow {
-                        chart.platforms.forEach { platform ->
-                            HomePill(
-                                label = platformNames[platform] ?: platform,
-                                selected = chart.selectedPlatform == platform,
-                                onClick = { viewModel.selectPlatform(platform) },
-                            )
-                        }
-                    }
+                    TabRow(
+                        tabs = chart.platforms.map { platform -> platformNames[platform] ?: platform },
+                        selectedTabIndex = chart.platforms.indexOf(chart.selectedPlatform).coerceAtLeast(0),
+                        onTabSelected = { index -> viewModel.selectPlatform(chart.platforms[index]) },
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                    )
                 }
             }
             if (chart.charts.isNotEmpty()) {
                 item(key = "chart-tabs") {
-                    PillRow {
-                        chart.charts.forEach { item: OnlineChart ->
-                            HomePill(
-                                label = item.name,
-                                selected = chart.selectedChartId == item.chartId,
-                                onClick = { viewModel.selectChart(item.chartId) },
-                            )
-                        }
-                    }
+                    TabRow(
+                        tabs = chart.charts.map { chartItem -> chartItem.name },
+                        selectedTabIndex = chart.charts
+                            .indexOfFirst { chartItem -> chartItem.chartId == chart.selectedChartId }
+                            .coerceAtLeast(0),
+                        onTabSelected = { index -> viewModel.selectChart(chart.charts[index].chartId) },
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        // 二级选择器：比平台行更矮更窄，形成「平台 > 榜单」的层级差
+                        height = 34.dp,
+                        cornerRadius = 10.dp,
+                        minWidth = 64.dp,
+                        maxWidth = 96.dp,
+                        itemSpacing = 8.dp,
+                    )
                 }
             }
 
@@ -167,9 +175,16 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(Modifier.weight(1f)) { SmallTitle(text = "猜你喜欢") }
-                    if (recommend.enabled && recommend.configured) {
-                        Text("每日更新", fontSize = 11.sp, color = scheme.onSurfaceVariantSummary)
+                    Box(Modifier.weight(1f)) { SmallTitle(text = "猜你喜欢", insideMargin = SectionTitleMargin) }
+                    recommendStatusText(recommend)?.let { status ->
+                        Text(
+                            text = status,
+                            fontSize = 11.sp,
+                            color = scheme.onSurfaceVariantSummary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
                     }
                 }
             }
@@ -197,7 +212,7 @@ fun HomeScreen(
                     LoadingRow(text = "AI 正在读你的曲库…")
                 }
                 recommend.error != null && recommend.result == null -> item(key = "rec-error") {
-                    Column {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         HomeBanner(text = recommend.error, onClose = null)
                         Spacer(Modifier.height(6.dp))
                         MusesButton(onClick = { viewModel.refreshRecommend() }) { Text("重试") }
@@ -205,21 +220,9 @@ fun HomeScreen(
                 }
                 recommend.result != null -> {
                     val result = recommend.result
-                    item(key = "rec-summary") {
-                        Text(
-                            text = buildString {
-                                append("今日推荐 ${result.matched}/20 首")
-                                if (result.unmatched.isNotEmpty()) {
-                                    append("（${result.unmatched.size} 首在各平台未找到，已丢弃）")
-                                }
-                            },
-                            fontSize = 11.sp,
-                            color = scheme.onSurfaceVariantSummary,
-                        )
-                    }
                     if (result.tracks.isEmpty()) {
                         item(key = "rec-empty") {
-                            Column {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 MusesEmpty(
                                     title = "这次没匹配到可播放的推荐",
                                     description = "AI 有时会给出平台搜不到的曲目，可重试。",
@@ -248,47 +251,27 @@ fun HomeScreen(
     }
 }
 
-/** 胶囊行（横向滚动）：平台筛选与榜单切换共用 */
-@Composable
-private fun PillRow(content: @Composable () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        content()
-    }
-}
-
 /**
- * 胶囊按钮（视觉与在线搜索页的 PlatformPill 同口径）。
+ * 区块标题缩进：与列表行内容左对齐（列表行 12dp 内缩 + 页面 16dp 外边距）。
  *
- * 未提到 ui-shared 共用：两处形态一致但归属不同 feature，先就地实现；
- * 若第三处出现再上收（避免过早抽象）。
+ * 不用 SmallTitle 默认的 28dp：那是配合 Card 内缩的取值，本页列表没有 Card 承载，
+ * 沿用默认会让标题比列表内容多缩进 16dp，看起来「没对齐」。
  */
-@Composable
-private fun HomePill(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val scheme = MiuixTheme.colorScheme
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(if (selected) scheme.primary else scheme.surfaceContainerHigh)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-    ) {
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            color = if (selected) scheme.onPrimary else scheme.onSurface,
-            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-        )
+private val SectionTitleMargin = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+
+/** 标题行右侧的次级状态：有结果时报数量与丢弃数，未出结果时只提示更新频率 */
+private fun recommendStatusText(recommend: RecommendSectionState): String? = when {
+    recommend.result != null -> buildString {
+        append("今日推荐 ${recommend.result.matched} 首")
+        if (recommend.result.unmatched.isNotEmpty()) {
+            append("（${recommend.result.unmatched.size} 首未找到）")
+        }
     }
+    recommend.enabled && recommend.configured -> "每日更新"
+    else -> null
 }
 
-/** AI 推荐行：封面 + 歌名 +（歌手 · 推荐理由）+ 平台标签 */
+/** AI 推荐行：封面 + 歌名 +（歌手 · 推荐理由）+ 平台来源 */
 @Composable
 private fun RecommendRow(
     track: AiRecommendedTrack,
@@ -296,12 +279,17 @@ private fun RecommendRow(
     onClick: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .squircleClip(8.dp)
+            // 与 SongListItem 同一套官方按压反馈（下沉 + 叠底），避免默认 ripple 的方块灰框
+            .pressable(interactionSource = interactionSource, indication = SinkFeedback())
+            .background(if (pressed) scheme.surface.copy(alpha = 0.5f) else Color.Transparent)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 封面：与榜单/搜索列表同一视觉口径（远程 URL 经 Coil 双端加载，缺失/失败落稳定占位）。
@@ -336,14 +324,11 @@ private fun RecommendRow(
             }
         }
         Spacer(Modifier.width(8.dp))
+        // 平台名只作来源说明：用次级文字而非彩色胶囊，避免页面上堆满彩色小块
         Text(
             text = platformLabel,
             fontSize = 11.sp,
-            color = scheme.primary,
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(scheme.primary.copy(alpha = 0.1f))
-                .padding(horizontal = 8.dp, vertical = 3.dp),
+            color = scheme.onSurfaceVariantSummary,
         )
     }
 }
