@@ -138,6 +138,7 @@ fun desktopLibraryModule(): Module = module {
     }
     single { com.muses.player.core.data.repository.PlaybackStateRepository(get()) }
     single { com.muses.player.core.data.repository.RecentPlaysRepository(get()) }
+    single { com.muses.player.core.data.repository.PlayStatsRepository(get()) }
     single<com.muses.player.feature.sources.LibraryScanPort> { DesktopLibraryScanPort(get()) }
     single<com.muses.player.feature.shell.platform.AppVersionProvider> {
         object : com.muses.player.feature.shell.platform.AppVersionProvider {

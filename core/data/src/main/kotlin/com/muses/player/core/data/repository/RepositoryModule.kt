@@ -49,4 +49,7 @@ val repositoryModule = module {
     /** 播放快照/最近播放（PlaybackService 恢复队列用，P2a 补漏：Hilt 时代靠 @Inject 构造自动提供） */
     singleOf(::PlaybackStateRepository)
     singleOf(::RecentPlaysRepository)
+
+    /** 听歌统计（统计页展示 + 播放埋点共用；同一 DataStore 快照，双端各自的 Koin 装配同构） */
+    singleOf(::PlayStatsRepository)
 }

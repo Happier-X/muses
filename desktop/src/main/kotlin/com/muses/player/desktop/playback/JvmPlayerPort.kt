@@ -3,6 +3,8 @@ package com.muses.player.desktop.playback
 import com.muses.player.core.data.db.MusesDatabase
 import com.muses.player.core.data.platform.PlatformDirs
 import com.muses.player.core.data.repository.PlaybackStateRepository
+import com.muses.player.core.data.repository.PlayStatsRepository
+import com.muses.player.core.data.repository.PlayStatsSessionTracker
 import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.data.store.createDataStore
 import com.muses.player.core.model.SourceType
@@ -69,6 +71,11 @@ class JvmPlayerPort(
     private val passwordLookup: suspend (sourceId: String) -> String? = { null },
     private val playbackStateRepository: PlaybackStateRepository,
     private val recentPlaysRepository: RecentPlaysRepository,
+    /**
+     * 听歌统计埋点内核（可选：测试直构造时可不传，播放行为不受影响）。
+     * 装配见 [createDefault]，与 Koin 侧共用同一 DataStore，统计快照双端同源。
+     */
+    private val playStatsTracker: PlayStatsSessionTracker? = null,
     private val audioCache: DesktopWebDavAudioCache = DesktopWebDavAudioCache(),
     // 默认接桌面日志，避免直构造时静默丢日志；createDefault 同口径
     private val errorLog: (tag: String, msg: String, e: Throwable?) -> Unit = { tag, msg, e ->
@@ -188,6 +195,15 @@ class JvmPlayerPort(
             }
         }
         restoreJob = scope.launch { restoreFromSnapshot() }
+        // 听歌统计：播放中按节拍结算已播时长（与安卓 PlaybackService 同口径）
+        playStatsTracker?.let { tracker ->
+            scope.launch {
+                while (true) {
+                    delay(PlayStatsSessionTracker.TICK_MS)
+                    tracker.checkpoint()
+                }
+            }
+        }
     }
 
     // ── PlayerPort 实现 ────────────────────────────────────
@@ -419,6 +435,19 @@ class JvmPlayerPort(
             }.onFailure { e ->
                 if (e is CancellationException) throw e
                 errorLog("JvmPlayerPort", "登记最近播放失败", e)
+            }
+            // 听歌统计：切歌即登记一次播放并结算上一段时长（VLCJ 起播前 isPlaying 还是旧态，
+            // 以本刻取值起段，随后的 playing/paused 事件会再校正）
+            playStatsTracker?.let { tracker ->
+                scope.launch {
+                    tracker.onSongStarted(
+                        songId = ref.id,
+                        title = ref.title,
+                        subtitle = listOfNotNull(ref.artist, ref.album).joinToString(" - "),
+                        coverUri = ref.coverUri,
+                        isPlaying = _isPlaying.value,
+                    )
+                }
             }
         }
     }
@@ -697,6 +726,7 @@ class JvmPlayerPort(
                 _isPlaying.value = true
                 _playbackError.value = null
                 startProgressLoop()
+                reportStats(isPlaying = true)
             }
 
             override fun paused(mediaPlayer: MediaPlayer) {
@@ -707,22 +737,26 @@ class JvmPlayerPort(
                 progressJob?.cancel()
                 runCatching { _positionMs.value = mediaPlayer.status().time().coerceAtLeast(0L) }
                 schedulePersist()
+                reportStats(isPlaying = false)
             }
 
             override fun stopped(mediaPlayer: MediaPlayer) {
                 _isPlaying.value = false
                 progressJob?.cancel()
+                reportStats(isPlaying = false)
             }
 
             override fun finished(mediaPlayer: MediaPlayer) {
                 _isPlaying.value = false
                 progressJob?.cancel()
+                reportStats(isPlaying = false)
                 onFinished()
             }
 
             override fun error(mediaPlayer: MediaPlayer) {
                 _isPlaying.value = false
                 progressJob?.cancel()
+                reportStats(isPlaying = false)
                 val id = queue.state().currentSongId ?: currentRef?.id
                 if (id != null) onSongFailed(id, DesktopPlaybackErrorCopy.NETWORK)
                 else {
@@ -810,6 +844,17 @@ class JvmPlayerPort(
         }
         errorLog("JvmPlayerPort", "跳过失败曲 songId=$songId -> ${item.songId}", null)
         playSongId(item.songId, 0L)
+    }
+
+    /**
+     * 听歌统计状态上报（VLCJ 事件线程调用，写盘投递到 [scope]）。
+     *
+     * 当前曲优先取队列状态机，回退最近一次解析出的引用（播放结束/失败时队列可能已空）。
+     */
+    private fun reportStats(isPlaying: Boolean) {
+        val tracker = playStatsTracker ?: return
+        val songId = queue.state().currentSongId ?: currentRef?.id
+        scope.launch { tracker.onPlaybackState(songId, isPlaying) }
     }
 
     private fun startProgressLoop() {
@@ -1112,6 +1157,7 @@ class JvmPlayerPort(
                 passwordLookup = passwordLookup,
                 playbackStateRepository = PlaybackStateRepository(dataStore),
                 recentPlaysRepository = RecentPlaysRepository(dataStore),
+                playStatsTracker = PlayStatsSessionTracker(PlayStatsRepository(dataStore)),
                 audioCache = audioCache,
                 errorLog = errorLog,
                 scope = scope,

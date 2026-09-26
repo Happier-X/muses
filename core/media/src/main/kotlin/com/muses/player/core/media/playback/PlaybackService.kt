@@ -23,6 +23,8 @@ import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.PlaybackStateRepository
+import com.muses.player.core.data.repository.PlayStatsRepository
+import com.muses.player.core.data.repository.PlayStatsSessionTracker
 import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.tag.AudioTagReader
@@ -60,6 +62,11 @@ class PlaybackService : MediaSessionService() {
     private val songDao: SongDao by inject()
     private val playbackStateRepository: PlaybackStateRepository by inject()
     private val recentPlaysRepository: RecentPlaysRepository by inject()
+    private val playStatsRepository: PlayStatsRepository by inject()
+
+    /** 听歌统计埋点内核（服务生命周期内常驻；见 [PlayStatsSessionTracker]） */
+    private val playStatsTracker by lazy { PlayStatsSessionTracker(playStatsRepository) }
+
     private val recoveryController: PlaybackRecoveryController by inject()
     private val errorLogStore: ErrorLogStore by inject()
     private val audioTagReader: AudioTagReader by inject()
@@ -207,6 +214,14 @@ class PlaybackService : MediaSessionService() {
             val config = playbackStateRepository.readConfig()
             mainHandler.post { applyRestoredConfig(player, config) }
             restoreFromSnapshot(player) { block -> mainHandler.post { block() } }
+        }
+        // 听歌统计：播放中按节拍结算已播时长（暂停即结算、恢复才起新段），统计页据此近似实时刷新；
+        // 一个节拍内的未落盘量在服务销毁时由 flush 兜底
+        serviceScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(PlayStatsSessionTracker.TICK_MS)
+                playStatsTracker.checkpoint()
+            }
         }
     }
 
@@ -509,6 +524,11 @@ class PlaybackService : MediaSessionService() {
                     appliedLyricMetadata = null
                     transitionSongId = currentId
                     scheduleSnapshotSave(player)
+                    // 听歌统计：转场先结算上一段时长（上一曲的时长归到它自己名下），
+                    // 播放次数只在「存在播放意图」时计——冷启动恢复队列同样产生转场事件，
+                    // 此时 playWhenReady=false，不应误计
+                    val playRequested = player.playWhenReady
+                    val playingNow = player.isPlaying
                     if (currentId != null) serviceScope.launch {
                         val entity = songDao.getById(currentId)
                         entity?.toDomain()?.let { song ->
@@ -522,6 +542,19 @@ class PlaybackService : MediaSessionService() {
                                     playedAt = System.currentTimeMillis(),
                                 ),
                             )
+                            if (playRequested) {
+                                playStatsTracker.onSongStarted(
+                                    songId = song.id,
+                                    title = song.title,
+                                    subtitle = listOfNotNull(song.artist, song.album)
+                                        .filter { it.isNotBlank() }.joinToString(" - "),
+                                    coverUri = song.coverUri,
+                                    isPlaying = playingNow,
+                                )
+                            } else {
+                                // 无播放意图（如冷启动恢复队列）：只结算上一段，不记次数
+                                playStatsTracker.onPlaybackState(currentId, playingNow)
+                            }
                         }
                         // 播放时懒扫描：补齐 tagsVersion<1 的歌曲信息，Room Flow 自动刷新列表
                         // 编排收口 U26 共用 [PlaybackLazyScan]；本处只负责读标签（AudioTagReader Range 探测）+ 入库
@@ -573,6 +606,14 @@ class PlaybackService : MediaSessionService() {
                 scheduleSnapshotSave(player)
             }
         }
+
+        /** 播放/暂停翻转：听歌时长结算与起段的主要驱动（切歌另见 [onEvents] 转场分支） */
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            val player = mediaSession?.player ?: return
+            serviceScope.launch {
+                playStatsTracker.onPlaybackState(player.currentMediaItem?.mediaId, isPlaying)
+            }
+        }
     }
 
     /**
@@ -612,6 +653,7 @@ class PlaybackService : MediaSessionService() {
         mediaSession?.player?.let { player ->
             runBlocking {
                 withTimeoutOrNull(2_000) { saveSnapshotNow(player) }
+                withTimeoutOrNull(2_000) { playStatsTracker.flush() }
             }
         }
         serviceScope.cancel()
