@@ -57,3 +57,6 @@ muses_mumu.db
 package-lock.json
 package.json
 skills-lock.json
+
+# 本地反编译参考素材（第三方 APK 与导出源码，勿提交）
+/参考/
