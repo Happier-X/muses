@@ -138,6 +138,7 @@ object LyricTimelineProcessor {
                 indexed.index to indexed.value.copy(
                     startTimeMs = start,
                     endTimeMs = indexed.value.endTimeMs.coerceAtLeast(start + 1L),
+                    ruby = normalizeSyllables(indexed.value.ruby),
                 )
             }
             .sortedWith(compareBy<Pair<Int, LyricSyllable>> { it.second.startTimeMs }.thenBy { it.first })

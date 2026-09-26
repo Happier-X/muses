@@ -49,6 +49,8 @@ kotlin {
         jvmTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
+            // 离屏逐字绘制回归测试需要当前平台的 Skia 原生运行库。
+            runtimeOnly(compose.desktop.currentOs)
         }
     }
 }

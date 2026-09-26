@@ -119,19 +119,9 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /*
- * Compose Multiplatform port of /AppleMusicLyricsView.swift + LyricPlaybackTimeline.swift
- * + SynchronizedLyricText.swift + LyricGlowTextRenderer.swift.
- *
- * Keep source constants here instead of "tuning by eye".  The rendering backend
- * is Compose rather than SwiftUI, but focus geometry, timing, dim/blur equations,
- * 120 ms colour hand-off, promoted current-line layout and cascade scheduling are
- * follows upstream . Cascade timing is shortened for the frame and
- * blur cost so quick consecutive lines do not leave several row animations in
- * flight at the same time.
- *
- * U21 跨平台化：原生 glyph 绘制（nativeCanvas.drawText + BlurMaskFilter + Typeface）
- * 重写为 TextMeasurer 单字布局 + TextStyle.Shadow 光晕/柔焦；时钟差用
- * core:common 的 platformMonotonicMs() expect/actual（与此处原单调时钟同义，已收敛）。
+ * 歌词字形、翻译和逐字高亮的渲染常量。
+ * 滚动、行缩放和距离模糊已迁移到 AmllScrollPhysics，以 AMLL 源码为准；
+ * 此处保留逐字渲染使用的参数，不再用旧级联曲线驱动滚动。
  */
 internal object UpstreamLyrics {
     const val FONT_SIZE_SP = 24f
@@ -221,4 +211,3 @@ fun LyricsPanel(
         )
     }
 }
-

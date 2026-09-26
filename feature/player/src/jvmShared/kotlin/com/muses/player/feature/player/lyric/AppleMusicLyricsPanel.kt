@@ -1,35 +1,12 @@
 package com.muses.player.feature.player.lyric
 
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import java.text.BreakIterator
-import java.util.Locale
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,11 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
 import androidx.compose.foundation.lazy.rememberLazyListState
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
-import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -51,20 +25,18 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -72,49 +44,29 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.BaselineShift
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.zIndex
+import com.muses.player.core.data.store.platformMonotonicMs
+import com.muses.player.core.lyrics.model.LyricAgentAlignment
 import com.muses.player.core.lyrics.model.LyricHighlightStrategy
-import com.muses.player.core.lyrics.model.LyricLine
-import com.muses.player.core.lyrics.processor.LyricTimelineProcessor
-import com.muses.player.core.lyrics.aligner.LyricRomanizationAligner
 import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.core.lyrics.model.withPseudoTiming
-import com.muses.player.feature.player.lyric.SettingsRuntime
-import com.muses.player.feature.player.lyric.AppVisibility
-import com.muses.player.feature.player.lyric.LocalFontFamily
-import com.muses.player.feature.player.lyric.LanTingProFontFamily
-import com.muses.player.core.data.store.platformMonotonicMs
-import com.muses.player.feature.player.lyric.LyricsRenderingQuality
-import com.muses.player.feature.player.lyric.LyricAnnotationDisplayMode
-import com.muses.player.feature.player.lyric.LyricsGroupingMode
+import com.muses.player.core.lyrics.processor.LyricTimelineProcessor
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.abs
-import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -125,7 +77,7 @@ internal fun AppleMusicLyricsPanel(
     onInterfaceInteraction: () -> Unit = {},
     onInterfaceVisibilityChange: (Boolean) -> Unit = {},
     active: Boolean = true,
-    externalDocument: com.muses.player.core.lyrics.model.LyricsDocument? = null,
+    externalDocument: LyricsDocument? = null,
 ) {
     val activeState = rememberUpdatedState(active)
     // Keep four future lines composed below the viewport. Their independent
@@ -265,6 +217,8 @@ internal fun AppleMusicLyricsPanel(
     }
 
     val lineIndexSeekSignal = remember(mediaId) { Channel<Unit>(Channel.CONFLATED) }
+    var seekGeneration by remember(mediaId) { mutableIntStateOf(0) }
+    var consumedSeekGeneration by remember(mediaId) { mutableIntStateOf(0) }
     var previousSeekPositionMs by remember(mediaId) { mutableLongStateOf(state.positionMs) }
     var previousSeekRealtimeMs by remember(mediaId) { mutableLongStateOf(platformMonotonicMs()) }
     LaunchedEffect(state.positionMs) {
@@ -275,6 +229,7 @@ internal fun AppleMusicLyricsPanel(
                 0L
             }
             if (kotlin.math.abs(state.positionMs - expected) > 200L) {
+                seekGeneration += 1
                 lineIndexSeekSignal.trySend(Unit)
             }
             previousSeekPositionMs = state.positionMs
@@ -327,61 +282,32 @@ internal fun AppleMusicLyricsPanel(
         }
     }
 
-    val focusProgress = remember(document) {
-        List(lines.size) { Animatable(0f) }
-    }
-    val scaleProgress = remember(document) {
-        List(lines.size) { Animatable(0f) }
-    }
-    val cascadeLineProgress = remember(document) {
-        List(lines.size) { Animatable(1f) }
-    }
-    val cascadeScrollProgress = remember(document) { Animatable(1f) }
-    var cascadeDistancePx by remember(document) { mutableStateOf(0f) }
-
-    /**
-     * 本次 cascade 中**实际滚出去**的像素（浮点记账）。
-     *
-     * 行的虚拟偏移必须用它做「滚动补偿」，不能用「应滚量 × 动画进度」：后者与 LazyColumn
-     * 实际落位（layoutInfo.offset，整数且滞后一帧）存在残差，残差随两条曲线收敛节奏变号，
-     * 收尾时视觉位置会在 388.4～389.4 之间来回摆（实测，就是「高亮行抖一下」）。
-     * 用实际滚动量则与列表位置严格互补，视觉位置只由该行自己的 spring 驱动。
-     */
-    var appliedScrollPx by remember(document) { mutableStateOf(0f) }
-
-    /**
-     * 本次 cascade 开始时各行的**布局基线**（layoutInfo.offset，浮点化）。
-     *
-     * 用来补偿 LazyColumn 的整数落位：行在列表里的位置是 `round(base - applied)`，
-     * 取整残差会留在「itemY + translationY」里（实测收尾时 ± 0.5px 来回摆）。
-     * 我们在渲染时把残差加回 translationY，使行视觉位置变成纯浮点（`base - applied + off`）。
-     */
-    var cascadeBaseOffsets by remember(document) { mutableStateOf<Map<Int, Float>>(emptyMap()) }
-    var cascadeInitialOffsets by remember(document) {
-        mutableStateOf<Map<Int, Float>>(emptyMap())
-    }
-    var cascadeDestinationOffsets by remember(document) {
-        mutableStateOf<Map<Int, Float>>(emptyMap())
-    }
+    val focusProgress = remember(renderedDocument) { List(lines.size) { Animatable(0f) } }
+    val scaleProgress = remember(renderedDocument) { List(lines.size) { Animatable(0f) } }
+    // 每行使用持久的像素坐标动画；切行时只改目标，不把进度归零。
+    val lineTravel = remember(renderedDocument) { List(lines.size) { Animatable(0f) } }
+    val scrollTravel = remember(renderedDocument) { Animatable(0f) }
+    val motionScope = rememberCoroutineScope()
+    val pendingMoves = remember(renderedDocument) { mutableMapOf<Int, Job>() }
+    val runningMoves = remember(renderedDocument) { mutableMapOf<Int, Job>() }
+    var scrollJob by remember(renderedDocument) { mutableStateOf<Job?>(null) }
+    var appliedScrollPx by remember(renderedDocument) { mutableStateOf(0f) }
+    var rowBaselines by remember(renderedDocument) { mutableStateOf<Map<Int, Float>>(emptyMap()) }
     val rowHeightsPx = remember(
-        document,
-        SettingsRuntime.lyricFontScale,
-        SettingsRuntime.lyricSpacingScale,
-        SettingsRuntime.showLyricTranslation,
+        renderedDocument, SettingsRuntime.lyricFontScale, SettingsRuntime.showLyricTranslation,
         SettingsRuntime.showLyricRomanization,
     ) { mutableStateMapOf<Int, Int>() }
-    var viewportHeightPx by remember(document) { mutableIntStateOf(0) }
-    var viewportWidthPx by remember(document) { mutableIntStateOf(0) }
-    var visualFocusIndex by remember(document) { mutableIntStateOf(-1) }
-    var isBrowsingLyrics by remember(document) { mutableStateOf(false) }
-    var playbackFocusGeneration by remember(document) { mutableIntStateOf(0) }
-    var browseGeneration by remember(document) { mutableIntStateOf(0) }
-    var scrollHideDistancePx by remember(document) { mutableStateOf(0f) }
+    var viewportHeightPx by remember { mutableIntStateOf(0) }
+    var viewportWidthPx by remember { mutableIntStateOf(0) }
+    var visualFocusIndex by remember(renderedDocument) { mutableIntStateOf(-1) }
+    var isBrowsingLyrics by remember(renderedDocument) { mutableStateOf(false) }
+    var playbackFocusGeneration by remember(renderedDocument) { mutableIntStateOf(0) }
+    var browseGeneration by remember(renderedDocument) { mutableIntStateOf(0) }
+    var scrollHideDistancePx by remember { mutableStateOf(0f) }
     val latestInterfaceHidden = rememberUpdatedState(isInterfaceHidden)
     val latestVisibilityCallback = rememberUpdatedState(onInterfaceVisibilityChange)
     val latestInteractionCallback = rememberUpdatedState(onInterfaceInteraction)
     var initialLyricsPositioned by remember(renderedDocument) { mutableStateOf(lines.isEmpty()) }
-
     val lyricFontScale = SettingsRuntime.lyricFontScale
     val lyricSpacingScale = SettingsRuntime.lyricSpacingScale
     val lineSpacingPx = with(density) { (UpstreamLyrics.LINE_SPACING_DP * lyricSpacingScale).dp.toPx() }
@@ -404,125 +330,73 @@ internal fun AppleMusicLyricsPanel(
         return height
     }
 
-    fun settledMovementOffset(index: Int, focusIndex: Int): Float {
-        if (focusIndex !in lines.indices || index <= focusIndex) return 0f
-        return max(
-            estimatedHeight(focusIndex) * (SettingsRuntime.lyricFocusScale - 1f),
-            0f,
-        )
-    }
-
+    // 直接用真实列表落位补偿，避免整数列表位置与浮点弹簧相减时产生收尾抖动。
     fun currentMovementOffset(index: Int): Float {
-        val initial = cascadeInitialOffsets[index]
-            ?: return settledMovementOffset(index, visualFocusIndex)
-        val destination = cascadeDestinationOffsets[index] ?: 0f
-        val lineProgress = cascadeLineProgress[index].value
-        return initial + appliedScrollPx -
-            (cascadeDistancePx + initial - destination) * lineProgress
+        val baseline = rowBaselines[index] ?: return 0f
+        val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index + 1 }
+            ?: return 0f
+        return baseline - lineTravel[index].value - item.offset
     }
 
-    /**
-     * LazyColumn 取整残差的补偿量：`frac(base - applied)`。
-     *
-     * 行实际布局位置 = `round(base - applied)`（已实测与预测完全一致），
-     * 而我们要的视觉位置是 `base - applied + off`；
-     * 二者相减就是这里返回的残差，加到 translationY 上即可得到纯浮点的行位置。
-     */
-    fun roundingCorrection(index: Int): Float {
-        val base = cascadeBaseOffsets[index] ?: return 0f
-        val currentBase = base - appliedScrollPx
-        return currentBase - kotlin.math.round(currentBase)
+    suspend fun resetMotion() {
+        scrollJob?.cancel()
+        pendingMoves.values.forEach { it.cancel() }
+        runningMoves.values.forEach { it.cancel() }
+        pendingMoves.clear()
+        runningMoves.clear()
+        rowBaselines = emptyMap()
+        appliedScrollPx = 0f
+        scrollTravel.snapTo(0f)
+        lineTravel.forEach { it.snapTo(0f) }
     }
 
-    suspend fun clearCascadePresentation(focusIndex: Int) {
-        visualFocusIndex = focusIndex
-        cascadeInitialOffsets = emptyMap()
-        cascadeDestinationOffsets = emptyMap()
-        cascadeBaseOffsets = emptyMap()
-        cascadeDistancePx = 0f
-        cascadeScrollProgress.snapTo(1f)
+    DisposableEffect(renderedDocument) {
+        onDispose {
+            scrollJob?.cancel()
+            pendingMoves.values.forEach { it.cancel() }
+            runningMoves.values.forEach { it.cancel() }
+        }
     }
 
-    suspend fun handOffFocusColor(targetIndexes: Set<Int>) = coroutineScope {
-        focusProgress.forEachIndexed { index, anim ->
-            val target = if (index in targetIndexes) 1f else 0f
-            if (abs(anim.value - target) > 0.0001f) {
+    LaunchedEffect(colorHighlightedIndex, activeTimedLineIndexes, activeInterludeIndex, renderedDocument, state.isPlaying) {
+        val targets = if (activeInterludeIndex >= 0 && SettingsRuntime.lyricInterludeCountdownEnabled) emptySet()
+        else activeTimedLineIndexes.ifEmpty {
+            colorHighlightedIndex.takeIf(lines.indices::contains)?.let(::setOf).orEmpty()
+        }
+        coroutineScope {
+            focusProgress.forEachIndexed { index, anim ->
+                val target = if (index in targets) 1f else 0f
                 launch {
                     if (SettingsRuntime.lyricReduceMotion) anim.snapTo(target)
-                    else anim.animateTo(
-                        targetValue = target,
-                        animationSpec = tween(
-                            durationMillis = UpstreamLyrics.FOCUS_COLOR_DURATION_MS,
-                            easing = SourceSmoothStepEasing,
-                        ),
-                    )
+                    else anim.animateTo(target, tween(if (target > 0f) 300 else 450, easing = AmllWordEffects.easeOut))
+                }
+                launch {
+                    val scaleTarget = if (index in targets || !state.isPlaying) 1f else 0f
+                    if (SettingsRuntime.lyricReduceMotion) scaleProgress[index].snapTo(scaleTarget)
+                    else scaleProgress[index].animateTo(scaleTarget, AmllScrollPhysics.scaleSpring)
                 }
             }
         }
     }
 
-    suspend fun handOffFocusScale(previousIndex: Int, nextIndex: Int) = coroutineScope {
-        if (SettingsRuntime.lyricReduceMotion) {
-            scaleProgress.forEachIndexed { index, anim -> anim.snapTo(if (index == nextIndex) 1f else 0f) }
-            return@coroutineScope
-        }
-        if (previousIndex in scaleProgress.indices && previousIndex != nextIndex) {
-            launch {
-                scaleProgress[previousIndex].animateTo(
-                    0f,
-                    if (SettingsRuntime.lyricScaleBounceEnabled) {
-                        spring(dampingRatio = 0.82f, stiffness = 380f)
-                    } else tween(durationMillis = SettingsRuntime.lyricScaleBounceDurationMs, easing = SourceSmoothStepEasing),
-                )
-            }
-        }
-        if (nextIndex in scaleProgress.indices) {
-            launch {
-                scaleProgress[nextIndex].animateTo(
-                    1f,
-                    if (SettingsRuntime.lyricScaleBounceEnabled) {
-                        spring(dampingRatio = 0.80f, stiffness = 320f)
-                    } else tween(durationMillis = SettingsRuntime.lyricScaleBounceDurationMs, easing = SourceSmoothStepEasing),
-                )
-            }
-        }
-    }
-
-    LaunchedEffect(colorHighlightedIndex, activeTimedLineIndexes, activeInterludeIndex, document) {
-        if (activeInterludeIndex >= 0) {
-            handOffFocusColor(emptySet())
-        } else {
-            val targets = activeTimedLineIndexes.ifEmpty {
-                colorHighlightedIndex.takeIf(lines.indices::contains)?.let(::setOf).orEmpty()
-            }
-            handOffFocusColor(targets)
-        }
-    }
-
     val scrollHideThresholdPx = with(density) { SettingsRuntime.lyricScrollHideThresholdDp.dp.toPx() }
-    val lyricInteractionConnection = remember(document, scrollHideThresholdPx) {
+    val lyricInteractionConnection = remember(renderedDocument, scrollHideThresholdPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source != NestedScrollSource.UserInput) return Offset.Zero
-                val offsetDelta = -available.y
-                if (kotlin.math.abs(offsetDelta) < 0.01f) return Offset.Zero
-
+                if (source != NestedScrollSource.UserInput || abs(available.y) < .01f) return Offset.Zero
                 isBrowsingLyrics = true
                 browseGeneration += 1
-
+                val offsetDelta = -available.y
                 if (offsetDelta < 0f) {
                     scrollHideDistancePx = 0f
-                    if (latestInterfaceHidden.value) {
-                        latestVisibilityCallback.value.invoke(true)
-                    } else {
-                        latestInteractionCallback.value.invoke()
-                    }
+                    if (latestInterfaceHidden.value) latestVisibilityCallback.value(true)
+                    else latestInteractionCallback.value()
                 } else if (!latestInterfaceHidden.value) {
-                    latestInteractionCallback.value.invoke()
+                    latestInteractionCallback.value()
                     scrollHideDistancePx += offsetDelta
                     if (scrollHideDistancePx >= scrollHideThresholdPx) {
                         scrollHideDistancePx = 0f
-                        latestVisibilityCallback.value.invoke(false)
+                        latestVisibilityCallback.value(false)
                     }
                 }
                 return Offset.Zero
@@ -530,266 +404,158 @@ internal fun AppleMusicLyricsPanel(
         }
     }
 
-    LaunchedEffect(browseGeneration, document) {
-        if (browseGeneration <= 0) return@LaunchedEffect
+    LaunchedEffect(isBrowsingLyrics, renderedDocument) {
+        if (isBrowsingLyrics) resetMotion()
+    }
+    // 计时从惯性滚动真正结束开始，防止手指仍按住或列表仍滑动时被自动跟随抢走。
+    LaunchedEffect(browseGeneration, listState.isScrollInProgress, renderedDocument) {
+        if (!isBrowsingLyrics || listState.isScrollInProgress) return@LaunchedEffect
         delay(SettingsRuntime.lyricFollowDelayMs.toLong())
         isBrowsingLyrics = false
         playbackFocusGeneration += 1
     }
 
-    LaunchedEffect(isBrowsingLyrics, document) {
-        if (isBrowsingLyrics) clearCascadePresentation(visualFocusIndex)
-    }
-
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .onSizeChanged {
-                viewportHeightPx = it.height
-                viewportWidthPx = it.width
-            },
+        modifier = modifier.fillMaxSize().onSizeChanged {
+            viewportHeightPx = it.height
+            viewportWidthPx = it.width
+        },
     ) {
         val focusPosition = SettingsRuntime.lyricFocusPosition
         val topPaddingPx = viewportHeightPx * focusPosition
-        val bottomPaddingPx = max(
-            viewportHeightPx * (1f - focusPosition),
-            with(density) { 40.dp.toPx() },
-        )
-
+        val bottomPaddingPx = max(viewportHeightPx * (1f - focusPosition), with(density) { 40.dp.toPx() })
+        val interludeHeightPx = with(density) { 56.dp.toPx() }
+        fun reservedInterludeHeight(index: Int): Float =
+            if (SettingsRuntime.lyricInterludeCountdownEnabled && index in interludeByLyricIndex) interludeHeightPx else 0f
         fun focusItemScrollOffset(index: Int): Int {
-            if (index !in lines.indices || viewportHeightPx <= 0) return 0
-            val viewportAnchor = viewportHeightPx * focusPosition
-            // 聚焦行视觉高度含 lyricFocusScale 放大（与 settledMovementOffset 同口径）：
-            // 首屏/跳转用未放大高度算目标会偏下，长句换行时偏差更大
-            val focusHeight = estimatedHeight(index) * SettingsRuntime.lyricFocusScale
-            val desiredItemTop = viewportAnchor - focusHeight * focusPosition
-            return -desiredItemTop.roundToInt()
+            val isInterludeFocused = SettingsRuntime.lyricInterludeCountdownEnabled &&
+                interludes.getOrNull(activeInterludeIndex)?.followingLyricIndex == index
+            val rowHeight = if (isInterludeFocused) interludeHeightPx else estimatedHeight(index) + lineSpacingPx
+            val top = AmllScrollPhysics.focusTop(viewportHeightPx, rowHeight, focusPosition)
+            return -(top - if (isInterludeFocused) 0f else reservedInterludeHeight(index)).roundToInt()
         }
 
         val playbackFocusIndex = activeTimedLineIndexes.minOrNull() ?: highlightedIndex
-
+        val focusHeight = rowHeightsPx[playbackFocusIndex]
         LaunchedEffect(
-            playbackFocusIndex,
-            playbackFocusGeneration,
-            viewportHeightPx,
-            isBrowsingLyrics,
-            document,
+            playbackFocusIndex, playbackFocusGeneration, viewportHeightPx, viewportWidthPx,
+            isBrowsingLyrics, renderedDocument, focusHeight, seekGeneration, activeInterludeIndex,
         ) {
-            val sourceIndex = highlightedIndex
-            val nextIndex = playbackFocusIndex
-            if (viewportHeightPx <= 0 || isBrowsingLyrics) {
-                if (isBrowsingLyrics && sourceIndex in lines.indices) {
-                    visualFocusIndex = sourceIndex
-                }
-                return@LaunchedEffect
-            }
-
-            if (nextIndex !in lines.indices) {
-                listState.scrollToItem(0)
-                initialLyricsPositioned = true
-                return@LaunchedEffect
-            }
-
+            if (viewportHeightPx <= 0 || isBrowsingLyrics || lines.isEmpty()) return@LaunchedEffect
+            val nextIndex = playbackFocusIndex.coerceIn(lines.indices)
             val previousIndex = visualFocusIndex
-
-            if (previousIndex !in lines.indices) {
-                // 首屏定位：等一帧让可见行真实高度经 onMeasured 回写进 rowHeightsPx，
-                // 再用实测高度算目标。否则首屏用估算高度（长句换行/放大行偏小）定位偏下，
-                // 后续每次回写都漂移目标导致乱跳。面板此时透明（initialLyricsPositioned=false），晚一帧无感知
-                androidx.compose.runtime.withFrameNanos { }
-                val firstTargetOffset = focusItemScrollOffset(nextIndex)
-                listState.scrollToItem(nextIndex + 1, firstTargetOffset)
-                focusProgress.forEachIndexed { index, anim ->
-                    val targets = activeTimedLineIndexes.ifEmpty {
-                        colorHighlightedIndex.takeIf(lines.indices::contains)?.let(::setOf).orEmpty()
+            val targetOffset = focusItemScrollOffset(nextIndex)
+            if (!initialLyricsPositioned) {
+                resetMotion()
+                // 两次测量使进入长句中段时也能以真实换行高度居中。
+                listState.scrollToItem(nextIndex + 1, targetOffset)
+                withFrameNanos { }
+                listState.scrollToItem(nextIndex + 1, focusItemScrollOffset(nextIndex))
+                if (!SettingsRuntime.lyricReduceMotion) {
+                    val enteringRows = listState.layoutInfo.visibleItemsInfo.filter { it.index - 1 in lines.indices }
+                    rowBaselines = enteringRows.associate { it.index - 1 to it.offset.toFloat() }
+                    enteringRows.forEach { item ->
+                        val index = item.index - 1
+                        // 上游新建歌词组从视口下方两倍高度飞入，所有行共享起点且不加阶梯延迟。
+                        lineTravel[index].snapTo(item.offset - viewportHeightPx * 2f)
+                        runningMoves[index] = motionScope.launch {
+                            lineTravel[index].animateTo(0f, AmllScrollPhysics.positionSpring(null))
+                        }
                     }
-                    anim.snapTo(if (index in targets) 1f else 0f)
                 }
-                scaleProgress.forEachIndexed { index, anim ->
-                    anim.snapTo(if (index == nextIndex) 1f else 0f)
-                }
-                clearCascadePresentation(nextIndex)
+                visualFocusIndex = nextIndex
                 initialLyricsPositioned = true
                 return@LaunchedEffect
             }
-
-            if (previousIndex == nextIndex) return@LaunchedEffect
-
-            // 非首屏跳转：此时 rowHeightsPx 已有实测值，直接现算目标（首屏分支内已单独处理）
-            val targetOffset = focusItemScrollOffset(nextIndex)
-
-            if (!SettingsRuntime.lyricAutoFollowEnabled) {
-                handOffFocusScale(previousIndex, nextIndex)
-                visualFocusIndex = nextIndex
-                return@LaunchedEffect
-            }
-
+            visualFocusIndex = nextIndex
+            if (!SettingsRuntime.lyricAutoFollowEnabled) return@LaunchedEffect
             if (SettingsRuntime.lyricReduceMotion) {
-                clearCascadePresentation(nextIndex)
-                handOffFocusScale(previousIndex, nextIndex)
+                resetMotion()
                 listState.scrollToItem(nextIndex + 1, targetOffset)
                 return@LaunchedEffect
             }
-
-            val baseDurationMs = sourceFocusAnimationDurationMs(nextIndex, lines)
-            val skippedLineCount = (nextIndex - previousIndex).coerceAtLeast(1)
-            val isAdjacentForward = skippedLineCount == 1
-            val effectivePosition = renderedPositionState.longValue + lyricAdvanceMs
-            val remainingMs = sourceRemainingFocusDurationMs(nextIndex, effectivePosition, lines)
-
-            val fullCascadeMs = max(baseDurationMs.toFloat(), SettingsRuntime.lyricCascadeDurationMs)
-            val availableMs = remainingMs?.coerceAtLeast(0f)
-            val cascadeDurationMs = if (availableMs == null) {
-                fullCascadeMs
-            } else {
-                if (availableMs < SettingsRuntime.lyricSnapThresholdMs) 0f
-                else min(fullCascadeMs, availableMs)
-            }
-
-            val desiredTop = -targetOffset.toFloat()
-            val targetItem = listState.layoutInfo.visibleItemsInfo
-                .firstOrNull { it.index == nextIndex + 1 }
-            if (cascadeDurationMs <= 0f || targetItem == null) {
-                clearCascadePresentation(nextIndex)
-                coroutineScope {
-                    launch { handOffFocusScale(previousIndex, nextIndex) }
-                    launch {
-                        if (cascadeDurationMs <= 0f) {
-                            listState.scrollToItem(nextIndex + 1, targetOffset)
-                        } else {
-                            listState.animateScrollToItem(
-                                nextIndex + 1,
-                                targetOffset,
-                            )
-                        }
-                    }
-                }
-                return@LaunchedEffect
-            }
-
-            if (!isAdjacentForward) {
-                // Several lines can finish at the same timestamp. Advance one
-                // row at a time so intermediate lyrics are visibly promoted
-                // with the same cadence as an ordinary adjacent transition.
-                val singleStepDurationMs = fullCascadeMs.coerceAtLeast(1f)
-                clearCascadePresentation(nextIndex)
-                handOffFocusScale(previousIndex, nextIndex)
-                for (stepIndex in (previousIndex + 1)..nextIndex) {
-                    val stepOffset = focusItemScrollOffset(stepIndex)
-                    val stepItem = listState.layoutInfo.visibleItemsInfo
-                        .firstOrNull { it.index == stepIndex + 1 }
-                    if (stepItem == null) {
-                        listState.scrollToItem(stepIndex + 1, stepOffset)
-                        continue
-                    }
-                    val stepDesiredTop = -stepOffset.toFloat()
-                    val stepDistance = stepItem.offset - stepDesiredTop
-                    listState.scroll {
-                        var previousProgress = 0f
-                        Animatable(0f).animateTo(
-                            targetValue = 1f,
-                            animationSpec = tween(
-                                durationMillis = singleStepDurationMs.roundToInt(),
-                                easing = SourceSmoothStepEasing,
-                            ),
-                        ) {
-                            scrollBy((value - previousProgress) * stepDistance)
-                            previousProgress = value
-                        }
-                    }
-                    visualFocusIndex = stepIndex
-                }
-                return@LaunchedEffect
-            }
-
-            val movementDistance = targetItem.offset - desiredTop
-            if (abs(movementDistance) <= 0.5f) {
-                clearCascadePresentation(nextIndex)
-                handOffFocusScale(previousIndex, nextIndex)
-                return@LaunchedEffect
-            }
-
-            val visibleLineIndexes = listState.layoutInfo.visibleItemsInfo
-                .mapNotNull { (it.index - 1).takeIf(lines.indices::contains) }
-            val firstVisible = visibleLineIndexes.minOrNull() ?: max(nextIndex - 1, 0)
-            val lastVisible = visibleLineIndexes.maxOrNull() ?: nextIndex
-            val firstMoving = min(firstVisible, max(nextIndex - 1, 0))
-            // The cache window keeps these rows composed even though the
-            // viewport clips them. Each retains its own delayed spring.
-            val lastMoving = min(lastVisible + 4, lines.lastIndex)
-            val movingIndexes = firstMoving..lastMoving
-            val carriedOffsets = movingIndexes.associateWith(::currentMovementOffset)
-            val destinations = movingIndexes.associateWith { settledMovementOffset(it, nextIndex) }
-
-            cascadeDistancePx = movementDistance
-            appliedScrollPx = 0f
-            cascadeBaseOffsets = movingIndexes.associateWith { index ->
-                // 可见行才有真实布局位置；缓存外的行不会参与绘制，给 0 即可
-                listState.layoutInfo.visibleItemsInfo
-                    .firstOrNull { it.index == index + 1 }
-                    ?.offset?.toFloat()
-                    ?: 0f
-            }
-            cascadeInitialOffsets = carriedOffsets
-            cascadeDestinationOffsets = destinations
-            cascadeScrollProgress.snapTo(0f)
-            movingIndexes.forEach { cascadeLineProgress[it].snapTo(0f) }
-            visualFocusIndex = nextIndex
-
-            val firstChasing = max(nextIndex - 1, 0)
-            val maximumChaseOrder = max(lastMoving - firstChasing, 0)
-            val lineTimings = sourceCascadeLineTimings(
-                maximumLineOrder = maximumChaseOrder,
-                animationDurationMs = cascadeDurationMs,
+            val seeking = seekGeneration != consumedSeekGeneration || nextIndex < previousIndex
+            consumedSeekGeneration = seekGeneration
+            val springSpec = AmllScrollPhysics.positionSpring(
+                intervalMs = lines.getOrNull(nextIndex - 1)?.let {
+                    sourceLineActivationTimeMs(lines[nextIndex]) - sourceLineActivationTimeMs(it)
+                },
+                seeking = seeking || playbackFocusGeneration > 0 && previousIndex == nextIndex,
+                interlude = activeInterludeIndex >= 0,
+                ended = state.durationMs > 0L && renderedPositionState.longValue >= state.durationMs,
             )
-            val slowestDuration = lineTimings.first().durationMs
-
-            coroutineScope {
-                launch { handOffFocusScale(previousIndex, nextIndex) }
-                launch {
-                    var previousScrollProgress = 0f
-                    listState.scroll {
-                        cascadeScrollProgress.animateTo(
-                            targetValue = 1f,
-                            animationSpec = tween(
-                                durationMillis = cascadeDurationMs.roundToInt(),
-                                easing = SourceSmoothStepEasing,
-                            ),
-                        ) {
-                            val delta = (value - previousScrollProgress) * movementDistance
-                            scrollBy(delta)
-                            // 记账：虚拟偏移的滚动补偿项必须与此严格一致
-                            appliedScrollPx += delta
-                            previousScrollProgress = value
+            val items = listState.layoutInfo.visibleItemsInfo
+            val targetItem = items.firstOrNull { it.index == nextIndex + 1 }
+            if (targetItem == null) {
+                resetMotion()
+                // 未测量的远端行先以估算高度定位；进入预取区后按真实高度再收敛。
+                // 与普通切行共用弹簧，避免跳转退回列表的默认动画曲线。
+                scrollJob = motionScope.launch {
+                    repeat(4) {
+                        val visibleRows = listState.layoutInfo.visibleItemsInfo
+                        val exact = visibleRows.firstOrNull { it.index == nextIndex + 1 }
+                        val reference = exact ?: visibleRows.firstOrNull { it.index - 1 in lines.indices }
+                            ?: return@launch
+                        val referenceIndex = reference.index - 1
+                        val estimatedDistance = if (referenceIndex <= nextIndex) {
+                            (referenceIndex until nextIndex).sumOf {
+                                (estimatedHeight(it) + lineSpacingPx + reservedInterludeHeight(it)).toDouble()
+                            }.toFloat()
+                        } else {
+                            -(nextIndex until referenceIndex).sumOf {
+                                (estimatedHeight(it) + lineSpacingPx + reservedInterludeHeight(it)).toDouble()
+                            }.toFloat()
+                        }
+                        val remaining = reference.offset + estimatedDistance + focusItemScrollOffset(nextIndex)
+                        if (abs(remaining) < 1f) return@launch
+                        listState.scroll {
+                            scrollTravel.animateTo(appliedScrollPx + remaining, springSpec) {
+                                appliedScrollPx += scrollBy(value - appliedScrollPx)
+                            }
                         }
                     }
+                    listState.scrollToItem(nextIndex + 1, focusItemScrollOffset(nextIndex))
                 }
-
-                movingIndexes.forEach { index ->
-                    val movementOrder = max(index - nextIndex, 0)
-                    val chaseOrder = (index - firstChasing).coerceAtLeast(0)
-                    val movementTiming = lineTimings[min(movementOrder, lineTimings.lastIndex)]
-                    val chaseTiming = lineTimings[min(chaseOrder, lineTimings.lastIndex)]
-                    val duration = slowestDuration +
-                        (chaseTiming.durationMs - slowestDuration) *
-                        SettingsRuntime.lyricCascadeChaseSpeedGradient
-                    val bounce = sourceCascadeBounce(chaseOrder, maximumChaseOrder)
-                    // 收回弹：提高阻尼、提高刚度，回到 AMLL 过阻尼柔感
-                    val lineStiffness = (260f - bounce * 180f).coerceIn(140f, 260f)
-                    val lineDamping = (0.88f - bounce * 0.08f).coerceIn(0.82f, 0.92f)
-                    launch {
-                        if (movementTiming.delayMs > 0f) delay(movementTiming.delayMs.toLong())
-                        cascadeLineProgress[index].animateTo(
-                            targetValue = 1f,
-                            animationSpec = spring(dampingRatio = lineDamping, stiffness = lineStiffness),
-                        )
+                return@LaunchedEffect
+            }
+            val distance = targetItem.offset + targetOffset.toFloat()
+            if (abs(distance) < .5f && !scrollTravel.isRunning) return@LaunchedEffect
+            val targetTravel = appliedScrollPx + distance
+            val visible = items.filter { it.index - 1 in lines.indices }
+            if (visible.isEmpty()) return@LaunchedEffect
+            val delays = AmllScrollPhysics.staggerDelays(
+                rowBottoms = visible.map { it.offset + it.size - distance },
+                firstIndex = visible.first().index - 1,
+                focusIndex = nextIndex,
+                enabled = !seeking && nextIndex != previousIndex,
+            )
+            val visibleIndexes = visible.map { it.index - 1 }.toSet()
+            val baselines = rowBaselines.filterKeys { it in visibleIndexes }.toMutableMap()
+            visible.forEachIndexed { order, item ->
+                val index = item.index - 1
+                if (index !in baselines) lineTravel[index].snapTo(appliedScrollPx)
+                baselines[index] = item.offset + appliedScrollPx
+                pendingMoves.remove(index)?.cancel()
+                pendingMoves[index] = motionScope.launch {
+                    val durationScale = coroutineContext[androidx.compose.ui.MotionDurationScale]?.scaleFactor ?: 1f
+                    delay((delays[order] * durationScale).toLong())
+                    // 等待阶梯延迟期间，旧弹簧继续运行；新目标接管时继承此刻速度。
+                    runningMoves[index] = motionScope.launch {
+                        lineTravel[index].animateTo(targetTravel, springSpec)
                     }
                 }
-
             }
-            clearCascadePresentation(nextIndex)
+            rowBaselines = baselines
+            val velocity = scrollTravel.velocity
+            scrollJob?.cancel()
+            scrollJob = motionScope.launch {
+                listState.scroll {
+                    scrollTravel.animateTo(targetTravel, springSpec, initialVelocity = velocity) {
+                        appliedScrollPx += scrollBy(value - appliedScrollPx)
+                    }
+                }
+            }
         }
-
         when {
             isLoading && document == null -> {
                 CircularProgressIndicator(
@@ -822,34 +588,9 @@ internal fun AppleMusicLyricsPanel(
                 )
             }
             else -> {
-                // The focused row scales from its start (or end, when flipped)
-                // edge by lyricFocusScale, so a full-width line visually grows
-                // past the 8dp gutter and gets clipped by clipToBounds().
-                // Reserve a static gutter E on the growing side: the far text
-                // edge sits at P - 8 - E before scaling and lands exactly on
-                // the panel edge after, s * (P - 8 - E) <= P, which solves to
-                // E >= (s - 1) * P / s - 8. Sized from the panel width at the
-                // maximum scale so the wrap points never shift while the
-                // scale animates.
-                val focusScale = SettingsRuntime.lyricFocusScale
-                val focusScaleReservePadding = with(density) {
-                    val panelWidthDp = viewportWidthPx.toDp().value
-                    (((focusScale - 1f) * panelWidthDp / focusScale) - 8f)
-                        .coerceAtLeast(0f)
-                        .dp
-                }
-                val focusAnchorY = viewportHeightPx * focusPosition
                 val annotationHeightPx = annotationFontPx * 1.2f * 2f + annotationSpacingPx * 2f
                 val lyricStridePx = max(primaryHeightPx + annotationHeightPx + lineSpacingPx, 1f)
                 val layoutOverscanPx = (lyricStridePx * 4f).roundToInt()
-                // Observing layoutInfo here during automatic playback scrolls
-                // invalidated and recomposed every visible lyric item per
-                // frame. Exact coordinates are only required while the user is
-                // browsing; playback mode has a stable source-derived stride.
-                val browsingVisibleItemsByIndex by remember(listState) {
-                    derivedStateOf { listState.layoutInfo.visibleItemsInfo.associateBy { it.index } }
-                }
-                val visibleItemsByIndex = browsingVisibleItemsByIndex
 
                 Layout(
                     modifier = Modifier
@@ -875,64 +616,47 @@ internal fun AppleMusicLyricsPanel(
                         // scroll animation.
                         val showsInterlude = SettingsRuntime.lyricInterludeCountdownEnabled &&
                             interlude != null
-                        val interludeHeightPx = if (showsInterlude) with(density) { 56.dp.toPx() } else 0f
-                        val height = estimatedHeight(index) + interludeHeightPx
-                        val visualOffset = currentMovementOffset(index) + roundingCorrection(index)
-                        val frameMinY = visibleItemsByIndex[index + 1]?.offset?.toFloat()
-                            ?: focusAnchorY + (index - visualFocusIndex) * lyricStridePx
-                        val visualMidY = frameMinY + visualOffset + height * 0.5f
-                        val distance = if (isBrowsingLyrics || visualFocusIndex !in lines.indices) {
-                            abs(visualMidY - focusAnchorY)
-                        } else {
-                            abs(index - visualFocusIndex) * lyricStridePx
-                        }
                         val isActiveLine = index in activeTimedLineIndexes
                         val fp = focusProgress[index].value.coerceIn(0f, 1f)
-                        // Some LRC/YRC files deliberately provide two distinct
-                        // lines at virtually the same time.  Keep both readable
-                        // instead of promoting only the last binary-search hit.
                         val effectiveFocus = fp
-                        val distanceBlur = sourceDistanceBlurRadius(
-                            distancePx = distance,
-                            lyricStridePx = lyricStridePx,
-                            intensity = UpstreamLyrics.BLUR_INTENSITY *
-                                (if (isInterfaceHidden) SettingsRuntime.lyricHiddenInterfaceBlurScale else SettingsRuntime.lyricDistanceBlurScale) *
-                                SettingsRuntime.lyricBlurStrength,
-                            focusProgress = effectiveFocus,
-                        )
-                        val preceding = index == visualFocusIndex - 1
-                        val following = index == visualFocusIndex + 1
-                        val focusBlur = sourceFocusBlurRadius(
-                            UpstreamLyrics.BLUR_INTENSITY * SettingsRuntime.lyricBlurStrength,
-                            preceding,
-                            following,
-                        ) * (1f - effectiveFocus)
-                        val distanceOpacity = sourceDistanceOpacity(
-                            distance,
-                            lyricStridePx,
-                            SettingsRuntime.lyricDimAmount,
-                            effectiveFocus,
-                        )
-                        val emphasis = sourceEmphasis(effectiveFocus, SettingsRuntime.lyricDimAmount)
-                        val rowAlpha = (distanceOpacity * emphasis).coerceIn(0f, 1f)
-                        val followingLineAlpha = sourceDistanceOpacity(
-                            lyricStridePx,
-                            lyricStridePx,
-                            SettingsRuntime.lyricDimAmount,
-                            0f,
-                        ) * sourceEmphasis(0f, SettingsRuntime.lyricDimAmount)
-                        val timedUnplayedAlpha = (followingLineAlpha / rowAlpha.coerceAtLeast(.001f))
-                            .coerceIn(0f, 1f)
-                        val scale = 1f + (SettingsRuntime.lyricFocusScale - 1f) *
-                            max(scaleProgress[index].value, fp)
+                        val lastActiveIndex = activeTimedLineIndexes.maxOrNull() ?: visualFocusIndex
+                        val distanceBlur = AmllScrollPhysics.blur(
+                            index, visualFocusIndex, lastActiveIndex,
+                            active = isActiveLine || index == colorHighlightedIndex,
+                            browsing = isBrowsingLyrics,
+                            narrow = with(density) { viewportWidthPx.toDp() } <= 1024.dp,
+                        ) * SettingsRuntime.lyricBlurStrength
+                        // 非活跃行不订阅逐字时钟，用整行透明度还原上游的暗字层。
+                        // 当前行的未唱部分再按整行透明度归一化，避免被重复压暗。
+                        val inactiveAlpha = .2f
+                        val rowAlpha = inactiveAlpha + (.85f - inactiveAlpha) * fp
+                        val timedUnplayedAlpha = ((.2f + (.85f * .4f - .2f) * fp) / rowAlpha).coerceIn(0f, 1f)
+                        val distanceBlurForQuality = when (renderingQuality) {
+                            LyricsRenderingQuality.Low -> 0f
+                            LyricsRenderingQuality.Balanced -> distanceBlur * .55f
+                            LyricsRenderingQuality.High -> distanceBlur
+                        }
+                        Column(
+                            Modifier.graphicsLayer {
+                                translationY = currentMovementOffset(index)
+                                val scale = (1f + (SettingsRuntime.lyricFocusScale - 1f) *
+                                    scaleProgress[index].value) / SettingsRuntime.lyricFocusScale
+                                scaleX = scale
+                                scaleY = scale
+                                transformOrigin = TransformOrigin(
+                                    if (line.agent?.alignment == LyricAgentAlignment.Flipped) 1f else 0f,
+                                    .5f,
+                                )
+                            }.blur(distanceBlurForQuality.dp, BlurredEdgeTreatment.Unbounded),
+                        ) {
 
                         if (showsInterlude) {
                             LyricInterludeCountdown(
                                 interlude = checkNotNull(interlude),
                                 playbackTimeProvider = { renderedPositionState.longValue },
                                 reduceMotion = SettingsRuntime.lyricReduceMotion,
-                                visualScale = scale,
-                                visualOffsetPx = visualOffset,
+                                visualScale = 1f,
+                                visualOffsetPx = 0f,
                                 rowAlpha = rowAlpha,
                                 modifier = Modifier.padding(bottom = 8.dp),
                             )
@@ -947,18 +671,18 @@ internal fun AppleMusicLyricsPanel(
                             // the lyric refresh rate on low-end devices.
                             supportsTimedLyrics = line.syllables.isNotEmpty() &&
                                 SettingsRuntime.lyricWordByWordEnabled &&
-                                (effectiveFocus > 0.001f || isActiveLine),
+                                (effectiveFocus > 0.001f || isActiveLine || index == visualFocusIndex + 1),
                             fontScale = lyricFontScale,
                             reduceMotion = SettingsRuntime.lyricReduceMotion,
                             focusProgress = effectiveFocus,
                             timingEffectsStrength = if (isActiveLine) 1f else effectiveFocus,
                             timedUnplayedAlpha = timedUnplayedAlpha,
-                            visualScale = scale,
-                            focusScaleReservePadding = focusScaleReservePadding,
-                            visualOffsetPx = visualOffset,
+                            visualScale = 1f,
+                            focusScaleReservePadding = 0.dp,
+                            visualOffsetPx = 0f,
                             rowAlpha = rowAlpha,
-                            distanceBlurDp = distanceBlur,
-                            focusBlurDp = focusBlur,
+                            distanceBlurDp = 0f,
+                            focusBlurDp = 0f,
                             renderingQuality = renderingQuality,
                             showTranslation = SettingsRuntime.showLyricTranslation &&
                                 !line.translation.isNullOrBlank(),
@@ -973,6 +697,7 @@ internal fun AppleMusicLyricsPanel(
                             tapSeekEnabled = SettingsRuntime.lyricTapSeekEnabled,
                             onClick = { onInterfaceInteraction(); state.seekTo(line.timeMs) },
                         )
+                        }
 
                         if (index != lines.lastIndex) {
                             Spacer(Modifier.height((UpstreamLyrics.LINE_SPACING_DP * lyricSpacingScale).dp))

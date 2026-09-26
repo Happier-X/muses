@@ -7,6 +7,8 @@ data class LyricSyllable(
     val text: String,
     val startTimeMs: Long,
     val endTimeMs: Long,
+    /** TTML 词上方注音及其独立时间，不与行级罗马音混用。 */
+    val ruby: List<LyricSyllable> = emptyList(),
 )
 
 /** Authored word timing and LRC-inferred display durations must not be conflated. */
@@ -363,15 +365,15 @@ object NeteaseLyricParser {
 
     private fun LyricLine.shiftBy(deltaMs: Long): LyricLine = copy(
         timeMs = timeMs + deltaMs,
-        syllables = syllables.map { it.copy(startTimeMs = it.startTimeMs + deltaMs, endTimeMs = it.endTimeMs + deltaMs) },
+        syllables = syllables.map { it.shiftBy(deltaMs) },
         romanizationSyllables = romanizationSyllables.map {
-            it.copy(startTimeMs = it.startTimeMs + deltaMs, endTimeMs = it.endTimeMs + deltaMs)
+            it.shiftBy(deltaMs)
         },
         accompaniment = accompaniment.map { accompaniment ->
             accompaniment.copy(
                 timeMs = accompaniment.timeMs + deltaMs,
                 syllables = accompaniment.syllables.map {
-                    it.copy(startTimeMs = it.startTimeMs + deltaMs, endTimeMs = it.endTimeMs + deltaMs)
+                    it.shiftBy(deltaMs)
                 },
             )
         },
@@ -381,6 +383,12 @@ object NeteaseLyricParser {
         val text = candidate?.text?.trim().orEmpty()
         return text.takeIf { it.isNotBlank() && it != target.text.trim() }
     }
+
+    private fun LyricSyllable.shiftBy(deltaMs: Long): LyricSyllable = copy(
+        startTimeMs = startTimeMs + deltaMs,
+        endTimeMs = endTimeMs + deltaMs,
+        ruby = ruby.map { it.shiftBy(deltaMs) },
+    )
 
     private fun inferDurations(lines: List<LyricLine>): List<LyricLine> =
         lines.mapIndexed { index, line ->

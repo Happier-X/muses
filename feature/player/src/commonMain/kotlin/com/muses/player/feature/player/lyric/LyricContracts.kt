@@ -55,10 +55,10 @@ object SettingsRuntime {
     const val lyricCascadeFollowingDelayMs: Float = 27f
     const val lyricDimAmount: Float = 1f
     const val lyricDistanceBlurScale: Float = 1.05f
-    const val lyricFocusColorLeadMs: Long = 80L
-    const val lyricFocusPosition: Float = 0.5f
-    const val lyricFocusScale: Float = 1.05f
-    const val lyricFollowDelayMs: Int = 3000
+    const val lyricFocusColorLeadMs: Long = 0L
+    const val lyricFocusPosition: Float = 0.35f
+    const val lyricFocusScale: Float = 1f / 0.97f
+    const val lyricFollowDelayMs: Int = 500
     val lyricFontWeight: LyricFontWeight = LyricFontWeight.SemiBold
     const val lyricGlowEnabled: Boolean = true
     const val lyricGlowLongTonesOnly: Boolean = false
@@ -66,7 +66,7 @@ object SettingsRuntime {
     const val lyricHiddenInterfaceBlurScale: Float = 1f
     const val lyricHighlightGradientReduction: Float = 0.65f
     const val lyricHighlightGradientWidth: Float = 0.7f
-    const val lyricInactiveOpacity: Float = 0.3f
+    const val lyricInactiveOpacity: Float = 0.4f
     const val lyricInterludeCountdownEnabled: Boolean = true
     const val lyricPseudoTimingEnabled: Boolean = false
     const val lyricReduceMotion: Boolean = false

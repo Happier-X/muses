@@ -248,6 +248,9 @@ internal fun UpstreamLyricLine(
                 fontScale = fontScale,
                 renderingQuality = renderingQuality,
                 softBlurDp = effectiveBlur,
+                reduceMotion = reduceMotion,
+                timingEffectsStrength = timingEffectsStrength,
+                unplayedAlpha = timedUnplayedAlpha,
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
@@ -335,6 +338,7 @@ internal fun TimedAccompaniment(
             renderingQuality = renderingQuality,
             softBlurDp = softBlurDp,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).graphicsLayer { alpha = .72f },
+            isBackground = true,
         )
     }
 }
@@ -348,6 +352,9 @@ internal fun RubyLyricText(
     fontScale: Float,
     renderingQuality: LyricsRenderingQuality,
     softBlurDp: Float = 0f,
+    reduceMotion: Boolean = false,
+    timingEffectsStrength: Float = 1f,
+    unplayedAlpha: Float = .4f,
     modifier: Modifier = Modifier,
 ) {
     if (SettingsRuntime.lyricWordByWordEnabled) {
@@ -357,8 +364,9 @@ internal fun RubyLyricText(
                 playbackTimeProvider = playbackTimeProvider,
                 supportsTimedLyrics = supportsTimedLyrics,
                 fontScale = fontScale,
-                reduceMotion = false,
-                timingEffectsStrength = 1f,
+                reduceMotion = reduceMotion,
+                timingEffectsStrength = timingEffectsStrength,
+                unplayedAlpha = unplayedAlpha,
                 renderingQuality = renderingQuality,
                 softBlurDp = softBlurDp,
                 modifier = Modifier.fillMaxWidth(),
@@ -463,47 +471,6 @@ internal fun RubyLyricText(
     }
 }
 
-internal data class GlyphVisual(
-    val reveal: Float,
-    val liftPx: Float,
-    val scale: Float,
-    val glow: Float,
-    val shakeXPx: Float,
-    val shakeYPx: Float,
-)
-
-internal data class GlyphTiming(
-    val textOffset: Int,
-    val start: Float,
-    val end: Float,
-    val liftStart: Float,
-    val liftEnd: Float,
-    val syllableStart: Float,
-    val syllableEnd: Float,
-    val characterIndex: Int,
-    val characterCount: Int,
-    val wordStart: Float,
-    val wordEnd: Float,
-    val wordCharacterIndex: Int,
-    val wordCharacterCount: Int,
-    val usesWordTimingForLongTone: Boolean,
-    val longToneStart: Float,
-    val longToneDuration: Float,
-    val longToneCharacterIndex: Int,
-    val longToneCharacterCount: Int,
-    val isLongTone: Boolean,
-    val expansionAmount: Float,
-    val glowAmount: Float,
-)
-
-internal data class DrawableGlyph(
-    val textOffset: Int,
-    val text: String,
-    val bounds: Rect,
-    val baseline: Float,
-)
-
-internal val InactiveGlyphVisual = GlyphVisual(0f, 0f, 1f, 0f, 0f, 0f)
 
 internal data class LyricInterlude(
     val startTimeMs: Long,
@@ -572,323 +539,18 @@ internal fun GlyphLyricText(
     renderingQuality: LyricsRenderingQuality,
     softBlurDp: Float = 0f,
     modifier: Modifier = Modifier,
+    isBackground: Boolean = false,
 ) {
-    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val flipped = line.agent?.alignment == com.muses.player.core.lyrics.model.LyricAgentAlignment.Flipped
-    val density = LocalDensity.current
-    val lyricWeight = SettingsRuntime.lyricFontWeight.composeWeight
-    val textMeasurer = rememberTextMeasurer(cacheSize = 64)
-    BoxWithConstraints(modifier = modifier) {
-        val widthPx = with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
-        val style = TextStyle(
-            color = Color.White,
-            fontFamily = LocalFontFamily.current,
-            fontSize = (UpstreamLyrics.FONT_SIZE_SP * fontScale).sp,
-            lineHeight = (UpstreamLyrics.LINE_HEIGHT_SP * fontScale).sp,
-            fontWeight = lyricWeight,
-            textAlign = if (flipped) TextAlign.End else TextAlign.Start,
-        )
-        val layout = remember(line.text, widthPx, style) {
-            textMeasurer.measure(
-                text = AnnotatedString(line.text),
-                style = style,
-                constraints = Constraints(minWidth = widthPx, maxWidth = widthPx),
-                softWrap = true,
-            )
-        }
-        val height = with(density) { layout.size.height.toDp() }
-        val drawableGlyphs = remember(layout, line.text) {
-            buildList {
-                var offset = 0
-                while (offset < line.text.length) {
-                    val character = line.text[offset]
-                    val codeUnitCount = if (
-                        Character.isHighSurrogate(character) &&
-                        offset + 1 < line.text.length &&
-                        Character.isLowSurrogate(line.text[offset + 1])
-                    ) 2 else 1
-                    if (character != '\n' && character != '\r' && !Character.isLowSurrogate(character)) {
-                        val bounds = runCatching { layout.getBoundingBox(offset) }.getOrNull()?.takeIf { box ->
-                            box.width.isFinite() && box.height.isFinite() && box.width > 0f && box.height > 0f
-                        }
-                        if (bounds != null) {
-                            val lineIndex = layout.getLineForOffset(offset)
-                            val baseline = layout.getLineBaseline(lineIndex)
-                            add(
-                                DrawableGlyph(
-                                    textOffset = offset,
-                                    text = line.text.substring(offset, offset + codeUnitCount),
-                                    bounds = bounds,
-                                    baseline = baseline,
-                                ),
-                            )
-                        }
-                    }
-                    offset += codeUnitCount
-                }
-            }
-        }
-        val liftMode = SettingsRuntime.lyricLiftMode
-        val longToneDetectionMode = SettingsRuntime.lyricLongToneDetectionMode
-        val longToneThresholdMs = SettingsRuntime.lyricLongToneThresholdMs
-        val glyphTimings = remember(line, liftMode, longToneDetectionMode, longToneThresholdMs) {
-            sourceGlyphTimings(
-                line = line,
-                liftMode = liftMode,
-                longToneDetectionMode = longToneDetectionMode,
-                longToneThresholdMs = longToneThresholdMs,
-            )
-        }
-
-        // U21 跨平台 glyph 绘制：以整行同款 TextStyle 逐字预排版，drawText 按基线对齐绘制。
-        // 光晕/柔焦用 TextStyle.Shadow（compose 双端一致），替代 android 的
-        // nativeCanvas.drawText + BlurMaskFilter；透明字色只留模糊白轮廓（发光/失焦柔焦语义）。
-        val glyphLayoutCache = remember(style) { mutableMapOf<String, TextLayoutResult>() }
-        fun glyphLayoutFor(text: String, shadowBlurPx: Float?): TextLayoutResult =
-            glyphLayoutCache.getOrPut(if (shadowBlurPx == null) text else "$text\u0001$shadowBlurPx") {
-                val effectiveStyle = if (shadowBlurPx == null) {
-                    style
-                } else {
-                    style.copy(shadow = Shadow(color = Color.White, offset = Offset.Zero, blurRadius = shadowBlurPx))
-                }
-                textMeasurer.measure(
-                    text = AnnotatedString(text),
-                    style = effectiveStyle,
-                    softWrap = false,
-                )
-            }
-
-        val animatesTiming = supportsTimedLyrics &&
-            timingEffectsStrength > 0.001f &&
-            line.text.isNotEmpty()
-        if (!animatesTiming) {
-            // 柔焦（距离/焦点模糊）整行走 Shadow 白轮廓：一次 drawText 代替逐字 maskFilter，
-            // 视觉等价于按行模糊白字轮廓，字形位置仍来自 Compose 排版
-            val softBlurPx = with(density) { softBlurDp.dp.toPx() }
-            val blurredLayout = if (softBlurPx > .05f) {
-                remember(layout, softBlurPx) {
-                    textMeasurer.measure(
-                        text = AnnotatedString(line.text),
-                        style = style.copy(
-                            shadow = Shadow(color = Color.White, offset = Offset.Zero, blurRadius = softBlurPx),
-                        ),
-                        constraints = Constraints(minWidth = widthPx, maxWidth = widthPx),
-                        softWrap = true,
-                    )
-                }
-            } else {
-                null
-            }
-            Canvas(Modifier.fillMaxWidth().height(height)) {
-                val blurred = blurredLayout
-                if (blurred == null) {
-                    drawText(layout, color = Color.White)
-                } else {
-                    drawText(blurred, color = Color.Transparent)
-                }
-            }
-            return@BoxWithConstraints
-        }
-
-        Canvas(Modifier.fillMaxWidth().height(height)) {
-            val playbackTimeMs = playbackTimeProvider()
-            val effectsStrength = sourceTimingEffectsStrength(
-                line = line,
-                playbackTimeMs = playbackTimeMs,
-                focusProgress = timingEffectsStrength,
-            )
-            if (effectsStrength <= 0.0001f) {
-                drawText(
-                    layout,
-                    color = Color.White.copy(alpha = unplayedAlpha),
-                )
-                return@Canvas
-            }
-
-            // The unrevealed layer must remain at the ordinary unplayed lyric
-            // opacity. Interpolating it from fully white made the whole next
-            // line flash before the first syllable started revealing.
-            val unplayedAlpha = unplayedAlpha.coerceIn(0f, 1f)
-
-            if ((renderingQuality != LyricsRenderingQuality.High || reduceMotion) &&
-                (!SettingsRuntime.lyricWordByWordEnabled || reduceMotion)
-            ) {
-                // Low/Balanced render the complete shaped row twice and reveal
-                // it with one row mask. This preserves ligatures and reduces a
-                // CJK line from dozens of native drawText/clip calls to two.
-                drawText(layout, color = Color.White.copy(alpha = unplayedAlpha))
-                val first = line.syllables.minOfOrNull { it.startTimeMs } ?: line.timeMs
-                val last = line.syllables.maxOfOrNull { it.endTimeMs }
-                    ?: (line.timeMs + (line.durationMs ?: 2_000L))
-                val rowReveal = ((playbackTimeMs - first).toFloat() / (last - first).coerceAtLeast(1L))
-                    .coerceIn(0f, 1f)
-                if (rowReveal > 0f) {
-                    if (isRtl) {
-                        clipRect(left = size.width * (1f - rowReveal)) {
-                            drawText(layout, color = Color.White)
-                        }
-                    } else {
-                        clipRect(right = size.width * rowReveal) {
-                            drawText(layout, color = Color.White)
-                        }
-                    }
-                }
-                return@Canvas
-            }
-
-            for (glyph in drawableGlyphs) {
-                val bounds = glyph.bounds
-                val fx = glyphTimings.getOrNull(glyph.textOffset)?.let { timing ->
-                    sourceGlyphVisual(
-                        timing = timing,
-                        playbackTimeMs = playbackTimeMs,
-                        density = density.density,
-                        reduceMotion = reduceMotion,
-                        fontScale = fontScale,
-                    )
-                } ?: InactiveGlyphVisual
-
-                withTransform({
-                    translate(
-                        left = fx.shakeXPx * effectsStrength,
-                        top = -fx.liftPx * effectsStrength + fx.shakeYPx * effectsStrength,
-                    )
-                    val presentationScale = 1f + (fx.scale - 1f) * effectsStrength
-                    scale(
-                        scaleX = presentationScale,
-                        scaleY = presentationScale,
-                        pivot = bounds.center,
-                    )
-                }) {
-                    fun drawGlyph(alpha: Float, shadowBlurPx: Float? = null) {
-                        // The measured position and baseline come from the
-                        // complete Compose layout, but only this glyph is
-                        // rasterized. Both layers share this transformed
-                        // coordinate space, matching iOS's runContext.
-                        // U21：单字 drawText（基线对齐）替代 nativeCanvas.drawText；
-                        // shadowBlurPx 非空时走 Shadow 白轮廓（透明字色只留光晕）。
-                        val result = glyphLayoutFor(glyph.text, shadowBlurPx)
-                        drawText(
-                            textLayoutResult = result,
-                            color = if (shadowBlurPx == null) {
-                                Color.White.copy(alpha = alpha.coerceIn(0f, 1f))
-                            } else {
-                                Color.Transparent
-                            },
-                            topLeft = Offset(glyph.bounds.left, glyph.baseline - result.firstBaseline),
-                        )
-                    }
-
-                    // Draw the unplayed layer after applying the glyph's lift
-                    // and expansion. Keeping it at the original line position
-                    // left a gray duplicate below every lifted white glyph.
-                    drawGlyph(unplayedAlpha)
-
-                    val reveal = fx.reveal.coerceIn(0f, 1f)
-                    val glow = fx.glow * effectsStrength * SettingsRuntime.lyricGlowStrength
-                    if (
-                        reveal > 0f &&
-                        glow > 0.001f &&
-                        renderingQuality != LyricsRenderingQuality.Low &&
-                        !reduceMotion
-                    ) {
-                        val glowRadius = with(density) {
-                            (style.fontSize.toPx() * if (renderingQuality == LyricsRenderingQuality.High) .30f else .18f)
-                                .coerceAtLeast(3.dp.toPx())
-                        }
-                        val revealFront = if (isRtl) {
-                            bounds.right - bounds.width * reveal
-                        } else {
-                            bounds.left + bounds.width * reveal
-                        }
-                        // U22：Shadow 在 TextLayoutResult 中烘焙，clipRect 无法约束其模糊溢出，
-                        // 导致整行辉光。将 shadowBlurPx 缩至 glowRadius 的 12%（≤1.5dp），
-                        // 使溢出不可见，同时保留光晕语义。
-                        val clampedGlowBlur = glowRadius * 0.12f
-                        clipRect(
-                            left = if (isRtl) revealFront - glowRadius else bounds.left - glowRadius,
-                            top = bounds.top - glowRadius,
-                            right = if (isRtl) bounds.right + glowRadius else revealFront + glowRadius,
-                            bottom = bounds.bottom + glowRadius,
-                        ) {
-                            drawGlyph(glow.coerceIn(0f, 1f) * .648f, clampedGlowBlur)
-                        }
-                    }
-
-                    clipRect(
-                        left = bounds.left,
-                        top = bounds.top,
-                        right = bounds.right,
-                        bottom = bounds.bottom,
-                    ) {
-                        if (reveal <= 0f) return@clipRect
-
-                        // AMLL 对齐：fadeWidth = word.height * wordFadeWidth(0.5)。
-                        // 旧值 0.7*字宽在 CJK 大字上羽化带过宽，看起来整字发虚。
-                        val feather = max(
-                            bounds.height * 0.5f,
-                            1.5f * density.density,
-                        )
-                        val front = if (isRtl) {
-                            bounds.right + feather - (bounds.width + feather) * reveal
-                        } else {
-                            bounds.left - feather + (bounds.width + feather) * reveal
-                        }
-                        val solidLeft = if (isRtl) max(front, bounds.left) else bounds.left
-                        val solidRight = if (isRtl) bounds.right else min(front, bounds.right)
-                        fun drawRevealed(alpha: Float) {
-                            if (solidRight > solidLeft) {
-                                clipRect(
-                                    left = solidLeft,
-                                    top = bounds.top,
-                                    right = solidRight,
-                                    bottom = bounds.bottom,
-                                ) {
-                                    drawGlyph(alpha)
-                                }
-                            }
-
-                            val stopCount = when (renderingQuality) {
-                                LyricsRenderingQuality.Low -> 1
-                                LyricsRenderingQuality.Balanced -> 2
-                                LyricsRenderingQuality.High -> 3
-                            }
-                            for (step in 0 until stopCount) {
-                                val a = step.toFloat() / stopCount.toFloat()
-                                val b = (step + 1).toFloat() / stopCount.toFloat()
-                                val mid = (a + b) * .5f
-                                val remaining = 1f - mid
-                                val baseMask = remaining *
-                                    (1f - SettingsRuntime.lyricHighlightGradientReduction * mid)
-                                val maskAlpha = baseMask +
-                                    (1f - baseMask) * glow.coerceIn(0f, 1f) * .14f
-                                val left = if (isRtl) {
-                                    max(front - feather * b, bounds.left)
-                                } else {
-                                    max(front + feather * a, bounds.left)
-                                }
-                                val right = if (isRtl) {
-                                    min(front - feather * a, bounds.right)
-                                } else {
-                                    min(front + feather * b, bounds.right)
-                                }
-                                if (right > left) {
-                                    clipRect(
-                                        left = left,
-                                        top = bounds.top,
-                                        right = right,
-                                        bottom = bounds.bottom,
-                                    ) {
-                                        drawGlyph(alpha * maskAlpha.coerceIn(0f, 1f))
-                                    }
-                                }
-                            }
-                        }
-
-                        drawRevealed(1f)
-                    }
-                }
-            }
-        }
-    }
+    AmllWordLyricText(
+        line = line,
+        playbackTimeProvider = playbackTimeProvider,
+        supportsTimedLyrics = supportsTimedLyrics,
+        fontScale = fontScale,
+        reduceMotion = reduceMotion,
+        timingEffectsStrength = timingEffectsStrength,
+        unplayedAlpha = unplayedAlpha,
+        renderingQuality = renderingQuality,
+        background = isBackground,
+        modifier = modifier,
+    )
 }

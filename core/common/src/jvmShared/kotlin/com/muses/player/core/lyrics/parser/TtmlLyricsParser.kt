@@ -126,12 +126,29 @@ object TtmlLyricsParser {
         for (index in 0 until children.length) {
             val element = children.item(index) as? Element ?: continue
             if (element.localTag != "span" || element.hasRole("x-translation") || element.hasRole("x-bg") || element.hasRole("x-roman")) continue
-            val start = element.attr("begin")?.parseTime() ?: continue
-            val end = element.attr("end")?.parseTime() ?: continue
-            var text = element.allText()
+            val rubyContainer = element.attr("tts:ruby", "ruby") == "container"
+            val ruby = if (rubyContainer) element.directElements("span")
+                .filter { it.attr("tts:ruby", "ruby") == "textContainer" }
+                .flatMap { it.directElements("span") }
+                .filter { it.attr("tts:ruby", "ruby") == "text" }
+                .mapNotNull {
+                    val rubyStart = it.attr("begin")?.parseTime() ?: return@mapNotNull null
+                    val rubyEnd = it.attr("end")?.parseTime() ?: return@mapNotNull null
+                    it.allText().trim().takeIf(String::isNotBlank)?.let { text ->
+                        LyricSyllable(text, rubyStart, rubyEnd.coerceAtLeast(rubyStart))
+                    }
+                } else emptyList()
+            val start = if (rubyContainer) ruby.minOfOrNull { it.startTimeMs }
+                ?: element.attr("begin")?.parseTime() else element.attr("begin")?.parseTime()
+            val end = if (rubyContainer) ruby.maxOfOrNull { it.endTimeMs }
+                ?: element.attr("end")?.parseTime() else element.attr("end")?.parseTime()
+            if (start == null || end == null) continue
+            var text = if (rubyContainer) element.directElements("span")
+                .filter { it.attr("tts:ruby", "ruby") == "base" }.joinToString("") { it.allText() }
+                else element.allText()
             val next = children.item(index + 1)
             if (next?.nodeType == Node.TEXT_NODE) text += next.nodeValue.orEmpty()
-            if (text.isNotEmpty()) add(LyricSyllable(text, start, end.coerceAtLeast(start + 1L)))
+            if (text.isNotEmpty()) add(LyricSyllable(text, start, end.coerceAtLeast(start + 1L), ruby))
         }
         if (isNotEmpty()) this[lastIndex] = last().copy(text = last().text.trimEnd())
     }
@@ -181,7 +198,12 @@ object TtmlLyricsParser {
             val child = nodes.item(index)
             when {
                 child.nodeType == Node.TEXT_NODE -> append(child.nodeValue)
-                child is Element && !child.hasRole("x-translation") && !child.hasRole("x-bg") && !child.hasRole("x-roman") -> append(child.allText())
+                child is Element && !child.hasRole("x-translation") && !child.hasRole("x-bg") && !child.hasRole("x-roman") -> {
+                    if (child.attr("tts:ruby", "ruby") == "container") {
+                        child.directElements("span").filter { it.attr("tts:ruby", "ruby") == "base" }
+                            .forEach { append(it.allText()) }
+                    } else append(child.allText())
+                }
             }
         }
     }.decodeEntities()
