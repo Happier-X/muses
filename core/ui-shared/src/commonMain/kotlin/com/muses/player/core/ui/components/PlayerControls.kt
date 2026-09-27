@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.muses.player.core.ui.icons.TablerIcons
 
@@ -28,6 +27,7 @@ fun PlayerControls(
     // gap clamp(24,10vw,44)：此处以简化档位表达，调用方如需精确 vw 可传 gap。
     gap: androidx.compose.ui.unit.Dp = if (compact) 12.dp else 24.dp,
 ) {
+    val contentColor = LocalPlayerContentColor.current
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(gap),
@@ -38,21 +38,21 @@ fun PlayerControls(
             imageVector = TablerIcons.SkipPreviousFill,
             contentDescription = "上一曲",
             size = MusesIconButtonSize.LG,
-            tint = Color.White.copy(alpha = 0.9f),
+            tint = contentColor.copy(alpha = 0.9f),
         )
         MusesIconButton(
             onClick = onPlayPause,
             imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill,
             contentDescription = if (isPlaying) "暂停" else "播放",
             size = MusesIconButtonSize.LG,
-            tint = Color.White.copy(alpha = 0.92f),
+            tint = contentColor.copy(alpha = 0.92f),
         )
         MusesIconButton(
             onClick = onNext,
             imageVector = TablerIcons.SkipNextFill,
             contentDescription = "下一曲",
             size = MusesIconButtonSize.LG,
-            tint = Color.White.copy(alpha = 0.9f),
+            tint = contentColor.copy(alpha = 0.9f),
         )
     }
 }
@@ -76,6 +76,7 @@ fun PlayerModeBar(
     modifier: Modifier = Modifier,
     maxWidth: androidx.compose.ui.unit.Dp = 320.dp,
 ) {
+    val contentColor = LocalPlayerContentColor.current
     Row(
         modifier
             .fillMaxWidth()
@@ -87,25 +88,25 @@ fun PlayerModeBar(
             onClick = onToggleRepeat,
             imageVector = if (repeatMode == PLAYER_REPEAT_ONE) TablerIcons.RepeatOne else TablerIcons.Repeat,
             contentDescription = if (repeatMode == PLAYER_REPEAT_ONE) "单曲循环" else "列表循环",
-            tint = Color.White.copy(alpha = 0.8f),
+            tint = contentColor.copy(alpha = 0.8f),
         )
         MusesIconButton(
             onClick = onToggleShuffle,
             imageVector = if (shuffleEnabled) TablerIcons.Shuffle else TablerIcons.FormatListBulleted,
             contentDescription = if (shuffleEnabled) "随机播放" else "顺序播放",
-            tint = Color.White.copy(alpha = 0.8f),
+            tint = contentColor.copy(alpha = 0.8f),
         )
         MusesIconButton(
             onClick = onOpenQueue,
             imageVector = TablerIcons.QueueMusic,
             contentDescription = "播放队列",
-            tint = Color.White.copy(alpha = 0.8f),
+            tint = contentColor.copy(alpha = 0.8f),
         )
         MusesIconButton(
             onClick = onOpenEditMeta,
             imageVector = TablerIcons.MoreVert,
             contentDescription = "更多",
-            tint = Color.White.copy(alpha = 0.8f),
+            tint = contentColor.copy(alpha = 0.8f),
         )
     }
 }

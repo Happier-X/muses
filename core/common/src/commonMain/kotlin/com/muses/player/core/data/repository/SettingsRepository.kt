@@ -23,11 +23,16 @@ interface SettingsRepository {
     /** 媒体通知歌词开关：开启后通知标题显示歌词，艺术家显示「标题-艺术家」 */
     val notificationLyricsEnabled: Flow<Boolean>
 
+    /** 沉浸式播放页的文字与图标使用封面协调色（默认开启） */
+    val coverContentColorEnabled: Flow<Boolean>
+
     suspend fun setAutoScrapeEnabled(enabled: Boolean)
 
     suspend fun setMiniPlayerLyricsEnabled(enabled: Boolean)
 
     suspend fun setNotificationLyricsEnabled(enabled: Boolean)
+
+    suspend fun setCoverContentColorEnabled(enabled: Boolean)
 
     /**
      * 在线音源首选音质（洛雪音质 key，如 `320k`/`flac`/`hires`/`master`）。
@@ -81,6 +86,9 @@ class DataStoreSettingsRepository constructor(
     override val notificationLyricsEnabled: Flow<Boolean>
         get() = dataStore.data.map { prefs -> prefs[NOTIFICATION_LYRICS_ENABLED] == true }
 
+    override val coverContentColorEnabled: Flow<Boolean>
+        get() = dataStore.data.map { prefs -> prefs[COVER_CONTENT_COLOR_ENABLED] ?: true }
+
     override suspend fun updateLastScanTimestamp(timestampMillis: Long) {
         dataStore.edit { prefs -> prefs[LAST_SCAN_TIMESTAMP] = timestampMillis }
     }
@@ -95,6 +103,10 @@ class DataStoreSettingsRepository constructor(
 
     override suspend fun setNotificationLyricsEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[NOTIFICATION_LYRICS_ENABLED] = enabled }
+    }
+
+    override suspend fun setCoverContentColorEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[COVER_CONTENT_COLOR_ENABLED] = enabled }
     }
 
     override val onlinePreferredQuality: Flow<String>
@@ -144,6 +156,7 @@ class DataStoreSettingsRepository constructor(
         val AUTO_SCRAPE_ENABLED = booleanPreferencesKey("auto_scrape_enabled")
         val MINI_PLAYER_LYRICS_ENABLED = booleanPreferencesKey("mini_player_lyrics_enabled")
         val NOTIFICATION_LYRICS_ENABLED = booleanPreferencesKey("notification_lyrics_enabled")
+        val COVER_CONTENT_COLOR_ENABLED = booleanPreferencesKey("cover_content_color_enabled")
         val ONLINE_PREFERRED_QUALITY = stringPreferencesKey("online_preferred_quality")
         val AI_RECOMMEND_ENABLED = booleanPreferencesKey("ai_recommend_enabled")
         val AI_SERVICE_NAME = stringPreferencesKey("ai_service_name")

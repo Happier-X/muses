@@ -47,4 +47,14 @@ class DataStoreSettingsRepositoryTest {
         repository.updateLastScanTimestamp(now)
         assertEquals(now, repository.lastScanTimestamp.first())
     }
+
+    @Test
+    fun 封面强调色默认开启且切换后持久化() = runTest(StandardTestDispatcher()) {
+        repository = createRepository()
+        assertEquals(true, repository.coverContentColorEnabled.first())
+        repository.setCoverContentColorEnabled(false)
+        assertEquals(false, repository.coverContentColorEnabled.first())
+        repository.setCoverContentColorEnabled(true)
+        assertEquals(true, repository.coverContentColorEnabled.first())
+    }
 }

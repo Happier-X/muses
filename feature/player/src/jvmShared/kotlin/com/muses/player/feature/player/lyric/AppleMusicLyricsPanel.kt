@@ -35,7 +35,6 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -63,6 +62,7 @@ import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import com.muses.player.core.ui.components.LocalPlayerContentColor
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -79,6 +79,7 @@ internal fun AppleMusicLyricsPanel(
     active: Boolean = true,
     externalDocument: LyricsDocument? = null,
 ) {
+    val contentColor = LocalPlayerContentColor.current
     val activeState = rememberUpdatedState(active)
     // Keep four future lines composed below the viewport. Their independent
     // cascade animations can then run before clipping reveals them.
@@ -560,14 +561,14 @@ internal fun AppleMusicLyricsPanel(
             isLoading && document == null -> {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    colors = ProgressIndicatorDefaults.progressIndicatorColors(foregroundColor = Color.White.copy(alpha = 0.9f)),
+                    colors = ProgressIndicatorDefaults.progressIndicatorColors(foregroundColor = contentColor.copy(alpha = 0.9f)),
                 )
             }
             errorMessage != null && document == null -> {
                 Text(
                     text = errorMessage.orEmpty(),
                     modifier = Modifier.align(Alignment.Center).padding(24.dp),
-                    color = Color.White.copy(alpha = 0.52f),
+                    color = contentColor.copy(alpha = 0.52f),
                     style = MiuixTheme.textStyles.body1,
                 )
             }
@@ -575,7 +576,7 @@ internal fun AppleMusicLyricsPanel(
                 Text(
                     text = "暂无歌词",
                     modifier = Modifier.align(Alignment.Center),
-                    color = Color.White.copy(alpha = 0.42f),
+                    color = contentColor.copy(alpha = 0.42f),
                     style = MiuixTheme.textStyles.title4,
                 )
             }
@@ -583,7 +584,7 @@ internal fun AppleMusicLyricsPanel(
                 Text(
                     text = "暂无歌词",
                     modifier = Modifier.align(Alignment.Center),
-                    color = Color.White.copy(alpha = 0.42f),
+                    color = contentColor.copy(alpha = 0.42f),
                     style = MiuixTheme.textStyles.title4,
                 )
             }

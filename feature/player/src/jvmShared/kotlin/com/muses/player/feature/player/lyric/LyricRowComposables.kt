@@ -1,6 +1,7 @@
 package com.muses.player.feature.player.lyric
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import com.muses.player.core.ui.components.LocalPlayerContentColor
 import java.text.BreakIterator
 import java.util.Locale
 import androidx.compose.animation.core.Animatable
@@ -58,7 +59,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -125,6 +125,7 @@ internal fun LyricInstrumentalWave(
     reduceMotion: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val contentColor = LocalPlayerContentColor.current
     val infiniteTransition = rememberInfiniteTransition(label = "instrumental-wave")
     val phase0 by infiniteTransition.animateFloat(
         initialValue = 0.3f,
@@ -162,7 +163,7 @@ internal fun LyricInstrumentalWave(
         phases.forEachIndexed { index, phase ->
             val barHeight = 20.dp.toPx() + index * 7.dp.toPx()
             drawRoundRect(
-                color = Color.White.copy(alpha = phase.coerceIn(0f, 1f)),
+                color = contentColor.copy(alpha = phase.coerceIn(0f, 1f)),
                 topLeft = Offset(
                     startX + index * (barWidth + gap),
                     (size.height - barHeight) / 2f,
@@ -199,6 +200,7 @@ internal fun UpstreamLyricLine(
     onMeasured: (Int) -> Unit,
     onClick: () -> Unit,
 ) {
+    val contentColor = LocalPlayerContentColor.current
     val flipped = line.agent?.alignment == com.muses.player.core.lyrics.model.LyricAgentAlignment.Flipped
     val lineAlignment = if (flipped) Alignment.End else Alignment.Start
     val lineTextAlign = if (flipped) TextAlign.End else TextAlign.Start
@@ -286,7 +288,7 @@ internal fun UpstreamLyricLine(
             Text(
                 text = line.translation.orEmpty(),
                 modifier = Modifier.fillMaxWidth().padding(top = UpstreamLyrics.ANNOTATION_SPACING_DP.dp),
-                color = Color.White.copy(alpha = SettingsRuntime.lyricTranslationOpacity),
+                color = contentColor.copy(alpha = SettingsRuntime.lyricTranslationOpacity),
                 textAlign = lineTextAlign,
                 fontSize = translationSize.sp,
                 lineHeight = translationSize.sp * 1.2f,
@@ -294,7 +296,7 @@ internal fun UpstreamLyricLine(
                 style = TextStyle(
                     shadow = if (effectiveBlur > .05f) {
                         Shadow(
-                            color = Color.White.copy(alpha = .48f),
+                            color = contentColor.copy(alpha = .48f),
                             offset = Offset.Zero,
                             blurRadius = effectiveBlur,
                         )
@@ -357,6 +359,7 @@ internal fun RubyLyricText(
     unplayedAlpha: Float = .4f,
     modifier: Modifier = Modifier,
 ) {
+    val contentColor = LocalPlayerContentColor.current
     if (SettingsRuntime.lyricWordByWordEnabled) {
         Column(modifier = modifier) {
             GlyphLyricText(
@@ -374,7 +377,7 @@ internal fun RubyLyricText(
             if (!line.romanization.isNullOrBlank()) {
                 Text(
                     text = line.romanization.orEmpty(),
-                    color = Color.White.copy(alpha = SettingsRuntime.lyricRomanizationOpacity),
+                    color = contentColor.copy(alpha = SettingsRuntime.lyricRomanizationOpacity),
                     modifier = Modifier.fillMaxWidth().padding(top = UpstreamLyrics.ANNOTATION_SPACING_DP.dp),
                     fontSize = max(
                         UpstreamLyrics.FONT_SIZE_SP * fontScale * SettingsRuntime.lyricRomanizationFontScale,
@@ -427,7 +430,7 @@ internal fun RubyLyricText(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = unit.originalText,
-                    color = Color.White,
+                    color = contentColor,
                     modifier = Modifier.graphicsLayer {
                         alpha = if (!supportsTimedLyrics || unit.originalSyllables.isEmpty()) {
                             1f
@@ -443,7 +446,7 @@ internal fun RubyLyricText(
                     maxLines = 1,
                     style = TextStyle(
                         shadow = if (softBlurDp > .05f) {
-                            Shadow(Color.White.copy(alpha = .48f), Offset.Zero, softBlurDp)
+                            Shadow(contentColor.copy(alpha = .48f), Offset.Zero, softBlurDp)
                         } else null,
                     ),
                 )
@@ -454,14 +457,14 @@ internal fun RubyLyricText(
                     val rubyCompression = (originalUnits * 1.85f / rubyUnits).coerceIn(.68f, 1f)
                     Text(
                         text = rubyText,
-                        color = Color.White.copy(alpha = SettingsRuntime.lyricRomanizationOpacity),
+                        color = contentColor.copy(alpha = SettingsRuntime.lyricRomanizationOpacity),
                         fontSize = (rubySize * rubyCompression).sp,
                         lineHeight = (rubySize * 1.2f).sp,
                         fontWeight = SettingsRuntime.lyricFontWeight.composeWeight,
                         maxLines = 1,
                         style = TextStyle(
                             shadow = if (softBlurDp > .05f) {
-                                Shadow(Color.White.copy(alpha = .42f), Offset.Zero, softBlurDp)
+                                Shadow(contentColor.copy(alpha = .42f), Offset.Zero, softBlurDp)
                             } else null,
                         ),
                     )
@@ -489,6 +492,7 @@ internal fun LyricInterludeCountdown(
     rowAlpha: Float,
     modifier: Modifier = Modifier,
 ) {
+    val contentColor = LocalPlayerContentColor.current
     Canvas(
         modifier
             .fillMaxWidth(0.28f)
@@ -519,7 +523,7 @@ internal fun LyricInterludeCountdown(
             val breathe = if (reduceMotion) 1f else 1f +
                 sin(elapsed.toDouble() / 1_500.0 * 2.0 * Math.PI).toFloat() * 0.05f
             drawCircle(
-                color = Color.White.copy(alpha = progress * fadeOut),
+                color = contentColor.copy(alpha = progress * fadeOut),
                 radius = baseRadius * breathe * if (index == 2) (1f + progress * 0.18f) else 1f,
                 center = Offset(baseRadius + index * gap, centerY),
             )

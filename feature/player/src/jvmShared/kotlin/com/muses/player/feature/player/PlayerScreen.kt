@@ -33,6 +33,7 @@ import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -73,10 +74,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import coil3.compose.AsyncImage
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.ui.components.PlayerControls
 import com.muses.player.core.ui.components.PlayerCoverHero
 import com.muses.player.core.ui.components.LocalPlayerArtworkMorph
+import com.muses.player.core.ui.components.LocalPlayerContentColor
 import com.muses.player.core.ui.components.PlayerModeBar
 import com.muses.player.core.ui.components.PlayerProgress
 import com.muses.player.core.ui.components.MusesIconButton
@@ -138,6 +142,8 @@ fun PlayerScreen(
     /** 宿主已持有的封面，供页面首次挂载时立即绘制转场封面。 */
     initialCoverUri: String? = null,
 ) {
+    val settingsRepository = koinInject<SettingsRepository>()
+    val coverContentColorEnabled by settingsRepository.coverContentColorEnabled.collectAsStateWithLifecycle(initialValue = true)
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val position by viewModel.position.collectAsStateWithLifecycle()
     val duration by viewModel.duration.collectAsStateWithLifecycle()
@@ -155,6 +161,7 @@ fun PlayerScreen(
     )
     val stickyCover by viewModel.stickyCover.collectAsStateWithLifecycle()
     val displayCover = stickyCover ?: initialCoverUri
+    var contentColor by remember { mutableStateOf(Color.White) }
     val playbackError by viewModel.playbackError.collectAsStateWithLifecycle()
 
     // U21：屏幕尺寸改用视口约束（见下方 BoxWithConstraints），原 LocalConfiguration 仅安卓可用
@@ -200,7 +207,8 @@ fun PlayerScreen(
 
     // 外层：m-popup 背景透明（对齐 .player-page__popup background: transparent !important）——
     // 无 scrim 黑化，drag-layer 下滑时直接漏出底下列表（原版 1:1）
-    BoxWithConstraints(
+    CompositionLocalProvider(LocalPlayerContentColor provides if (coverContentColorEnabled) contentColor else Color.White) {
+        BoxWithConstraints(
         // clipToBounds：宿主在转场中平移整页，这里裁掉视口外内容，避免屏外绘制。
         modifier = modifier.fillMaxSize().clipToBounds(),
     ) {
@@ -323,6 +331,7 @@ fun PlayerScreen(
                     alpha = backgroundAlpha().coerceIn(0f, 1f)
                 },
                 flowSpeed = 2f,
+                onContentColorChange = { contentColor = it },
             )
             var activePanel by remember { mutableStateOf(0) }
             LaunchedEffect(activePanel) { isLyricPanelActive = activePanel == 1 }
@@ -427,6 +436,7 @@ fun PlayerScreen(
                     )
                 }
             }
+        }
         }
     }
 }
@@ -633,7 +643,7 @@ private fun PhoneImmersiveLayout(
                     isPlaying = isPlaying,
                     onSeek = onSeek,
                     // 歌词面板整体都是「非封面内容」，直接整块渐隐
-                    modifier = Modifier.graphicsLayer {
+                    modifier = Modifier.padding(horizontal = 24.dp).graphicsLayer {
                         translationY = collapseOffsetY()
                         alpha = contentAlphaFor(transitionProgress())
                     },
@@ -777,13 +787,14 @@ private fun FixedSongHead(
     artist: String,
     modifier: Modifier = Modifier,
 ) {
+    val contentColor = LocalPlayerContentColor.current
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.Start,
     ) {
         Text(
             text = title,
-            color = Color.White.copy(alpha = 0.95f),
+            color = contentColor.copy(alpha = 0.95f),
             style = MiuixTheme.textStyles.title3,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 0.2.sp, // 0.01em × 20px
@@ -794,7 +805,7 @@ private fun FixedSongHead(
         if (artist.isNotEmpty()) {
             Text(
                 text = artist,
-                color = Color.White.copy(alpha = 0.6f),
+                color = contentColor.copy(alpha = 0.6f),
                 style = MiuixTheme.textStyles.footnote1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1059,6 +1070,7 @@ private fun TabletBottomBar(
     screenWidth: Dp,
     screenHeight: Dp,
 ) {
+    val contentColor = LocalPlayerContentColor.current
     Column(
         Modifier
             .fillMaxWidth()
@@ -1090,13 +1102,13 @@ private fun TabletBottomBar(
                     onClick = onToggleRepeat,
                     imageVector = if (repeatMode == PlaybackStates.REPEAT_MODE_ONE) TablerIcons.RepeatOne else TablerIcons.Repeat,
                     contentDescription = if (repeatMode == PlaybackStates.REPEAT_MODE_ONE) "单曲循环" else "列表循环",
-                    tint = Color.White.copy(alpha = 0.8f),
+                    tint = contentColor.copy(alpha = 0.8f),
                 )
                 MusesIconButton(
                     onClick = onToggleShuffle,
                     imageVector = if (shuffleEnabled) TablerIcons.Shuffle else TablerIcons.FormatListBulleted,
                     contentDescription = if (shuffleEnabled) "随机播放" else "顺序播放",
-                    tint = Color.White.copy(alpha = 0.8f),
+                    tint = contentColor.copy(alpha = 0.8f),
                 )
             }
             PlayerControls(
@@ -1108,8 +1120,8 @@ private fun TabletBottomBar(
                 gap = (screenWidth * 0.05f).coerceIn(20.dp, 44.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                MusesIconButton(onClick = onOpenQueue, imageVector = TablerIcons.QueueMusic, contentDescription = "播放队列", tint = Color.White.copy(alpha = 0.8f))
-                MusesIconButton(onClick = onOpenEditMeta, imageVector = TablerIcons.MoreVert, contentDescription = "更多", tint = Color.White.copy(alpha = 0.8f))
+                MusesIconButton(onClick = onOpenQueue, imageVector = TablerIcons.QueueMusic, contentDescription = "播放队列", tint = contentColor.copy(alpha = 0.8f))
+                MusesIconButton(onClick = onOpenEditMeta, imageVector = TablerIcons.MoreVert, contentDescription = "更多", tint = contentColor.copy(alpha = 0.8f))
             }
         }
     }

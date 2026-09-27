@@ -68,6 +68,7 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     val lyricsEnabled by settingsRepository.miniPlayerLyricsEnabled.collectAsState(initial = false)
     val notificationLyricsEnabled by settingsRepository.notificationLyricsEnabled.collectAsState(initial = false)
+    val coverContentColorEnabled by settingsRepository.coverContentColorEnabled.collectAsState(initial = true)
 
 
     // U15：设置页共享组件（音源区块已移除，独立音源页承载）；「关于/反馈」扩展区为
@@ -89,6 +90,12 @@ fun SettingsScreen(
                         title = "通知栏歌词",
                         checked = notificationLyricsEnabled,
                         onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
+                    )
+                    SwitchPreference(
+                        title = "封面强调色",
+                        summary = "播放页文字与图标跟随封面取色",
+                        checked = coverContentColorEnabled,
+                        onCheckedChange = { coroutineScope.launch { settingsRepository.setCoverContentColorEnabled(it) } },
                     )
                 }
 

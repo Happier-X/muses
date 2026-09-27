@@ -20,7 +20,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -49,6 +48,7 @@ fun PlayerProgress(
     // 手机布局据此禁用 HorizontalPager 横滑，杜绝 seek 拖动被当成切页。
     onSeekDragActive: (Boolean) -> Unit = {},
 ) {
+    val contentColor = LocalPlayerContentColor.current
     var previewMs by remember { mutableStateOf<Long?>(null) }
     val displayPos = previewMs ?: positionMs
     val max = durationMs.coerceAtLeast(1L)
@@ -105,13 +105,13 @@ fun PlayerProgress(
                     val top = (size.height - trackH) / 2f
                     val fraction = (displayPos.toFloat() / max.toFloat()).coerceIn(0f, 1f)
                     drawRoundRect(
-                        color = Color.White.copy(alpha = 0.25f),
+                        color = contentColor.copy(alpha = 0.25f),
                         topLeft = androidx.compose.ui.geometry.Offset(0f, top),
                         size = androidx.compose.ui.geometry.Size(size.width, trackH),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackH / 2f),
                     )
                     drawRoundRect(
-                        color = Color.White,
+                        color = contentColor,
                         topLeft = androidx.compose.ui.geometry.Offset(0f, top),
                         size = androidx.compose.ui.geometry.Size(size.width * fraction, trackH),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackH / 2f),
@@ -126,12 +126,12 @@ fun PlayerProgress(
         ) {
             Text(
                 text = formatPlayerTime(displayPos),
-                color = Color.White.copy(alpha = 0.68f),
+                color = contentColor.copy(alpha = 0.68f),
                 style = MiuixTheme.textStyles.footnote1.copy(fontFeatureSettings = "tnum"),
             )
             Text(
                 text = if (durationMs > 0) formatPlayerTime(durationMs) else "--:--",
-                color = Color.White.copy(alpha = 0.68f),
+                color = contentColor.copy(alpha = 0.68f),
                 style = MiuixTheme.textStyles.footnote1.copy(fontFeatureSettings = "tnum"),
             )
         }

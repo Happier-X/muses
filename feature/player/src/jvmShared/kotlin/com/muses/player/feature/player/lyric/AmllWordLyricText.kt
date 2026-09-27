@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.lyrics.model.LyricAgentAlignment
 import com.muses.player.core.lyrics.model.LyricLine
+import com.muses.player.core.ui.components.LocalPlayerContentColor
 
 private data class AmllPiece(
     val layout: TextLayoutResult,
@@ -63,6 +64,7 @@ internal fun AmllWordLyricText(
     background: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val contentColor = LocalPlayerContentColor.current
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer(cacheSize = 64)
     val fontFamily = LocalFontFamily.current
@@ -71,7 +73,7 @@ internal fun AmllWordLyricText(
     BoxWithConstraints(modifier) {
         val width = with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
         val style = TextStyle(
-            color = Color.White,
+            color = contentColor,
             fontFamily = fontFamily,
             fontSize = (UpstreamLyrics.FONT_SIZE_SP * fontScale).sp,
             lineHeight = (UpstreamLyrics.LINE_HEIGHT_SP * fontScale).sp,
@@ -168,7 +170,7 @@ internal fun AmllWordLyricText(
         val height = with(density) { layout.size.height.toDp() }
         Canvas(Modifier.fillMaxWidth().height(height)) {
             if ((!supportsTimedLyrics && placeholders.isEmpty()) || words.isEmpty()) {
-                drawText(layout, Color.White)
+                drawText(layout, contentColor)
                 return@Canvas
             }
             val time = if (supportsTimedLyrics) playbackTimeProvider() else 0L
@@ -176,7 +178,7 @@ internal fun AmllWordLyricText(
             untimedRanges.forEach { range ->
                 val box = layout.getBoundingBox(range.start)
                 clipRect(box.left, box.top, box.right, box.bottom) {
-                    drawText(layout, Color.White.copy(alpha = if (supportsTimedLyrics) unplayedAlpha else 1f))
+                    drawText(layout, contentColor.copy(alpha = if (supportsTimedLyrics) unplayedAlpha else 1f))
                 }
             }
             words.forEachIndexed { wordIndex, word ->
@@ -201,11 +203,11 @@ internal fun AmllWordLyricText(
                                         renderingQuality != LyricsRenderingQuality.Low) {
                                         drawText(piece.layout, color = Color.Transparent, topLeft = piece.origin,
                                             shadow = Shadow(
-                                                Color.White.copy(alpha = (visual.glowAlpha * SettingsRuntime.lyricGlowStrength).coerceIn(0f, 1f)),
+                                                contentColor.copy(alpha = (visual.glowAlpha * SettingsRuntime.lyricGlowStrength).coerceIn(0f, 1f)),
                                                 Offset.Zero, (visual.glowRadiusEm * emPx).coerceAtLeast(.01f),
                                             ))
                                     }
-                                    drawText(piece.layout, Color.White, topLeft = piece.origin)
+                                    drawText(piece.layout, contentColor, topLeft = piece.origin)
                                 }
                             }
                             val floor = if (supportsTimedLyrics) unplayedAlpha.coerceIn(0f, 1f) else 1f
