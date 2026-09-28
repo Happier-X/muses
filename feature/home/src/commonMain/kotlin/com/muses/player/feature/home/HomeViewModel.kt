@@ -15,6 +15,7 @@ import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.lxsdk.LxQuality
+import com.muses.player.core.lxsdk.LxAction
 import com.muses.player.core.lxsdk.LxScriptRepository
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.online.OnlineTrackSession
@@ -42,10 +43,7 @@ data class ChartSectionState(
     val selectedPlatform: String? = null,
     /** 当前平台的榜单列表（切平台时从缓存取，不重复请求） */
     val charts: List<OnlineChart> = emptyList(),
-    val selectedChartId: String? = null,
-    val songs: List<OnlineSearchResult> = emptyList(),
     val loadingCharts: Boolean = false,
-    val loadingSongs: Boolean = false,
     val error: String? = null,
 )
 
@@ -98,7 +96,6 @@ class HomeViewModel(
 
     /** 各平台榜单缓存：切平台回看时不重复请求（榜单列表变动很慢） */
     private val chartsByPlatform = mutableMapOf<String, List<OnlineChart>>()
-    private var songJob: Job? = null
     private var recommendJob: Job? = null
 
     /** 首选音质（与在线搜索页共用同一设置项） */
@@ -144,13 +141,31 @@ class HomeViewModel(
 
     // ── 排行榜 ──
 
-    /** 拉取各平台榜单列表（默认选中首个平台的首个榜单并载入歌曲） */
+    /** 拉取各平台榜单列表；榜单歌曲由对应的详情页按需加载。 */
     fun loadCharts() {
         if (_state.value.chart.loadingCharts) return
         viewModelScope.launch {
             _state.value = _state.value.copy(chart = _state.value.chart.copy(loadingCharts = true, error = null))
 
-            val outcomes = runCatching { chartService.charts() }.getOrDefault(emptyList())
+            val supportedPlatforms = runCatching {
+                scriptRepository.loadAll()
+                    .filter { it.loadError == null }
+                    .flatMap { script ->
+                        script.sources.filterValues { it.supports(LxAction.MUSIC_URL) }.keys
+                    }
+                    .toSet()
+            }.getOrDefault(emptySet())
+            val availablePlatforms = chartService.platforms.filter { it in supportedPlatforms }
+            if (availablePlatforms.isEmpty()) {
+                _state.value = _state.value.copy(
+                    chart = ChartSectionState(
+                        platformNames = chartService.platformNames,
+                        error = "暂无可用的在线榜单音源，请先导入支持榜单平台的 LX 音源脚本",
+                    ),
+                )
+                return@launch
+            }
+            val outcomes = runCatching { chartService.charts(availablePlatforms) }.getOrDefault(emptyList())
             val success = outcomes.filterIsInstance<PlatformChartsOutcome.Success>()
             if (success.isEmpty()) {
                 val failure = outcomes.filterIsInstance<PlatformChartsOutcome.Failure>().firstOrNull()
@@ -174,64 +189,24 @@ class HomeViewModel(
                     platformNames = chartService.platformNames,
                     selectedPlatform = platform,
                     charts = charts,
-                    selectedChartId = charts.firstOrNull()?.chartId,
                     loadingCharts = false,
                     error = null,
                 ),
             )
-            charts.firstOrNull()?.let { loadSongs(platform, it.chartId) }
         }
     }
 
     fun selectPlatform(platform: String) {
-        if (_state.value.chart.selectedPlatform == platform && _state.value.chart.songs.isNotEmpty()) return
+        if (platform !in _state.value.chart.platforms) return
+        if (_state.value.chart.selectedPlatform == platform) return
         val charts = chartsByPlatform[platform].orEmpty()
         _state.value = _state.value.copy(
             chart = _state.value.chart.copy(
                 selectedPlatform = platform,
                 charts = charts,
-                selectedChartId = charts.firstOrNull()?.chartId,
-                songs = emptyList(),
                 error = null,
             ),
         )
-        charts.firstOrNull()?.let { loadSongs(platform, it.chartId) }
-    }
-
-    fun selectChart(chartId: String) {
-        val platform = _state.value.chart.selectedPlatform ?: return
-        if (_state.value.chart.selectedChartId == chartId && _state.value.chart.songs.isNotEmpty()) return
-        loadSongs(platform, chartId)
-    }
-
-    private fun loadSongs(platform: String, chartId: String) {
-        songJob?.cancel()
-        songJob = viewModelScope.launch {
-            _state.value = _state.value.copy(
-                chart = _state.value.chart.copy(
-                    selectedChartId = chartId,
-                    loadingSongs = true,
-                    songs = emptyList(),
-                    error = null,
-                ),
-            )
-            val page = runCatching {
-                chartService.chartSongs(platform, chartId, page = 1, pageSize = CHART_PAGE_SIZE)
-            }.getOrNull()
-            _state.value = _state.value.copy(
-                chart = _state.value.chart.copy(
-                    loadingSongs = false,
-                    songs = page?.results.orEmpty(),
-                    error = if (page == null) "榜单歌曲加载失败，请稍后重试" else null,
-                ),
-            )
-        }
-    }
-
-    fun playChartSong(index: Int) {
-        val chart = _state.value.chart
-        val platform = chart.selectedPlatform ?: return
-        playResults(chart.songs, index, platform)
     }
 
     // ── 猜你喜欢 ──
@@ -363,7 +338,7 @@ class HomeViewModel(
     private suspend fun hasUsableScript(platform: String): Boolean =
         runCatching {
             scriptRepository.loadAll().any { script ->
-                script.loadError == null && script.sources.containsKey(platform)
+                script.loadError == null && script.sources[platform]?.supports(LxAction.MUSIC_URL) == true
             }
         }.getOrDefault(false)
 
@@ -386,8 +361,4 @@ class HomeViewModel(
         else -> "AI 推荐失败：${e.message ?: "未知错误"}"
     }
 
-    private companion object {
-        /** 榜单首屏条数：首页只需「看一眼榜单」，更多内容引导去在线搜索页 */
-        const val CHART_PAGE_SIZE = 20
-    }
 }

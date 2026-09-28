@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
@@ -35,6 +36,7 @@ fun MusesDialog(
     confirmEnabled: Boolean = true,
     dismissText: String? = null,
     destructiveConfirm: Boolean = false,
+    confirmLoading: Boolean = false,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     OverlayDialog(
@@ -48,7 +50,7 @@ fun MusesDialog(
                 Spacer(Modifier.height(8.dp))
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
                     if (dismissText != null) {
                         MusesTextButton(
@@ -60,8 +62,9 @@ fun MusesDialog(
                         MusesTextButton(
                             text = confirmText,
                             onClick = onConfirm,
-                            enabled = confirmEnabled,
+                            enabled = confirmEnabled && !confirmLoading,
                             destructive = destructiveConfirm,
+                            loading = confirmLoading,
                         )
                     }
                 }

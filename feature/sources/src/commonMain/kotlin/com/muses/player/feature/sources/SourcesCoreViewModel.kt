@@ -9,6 +9,7 @@ import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.PlaybackStateRepository
 import com.muses.player.core.data.repository.RecentPlaysRepository
+import com.muses.player.core.data.repository.ScanMergeResult
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.repository.SourceRepository
@@ -174,8 +175,8 @@ class SourcesViewModel constructor(
             }
             try {
                 val songs = scanPort.scan(source, readTags = scanReadTags)
-                songRepository.replaceSourceSongs(source.id, songs)
-                scanResultMessage = "扫描完成：共 ${songs.size} 首。"
+                val result = songRepository.replaceSourceSongs(source.id, songs)
+                scanResultMessage = scanResultText(result)
                 // M3 自动补缺：扫描后把无标签歌曲排进刮削队列（开关默认关）
                 if (settingsRepository.autoScrapeEnabled.first()) {
                     val untagged = songDao.getUntaggedSongIds()
@@ -190,6 +191,26 @@ class SourcesViewModel constructor(
             } finally {
                 progressJob.cancel()
                 isScanning = false
+            }
+        }
+    }
+
+    /**
+     * 扫描完成文案（含合并统计）：正常落库报告新增/丢失；
+     * 空结果或锐减保护触发时说明原曲库未动（[ScanMergeResult.skipped]）。
+     */
+    private fun scanResultText(result: ScanMergeResult): String = when {
+        result.skipped && result.scanned == 0 -> "本次未发现任何文件，已保留原有曲库。"
+        result.skipped -> "本次仅发现 ${result.scanned} 首，疑似音源异常，已保留原有曲库。"
+        else -> {
+            val extras = buildList {
+                if (result.added > 0) add("新增 ${result.added} 首")
+                if (result.missing > 0) add("${result.missing} 首未找到已保留")
+            }
+            if (extras.isEmpty()) {
+                "扫描完成：共 ${result.scanned} 首。"
+            } else {
+                "扫描完成：共 ${result.scanned} 首（${extras.joinToString("，")}）。"
             }
         }
     }

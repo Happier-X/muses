@@ -87,10 +87,9 @@ fun StatisticsScreen(onBack: () -> Unit) {
     ) { padding ->
         if (stats.totalPlayCount <= 0) {
             MusesEmpty(
-                title = "还没有听歌数据",
-                description = "播放歌曲后，这里会统计你的听歌天数、时长与高频歌曲",
-                icon = TablerIcons.MusicNote,
+                title = "空空如也~",
                 modifier = Modifier.fillMaxSize().padding(padding),
+                bottomInset = LocalBottomChromePadding.current,
             )
         } else {
             // 月份左边界：最早有记录的那个月（明细最多保留约三年）
@@ -136,7 +135,7 @@ fun StatisticsScreen(onBack: () -> Unit) {
                 Card(modifier = Modifier.padding(horizontal = 12.dp)) {
                     if (topSongs.isEmpty()) {
                         Text(
-                            text = "还没有播放记录",
+                            text = "空空如也~",
                             style = MiuixTheme.textStyles.footnote1,
                             color = MiuixTheme.colorScheme.onBackgroundVariant,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),

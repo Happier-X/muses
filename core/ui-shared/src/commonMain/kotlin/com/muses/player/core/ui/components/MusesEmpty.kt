@@ -1,86 +1,81 @@
 package com.muses.player.core.ui.components
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import com.muses.player.core.ui.icons.TablerIcons
 
 /**
- * `.m-empty` —— 空态（MEmpty.vue 一比一翻译）。
- *
- * 视觉契约：
- * - 纵向排列居中，`gap: var(--m-spacing-sub)`(12dp)，
- *   `padding: 56px var(--m-spacing)`；
- * - 图标壳：72px 圆形 `--m-surface-2` 底、`--m-text-3` 图标色，
- *   图标 `--m-list-icon`(24px)；
- * - 标题 17px / 600 / 1.35 / `--m-text`；
- * - 描述 15px / 1.4 / `--m-text-2`。
- *
- * 宽度必须占满可用空间：否则宽屏（平板/桌面）下容器宽度只等于最宽文案，
- * 居中只是「在自身内容里居中」，整体会被父级按左对齐摆放而偏左。
+ * 使用 Miuix 基础组件与主题样式组合的空状态。Miuix 没有专用空状态组件，
+ * 因此沿用其 Text、Icon、主题文字样式和语义颜色；图标置于轻量描边容器内。
+ * 在有界容器内水平、垂直居中；宽度占满可用空间，保证宽屏布局中内容仍相对容器居中。
  */
 @Composable
 fun MusesEmpty(
-    title: String,
+    title: String = "空空如也~",
     modifier: Modifier = Modifier,
     description: String? = null,
     icon: ImageVector? = null,
+    bottomInset: Dp = 0.dp,
 ) {
     val scheme = MiuixTheme.colorScheme
 
-    Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 56.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    Box(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        if (icon != null) {
+        Column(
+            modifier = Modifier.offset(y = -(bottomInset / 2)),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .clip(CircleShape)
-                    .background(scheme.surfaceVariant),
+                    .border(
+                        width = 1.dp,
+                        color = scheme.onBackgroundVariant.copy(alpha = 0.28f),
+                        shape = RoundedCornerShape(20.dp),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = icon,
-                    contentDescription = null, // aria-hidden
-                    tint = scheme.onBackground.copy(alpha = 0.3f),
-                    modifier = Modifier.size(24.dp),
+                    imageVector = icon ?: TablerIcons.Inbox,
+                    contentDescription = null,
+                    tint = scheme.onBackgroundVariant,
+                    modifier = Modifier.size(32.dp),
                 )
             }
-        }
-        Text(
-            text = title,
-            style = MiuixTheme.textStyles.main,
-            fontWeight = FontWeight.SemiBold,
-            lineHeight = (17f * 1.35f).sp,
-            color = scheme.onBackground,
-            textAlign = TextAlign.Center,
-        )
-        if (description != null) {
             Text(
-                text = description,
-                style = MiuixTheme.textStyles.body1,
-                lineHeight = (15f * 1.4f).sp,
-                color = scheme.onBackgroundVariant,
+                text = title,
+                style = MiuixTheme.textStyles.main,
+                color = scheme.onBackground,
                 textAlign = TextAlign.Center,
             )
+            if (description != null) {
+                Text(
+                    text = description,
+                    style = MiuixTheme.textStyles.body2,
+                    color = scheme.onBackgroundVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }

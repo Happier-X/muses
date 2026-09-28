@@ -68,10 +68,9 @@ fun HistoryScreen(onBack: () -> Unit) {
     ) { padding ->
         if (history.isEmpty()) {
             MusesEmpty(
-                title = "还没有播放记录",
-                description = "播放歌曲后会显示在这里",
-                icon = TablerIcons.MusicNote,
+                title = "空空如也~",
                 modifier = Modifier.fillMaxSize().padding(padding),
+                bottomInset = LocalBottomChromePadding.current,
             )
         } else {
             LazyColumn(

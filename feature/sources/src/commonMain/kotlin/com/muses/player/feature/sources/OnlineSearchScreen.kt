@@ -151,11 +151,17 @@ fun OnlineSearchScreen(
 
             when {
                 !state.searched -> {
-                    MusesEmpty(
-                        title = "搜索",
-                        description = "输入关键词，搜索曲库中的歌曲、专辑、艺术家及在线歌曲。",
-                        icon = TablerIcons.Search,
-                    )
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        MusesEmpty(
+                            title = "搜索",
+                            description = "输入关键词，搜索曲库中的歌曲、专辑、艺术家及在线歌曲。",
+                            icon = TablerIcons.Search,
+                            bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                        )
+                    }
                 }
                 else -> {
                     LazyColumn(
@@ -196,7 +202,7 @@ fun OnlineSearchScreen(
                             }
                             if (songs.isEmpty() && libraryResults.albums.isEmpty() && libraryResults.artists.isEmpty()) {
                                 item(key = "library-empty") {
-                                    Text("曲库暂无匹配内容", color = scheme.onSurfaceVariantSummary)
+                                    Text("空空如也~", color = scheme.onSurfaceVariantSummary)
                                 }
                             }
                         } else {
@@ -250,7 +256,7 @@ fun OnlineSearchScreen(
                         }
                         if (!state.searching && state.totalResults == 0) {
                             item(key = "online-empty") {
-                                Text("在线暂无匹配内容", color = scheme.onSurfaceVariantSummary)
+                                Text("空空如也~", color = scheme.onSurfaceVariantSummary)
                             }
                         }
                         state.visiblePlatforms.forEach { platform ->

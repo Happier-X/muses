@@ -150,9 +150,9 @@ private fun QueueStateContent(
     val scheme = MiuixTheme.colorScheme
     if (queueSongIds.isEmpty()) {
         MusesEmpty(
-            title = "待刮削队列为空",
-            description = "请先在歌曲页标记需要刮削的歌曲。",
+            title = "空空如也~",
             modifier = Modifier.fillMaxSize(),
+            bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
         )
         return
     }
@@ -424,7 +424,7 @@ private fun NoMatchGroup(
                 onClick = { expanded = !expanded },
             )
             Spacer(Modifier.weight(1f))
-            Text("暂无匹配，可重试或改词重搜", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
+            Text("空空如也~", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
         }
         if (expanded) {
             noMatchIds.forEach { sid ->

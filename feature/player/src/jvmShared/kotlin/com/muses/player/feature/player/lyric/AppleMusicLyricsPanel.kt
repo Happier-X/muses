@@ -580,7 +580,7 @@ internal fun AppleMusicLyricsPanel(
             }
             document != null && lines.isEmpty() -> {
                 Text(
-                    text = "暂无歌词",
+                    text = "空空如也~",
                     modifier = Modifier.align(Alignment.Center),
                     color = contentColor.copy(alpha = 0.42f),
                     style = MiuixTheme.textStyles.title4,
@@ -588,7 +588,7 @@ internal fun AppleMusicLyricsPanel(
             }
             document == null -> {
                 Text(
-                    text = "暂无歌词",
+                    text = "空空如也~",
                     modifier = Modifier.align(Alignment.Center),
                     color = contentColor.copy(alpha = 0.42f),
                     style = MiuixTheme.textStyles.title4,

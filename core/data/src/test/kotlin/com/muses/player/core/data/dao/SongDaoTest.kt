@@ -83,19 +83,32 @@ class SongDaoTest {
     }
 
     @Test
-    fun replaceSourceSongs_keeps_other_source_and_removes_missing() = runTest {
+    fun markAllMissing_hides_songs_without_deleting() = runTest {
         songDao.insertAll(
             listOf(
-                song("keep-old", "保留旧曲"),
-                song("drop", "将被删除"),
+                song("keep", "保留曲"),
+                song("gone", "丢失曲"),
                 song("other", "他源歌曲", sourceId = "s2"),
             ),
         )
-        songDao.replaceSourceSongs("s1", listOf(song("keep-old", "保留旧曲"), song("new", "新增")))
-        val s1 = songDao.getBySource("s1").map { it.id }.toSet()
-        assertEquals(setOf("keep-old", "new"), s1)
+        songDao.markAllMissing("s1")
+        // 行仍在（未硬删），但列表/搜索不再返回
+        assertEquals(3, songDao.count())
+        assertEquals(listOf("gone", "keep"), songDao.getBySource("s1").map { it.id }.sorted())
+        assertEquals(listOf("other"), songDao.observeAll().first().map { it.id })
+        assertTrue(songDao.searchByTitle("丢失").isEmpty())
         // 他音源不受影响
-        assertEquals(1, songDao.getBySource("s2").size)
+        assertEquals(listOf("other"), songDao.getBySource("s2").map { it.id })
+    }
+
+    @Test
+    fun insert_resets_missing_flag_on_rescan() = runTest {
+        songDao.insertAll(listOf(song("a", "曲")))
+        songDao.markAllMissing("s1")
+        assertTrue(songDao.observeAll().first().isEmpty())
+        // 重扫命中同 id 重新 upsert → 「丢失」标记复位
+        songDao.insertAll(listOf(song("a", "曲")))
+        assertEquals(listOf("a"), songDao.observeAll().first().map { it.id })
     }
 
     @Test

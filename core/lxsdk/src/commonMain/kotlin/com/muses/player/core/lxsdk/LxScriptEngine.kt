@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -234,6 +235,10 @@ class LxScriptEngine(
             // （binding 传参一律为 JSON/字符串，见 spike §4.2）
             asyncFunction("http") { args ->
                 httpClient.request(args.getOrNull(0) as? String ?: "", args.getOrNull(1) as? String)
+            }
+            asyncFunction("sleep") { args ->
+                delay(((args.getOrNull(0) as? Number)?.toLong() ?: 0L).coerceIn(0L, 60_000L))
+                null
             }
 
             // 结果回填通道

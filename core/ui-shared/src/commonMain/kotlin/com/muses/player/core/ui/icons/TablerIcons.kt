@@ -55,6 +55,7 @@ object TablerIcons {
     val Close: ImageVector = Tabler.Outline.X
     val Delete: ImageVector = Tabler.Outline.Trash
     val Search: ImageVector = Tabler.Outline.Search
+    val Inbox: ImageVector = Tabler.Outline.Inbox
     val MoreVert: ImageVector = Tabler.Outline.DotsVertical
     val MoreHorizontal: ImageVector = Tabler.Outline.Dots
     val Check: ImageVector = Tabler.Outline.Check

@@ -84,7 +84,10 @@ fun AlbumsPage(
                     .padding(padding),
                 contentAlignment = Alignment.Center,
             ) {
-                MusesEmpty(title = "还没有专辑", description = "请先到音源页添加并扫描音源。")
+                MusesEmpty(
+                    title = "空空如也~",
+                    bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                )
             }
         } else {
             LazyVerticalGrid(
@@ -187,7 +190,10 @@ fun ArtistsPage(
                     .padding(padding),
                 contentAlignment = Alignment.Center,
             ) {
-                MusesEmpty(title = "还没有艺术家", description = "请先到音源页添加并扫描音源。")
+                MusesEmpty(
+                    title = "空空如也~",
+                    bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                )
             }
         } else {
             LazyVerticalGrid(

@@ -1,28 +1,20 @@
 package com.muses.player.core.ui.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentColors
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 底部弹出的操作单（miuix OverlayBottomSheet；原 SaltActionsSheet 的 Konsta Actions 语义）。
  *
- * label → sheet 标题；每行一个动作按钮（居中 17sp，危险动作用 error 色）；
- * **取消按钮由本组件固定在末尾**（点击调 [onDismiss]）——调用方的 `items` 不要再传「取消」，
- * 否则弹窗里会出现两个取消。
+ * label → sheet 标题；选项区使用默认 Card 布局。
+ * 调用方的 `items` 不要传「取消」。
  * 渲染宿主默认根 Scaffold 全屏（根 Scaffold 由壳层统一提供）。
  */
 data class MusesActionItem(
@@ -45,41 +37,17 @@ fun MusesActionsSheet(
         title = label,
         onDismissRequest = onDismiss,
         content = {
-            Column(Modifier.fillMaxWidth()) {
+            Card(modifier = Modifier.padding(bottom = 16.dp)) {
                 items.forEach { item ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .clickable(onClick = item.onClick)
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            text = item.label,
-                            style = MiuixTheme.textStyles.main,
-                            fontWeight = FontWeight.Normal,
-                            color = if (item.destructive) scheme.error else scheme.primary,
+                    if (item.destructive) {
+                        BasicComponent(
+                            title = item.label,
+                            titleColor = BasicComponentColors(color = scheme.error, disabledColor = scheme.error),
+                            onClick = item.onClick,
                         )
-                        Spacer(Modifier.weight(1f))
+                    } else {
+                        BasicComponent(title = item.label, onClick = item.onClick)
                     }
-                }
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clickable(onClick = onDismiss),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        text = "取消",
-                        style = MiuixTheme.textStyles.main,
-                        fontWeight = FontWeight.SemiBold,
-                        color = scheme.onBackground,
-                    )
-                    Spacer(Modifier.weight(1f))
                 }
             }
         },

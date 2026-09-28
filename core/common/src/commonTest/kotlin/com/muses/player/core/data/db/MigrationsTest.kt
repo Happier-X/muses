@@ -120,6 +120,30 @@ class MigrationsTest {
     }
 
     @Test
+    fun migration_7_8_songs新增missing软删除列() {
+        withMemoryDatabase(7, onCreate = { connection ->
+            connection.exec(
+                "CREATE TABLE IF NOT EXISTS `songs` (`id` TEXT NOT NULL, `sourceId` TEXT NOT NULL, " +
+                    "`sourceType` TEXT NOT NULL, `path` TEXT NOT NULL, `title` TEXT NOT NULL, " +
+                    "`artist` TEXT, `albumTitle` TEXT, `durationMs` INTEGER NOT NULL, " +
+                    "`durationSec` INTEGER NOT NULL, `coverUri` TEXT, `lyrics` TEXT, `lyricsFormat` TEXT, " +
+                    "`lyricsSource` TEXT, `metaTitle` TEXT, `metaArtist` TEXT, `metaAlbum` TEXT, `metaCover` TEXT, " +
+                    "`tagsVersion` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+            )
+            connection.exec(
+                "INSERT INTO `songs` VALUES ('s1','src','LOCAL','/a.mp3','t','ar','al',1000,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1)",
+            )
+        }) { connection ->
+            MIGRATION_7_8.migrate(connection)
+
+            assertTrue(connection.tableColumns("songs").contains("missing"))
+            // 存量行默认 0（未丢失），迁移不清库
+            assertEquals("0", connection.querySingleText("SELECT `missing` FROM `songs` WHERE `id`='s1'"))
+            assertEquals("s1", connection.querySingleText("SELECT `id` FROM `songs` WHERE `id`='s1'"))
+        }
+    }
+
+    @Test
     fun migration_3_4_songs新增刮削六列() {
         withMemoryDatabase(3, onCreate = { connection ->
             connection.exec(

@@ -6,6 +6,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.ResolvingDataSource
 import com.muses.player.core.model.online.OnlineTrackRef
 import com.muses.player.core.model.online.OnlineTrackResolver
+import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -43,13 +44,12 @@ class OnlineResolvingDataSourceFactory(
                 runBlocking { withTimeoutOrNull(resolveTimeoutMs) { resolver.resolve(ref) } }
             } catch (e: Exception) {
                 onResolveError(trackUri, e)
-                null
+                throw IOException("在线音源直链解析失败：${e.message ?: "未知错误"}", e)
             }
             if (resolved == null) {
-                onResolveError(trackUri, null)
-                // 保留原始 URI：交由 Media3 报「无法打开」并走既有失败恢复链，
-                // 而不是在此抛错（抛错会被包装成难以归因的加载异常）
-                return@ResolvingDataSource dataSpec
+                val timeout = IOException("在线音源直链解析超时（${resolveTimeoutMs} ms）")
+                onResolveError(trackUri, timeout)
+                throw timeout
             }
             dataSpec.withUri(Uri.parse(resolved.url))
         }

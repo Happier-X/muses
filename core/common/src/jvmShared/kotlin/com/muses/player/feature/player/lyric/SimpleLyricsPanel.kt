@@ -111,7 +111,7 @@ fun SimpleLyricsPanel(
         if (lines.isEmpty()) {
             // 空状态
             Text(
-                text = "暂无歌词",
+                text = "空空如也~",
                 color = Color.White.copy(alpha = 0.5f),
                 fontSize = 16.sp,
                 modifier = Modifier.align(Alignment.Center),

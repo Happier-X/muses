@@ -37,7 +37,7 @@ enum class NavDestination(
 
     /** 对照 TabsPage.vue 的 isNavActive(item)：tab 本体 + 其详情/子页均算激活 */
     fun isActive(key: NavKey?): Boolean = when (this) {
-        Home -> key == MusesRoute.Home
+        Home -> key == MusesRoute.Home || key is MusesRoute.ChartDetail
         Search -> key is MusesRoute.OnlineSearch
         Songs -> key == MusesRoute.Songs
         Albums -> key == MusesRoute.Albums || key is MusesRoute.AlbumDetail

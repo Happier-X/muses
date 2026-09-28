@@ -21,6 +21,14 @@ sealed interface MusesRoute : NavKey {
     @Serializable
     data object Home : MusesRoute
 
+    /** 排行榜歌曲详情页（从探索页选择具体榜单进入）。 */
+    @Serializable
+    data class ChartDetail(
+        val platform: String,
+        val chartId: String,
+        val chartName: String,
+    ) : MusesRoute
+
     @Serializable
     data object Mine : MusesRoute
 

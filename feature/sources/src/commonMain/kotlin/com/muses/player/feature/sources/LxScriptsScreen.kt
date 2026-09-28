@@ -1,6 +1,7 @@
 package com.muses.player.feature.sources
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +38,7 @@ import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesTextField
+import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.icons.TablerIcons
 import org.koin.compose.viewmodel.koinViewModel
@@ -67,10 +70,34 @@ fun LxScriptsScreen(
     val loading by viewModel.loading.collectAsState()
     val pendingSource by viewModel.pendingSource.collectAsState()
     val validation by viewModel.importValidation.collectAsState()
+    val urlImportStatus by viewModel.urlImportStatus.collectAsState()
 
     var showImportSheet by remember { mutableStateOf(false) }
+    var showImportOptions by remember { mutableStateOf(false) }
+    var showUrlDialog by remember { mutableStateOf(false) }
+    var scriptUrl by remember { mutableStateOf("") }
+    var fetchingUrl by remember { mutableStateOf(false) }
+    var urlError by remember { mutableStateOf<String?>(null) }
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
     var actionSheetFor by remember { mutableStateOf<LxScriptItem?>(null) }
+    val filePicker = rememberLxScriptFilePicker { viewModel.stageImport(it); showImportSheet = true }
+    val importUrl = rememberLxScriptUrlImporter { result ->
+        fetchingUrl = false
+        result.fold(onSuccess = { viewModel.importFromUrlContent(it) }, onFailure = {
+            showUrlDialog = false
+            MusesSnackbar.show(it.message ?: "下载脚本失败")
+        })
+    }
+    LaunchedEffect(urlImportStatus) {
+        when (val status = urlImportStatus) {
+            LxUrlImportStatus.Success -> {
+                showUrlDialog = false
+                MusesSnackbar.show("添加成功")
+            }
+            is LxUrlImportStatus.Failure -> { showUrlDialog = false; MusesSnackbar.show(status.message) }
+            else -> Unit
+        }
+    }
 
     Scaffold(
         containerColor = MiuixTheme.colorScheme.surface,
@@ -81,7 +108,7 @@ fun LxScriptsScreen(
                 onBack = onBack,
                 actions = {
                     MusesIconButton(
-                        onClick = { showImportSheet = true },
+                        onClick = { showImportOptions = true },
                         imageVector = TablerIcons.Add,
                         contentDescription = "导入脚本",
                         size = MusesIconButtonSize.MD,
@@ -100,11 +127,15 @@ fun LxScriptsScreen(
                     CircularProgressIndicator()
                 }
             } else if (items.isEmpty()) {
-                MusesEmpty(
-                    title = "尚未导入音源脚本",
-                    description = "洛雪自定义源脚本（.js）可让 Muses 播放在线歌曲。\n点击右上角「+」粘贴或导入脚本。",
-                    icon = TablerIcons.File,
-                )
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    MusesEmpty(
+                        title = "空空如也~",
+                        bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                    )
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -129,6 +160,35 @@ fun LxScriptsScreen(
                 }
             }
         }
+    }
+
+    if (showImportOptions) {
+        MusesActionsSheet(
+            opened = true,
+            onDismiss = { showImportOptions = false },
+            label = "添加音源脚本",
+            items = listOf(
+                MusesActionItem(label = "通过文件添加", onClick = { showImportOptions = false; filePicker() }),
+                MusesActionItem(label = "通过URL添加", onClick = { showImportOptions = false; scriptUrl = ""; fetchingUrl = false; urlError = null; viewModel.resetUrlImportStatus(); showUrlDialog = true }),
+            ),
+        )
+    }
+
+    if (showUrlDialog) {
+        MusesDialog(
+            onDismiss = { showUrlDialog = false },
+            title = "通过URL添加",
+            confirmText = "添加",
+            confirmEnabled = !fetchingUrl && urlImportStatus !is LxUrlImportStatus.Importing,
+            confirmLoading = fetchingUrl || urlImportStatus is LxUrlImportStatus.Importing,
+            onConfirm = { urlError = null; fetchingUrl = true; importUrl(scriptUrl.trim()) },
+            content = {
+                Column {
+                    MusesTextField(value = scriptUrl, onValueChange = { scriptUrl = it }, modifier = Modifier.fillMaxWidth(), label = "URL")
+                    urlError?.let { Text(it, color = MiuixTheme.colorScheme.error, fontSize = 13.sp) }
+                }
+            },
+        )
     }
 
     // 导入底部弹窗（含预检反馈）
@@ -288,7 +348,7 @@ private fun LxScriptCard(
 
 /** 导入脚本弹窗：粘贴 → 预检 → 确认 */
 @Composable
-private fun LxScriptImportSheet(
+internal fun LxScriptImportSheet(
     pendingSource: String?,
     validation: LxImportValidation,
     onSourceChange: (String) -> Unit,

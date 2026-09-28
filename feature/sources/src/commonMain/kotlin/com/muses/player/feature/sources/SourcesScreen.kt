@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.muses.player.core.ui.components.MusesDialog
+import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -27,6 +28,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import com.muses.player.core.ui.components.MusesTextField
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +76,36 @@ fun SourcesScreen(
     val sources by viewModel.sources.collectAsState()
     // 扫描进度弹窗观察 scanner 内部进度流
     val scanProgress by viewModel.scanProgress.collectAsState()
+    val lxViewModel: LxScriptsViewModel = koinViewModel()
+    val lxPendingSource by lxViewModel.pendingSource.collectAsState()
+    val lxValidation by lxViewModel.importValidation.collectAsState()
+    val lxUrlImportStatus by lxViewModel.urlImportStatus.collectAsState()
+    var showLxImportOptions by remember { mutableStateOf(false) }
+    var showLxImportSheet by remember { mutableStateOf(false) }
+    var showLxUrlDialog by remember { mutableStateOf(false) }
+    var lxUrl by remember { mutableStateOf("") }
+    var lxUrlFetching by remember { mutableStateOf(false) }
+    val lxFilePicker = rememberLxScriptFilePicker { lxViewModel.stageImport(it); showLxImportSheet = true }
+    val lxUrlImporter = rememberLxScriptUrlImporter { result ->
+        lxUrlFetching = false
+        result.fold(onSuccess = { lxViewModel.importFromUrlContent(it) }, onFailure = {
+            showLxUrlDialog = false
+            MusesSnackbar.show(it.message ?: "下载脚本失败")
+        })
+    }
+    LaunchedEffect(lxUrlImportStatus) {
+        when (val status = lxUrlImportStatus) {
+            LxUrlImportStatus.Success -> {
+                showLxUrlDialog = false
+                MusesSnackbar.show("添加成功")
+            }
+            is LxUrlImportStatus.Failure -> {
+                showLxUrlDialog = false
+                MusesSnackbar.show(status.message)
+            }
+            else -> Unit
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -113,10 +145,9 @@ fun SourcesScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             MusesEmpty(
-                                title = "还没有音源",
-                                description = "点击右上角加号添加本地文件夹或 WebDAV 文件夹。",
-                                icon = TablerIcons.Radio,
+                                title = "空空如也~",
                                 modifier = Modifier.fillMaxWidth(),
+                                bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                             )
                         }
                     } else {
@@ -155,20 +186,56 @@ fun SourcesScreen(
             onDismiss = { viewModel.closeAddActionSheet() },
             label = "添加音源",
             items = listOf(
-                MusesActionItem(label = "添加本地文件夹", onClick = {
+                MusesActionItem(label = "本地源", onClick = {
                     viewModel.closeAddActionSheet()
                     // 系统目录选择器：选完回调内建源，对齐 Web FilePicker.pickDirectory 语义
                     pickLocalFolder()
                 }),
-                MusesActionItem(label = "添加 WebDAV 文件夹", onClick = {
+                MusesActionItem(label = "WebDav源", onClick = {
                     viewModel.closeAddActionSheet()
                     onOpenWebdavAdd()
                 }),
-                MusesActionItem(label = "添加 LX 音源", onClick = {
+                MusesActionItem(label = "LX 音源", onClick = {
                     viewModel.closeAddActionSheet()
-                    onOpenLxScripts()
+                    showLxImportOptions = true
                 }),
             ),
+        )
+    }
+
+    if (showLxImportOptions) {
+        MusesActionsSheet(
+            opened = true,
+            onDismiss = { showLxImportOptions = false },
+            label = "LX 音源",
+            items = listOf(
+                MusesActionItem(label = "通过文件添加", onClick = { showLxImportOptions = false; lxFilePicker() }),
+                MusesActionItem(label = "通过URL添加", onClick = { showLxImportOptions = false; lxUrl = ""; lxUrlFetching = false; lxViewModel.resetUrlImportStatus(); showLxUrlDialog = true }),
+            ),
+        )
+    }
+    if (showLxUrlDialog) {
+        MusesDialog(
+            onDismiss = { showLxUrlDialog = false },
+            title = "通过URL添加",
+            confirmText = "添加",
+            confirmEnabled = !lxUrlFetching && lxUrlImportStatus !is LxUrlImportStatus.Importing,
+            confirmLoading = lxUrlFetching || lxUrlImportStatus is LxUrlImportStatus.Importing,
+            onConfirm = { lxUrlFetching = true; lxUrlImporter(lxUrl.trim()) },
+            content = {
+                Column {
+                    MusesTextField(value = lxUrl, onValueChange = { lxUrl = it }, modifier = Modifier.fillMaxWidth(), label = "URL")
+                }
+            },
+        )
+    }
+    if (showLxImportSheet) {
+        LxScriptImportSheet(
+            pendingSource = lxPendingSource,
+            validation = lxValidation,
+            onSourceChange = lxViewModel::stageImport,
+            onDismiss = { showLxImportSheet = false; lxViewModel.clearStagedImport() },
+            onConfirm = { lxViewModel.confirmImport(); showLxImportSheet = false },
         )
     }
 

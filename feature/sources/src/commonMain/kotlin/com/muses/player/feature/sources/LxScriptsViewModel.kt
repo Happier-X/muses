@@ -2,6 +2,10 @@ package com.muses.player.feature.sources
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muses.player.core.data.repository.SourceRepository
+import com.muses.player.core.model.Source
+import com.muses.player.core.model.SourceType
+import com.muses.player.core.lxsdk.LxScriptMetaParser
 import com.muses.player.core.lxsdk.LxScriptRepository
 import com.muses.player.core.lxsdk.store.LxScriptStore
 import com.muses.player.core.lxsdk.store.LxStoredScript
@@ -30,6 +34,13 @@ data class LxScriptItem(
 )
 
 /** 导入校验结果 */
+sealed interface LxUrlImportStatus {
+    data object Idle : LxUrlImportStatus
+    data object Importing : LxUrlImportStatus
+    data object Success : LxUrlImportStatus
+    data class Failure(val message: String) : LxUrlImportStatus
+}
+
 sealed interface LxImportValidation {
     data object Idle : LxImportValidation
     data object Validating : LxImportValidation
@@ -54,6 +65,7 @@ sealed interface LxImportValidation {
 class LxScriptsViewModel(
     private val store: LxScriptStore,
     private val repository: LxScriptRepository,
+    private val sourceRepository: SourceRepository,
 ) : ViewModel() {
 
     private val _items = MutableStateFlow<List<LxScriptItem>>(emptyList())
@@ -68,6 +80,42 @@ class LxScriptsViewModel(
     /** 待导入的脚本文本（从文件选择器或剪贴板来） */
     private val _pendingSource = MutableStateFlow<String?>(null)
     val pendingSource: StateFlow<String?> = _pendingSource.asStateFlow()
+
+    private val _urlImportStatus = MutableStateFlow<LxUrlImportStatus>(LxUrlImportStatus.Idle)
+    val urlImportStatus: StateFlow<LxUrlImportStatus> = _urlImportStatus.asStateFlow()
+
+    fun resetUrlImportStatus() {
+        _urlImportStatus.value = LxUrlImportStatus.Idle
+    }
+
+    fun importFromUrlContent(source: String) {
+        viewModelScope.launch {
+            _urlImportStatus.value = LxUrlImportStatus.Importing
+            try {
+                require(source.isNotBlank()) { "脚本内容为空。" }
+                val descriptor = repository.validate(source)
+                require(descriptor.sources.isNotEmpty()) { "脚本未声明任何音源，无法导入。" }
+                val id = generateScriptId(source)
+                store.save(id = id, source = source, enabled = true)
+                repository.register(id, source)
+                val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
+                sourceRepository.upsert(
+                    Source(
+                        id = id,
+                        name = descriptor.meta.name?.takeIf { it.isNotBlank() } ?: id,
+                        type = SourceType.ONLINE,
+                        path = id,
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                )
+                refresh()
+                _urlImportStatus.value = LxUrlImportStatus.Success
+            } catch (e: Exception) {
+                _urlImportStatus.value = LxUrlImportStatus.Failure(e.message ?: "脚本校验失败。")
+            }
+        }
+    }
 
     init {
         refresh()
@@ -84,6 +132,22 @@ class LxScriptsViewModel(
             _loading.value = true
             try {
                 val stored = store.list()
+                // LX 脚本同时作为 ONLINE 音源显示在音源列表中。
+                stored.forEach { script ->
+                    if (sourceRepository.getSource(script.id) == null) {
+                        val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
+                        sourceRepository.upsert(
+                            Source(
+                                id = script.id,
+                                name = script.meta.name?.takeIf { it.isNotBlank() } ?: script.name,
+                                type = SourceType.ONLINE,
+                                path = script.id,
+                                createdAt = now,
+                                updatedAt = now,
+                            ),
+                        )
+                    }
+                }
                 // 同步运行态：把磁盘状态与仓库对齐（新增/删除/启禁用）
                 syncRepository(stored)
                 // 触发加载以回显源声明与错误
@@ -141,6 +205,18 @@ class LxScriptsViewModel(
             val id = generateScriptId(source)
             store.save(id = id, source = source, enabled = true)
             repository.register(id, source)
+            val meta = LxScriptMetaParser.parse(source)
+            val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
+            sourceRepository.upsert(
+                Source(
+                    id = id,
+                    name = meta.name?.takeIf { it.isNotBlank() } ?: id,
+                    type = SourceType.ONLINE,
+                    path = id,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
             clearStagedImport()
             refresh()
         }
@@ -163,6 +239,7 @@ class LxScriptsViewModel(
         viewModelScope.launch {
             store.delete(id)
             repository.unregister(id)
+            sourceRepository.deleteById(id)
             refresh()
         }
     }

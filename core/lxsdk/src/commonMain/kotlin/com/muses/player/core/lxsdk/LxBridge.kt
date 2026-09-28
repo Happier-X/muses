@@ -27,6 +27,40 @@ internal object LxBridge {
           globalThis.__lxHandlers = handlers;
           globalThis.__lxInited = null;
 
+          // QuickJS 不带宿主定时器；通过 native sleep + Promise 提供洛雪脚本常用计时 API。
+          const __timers = new Map();
+          let __nextTimerId = 1;
+          globalThis.setTimeout = (callback, ms = 0, ...args) => {
+            const id = __nextTimerId++;
+            const timer = { cancelled: false };
+            __timers.set(id, timer);
+            globalThis.__native.sleep(Math.max(0, Number(ms) || 0)).then(() => {
+              if (!timer.cancelled) {
+                __timers.delete(id);
+                if (typeof callback === 'function') callback(...args);
+              }
+            }).catch(() => {});
+            return id;
+          };
+          globalThis.clearTimeout = id => {
+            const timer = __timers.get(id);
+            if (timer) timer.cancelled = true;
+            __timers.delete(id);
+          };
+          globalThis.setInterval = (callback, ms = 0, ...args) => {
+            const id = __nextTimerId++;
+            const timer = { cancelled: false };
+            __timers.set(id, timer);
+            const tick = () => globalThis.__native.sleep(Math.max(1, Number(ms) || 0)).then(() => {
+              if (timer.cancelled) return;
+              if (typeof callback === 'function') callback(...args);
+              tick();
+            }).catch(() => {});
+            tick();
+            return id;
+          };
+          globalThis.clearInterval = globalThis.clearTimeout;
+
           // console（洛雪规范示例脚本大量使用 console.log 排错；
           // QuickJS 无 console，缺失会让脚本在错误分支抛 ReferenceError）
           const __log = (level) => (...args) => {

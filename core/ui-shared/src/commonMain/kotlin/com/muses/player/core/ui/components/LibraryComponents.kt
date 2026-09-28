@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -200,17 +199,13 @@ fun LibrarySongList(
     onPlay: (String) -> Unit,
     modifier: Modifier = Modifier,
     onLongClick: ((String) -> Unit)? = null,
-    emptyTitle: String = "曲库为空",
-    emptyDescription: String? = null,
-    emptyIcon: ImageVector? = TablerIcons.MusicNote,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     if (songs.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             MusesEmpty(
-                title = emptyTitle,
-                description = emptyDescription,
-                icon = emptyIcon,
+                title = "空空如也~",
+                bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
             )
         }
     } else {
@@ -272,13 +267,14 @@ fun LibraryAlbumGrid(
         top = 16.dp,
         bottom = 16.dp,
     ),
-    emptyTitle: String = "暂无专辑",
-    emptyDescription: String? = "扫描完成后在此浏览专辑",
 ) {
     val scheme = MiuixTheme.colorScheme
     if (albums.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            MusesEmpty(title = emptyTitle, description = emptyDescription)
+            MusesEmpty(
+                title = "空空如也~",
+                bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+            )
         }
     } else {
         LazyVerticalGrid(
@@ -358,13 +354,14 @@ fun LibraryArtistGrid(
         top = 16.dp,
         bottom = 16.dp,
     ),
-    emptyTitle: String = "暂无艺术家",
-    emptyDescription: String? = "扫描完成后在此浏览艺术家",
 ) {
     val scheme = MiuixTheme.colorScheme
     if (artists.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            MusesEmpty(title = emptyTitle, description = emptyDescription)
+            MusesEmpty(
+                title = "空空如也~",
+                bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+            )
         }
     } else {
         LazyVerticalGrid(

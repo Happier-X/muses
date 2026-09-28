@@ -24,4 +24,14 @@ val homeCoreModule = module {
             songRepository = get(),
         )
     }
+    viewModel { params ->
+        ChartDetailViewModel(
+            chartService = get(),
+            scriptRepository = get(),
+            settingsRepository = get(),
+            playback = get(),
+            platform = params[0],
+            chartId = params[1],
+        )
+    }
 }

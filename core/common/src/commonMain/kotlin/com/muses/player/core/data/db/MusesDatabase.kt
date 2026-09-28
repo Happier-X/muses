@@ -18,6 +18,7 @@ import com.muses.player.core.data.dao.SourceDao
  * - v5：sources.username（WebDAV 登录名，迁移见 [MIGRATION_4_5]）
  * - v6：移除 songs.replayGainTrackDb（移除音量均衡，迁移见 [MIGRATION_5_6]）
  * - v7：移除 playlists / playlist_songs（歌单下线，迁移见 [MIGRATION_6_7]）
+ * - v8：songs.missing 扫描软删除标记（扫描未找到不硬删，迁移见 [MIGRATION_7_8]）
  */
 @Database(
     entities = [
@@ -28,7 +29,7 @@ import com.muses.player.core.data.dao.SourceDao
         SongArtistCrossRef::class,
         SourceEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @ConstructedBy(MusesDatabaseConstructor::class)

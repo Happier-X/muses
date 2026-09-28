@@ -45,6 +45,11 @@ data class SongEntity(
     @ColumnInfo(name = "metaAlbum") val metaAlbum: String? = null,
     @ColumnInfo(name = "metaCover") val metaCover: String? = null,
     @ColumnInfo(name = "tagsVersion") val tagsVersion: Int = 0,
+    /**
+     * 扫描未找到（软删除标记，v8 新增）：本次扫描没扫到的歌只标记不清除，
+     * 不参与列表/搜索/派生索引，文件重现（同 id）时由扫描合并自动复位。
+     */
+    @ColumnInfo(name = "missing", defaultValue = "0") val missing: Boolean = false,
 )
 
 /** 专辑索引 */

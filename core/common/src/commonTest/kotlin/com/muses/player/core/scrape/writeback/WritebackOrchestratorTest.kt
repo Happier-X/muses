@@ -1,6 +1,7 @@
 package com.muses.player.core.scrape.writeback
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.muses.player.core.data.repository.ScanMergeResult
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.SourceType
@@ -47,7 +48,7 @@ class WritebackOrchestratorTest {
         val upserts = mutableListOf<Song>()
 
         override fun observeSongs() = throw UnsupportedOperationException()
-        override suspend fun replaceSourceSongs(sourceId: String, songs: List<Song>) =
+        override suspend fun replaceSourceSongs(sourceId: String, songs: List<Song>): ScanMergeResult =
             throw UnsupportedOperationException()
 
         override suspend fun deleteSourceSongs(sourceId: String) {

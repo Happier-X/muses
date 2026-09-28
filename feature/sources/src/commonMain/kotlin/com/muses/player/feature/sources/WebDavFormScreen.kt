@@ -90,7 +90,7 @@ fun WebDavFormScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             MusesTopBar(
-                title = if (isEditMode) "编辑 WebDAV" else "添加 WebDAV",
+                title = "WebDav源",
                 // m-navbar-back-link：返回箭头按钮
                 navigationIcon = { MusesIconButtonBack(onClick = onBack) },
             )

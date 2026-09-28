@@ -94,8 +94,6 @@ fun SongsScreen(
             currentSongId = null,
             onPlay = { songId -> onPlaySong(songId, songs) },
             onLongClick = null,
-            emptyTitle = "曲库为空",
-            emptyDescription = if (showSearch) null else "请先在「音源」中添加本地目录或 WebDAV 并扫描",
             modifier = Modifier.fillMaxSize(),
         )
     }
@@ -231,7 +229,6 @@ fun AlbumDetailScreen(
             songs = songs.map { it.toSongItem() },
             currentSongId = null,
             onPlay = { songId -> onPlaySong(songId, songs) },
-            emptyTitle = "专辑中暂无歌曲",
             // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
             contentPadding = PaddingValues(
                 bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
@@ -293,7 +290,6 @@ fun ArtistDetailScreen(
             songs = songs.map { it.toSongItem() },
             currentSongId = null,
             onPlay = { songId -> onPlaySong(songId, songs) },
-            emptyTitle = "艺术家暂无歌曲",
             // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
             contentPadding = PaddingValues(
                 bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
@@ -315,8 +311,7 @@ fun EmptyLibraryHint(
     hint: String,
 ) {
     com.muses.player.core.ui.components.MusesEmpty(
-        title = title,
-        description = hint,
+        title = "空空如也~",
         modifier = modifier,
     )
 }

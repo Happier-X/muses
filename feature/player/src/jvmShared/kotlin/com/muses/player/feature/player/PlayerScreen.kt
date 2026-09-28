@@ -1208,7 +1208,7 @@ fun QueueScreen(
         Column(
             modifier = Modifier.fillMaxWidth().fillMaxHeight(0.75f),
         ) {
-            // 操作行（标题已由 sheet 提供，这里只留清空/关闭）
+            // 操作行（标题已由 sheet 提供，这里只留清空队列）
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.End,
@@ -1216,14 +1216,12 @@ fun QueueScreen(
             ) {
                 if (queue.isNotEmpty()) {
                     Icon(TablerIcons.Delete, contentDescription = "清空队列", tint = scheme.onBackground.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
-                    Spacer(Modifier.width(16.dp))
                 }
-                Icon(TablerIcons.Close, contentDescription = "关闭队列", tint = scheme.onBackground.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable(onClick = onClose))
             }
 
             if (queue.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("队列为空", color = scheme.onBackground.copy(alpha = 0.6f))
+                    Text("空空如也~", color = scheme.onBackground.copy(alpha = 0.6f))
                 }
             } else {
                 val surfaceVariant = scheme.surfaceVariant

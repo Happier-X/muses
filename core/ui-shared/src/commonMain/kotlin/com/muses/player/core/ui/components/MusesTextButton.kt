@@ -1,6 +1,7 @@
 package com.muses.player.core.ui.components
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
@@ -8,8 +9,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonColors
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 文本按钮尺寸档位（沿用原 Salt 三档：small/md/large） */
@@ -32,23 +36,38 @@ fun MusesTextButton(
     enabled: Boolean = true,
     /** 危险动作（多选条「永久删除」）：文字用 error */
     destructive: Boolean = false,
+    loading: Boolean = false,
 ) {
     val scheme = MiuixTheme.colorScheme
-    TextButton(
-        text = text,
+    val colors = ButtonDefaults.textButtonColors(
+        textColor = if (destructive) scheme.error else scheme.primary,
+    )
+    val textStyle = TextStyle(
+        fontSize = size.fontSize.sp,
+        fontWeight = size.fontWeight,
+        lineHeight = (size.fontSize + 3).sp,
+    )
+    Button(
         onClick = onClick,
         modifier = modifier,
-        enabled = enabled,
+        enabled = enabled && !loading,
         minWidth = 0.dp,
         minHeight = size.height,
-        colors = ButtonDefaults.textButtonColors(
-            textColor = if (destructive) scheme.error else scheme.primary,
+        colors = ButtonColors(
+            color = colors.color,
+            disabledColor = colors.disabledColor,
+            contentColor = colors.textColor,
+            disabledContentColor = colors.disabledTextColor,
         ),
         insideMargin = PaddingValues(horizontal = 8.dp),
-        textStyle = TextStyle(
-            fontSize = size.fontSize.sp,
-            fontWeight = size.fontWeight,
-            lineHeight = (size.fontSize + 3).sp,
-        ),
-    )
+    ) {
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.padding(end = 6.dp),
+                size = 14.dp,
+                strokeWidth = 2.dp,
+            )
+        }
+        Text(text = text, color = if (destructive) scheme.error else scheme.primary, style = textStyle)
+    }
 }

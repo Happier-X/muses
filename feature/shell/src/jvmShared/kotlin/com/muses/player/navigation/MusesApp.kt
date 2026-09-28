@@ -109,6 +109,7 @@ import com.muses.player.feature.player.QueueScreen
 import com.muses.player.feature.player.lyric.LyricsParser
 import com.muses.player.feature.sources.LxScriptsScreen
 import com.muses.player.feature.home.HomeScreen
+import com.muses.player.feature.home.ChartDetailScreen
 import com.muses.player.feature.sources.OnlineSearchScreen
 import com.muses.player.feature.sources.SourcesScreen
 import com.muses.player.feature.sources.WebDavBrowseScreen
@@ -579,7 +580,7 @@ private fun MusesAppContent() {
                         // [当前 tab 图标] + [紧凑迷你播放器] + [搜索]，点左侧图标展开回两行
                         CompactPlayerDock(
                             tabIcon = currentTabItem.icon,
-                            title = nowPlaying?.title ?: "暂无播放歌曲",
+                            title = nowPlaying?.title ?: "空空如也~",
                             subtitle = nowPlaying?.artist ?: "未知艺术家",
                             coverUri = nowPlaying?.coverUri,
                             isPlaying = isPlaying,
@@ -611,7 +612,7 @@ private fun MusesAppContent() {
                         nowPlaying?.artist ?: "未知艺术家"
                     }
                     MiniPlayerBar(
-                        title = nowPlaying?.title ?: "暂无播放歌曲",
+                        title = nowPlaying?.title ?: "空空如也~",
                         subtitle = miniSubtitle,
                         coverUri = nowPlaying?.coverUri,
                         isPlaying = isPlaying,
@@ -820,7 +821,7 @@ private fun ImmersivePlayerOverlay(
                         .graphicsLayer { alpha = (1f - readPlayerProgress() / 0.16f).coerceIn(0f, 1f) },
                 ) {
                     MiniPlayerBar(
-                        title = nowPlaying?.title ?: "暂无播放歌曲",
+                        title = nowPlaying?.title ?: "空空如也~",
                         subtitle = transitionSubtitle,
                         coverUri = nowPlaying?.coverUri,
                         isPlaying = isPlaying,
@@ -1020,6 +1021,17 @@ private fun AppNavHost(
                 // AI 推荐配置入口：「去开启」落设置页总开关，「去配置」直达 AI 服务二级页
                 onOpenAiSettings = { backStack.pushUnique(MusesRoute.Settings) },
                 onOpenAiConfig = { backStack.pushUnique(MusesRoute.AiSettings) },
+                onOpenChart = { platform, chartId, chartName ->
+                    backStack.pushUnique(MusesRoute.ChartDetail(platform, chartId, chartName))
+                },
+            )
+        }
+        entry<MusesRoute.ChartDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+            ChartDetailScreen(
+                platform = route.platform,
+                chartId = route.chartId,
+                chartName = route.chartName,
+                onBack = { backStack.pop() },
             )
         }
         entry<MusesRoute.OnlineSearch> {

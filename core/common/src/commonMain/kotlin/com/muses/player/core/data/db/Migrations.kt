@@ -111,3 +111,13 @@ val MIGRATION_6_7: Migration = object : Migration(6, 7) {
         connection.exec("DROP TABLE IF EXISTS `playlists`")
     }
 }
+
+/**
+ * v7 → v8：songs 表新增 `missing` 软删除标记（向前追加，不改既有表）。
+ * 存量行默认 0（未丢失），与旧「扫描未扫到即硬删」的最大区别是迁移后不再清库。
+ */
+val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.exec("ALTER TABLE `songs` ADD COLUMN `missing` INTEGER NOT NULL DEFAULT 0")
+    }
+}

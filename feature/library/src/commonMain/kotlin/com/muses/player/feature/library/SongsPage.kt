@@ -333,8 +333,8 @@ fun SongsPage(
             if (songs.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     MusesEmpty(
-                        title = "还没有歌曲",
-                        description = "请先到音源页添加并扫描音源。",
+                        title = "空空如也~",
+                        bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                     )
                 }
             } else {

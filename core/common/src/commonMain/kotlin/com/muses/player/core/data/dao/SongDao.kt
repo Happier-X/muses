@@ -18,18 +18,19 @@ interface SongDao {
     @Upsert
     suspend fun upsert(song: SongEntity)
 
-    @Query("SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC")
+    @Query("SELECT * FROM songs WHERE missing = 0 ORDER BY title COLLATE NOCASE ASC")
     fun observeAll(): Flow<List<SongEntity>>
 
-    /** 搜索流：空串回全库，否则标题/艺术家/专辑模糊匹配（Room 线程执行，不占主线程） */
-    @Query("SELECT * FROM songs WHERE :query = '' OR title LIKE '%' || :query || '%' COLLATE NOCASE OR artist LIKE '%' || :query || '%' COLLATE NOCASE OR albumTitle LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY title COLLATE NOCASE ASC")
+    /** 搜索流：空串回全库，否则标题/艺术家/专辑模糊匹配（Room 线程执行，不占主线程）；丢失歌不参与 */
+    @Query("SELECT * FROM songs WHERE missing = 0 AND (:query = '' OR title LIKE '%' || :query || '%' COLLATE NOCASE OR artist LIKE '%' || :query || '%' COLLATE NOCASE OR albumTitle LIKE '%' || :query || '%' COLLATE NOCASE) ORDER BY title COLLATE NOCASE ASC")
     fun observeSearch(query: String): Flow<List<SongEntity>>
 
-    @Query("SELECT * FROM songs")
+    /** 全量可见歌曲（派生索引重建 / AI 画像用；丢失歌不参与） */
+    @Query("SELECT * FROM songs WHERE missing = 0")
     suspend fun getAll(): List<SongEntity>
 
-    /** M3 自动补缺：未读过标签的歌（文件名建库 tagsVersion=0 或本地未扫） */
-    @Query("SELECT id FROM songs WHERE tagsVersion < 1")
+    /** M3 自动补缺：未读过标签的歌（文件名建库 tagsVersion=0 或本地未扫）；丢失歌不参与 */
+    @Query("SELECT id FROM songs WHERE tagsVersion < 1 AND missing = 0")
     suspend fun getUntaggedSongIds(): List<String>
 
     @Query("SELECT * FROM songs WHERE id = :id")
@@ -50,14 +51,20 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE id IN (:ids)")
     fun observeByIds(ids: List<String>): Flow<List<SongEntity>>
 
-    @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY title COLLATE NOCASE ASC")
+    /** 标题模糊搜索（丢失歌不参与） */
+    @Query("SELECT * FROM songs WHERE missing = 0 AND title LIKE '%' || :query || '%' COLLATE NOCASE ORDER BY title COLLATE NOCASE ASC")
     suspend fun searchByTitle(query: String): List<SongEntity>
 
+    /** 按音源取全部行（**含 missing**：扫描合并需保留旧行数据，删音源需清全部 id） */
     @Query("SELECT * FROM songs WHERE sourceId = :sourceId")
     suspend fun getBySource(sourceId: String): List<SongEntity>
 
-    @Query("DELETE FROM songs WHERE sourceId = :sourceId AND id NOT IN (:keepIds)")
-    suspend fun deleteBySourceExcept(sourceId: String, keepIds: List<String>)
+    /**
+     * 扫描前把该音源存量行全部标记为「丢失」，随后扫描到的行 upsert 时复位。
+     * 取代旧 `deleteBySourceExcept` 硬删：网络/挂载抖动不再清库。
+     */
+    @Query("UPDATE songs SET missing = 1 WHERE sourceId = :sourceId")
+    suspend fun markAllMissing(sourceId: String)
 
     @Query("DELETE FROM songs WHERE sourceId = :sourceId")
     suspend fun deleteBySource(sourceId: String)
@@ -69,10 +76,14 @@ interface SongDao {
     @Query("SELECT COUNT(*) FROM songs")
     suspend fun count(): Int
 
+    /**
+     * 扫描入库：先把该音源存量行全部标记「丢失」，再用扫描结果 upsert（命中行复位）。
+     * 同一事务内完成，中途失败不会出现「整源暂时消失」。字段级合并见 RoomSongRepository。
+     */
     @Transaction
-    suspend fun replaceSourceSongs(sourceId: String, songs: List<SongEntity>) {
+    suspend fun reconcileScan(sourceId: String, songs: List<SongEntity>) {
+        markAllMissing(sourceId)
         insertAll(songs)
-        deleteBySourceExcept(sourceId, songs.map { it.id })
     }
 
     /** 清空专辑/艺术家索引（重建前调用） */

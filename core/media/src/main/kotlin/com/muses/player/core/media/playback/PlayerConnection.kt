@@ -130,7 +130,7 @@ class PlayerConnection constructor(
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             _currentMediaItem.value = mediaItem
             _mediaMetadata.value = controller?.mediaMetadata
-            // 端口派生流必须随切换同步：currentSongId 滞留 null 会把 MiniPlayer 钉在空态（「暂无播放歌曲」）
+            // 端口派生流必须随切换同步：currentSongId 滞留 null 会把 MiniPlayer 钉在空态（「空空如也~」）
             controller?.let { syncPortDerived(it) }
         }
 

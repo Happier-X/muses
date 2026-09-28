@@ -180,7 +180,7 @@ class PlayerViewModelCurrentTrackTest {
         override fun observeByIds(ids: List<String>): Flow<List<SongEntity>> = flowOf(ids.mapNotNull { songs[it] })
         override suspend fun searchByTitle(query: String): List<SongEntity> = emptyList()
         override suspend fun getBySource(sourceId: String): List<SongEntity> = emptyList()
-        override suspend fun deleteBySourceExcept(sourceId: String, keepIds: List<String>) = error("unused")
+        override suspend fun markAllMissing(sourceId: String) = error("unused")
         override suspend fun deleteBySource(sourceId: String) = error("unused")
         override suspend fun deleteById(id: String) = error("unused")
         override suspend fun count(): Int = songs.size

@@ -200,7 +200,11 @@ private fun EmptyContent(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.height(24.dp))
-            Text(reason, style = MiuixTheme.textStyles.body2, color = scheme.onBackgroundVariant)
+            Text(
+                text = if (reason == "暂无匹配") "空空如也~" else reason,
+                style = MiuixTheme.textStyles.body2,
+                color = scheme.onBackgroundVariant,
+            )
             if (reason == "暂无匹配") {
                 Spacer(Modifier.height(4.dp))
                 Text("可修改下方搜索词后重新搜索", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
