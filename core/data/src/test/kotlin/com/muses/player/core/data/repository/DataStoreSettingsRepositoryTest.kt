@@ -57,4 +57,24 @@ class DataStoreSettingsRepositoryTest {
         repository.setCoverContentColorEnabled(true)
         assertEquals(true, repository.coverContentColorEnabled.first())
     }
+
+    @Test
+    fun 歌词翻译默认开启且切换后持久化() = runTest(StandardTestDispatcher()) {
+        repository = createRepository()
+        assertEquals(true, repository.lyricTranslationEnabled.first())
+        repository.setLyricTranslationEnabled(false)
+        assertEquals(false, repository.lyricTranslationEnabled.first())
+        repository.setLyricTranslationEnabled(true)
+        assertEquals(true, repository.lyricTranslationEnabled.first())
+    }
+
+    @Test
+    fun 歌词注音默认开启且切换后持久化() = runTest(StandardTestDispatcher()) {
+        repository = createRepository()
+        assertEquals(true, repository.lyricRomanizationEnabled.first())
+        repository.setLyricRomanizationEnabled(false)
+        assertEquals(false, repository.lyricRomanizationEnabled.first())
+        repository.setLyricRomanizationEnabled(true)
+        assertEquals(true, repository.lyricRomanizationEnabled.first())
+    }
 }

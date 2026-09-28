@@ -26,6 +26,12 @@ interface SettingsRepository {
     /** 沉浸式播放页的文字与图标使用封面协调色（默认开启） */
     val coverContentColorEnabled: Flow<Boolean>
 
+    /** 沉浸式播放页是否显示歌词翻译（默认开启） */
+    val lyricTranslationEnabled: Flow<Boolean>
+
+    /** 沉浸式播放页是否显示歌词音译与逐字注音（默认开启） */
+    val lyricRomanizationEnabled: Flow<Boolean>
+
     suspend fun setAutoScrapeEnabled(enabled: Boolean)
 
     suspend fun setMiniPlayerLyricsEnabled(enabled: Boolean)
@@ -33,6 +39,10 @@ interface SettingsRepository {
     suspend fun setNotificationLyricsEnabled(enabled: Boolean)
 
     suspend fun setCoverContentColorEnabled(enabled: Boolean)
+
+    suspend fun setLyricTranslationEnabled(enabled: Boolean)
+
+    suspend fun setLyricRomanizationEnabled(enabled: Boolean)
 
     /**
      * 在线音源首选音质（洛雪音质 key，如 `320k`/`flac`/`hires`/`master`）。
@@ -89,6 +99,12 @@ class DataStoreSettingsRepository constructor(
     override val coverContentColorEnabled: Flow<Boolean>
         get() = dataStore.data.map { prefs -> prefs[COVER_CONTENT_COLOR_ENABLED] ?: true }
 
+    override val lyricTranslationEnabled: Flow<Boolean>
+        get() = dataStore.data.map { prefs -> prefs[LYRIC_TRANSLATION_ENABLED] ?: true }
+
+    override val lyricRomanizationEnabled: Flow<Boolean>
+        get() = dataStore.data.map { prefs -> prefs[LYRIC_ROMANIZATION_ENABLED] ?: true }
+
     override suspend fun updateLastScanTimestamp(timestampMillis: Long) {
         dataStore.edit { prefs -> prefs[LAST_SCAN_TIMESTAMP] = timestampMillis }
     }
@@ -107,6 +123,14 @@ class DataStoreSettingsRepository constructor(
 
     override suspend fun setCoverContentColorEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[COVER_CONTENT_COLOR_ENABLED] = enabled }
+    }
+
+    override suspend fun setLyricTranslationEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[LYRIC_TRANSLATION_ENABLED] = enabled }
+    }
+
+    override suspend fun setLyricRomanizationEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[LYRIC_ROMANIZATION_ENABLED] = enabled }
     }
 
     override val onlinePreferredQuality: Flow<String>
@@ -157,6 +181,8 @@ class DataStoreSettingsRepository constructor(
         val MINI_PLAYER_LYRICS_ENABLED = booleanPreferencesKey("mini_player_lyrics_enabled")
         val NOTIFICATION_LYRICS_ENABLED = booleanPreferencesKey("notification_lyrics_enabled")
         val COVER_CONTENT_COLOR_ENABLED = booleanPreferencesKey("cover_content_color_enabled")
+        val LYRIC_TRANSLATION_ENABLED = booleanPreferencesKey("lyric_translation_enabled")
+        val LYRIC_ROMANIZATION_ENABLED = booleanPreferencesKey("lyric_romanization_enabled")
         val ONLINE_PREFERRED_QUALITY = stringPreferencesKey("online_preferred_quality")
         val AI_RECOMMEND_ENABLED = booleanPreferencesKey("ai_recommend_enabled")
         val AI_SERVICE_NAME = stringPreferencesKey("ai_service_name")

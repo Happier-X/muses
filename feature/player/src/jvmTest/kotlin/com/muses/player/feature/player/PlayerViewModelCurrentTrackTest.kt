@@ -59,6 +59,47 @@ import kotlin.test.assertTrue
  * 真实线程池，需要真实等待（runTest 的虚拟时间会让轮询等待失效）。
  */
 class PlayerViewModelCurrentTrackTest {
+    @Test
+    fun 曲库缺少译文时不向在线歌词源补取() = runBlocking {
+        for (sourceType in listOf(SourceType.LOCAL, SourceType.WEBDAV)) {
+            val entity = SongEntity(
+                id = "song:" + sourceType.name,
+                sourceId = "s1",
+                sourceType = sourceType.name,
+                path = "/music/translated.mp3",
+                title = "Hello",
+                artist = "Singer",
+                lyrics = "[00:01.000]Hello",
+            )
+            var onlineRequests = 0
+            val provider = object : LyricsProvider {
+                override val id = OnlineLyricsSource.WY
+                override suspend fun searchLyrics(query: OnlineLyricsQuery): OnlineLyricsProviderHit {
+                    onlineRequests++
+                    return OnlineLyricsProviderHit(
+                        text = "[00:01.000]Hello",
+                        format = com.muses.player.core.model.lyrics.OnlineLyricsFormat.LRC,
+                        translationText = "[00:01.000]你好",
+                    )
+                }
+            }
+            val matcher = LyricsMatcher(FakeAmll(), listOf(provider))
+            val port = FakePort()
+            val viewModel = PlayerViewModel(
+                port,
+                FakeSongDao(mapOf(entity.id to entity)),
+                FakeMetadataResolver(),
+                matcher,
+                null,
+            )
+            port.setCurrentSong(entity.id)
+            awaitUntil { viewModel.lyricsDocument.value?.lines?.firstOrNull()?.text == "Hello" }
+            delay(50)
+            assertEquals(null, viewModel.lyricsDocument.value?.lines?.first()?.translation)
+            assertEquals(0, onlineRequests)
+            viewModel.viewModelScope.cancel()
+        }
+    }
 
     private val ttml = """
         <tt xmlns="http://www.w3.org/ns/ttml">

@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.muses.player.core.data.store.platformMonotonicMs
+import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.lyrics.model.LyricAgentAlignment
 import com.muses.player.core.lyrics.model.LyricHighlightStrategy
 import com.muses.player.core.lyrics.model.LyricsDocument
@@ -58,6 +60,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
 import top.yukonga.miuix.kmp.basic.Text
@@ -79,6 +82,9 @@ internal fun AppleMusicLyricsPanel(
     active: Boolean = true,
     externalDocument: LyricsDocument? = null,
 ) {
+    val settingsRepository = koinInject<SettingsRepository>()
+    val showLyricTranslation by settingsRepository.lyricTranslationEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val showLyricRomanization by settingsRepository.lyricRomanizationEnabled.collectAsStateWithLifecycle(initialValue = true)
     val contentColor = LocalPlayerContentColor.current
     val activeState = rememberUpdatedState(active)
     // Keep four future lines composed below the viewport. Their independent
@@ -295,8 +301,8 @@ internal fun AppleMusicLyricsPanel(
     var appliedScrollPx by remember(renderedDocument) { mutableStateOf(0f) }
     var rowBaselines by remember(renderedDocument) { mutableStateOf<Map<Int, Float>>(emptyMap()) }
     val rowHeightsPx = remember(
-        renderedDocument, SettingsRuntime.lyricFontScale, SettingsRuntime.showLyricTranslation,
-        SettingsRuntime.showLyricRomanization,
+        renderedDocument, SettingsRuntime.lyricFontScale, showLyricTranslation,
+        showLyricRomanization,
     ) { mutableStateMapOf<Int, Int>() }
     var viewportHeightPx by remember { mutableIntStateOf(0) }
     var viewportWidthPx by remember { mutableIntStateOf(0) }
@@ -322,10 +328,10 @@ internal fun AppleMusicLyricsPanel(
         rowHeightsPx[index]?.let { return it.toFloat() }
         val line = lines.getOrNull(index)
         var height = primaryHeightPx
-        if (SettingsRuntime.showLyricRomanization && !line?.romanization.isNullOrBlank()) {
+        if (showLyricRomanization && !line?.romanization.isNullOrBlank()) {
             height += annotationFontPx * 1.2f + annotationSpacingPx
         }
-        if (SettingsRuntime.showLyricTranslation && !line?.translation.isNullOrBlank()) {
+        if (showLyricTranslation && !line?.translation.isNullOrBlank()) {
             height += annotationFontPx * 1.2f + annotationSpacingPx
         }
         return height
@@ -685,13 +691,14 @@ internal fun AppleMusicLyricsPanel(
                             distanceBlurDp = 0f,
                             focusBlurDp = 0f,
                             renderingQuality = renderingQuality,
-                            showTranslation = SettingsRuntime.showLyricTranslation &&
+                            showRuby = showLyricRomanization,
+                            showTranslation = showLyricTranslation &&
                                 !line.translation.isNullOrBlank(),
-                            showRomanization = SettingsRuntime.showLyricRomanization &&
+                            showRomanization = showLyricRomanization &&
                                 !line.romanization.isNullOrBlank() &&
                                 (SettingsRuntime.lyricRomanizationDisplayMode == LyricAnnotationDisplayMode.AllLines || isActiveLine),
-                            reserveTranslation = SettingsRuntime.showLyricTranslation && !line.translation.isNullOrBlank(),
-                            reserveRomanization = SettingsRuntime.showLyricRomanization && !line.romanization.isNullOrBlank(),
+                            reserveTranslation = showLyricTranslation && !line.translation.isNullOrBlank(),
+                            reserveRomanization = showLyricRomanization && !line.romanization.isNullOrBlank(),
                             onMeasured = { measured ->
                                 if (measured > 0 && rowHeightsPx[index] != measured) rowHeightsPx[index] = measured
                             },

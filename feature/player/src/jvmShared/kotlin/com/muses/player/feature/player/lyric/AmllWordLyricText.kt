@@ -63,6 +63,7 @@ internal fun AmllWordLyricText(
     renderingQuality: LyricsRenderingQuality,
     background: Boolean,
     modifier: Modifier = Modifier,
+    showRuby: Boolean = true,
 ) {
     val contentColor = LocalPlayerContentColor.current
     val density = LocalDensity.current
@@ -81,9 +82,9 @@ internal fun AmllWordLyricText(
             textAlign = if (line.agent?.alignment == LyricAgentAlignment.Flipped) TextAlign.End else TextAlign.Start,
         )
         val words = remember(line) { AmllWordEffects.words(line) }
-        val rubyLayouts = remember(words, style) {
+        val rubyLayouts = remember(words, style, showRuby) {
             words.map { word ->
-                if (word.ruby.isEmpty()) null else {
+                if (!showRuby || word.ruby.isEmpty()) null else {
                     val base = textMeasurer.measure(AnnotatedString(line.text.substring(word.range.start, word.range.end)),
                         style.copy(textAlign = TextAlign.Start), softWrap = false)
                     val ruby = textMeasurer.measure(AnnotatedString(word.ruby.joinToString("") { it.text }),

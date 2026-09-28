@@ -192,6 +192,7 @@ internal fun UpstreamLyricLine(
     distanceBlurDp: Float,
     focusBlurDp: Float,
     renderingQuality: LyricsRenderingQuality,
+    showRuby: Boolean,
     showTranslation: Boolean,
     showRomanization: Boolean,
     reserveTranslation: Boolean,
@@ -237,7 +238,7 @@ internal fun UpstreamLyricLine(
         horizontalAlignment = lineAlignment,
     ) {
         accompanimentBefore.forEach { vocal ->
-            TimedAccompaniment(vocal, playbackTimeProvider, fontScale, reduceMotion, focusProgress, renderingQuality, effectiveBlur)
+            TimedAccompaniment(vocal, playbackTimeProvider, fontScale, reduceMotion, focusProgress, renderingQuality, effectiveBlur, showRuby)
         }
         if (showRomanization) {
             RubyLyricText(
@@ -253,6 +254,7 @@ internal fun UpstreamLyricLine(
                 reduceMotion = reduceMotion,
                 timingEffectsStrength = timingEffectsStrength,
                 unplayedAlpha = timedUnplayedAlpha,
+                showRuby = showRuby,
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
@@ -269,12 +271,13 @@ internal fun UpstreamLyricLine(
                 unplayedAlpha = timedUnplayedAlpha,
                 renderingQuality = renderingQuality,
                 softBlurDp = effectiveBlur,
+                showRuby = showRuby,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
 
         accompanimentAfter.forEach { vocal ->
-            TimedAccompaniment(vocal, playbackTimeProvider, fontScale, reduceMotion, focusProgress, renderingQuality, effectiveBlur)
+            TimedAccompaniment(vocal, playbackTimeProvider, fontScale, reduceMotion, focusProgress, renderingQuality, effectiveBlur, showRuby)
         }
 
         val romanSize = max(UpstreamLyrics.FONT_SIZE_SP * fontScale * SettingsRuntime.lyricRomanizationFontScale, 13f)
@@ -319,6 +322,7 @@ internal fun TimedAccompaniment(
     focusProgress: Float,
     renderingQuality: LyricsRenderingQuality,
     softBlurDp: Float,
+    showRuby: Boolean,
 ) {
     val end = vocal.durationMs?.let { vocal.timeMs + it }
         ?: vocal.syllables.maxOfOrNull { it.endTimeMs }
@@ -341,6 +345,7 @@ internal fun TimedAccompaniment(
             softBlurDp = softBlurDp,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).graphicsLayer { alpha = .72f },
             isBackground = true,
+            showRuby = showRuby,
         )
     }
 }
@@ -358,6 +363,7 @@ internal fun RubyLyricText(
     timingEffectsStrength: Float = 1f,
     unplayedAlpha: Float = .4f,
     modifier: Modifier = Modifier,
+    showRuby: Boolean = true,
 ) {
     val contentColor = LocalPlayerContentColor.current
     if (SettingsRuntime.lyricWordByWordEnabled) {
@@ -372,6 +378,7 @@ internal fun RubyLyricText(
                 unplayedAlpha = unplayedAlpha,
                 renderingQuality = renderingQuality,
                 softBlurDp = softBlurDp,
+                showRuby = showRuby,
                 modifier = Modifier.fillMaxWidth(),
             )
             if (!line.romanization.isNullOrBlank()) {
@@ -409,6 +416,7 @@ internal fun RubyLyricText(
             timingEffectsStrength = 1f,
             renderingQuality = renderingQuality,
             softBlurDp = softBlurDp,
+            showRuby = showRuby,
             modifier = modifier,
         )
         return
@@ -544,6 +552,7 @@ internal fun GlyphLyricText(
     softBlurDp: Float = 0f,
     modifier: Modifier = Modifier,
     isBackground: Boolean = false,
+    showRuby: Boolean = true,
 ) {
     AmllWordLyricText(
         line = line,
@@ -555,6 +564,7 @@ internal fun GlyphLyricText(
         unplayedAlpha = unplayedAlpha,
         renderingQuality = renderingQuality,
         background = isBackground,
+        showRuby = showRuby,
         modifier = modifier,
     )
 }

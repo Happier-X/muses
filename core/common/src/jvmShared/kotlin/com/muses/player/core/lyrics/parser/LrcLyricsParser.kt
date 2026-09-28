@@ -1,6 +1,7 @@
 package com.muses.player.core.lyrics.parser
 
 import com.muses.player.core.lyrics.model.LyricsDocument
+import com.muses.player.core.lyrics.model.LyricLine
 import com.muses.player.core.lyrics.model.NeteaseLyricParser
 
 /**
@@ -13,14 +14,46 @@ import com.muses.player.core.lyrics.model.NeteaseLyricParser
  * [LyricLine.syllables] directly and are unaffected.
  */
 object LrcLyricsParser {
+    private val latinLetter = Regex("[A-Za-z]")
+    private val hanCharacter = Regex("[\u3400-\u9FFF]")
+
     fun parse(
         lrc: String,
         translation: String = "",
         romanization: String = "",
-    ): LyricsDocument = NeteaseLyricParser.parse(
-        yrc = "",
-        lrc = lrc,
-        translatedLrc = translation,
-        romanizedLrc = romanization,
-    ).copy(pseudoTimingAllowed = false)
+    ): LyricsDocument {
+        val document = NeteaseLyricParser.parse(
+            yrc = "",
+            lrc = lrc,
+            translatedLrc = translation,
+            romanizedLrc = romanization,
+        )
+        return document.copy(
+            lines = if (translation.isBlank()) mergeInlineTranslations(document.lines) else document.lines,
+            pseudoTimingAllowed = false,
+        )
+    }
+
+    private fun mergeInlineTranslations(lines: List<LyricLine>): List<LyricLine> = buildList {
+        var index = 0
+        while (index < lines.size) {
+            val original = lines[index]
+            val next = lines.getOrNull(index + 1)
+            if (next != null && original.timeMs == next.timeMs &&
+                original.translation.isNullOrBlank() && isTranslationPair(original.text, next.text)
+            ) {
+                add(original.copy(translation = next.text, durationMs = next.durationMs ?: original.durationMs))
+                index += 2
+            } else {
+                add(original)
+                index++
+            }
+        }
+    }
+
+    private fun isTranslationPair(original: String, candidate: String): Boolean {
+        if (candidate.contains("著作权") || candidate.contains("版权") || candidate.contains("翻译作品")) return false
+        return latinLetter.containsMatchIn(original) && !hanCharacter.containsMatchIn(original) &&
+            hanCharacter.containsMatchIn(candidate)
+    }
 }

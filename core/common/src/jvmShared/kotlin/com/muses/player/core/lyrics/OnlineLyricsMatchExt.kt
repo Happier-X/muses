@@ -1,8 +1,11 @@
 package com.muses.player.core.lyrics
 
 import com.muses.player.core.lyrics.model.LyricsDocument
+import com.muses.player.core.lyrics.model.NeteaseLyricParser
 import com.muses.player.core.lyrics.parser.LrcLyricsParser
+import com.muses.player.core.lyrics.parser.QQMusicQrcLyricsParser
 import com.muses.player.core.model.lyrics.OnlineLyricsMatchResult
+import com.muses.player.core.model.lyrics.OnlineLyricsFormat
 import com.muses.player.core.model.lyrics.OnlineLyricsQuery
 import com.muses.player.feature.player.lyric.LyricsParser
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +24,7 @@ import kotlinx.coroutines.withContext
  *
  * ## 格式分流
  * - 无 timed 译文：走通用解析链（TTML / YRC / QRC / LRC），AMLL 命中即 TTML；
- * - 有 timed 译文（平台源的 tlyric）：走 LRC 合并链（与刮削写回同口径）。
+ * - 有 timed 译文（平台源的 tlyric）：按原文格式合并，保留逐字时间轴。
  */
 suspend fun LyricsMatcher.matchDocument(
     songId: String,
@@ -47,7 +50,11 @@ suspend fun LyricsMatcher.matchDocument(
         if (translation.isNullOrBlank()) {
             LyricsParser.parseDocument(result.text)
         } else {
-            LrcLyricsParser.parse(result.text, translation = translation)
+            when (result.format) {
+                OnlineLyricsFormat.YRC -> NeteaseLyricParser.parse(yrc = result.text, lrc = "", translatedLrc = translation)
+                OnlineLyricsFormat.QRC -> QQMusicQrcLyricsParser.parse(primary = result.text, translation = translation)
+                else -> LrcLyricsParser.parse(result.text, translation = translation)
+            }
         }
     }
 }

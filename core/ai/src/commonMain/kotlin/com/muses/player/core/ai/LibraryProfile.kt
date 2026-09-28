@@ -1,6 +1,7 @@
 package com.muses.player.core.ai
 
 import com.muses.player.core.data.dao.SongDao
+import com.muses.player.core.data.db.SongEntity
 import kotlin.random.Random
 
 /**
@@ -115,14 +116,33 @@ class LibraryProfileBuilder(
             topArtists = artists,
             topAlbums = albums,
             sampleTracks = sampleTracks,
-            ownedSongs = songs.asSequence()
-                .filter { it.sourceType == "LOCAL" || it.sourceType == "WEBDAV" }
-                .groupBy { it.title.normalizeForMatch() }
-                .filterKeys { it.isNotEmpty() }
-                .mapValues { (_, entries) -> entries.map { it.artist.normalizeForMatch() }.toSet() },
+            ownedSongs = buildOwnedSongIndex(songs),
         )
     }
 }
+
+internal fun buildOwnedSongIndex(songs: List<SongEntity>): Map<String, Set<String>> {
+    val index = mutableMapOf<String, MutableSet<String>>()
+    fun add(title: String, artist: String?) {
+        val key = title.normalizeForMatch()
+        if (key.isNotEmpty()) index.getOrPut(key) { mutableSetOf() }.add(artist.normalizeForMatch())
+    }
+    songs.forEach { song ->
+        if (song.sourceType != "LOCAL" && song.sourceType != "WEBDAV") return@forEach
+        add(song.title, song.artist)
+        if (song.artist.isNullOrBlank() && song.tagsVersion == 0) {
+            val parts = song.title.replaceFirst(FILENAME_TRACK_NUMBER, "").split(FILENAME_SONG_SEPARATOR)
+            if (parts.size == 2 && parts.all { it.isNotBlank() }) {
+                add(parts[1], parts[0])
+                add(parts[0], parts[1])
+            }
+        }
+    }
+    return index
+}
+
+private val FILENAME_SONG_SEPARATOR = Regex("""\s+[-–—]\s+""")
+private val FILENAME_TRACK_NUMBER = Regex("""^\d{1,3}\s*[.、-]\s*""")
 
 /** 来源类型展示名（`SourceType.name` 落库，未知值原样保留以免丢信息） */
 private fun String.toDisplaySource(): String = when (this) {

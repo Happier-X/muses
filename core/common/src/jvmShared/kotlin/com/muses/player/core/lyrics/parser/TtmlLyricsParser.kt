@@ -51,7 +51,7 @@ object TtmlLyricsParser {
         val key = paragraph.attr("itunes:key", "key")
         val agent = agents[paragraph.attr("ttm:agent", "agent")]
         val directSpans = paragraph.directElements("span")
-        var syllables = parseSyllables(paragraph)
+        val syllables = parseSyllables(paragraph)
         val phonetics = transliterations[key]
         val romanizationSyllables = if (phonetics != null && phonetics.size == syllables.size) {
             syllables.zip(phonetics) { syllable, text ->
@@ -59,9 +59,15 @@ object TtmlLyricsParser {
             }
         } else emptyList()
         val inlineRoman = directSpans.firstOrNull { it.hasRole("x-roman") }?.allText()?.trim()
-        val romanization = inlineRoman ?: romanizationSyllables.joinToString(" ") { it.text }.takeIf(String::isNotBlank)
+        val wordRoman = directSpans.mapNotNull { span ->
+            span.directElements("span").firstOrNull { it.hasRole("x-roman") }?.allText()?.trim()?.takeIf(String::isNotBlank)
+        }
+        val romanization = inlineRoman?.takeIf(String::isNotBlank)
+            ?: wordRoman.joinToString(" ").takeIf(String::isNotBlank)
+            ?: phonetics?.joinToString(" ")?.takeIf(String::isNotBlank)
         val inlineTranslation = directSpans.firstOrNull {
-            it.hasRole("x-translation") && !it.hasRole("x-bg") && it.isChineseTranslation()
+            it.hasRole("x-translation") && !it.hasRole("x-bg") &&
+                (it.isChineseTranslation() || it.attr("xml:lang", "lang") == null)
         }?.allText()?.trim()
         val translation = inlineTranslation ?: translations[key]?.splitTranslation()?.first
         val accompaniment = directSpans.filter { it.hasRole("x-bg") }.mapNotNull { background ->
@@ -132,8 +138,8 @@ object TtmlLyricsParser {
                 .flatMap { it.directElements("span") }
                 .filter { it.attr("tts:ruby", "ruby") == "text" }
                 .mapNotNull {
-                    val rubyStart = it.attr("begin")?.parseTime() ?: return@mapNotNull null
-                    val rubyEnd = it.attr("end")?.parseTime() ?: return@mapNotNull null
+                    val rubyStart = (it.attr("begin") ?: element.attr("begin"))?.parseTime() ?: return@mapNotNull null
+                    val rubyEnd = (it.attr("end") ?: element.attr("end"))?.parseTime() ?: return@mapNotNull null
                     it.allText().trim().takeIf(String::isNotBlank)?.let { text ->
                         LyricSyllable(text, rubyStart, rubyEnd.coerceAtLeast(rubyStart))
                     }
@@ -145,9 +151,10 @@ object TtmlLyricsParser {
             if (start == null || end == null) continue
             var text = if (rubyContainer) element.directElements("span")
                 .filter { it.attr("tts:ruby", "ruby") == "base" }.joinToString("") { it.allText() }
-                else element.allText()
+                else element.primaryText()
             val next = children.item(index + 1)
-            if (next?.nodeType == Node.TEXT_NODE) text += next.nodeValue.orEmpty()
+            val suffix = next?.takeIf { it.nodeType == Node.TEXT_NODE }?.nodeValue.orEmpty()
+            if (!suffix.isBlank() || suffix.lines().size == 1) text += suffix
             if (text.isNotEmpty()) add(LyricSyllable(text, start, end.coerceAtLeast(start + 1L), ruby))
         }
         if (isNotEmpty()) this[lastIndex] = last().copy(text = last().text.trimEnd())
@@ -167,11 +174,14 @@ object TtmlLyricsParser {
     private fun parseTranslations(root: Element): Map<String, String> = buildMap {
         val nodes = root.getElementsByTagNameNS("*", "translation")
         for (index in 0 until nodes.length) {
-            val texts = (nodes.item(index) as? Element)?.getElementsByTagNameNS("*", "text") ?: continue
+            val translation = nodes.item(index) as? Element ?: continue
+            val texts = translation.getElementsByTagNameNS("*", "text")
             for (textIndex in 0 until texts.length) {
                 val text = texts.item(textIndex) as? Element ?: continue
                 val key = text.attr("for") ?: continue
-                if (text.isChineseTranslation()) put(key, text.allText().trim())
+                if (text.isChineseTranslation() || translation.isChineseTranslation()) {
+                    text.allText().trim().takeIf(String::isNotBlank)?.let { put(key, it) }
+                }
             }
         }
     }
@@ -188,6 +198,7 @@ object TtmlLyricsParser {
                     for (spanIndex in 0 until spans.length) spans.item(spanIndex).textContent.trim().takeIf(String::isNotBlank)?.let(::add)
                 }
                 if (values.isNotEmpty()) put(key, values)
+                else text.allText().trim().takeIf(String::isNotBlank)?.let { put(key, listOf(it)) }
             }
         }
     }

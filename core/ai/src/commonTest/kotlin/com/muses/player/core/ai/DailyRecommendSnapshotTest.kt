@@ -1,6 +1,7 @@
 package com.muses.player.core.ai
 
 import com.muses.player.core.search.OnlineSearchResult
+import com.muses.player.core.data.db.SongEntity
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -53,6 +54,32 @@ class DailyRecommendSnapshotTest {
 
         assertEquals(listOf("海阔天空"), filtered.tracks.map { it.result.name })
     }
+
+    @Test
+    fun 未读取标签的本地与WebDAV文件名按歌手和歌名去重() {
+        val songs = listOf(
+            song("1", "WEBDAV", "Marshmello - Alone"),
+            song("2", "LOCAL", "01 - 周杰伦 — 晴天"),
+            song("3", "ONLINE", "Beyond - 海阔天空"),
+            song("4", "LOCAL", "甲 - 乙").copy(artist = "丙", tagsVersion = 1),
+        )
+        val owned = LibraryProfile(songs.size, emptyList(), emptyList(), emptyList(), emptyList(), buildOwnedSongIndex(songs))
+        assertTrue(owned.containsSong("Alone", "Marshmello"))
+        assertTrue(owned.containsSong("晴天", "周杰伦"))
+        assertFalse(owned.containsSong("Alone", "其他歌手"))
+        assertFalse(owned.containsSong("海阔天空", "Beyond"))
+        assertFalse(owned.containsSong("乙", "甲"))
+        val result = AiRecommendResult(
+            listOf(track("Alone", "Marshmello"), track("晴天", "周杰伦"), track("海阔天空", "Beyond")),
+            3, emptyList(),
+        )
+        assertEquals(listOf("海阔天空"), result.excludingOwnedSongs(owned).tracks.map { it.result.name })
+        assertEquals(1, DailyRecommendSnapshot.decode(DailyRecommendSnapshot.encode("2026-09-27", result), "2026-09-27", owned)?.matched)
+    }
+
+    private fun song(id: String, sourceType: String, title: String) = SongEntity(
+        id = id, sourceId = sourceType, sourceType = sourceType, path = title, title = title,
+    )
 
     private fun track(name: String, artist: String): AiRecommendedTrack = AiRecommendedTrack(
         AiSongSuggestion(name, artist, "推荐理由"),

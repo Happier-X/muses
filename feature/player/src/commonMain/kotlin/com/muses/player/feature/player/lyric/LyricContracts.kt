@@ -84,8 +84,6 @@ object SettingsRuntime {
     const val lyricTranslationOpacity: Float = 0.9f
     const val lyricWordBounceEnabled: Boolean = true
     const val lyricWordByWordEnabled: Boolean = true
-    const val showLyricRomanization: Boolean = true
-    const val showLyricTranslation: Boolean = true
     const val lyricFontScale: Float = 1f
     val lyricRenderingQuality: LyricsRenderingQuality = LyricsRenderingQuality.High
     val lyricRomanizationDisplayMode: LyricAnnotationDisplayMode = LyricAnnotationDisplayMode.AllLines

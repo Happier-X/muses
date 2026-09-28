@@ -31,12 +31,13 @@ class AmllWordRenderingTest {
         quality: LyricsRenderingQuality = LyricsRenderingQuality.High,
         reduceMotion: Boolean = true,
         ruby: List<LyricSyllable> = emptyList(),
+        showRuby: Boolean = true,
     ): List<BufferedImage> = runBlocking {
         val time = mutableLongStateOf(times.first())
         val line = LyricLine(start, text = text, syllables = listOf(LyricSyllable(text, start, end, ruby)))
         val scene = ImageComposeScene(width = 640, height = 180, coroutineContext = coroutineContext) {
             Box(Modifier.fillMaxSize().background(Color.Black).padding(32.dp)) {
-                AmllWordLyricText(line, { time.longValue }, true, 2f, reduceMotion, 1f, .4f, quality, false)
+                AmllWordLyricText(line, { time.longValue }, true, 2f, reduceMotion, 1f, .4f, quality, false, showRuby = showRuby)
             }
         }
         try {
@@ -66,6 +67,15 @@ class AmllWordRenderingTest {
         val plain = render("AB", 1000, 3000, listOf(3000)).single()
         assertTrue(brightness(frames[3]) > brightness(plain), "主字之外应实际画出注音")
         frames.take(4).forEachIndexed { index, frame -> save("注音-$index", frame) }
+    }
+
+    @Test
+    fun 关闭注音后只隐藏注音且保留主字() {
+        val annotation = listOf(LyricSyllable("abc", 1000, 3000))
+        val visible = render("AB", 1000, 3000, listOf(3000), ruby = annotation).single()
+        val hidden = render("AB", 1000, 3000, listOf(3000), ruby = annotation, showRuby = false).single()
+        assertTrue(brightness(hidden) > 0)
+        assertTrue(brightness(visible) > brightness(hidden))
     }
 
     private fun pixels(image: BufferedImage) = image.getRGB(0, 0, image.width, image.height, null, 0, image.width).toList()

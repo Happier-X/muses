@@ -24,6 +24,26 @@ import org.junit.Test
  * 覆盖 AMLL 命中（TTML 走通用解析链）与平台源命中（LRC + timed 译文走合并链）两条路径。
  */
 class OnlineLyricsMatchExtTest {
+    @Test
+    fun 逐字歌词合并平台译文时保留逐字时间() = runTest {
+        val matcher = LyricsMatcher(
+            FakeAmll(),
+            listOf(
+                FakeProvider(
+                    OnlineLyricsSource.WY,
+                    OnlineLyricsProviderHit(
+                        text = "[1000,2000](1000,500,0)Hello(1500,500,0) world",
+                        format = OnlineLyricsFormat.YRC,
+                        translationText = "[00:01.000]你好世界",
+                    ),
+                ),
+            ),
+        )
+        val document = matcher.matchDocument(songId = "online:wy:1", title = "Hello")
+        assertNotNull(document)
+        assertEquals("你好世界", document!!.lines.first().translation)
+        assertEquals(2, document.lines.first().syllables.size)
+    }
 
     private class FakeAmll(var result: AmllMatchResult = AmllMatchResult.Fail(AmllFailReason.NO_MATCH)) :
         AmllTtmlDbClient(http = LyricsHttp(), indexRepository = AmllIndexRepository { "" }) {
