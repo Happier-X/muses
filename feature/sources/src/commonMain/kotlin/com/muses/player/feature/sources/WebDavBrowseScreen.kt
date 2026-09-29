@@ -15,8 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
-import com.muses.player.core.ui.components.MusesTextButton
-import com.muses.player.core.ui.components.MusesTextButtonSize
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.WebDavBrowseItem
 import com.muses.player.core.ui.components.WebDavBrowseList
@@ -24,8 +22,8 @@ import com.muses.player.core.ui.components.WebDavBrowseList
  * WebDAV 目录浏览页 —— 一比一翻译自 SourceWebDavBrowsePage.vue + WebDavDirectoryBrowser.vue。
  *
  * 模式：
- * - single：单选确认（编辑回填流程）
- * - multiple：多选确认（添加流程）
+ * - multiple：添加时多选目录
+ * - edit-multiple：编辑时多选此账号包含的目录
  *
  * 参数由导航参数传入（connection, initialPath, mode）
  *
@@ -34,7 +32,7 @@ import com.muses.player.core.ui.components.WebDavBrowseList
  */
 @Composable
 fun WebDavBrowseScreen(
-    mode: String, // "single" 或 "multiple"
+    mode: String, // "multiple" 添加 / "edit-multiple" 编辑多选
     initialPath: String,
     serverUrl: String,
     username: String,
@@ -70,16 +68,10 @@ fun WebDavBrowseScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             MusesTopBar(
-                title = if (mode == "single") "选择目录" else "选择文件夹",
-                navigationIcon = {
-                    MusesTextButton(
-                        text = "返回",
-                        onClick = {
-                            viewModel.clearSelection()
-                            onBack()
-                        },
-                        size = MusesTextButtonSize.SMALL,
-                    )
+                title = if (mode == "multiple") "添加 WebDav 源" else "编辑 WebDav 源",
+                onBack = {
+                    viewModel.clearSelection()
+                    onBack()
                 },
             )
         },
@@ -98,12 +90,12 @@ fun WebDavBrowseScreen(
                 directories = browseState.directories.map { it.toShared() },
                 selectedPaths = browseState.selectedPaths,
                 isLoading = browseState.isLoading,
-                canGoParent = viewModel.parentPath != null && !browseState.isLoading,
-                onGoParent = { viewModel.goToParent() },
+                isSubmitting = false,
                 onToggleSelection = { viewModel.toggleSelection(it) },
                 onOpenDirectory = { viewModel.openDirectory(it) },
                 onConfirmSingle = { confirmSelection(listOf(it)) },
                 onConfirmMultiple = { confirmSelection(it) },
+                onNavigatePath = { viewModel.navigateTo(it) },
                 modifier = Modifier.weight(1f),
             )
 

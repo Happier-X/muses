@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
+import top.yukonga.miuix.kmp.basic.BreadcrumbBar
+import top.yukonga.miuix.kmp.basic.BreadcrumbItem
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 
 /**
@@ -48,25 +50,23 @@ data class WebDavBrowseItem(
  * WebDAV 目录浏览共用组件（浏览页共用化）。
  *
  * 视觉契约（对照安卓 `WebDavBrowseScreen` + `DirectoryRow`）：
- * - 路径导航行：返回上级 MusesTextButton(SMALL) + 当前路径 13sp text2 单行省略；
+ * - 路径导航行：Miuix BreadcrumbBar；
  * - 加载态：居中 CircularProgressIndicator +「正在读取目录…」14sp text2；
  * - 空目录：居中 13sp text2（多选「当前目录没有可添加的子文件夹。」/ 单选「当前目录没有子文件夹。」）；
- * - 目录行：surface1 背景 + radius-sm + 目录图标 primary 28dp + 名称 16sp/600 单行省略 +
- *   路径 13sp text2 单行省略 + 尾部 MusesTextButton(SMALL)（单选「选择」/ 多选「进入」）；
- * - 多选模式：行首复选框（选中 SquareCheck primary / 未选 Square text2，24dp）；
- * - 多选底部确认按钮：全宽 MusesTextButton「添加选中的 N 个文件夹」；
+ * - 目录行：点击行进入下一级；选择目录时统一使用复选框；
+ * - 底部多选确认按钮统一显示「确定」；
  * - 错误态由调用方承载（MusesDialog），本组件只收 `errorText` 做行内展示，
  *   `onDismissError` 为空时不渲染关闭按钮。
  *
  * 纯 UI 组件，零平台依赖，所有业务逻辑经回调注入。
  *
- * @param mode "single" 单选确认（编辑回填）/ "multiple" 多选确认（添加流程）
+ * @param mode "single" 兼容旧单选 / "multiple" 添加多选 / "edit-multiple" 编辑多选
  * @param currentPath 当前路径（导航行展示）
  * @param directories 当前目录下的目录项（调用方已过滤排序）
  * @param selectedPaths 已选路径集合（多选模式）
  * @param isLoading 加载中
- * @param canGoParent 是否可返回上级（调用方按 parentPath != null && !isLoading 计算）
  * @param errorText 错误文案；null = 无错误
+ * @param onNavigatePath 点击面包屑层级时跳转到对应路径
  */
 @Composable
 fun WebDavBrowseList(
@@ -75,40 +75,33 @@ fun WebDavBrowseList(
     directories: List<WebDavBrowseItem>,
     selectedPaths: Set<String>,
     isLoading: Boolean,
-    canGoParent: Boolean,
-    onGoParent: () -> Unit,
+    isSubmitting: Boolean,
     onToggleSelection: (String) -> Unit,
     onOpenDirectory: (String) -> Unit,
     onConfirmSingle: (String) -> Unit,
     onConfirmMultiple: (List<String>) -> Unit,
+    onNavigatePath: (String) -> Unit,
     modifier: Modifier = Modifier,
     errorText: String? = null,
     onDismissError: (() -> Unit)? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
+    val breadcrumbItems = buildList {
+        add(BreadcrumbItem(path = "/", text = "/"))
+        var accumulatedPath = ""
+        currentPath.split('/').filter(String::isNotBlank).forEach { segment ->
+            accumulatedPath += "/$segment"
+            add(BreadcrumbItem(path = accumulatedPath, text = segment))
+        }
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // .webdav-browser__nav（路径导航）
-        Row(
+        BreadcrumbBar(
+            items = breadcrumbItems,
+            onItemClick = { index -> onNavigatePath(breadcrumbItems[index].path) },
+            enabled = !isLoading,
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            MusesTextButton(
-                onClick = onGoParent,
-                text = "返回上级",
-                enabled = canGoParent,
-                size = MusesTextButtonSize.SMALL,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = currentPath,
-                style = MiuixTheme.textStyles.footnote1,
-                color = scheme.onBackgroundVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        )
 
         Spacer(Modifier.height(8.dp))
 
@@ -162,29 +155,36 @@ fun WebDavBrowseList(
                             isSelected = selectedPaths.contains(directory.url),
                             mode = mode,
                             onSelect = { onToggleSelection(directory.url) },
-                            onConfirm = {
-                                if (mode == "single") {
-                                    onConfirmSingle(directory.url)
-                                } else {
-                                    onOpenDirectory(directory.url)
-                                }
-                            },
+                            onOpenDirectory = { onOpenDirectory(directory.url) },
                         )
                     }
                 }
 
-                if (mode == "multiple" && selectedPaths.isNotEmpty()) {
-                    Spacer(Modifier.height(8.dp))
-                    MusesTextButton(
-                        onClick = { onConfirmMultiple(selectedPaths.toList()) },
-                        text = "添加选中的 ${selectedPaths.size} 个文件夹",
-                        // 底部按钮贴内容底：叠加悬浮件避让（悬浮件高度见 BottomChrome）
-                        modifier = Modifier.fillMaxWidth().padding(
-                            bottom = 16.dp + LocalBottomChromePadding.current,
-                        ),
-                    )
-                }
             }
+        }
+
+        if (!isLoading && selectedPaths.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            MusesTextButton(
+                onClick = {
+                    if (mode == "single") {
+                        selectedPaths.firstOrNull()?.let(onConfirmSingle)
+                    } else {
+                        onConfirmMultiple(selectedPaths.toList())
+                    }
+                },
+                text = when {
+                    isSubmitting -> "正在添加…"
+                    mode == "single" -> "选择此文件夹"
+                    else -> "确定"
+                },
+                enabled = !isSubmitting,
+                primary = true,
+                // 底部按钮贴内容底：叠加悬浮件避让（悬浮件高度见 BottomChrome）
+                modifier = Modifier.fillMaxWidth().padding(
+                    bottom = 16.dp + LocalBottomChromePadding.current,
+                ),
+            )
         }
 
         if (errorText != null) {
@@ -203,7 +203,6 @@ fun WebDavBrowseList(
                     MusesTextButton(
                         onClick = onDismissError,
                         text = "关闭",
-                        size = MusesTextButtonSize.SMALL,
                     )
                 }
             }
@@ -220,7 +219,7 @@ private fun WebDavBrowseRow(
     isSelected: Boolean,
     mode: String,
     onSelect: () -> Unit,
-    onConfirm: () -> Unit,
+    onOpenDirectory: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
 
@@ -228,20 +227,17 @@ private fun WebDavBrowseRow(
         modifier = Modifier
             .fillMaxWidth()
             .squircleBackground(scheme.surface, 8.dp)
+            .clickable(onClick = onOpenDirectory)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (mode == "multiple") {
-            Icon(
-                imageVector = if (isSelected) TablerIcons.CheckBox else TablerIcons.CheckBoxOutlineBlank,
-                contentDescription = if (isSelected) "取消选择" else "选择",
-                tint = if (isSelected) scheme.primary else scheme.onBackgroundVariant,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable { onSelect() },
+        if (mode != "single") {
+            MusesCheckbox(
+                checked = isSelected,
+                onToggle = onSelect,
             )
-            Spacer(Modifier.width(8.dp))
         }
+        Spacer(Modifier.width(8.dp))
 
         Icon(
             imageVector = TablerIcons.Folder,
@@ -269,10 +265,5 @@ private fun WebDavBrowseRow(
             )
         }
 
-        MusesTextButton(
-            onClick = onConfirm,
-            text = if (mode == "single") "选择" else "进入",
-            size = MusesTextButtonSize.SMALL,
-        )
     }
 }

@@ -26,12 +26,24 @@ object WebDavBrowseResultHolder {
     )
 
     private val _result = MutableStateFlow<BrowseResult?>(null)
+    private var initialSelectedPaths: List<String> = emptyList()
 
     /** 供表单页持续观察（当前值 + 后续变更） */
     val result: StateFlow<BrowseResult?> = _result.asStateFlow()
 
     fun set(value: BrowseResult) {
         _result.value = value
+    }
+
+    /** 打开选择器时预选表单中已有的目录；进入浏览页后立即取走。 */
+    fun setInitialSelection(paths: List<String>) {
+        initialSelectedPaths = paths
+    }
+
+    fun takeInitialSelection(): List<String> {
+        val paths = initialSelectedPaths
+        initialSelectedPaths = emptyList()
+        return paths
     }
 
     /** 读走并清空（对照 takeWebDavBrowseResult） */

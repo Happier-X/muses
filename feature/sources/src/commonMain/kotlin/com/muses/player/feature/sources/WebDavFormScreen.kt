@@ -4,14 +4,11 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.muses.player.core.ui.components.MusesDialog
@@ -19,18 +16,14 @@ import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.components.MusesSnackbar
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.SourceFormCard
@@ -41,7 +34,7 @@ import kotlinx.coroutines.delay
  * WebDAV 添加/编辑表单页 —— 一比一翻译自 SourceWebDavPage.vue。
  *
  * 模式由 sourceId 决定：
- * - null = 添加模式（验证连接 → 全屏目录浏览多选批量建源）
+ * - null = 添加模式（选择目录 → 验证连接并全屏多选批量建源）
  * - 非 null = 编辑模式（改名称/地址/密码/目录；密码留空保留原密码）
  */
 @Composable
@@ -74,7 +67,7 @@ fun WebDavFormScreen(
         }
     }
 
-    // 成功提示后稍作停留再返回音源列表（对照 scheduleLeave 800ms）
+    // 新增或编辑成功后显示提示，再返回音源列表。
     formState.successMessage?.let { message ->
         LaunchedEffect(message) {
             MusesSnackbar.show(message)
@@ -90,7 +83,7 @@ fun WebDavFormScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             MusesTopBar(
-                title = "WebDav源",
+                title = if (isEditMode) "编辑 WebDav 音源" else "添加 WebDav 音源",
                 // m-navbar-back-link：返回箭头按钮
                 navigationIcon = { MusesIconButtonBack(onClick = onBack) },
             )
@@ -111,7 +104,7 @@ fun WebDavFormScreen(
             SourceFormCard(
                 name = formState.name,
                 onNameChange = { viewModel.updateName(it) },
-                showNameField = isEditMode,
+                showNameField = true,
                 nameError = formState.nameError,
                 url = formState.serverUrl,
                 onUrlChange = { viewModel.updateServerUrl(it) },
@@ -124,69 +117,43 @@ fun WebDavFormScreen(
                 passwordLabel = "密码",
                 passwordError = formState.passwordError,
                 busy = formState.isVerifying || formState.isSubmitting,
-                saveText = if (isEditMode) "保存修改" else "连接并浏览",
+                saveBusy = formState.isSubmitting,
+                saveText = if (isEditMode) "编辑" else "添加",
+                busyText = if (isEditMode) "编辑" else "添加",
+                showBusyIndicator = formState.isSubmitting,
+                primarySave = true,
+                showSaveButton = true,
                 onSave = {
-                    if (isEditMode) viewModel.submitEdit()
-                    else viewModel.submitAdd(onBrowse)
+                    if (isEditMode) viewModel.submitEdit() else viewModel.submitAdd()
                 },
                 extraContent = {
-                    // 目录（仅编辑模式，只读展示 + 浏览目录按钮）
-                    if (isEditMode) {
-                        // .source-webdav-page__path-row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            SourceFormInput(
-                                label = "目录",
-                                value = formState.path,
-                                error = formState.pathError,
-                                readOnly = true,
-                                modifier = Modifier.weight(1f),
-                                onValueChange = {},
-                            )
-                            MusesTextButton(
-                                text = "浏览目录",
-                                onClick = { viewModel.startEditBrowse(onBrowse) },
-                            )
-                        }
+                    // 新增和编辑共用目录行；新增点击后先验证连接，再进入多选浏览。
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        SourceFormInput(
+                            label = "目录",
+                            value = formState.path,
+                            error = formState.pathError,
+                            readOnly = true,
+                            modifier = Modifier.weight(1f),
+                            onValueChange = {},
+                        )
+                        MusesTextButton(
+                            text = "选择文件夹",
+                            modifier = Modifier.height(56.dp),
+                            onClick = {
+                                if (isEditMode) viewModel.startEditBrowse(onBrowse)
+                                else viewModel.startAddBrowse(onBrowse)
+                            },
+                            enabled = !formState.isVerifying && !formState.isSubmitting,
+                        )
                     }
                 },
             )
 
-            // 编辑模式第二动作：连接并浏览（共用卡只有一个主按钮，编辑态副按钮放卡外）
-            if (isEditMode) {
-                Spacer(Modifier.height(12.dp))
-                MusesTextButton(
-                    text = "连接并浏览",
-                    onClick = { viewModel.startEditBrowse(onBrowse) },
-                    enabled = !formState.isVerifying && !formState.isSubmitting,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            // 验证中指示器
-            if (formState.isVerifying || formState.isSubmitting) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        if (formState.isVerifying) "正在验证连接…" else "正在保存…",
-                        style = MiuixTheme.textStyles.body2,
-                        color = scheme.onBackgroundVariant,
-                    )
-                }
-            }
         }
     }
 

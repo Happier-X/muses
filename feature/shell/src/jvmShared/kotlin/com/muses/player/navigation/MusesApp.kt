@@ -1073,7 +1073,7 @@ private fun AppNavHost(
                 password = route.password,
                 onBack = { backStack.pop() },
                 onConfirm = { _ ->
-                    // 结果已由浏览页写入 WebDavBrowseResultHolder，这里只回退
+                    // 新增或编辑选完目录都先回表单，再由表单按钮提交。
                     backStack.pop()
                 },
             )

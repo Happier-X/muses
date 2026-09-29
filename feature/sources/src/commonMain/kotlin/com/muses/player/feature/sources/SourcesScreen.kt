@@ -186,12 +186,12 @@ fun SourcesScreen(
             onDismiss = { viewModel.closeAddActionSheet() },
             label = "添加音源",
             items = listOf(
-                MusesActionItem(label = "本地源", onClick = {
+                MusesActionItem(label = "本地音源", onClick = {
                     viewModel.closeAddActionSheet()
                     // 系统目录选择器：选完回调内建源，对齐 Web FilePicker.pickDirectory 语义
                     pickLocalFolder()
                 }),
-                MusesActionItem(label = "WebDav源", onClick = {
+                MusesActionItem(label = "WebDav 音源", onClick = {
                     viewModel.closeAddActionSheet()
                     onOpenWebdavAdd()
                 }),

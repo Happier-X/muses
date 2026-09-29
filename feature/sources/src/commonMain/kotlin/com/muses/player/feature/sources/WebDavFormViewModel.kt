@@ -6,14 +6,14 @@ import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SourceRepository
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
+import com.muses.player.core.model.decodeWebDavSourcePaths
+import com.muses.player.core.model.encodeWebDavSourcePaths
 import com.muses.player.core.webdav.WebDavClient
-import com.muses.player.core.webdav.getParentWebDavPath
 import com.muses.player.core.webdav.getWebDavDisplayName
 import com.muses.player.core.webdav.normalizeWebDavPath
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -26,6 +26,7 @@ data class WebDavFormState(
     val username: String = "",
     val password: String = "",
     val path: String = "",
+    val selectedPaths: List<String> = emptyList(),
     // 验证错误
     val nameError: String? = null,
     val serverUrlError: String? = null,
@@ -75,7 +76,8 @@ class WebDavFormViewModel constructor(
                 serverUrl = source.url ?: "",
                 username = source.username ?: "",
                 password = password,
-                path = source.path ?: "/",
+                path = decodeWebDavSourcePaths(source.path).joinToString("、"),
+                selectedPaths = decodeWebDavSourcePaths(source.path),
             )
         }
     }
@@ -96,10 +98,6 @@ class WebDavFormViewModel constructor(
         _formState.value = _formState.value.copy(password = value, passwordError = null)
     }
 
-    fun updatePath(value: String) {
-        _formState.value = _formState.value.copy(path = value, pathError = null)
-    }
-
     fun dismissError() {
         _formState.value = _formState.value.copy(errorMessage = null)
     }
@@ -110,58 +108,77 @@ class WebDavFormViewModel constructor(
 
     /**
      * 消费目录浏览页带回的结果（表单页观察到 holder 有新值时调用，take 语义）：
-     * - 编辑模式（single）：回填目录字段；
-     * - 添加模式（multiple）：批量建源，成功后提示并返回。
+     * - 新增与编辑模式都只回填所选目录，提交统一由表单按钮触发。
      * 对照 SourceWebDavPage.vue 的 consumeBrowseResult。
      */
     fun consumeBrowseResult() {
         val browsed = WebDavBrowseResultHolder.take() ?: return
         val state = _formState.value
-        if (state.editingSourceId != null) {
-            // single 单选：回填目录
-            if (browsed.paths.isNotEmpty()) {
-                _formState.value = state.copy(path = browsed.paths[0])
-            }
-            return
+        // 多个所选目录共同构成同一个 WebDAV 音源的目录集合。
+        if (browsed.paths.isNotEmpty()) {
+            _formState.value = state.copy(
+                path = browsed.paths.joinToString("、"),
+                selectedPaths = browsed.paths.map(::normalizeWebDavPath).distinct(),
+                pathError = null,
+            )
         }
-        addSelectedWebDavSources(browsed)
     }
 
-    /** 添加模式批量建源（对照 addSelectedWebDavSources） */
-    private fun addSelectedWebDavSources(browsed: WebDavBrowseResultHolder.BrowseResult) {
+    /** 新增模式提交：验证连接与所有选中目录后创建音源。 */
+    fun submitAdd() {
         val state = _formState.value
-        if (browsed.paths.isEmpty() || state.isSubmitting) return
+        var hasError = false
+        if (state.serverUrl.isBlank()) {
+            _formState.value = _formState.value.copy(serverUrlError = "请填写服务器地址")
+            hasError = true
+        }
+        if (state.username.isBlank()) {
+            _formState.value = _formState.value.copy(usernameError = "请填写用户名")
+            hasError = true
+        }
+        if (state.password.isBlank()) {
+            _formState.value = _formState.value.copy(passwordError = "请填写密码")
+            hasError = true
+        }
+        if (state.selectedPaths.isEmpty()) {
+            _formState.value = _formState.value.copy(pathError = "请选择目录")
+            hasError = true
+        }
+        if (hasError || state.isVerifying || state.isSubmitting) return
 
         viewModelScope.launch {
-            _formState.value = state.copy(isSubmitting = true)
+            _formState.value = _formState.value.copy(isSubmitting = true, errorMessage = null)
             try {
-                val now = System.currentTimeMillis()
-                val newSources = mutableListOf<Source>()
-                for (path in browsed.paths) {
-                    val id = Uuid.random().toString()
-                    newSources.add(
-                        Source(
-                            id = id,
-                            name = getWebDavDisplayName(path),
-                            type = SourceType.WEBDAV,
-                            url = browsed.serverUrl,
-                            path = normalizeWebDavPath(path),
-                            username = browsed.username.ifBlank { null },
-                            createdAt = now,
-                            updatedAt = now,
-                        ),
-                    )
-                    credentialsRepository.savePassword(id, browsed.password)
+                val serverUrl = state.serverUrl.trim()
+                val username = state.username.trim()
+                val paths = state.selectedPaths.map(::normalizeWebDavPath).distinct()
+                webDavClient.authenticate(username, state.password)
+                paths.forEach { path ->
+                    webDavClient.list(buildWebDavUrl(serverUrl, path))
                 }
-                newSources.forEach { sourceRepository.upsert(it) }
+                val now = System.currentTimeMillis()
+                val id = Uuid.random().toString()
+                val source = Source(
+                    id = id,
+                    name = state.name.trim().ifBlank { getWebDavDisplayName(paths.first()) },
+                    type = SourceType.WEBDAV,
+                    url = serverUrl,
+                    path = encodeWebDavSourcePaths(paths),
+                    username = username.ifBlank { null },
+                    createdAt = now,
+                    updatedAt = now,
+                )
+                credentialsRepository.savePassword(id, state.password)
+                sourceRepository.upsert(source)
                 _formState.value = _formState.value.copy(
                     isSubmitting = false,
-                    successMessage = "已添加 ${newSources.size} 个 WebDAV 文件夹。",
+                    successMessage = "添加成功",
                 )
             } catch (e: Exception) {
+                val message = e.message ?: "保存 WebDAV 音源失败。"
                 _formState.value = _formState.value.copy(
                     isSubmitting = false,
-                    errorMessage = e.message ?: "保存 WebDAV 音源失败。",
+                    errorMessage = message,
                 )
             }
         }
@@ -169,7 +186,7 @@ class WebDavFormViewModel constructor(
 
     /**
      * 编辑态打开目录浏览：密码留空时从安全存储读原密码；
-     * 初始路径取当前目录的上级（可改选同级/子级）。对照 SourceWebDavPage.vue openBrowser。
+     * 从根目录重新选择此账号音源包含的多个目录。
      */
     fun startEditBrowse(onReady: (mode: String, initialPath: String, serverUrl: String, username: String, password: String) -> Unit) {
         val state = _formState.value
@@ -184,45 +201,52 @@ class WebDavFormViewModel constructor(
                 _formState.value = state.copy(errorMessage = "WebDAV 密码不存在，请输入新密码。")
                 return@launch
             }
-            val formPath = normalizeWebDavPath(state.path.ifBlank { "/" })
-            val initialPath = getParentWebDavPath(formPath) ?: formPath
-            onReady("single", initialPath, state.serverUrl.trim(), state.username.trim(), password)
+            startBrowse("edit-multiple", password, onReady)
         }
     }
 
-    /**
-     * 提交添加模式表单
-     * - 验证连接（列根目录）
-     * - 成功后触发浏览会话（由调用方处理导航）
-     */
-    fun submitAdd(onBrowse: (mode: String, initialPath: String, serverUrl: String, username: String, password: String) -> Unit) {
-        val state = _formState.value
+    /** 添加模式打开目录选择器前先验证连接。 */
+    fun startAddBrowse(onBrowse: (mode: String, initialPath: String, serverUrl: String, username: String, password: String) -> Unit) {
+        startBrowse("multiple", _formState.value.password, onBrowse)
+    }
 
-        // 验证必填字段
+    /** 新增和编辑共用同一套连接验证与目录浏览入口。 */
+    private fun startBrowse(
+        mode: String,
+        password: String,
+        onBrowse: (mode: String, initialPath: String, serverUrl: String, username: String, password: String) -> Unit,
+    ) {
+        val state = _formState.value
         var hasError = false
         if (state.serverUrl.isBlank()) {
-            _formState.value = state.copy(serverUrlError = "请填写服务器地址")
+            _formState.value = _formState.value.copy(serverUrlError = "请填写服务器地址")
             hasError = true
         }
         if (state.username.isBlank()) {
             _formState.value = _formState.value.copy(usernameError = "请填写用户名")
             hasError = true
         }
-        if (state.password.isBlank()) {
+        if (password.isBlank()) {
             _formState.value = _formState.value.copy(passwordError = "请填写密码")
             hasError = true
         }
-        if (hasError) return
+        if (hasError || _formState.value.isVerifying || _formState.value.isSubmitting) return
 
-        _formState.value = state.copy(isVerifying = true)
+        val serverUrl = state.serverUrl.trim()
+        val username = state.username.trim()
+        val initialPath = state.selectedPaths
+            .firstOrNull()
+            ?.let(::normalizeWebDavPath)
+            ?.let(::parentWebDavPath)
+            ?: "/"
+        _formState.value = _formState.value.copy(isVerifying = true, errorMessage = null)
         viewModelScope.launch {
             try {
-                webDavClient.authenticate(state.username, state.password)
-                webDavClient.list(buildWebDavUrl(state.serverUrl, "/"))
-
-                // 验证成功，触发浏览会话
+                webDavClient.authenticate(username, password)
+                webDavClient.list(buildWebDavUrl(serverUrl, "/"))
                 _formState.value = _formState.value.copy(isVerifying = false)
-                onBrowse("multiple", "/", state.serverUrl, state.username, state.password)
+                WebDavBrowseResultHolder.setInitialSelection(state.selectedPaths)
+                onBrowse(mode, initialPath, serverUrl, username, password)
             } catch (e: Exception) {
                 _formState.value = _formState.value.copy(
                     isVerifying = false,
@@ -255,7 +279,7 @@ class WebDavFormViewModel constructor(
             _formState.value = state.copy(usernameError = "请填写用户名")
             hasError = true
         }
-        if (state.path.isBlank()) {
+        if (state.selectedPaths.isEmpty()) {
             _formState.value = state.copy(pathError = "请填写目录")
             hasError = true
         }
@@ -267,7 +291,8 @@ class WebDavFormViewModel constructor(
                 val connectionChanged =
                     state.serverUrl != source.url ||
                         state.username != source.username ||
-                        normalizeWebDavPath(state.path) != normalizeWebDavPath(source.path ?: "/") ||
+                        state.selectedPaths.map(::normalizeWebDavPath).toSet() !=
+                        decodeWebDavSourcePaths(source.path).map(::normalizeWebDavPath).toSet() ||
                         state.password.isNotEmpty()
 
                 if (connectionChanged) {
@@ -288,7 +313,9 @@ class WebDavFormViewModel constructor(
 
                     try {
                         webDavClient.authenticate(state.username, verificationPassword)
-                        webDavClient.list(buildWebDavUrl(state.serverUrl, normalizeWebDavPath(state.path)))
+                        state.selectedPaths.forEach { path ->
+                            webDavClient.list(buildWebDavUrl(state.serverUrl, normalizeWebDavPath(path)))
+                        }
                     } catch (e: Exception) {
                         _formState.value = _formState.value.copy(
                             isSubmitting = false,
@@ -303,7 +330,7 @@ class WebDavFormViewModel constructor(
                     name = state.name.trim(),
                     url = state.serverUrl.trim(),
                     username = state.username.trim(),
-                    path = normalizeWebDavPath(state.path.trim()),
+                    path = encodeWebDavSourcePaths(state.selectedPaths.map(::normalizeWebDavPath)),
                     updatedAt = System.currentTimeMillis(),
                 )
                 sourceRepository.upsert(updatedSource)
@@ -315,7 +342,7 @@ class WebDavFormViewModel constructor(
 
                 _formState.value = _formState.value.copy(
                     isSubmitting = false,
-                    successMessage = "音源修改已保存。",
+                    successMessage = "编辑成功",
                 )
             } catch (e: Exception) {
                 _formState.value = _formState.value.copy(
@@ -331,4 +358,10 @@ private fun buildWebDavUrl(serverUrl: String, path: String): String {
     val trimmedServer = serverUrl.trim().trimEnd('/')
     val normalizedPath = normalizeWebDavPath(path)
     return "$trimmedServer$normalizedPath"
+}
+
+private fun parentWebDavPath(path: String): String {
+    val normalizedPath = normalizeWebDavPath(path).trimEnd('/')
+    val parentSeparator = normalizedPath.lastIndexOf('/')
+    return if (parentSeparator <= 0) "/" else normalizedPath.substring(0, parentSeparator)
 }

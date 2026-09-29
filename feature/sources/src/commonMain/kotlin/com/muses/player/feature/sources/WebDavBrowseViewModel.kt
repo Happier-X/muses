@@ -3,7 +3,6 @@ package com.muses.player.feature.sources
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.webdav.WebDavClient
-import com.muses.player.core.webdav.getParentWebDavPath
 import com.muses.player.core.webdav.normalizeWebDavPath
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,14 +34,11 @@ class WebDavBrowseViewModel constructor(
     private val initialized = java.util.concurrent.atomic.AtomicBoolean(false)
     private var loadJob: Job? = null
 
-    val parentPath: String?
-        get() = getParentWebDavPath(_browseState.value.currentPath)
-
     /** 初始化（幂等：同参数重复调用直接返回，不同参数视为切账号重建） */
     fun init(mode: String, initialPath: String, serverUrl: String, username: String, password: String) {
         val normalizedPath = normalizeWebDavPath(initialPath)
         if (!initialized.compareAndSet(false, true)) {
-            if (this.serverUrl == serverUrl && this.username == username &&
+            if (this.mode == mode && this.serverUrl == serverUrl && this.username == username &&
                 _browseState.value.currentPath == normalizedPath
             ) return
         }
@@ -51,7 +47,13 @@ class WebDavBrowseViewModel constructor(
         this.username = username
         this.password = password
 
-        _browseState.value = WebDavBrowseState(currentPath = normalizedPath)
+        val initialSelection = WebDavBrowseResultHolder.takeInitialSelection()
+            .map(::normalizeWebDavPath)
+            .toSet()
+        _browseState.value = WebDavBrowseState(
+            currentPath = normalizedPath,
+            selectedPaths = initialSelection,
+        )
 
         loadDirectories(normalizedPath)
     }
@@ -95,21 +97,27 @@ class WebDavBrowseViewModel constructor(
         }
     }
 
-    /** 返回上级目录 */
-    fun goToParent() {
-        val currentPath = _browseState.value.currentPath
-        val parent = getParentWebDavPath(currentPath) ?: return
-        loadDirectories(parent)
+    /** 从面包屑跳转到指定层级。 */
+    fun navigateTo(path: String) {
+        val normalizedPath = normalizeWebDavPath(path)
+        if (normalizedPath == _browseState.value.currentPath) return
+        if (mode == "single") clearSelection()
+        loadDirectories(normalizedPath)
     }
 
     /** 进入子目录 */
     fun openDirectory(path: String) {
+        if (mode == "single") clearSelection()
         loadDirectories(path)
     }
 
-    /** 切换选择状态（多选模式） */
+    /** 多选切换；单选时将当前目录设为唯一选中项。 */
     fun toggleSelection(path: String) {
         val currentState = _browseState.value
+        if (mode == "single") {
+            _browseState.value = currentState.copy(selectedPaths = setOf(path))
+            return
+        }
         val newSelected = currentState.selectedPaths.toMutableSet()
         if (newSelected.contains(path)) {
             newSelected.remove(path)

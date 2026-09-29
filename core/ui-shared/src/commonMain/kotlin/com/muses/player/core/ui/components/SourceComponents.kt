@@ -4,6 +4,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,6 +15,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -213,6 +218,7 @@ fun SourceFormCard(
     onPasswordChange: (String) -> Unit,
     saveText: String,
     onSave: () -> Unit,
+    primarySave: Boolean = false,
     modifier: Modifier = Modifier,
     name: String = "",
     onNameChange: (String) -> Unit = {},
@@ -224,7 +230,11 @@ fun SourceFormCard(
     passwordInfo: String? = null,
     passwordLabel: String = "密码",
     busy: Boolean = false,
+    saveBusy: Boolean = busy,
+    busyText: String = saveText,
+    showBusyIndicator: Boolean = true,
     saveEnabled: Boolean = true,
+    showSaveButton: Boolean = true,
     cancelText: String? = null,
     onCancel: (() -> Unit)? = null,
     extraContent: @Composable () -> Unit = {},
@@ -235,7 +245,7 @@ fun SourceFormCard(
     ) {
         if (showNameField) {
             SourceFormInput(
-                label = "显示名称",
+                label = "名称",
                 value = name,
                 error = nameError,
                 readOnly = busy,
@@ -272,16 +282,44 @@ fun SourceFormCard(
 
         extraContent()
 
-        Row(
+        if (showSaveButton) Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            MusesTextButton(
-                text = if (busy) "请稍候…" else saveText,
-                onClick = onSave,
-                enabled = !busy && saveEnabled,
-                modifier = Modifier.weight(1f),
-            )
+            if (primarySave) {
+                Button(
+                    onClick = onSave,
+                    enabled = !saveBusy && saveEnabled,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (saveBusy && showBusyIndicator) {
+                            CircularProgressIndicator(
+                                size = 16.dp,
+                                strokeWidth = 2.dp,
+                                colors = ProgressIndicatorDefaults.progressIndicatorColors(
+                                    foregroundColor = MiuixTheme.colorScheme.onPrimary,
+                                    backgroundColor = MiuixTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
+                                ),
+                            )
+                            androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
+                        }
+                        Text(if (saveBusy && showBusyIndicator) busyText else saveText)
+                    }
+                }
+            } else {
+                MusesTextButton(
+                    text = if (saveBusy) busyText else saveText,
+                    onClick = onSave,
+                    enabled = !saveBusy && saveEnabled,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             if (onCancel != null && cancelText != null) {
                 MusesTextButton(
                     text = cancelText,
