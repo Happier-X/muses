@@ -256,13 +256,6 @@ fun ArtistsPage(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            Text(
-                                text = "${card.artist.albumCount} 张专辑",
-                                style = MiuixTheme.textStyles.footnote1,
-                                color = scheme.onBackgroundVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
                         }
                     }
                 }
