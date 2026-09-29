@@ -108,6 +108,7 @@ import com.muses.player.feature.player.PlayerScreen
 import com.muses.player.feature.player.QueueScreen
 import com.muses.player.feature.player.lyric.LyricsParser
 import com.muses.player.feature.sources.LxScriptsScreen
+import com.muses.player.feature.sources.LxSourceFormScreen
 import com.muses.player.feature.home.HomeScreen
 import com.muses.player.feature.home.ChartDetailScreen
 import com.muses.player.feature.sources.OnlineSearchScreen
@@ -887,6 +888,13 @@ private fun NavBackStack.pop() {
     if (size > 1) removeAt(lastIndex)
 }
 
+/** 移除目标路由上方的子页面，回到目标页。 */
+private fun NavBackStack.popTo(key: NavKey) {
+    val targetIndex = indexOfLast { it == key }
+    if (targetIndex < 0) return
+    while (lastIndex > targetIndex) removeAt(lastIndex)
+}
+
 /**
  * 切 tab：主页单例替换 + 点当前 tab 直接回主页。
  *
@@ -1011,6 +1019,21 @@ private fun AppNavHost(
                     backStack.pushUnique(MusesRoute.WebDavEdit(sourceId))
                 },
                 onOpenLxScripts = { backStack.pushUnique(MusesRoute.LxScripts) },
+                onOpenLxAdd = { backStack.pushUnique(MusesRoute.LxSourceAdd) },
+                onOpenLxEdit = { sourceId -> backStack.pushUnique(MusesRoute.LxSourceEdit(sourceId)) },
+            )
+        }
+        entry<MusesRoute.LxSourceAdd>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+            LxSourceFormScreen(
+                onBack = { backStack.pop() },
+                onSaved = { backStack.popTo(MusesRoute.Sources) },
+            )
+        }
+        entry<MusesRoute.LxSourceEdit>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+            LxSourceFormScreen(
+                sourceId = route.sourceId,
+                onBack = { backStack.pop() },
+                onSaved = { backStack.popTo(MusesRoute.Sources) },
             )
         }
         entry<MusesRoute.LxScripts>(swipeDismiss = NavSwipeDirection.LeftToRight) {

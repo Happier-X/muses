@@ -15,6 +15,8 @@ data class LxStoredScript(
     val meta: LxScriptMeta,
     val importedAt: Long,
     val enabled: Boolean = true,
+    /** 通过 URL 导入脚本时使用的地址。 */
+    val sourceUrl: String? = null,
 )
 
 /**
@@ -32,7 +34,7 @@ interface LxScriptStore {
     fun get(id: String): LxStoredScript?
 
     /** 导入/覆盖脚本；返回落盘后的条目 */
-    fun save(id: String, source: String, enabled: Boolean = true): LxStoredScript
+    fun save(id: String, source: String, enabled: Boolean = true, sourceUrl: String? = null): LxStoredScript
 
     /** 启用/禁用脚本（禁用后不参与直链解析，但不删除原文）；返回是否命中 */
     fun setEnabled(id: String, enabled: Boolean): Boolean

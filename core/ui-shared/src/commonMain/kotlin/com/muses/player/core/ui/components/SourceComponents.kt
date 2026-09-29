@@ -4,11 +4,9 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,7 +21,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -35,15 +32,12 @@ import com.muses.player.core.ui.icons.TablerIcons
 /**
  * 跨平台音源行数据（平台无关，只承载展示信息）。
  *
- * 安卓端由调用方从 [com.muses.player.core.model.Source] 映射而来
- * （subtitle =「本地文件夹」/「WebDAV · user@host」，detail = path/url）；
- * 桌面端由调用方从 [com.muses.player.core.data.db.SourceEntity] 映射而来。
+ * 安卓端由调用方从 [com.muses.player.core.model.Source] 映射而来。
  */
 data class SharedSourceItem(
     val id: String,
     val name: String,
-    val subtitle: String? = null,
-    val detail: String? = null,
+    val sourceType: String,
 )
 
 /**
@@ -54,65 +48,42 @@ data class SharedSourceItem(
  * 纯 UI 组件，零平台依赖，所有业务逻辑经回调注入。
  *
  * @param item 音源展示数据
- * @param onEdit 编辑回调
- * @param onDelete 删除回调
- * @param onScan 扫描回调；null = 不渲染扫描按钮（桌面端）
+ * @param onMoreActions 打开音源操作菜单
  */
 @Composable
 fun SourceListItem(
     item: SharedSourceItem,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    onMoreActions: () -> Unit,
     modifier: Modifier = Modifier,
-    onScan: (() -> Unit)? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
     Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = item.name,
-                style = MiuixTheme.textStyles.main,
-                lineHeight = 22.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = scheme.onBackground,
-            )
-            item.subtitle?.let {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = it,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = scheme.onBackgroundVariant,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-            item.detail?.let {
-                Text(
-                    text = it,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = scheme.onBackgroundVariant,
+                    text = item.name,
+                    style = MiuixTheme.textStyles.main,
+                    lineHeight = 22.sp,
+                    color = scheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Text(
+                    text = item.sourceType,
+                    style = MiuixTheme.textStyles.body2,
+                    color = scheme.onBackgroundVariant,
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                MusesTextButton(text = "编辑", onClick = onEdit)
-                Spacer(Modifier.width(12.dp))
-                MusesTextButton(
-                    text = "删除",
-                    onClick = onDelete,
-                    destructive = true,
-                )
-                if (onScan != null) {
-                    Spacer(Modifier.width(12.dp))
-                    MusesTextButton(text = "扫描", onClick = onScan)
-                }
-            }
+            MusesIconButton(
+                onClick = onMoreActions,
+                imageVector = TablerIcons.MoreVert,
+                contentDescription = "${item.name}的操作",
+                modifier = Modifier.padding(start = 8.dp),
+            )
         }
     }
 }

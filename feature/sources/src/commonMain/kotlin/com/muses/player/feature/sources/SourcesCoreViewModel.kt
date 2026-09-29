@@ -97,6 +97,10 @@ class SourcesViewModel constructor(
     var scanResultMessage by mutableStateOf<String?>(null)
         private set
 
+    /** 最近一次入库合并统计，用于扫描完成态展示成功与跳过数量。 */
+    var scanMergeResult by mutableStateOf<ScanMergeResult?>(null)
+        private set
+
     /** 防重入标记：扫描进行中禁止再次 startScan / 关闭进度弹窗 */
     private var isScanning = false
 
@@ -152,6 +156,7 @@ class SourcesViewModel constructor(
         if (isScanning) return
         isScanProgressOpen = false
         scanError = null
+        scanMergeResult = null
         clearScanResultMessage()
     }
 
@@ -167,6 +172,9 @@ class SourcesViewModel constructor(
         closeScanSettings()
         isScanProgressOpen = true
         isScanning = true
+        scanError = null
+        scanMergeResult = null
+        clearScanResultMessage()
         viewModelScope.launch {
             // 把扫描端口的进度流转发到统一的 UI 流，
             // 转发协程随扫描结束在 finally 中取消（最简转发方案，不引入合并流复杂度）
@@ -176,6 +184,7 @@ class SourcesViewModel constructor(
             try {
                 val songs = scanPort.scan(source, readTags = scanReadTags)
                 val result = songRepository.replaceSourceSongs(source.id, songs)
+                scanMergeResult = result
                 scanResultMessage = scanResultText(result)
                 // M3 自动补缺：扫描后把无标签歌曲排进刮削队列（开关默认关）
                 if (settingsRepository.autoScrapeEnabled.first()) {
@@ -255,7 +264,7 @@ class SourcesViewModel constructor(
     }
 
     /** 删除音源 */
-    fun deleteSource(source: Source) {
+    fun deleteSource(source: Source, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             // 先取待删歌曲 ids，用于清理播放快照/最近播放/播放队列
             val songIdsToRemove = try {
@@ -281,6 +290,7 @@ class SourcesViewModel constructor(
             }
             // 源删除后同步播放认证注册表，移除残留凭据映射
             webDavAuthRegistry.refresh()
+            onSuccess()
         }
     }
 }

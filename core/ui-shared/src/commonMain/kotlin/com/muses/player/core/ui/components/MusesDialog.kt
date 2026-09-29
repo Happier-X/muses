@@ -21,7 +21,7 @@ import top.yukonga.miuix.kmp.overlay.OverlayDialog
  *   与 [MusesActionsSheet] 的 `opened` 模式区分：对话框由是否组合决定显隐。
  * - `title` 对应原 `AlertDialog.title` 的纯文本部分，原先 `Text(title)` 直接传字符串即可。
  * - `message` 对应原 `text` 为纯文本的场景，走 `summary` 槽位；富文本或表单场景走 [content]。
- * - 按钮区统一用 [MusesTextButton] 横排右对齐，危险确认走 `destructive = true`（红色）。
+ * - 双按钮确认统一为左侧「取消」、右侧「确定」，左右等宽；危险确认走 `destructive = true`（红色）。
  * - 不可取消场景（如扫描进度）：传 `onDismiss = {}` 且不传 `dismissText`，与原来保持一致。
  * - 渲染宿主：默认 `renderInRootScaffold = true`，经根 Scaffold（MusesApp）全屏呈现，
  *   根 Scaffold 由壳层统一提供，调用方无需关心。
@@ -35,10 +35,10 @@ fun MusesDialog(
     onConfirm: () -> Unit = {},
     confirmEnabled: Boolean = true,
     dismissText: String? = null,
-    destructiveConfirm: Boolean = false,
     confirmLoading: Boolean = false,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
+    val hasTwoActions = dismissText != null && confirmText != null
     OverlayDialog(
         show = true,
         title = title,
@@ -50,21 +50,27 @@ fun MusesDialog(
                 Spacer(Modifier.height(8.dp))
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    horizontalArrangement = if (hasTwoActions) {
+                        Arrangement.spacedBy(8.dp)
+                    } else {
+                        Arrangement.spacedBy(8.dp, Alignment.End)
+                    },
                 ) {
                     if (dismissText != null) {
                         MusesTextButton(
-                            text = dismissText,
+                            text = if (hasTwoActions) "取消" else dismissText,
                             onClick = onDismiss,
+                            modifier = if (hasTwoActions) Modifier.weight(1f) else Modifier,
                         )
                     }
                     if (confirmText != null) {
                         MusesTextButton(
-                            text = confirmText,
+                            text = if (hasTwoActions) "确定" else confirmText,
                             onClick = onConfirm,
                             enabled = confirmEnabled && !confirmLoading,
-                            destructive = destructiveConfirm,
+                            primary = true,
                             loading = confirmLoading,
+                            modifier = if (hasTwoActions) Modifier.weight(1f) else Modifier,
                         )
                     }
                 }

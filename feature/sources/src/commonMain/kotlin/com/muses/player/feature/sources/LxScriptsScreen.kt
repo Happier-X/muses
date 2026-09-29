@@ -169,7 +169,7 @@ fun LxScriptsScreen(
             label = "添加音源脚本",
             items = listOf(
                 MusesActionItem(label = "通过文件添加", onClick = { showImportOptions = false; filePicker() }),
-                MusesActionItem(label = "通过URL添加", onClick = { showImportOptions = false; scriptUrl = ""; fetchingUrl = false; urlError = null; viewModel.resetUrlImportStatus(); showUrlDialog = true }),
+                MusesActionItem(label = "通过 URL 添加", onClick = { showImportOptions = false; scriptUrl = ""; fetchingUrl = false; urlError = null; viewModel.resetUrlImportStatus(); showUrlDialog = true }),
             ),
         )
     }
@@ -177,7 +177,7 @@ fun LxScriptsScreen(
     if (showUrlDialog) {
         MusesDialog(
             onDismiss = { showUrlDialog = false },
-            title = "通过URL添加",
+            title = "通过 URL 添加",
             confirmText = "添加",
             confirmEnabled = !fetchingUrl && urlImportStatus !is LxUrlImportStatus.Importing,
             confirmLoading = fetchingUrl || urlImportStatus is LxUrlImportStatus.Importing,
@@ -242,7 +242,6 @@ fun LxScriptsScreen(
             message = "确定删除「$name」吗？删除后使用该脚本的在线音源将无法播放。",
             confirmText = "删除",
             dismissText = "取消",
-            destructiveConfirm = true,
             onConfirm = {
                 viewModel.delete(id)
                 pendingDeleteId = null
@@ -431,7 +430,7 @@ internal fun LxScriptImportSheet(
 }
 
 /** 源 key → 中文展示名（对齐洛雪平台命名） */
-private fun platformLabel(key: String): String = when (key) {
+internal fun platformLabel(key: String): String = when (key) {
     "kw" -> "酷我"
     "kg" -> "酷狗"
     "tx" -> "QQ音乐"

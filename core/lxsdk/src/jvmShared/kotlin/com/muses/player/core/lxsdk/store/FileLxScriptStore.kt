@@ -35,6 +35,7 @@ class FileLxScriptStore(
     private companion object {
         const val EXT_SCRIPT = ".js"
         const val EXT_DISABLED = ".disabled"
+        const val EXT_URL = ".url"
     }
 
     override fun list(): List<LxStoredScript> {
@@ -54,16 +55,20 @@ class FileLxScriptStore(
                 meta = meta,
                 importedAt = file.lastModified(),
                 enabled = !disabledMarker(id).exists(),
+                sourceUrl = runCatching { sourceUrlFile(id).readText(Charsets.UTF_8) }.getOrNull(),
             )
         }
     }
 
     override fun get(id: String): LxStoredScript? = list().firstOrNull { it.id == id }
 
-    override fun save(id: String, source: String, enabled: Boolean): LxStoredScript {
+    override fun save(id: String, source: String, enabled: Boolean, sourceUrl: String?): LxStoredScript {
         ensureRoot()
         scriptFile(id).writeText(source, Charsets.UTF_8)
         if (enabled) disabledMarker(id).delete() else disabledMarker(id).writeText("", Charsets.UTF_8)
+        val persistedUrl = sourceUrl ?: runCatching { sourceUrlFile(id).readText(Charsets.UTF_8) }.getOrNull()
+        if (persistedUrl.isNullOrBlank()) sourceUrlFile(id).delete()
+        else sourceUrlFile(id).writeText(persistedUrl, Charsets.UTF_8)
         val meta = LxScriptMetaParser.parse(source)
         return LxStoredScript(
             id = id,
@@ -72,6 +77,7 @@ class FileLxScriptStore(
             meta = meta,
             importedAt = scriptFile(id).lastModified(),
             enabled = enabled,
+            sourceUrl = persistedUrl,
         )
     }
 
@@ -85,6 +91,7 @@ class FileLxScriptStore(
     override fun delete(id: String): Boolean {
         val removed = scriptFile(id).delete()
         disabledMarker(id).delete()
+        sourceUrlFile(id).delete()
         return removed
     }
 
@@ -95,4 +102,6 @@ class FileLxScriptStore(
     private fun scriptFile(id: String) = File(rootDir, "$id$EXT_SCRIPT")
 
     private fun disabledMarker(id: String) = File(rootDir, "$id$EXT_DISABLED")
+
+    private fun sourceUrlFile(id: String) = File(rootDir, "$id$EXT_URL")
 }

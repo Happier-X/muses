@@ -22,7 +22,7 @@ import com.muses.player.core.ui.components.MusesDialog
 import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import com.muses.player.core.ui.components.MusesTextField
@@ -70,42 +70,17 @@ fun SourcesScreen(
     onOpenWebdavEdit: (sourceId: String) -> Unit = {},
     /** 跳转在线音源脚本管理页（洛雪自定义源） */
     onOpenLxScripts: () -> Unit = {},
+    /** 跳转 LX 音源新增页（名称 + 脚本来源） */
+    onOpenLxAdd: () -> Unit = {},
+    /** 跳转 LX 音源编辑页（复用新增表单） */
+    onOpenLxEdit: (sourceId: String) -> Unit = {},
     viewModel: SourcesViewModel = koinViewModel(),
 ) {
     val scheme = MiuixTheme.colorScheme
     val sources by viewModel.sources.collectAsState()
     // 扫描进度弹窗观察 scanner 内部进度流
     val scanProgress by viewModel.scanProgress.collectAsState()
-    val lxViewModel: LxScriptsViewModel = koinViewModel()
-    val lxPendingSource by lxViewModel.pendingSource.collectAsState()
-    val lxValidation by lxViewModel.importValidation.collectAsState()
-    val lxUrlImportStatus by lxViewModel.urlImportStatus.collectAsState()
-    var showLxImportOptions by remember { mutableStateOf(false) }
-    var showLxImportSheet by remember { mutableStateOf(false) }
-    var showLxUrlDialog by remember { mutableStateOf(false) }
-    var lxUrl by remember { mutableStateOf("") }
-    var lxUrlFetching by remember { mutableStateOf(false) }
-    val lxFilePicker = rememberLxScriptFilePicker { lxViewModel.stageImport(it); showLxImportSheet = true }
-    val lxUrlImporter = rememberLxScriptUrlImporter { result ->
-        lxUrlFetching = false
-        result.fold(onSuccess = { lxViewModel.importFromUrlContent(it) }, onFailure = {
-            showLxUrlDialog = false
-            MusesSnackbar.show(it.message ?: "下载脚本失败")
-        })
-    }
-    LaunchedEffect(lxUrlImportStatus) {
-        when (val status = lxUrlImportStatus) {
-            LxUrlImportStatus.Success -> {
-                showLxUrlDialog = false
-                MusesSnackbar.show("添加成功")
-            }
-            is LxUrlImportStatus.Failure -> {
-                showLxUrlDialog = false
-                MusesSnackbar.show(status.message)
-            }
-            else -> Unit
-        }
-    }
+    var sourceActionsTarget by remember { mutableStateOf<Source?>(null) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -155,17 +130,8 @@ fun SourcesScreen(
                             sources = sources,
                             modifier = Modifier
                                 .fillMaxSize(),
-                onEdit = { source ->
-                    // WebDAV：跳独立编辑表单页；本地：打开编辑表单弹窗
-                    if (source.type == SourceType.WEBDAV) {
-                        onOpenWebdavEdit(source.id)
-                    } else {
-                        viewModel.openEditForm(source)
-                    }
-                },
-                onDelete = { source -> viewModel.confirmDelete(source) },
-                onScan = { source -> viewModel.openScanSettings(source) },
-            )
+                            onMoreActions = { sourceActionsTarget = it },
+                        )
                     }
                 }
             }
@@ -197,61 +163,53 @@ fun SourcesScreen(
                 }),
                 MusesActionItem(label = "LX 音源", onClick = {
                     viewModel.closeAddActionSheet()
-                    showLxImportOptions = true
+                    onOpenLxAdd()
                 }),
             ),
         )
     }
 
-    if (showLxImportOptions) {
+    sourceActionsTarget?.let { source ->
         MusesActionsSheet(
             opened = true,
-            onDismiss = { showLxImportOptions = false },
-            label = "LX 音源",
-            items = listOf(
-                MusesActionItem(label = "通过文件添加", onClick = { showLxImportOptions = false; lxFilePicker() }),
-                MusesActionItem(label = "通过URL添加", onClick = { showLxImportOptions = false; lxUrl = ""; lxUrlFetching = false; lxViewModel.resetUrlImportStatus(); showLxUrlDialog = true }),
-            ),
-        )
-    }
-    if (showLxUrlDialog) {
-        MusesDialog(
-            onDismiss = { showLxUrlDialog = false },
-            title = "通过URL添加",
-            confirmText = "添加",
-            confirmEnabled = !lxUrlFetching && lxUrlImportStatus !is LxUrlImportStatus.Importing,
-            confirmLoading = lxUrlFetching || lxUrlImportStatus is LxUrlImportStatus.Importing,
-            onConfirm = { lxUrlFetching = true; lxUrlImporter(lxUrl.trim()) },
-            content = {
-                Column {
-                    MusesTextField(value = lxUrl, onValueChange = { lxUrl = it }, modifier = Modifier.fillMaxWidth(), label = "URL")
-                }
+            onDismiss = { sourceActionsTarget = null },
+            label = source.name,
+            items = buildList {
+                add(MusesActionItem(label = "编辑") {
+                    sourceActionsTarget = null
+                    if (source.type == SourceType.WEBDAV) {
+                        onOpenWebdavEdit(source.id)
+                    } else if (source.type == SourceType.ONLINE) {
+                        onOpenLxEdit(source.id)
+                    } else {
+                        viewModel.openEditForm(source)
+                    }
+                })
+                add(MusesActionItem(label = "删除", destructive = true) {
+                    sourceActionsTarget = null
+                    viewModel.confirmDelete(source)
+                })
+                add(MusesActionItem(label = "扫描") {
+                    sourceActionsTarget = null
+                    viewModel.openScanSettings(source)
+                })
             },
-        )
-    }
-    if (showLxImportSheet) {
-        LxScriptImportSheet(
-            pendingSource = lxPendingSource,
-            validation = lxValidation,
-            onSourceChange = lxViewModel::stageImport,
-            onDismiss = { showLxImportSheet = false; lxViewModel.clearStagedImport() },
-            onConfirm = { lxViewModel.confirmImport(); showLxImportSheet = false },
         )
     }
 
-    // ---- m-dialog：删除确认（deleteAlertMessage 文案逐字对齐；miuix MusesDialog）----
+    // ---- 删除确认（miuix MusesDialog 主次操作左右排列）----
     viewModel.pendingDelete?.let { source ->
-        val credentialNote = if (source.type == SourceType.WEBDAV) "与安全存储凭据" else ""
         MusesDialog(
             onDismiss = { viewModel.dismissDelete() },
-            title = "删除音源",
-            message = "确定删除「${source.name}」吗？将同时清理该音源下的歌曲$credentialNote。",
-            confirmText = "删除",
+            title = "删除",
+            message = "确定删除「${source.name}」吗？",
+            confirmText = "确定",
             onConfirm = {
-                viewModel.deleteSource(source)
+                viewModel.deleteSource(source) {
+                    MusesSnackbar.show("删除成功")
+                }
                 viewModel.dismissDelete()
             },
-            destructiveConfirm = true,
             dismissText = "取消",
         )
     }
@@ -325,51 +283,71 @@ fun SourcesScreen(
         )
     }
 
-    // ---- m-dialog：扫描进度（对照 SourcesPage.vue 扫描进度弹窗：preloader + 阶段 h2 + 当前文件 + 统计行）----
+    // ---- m-dialog：扫描进度 ----
     if (viewModel.isScanProgressOpen) {
         val scanError = viewModel.scanError
-        // 阶段文案映射（对齐 Web stage 计算）：错误 > 查找 > 入库 > 完成
-        val stageText = when {
-            scanError != null -> "扫描失败"
-            scanProgress.total == 0 && !scanProgress.finished -> "正在查找文件"
-            !scanProgress.finished -> "正在扫描入库"
-            else -> "扫描完成"
-        }
         MusesDialog(
-            // 进行中禁止关闭：onDismiss 为空实现，且进行中不渲染确认按钮
-            onDismiss = { },
-            title = "扫描进度",
-            confirmText = if (scanProgress.finished || scanError != null) "关闭" else null,
-            onConfirm = { viewModel.dismissScanProgress() },
+            // 扫描进行中禁止关闭，完成后可点弹窗外或返回键收起。
+            onDismiss = { viewModel.dismissScanProgress() },
+            title = "扫描",
             content = {
-                Text(stageText, style = MiuixTheme.textStyles.main, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
-                Spacer(Modifier.height(12.dp))
                 when {
                     scanError != null -> {
+                        Text("扫描失败", style = MiuixTheme.textStyles.main, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
+                        Spacer(Modifier.height(8.dp))
                         Text(scanError, style = MiuixTheme.textStyles.footnote1, color = scheme.error)
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ScanResultStat("成功", "0", scheme.primary, Modifier.weight(1f))
+                            ScanResultStat("失败", "1", scheme.error, Modifier.weight(1f))
+                            ScanResultStat("跳过", "0", scheme.onBackgroundVariant, Modifier.weight(1f))
+                        }
                     }
                     !scanProgress.finished -> {
-                        CircularProgressIndicator(modifier = Modifier.size(28.dp))
-                        Spacer(Modifier.height(12.dp))
-                        scanProgress.currentFile?.let {
-                            Text(
-                                it,
-                                style = MiuixTheme.textStyles.footnote1,
-                                color = scheme.onBackgroundVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            LinearProgressIndicator(
+                                progress = if (scanProgress.total > 0) {
+                                    scanProgress.current.toFloat() / scanProgress.total
+                                } else {
+                                    null
+                                },
+                                modifier = Modifier.fillMaxWidth(),
                             )
+                            if (scanProgress.total > 0) {
+                                Text(
+                                    "已处理 ${scanProgress.current} / ${scanProgress.total}",
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = scheme.onBackgroundVariant,
+                                    modifier = Modifier.align(Alignment.End),
+                                )
+                            }
                         }
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "已处理 ${scanProgress.current} / ${scanProgress.total}",
-                            style = MiuixTheme.textStyles.footnote1,
-                            color = scheme.onBackgroundVariant,
-                        )
                     }
                     else -> {
-                        viewModel.scanResultMessage?.let {
-                            Text(it, style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
+                        val result = viewModel.scanMergeResult
+                        if (result != null) {
+                            val successCount = if (result.skipped) 0 else result.scanned
+                            val skippedCount = if (result.skipped) result.scanned else 0
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                ScanResultStat("成功", successCount.toString(), scheme.primary, Modifier.weight(1f))
+                                ScanResultStat("失败", "0", scheme.error, Modifier.weight(1f))
+                                ScanResultStat("跳过", skippedCount.toString(), scheme.onBackgroundVariant, Modifier.weight(1f))
+                            }
+                            if (result.skipped || result.missing > 0) {
+                                Spacer(Modifier.height(8.dp))
+                                viewModel.scanResultMessage?.let {
+                                    Text(it, style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
+                                }
+                            }
                         }
                     }
                 }
@@ -378,21 +356,28 @@ fun SourcesScreen(
     }
 }
 
+@Composable
+private fun ScanResultStat(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(value, style = MiuixTheme.textStyles.title4, fontWeight = FontWeight.SemiBold, color = color)
+        Text(label, style = MiuixTheme.textStyles.footnote1, color = color)
+    }
+}
+
 // ── 音源卡片列表（.sources-page__list / __card）──────────────
 
 /**
- * 卡片：surface-1 背景 + radius-card + hairline 边框，min-height 100；
- * name 17/600 → subtitle 13 text2（「本地文件夹」/「WebDAV · user@server」）→
- * path 单行省略 → actions 右对齐（编辑 outline / 删除 danger / 扫描）。
+ * 紧凑展示名称、音源类型和位置；编辑、删除、扫描收进 Miuix 操作单。
  */
 @Composable
 private fun SourceCardList(
     sources: List<Source>,
     modifier: Modifier = Modifier,
-    onEdit: (Source) -> Unit,
-    onDelete: (Source) -> Unit,
-    /** 扫描入口（对照 Web .sources-page__scan-btn） */
-    onScan: (Source) -> Unit,
+    onMoreActions: (Source) -> Unit,
 ) {
     LazyColumn(
         modifier = modifier,
@@ -408,9 +393,7 @@ private fun SourceCardList(
         items(sources, key = { it.id }) { source ->
             SourceListItem(
                 item = source.toSharedSourceItem(),
-                onEdit = { onEdit(source) },
-                onDelete = { onDelete(source) },
-                onScan = { onScan(source) },
+                onMoreActions = { onMoreActions(source) },
             )
         }
     }
@@ -420,12 +403,10 @@ private fun SourceCardList(
 private fun Source.toSharedSourceItem() = SharedSourceItem(
     id = id,
     name = name,
-    subtitle = when (type) {
-        SourceType.LOCAL -> "本地文件夹"
-        SourceType.WEBDAV -> username?.let { "WebDAV · $it@${url.orEmpty().removePrefix("https://").removePrefix("http://")}" }
-            ?: ("WebDAV · " + url.orEmpty())
-        SourceType.ONLINE -> "在线音源 · 洛雪自定义源"
+    sourceType = when (type) {
+        SourceType.LOCAL -> "本地"
+        SourceType.WEBDAV -> "WebDav"
+        SourceType.ONLINE -> "LX"
     },
-    detail = path ?: url.orEmpty(),
 )
 

@@ -66,6 +66,14 @@ sealed interface MusesRoute : NavKey {
     @Serializable
     data object LxScripts : MusesRoute
 
+    /** 添加洛雪在线音源脚本。 */
+    @Serializable
+    data object LxSourceAdd : MusesRoute
+
+    /** 编辑洛雪在线音源脚本。 */
+    @Serializable
+    data class LxSourceEdit(val sourceId: String) : MusesRoute
+
     /**
      * 在线搜索（各平台官方接口）。
      *

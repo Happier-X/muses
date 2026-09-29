@@ -33,6 +33,9 @@ data class LxScriptItem(
     val supportsPic: Boolean,
 )
 
+/** 编辑表单所需的音源与其导入地址。 */
+data class LxSourceEditData(val source: Source, val sourceUrl: String?)
+
 /** 导入校验结果 */
 sealed interface LxUrlImportStatus {
     data object Idle : LxUrlImportStatus
@@ -170,6 +173,17 @@ class LxScriptsViewModel(
         _importValidation.value = LxImportValidation.Idle
     }
 
+    /** 读取编辑表单所需的现有在线音源。 */
+    fun loadSourceForEdit(id: String, onComplete: (Result<LxSourceEditData>) -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                val stored = requireNotNull(store.get(id)) { "找不到要编辑的 LX 音源。" }
+                val source = requireNotNull(sourceRepository.getSource(id)) { "找不到要编辑的音源。" }
+                LxSourceEditData(source, stored.sourceUrl)
+            }.also(onComplete)
+        }
+    }
+
     /** 预检脚本：能否初始化、能提供哪些源 */
     fun validate(source: String) {
         if (source.isBlank()) {
@@ -199,26 +213,73 @@ class LxScriptsViewModel(
      *
      * id 生成：优先用元信息名称派生（可读、便于用户识别），同名时追加序号。
      */
-    fun confirmImport() {
+    fun confirmImport(
+        displayName: String? = null,
+        sourceUrl: String? = null,
+        onComplete: (Result<Unit>) -> Unit = {},
+    ) {
         val source = _pendingSource.value ?: return
         viewModelScope.launch {
-            val id = generateScriptId(source)
-            store.save(id = id, source = source, enabled = true)
-            repository.register(id, source)
-            val meta = LxScriptMetaParser.parse(source)
-            val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
-            sourceRepository.upsert(
-                Source(
-                    id = id,
-                    name = meta.name?.takeIf { it.isNotBlank() } ?: id,
-                    type = SourceType.ONLINE,
-                    path = id,
-                    createdAt = now,
-                    updatedAt = now,
-                ),
-            )
-            clearStagedImport()
-            refresh()
+            try {
+                val id = generateScriptId(source)
+                store.save(id = id, source = source, enabled = true, sourceUrl = sourceUrl)
+                repository.register(id, source)
+                val meta = LxScriptMetaParser.parse(source)
+                val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
+                sourceRepository.upsert(
+                    Source(
+                        id = id,
+                        name = displayName?.trim()?.takeIf { it.isNotEmpty() }
+                            ?: meta.name?.takeIf { it.isNotBlank() }
+                            ?: id,
+                        type = SourceType.ONLINE,
+                        path = id,
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                )
+                clearStagedImport()
+                refresh()
+                onComplete(Result.success(Unit))
+            } catch (e: Exception) {
+                onComplete(Result.failure(e))
+            }
+        }
+    }
+
+    /** 更新已有 LX 音源；替换脚本是可选的，未提供时只更新显示名称。 */
+    fun confirmEdit(
+        id: String,
+        displayName: String?,
+        replacementScript: String? = _pendingSource.value,
+        replacementUrl: String? = null,
+        onComplete: (Result<Unit>) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            try {
+                val stored = requireNotNull(store.get(id)) { "找不到要编辑的 LX 音源。" }
+                val currentSource = requireNotNull(sourceRepository.getSource(id)) { "找不到要编辑的音源。" }
+                val script = replacementScript?.takeIf { it.isNotBlank() } ?: stored.source
+                if (replacementScript != null) {
+                    require(repository.validate(script).sources.isNotEmpty()) { "脚本未声明任何音源，无法保存。" }
+                    store.save(id = id, source = script, enabled = stored.enabled, sourceUrl = replacementUrl)
+                    if (stored.enabled) repository.register(id, script) else repository.unregister(id)
+                }
+                val metaName = LxScriptMetaParser.parse(script).name
+                sourceRepository.upsert(
+                    currentSource.copy(
+                        name = displayName?.trim()?.takeIf { it.isNotEmpty() }
+                            ?: metaName?.takeIf { it.isNotBlank() }
+                            ?: stored.name,
+                        updatedAt = kotlin.time.Clock.System.now().toEpochMilliseconds(),
+                    ),
+                )
+                clearStagedImport()
+                refresh()
+                onComplete(Result.success(Unit))
+            } catch (e: Exception) {
+                onComplete(Result.failure(e))
+            }
         }
     }
 
