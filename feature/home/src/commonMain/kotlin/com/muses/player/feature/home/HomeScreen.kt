@@ -58,7 +58,6 @@ import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.DropdownImpl
@@ -115,10 +114,6 @@ fun HomeScreen(
                         Box(contentAlignment = Alignment.CenterEnd) {
                             Button(
                                 onClick = { showPlatformPopup = true },
-                                minWidth = 0.dp,
-                                minHeight = 40.dp,
-                                insideMargin = PaddingValues(horizontal = 10.dp),
-                                colors = ButtonDefaults.buttonColors(),
                             ) {
                                 Text(platformNames[chart.selectedPlatform] ?: chart.selectedPlatform.orEmpty())
                                 Icon(TablerIcons.ChevronDown, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -216,7 +211,7 @@ fun HomeScreen(
                 !recommend.enabled -> item(key = "rec-off") {
                     AiHintCard(
                         title = "开启 AI 推荐",
-                        description = "根据你的曲库偏好发现新歌。",
+                        description = "根据你的曲库偏好发现新歌",
                         actionLabel = "去开启",
                         onAction = onOpenAiSettings,
                     )
@@ -224,13 +219,13 @@ fun HomeScreen(
                 !recommend.configured -> item(key = "rec-unconfigured") {
                     AiHintCard(
                         title = "配置 AI 服务",
-                        description = "填写服务地址、模型和 API Key。",
+                        description = "填写服务地址、模型和 API Key",
                         actionLabel = "去配置",
                         onAction = onOpenAiConfig,
                     )
                 }
                 recommend.loading -> item(key = "rec-loading") {
-                    LoadingRow(text = "AI 正在读你的曲库…")
+                    LoadingRow()
                 }
                 recommend.error != null && recommend.result == null -> item(key = "rec-error") {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -457,19 +452,14 @@ private fun HomeBanner(text: String, onClose: (() -> Unit)?) {
     }
 }
 
-/** 加载态行 */
+/** 居中加载指示器 */
 @Composable
-private fun LoadingRow(text: String = "") {
-    val scheme = MiuixTheme.colorScheme
+private fun LoadingRow() {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CircularProgressIndicator(modifier = Modifier.size(20.dp))
-        if (text.isNotEmpty()) {
-            Spacer(Modifier.width(10.dp))
-            Text(text = text, fontSize = 12.sp, color = scheme.onSurfaceVariantSummary)
-        }
     }
 }

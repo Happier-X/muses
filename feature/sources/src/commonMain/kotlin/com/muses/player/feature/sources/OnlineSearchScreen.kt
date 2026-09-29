@@ -156,9 +156,7 @@ fun OnlineSearchScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         MusesEmpty(
-                            title = "搜索",
-                            description = "输入关键词，搜索曲库中的歌曲、专辑、艺术家及在线歌曲。",
-                            icon = TablerIcons.Search,
+                            title = "空空如也~",
                             bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                         )
                     }

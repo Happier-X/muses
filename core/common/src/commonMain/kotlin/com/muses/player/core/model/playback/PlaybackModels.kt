@@ -44,7 +44,7 @@ data class PlaybackSessionInfo(
 )
 
 /**
- * 最近播放条目（recent.ts RecentPlayEntry）：同曲去重置顶，上限 50；
+ * 最近播放条目：同曲去重置顶，仅保留最近半年的记录；
  * 仅存展示所需元数据，点击播放时按 songId 从曲库解析完整歌曲。
  */
 data class RecentPlayEntry(

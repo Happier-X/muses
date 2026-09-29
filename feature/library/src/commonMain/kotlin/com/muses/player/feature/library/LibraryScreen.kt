@@ -28,7 +28,6 @@ import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
@@ -76,10 +75,6 @@ fun LibraryScreen(
                     Box(contentAlignment = Alignment.CenterEnd) {
                         Button(
                             onClick = { showTabPopup = true },
-                            minWidth = 0.dp,
-                            minHeight = 40.dp,
-                            insideMargin = PaddingValues(horizontal = 10.dp),
-                            colors = ButtonDefaults.buttonColors(),
                         ) {
                             Text(LibraryTabs[selectedTab])
                             Icon(

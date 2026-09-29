@@ -6,6 +6,7 @@ import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
+import com.muses.player.core.model.decodeWebDavSourcePaths
 import com.muses.player.core.webdav.WebDavClient
 import com.muses.player.core.webdav.WebDavItem
 import java.security.MessageDigest
@@ -46,8 +47,12 @@ class WebDavLibraryScanner constructor(
             source.username?.let { webDavClient.authenticate(it, password) }
 
             // ── 发现阶段：BFS 递归列目录 ──────────────────────
-            val rootUrl = joinUrl(requireNotNull(source.url) { "音源缺少服务器地址" }, source.path)
-            val files = discoverAudioFiles(rootUrl)
+            val baseUrl = requireNotNull(source.url) { "音源缺少服务器地址" }
+            val roots = decodeWebDavSourcePaths(source.path)
+            if (roots.isEmpty()) throw IllegalStateException("音源没有配置目录")
+            val files = roots.flatMap { path ->
+                discoverAudioFiles(joinUrl(baseUrl, path))
+            }.distinctBy(WebDavItem::url)
 
             // ── 建库阶段：零下载文件名歌 ──────────────────────
             val songs = files.map { filenameSong(source.id, it) }

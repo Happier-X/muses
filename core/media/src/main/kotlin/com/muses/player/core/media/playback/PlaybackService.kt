@@ -245,7 +245,7 @@ class PlaybackService : MediaSessionService() {
     /**
      * 监听 [SettingsRepository.notificationLyricsEnabled]，开启后：
      * - 标题位置显示当前歌词行
-     * - 艺术家位置显示「原始标题 - 原始艺术家」
+     * - 艺术家位置显示原始标题与原始艺术家；两项都有值时以「 - 」分隔
      * 关闭时恢复原始 MediaMetadata。
      */
     private fun startNotificationLyricsMonitoring(player: Player) {
@@ -324,7 +324,7 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    /** 根据播放位置更新 MediaMetadata：标题=歌词行，艺术家=原始标题-原始艺术家 */
+    /** 根据播放位置更新 MediaMetadata：标题=歌词行，艺术家=原始标题与原始艺术家 */
     private fun updateNotificationMetadataWithLyric(player: Player) {
         val session = mediaSession ?: return
         val lines = lyricsLines
@@ -340,12 +340,16 @@ class PlaybackService : MediaSessionService() {
         }
         val origTitle = originalTitle?.toString() ?: ""
         val origArtist = originalArtist?.toString() ?: ""
-        // 标题位=歌词行，副标题位（通知 content text / 车机 ARTIST）=「原始标题 - 原始艺术家」；
+        val originalTrackLabel = listOf(origTitle, origArtist)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .joinToString(" - ")
+        // 标题位=歌词行，副标题位（通知 content text / 车机 ARTIST）按非空值拼接；
         // 前奏/间奏无匹配行：保持上一次的歌词行，不闪回歌名
         if (lyricLine != null) {
             val metadata = androidx.media3.common.MediaMetadata.Builder()
                 .setTitle(lyricLine)
-                .setArtist("$origTitle - $origArtist")
+                .setArtist(originalTrackLabel)
                 .build()
             // 相同值跳过：媒体元数据没变就不反复 replaceMediaItem（每轮 Timeline 变更都会触发
             // 持久化保存），车机端同值 setMetadata 也少一次通知刷新。

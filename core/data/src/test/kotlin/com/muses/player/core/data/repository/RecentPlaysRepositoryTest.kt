@@ -13,7 +13,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 
-/** 规格 = src/features/player/recent.ts（同曲去重置顶 / 上限 50 / 元数据快照） */
+/** 最近播放记录仓库测试（同曲去重置顶 / 半年保留 / 元数据快照） */
 class RecentPlaysRepositoryTest {
 
     @get:Rule
@@ -25,7 +25,7 @@ class RecentPlaysRepositoryTest {
         return RecentPlaysRepository(dataStore)
     }
 
-    private fun entry(id: String, playedAt: Long = 0L) = RecentPlayEntry(
+    private fun entry(id: String, playedAt: Long = System.currentTimeMillis()) = RecentPlayEntry(
         songId = id,
         title = "T-$id",
         subtitle = "Artist - Album",
@@ -36,9 +36,10 @@ class RecentPlaysRepositoryTest {
     @Test
     fun `同曲去重置顶`() = runTest {
         val repo = newRepo()
-        repo.record(entry("a", 1))
-        repo.record(entry("b", 2))
-        repo.record(entry("a", 3))
+        val now = System.currentTimeMillis()
+        repo.record(entry("a", now - 2_000))
+        repo.record(entry("b", now - 1_000))
+        repo.record(entry("a", now))
 
         val loaded = repo.load()
         assertEquals(listOf("a", "b"), loaded.map { it.songId })
@@ -47,15 +48,26 @@ class RecentPlaysRepositoryTest {
     }
 
     @Test
-    fun `超限裁尾_只保留最新50条`() = runTest {
+    fun `半年内记录不按数量裁剪`() = runTest {
         val repo = newRepo()
+        val base = System.currentTimeMillis() - 60_000
         for (i in 1..60) {
-            repo.record(entry("s%03d".format(i)))
+            repo.record(entry("s%03d".format(i), base + i * 500L))
         }
         val loaded = repo.load()
-        assertEquals(50, loaded.size)
+        assertEquals(60, loaded.size)
         assertEquals("s060", loaded.first().songId)
-        assertEquals("s011", loaded.last().songId)
+        assertEquals("s001", loaded.last().songId)
+    }
+
+    @Test
+    fun `写入新记录时移除半年以前的记录`() = runTest {
+        val repo = newRepo()
+        val now = System.currentTimeMillis()
+        repo.record(entry("old", now - RecentPlaysRepository.RETENTION_MS - 1))
+        repo.record(entry("new", now))
+
+        assertEquals(listOf("new"), repo.load().map { it.songId })
     }
 
     @Test

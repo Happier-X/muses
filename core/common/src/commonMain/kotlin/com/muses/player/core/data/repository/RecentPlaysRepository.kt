@@ -4,12 +4,14 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.muses.player.core.data.store.platformNowMs
 import com.muses.player.core.model.playback.RecentPlayEntry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -22,7 +24,7 @@ import kotlinx.serialization.json.jsonObject
 /**
  * 最近播放记录（任务 08-25-native-playback-persistence / P2）。
  *
- * 规格书 = src/features/player/recent.ts：播放一首歌即记录，同曲去重置顶，上限 50；
+ * 播放一首歌即记录、同曲去重置顶，仅持久保留最近半年的记录；
  * 仅存展示所需元数据（title/subtitle/coverUri），点击播放时按 songId 从曲库解析。
  * 存储替换 localStorage → DataStore；事件广播 → StateFlow。
  */
@@ -33,8 +35,8 @@ class RecentPlaysRepository constructor(private val dataStore: DataStore<Prefere
         private val KEY = stringPreferencesKey("recent_plays")
         private const val SNAPSHOT_VERSION = 1
 
-        /** Web RECENT_LIMIT */
-        const val RECENT_LIMIT = 50
+        /** 半年按 183 天折算。 */
+        const val RETENTION_MS = 183L * 24 * 60 * 60 * 1000
     }
 
     private val _updated = MutableStateFlow(0L)
@@ -57,7 +59,7 @@ class RecentPlaysRepository constructor(private val dataStore: DataStore<Prefere
                 coverUri = str("coverUri"),
                 playedAt = str("playedAt")?.toLongOrNull() ?: return@mapNotNull null,
             )
-        }.take(RECENT_LIMIT)
+        }
     }.getOrDefault(emptyList())
 
     private suspend fun write(entries: List<RecentPlayEntry>) {
@@ -81,23 +83,33 @@ class RecentPlaysRepository constructor(private val dataStore: DataStore<Prefere
         _updated.value += 1
     }
 
-    /** 加载最近播放：最新在前（loadRecentPlays） */
-    suspend fun load(): List<RecentPlayEntry> =
-        decode(dataStore.data.first()[KEY]).take(RECENT_LIMIT)
+    /** 清理并读取最近半年记录。 */
+    private suspend fun readAndPrune(): List<RecentPlayEntry> {
+        val entries = decode(dataStore.data.first()[KEY])
+        val retained = retainRecent(entries, platformNowMs())
+        if (retained.size != entries.size) write(retained)
+        return retained
+    }
 
-    /** 响应式读取（供未来首页消费） */
+    suspend fun load(): List<RecentPlayEntry> = readAndPrune()
+
+    /** 订阅时先清理过期记录，之后持续观察半年内的历史。 */
     fun observe(): Flow<List<RecentPlayEntry>> =
-        dataStore.data.map { decode(it[KEY]).take(RECENT_LIMIT) }
+        dataStore.data
+            .onStart { readAndPrune() }
+            .map { retainRecent(decode(it[KEY]), platformNowMs()) }
 
     /**
-     * 播放时登记（recordRecentPlay）：同曲移到最前，其余保持，超限裁尾。
+     * 播放时登记：清理半年外记录，同曲移到最前。
      */
     suspend fun record(entry: RecentPlayEntry) {
+        val cutoff = platformNowMs() - RETENTION_MS
         val plays = decode(dataStore.data.first()[KEY])
+            .filter { it.playedAt >= cutoff }
             .filter { it.songId != entry.songId }
             .toMutableList()
-        plays.add(0, entry)
-        write(plays.take(RECENT_LIMIT))
+        if (entry.playedAt >= cutoff) plays.add(0, entry)
+        write(plays)
     }
 
     /** 清空记录 */
@@ -109,7 +121,13 @@ class RecentPlaysRepository constructor(private val dataStore: DataStore<Prefere
     /** 删除指定歌曲的最近播放记录（删源时清理，避免底部栏残留已删歌曲信息） */
     suspend fun removeSongs(songIds: Set<String>) {
         if (songIds.isEmpty()) return
-        val filtered = decode(dataStore.data.first()[KEY]).filter { it.songId !in songIds }
+        val filtered = retainRecent(decode(dataStore.data.first()[KEY]), platformNowMs())
+            .filter { it.songId !in songIds }
         write(filtered)
+    }
+
+    private fun retainRecent(entries: List<RecentPlayEntry>, nowMs: Long): List<RecentPlayEntry> {
+        val cutoff = nowMs - RETENTION_MS
+        return entries.filter { it.playedAt >= cutoff }
     }
 }

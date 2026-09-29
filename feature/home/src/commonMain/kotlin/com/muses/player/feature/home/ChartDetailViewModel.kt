@@ -131,7 +131,14 @@ class ChartDetailViewModel(
         }
     }
 
-    fun play(index: Int) {
+    fun play(index: Int) = playAt(index, shuffle = false)
+
+    fun shuffle() {
+        val songs = _state.value.songs
+        if (songs.isNotEmpty()) playAt(songs.indices.random(), shuffle = true)
+    }
+
+    private fun playAt(index: Int, shuffle: Boolean) {
         val results = _state.value.songs
         val target = results.getOrNull(index) ?: return
         val quality = LxQuality.fromKey(preferredQuality.value)?.key
@@ -148,6 +155,7 @@ class ChartDetailViewModel(
             val songs: List<Song> = results.map { it.toSong(ONLINE_SOURCE_ID, quality) }
             OnlineTrackSession.remember(songs)
             playback.play(target.toSong(ONLINE_SOURCE_ID, quality).id, songs)
+            if (shuffle) playback.setShuffleEnabled(true)
         }
     }
 
