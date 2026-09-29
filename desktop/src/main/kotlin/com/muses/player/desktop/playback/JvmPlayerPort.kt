@@ -16,16 +16,7 @@ import com.muses.player.core.media.scanner.PlaybackLazyScan
 import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlayerPort
 import com.muses.player.desktop.cache.DesktopWebDavAudioCache
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.statement.bodyAsChannel
-import io.ktor.http.isSuccess
-import io.ktor.utils.io.readAvailable
 import java.io.File
-import java.io.RandomAccessFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +27,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import uk.co.caprica.vlcj.factory.MediaPlayerFactory
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
@@ -59,8 +49,8 @@ import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
  * seek 语义（spike Gate2 结论）：拖动落点为准——[seekTo] 先暂停再 setTime，
  * 若之前在播则落点后恢复播放，消除播放态时钟推进的测量污染。
  *
- * WebDAV：Ktor Range 整文件入 [DesktopWebDavAudioCache]（500MB LRU）后 file:// 播，
- * 不做边播边缓存对等；本地曲目直播绝对路径。
+ * WebDAV：缓存命中播本地文件，未命中由回环 HTTP 代理边获取边播放；
+ * 本地曲目直播绝对路径。
  */
 class JvmPlayerPort(
     private val songLookup: suspend (songId: String) -> SongRef?,
@@ -161,7 +151,9 @@ class JvmPlayerPort(
     private val attemptedSongIds = LinkedHashSet<String>()
     private var currentRef: SongRef? = null
     private var lastPinnedUrl: String? = null
+    private val webDavStreamProxy = DesktopWebDavStreamProxy(audioCache)
     private var pausedBySeek = false
+    @Volatile private var mediaStartRequested = false
 
     @Volatile private var factory: MediaPlayerFactory? = null
     @Volatile private var player: MediaPlayer? = null
@@ -170,16 +162,6 @@ class JvmPlayerPort(
     private var persistJob: Job? = null
     private var prepareJob: Job? = null
     private var restoreJob: Job? = null
-
-    private val httpClient: HttpClient by lazy {
-        HttpClient(CIO) {
-            install(HttpTimeout) {
-                requestTimeoutMillis = 60_000
-                connectTimeoutMillis = 15_000
-                socketTimeoutMillis = 30_000
-            }
-        }
-    }
 
     init {
         ensurePlayer()
@@ -211,6 +193,8 @@ class JvmPlayerPort(
     override fun play() {
         _playbackError.value = null
         attemptedSongIds.clear()
+        // 新曲解析或 WebDAV 下载期间，VLC 中仍可能保留上一首媒体。
+        if (_playbackState.value == JvmPlaybackStates.STATE_BUFFERING) return
         val p = player ?: run {
             ensurePlayer()
             player
@@ -259,6 +243,8 @@ class JvmPlayerPort(
 
     override fun enqueue(ids: List<String>, index: Int) {
         if (ids.isEmpty()) return
+        // 冷启动快照恢复不能在用户选曲后覆盖新队列。
+        restoreJob?.cancel()
         _playbackError.value = null
         attemptedSongIds.clear()
         queue.enqueue(ids, index, _playerConfig.value.shuffleEnabled)
@@ -358,15 +344,23 @@ class JvmPlayerPort(
         player = null
         runCatching { factory?.release() }
         factory = null
-        runCatching { httpClient.close() }
+        runCatching { webDavStreamProxy.close() }
     }
 
     // ── 播放流水线 ─────────────────────────────────────────
 
     private fun playSongId(songId: String, startPositionMs: Long) {
         prepareJob?.cancel()
+        // 立即进入准备态，阻止紧接而来的 play() 播放 VLC 中的旧媒体。
+        _playbackState.value = JvmPlaybackStates.STATE_BUFFERING
+        _isPlaying.value = false
+        mediaStartRequested = false
         prepareJob = scope.launch {
-            _playbackState.value = JvmPlaybackStates.STATE_BUFFERING
+            // 先停掉旧媒体；否则远程曲目解析期间旧曲可能继续播放或触发自动切歌。
+            webDavStreamProxy.clear()
+            runCatching { player?.controls()?.stop() }
+            lastPinnedUrl?.let { audioCache.release(it) }
+            lastPinnedUrl = null
             val ref: SongRef? = try {
                 songLookup(songId)
             } catch (e: CancellationException) {
@@ -379,19 +373,18 @@ class JvmPlayerPort(
                 onSongFailed(songId, DesktopPlaybackErrorCopy.FILE_NOT_FOUND)
                 return@launch
             }
+            // 等待在线解析或 WebDAV 缓存时，界面先切到用户所选歌曲。
+            currentRef = ref
+            _currentSongId.value = ref.id
+            _currentMeta.value = null
+            _durationMs.value = 0L
+            _positionMs.value = startPositionMs.coerceAtLeast(0L)
             val target: PlayTarget? = try {
                 resolvePlayTarget(ref)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: AuthFailedException) {
                 onSongFailed(songId, DesktopPlaybackErrorCopy.AUTH_FAILED)
-                return@launch
-            } catch (e: RateLimitedException) {
-                // 服务级限流：直接停止等用户手动重试（对齐 RATE_LIMITED_ERROR 语义）
-                _playbackError.value = DesktopPlaybackErrorCopy.RATE_LIMITED_ERROR
-                _playbackState.value = JvmPlaybackStates.STATE_IDLE
-                _isPlaying.value = false
-                errorLog("JvmPlayerPort", "WebDAV 限流停止 url=${ref.path}", e)
                 return@launch
             } catch (e: Exception) {
                 errorLog("JvmPlayerPort", "解析播放目标失败 songId=$songId", e)
@@ -408,17 +401,11 @@ class JvmPlayerPort(
                 )
                 return@launch
             }
-            currentRef = ref
             // 钉住播放中缓存文件，淘汰跳过；释放上一个（仅 WebDAV 走缓存）
-            if (ref.sourceType == SourceType.WEBDAV) {
+            if (ref.sourceType == SourceType.WEBDAV && target is PlayTarget.LocalFile) {
                 audioCache.acquire(ref.path)
-                lastPinnedUrl?.takeIf { it != ref.path }?.let { audioCache.release(it) }
                 lastPinnedUrl = ref.path
             }
-            _currentSongId.value = ref.id
-            _currentMeta.value = null
-            _durationMs.value = 0L
-            _positionMs.value = startPositionMs.coerceAtLeast(0L)
             startPlayback(ref, target, startPositionMs)
             // 最近播放登记（同曲去重置顶/上限50，对齐 RecentPlaysRepository 语义）
             runCatching {
@@ -466,6 +453,7 @@ class JvmPlayerPort(
             is PlayTarget.LocalFile -> target.file.absolutePath
             is PlayTarget.RemoteUrl -> target.url
         }
+        mediaStartRequested = true
         val accepted = runCatching { p.media().play(mrl) }.getOrDefault(false)
         if (!accepted) {
             onSongFailed(ref.id, DesktopPlaybackErrorCopy.DEFAULT_ERROR)
@@ -485,7 +473,7 @@ class JvmPlayerPort(
                         errorLog("JvmPlayerPort", "懒扫描钩子失败 songId=$songId", e)
                     }
                     .getOrNull()
-                if (tags != null) {
+                if (tags != null && _currentSongId.value == songId) {
                     _currentMeta.value = PlaybackMeta(
                         title = tags.title,
                         artist = tags.artist,
@@ -504,17 +492,12 @@ class JvmPlayerPort(
         runCatching { p.audio().setVolume(_volume.value) }
     }
 
-    private fun resolveCachedOrLocal(ref: SongRef): File? =
-        if (ref.sourceType == SourceType.WEBDAV) audioCache.getCachedFile(ref.path) ?: File(ref.path).takeIf { it.exists() }?.let { fallback ->
-            // WebDAV 整文件缓存未命中但本地恰好有同名文件时不做猜测：返回 null 走失败恢复
-            if (fallback.isAbsolute && fallback.exists()) fallback else null
-        } else File(ref.path).takeIf { it.exists() && it.length() > 0L }
-
     /**
      * 解析播放目标：
      * - ONLINE：调在线音源解析器异步换取 HTTP 直链（不做长期缓存——直链会过期，
      *   每次播放都重新解析，避免用过期的缓存地址播放）；
-     * - 其余源：走既有本地/WebDAV 文件链路。
+     * - WebDAV：已有完整缓存走本地文件，否则通过回环代理边获取边播；
+     * - 本地源：直接读取文件。
      *
      * 返回 null 表示不可播（在线未启用/引用损坏/文件不存在），由调用方归入失败链。
      */
@@ -525,7 +508,19 @@ class JvmPlayerPort(
             val resolved = resolver.resolve(onlineRef)
             return PlayTarget.RemoteUrl(resolved.url)
         }
-        val file = resolvePlayFile(ref)
+        if (ref.sourceType == SourceType.WEBDAV) {
+            audioCache.getCachedFile(ref.path)?.let { return PlayTarget.LocalFile(it) }
+            val source = sourceLookup(ref.sourceId)
+            val password = passwordLookup(ref.sourceId)
+            if (source?.username == null || password == null) {
+                throw AuthFailedException("WebDAV 播放缺少认证信息。")
+            }
+            val credentials = "${source.username}:$password"
+            val basic = "Basic " + java.util.Base64.getEncoder()
+                .encodeToString(credentials.toByteArray(Charsets.UTF_8))
+            return PlayTarget.RemoteUrl(webDavStreamProxy.open(ref.path, basic))
+        }
+        val file = File(ref.path)
         return if (file.exists() && file.length() > 0L) PlayTarget.LocalFile(file) else null
     }
 
@@ -552,133 +547,6 @@ class JvmPlayerPort(
                 return@launch
             }
             startPlayback(ref, target, 0L)
-        }
-    }
-
-    /** 本地直播 / WebDAV 整文件入缓存（Ktor Range 下载，不做边播边缓存对等）。 */
-    private suspend fun resolvePlayFile(ref: SongRef): File = withContext(Dispatchers.IO) {
-        // 在线曲目不走文件链路（由 resolvePlayTarget 接管）；此处防御性拦截
-        if (ref.sourceType == SourceType.ONLINE) {
-            throw java.io.IOException("在线曲目需经 resolvePlayTarget 解析直链")
-        }
-        if (ref.sourceType != SourceType.WEBDAV) {
-            val f = File(ref.path)
-            if (!f.exists() || f.length() <= 0L) throw java.io.FileNotFoundException(ref.path)
-            return@withContext f
-        }
-        audioCache.getCachedFile(ref.path)?.let { return@withContext it }
-        downloadWebDavToCache(ref)
-    }
-
-    private suspend fun downloadWebDavToCache(ref: SongRef): File {
-        val source = sourceLookup(ref.sourceId)
-        val password: String? = try {
-            passwordLookup(ref.sourceId)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            errorLog("JvmPlayerPort", "取 WebDAV 密码失败", e)
-            null
-        }
-        if (source?.username == null || password == null) {
-            throw AuthFailedException("WebDAV 播放缺少认证信息。")
-        }
-        val credentials = "${source.username}:$password"
-        val basic = "Basic " + java.util.Base64.getEncoder()
-            .encodeToString(credentials.toByteArray(Charsets.UTF_8))
-        val tmp = File.createTempFile("muses-dav-", ".partial")
-        try {
-            // 整文件下载：优先 Range 分段（网关限流友好），失败回退单次 GET
-            val totalSize = probeContentLength(ref.path, basic) ?: -1L
-            if (totalSize > 0) {
-                downloadRanged(ref.path, basic, tmp, totalSize)
-            } else {
-                downloadWhole(ref.path, basic, tmp)
-            }
-            if (!tmp.exists() || tmp.length() <= 0L) throw java.io.IOException("下载为空")
-            audioCache.putToCache(ref.path, tmp, null, null)
-            return audioCache.getCachedFile(ref.path) ?: throw java.io.IOException("入缓存失败")
-        } finally {
-            runCatching { if (tmp.exists()) tmp.delete() }
-        }
-    }
-
-    private suspend fun probeContentLength(url: String, basic: String): Long? {
-        return try {
-            var length: Long? = null
-            httpClient.get(url) {
-                header("Authorization", basic)
-                header("Range", "bytes=0-0")
-            }.let { resp ->
-                if (resp.status.value == 401 || resp.status.value == 403) throw AuthFailedException("auth")
-                if (resp.status.value == 429) throw RateLimitedException("限流")
-                if (resp.status.value == 206) {
-                    resp.headers["Content-Range"]?.let { cr ->
-                        // 形如 bytes 0-0/12345
-                        cr.substringAfterLast('/').toLongOrNull()?.let { length = it }
-                    }
-                } else if (resp.status.value in 200..299) {
-                    resp.headers["Content-Length"]?.toLongOrNull()?.let { length = it }
-                }
-                runCatching { resp.bodyAsChannel().discard() }
-            }
-            length
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: AuthFailedException) {
-            throw e
-        } catch (e: RateLimitedException) {
-            throw e
-        } catch (e: Exception) {
-            errorLog("JvmPlayerPort", "探测长度失败，回退整包下载", e)
-            null
-        }
-    }
-
-    private suspend fun downloadRanged(url: String, basic: String, dest: File, totalSize: Long) {
-        val chunk = 512L * 1024L
-        RandomAccessFile(dest, "rw").use { raf ->
-            raf.setLength(totalSize)
-            var offset = 0L
-            while (offset < totalSize) {
-                val end = minOf(offset + chunk - 1, totalSize - 1)
-                httpClient.get(url) {
-                    header("Authorization", basic)
-                    header("Range", "bytes=$offset-$end")
-                }.let { resp ->
-                    if (resp.status.value == 401 || resp.status.value == 403) throw AuthFailedException("auth")
-                    if (resp.status.value == 429) throw RateLimitedException("限流")
-                    if (!resp.status.isSuccess()) throw java.io.IOException("HTTP ${resp.status.value}")
-                    val channel = resp.bodyAsChannel()
-                    val buf = ByteArray(32 * 1024)
-                    raf.seek(offset)
-                    while (!channel.isClosedForRead) {
-                        val n = channel.readAvailable(buf, 0, buf.size)
-                        if (n <= 0) break
-                        raf.write(buf, 0, n)
-                    }
-                }
-                offset = end + 1
-            }
-        }
-    }
-
-    private suspend fun downloadWhole(url: String, basic: String, dest: File) {
-        httpClient.get(url) {
-            header("Authorization", basic)
-        }.let { resp ->
-            if (resp.status.value == 401 || resp.status.value == 403) throw AuthFailedException("auth")
-            if (resp.status.value == 429) throw RateLimitedException("限流")
-            if (!resp.status.isSuccess()) throw java.io.IOException("HTTP ${resp.status.value}")
-            val channel = resp.bodyAsChannel()
-            dest.outputStream().use { out ->
-                val buf = ByteArray(32 * 1024)
-                while (!channel.isClosedForRead) {
-                    val n = channel.readAvailable(buf, 0, buf.size)
-                    if (n <= 0) break
-                    out.write(buf, 0, n)
-                }
-            }
         }
     }
 
@@ -722,6 +590,7 @@ class JvmPlayerPort(
         }
         p.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
             override fun playing(mediaPlayer: MediaPlayer) {
+                if (_playbackState.value == JvmPlaybackStates.STATE_BUFFERING && !mediaStartRequested) return
                 _playbackState.value = JvmPlaybackStates.STATE_READY
                 _isPlaying.value = true
                 _playbackError.value = null
@@ -731,7 +600,7 @@ class JvmPlayerPort(
 
             override fun paused(mediaPlayer: MediaPlayer) {
                 // 暂停态落点窗口内（seekTo 主动暂停）的 paused 事件不翻转外部状态
-                if (pausedBySeek) return
+                if (pausedBySeek || (_playbackState.value == JvmPlaybackStates.STATE_BUFFERING && !mediaStartRequested)) return
                 _playbackState.value = JvmPlaybackStates.STATE_READY
                 _isPlaying.value = false
                 progressJob?.cancel()
@@ -747,6 +616,8 @@ class JvmPlayerPort(
             }
 
             override fun finished(mediaPlayer: MediaPlayer) {
+                // 旧媒体被切走后的迟到事件不能推进新队列。
+                if (_playbackState.value == JvmPlaybackStates.STATE_BUFFERING) return
                 _isPlaying.value = false
                 progressJob?.cancel()
                 reportStats(isPlaying = false)
@@ -754,9 +625,22 @@ class JvmPlayerPort(
             }
 
             override fun error(mediaPlayer: MediaPlayer) {
+                if (_playbackState.value == JvmPlaybackStates.STATE_BUFFERING && !mediaStartRequested) return
                 _isPlaying.value = false
                 progressJob?.cancel()
                 reportStats(isPlaying = false)
+                if (currentRef?.sourceType == SourceType.WEBDAV) {
+                    val fatalCopy = when (webDavStreamProxy.lastFailureStatus()) {
+                        401, 403 -> DesktopPlaybackErrorCopy.AUTH_FAILED
+                        429 -> DesktopPlaybackErrorCopy.RATE_LIMITED_ERROR
+                        else -> null
+                    }
+                    if (fatalCopy != null) {
+                        _playbackError.value = fatalCopy
+                        _playbackState.value = JvmPlaybackStates.STATE_IDLE
+                        return
+                    }
+                }
                 val id = queue.state().currentSongId ?: currentRef?.id
                 if (id != null) onSongFailed(id, DesktopPlaybackErrorCopy.NETWORK)
                 else {
@@ -980,7 +864,6 @@ class JvmPlayerPort(
     }
 
     private class AuthFailedException(message: String) : Exception(message)
-    private class RateLimitedException(message: String) : Exception(message)
 
     companion object {
         /** 随包内置 VLC 的目录名（位于 jpackage 的 app/resources 下，产物见 scripts/vlc-trim.ps1）。 */
@@ -1165,13 +1048,5 @@ class JvmPlayerPort(
                 onlineResolver = onlineResolver,
             )
         }
-    }
-}
-
-/** Ktor 响应通道丢弃（探测请求体无人消费时排空连接复用）。 */
-private suspend fun io.ktor.utils.io.ByteReadChannel.discard() {
-    val buf = ByteArray(8 * 1024)
-    while (!isClosedForRead) {
-        if (readAvailable(buf, 0, buf.size) <= 0) break
     }
 }

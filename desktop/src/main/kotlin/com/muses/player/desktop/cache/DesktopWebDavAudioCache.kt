@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong
  * - LRU 500MB：超限按 lastAccess 升序淘汰，同步删 `.meta`；
  * - `.partial`/`.tmp`/空文件一律视为未命中。
  *
- * 二期不做 CacheDataSource 边播边缓存对等：首版整文件入缓存后 file:// 播。
+ * 已缓存的完整文件由播放器直接读取；未缓存歌曲经回环代理流式播放。
  */
 class DesktopWebDavAudioCache(
     private val rootDir: File = File(PlatformDirs.cacheDir(), CACHE_DIR),

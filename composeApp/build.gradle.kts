@@ -188,7 +188,7 @@ compose.desktop {
             // （MessageSchema/UnsafeUtil）在类链接期引用 sun.misc.Unsafe，该类位于 jdk.unsupported
             // 模块：缺失时打包版一读写 DataStore（设置页开关、播放配置、播放快照）即抛
             // NoClassDefFoundError: sun/misc/Unsafe。开发态 ./gradlew run 走完整 JDK 故不显形。
-            modules("jdk.unsupported")
+            modules("jdk.unsupported", "jdk.httpserver")
 
             // v0.5.2 实测：不配置则 MSI 装完无任何入口，用户找不到应用。
             // upgradeUuid 固定 UpgradeCode，缺省时每次构建随机，后续版本无法覆盖升级。

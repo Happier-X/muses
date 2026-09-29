@@ -41,7 +41,9 @@ class DesktopQueueStateMachine {
         } else {
             original to null
         }
-        val safeIndex = if (items.isEmpty()) -1 else index.coerceIn(0, items.size - 1)
+        // 调用方的 index 指向原始列表；洗牌后仍须定位到用户点击的歌曲。
+        val selectedId = original.getOrNull(index.coerceIn(0, original.lastIndex.coerceAtLeast(0)))?.songId
+        val safeIndex = if (items.isEmpty()) -1 else items.indexOfFirst { it.songId == selectedId }
         state = State(
             snapshot = QueueSnapshotData(
                 items = items,

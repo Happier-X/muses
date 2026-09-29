@@ -166,7 +166,6 @@ class DesktopPlayerHook(
                 }
                 val index = ids.indexOf(songId).coerceAtLeast(0)
                 port.enqueue(ids, index)
-                port.play()
                 _queueSongIds.value = ids
                 _status.value = ""
             }.onFailure { e ->
@@ -189,7 +188,6 @@ class DesktopPlayerHook(
                 val port = ensurePlayer()
                 val index = ids.indexOf(songId).coerceAtLeast(0)
                 port.enqueue(ids, index)
-                port.play()
                 _queueSongIds.value = ids
                 _status.value = ""
             }.onFailure { e ->
@@ -220,7 +218,6 @@ class DesktopPlayerHook(
                 }
                 val port = ensurePlayer()
                 port.enqueue(ids, index)
-                port.play()
                 _queueSongIds.value = ids
             }
         }
