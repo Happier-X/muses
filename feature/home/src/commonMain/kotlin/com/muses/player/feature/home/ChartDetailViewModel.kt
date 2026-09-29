@@ -19,10 +19,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 data class ChartDetailUiState(
     val songs: List<OnlineSearchResult> = emptyList(),
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
     val loadingMore: Boolean = false,
     val hasMore: Boolean = false,
     val error: String? = null,
@@ -31,6 +33,7 @@ data class ChartDetailUiState(
 /** 单个排行榜歌曲页状态与播放逻辑。 */
 class ChartDetailViewModel(
     private val chartService: OnlineChartService,
+    private val chartCacheStore: OnlineChartCacheStore,
     private val scriptRepository: LxScriptRepository,
     private val settingsRepository: SettingsRepository,
     private val playback: PlaybackPort,
@@ -48,37 +51,69 @@ class ChartDetailViewModel(
     private var page = 0
     private var loadJob: Job? = null
 
-    init {
-        loadFirstPage()
-    }
+    init { loadPage(1, append = false) }
 
-    fun retry() = loadFirstPage()
+    fun retry() = loadPage(1, append = false, forceRefresh = true)
+
+    fun refresh() = loadPage(1, append = false, forceRefresh = true)
 
     fun loadMore() {
         if (!_state.value.hasMore || _state.value.loadingMore || _state.value.loading) return
         loadPage(page + 1, append = true)
     }
 
-    private fun loadFirstPage() {
-        loadPage(1, append = false)
-    }
-
-    private fun loadPage(targetPage: Int, append: Boolean) {
+    private fun loadPage(targetPage: Int, append: Boolean, forceRefresh: Boolean = false) {
         loadJob?.cancel()
         _state.value = _state.value.copy(
-            loading = !append,
+            loading = !append && _state.value.songs.isEmpty(),
+            refreshing = !append && _state.value.songs.isNotEmpty(),
             loadingMore = append,
             error = if (append) _state.value.error else null,
         )
         loadJob = viewModelScope.launch {
+            var cached: CachedChartSongs? = null
+            var updateInfo: String? = null
+            if (!append) {
+                cached = runCatching { chartCacheStore.loadSongs(platform, chartId) }.getOrNull()
+                updateInfo = runCatching {
+                    chartCacheStore.loadCatalogs()[platform]?.charts?.firstOrNull { it.chartId == chartId }?.updateInfo
+                }.getOrNull()
+                if (cached != null) {
+                    page = cached.page
+                    _state.value = _state.value.copy(
+                        songs = cached.songs,
+                        loading = false,
+                        refreshing = false,
+                        hasMore = cached.hasMore,
+                        error = null,
+                    )
+                    if (!forceRefresh && chartCacheStore.isSongsFresh(cached.updatedAt, updateInfo)) return@launch
+                }
+            }
+            _state.value = _state.value.copy(
+                loading = !append && _state.value.songs.isEmpty(),
+                refreshing = !append && _state.value.songs.isNotEmpty(),
+                loadingMore = append,
+                error = null,
+            )
             runCatching {
                 chartService.chartSongs(platform, chartId, page = targetPage, pageSize = PAGE_SIZE)
             }.onSuccess { result ->
                 page = targetPage
                 val hasMore = result.hasMore ?: (result.results.size >= PAGE_SIZE)
+                val songs = if (append) _state.value.songs + result.results else result.results
+                val updatedAt = Clock.System.now().toEpochMilliseconds()
+                runCatching {
+                    chartCacheStore.saveSongs(
+                        platform,
+                        chartId,
+                        CachedChartSongs(songs, targetPage, hasMore, updatedAt),
+                    )
+                }
                 _state.value = _state.value.copy(
-                    songs = if (append) _state.value.songs + result.results else result.results,
+                    songs = songs,
                     loading = false,
+                    refreshing = false,
                     loadingMore = false,
                     hasMore = hasMore,
                     error = null,
@@ -87,8 +122,9 @@ class ChartDetailViewModel(
                 val message = failure.message ?: "排行榜歌曲加载失败，请稍后重试"
                 _state.value = _state.value.copy(
                     loading = false,
+                    refreshing = false,
                     loadingMore = false,
-                    error = if (append) null else message,
+                    error = if (append || cached != null) null else message,
                 )
                 if (append) MusesSnackbar.show(message)
             }

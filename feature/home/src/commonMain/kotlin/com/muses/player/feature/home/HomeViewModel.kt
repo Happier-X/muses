@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 /** 排行榜区块状态 */
 data class ChartSectionState(
@@ -44,6 +45,7 @@ data class ChartSectionState(
     /** 当前平台的榜单列表（切平台时从缓存取，不重复请求） */
     val charts: List<OnlineChart> = emptyList(),
     val loadingCharts: Boolean = false,
+    val refreshingCharts: Boolean = false,
     val error: String? = null,
 )
 
@@ -87,6 +89,7 @@ class HomeViewModel(
     private val scriptRepository: LxScriptRepository,
     private val playback: PlaybackPort,
     private val songRepository: SongRepository,
+    private val chartCacheStore: OnlineChartCacheStore,
     /** 在线曲目归属的音源标识（与在线搜索页同值，仅作标识） */
     private val onlineSourceId: String = "online",
 ) : ViewModel() {
@@ -94,8 +97,9 @@ class HomeViewModel(
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
-    /** 各平台榜单缓存：切平台回看时不重复请求（榜单列表变动很慢） */
+    /** 各平台榜单缓存：目录有独立更新时间，切平台无需重复请求。 */
     private val chartsByPlatform = mutableMapOf<String, List<OnlineChart>>()
+    private val catalogUpdatedAt = mutableMapOf<String, Long>()
     private var recommendJob: Job? = null
 
     /** 首选音质（与在线搜索页共用同一设置项） */
@@ -142,10 +146,21 @@ class HomeViewModel(
     // ── 排行榜 ──
 
     /** 拉取各平台榜单列表；榜单歌曲由对应的详情页按需加载。 */
-    fun loadCharts() {
-        if (_state.value.chart.loadingCharts) return
+    fun loadCharts(forceRefresh: Boolean = false) {
+        if (_state.value.chart.loadingCharts || _state.value.chart.refreshingCharts) return
+        _state.value = _state.value.copy(
+            chart = _state.value.chart.copy(
+                loadingCharts = _state.value.chart.charts.isEmpty(),
+                refreshingCharts = _state.value.chart.charts.isNotEmpty(),
+                error = null,
+            ),
+        )
         viewModelScope.launch {
-            _state.value = _state.value.copy(chart = _state.value.chart.copy(loadingCharts = true, error = null))
+            val cached = runCatching { chartCacheStore.loadCatalogs() }.getOrDefault(emptyMap())
+            cached.forEach { (platform, catalog) ->
+                chartsByPlatform[platform] = catalog.charts
+                catalogUpdatedAt[platform] = catalog.updatedAt
+            }
 
             val supportedPlatforms = runCatching {
                 scriptRepository.loadAll()
@@ -165,22 +180,72 @@ class HomeViewModel(
                 )
                 return@launch
             }
-            val outcomes = runCatching { chartService.charts(availablePlatforms) }.getOrDefault(emptyList())
+            val cachedPlatforms = availablePlatforms.filter { it in chartsByPlatform }
+            if (cachedPlatforms.isNotEmpty()) {
+                val selected = _state.value.chart.selectedPlatform?.takeIf { it in cachedPlatforms } ?: cachedPlatforms.first()
+                _state.value = _state.value.copy(
+                    chart = ChartSectionState(
+                        platforms = cachedPlatforms,
+                        platformNames = chartService.platformNames,
+                        selectedPlatform = selected,
+                        charts = chartsByPlatform[selected].orEmpty(),
+                    ),
+                )
+            } else {
+                _state.value = _state.value.copy(chart = _state.value.chart.copy(loadingCharts = true, error = null))
+            }
+            val now = Clock.System.now().toEpochMilliseconds()
+            val needsRefresh = availablePlatforms.filter { platform ->
+                forceRefresh || !chartCacheStore.isCatalogFresh(catalogUpdatedAt[platform] ?: 0L, now)
+            }
+            if (needsRefresh.isEmpty()) {
+                val platform = _state.value.chart.selectedPlatform?.takeIf { it in availablePlatforms } ?: availablePlatforms.first()
+                _state.value = _state.value.copy(
+                    chart = _state.value.chart.copy(
+                        platforms = availablePlatforms.filter { it in chartsByPlatform },
+                        platformNames = chartService.platformNames,
+                        selectedPlatform = platform,
+                        charts = chartsByPlatform[platform].orEmpty(),
+                        loadingCharts = false,
+                        refreshingCharts = false,
+                        error = null,
+                    ),
+                )
+                return@launch
+            }
+            _state.value = _state.value.copy(
+                chart = _state.value.chart.copy(
+                    loadingCharts = _state.value.chart.charts.isEmpty(),
+                    refreshingCharts = true,
+                ),
+            )
+            val outcomes = runCatching { chartService.charts(needsRefresh) }.getOrDefault(emptyList())
             val success = outcomes.filterIsInstance<PlatformChartsOutcome.Success>()
-            if (success.isEmpty()) {
+            if (success.isEmpty() && cachedPlatforms.isEmpty()) {
                 val failure = outcomes.filterIsInstance<PlatformChartsOutcome.Failure>().firstOrNull()
                 _state.value = _state.value.copy(
                     chart = _state.value.chart.copy(
                         loadingCharts = false,
+                        refreshingCharts = false,
                         error = failure?.message ?: "排行榜加载失败，请检查网络",
                     ),
                 )
                 return@launch
             }
-            success.forEach { chartsByPlatform[it.platform] = it.charts }
+            success.forEach {
+                chartsByPlatform[it.platform] = it.charts
+                catalogUpdatedAt[it.platform] = now
+            }
+            if (success.isNotEmpty()) runCatching {
+                chartCacheStore.saveCatalogs(
+                    chartsByPlatform.mapValues { (platform, charts) ->
+                        CachedChartCatalog(charts, catalogUpdatedAt[platform] ?: now)
+                    },
+                )
+            }
 
             // 保持用户已选平台（刷新场景），否则取第一个可用平台
-            val platforms = success.map { it.platform }
+            val platforms = availablePlatforms.filter { it in chartsByPlatform }
             val platform = _state.value.chart.selectedPlatform?.takeIf { it in platforms } ?: platforms.first()
             val charts = chartsByPlatform[platform].orEmpty()
             _state.value = _state.value.copy(
@@ -190,6 +255,7 @@ class HomeViewModel(
                     selectedPlatform = platform,
                     charts = charts,
                     loadingCharts = false,
+                    refreshingCharts = false,
                     error = null,
                 ),
             )

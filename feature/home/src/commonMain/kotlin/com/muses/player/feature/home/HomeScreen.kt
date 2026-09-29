@@ -49,6 +49,7 @@ import com.muses.player.core.ui.components.MusesButton
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.SongItem
 import com.muses.player.core.ui.components.SongListItem
@@ -104,6 +105,12 @@ fun HomeScreen(
             MusesTopBar(
                 title = "探索",
                 actions = {
+                    MusesIconButton(
+                        onClick = { viewModel.loadCharts(forceRefresh = true) },
+                        imageVector = TablerIcons.Refresh,
+                        contentDescription = "刷新排行榜",
+                        enabled = !chart.loadingCharts && !chart.refreshingCharts,
+                    )
                     if (chart.platforms.isNotEmpty()) {
                         Box(contentAlignment = Alignment.CenterEnd) {
                             Button(
@@ -163,7 +170,7 @@ fun HomeScreen(
             item(key = "chart-title") { SmallTitle(text = "排行榜", insideMargin = SectionTitleMargin) }
 
             when {
-                chart.loadingCharts -> item(key = "chart-loading") {
+                chart.loadingCharts && chart.charts.isEmpty() -> item(key = "chart-loading") {
                     LoadingRow()
                 }
                 chart.error != null -> item(key = "chart-error") {

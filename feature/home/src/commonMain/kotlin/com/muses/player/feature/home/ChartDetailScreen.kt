@@ -15,10 +15,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.SongItem
 import com.muses.player.core.ui.components.SongListItem
+import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -44,7 +46,20 @@ fun ChartDetailScreen(
         modifier = Modifier.fillMaxSize(),
         containerColor = scheme.surface,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = { MusesTopBar(title = chartName, onBack = onBack) },
+        topBar = {
+            MusesTopBar(
+                title = chartName,
+                onBack = onBack,
+                actions = {
+                    MusesIconButton(
+                        onClick = viewModel::refresh,
+                        imageVector = TablerIcons.Refresh,
+                        contentDescription = "刷新榜单",
+                        enabled = !state.loading && !state.refreshing,
+                    )
+                },
+            )
+        },
     ) { padding ->
         when {
             state.loading && state.songs.isEmpty() -> Box(

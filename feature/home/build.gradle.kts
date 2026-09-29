@@ -35,6 +35,8 @@ kotlin {
             // compose/miuix 经 ui-shared api 透传，此处不再重复声明
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.datastore.preferences)
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.bundles.koin.kmp)
         }
     }
