@@ -476,10 +476,8 @@ private fun MusesAppContent() {
         var miniBarBounds by remember { mutableStateOf<Rect?>(null) }
         var showQueueOverlay by remember { mutableStateOf(false) }
         var playerActionSongId by remember { mutableStateOf<String?>(null) }
-        var showEditMeta by remember { mutableStateOf(false) }
         val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
         val currentSongId by playerVm.currentSongId.collectAsState()
-        val currentSong by playerVm.currentSong.collectAsState()
         val scrapeQueueVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = koinViewModel()
 
         // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
@@ -709,7 +707,7 @@ private fun MusesAppContent() {
                     ImmersivePlayerOverlay(
                         playerProgress = playerProgress,
                         readPlayerProgress = { playerProgressState.value },
-                        sheetOpen = playerActionSongId != null || showQueueOverlay || showEditMeta,
+                        sheetOpen = playerActionSongId != null || showQueueOverlay,
                         miniBarBounds = miniBarBounds,
                         miniPlayerLyricsEnabled = miniPlayerLyricsEnabled,
                         currentLyricLine = currentLyricLine,
@@ -732,14 +730,7 @@ private fun MusesAppContent() {
                         songId = playerActionSongId,
                         onDismiss = { playerActionSongId = null },
                         onEnqueueScrape = scrapeQueueVm::enqueue,
-                        onEditSong = if (currentSong != null) ({ showEditMeta = true }) else null,
                     )
-                    if (showEditMeta) {
-                        com.muses.player.feature.scrape.EditMetaSheet(
-                            song = currentSong?.toDomain(),
-                            onDismiss = { showEditMeta = false },
-                        )
-                    }
                 }
             }
         }
