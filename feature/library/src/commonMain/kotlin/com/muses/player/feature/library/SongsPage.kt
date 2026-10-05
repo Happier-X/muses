@@ -56,8 +56,7 @@ import kotlinx.coroutines.launch
 import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.model.Song
-import com.muses.player.core.ui.components.MusesActionsSheet
-import com.muses.player.core.ui.components.MusesActionItem
+import com.muses.player.core.ui.components.MusesSongActionsSheet
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesEmpty
@@ -89,9 +88,25 @@ fun SongsPage(
     /** 作为「曲库」Tab 的内容嵌入时为 false：顶栏（标题 + 搜索 + 工具栏）交由外部容器统一提供 */
     showTopBar: Boolean = true,
     viewModel: SongsViewModel = koinViewModel(),
+    /** 专辑或艺术家详情传入自己的歌曲范围，复用歌曲页的全部交互。 */
+    scopedSongs: List<Song>? = null,
+    pageTitle: String = "歌曲",
+    onBack: (() -> Unit)? = null,
+    showSearch: Boolean = true,
 ) {
     val scheme = MiuixTheme.colorScheme
-    val songs by viewModel.songs.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+    val librarySongs = if (scopedSongs == null) viewModel.songs.collectAsState().value else emptyList()
+    val songs = remember(scopedSongs, librarySongs, searchQuery) {
+        if (scopedSongs == null) librarySongs else {
+            val query = searchQuery.trim()
+            if (query.isEmpty()) scopedSongs else scopedSongs.filter { song ->
+                song.title.contains(query, ignoreCase = true) ||
+                    song.artist?.contains(query, ignoreCase = true) == true ||
+                    song.album?.contains(query, ignoreCase = true) == true
+            }
+        }
+    }
     val deleteErrors by viewModel.deleteErrors.collectAsState()
 
     // 批量删除部分失败时提示（消费后清零，避免重组重复提示）
@@ -145,7 +160,6 @@ fun SongsPage(
 
     // ---- 页面状态 ----
     var isSearching by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
     var isMultiSelect by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(emptySet<String>()) }
     var actionSong by remember { mutableStateOf<Song?>(null) }
@@ -153,7 +167,7 @@ fun SongsPage(
     fun exitSearch() {
         isSearching = false
         searchQuery = ""
-        viewModel.updateSearchQuery("")
+        if (scopedSongs == null) viewModel.updateSearchQuery("")
     }
 
     fun exitMultiSelect() {
@@ -178,15 +192,18 @@ fun SongsPage(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             MusesTopBar(
-                title = "歌曲",
+                title = pageTitle,
+                onBack = onBack,
                 visible = showTopBar,
                 actions = {
-                    MusesIconButton(onClick = {
-                        isSearching = true
-                        searchQuery = ""
-                        if (isMultiSelect) exitMultiSelect()
-                    }) {
-                        Icon(TablerIcons.Search, contentDescription = "搜索歌曲")
+                    if (showSearch) {
+                        MusesIconButton(onClick = {
+                            isSearching = true
+                            searchQuery = ""
+                            if (isMultiSelect) exitMultiSelect()
+                        }) {
+                            Icon(TablerIcons.Search, contentDescription = "搜索歌曲")
+                        }
                     }
                 },
                 bottomContent = {
@@ -271,7 +288,7 @@ fun SongsPage(
                                         value = searchQuery,
                                         onValueChange = {
                                             searchQuery = it
-                                            viewModel.updateSearchQuery(it)
+                                            if (scopedSongs == null) viewModel.updateSearchQuery(it)
                                         },
                                         singleLine = true,
                                         textStyle = MiuixTheme.textStyles.body1.copy(color = scheme.onBackground),
@@ -471,22 +488,10 @@ fun SongsPage(
 
 
     // ---- ⋮ 动作单（m-actions）----
-    val currentId = actionSong?.id
-    MusesActionsSheet(
-        opened = actionSong != null,
+    MusesSongActionsSheet(
+        songId = actionSong?.id,
         onDismiss = { actionSong = null },
-        label = "歌曲操作",
-        items = listOf(
-            MusesActionItem(label = "加入待刮削", onClick = {
-                val ids = listOfNotNull(currentId)
-                if (ids.isNotEmpty()) doEnqueue(ids)
-                actionSong = null
-            }),
-            MusesActionItem(label = "添加到队列", onClick = {
-                // TODO(P2b)：PlayerConnection 补 addToQueue 后接线
-                actionSong = null
-            }),
-        ),
+        onEnqueueScrape = onEnqueueScrape,
     )
 
     // ---- 多选底部操作条（.songs-page__multibar）：内容层底部浮层，位于停靠迷你条之上 ----

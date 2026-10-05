@@ -1,6 +1,7 @@
 package com.muses.player.feature.player
 
 import com.muses.player.core.ui.components.MusesBottomSheet
+import com.muses.player.core.ui.components.MusesDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.muses.player.core.playback.PlaybackStates
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Icon
@@ -35,6 +37,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -49,10 +52,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
@@ -84,11 +85,16 @@ import com.muses.player.core.ui.components.LocalPlayerContentColor
 import com.muses.player.core.ui.components.PlayerModeBar
 import com.muses.player.core.ui.components.PlayerProgress
 import com.muses.player.core.ui.components.MusesIconButton
+import com.muses.player.core.ui.components.MusesIconButtonSize
+import com.muses.player.core.ui.components.MusesListRow
+import com.muses.player.core.ui.components.MusesCover
+import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.feature.player.backdrop.FlowingLightBackdrop
 import com.muses.player.feature.player.lyric.AmllLyricLine
 import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.feature.player.lyric.LyricsPanel
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlin.math.abs
@@ -1197,7 +1203,43 @@ fun QueueScreen(
     val queue by viewModel.queueRows.collectAsStateWithLifecycle()
     val currentId by viewModel.currentSongId.collectAsStateWithLifecycle()
     val currentIndex = queue.indexOfFirst { it.songId == currentId }
+    var showClearConfirmation by remember { mutableStateOf(false) }
     val scheme = MiuixTheme.colorScheme
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var scrollSettled by remember { mutableStateOf(true) }
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            scrollSettled = false
+        } else {
+            delay(300)
+            scrollSettled = true
+        }
+    }
+    val showJumpButton by remember(currentIndex) {
+        derivedStateOf {
+            currentIndex >= 0 && scrollSettled && listState.layoutInfo.visibleItemsInfo.none {
+                it.index == currentIndex &&
+                    it.offset < listState.layoutInfo.viewportEndOffset &&
+                    it.offset + it.size > listState.layoutInfo.viewportStartOffset
+            }
+        }
+    }
+
+    if (showClearConfirmation) {
+        MusesDialog(
+            onDismiss = { showClearConfirmation = false },
+            title = "清空播放队列",
+            message = "确定清空播放队列吗？",
+            dismissText = "取消",
+            confirmText = "确定",
+            confirmEnabled = queue.isNotEmpty(),
+            onConfirm = {
+                showClearConfirmation = false
+                viewModel.clearQueue()
+            },
+        )
+    }
 
     // 统一封装：miuix OverlayBottomSheet（遮罩/圆角/动画走官方）
     MusesBottomSheet(
@@ -1208,14 +1250,27 @@ fun QueueScreen(
         Column(
             modifier = Modifier.fillMaxWidth().fillMaxHeight(0.75f),
         ) {
-            // 操作行（标题已由 sheet 提供，这里只留清空队列）
+            // 当前曲在实际播放队列中的位置与清空操作。
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (queue.isNotEmpty()) {
-                    Icon(TablerIcons.Delete, contentDescription = "清空队列", tint = scheme.onBackground.copy(alpha = 0.8f), modifier = Modifier.size(22.dp).clickable { viewModel.clearQueue() })
+                Text(
+                    text = "${currentIndex + 1} / ${queue.size}",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = scheme.onBackgroundVariant,
+                )
+                MusesIconButton(
+                    onClick = { showClearConfirmation = true },
+                    enabled = queue.isNotEmpty(),
+                    contentDescription = "清空队列",
+                ) {
+                    Text(
+                        text = "清除",
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = scheme.onBackgroundVariant,
+                    )
                 }
             }
 
@@ -1224,29 +1279,56 @@ fun QueueScreen(
                     Text("空空如也~", color = scheme.onBackground.copy(alpha = 0.6f))
                 }
             } else {
-                val surfaceVariant = scheme.surfaceVariant
-                val hairline = scheme.dividerLine
                 // 底部内边距 16dp：弹窗内无迷你条，原 96dp 预留不再需要
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                    itemsIndexed(queue, key = { _, item -> item.songId }, contentType = { _, _ -> "queue" }) { index, item ->
-                        val isCurrent = index == currentIndex
-                        Box(
-                            Modifier.background(if (isCurrent) surfaceVariant else Color.Transparent).drawBehind {
-                                drawRect(color = hairline, topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f))
-                            },
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth().clickable { viewModel.playAtIndex(index) }.padding(horizontal = 16.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(item.title, color = scheme.onBackground, style = MiuixTheme.textStyles.body1, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(item.artist ?: "未知歌手", color = scheme.onBackgroundVariant, style = MiuixTheme.textStyles.footnote1, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = listState,
+                        contentPadding = PaddingValues(bottom = 16.dp),
+                    ) {
+                        itemsIndexed(queue, key = { _, item -> item.songId }, contentType = { _, _ -> "queue" }) { index, item ->
+                            val isCurrent = index == currentIndex
+                            MusesListRow(
+                                title = item.title,
+                                subtitle = "${item.artist ?: "未知艺术家"} - ${item.album ?: "未知专辑"}",
+                                titleColor = if (isCurrent) scheme.primary else null,
+                                subtitleColor = if (isCurrent) scheme.primary else null,
+                                dividers = false,
+                                onClick = { viewModel.playAtIndex(index) },
+                                leading = {
+                                    MusesCover(uri = item.coverUri, size = 54.dp, radius = MusesCoverRadius.SM)
+                                    Spacer(Modifier.width(12.dp))
+                                },
+                                after = {
+                                    MusesIconButton(
+                                        onClick = { viewModel.removeQueueItemAt(index) },
+                                        imageVector = TablerIcons.Close,
+                                        contentDescription = "从队列移除",
+                                        size = MusesIconButtonSize.SM,
+                                        tint = scheme.onBackgroundVariant,
+                                    )
+                                },
+                            )
+                        }
+                    }
+                    if (showJumpButton) {
+                        top.yukonga.miuix.kmp.basic.FloatingActionButton(
+                            onClick = {
+                                if (currentIndex in queue.indices) {
+                                    scope.launch { listState.animateScrollToItem(currentIndex) }
                                 }
-                                Text((index + 1).toString(), color = scheme.onBackgroundVariant, style = MiuixTheme.textStyles.footnote1)
-                                Spacer(Modifier.width(12.dp))
-                                Icon(TablerIcons.Close, contentDescription = "从队列删除", tint = scheme.onBackgroundVariant, modifier = Modifier.size(18.dp).clickable { viewModel.removeQueueItemAt(index) })
-                            }
+                            },
+                            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                            minWidth = 44.dp,
+                            minHeight = 44.dp,
+                            containerColor = scheme.surfaceVariant,
+                        ) {
+                            Icon(
+                                TablerIcons.MyLocation,
+                                contentDescription = "跳转到当前播放",
+                                tint = scheme.onBackgroundVariant,
+                                modifier = Modifier.size(20.dp),
+                            )
                         }
                     }
                 }

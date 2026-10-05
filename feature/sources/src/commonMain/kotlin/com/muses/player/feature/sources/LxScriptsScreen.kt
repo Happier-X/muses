@@ -83,7 +83,7 @@ fun LxScriptsScreen(
     val filePicker = rememberLxScriptFilePicker { viewModel.stageImport(it); showImportSheet = true }
     val importUrl = rememberLxScriptUrlImporter { result ->
         fetchingUrl = false
-        result.fold(onSuccess = { viewModel.importFromUrlContent(it) }, onFailure = {
+        result.fold(onSuccess = { viewModel.importFromUrlContent(it, sourceUrl = scriptUrl) }, onFailure = {
             showUrlDialog = false
             MusesSnackbar.show(it.message ?: "下载脚本失败")
         })

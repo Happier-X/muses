@@ -160,6 +160,11 @@ class PlayerConnection constructor(
         }
 
         override fun onEvents(player: Player, events: Player.Events) {
+            if (events.contains(Player.EVENT_TIMELINE_CHANGED) ||
+                events.contains(Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED)
+            ) {
+                syncQueue(player)
+            }
             // 同步 duration：ExoPlayer 对 WebDAV/Range 流播在缓冲足够后才会给出时长
             // （通知栏有总时长 = 服务端已算出；app 进程必须实时同步，否则沉浸页恒 --:--）
             if (events.contains(Player.EVENT_TIMELINE_CHANGED) ||
@@ -289,13 +294,19 @@ class PlayerConnection constructor(
 
     /** 选中并播放队列中第 index 项 */
     override fun playAtIndex(index: Int) {
-        controller?.seekTo(index, 0)
-        controller?.playWhenReady = true
+        val player = controller ?: return
+        val mediaIndex = player.currentTimeline.playbackQueueIndices(player.shuffleModeEnabled)
+            .getOrNull(index) ?: return
+        player.seekTo(mediaIndex, 0)
+        player.playWhenReady = true
     }
 
     /** 移除队列中第 index 项 */
     override fun removeQueueItemAt(index: Int) {
-        controller?.removeMediaItem(index)
+        val player = controller ?: return
+        val mediaIndex = player.currentTimeline.playbackQueueIndices(player.shuffleModeEnabled)
+            .getOrNull(index) ?: return
+        player.removeMediaItem(mediaIndex)
     }
 
     /** 清空队列 */
@@ -330,9 +341,8 @@ class PlayerConnection constructor(
             val count = c.mediaItemCount
             if (count <= 1) { c.seekTo(0); return@let }
             val idx = c.currentMediaItemIndex
-            val target = (idx + 1) % count
-            android.util.Log.w("PlayerConnection", "skipNext circular idx=$idx count=$count -> $target")
-            c.seekTo(target, 0)
+            val target = c.currentTimeline.getNextWindowIndex(idx, Player.REPEAT_MODE_ALL, c.shuffleModeEnabled)
+            if (target != C.INDEX_UNSET) c.seekTo(target, 0)
         }
     }
 
@@ -341,9 +351,8 @@ class PlayerConnection constructor(
             val count = c.mediaItemCount
             if (count <= 1) { c.seekTo(0); return@let }
             val idx = c.currentMediaItemIndex
-            val target = (idx - 1 + count) % count
-            android.util.Log.w("PlayerConnection", "skipPrev circular idx=$idx count=$count -> $target")
-            c.seekTo(target, 0)
+            val target = c.currentTimeline.getPreviousWindowIndex(idx, Player.REPEAT_MODE_ALL, c.shuffleModeEnabled)
+            if (target != C.INDEX_UNSET) c.seekTo(target, 0)
         }
     }
 
@@ -390,8 +399,14 @@ class PlayerConnection constructor(
             album = meta.albumTitle?.toString()?.trim()?.takeIf { it.isNotEmpty() },
             coverUri = meta.artworkUri?.toString(),
         )
-        _queueSongIds.value = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
-        _queue.value = (0 until player.mediaItemCount).map { player.getMediaItemAt(it) }
+        syncQueue(player)
+    }
+
+    private fun syncQueue(player: Player) {
+        val items = player.currentTimeline.playbackQueueIndices(player.shuffleModeEnabled)
+            .map { player.getMediaItemAt(it) }
+        _queue.value = items
+        _queueSongIds.value = items.map { it.mediaId }
     }
 
     private fun syncState(player: MediaController) {
@@ -416,11 +431,10 @@ class PlayerConnection constructor(
             album = meta.albumTitle?.toString()?.trim()?.takeIf { it.isNotEmpty() },
             coverUri = meta.artworkUri?.toString(),
         )
-        _queueSongIds.value = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+        syncQueue(player)
         _position.value = player.currentPosition
         _duration.value = if (player.duration > 0) player.duration else 0L
         _playbackState.value = player.playbackState
-        _queue.value = (0 until player.mediaItemCount).map { player.getMediaItemAt(it) }
         _repeatMode.value = player.repeatMode
         _shuffleModeEnabled.value = player.shuffleModeEnabled
     }

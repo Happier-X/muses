@@ -189,10 +189,12 @@ fun SourcesScreen(
                     sourceActionsTarget = null
                     viewModel.confirmDelete(source)
                 })
-                add(MusesActionItem(label = "扫描") {
-                    sourceActionsTarget = null
-                    viewModel.openScanSettings(source)
-                })
+                if (source.type != SourceType.ONLINE) {
+                    add(MusesActionItem(label = "扫描") {
+                        sourceActionsTarget = null
+                        viewModel.openScanSettings(source)
+                    })
+                }
             },
         )
     }

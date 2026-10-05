@@ -475,9 +475,12 @@ private fun MusesAppContent() {
         // 融合态（CompactPlayerDock）与展开态各有一个实例，两者都要上报，缺一会拿到过期矩形。
         var miniBarBounds by remember { mutableStateOf<Rect?>(null) }
         var showQueueOverlay by remember { mutableStateOf(false) }
+        var playerActionSongId by remember { mutableStateOf<String?>(null) }
         var showEditMeta by remember { mutableStateOf(false) }
         val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
+        val currentSongId by playerVm.currentSongId.collectAsState()
         val currentSong by playerVm.currentSong.collectAsState()
+        val scrapeQueueVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = koinViewModel()
 
         // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
         val snackbarHostState = remember { SnackbarHostState() }
@@ -706,7 +709,7 @@ private fun MusesAppContent() {
                     ImmersivePlayerOverlay(
                         playerProgress = playerProgress,
                         readPlayerProgress = { playerProgressState.value },
-                        sheetOpen = showEditMeta || showQueueOverlay,
+                        sheetOpen = playerActionSongId != null || showQueueOverlay || showEditMeta,
                         miniBarBounds = miniBarBounds,
                         miniPlayerLyricsEnabled = miniPlayerLyricsEnabled,
                         currentLyricLine = currentLyricLine,
@@ -716,7 +719,7 @@ private fun MusesAppContent() {
                         onOpenPlayer = { openPlayer() },
                         onTogglePlayback = { viewModel.playPause() },
                         onOpenQueue = { showQueueOverlay = true },
-                        onOpenEditMeta = { showEditMeta = true },
+                        onOpenEditMeta = { playerActionSongId = currentSongId },
                         onNext = { viewModel.skipToNext() },
                         onPrevious = { viewModel.skipToPrevious() },
                         onSeekCollapse = { fraction -> seekPlayerTo(fraction) },
@@ -725,6 +728,12 @@ private fun MusesAppContent() {
                     if (showQueueOverlay) {
                         QueueScreen(onClose = { showQueueOverlay = false })
                     }
+                    com.muses.player.core.ui.components.MusesSongActionsSheet(
+                        songId = playerActionSongId,
+                        onDismiss = { playerActionSongId = null },
+                        onEnqueueScrape = scrapeQueueVm::enqueue,
+                        onEditSong = if (currentSong != null) ({ showEditMeta = true }) else null,
+                    )
                     if (showEditMeta) {
                         com.muses.player.feature.scrape.EditMetaSheet(
                             song = currentSong?.toDomain(),
@@ -954,19 +963,22 @@ private fun AppNavHost(
         }
         entry<MusesRoute.AlbumDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
             val playerConnection = koinViewModel<com.muses.player.feature.player.PlayerViewModel>().playback
+            val scrapeQueueVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = koinViewModel()
             AlbumDetailScreen(
                 albumId = route.albumId,
                 onBack = { backStack.pop() },
-                // U9：播放连接经回调注入（详情屏已上收 commonMain，不再依赖 core:media）
-                onPlaySong = { songId, songs -> playerConnection.play(songId, songs) },
+                playback = playerConnection,
+                onEnqueueScrape = scrapeQueueVm::enqueue,
             )
         }
         entry<MusesRoute.ArtistDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
             val playerConnection = koinViewModel<com.muses.player.feature.player.PlayerViewModel>().playback
+            val scrapeQueueVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = koinViewModel()
             ArtistDetailScreen(
                 artistId = route.artistId,
                 onBack = { backStack.pop() },
-                onPlaySong = { songId, songs -> playerConnection.play(songId, songs) },
+                playback = playerConnection,
+                onEnqueueScrape = scrapeQueueVm::enqueue,
             )
         }
         // 刮削页随 M3 复刻（VM 由宿主直持传入；原 ScrapeScreen 内 koinViewModel() entry 作用域已改显式注入）

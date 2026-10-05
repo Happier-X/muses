@@ -46,7 +46,7 @@ fun LxSourceFormScreen(
     val validation by viewModel.importValidation.collectAsState()
     var name by remember { mutableStateOf("") }
     var nameEdited by remember { mutableStateOf(sourceId != null) }
-    var url by remember { mutableStateOf("") }
+    var url by remember(sourceId) { mutableStateOf("") }
     var urlError by remember { mutableStateOf<String?>(null) }
     var isAdding by remember { mutableStateOf(false) }
     var isInitializing by remember(sourceId) { mutableStateOf(sourceId != null) }
@@ -151,7 +151,7 @@ fun LxSourceFormScreen(
             )
 
             SourceFormInput(
-                label = if (sourceId == null) "脚本 URL" else "替换脚本 URL（可选）",
+                label = "脚本 URL",
                 value = url,
                 modifier = Modifier.fillMaxWidth(),
                 error = urlError,

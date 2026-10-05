@@ -39,7 +39,9 @@ enum class NavDestination(
     fun isActive(key: NavKey?): Boolean = when (this) {
         Home -> key == MusesRoute.Home || key is MusesRoute.ChartDetail
         Search -> key is MusesRoute.OnlineSearch
-        Songs -> key == MusesRoute.Songs
+        Songs -> key == MusesRoute.Songs || key == MusesRoute.Albums ||
+            key == MusesRoute.Artists || key is MusesRoute.AlbumDetail ||
+            key is MusesRoute.ArtistDetail
         Albums -> key == MusesRoute.Albums || key is MusesRoute.AlbumDetail
         Artists -> key == MusesRoute.Artists || key is MusesRoute.ArtistDetail
         Scrape -> key == MusesRoute.Scrape || key is MusesRoute.ScrapeReview

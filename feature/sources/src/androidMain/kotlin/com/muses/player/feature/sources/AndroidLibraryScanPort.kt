@@ -18,13 +18,18 @@ class AndroidLibraryScanPort(
 ) : LibraryScanPort {
 
     override fun progressFor(type: SourceType): Flow<ScanProgress> =
-        if (type == SourceType.WEBDAV) webDavScanner.scanProgress else scanner.scanProgress
+        when (type) {
+            SourceType.LOCAL -> scanner.scanProgress
+            SourceType.WEBDAV -> webDavScanner.scanProgress
+            SourceType.ONLINE -> error("LX 在线音源不支持曲库扫描")
+        }
 
     override suspend fun scan(source: Source, readTags: Boolean): List<com.muses.player.core.model.Song> =
-        if (source.type == SourceType.WEBDAV) {
-            webDavScanner.scan(source)   // WebDAV：纯文件名建库，标签播放时懒扫描
-        } else {
-            scanner.scan(source, readTags = readTags)
+        when (source.type) {
+            SourceType.LOCAL -> scanner.scan(source, readTags = readTags)
+            // WebDAV：纯文件名建库，标签播放时懒扫描
+            SourceType.WEBDAV -> webDavScanner.scan(source)
+            SourceType.ONLINE -> error("LX 在线音源不支持曲库扫描")
         }
 }
 

@@ -505,13 +505,14 @@ class PlaybackService : MediaSessionService() {
             if (failedId != null) {
                 recoveryController.markAttempted(failedId)
             }
-            val order = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
-            val candidateIndex = recoveryController.selectNextCandidate(order, player.currentMediaItemIndex)
+            val mediaIndices = player.currentTimeline.playbackQueueIndices(player.shuffleModeEnabled)
+            val order = mediaIndices.map { player.getMediaItemAt(it).mediaId }
+            val candidateIndex = recoveryController.selectNextCandidate(order, mediaIndices.indexOf(player.currentMediaItemIndex))
             if (candidateIndex != null) {
                 recoveryController.recordAttempt(order[candidateIndex])
                 recoveryController.clearError()
                 // 继续恢复时不清媒体会话，避免异步 clear 覆盖下一首刚写入的 metadata
-                player.seekTo(candidateIndex, 0)
+                player.seekTo(mediaIndices[candidateIndex], 0)
                 player.prepare()
                 player.playWhenReady = true
             } else {

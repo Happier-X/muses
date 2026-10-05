@@ -135,20 +135,17 @@ fun AlbumsPage(
                                 fontWeight = FontWeight.SemiBold,
                                 lineHeight = (17 * 1.3).sp,
                                 color = scheme.onBackground,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = "${card.album.songCount} 首歌曲",
-                                style = MiuixTheme.textStyles.footnote1,
-                                lineHeight = (13 * 1.35).sp,
-                                color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = card.album.artist ?: "",
+                                text = listOfNotNull(
+                                    "${card.album.songCount} 首",
+                                    card.album.year?.takeIf { it > 0 }?.toString(),
+                                    card.album.artist?.takeIf { it.isNotBlank() },
+                                ).joinToString(" "),
                                 style = MiuixTheme.textStyles.footnote1,
+                                lineHeight = (13 * 1.35).sp,
                                 color = scheme.onBackgroundVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -244,7 +241,7 @@ fun ArtistsPage(
                                 fontWeight = FontWeight.SemiBold,
                                 lineHeight = (17 * 1.3).sp,
                                 color = scheme.onBackground,
-                                maxLines = 2,
+                                maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth(),

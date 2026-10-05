@@ -33,6 +33,7 @@ import com.muses.player.core.data.mapper.toDomain
 import com.muses.player.core.model.Album
 import com.muses.player.core.model.Artist
 import com.muses.player.core.model.Song
+import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.LibraryAlbumGrid
 import com.muses.player.core.ui.components.LibraryAlbumItem
 import com.muses.player.core.ui.components.LibraryArtistGrid
@@ -207,35 +208,22 @@ fun AlbumDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AlbumDetailViewModel = koinViewModel(),
-    onPlaySong: (String, List<Song>) -> Unit = { _, _ -> },
+    playback: PlaybackPort? = null,
+    onEnqueueScrape: (List<String>) -> Unit = {},
 ) {
     LaunchedEffect(albumId) { viewModel.bind(albumId) }
     val albumWithSongs by viewModel.albumWithSongs.collectAsState()
 
     val songs = albumWithSongs?.songs?.map { it.toDomain() }.orEmpty()
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = MiuixTheme.colorScheme.surface,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            // MusesNavbar：左返回箭头（对照 Web LibraryDetailPage navbar）→ 原生小顶栏
-            MusesTopBar(
-                title = albumWithSongs?.album?.title ?: "专辑",
-                onBack = onBack,
-            )
-        },
-    ) { padding ->
-        LibrarySongList(
-            songs = songs.map { it.toSongItem() },
-            currentSongId = null,
-            onPlay = { songId -> onPlaySong(songId, songs) },
-            // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
-            contentPadding = PaddingValues(
-                bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
-            ),
-            modifier = Modifier.fillMaxSize().padding(padding),
-        )
-    }
+    SongsPage(
+        playback = playback,
+        onEnqueueScrape = onEnqueueScrape,
+        modifier = modifier,
+        scopedSongs = songs,
+        pageTitle = albumWithSongs?.album?.title ?: "专辑",
+        showSearch = false,
+        onBack = onBack,
+    )
 }
 
 // ── 艺术家列表 ──────────────────────────────────────────
@@ -269,34 +257,22 @@ fun ArtistDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ArtistDetailViewModel = koinViewModel(),
-    onPlaySong: (String, List<Song>) -> Unit = { _, _ -> },
+    playback: PlaybackPort? = null,
+    onEnqueueScrape: (List<String>) -> Unit = {},
 ) {
     LaunchedEffect(artistId) { viewModel.bind(artistId) }
     val artistWithSongs by viewModel.artistWithSongs.collectAsState()
 
     val songs = artistWithSongs?.songs?.map { it.toDomain() }.orEmpty()
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = MiuixTheme.colorScheme.surface,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            MusesTopBar(
-                title = artistWithSongs?.artist?.name ?: "艺术家",
-                onBack = onBack,
-            )
-        },
-    ) { padding ->
-        LibrarySongList(
-            songs = songs.map { it.toSongItem() },
-            currentSongId = null,
-            onPlay = { songId -> onPlaySong(songId, songs) },
-            // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
-            contentPadding = PaddingValues(
-                bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
-            ),
-            modifier = Modifier.fillMaxSize().padding(padding),
-        )
-    }
+    SongsPage(
+        playback = playback,
+        onEnqueueScrape = onEnqueueScrape,
+        modifier = modifier,
+        scopedSongs = songs,
+        pageTitle = artistWithSongs?.artist?.name ?: "艺术家",
+        showSearch = false,
+        onBack = onBack,
+    )
 }
 
 // ── 空态提示 ──────────────────────────────────────────

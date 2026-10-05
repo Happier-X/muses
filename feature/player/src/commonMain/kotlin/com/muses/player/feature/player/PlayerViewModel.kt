@@ -47,6 +47,8 @@ data class QueueRow(
     val songId: String,
     val title: String,
     val artist: String?,
+    val album: String? = null,
+    val coverUri: String? = null,
 )
 
 /**
@@ -137,9 +139,19 @@ class PlayerViewModel constructor(
     val queueRows: StateFlow<List<QueueRow>> = playback.queueSongIds
         .flatMapLatest { ids ->
             if (ids.isEmpty()) flowOf(emptyList())
-            else songDao.observeByIds(ids).map { list ->
+            else combine(songDao.observeByIds(ids), OnlineTrackSession.snapshot) { list, online ->
                 val byId = list.associateBy { it.id }
-                ids.mapNotNull { id -> byId[id]?.let { e -> QueueRow(e.id, e.title, e.artist) } }
+                ids.map { id ->
+                    val local = byId[id]
+                    val remote = online[id]
+                    QueueRow(
+                        songId = id,
+                        title = local?.title ?: remote?.title ?: "未知歌曲",
+                        artist = local?.artist ?: remote?.artist,
+                        album = local?.albumTitle ?: remote?.album,
+                        coverUri = local?.coverUri ?: remote?.coverUri,
+                    )
+                }
             }
         }
         .distinctUntilChanged()

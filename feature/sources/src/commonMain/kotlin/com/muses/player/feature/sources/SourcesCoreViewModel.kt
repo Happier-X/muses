@@ -133,6 +133,7 @@ class SourcesViewModel constructor(
 
     /** 打开「扫描设置」弹窗；WebDAV 无选项（标签改由播放懒扫描）直接开扫，仅本地源弹窗 */
     fun openScanSettings(source: Source) {
+        if (source.type == SourceType.ONLINE) return
         pendingScanSource = source
         if (source.type == SourceType.WEBDAV) {
             startScan()

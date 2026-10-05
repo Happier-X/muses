@@ -51,7 +51,7 @@ interface PlaybackPort : PlayerPort {
 
     val duration: StateFlow<Long>
 
-    /** 当前队列（仅 songId 有序集） */
+    /** 当前队列的实际播放顺序（随机播放时为洗牌序）；队列索引操作均使用此顺序。 */
     val queueSongIds: StateFlow<List<String>>
 
     // ── 写侧 ──

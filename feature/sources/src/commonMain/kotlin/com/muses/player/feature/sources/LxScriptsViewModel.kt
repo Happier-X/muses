@@ -91,7 +91,7 @@ class LxScriptsViewModel(
         _urlImportStatus.value = LxUrlImportStatus.Idle
     }
 
-    fun importFromUrlContent(source: String) {
+    fun importFromUrlContent(source: String, sourceUrl: String) {
         viewModelScope.launch {
             _urlImportStatus.value = LxUrlImportStatus.Importing
             try {
@@ -99,7 +99,7 @@ class LxScriptsViewModel(
                 val descriptor = repository.validate(source)
                 require(descriptor.sources.isNotEmpty()) { "脚本未声明任何音源，无法导入。" }
                 val id = generateScriptId(source)
-                store.save(id = id, source = source, enabled = true)
+                store.save(id = id, source = source, enabled = true, sourceUrl = sourceUrl.trim())
                 repository.register(id, source)
                 val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
                 sourceRepository.upsert(
