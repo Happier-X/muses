@@ -83,27 +83,29 @@ fun SongSubtitleWithQuality(
     }
 }
 
-/** 参考椒盐音乐各档位配色，HQ / SQ 使用紧凑的几何字形。 */
+/** 音质与格式标签共用紧凑字标；格式标签只表示格式，不据此推断音质。 */
 @Composable
 private fun SongQualityBadge(label: String) {
     val dark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
-    val foreground = when (label) {
-        "HQ" -> if (dark) Color(0xFFF3E9E0) else Color(0xFF9C6538)
-        "SQ" -> if (dark) Color(0xFFE0F2F3) else Color(0xFF2D7AA8)
-        "Hi-Res" -> if (dark) Color(0xFFF9F9F9) else Color.Black
-        else -> MiuixTheme.colorScheme.onSurfaceVariantSummary
+    // 颜色只按确认的音质分档，格式相同的文件可能具有不同音质。
+    val (lightForeground, lightBackground) = when (label) {
+        "HQ" -> Color(0xFF9C6538) to Color(0xFFF3E9E0)
+        "SQ" -> Color(0xFF2D7AA8) to Color(0xFFE0F2F3)
+        "Hi-Res" -> Color.Black to Color(0xFFFFE793)
+        else -> Color(0xFF62666C) to Color(0xFFE7E9EC)
     }
-    val background = when (label) {
-        "HQ" -> if (dark) Color(0xFF9C6538) else Color(0xFFF3E9E0)
-        "SQ" -> if (dark) Color(0xFF2D7AA8) else Color(0xFFE0F2F3)
-        else -> foreground.copy(alpha = if (dark) 0.16f else 0.09f)
-    }
+    val foreground = if (dark) {
+        if (label == "Hi-Res") Color(0xFFF9F9F9) else lightBackground
+    } else lightForeground
+    val background = if (dark) {
+        if (label == "HQ" || label == "SQ") lightForeground else Color(0xFF3C4047)
+    } else lightBackground
     val fill = if (label == "Hi-Res") {
         Brush.linearGradient(if (dark) listOf(Color(0xFFE7BA1C), Color(0xFFE4AC0F))
             else listOf(Color(0xFFFFE793), Color(0xFFF6CE5B)))
     } else Brush.linearGradient(listOf(background, background))
     Box(
-        // 字体的可见字形中心略低于行框中心，补偿后与副标题视觉居中。
+        // 副标题的可见字形略低于行框中心，字标随之下移以保持视觉居中。
         modifier = Modifier.offset(y = 1.dp).clip(RoundedCornerShape(2.dp))
             .background(fill)
             .padding(horizontal = 3.dp, vertical = 2.dp),
@@ -133,6 +135,8 @@ private fun SongQualityBadge(label: String) {
                 }
                 drawPath(letters, foreground, style = Stroke(width = 1.4f * sx))
             }
+        } else if (label == "FLAC" || label == "MP3") {
+            FormatWordmark(label, foreground)
         } else {
             Text(if (label == "Hi-Res") "HR" else label,
                 modifier = Modifier.semantics { contentDescription = label },
@@ -141,5 +145,52 @@ private fun SongQualityBadge(label: String) {
                     fontWeight = if (label == "Hi-Res") FontWeight.Medium else FontWeight.Bold),
                 color = foreground, maxLines = 1)
         }
+    }
+}
+
+/** 与 HQ / SQ 一致的几何字形，避免普通字体的上下留白影响标签对齐。 */
+@Composable
+private fun FormatWordmark(label: String, color: Color) {
+    val width = label.length * 7f - 2f
+    Canvas(Modifier.size((width * 0.7f).dp, 7.dp).semantics { contentDescription = label }) {
+        val sx = size.width / width
+        val sy = size.height / 10f
+        val letters = Path().apply {
+            label.forEachIndexed { index, character ->
+                val origin = index * 7f
+                fun move(x: Float, y: Float) = moveTo((origin + x) * sx, y * sy)
+                fun line(x: Float, y: Float) = lineTo((origin + x) * sx, y * sy)
+                when (character) {
+                    'F' -> {
+                        move(5f, 1f); line(0.7f, 1f); line(0.7f, 9f)
+                        move(0.7f, 5f); line(4.5f, 5f)
+                    }
+                    'L' -> { move(0.7f, 1f); line(0.7f, 9f); line(5f, 9f) }
+                    'A' -> {
+                        move(0.7f, 9f); line(0.7f, 2f); line(1.7f, 1f)
+                        line(4f, 1f); line(5f, 2f); line(5f, 9f)
+                        move(0.7f, 5.5f); line(5f, 5.5f)
+                    }
+                    'C' -> {
+                        move(5f, 1f); line(1.7f, 1f); line(0.7f, 2f)
+                        line(0.7f, 8f); line(1.7f, 9f); line(5f, 9f)
+                    }
+                    'M' -> {
+                        move(0.7f, 9f); line(0.7f, 1f); line(2.85f, 4.5f)
+                        line(5f, 1f); line(5f, 9f)
+                    }
+                    'P' -> {
+                        move(0.7f, 9f); line(0.7f, 1f); line(4f, 1f)
+                        line(5f, 2f); line(5f, 4f); line(4f, 5f); line(0.7f, 5f)
+                    }
+                    '3' -> {
+                        move(0.7f, 1f); line(4f, 1f); line(5f, 2f)
+                        line(5f, 8f); line(4f, 9f); line(0.7f, 9f)
+                        move(2f, 5f); line(5f, 5f)
+                    }
+                }
+            }
+        }
+        drawPath(letters, color, style = Stroke(width = 1.4f * sx))
     }
 }
