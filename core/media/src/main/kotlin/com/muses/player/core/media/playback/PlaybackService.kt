@@ -559,6 +559,7 @@ class PlaybackService : MediaSessionService() {
         MediaItem.Builder()
             .setMediaId(song.id)
             .setUri(song.path.toUri())
+            .setRequestMetadata(PlaybackSourceMetadata.requestMetadata(song.sourceType))
             .setMediaMetadata(
                 androidx.media3.common.MediaMetadata.Builder()
                     .setTitle(song.title)
@@ -603,23 +604,32 @@ class PlaybackService : MediaSessionService() {
          */
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
             val player = mediaSession?.player ?: return
+            val sourceType = PlaybackSourceMetadata.sourceType(player.currentMediaItem)
+            val httpCode = PlaybackErrorCopy.httpResponseCode(error)
+            val errorCopy = PlaybackErrorCopy.copyFor(error.errorCode, sourceType, httpCode)
+            val onlineRef = com.muses.player.core.model.online.OnlineTrackRef.parse(
+                player.currentMediaItem?.localConfiguration?.uri?.toString(),
+            )
 
             // R2 埋点：播放失败留痕（含限流/恢复链分支），供设置页复制反馈
             errorLogStore.log(
                 ErrorLogStore.Level.ERROR,
                 "Playback",
-                "播放失败：${PlaybackErrorCopy.copyFor(error)}（code=${error.errorCode}）",
+                "播放失败：$errorCopy（code=${error.errorCode}, source=${sourceType?.name ?: "UNKNOWN"}, http=${httpCode ?: "无"}）" +
+                    " 歌曲=${player.currentMediaItem?.mediaMetadata?.title ?: "未知"}" +
+                    " 请求平台=${onlineRef?.platform ?: "无"}" +
+                    " 脚本音源=${onlineRef?.sourceId ?: "无"}" +
+                    " 服务器=${PlaybackErrorCopy.httpRequestHost(error) ?: "未知"}",
                 error,
             )
 
             // 服务级拒绝（限流 429 / 网关故障 5xx）：服务器整体不可用，跳歌只会继续撞墙
             // 并持续触发请求加重限流（实测 465 首队列轮询切歌）——直接停止，等用户手动重试。
-            val httpCode = PlaybackErrorCopy.httpResponseCode(error)
             if (httpCode == 429) {
                 errorLogStore.log(
                     ErrorLogStore.Level.WARN,
                     "Playback",
-                    "触发限流 429（WebDAV 播放）url=${player.currentMediaItem?.localConfiguration?.uri}",
+                    "触发限流 429（source=${sourceType?.name ?: "UNKNOWN"}）",
                     error,
                 )
                 player.stop()
@@ -628,7 +638,7 @@ class PlaybackService : MediaSessionService() {
             }
             if (httpCode in 500..599) {
                 player.stop()
-                recoveryController.setError(PlaybackErrorCopy.RATE_LIMITED_ERROR)
+                recoveryController.setError(errorCopy)
                 return
             }
 
@@ -647,7 +657,7 @@ class PlaybackService : MediaSessionService() {
                 player.prepare()
                 player.playWhenReady = true
             } else {
-                recoveryController.setError(PlaybackErrorCopy.copyFor(error))
+                recoveryController.setError(errorCopy)
             }
         }
 

@@ -1,6 +1,7 @@
 package com.muses.player.core.media.playback
 
 import androidx.media3.common.PlaybackException
+import com.muses.player.core.model.SourceType
 
 /**
  * 安全错误文案映射（规格书 = src/features/player/controller.ts SAFE_PLAYBACK_ERRORS +
@@ -22,6 +23,12 @@ object PlaybackErrorCopy {
         "音频文件不存在或已失效，请重新扫描音源。",
         "播放失败，请检查音频文件或网络连接。",
         "触发限流，稍后重试",
+        "播放服务器暂时不可用，请稍后重试。",
+        "在线音源拒绝播放请求，请重试或更换音源脚本。",
+        "在线音源播放链接已失效，请重试或更换音源脚本。",
+        "播放服务器拒绝访问，请检查音源或稍后重试。",
+        "音频文件不存在或播放链接已失效，请重试。",
+        "播放请求失败，请检查音源或稍后重试。",
     )
 
     const val DEFAULT_ERROR = "播放失败，请稍后重试。"
@@ -41,12 +48,34 @@ object PlaybackErrorCopy {
      * - 文件缺失/读取失败类 → 「音频文件不存在或已失效…」
      * - 权限/不可访问类 → 本地文件两条文案
      * - 网络连接类 → 「播放失败，请检查音频文件或网络连接。」
-     * - 认证失败类 → 「WebDAV 认证失败…」
+     * - HTTP 失败按实际音源和状态码分类，只有 WebDAV 的认证错误才提示检查账号。
      */
-    fun copyFor(error: PlaybackException): String = copyFor(error.errorCode)
+    fun copyFor(error: PlaybackException): String =
+        copyFor(error.errorCode, httpCode = httpResponseCode(error))
 
     /** 纯错误码版本：便于 JVM 单测（构造 PlaybackException 需 SystemClock） */
-    fun copyFor(code: Int): String {
+    fun copyFor(code: Int, sourceType: SourceType? = null, httpCode: Int? = null): String {
+        if (code == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
+            code == PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED
+        ) {
+            return when {
+                httpCode == 429 -> RATE_LIMITED_RETRY
+                httpCode in 500..599 -> "播放服务器暂时不可用，请稍后重试。"
+                sourceType == SourceType.WEBDAV &&
+                    (httpCode == 401 || httpCode == 403 ||
+                        code == PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED) ->
+                    "WebDAV 认证失败，请检查账号或重新添加音源。"
+                sourceType == SourceType.ONLINE && (httpCode == 401 || httpCode == 403) ->
+                    "在线音源拒绝播放请求，请重试或更换音源脚本。"
+                sourceType == SourceType.ONLINE && (httpCode == 404 || httpCode == 410) ->
+                    "在线音源播放链接已失效，请重试或更换音源脚本。"
+                httpCode == 401 || httpCode == 403 ->
+                    "播放服务器拒绝访问，请检查音源或稍后重试。"
+                httpCode == 404 || httpCode == 410 ->
+                    "音频文件不存在或播放链接已失效，请重试。"
+                else -> "播放请求失败，请检查音源或稍后重试。"
+            }
+        }
         return when (code) {
             PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ->
                 "音频文件不存在或已失效，请重新扫描音源。"
@@ -57,9 +86,6 @@ object PlaybackErrorCopy {
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
             PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
             -> "播放失败，请检查音频文件或网络连接。"
-            PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED,
-            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
-            -> "WebDAV 认证失败，请检查账号或重新添加音源。"
             else -> DEFAULT_ERROR
         }
     }
@@ -73,10 +99,19 @@ object PlaybackErrorCopy {
      * 用于区分「单曲问题（4xx 跳歌恢复）」与「服务整体拒绝（429/5xx 停止重试）」。
      */
     fun httpResponseCode(error: PlaybackException): Int? {
+        return httpResponseError(error)?.responseCode
+    }
+
+    /** 只记录域名，不输出可能含签名或凭据的完整播放地址。 */
+    fun httpRequestHost(error: PlaybackException): String? =
+        httpResponseError(error)?.dataSpec?.uri?.host
+
+    private fun httpResponseError(error: PlaybackException):
+        androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException? {
         var cause: Throwable? = error.cause
         while (cause != null) {
             if (cause is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) {
-                return cause.responseCode
+                return cause
             }
             cause = cause.cause
         }

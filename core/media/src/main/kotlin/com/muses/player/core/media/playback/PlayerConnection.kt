@@ -294,6 +294,7 @@ class PlayerConnection constructor(
         return MediaItem.Builder()
             .setMediaId(song.id)
             .setUri(resolveUri(song))
+            .setRequestMetadata(PlaybackSourceMetadata.requestMetadata(song.sourceType))
             .setMediaMetadata(metadata.build())
             .build()
     }

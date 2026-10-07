@@ -17,6 +17,8 @@ class OnlinePlayableUrlProbeTest {
     @Test fun `小范围请求识别音频并拒绝403与错误网页`() = runTest {
         val client = HttpClient(MockEngine { request ->
             assertEquals("bytes=0-0", request.headers[HttpHeaders.Range])
+            assertEquals(com.muses.player.core.model.online.OnlinePlaybackHttp.USER_AGENT,
+                request.headers[HttpHeaders.UserAgent])
             when (request.url.encodedPath) {
                 "/audio" -> respond("a", HttpStatusCode.PartialContent, headersOf(HttpHeaders.ContentType, "audio/mpeg"))
                 "/forbidden" -> respond("denied", HttpStatusCode.Forbidden)

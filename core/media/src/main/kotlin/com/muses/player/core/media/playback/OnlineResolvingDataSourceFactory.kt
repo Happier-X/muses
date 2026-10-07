@@ -6,6 +6,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.ResolvingDataSource
 import com.muses.player.core.model.online.OnlineTrackRef
 import com.muses.player.core.model.online.OnlineTrackResolver
+import com.muses.player.core.model.online.OnlinePlaybackHttp
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -52,5 +53,6 @@ class OnlineResolvingDataSourceFactory(
                 throw timeout
             }
             dataSpec.withUri(Uri.parse(resolved.url))
+                .withRequestHeaders(OnlinePlaybackHttp.requestHeaders(dataSpec.httpRequestHeaders))
         }
 }

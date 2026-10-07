@@ -1,6 +1,7 @@
 package com.muses.player.core.media.playback
 
 import androidx.media3.common.PlaybackException
+import com.muses.player.core.model.SourceType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -79,16 +80,44 @@ class PlaybackErrorCopyTest {
     }
 
     @Test
-    fun `认证与HTTP状态码映射WebDAV认证失败文案`() {
+    fun `无音源信息时认证与HTTP错误不推断为WebDAV`() {
         for (code in intArrayOf(
             PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED,
             PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
         )) {
             assertEquals(
-                "WebDAV 认证失败，请检查账号或重新添加音源。",
+                "播放请求失败，请检查音源或稍后重试。",
                 PlaybackErrorCopy.copyFor(code),
             )
         }
+    }
+
+    @Test
+    fun `同一个403按在线音源和WebDAV分别提示`() {
+        val code = PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
+        assertEquals("在线音源拒绝播放请求，请重试或更换音源脚本。",
+            PlaybackErrorCopy.copyFor(code, SourceType.ONLINE, 403))
+        assertEquals("WebDAV 认证失败，请检查账号或重新添加音源。",
+            PlaybackErrorCopy.copyFor(code, SourceType.WEBDAV, 403))
+        assertEquals("播放服务器拒绝访问，请检查音源或稍后重试。",
+            PlaybackErrorCopy.copyFor(code, httpCode = 403))
+    }
+
+    @Test
+    fun `WebDAV文件缺失和服务异常不能误报认证失败`() {
+        val code = PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
+        assertEquals("音频文件不存在或播放链接已失效，请重试。",
+            PlaybackErrorCopy.copyFor(code, SourceType.WEBDAV, 404))
+        assertEquals(PlaybackErrorCopy.RATE_LIMITED_RETRY,
+            PlaybackErrorCopy.copyFor(code, SourceType.WEBDAV, 429))
+        assertEquals("播放服务器暂时不可用，请稍后重试。",
+            PlaybackErrorCopy.copyFor(code, SourceType.WEBDAV, 503))
+    }
+
+    @Test
+    fun `在线音源链接失效提示重新获取音源`() {
+        assertEquals("在线音源播放链接已失效，请重试或更换音源脚本。",
+            PlaybackErrorCopy.copyFor(PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS, SourceType.ONLINE, 410))
     }
 
     @Test

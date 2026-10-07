@@ -1,6 +1,7 @@
 package com.muses.player.core.search.http
 
 import io.ktor.client.HttpClient
+import com.muses.player.core.model.online.OnlinePlaybackHttp
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
@@ -34,6 +35,7 @@ class SearchHttp(
     suspend fun canOpenAudio(url: String): Boolean {
         return client.prepareGet(url) {
             header(HttpHeaders.Range, "bytes=0-0")
+            header(HttpHeaders.UserAgent, OnlinePlaybackHttp.USER_AGENT)
         }.execute { response ->
             try {
                 response.status.isSuccess() &&
