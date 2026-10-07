@@ -79,7 +79,7 @@ class PlaybackService : MediaSessionService() {
     private var desktopLyricsOverlay: DesktopLyricsOverlay? = null
 
     /** 音量增益（LoudnessEnhancer）：服务生命周期内常驻，随设置即时下发 */
-    private val volumeBoost by lazy { VolumeBoostController(this) }
+    private val volumeBoost by lazy { VolumeBoostController(serviceScope) }
 
     // ── 通知歌词模式 ──
     /** 原始元数据（切歌时快照；开启歌词模式后不从 player.currentMediaItem 读，防脏读） */
@@ -154,7 +154,9 @@ class PlaybackService : MediaSessionService() {
             .setMediaSourceFactory(mediaSourceFactory)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
-        // 音量增益：绑定自建 audio session（效果器随后由设置流下发，见 startVolumeBoostMonitoring）
+        // 默认音量倍率保持 1，不额外衰减或放大；系统媒体音量仍由系统控制。
+        player.volume = 1f
+        // 内部音量补偿：跟随播放器实际音频会话，统一应用，不读取用户增益配置。
         volumeBoost.attach(player)
         // 注：media3 1.11 无 Player.setPreloadItems（相邻预加载 API 在 1.13+），默认不会预加载整队列；
         // 真正触发 429 的是流播 Range 被 4 rps 限流饿死，已通过流播专用 client（named streamingOkHttp）剥离限流解决。
@@ -253,21 +255,23 @@ class PlaybackService : MediaSessionService() {
     // ── 音量增益 ──
 
     /**
-     * 音量增益：设置变化即时下发；本机无 LoudnessEnhancer 时只提示一次，不打断播放。
+     * 内部音量补偿：记录实际下发状态；失败时保留原有播放。
      */
     private fun startVolumeBoostMonitoring() {
         serviceScope.launch {
-            var warned = false
-            settingsRepository.volumeBoostDb.collect { db ->
-                volumeBoost.apply(db)
-                if (db > 0 && !volumeBoost.available && !warned) {
-                    warned = true
+            var previousFailure: String? = null
+            volumeBoost.status.collect { status ->
+                val failure = status.error?.let { "${status.sessionId}/${status.requestedDb}/${it.message}" }
+                if (failure != null && failure != previousFailure) {
                     errorLogStore.log(
                         ErrorLogStore.Level.WARN, "Playback",
-                        "音量增益未生效：效果器初始化或设置失败，请检查设备音效支持",
-                        volumeBoost.lastError,
+                        "音量增益未生效：目标 +${status.requestedDb} dB，音频会话 ${status.sessionId}；将有限重试",
+                        status.error,
                     )
+                } else if (status.appliedDb != null) {
+                    android.util.Log.i("VolumeBoost", "音量增益已应用：${status.appliedDb} dB，会话 ${status.sessionId}")
                 }
+                previousFailure = failure
             }
         }
     }

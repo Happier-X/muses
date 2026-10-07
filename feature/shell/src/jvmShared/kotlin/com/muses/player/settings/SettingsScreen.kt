@@ -94,7 +94,6 @@ fun SettingsScreen(
                         onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
                     )
                     DesktopLyricsPreference()
-                    VolumeBoostPreference()
                     SwitchPreference(
                         title = "封面强调色",
                         summary = "播放页文字与图标跟随封面取色",

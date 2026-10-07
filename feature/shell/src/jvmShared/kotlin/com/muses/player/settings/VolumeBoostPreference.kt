@@ -2,6 +2,6 @@ package com.muses.player.settings
 
 import androidx.compose.runtime.Composable
 
-/** 播放音量增益设置行（安卓经 LoudnessEnhancer 生效；桌面暂未接线）。 */
+/** 音量补偿由播放器内部处理，此平台函数不再展示设置项。 */
 @Composable
 expect fun VolumeBoostPreference()

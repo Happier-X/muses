@@ -4,11 +4,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.muses.player.core.model.DEFAULT_VOLUME_BOOST_DB
-import com.muses.player.core.model.MAX_VOLUME_BOOST_DB
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -37,14 +34,6 @@ interface SettingsRepository {
     /** 沉浸式播放页是否显示歌词音译与逐字注音（默认开启） */
     val lyricRomanizationEnabled: Flow<Boolean>
 
-    /**
-     * 播放音量增益（dB，0 = 关闭，默认 +6）。
-     *
-     * Muses 原样直出（player volume 恒 1.0），主流音乐 App 普遍带响度增强，同一首歌
-     * 对比会显得偏小；档位见 [com.muses.player.core.model.VOLUME_BOOST_STEPS_DB]。
-     */
-    val volumeBoostDb: Flow<Int>
-
     suspend fun setAutoScrapeEnabled(enabled: Boolean)
 
     suspend fun setMiniPlayerLyricsEnabled(enabled: Boolean)
@@ -57,8 +46,6 @@ interface SettingsRepository {
     suspend fun setLyricTranslationEnabled(enabled: Boolean)
 
     suspend fun setLyricRomanizationEnabled(enabled: Boolean)
-
-    suspend fun setVolumeBoostDb(db: Int)
 
     /**
      * 在线音源首选音质（洛雪音质 key，如 `320k`/`flac`/`hires`/`master`）。
@@ -129,9 +116,6 @@ class DataStoreSettingsRepository constructor(
     override val lyricRomanizationEnabled: Flow<Boolean>
         get() = dataStore.data.map { prefs -> prefs[LYRIC_ROMANIZATION_ENABLED] ?: true }
 
-    override val volumeBoostDb: Flow<Int>
-        get() = dataStore.data.map { prefs -> prefs[VOLUME_BOOST_DB] ?: DEFAULT_VOLUME_BOOST_DB }
-
     override suspend fun updateLastScanTimestamp(timestampMillis: Long) {
         dataStore.edit { prefs -> prefs[LAST_SCAN_TIMESTAMP] = timestampMillis }
     }
@@ -161,10 +145,6 @@ class DataStoreSettingsRepository constructor(
 
     override suspend fun setLyricRomanizationEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[LYRIC_ROMANIZATION_ENABLED] = enabled }
-    }
-
-    override suspend fun setVolumeBoostDb(db: Int) {
-        dataStore.edit { prefs -> prefs[VOLUME_BOOST_DB] = db.coerceIn(0, MAX_VOLUME_BOOST_DB) }
     }
 
     override val onlinePreferredQuality: Flow<String>
@@ -224,7 +204,6 @@ class DataStoreSettingsRepository constructor(
         val COVER_CONTENT_COLOR_ENABLED = booleanPreferencesKey("cover_content_color_enabled")
         val LYRIC_TRANSLATION_ENABLED = booleanPreferencesKey("lyric_translation_enabled")
         val LYRIC_ROMANIZATION_ENABLED = booleanPreferencesKey("lyric_romanization_enabled")
-        val VOLUME_BOOST_DB = intPreferencesKey("volume_boost_db")
         val ONLINE_PREFERRED_QUALITY = stringPreferencesKey("online_preferred_quality")
         val AI_SERVICE_NAME = stringPreferencesKey("ai_service_name")
         val AI_BASE_URL = stringPreferencesKey("ai_base_url")

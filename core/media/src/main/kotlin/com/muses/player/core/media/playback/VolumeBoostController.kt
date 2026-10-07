@@ -1,74 +1,56 @@
 package com.muses.player.core.media.playback
 
-import android.content.Context
-import android.media.AudioManager
 import android.media.audiofx.LoudnessEnhancer
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import com.muses.player.core.model.MAX_VOLUME_BOOST_DB
-import com.muses.player.core.model.volumeBoostMillibels
+import com.muses.player.core.model.PLAYBACK_VOLUME_COMPENSATION_DB
+import kotlinx.coroutines.CoroutineScope
 
 /**
- * 播放音量增益：给 ExoPlayer 绑定自建 audio session，再挂 [LoudnessEnhancer]。
+ * 将音量增益挂到 ExoPlayer 实际输出的音频会话，并随会话变化重新绑定。
  *
- * 为什么要增益：Muses 原样直出（player volume 恒 1.0），主流音乐 App 普遍带响度增强，
- * 同一首歌在系统音量相同时会显得偏小。
- *
- * [LoudnessEnhancer] 是系统音效，自带限幅（不会硬削波）；设备不提供该效果时静默降级
- * （[available] 为 false，按原样播放，不崩溃）。
+ * 默认额外增益为零，不创建 [LoudnessEnhancer]，保持音源的原始幅度。
+ * 非零增益的会话管理仍保留失败恢复能力，不提供用户可调设置。
  */
 @UnstableApi
-class VolumeBoostController(private val context: Context) {
+class VolumeBoostController(scope: CoroutineScope) {
+    private val session = VolumeBoostSession(scope) { AndroidVolumeBoostEffect(it) }
+    val status = session.status
+    private var player: ExoPlayer? = null
+    private val listener = object : Player.Listener {
+        override fun onAudioSessionIdChanged(audioSessionId: Int) {
+            session.bind(audioSessionId)
+        }
 
-    private var enhancer: LoudnessEnhancer? = null
-
-    /** 已下发的档位（dB），-1 = 尚未下发。 */
-    private var appliedDb = -1
-
-    /** 本机是否成功挂上效果器，且最近一次设置已成功下发。 */
-    val available: Boolean
-        get() = enhancer != null && appliedDb >= 0
-
-    /** 最近一次初始化或下发失败的原因，供播放日志定位设备兼容性问题。 */
-    var lastError: Throwable? = null
-        private set
-
-    /** 绑定 player 与效果器；重复调用先释放旧效果器。 */
-    fun attach(player: ExoPlayer) {
-        release()
-        runCatching {
-            val audioManager = checkNotNull(context.getSystemService(AudioManager::class.java))
-            val sessionId = audioManager.generateAudioSessionId()
-            // 无效会话不能挂效果器，否则可能与播放器实际输出的会话不一致。
-            check(sessionId > 0) { "无法创建播放音频会话：$sessionId" }
-            player.setAudioSessionId(sessionId)
-            enhancer = LoudnessEnhancer(sessionId)
-        }.onFailure { lastError = it }
-    }
-
-    /** 下发增益档位（dB，0 = 关闭）；同档位重复调用不重复设置。 */
-    fun apply(db: Int) {
-        val targetDb = db.coerceIn(0, MAX_VOLUME_BOOST_DB)
-        if (targetDb == appliedDb) return
-        val effect = enhancer ?: return
-        runCatching {
-            effect.setTargetGain(volumeBoostMillibels(targetDb))
-            effect.enabled = targetDb > 0
-            check(effect.enabled == (targetDb > 0)) { "音量增益启用状态与设置不一致" }
-        }.onSuccess {
-            appliedDb = targetDb
-            lastError = null
-        }.onFailure {
-            // 失败不能记为已应用，允许相同档位再次下发。
-            appliedDb = -1
-            lastError = it
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) session.refresh()
         }
     }
 
-    fun release() {
-        runCatching { enhancer?.release() }
-        enhancer = null
-        appliedDb = -1
-        lastError = null
+    /** 未准备好音频输出时等待真实会话，避免效果器绑到无效或无关会话。 */
+    fun attach(player: ExoPlayer) {
+        release()
+        this.player = player
+        player.addListener(listener)
+        session.bind(player.audioSessionId)
+        session.apply(PLAYBACK_VOLUME_COMPENSATION_DB)
     }
+
+    fun release() {
+        player?.removeListener(listener)
+        player = null
+        session.release()
+    }
+}
+
+private class AndroidVolumeBoostEffect(sessionId: Int) : VolumeBoostEffect {
+    private val effect = LoudnessEnhancer(sessionId)
+    override var targetGainMillibels: Int
+        get() = effect.targetGain.toInt()
+        set(value) { effect.setTargetGain(value) }
+    override var enabled: Boolean
+        get() = effect.enabled
+        set(value) { effect.enabled = value }
+    override fun release() = effect.release()
 }

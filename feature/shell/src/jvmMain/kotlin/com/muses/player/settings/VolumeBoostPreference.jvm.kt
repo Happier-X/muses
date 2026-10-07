@@ -2,6 +2,6 @@ package com.muses.player.settings
 
 import androidx.compose.runtime.Composable
 
-/** 桌面端暂未接线（VLC 侧预放大另做），先不显示该设置行。 */
+/** 不提供用户可调的音量增益设置项。 */
 @Composable
 actual fun VolumeBoostPreference() {}
