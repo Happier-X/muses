@@ -6,6 +6,7 @@ import org.jaudiotagger.tag.Tag
 import org.jaudiotagger.tag.id3.AbstractID3v2Frame
 import org.jaudiotagger.tag.id3.framebody.FrameBodyUSLT
 import java.io.File
+import com.muses.player.core.media.scanner.qualityLabel
 
 /** 标签解析结果 */
 data class TrackTags(
@@ -16,6 +17,7 @@ data class TrackTags(
     val lyrics: String? = null,
     /** 内嵌封面原始字节（jpg/png 均可能，由调用方落盘） */
     val coverBytes: ByteArray? = null,
+    val audioQuality: String? = null,
 )
 
 /**
@@ -27,7 +29,7 @@ object TagReader {
     fun read(file: File): TrackTags {
         val audioFile = AudioFileIO.read(file)
         val durationSec = audioFile.audioHeader?.trackLength?.toLong() ?: 0L
-        return parse(audioFile.tag, fallbackDurationSec = durationSec)
+        return parse(audioFile.tag, fallbackDurationSec = durationSec).copy(audioQuality = audioFile.audioHeader.qualityLabel())
     }
 
     fun parse(tag: Tag?, fallbackDurationSec: Long = 0L): TrackTags {

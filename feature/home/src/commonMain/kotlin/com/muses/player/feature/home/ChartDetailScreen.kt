@@ -1,5 +1,8 @@
 package com.muses.player.feature.home
 
+import com.muses.player.core.search.performanceLabel
+import com.muses.player.core.search.qualityLabel
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +43,7 @@ fun ChartDetailScreen(
     chartId: String,
     chartName: String,
     onBack: () -> Unit,
+    isPlaylist: Boolean = false,
     viewModel: ChartDetailViewModel = koinViewModel(
         parameters = { parametersOf(platform, chartId) },
     ),
@@ -59,7 +63,7 @@ fun ChartDetailScreen(
                     MusesIconButton(
                         onClick = viewModel::refresh,
                         imageVector = TablerIcons.Refresh,
-                        contentDescription = "刷新榜单",
+                        contentDescription = if (isPlaylist) "刷新歌单" else "刷新榜单",
                         enabled = !state.loading && !state.refreshing,
                     )
                 },
@@ -145,7 +149,10 @@ fun ChartDetailScreen(
                             coverUri = song.coverUrl,
                         ),
                         isCurrent = false,
+                        titleBadgeLabel = song.performanceLabel,
+                        qualityBadgeLabel = song.qualityLabel,
                         onClick = { viewModel.play(index) },
+                        trailingContent = { com.muses.player.core.ui.components.OnlineSongDownloadAction(song.toSong("online")) },
                     )
                 }
                 if (state.hasMore) {

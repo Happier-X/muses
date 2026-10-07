@@ -56,6 +56,7 @@ import kotlinx.coroutines.launch
 import com.muses.player.core.playback.PlaybackMeta
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.model.Song
+import com.muses.player.core.model.libraryQualityLabel
 import com.muses.player.core.ui.components.MusesSongActionsSheet
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
@@ -63,6 +64,7 @@ import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesListRow
+import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.MusesTopBar
 
@@ -180,8 +182,7 @@ fun SongsPage(
     fun doEnqueue(ids: List<String>) {
         if (ids.isEmpty()) return
         onEnqueueScrape(ids)
-        val msg = if (ids.size == 1) "已加入待刮削队列" else "已加入 ${ids.size} 首到待刮削队列"
-        com.muses.player.core.ui.components.MusesSnackbar.show(msg)
+        com.muses.player.core.ui.components.MusesSnackbar.show("添加成功")
     }
     // 阶段二槽位化：顶栏进 Scaffold topBar（原生大标题折叠），列表进 content，
     // FAB 进 floatingActionButton 槽（自动避让停靠迷你条），多选条见下方 E5 浮层。
@@ -377,6 +378,7 @@ fun SongsPage(
                         ),
                         titleColor = if (isCurrent) scheme.primary else null,
                         subtitleColor = if (isCurrent) scheme.primary else null,
+                        qualityBadgeLabel = song.libraryQualityLabel,
                         title = run {
                             val useMetaForTitle = song.id == currentSongId
                                 && song.metaSources?.title == null
@@ -492,6 +494,15 @@ fun SongsPage(
         songId = actionSong?.id,
         onDismiss = { actionSong = null },
         onEnqueueScrape = onEnqueueScrape,
+        onAddToQueue = { id ->
+            val song = songs.firstOrNull { it.id == id }
+            if (playback == null || song == null) MusesSnackbar.show("添加到播放队列失败")
+            else if (id in playback.queueSongIds.value) MusesSnackbar.show("已在播放队列中")
+            else {
+                playback.addToQueue(listOf(song))
+                MusesSnackbar.show("添加成功")
+            }
+        },
     )
 
     // ---- 多选底部操作条（.songs-page__multibar）：内容层底部浮层，位于停靠迷你条之上 ----
@@ -575,7 +586,7 @@ private fun MultiselectBottomBar(
     ) {
         MusesTextButton(text = "永久删除", destructive = true, enabled = !disabled, onClick = onDeleteSelected)
         // M3：批量加入待刮削队列（刮削页统一处理）
-        MusesTextButton(text = "加入待刮削", enabled = !disabled, onClick = onEnqueueScrape)
+        MusesTextButton(text = "添加到刮削队列", enabled = !disabled, onClick = onEnqueueScrape)
         MusesTextButton(text = "播放选中队列", enabled = !disabled, onClick = onPlaySelected)
         MusesTextButton(text = "取消", onClick = onCancel)
     }

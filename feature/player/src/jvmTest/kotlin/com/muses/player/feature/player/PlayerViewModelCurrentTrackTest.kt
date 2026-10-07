@@ -149,6 +149,7 @@ class PlayerViewModelCurrentTrackTest {
         override fun pause() = Unit
         override fun seekTo(ms: Long) = Unit
         override fun enqueue(ids: List<String>, index: Int) = Unit
+        override fun addToQueue(songs: List<com.muses.player.core.model.Song>) = Unit
         override fun setRepeatMode(mode: Int) = Unit
         override fun setRepeatMode(mode: RepeatMode) = Unit
         override fun setShuffleEnabled(enabled: Boolean) = Unit

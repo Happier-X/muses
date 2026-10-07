@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.ai.AI_API_KEY_SOURCE_ID
 import com.muses.player.core.ai.AiException
+import com.muses.player.core.ai.AiServiceUrlException
 import com.muses.player.core.ai.AiRecommendConfig
 import com.muses.player.core.ai.AiRecommendResult
 import com.muses.player.core.ai.AiRecommendService
@@ -24,7 +25,14 @@ import com.muses.player.core.search.OnlineChart
 import com.muses.player.core.search.OnlineChartService
 import com.muses.player.core.search.OnlineSearchResult
 import com.muses.player.core.search.PlatformChartsOutcome
+import com.muses.player.core.search.OnlinePlaylist
+import com.muses.player.core.search.OnlinePlaylistService
+import com.muses.player.core.search.OnlineSongVersionService
+import com.muses.player.core.ui.components.MusesSnackbar
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -51,9 +59,7 @@ data class ChartSectionState(
 
 /** 「猜你喜欢」区块状态 */
 data class RecommendSectionState(
-    /** 设置页是否已打开 AI 推荐开关 */
-    val enabled: Boolean = false,
-    /** 地址/模型/Key 是否齐备（决定 UI 是「去配置」还是「去开启」） */
+    /** 地址/模型/Key 是否齐备（未配置时显示「去配置」） */
     val configured: Boolean = false,
     val loading: Boolean = false,
     val result: AiRecommendResult? = null,
@@ -66,10 +72,17 @@ data class RecommendSectionState(
 
 /** 首页整体状态 */
 data class HomeUiState(
+    val featured: FeaturedPlaylistState = FeaturedPlaylistState(),
     val chart: ChartSectionState = ChartSectionState(),
     val recommend: RecommendSectionState = RecommendSectionState(),
     /** 一次性提示（如「该平台没有可用音源脚本」），展示后可清除 */
     val message: String? = null,
+)
+
+data class FeaturedPlaylistState(
+    val items: List<OnlinePlaylist> = emptyList(),
+    val loading: Boolean = false,
+    val error: String? = null,
 )
 
 /**
@@ -90,6 +103,9 @@ class HomeViewModel(
     private val playback: PlaybackPort,
     private val songRepository: SongRepository,
     private val chartCacheStore: OnlineChartCacheStore,
+    private val playlistService: OnlinePlaylistService,
+    private val playlistCacheStore: FeaturedPlaylistCacheStore,
+    private val songVersionService: OnlineSongVersionService,
     /** 在线曲目归属的音源标识（与在线搜索页同值，仅作标识） */
     private val onlineSourceId: String = "online",
 ) : ViewModel() {
@@ -107,8 +123,6 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, LxQuality.DEFAULT.key)
 
     init {
-        loadCharts()
-        refreshRecommend()
         viewModelScope.launch {
             songRepository.observeSongs().drop(1).collect {
                 val current = _state.value.recommend
@@ -122,7 +136,7 @@ class HomeViewModel(
                         error = if (filtered.tracks.isEmpty()) "今日推荐歌曲已全部存在于曲库中" else current.error,
                     ),
                 )
-                if (filtered.tracks.isNotEmpty() && current.day == localRecommendDay()) {
+                if (current.day == localRecommendDay()) {
                     runCatching {
                         settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(current.day, filtered))
                     }
@@ -141,6 +155,42 @@ class HomeViewModel(
 
     fun clearMessage() {
         _state.value = _state.value.copy(message = null)
+    }
+
+    fun loadFeaturedPlaylists(forceRefresh: Boolean = false) {
+        if (_state.value.featured.loading) return
+        _state.value = _state.value.copy(featured = _state.value.featured.copy(loading = true, error = null))
+        viewModelScope.launch {
+            try {
+                val cached = try {
+                    playlistCacheStore.load()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null
+                }
+                if (cached != null) {
+                    _state.value = _state.value.copy(featured = _state.value.featured.copy(items = cached.items.take(3)))
+                    if (!forceRefresh && cached.isFresh()) return@launch
+                }
+                val items = playlistService.featured().take(3)
+                check(items.isNotEmpty()) { "暂时没有可用歌单" }
+                _state.value = _state.value.copy(featured = FeaturedPlaylistState(items))
+                try {
+                    playlistCacheStore.save(items)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // 缓存写入失败不影响本次已加载的歌单。
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(featured = _state.value.featured.copy(error = e.message ?: "歌单加载失败，请重试"))
+            } finally {
+                _state.value = _state.value.copy(featured = _state.value.featured.copy(loading = false))
+            }
+        }
     }
 
     // ── 排行榜 ──
@@ -162,20 +212,12 @@ class HomeViewModel(
                 catalogUpdatedAt[platform] = catalog.updatedAt
             }
 
-            val supportedPlatforms = runCatching {
-                scriptRepository.loadAll()
-                    .filter { it.loadError == null }
-                    .flatMap { script ->
-                        script.sources.filterValues { it.supports(LxAction.MUSIC_URL) }.keys
-                    }
-                    .toSet()
-            }.getOrDefault(emptySet())
-            val availablePlatforms = chartService.platforms.filter { it in supportedPlatforms }
+            val availablePlatforms = chartService.platforms.filter { it == "wy" }
             if (availablePlatforms.isEmpty()) {
                 _state.value = _state.value.copy(
                     chart = ChartSectionState(
                         platformNames = chartService.platformNames,
-                        error = "暂无可用的在线榜单音源，请先导入支持榜单平台的 LX 音源脚本",
+                        error = "网易云榜单暂时不可用，请稍后重试",
                     ),
                 )
                 return@launch
@@ -279,66 +321,62 @@ class HomeViewModel(
 
     /** 每日只生成一次；失败可重试，切换日期后自动重新生成。 */
     fun refreshRecommend() {
-        if (_state.value.recommend.loading) return
-        recommendJob?.cancel()
+        val today = localRecommendDay()
+        val current = _state.value.recommend
+        if (recommendJob?.isActive == true) return
+        if (current.day == today && (current.result != null || current.error != null)) return
         recommendJob = viewModelScope.launch {
             _state.value = _state.value.copy(
                 recommend = _state.value.recommend.copy(loading = true, error = null),
             )
 
-            val enabled = runCatching { settingsRepository.aiRecommendEnabled.first() }.getOrDefault(false)
-            val config = readAiConfig()
-            if (!enabled) {
-                _state.value = _state.value.copy(
-                    recommend = _state.value.recommend.copy(
-                        enabled = false,
-                        configured = config.isUsable,
-                        loading = false,
-                        result = null,
-                        day = null,
-                        error = null,
-                    ),
-                )
-                return@launch
+            try {
+            withTimeout(90_000) {
+            val cachedToday = DailyRecommendSnapshot.decode(settingsRepository.aiDailyRecommend.first(), today)
+            if (cachedToday != null) {
+                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(
+                    loading = false, configured = true, result = cachedToday, day = today, error = null))
+                val filtered = cachedToday.excludingOwnedSongs(profileBuilder.build())
+                val updated = if (filtered.tracks.any { it.result.platform == "wy" && it.result.coverUrl.isNullOrBlank() }) {
+                    val songs = songVersionService.enrich(filtered.tracks.map { it.result })
+                    filtered.copy(tracks = filtered.tracks.mapIndexed { index, track -> track.copy(result = songs[index]) })
+                } else filtered
+                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(result = updated))
+                if (updated != cachedToday) {
+                    settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(today, updated))
+                }
+                return@withTimeout
             }
+            val config = readAiConfig()
             if (!config.isUsable) {
                 _state.value = _state.value.copy(
-                    recommend = _state.value.recommend.copy(enabled = true, configured = false, loading = false, result = null, day = null, error = null),
+                    recommend = _state.value.recommend.copy(configured = false, loading = false, result = null, day = null, error = null),
                 )
-                return@launch
+                return@withTimeout
             }
 
             _state.value = _state.value.copy(
-                recommend = _state.value.recommend.copy(enabled = true, configured = true),
+                recommend = _state.value.recommend.copy(configured = true),
             )
 
-            val profile = runCatching { profileBuilder.build() }.getOrNull()
-            if (profile == null || profile.isEmpty) {
+            val profile = profileBuilder.build()
+            if (profile.isEmpty) {
                 _state.value = _state.value.copy(
                     recommend = _state.value.recommend.copy(
                         loading = false,
+                        day = today,
                         error = "曲库还没有歌曲：先扫描本地/WebDAV 音源后再试",
                     ),
                 )
-                return@launch
-            }
-
-            val today = localRecommendDay()
-            val cached = DailyRecommendSnapshot.decode(
-                runCatching { settingsRepository.aiDailyRecommend.first() }.getOrDefault(""), today, profile,
-            )
-            if (cached != null) {
-                _state.value = _state.value.copy(
-                    recommend = _state.value.recommend.copy(loading = false, result = cached, day = today, error = null),
-                )
-                return@launch
+                return@withTimeout
             }
 
             runCatching { recommendService.recommend(profile, config) }.fold(
                 onSuccess = { result ->
-                    val latestProfile = runCatching { profileBuilder.build() }.getOrNull() ?: profile
+                    if (result.allUnmatched) throw AiException("推荐歌曲暂时无法在各平台匹配，请稍后重试")
+                    val latestProfile = profileBuilder.build()
                     val filteredResult = result.excludingOwnedSongs(latestProfile)
-                    if (filteredResult.tracks.isNotEmpty() && localRecommendDay() == today) {
+                    if (localRecommendDay() == today) {
                         runCatching {
                             settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(today, filteredResult))
                         }
@@ -359,12 +397,41 @@ class HomeViewModel(
                     )
                 },
                 onFailure = { e ->
+                    if (e is CancellationException) throw e
+                    if (e is AiServiceUrlException) {
+                        MusesSnackbar.show(e.message.orEmpty())
+                        _state.value = _state.value.copy(
+                            recommend = _state.value.recommend.copy(loading = false, configured = false, result = null, error = null),
+                        )
+                        return@fold
+                    }
                     _state.value = _state.value.copy(
-                        recommend = _state.value.recommend.copy(loading = false, error = aiErrorMessage(e)),
+                        recommend = _state.value.recommend.copy(loading = false, day = today, error = aiErrorMessage(e)),
                     )
                 },
             )
+            }
+            } catch (e: TimeoutCancellationException) {
+                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(
+                    day = today, error = "推荐请求超时，请稍后点击重试"))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(
+                    day = today, error = aiErrorMessage(e)))
+            } finally {
+                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(loading = false))
+            }
         }
+    }
+
+    /** 失败后允许用户手动重试；当天已有结果时继续使用缓存。 */
+    fun retryRecommend() {
+        if (recommendJob?.isActive == true) return
+        if (_state.value.recommend.result == null) {
+            _state.value = _state.value.copy(recommend = _state.value.recommend.copy(day = null, error = null))
+        }
+        refreshRecommend()
     }
 
     fun playRecommend(index: Int) {
@@ -372,6 +439,38 @@ class HomeViewModel(
         val target = tracks.getOrNull(index) ?: return
         val results = tracks.map { it.result }
         playResults(results, index, target.result.platform)
+    }
+
+    /** 随机播放当前推荐列表，与歌曲详情页工具条行为一致。 */
+    fun shuffleRecommend() {
+        val results = _state.value.recommend.result?.tracks.orEmpty().map { it.result }
+        if (results.isEmpty()) return
+        val index = results.indices.random()
+        playResults(results, index, results[index].platform, shuffle = true)
+    }
+
+    /** 随心听：优先从曲库随机播放，曲库为空时使用今日推荐。 */
+    fun playRandom() {
+        viewModelScope.launch {
+            val library = songRepository.observeSongs().first()
+            if (library.isNotEmpty()) {
+                playback.play(library.random().id, library)
+                playback.setShuffleEnabled(true)
+                return@launch
+            }
+            if (_state.value.recommend.result == null) {
+                refreshRecommend()
+                recommendJob?.join()
+            }
+            val tracks = _state.value.recommend.result?.tracks.orEmpty()
+            if (tracks.isNotEmpty()) {
+                val results = tracks.map { it.result }
+                val index = results.indices.random()
+                playResults(results, index, results[index].platform, shuffle = true)
+            } else {
+                MusesSnackbar.show("还没有可播放的歌曲，请先添加曲库歌曲或生成每日推荐")
+            }
+        }
     }
 
     // ── 内部 ──
@@ -382,21 +481,19 @@ class HomeViewModel(
      * 为什么先校验脚本：直链解析发生在播放链路内部，没有脚本时用户点下去毫无反馈，
      * 体验上等同「坏了」；此处提前给出可操作提示（与在线搜索页同一取舍）。
      */
-    private fun playResults(results: List<OnlineSearchResult>, index: Int, platform: String) {
+    private fun playResults(results: List<OnlineSearchResult>, index: Int, platform: String, shuffle: Boolean = false) {
         val target = results.getOrNull(index) ?: return
         val quality = LxQuality.fromKey(preferredQuality.value)?.key
         viewModelScope.launch {
             if (!hasUsableScript(platform)) {
-                val name = _state.value.chart.platformNames[platform] ?: platform
-                _state.value = _state.value.copy(
-                    message = "还没有能解析「$name」的音源脚本，请到「在线音源脚本」导入后再播放。",
-                )
+                MusesSnackbar.show("还没有可用的在线音源脚本，请到「在线音源脚本」导入后再播放。")
                 return@launch
             }
             // 队列 = 当前列表全量（点哪首播哪首，后续按列表顺序走）
             val songs: List<Song> = results.map { it.toSong(onlineSourceId, quality) }
             OnlineTrackSession.remember(songs)
             playback.play(target.toSong(onlineSourceId, quality).id, songs)
+            playback.setShuffleEnabled(shuffle)
         }
     }
 
@@ -404,7 +501,7 @@ class HomeViewModel(
     private suspend fun hasUsableScript(platform: String): Boolean =
         runCatching {
             scriptRepository.loadAll().any { script ->
-                script.loadError == null && script.sources[platform]?.supports(LxAction.MUSIC_URL) == true
+                script.loadError == null && script.sources.values.any { it.supports(LxAction.MUSIC_URL) }
             }
         }.getOrDefault(false)
 

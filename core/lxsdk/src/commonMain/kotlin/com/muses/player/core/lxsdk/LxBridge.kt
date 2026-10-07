@@ -27,6 +27,60 @@ internal object LxBridge {
           globalThis.__lxHandlers = handlers;
           globalThis.__lxInited = null;
 
+          // QuickJS 只有 ECMAScript 内建对象；音源直连渠道还依赖查询参数 API。
+          const encodeQuery = value => encodeURIComponent(String(value))
+            .replace(/[!'()~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+            .replace(/%20/g, '+');
+          const decodeQuery = value => {
+            const text = value.replace(/\+/g, ' ');
+            try { return decodeURIComponent(text); } catch (e) { return text; }
+          };
+          globalThis.URLSearchParams = class URLSearchParams {
+            constructor(init = '') {
+              this.pairs = [];
+              if (typeof init === 'string') {
+                const text = init.startsWith('?') ? init.slice(1) : init;
+                for (const part of text.split('&')) {
+                  if (!part) continue;
+                  const index = part.indexOf('=');
+                  this.append(decodeQuery(index < 0 ? part : part.slice(0, index)),
+                    decodeQuery(index < 0 ? '' : part.slice(index + 1)));
+                }
+              } else if (init != null && typeof init[Symbol.iterator] === 'function') {
+                for (const pair of init) {
+                  const values = Array.from(pair);
+                  if (values.length !== 2) throw new TypeError('查询参数必须包含名称和值');
+                  this.append(values[0], values[1]);
+                }
+              } else if (init != null) {
+                for (const key of Object.keys(init)) this.append(key, init[key]);
+              }
+            }
+            get size() { return this.pairs.length; }
+            append(name, value) { this.pairs.push([String(name), String(value)]); }
+            set(name, value) {
+              name = String(name); value = String(value);
+              let found = false;
+              this.pairs = this.pairs.filter(pair => {
+                if (pair[0] !== name) return true;
+                if (found) return false;
+                pair[1] = value; found = true; return true;
+              });
+              if (!found) this.append(name, value);
+            }
+            get(name) { const pair = this.pairs.find(p => p[0] === String(name)); return pair ? pair[1] : null; }
+            getAll(name) { return this.pairs.filter(p => p[0] === String(name)).map(p => p[1]); }
+            has(name) { return this.pairs.some(p => p[0] === String(name)); }
+            delete(name) { this.pairs = this.pairs.filter(p => p[0] !== String(name)); }
+            sort() { this.pairs.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0); }
+            *entries() { for (const pair of this.pairs) yield [...pair]; }
+            *keys() { for (const pair of this.pairs) yield pair[0]; }
+            *values() { for (const pair of this.pairs) yield pair[1]; }
+            [Symbol.iterator]() { return this.entries(); }
+            forEach(callback, thisArg) { for (const pair of this.pairs) callback.call(thisArg, pair[1], pair[0], this); }
+            toString() { return this.pairs.map(p => encodeQuery(p[0]) + '=' + encodeQuery(p[1])).join('&'); }
+          };
+
           // QuickJS 不带宿主定时器；通过 native sleep + Promise 提供洛雪脚本常用计时 API。
           const __timers = new Map();
           let __nextTimerId = 1;
@@ -111,15 +165,16 @@ internal object LxBridge {
               const promise = globalThis.__native.http(url, opts);
               if (typeof callback === 'function') {
                 Promise.resolve(promise).then(raw => {
-                  let body = raw;
+                  const response = JSON.parse(raw);
+                  let body = response.body;
                   // 复刻洛雪宿主的自动 JSON 解析：脚本依赖 data.url 这类字段访问
-                  if (typeof raw === 'string') {
-                    const t = raw.trim();
+                  if (typeof body === 'string') {
+                    const t = body.trim();
                     if (t.startsWith('{') || t.startsWith('[')) {
-                      try { body = JSON.parse(t); } catch (e) { body = raw; }
+                      try { body = JSON.parse(t); } catch (e) { /* 保留原始正文 */ }
                     }
                   }
-                  callback(null, { body, statusCode: 200, headers: {} });
+                  callback(null, { body, statusCode: response.statusCode, headers: response.headers });
                 }).catch(err => {
                   callback(err instanceof Error ? err : new Error(String(err)));
                 });

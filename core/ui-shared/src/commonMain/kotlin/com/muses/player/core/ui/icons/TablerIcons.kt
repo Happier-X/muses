@@ -23,6 +23,7 @@ object TablerIcons {
 
     // AI 推荐
     val Sparkles: ImageVector = Tabler.Outline.Sparkles
+    val Chart: ImageVector = Tabler.Outline.ChartBar
 
     // 音乐相关
     val MusicNote: ImageVector = Tabler.Outline.Music

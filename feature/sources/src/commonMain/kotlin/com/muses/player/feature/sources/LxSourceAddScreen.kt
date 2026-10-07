@@ -27,6 +27,7 @@ import com.muses.player.core.ui.components.SourceFormInput
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -90,7 +91,7 @@ fun LxSourceFormScreen(
         isAdding = false
         result.fold(
             onSuccess = {
-                MusesSnackbar.show(if (sourceId == null) "添加成功" else "编辑成功")
+                MusesSnackbar.show("保存成功")
                 onSaved()
             },
             onFailure = { MusesSnackbar.show(it.message ?: "保存 LX 音源失败。") },
@@ -135,70 +136,69 @@ fun LxSourceFormScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(top = 8.dp)
                 .padding(bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SourceFormInput(
-                label = "名称",
-                value = name,
-                modifier = Modifier.fillMaxWidth(),
-                readOnly = isAdding || isInitializing,
-                onValueChange = {
-                    name = it
-                    nameEdited = true
-                },
-            )
-
-            SourceFormInput(
-                label = "脚本 URL",
-                value = url,
-                modifier = Modifier.fillMaxWidth(),
-                error = urlError,
-                readOnly = isAdding || isInitializing,
-                keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri,
-                onValueChange = {
-                    url = it
-                    urlError = null
-                },
-            )
-
-            Button(
-                onClick = {
-                    if (!isAdding && !isInitializing) {
-                        urlError = if (sourceId == null && url.isBlank()) "请填写脚本 URL" else null
-                        if (sourceId != null && url.isBlank()) {
-                            isAdding = true
-                            viewModel.confirmEdit(sourceId, name, replacementScript = null, onComplete = onSaveComplete)
-                        } else if (url.isNotBlank()) {
-                            viewModel.clearStagedImport()
-                            isAdding = true
-                            urlImporter(url.trim())
+            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                SourceFormInput(
+                    label = "名称",
+                    value = name,
+                    readOnly = isAdding || isInitializing,
+                    onValueChange = {
+                        name = it
+                        nameEdited = true
+                    },
+                )
+                SourceFormInput(
+                    label = "脚本 URL",
+                    value = url,
+                    error = urlError,
+                    readOnly = isAdding || isInitializing,
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri,
+                    onValueChange = {
+                        url = it
+                        urlError = null
+                    },
+                )
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    Button(
+                        onClick = {
+                            if (!isAdding && !isInitializing) {
+                                urlError = if (sourceId == null && url.isBlank()) "请填写脚本 URL" else null
+                                if (sourceId != null && url.isBlank()) {
+                                    isAdding = true
+                                    viewModel.confirmEdit(sourceId, name, replacementScript = null, onComplete = onSaveComplete)
+                                } else if (url.isNotBlank()) {
+                                    viewModel.clearStagedImport()
+                                    isAdding = true
+                                    urlImporter(url.trim())
+                                }
+                            }
+                        },
+                        enabled = !isAdding && !isInitializing,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColorsPrimary(),
+                    ) {
+                        if (isAdding) {
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CircularProgressIndicator(
+                                    size = 16.dp,
+                                    strokeWidth = 2.dp,
+                                    colors = ProgressIndicatorDefaults.progressIndicatorColors(
+                                        foregroundColor = MiuixTheme.colorScheme.onPrimary,
+                                        backgroundColor = MiuixTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
+                                    ),
+                                )
+                                Spacer(Modifier.size(8.dp))
+                                Text("保存")
+                            }
+                        } else {
+                            Text("保存")
                         }
                     }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColorsPrimary(),
-            ) {
-                if (isAdding) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CircularProgressIndicator(
-                            size = 16.dp,
-                            strokeWidth = 2.dp,
-                            colors = ProgressIndicatorDefaults.progressIndicatorColors(
-                                foregroundColor = MiuixTheme.colorScheme.onPrimary,
-                                backgroundColor = MiuixTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
-                            ),
-                        )
-                        Spacer(Modifier.size(8.dp))
-                        Text(if (sourceId == null) "正在添加…" else "正在保存…")
-                    }
-                } else {
-                    Text(if (sourceId == null) "添加" else "保存")
                 }
             }
         }

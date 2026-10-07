@@ -10,6 +10,7 @@ import com.muses.player.core.data.repository.AlbumRepository
 import com.muses.player.core.data.repository.ArtistRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.lxsdk.LxQuality
+import com.muses.player.core.lxsdk.LxAction
 import com.muses.player.core.lxsdk.LxScriptRepository
 import com.muses.player.core.model.online.OnlineTrackSession
 import com.muses.player.core.playback.PlaybackPort
@@ -95,7 +96,7 @@ class OnlineSearchViewModel(
 
     private val _state = MutableStateFlow(
         OnlineSearchUiState(
-            platforms = searchService.platforms.map {
+            platforms = listOf("wy").map {
                 PlatformSearchState(platform = it, displayName = searchService.platformNames.getValue(it))
             },
         ),
@@ -193,7 +194,7 @@ class OnlineSearchViewModel(
                 searched = true,
                 searchedKeyword = keyword,
                 message = null,
-                platforms = searchService.platforms.map { p ->
+                platforms = listOf("wy").map { p ->
                     PlatformSearchState(
                         platform = p,
                         displayName = searchService.platformNames.getValue(p),
@@ -201,7 +202,7 @@ class OnlineSearchViewModel(
                     )
                 },
             )
-            val outcomes = searchService.searchAll(keyword, page = 1, pageSize = DEFAULT_PAGE_SIZE)
+            val outcomes = searchService.searchAll(keyword, platforms = listOf("wy"), page = 1, pageSize = DEFAULT_PAGE_SIZE)
             applyOutcomes(outcomes, page = 1)
             _state.value = _state.value.copy(searching = false)
         }
@@ -254,8 +255,8 @@ class OnlineSearchViewModel(
             // 否则用户点播放后毫无反馈（直链解析在播放链路内异步失败），体验很差。
             if (!hasUsableScript(platform)) {
                 _state.value = _state.value.copy(
-                    message = "还没有能解析「${platformLabel(platform)}」的音源脚本。" +
-                        "请到「在线音源脚本」导入对应脚本后再播放。",
+                    message = "还没有可用的在线音源脚本。" +
+                        "请到「在线音源脚本」导入脚本后再播放。",
                 )
                 return@launch
             }
@@ -273,7 +274,7 @@ class OnlineSearchViewModel(
     private suspend fun hasUsableScript(platform: String): Boolean =
         runCatching {
             scriptRepository.loadAll().any { script ->
-                script.loadError == null && script.sources.containsKey(platform)
+                script.loadError == null && script.sources.values.any { it.supports(LxAction.MUSIC_URL) }
             }
         }.getOrDefault(false)
 

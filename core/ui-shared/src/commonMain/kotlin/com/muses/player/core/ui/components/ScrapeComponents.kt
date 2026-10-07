@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.Card
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -233,6 +235,7 @@ fun ScrapeProgressBar(
     message: String? = null,
     title: String = "正在匹配 $current / $total",
     onCancel: (() -> Unit)? = null,
+    cancelText: String = "取消",
 ) {
     val scheme = MiuixTheme.colorScheme
     Column(
@@ -272,7 +275,7 @@ fun ScrapeProgressBar(
         }
         if (onCancel != null) {
             Spacer(Modifier.height(12.dp))
-            MusesTextButton(onClick = onCancel, text = "取消")
+            MusesTextButton(onClick = onCancel, text = cancelText)
         }
     }
 }
@@ -285,7 +288,7 @@ fun ScrapeProgressBar(
  * 刮削预览卡 —— 变更前后对比 + 确认/跳过回调。
  *
  * 视觉契约（对照 ScrapeScreen 预览卡）：
- * - surface1 底 + radius-card + hairline 边框（有勾选字段时 primary 半透明边框），内缩 12dp；
+ * - miuix 官方 Card 容器，内缩 16dp；
  * - 头部复用 [ScrapeCandidateRow]（封面+标题+置信度）；
  * - 字段行复用 [ScrapeReviewFieldRow]（Checkbox +「本地值 → 候选值」）；
  * - [onConfirm]/[onSkip] 均 null 时不渲染底部按钮行（纯展示，如桌面选中预览）；
@@ -303,24 +306,13 @@ fun ScrapeReviewCard(
     skipText: String? = null,
     onSkip: (() -> Unit)? = null,
 ) {
-    val scheme = MiuixTheme.colorScheme
-    val hasChecked = fields.any { it.checked }
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .squircleBackground(scheme.surface, 12.dp)
-            .border(
-                0.5.dp,
-                if (hasChecked) scheme.primary.copy(alpha = 0.5f) else scheme.dividerLine,
-                RoundedCornerShape(12.dp),
-            )
-            .padding(12.dp),
-    ) {
+    Card(modifier = modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
         ScrapeCandidateRow(candidate = candidate, selected = selected)
         Spacer(Modifier.height(6.dp))
         fields.forEach { field ->
             ScrapeReviewFieldRow(
                 field = field,
+                enabled = !field.updated.isNullOrBlank() && field.updated != field.original,
                 onCheckedChange = onToggleField?.let { cb -> { cb(field.key) } },
             )
         }
@@ -387,7 +379,7 @@ fun ScrapeReviewFieldRow(
                 "${field.label}：$display",
                 style = MiuixTheme.textStyles.footnote1,
                 color = if (field.checked) scheme.onBackground else scheme.onBackgroundVariant,
-                maxLines = 1,
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
         }

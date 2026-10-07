@@ -8,6 +8,7 @@ import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
 import java.io.FileOutputStream
+import com.muses.player.core.media.scanner.qualityLabel
 
 /**
  * 音频标签读取器
@@ -224,6 +225,7 @@ class AudioTagReader constructor(
                 // 只丢封面不丢文本（同 JaudiotaggerTagPort.readCoverSafely 语义）
                 cover = readCoverSafely(tag),
                 durationMs = audioFile.audioHeader?.trackLength?.times(1000L) ?: 0L,
+                audioQuality = audioFile.audioHeader.qualityLabel(),
             )
         }.getOrNull()
         if (general != null) {
@@ -372,7 +374,8 @@ class AudioTagReader constructor(
             album = tags.album,
             lyrics = tags.lyrics,
             coverUri = coverPath,
-            durationMs = tags.durationMs
+            durationMs = tags.durationMs,
+            audioQuality = tags.audioQuality,
         )
     }
 
@@ -395,7 +398,8 @@ data class TagUpdateData(
     val album: String?,
     val lyrics: String?,
     val coverUri: String?,
-    val durationMs: Long = 0L
+    val durationMs: Long = 0L,
+    val audioQuality: String? = null,
 )
 
 /**
@@ -407,7 +411,8 @@ data class AudioTags(
     val album: String?,
     val lyrics: String?,
     val cover: ByteArray?,
-    val durationMs: Long = 0L
+    val durationMs: Long = 0L,
+    val audioQuality: String? = null,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -417,7 +422,7 @@ data class AudioTags(
                 album == other.album &&
                 lyrics == other.lyrics &&
                 cover.contentEquals(other.cover) &&
-                durationMs == other.durationMs
+                durationMs == other.durationMs && audioQuality == other.audioQuality
     }
 
     override fun hashCode(): Int {
@@ -427,6 +432,7 @@ data class AudioTags(
         result = 31 * result + (lyrics?.hashCode() ?: 0)
         result = 31 * result + (cover?.contentHashCode() ?: 0)
         result = 31 * result + durationMs.hashCode()
+        result = 31 * result + (audioQuality?.hashCode() ?: 0)
         return result
     }
 }

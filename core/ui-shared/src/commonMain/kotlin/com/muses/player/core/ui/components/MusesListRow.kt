@@ -50,6 +50,7 @@ fun MusesListRow(
     titleColor: Color? = null,
     subtitleColor: Color? = null,
     titleFontWeight: FontWeight? = null,
+    qualityBadgeLabel: String? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
 
@@ -84,7 +85,13 @@ fun MusesListRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (subtitle != null) {
+                if (qualityBadgeLabel != null) {
+                    androidx.compose.foundation.layout.Box(Modifier.padding(top = 2.dp)) {
+                        SongSubtitleWithQuality(subtitle.orEmpty(), qualityBadgeLabel,
+                            style = MiuixTheme.textStyles.footnote1.copy(lineHeight = (13f * 1.35f).sp),
+                            color = subtitleColor ?: scheme.onBackgroundVariant)
+                    }
+                } else if (subtitle != null) {
                     Text(
                         text = subtitle,
                         style = MiuixTheme.textStyles.footnote1,

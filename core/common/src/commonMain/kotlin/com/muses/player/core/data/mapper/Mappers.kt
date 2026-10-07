@@ -47,6 +47,7 @@ fun SongEntity.toDomain(): Song = Song(
     ).takeIf { it.title != null || it.artist != null || it.album != null || it.cover != null },
     sourceType = runCatching { SourceType.valueOf(sourceType) }.getOrDefault(SourceType.LOCAL),
     tagsVersion = tagsVersion,
+    audioQuality = audioQuality,
 )
 
 fun Song.toEntity(): SongEntity = SongEntity(
@@ -68,6 +69,7 @@ fun Song.toEntity(): SongEntity = SongEntity(
     metaAlbum = metaSources?.album?.wire,
     metaCover = metaSources?.cover?.wire,
     tagsVersion = tagsVersion,
+    audioQuality = audioQuality,
 )
 
 fun AlbumEntity.toDomain(): Album = Album(

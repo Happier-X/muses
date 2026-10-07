@@ -29,7 +29,7 @@ import com.muses.player.core.data.dao.SourceDao
         SongArtistCrossRef::class,
         SourceEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @ConstructedBy(MusesDatabaseConstructor::class)

@@ -93,6 +93,8 @@ fun SettingsScreen(
                         checked = notificationLyricsEnabled,
                         onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
                     )
+                    DesktopLyricsPreference()
+                    VolumeBoostPreference()
                     SwitchPreference(
                         title = "封面强调色",
                         summary = "播放页文字与图标跟随封面取色",
@@ -112,7 +114,8 @@ fun SettingsScreen(
                     )
                 }
 
-                // ---- AI 推荐（一级只留总开关；地址/模型/Key 收进二级页） ----
+                // ---- AI 推荐（默认启用；地址/模型/Key 收进二级页） ----
+                com.muses.player.download.DownloadPreferencesSection()
                 AiRecommendSettingSection(onOpenAiSettings = onOpenAiSettings)
 
                 // ---- 应用更新（Windows 应用内更新卡片；安卓空实现，走共享外链检查项） ----

@@ -387,4 +387,65 @@ class LxScriptEngineTest {
             engine.close()
         }
     }
+
+    @Test
+    fun `直连脚本可用 URLSearchParams 编码中文及覆盖重复参数`() = runTest {
+        val script = """
+            const { on, send, request, EVENT_NAMES } = lx;
+            on(EVENT_NAMES.request, () => {
+              const params = new URLSearchParams('?rid=旧值&rid=重复&name=江南+音乐');
+              params.set('rid', 93157);
+              params.append('special', " !'()~*");
+              if (params.getAll('rid').length !== 1 || params.get('name') !== '江南 音乐') {
+                throw new Error('参数解析错误');
+              }
+              const copy = new URLSearchParams(params);
+              return new Promise((resolve, reject) => request('http://api.test/kw?' + copy,
+                {}, (err, response) => err ? reject(err) : resolve(response.body.url)));
+            });
+            send(EVENT_NAMES.inited, {
+              sources: { kw: { actions: ['musicUrl'], qualitys: ['320k'] } }
+            });
+        """.trimIndent()
+        var requestedUrl = ""
+        val engine = engineWith(script) { url ->
+            requestedUrl = url
+            """{"url":"http://cdn.test/direct.mp3"}"""
+        }
+        try {
+            engine.load()
+            assertEquals("http://cdn.test/direct.mp3", engine.getMusicUrl("kw", LxQuality.Q_320K, "{}").url)
+            assertTrue(requestedUrl.contains("rid=93157&name=%E6%B1%9F%E5%8D%97+%E9%9F%B3%E4%B9%90"), requestedUrl)
+            assertTrue(requestedUrl.contains("special=+%21%27%28%29%7E*"), requestedUrl)
+        } finally { engine.close() }
+    }
+
+    @Test
+    fun `脚本收到真实错误状态及响应头`() = runTest {
+        val mock = MockEngine {
+            respond("""{"message":"访问被拒绝"}""", HttpStatusCode.Forbidden,
+                headersOf("X-Source-Reason", "blocked"))
+        }
+        val client = HttpClient(mock)
+        val script = """
+            lx.on('request', () => new Promise((resolve, reject) => {
+              lx.request('http://api.test/blocked', {}, (err, response) => {
+                if (err) return reject(err);
+                if (response.statusCode === 403 && response.headers['x-source-reason'] === 'blocked'
+                    && response.body.message === '访问被拒绝') {
+                  reject(new Error('音源拒绝访问'));
+                } else resolve('http://cdn.test/wrong.mp3');
+              });
+            }));
+            lx.send('inited', { sources: { kw: { actions: ['musicUrl'], qualitys: ['320k'] } } });
+        """.trimIndent()
+        val engine = LxScriptEngine(script, LxCryptoJvm(), LxHttpClient(client))
+        try {
+            engine.load()
+            val error = assertFailsWith<LxException.ScriptRuntimeError> {
+                engine.getMusicUrl("kw", LxQuality.Q_320K, "{}")
+            }
+            assertTrue(error.message.orEmpty().contains("音源拒绝访问"))
+        } finally { engine.close(); client.close() }
+    }
 }

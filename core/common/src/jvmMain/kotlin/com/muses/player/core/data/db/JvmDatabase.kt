@@ -24,7 +24,7 @@ fun createJvmDatabase(): MusesDatabase = getRoomDatabase(
         File(PlatformDirs.appDataDir(), JVM_DB_NAME).absolutePath,
         MusesDatabaseConstructor::initialize,
     )
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8),
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9),
 )
 
 /** 内存库（测试/原型用，不落盘）。 */
@@ -40,5 +40,5 @@ fun createJvmDatabaseAt(path: String): MusesDatabase = getRoomDatabase(
         path,
         MusesDatabaseConstructor::initialize,
     )
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8),
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9),
 )

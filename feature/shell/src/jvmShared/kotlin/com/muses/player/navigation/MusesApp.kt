@@ -67,6 +67,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.WindowInsets
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SnackbarHost
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -110,10 +111,10 @@ import com.muses.player.feature.player.lyric.LyricsParser
 import com.muses.player.feature.sources.LxScriptsScreen
 import com.muses.player.feature.sources.LxSourceFormScreen
 import com.muses.player.feature.home.HomeScreen
+import com.muses.player.feature.home.HomeCollectionScreen
 import com.muses.player.feature.home.ChartDetailScreen
 import com.muses.player.feature.sources.OnlineSearchScreen
 import com.muses.player.feature.sources.SourcesScreen
-import com.muses.player.feature.sources.WebDavBrowseScreen
 import com.muses.player.feature.sources.WebDavFormScreen
 import com.muses.player.settings.AiSettingsScreen
 import com.muses.player.settings.SettingsScreen
@@ -478,6 +479,12 @@ private fun MusesAppContent() {
         var playerActionSongId by remember { mutableStateOf<String?>(null) }
         val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
         val currentSongId by playerVm.currentSongId.collectAsState()
+        val downloadManager = org.koin.compose.koinInject<com.muses.player.download.DownloadManager>()
+        val onlineSongs by com.muses.player.core.model.online.OnlineTrackSession.snapshot.collectAsState()
+        val downloadSong = onlineSongs[playerActionSongId]
+        val playbackPort = org.koin.compose.koinInject<com.muses.player.core.playback.PlaybackPort>()
+        val songRepository = org.koin.compose.koinInject<com.muses.player.core.data.repository.SongRepository>()
+        val actionScope = rememberCoroutineScope()
         val scrapeQueueVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = koinViewModel()
 
         // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
@@ -552,14 +559,15 @@ private fun MusesAppContent() {
                 bottomBarElevation.value = with(shellDensity) { bounds.top.toDp() }
             }
             CompositionLocalProvider(
+                com.muses.player.core.ui.components.LocalDownloadSong provides { song -> downloadManager.enqueue(song); Unit },
                 com.muses.player.core.ui.theme.LocalBottomChromeElevation provides bottomBarElevation,
             ) {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = MiuixTheme.colorScheme.surface,
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                // 全局短提示走官方 Snackbar 槽：定位/边距/动画全由宿主保证，绘制在底栏之上
-                snackbarHost = { MusesSnackbarHostContent(snackbarHostState) },
+                // 订阅始终留在主宿主，沉浸页挂载期间只由上层宿主显示同一提示状态。
+                snackbarHost = { MusesSnackbarHostContent(snackbarHostState, visible = !playerOverlayMounted) },
                 bottomBar = {
                     AnimatedContent(
                         targetState = dockCompact,
@@ -702,6 +710,8 @@ private fun MusesAppContent() {
                 modifier = Modifier.fillMaxSize(),
                 containerColor = androidx.compose.ui.graphics.Color.Transparent,
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                // 沉浸页位于主 Scaffold 上方；提示也必须在这一层的官方槽位绘制。
+                snackbarHost = { SnackbarHost(state = snackbarHostState) },
             ) { _ ->
                 Box(Modifier.fillMaxSize()) {
                     ImmersivePlayerOverlay(
@@ -730,6 +740,21 @@ private fun MusesAppContent() {
                         songId = playerActionSongId,
                         onDismiss = { playerActionSongId = null },
                         onEnqueueScrape = scrapeQueueVm::enqueue,
+                        onAddToQueue = { id ->
+                            actionScope.launch {
+                                // 在线曲目不入库，查库落空时回落到会话登记表
+                                val song = songRepository.getSong(id) ?: onlineSongs[id]
+                                if (song == null) {
+                                    com.muses.player.core.ui.components.MusesSnackbar.show("添加到播放队列失败")
+                                } else if (id in playbackPort.queueSongIds.value) {
+                                    com.muses.player.core.ui.components.MusesSnackbar.show("已在播放队列中")
+                                } else {
+                                    playbackPort.addToQueue(listOf(song))
+                                    com.muses.player.core.ui.components.MusesSnackbar.show("添加成功")
+                                }
+                            }
+                        },
+                        onEnqueueDownload = downloadSong?.let { song -> { downloadManager.enqueue(song); Unit } },
                     )
                 }
             }
@@ -1044,8 +1069,19 @@ private fun AppNavHost(
         }
         entry<MusesRoute.Home> {
             HomeScreen(
-                // AI 推荐配置入口：「去开启」落设置页总开关，「去配置」直达 AI 服务二级页
-                onOpenAiSettings = { backStack.pushUnique(MusesRoute.Settings) },
+                onOpenRecommendations = { backStack.pushUnique(MusesRoute.HomeCollection(true)) },
+                onOpenCharts = { backStack.pushUnique(MusesRoute.HomeCollection(false)) },
+                onOpenPlaylist = { platform, playlistId, title ->
+                    backStack.pushUnique(MusesRoute.PlaylistDetail(platform, playlistId, title))
+                },
+                onSearch = { keyword -> backStack.pushUnique(MusesRoute.OnlineSearch(keyword)) },
+            )
+        }
+        entry<MusesRoute.HomeCollection>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+            HomeCollectionScreen(
+                showRecommendations = route.recommendations,
+                onBack = { backStack.pop() },
+                // 未配置 AI 服务时直接进入服务配置页。
                 onOpenAiConfig = { backStack.pushUnique(MusesRoute.AiSettings) },
                 onOpenChart = { platform, chartId, chartName ->
                     backStack.pushUnique(MusesRoute.ChartDetail(platform, chartId, chartName))
@@ -1060,9 +1096,19 @@ private fun AppNavHost(
                 onBack = { backStack.pop() },
             )
         }
-        entry<MusesRoute.OnlineSearch> {
+        entry<MusesRoute.PlaylistDetail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+            ChartDetailScreen(
+                platform = route.platform,
+                chartId = route.playlistId,
+                chartName = route.title,
+                onBack = { backStack.pop() },
+                isPlaylist = true,
+            )
+        }
+        entry<MusesRoute.OnlineSearch> { route ->
             OnlineSearchScreen(
-                onBack = null,
+                onBack = if (route.keyword.isNotBlank()) ({ backStack.pop() }) else null,
+                initialKeyword = route.keyword,
                 onAlbumClick = { albumId -> backStack.pushUnique(MusesRoute.AlbumDetail(albumId)) },
                 onArtistClick = { artistId -> backStack.pushUnique(MusesRoute.ArtistDetail(artistId)) },
             )
@@ -1071,37 +1117,12 @@ private fun AppNavHost(
             WebDavFormScreen(
                 sourceId = null,
                 onBack = { backStack.pop() },
-                // 连接信息直传类型化字段（原 URLEncoder query 入参；含密码，不落日志）
-                onBrowse = { mode, initialPath, serverUrl, username, password ->
-                    backStack.pushUnique(
-                        MusesRoute.WebDavBrowse(mode, initialPath, serverUrl, username, password),
-                    )
-                },
             )
         }
         entry<MusesRoute.WebDavEdit>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
             WebDavFormScreen(
                 sourceId = route.sourceId,
                 onBack = { backStack.pop() },
-                onBrowse = { mode, initialPath, serverUrl, username, password ->
-                    backStack.pushUnique(
-                        MusesRoute.WebDavBrowse(mode, initialPath, serverUrl, username, password),
-                    )
-                },
-            )
-        }
-        entry<MusesRoute.WebDavBrowse>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
-            WebDavBrowseScreen(
-                mode = route.mode,
-                initialPath = route.initialPath,
-                serverUrl = route.serverUrl,
-                username = route.username,
-                password = route.password,
-                onBack = { backStack.pop() },
-                onConfirm = { _ ->
-                    // 新增或编辑选完目录都先回表单，再由表单按钮提交。
-                    backStack.pop()
-                },
             )
         }
         entry<MusesRoute.Mine> {
@@ -1111,10 +1132,14 @@ private fun AppNavHost(
                 onOpenStatistics = { backStack.pushUnique(MusesRoute.Statistics) },
                 onOpenHistory = { backStack.pushUnique(MusesRoute.History) },
                 onOpenSettings = { backStack.pushUnique(MusesRoute.Settings) },
+                onOpenDownloads = { backStack.pushUnique(MusesRoute.Downloads) },
             )
         }
         entry<MusesRoute.Statistics>(swipeDismiss = NavSwipeDirection.LeftToRight) {
             StatisticsScreen(onBack = { backStack.pop() })
+        }
+        entry<MusesRoute.Downloads>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+            com.muses.player.download.DownloadQueueScreen(onBack = { backStack.pop() })
         }
         entry<MusesRoute.History>(swipeDismiss = NavSwipeDirection.LeftToRight) {
             HistoryScreen(onBack = { backStack.pop() })

@@ -4,11 +4,13 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
+import io.ktor.client.request.prepareGet
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
@@ -28,6 +30,20 @@ class SearchHttp(
     private val client: HttpClient = defaultSearchHttpClient(),
     private val json: Json = SearchJson,
 ) {
+
+    suspend fun canOpenAudio(url: String): Boolean {
+        return client.prepareGet(url) {
+            header(HttpHeaders.Range, "bytes=0-0")
+        }.execute { response ->
+            try {
+                response.status.isSuccess() &&
+                    response.contentType()?.contentType != "text" &&
+                    response.contentType()?.contentSubtype != "json"
+            } finally {
+                response.bodyAsChannel().cancel(null)
+            }
+        }
+    }
 
     /** 桌面 UA：多数平台对移动 UA 返回的字段结构不同，统一桌面口径 */
     private val desktopUa: String = DEFAULT_UA

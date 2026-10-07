@@ -29,6 +29,7 @@ fun WindowScope.MusesDesktopApp(
 ) {
     KoinApplication(configuration = koinConfiguration { modules(desktopAppModules) }) {
         MusesTheme {
+            DesktopLyricsWindow()
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize().background(MiuixTheme.colorScheme.surface)) {
                     DesktopTitleBar(windowState, onClose)

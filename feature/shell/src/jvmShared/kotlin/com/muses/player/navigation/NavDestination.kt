@@ -37,7 +37,8 @@ enum class NavDestination(
 
     /** 对照 TabsPage.vue 的 isNavActive(item)：tab 本体 + 其详情/子页均算激活 */
     fun isActive(key: NavKey?): Boolean = when (this) {
-        Home -> key == MusesRoute.Home || key is MusesRoute.ChartDetail
+        Home -> key == MusesRoute.Home || key is MusesRoute.HomeCollection ||
+            key is MusesRoute.ChartDetail || key is MusesRoute.PlaylistDetail
         Search -> key is MusesRoute.OnlineSearch
         Songs -> key == MusesRoute.Songs || key == MusesRoute.Albums ||
             key == MusesRoute.Artists || key is MusesRoute.AlbumDetail ||
@@ -46,10 +47,11 @@ enum class NavDestination(
         Artists -> key == MusesRoute.Artists || key is MusesRoute.ArtistDetail
         Scrape -> key == MusesRoute.Scrape || key is MusesRoute.ScrapeReview
         Mine -> key == MusesRoute.Mine || key == MusesRoute.Settings ||
+            key == MusesRoute.Downloads ||
             key == MusesRoute.Statistics || key == MusesRoute.History ||
             key is MusesRoute.AiSettings ||
             key == MusesRoute.Sources || key is MusesRoute.WebDavAdd ||
-            key is MusesRoute.WebDavEdit || key is MusesRoute.WebDavBrowse ||
+            key is MusesRoute.WebDavEdit ||
             key is MusesRoute.LxScripts || key == MusesRoute.Scrape ||
             key is MusesRoute.ScrapeReview
     }

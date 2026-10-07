@@ -26,6 +26,7 @@ fun MineScreen(
     onOpenStatistics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenDownloads: () -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -44,6 +45,7 @@ fun MineScreen(
             Card(modifier = Modifier.padding(horizontal = 12.dp)) {
                 ArrowPreference(title = "音源", onClick = onOpenSources)
                 ArrowPreference(title = "刮削", onClick = onOpenScrape)
+                ArrowPreference(title = "下载", onClick = onOpenDownloads)
                 ArrowPreference(title = "统计", onClick = onOpenStatistics)
                 ArrowPreference(title = "历史记录", onClick = onOpenHistory)
             }

@@ -113,12 +113,17 @@ class WebDavFormViewModel constructor(
      */
     fun consumeBrowseResult() {
         val browsed = WebDavBrowseResultHolder.take() ?: return
+        selectBrowsePaths(browsed.paths)
+    }
+
+    /** 底部面板确认后只回填目录，保存音源仍由表单按钮触发。 */
+    fun selectBrowsePaths(paths: List<String>) {
         val state = _formState.value
         // 多个所选目录共同构成同一个 WebDAV 音源的目录集合。
-        if (browsed.paths.isNotEmpty()) {
+        if (paths.isNotEmpty()) {
             _formState.value = state.copy(
-                path = browsed.paths.joinToString("、"),
-                selectedPaths = browsed.paths.map(::normalizeWebDavPath).distinct(),
+                path = paths.joinToString("、"),
+                selectedPaths = paths.map(::normalizeWebDavPath).distinct(),
                 pathError = null,
             )
         }
@@ -172,7 +177,7 @@ class WebDavFormViewModel constructor(
                 sourceRepository.upsert(source)
                 _formState.value = _formState.value.copy(
                     isSubmitting = false,
-                    successMessage = "添加成功",
+                    successMessage = "保存成功",
                 )
             } catch (e: Exception) {
                 val message = e.message ?: "保存 WebDAV 音源失败。"
@@ -245,7 +250,6 @@ class WebDavFormViewModel constructor(
                 webDavClient.authenticate(username, password)
                 webDavClient.list(buildWebDavUrl(serverUrl, "/"))
                 _formState.value = _formState.value.copy(isVerifying = false)
-                WebDavBrowseResultHolder.setInitialSelection(state.selectedPaths)
                 onBrowse(mode, initialPath, serverUrl, username, password)
             } catch (e: Exception) {
                 _formState.value = _formState.value.copy(
@@ -342,7 +346,7 @@ class WebDavFormViewModel constructor(
 
                 _formState.value = _formState.value.copy(
                     isSubmitting = false,
-                    successMessage = "编辑成功",
+                    successMessage = "保存成功",
                 )
             } catch (e: Exception) {
                 _formState.value = _formState.value.copy(

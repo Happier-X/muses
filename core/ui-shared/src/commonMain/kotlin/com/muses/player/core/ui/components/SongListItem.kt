@@ -46,6 +46,7 @@ data class SongItem(
      * null = **不渲染封面位**，保持纯文字行的既有视觉（曲库列表未传时不受影响）。
      */
     val coverUri: String? = null,
+    val qualityLabel: String? = null,
 )
 
 /**
@@ -72,6 +73,10 @@ fun SongListItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
+    titleBadgeLabel: String? = null,
+    qualityBadgeLabel: String? = song.qualityLabel,
+    showCover: Boolean = song.coverUri != null,
 ) {
     val scheme = MiuixTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
@@ -109,10 +114,10 @@ fun SongListItem(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 封面（可选）：传了才渲染，避免影响既有纯文字列表（曲库）的视觉
-        song.coverUri?.let { uri ->
+        // 封面列表保留稳定占位，纯文字列表仍可不显示封面。
+        if (showCover) {
             MusesCover(
-                uri = uri,
+                uri = song.coverUri,
                 size = 44.dp,
                 radius = MusesCoverRadius.SM,
                 contentDescription = null,
@@ -124,28 +129,27 @@ fun SongListItem(
         androidx.compose.foundation.layout.Column(
             modifier = Modifier.weight(1f),
         ) {
-            Text(
-                text = song.title,
+            SongTitleWithBadge(
+                title = song.title,
+                label = titleBadgeLabel,
                 color = if (isCurrent) scheme.primary else scheme.onBackground,
                 style = MiuixTheme.textStyles.body2,
                 fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             val subtitle = listOfNotNull(song.artist, song.albumTitle)
                 .filter { it.isNotBlank() }
                 .joinToString(" - ")
-            if (subtitle.isNotBlank()) {
-                Text(
-                    text = subtitle,
+            if (subtitle.isNotBlank() || qualityBadgeLabel != null) {
+                SongSubtitleWithQuality(
+                    subtitle = subtitle,
+                    label = qualityBadgeLabel,
                     color = if (isCurrent) scheme.primary else scheme.onBackgroundVariant,
                     style = MiuixTheme.textStyles.footnote1,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
 
+        trailingContent?.invoke()
         // 当前曲播放指示器
         if (isCurrent) {
             Icon(

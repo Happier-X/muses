@@ -10,7 +10,7 @@ sealed interface ScrapePageState {
     /** 匹配中：currentItem 为正在匹配的歌名 */
     data class Matching(val current: Int, val total: Int, val currentItem: String) : ScrapePageState
 
-    /** 候选预览确认（checkedIds 默认空 = 全不选，写回安全红线） */
+    /** 候选预览确认；默认不选择字段，用户核对后再应用。 */
     data class Preview(
         val items: List<PreviewCandidate>,
         /**
@@ -24,7 +24,11 @@ sealed interface ScrapePageState {
     data class Writing(val count: Int) : ScrapePageState
 
     /** 写回结果 + 可撤销 journalId */
-    data class Result(val results: List<WritebackResult>, val journalId: String) : ScrapePageState
+    data class Result(
+        val results: List<WritebackResult>,
+        val journalId: String,
+        val titles: Map<String, String> = emptyMap(),
+    ) : ScrapePageState
 }
 
 /** 预览行：歌曲 + 匹配到的变更 + 封面候选 + 勾选态（09-03 可编辑：保留原值供对比，edit* 为用户覆写副本） */
@@ -48,10 +52,21 @@ data class PreviewCandidate(
     val editArtist: String? = null,
     val editAlbum: String? = null,
     val editLyrics: String? = null,
+    val currentCoverUri: String? = null,
+    val failedRequests: Set<String> = emptySet(),
 ) {
     fun resolvedTitle(): String? = editTitle ?: matchedTitle
     fun resolvedArtist(): String? = editArtist ?: matchedArtist
     fun resolvedAlbum(): String? = editAlbum ?: matchedAlbum
     fun resolvedLyrics(): String? = editLyrics ?: matchedLyrics
     fun hasLyricsChange(): Boolean = !resolvedLyrics().isNullOrBlank()
+
+    /** 只允许选择确实存在的新值，空候选不能产生无效写回。 */
+    fun availableFields(): Set<String> = buildSet {
+        if (!resolvedTitle().isNullOrBlank() && resolvedTitle() != currentTitle) add("title")
+        if (!resolvedArtist().isNullOrBlank() && resolvedArtist() != currentArtist) add("artist")
+        if (!resolvedAlbum().isNullOrBlank() && resolvedAlbum() != currentAlbum) add("album")
+        if (!coverUrl.isNullOrBlank() && coverUrl != currentCoverUri) add("cover")
+        if (!resolvedLyrics().isNullOrBlank() && resolvedLyrics() != currentLyrics) add("lyrics")
+    }
 }

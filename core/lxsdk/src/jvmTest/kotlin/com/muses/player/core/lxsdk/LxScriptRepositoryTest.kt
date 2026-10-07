@@ -21,6 +21,96 @@ import kotlin.test.assertTrue
  */
 class LxScriptRepositoryTest {
 
+    @Test fun `原平台返回无法访问的地址也会换源`() = kotlinx.coroutines.runBlocking {
+        val repo = repository()
+        repo.register("both", scriptFor("wy", "kw"))
+        val resolver = LxOnlineTrackResolver(repo,
+            candidateProvider = com.muses.player.core.model.online.OnlineTrackCandidateProvider { ref, _ -> listOf(ref.copy(platform = "kw")) },
+            urlProbe = com.muses.player.core.model.online.OnlinePlayableUrlProbe { it.contains("/kw") },
+        )
+        assertTrue(resolver.resolve(OnlineTrackRef("wy", "{}", "online", "320k")).url.contains("/kw"))
+    }
+
+    @Test fun `没有网易脚本也能按其他平台候选播放`() = kotlinx.coroutines.runBlocking {
+        val repo = repository()
+        repo.register("other", scriptFor("kw"))
+        val resolver = LxOnlineTrackResolver(repo, candidateProvider = com.muses.player.core.model.online.OnlineTrackCandidateProvider { ref, platforms ->
+            assertEquals(listOf("kw"), platforms)
+            listOf(ref.copy(platform = "kw", musicInfoJson = """{"songmid":"MUSIC_9"}"""))
+        })
+        val result = resolver.resolve(OnlineTrackRef("wy", """{"id":"1","name":"晴天","singer":"周杰伦"}""", "online", "320k"))
+        assertTrue(result.url.contains("/kw"))
+    }
+
+    @Test fun `原平台解析失败后继续尝试同曲候选`() = kotlinx.coroutines.runBlocking {
+        val repo = repository()
+        repo.register("original", """
+            const { EVENT_NAMES, on, send } = globalThis.lx
+            on(EVENT_NAMES.request, () => Promise.reject(new Error('此歌曲不可用')))
+            send(EVENT_NAMES.inited, {sources: {wy: {name:'网易',type:'music',actions:['musicUrl'],qualitys:['320k']}}})
+        """.trimIndent())
+        repo.register("other", scriptFor("kw"))
+        var fallbackCalled = false
+        val resolver = LxOnlineTrackResolver(repo, candidateProvider = com.muses.player.core.model.online.OnlineTrackCandidateProvider { ref, _ ->
+            fallbackCalled = true
+            listOf(ref.copy(platform = "kw", musicInfoJson = """{"songmid":"MUSIC_9"}"""))
+        })
+        assertTrue(resolver.resolve(OnlineTrackRef("wy", "{}", "online", "320k")).url.contains("/kw"))
+        assertTrue(fallbackCalled)
+    }
+
+    @Test fun `下载只降低请求档位并返回实际请求`() = runTest {
+        val repo = repository()
+        repo.register("download", scriptWithQualities("['128k','320k','flac']"))
+        val result = repo.resolveMusicUrlInfo("kw", "{}", LxQuality.FLAC_24BIT, downloadFallback = true)
+        assertEquals(LxQuality.FLAC, result.quality)
+        assertTrue(result.url.contains("q=flac"))
+    }
+
+    @Test fun `下载不因脚本只有高档位而升级`() = runTest {
+        val repo = repository()
+        repo.register("download", scriptWithQualities("['flac']"))
+        assertFailsWith<LxResolveException> {
+            repo.resolveMusicUrlInfo("kw", "{}", LxQuality.Q_128K, downloadFallback = true)
+        }
+    }
+
+    @Test fun `下载先尝试其他脚本的最近档位再降到320k`() = runTest {
+        val repo = repository()
+        repo.register("low", scriptWithQualities("['320k']"))
+        repo.register("near", scriptWithQualities("['flac','flac24bit']"))
+        val result = repo.resolveMusicUrlInfo("kw", "{}", LxQuality.HIRES, downloadFallback = true)
+        assertEquals(LxQuality.FLAC_24BIT, result.quality)
+        assertTrue(result.url.contains("q=flac24bit"))
+    }
+
+    @Test fun `下载高档失败后先尝试其他脚本同档位`() = runTest {
+        val repo = repository()
+        repo.register("first", """
+            const { EVENT_NAMES, on, send } = globalThis.lx
+            on(EVENT_NAMES.request, ({info}) => info.type === 'flac'
+                ? Promise.reject(new Error('不可用')) : Promise.resolve('http://cdn.test/320k'))
+            send(EVENT_NAMES.inited, { sources: { kw: { name: '测试', type: 'music', actions: ['musicUrl'], qualitys: ['320k','flac'] } } })
+        """.trimIndent())
+        repo.register("second", scriptWithQualities("['flac']"))
+        val result = repo.resolveMusicUrlInfo("kw", "{}", LxQuality.FLAC, downloadFallback = true)
+        assertEquals(LxQuality.FLAC, result.quality)
+        assertTrue(result.url.contains("q=flac"))
+    }
+
+    @Test fun `下载解析失败会尝试下一档`() = runTest {
+        val repo = repository()
+        repo.register("download", """
+            const { EVENT_NAMES, on, send } = globalThis.lx
+            on(EVENT_NAMES.request, ({info}) => info.type === 'flac'
+                ? Promise.reject(new Error('不可用')) : Promise.resolve('http://cdn.test/' + info.type))
+            send(EVENT_NAMES.inited, { sources: { kw: { name: '测试', type: 'music', actions: ['musicUrl'], qualitys: ['128k','flac'] } } })
+        """.trimIndent())
+        val result = repo.resolveMusicUrlInfo("kw", "{}", LxQuality.FLAC, downloadFallback = true)
+        assertEquals(LxQuality.Q_128K, result.quality)
+        assertEquals("http://cdn.test/128k", result.url)
+    }
+
     /** 声明指定平台的脚本，musicUrl 返回固定直链 */
     private fun scriptFor(vararg platforms: String, name: String = "多源脚本"): String {
         val sources = platforms.joinToString(",\n") { p ->

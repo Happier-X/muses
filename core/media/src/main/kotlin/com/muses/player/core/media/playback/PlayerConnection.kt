@@ -240,36 +240,62 @@ class PlayerConnection constructor(
         if (songs.any { it.sourceType == SourceType.ONLINE }) {
             OnlineTrackSession.remember(songs)
         }
-        // 在线曲目与本地/WebDAV 走同一路径：MediaItem 持有稳定标识 URI，
-        // 在线直链由 PlaybackService 的 ResolvingDataSource 在**打开时才**换取。
-        // （初版在此对整队逐首预解析，20 首需等待约 30 秒才出声，见 OnlineResolvingDataSourceFactory 注释）
-        val mediaItems = songs.map { song ->
-            val metadata = androidx.media3.common.MediaMetadata.Builder()
-                .setTitle(song.title)
-                .setArtist(song.artist)
-            // 不传 albumTitle：小米系统卡片 / 超级岛副标题直接读此字段，
-            // 播放条与通知口径统一为「标题/艺术家」，专辑信息仅保留在数据库（蓝牙场景暂不考虑）
-
-            // 在线曲目：搜索结果自带的远程封面直接作为通知/锁屏/系统卡片封面（**零额外请求**）。
-            // 此处**不**调脚本 `pic` 预解析：入队时逐首解析会让出声迟到数十秒
-            // （见 OnlineResolvingDataSourceFactory 注释）；脚本 pic 是播放页/迷你条的展示层增强。
-            if (song.sourceType == SourceType.ONLINE) {
-                song.coverUri
-                    ?.takeIf { it.startsWith("http", ignoreCase = true) }
-                    ?.let { metadata.setArtworkUri(Uri.parse(it)) }
-            }
-            MediaItem.Builder()
-                .setMediaId(song.id)
-                .setUri(resolveUri(song))
-                .setMediaMetadata(metadata.build())
-                .build()
-        }
+        val mediaItems = songs.map(::toMediaItem)
         val index = mediaItems.indexOfFirst { it.mediaId == songId }
         if (index < 0) return
 
         player.setMediaItems(mediaItems, index, C.TIME_UNSET)
         player.prepare()
         player.playWhenReady = true
+    }
+
+    /**
+     * 追加到队列末尾，不打断当前播放（曲库「添加到播放队列」）。
+     * 队列原本为空时退化为从追加的第一首开始播。
+     */
+    override fun addToQueue(songs: List<com.muses.player.core.model.Song>) {
+        if (songs.isEmpty()) return
+        portScope.launch {
+            val player = controller ?: return@launch
+            if (songs.any { it.sourceType == SourceType.ONLINE }) OnlineTrackSession.remember(songs)
+            val queued = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
+            val additions = songs.filterNot { it.id in queued }
+            if (additions.isEmpty()) return@launch
+            val items = additions.map(::toMediaItem)
+            if (player.mediaItemCount == 0) {
+                player.setMediaItems(items, 0, C.TIME_UNSET)
+                player.prepare()
+                player.playWhenReady = true
+            } else {
+                player.addMediaItems(items)
+            }
+        }
+    }
+
+    /** Song → MediaItem（[applyPlayback] 与 [addToQueue] 共用同一份元数据口径） */
+    private fun toMediaItem(song: com.muses.player.core.model.Song): androidx.media3.common.MediaItem {
+        // 在线曲目与本地/WebDAV 走同一路径：MediaItem 持有稳定标识 URI，
+        // 在线直链由 PlaybackService 的 ResolvingDataSource 在**打开时才**换取。
+        // （初版在此对整队逐首预解析，20 首需等待约 30 秒才出声，见 OnlineResolvingDataSourceFactory 注释）
+        val metadata = androidx.media3.common.MediaMetadata.Builder()
+            .setTitle(song.title)
+            .setArtist(song.artist)
+        // 不传 albumTitle：小米系统卡片 / 超级岛副标题直接读此字段，
+        // 播放条与通知口径统一为「标题/艺术家」，专辑信息仅保留在数据库（蓝牙场景暂不考虑）
+
+        // 在线曲目：搜索结果自带的远程封面直接作为通知/锁屏/系统卡片封面（**零额外请求**）。
+        // 此处**不**调脚本 `pic` 预解析：入队时逐首解析会让出声迟到数十秒
+        // （见 OnlineResolvingDataSourceFactory 注释）；脚本 pic 是播放页/迷你条的展示层增强。
+        if (song.sourceType == SourceType.ONLINE) {
+            song.coverUri
+                ?.takeIf { it.startsWith("http", ignoreCase = true) }
+                ?.let { metadata.setArtworkUri(Uri.parse(it)) }
+        }
+        return MediaItem.Builder()
+            .setMediaId(song.id)
+            .setUri(resolveUri(song))
+            .setMediaMetadata(metadata.build())
+            .build()
     }
 
     /**

@@ -36,6 +36,11 @@ kotlin {
             implementation(libs.bundles.koin.kmp)
         }
 
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
+
         androidMain.dependencies {
             // 扫描器（MediaStore/WebDAV，安卓媒体栈，AndroidLibraryScanPort 消费）
             implementation(project(":core:media"))

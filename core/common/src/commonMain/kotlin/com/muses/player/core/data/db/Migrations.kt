@@ -121,3 +121,10 @@ val MIGRATION_7_8: Migration = object : Migration(7, 8) {
         connection.exec("ALTER TABLE `songs` ADD COLUMN `missing` INTEGER NOT NULL DEFAULT 0")
     }
 }
+
+/** v8 → v9：追加文件音质字段，已有歌曲保持原样。 */
+val MIGRATION_8_9: Migration = object : Migration(8, 9) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.exec("ALTER TABLE `songs` ADD COLUMN `audioQuality` TEXT")
+    }
+}

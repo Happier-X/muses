@@ -1,91 +1,64 @@
 package com.muses.player.feature.sources
 
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import com.muses.player.core.ui.components.MusesDialog
-import top.yukonga.miuix.kmp.basic.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
-import com.muses.player.core.ui.components.MusesTopBar
+import com.muses.player.core.ui.components.MusesBottomSheet
+import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import com.muses.player.core.ui.components.WebDavBrowseItem
 import com.muses.player.core.ui.components.WebDavBrowseList
-/**
- * WebDAV 目录浏览页 —— 一比一翻译自 SourceWebDavBrowsePage.vue + WebDavDirectoryBrowser.vue。
- *
- * 模式：
- * - multiple：添加时多选目录
- * - edit-multiple：编辑时多选此账号包含的目录
- *
- * 参数由导航参数传入（connection, initialPath, mode）
- *
- * 浏览页共用化：目录列表/路径导航/加载态/空态经 ui-shared [WebDavBrowseList] 渲染，
- * 本页只保留导航栏 + ViewModel 接线 + 错误对话框（行为冻结）。
- */
+/** 仅在表单打开面板期间持有连接信息，不进入导航栈或持久化。 */
+class WebDavBrowseRequest(
+    val mode: String,
+    val initialPath: String,
+    val serverUrl: String,
+    val username: String,
+    val password: String,
+    val selectedPaths: List<String>,
+)
+
+/** 当前表单上的目录选择面板；确认回填，关闭丢弃临时选择。 */
 @Composable
-fun WebDavBrowseScreen(
-    mode: String, // "multiple" 添加 / "edit-multiple" 编辑多选
-    initialPath: String,
-    serverUrl: String,
-    username: String,
-    password: String,
-    onBack: () -> Unit,
+fun WebDavBrowseSheet(
+    request: WebDavBrowseRequest,
+    onDismiss: () -> Unit,
     onConfirm: (paths: List<String>) -> Unit,
-    modifier: Modifier = Modifier,
     viewModel: WebDavBrowseViewModel = koinViewModel(),
 ) {
     val browseState by viewModel.browseState.collectAsState()
 
-    // 初始化收敛到副作用：重组不再重复调用（ViewModel 侧幂等兜底）
-    LaunchedEffect(mode, initialPath, serverUrl, username) {
-        viewModel.init(mode, initialPath, serverUrl, username, password)
+    LaunchedEffect(request) {
+        viewModel.init(request.mode, request.initialPath, request.serverUrl, request.username, request.password, request.selectedPaths)
     }
-
-    /** 确认选择：结果写入跨页会话后回退（对照 setWebDavBrowseResult） */
-    val confirmSelection: (List<String>) -> Unit = { paths ->
-        WebDavBrowseResultHolder.set(
-            WebDavBrowseResultHolder.BrowseResult(
-                paths = paths,
-                serverUrl = serverUrl,
-                username = username,
-                password = password,
-            ),
-        )
-        onConfirm(paths)
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.endSession() }
     }
-
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = MiuixTheme.colorScheme.surface,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            MusesTopBar(
-                title = if (mode == "multiple") "添加 WebDav 源" else "编辑 WebDav 源",
-                onBack = {
-                    viewModel.clearSelection()
-                    onBack()
-                },
-            )
-        },
-    ) { padding ->
-        // .source-webdav-browse-page__content（content 槽顶替原外层 Column，层级 1:1）
+    val sheetHeight = with(LocalDensity.current) {
+        LocalWindowInfo.current.containerSize.height.toDp() * 0.65f
+    }.coerceAtMost(560.dp)
+    MusesBottomSheet(title = "选择目录", onDismiss = onDismiss) {
+        CompositionLocalProvider(LocalBottomChromePadding provides 0.dp) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+                .fillMaxWidth()
+                .height(sheetHeight)
                 .padding(horizontal = 12.dp)
                 .padding(top = 8.dp),
         ) {
             WebDavBrowseList(
-                mode = mode,
+                mode = request.mode,
                 currentPath = browseState.currentPath,
                 directories = browseState.directories.map { it.toShared() },
                 selectedPaths = browseState.selectedPaths,
@@ -93,22 +66,14 @@ fun WebDavBrowseScreen(
                 isSubmitting = false,
                 onToggleSelection = { viewModel.toggleSelection(it) },
                 onOpenDirectory = { viewModel.openDirectory(it) },
-                onConfirmSingle = { confirmSelection(listOf(it)) },
-                onConfirmMultiple = { confirmSelection(it) },
+                onConfirmSingle = { onConfirm(listOf(it)) },
+                onConfirmMultiple = onConfirm,
                 onNavigatePath = { viewModel.navigateTo(it) },
                 modifier = Modifier.weight(1f),
+                errorText = browseState.errorMessage,
+                onDismissError = viewModel::dismissError,
             )
-
-            // 错误对话框（miuix MusesDialog）
-            browseState.errorMessage?.let { message ->
-                MusesDialog(
-                    onDismiss = { viewModel.dismissError() },
-                    title = "错误",
-                    message = message,
-                    confirmText = "确定",
-                    onConfirm = { viewModel.dismissError() },
-                )
-            }
+        }
         }
     }
 }

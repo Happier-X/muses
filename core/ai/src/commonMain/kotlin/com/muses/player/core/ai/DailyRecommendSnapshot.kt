@@ -54,19 +54,14 @@ object DailyRecommendSnapshot {
         ),
     )
 
-    fun decode(snapshot: String, day: String, profile: LibraryProfile): AiRecommendResult? {
+    fun decode(snapshot: String, day: String, profile: LibraryProfile? = null): AiRecommendResult? {
         val stored = runCatching { Json.decodeFromString<StoredDay>(snapshot) }.getOrNull() ?: return null
-        if (stored.day != day || stored.tracks.isEmpty()) return null
-        val tracks = AiRecommendResult(
+        if (stored.day != day) return null
+        val result = AiRecommendResult(
             tracks = stored.tracks.map { it.toTrack() },
             suggested = stored.suggested,
             unmatched = stored.unmatched.map { AiSongSuggestion(it.name, it.artist, it.reason) },
-        ).excludingOwnedSongs(profile).tracks
-        if (tracks.isEmpty()) return null
-        return AiRecommendResult(
-            tracks = tracks,
-            suggested = stored.suggested,
-            unmatched = stored.unmatched.map { AiSongSuggestion(it.name, it.artist, it.reason) },
         )
+        return if (profile != null) result.excludingOwnedSongs(profile) else result
     }
 }

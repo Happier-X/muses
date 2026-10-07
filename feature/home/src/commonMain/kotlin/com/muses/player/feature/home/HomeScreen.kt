@@ -1,10 +1,12 @@
 package com.muses.player.feature.home
 
+import com.muses.player.core.search.performanceLabel
+import com.muses.player.core.search.qualityLabel
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,6 +29,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,20 +49,18 @@ import androidx.compose.ui.unit.sp
 import com.muses.player.core.ai.AiRecommendedTrack
 import com.muses.player.core.search.OnlineChart
 import com.muses.player.core.ui.components.MusesButton
-import com.muses.player.core.ui.components.MusesCover
-import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesEmpty
-import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesTopBar
+import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.SongItem
 import com.muses.player.core.ui.components.SongListItem
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
@@ -69,20 +70,18 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.window.WindowListPopup
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.SinkFeedback
-import top.yukonga.miuix.kmp.utils.pressable
 
 /**
- * 探索（原「首页」）：排行榜 + 猜你喜欢。
+ * 首页入口的内容页：按入口展示排行榜或猜你喜欢。
  *
  * 交互约定：
  * - 排行榜：右上角选择有可用 LX 脚本的平台，点击榜单卡片进入歌曲子页；
- * - 猜你喜欢：AI 读曲库画像出「歌名+歌手」，再回平台精确匹配；未启用/未配置时给明确入口。
+ * - 猜你喜欢：AI 读曲库画像出「歌名+歌手」，再回平台精确匹配；未配置时给明确入口。
  */
 @Composable
-fun HomeScreen(
-    /** 跳设置页（AI 推荐总开关入口） */
-    onOpenAiSettings: () -> Unit,
+fun HomeCollectionScreen(
+    showRecommendations: Boolean,
+    onBack: () -> Unit,
     /** 跳 AI 服务二级页（地址/模型/Key 配置入口） */
     onOpenAiConfig: () -> Unit,
     /** 打开指定排行榜歌曲页 */
@@ -96,27 +95,49 @@ fun HomeScreen(
     val platformNames = chart.platformNames
     var showPlatformPopup by remember { mutableStateOf(false) }
 
+    LaunchedEffect(showRecommendations) {
+        if (showRecommendations) viewModel.refreshRecommend() else viewModel.loadCharts()
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = scheme.surface,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             MusesTopBar(
-                title = "探索",
+                title = if (showRecommendations) "猜你喜欢" else "排行榜",
+                onBack = onBack,
                 actions = {
-                    MusesIconButton(
-                        onClick = { viewModel.loadCharts(forceRefresh = true) },
-                        imageVector = TablerIcons.Refresh,
-                        contentDescription = "刷新排行榜",
-                        enabled = !chart.loadingCharts && !chart.refreshingCharts,
-                    )
-                    if (chart.platforms.isNotEmpty()) {
+                    if (showRecommendations) {
+                        MusesIconButton(onClick = viewModel::retryRecommend,
+                            imageVector = TablerIcons.Refresh, contentDescription = "刷新推荐",
+                            enabled = !recommend.loading)
+                    }
+                    if (!showRecommendations && chart.platforms.size > 1) {
                         Box(contentAlignment = Alignment.CenterEnd) {
-                            Button(
+                            IconButton(
                                 onClick = { showPlatformPopup = true },
+                                minWidth = 40.dp,
+                                minHeight = 40.dp,
                             ) {
-                                Text(platformNames[chart.selectedPlatform] ?: chart.selectedPlatform.orEmpty())
-                                Icon(TablerIcons.ChevronDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = (platformNames[chart.selectedPlatform] ?: chart.selectedPlatform.orEmpty())
+                                            .removeSuffix("音乐").trimEnd(),
+                                        style = MiuixTheme.textStyles.body1,
+                                        color = scheme.onBackground,
+                                    )
+                                    Icon(
+                                        imageVector = TablerIcons.ChevronDown,
+                                        contentDescription = "切换音源",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = scheme.onBackground,
+                                    )
+                                }
                             }
                             WindowListPopup(
                                 show = showPlatformPopup,
@@ -127,7 +148,7 @@ fun HomeScreen(
                                 ListPopupColumn {
                                     chart.platforms.forEachIndexed { index, platform ->
                                         DropdownImpl(
-                                            text = platformNames[platform] ?: platform,
+                                            text = (platformNames[platform] ?: platform).removeSuffix("音乐").trimEnd(),
                                             optionSize = chart.platforms.size,
                                             isSelected = platform == chart.selectedPlatform,
                                             index = index,
@@ -142,17 +163,35 @@ fun HomeScreen(
                         }
                     }
                 },
+                bottomContent = {
+                    val tracks = recommend.result?.tracks.orEmpty()
+                    if (showRecommendations && tracks.isNotEmpty()) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null, onClick = viewModel::shuffleRecommend),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                MusesIconButton(onClick = viewModel::shuffleRecommend) {
+                                    Icon(TablerIcons.Shuffle, contentDescription = "随机播放推荐歌曲")
+                                }
+                                Text(tracks.size.toString(), style = MiuixTheme.textStyles.body1,
+                                    color = scheme.onBackground)
+                            }
+                        }
+                    }
+                },
             )
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
+                start = if (showRecommendations) 12.dp else 16.dp,
+                end = if (showRecommendations) 12.dp else 16.dp,
                 bottom = 16.dp + LocalBottomChromePadding.current,
             ),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(if (showRecommendations) 2.dp else 6.dp),
         ) {
             // 一次性提示（如「该平台没有可用音源脚本」）
             state.message?.let { message ->
@@ -162,6 +201,7 @@ fun HomeScreen(
             }
 
             // ── 排行榜 ──
+            if (!showRecommendations) {
             item(key = "chart-title") { SmallTitle(text = "排行榜", insideMargin = SectionTitleMargin) }
 
             when {
@@ -202,20 +242,11 @@ fun HomeScreen(
                 }
             }
 
-            // ── 猜你喜欢 ──
-            item(key = "recommend-title") {
-                SmallTitle(text = "猜你喜欢", insideMargin = SectionTitleMargin)
             }
 
+            // ── 猜你喜欢 ──
+            if (showRecommendations) {
             when {
-                !recommend.enabled -> item(key = "rec-off") {
-                    AiHintCard(
-                        title = "开启 AI 推荐",
-                        description = "根据你的曲库偏好发现新歌",
-                        actionLabel = "去开启",
-                        onAction = onOpenAiSettings,
-                    )
-                }
                 !recommend.configured -> item(key = "rec-unconfigured") {
                     AiHintCard(
                         title = "配置 AI 服务",
@@ -224,14 +255,14 @@ fun HomeScreen(
                         onAction = onOpenAiConfig,
                     )
                 }
-                recommend.loading -> item(key = "rec-loading") {
+                recommend.loading && recommend.result == null -> item(key = "rec-loading") {
                     LoadingRow()
                 }
                 recommend.error != null && recommend.result == null -> item(key = "rec-error") {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         HomeBanner(text = recommend.error, onClose = null)
                         Spacer(Modifier.height(6.dp))
-                        MusesButton(onClick = { viewModel.refreshRecommend() }) { Text("重试") }
+                        MusesButton(onClick = viewModel::retryRecommend) { Text("重试") }
                     }
                 }
                 recommend.result != null -> {
@@ -242,7 +273,6 @@ fun HomeScreen(
                                 MusesEmpty(
                                     title = "空空如也~",
                                 )
-                                MusesButton(onClick = { viewModel.refreshRecommend() }) { Text("重试") }
                             }
                         }
                     } else {
@@ -250,16 +280,25 @@ fun HomeScreen(
                             items = result.tracks,
                             key = { _, track: AiRecommendedTrack -> "rec-${track.result.platform}-${track.result.songId}" },
                         ) { index, track ->
-                            RecommendRow(
-                                track = track,
-                                platformLabel = track.result.platform.let { platformNames[it] ?: it },
+                            val song = track.result
+                            SongListItem(
+                                song = SongItem(id = "${song.platform}-${song.songId}", title = song.name,
+                                    artist = song.artist, albumTitle = song.album, coverUri = song.coverUrl),
+                                isCurrent = false,
+                                showCover = true,
+                                titleBadgeLabel = song.performanceLabel,
+                                qualityBadgeLabel = song.qualityLabel,
                                 onClick = { viewModel.playRecommend(index) },
+                                trailingContent = {
+                                    com.muses.player.core.ui.components.OnlineSongDownloadAction(song.toSong("online"))
+                                },
                             )
                         }
                     }
                 }
             }
 
+            }
             item(key = "bottom-space") { Spacer(Modifier.height(8.dp)) }
         }
     }
@@ -325,68 +364,6 @@ private fun ChartCard(chart: OnlineChart, width: Dp, onClick: () -> Unit) {
             color = scheme.onSurfaceVariantSummary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-/** AI 推荐行：封面 + 歌名 +（歌手 · 推荐理由）+ 平台来源 */
-@Composable
-private fun RecommendRow(
-    track: AiRecommendedTrack,
-    platformLabel: String,
-    onClick: () -> Unit,
-) {
-    val scheme = MiuixTheme.colorScheme
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .squircleClip(8.dp)
-            // 与 SongListItem 同一套官方按压反馈（下沉 + 叠底），避免默认 ripple 的方块灰框
-            .pressable(interactionSource = interactionSource, indication = SinkFeedback())
-            .background(if (pressed) scheme.surface.copy(alpha = 0.5f) else Color.Transparent)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // 封面：与榜单/搜索列表同一视觉口径（远程 URL 经 Coil 双端加载，缺失/失败落稳定占位）。
-        // 不展示序号：封面已承担行首的视觉锚点，再加序号会拥挤。
-        MusesCover(
-            uri = track.result.coverUrl,
-            size = 44.dp,
-            radius = MusesCoverRadius.SM,
-            contentDescription = null,
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = track.result.name,
-                fontSize = 14.sp,
-                color = scheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val subtitle = listOfNotNull(
-                track.result.artist?.takeIf { it.isNotBlank() },
-                track.suggestion.reason?.takeIf { it.isNotBlank() },
-            ).joinToString(" · ")
-            if (subtitle.isNotEmpty()) {
-                Text(
-                    text = subtitle,
-                    fontSize = 12.sp,
-                    color = scheme.onSurfaceVariantSummary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        Spacer(Modifier.width(8.dp))
-        // 平台名只作来源说明：用次级文字而非彩色胶囊，避免页面上堆满彩色小块
-        Text(
-            text = platformLabel,
-            fontSize = 11.sp,
-            color = scheme.onSurfaceVariantSummary,
         )
     }
 }

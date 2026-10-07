@@ -38,6 +38,7 @@ data class TagPortTags(
     val lyrics: String? = null,
     val cover: ByteArray? = null,
     val durationMs: Long = 0L,
+    val audioQuality: String? = null,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -47,7 +48,7 @@ data class TagPortTags(
             album == other.album &&
             lyrics == other.lyrics &&
             cover.contentEquals(other.cover) &&
-            durationMs == other.durationMs
+            durationMs == other.durationMs && audioQuality == other.audioQuality
     }
 
     override fun hashCode(): Int {
@@ -57,6 +58,7 @@ data class TagPortTags(
         result = 31 * result + (lyrics?.hashCode() ?: 0)
         result = 31 * result + (cover?.contentHashCode() ?: 0)
         result = 31 * result + durationMs.hashCode()
+        result = 31 * result + (audioQuality?.hashCode() ?: 0)
         return result
     }
 }

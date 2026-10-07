@@ -43,11 +43,12 @@ class AiChatClient(
         config: AiRecommendConfig,
         systemPrompt: String,
         userPrompt: String,
+        temperature: Double = RECOMMEND_TEMPERATURE,
     ): String {
-        val url = "${config.resolvedBaseUrl}/chat/completions"
+        val url = "${validateAiBaseUrl(config.baseUrl)}/chat/completions"
         val body = buildJsonObject {
             put("model", config.resolvedModel)
-            put("temperature", RECOMMEND_TEMPERATURE)
+            put("temperature", temperature)
             put("stream", false)
             put("messages", buildJsonArray {
                 add(buildJsonObject { put("role", "system"); put("content", systemPrompt) })
@@ -109,7 +110,7 @@ class AiChatClient(
      * 返回模型 id 列表（去重保序）；失败时抛 [AiException]（调用方转状态文案）。
      */
     suspend fun listModels(baseUrl: String, apiKey: String): List<String> {
-        val url = "${baseUrl.trim().trimEnd('/')}/models"
+        val url = "${validateAiBaseUrl(baseUrl)}/models"
         val response = try {
             client.get(url) {
                 header(HttpHeaders.Authorization, "Bearer $apiKey")

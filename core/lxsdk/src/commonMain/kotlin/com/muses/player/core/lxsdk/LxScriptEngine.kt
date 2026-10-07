@@ -234,7 +234,7 @@ class LxScriptEngine(
             // 宿主 HTTP：asyncFunction 返回 JS Promise，脚本侧可 await / 走回调
             // （binding 传参一律为 JSON/字符串，见 spike §4.2）
             asyncFunction("http") { args ->
-                httpClient.request(args.getOrNull(0) as? String ?: "", args.getOrNull(1) as? String)
+                httpClient.requestResponseJson(args.getOrNull(0) as? String ?: "", args.getOrNull(1) as? String)
             }
             asyncFunction("sleep") { args ->
                 delay(((args.getOrNull(0) as? Number)?.toLong() ?: 0L).coerceIn(0L, 60_000L))

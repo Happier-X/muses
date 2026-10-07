@@ -1,6 +1,7 @@
 package com.muses.player.feature.library
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,7 +28,7 @@ import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.icons.TablerIcons
-import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
@@ -73,15 +74,28 @@ fun LibraryScreen(
                 actions = {
                     // 顶栏右侧显示当前曲库分类，点按后通过 Miuix 列表弹层切换。
                     Box(contentAlignment = Alignment.CenterEnd) {
-                        Button(
+                        IconButton(
                             onClick = { showTabPopup = true },
+                            minWidth = 40.dp,
+                            minHeight = 40.dp,
                         ) {
-                            Text(LibraryTabs[selectedTab])
-                            Icon(
-                                imageVector = TablerIcons.ChevronDown,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = LibraryTabs[selectedTab],
+                                    style = MiuixTheme.textStyles.body1,
+                                    color = scheme.onBackground,
+                                )
+                                Icon(
+                                    imageVector = TablerIcons.ChevronDown,
+                                    contentDescription = "切换曲库分类",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = scheme.onBackground,
+                                )
+                            }
                         }
                         WindowListPopup(
                             show = showTabPopup,

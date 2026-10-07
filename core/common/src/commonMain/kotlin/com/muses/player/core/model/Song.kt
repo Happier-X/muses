@@ -32,6 +32,8 @@ data class Song(
     val sourceType: SourceType = SourceType.LOCAL,
     /** 标签解析器版本号；每次扫描写入当前版本 */
     val tagsVersion: Int = 0,
+    /** 文件音频头读取的音质标记，null 表示尚未确认。 */
+    val audioQuality: String? = null,
 )
 
 /** 专辑索引 */

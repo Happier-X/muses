@@ -15,6 +15,15 @@ class DailyRecommendSnapshotTest {
     )
 
     @Test
+    fun 当天全部入库后缓存仍然有效且次日才过期() {
+        val result = AiRecommendResult(listOf(track("晴天", "周杰伦")), 1, emptyList())
+        val snapshot = DailyRecommendSnapshot.encode("2026-10-07", result)
+        assertEquals(0, DailyRecommendSnapshot.decode(snapshot, "2026-10-07", profile)?.matched)
+        assertEquals(1, DailyRecommendSnapshot.decode(snapshot, "2026-10-07")?.matched)
+        assertNull(DailyRecommendSnapshot.decode(snapshot, "2026-10-08"))
+    }
+
+    @Test
     fun 同名不同歌手不会误删() {
         assertTrue(profile.containsSong("晴天 (Live)", "周杰伦"))
         assertFalse(profile.containsSong("晴天", "其他歌手"))

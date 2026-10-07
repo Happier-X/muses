@@ -189,7 +189,15 @@ class LxScriptRepository(
         platform: String,
         musicInfoJson: String,
         quality: LxQuality? = null,
-    ): String {
+    ): String = resolveMusicUrlInfo(platform, musicInfoJson, quality).url
+
+    /** 返回应用实际请求的档位；下载可要求只向较低档位回退。 */
+    suspend fun resolveMusicUrlInfo(
+        platform: String,
+        musicInfoJson: String,
+        quality: LxQuality? = null,
+        downloadFallback: Boolean = false,
+    ): LxMusicUrl {
         ensureSynced()
         val candidates = mutex.withLock { scripts.toList() }
         if (candidates.isEmpty()) {
@@ -197,6 +205,7 @@ class LxScriptRepository(
         }
 
         val failures = mutableListOf<String>()
+        val downloadAttempts = mutableListOf<Triple<LxQuality, LxScriptEngine, String>>()
         for (script in candidates) {
             // 懒加载：加载失败的脚本跳过并记录（不阻断其它脚本）
             val loaded = script.ensureLoaded(crypto, httpClient, requestTimeoutMs)
@@ -208,11 +217,35 @@ class LxScriptRepository(
             val declared = engine.sources?.get(platform) ?: continue
             if (!declared.supports(LxAction.MUSIC_URL)) continue
 
-            val effectiveQuality = pickQuality(declared, quality)
+            val qualities = if (downloadFallback) {
+                val requested = quality ?: LxQuality.DEFAULT
+                LxQuality.ordered().filter { it.rank <= requested.rank && declared.supports(it) }.reversed()
+            } else listOf(pickQuality(declared, quality))
+            if (downloadFallback) {
+                qualities.filterNotNull().forEach { effectiveQuality ->
+                    downloadAttempts += Triple(effectiveQuality, engine, script.meta.name ?: script.scriptId)
+                }
+                continue
+            }
+            for (effectiveQuality in qualities) {
+                try {
+                    return engine.getMusicUrl(platform, effectiveQuality, musicInfoJson).copy(quality = effectiveQuality)
+                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) {
+                    failures += "${script.meta.name ?: script.scriptId}: ${e.message}"
+                }
+            }
+        }
+
+        // 下载优先保住音质：同档位跨脚本尝试完后，才降到最近的可用低档。
+        // 相同档位保留脚本原有优先顺序，不升到用户所选档位以上。
+        for ((effectiveQuality, engine, name) in downloadAttempts.sortedByDescending { it.first.rank }) {
             try {
-                return engine.getMusicUrl(platform, effectiveQuality, musicInfoJson).url
+                return engine.getMusicUrl(platform, effectiveQuality, musicInfoJson).copy(quality = effectiveQuality)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
-                failures += "${script.meta.name ?: script.scriptId}: ${e.message}"
+                failures += "$name: ${e.message}"
             }
         }
 

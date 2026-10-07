@@ -57,9 +57,22 @@ kotlin {
             dependencies {
                 // compose 基座经 commonMain 的 ui-shared api 透传；animation 系 ui-shared 未声明，仍需直引
                 implementation(libs.jb.compose.animation)
+                implementation(project(":core:lxsdk"))
+                implementation(libs.okhttp)
+                implementation(libs.datastore.preferences)
             }
         }
         jvmMain.get().dependsOn(jvmShared)
+        jvmTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.okhttp.mockwebserver)
+            implementation(project(":core:lxsdk"))
+            implementation(libs.datastore.preferences)
+        }
         androidMain.get().dependsOn(jvmShared)
+        androidMain.dependencies {
+            implementation(libs.androidx.activity.compose)
+        }
     }
 }

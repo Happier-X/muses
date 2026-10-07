@@ -1,9 +1,9 @@
 package com.muses.player.feature.scrape
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,20 +14,23 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import com.muses.player.core.ui.components.MusesButton
+import com.muses.player.core.ui.components.MusesBottomSheet
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.components.MusesCheckbox
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import com.muses.player.core.ui.components.MusesTextField
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.Card
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,11 +38,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
@@ -54,8 +55,6 @@ import com.muses.player.core.ui.components.ScrapeCoverThumb
 import com.muses.player.core.ui.components.ScrapeReviewFieldRow
 import com.muses.player.core.ui.components.SharedReviewField
 import com.muses.player.core.ui.components.SharedScrapeCandidate
-import top.yukonga.miuix.kmp.squircle.squircleClip
-import top.yukonga.miuix.kmp.squircle.squircleBorder
 
 /**
  * 单曲刮削审核页（Tagger 式「就地审核」全屏页，design §2.3）：
@@ -79,6 +78,9 @@ fun ScrapeReviewScreen(
     val scheme = MiuixTheme.colorScheme
     val state by viewModel.state.collectAsState()
     val keyword by viewModel.keyword.collectAsState()
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.cancelAiMatching() }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -88,6 +90,7 @@ fun ScrapeReviewScreen(
             MusesTopBar(
                 title = "刮削审核",
                 onBack = {
+                    viewModel.cancelAiMatching()
                     // 手动返回即清待审队列（S3：不强推下一首）
                     onManualBack()
                     onBack()
@@ -174,7 +177,7 @@ private fun SuccessContent(
             if (nextSongId != null) {
                 // S3 批量模式：应用并下一首
                 MusesButton(onClick = { onNext(nextSongId) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("应用并下一首")
+                    Text("核对下一首")
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -196,12 +199,13 @@ private fun EmptyContent(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.height(24.dp))
             Text(
-                text = if (reason == "暂无匹配") "空空如也~" else reason,
+                text = if (reason == "暂无匹配") "未找到候选" else reason,
                 style = MiuixTheme.textStyles.body2,
                 color = scheme.onBackgroundVariant,
             )
@@ -239,6 +243,9 @@ private fun ReviewContent(
 ) {
     val scheme = MiuixTheme.colorScheme
     var previewCoverUrl by remember { mutableStateOf<String?>(null) }
+    var showSearchFields by remember(state.song.id) { mutableStateOf(false) }
+    val aiState by viewModel.aiState.collectAsState()
+    val aiDecision = (aiState as? ScrapeAiState.Ready)?.decision
 
     Column(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -248,8 +255,25 @@ private fun ReviewContent(
         ) {
             // 歌曲头：本地标题/歌手/专辑 + 封面小图
             item(key = "song-head") { SongHead(state) }
-            // 搜索词行：三输入 + 重新搜索
-            item(key = "keyword") { SearchKeywordRow(keyword = keyword, viewModel = viewModel) }
+            item(key = "ai-match") {
+                AiMatchCard(
+                    state = aiState,
+                    hasCandidates = state.text.items.isNotEmpty() || state.lyrics.items.isNotEmpty(),
+                    onMatch = viewModel::matchWithAi, onCancel = viewModel::cancelAiMatching,
+                )
+            }
+            item(key = "keyword") {
+                Column {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("核对候选后勾选要更新的字段", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant, modifier = Modifier.weight(1f))
+                        MusesTextButton(
+                            text = if (showSearchFields) "收起搜索词" else "修改搜索词",
+                            onClick = { showSearchFields = !showSearchFields },
+                        )
+                    }
+                    if (showSearchFields) SearchKeywordRow(keyword = keyword, viewModel = viewModel)
+                }
+            }
 
             // 文本字段审核区（逐字段 Checkbox + 本地值 → 候选值 + 来源/推荐角标）
             item(key = "text-fields") {
@@ -268,7 +292,7 @@ private fun ReviewContent(
                     }
                     Spacer(Modifier.height(4.dp))
                     val hit = state.selectedHit
-                    val recommended = state.selectedTextIndex == state.text.defaultIndex
+                    val recommended = state.selectedTextIndex == (aiDecision?.text?.index ?: state.text.defaultIndex)
                     // V3 共用化：字段审核行 = ScrapeReviewFieldRow（Checkbox+对比+来源/推荐角标）；
                     // enabled=无解析值禁勾（写回安全红线），语义与原 FieldCheckRow 一致
                     ScrapeReviewFieldRow(
@@ -316,7 +340,9 @@ private fun ReviewContent(
 
             // 文本候选切换条：横向 chip（源 + 标题），当前选中高亮
             if (state.text.items.isNotEmpty()) {
-                item(key = "text-candidates") { TextCandidateStrip(state = state, viewModel = viewModel) }
+                item(key = "text-candidates") {
+                    TextCandidateStrip(state = state, viewModel = viewModel, aiRecommendedIndex = aiDecision?.text?.index)
+                }
             }
 
             // 封面区：Checkbox + 横向候选缩略图（点选，再点已选项弹大图预览）
@@ -325,13 +351,15 @@ private fun ReviewContent(
             }
 
             // 歌词区：Checkbox + 候选列表（来源+format 角标）+ 预览
-            item(key = "lyrics") { LyricsSection(state = state, viewModel = viewModel) }
+            item(key = "lyrics") {
+                LyricsSection(state = state, viewModel = viewModel, aiRecommendedIndex = aiDecision?.lyrics?.index)
+            }
         }
 
         // 底部「应用（N）」：仅写回勾选字段；无勾选 disabled（写回安全语义）
         MusesButton(
             onClick = { viewModel.apply() },
-            enabled = state.checkedFields.isNotEmpty(),
+            enabled = state.checkedFields.isNotEmpty() && aiState != ScrapeAiState.Matching,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
@@ -352,6 +380,43 @@ private fun ReviewContent(
             imageUrl = url,
             onDismiss = { previewCoverUrl = null },
         )
+    }
+}
+
+@Composable
+private fun AiMatchCard(state: ScrapeAiState, hasCandidates: Boolean, onMatch: () -> Unit, onCancel: () -> Unit) {
+    val scheme = MiuixTheme.colorScheme
+    Card(modifier = Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("AI 帮我选", style = MiuixTheme.textStyles.main, modifier = Modifier.weight(1f))
+            if (state == ScrapeAiState.Matching) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                MusesTextButton(text = "取消", onClick = onCancel)
+            } else {
+                MusesTextButton(
+                    text = if (state is ScrapeAiState.Ready || state is ScrapeAiState.Failed) "重新匹配" else "开始匹配",
+                    enabled = hasCandidates, onClick = onMatch,
+                )
+            }
+        }
+        when (state) {
+            ScrapeAiState.Idle -> Text(
+                "将歌曲信息和歌词片段交给已配置的 AI 比较，自动选中有把握的候选，保留已有的手动编辑。封面仍需手动核对。",
+                style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant,
+            )
+            ScrapeAiState.Matching -> Text(
+                "正在比较候选…手动修改选择会取消本次 AI 匹配。",
+                style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant,
+            )
+            is ScrapeAiState.Failed -> Text(state.message, style = MiuixTheme.textStyles.footnote1, color = scheme.error)
+            is ScrapeAiState.Ready -> {
+                Text("歌曲信息：${state.decision.text.reason}", style = MiuixTheme.textStyles.footnote1)
+                Spacer(Modifier.height(6.dp))
+                Text("歌词：${state.decision.lyrics.reason}", style = MiuixTheme.textStyles.footnote1)
+                Spacer(Modifier.height(8.dp))
+                Text("已有手动编辑会保留，核对后点击底部「应用」保存；封面仍需手动核对。", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
+            }
+        }
     }
 }
 
@@ -423,7 +488,10 @@ private fun SearchKeywordRow(keyword: ReviewKeyword, viewModel: ScrapeReviewView
 @Composable
 private fun TextFieldEditOverrides(state: ScrapeReviewState.Review, viewModel: ScrapeReviewViewModel) {
     var expanded by remember { mutableStateOf(false) }
-    MusesTextButton(text = if (expanded) "收起编辑" else "编辑", onClick = { expanded = !expanded })
+    MusesTextButton(text = if (expanded) "收起编辑" else "编辑", onClick = {
+        viewModel.cancelAiMatching()
+        expanded = !expanded
+    })
     if (expanded) {
         var title by remember(state.selectedTextIndex) { mutableStateOf(state.resolvedTitle() ?: state.song.title) }
         var artist by remember(state.selectedTextIndex) { mutableStateOf(state.resolvedArtist() ?: state.song.artist.orEmpty()) }
@@ -431,7 +499,7 @@ private fun TextFieldEditOverrides(state: ScrapeReviewState.Review, viewModel: S
         Spacer(Modifier.height(6.dp))
         MusesTextField(
             value = title,
-            onValueChange = { title = it },
+            onValueChange = { viewModel.cancelAiMatching(); title = it },
             label = "标题覆写",
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -439,7 +507,7 @@ private fun TextFieldEditOverrides(state: ScrapeReviewState.Review, viewModel: S
         Spacer(Modifier.height(6.dp))
         MusesTextField(
             value = artist,
-            onValueChange = { artist = it },
+            onValueChange = { viewModel.cancelAiMatching(); artist = it },
             label = "歌手覆写",
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -447,7 +515,7 @@ private fun TextFieldEditOverrides(state: ScrapeReviewState.Review, viewModel: S
         Spacer(Modifier.height(6.dp))
         MusesTextField(
             value = album,
-            onValueChange = { album = it },
+            onValueChange = { viewModel.cancelAiMatching(); album = it },
             label = "专辑覆写",
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -464,9 +532,9 @@ private fun TextFieldEditOverrides(state: ScrapeReviewState.Review, viewModel: S
     }
 }
 
-/** 文本候选切换条：横向 chip 列出 text.items（源 wire 值 + 标题），当前选中高亮 */
+/** 文本候选切换条：展示来源、标题、歌手和专辑，便于辨别不同版本。 */
 @Composable
-private fun TextCandidateStrip(state: ScrapeReviewState.Review, viewModel: ScrapeReviewViewModel) {
+private fun TextCandidateStrip(state: ScrapeReviewState.Review, viewModel: ScrapeReviewViewModel, aiRecommendedIndex: Int?) {
     val scheme = MiuixTheme.colorScheme
     Column {
         Text("文本候选（${state.text.items.size}）", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
@@ -474,28 +542,34 @@ private fun TextCandidateStrip(state: ScrapeReviewState.Review, viewModel: Scrap
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(state.text.items) { index, hit ->
                 val selected = index == state.selectedTextIndex
-                Column(
-                    Modifier
-                        .squircleClip(8.dp)
-                        .background(if (selected) scheme.primary.copy(alpha = 0.12f) else scheme.surface)
-                        .squircleBorder(1.dp, if (selected) scheme.primary else scheme.surfaceVariant, 8.dp)
-                        .clickable { viewModel.selectTextCandidate(index) }
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                Card(
+                    modifier = Modifier.width(220.dp),
+                    insideMargin = PaddingValues(12.dp),
+                    onClick = { viewModel.selectTextCandidate(index) },
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(hit.source.wire, style = MiuixTheme.textStyles.footnote2, color = scheme.primary, fontWeight = FontWeight.SemiBold)
-                        if (index == state.text.defaultIndex) {
+                        if (index == aiRecommendedIndex || (aiRecommendedIndex == null && index == state.text.defaultIndex)) {
                             Spacer(Modifier.width(4.dp))
-                            Text("推荐", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
+                            Text(if (index == aiRecommendedIndex) "AI 推荐" else "推荐", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
+                        }
+                        if (selected) {
+                            Spacer(Modifier.weight(1f))
+                            Text("已选", style = MiuixTheme.textStyles.footnote2, color = scheme.primary)
                         }
                     }
                     Text(
                         hit.title ?: "（无标题）",
                         style = MiuixTheme.textStyles.footnote1,
                         color = if (selected) scheme.onBackground else scheme.onBackgroundVariant,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(96.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        listOfNotNull(hit.artist, hit.album).joinToString(" · "),
+                        style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -560,8 +634,9 @@ private fun CoverSection(
 
 /** 歌词区：Checkbox + 候选列表（来源 + format 角标）+ 预览前几行 */
 @Composable
-private fun LyricsSection(state: ScrapeReviewState.Review, viewModel: ScrapeReviewViewModel) {
+private fun LyricsSection(state: ScrapeReviewState.Review, viewModel: ScrapeReviewViewModel, aiRecommendedIndex: Int?) {
     val scheme = MiuixTheme.colorScheme
+    var previewLyrics by remember(state.song.id) { mutableStateOf<com.muses.player.core.scrape.editmeta.EditLyricsCandidate?>(null) }
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             MusesCheckbox(
@@ -583,7 +658,24 @@ private fun LyricsSection(state: ScrapeReviewState.Review, viewModel: ScrapeRevi
                     candidate = candidate,
                     selected = index == state.selectedLyricsIndex,
                     onClick = { viewModel.selectLyrics(index) },
+                    onPreview = { previewLyrics = candidate },
+                    aiRecommended = index == aiRecommendedIndex,
                 )
+            }
+        }
+    }
+    previewLyrics?.let { candidate ->
+        MusesBottomSheet(onDismiss = { previewLyrics = null }, title = "歌词预览") {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
+                Text("${candidate.source} · ${candidate.format}", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
+                Spacer(Modifier.height(12.dp))
+                SelectionContainer {
+                    Text(
+                        candidate.text,
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                        style = MiuixTheme.textStyles.body2,
+                    )
+                }
             }
         }
     }
@@ -595,17 +687,14 @@ private fun LyricsCandidateRow(
     candidate: com.muses.player.core.scrape.editmeta.EditLyricsCandidate,
     selected: Boolean,
     onClick: () -> Unit,
+    onPreview: () -> Unit,
+    aiRecommended: Boolean,
 ) {
     val scheme = MiuixTheme.colorScheme
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = 44.dp, bottom = 6.dp)
-            .squircleClip(8.dp)
-            .background(if (selected) scheme.primary.copy(alpha = 0.12f) else scheme.surface)
-            .squircleBorder(1.dp, if (selected) scheme.primary else scheme.surfaceVariant, 8.dp)
-            .clickable(onClick = onClick)
-            .padding(8.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        insideMargin = PaddingValues(12.dp),
+        onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("${index + 1}", style = MiuixTheme.textStyles.footnote2, color = if (selected) scheme.primary else scheme.onBackgroundVariant, fontWeight = FontWeight.SemiBold)
@@ -613,15 +702,24 @@ private fun LyricsCandidateRow(
             ScrapeBadgeBox(text = candidate.source)
             Spacer(Modifier.size(4.dp))
             ScrapeBadgeBox(text = candidate.format)
+            if (aiRecommended) {
+                Spacer(Modifier.size(4.dp))
+                Text("AI 推荐", style = MiuixTheme.textStyles.footnote2, color = scheme.primary)
+            }
+            if (selected) {
+                Spacer(Modifier.weight(1f))
+                Text("已选", style = MiuixTheme.textStyles.footnote2, color = scheme.primary)
+            }
         }
         Spacer(Modifier.height(4.dp))
-        // 预览前几行（时间轴行可能很长，只取前 90 字符）
+        // 保留歌词的换行；完整内容通过预览展开。
         Text(
-            candidate.text.take(90).replace('\n', ' '),
+            candidate.text.take(240),
             style = MiuixTheme.textStyles.footnote2,
             color = if (selected) scheme.onBackground else scheme.onBackgroundVariant,
-            maxLines = 2,
+            maxLines = 4,
             overflow = TextOverflow.Ellipsis,
         )
+        MusesTextButton(text = "查看完整歌词", onClick = onPreview)
     }
 }

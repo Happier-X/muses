@@ -4,6 +4,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,6 +27,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.ui.icons.TablerIcons
@@ -89,7 +92,7 @@ fun SourceListItem(
 }
 
 /**
- * 跨平台音源表单输入行（miuix TextField 经 [MusesTextField]；标签空值时充当占位）。
+ * 跨平台音源表单输入行，与 AI 服务卡片采用相同的标签和输入框布局。
  *
  * 示例占位（如网址示例）按 HyperOS 单标签风格收敛掉，以标签为准；
  * info/error 辅助行保留在框下（与安卓 WebDavFormScreen 同视觉）。
@@ -106,12 +109,22 @@ fun SourceFormInput(
     isPassword: Boolean = false,
     readOnly: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
+    trailingContent: (@Composable () -> Unit)? = null,
     onValueChange: (String) -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
     var passwordVisible by remember { mutableStateOf(false) }
 
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp)) {
+        Text(text = label, fontSize = 14.sp, color = scheme.onSurface, fontWeight = FontWeight.Medium)
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().then(
+                if (trailingContent != null) Modifier.height(IntrinsicSize.Min) else Modifier,
+            ),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
         MusesTextField(
             value = value,
             onValueChange = onValueChange,
@@ -126,7 +139,7 @@ fun SourceFormInput(
             keyboardOptions = KeyboardOptions(
                 keyboardType = if (isPassword) KeyboardType.Password else keyboardType,
             ),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.weight(1f),
             trailingIcon = if (isPassword) {
                 {
                     MusesIconButton(
@@ -142,6 +155,8 @@ fun SourceFormInput(
                 null
             },
         )
+            trailingContent?.invoke()
+        }
 
         error?.let {
             Text(
@@ -210,9 +225,8 @@ fun SourceFormCard(
     onCancel: (() -> Unit)? = null,
     extraContent: @Composable () -> Unit = {},
 ) {
-    Column(
+    Card(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (showNameField) {
             SourceFormInput(
@@ -254,18 +268,16 @@ fun SourceFormCard(
         extraContent()
 
         if (showSaveButton) Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (primarySave) {
                 Button(
                     onClick = onSave,
-                    enabled = !saveBusy && saveEnabled,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    enabled = !busy && !saveBusy && saveEnabled,
+                    colors = if (primarySave) ButtonDefaults.buttonColorsPrimary() else ButtonDefaults.buttonColors(),
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -274,8 +286,8 @@ fun SourceFormCard(
                                 size = 16.dp,
                                 strokeWidth = 2.dp,
                                 colors = ProgressIndicatorDefaults.progressIndicatorColors(
-                                    foregroundColor = MiuixTheme.colorScheme.onPrimary,
-                                    backgroundColor = MiuixTheme.colorScheme.onPrimary.copy(alpha = 0.28f),
+                                    foregroundColor = if (primarySave) MiuixTheme.colorScheme.onPrimary else MiuixTheme.colorScheme.onSurface,
+                                    backgroundColor = (if (primarySave) MiuixTheme.colorScheme.onPrimary else MiuixTheme.colorScheme.onSurface).copy(alpha = 0.28f),
                                 ),
                             )
                             androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
@@ -283,20 +295,11 @@ fun SourceFormCard(
                         Text(if (saveBusy && showBusyIndicator) busyText else saveText)
                     }
                 }
-            } else {
-                MusesTextButton(
-                    text = if (saveBusy) busyText else saveText,
-                    onClick = onSave,
-                    enabled = !saveBusy && saveEnabled,
-                    modifier = Modifier.weight(1f),
-                )
-            }
             if (onCancel != null && cancelText != null) {
                 MusesTextButton(
                     text = cancelText,
                     onClick = onCancel,
                     enabled = !busy,
-                    modifier = Modifier.weight(1f),
                 )
             }
         }

@@ -1,5 +1,7 @@
 package com.muses.player.feature.library
 
+import com.muses.player.core.model.libraryQualityLabel
+
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -156,6 +158,7 @@ fun Song.toSongItem() = SongItem(
     title = title,
     artist = artist,
     albumTitle = album,
+    qualityLabel = libraryQualityLabel,
 )
 
 /** 安卓 Album → 跨平台 LibraryAlbumItem 映射（封面经调用方 covers 回填） */

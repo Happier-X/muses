@@ -188,7 +188,7 @@ class KgSearchProvider(
 /**
  * 网易云音乐搜索。
  *
- * 接口：`https://music.163.com/api/search/get/web`（GET，**明文接口，绕过 weapi 加密**）
+ * 接口：`https://music.163.com/api/search/get`（GET，**明文接口，绕过 weapi 加密**）
  * 参数：`s`=关键词、`type=1`(单曲)、`offset`、`limit`
  *
  * 响应：`result.songs[]`，标识字段 `id`。需要 Referer，否则 403。
@@ -202,7 +202,7 @@ class WySearchProvider(
 
     override suspend fun search(keyword: String, page: Int, pageSize: Int): OnlineSearchPage {
         val offset = (page - 1).coerceAtLeast(0) * pageSize
-        val url = "https://music.163.com/api/search/get/web" +
+        val url = "https://music.163.com/api/search/get" +
             "?s=${urlEncode(keyword)}&type=1&offset=$offset&limit=$pageSize&total=true"
 
         val text = try {
@@ -214,6 +214,10 @@ class WySearchProvider(
         }
 
         val root = http.parseObject(text)
+        val code = root.long("code")
+        if (code != null && code != 200L) {
+            throw OnlineSearchException(platform, "网易云搜索暂时不可用（code=$code），请稍后重试")
+        }
         val resultNode = root.obj("result") ?: throw OnlineSearchException(platform, "网易云返回结构异常")
         val songs = resultNode.arr("songs")
             ?: return OnlineSearchPage(platform, keyword, page, emptyList(), false)
@@ -250,7 +254,7 @@ class WySearchProvider(
             total != null && total > 0 -> offset + results.size < total
             else -> results.size >= pageSize
         }
-        return OnlineSearchPage(platform, keyword, page, results, hasMore)
+        return OnlineSearchPage(platform, keyword, page, com.muses.player.core.search.enrichWySongVersions(http, results), hasMore)
     }
 }
 

@@ -31,7 +31,7 @@ class OnlineResolvingDataSourceFactory(
     private val upstreamFactory: DataSource.Factory,
     private val resolver: OnlineTrackResolver,
     /** 单次解析超时；超时视为打开失败，交 Media3 播放错误链处理 */
-    private val resolveTimeoutMs: Long = 20_000L,
+    private val resolveTimeoutMs: Long = 60_000L,
     /** 解析失败/超时的上报（供 R2 埋点） */
     private val onResolveError: (trackUri: String, error: Throwable?) -> Unit = { _, _ -> },
 ) : DataSource.Factory {

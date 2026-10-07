@@ -56,6 +56,28 @@ class DesktopQueueStateMachine {
     }
 
     /** 开关洗牌：开=生成洗牌序并尽量保持当前曲；关=回到原始序并尽量保持当前曲。 */
+    /**
+     * 追加到队列末尾：保留当前曲与既有顺序，不做重排（曲库「添加到播放队列」）。
+     * 调用方负责过滤已在队列内的 id；洗牌开启时同时追加进洗牌序，避免关洗牌后丢条目。
+     */
+    fun append(ids: List<String>) {
+        if (ids.isEmpty()) return
+        val cur = state
+        val additions = ids.map { QueueItem(it) }
+        val original = cur.snapshot.originalOrder + additions
+        val (items, shuffleOrder) = cur.snapshot.shuffleOrder?.let { shuffled ->
+            (shuffled + additions) to (shuffled + additions)
+        } ?: (original to null)
+        // 队列原本为空时从追加的第一首开始，否则维持当前曲位置不变
+        val index = if (cur.snapshot.items.isEmpty()) 0
+        else items.indexOfFirst { it.songId == cur.currentSongId }.let { if (it >= 0) it else 0 }
+        state = State(
+            snapshot = QueueSnapshotData(items = items, originalOrder = original, shuffleOrder = shuffleOrder),
+            currentIndex = index,
+            currentSongId = items.getOrNull(index)?.songId,
+        )
+    }
+
     fun setShuffleEnabled(enabled: Boolean) {
         val cur = state
         if (enabled) {

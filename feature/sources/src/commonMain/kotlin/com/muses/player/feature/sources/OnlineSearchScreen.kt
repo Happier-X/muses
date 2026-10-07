@@ -33,6 +33,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muses.player.core.lxsdk.LxQuality
 import com.muses.player.core.search.OnlineSearchResult
+import com.muses.player.core.search.performanceLabel
+import com.muses.player.core.search.qualityLabel
+import com.muses.player.core.ui.components.SongSubtitleWithQuality
+import com.muses.player.core.ui.components.SongTitleWithBadge
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
@@ -209,7 +213,7 @@ fun OnlineSearchScreen(
                         item(key = "online-title") {
                             SearchSectionTitle("在线")
                         }
-                        item(key = "platform-filters") {
+                        if (state.platforms.size > 1) item(key = "platform-filters") {
                             Row(
                                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -402,22 +406,20 @@ private fun SearchResultRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = result.name,
-                    fontSize = 15.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                SongTitleWithBadge(
+                    title = result.name,
+                    label = result.performanceLabel,
+                    style = MiuixTheme.textStyles.body2.copy(fontSize = 15.sp),
                 )
                 val sub = listOfNotNull(result.artist, result.album)
                     .filter { it.isNotBlank() }
                     .joinToString(" · ")
-                if (sub.isNotBlank()) {
-                    Text(
-                        text = sub,
-                        fontSize = 12.sp,
+                if (sub.isNotBlank() || result.qualityLabel != null) {
+                    SongSubtitleWithQuality(
+                        subtitle = sub,
+                        label = result.qualityLabel,
+                        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp),
                         color = scheme.onSurfaceVariantSummary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -435,6 +437,7 @@ private fun SearchResultRow(
                 modifier = Modifier.size(17.dp),
                 tint = scheme.primary,
             )
+            com.muses.player.core.ui.components.OnlineSongDownloadAction(result.toSong("online"))
         }
     }
 }

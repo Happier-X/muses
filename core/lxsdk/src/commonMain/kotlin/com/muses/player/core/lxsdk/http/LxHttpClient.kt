@@ -3,6 +3,7 @@ package com.muses.player.core.lxsdk.http
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.forms.MultiPartFormDataContent
@@ -24,6 +25,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * 洛雪 `lx.request(url, options, callback)` 的 Ktor 实现。
@@ -44,14 +47,38 @@ class LxHttpClient(
      * 非 2xx 不抛错（脚本可能依赖错误响应体内容），仅网络异常向上抛。
      */
     suspend fun request(url: String, optionsJson: String?): String {
+        return execute(url, optionsJson).bodyAsText()
+    }
+
+    /** 向 JS 传递真实响应，避免丢失状态码和 Content-Length 等头部。 */
+    suspend fun requestResponseJson(url: String, optionsJson: String?): String {
+        val response = execute(url, optionsJson)
+        return buildJsonObject {
+            put("body", response.bodyAsText())
+            put("statusCode", response.status.value)
+            put("headers", buildJsonObject {
+                response.headers.entries().forEach { (name, values) ->
+                    put(name.lowercase(), values.joinToString(", "))
+                }
+            })
+        }.toString()
+    }
+
+    private suspend fun execute(url: String, optionsJson: String?): HttpResponse {
         val options = parseOptions(optionsJson)
         val method = options.method.uppercase()
-        val response: HttpResponse = client.request(url) {
+        return client.request(url) {
             this.method = HttpMethod.parse(method)
+            options.timeout?.takeIf { it > 0 }?.let { timeoutMs ->
+                timeout {
+                    requestTimeoutMillis = timeoutMs
+                    connectTimeoutMillis = timeoutMs
+                    socketTimeoutMillis = timeoutMs
+                }
+            }
             applyHeaders(options)
             applyBody(options)
         }
-        return response.bodyAsText()
     }
 
     private fun HttpRequestBuilder.applyHeaders(options: LxRequestOptions) {

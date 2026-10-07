@@ -23,6 +23,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(project(":core:common"))
             // api 透传：5 个 feature 直连 ui-shared，compose/miuix/coil/tabler 只需声明一次
             api(libs.jb.compose.runtime)
             api(libs.jb.compose.ui)

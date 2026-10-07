@@ -1,0 +1,85 @@
+package com.muses.player.core.search
+
+import com.muses.player.core.search.http.SearchHttp
+import com.muses.player.core.search.provider.arr
+import com.muses.player.core.search.provider.long
+import com.muses.player.core.search.provider.obj
+import com.muses.player.core.search.provider.str
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+
+class OnlineSongVersionService(private val http: SearchHttp) {
+    suspend fun enrich(results: List<OnlineSearchResult>): List<OnlineSearchResult> = enrichWySongVersions(http, results)
+}
+
+/** 网易搜索简表没有原唱字段，按歌曲编号批量补查，失败时保留搜索结果。 */
+suspend fun enrichWySongVersions(http: SearchHttp, results: List<OnlineSearchResult>): List<OnlineSearchResult> {
+    val ids = results.filter { it.platform == "wy" && it.songId.toLongOrNull() != null }.map { it.songId }.distinct()
+    if (ids.isEmpty()) return results
+    val details = try {
+        withTimeoutOrNull(4_000) {
+            val root = http.parseObject(http.getText(
+                "https://music.163.com/api/song/detail/?ids=%5B${ids.joinToString(",")}%5D",
+                referer = "https://music.163.com/",
+            ))
+            root.arr("songs").orEmpty().mapNotNull {
+                val song = it as? JsonObject ?: return@mapNotNull null
+                val id = song.str("id") ?: return@mapNotNull null
+                id to song
+            }.toMap()
+        }.orEmpty()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        emptyMap()
+    }
+    return results.map { song ->
+        val detail = details[song.songId]?.takeIf { song.platform == "wy" } ?: return@map song
+        val info = Json.parseToJsonElement(song.musicInfoJson).jsonObject
+        val metadata = mapOf(
+            "originCoverType" to JsonPrimitive(detail.long("originCoverType") ?: 0L),
+            "catalogQuality" to JsonPrimitive(wyCatalogQualityLabel(detail).orEmpty()),
+        )
+        val cover = (detail.obj("album") ?: detail.obj("al"))?.str("picUrl")
+            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+        song.copy(
+            coverUrl = song.coverUrl?.takeIf { it.isNotBlank() } ?: cover,
+            musicInfoJson = JsonObject(info + metadata).toString(),
+        )
+    }
+}
+
+/** 目录里最高可用音质，不代表播放换源后实际采用的音质。兼容新旧接口字段。 */
+internal fun wyCatalogQualityLabel(song: JsonObject): String? {
+    fun audio(old: String, current: String): JsonObject? = song.obj(old) ?: song.obj(current)
+    fun JsonObject?.available(): Boolean = this != null &&
+        ((long("size") ?: 0) > 0 || (long("bitrate") ?: long("br") ?: 0) > 0)
+    val high = audio("hMusic", "h")
+    return when {
+        audio("hrMusic", "hr").available() -> "Hi-Res"
+        audio("sqMusic", "sq").available() -> "SQ"
+        high.available() && (high?.long("bitrate") ?: high?.long("br") ?: 0) >= 320_000 -> "HQ"
+        high.available() || audio("mMusic", "m").available() || audio("lMusic", "l").available() -> "标准"
+        else -> null
+    }
+}
+
+val OnlineSearchResult.qualityLabel: String?
+    get() = if (platform != "wy") null else runCatching {
+        Json.parseToJsonElement(musicInfoJson).jsonObject.str("catalogQuality")
+            ?.takeIf { it in setOf("Hi-Res", "SQ", "HQ", "标准") }
+    }.getOrNull()
+
+/** 标记只来自平台字段，不从歌名里的“原唱”文字推断。 */
+val OnlineSearchResult.performanceLabel: String?
+    get() = if (platform != "wy") null else when (runCatching {
+        Json.parseToJsonElement(musicInfoJson).jsonObject.long("originCoverType")
+    }.getOrNull()) {
+        1L -> "原唱"
+        2L -> "翻唱"
+        else -> null
+    }

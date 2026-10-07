@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.muses.player.core.webdav.WebDavClient
 import com.muses.player.core.webdav.normalizeWebDavPath
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,12 +34,13 @@ class WebDavBrowseViewModel constructor(
     // 初始化一次性门闩：并发与重组重复调用安全；不同参数视为切账号重建
     private val initialized = java.util.concurrent.atomic.AtomicBoolean(false)
     private var loadJob: Job? = null
+    private var loadSeq = 0L
 
     /** 初始化（幂等：同参数重复调用直接返回，不同参数视为切账号重建） */
-    fun init(mode: String, initialPath: String, serverUrl: String, username: String, password: String) {
+    fun init(mode: String, initialPath: String, serverUrl: String, username: String, password: String, selectedPaths: List<String> = emptyList()) {
         val normalizedPath = normalizeWebDavPath(initialPath)
         if (!initialized.compareAndSet(false, true)) {
-            if (this.mode == mode && this.serverUrl == serverUrl && this.username == username &&
+            if (this.mode == mode && this.serverUrl == serverUrl && this.username == username && this.password == password &&
                 _browseState.value.currentPath == normalizedPath
             ) return
         }
@@ -47,7 +49,7 @@ class WebDavBrowseViewModel constructor(
         this.username = username
         this.password = password
 
-        val initialSelection = WebDavBrowseResultHolder.takeInitialSelection()
+        val initialSelection = selectedPaths
             .map(::normalizeWebDavPath)
             .toSet()
         _browseState.value = WebDavBrowseState(
@@ -64,6 +66,7 @@ class WebDavBrowseViewModel constructor(
         _browseState.value = currentState.copy(isLoading = true, errorMessage = null)
 
         loadJob?.cancel()
+        val requestSeq = ++loadSeq
         loadJob = viewModelScope.launch {
             try {
                 webDavClient.authenticate(username, password)
@@ -83,12 +86,16 @@ class WebDavBrowseViewModel constructor(
                     }
                     .sortedBy { it.basename.lowercase() }
 
+                if (requestSeq != loadSeq) return@launch
                 _browseState.value = _browseState.value.copy(
                     currentPath = normalizeWebDavPath(path),
                     directories = directories,
                     isLoading = false,
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                if (requestSeq != loadSeq) return@launch
                 _browseState.value = _browseState.value.copy(
                     isLoading = false,
                     errorMessage = e.message ?: "读取 WebDAV 目录失败。",
@@ -130,6 +137,18 @@ class WebDavBrowseViewModel constructor(
     /** 清空选择 */
     fun clearSelection() {
         _browseState.value = _browseState.value.copy(selectedPaths = emptySet())
+    }
+
+    /** 面板关闭时丢弃未确认选择，取消读取并释放本次连接信息。 */
+    fun endSession() {
+        ++loadSeq
+        loadJob?.cancel()
+        loadJob = null
+        serverUrl = ""
+        username = ""
+        password = ""
+        initialized.set(false)
+        _browseState.value = WebDavBrowseState()
     }
 
     /** 关闭错误对话框 */

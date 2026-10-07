@@ -35,9 +35,12 @@ import androidx.compose.ui.unit.sp
 import com.muses.player.core.ai.AI_API_KEY_SOURCE_ID
 import com.muses.player.core.ai.AiChatClient
 import com.muses.player.core.ai.AiRecommendConfig
+import com.muses.player.core.ai.normalizeAiBaseUrl
+import com.muses.player.core.ai.validateAiBaseUrl
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.ui.components.MusesButton
+import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesTextField
@@ -48,15 +51,18 @@ import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowListPopup
 
 /**
- * 设置页「AI 推荐」分组：一级只留总开关 + 「AI 服务」箭头入口，
+ * 设置页「AI 推荐」分组：推荐默认启用，一级保留「AI 服务」箭头入口，
  * 名称/地址/Key/模型 收进二级页 [AiSettingsScreen]（全部自填，无内置服务商）。
  *
  * 安全口径：
@@ -70,9 +76,6 @@ fun AiRecommendSettingSection(
 ) {
     val settingsRepository = koinInject<SettingsRepository>()
     val credentialsRepository = koinInject<CredentialsRepository>()
-    val scope = rememberCoroutineScope()
-
-    val enabled by settingsRepository.aiRecommendEnabled.collectAsState(initial = false)
     val serviceName by settingsRepository.aiServiceName.collectAsState(initial = "")
     var hasStoredKey by remember { mutableStateOf(false) }
 
@@ -82,15 +85,8 @@ fun AiRecommendSettingSection(
 
     val summary = if (hasStoredKey) serviceName.ifBlank { "已配置" } else "未配置"
 
-    SettingsBlockTitle("AI 推荐")
+    SettingsBlockTitle("AI 服务")
     Card(modifier = Modifier.padding(horizontal = 12.dp)) {
-        SwitchPreference(
-            title = "AI 推荐",
-            checked = enabled,
-            onCheckedChange = { value ->
-                scope.launch { settingsRepository.setAiRecommendEnabled(value) }
-            },
-        )
         ArrowPreference(
             title = "AI 服务",
             summary = summary,
@@ -128,7 +124,15 @@ fun AiSettingsScreen(
     var statusText by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var fetchingModels by remember { mutableStateOf(false) }
+    var testingConnection by remember { mutableStateOf(false) }
     var modelOptions by remember { mutableStateOf(emptyList<String>()) }
+
+    LaunchedEffect(statusText) {
+        statusText?.let {
+            MusesSnackbar.show(it)
+            statusText = null
+        }
+    }
 
     LaunchedEffect(Unit) {
         // 已保存的密钥回显到输入框；默认仍由 PasswordVisualTransformation 隐藏，
@@ -138,15 +142,25 @@ fun AiSettingsScreen(
         apiKeyInput = storedKey
     }
 
-    suspend fun persist() {
+    suspend fun persist(): Boolean {
+        val normalizedUrl = normalizeAiBaseUrl(baseUrlInput)
+        if (normalizedUrl.isNotBlank()) {
+            val validation = runCatching { validateAiBaseUrl(normalizedUrl) }
+            if (validation.isFailure) {
+                statusText = validation.exceptionOrNull()?.message ?: "服务地址无效"
+                return false
+            }
+        }
+        baseUrlInput = normalizedUrl
         settingsRepository.setAiServiceName(nameInput.trim())
-        settingsRepository.setAiBaseUrl(baseUrlInput.trim())
+        settingsRepository.setAiBaseUrl(normalizedUrl)
         settingsRepository.setAiModel(modelInput.trim())
         val typed = apiKeyInput.trim()
         if (typed.isNotEmpty()) {
             credentialsRepository.savePassword(AI_API_KEY_SOURCE_ID, typed)
             hasStoredKey = true
         }
+        return true
     }
 
     Scaffold(
@@ -167,7 +181,6 @@ fun AiSettingsScreen(
                 .padding(top = 8.dp)
                 .padding(bottom = LocalBottomChromePadding.current),
         ) {
-            SettingsBlockTitle("服务配置")
             Card(modifier = Modifier.padding(horizontal = 12.dp)) {
                 AiInputRow(
                     label = "名称",
@@ -199,7 +212,7 @@ fun AiSettingsScreen(
                         scope.launch {
                             fetchingModels = true
                             statusText = null
-                            val baseUrl = baseUrlInput.trim()
+                            val baseUrl = normalizeAiBaseUrl(baseUrlInput)
                             val key = apiKeyInput.trim().ifNotEmpty() ?: readStoredKey(credentialsRepository)
                             if (baseUrl.isBlank() || key.isBlank()) {
                                 statusText = "请先填写服务地址与 API Key"
@@ -226,23 +239,17 @@ fun AiSettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     MusesButton(
+                        modifier = Modifier.weight(1f),
                         onClick = {
                             scope.launch {
                                 busy = true
-                                persist()
-                                statusText = "已保存"
-                                busy = false
-                            }
-                        },
-                        enabled = !busy,
-                    ) { Text("保存") }
-                    Spacer(Modifier.width(8.dp))
-                    MusesButton(
-                        onClick = {
-                            scope.launch {
-                                busy = true
+                                testingConnection = true
                                 statusText = null
-                                persist()
+                                if (!persist()) {
+                                    busy = false
+                                    testingConnection = false
+                                    return@launch
+                                }
                                 val config = AiRecommendConfig(
                                     baseUrl = baseUrlInput.trim(),
                                     model = modelInput.trim(),
@@ -258,31 +265,50 @@ fun AiSettingsScreen(
                                             userPrompt = "只回复两个字：正常",
                                         )
                                     }.fold(
-                                        onSuccess = { "连接成功：${it.trim().take(30)}" },
+                                        onSuccess = { "连接成功" },
                                         onFailure = { "连接失败：${it.message ?: "未知错误"}" },
                                     )
                                 }
                                 busy = false
+                                testingConnection = false
                             }
                         },
-                        enabled = !busy,
-                    ) { Text(if (busy) "请稍候" else "测试连接") }
+                        enabled = !busy && !fetchingModels,
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (testingConnection) CircularProgressIndicator(size = 16.dp, strokeWidth = 2.dp)
+                            Text("测试连接")
+                        }
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColorsPrimary(),
+                        onClick = {
+                            scope.launch {
+                                busy = true
+                                if (persist()) statusText = "保存成功"
+                                busy = false
+                            }
+                        },
+                        enabled = !busy && !fetchingModels,
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (busy && !testingConnection) {
+                                CircularProgressIndicator(
+                                    size = 16.dp,
+                                    strokeWidth = 2.dp,
+                                    colors = ProgressIndicatorDefaults.progressIndicatorColors(
+                                        foregroundColor = scheme.onPrimary,
+                                        backgroundColor = scheme.onPrimary.copy(alpha = 0.28f),
+                                    ),
+                                )
+                            }
+                            Text("保存")
+                        }
+                    }
                 }
 
-                statusText?.let { text ->
-                    Text(
-                        text = text,
-                        fontSize = 12.sp,
-                        color = when {
-                            text.startsWith("连接成功") || text == "已保存" || text.startsWith("已获取") -> scheme.primary
-                            text.startsWith("连接失败") || text.startsWith("配置不完整") ||
-                                text.startsWith("请先填写") || text.startsWith("获取模型") ||
-                                text.startsWith("模型列表") || text == "该服务返回了空模型列表" -> scheme.error
-                            else -> scheme.onSurfaceVariantSummary
-                        },
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                    )
-                }
             }
         }
     }

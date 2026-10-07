@@ -14,6 +14,7 @@ import org.koin.dsl.module
  */
 val homeCoreModule = module {
     single { OnlineChartCacheStore(get<DataStore<Preferences>>()) }
+    single { FeaturedPlaylistCacheStore(get<DataStore<Preferences>>()) }
     viewModel {
         val port: PlaybackPort = get()
         HomeViewModel(
@@ -26,6 +27,9 @@ val homeCoreModule = module {
             playback = port,
             songRepository = get(),
             chartCacheStore = get(),
+            playlistService = get(),
+            playlistCacheStore = get(),
+            songVersionService = get(),
         )
     }
     viewModel { params ->

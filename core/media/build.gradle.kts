@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -21,6 +22,7 @@ android {
 dependencies {
     api(project(":core:common"))
     implementation(project(":core:data"))
+    implementation(project(":core:ui-shared"))
     // WebDAV 库扫描：复用 WebDavClient（PROPFIND/GET）与 WebDavAudioCache（下载缓存/播放预热）
     implementation(project(":core:webdav"))
 

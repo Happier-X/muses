@@ -1,7 +1,12 @@
 package com.muses.player.core.search.di
 
 import com.muses.player.core.search.OnlineChartService
+import com.muses.player.core.search.CrossPlatformTrackMatcher
+import com.muses.player.core.model.online.OnlineTrackCandidateProvider
+import com.muses.player.core.model.online.OnlinePlayableUrlProbe
 import com.muses.player.core.search.OnlineSearchService
+import com.muses.player.core.search.OnlinePlaylistService
+import com.muses.player.core.search.OnlineSongVersionService
 import com.muses.player.core.search.http.SearchHttp
 import com.muses.player.core.search.provider.KgChartProvider
 import com.muses.player.core.search.provider.KgSearchProvider
@@ -25,6 +30,8 @@ import org.koin.dsl.module
  */
 fun searchModule() = module {
     single { SearchHttp() }
+    single { OnlinePlaylistService(get()) }
+    single { OnlineSongVersionService(get()) }
     single { KwSearchProvider(get()) }
     single { TxSearchProvider(get()) }
     single { WySearchProvider(get()) }
@@ -34,6 +41,12 @@ fun searchModule() = module {
         OnlineSearchService(
             providers = listOf(get<KwSearchProvider>(), get<TxSearchProvider>(), get<WySearchProvider>(), get<KgSearchProvider>(), get<MgSearchProvider>()),
         )
+    }
+
+    single<OnlineTrackCandidateProvider> { CrossPlatformTrackMatcher(get()) }
+    single<OnlinePlayableUrlProbe> {
+        val http: SearchHttp = get()
+        OnlinePlayableUrlProbe { http.canOpenAudio(it) }
     }
 
     // 榜单：与搜索共享 SearchHttp（同 UA/超时/宽松解析口径）

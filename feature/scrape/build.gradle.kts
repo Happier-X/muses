@@ -24,6 +24,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:common"))
+            implementation(project(":core:ai"))
             implementation(project(":core:ui-shared"))
             // compose/miuix/coil 经 ui-shared api 透传，此处不再重复声明
             // SavedStateHandle 随 lifecycle-viewmodel 2.8+ KMP 工件（ScrapeReviewViewModel 构造）
@@ -36,6 +37,7 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.datastore.preferences)
         }
     }
 }

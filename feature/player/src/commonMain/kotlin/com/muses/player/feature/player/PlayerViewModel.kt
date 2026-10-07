@@ -329,6 +329,10 @@ class PlayerViewModel constructor(
     private suspend fun refreshCurrentTrack(track: CurrentTrack?) {
         // 标题/艺术家先发布：不等封面·歌词的网络拉取，否则在线曲目会先白一下标题
         _nowPlayingMeta.value = track?.toMeta()
+        val meta = _nowPlayingMeta.value
+        com.muses.player.core.lyrics.DesktopLyricsState.publish(
+            com.muses.player.core.lyrics.DesktopLyricsSnapshot(meta?.songId, meta?.title.orEmpty(), meta?.artist),
+        )
 
         // 兜底封面：扫描未读到内嵌封面时，回退到播放器实时 metadata artwork
         // （对齐 app/NowPlayingUiState mediaMetadata 兜底链路，沉浸页封面缺失修复）
@@ -507,6 +511,10 @@ class PlayerViewModel constructor(
     /** 发布歌词文档：同步 AMLL 行集 / 末句结束时间 / 译文标记，并按翻译开关重建 payload */
     private fun applyLyricsDocument(document: LyricsDocument?) {
         _lyricsDocument.value = document
+        val meta = _nowPlayingMeta.value
+        com.muses.player.core.lyrics.DesktopLyricsState.publish(
+            com.muses.player.core.lyrics.DesktopLyricsSnapshot(meta?.songId, meta?.title.orEmpty(), meta?.artist, document),
+        )
         currentLines = document?.toAmllLyricLines() ?: emptyList()
         lastLineEndMs = currentLines.maxOfOrNull { it.endTime.toLong() } ?: Long.MAX_VALUE
         _hasTranslation.value = currentLines.any {

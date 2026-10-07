@@ -156,6 +156,7 @@ class RoomSongRepository constructor(
         metaCover = old.metaCover ?: scanned.metaCover,
         tagsVersion = maxOf(old.tagsVersion, scanned.tagsVersion),
         missing = false,
+        audioQuality = scanned.audioQuality ?: old.audioQuality,
     )
 
     /**

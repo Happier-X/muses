@@ -1,0 +1,62 @@
+package com.muses.player.core.model.download
+
+import com.muses.player.core.model.Song
+import com.muses.player.core.model.SourceType
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class DownloadTrack(
+    val id: String, val sourceId: String, val reference: String, val title: String,
+    val artist: String? = null, val album: String? = null, val durationMs: Long = 0,
+    val coverUri: String? = null, val lyrics: String? = null,
+) {
+    fun toSong() = Song(id, sourceId, reference, title, artist, album, durationMs,
+        durationMs / 1000, coverUri, lyrics, sourceType = SourceType.ONLINE)
+    companion object {
+        fun from(song: Song) = DownloadTrack(song.id, song.sourceId, song.path, song.title,
+            song.artist, song.album, song.durationMs, song.coverUri, song.lyrics)
+    }
+}
+
+@Serializable
+enum class DownloadTargetKind { DEVICE, LOCAL, WEBDAV }
+
+@Serializable
+data class DownloadTarget(
+    val kind: DownloadTargetKind = DownloadTargetKind.DEVICE,
+    val sourceId: String? = null,
+    val directory: String = "",
+    val label: String = "设备下载目录",
+)
+
+@Serializable
+enum class DownloadStatus {
+    WAITING, PREPARING, DOWNLOADING, METADATA, SAVING, UPLOADING, PAUSED, FAILED, COMPLETED;
+    val active: Boolean get() = this in listOf(PREPARING, DOWNLOADING, METADATA, SAVING, UPLOADING)
+}
+
+@Serializable
+data class DownloadTask(
+    val id: String,
+    val track: DownloadTrack,
+    val quality: String = "320k",
+    val target: DownloadTarget? = null,
+    val status: DownloadStatus = DownloadStatus.WAITING,
+    val downloadedBytes: Long = 0,
+    val totalBytes: Long? = null,
+    val transferredBytes: Long = 0,
+    val transferTotalBytes: Long? = null,
+    val requestedQuality: String? = null,
+    val error: String? = null,
+    val warnings: List<String> = emptyList(),
+    val savedLocation: String? = null,
+    val resumeValidator: String? = null,
+)
+
+/** 仅形成文件名，不允许音源歌曲元数据成为目录路径。 */
+fun downloadBaseName(track: DownloadTrack): String {
+    val raw = listOfNotNull(track.artist?.takeIf { it.isNotBlank() }, track.title).joinToString(" - ")
+    val safe = raw.map { if (it < ' ' || it in "<>:\"/\\|?*") '_' else it }.joinToString("")
+        .trim().trim('.').take(120).ifBlank { "歌曲" }
+    return if (safe.substringBefore('.').uppercase() in setOf("CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9")) "_$safe" else safe
+}

@@ -2,13 +2,14 @@ package com.muses.player.feature.scrape
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.scrape.OnlineTextMatchFailReason
 import com.muses.player.core.model.scrape.OnlineTextMatchResult
 import com.muses.player.core.model.scrape.OnlineTextQuery
 import com.muses.player.core.model.scrape.ScrapeCandidate
 import com.muses.player.core.model.scrape.ScrapeChanges
-import com.muses.player.core.data.repository.SongRepository
+import com.muses.player.core.model.scrape.WritebackStatus
 import com.muses.player.core.scrape.cover.CoverMatcher
 import com.muses.player.core.scrape.cover.OnlineCoverMatchFailReason
 import com.muses.player.core.scrape.cover.OnlineCoverMatchResult
@@ -17,412 +18,239 @@ import com.muses.player.core.scrape.queue.ScrapeQueueStore
 import com.muses.player.core.scrape.text.TextMetaMatcher
 import com.muses.player.core.scrape.writeback.WritebackOrchestrator
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-
-class ScrapeViewModel constructor(
+class ScrapeViewModel(
     private val queueStore: ScrapeQueueStore,
     private val textMetaMatcher: TextMetaMatcher,
     private val coverMatcher: CoverMatcher,
     private val writebackOrchestrator: WritebackOrchestrator,
     private val songRepository: SongRepository,
 ) : ViewModel() {
-
-    // ---- queue 态数据 ----
     private val _queueSongIds = MutableStateFlow<List<String>>(emptyList())
     val queueSongIds: StateFlow<List<String>> = _queueSongIds.asStateFlow()
-
-    /** songId → 歌名（队列只持久化 songId，展示时反查库；缺失回退占位文案） */
     private val _queueTitles = MutableStateFlow<Map<String, String>>(emptyMap())
     val queueTitles: StateFlow<Map<String, String>> = _queueTitles.asStateFlow()
-
-    // ---- 四态机 ----
     private val _pageState = MutableStateFlow<ScrapePageState>(ScrapePageState.Queue)
     val pageState: StateFlow<ScrapePageState> = _pageState.asStateFlow()
-
-    /** 撤销入口可用性（最近一次写回的 journalId） */
+    private val _throttleMessage = MutableStateFlow<String?>(null)
+    val throttleMessage: StateFlow<String?> = _throttleMessage.asStateFlow()
+    private val _throttledIds = MutableStateFlow<List<String>>(emptyList())
+    val throttledIds: StateFlow<List<String>> = _throttledIds.asStateFlow()
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+    private val _undoing = MutableStateFlow(false)
+    val undoing: StateFlow<Boolean> = _undoing.asStateFlow()
+    private var matchingJob: Job? = null
+    private var interruptedPreview = ScrapePageState.Preview(emptyList())
+    private var resultPreview = ScrapePageState.Preview(emptyList())
+    private val reviewTracker = ReviewQueueTracker()
+    val pendingReviewQueue: StateFlow<List<String>> = reviewTracker.queue
     var lastJournalId: String? = null
         private set
 
-    // ── S3 批量逐首审核：待审队列 ──────────────────────────
-
-    /**
-     * 待审队列（S3）：预览态点「逐首审核」后设置，MusesApp 宿主按此逐首打开审核页。
-     * 仅在「应用并下一首」路径推进（审核页写回后由宿主回调 [advanceReview]）。
-     * 用户手动返回（非应用路径）由宿主清队列（[cancelReviewQueue]），不强推下一首。
-     * 状态机实现见 [ReviewQueueTracker]（纯状态机，可单测）。
-     */
-    private val reviewTracker = ReviewQueueTracker()
-    val pendingReviewQueue: StateFlow<List<String>> = reviewTracker.queue
-
-    // ── 限流可观察状态（任务 08-27-scrape-throttle-429） ──────────────
-    private val _throttleMessage = MutableStateFlow<String?>(null)
-    val throttleMessage: StateFlow<String?> = _throttleMessage.asStateFlow()
-
-    /** 因限流/网络未命中的歌曲 id 集合，供 preview/result 展示“稍后重试”。 */
-    private val _throttledIds = MutableStateFlow<List<String>>(emptyList())
-    val throttledIds: StateFlow<List<String>> = _throttledIds.asStateFlow()
-
     init {
         reloadQueue()
-        // 队列存储变化（入队/移除）自动刷新列表
-        viewModelScope.launch {
-            queueStore.updated.collect { reloadQueue() }
-        }
+        viewModelScope.launch { queueStore.updated.collect { reloadQueue() } }
     }
 
     fun reloadQueue() {
         viewModelScope.launch {
-            val ids = queueStore.load().map { it.songId }
-            _queueSongIds.value = ids
-            // 对齐 Web 版队列行显示歌名（ScrapePage.vue 队列项 title）；查不到的由 UI 回退
-            _queueTitles.value = ids.mapNotNull { id ->
-                songRepository.getSong(id)?.let { id to it.title }
-            }.toMap()
+            try {
+                val ids = queueStore.load().map { it.songId }
+                _queueSongIds.value = ids
+                _queueTitles.value = songRepository.getSongs(ids).mapValues { it.value.title }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _errorMessage.value = "读取待刮削歌曲失败，请返回页面重试"
+            }
         }
     }
 
-    /** 单曲移除（queue 态行内按钮） */
     fun removeFromQueue(songIds: List<String>) {
         viewModelScope.launch { queueStore.remove(songIds) }
     }
 
-    /** 清空队列 */
     fun clearQueue() {
         viewModelScope.launch { queueStore.clear() }
     }
 
-    /** 文本与封面双链并发匹配（两路独立网络请求，原串行耗时相加，现取最慢一路） */
     private suspend fun matchTextAndCover(song: Song): Pair<OnlineTextMatchResult, OnlineCoverMatchResult> =
         coroutineScope {
-            val textDeferred = async {
+            val text = async {
                 try {
                     textMetaMatcher.match(
                         OnlineTextQuery(
-                            songId = song.id,
-                            title = song.title,
-                            path = song.path,
-                            artist = song.artist,
-                            album = song.album,
+                            songId = song.id, title = song.title, path = song.path,
+                            artist = song.artist, album = song.album,
                             durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(),
                             metaSources = song.metaSources,
                         ),
                     )
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK)
-                }
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK) }
             }
-            val coverDeferred = async {
+            val cover = async {
                 try {
-                    coverMatcher.match(
-                        OnlineCoverQuery(songId = song.id, title = song.title, artist = song.artist, album = song.album),
-                    )
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NETWORK)
-                }
+                    coverMatcher.match(OnlineCoverQuery(song.id, song.title, song.artist, song.album))
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NETWORK) }
             }
-            textDeferred.await() to coverDeferred.await()
+            text.await() to cover.await()
         }
 
-    /**
-     * 「全部开始」：逐曲跑文本+封面匹配 → 聚合候选进 preview 态。
-     * 命中进入人工确认；未命中（S2）按 NETWORK/NO_MATCH 分组列出：
-     * NETWORK → 限流提示 + [_throttledIds] 可重试；NO_MATCH → [ScrapePageState.Preview.noMatchIds] 可重试或改词重搜。
-     */
     fun startMatching() {
-        val ids = _queueSongIds.value
-        if (ids.isEmpty()) return
-        viewModelScope.launch {
-            // 重置限流提示
-            _throttleMessage.value = null
-            _throttledIds.value = emptyList()
-            val throttledMutable = mutableListOf<String>()
-            val noMatchMutable = mutableListOf<String>()
-            val items = mutableListOf<PreviewCandidate>()
-            var index = 0
-            for (songId in ids) {
-                index++
-                val song = try {
-                    songRepository.getSong(songId)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    null
-                }
-                if (song == null) {
-                    // 已不在库（懒清理竞态）：直接出队
-                    try {
-                        queueStore.remove(listOf(songId))
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (_: Exception) {}
-                    continue
-                }
-                _pageState.value = ScrapePageState.Matching(index, ids.size, song.title)
-
-                // 双链并发（原串行文本→封面，耗时相加；现并发取最慢一路）
-                val (textOk, coverOk) = matchTextAndCover(song)
-
-                val hit = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.hit
-                val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
-                if (hit == null && coverUrl == null) {
-                    // 双链均未命中：区分 NETWORK 限流与普通无匹配（S2）
-                    val isNetwork = (textOk is com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail && textOk.reason == OnlineTextMatchFailReason.NETWORK) ||
-                        (coverOk is com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail && coverOk.reason == OnlineCoverMatchFailReason.NETWORK)
-                    if (isNetwork) {
-                        throttledMutable.add(songId)
-                        _throttledIds.value = throttledMutable.toList()
-                        _throttleMessage.value = "等待限流恢复…"
-                        // 2s 后自动清除提示（不阻塞主循环）
-                        viewModelScope.launch {
-                            try {
-                                delay(2000)
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (_: Exception) {}
-                            // 若仍为同一提示则清除，避免覆盖后续提示
-                            if (_throttleMessage.value == "等待限流恢复…") {
-                                _throttleMessage.value = null
-                            }
-                        }
-                    } else {
-                        // 普通未命中：进 noMatch 分组，不再静默消失
-                        noMatchMutable.add(songId)
-                    }
-                    continue
-                }
-
-                val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
-                items += PreviewCandidate(
-                    songId = song.id,
-                    songTitle = song.title,
-                    currentTitle = song.title,
-                    currentArtist = song.artist,
-                    currentAlbum = song.album,
-                    currentLyrics = song.lyrics,
-                    matchedTitle = hit?.title,
-                    matchedArtist = hit?.artist,
-                    matchedAlbum = hit?.album,
-                    matchedLyrics = null,
-                    confidence = confidence,
-                    coverUrl = coverUrl,
-                    checked = false,
-                )
-            }
-            // 若有命中进预览；全未命中时按分组给提示
-            if (throttledMutable.isNotEmpty() && items.isEmpty() && noMatchMutable.isEmpty()) {
-                _throttleMessage.value = "触发限流，稍后重试"
-            } else if (throttledMutable.isNotEmpty()) {
-                // 部分限流：保留短期提示供 preview 展示
-                _throttleMessage.value = "${throttledMutable.size} 首触发限流，可单独重试"
-            }
-            _throttledIds.value = throttledMutable.toList()
-            _pageState.value = ScrapePageState.Preview(items, noMatchIds = noMatchMutable.toList())
-        }
+        if (_pageState.value != ScrapePageState.Queue) return
+        matchSongs(_queueSongIds.value, ScrapePageState.Preview(emptyList()), retry = false)
     }
 
-    /**
-     * 单曲重试（复用 startMatching 的单曲路径）。
-     * 清除该首的负缓存后重跑文本+封面匹配，命中则进入预览，其余给出限流提示。
-     */
     fun retrySingle(songId: String) {
-        viewModelScope.launch {
+        val base = _pageState.value as? ScrapePageState.Preview ?: return
+        matchSongs(listOf(songId), base, retry = true)
+    }
+
+    /** 文件失败时沿用本次核对过的变更，不能因曲库已更新而丢失重试内容。 */
+    fun reviewWritebackFailure(songId: String) {
+        if (_pageState.value !is ScrapePageState.Result || _undoing.value) return
+        _pageState.value = resultPreview.copy(items = resultPreview.items.map {
+            if (it.songId == songId) it else it.copy(checked = false, checkedFields = emptySet())
+        })
+    }
+
+    fun retryThrottled() {
+        val base = _pageState.value as? ScrapePageState.Preview ?: return
+        matchSongs(_throttledIds.value, base, retry = true)
+    }
+
+    /** 首次匹配与重试共用一条路径；结果、人工选择和未匹配分组始终保留。 */
+    private fun matchSongs(ids: List<String>, base: ScrapePageState.Preview, retry: Boolean) {
+        if (ids.isEmpty() || matchingJob?.isActive == true || _undoing.value) return
+        _errorMessage.value = null
+        if (!retry) {
+            _throttledIds.value = emptyList()
+            _throttleMessage.value = null
+        }
+        interruptedPreview = base
+        _pageState.value = ScrapePageState.Matching(0, ids.size, "准备匹配…")
+        matchingJob = viewModelScope.launch {
+            val items = base.items.toMutableList()
+            val noMatch = base.noMatchIds.toMutableSet()
+            val networkFailed = _throttledIds.value.toMutableSet()
+            fun retainProgress() {
+                interruptedPreview = ScrapePageState.Preview(items.toList(), noMatch.toList())
+                _throttledIds.value = networkFailed.toList()
+                _throttleMessage.value = networkFailed.takeIf { it.isNotEmpty() }
+                    ?.let { "${it.size} 首网络请求失败或服务繁忙，可稍后重试" }
+            }
             try {
-                textMetaMatcher.invalidateNegativeCache(songId)
-                coverMatcher.invalidateNegativeCache(songId)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {}
-            val song = try {
-                songRepository.getSong(songId)
+                ids.forEachIndexed { index, songId ->
+                    _pageState.value = ScrapePageState.Matching(index, ids.size, _queueTitles.value[songId] ?: "正在读取歌曲…")
+                    // 读取异常不能当成歌曲已删除，外层给出错误并保留已完成结果。
+                    val song = songRepository.getSong(songId)
+                    if (song == null) {
+                        queueStore.remove(listOf(songId))
+                        items.removeAll { it.songId == songId }
+                        noMatch.remove(songId)
+                        networkFailed.remove(songId)
+                        retainProgress()
+                        return@forEachIndexed
+                    }
+                    _pageState.value = ScrapePageState.Matching(index, ids.size, "正在匹配：${song.title}")
+                    if (retry) {
+                        textMetaMatcher.invalidateNegativeCache(songId)
+                        coverMatcher.invalidateNegativeCache(songId)
+                    }
+                    val (text, cover) = matchTextAndCover(song)
+                    val hit = (text as? OnlineTextMatchResult.Ok)?.hit
+                    val coverUrl = (cover as? OnlineCoverMatchResult.Ok)?.remoteUrl
+                    val textNetwork = text is OnlineTextMatchResult.Fail && text.reason == OnlineTextMatchFailReason.NETWORK
+                    val coverNetwork = cover is OnlineCoverMatchResult.Fail && cover.reason == OnlineCoverMatchFailReason.NETWORK
+                    val failedRequests = buildSet {
+                        if (textNetwork) add("text")
+                        if (coverNetwork) add("cover")
+                    }
+                    noMatch.remove(songId)
+                    networkFailed.remove(songId)
+                    if (failedRequests.isNotEmpty()) networkFailed.add(songId)
+                    if (hit == null && coverUrl == null) {
+                        if (failedRequests.isEmpty()) noMatch.add(songId)
+                    } else {
+                        val candidate = PreviewCandidate(
+                            songId = song.id, songTitle = song.title, currentTitle = song.title,
+                            currentArtist = song.artist, currentAlbum = song.album, currentLyrics = song.lyrics,
+                            matchedTitle = hit?.title, matchedArtist = hit?.artist, matchedAlbum = hit?.album,
+                            confidence = (text as? OnlineTextMatchResult.Ok)?.confidence?.name,
+                            coverUrl = coverUrl, currentCoverUri = song.coverUri, failedRequests = failedRequests,
+                        )
+                        val previousIndex = items.indexOfFirst { it.songId == songId }
+                        if (previousIndex >= 0) {
+                            val previous = items[previousIndex]
+                            val merged = candidate.copy(
+                                matchedTitle = if (textNetwork) previous.matchedTitle else candidate.matchedTitle,
+                                matchedArtist = if (textNetwork) previous.matchedArtist else candidate.matchedArtist,
+                                matchedAlbum = if (textNetwork) previous.matchedAlbum else candidate.matchedAlbum,
+                                coverUrl = if (coverNetwork) previous.coverUrl else candidate.coverUrl,
+                                confidence = if (textNetwork) previous.confidence else candidate.confidence,
+                                editTitle = previous.editTitle, editArtist = previous.editArtist,
+                                editAlbum = previous.editAlbum, editLyrics = previous.editLyrics,
+                            )
+                            val selected = previous.checkedFields.intersect(merged.availableFields())
+                            items[previousIndex] = merged.copy(checked = selected.isNotEmpty(), checkedFields = selected)
+                        } else items.add(candidate)
+                    }
+                    retainProgress()
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                null
-            } ?: return@launch
-            _pageState.value = ScrapePageState.Matching(1, 1, song.title)
-            _throttleMessage.value = null
-            // 双链并发（与批量路径同 helper）
-            val (textOk, coverOk) = matchTextAndCover(song)
-            val hit = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.hit
-            val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
-            if (hit == null && coverUrl == null) {
-                val isNetwork = (textOk is com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail && textOk.reason == OnlineTextMatchFailReason.NETWORK) ||
-                    (coverOk is com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail && coverOk.reason == OnlineCoverMatchFailReason.NETWORK)
-                _throttleMessage.value = if (isNetwork) "触发限流，稍后重试" else "暂无匹配"
-                // 保留在 preview 以便继续重试（S2：保留 noMatchIds 分组）
-                val currentPreview = _pageState.value as? ScrapePageState.Preview
-                if (currentPreview != null) {
-                    // 保持空预览以展示重试入口
-                    _pageState.value = currentPreview
-                } else {
-                    _pageState.value = ScrapePageState.Preview(emptyList())
-                }
-                // 将该首重新加入可重试集合（限流→throttledIds，普通未命中→noMatchIds）
-                if (isNetwork) {
-                    val cur = _throttledIds.value.toMutableList()
-                    if (!cur.contains(songId)) cur.add(songId)
-                    _throttledIds.value = cur
-                } else {
-                    val current = (_pageState.value as? ScrapePageState.Preview)
-                    val cur = (current?.noMatchIds ?: emptyList()).toMutableList()
-                    if (!cur.contains(songId)) cur.add(songId)
-                    _pageState.value = (current ?: ScrapePageState.Preview(emptyList())).copy(noMatchIds = cur)
-                }
-                return@launch
+                _errorMessage.value = "匹配中断，已完成的结果已保留；返回队列可重新匹配"
             }
-            val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
-            val candidate = PreviewCandidate(
-                songId = song.id,
-                songTitle = song.title,
-                currentTitle = song.title,
-                currentArtist = song.artist,
-                currentAlbum = song.album,
-                currentLyrics = song.lyrics,
-                matchedTitle = hit?.title,
-                matchedArtist = hit?.artist,
-                matchedAlbum = hit?.album,
-                matchedLyrics = null,
-                confidence = confidence,
-                coverUrl = coverUrl,
-                checked = false,
-            )
-            // 合并到现有预览（若已有则追加去重）；保留 noMatchIds 分组，去掉已成功者
-            val currentPreview = _pageState.value as? ScrapePageState.Preview
-            val existing = currentPreview?.items ?: emptyList()
-            val merged = (existing.filter { it.songId != songId } + candidate)
-            // 从限流/未命中集合移除已成功者
-            _throttledIds.value = _throttledIds.value.filter { it != songId }
-            if (_throttledIds.value.isEmpty()) _throttleMessage.value = null
-            _pageState.value = ScrapePageState.Preview(
-                items = merged,
-                noMatchIds = (currentPreview?.noMatchIds ?: emptyList()).filter { it != songId },
-            )
+            _pageState.value = interruptedPreview
         }
     }
 
-    /** 重试所有限流未命中的歌曲（批量）。 */
-    fun retryThrottled() {
-        val ids = _throttledIds.value.toList()
-        if (ids.isEmpty()) return
-        viewModelScope.launch {
-            // 清理负缓存
-            ids.forEach {
-                try {
-                    textMetaMatcher.invalidateNegativeCache(it)
-                    coverMatcher.invalidateNegativeCache(it)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {}
-            }
-            _throttleMessage.value = null
-            _throttledIds.value = emptyList()
-            val items = mutableListOf<PreviewCandidate>()
-            // 复用当前预览已命中项与未命中分组
-            val basePreview = _pageState.value as? ScrapePageState.Preview
-            val existing = basePreview?.items?.toMutableList() ?: mutableListOf()
-            items.addAll(existing)
-            val noMatchMutable = (basePreview?.noMatchIds ?: emptyList()).toMutableList()
-            var index = 0
-            val throttledRemain = mutableListOf<String>()
-            for (songId in ids) {
-                index++
-                val song = try { songRepository.getSong(songId) } catch (e: CancellationException) { throw e } catch (_: Exception) { null } ?: continue
-                _pageState.value = ScrapePageState.Matching(index, ids.size, song.title)
-                val textOk = try {
-                    textMetaMatcher.match(OnlineTextQuery(songId = song.id, title = song.title, path = song.path, artist = song.artist, album = song.album, durationSec = song.durationSec.takeIf { it > 0 }?.toDouble(), metaSources = song.metaSources))
-                } catch (e: CancellationException) { throw e } catch (_: Exception) { com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK) }
-                val coverOk = try { coverMatcher.match(OnlineCoverQuery(songId = song.id, title = song.title, artist = song.artist, album = song.album)) } catch (e: CancellationException) { throw e } catch (_: Exception) { com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail(OnlineCoverMatchFailReason.NETWORK) }
-                val hit = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.hit
-                val coverUrl = (coverOk as? com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Ok)?.remoteUrl
-                if (hit == null && coverUrl == null) {
-                    val isNetwork = (textOk is com.muses.player.core.model.scrape.OnlineTextMatchResult.Fail && textOk.reason == OnlineTextMatchFailReason.NETWORK) || (coverOk is com.muses.player.core.scrape.cover.OnlineCoverMatchResult.Fail && coverOk.reason == OnlineCoverMatchFailReason.NETWORK)
-                    if (isNetwork) {
-                        throttledRemain.add(songId)
-                    } else if (!noMatchMutable.contains(songId)) {
-                        // 非限流未命中 → 转入未命中分组，不再丢弃
-                        noMatchMutable.add(songId)
-                    }
-                    continue
-                }
-                val confidence = (textOk as? com.muses.player.core.model.scrape.OnlineTextMatchResult.Ok)?.confidence?.name
-                // 去重追加
-                if (items.none { it.songId == songId }) {
-                    val c = PreviewCandidate(songId = song.id, songTitle = song.title, currentTitle = song.title, currentArtist = song.artist, currentAlbum = song.album, currentLyrics = song.lyrics, matchedTitle = hit?.title, matchedArtist = hit?.artist, matchedAlbum = hit?.album, matchedLyrics = null, confidence = confidence, coverUrl = coverUrl, checked = true)
-                    val defaultChecked = buildSet {
-                        if (c.resolvedTitle() != null) add("title")
-                        if (c.resolvedArtist() != null) add("artist")
-                        if (c.resolvedAlbum() != null) add("album")
-                        if (c.coverUrl != null) add("cover")
-                        if (c.resolvedLyrics() != null) add("lyrics")
-                    }
-                    items.add(c.copy(checkedFields = defaultChecked))
-                }
-                noMatchMutable.remove(songId)
-            }
-            _throttledIds.value = throttledRemain
-            _throttleMessage.value = if (throttledRemain.isNotEmpty()) "${throttledRemain.size} 首仍触发限流，可稍后重试" else null
-            _pageState.value = ScrapePageState.Preview(items, noMatchIds = noMatchMutable)
-        }
+    /** 停止网络匹配，保留已完成的候选；未处理歌曲仍在队列中。 */
+    fun stopMatching() {
+        if (_pageState.value !is ScrapePageState.Matching) return
+        matchingJob?.cancel()
+        _pageState.value = interruptedPreview
     }
 
-    /** 预览行勾选切换（整首） */
-    fun toggleChecked(songId: String) {
+    fun toggleChecked(songId: String) = updatePreview { it.copy(items = it.items.toggleChecked(songId)) }
+    fun setAllChecked(checked: Boolean) = updatePreview { it.copy(items = it.items.setAllChecked(checked)) }
+    fun toggleField(songId: String, field: String) = updatePreview { it.copy(items = it.items.toggleField(songId, field)) }
+    fun setAllFields(field: String, checked: Boolean) = updatePreview { it.copy(items = it.items.setAllFields(field, checked)) }
+    fun selectFields(fields: Set<String>) = updatePreview { it.copy(items = it.items.selectFields(fields)) }
+
+    fun updatePreviewItem(songId: String, title: String?, artist: String?, album: String?, lyrics: String? = null) =
+        updatePreview { it.copy(items = it.items.updateItem(songId, title, artist, album, lyrics)) }
+
+    private inline fun updatePreview(transform: (ScrapePageState.Preview) -> ScrapePageState.Preview) {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = state.copy(items = state.items.toggleChecked(songId))
+        _pageState.value = transform(state)
     }
 
-    /** 全选 / 全不选（整首） */
-    fun setAllChecked(checked: Boolean) {
-        val state = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = state.copy(items = state.items.setAllChecked(checked))
-    }
+    fun dismissError() { _errorMessage.value = null }
 
-    /** 切换单首歌曲的单个字段勾选 */
-    fun toggleField(songId: String, field: String) {
-        val state = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = state.copy(items = state.items.toggleField(songId, field))
-    }
-
-    /** 批量全选/全不选某字段（跨所有歌曲） */
-    fun setAllFields(field: String, checked: Boolean) {
-        val state = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = state.copy(items = state.items.setAllFields(field, checked))
-    }
-
-    /** 更新预览行编辑值（空串已在调用方转 null 表示回退匹配值） */
-    fun updatePreviewItem(songId: String, title: String?, artist: String?, album: String?, lyrics: String? = null) {
-        val state = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = state.copy(items = state.items.updateItem(songId, title, artist, album, lyrics))
-    }
-
-    /** 确认写回：仅写回各首勾选的字段；逐曲结果进 result 态 */
     fun confirmWriteback() {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
-        val checkedItems = state.items.filter { it.checkedFields.isNotEmpty() }
-        if (checkedItems.isEmpty()) return
-        // 立即切到写回中态，给用户明确反馈（WebDAV 上传/本地落盘需数秒）
-        _pageState.value = ScrapePageState.Writing(checkedItems.size)
+        val selected = state.items.map { it.copy(checkedFields = it.checkedFields.intersect(it.availableFields())) }
+            .filter { it.checkedFields.isNotEmpty() }
+        if (selected.isEmpty()) return
+        _errorMessage.value = null
+        _pageState.value = ScrapePageState.Writing(selected.size)
         viewModelScope.launch {
             try {
-                val candidates = mutableListOf<ScrapeCandidate>()
-                val changesMap = mutableMapOf<String, ScrapeChanges>()
-                // 批量取数：一次查全量替代逐首 N 次查询
-                val songsById = songRepository.getSongs(checkedItems.map { it.songId })
-                for (item in checkedItems) {
-                    val song = songsById[item.songId] ?: continue
-                    candidates += ScrapeCandidate(songId = song.id, song = song)
-                    changesMap[song.id] = ScrapeChanges(
+                val songs = songRepository.getSongs(selected.map { it.songId })
+                val changes = selected.filter { it.songId in songs }.associate { item ->
+                    item.songId to ScrapeChanges(
                         title = item.resolvedTitle().takeIf { "title" in item.checkedFields },
                         artist = item.resolvedArtist().takeIf { "artist" in item.checkedFields },
                         album = item.resolvedAlbum().takeIf { "album" in item.checkedFields },
@@ -430,83 +258,85 @@ class ScrapeViewModel constructor(
                         lyrics = item.resolvedLyrics().takeIf { "lyrics" in item.checkedFields },
                     )
                 }
-                val applyResult = writebackOrchestrator.applyScrapeChanges(
-                    candidates = candidates,
-                    checkedIds = changesMap.keys,
-                    changesMap = changesMap,
+                if (changes.isEmpty()) {
+                    _errorMessage.value = "所选歌曲已不在曲库中，请返回队列刷新"
+                    _pageState.value = state
+                    return@launch
+                }
+                val applied = writebackOrchestrator.applyScrapeChanges(
+                    candidates = songs.values.map { ScrapeCandidate(it.id, it) },
+                    checkedIds = changes.keys, changesMap = changes,
                 )
-                lastJournalId = applyResult.journalId
-                // 写回完成后出队已处理歌曲并刷新
-                queueStore.remove(changesMap.keys.toList())
-                reloadQueue()
-                _pageState.value = ScrapePageState.Result(applyResult.results, applyResult.journalId)
+                lastJournalId = applied.journalId
+                val successful = applied.results.filter { it.status == WritebackStatus.SUCCESS }.map { it.songId }.toSet()
+                resultPreview = state.copy(
+                    items = state.items.filter { it.songId !in successful },
+                    noMatchIds = state.noMatchIds.filter { it !in successful },
+                )
+                _throttledIds.value = _throttledIds.value.filter { it !in successful }
+                _throttleMessage.value = _throttledIds.value.takeIf { it.isNotEmpty() }
+                    ?.let { "${it.size} 首网络请求失败或服务繁忙，可稍后重试" }
+                // 歌名快照不会随成功歌曲出队后的刷新丢失。
+                _pageState.value = ScrapePageState.Result(
+                    applied.results, applied.journalId, state.items.associate { it.songId to it.songTitle },
+                )
+                try {
+                    queueStore.remove(successful.toList())
+                    reloadQueue()
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { _errorMessage.value = "更新已完成，但队列刷新失败，请返回队列重试" }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                // 异常时回退到预览态，避免卡死在 Writing
+                _errorMessage.value = "应用失败，请检查文件或 WebDAV 连接后重试"
                 _pageState.value = state
             }
         }
     }
 
-    /** 撤销上次写回：journal 回放恢复库旧值（文件不动，对齐 Web 撤销语义） */
     fun undoLastWriteback() {
-        val journalId = lastJournalId ?: return
+        val state = _pageState.value as? ScrapePageState.Result ?: return
+        if (_undoing.value) return
+        _undoing.value = true
         viewModelScope.launch {
-            writebackOrchestrator.revertScrapeJournal(journalId)
-            reloadQueue()
-            _pageState.value = ScrapePageState.Queue
+            try {
+                writebackOrchestrator.revertScrapeJournal(state.journalId)
+                lastJournalId = null
+                _pageState.value = ScrapePageState.Queue
+                reloadQueue()
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { _errorMessage.value = "恢复曲库失败，请重试" }
+            finally { _undoing.value = false }
         }
     }
 
-    /** 返回队列态 */
     fun backToQueue() {
+        if (_pageState.value is ScrapePageState.Writing || _undoing.value) return
+        matchingJob?.cancel()
         _pageState.value = ScrapePageState.Queue
+        _errorMessage.value = null
         reloadQueue()
     }
 
-    // ── S3 批量逐首审核（连续推进）─────────────────────────
-
-    /**
-     * 开始逐首审核：把当前预览命中列表作为待审队列。
-     * @return 队列第一首 songId（宿主据此打开审核页）；队列为空返回 null
-     */
     fun startReviewQueue(): String? {
         val preview = _pageState.value as? ScrapePageState.Preview ?: return null
-        val queue = preview.items.map { it.songId }
-        if (queue.isEmpty()) return null
-        return reviewTracker.start(queue)
+        val ids = (preview.items.map { it.songId } + preview.noMatchIds + _throttledIds.value).distinct()
+        return if (ids.isEmpty()) null else reviewTracker.start(ids)
     }
 
-    /**
-     * 写回成功后推进：从待审队列剔除已写回者。
-     * @param songId 审核页刚写回的歌曲
-     * @return 队列中下一首 songId；无则 null（宿主停止连续推进）
-     */
     fun advanceReview(songId: String): String? = reviewTracker.advance(songId)
+    fun cancelReviewQueue() { reviewTracker.cancel() }
 
-    /** 用户手动返回（非应用路径）：清待审队列，不强推下一首 */
-    fun cancelReviewQueue() {
-        reviewTracker.cancel()
-    }
-
-    /**
-     * 审核页外部写回同步（S3）：审核页走自己的单曲 `applyScrapeChanges`，
-     * 不经过本 VM 的 `confirmWriteback`，故需把已写回者从预览列表剔除并出队，
-     * 避免返回预览后看到已处理的歌还躺在列表里。
-     */
     fun refreshAfterExternalWriteback(songId: String) {
-        val preview = _pageState.value as? ScrapePageState.Preview ?: return
-        _pageState.value = preview.copy(
-            items = preview.items.filter { it.songId != songId },
-            noMatchIds = preview.noMatchIds.filter { it != songId },
-        )
+        updatePreview { state ->
+            state.copy(items = state.items.filter { it.songId != songId }, noMatchIds = state.noMatchIds.filter { it != songId })
+        }
+        _throttledIds.value = _throttledIds.value.filter { it != songId }
+        if (_throttledIds.value.isEmpty()) _throttleMessage.value = null
         viewModelScope.launch {
-            try {
-                queueStore.remove(listOf(songId))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {}
+            try { queueStore.remove(listOf(songId)) }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { _errorMessage.value = "更新已完成，但队列刷新失败" }
             reloadQueue()
         }
     }

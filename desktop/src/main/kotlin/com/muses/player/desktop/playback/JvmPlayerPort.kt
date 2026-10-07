@@ -252,6 +252,22 @@ class JvmPlayerPort(
         playSongId(item.songId, 0L)
     }
 
+    /**
+     * 追加到队列末尾，不打断当前播放（曲库「添加到播放队列」）。
+     * 已在队列内的 id 跳过；队列原本为空时从追加的第一首开始播。
+     */
+    fun appendToQueue(songs: List<com.muses.player.core.model.Song>) {
+        if (songs.isEmpty()) return
+        com.muses.player.core.model.online.OnlineTrackSession.remember(songs)
+        val queued = queue.activeOrder().mapTo(HashSet()) { it.songId }
+        val additions = songs.map { it.id }.filterNot { it in queued }
+        if (additions.isEmpty()) return
+        val wasEmpty = queue.activeOrder().isEmpty()
+        queue.append(additions)
+        val current = queue.state().snapshot.items.getOrNull(queue.state().currentIndex) ?: return
+        if (wasEmpty) playSongId(current.songId, 0L)
+    }
+
     /** U16：按队列位置移除条目（复用状态机 removeSongs；队列内 songId 唯一，按 id 移除等价按 index） */
     fun removeQueueItemAt(index: Int) {
         val songId = queue.activeOrder().getOrNull(index)?.songId ?: return

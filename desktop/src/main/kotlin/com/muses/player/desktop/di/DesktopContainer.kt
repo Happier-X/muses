@@ -78,7 +78,10 @@ object DesktopContainer {
         }
 
     /** 在线音源直链解析器（供 [JvmPlayerPort] 注入）；未导入脚本时仍可注入，播放时报错提示 */
-    fun onlineResolver(): OnlineTrackResolver = LxOnlineTrackResolver(lxScripts())
+    fun onlineResolver(
+        candidateProvider: com.muses.player.core.model.online.OnlineTrackCandidateProvider? = null,
+        urlProbe: com.muses.player.core.model.online.OnlinePlayableUrlProbe? = null,
+    ): OnlineTrackResolver = LxOnlineTrackResolver(lxScripts(), candidateProvider = candidateProvider, urlProbe = urlProbe)
 
     /** 凭据仓库（commonMain [CredentialsRepository] 实现；DataStore 单实例由类内 lazy 保证）。 */
     fun credentials(): DesktopCredentials = DesktopCredentials()
@@ -88,6 +91,8 @@ object DesktopContainer {
          * S3 可按需传入自定义 lookup（测试/多库场景）。
      */
     suspend fun playerPort(
+        candidateProvider: com.muses.player.core.model.online.OnlineTrackCandidateProvider? = null,
+        urlProbe: com.muses.player.core.model.online.OnlinePlayableUrlProbe? = null,
         songLookup: (suspend (songId: String) -> JvmPlayerPort.SongRef?)? = null,
         songsExist: (suspend (ids: List<String>) -> Set<String>)? = null,
         songsLookup: (suspend (ids: List<String>) -> Map<String, JvmPlayerPort.SongRef>)? = null,
@@ -148,6 +153,7 @@ object DesktopContainer {
                             lyrics = it.lyrics,
                             coverUri = coverUri,
                             durationMs = it.durationMs,
+                            audioQuality = it.audioQuality,
                         )
                     }
                     val song = songRepository.getSong(songId)
@@ -213,7 +219,7 @@ object DesktopContainer {
             // 与 DesktopCredentials（凭据）/Koin 设置仓储/播放状态共用同一实例
             dataStore = settingsStore,
             // 在线音源直链解析（洛雪自定义源脚本）
-            onlineResolver = onlineResolver(),
+            onlineResolver = onlineResolver(candidateProvider, urlProbe),
         )
     }
 

@@ -17,9 +17,9 @@ data class AiRecommendConfig(
     val model: String = "",
     val apiKey: String = "",
 ) {
-    /** 实际请求地址（已去尾斜杠） */
+    /** 实际请求地址（已清理粘贴空白及尾斜杠） */
     val resolvedBaseUrl: String
-        get() = baseUrl.trim().trimEnd('/')
+        get() = normalizeAiBaseUrl(baseUrl)
 
     /** 实际请求模型 */
     val resolvedModel: String
@@ -60,7 +60,7 @@ data class AiRecommendResult(
 }
 
 /** AI 调用/解析失败（网络、鉴权、限流、返回不可用） */
-class AiException(message: String, cause: Throwable? = null) : Exception(message, cause)
+open class AiException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
  * AI API Key 在凭据库（CredentialsRepository，密文存储）中的 sourceId。

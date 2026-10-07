@@ -28,6 +28,7 @@ import com.muses.player.core.data.repository.PlayStatsSessionTracker
 import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.tag.AudioTagReader
+import com.muses.player.core.lyrics.matchDocument
 import com.muses.player.core.media.scanner.LocalLibraryScanner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
@@ -40,6 +41,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import com.muses.player.core.webdav.STREAMING_OKHTTP_QUALIFIER
 import okhttp3.OkHttpClient
 import org.koin.android.ext.android.inject
+import org.koin.android.ext.android.getKoin
 import org.koin.core.qualifier.named
 
 /**
@@ -74,6 +76,10 @@ class PlaybackService : MediaSessionService() {
     private val settingsRepository: com.muses.player.core.data.repository.SettingsRepository by inject()
 
     private var saveJob: kotlinx.coroutines.Job? = null
+    private var desktopLyricsOverlay: DesktopLyricsOverlay? = null
+
+    /** 音量增益（LoudnessEnhancer）：服务生命周期内常驻，随设置即时下发 */
+    private val volumeBoost by lazy { VolumeBoostController(this) }
 
     // ── 通知歌词模式 ──
     /** 原始元数据（切歌时快照；开启歌词模式后不从 player.currentMediaItem 读，防脏读） */
@@ -148,6 +154,8 @@ class PlaybackService : MediaSessionService() {
             .setMediaSourceFactory(mediaSourceFactory)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+        // 音量增益：绑定自建 audio session（效果器随后由设置流下发，见 startVolumeBoostMonitoring）
+        volumeBoost.attach(player)
         // 注：media3 1.11 无 Player.setPreloadItems（相邻预加载 API 在 1.13+），默认不会预加载整队列；
         // 真正触发 429 的是流播 Range 被 4 rps 限流饿死，已通过流播专用 client（named streamingOkHttp）剥离限流解决。
         // 若实测恢复队列（465 首）一次性 prepare 仍发全列请求，再改为「只 prepare 当前曲 + 下一首」分批加载。
@@ -208,6 +216,8 @@ class PlaybackService : MediaSessionService() {
         player.addListener(persistenceListener)
         // 09-07 通知歌词模式：监听开关 + 歌词 + 播放位置，动态替换 MediaMetadata
         startNotificationLyricsMonitoring(player)
+        startDesktopLyricsMonitoring(player)
+        startVolumeBoostMonitoring()
         // ExoPlayer 只能在主线程访问：恢复流程在后台查库，player 操作投递主线程
         val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
         serviceScope.launch {
@@ -240,7 +250,124 @@ class PlaybackService : MediaSessionService() {
         player.shuffleModeEnabled = config.shuffleEnabled
     }
 
+    // ── 音量增益 ──
+
+    /**
+     * 音量增益：设置变化即时下发；本机无 LoudnessEnhancer 时只提示一次，不打断播放。
+     */
+    private fun startVolumeBoostMonitoring() {
+        serviceScope.launch {
+            var warned = false
+            settingsRepository.volumeBoostDb.collect { db ->
+                volumeBoost.apply(db)
+                if (db > 0 && !volumeBoost.available && !warned) {
+                    warned = true
+                    errorLogStore.log(
+                        ErrorLogStore.Level.WARN, "Playback",
+                        "音量增益未生效：效果器初始化或设置失败，请检查设备音效支持",
+                        volumeBoost.lastError,
+                    )
+                }
+            }
+        }
+    }
+
     // ── 通知歌词模式 ──
+
+    /** 桌面歌词独立于通知开关，优先复用播放页，页面被回收时由服务兜底。 */
+    private fun startDesktopLyricsMonitoring(player: Player) {
+        val overlay = DesktopLyricsOverlay(this) {
+            serviceScope.launch { settingsRepository.setDesktopLyricsEnabled(false) }
+        }
+        desktopLyricsOverlay = overlay
+        serviceScope.launch {
+            var enabled = false
+            var translation = true
+            launch { settingsRepository.desktopLyricsEnabled.collect { enabled = it; if (!it) overlay.hide() } }
+            launch { settingsRepository.lyricTranslationEnabled.collect { translation = it } }
+            var lastId: String? = null
+            var fallback = com.muses.player.core.lyrics.DesktopLyricsSnapshot()
+            var lastRead = 0L
+            var lyricsJob: kotlinx.coroutines.Job? = null
+            while (true) {
+                kotlinx.coroutines.delay(100)
+                if (!enabled || !android.provider.Settings.canDrawOverlays(this@PlaybackService)) {
+                    overlay.hide()
+                    lyricsJob?.cancel()
+                    lyricsJob = null
+                    lastId = null
+                    continue
+                }
+                val id = player.currentMediaItem?.mediaId
+                if (id == null) { overlay.hide(); lyricsJob?.cancel(); lyricsJob = null; lastId = null; continue }
+                try {
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    if (id != lastId) {
+                        lyricsJob?.cancel()
+                        lyricsJob = null
+                        overlay.hide()
+                        fallback = com.muses.player.core.lyrics.DesktopLyricsSnapshot(id,
+                            player.mediaMetadata.title?.toString().orEmpty(), player.mediaMetadata.artist?.toString())
+                        lastId = id
+                        lastRead = 0L
+                    }
+                    val shared = com.muses.player.core.lyrics.DesktopLyricsState.snapshot.value
+                    if (shared.songId != id && now - lastRead >= 2_000L) {
+                        lastRead = now
+                        val song = songRepository.getSong(id) ?: com.muses.player.core.model.online.OnlineTrackSession.find(id)
+                        if (song != null) {
+                            val document = kotlinx.coroutines.withContext(Dispatchers.Default) {
+                                com.muses.player.feature.player.lyric.LyricsParser.parseDocument(song.lyrics)
+                            }
+                            if (player.currentMediaItem?.mediaId != id) continue
+                            val ref = com.muses.player.core.model.online.OnlineTrackRef.parse(song.path)
+                            fallback = com.muses.player.core.lyrics.DesktopLyricsSnapshot(id, song.title, song.artist,
+                                if (ref == null) document else document ?: fallback.document)
+                            if (ref != null && lyricsJob == null) {
+                                // Activity 被回收后仍可读取在线歌词；请求独立于进度轮询，切歌立即取消。
+                                lyricsJob = launch lyrics@{
+                                    try {
+                                        val resolver = getKoin().getOrNull<com.muses.player.core.model.online.OnlineTrackMetadataResolver>()
+                                        val matcher = getKoin().getOrNull<com.muses.player.core.lyrics.LyricsMatcher>()
+                                        var selected = document
+                                        for (attempt in 0..2) {
+                                            if (attempt > 0) kotlinx.coroutines.delay(if (attempt == 1) 1500 else 3000)
+                                            if (com.muses.player.core.lyrics.DesktopLyricsState.snapshot.value.songId == id) break
+                                            val raw = withTimeoutOrNull(8000) { resolver?.resolveLyrics(ref) }
+                                            val script = kotlinx.coroutines.withContext(Dispatchers.Default) {
+                                                raw?.let { com.muses.player.core.lyrics.parser.LxLyricParser.parse(it.lyric, it.tlyric, it.rlyric, it.lxlyric) }
+                                            }?.takeIf { it.lines.isNotEmpty() }
+                                            val wordTimed = script?.lines?.any { it.syllables.isNotEmpty() } == true
+                                            if (wordTimed) selected = script
+                                            else if (attempt == 0) {
+                                                selected = selected ?: withTimeoutOrNull(8000) {
+                                                    matcher?.matchDocument(songId = song.id, title = song.title, artist = song.artist,
+                                                        album = song.album, durationMs = song.durationMs, durationSec = song.durationSec)
+                                                } ?: script
+                                            } else if (selected == null) selected = script
+                                            if (!enabled || player.currentMediaItem?.mediaId != id) return@lyrics
+                                            fallback = com.muses.player.core.lyrics.DesktopLyricsSnapshot(id, song.title, song.artist, selected)
+                                            if (selected?.lines?.any { it.syllables.isNotEmpty() } == true) break
+                                        }
+                                    } catch (e: CancellationException) { throw e }
+                                    catch (e: Exception) { errorLogStore.log(ErrorLogStore.Level.WARN, "DesktopLyrics", "在线桌面歌词加载失败：${e.message}", e) }
+                                }
+                            }
+                        }
+                    }
+                    val snapshot = if (shared.songId == id) shared else fallback
+                    if (!enabled || player.currentMediaItem?.mediaId != id) continue
+                    overlay.update(com.muses.player.core.lyrics.desktopLyricsText(snapshot, player.currentPosition, translation, player.isPlaying))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    overlay.hide()
+                    errorLogStore.log(ErrorLogStore.Level.WARN, "DesktopLyrics", "桌面歌词更新失败：${e.message}", e)
+                    kotlinx.coroutines.delay(1_000)
+                }
+            }
+        }
+    }
 
     /**
      * 监听 [SettingsRepository.notificationLyricsEnabled]，开启后：
@@ -566,7 +693,7 @@ class PlaybackService : MediaSessionService() {
                         // 封面缺失同样进入（版本已齐也不跳过）：后补内嵌/首次漏读可经 coverBackfill 回填
                         val needsCover = entity != null &&
                             entity.metaCover == null && entity.coverUri.isNullOrBlank()
-                        if (entity != null && (entity.tagsVersion < LocalLibraryScanner.TAGS_VERSION || needsCover)) {
+                        if (entity != null && (entity.tagsVersion < LocalLibraryScanner.TAGS_VERSION || needsCover || entity.audioQuality == null)) {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
                                     val tagData = audioTagReader.readTagForUpdate(entity.path, entity.id)
@@ -578,6 +705,7 @@ class PlaybackService : MediaSessionService() {
                                             lyrics = it.lyrics,
                                             coverUri = it.coverUri,
                                             durationMs = it.durationMs,
+                                            audioQuality = it.audioQuality,
                                         )
                                     }
                                     val song = entity.toDomain()
@@ -661,6 +789,9 @@ class PlaybackService : MediaSessionService() {
                 withTimeoutOrNull(2_000) { playStatsTracker.flush() }
             }
         }
+        desktopLyricsOverlay?.hide()
+        desktopLyricsOverlay = null
+        volumeBoost.release()
         serviceScope.cancel()
         mediaSession?.run {
             player.release()

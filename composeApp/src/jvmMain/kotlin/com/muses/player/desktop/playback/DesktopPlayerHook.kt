@@ -121,7 +121,10 @@ class DesktopPlayerHook(
 
     suspend fun ensurePlayer(): JvmPlayerPort {
         playerPort?.let { return it }
-        val port = DesktopContainer.playerPort()
+        val port = DesktopContainer.playerPort(
+            candidateProvider = org.koin.core.context.GlobalContext.get().get(),
+            urlProbe = org.koin.core.context.GlobalContext.get().get(),
+        )
         playerPort = port
         // 桥接播放器状态到 UI
         scope.launch { port.isPlaying.collect { _isPlaying.value = it } }
@@ -197,6 +200,21 @@ class DesktopPlayerHook(
     }
 
     override fun playPause() = togglePlayPause()
+
+    /** 曲库/播放页「添加到播放队列」：只追加，不动当前播放位置与状态。 */
+    override fun addToQueue(songs: List<Song>) {
+        if (songs.isEmpty()) return
+        scope.launch {
+            runCatching {
+                val port = ensurePlayer()
+                port.appendToQueue(songs)
+                _queueSongIds.value = port.activeOrderIds()
+            }.onFailure { e ->
+                if (e is CancellationException) throw e
+                _status.value = "添加到播放队列失败：${e.message}"
+            }
+        }
+    }
 
     override fun play() {
         scope.launch { runCatching { ensurePlayer().play() } }

@@ -1,44 +1,39 @@
 package com.muses.player.feature.scrape
 
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import com.muses.player.core.ui.components.MusesBottomSheet
-import com.muses.player.core.ui.components.MusesButton
-import top.yukonga.miuix.kmp.basic.Scaffold
-import com.muses.player.core.ui.components.MusesTextField
-import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import org.koin.compose.viewmodel.koinViewModel
+import com.muses.player.core.model.scrape.WritebackStatus
+import com.muses.player.core.ui.components.MusesBottomSheet
+import com.muses.player.core.ui.components.MusesButton
+import com.muses.player.core.ui.components.MusesCheckbox
 import com.muses.player.core.ui.components.MusesEmpty
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.MusesTextButton
+import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.ScrapeProgressBar
 import com.muses.player.core.ui.components.ScrapeReviewCard
 import com.muses.player.core.ui.components.ScrapeResultRow
@@ -46,570 +41,331 @@ import com.muses.player.core.ui.components.ScrapeStatusKind
 import com.muses.player.core.ui.components.SharedReviewField
 import com.muses.player.core.ui.components.SharedScrapeCandidate
 import com.muses.player.core.ui.components.SharedWritebackResult
-import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.squircle.squircleBackground
+import com.muses.player.core.ui.theme.LocalBottomChromePadding
+import org.koin.compose.viewmodel.koinViewModel
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/**
- * 刮削页 —— 对照 src/views/ScrapePage.vue 手机形态。
- * pageState 四态机：queue（待刮削队列）→ matching（匹配中）→ preview（候选确认）→ result（结果+撤销）。
- */
+/** 批量刮削：待处理、核对候选、应用结果；所有分组在同一个列表中滚动。 */
 @Composable
 fun ScrapeScreen(
     modifier: Modifier = Modifier,
     viewModel: ScrapeViewModel = koinViewModel(),
     onBack: (() -> Unit)? = null,
-    /** S2：打开审核页（单曲改词重搜；由 app 宿主接导航到 ScrapeReview 路由） */
     onOpenReview: (String) -> Unit = {},
-    /**
-     * S3：开始逐首审核（首 songId + 队列上下文；由 app 宿主打开带 queue 参数的审核页）。
-     * 队列本身在 ScrapeViewModel.pendingReviewQueue，宿主通过它构造路由。
-     */
     onStartReviewQueue: (firstSongId: String, queue: List<String>) -> Unit = { _, _ -> },
 ) {
+    val state by viewModel.pageState.collectAsState()
+    val queueIds by viewModel.queueSongIds.collectAsState()
+    val titles by viewModel.queueTitles.collectAsState()
+    val networkFailed by viewModel.throttledIds.collectAsState()
+    val message by viewModel.throttleMessage.collectAsState()
+    val error by viewModel.errorMessage.collectAsState()
+    val undoing by viewModel.undoing.collectAsState()
     val scheme = MiuixTheme.colorScheme
-    val pageState by viewModel.pageState.collectAsState()
-    val queueSongIds by viewModel.queueSongIds.collectAsState()
-
     Scaffold(
         modifier = modifier.fillMaxSize().background(scheme.surface),
         containerColor = scheme.surface,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            // 大标题静态：状态机多列表，折叠联动改造成本高，暂不接 scrollBehavior
-            MusesTopBar(title = "刮削", onBack = onBack)
-        },
+        topBar = { MusesTopBar(title = "刮削", onBack = onBack) },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-        // 限流可观察（任务 08-27-scrape-throttle-429）
-        val throttleMessage by viewModel.throttleMessage.collectAsState()
-        val throttledIds by viewModel.throttledIds.collectAsState()
-
-        when (val state = pageState) {
-            is ScrapePageState.Queue -> QueueStateContent(
-                queueSongIds = queueSongIds,
-                queueTitles = viewModel.queueTitles.collectAsState().value,
-                onRemove = { viewModel.removeFromQueue(listOf(it)) },
-                onClear = { viewModel.clearQueue() },
-                onStartAll = { viewModel.startMatching() },
-            )
-
-            is ScrapePageState.Matching -> MatchingStateContent(state, throttleMessage)
-
-            is ScrapePageState.Preview -> PreviewStateContent(
-                state = state,
-                throttleMessage = throttleMessage,
-                throttledIds = throttledIds,
-                queueTitles = viewModel.queueTitles.collectAsState().value,
-                onToggle = viewModel::toggleChecked,
-                onSetAll = viewModel::setAllChecked,
-                onToggleField = viewModel::toggleField,
-                onSetAllFields = viewModel::setAllFields,
-                onConfirm = viewModel::confirmWriteback,
-                onCancel = viewModel::backToQueue,
-                onRetrySingle = viewModel::retrySingle,
-                onRetryThrottled = viewModel::retryThrottled,
-                onEdit = viewModel::updatePreviewItem,
-                onOpenReview = onOpenReview,
-                // 队列构造统一走 VM（startReviewQueue 置待审队列并返回首 songId），路由 queue 参数取 VM 待审队列
-                onStartReviewQueue = {
-                    val first = viewModel.startReviewQueue()
-                    if (first != null) onStartReviewQueue(first, viewModel.pendingReviewQueue.value)
-                },
-            )
-
-            is ScrapePageState.Writing -> WritingStateContent(state)
-
-            is ScrapePageState.Result -> ResultStateContent(
-                state = state,
-                throttleMessage = throttleMessage,
-                throttledIds = throttledIds,
-                queueTitles = viewModel.queueTitles.collectAsState().value,
-                onUndo = viewModel::undoLastWriteback,
-                onBack = viewModel::backToQueue,
-                onRetrySingle = viewModel::retrySingle,
-            )
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            if (error != null) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(error.orEmpty(), style = MiuixTheme.textStyles.footnote1, color = scheme.error, modifier = Modifier.weight(1f))
+                    MusesTextButton(text = "知道了", onClick = viewModel::dismissError)
+                }
+            }
+            when (val page = state) {
+                ScrapePageState.Queue -> QueueContent(queueIds, titles, viewModel)
+                is ScrapePageState.Matching -> ScrapeProgressBar(
+                    current = page.current, total = page.total, currentItem = page.currentItem,
+                    title = "已完成 ${page.current} / ${page.total} 首",
+                    message = message ?: "停止后保留已完成的匹配，未处理歌曲仍在队列中",
+                    onCancel = viewModel::stopMatching, cancelText = "停止匹配",
+                    modifier = Modifier.weight(1f),
+                )
+                is ScrapePageState.Preview -> PreviewContent(
+                    page, networkFailed, titles, viewModel, onOpenReview,
+                    onStartReview = {
+                        viewModel.startReviewQueue()?.let { onStartReviewQueue(it, viewModel.pendingReviewQueue.value) }
+                    },
+                )
+                is ScrapePageState.Writing -> Column(
+                    Modifier.weight(1f).fillMaxWidth().padding(24.dp),
+                    verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(Modifier.height(20.dp))
+                    Text("正在应用 ${page.count} 首歌曲", style = MiuixTheme.textStyles.main)
+                    Spacer(Modifier.height(8.dp))
+                    Text("正在更新曲库与音频文件，请稍候", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
+                }
+                is ScrapePageState.Result -> ResultContent(page, queueIds.size, undoing, viewModel)
+            }
         }
-    }
     }
 }
 
-// ── queue 态 ──────────────────────────────────────────
-
 @Composable
-private fun QueueStateContent(
-    queueSongIds: List<String>,
-    queueTitles: Map<String, String>,
-    onRemove: (String) -> Unit,
-    onClear: () -> Unit,
-    onStartAll: () -> Unit,
-) {
-    val scheme = MiuixTheme.colorScheme
-    if (queueSongIds.isEmpty()) {
+private fun QueueContent(ids: List<String>, titles: Map<String, String>, viewModel: ScrapeViewModel) {
+    if (ids.isEmpty()) {
+        // 空队列用全应用统一的空状态占位，不再单独写引导文案
         MusesEmpty(
-            title = "空空如也~",
-            modifier = Modifier.fillMaxSize(),
-            bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+            modifier = Modifier.fillMaxSize(), bottomInset = LocalBottomChromePadding.current,
         )
         return
     }
     Column(Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.weight(1f),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            Modifier.weight(1f), contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(queueSongIds, key = { it }, contentType = { "queue" }) { songId ->
-                // 队列只持久化 songId，歌名展示时反查库（对齐 Web 版队列行 title）
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = queueTitles[songId] ?: "待刮削歌曲",
-                        style = MiuixTheme.textStyles.body1,
-                        color = scheme.onBackground,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    MusesTextButton(text = "移除", onClick = { onRemove(songId) })
+            item {
+                ScrapeSummary(
+                    "待处理 ${ids.size} 首",
+                    "先匹配歌曲信息与封面，再核对要应用的变更。匹配完成后不会自动写入。",
+                )
+            }
+            items(ids, key = { it }) { id ->
+                Card(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            titles[id] ?: "待刮削歌曲", style = MiuixTheme.textStyles.body1,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                        )
+                        MusesTextButton(text = "移出队列", onClick = { viewModel.removeFromQueue(listOf(id)) })
+                    }
                 }
             }
         }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                // 底部操作条贴内容底：叠加悬浮件避让（悬浮件高度见 BottomChrome）
-                .padding(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 16.dp,
-                    bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
-                ),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            MusesButton(onClick = onClear, modifier = Modifier.weight(1f)) { Text("清空") }
-            MusesButton(onClick = onStartAll, modifier = Modifier.weight(2f)) { Text("全部开始") }
+        ScrapeActions {
+            MusesTextButton(text = "清空队列", onClick = viewModel::clearQueue, modifier = Modifier.weight(1f))
+            MusesButton(onClick = viewModel::startMatching, modifier = Modifier.weight(2f)) { Text("开始匹配（${ids.size} 首）") }
         }
     }
 }
 
-// ── writing 态（写回中）──────────────────────────────────
-
 @Composable
-private fun WritingStateContent(state: ScrapePageState.Writing) {
+private fun PreviewContent(
+    state: ScrapePageState.Preview,
+    networkFailed: List<String>,
+    titles: Map<String, String>,
+    viewModel: ScrapeViewModel,
+    onOpenReview: (String) -> Unit,
+    onStartReview: () -> Unit,
+) {
     val scheme = MiuixTheme.colorScheme
-    Column(
-        Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        CircularProgressIndicator()
-        Spacer(Modifier.height(20.dp))
-        Text("正在写回 ${state.count} 首…", style = MiuixTheme.textStyles.main, fontWeight = FontWeight.SemiBold, color = scheme.onBackground)
-        Spacer(Modifier.height(8.dp))
-        Text("正在写入文件与数据库，请稍候", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
+    var showSelection by rememberSaveable { mutableStateOf(false) }
+    val selectedSongs = state.items.count { it.checkedFields.isNotEmpty() }
+    val selectedFields = state.items.sumOf { it.checkedFields.size }
+    val pendingCount = (state.items.map { it.songId } + state.noMatchIds + networkFailed).distinct().size
+    Column(Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.weight(1f), contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                ScrapeSummary(
+                    "核对匹配结果",
+                    "找到 ${state.items.size} 首候选 · 未匹配 ${state.noMatchIds.size} 首 · 请求失败 ${networkFailed.size} 首\n只会应用勾选的变更，可逐首核对或批量选择。",
+                )
+            }
+            if (pendingCount > 0) {
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MusesTextButton(
+                            text = "批量选择", enabled = state.items.any { it.availableFields().isNotEmpty() },
+                            onClick = { showSelection = true }, modifier = Modifier.weight(1f),
+                        )
+                        MusesTextButton(text = "逐首核对（$pendingCount）", onClick = onStartReview, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+            if (pendingCount == 0) {
+                item { ScrapeSummary("暂无可核对结果", "返回队列可继续匹配尚未处理的歌曲。") }
+            }
+            items(state.items, key = { "candidate-${it.songId}" }) { candidate ->
+                ScrapeReviewCard(
+                    candidate = SharedScrapeCandidate(
+                        songId = candidate.songId, title = candidate.songTitle,
+                        subtitle = if (candidate.failedRequests.isNotEmpty()) {
+                            candidate.failedRequests.joinToString("、") { if (it == "cover") "封面" else "歌曲信息" } + "请求失败，可在下方重试"
+                        } else listOfNotNull(candidate.currentArtist, candidate.currentAlbum).filter { it.isNotBlank() }.joinToString(" · "),
+                        coverUri = candidate.coverUrl ?: candidate.currentCoverUri,
+                        confidenceLabel = when (candidate.confidence) {
+                            "HIGH" -> "匹配度高"
+                            "MEDIUM" -> "建议核对"
+                            "LOW" -> "请仔细核对"
+                            else -> null
+                        },
+                    ),
+                    fields = candidate.reviewFields(),
+                    onToggleField = { viewModel.toggleField(candidate.songId, it) },
+                    confirmText = "核对候选", onConfirm = { onOpenReview(candidate.songId) },
+                    skipText = if (candidate.checkedFields.isEmpty()) "选择此首" else "取消此首",
+                    onSkip = { viewModel.toggleChecked(candidate.songId) },
+                )
+            }
+            if (state.noMatchIds.isNotEmpty()) {
+                item { ScrapeSummary("未找到匹配（${state.noMatchIds.size} 首）", "可以修改搜索词再查找，或重新匹配。") }
+                items(state.noMatchIds, key = { "unmatched-$it" }) { id ->
+                    RetrySongRow(id, titles, onOpenReview, viewModel::retrySingle)
+                }
+            }
+            if (networkFailed.isNotEmpty()) {
+                item {
+                    ScrapeSummary("请求失败（${networkFailed.size} 首）", "网络异常或服务繁忙，请稍后重试。")
+                    MusesTextButton(text = "重试这些歌曲", onClick = viewModel::retryThrottled, modifier = Modifier.fillMaxWidth())
+                }
+                items(networkFailed, key = { "network-$it" }) { id ->
+                    RetrySongRow(id, titles, onOpenReview, viewModel::retrySingle)
+                }
+            }
+        }
+        Text(
+            if (selectedSongs == 0) "尚未选择变更" else "已选 $selectedSongs 首 · $selectedFields 项变更",
+            style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        ScrapeActions {
+            MusesTextButton(text = "返回队列", onClick = viewModel::backToQueue, modifier = Modifier.weight(1f))
+            MusesButton(
+                onClick = viewModel::confirmWriteback, enabled = selectedSongs > 0, modifier = Modifier.weight(2f),
+            ) { Text(if (selectedSongs > 0) "应用到 $selectedSongs 首" else "应用变更") }
+        }
+    }
+    if (showSelection) {
+        MusesBottomSheet(onDismiss = { showSelection = false }, title = "批量选择变更") {
+            Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
+                Text("只选择有新候选的字段；未勾选的内容保持原样。", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MusesTextButton(text = "全部变更", onClick = { viewModel.setAllChecked(true) }, modifier = Modifier.weight(1f))
+                    MusesTextButton(text = "仅选封面", onClick = { viewModel.selectFields(setOf("cover")) }, modifier = Modifier.weight(1f))
+                    MusesTextButton(text = "全部取消", onClick = { viewModel.setAllChecked(false) }, modifier = Modifier.weight(1f))
+                }
+                scrapeFieldLabels.forEach { (field, label) ->
+                    val available = state.items.filter { field in it.availableFields() }
+                    val allSelected = available.isNotEmpty() && available.all { field in it.checkedFields }
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("$label（${available.size} 首可更新）", modifier = Modifier.weight(1f), style = MiuixTheme.textStyles.body1)
+                        MusesCheckbox(
+                            checked = allSelected, enabled = available.isNotEmpty(),
+                            onToggle = { viewModel.setAllFields(field, !allSelected) },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                MusesButton(onClick = { showSelection = false }, modifier = Modifier.fillMaxWidth()) { Text("完成选择") }
+            }
+        }
     }
 }
 
-// ── matching 态（V3 共用化：ScrapeProgressBar 承载视觉，行为/文案不变）──
+private val scrapeFieldLabels = listOf("title" to "标题", "artist" to "歌手", "album" to "专辑", "cover" to "封面", "lyrics" to "歌词")
 
-@Composable
-private fun MatchingStateContent(state: ScrapePageState.Matching, throttleMessage: String? = null) {
-    ScrapeProgressBar(
-        current = state.current,
-        total = state.total,
-        currentItem = state.currentItem,
-        message = throttleMessage,
-        modifier = Modifier.fillMaxSize(),
+private fun PreviewCandidate.reviewFields(): List<SharedReviewField> {
+    val available = availableFields()
+    return listOf(
+        SharedReviewField("title", "标题", currentTitle, resolvedTitle().takeIf { "title" in available }, "title" in checkedFields),
+        SharedReviewField("artist", "歌手", currentArtist ?: "无", resolvedArtist().takeIf { "artist" in available }, "artist" in checkedFields),
+        SharedReviewField("album", "专辑", currentAlbum ?: "无", resolvedAlbum().takeIf { "album" in available }, "album" in checkedFields),
+        SharedReviewField("cover", "封面", if (currentCoverUri.isNullOrBlank()) "无" else "已有封面", "使用匹配封面".takeIf { "cover" in available }, "cover" in checkedFields),
+        SharedReviewField("lyrics", "歌词", if (currentLyrics.isNullOrBlank()) "无" else "已有歌词", "使用匹配歌词".takeIf { "lyrics" in available }, "lyrics" in checkedFields),
     )
 }
 
-// ── preview 态 ──────────────────────────────────────
+@Composable
+private fun RetrySongRow(id: String, titles: Map<String, String>, onReview: (String) -> Unit, onRetry: (String) -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(titles[id] ?: "待刮削歌曲", style = MiuixTheme.textStyles.body1, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                MusesTextButton(text = "修改搜索词", onClick = { onReview(id) })
+                MusesTextButton(text = "重新匹配", onClick = { onRetry(id) })
+            }
+        }
+    }
+}
 
 @Composable
-private fun PreviewStateContent(
-    state: ScrapePageState.Preview,
-    throttleMessage: String? = null,
-    throttledIds: List<String> = emptyList(),
-    queueTitles: Map<String, String> = emptyMap(),
-    onToggle: (String) -> Unit,
-    onSetAll: (Boolean) -> Unit,
-    onToggleField: (String, String) -> Unit,
-    onSetAllFields: (String, Boolean) -> Unit,
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit,
-    onRetrySingle: (String) -> Unit = {},
-    onRetryThrottled: () -> Unit = {},
-    onEdit: (String, String?, String?, String?, String?) -> Unit = { _, _, _, _, _ -> },
-    /** S2：打开审核页（未命中改词重搜） */
-    onOpenReview: (String) -> Unit = {},
-    /** S3：开始逐首审核（按钮只发信号；首 songId + 队列由调用方从 VM 取） */
-    onStartReviewQueue: () -> Unit = {},
-) {
-    val scheme = MiuixTheme.colorScheme
+private fun ScrapeSummary(title: String, description: String) {
+    Column {
+        Text(title, style = MiuixTheme.textStyles.main, fontWeight = FontWeight.SemiBold)
+        Text(
+            description, style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onBackgroundVariant, modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun ScrapeActions(content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp + LocalBottomChromePadding.current),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+@Composable
+private fun ResultContent(state: ScrapePageState.Result, remaining: Int, undoing: Boolean, viewModel: ScrapeViewModel) {
+    val success = state.results.count { it.status == WritebackStatus.SUCCESS }
+    val partial = state.results.count { it.status == WritebackStatus.FILE_FAILED }
+    val failed = state.results.count { it.status == WritebackStatus.FAILED }
     Column(Modifier.fillMaxSize()) {
-        // 命中分维度统计
-        val textHits = remember(state.items) { state.items.count { it.matchedTitle != null || it.matchedArtist != null || it.matchedAlbum != null } }
-        val coverHits = remember(state.items) { state.items.count { it.coverUrl != null } }
-        val totalCheckedFields = remember(state.items) { state.items.sumOf { it.checkedFields.size } }
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                buildString {
-                    append("文本命中 $textHits · 封面命中 $coverHits · 共 ${state.items.size} 首")
-                },
-                style = MiuixTheme.textStyles.footnote1,
-                color = scheme.onBackgroundVariant,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        // 逐字段批量全选/全不选 + 逐首审核入口（S3）
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("批量字段：", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
-            listOf("title" to "标题", "artist" to "歌手", "album" to "专辑", "cover" to "封面", "lyrics" to "歌词").forEach { (field, label) ->
-                MusesTextButton(text = label, onClick = {
-                    val allHave = state.items.all { field in it.checkedFields }
-                    onSetAllFields(field, !allHave)
-                })
-            }
-        }
-        // S3 逐首审核入口（Tagger「连续审核」）：有命中才展示
-        if (state.items.isNotEmpty()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("不想一次性全勾？", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
-                Spacer(Modifier.weight(1f))
-                MusesTextButton(text = "逐首审核（${state.items.size}）", onClick = onStartReviewQueue)
-            }
-        }
-        if (throttleMessage != null) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    throttleMessage,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = scheme.primary,
-                    modifier = Modifier.weight(1f),
-                )
-                if (throttledIds.isNotEmpty()) {
-                    MusesTextButton(text = "重试限流", onClick = onRetryThrottled)
-                }
-            }
-        }
-        if (throttledIds.isNotEmpty() && state.items.isEmpty()) {
-            // 空命中但有被限流的歌曲：给出单首重试入口
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("${throttledIds.size} 首触发限流，稍后重试", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
-                Spacer(Modifier.height(8.dp))
-                throttledIds.take(5).forEach { sid ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(queueTitles[sid] ?: sid.take(8), style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        MusesTextButton(text = "重试", onClick = { onRetrySingle(sid) })
-                    }
-                }
-            }
-        }
-        // S2：未命中分组（普通 NO_MATCH，不再静默消失；可单独重试或去审核改词重搜）
-        if (state.noMatchIds.isNotEmpty()) {
-            NoMatchGroup(
-                noMatchIds = state.noMatchIds,
-                queueTitles = queueTitles,
-                onRetry = onRetrySingle,
-                onOpenReview = onOpenReview,
-            )
-        }
         LazyColumn(
-            Modifier.weight(1f),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.weight(1f), contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(state.items, key = { it.songId }, contentType = { "preview" }) { item ->
-                // V3 共用化：预览卡 = 共用 ScrapeReviewCard（头部+逐字段勾选行），映射仅取展示字段
-                ScrapeReviewCard(
-                    candidate = SharedScrapeCandidate(
-                        songId = item.songId,
-                        title = item.songTitle,
-                        coverUri = item.coverUrl,
-                        confidenceLabel = item.confidence,
-                    ),
-                    fields = listOf(
-                        SharedReviewField(
-                            key = "title",
-                            label = "标题",
-                            original = item.currentTitle,
-                            updated = item.resolvedTitle(),
-                            checked = "title" in item.checkedFields,
-                        ),
-                        SharedReviewField(
-                            key = "artist",
-                            label = "歌手",
-                            original = item.currentArtist ?: "—",
-                            updated = item.resolvedArtist(),
-                            checked = "artist" in item.checkedFields,
-                        ),
-                        SharedReviewField(
-                            key = "album",
-                            label = "专辑",
-                            original = item.currentAlbum ?: "—",
-                            updated = item.resolvedAlbum(),
-                            checked = "album" in item.checkedFields,
-                        ),
-                        SharedReviewField(
-                            key = "cover",
-                            label = "封面",
-                            original = "—",
-                            updated = if (item.coverUrl != null) "有新封面" else null,
-                            checked = "cover" in item.checkedFields,
-                        ),
-                        SharedReviewField(
-                            key = "lyrics",
-                            label = "歌词",
-                            original = if (!item.currentLyrics.isNullOrBlank()) "有（${item.currentLyrics!!.length}字）" else "无",
-                            updated = if (!item.resolvedLyrics().isNullOrBlank()) "有（${item.resolvedLyrics()!!.length}字）" else null,
-                            checked = "lyrics" in item.checkedFields,
-                        ),
-                    ),
-                    onToggleField = { field -> onToggleField(item.songId, field) },
+            item {
+                ScrapeSummary(
+                    "本次更新完成",
+                    "成功 $success 首 · 仅曲库更新 $partial 首 · 失败 $failed 首\n失败歌曲仍保留在队列中，可核对本次变更后重试。",
                 )
             }
-        }
-        Row(
-            Modifier.fillMaxWidth().padding(
-                start = 16.dp,
-                end = 16.dp,
-                top = 16.dp,
-                // 底部操作条贴内容底：叠加悬浮件避让（悬浮件高度见 BottomChrome）
-                bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
-            ),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            MusesButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("取消") }
-            MusesButton(
-                onClick = onConfirm,
-                modifier = Modifier.weight(2f),
-                enabled = totalCheckedFields > 0,
-            ) { Text("应用" + if (totalCheckedFields > 0) "（$totalCheckedFields）" else "") }
-        }
-    }
-}
-
-/** S2：未命中折叠分组（普通 NO_MATCH 行内重试 + 去审核改词重搜） */
-@Composable
-private fun NoMatchGroup(
-    noMatchIds: List<String>,
-    queueTitles: Map<String, String>,
-    onRetry: (String) -> Unit,
-    onOpenReview: (String) -> Unit,
-) {
-    val scheme = MiuixTheme.colorScheme
-    var expanded by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            MusesTextButton(
-                text = if (expanded) "未命中（${noMatchIds.size} 首）收起" else "未命中（${noMatchIds.size} 首）展开",
-                onClick = { expanded = !expanded },
-            )
-            Spacer(Modifier.weight(1f))
-            Text("空空如也~", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
-        }
-        if (expanded) {
-            noMatchIds.forEach { sid ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        queueTitles[sid] ?: sid.take(8),
-                        style = MiuixTheme.textStyles.footnote1,
-                        color = scheme.onBackgroundVariant,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+            items(state.results, key = { it.songId }) { result ->
+                Card(Modifier.fillMaxWidth()) {
+                    ScrapeResultRow(
+                        modifier = Modifier.padding(16.dp),
+                        result = SharedWritebackResult(
+                            songId = result.songId, title = state.titles[result.songId] ?: "已处理歌曲",
+                            statusKind = when (result.status) {
+                                WritebackStatus.SUCCESS -> ScrapeStatusKind.SUCCESS
+                                WritebackStatus.FILE_FAILED -> ScrapeStatusKind.WARNING
+                                WritebackStatus.FAILED -> ScrapeStatusKind.ERROR
+                            },
+                            statusWire = when (result.status) {
+                                WritebackStatus.SUCCESS -> "已更新"
+                                WritebackStatus.FILE_FAILED -> "文件未更新"
+                                WritebackStatus.FAILED -> "更新失败"
+                            },
+                            detail = if (result.status == WritebackStatus.SUCCESS) null else
+                                result.fileResult.message ?: result.error ?: "请检查文件写入权限或网络连接",
+                            retryText = if (result.status == WritebackStatus.SUCCESS || undoing) null else "核对重试",
+                        ),
+                        onRetry = viewModel::reviewWritebackFailure,
                     )
-                    MusesTextButton(text = "重试", onClick = { onRetry(sid) })
-                    MusesTextButton(text = "去审核", onClick = { onOpenReview(sid) })
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PreviewEditSheet(
-    candidate: PreviewCandidate,
-    onDismiss: () -> Unit,
-    onConfirm: (String?, String?, String?, String?) -> Unit,
-) {
-    val scheme = MiuixTheme.colorScheme
-    var title by remember(candidate.songId) { mutableStateOf(candidate.resolvedTitle() ?: candidate.currentTitle) }
-    var artist by remember(candidate.songId) { mutableStateOf(candidate.resolvedArtist() ?: candidate.currentArtist.orEmpty()) }
-    var album by remember(candidate.songId) { mutableStateOf(candidate.resolvedAlbum() ?: candidate.currentAlbum.orEmpty()) }
-    var lyrics by remember(candidate.songId) { mutableStateOf(candidate.resolvedLyrics() ?: candidate.currentLyrics.orEmpty()) }
-    MusesBottomSheet(
-        onDismiss = onDismiss,
-        title = "编辑刮削结果",
-    ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-            Text("仅影响本次写回，未勾选行不落库", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
-            Spacer(Modifier.height(16.dp))
-            MusesTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = "标题",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(10.dp))
-            MusesTextField(
-                value = artist,
-                onValueChange = { artist = it },
-                label = "歌手",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(10.dp))
-            MusesTextField(
-                value = album,
-                onValueChange = { album = it },
-                label = "专辑",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(10.dp))
-            MusesTextField(
-                value = lyrics,
-                onValueChange = { lyrics = it },
-                label = "歌词（可选，粘贴 LRC/TTML 原文）",
-                modifier = Modifier.fillMaxWidth().height(100.dp),
-                maxLines = 5,
-            )
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                MusesButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                ) { Text("取消") }
-                MusesButton(
-                    onClick = {
-                        // 输入与匹配值相同视为未编辑（传 null 回退），空视为不改该字段
-                        val outTitle = title.trim().takeIf { it.isNotEmpty() && it != candidate.matchedTitle }
-                        val outArtist = artist.trim().takeIf { it.isNotEmpty() && it != candidate.matchedArtist }
-                        val outAlbum = album.trim().takeIf { it.isNotEmpty() && it != candidate.matchedAlbum }
-                        val outLyrics = lyrics.trim().takeIf { it.isNotEmpty() && it != candidate.matchedLyrics } ?: lyrics.trim().takeIf { it.isNotEmpty() && it != candidate.currentLyrics }
-                        onConfirm(outTitle, outArtist, outAlbum, outLyrics)
-                    },
-                    modifier = Modifier.weight(1f),
-                ) { Text("确认") }
-            }
-        }
-    }
-}
-
-// ── result 态 ──────────────────────────────────────
-
-/** 判断写回结果是否疑似限流（429）。 */
-private fun isWritebackThrottled(r: com.muses.player.core.model.scrape.WritebackResult): Boolean {
-    val msg = (r.fileResult.message ?: "") + (r.error ?: "")
-    return msg.contains("429") || r.fileResult.code?.contains("429") == true
-}
-
-@Composable
-private fun ResultStateContent(
-    state: ScrapePageState.Result,
-    throttleMessage: String? = null,
-    throttledIds: List<String> = emptyList(),
-    queueTitles: Map<String, String> = emptyMap(),
-    onUndo: () -> Unit,
-    onBack: () -> Unit,
-    onRetrySingle: (String) -> Unit = {},
-) {
-    val scheme = MiuixTheme.colorScheme
-    val success = state.results.count { it.status == com.muses.player.core.model.scrape.WritebackStatus.SUCCESS }
-    val fileFailed = state.results.count { it.status == com.muses.player.core.model.scrape.WritebackStatus.FILE_FAILED }
-    val failed = state.results.count { it.status == com.muses.player.core.model.scrape.WritebackStatus.FAILED }
-
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text(
-            "成功 $success · 文件失败 $fileFailed · 失败 $failed",
-            style = MiuixTheme.textStyles.body1,
-            fontWeight = FontWeight.SemiBold,
-            color = scheme.onBackground,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "撤销仅恢复曲库，音频文件已写入不可逆",
-            style = MiuixTheme.textStyles.footnote2,
-            color = scheme.onBackgroundVariant,
-        )
-        Spacer(Modifier.height(12.dp))
-        if (throttleMessage != null) {
-            Text(throttleMessage, style = MiuixTheme.textStyles.footnote1, color = scheme.primary)
-            Spacer(Modifier.height(8.dp))
-        }
-        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            items(state.results, key = { it.songId }, contentType = { "result" }) { r ->
-                val throttled = isWritebackThrottled(r)
-                // V3 共用化：结果行 = 共用 ScrapeResultRow（圆点/状态 wire/详情/重试按钮）
-                ScrapeResultRow(
-                    result = SharedWritebackResult(
-                        songId = r.songId,
-                        title = queueTitles[r.songId] ?: r.songId.take(8),
-                        statusKind = when (r.status) {
-                            com.muses.player.core.model.scrape.WritebackStatus.SUCCESS -> ScrapeStatusKind.SUCCESS
-                            com.muses.player.core.model.scrape.WritebackStatus.FILE_FAILED -> ScrapeStatusKind.WARNING
-                            com.muses.player.core.model.scrape.WritebackStatus.FAILED -> ScrapeStatusKind.ERROR
-                        },
-                        statusWire = r.status.wire,
-                        detail = when {
-                            throttled -> "限流，稍后重试"
-                            r.status != com.muses.player.core.model.scrape.WritebackStatus.SUCCESS ->
-                                listOfNotNull(r.fileResult.code, r.fileResult.message ?: r.error)
-                                    .joinToString(": ").takeIf { it.isNotBlank() }
-                            else -> null
-                        },
-                        detailHighlight = throttled,
-                        retryText = when {
-                            r.status == com.muses.player.core.model.scrape.WritebackStatus.SUCCESS -> null
-                            throttled -> "限流重试"
-                            else -> "重试"
-                        },
-                    ),
-                    onRetry = onRetrySingle,
+            item {
+                Text(
+                    "恢复仅还原本次修改前的曲库信息，不会还原已写入的音频文件。",
+                    style = MiuixTheme.textStyles.footnote1, color = MiuixTheme.colorScheme.onBackgroundVariant,
                 )
             }
-            if (throttledIds.isNotEmpty()) {
-                throttledIds.forEach { sid ->
-                    item(key = "throttled-$sid") {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(8.dp).squircleBackground(scheme.primary, 4.dp))
-                            Spacer(Modifier.size(8.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(queueTitles[sid] ?: sid.take(8), style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("限流，稍后重试", style = MiuixTheme.textStyles.footnote2, color = scheme.primary)
-                            }
-                            MusesTextButton(text = "重试", onClick = { onRetrySingle(sid) })
-                        }
-                    }
-                }
-            }
         }
-        Row(
-            Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            MusesButton(onClick = onUndo, modifier = Modifier.weight(1f)) { Text("撤销上次") }
-            MusesButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("返回队列") }
+        ScrapeActions {
+            MusesTextButton(
+                text = if (undoing) "正在恢复…" else "恢复曲库",
+                enabled = !undoing, onClick = viewModel::undoLastWriteback, modifier = Modifier.weight(1f),
+            )
+            MusesButton(onClick = viewModel::backToQueue, enabled = !undoing, modifier = Modifier.weight(2f)) {
+                Text(if (remaining > 0) "继续处理（$remaining 首）" else "返回队列")
+            }
         }
     }
 }

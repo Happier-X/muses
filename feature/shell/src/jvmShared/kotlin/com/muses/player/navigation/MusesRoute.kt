@@ -17,9 +17,16 @@ import top.yukonga.miuix.kmp.nav.core.NavKey
  */
 @Serializable
 sealed interface MusesRoute : NavKey {
-    /** 探索首页：排行榜 + 猜你喜欢（启动默认页）。 */
+    /** 探索首页：主题横幅、发现入口与音乐分类（启动默认页）。 */
     @Serializable
     data object Home : MusesRoute
+
+    /** 首页入口打开的推荐歌曲或榜单目录。 */
+    @Serializable
+    data class HomeCollection(val recommendations: Boolean) : MusesRoute
+
+    @Serializable
+    data class PlaylistDetail(val platform: String, val playlistId: String, val title: String) : MusesRoute
 
     /** 排行榜歌曲详情页（从探索页选择具体榜单进入）。 */
     @Serializable
@@ -31,6 +38,9 @@ sealed interface MusesRoute : NavKey {
 
     @Serializable
     data object Mine : MusesRoute
+
+    @Serializable
+    data object Downloads : MusesRoute
 
     // ---- 主菜单（曲库）----
     @Serializable
@@ -87,19 +97,6 @@ sealed interface MusesRoute : NavKey {
 
     @Serializable
     data class WebDavEdit(val sourceId: String) : MusesRoute
-
-    /**
-     * WebDAV 目录浏览页（连接信息直传字段；原 URL query 入参，对照旧 navigateToWebdavBrowse）。
-     * 含密码字段：与原方案同等暴露面（存栈序列化），调用方不得打日志。
-     */
-    @Serializable
-    data class WebDavBrowse(
-        val mode: String = "multiple",
-        val initialPath: String = "/",
-        val serverUrl: String = "",
-        val username: String = "",
-        val password: String = "",
-    ) : MusesRoute
 
     @Serializable
     data object Settings : MusesRoute

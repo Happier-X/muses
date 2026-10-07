@@ -28,6 +28,7 @@ object PlaybackLazyScan {
         val lyrics: String? = null,
         val coverUri: String? = null,
         val durationMs: Long = 0L,
+        val audioQuality: String? = null,
     )
 
     /**
@@ -52,8 +53,10 @@ object PlaybackLazyScan {
     }
 
     fun merge(song: Song, tags: FileTags?): Song? {
-        if (song.tagsVersion >= SongTags.TAGS_VERSION) return null
         if (tags == null) return null
+        if (song.tagsVersion >= SongTags.TAGS_VERSION) {
+            return tags.audioQuality?.takeIf { it != song.audioQuality }?.let { song.copy(audioQuality = it) }
+        }
 
         val entity = song
         val ms = song.metaSources
@@ -71,7 +74,7 @@ object PlaybackLazyScan {
             resolvedAlbum != entity.album ||
             resolvedCover != entity.coverUri ||
             resolvedLyrics != entity.lyrics ||
-            tags.durationMs > entity.durationMs
+            tags.durationMs > entity.durationMs || (tags.audioQuality != null && tags.audioQuality != entity.audioQuality)
         return if (hasUpdate) {
             song.copy(
                 title = resolvedTitle,
@@ -82,6 +85,7 @@ object PlaybackLazyScan {
                 durationMs = tags.durationMs.coerceAtLeast(entity.durationMs),
                 durationSec = (tags.durationMs / 1000).coerceAtLeast(entity.durationSec),
                 tagsVersion = SongTags.TAGS_VERSION,
+                audioQuality = tags.audioQuality ?: song.audioQuality,
             )
         } else {
             // 无实际更新：仍抬升 tagsVersion 以避免重复探测

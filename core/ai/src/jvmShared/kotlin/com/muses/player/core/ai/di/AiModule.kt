@@ -1,6 +1,8 @@
 package com.muses.player.core.ai.di
 
 import com.muses.player.core.ai.AiChatClient
+import com.muses.player.core.ai.AiScrapeMatcher
+import com.muses.player.core.ai.AiScrapeMatchService
 import com.muses.player.core.ai.AiRecommendService
 import com.muses.player.core.ai.AiSuggestionMatcher
 import com.muses.player.core.ai.LibraryProfileBuilder
@@ -15,6 +17,7 @@ import org.koin.dsl.module
  */
 fun aiModule() = module {
     single { AiChatClient() }
+    single<AiScrapeMatcher> { AiScrapeMatchService(get()) }
     // SongDao 在 :core:data 的 databaseModule 里是 factory：这里取一次由 builder 长持
     single { LibraryProfileBuilder(get()) }
     // 匹配器复用搜索聚合服务（含并发限流）

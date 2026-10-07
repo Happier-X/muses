@@ -2,6 +2,11 @@ package com.muses.player.feature.scrape
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muses.player.core.ai.AiRecommendConfig
+import com.muses.player.core.ai.AiScrapeInput
+import com.muses.player.core.ai.AiScrapeMatcher
+import com.muses.player.core.ai.AiServiceUrlException
+import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.scrape.LyricsFormat
@@ -125,9 +130,15 @@ class ScrapeReviewViewModel constructor(
     private val songRepository: SongRepository,
     private val writebackOrchestrator: WritebackOrchestrator,
     private val queueStore: com.muses.player.core.scrape.queue.ScrapeQueueStore,
+    private val aiMatcher: AiScrapeMatcher,
+    private val readAiConfig: suspend () -> AiRecommendConfig,
 ) : ViewModel() {
     private val _state = MutableStateFlow<ScrapeReviewState>(ScrapeReviewState.Searching)
     val state: StateFlow<ScrapeReviewState> = _state.asStateFlow()
+    private val _aiState = MutableStateFlow<ScrapeAiState>(ScrapeAiState.Idle)
+    val aiState: StateFlow<ScrapeAiState> = _aiState.asStateFlow()
+    private var aiJob: Job? = null
+    private var aiSeq = 0
 
     /** 搜索词输入（三输入框绑定源；横跨 Searching/Review/Empty 各态可编辑） */
     private val _keyword = MutableStateFlow(ReviewKeyword())
@@ -187,9 +198,59 @@ class ScrapeReviewViewModel constructor(
 
     // ── 搜索词编辑 ─────────────────────────────────────────
 
-    fun updateKeywordTitle(v: String) { _keyword.value = _keyword.value.copy(title = v) }
-    fun updateKeywordArtist(v: String) { _keyword.value = _keyword.value.copy(artist = v) }
-    fun updateKeywordAlbum(v: String) { _keyword.value = _keyword.value.copy(album = v) }
+    fun updateKeywordTitle(v: String) { cancelAiMatching(); _keyword.value = _keyword.value.copy(title = v) }
+    fun updateKeywordArtist(v: String) { cancelAiMatching(); _keyword.value = _keyword.value.copy(artist = v) }
+    fun updateKeywordAlbum(v: String) { cancelAiMatching(); _keyword.value = _keyword.value.copy(album = v) }
+
+    /** 用户主动调用；AI 返回候选判断后只更新本页，写回仍走手动应用。 */
+    fun matchWithAi() {
+        val review = _state.value as? ScrapeReviewState.Review ?: return
+        if (_aiState.value == ScrapeAiState.Matching) return
+        if (review.text.items.isEmpty() && review.lyrics.items.isEmpty()) {
+            _aiState.value = ScrapeAiState.Failed("没有可供 AI 比较的歌曲信息或歌词候选")
+            return
+        }
+        val seq = ++aiSeq
+        _aiState.value = ScrapeAiState.Matching
+        aiJob = viewModelScope.launch {
+            try {
+                val config = readAiConfig()
+                if (!config.isUsable) {
+                    if (seq == aiSeq) _aiState.value = ScrapeAiState.Failed("请先在设置中填写 AI 服务地址、模型和 API Key")
+                    return@launch
+                }
+                val result = aiMatcher.match(
+                    AiScrapeInput(
+                        song = review.song,
+                        searchTitle = review.keyword.title, searchArtist = review.keyword.artist,
+                        searchAlbum = review.keyword.album,
+                        textCandidates = review.text.items, lyricsCandidates = review.lyrics.items,
+                    ), config,
+                )
+                // 绑定请求代数和审核快照，人工操作、重搜或离开审核态后，旧结果不得回写。
+                if (seq != aiSeq || _state.value !== review) return@launch
+                _state.value = review.withAiSelection(result)
+                _aiState.value = ScrapeAiState.Ready(result)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (seq == aiSeq && _state.value === review) {
+                    if (e is AiServiceUrlException) {
+                        MusesSnackbar.show(e.message.orEmpty())
+                        _aiState.value = ScrapeAiState.Idle
+                    } else {
+                        _aiState.value = ScrapeAiState.Failed("AI 匹配失败，原选择已保留，请检查配置或网络后重试")
+                    }
+                }
+            }
+        }
+    }
+
+    fun cancelAiMatching() {
+        ++aiSeq
+        aiJob?.cancel()
+        _aiState.value = ScrapeAiState.Idle
+    }
 
     // ── 查询（进入自动 + 改词重搜共用）──────────────────────
 
@@ -201,6 +262,7 @@ class ScrapeReviewViewModel constructor(
         val song = currentSong ?: return
         val kw = _keyword.value
         if (kw.titleBlank) return
+        cancelAiMatching()
 
         // 中止前次：abort 标志置位 + job 取消
         searchAbortFlag.set(true)
@@ -293,6 +355,7 @@ class ScrapeReviewViewModel constructor(
     fun selectTextCandidate(index: Int) {
         val s = _state.value as? ScrapeReviewState.Review ?: return
         if (index !in s.text.items.indices || index == s.selectedTextIndex) return
+        cancelAiMatching()
         val hit = s.text.items[index]
         val song = s.song
         val textChecked = buildSet {
@@ -313,6 +376,7 @@ class ScrapeReviewViewModel constructor(
     fun selectCover(index: Int) {
         val s = _state.value as? ScrapeReviewState.Review ?: return
         if (index !in s.cover.items.indices) return
+        cancelAiMatching()
         _state.value = s.copy(selectedCoverIndex = index)
     }
 
@@ -320,12 +384,14 @@ class ScrapeReviewViewModel constructor(
     fun selectLyrics(index: Int) {
         val s = _state.value as? ScrapeReviewState.Review ?: return
         if (index !in s.lyrics.items.indices) return
+        cancelAiMatching()
         _state.value = s.copy(selectedLyricsIndex = index)
     }
 
     /** 字段勾选切换（仅候选/覆写有值的字段可勾，由 UI enabled 保证） */
     fun toggleField(field: String) {
         val s = _state.value as? ScrapeReviewState.Review ?: return
+        cancelAiMatching()
         val newChecked = s.checkedFields.toMutableSet()
         if (field in newChecked) newChecked.remove(field) else newChecked.add(field)
         _state.value = s.copy(checkedFields = newChecked)
@@ -334,6 +400,7 @@ class ScrapeReviewViewModel constructor(
     /** 逐字段手改覆写：标题（编辑即勾选该字段） */
     fun updateEditTitle(v: String) {
         val s = _state.value as? ScrapeReviewState.Review ?: return
+        cancelAiMatching()
         _state.value = s.copy(
             editTitle = v.trim().takeIf { it.isNotEmpty() },
             checkedFields = s.checkedFields + "title",
@@ -343,6 +410,7 @@ class ScrapeReviewViewModel constructor(
     /** 逐字段手改覆写：歌手（编辑即勾选该字段） */
     fun updateEditArtist(v: String) {
         val s = _state.value as? ScrapeReviewState.Review ?: return
+        cancelAiMatching()
         _state.value = s.copy(
             editArtist = v.trim().takeIf { it.isNotEmpty() },
             checkedFields = s.checkedFields + "artist",
@@ -352,6 +420,7 @@ class ScrapeReviewViewModel constructor(
     /** 逐字段手改覆写：专辑（编辑即勾选该字段） */
     fun updateEditAlbum(v: String) {
         val s = _state.value as? ScrapeReviewState.Review ?: return
+        cancelAiMatching()
         _state.value = s.copy(
             editAlbum = v.trim().takeIf { it.isNotEmpty() },
             checkedFields = s.checkedFields + "album",
@@ -366,7 +435,9 @@ class ScrapeReviewViewModel constructor(
      */
     fun apply() {
         val s = _state.value as? ScrapeReviewState.Review ?: return
+        if (_aiState.value == ScrapeAiState.Matching) return
         if (s.checkedFields.isEmpty()) return
+        cancelAiMatching()
         val song = s.song
         val checked = s.checkedFields
         val lyricCandidate = s.selectedLyrics

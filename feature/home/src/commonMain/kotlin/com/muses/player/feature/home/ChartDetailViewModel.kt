@@ -87,7 +87,8 @@ class ChartDetailViewModel(
                         hasMore = cached.hasMore,
                         error = null,
                     )
-                    if (!forceRefresh && chartCacheStore.isSongsFresh(cached.updatedAt, updateInfo)) return@launch
+                    if (!forceRefresh && chartCacheStore.isSongsFresh(cached.updatedAt, updateInfo) &&
+                        cached.songs.none { it.platform == "wy" && !it.musicInfoJson.contains("\"catalogQuality\"") }) return@launch
                 }
             }
             _state.value = _state.value.copy(
@@ -145,11 +146,11 @@ class ChartDetailViewModel(
         viewModelScope.launch {
             val hasUsableScript = runCatching {
                 scriptRepository.loadAll().any { script ->
-                    script.loadError == null && script.sources[platform]?.supports(LxAction.MUSIC_URL) == true
+                    script.loadError == null && script.sources.values.any { it.supports(LxAction.MUSIC_URL) }
                 }
             }.getOrDefault(false)
             if (!hasUsableScript) {
-                MusesSnackbar.show("还没有能解析此排行榜音源的 LX 脚本，请先导入对应脚本。")
+                MusesSnackbar.show("还没有可用的在线音源脚本，请先导入脚本。")
                 return@launch
             }
             val songs: List<Song> = results.map { it.toSong(ONLINE_SOURCE_ID, quality) }

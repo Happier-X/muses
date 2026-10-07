@@ -4,6 +4,7 @@
 
     <!-- WebDAV 网络访问 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- 本地库扫描：Android 13+ 细粒度音频权限（运行时请求在设置/音源页接线） -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
@@ -19,6 +20,7 @@
     <!-- 播放服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- 在线音源必须开放明文 HTTP：
@@ -60,6 +62,8 @@
         </provider>
 
         <!-- 播放服务 -->
+        <service android:name="com.muses.player.download.DownloadService"
+            android:foregroundServiceType="dataSync" android:exported="false" />
         <service
             android:name="com.muses.player.core.media.playback.PlaybackService"
             android:foregroundServiceType="mediaPlayback"

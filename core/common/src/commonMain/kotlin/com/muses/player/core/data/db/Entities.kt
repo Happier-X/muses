@@ -50,6 +50,7 @@ data class SongEntity(
      * 不参与列表/搜索/派生索引，文件重现（同 id）时由扫描合并自动复位。
      */
     @ColumnInfo(name = "missing", defaultValue = "0") val missing: Boolean = false,
+    @ColumnInfo(name = "audioQuality") val audioQuality: String? = null,
 )
 
 /** 专辑索引 */

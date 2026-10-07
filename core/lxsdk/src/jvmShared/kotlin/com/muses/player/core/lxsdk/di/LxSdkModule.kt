@@ -49,7 +49,7 @@ fun lxSdkModule() = module {
             },
         )
     }
-    single<OnlineTrackResolver> { LxOnlineTrackResolver(get()) }
+    single<OnlineTrackResolver> { LxOnlineTrackResolver(get(), candidateProvider = getOrNull(), urlProbe = getOrNull()) }
 
     /**
      * 播放页封面/歌词端口（脚本 `pic` / `lyric` 动作）。

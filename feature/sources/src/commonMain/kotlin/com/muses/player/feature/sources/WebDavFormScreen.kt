@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,16 +16,21 @@ import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.components.MusesSnackbar
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.ui.components.MusesTopBar
-import com.muses.player.core.ui.components.MusesTextButton
+import com.muses.player.core.ui.components.MusesButton
 import com.muses.player.core.ui.components.SourceFormCard
 import com.muses.player.core.ui.components.SourceFormInput
 import kotlinx.coroutines.delay
@@ -41,29 +46,21 @@ import kotlinx.coroutines.delay
 fun WebDavFormScreen(
     sourceId: String?,
     onBack: () -> Unit,
-    onBrowse: (mode: String, initialPath: String, serverUrl: String, username: String, password: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WebDavFormViewModel = koinViewModel(),
 ) {
     val scheme = MiuixTheme.colorScheme
     val formState by viewModel.formState.collectAsState()
     val isEditMode = sourceId != null
+    var browseRequest by remember(sourceId) { mutableStateOf<WebDavBrowseRequest?>(null) }
+    val openBrowse: (String, String, String, String, String) -> Unit = { mode, path, url, username, password ->
+        browseRequest = WebDavBrowseRequest(mode, path, url, username, password, viewModel.formState.value.selectedPaths)
+    }
 
     // 编辑模式初始化（副作用收敛到 LaunchedEffect，不在组合期直调）
     LaunchedEffect(sourceId) {
         if (sourceId != null) {
             viewModel.initEditMode(sourceId)
-        }
-    }
-
-    // 消费浏览页带回的结果（single 回填目录 / multiple 批量建源）。
-    // 观察 holder 的 StateFlow 而不是用 LaunchedEffect(Unit)：miuix-nav 在浏览页期间保留
-    // 表单页组合时，返回不会重新组合，一次性副作用会漏掉结果——表现为「点了添加没反应，
-    // 第二次进来才提示添加成功」（结果残留在 holder，被下一次进入消费）。
-    val pendingBrowse = WebDavBrowseResultHolder.result.collectAsState().value
-    LaunchedEffect(pendingBrowse) {
-        if (pendingBrowse != null) {
-            viewModel.consumeBrowseResult()
         }
     }
 
@@ -95,13 +92,12 @@ fun WebDavFormScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
-                .padding(horizontal = 12.dp)
                 .padding(top = 8.dp)
                 // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
                 .padding(bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current),
         ) {
-            // .source-webdav-page__form-fields：共用 SourceFormCard（受控字段经 VM 回调注入）
             SourceFormCard(
+                modifier = Modifier.padding(horizontal = 12.dp),
                 name = formState.name,
                 onNameChange = { viewModel.updateName(it) },
                 showNameField = true,
@@ -118,42 +114,56 @@ fun WebDavFormScreen(
                 passwordError = formState.passwordError,
                 busy = formState.isVerifying || formState.isSubmitting,
                 saveBusy = formState.isSubmitting,
-                saveText = if (isEditMode) "编辑" else "添加",
-                busyText = if (isEditMode) "编辑" else "添加",
-                showBusyIndicator = formState.isSubmitting,
+                saveText = "保存",
+                busyText = "保存",
                 primarySave = true,
+                showBusyIndicator = formState.isSubmitting,
                 showSaveButton = true,
                 onSave = {
                     if (isEditMode) viewModel.submitEdit() else viewModel.submitAdd()
                 },
                 extraContent = {
                     // 新增和编辑共用目录行；新增点击后先验证连接，再进入多选浏览。
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Top,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        SourceFormInput(
-                            label = "目录",
-                            value = formState.path,
-                            error = formState.pathError,
-                            readOnly = true,
-                            modifier = Modifier.weight(1f),
-                            onValueChange = {},
-                        )
-                        MusesTextButton(
-                            text = "选择文件夹",
-                            modifier = Modifier.height(56.dp),
-                            onClick = {
-                                if (isEditMode) viewModel.startEditBrowse(onBrowse)
-                                else viewModel.startAddBrowse(onBrowse)
-                            },
-                            enabled = !formState.isVerifying && !formState.isSubmitting,
-                        )
-                    }
+                    SourceFormInput(
+                        label = "目录",
+                        value = formState.path,
+                        error = formState.pathError,
+                        readOnly = true,
+                        onValueChange = {},
+                        trailingContent = {
+                            MusesButton(
+                                modifier = Modifier.fillMaxHeight(),
+                                onClick = {
+                                    if (isEditMode) viewModel.startEditBrowse(openBrowse)
+                                    else viewModel.startAddBrowse(openBrowse)
+                                },
+                                enabled = !formState.isVerifying && !formState.isSubmitting,
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (formState.isVerifying) {
+                                        CircularProgressIndicator(size = 16.dp, strokeWidth = 2.dp)
+                                    }
+                                    Text("选择目录")
+                                }
+                            }
+                        },
+                    )
                 },
             )
 
+        }
+        browseRequest?.let { request ->
+            WebDavBrowseSheet(
+                request = request,
+                onDismiss = { browseRequest = null },
+                onConfirm = { paths ->
+                    viewModel.selectBrowsePaths(paths)
+                    browseRequest = null
+                },
+            )
         }
     }
 

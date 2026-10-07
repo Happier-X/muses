@@ -71,6 +71,7 @@ class LocalLibraryScanner constructor(
                 lyrics = tags.lyrics,
                 sourceType = SourceType.LOCAL,
                 tagsVersion = if (readTags) TAGS_VERSION else FILENAME_TAGS_VERSION,
+                audioQuality = tags.audioQuality,
             )
             songs.add(song)
         }
@@ -138,7 +139,7 @@ class LocalLibraryScanner constructor(
         if (!file.exists() || file.length() <= 0L) return TagReaderResult.empty
         return try {
             val tags = TagReader.read(file)
-            TagReaderResult(tags.title, tags.artist, tags.album, tags.lyrics, tags.coverBytes)
+            TagReaderResult(tags.title, tags.artist, tags.album, tags.lyrics, tags.coverBytes, tags.audioQuality)
         } catch (_: Exception) {
             TagReaderResult.empty
         }
@@ -150,6 +151,7 @@ class LocalLibraryScanner constructor(
         val album: String?,
         val lyrics: String?,
         val coverBytes: ByteArray?,
+        val audioQuality: String? = null,
     ) {
         companion object {
             val empty = TagReaderResult(null, null, null, null, null)

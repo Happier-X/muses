@@ -59,6 +59,14 @@ interface PlaybackPort : PlayerPort {
     /** 从歌曲列表中选择 songId 开始播放（入队语义，见安卓 PlayerConnection.play） */
     fun play(songId: String, songs: List<Song>)
 
+    /**
+     * 追加到播放队列末尾，**不打断当前播放**（曲库/播放页「添加到播放队列」）。
+     *
+     * 区别于 [enqueue]（那是按新列表重建队列并从指定位置开始播放）：
+     * 已在队列里的曲目会被跳过；队列原本为空时，从追加的第一首开始播放。
+     */
+    fun addToQueue(songs: List<Song>)
+
     /** 暂停/继续（语义同安卓 PlayerConnection.playPause） */
     fun playPause()
 

@@ -2,8 +2,9 @@ package com.muses.player.core.ai
 
 import com.muses.player.core.search.OnlineSearchResult
 import com.muses.player.core.search.OnlineSearchService
-import com.muses.player.core.search.PlatformSearchOutcome
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -45,43 +46,17 @@ class AiRecommendService(
             return AiRecommendResult(emptyList(), suggested = 0, unmatched = emptyList())
         }
 
-        val tracks = mutableListOf<AiRecommendedTrack>()
-        val unmatched = mutableListOf<AiSongSuggestion>()
-        val attempted = mutableSetOf<String>()
-        val attemptedNames = mutableListOf<String>()
-        var suggested = 0
-        repeat(5) {
-            if (tracks.size >= count) return AiRecommendResult(tracks.take(count), suggested, unmatched)
-            val content = try {
-                chat.complete(config, SYSTEM_PROMPT, buildUserPrompt(profile, count) +
-                    if (attemptedNames.isEmpty()) "" else "\n本次已尝试的歌曲不要重复：${attemptedNames.takeLast(60).joinToString("；")}。")
-            } catch (error: Exception) {
-                if (tracks.isNotEmpty()) return AiRecommendResult(tracks, suggested, unmatched)
-                throw error
-            }
-            val suggestions = parseSuggestions(content).deduplicate()
-                .filter { suggestion ->
-                    val key = "${suggestion.name.normalizeForMatch()}|${suggestion.artist.normalizeForMatch()}"
-                    if (key.substringBefore('|').isEmpty() || !attempted.add(key)) return@filter false
-                    attemptedNames += "${suggestion.name} - ${suggestion.artist.orEmpty()}"
-                    !profile.containsSong(suggestion.name, suggestion.artist)
-                }
-                .take(count)
-            if (suggestions.isEmpty()) {
-                if (tracks.isEmpty()) throw AiException("AI 未返回曲库之外的可用歌曲建议")
-                return AiRecommendResult(tracks, suggested, unmatched)
-            }
-            val batch = matcher.match(suggestions)
-            suggested += batch.suggested
-            unmatched += batch.unmatched
-            batch.tracks.forEach { track ->
-                if (!profile.containsSong(track.result.name, track.result.artist) &&
-                    tracks.none { existing -> existing.result.name.normalizeForMatch() == track.result.name.normalizeForMatch() &&
-                        existing.result.artist.normalizeForMatch() == track.result.artist.normalizeForMatch() }
-                ) tracks += track
-            }
-        }
-        return AiRecommendResult(tracks.take(count), suggested, unmatched)
+        // 每日一次生成即可，匹配不足时展示已有结果，避免反复补齐导致数分钟等待。
+        val content = chat.complete(config, SYSTEM_PROMPT, buildUserPrompt(profile, count))
+        val suggestions = parseSuggestions(content).deduplicate()
+            .filter { it.name.normalizeForMatch().isNotEmpty() && !profile.containsSong(it.name, it.artist) }
+            .take(count)
+        if (suggestions.isEmpty()) throw AiException("AI 未返回曲库之外的可用歌曲建议")
+        val batch = matcher.match(suggestions)
+        return batch.copy(tracks = batch.tracks
+            .filterNot { profile.containsSong(it.result.name, it.result.artist) }
+            .distinctBy { it.result.name.normalizeForMatch() to it.result.artist.normalizeForMatch() }
+            .take(count))
     }
 
     companion object {
@@ -123,7 +98,7 @@ fun AiRecommendResult.excludingOwnedSongs(profile: LibraryProfile): AiRecommendR
 /**
  * 建议 → 平台真实曲目 的匹配器。
  *
- * 并行度为 [parallelism]（内部每首还会跨 5 个平台并行搜，但 [OnlineSearchService] 自带并发限流），
+ * 并行度为 [parallelism]，网易云优先，失败后并行查其他平台，单首最多等待 8 秒。
  * 取 4 是因为：20 首串行会等 30s+，而过高并发对逆向接口不友好。
  */
 class AiSuggestionMatcher(
@@ -135,7 +110,9 @@ class AiSuggestionMatcher(
             val semaphore = Semaphore(parallelism.coerceAtLeast(1))
             val pairs = suggestions
                 .map { suggestion ->
-                    async { semaphore.withPermit { suggestion to findBestMatch(suggestion) } }
+                    async { semaphore.withPermit {
+                        suggestion to withTimeoutOrNull(8_000) { findBestMatch(suggestion) }
+                    } }
                 }
                 .map { it.await() }
 
@@ -155,7 +132,8 @@ class AiSuggestionMatcher(
 
     /** 该建议在各平台的搜索结果里找**歌名精确**命中的曲目；找不到返回 null（丢弃） */
     private suspend fun findBestMatch(suggestion: AiSongSuggestion): OnlineSearchResult? {
-        val targetName = suggestion.name.normalizeForMatch()
+        // 保留版本文字，避免将 Live、翻唱等版本当作同一首原曲。
+        val targetName = suggestion.name.lowercase().filter { it.isLetterOrDigit() }
         if (targetName.isEmpty()) return null
 
         val keyword = listOfNotNull(
@@ -164,27 +142,31 @@ class AiSuggestionMatcher(
         ).joinToString(" ")
         if (keyword.isEmpty()) return null
 
-        val outcomes = runCatching {
-            searchService.searchAll(keyword, page = 1, pageSize = PAGE_SIZE)
-        }.getOrDefault(emptyList())
-        val candidates = outcomes
-            .filterIsInstance<PlatformSearchOutcome.Success>()
-            .flatMap { it.page.results }
-        if (candidates.isEmpty()) return null
-
-        val sameName = candidates.filter { it.name.normalizeForMatch() == targetName }
-        if (sameName.isEmpty()) return null
-
         val artist = suggestion.artist.normalizeForMatch()
-        if (artist.isEmpty()) return sameName.first()
-
-        // 歌手命中优先；各平台歌手字段写法差异大（合唱拼接、罗马音、别名），
-        // 故「歌名精确」仍是硬门槛，歌手只做择优而非否决
-        return sameName.firstOrNull { candidate ->
-            val candidateArtist = candidate.artist.normalizeForMatch()
-            candidateArtist.isNotEmpty() &&
-                (candidateArtist.contains(artist) || artist.contains(candidateArtist))
-        } ?: sameName.first()
+        fun matching(candidates: List<OnlineSearchResult>): OnlineSearchResult? = candidates.firstOrNull { candidate ->
+            candidate.name.lowercase().filter { it.isLetterOrDigit() } == targetName &&
+                (artist.isEmpty() || candidate.artist.normalizeForMatch().let {
+                    it.isNotEmpty() && (it.contains(artist) || artist.contains(it))
+                })
+        }
+        suspend fun search(platform: String, timeout: Long): List<OnlineSearchResult> = try {
+            withTimeoutOrNull(timeout) {
+                searchService.search(platform, keyword, page = 1, pageSize = PAGE_SIZE).results
+            }.orEmpty()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            emptyList()
+        }
+        if ("wy" in searchService.platforms) {
+            matching(search("wy", 3_000))?.let { return it }
+        }
+        val candidates = coroutineScope {
+            searchService.platforms.filter { it != "wy" }.map { platform ->
+                async { search(platform, 4_000) }
+            }.flatMap { it.await() }
+        }
+        return matching(candidates)
     }
 
     private companion object {

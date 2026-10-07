@@ -1,6 +1,7 @@
 package com.muses.player.core.search
 
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -64,6 +65,7 @@ class OnlineSearchService(
                             .fold(
                                 onSuccess = { PlatformSearchOutcome.Success(it) },
                                 onFailure = { e ->
+                                    if (e is CancellationException) throw e
                                     PlatformSearchOutcome.Failure(
                                         platform = provider.platform,
                                         displayName = provider.displayName,

@@ -104,6 +104,8 @@ class WyChartProvider(
                     album = album,
                     durationSec = durationMs?.div(1000),
                     extra = buildMap {
+                        put("originCoverType", (item.long("originCoverType") ?: 0L).toString())
+                        put("catalogQuality", com.muses.player.core.search.wyCatalogQualityLabel(item) ?: "unknown")
                         albumObj?.long("id")?.let { put("albumId", it.toString()) }
                     },
                 ),

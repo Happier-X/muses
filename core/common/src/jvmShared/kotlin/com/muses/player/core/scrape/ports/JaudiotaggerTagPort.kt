@@ -7,6 +7,7 @@ import kotlinx.coroutines.CancellationException
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.audio.flac.metadatablock.MetadataBlockDataPicture
 import org.jaudiotagger.tag.FieldKey
+import com.muses.player.core.media.scanner.qualityLabel
 import org.jaudiotagger.tag.Tag
 import org.jaudiotagger.tag.images.Artwork
 
@@ -50,6 +51,7 @@ object JaudiotaggerTagPort : TagPort {
                 lyrics = tag?.getFirst(FieldKey.LYRICS),
                 cover = readCoverSafely(tag),
                 durationMs = audioFile.audioHeader?.trackLength?.times(1000L) ?: 0L,
+                audioQuality = audioFile.audioHeader.qualityLabel(),
             )
         } catch (e: CancellationException) {
             throw e
