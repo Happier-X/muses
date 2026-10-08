@@ -74,12 +74,11 @@ val OnlineSearchResult.qualityLabel: String?
             ?.takeIf { it in setOf("Hi-Res", "SQ", "HQ", "标准") }
     }.getOrNull()
 
-/** 标记只来自平台字段，不从歌名里的“原唱”文字推断。 */
+/** 仅标记平台确认的原唱，翻唱和未知不展示，不从歌名文字推断。 */
 val OnlineSearchResult.performanceLabel: String?
     get() = if (platform != "wy") null else when (runCatching {
         Json.parseToJsonElement(musicInfoJson).jsonObject.long("originCoverType")
     }.getOrNull()) {
         1L -> "原唱"
-        2L -> "翻唱"
         else -> null
     }

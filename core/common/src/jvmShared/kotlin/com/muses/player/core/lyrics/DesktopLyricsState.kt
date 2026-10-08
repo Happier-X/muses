@@ -20,6 +20,18 @@ object DesktopLyricsState {
     fun publish(value: DesktopLyricsSnapshot) { mutable.value = value }
 }
 
+/** 页面加载中的空文档不能遮住服务歌词，普通行歌词也不能覆盖真实逐字文档。 */
+fun desktopLyricsSnapshot(songId: String, shared: DesktopLyricsSnapshot, fallback: DesktopLyricsSnapshot): DesktopLyricsSnapshot {
+    val page = shared.takeIf { it.songId == songId && it.document?.lines?.isNotEmpty() == true }
+    val service = fallback.takeIf { it.songId == songId }
+    return if (service?.document?.hasPreciseDesktopLyrics() == true && page?.document?.hasPreciseDesktopLyrics() != true) service
+    else page ?: service ?: DesktopLyricsSnapshot(songId)
+}
+
+fun LyricsDocument.hasPreciseDesktopLyrics(): Boolean = lines.any {
+    it.timingKind == LyricTimingKind.Precise && it.syllables.isNotEmpty()
+}
+
 data class DesktopLyricsText(
     val primary: String,
     val secondary: String?,

@@ -17,6 +17,6 @@ fun DesktopLyricsLockPreference() {
     val settings = koinInject<SettingsRepository>()
     val locked by settings.desktopLyricsLocked.collectAsState(false)
     val scope = rememberCoroutineScope()
-    SwitchPreference(title = "锁定桌面歌词", summary = "锁定后点击穿透，关闭此开关即可重新拖动和操作歌词",
+    SwitchPreference(title = "锁定桌面歌词", summary = "锁定后点击穿透，解锁后可拖动",
         checked = locked, onCheckedChange = { scope.launch { settings.setDesktopLyricsLocked(it) } })
 }

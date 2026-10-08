@@ -2,6 +2,8 @@ package com.muses.player.core.media.playback
 
 import com.muses.player.core.lyrics.model.LyricLine
 import com.muses.player.core.lyrics.model.LyricsDocument
+import com.muses.player.core.lyrics.parser.LxLyricParser
+import com.muses.player.core.lyrics.hasPreciseDesktopLyrics
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.model.online.OnlineTrackLyrics
@@ -24,7 +26,7 @@ class OnlineSessionLyricsLoaderTest {
 
     @Test
     fun `复用同曲页面文档不重复请求`() = runTest {
-        val document = LyricsDocument(listOf(LyricLine(1000, text = "已有歌词")))
+        val document = LxLyricParser.parse(lxlyric = "[00:01.000]<1000,1000>已有歌词")!!
         val loader = OnlineSessionLyricsLoader(
             resolveLyrics = { error("不应请求脚本") }, matchLyrics = { error("不应匹配") },
             sharedLyrics = { assertEquals(song().id, it); document },
@@ -32,6 +34,50 @@ class OnlineSessionLyricsLoaderTest {
         val received = mutableListOf<LyricsDocument>()
         loader.load(song()) { received += it }
         assertEquals(listOf(document), received)
+    }
+
+    @Test
+    fun `歌曲已有逐字歌词不被页面普通歌词降级`() = runTest {
+        val source = song().copy(lyrics = "[1000,1000](1000,500,0)已有(1500,500,0)歌词")
+        val page = LyricsDocument(listOf(LyricLine(1000, text = "已有歌词")))
+        val loader = OnlineSessionLyricsLoader(
+            resolveLyrics = { error("已有逐字不应请求脚本") },
+            matchLyrics = { error("已有逐字不应匹配") }, sharedLyrics = { page },
+        )
+        val received = mutableListOf<LyricsDocument>()
+        loader.load(source) { received += it }
+        assertEquals(1, received.size)
+        assertTrue(received.single().hasPreciseDesktopLyrics())
+    }
+
+    @Test
+    fun `页面普通歌词不阻断迟到的脚本逐字歌词`() = runTest {
+        val page = LyricsDocument(listOf(LyricLine(1000, text = "已有歌词")))
+        var requests = 0
+        val loader = OnlineSessionLyricsLoader(
+            resolveLyrics = {
+                if (++requests == 1) OnlineTrackLyrics(lyric = "[00:01.000]已有歌词")
+                else OnlineTrackLyrics(lxlyric = "[00:01.000]<1000,500>已有<1500,500>歌词")
+            }, matchLyrics = { null }, sharedLyrics = { page },
+        )
+        val received = mutableListOf<LyricsDocument>()
+        loader.load(song()) { received += it }
+        assertEquals(2, requests)
+        assertEquals(page, received.first())
+        assertTrue(received.last().hasPreciseDesktopLyrics())
+    }
+
+    @Test
+    fun `已有行歌词仍可采用匹配到的真实逐字文档`() = runTest {
+        val page = LyricsDocument(listOf(LyricLine(1000, text = "已有歌词")))
+        val precise = LxLyricParser.parse(lxlyric = "[00:01.000]<1000,500>已有<1500,500>歌词")!!
+        val loader = OnlineSessionLyricsLoader(
+            resolveLyrics = { OnlineTrackLyrics(lyric = "[00:01.000]已有歌词") },
+            matchLyrics = { precise }, sharedLyrics = { page },
+        )
+        val received = mutableListOf<LyricsDocument>()
+        loader.load(song()) { received += it }
+        assertEquals(precise, received.last())
     }
 
     @Test

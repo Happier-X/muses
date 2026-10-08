@@ -425,12 +425,12 @@ class PlayerViewModel constructor(
                 val retry = scriptMetadata(ref) ?: continue
                 val retryDoc = parseScriptLyrics(retry.lyrics)
                 if (retryDoc != null) {
-                    // 脚本已给出歌词：带逐字而当前没有 → 采用；无论采用与否都不再指望歌词重试
-                    if (!lyricsSettled && retryDoc.hasSyllables()) {
+                    // 行歌词可能先进入缓存，逐字数据稍后才到；继续等待真实逐字，不提前结束重试。
+                    if (!lyricsSettled && (retryDoc.hasSyllables() || document == null)) {
                         document = retryDoc
                         applyLyricsDocument(retryDoc)
                     }
-                    lyricsSettled = true
+                    lyricsSettled = document?.hasSyllables() == true
                 }
                 if (cover.isNullOrBlank() && !retry.cover.isNullOrBlank()) {
                     cover = retry.cover

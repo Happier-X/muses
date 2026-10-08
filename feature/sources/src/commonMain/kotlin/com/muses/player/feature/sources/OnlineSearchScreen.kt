@@ -38,6 +38,8 @@ import com.muses.player.core.search.qualityLabel
 import com.muses.player.core.ui.components.SongSubtitleWithQuality
 import com.muses.player.core.ui.components.SongTitleWithBadge
 import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesCover
+import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesTopBar
@@ -181,7 +183,7 @@ fun OnlineSearchScreen(
                             if (songs.isNotEmpty()) {
                                 item(key = "songs-title") { SearchSectionTitle("歌曲") }
                                 items(songs, key = { "song-${it.id}" }) { song ->
-                                    LibraryResultRow(song.title, song.artist.orEmpty(), "播放") {
+                                    LibraryResultRow(song.title, song.artist.orEmpty(), "播放", coverUri = song.coverUri, showCover = true) {
                                         viewModel.playLibrarySong(song.id, songs)
                                     }
                                 }
@@ -303,13 +305,18 @@ private fun SearchSectionTitle(title: String) {
 }
 
 @Composable
-private fun LibraryResultRow(title: String, subtitle: String, detail: String, onClick: () -> Unit) {
+private fun LibraryResultRow(title: String, subtitle: String, detail: String,
+    coverUri: String? = null, showCover: Boolean = false, onClick: () -> Unit) {
     val scheme = MiuixTheme.colorScheme
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (showCover) {
+                MusesCover(uri = coverUri, size = 44.dp, radius = MusesCoverRadius.SM)
+                Spacer(Modifier.width(12.dp))
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (subtitle.isNotBlank()) {
@@ -405,6 +412,8 @@ private fun SearchResultRow(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            MusesCover(uri = result.coverUrl, size = 44.dp, radius = MusesCoverRadius.SM)
+            Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 SongTitleWithBadge(
                     title = result.name,

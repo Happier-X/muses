@@ -284,19 +284,21 @@ class PlayerViewModelCurrentTrackTest {
     }
 
     @Test
-    fun `脚本歌词在 musicUrl 之后才就绪时 延迟重试会替换匹配结果`() = runBlocking {
+    fun `脚本先返回行歌词再返回逐字时继续重试并替换匹配结果`() = runBlocking {
         // 复刻实测到的脚本时序（星海音乐源）：`lyric` 只是 `musicUrl` 的副产品，
         // 直链未解析前问 lyric 恒为空；解析完成后才有值。
         val song = onlineSong(id = "online:kw:3")
         OnlineTrackSession.remember(listOf(song))
         val resolver = object : OnlineTrackMetadataResolver {
             private var lyricCalls = 0
-            override suspend fun resolveCover(ref: OnlineTrackRef): String? = null
+            override suspend fun resolveCover(ref: OnlineTrackRef): String? = "https://cover.test/cover.jpg"
             override suspend fun resolveLyrics(ref: OnlineTrackRef): OnlineTrackLyrics? {
                 lyricCalls++
                 // 脚本带真实逐字 → 值得替换掉行级匹配结果
-                return if (lyricCalls >= 2) {
+                return if (lyricCalls >= 3) {
                     OnlineTrackLyrics(lxlyric = "[00:01.000]<1000,200>脚<1200,200>本")
+                } else if (lyricCalls == 2) {
+                    OnlineTrackLyrics(lyric = "[00:01.000]脚本行歌词")
                 } else {
                     null
                 }

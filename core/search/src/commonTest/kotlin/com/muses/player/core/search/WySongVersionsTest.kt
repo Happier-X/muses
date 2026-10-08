@@ -16,7 +16,7 @@ class WySongVersionsTest {
     private fun song(id: String, name: String = "歌曲") =
         OnlineSearchResult("wy", id, name, "歌手", null, null, null, """{"id":"$id"}""")
 
-    @Test fun `按编号补充原唱翻唱未知标记且不凭歌名推断`() = runTest {
+    @Test fun `按编号只标记原唱且不凭歌名推断`() = runTest {
         val client = HttpClient(MockEngine { request ->
             assertEquals("[1,2,3]", request.url.parameters["ids"])
             respond("""{"songs":[
@@ -31,7 +31,7 @@ class WySongVersionsTest {
                 enrichWySongVersions(SearchHttp(client), listOf(song("1"), song("2"), song("3", "歌曲（原唱 某歌手）")))
             }
             assertEquals("原唱", results[0].performanceLabel)
-            assertEquals("翻唱", results[1].performanceLabel)
+            assertNull(results[1].performanceLabel)
             assertNull(results[2].performanceLabel)
             assertEquals("SQ", results[0].qualityLabel)
             assertEquals("Hi-Res", results[1].qualityLabel)

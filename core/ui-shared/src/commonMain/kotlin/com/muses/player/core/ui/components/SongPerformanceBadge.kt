@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 目录平台确认的原唱/翻唱标记；未知时不展示。 */
+/** 目录平台确认的原唱标记。 */
 @Composable
 fun SongPerformanceBadge(label: String?) {
     if (label == null) return

@@ -363,7 +363,9 @@ class PlaybackService : MediaSessionService() {
                         allowArtworkFallback = coverSong?.metaSources?.cover == null
                     }
                     val shared = com.muses.player.core.lyrics.DesktopLyricsState.snapshot.value
-                    if (shared.songId != id && now - lastRead >= 2_000L) {
+                    if ((shared.songId != id || shared.document?.lines?.any {
+                            it.timingKind == com.muses.player.core.lyrics.model.LyricTimingKind.Precise && it.syllables.isNotEmpty()
+                        } != true) && now - lastRead >= 2_000L) {
                         lastRead = now
                         val song = songRepository.getSong(id) ?: com.muses.player.core.model.online.OnlineTrackSession.find(id)
                         if (song != null) {
@@ -374,32 +376,23 @@ class PlaybackService : MediaSessionService() {
                             if (player.currentMediaItem?.mediaId != id) continue
                             val ref = com.muses.player.core.model.online.OnlineTrackRef.parse(song.path)
                             fallback = com.muses.player.core.lyrics.DesktopLyricsSnapshot(id, song.title, song.artist,
-                                if (ref == null) document else document ?: fallback.document)
+                                if (ref == null) document else fallback.document ?: document)
                             if (ref != null && lyricsJob == null) {
                                 // Activity 被回收后仍可读取在线歌词；请求独立于进度轮询，切歌立即取消。
                                 lyricsJob = launch lyrics@{
                                     try {
                                         val resolver = getKoin().getOrNull<com.muses.player.core.model.online.OnlineTrackMetadataResolver>()
                                         val matcher = getKoin().getOrNull<com.muses.player.core.lyrics.LyricsMatcher>()
-                                        var selected = document
-                                        for (attempt in 0..2) {
-                                            if (attempt > 0) kotlinx.coroutines.delay(if (attempt == 1) 1500 else 3000)
-                                            if (com.muses.player.core.lyrics.DesktopLyricsState.snapshot.value.songId == id) break
-                                            val raw = withTimeoutOrNull(8000) { resolver?.resolveLyrics(ref) }
-                                            val script = kotlinx.coroutines.withContext(Dispatchers.Default) {
-                                                raw?.let { com.muses.player.core.lyrics.parser.LxLyricParser.parse(it.lyric, it.tlyric, it.rlyric, it.lxlyric) }
-                                            }?.takeIf { it.lines.isNotEmpty() }
-                                            val wordTimed = script?.lines?.any { it.syllables.isNotEmpty() } == true
-                                            if (wordTimed) selected = script
-                                            else if (attempt == 0) {
-                                                selected = selected ?: withTimeoutOrNull(8000) {
-                                                    matcher?.matchDocument(songId = song.id, title = song.title, artist = song.artist,
-                                                        album = song.album, durationMs = song.durationMs, durationSec = song.durationSec)
-                                                } ?: script
-                                            } else if (selected == null) selected = script
-                                            if (!enabled || player.currentMediaItem?.mediaId != id) return@lyrics
+                                        val loader = OnlineSessionLyricsLoader(
+                                            resolveLyrics = { resolver?.resolveLyrics(it) },
+                                            matchLyrics = {
+                                                matcher?.matchDocument(songId = it.id, title = it.title, artist = it.artist,
+                                                    album = it.album, durationMs = it.durationMs, durationSec = it.durationSec)
+                                            },
+                                        )
+                                        loader.load(song) { selected ->
+                                            if (!enabled || player.currentMediaItem?.mediaId != id) return@load
                                             fallback = com.muses.player.core.lyrics.DesktopLyricsSnapshot(id, song.title, song.artist, selected)
-                                            if (selected?.lines?.any { it.syllables.isNotEmpty() } == true) break
                                         }
                                     } catch (e: CancellationException) { throw e }
                                     catch (e: Exception) { errorLogStore.log(ErrorLogStore.Level.WARN, "DesktopLyrics", "在线桌面歌词加载失败：${e.message}", e) }
@@ -407,7 +400,7 @@ class PlaybackService : MediaSessionService() {
                             }
                         }
                     }
-                    val snapshot = if (shared.songId == id) shared else fallback
+                    val snapshot = com.muses.player.core.lyrics.desktopLyricsSnapshot(id, shared, fallback)
                     if (!enabled || player.currentMediaItem?.mediaId != id) continue
                     val artwork = if (coverAccentEnabled) coverUri?.takeIf { it.isNotBlank() }
                         ?: player.mediaMetadata.artworkUri?.toString()?.takeIf { allowArtworkFallback } else null

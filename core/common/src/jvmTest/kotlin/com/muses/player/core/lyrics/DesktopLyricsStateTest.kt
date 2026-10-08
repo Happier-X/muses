@@ -53,6 +53,17 @@ class DesktopLyricsStateTest {
         }
     }
 
+    @Test fun 页面空文档与行歌词不遮住服务逐字歌词() {
+        val service = timedSnapshot()
+        for (page in listOf(snapshot, snapshot.copy(document = null))) {
+            val selected = desktopLyricsSnapshot(snapshot.songId!!, page, service)
+            assertEquals(service, selected)
+            assertEquals(2, desktopLyricsText(selected, 1500, true, true).words.size)
+        }
+        assertEquals(service, desktopLyricsSnapshot(snapshot.songId!!, service, snapshot))
+        assertEquals(snapshot, desktopLyricsSnapshot(snapshot.songId!!, snapshot, service.copy(songId = "另一首")))
+    }
+
     @Test fun 零时长即时完成负时长丢弃() {
         val line = timedLine.copy(syllables = listOf(LyricSyllable("你", 1000, 1000), LyricSyllable("好！", 2000, 1500)))
         val words = desktopLyricsText(timedSnapshot(line), 1000, true).words

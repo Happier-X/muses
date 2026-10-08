@@ -1,6 +1,7 @@
 package com.muses.player.core.media.playback
 
 import com.muses.player.core.lyrics.DesktopLyricsState
+import com.muses.player.core.lyrics.hasPreciseDesktopLyrics
 import com.muses.player.core.lyrics.model.LyricsDocument
 import com.muses.player.core.lyrics.parser.LxLyricParser
 import com.muses.player.core.model.Song
@@ -26,11 +27,13 @@ internal class OnlineSessionLyricsLoader(
             com.muses.player.feature.player.lyric.LyricsParser.parseDocument(song.lyrics)
         }?.takeIf { it.lines.isNotEmpty() }
         selected?.let { publish(it) }
+        if (selected?.hasPreciseDesktopLyrics() == true) return
         for (attempt in 0..2) {
             if (attempt > 0) delay(if (attempt == 1) 1500 else 3000)
             sharedLyrics(song.id)?.takeIf { it.lines.isNotEmpty() }?.let {
+                selected = it
                 publish(it)
-                return
+                if (it.hasPreciseDesktopLyrics()) return
             }
             val raw = try {
                 withTimeoutOrNull(8000) { resolveLyrics(ref) }
@@ -39,17 +42,17 @@ internal class OnlineSessionLyricsLoader(
             val script = withContext(Dispatchers.Default) {
                 raw?.let { LxLyricParser.parse(it.lyric, it.tlyric, it.rlyric, it.lxlyric) }
             }?.takeIf { it.lines.isNotEmpty() }
-            if (script?.lines?.any { it.syllables.isNotEmpty() } == true) selected = script
+            if (script?.hasPreciseDesktopLyrics() == true) selected = script
             else if (attempt == 0) {
-                val matched = if (selected != null) null else try {
+                val matched = if (selected?.hasPreciseDesktopLyrics() == true) null else try {
                     withTimeoutOrNull(8000) { matchLyrics(song) }
                 } catch (e: CancellationException) { throw e }
                 catch (_: Exception) { null }
-                selected = selected ?: matched ?: script
+                selected = if (matched?.hasPreciseDesktopLyrics() == true) matched else selected ?: matched ?: script
             }
             else if (selected == null) selected = script
             selected?.let { publish(it) }
-            if (selected?.lines?.any { it.syllables.isNotEmpty() } == true) return
+            if (selected?.hasPreciseDesktopLyrics() == true) return
         }
     }
 }

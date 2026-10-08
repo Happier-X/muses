@@ -45,7 +45,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 /**
  * 两端透明悬浮歌词：单击展开控制面板，拖动仅作用于歌词区域。
  *
- * 歌词底色是透明桌面，未播放行用白色 + 深描边保证可读；已播放行跟随封面强调色，
+ * 歌词底色是透明桌面，文字用轻薄阴影保证可读；已播放行跟随封面强调色，
  * 但强调色本身是「提色 + 大量白色柔化」的结果（偏粉白），直接用在歌词上会显得浅，
  * 因此这里按同色系还原成更浓的版本。
  */
@@ -57,7 +57,7 @@ fun DesktopLyricsCard(primary: String, secondary: String?, onClose: () -> Unit, 
     title: String = "Muses", fontSize: Int = 22, selectedColor: Color? = null,
     onPrevious: () -> Unit = {}, onPlayPause: () -> Unit = {}, onNext: () -> Unit = {},
     onColor: (Long) -> Unit = {}, onFontSize: (Int) -> Unit = {}) {
-    val shadow = Shadow(Color.Black.copy(alpha = 0.92f), Offset(0f, 1.5f), 8f)
+    val shadow = Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 0.75f), 3f)
     val vivid = selectedColor ?: accentColor?.let(::vividLyricColor)
     val interaction = remember { MutableInteractionSource() }
     Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
@@ -160,7 +160,7 @@ private fun DesktopWordLyrics(text: String, words: List<DesktopLyricsWord>, posi
     }
     Box(Modifier.fillMaxWidth()) {
         Text(text, modifier = Modifier.fillMaxWidth(), style = style,
-            color = if (words.isEmpty()) accentColor ?: Color.White else Color.White,
+            color = if (words.isEmpty()) accentColor ?: Color.White else Color.White.copy(alpha = 0.45f),
             maxLines = 2, overflow = TextOverflow.Ellipsis, onTextLayout = { layout = it })
         if (words.isNotEmpty()) {
             Text(text, style = style.copy(shadow = null), color = accentColor ?: Color(0xFF7FD4FF), maxLines = 2,
