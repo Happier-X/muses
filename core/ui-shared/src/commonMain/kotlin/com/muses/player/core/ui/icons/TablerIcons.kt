@@ -80,6 +80,8 @@ object TablerIcons {
     // 界面
     val Menu: ImageVector = Tabler.Outline.Menu2
     val Settings: ImageVector = Tabler.Outline.Settings
+    val Lock: ImageVector = Tabler.Outline.Lock
+    val LockOpen: ImageVector = Tabler.Outline.LockOpen
     val Info: ImageVector = Tabler.Outline.InfoCircle
     val BugReport: ImageVector = Tabler.Outline.Bug
     val Checklist: ImageVector = Tabler.Outline.ListCheck

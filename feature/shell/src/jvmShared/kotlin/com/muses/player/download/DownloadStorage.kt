@@ -5,7 +5,7 @@ import com.muses.player.core.model.download.DownloadTask
 import com.muses.player.core.data.repository.SettingsRepository
 import java.io.File
 
-data class SavedDownload(val location: String, val physicalPath: String? = null, val warnings: List<String> = emptyList())
+data class SavedDownload(val location: String, val physicalPath: String? = null, val warnings: List<String> = emptyList(), val skippedExisting: Boolean = false)
 
 /** 下载先在私有目录完整写入标签，再提交到目标；目标端禁止覆盖已有文件。 */
 interface DownloadStorage {

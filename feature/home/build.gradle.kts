@@ -25,6 +25,9 @@ kotlin {
     }
 
     sourceSets {
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
         commonMain.dependencies {
             implementation(project(":core:common"))
             // 榜单（OnlineChartService）+ 搜索结果同构模型

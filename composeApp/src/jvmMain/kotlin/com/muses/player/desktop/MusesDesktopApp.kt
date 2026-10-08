@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.muses.player.core.ui.theme.MusesTheme
 import com.muses.player.navigation.MusesApp
@@ -35,7 +37,8 @@ fun WindowScope.MusesDesktopApp(
                     DesktopTitleBar(windowState, onClose)
                     // 共享导航壳（hazeState 由 TabsLayout 内部 provide，磨砂导航/迷你条真磨砂）
                     Box(modifier = Modifier.weight(1f).fillMaxSize()) {
-                        MusesApp()
+                        val settingsRequest by DesktopLyricsInteraction.settingsRequest.collectAsState()
+                        MusesApp(openSettingsRequest = settingsRequest)
                     }
                 }
             }

@@ -59,7 +59,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * - 导入：粘贴脚本内容 → **立即预检**（能否初始化、能提供哪些源）→ 确认导入；
  * - 删除：二次确认。
  *
- * 说明：脚本由用户自备（洛雪生态常见做法），本页不内置任何脚本。
+ * 支持管理应用内置免费音源，以及用户自行导入的音源脚本。
  */
 @Composable
 fun LxScriptsScreen(
@@ -364,7 +364,7 @@ internal fun LxScriptImportSheet(
                 .padding(16.dp),
         ) {
             Text(
-                text = "粘贴洛雪自定义源脚本（.js）内容。脚本由你自行提供，Muses 不内置任何脚本。",
+                text = "已内置免费音源，也可粘贴洛雪自定义源脚本（.js）内容添加其他音源。",
                 fontSize = 13.sp,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )

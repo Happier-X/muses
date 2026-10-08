@@ -11,6 +11,13 @@ import kotlinx.coroutines.flow.map
 
 /** 应用设置（DataStore Preferences） */
 interface SettingsRepository {
+    /** 是否由播放器管理音频焦点；默认关闭，允许与其他应用同时播放。 */
+    val audioFocusEnabled: Flow<Boolean>
+    suspend fun setAudioFocusEnabled(enabled: Boolean)
+
+    /** 使用应用内置的免费 LX 音源，默认开启。 */
+    val builtinLxSourcesEnabled: Flow<Boolean>
+    suspend fun setBuiltinLxSourcesEnabled(enabled: Boolean)
     /** 上次完成扫描的时间戳（epoch millis，0 = 从未扫描） */
     val lastScanTimestamp: Flow<Long>
 
@@ -24,6 +31,13 @@ interface SettingsRepository {
     val notificationLyricsEnabled: Flow<Boolean>
     /** 桌面悬浮歌词，默认关闭。 */
     val desktopLyricsEnabled: Flow<Boolean>
+    val desktopLyricsLocked: Flow<Boolean>
+    val desktopLyricsFontSize: Flow<Long>
+    /** 0 表示跟随原有配色，其他值为用户选择的 ARGB 颜色。 */
+    val desktopLyricsColor: Flow<Long>
+    suspend fun setDesktopLyricsLocked(locked: Boolean)
+    suspend fun setDesktopLyricsFontSize(size: Long)
+    suspend fun setDesktopLyricsColor(color: Long)
 
     /** 沉浸式播放页的文字与图标使用封面协调色（默认开启） */
     val coverContentColorEnabled: Flow<Boolean>
@@ -92,6 +106,19 @@ interface SettingsRepository {
 class DataStoreSettingsRepository constructor(
     private val dataStore: DataStore<Preferences>,
 ) : SettingsRepository {
+    override val audioFocusEnabled: Flow<Boolean>
+        get() = dataStore.data.map { it[AUDIO_FOCUS_ENABLED] ?: false }
+
+    override suspend fun setAudioFocusEnabled(enabled: Boolean) {
+        dataStore.edit { it[AUDIO_FOCUS_ENABLED] = enabled }
+    }
+
+    override val builtinLxSourcesEnabled: Flow<Boolean>
+        get() = dataStore.data.map { it[BUILTIN_LX_SOURCES_ENABLED] ?: true }
+
+    override suspend fun setBuiltinLxSourcesEnabled(enabled: Boolean) {
+        dataStore.edit { it[BUILTIN_LX_SOURCES_ENABLED] = enabled }
+    }
 
     override val lastScanTimestamp: Flow<Long>
         get() = dataStore.data.map { prefs -> prefs[LAST_SCAN_TIMESTAMP] ?: 0L }
@@ -106,6 +133,21 @@ class DataStoreSettingsRepository constructor(
         get() = dataStore.data.map { prefs -> prefs[NOTIFICATION_LYRICS_ENABLED] == true }
     override val desktopLyricsEnabled: Flow<Boolean>
         get() = dataStore.data.map { prefs -> prefs[DESKTOP_LYRICS_ENABLED] == true }
+    override val desktopLyricsLocked: Flow<Boolean>
+        get() = dataStore.data.map { it[DESKTOP_LYRICS_LOCKED] ?: false }
+    override val desktopLyricsFontSize: Flow<Long>
+        get() = dataStore.data.map { (it[DESKTOP_LYRICS_FONT_SIZE] ?: 22L).coerceIn(14L, 40L) }
+    override val desktopLyricsColor: Flow<Long>
+        get() = dataStore.data.map { it[DESKTOP_LYRICS_COLOR] ?: 0L }
+    override suspend fun setDesktopLyricsLocked(locked: Boolean) {
+        dataStore.edit { it[DESKTOP_LYRICS_LOCKED] = locked }
+    }
+    override suspend fun setDesktopLyricsFontSize(size: Long) {
+        dataStore.edit { it[DESKTOP_LYRICS_FONT_SIZE] = size.coerceIn(14L, 40L) }
+    }
+    override suspend fun setDesktopLyricsColor(color: Long) {
+        dataStore.edit { it[DESKTOP_LYRICS_COLOR] = color }
+    }
 
     override val coverContentColorEnabled: Flow<Boolean>
         get() = dataStore.data.map { prefs -> prefs[COVER_CONTENT_COLOR_ENABLED] ?: true }
@@ -194,6 +236,8 @@ class DataStoreSettingsRepository constructor(
     }
 
     private companion object {
+        val AUDIO_FOCUS_ENABLED = booleanPreferencesKey("audio_focus_enabled")
+        val BUILTIN_LX_SOURCES_ENABLED = booleanPreferencesKey("builtin_lx_sources_enabled")
         val LAST_SCAN_TIMESTAMP = longPreferencesKey("last_scan_timestamp")
         val DOWNLOAD_QUALITY = stringPreferencesKey("download_quality")
         val DOWNLOAD_DEVICE_DIRECTORY = stringPreferencesKey("download_device_directory")
@@ -201,6 +245,9 @@ class DataStoreSettingsRepository constructor(
         val MINI_PLAYER_LYRICS_ENABLED = booleanPreferencesKey("mini_player_lyrics_enabled")
         val NOTIFICATION_LYRICS_ENABLED = booleanPreferencesKey("notification_lyrics_enabled")
         val DESKTOP_LYRICS_ENABLED = booleanPreferencesKey("desktop_lyrics_enabled")
+        val DESKTOP_LYRICS_LOCKED = booleanPreferencesKey("desktop_lyrics_locked")
+        val DESKTOP_LYRICS_FONT_SIZE = longPreferencesKey("desktop_lyrics_font_size")
+        val DESKTOP_LYRICS_COLOR = longPreferencesKey("desktop_lyrics_color")
         val COVER_CONTENT_COLOR_ENABLED = booleanPreferencesKey("cover_content_color_enabled")
         val LYRIC_TRANSLATION_ENABLED = booleanPreferencesKey("lyric_translation_enabled")
         val LYRIC_ROMANIZATION_ENABLED = booleanPreferencesKey("lyric_romanization_enabled")

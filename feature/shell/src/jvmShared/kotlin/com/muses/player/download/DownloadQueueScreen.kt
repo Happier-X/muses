@@ -134,11 +134,17 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                             (task.target ?: defaultTarget).displayLabel(sources),
                             color = scheme.onSurfaceVariantSummary,
                         )
-                        val transfer = task.status == DownloadStatus.UPLOADING || task.status == DownloadStatus.SAVING
+                        // 旧队列没有失败阶段，用已有传输总量兼容判断。
+                        val failedTransfer = task.status == DownloadStatus.FAILED &&
+                            (task.failureStage == DownloadStatus.UPLOADING || task.failureStage == DownloadStatus.SAVING ||
+                                (task.failureStage == null && task.transferTotalBytes != null))
+                        val transfer = task.status == DownloadStatus.UPLOADING || task.status == DownloadStatus.SAVING || failedTransfer
                         val bytes = if (transfer) task.transferredBytes else task.downloadedBytes
                         val total = if (transfer) task.transferTotalBytes else task.totalBytes
                         Text(
-                            statusLabel(task.status) +
+                            (if (failedTransfer) {
+                                if (task.target?.kind == DownloadTargetKind.WEBDAV) "上传失败" else "保存失败"
+                            } else if (task.skippedExisting) "同名歌曲，已跳过" else statusLabel(task.status)) +
                                 if (bytes > 0) " · ${formatBytes(bytes)}" + (total?.let { " / ${formatBytes(it)}" } ?: "") else "",
                         )
                         if (task.status.active) {
@@ -153,7 +159,7 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                         }
                         task.error?.let { Text(it, color = scheme.error) }
                         task.warnings.forEach { Text(it, color = scheme.onSurfaceVariantSummary) }
-                        if (task.status == DownloadStatus.COMPLETED) {
+                        if (task.status == DownloadStatus.COMPLETED && !task.skippedExisting) {
                             Text("保存成功", color = scheme.primary)
                         }
                         Row(

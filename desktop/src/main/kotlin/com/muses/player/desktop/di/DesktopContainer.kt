@@ -72,7 +72,9 @@ object DesktopContainer {
                 crypto = LxCryptoJvm(),
                 // 懒同步：首次真正用到仓库时才读脚本目录（避免构造期访问 PlatformDirs）
                 storedScriptsProvider = {
-                    FileLxScriptStore().list().filter { it.enabled }.map { it.id to it.source }
+                    val builtinEnabled = com.muses.player.core.data.repository.DataStoreSettingsRepository(settingsStore)
+                        .builtinLxSourcesEnabled.first()
+                    FileLxScriptStore().list().filter { it.enabled && (builtinEnabled || !it.isBuiltin) }.map { it.id to it.source }
                 },
             ).also { lxRepository = it }
         }
@@ -91,6 +93,7 @@ object DesktopContainer {
          * S3 可按需传入自定义 lookup（测试/多库场景）。
      */
     suspend fun playerPort(
+        onlineResolverOverride: OnlineTrackResolver? = null,
         candidateProvider: com.muses.player.core.model.online.OnlineTrackCandidateProvider? = null,
         urlProbe: com.muses.player.core.model.online.OnlinePlayableUrlProbe? = null,
         songLookup: (suspend (songId: String) -> JvmPlayerPort.SongRef?)? = null,
@@ -219,7 +222,7 @@ object DesktopContainer {
             // 与 DesktopCredentials（凭据）/Koin 设置仓储/播放状态共用同一实例
             dataStore = settingsStore,
             // 在线音源直链解析（洛雪自定义源脚本）
-            onlineResolver = onlineResolver(candidateProvider, urlProbe),
+            onlineResolver = onlineResolverOverride ?: onlineResolver(candidateProvider, urlProbe),
         )
     }
 

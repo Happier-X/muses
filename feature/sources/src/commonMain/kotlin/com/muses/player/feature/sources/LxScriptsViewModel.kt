@@ -3,6 +3,7 @@ package com.muses.player.feature.sources
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muses.player.core.data.repository.SourceRepository
+import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.lxsdk.LxScriptMetaParser
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 /** 脚本列表项（UI 展示用；合并持久化状态与运行态） */
 data class LxScriptItem(
@@ -69,6 +71,7 @@ class LxScriptsViewModel(
     private val store: LxScriptStore,
     private val repository: LxScriptRepository,
     private val sourceRepository: SourceRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _items = MutableStateFlow<List<LxScriptItem>>(emptyList())
@@ -136,7 +139,7 @@ class LxScriptsViewModel(
             try {
                 val stored = store.list()
                 // LX 脚本同时作为 ONLINE 音源显示在音源列表中。
-                stored.forEach { script ->
+                stored.filterNot { it.isBuiltin }.forEach { script ->
                     if (sourceRepository.getSource(script.id) == null) {
                         val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
                         sourceRepository.upsert(
@@ -155,7 +158,7 @@ class LxScriptsViewModel(
                 syncRepository(stored)
                 // 触发加载以回显源声明与错误
                 repository.loadAll()
-                _items.value = buildItems(stored)
+                _items.value = buildItems(stored.filterNot { it.isBuiltin })
             } finally {
                 _loading.value = false
             }
@@ -263,7 +266,9 @@ class LxScriptsViewModel(
                 if (replacementScript != null) {
                     require(repository.validate(script).sources.isNotEmpty()) { "脚本未声明任何音源，无法保存。" }
                     store.save(id = id, source = script, enabled = stored.enabled, sourceUrl = replacementUrl)
-                    if (stored.enabled) repository.register(id, script) else repository.unregister(id)
+                    if (stored.enabled && (!stored.isBuiltin || settingsRepository.builtinLxSourcesEnabled.first())) {
+                        repository.register(id, script)
+                    } else repository.unregister(id)
                 }
                 val metaName = LxScriptMetaParser.parse(script).name
                 sourceRepository.upsert(
@@ -287,7 +292,9 @@ class LxScriptsViewModel(
         viewModelScope.launch {
             if (store.setEnabled(id, enabled)) {
                 if (enabled) {
-                    store.get(id)?.let { repository.register(it.id, it.source) }
+                    store.get(id)?.let {
+                        if (!it.isBuiltin || settingsRepository.builtinLxSourcesEnabled.first()) repository.register(it.id, it.source)
+                    }
                 } else {
                     repository.unregister(id)
                 }
@@ -309,11 +316,13 @@ class LxScriptsViewModel(
 
     /** 把磁盘状态同步到运行态仓库：新增未注册的、移除已删除的、停用已禁用的 */
     private suspend fun syncRepository(stored: List<LxStoredScript>) {
+        val builtinEnabled = settingsRepository.builtinLxSourcesEnabled.first()
+        val active = stored.filter { it.enabled && (builtinEnabled || !it.isBuiltin) }
         val registered = repository.scripts().associateBy { it.scriptId }
-        val enabledIds = stored.filter { it.enabled }.map { it.id }.toSet()
+        val enabledIds = active.map { it.id }.toSet()
 
         // 新增/更新：磁盘有但仓库无（或来源已变）
-        stored.filter { it.enabled }.forEach { script ->
+        active.forEach { script ->
             val existing = registered[script.id]
             if (existing == null || existing.source != script.source) {
                 repository.register(script.id, script.source)

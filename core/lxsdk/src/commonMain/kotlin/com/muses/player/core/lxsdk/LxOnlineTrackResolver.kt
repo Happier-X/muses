@@ -67,10 +67,10 @@ class LxOnlineTrackResolver(
                 platform = ref.platform,
                 musicInfoJson = ref.musicInfoJson,
                 quality = quality,
+                acceptUrl = { url ->
+                    urlProbe == null || withTimeoutOrNull(4_000) { urlProbe.canOpen(url) } == true
+                },
             )
-            if (urlProbe != null && withTimeoutOrNull(4_000) { urlProbe.canOpen(result.url) } != true) {
-                throw OnlineResolveException("音源返回的音频地址无法访问")
-            }
             OnlinePlayableUrl(url = result.url, quality = result.quality?.key)
         } catch (e: CancellationException) {
             throw e

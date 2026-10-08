@@ -17,18 +17,23 @@ import com.muses.player.core.data.store.platformNowMs
 import com.muses.player.core.media.scanner.ScanProgress
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
+import com.muses.player.core.lxsdk.LxScriptRepository
+import com.muses.player.core.lxsdk.store.LxScriptStore
 import com.muses.player.core.scrape.queue.ScrapeQueueStore
 import com.muses.player.core.webdav.WebDavAuthRegistry
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 音源 ViewModel（U20 全量上收 commonMain）：数据核 + 页面扩展一体——音源 CRUD/表单/
@@ -50,12 +55,37 @@ class SourcesViewModel constructor(
     private val webDavAuthRegistry: WebDavAuthRegistry,
     private val playbackStateRepository: PlaybackStateRepository,
     private val recentPlaysRepository: RecentPlaysRepository,
+    private val lxScriptStore: LxScriptStore,
+    private val lxScriptRepository: LxScriptRepository,
     /** 删除音源时的播放队列清理（双端接 PlaybackPort.removeFromQueue；可缺省空实现） */
     private val onRemoveFromQueue: (Set<String>) -> Unit = {},
 ) : ViewModel() {
 
     val sources: StateFlow<List<Source>> = sourceRepository.observeSources()
+        .map { sources ->
+            val builtinIds = withContext(Dispatchers.IO) { lxScriptStore.builtinIds() }
+            sources.filterNot { it.type == SourceType.ONLINE && it.id in builtinIds }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    init {
+        // 音源列表只登记用户脚本；内置音源由设置中的统一开关管理。
+        viewModelScope.launch(Dispatchers.IO) {
+            lxScriptStore.list().filterNot { it.isBuiltin }.forEach { script ->
+                if (sourceRepository.getSource(script.id) == null) {
+                    val now = platformNowMs()
+                    sourceRepository.upsert(Source(
+                        id = script.id,
+                        name = script.name,
+                        type = SourceType.ONLINE,
+                        path = script.id,
+                        createdAt = now,
+                        updatedAt = now,
+                    ))
+                }
+            }
+        }
+    }
 
     // ── Salt 复刻交互状态（SourcesPage.vue ref 组）──────────
 
@@ -267,6 +297,10 @@ class SourcesViewModel constructor(
     /** 删除音源 */
     fun deleteSource(source: Source, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
+            if (source.type == SourceType.ONLINE) {
+                lxScriptStore.delete(source.id)
+                lxScriptRepository.unregister(source.id)
+            }
             // 先取待删歌曲 ids，用于清理播放快照/最近播放/播放队列
             val songIdsToRemove = try {
                 songDao.getBySource(source.id).map { it.id }.toSet()

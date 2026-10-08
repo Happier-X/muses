@@ -423,13 +423,11 @@ private fun SearchResultRow(
                     )
                 }
             }
-            result.durationMs?.takeIf { it > 0 }?.let { ms ->
-                Text(
-                    text = formatDuration(ms),
-                    fontSize = 12.sp,
-                    color = scheme.onSurfaceVariantSummary,
-                )
-            }
+            Text(
+                text = formatDuration(result.durationMs),
+                fontSize = 12.sp,
+                color = scheme.onSurfaceVariantSummary,
+            )
             Spacer(Modifier.width(10.dp))
             Icon(
                 imageVector = TablerIcons.Play,
@@ -465,8 +463,9 @@ private fun LoadMoreRow(loading: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** 毫秒 → m:ss */
-private fun formatDuration(ms: Long): String {
+/** 毫秒 → m:ss；缺失或未取得有效时长时显示占位符。 */
+private fun formatDuration(ms: Long?): String {
+    if (ms == null || ms <= 0L) return "--:--"
     val totalSec = ms / 1000
     val min = totalSec / 60
     val sec = totalSec % 60

@@ -37,6 +37,8 @@ class DesktopTray(
     private val onPrevious: () -> Unit,
     private val onExit: () -> Unit,
     private val tooltip: String = "Muses",
+    private val onLyricsSettings: (() -> Unit)? = null,
+    private val lyricsVisible: StateFlow<Boolean>? = null,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var trayIcon: TrayIcon? = null
@@ -49,6 +51,10 @@ class DesktopTray(
                 val playItem = MenuItem("播放").apply {
                     addActionListener { onTogglePlay() }
                 }
+                val lyricsItem = onLyricsSettings?.let { adjust -> MenuItem("歌词设置").apply {
+                    isEnabled = lyricsVisible?.value ?: true
+                    addActionListener { adjust() }
+                } }
                 val popup = PopupMenu().apply {
                     add(MenuItem("显示主窗口").apply {
                         addActionListener { onShowMainWindow() }
@@ -61,6 +67,7 @@ class DesktopTray(
                         addActionListener { onNext() }
                     })
                     addSeparator()
+                    lyricsItem?.let { add(it); addSeparator() }
                     add(MenuItem("退出").apply {
                         addActionListener { onExit() }
                     })
@@ -80,6 +87,11 @@ class DesktopTray(
                         EventQueue.invokeLater {
                             runCatching { playItem.label = if (playing) "暂停" else "播放" }
                         }
+                    }
+                }
+                if (lyricsItem != null && lyricsVisible != null) scope.launch {
+                    lyricsVisible.collect { available ->
+                        EventQueue.invokeLater { lyricsItem.isEnabled = available }
                     }
                 }
             }

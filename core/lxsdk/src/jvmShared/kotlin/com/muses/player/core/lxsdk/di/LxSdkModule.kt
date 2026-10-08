@@ -12,6 +12,9 @@ import com.muses.player.core.model.online.CachedOnlineTrackMetadataResolver
 import com.muses.player.core.model.online.OnlineTrackMetadataResolver
 import com.muses.player.core.model.online.OnlineTrackResolver
 import org.koin.dsl.module
+import com.muses.player.core.data.repository.SettingsRepository
+import com.muses.player.core.lxsdk.store.BuiltinLxSourceUpdater
+import kotlinx.coroutines.flow.first
 
 /**
  * 洛雪自定义音源（在线音源）Koin 装配。
@@ -37,18 +40,22 @@ import org.koin.dsl.module
 fun lxSdkModule() = module {
     single<LxCrypto> { LxCryptoJvm() }
     single { LxHttpClient() }
-    single<LxScriptStore> { FileLxScriptStore() }
+    single { FileLxScriptStore() }
+    single<LxScriptStore> { get<FileLxScriptStore>() }
     single {
         val store: LxScriptStore = get()
+        val settings: SettingsRepository = get()
         LxScriptRepository(
             crypto = get(),
             httpClient = get(),
             storedScriptsProvider = {
                 // 只登记已启用脚本；引擎仍按需加载（首次请求某平台时才建 QuickJS runtime）
-                store.list().filter { it.enabled }.map { it.id to it.source }
+                val builtinEnabled = settings.builtinLxSourcesEnabled.first()
+                store.list().filter { it.enabled && (builtinEnabled || !it.isBuiltin) }.map { it.id to it.source }
             },
         )
     }
+    single { BuiltinLxSourceUpdater(get(), get(), get(), get()) }
     single<OnlineTrackResolver> { LxOnlineTrackResolver(get(), candidateProvider = getOrNull(), urlProbe = getOrNull()) }
 
     /**

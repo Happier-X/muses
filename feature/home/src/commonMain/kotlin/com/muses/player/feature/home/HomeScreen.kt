@@ -23,9 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -65,7 +63,6 @@ import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.window.WindowListPopup
 import top.yukonga.miuix.kmp.squircle.squircleClip
@@ -191,7 +188,7 @@ fun HomeCollectionScreen(
                 end = if (showRecommendations) 12.dp else 16.dp,
                 bottom = 16.dp + LocalBottomChromePadding.current,
             ),
-            verticalArrangement = Arrangement.spacedBy(if (showRecommendations) 2.dp else 6.dp),
+            verticalArrangement = Arrangement.spacedBy(if (showRecommendations) 2.dp else 14.dp),
         ) {
             // 一次性提示（如「该平台没有可用音源脚本」）
             state.message?.let { message ->
@@ -202,8 +199,6 @@ fun HomeCollectionScreen(
 
             // ── 排行榜 ──
             if (!showRecommendations) {
-            item(key = "chart-title") { SmallTitle(text = "排行榜", insideMargin = SectionTitleMargin) }
-
             when {
                 chart.loadingCharts && chart.charts.isEmpty() -> item(key = "chart-loading") {
                     LoadingRow()
@@ -214,21 +209,14 @@ fun HomeCollectionScreen(
                 chart.charts.isEmpty() -> item(key = "chart-empty") {
                     MusesEmpty(title = "空空如也~")
                 }
-                else -> item(key = "chart-cards") {
+                else -> items(chart.charts.chunked(3), key = { "chart-row-${it.first().chartId}" }) { row ->
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        val cardWidth = ((maxWidth - 24.dp) / 3.15f).coerceAtMost(164.dp)
-                        val orderedCharts = chart.charts.chunked(6).flatMap { group ->
-                            (0..2).flatMap { column ->
-                                listOfNotNull(group.getOrNull(column), group.getOrNull(column + 3))
-                            }
-                        }
-                        LazyHorizontalGrid(
-                            rows = GridCells.Fixed(2),
-                            modifier = Modifier.fillMaxWidth().height((cardWidth + 42.dp) * 2 + 14.dp),
+                        val cardWidth = (maxWidth - 24.dp) / 3
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
-                            items(orderedCharts, key = { it.chartId }) { chartItem ->
+                            row.forEach { chartItem ->
                                 ChartCard(
                                     chart = chartItem,
                                     width = cardWidth,
@@ -303,14 +291,6 @@ fun HomeCollectionScreen(
         }
     }
 }
-
-/**
- * 区块标题缩进：与列表行内容左对齐（列表行 12dp 内缩 + 页面 16dp 外边距）。
- *
- * 不用 SmallTitle 默认的 28dp：那是配合 Card 内缩的取值，本页列表没有 Card 承载，
- * 沿用默认会让标题比列表内容多缩进 16dp，看起来「没对齐」。
- */
-private val SectionTitleMargin = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
 
 private val ChartColors = listOf(
     listOf(Color(0xFFE83967), Color(0xFFFF918B)),

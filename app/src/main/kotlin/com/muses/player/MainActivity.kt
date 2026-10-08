@@ -2,6 +2,8 @@ package com.muses.player
 
 import android.os.Build
 import android.os.Bundle
+import android.content.Intent
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -9,9 +11,11 @@ import com.muses.player.navigation.MusesApp
 import com.muses.player.core.ui.theme.MusesTheme
 
 class MainActivity : ComponentActivity() {
+    private val openSettingsRequest = mutableLongStateOf(0L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.action == "com.muses.player.OPEN_SETTINGS") openSettingsRequest.longValue++
         enableEdgeToEdge()
         // 底部安全区（手势条 / 三键导航）默认会被系统叠一层「对比度 scrim」——
         // 浅色页面下就是一条白/浅色带，看起来像「为了适配 inset 凭空多出一块白」。
@@ -22,8 +26,14 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             MusesTheme {
-                MusesApp()
+                MusesApp(openSettingsRequest = openSettingsRequest.longValue)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == "com.muses.player.OPEN_SETTINGS") openSettingsRequest.longValue++
     }
 }

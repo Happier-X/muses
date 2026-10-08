@@ -122,6 +122,7 @@ class DesktopPlayerHook(
     suspend fun ensurePlayer(): JvmPlayerPort {
         playerPort?.let { return it }
         val port = DesktopContainer.playerPort(
+            onlineResolverOverride = org.koin.core.context.GlobalContext.get().get(),
             candidateProvider = org.koin.core.context.GlobalContext.get().get(),
             urlProbe = org.koin.core.context.GlobalContext.get().get(),
         )

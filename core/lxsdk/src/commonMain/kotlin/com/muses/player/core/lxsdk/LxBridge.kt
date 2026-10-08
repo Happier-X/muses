@@ -174,7 +174,7 @@ internal object LxBridge {
                       try { body = JSON.parse(t); } catch (e) { /* 保留原始正文 */ }
                     }
                   }
-                  callback(null, { body, statusCode: response.statusCode, headers: response.headers });
+                  callback(null, { body, statusCode: response.statusCode, headers: response.headers }, body);
                 }).catch(err => {
                   callback(err instanceof Error ? err : new Error(String(err)));
                 });

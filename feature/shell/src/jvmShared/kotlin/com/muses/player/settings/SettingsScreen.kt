@@ -61,10 +61,14 @@ fun SettingsScreen(
     onBack: () -> Unit,
     // AI 服务配置二级页入口（设置页「AI 推荐」→「AI 服务」箭头进入）。
     onOpenAiSettings: () -> Unit,
+    onOpenSyncSettings: () -> Unit,
 ) {
     val actions = rememberShellPlatformActions()
     val versionProvider = koinInject<AppVersionProvider>()
     val settingsRepository = koinInject<SettingsRepository>()
+    val builtinUpdater = koinInject<com.muses.player.core.lxsdk.store.BuiltinLxSourceUpdater>()
+    val builtinLxEnabled by settingsRepository.builtinLxSourcesEnabled.collectAsState(initial = true)
+    val builtinUpdateStatus by builtinUpdater.status.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val lyricsEnabled by settingsRepository.miniPlayerLyricsEnabled.collectAsState(initial = false)
     val notificationLyricsEnabled by settingsRepository.notificationLyricsEnabled.collectAsState(initial = false)
@@ -83,6 +87,7 @@ fun SettingsScreen(
                 // ---- 播放设置 ----
                 SettingsBlockTitle("播放")
                 Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                    AudioFocusPreference()
                     SwitchPreference(
                         title = "播放控件歌词",
                         checked = lyricsEnabled,
@@ -94,6 +99,7 @@ fun SettingsScreen(
                         onCheckedChange = { coroutineScope.launch { settingsRepository.setNotificationLyricsEnabled(it) } },
                     )
                     DesktopLyricsPreference()
+                    DesktopLyricsLockPreference()
                     SwitchPreference(
                         title = "封面强调色",
                         summary = "播放页文字与图标跟随封面取色",
@@ -113,8 +119,26 @@ fun SettingsScreen(
                     )
                 }
 
-                // ---- AI 推荐（默认启用；地址/模型/Key 收进二级页） ----
+                // ---- 内置音源 ----
+                SettingsBlockTitle("音源")
+                Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                    SwitchPreference(
+                        title = "使用内置 LX 音源",
+                        summary = if (builtinLxEnabled) builtinUpdateStatus else "关闭后仅使用自行导入的 LX 音源",
+                        checked = builtinLxEnabled,
+                        onCheckedChange = { coroutineScope.launch { builtinUpdater.setEnabled(it) } },
+                    )
+                }
+                // ---- 下载与 AI 推荐 ----
                 com.muses.player.download.DownloadPreferencesSection()
+                SettingsBlockTitle("数据同步")
+                Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                    top.yukonga.miuix.kmp.preference.ArrowPreference(
+                        title = "WebDAV 同步",
+                        summary = "同步应用数据",
+                        onClick = onOpenSyncSettings,
+                    )
+                }
                 AiRecommendSettingSection(onOpenAiSettings = onOpenAiSettings)
 
                 // ---- 应用更新（Windows 应用内更新卡片；安卓空实现，走共享外链检查项） ----

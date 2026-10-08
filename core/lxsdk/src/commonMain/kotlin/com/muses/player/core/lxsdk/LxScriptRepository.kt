@@ -4,6 +4,14 @@ import com.muses.player.core.lxsdk.http.LxHttpClient
 import com.muses.player.core.lxsdk.crypto.LxCrypto
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.Dispatchers
 
 /**
  * 已加载的音源脚本条目：脚本源码 + 元信息 + 运行中的引擎。
@@ -14,6 +22,7 @@ class LoadedLxScript(
     val scriptId: String,
     val source: String,
 ) {
+    private val loadMutex = Mutex()
     var engine: LxScriptEngine? = null
         private set
 
@@ -32,9 +41,9 @@ class LoadedLxScript(
         crypto: LxCrypto,
         httpClient: LxHttpClient,
         requestTimeoutMs: Long,
-    ): Boolean {
-        if (engine != null) return true
-        return try {
+    ): Boolean = loadMutex.withLock {
+        if (engine != null) return@withLock true
+        try {
             val e = LxScriptEngine(
                 scriptSource = source,
                 crypto = crypto,
@@ -45,6 +54,8 @@ class LoadedLxScript(
             engine = e
             loadError = null
             true
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             loadError = e.message ?: "脚本加载失败"
             false
@@ -109,6 +120,21 @@ class LxScriptRepository(
         }
     }
 
+    /** 开关或内置更新变化后，按持久化状态替换运行态，不影响已解析出的播放地址。 */
+    suspend fun refreshFromStore() = syncMutex.withLock {
+        val provider = storedScriptsProvider ?: return@withLock
+        val stored = provider()
+        mutex.withLock {
+            val sourcesById = stored.toMap()
+            scripts.filter { sourcesById[it.scriptId] != it.source }.forEach { it.close() }
+            scripts.removeAll { sourcesById[it.scriptId] != it.source }
+            stored.forEach { (id, source) ->
+                if (scripts.none { it.scriptId == id }) scripts += LoadedLxScript(id, source)
+            }
+        }
+        synced = true
+    }
+
     /** 当前已注册脚本快照（供 UI 展示） */
     suspend fun scripts(): List<LoadedLxScript> {
         ensureSynced()
@@ -122,7 +148,9 @@ class LxScriptRepository(
     suspend fun loadAll(): List<LoadedLxScript> {
         ensureSynced()
         val snapshot = mutex.withLock { scripts.toList() }
-        snapshot.forEach { it.ensureLoaded(crypto, httpClient, requestTimeoutMs) }
+        coroutineScope {
+            snapshot.map { async { it.ensureLoaded(crypto, httpClient, requestTimeoutMs) } }.awaitAll()
+        }
         return snapshot
     }
 
@@ -182,7 +210,7 @@ class LxScriptRepository(
     /**
      * 解析直链。
      *
-     * 路由策略：按 [platform] 找到**第一个**声明了该源且支持 `musicUrl` 的脚本。
+     * 路由策略：所选音质优先，同档位跨脚本并行寻找可用地址，全部失败后降档。
      * 找不到可用脚本时抛 [LxResolveException]（上层转成用户可读文案）。
      */
     suspend fun resolveMusicUrl(
@@ -191,12 +219,13 @@ class LxScriptRepository(
         quality: LxQuality? = null,
     ): String = resolveMusicUrlInfo(platform, musicInfoJson, quality).url
 
-    /** 返回应用实际请求的档位；下载可要求只向较低档位回退。 */
+    /** 返回实际请求档位。播放和下载均只降档，同档位返回最先通过可用性检查的地址。 */
     suspend fun resolveMusicUrlInfo(
         platform: String,
         musicInfoJson: String,
         quality: LxQuality? = null,
-        downloadFallback: Boolean = false,
+        @Suppress("UNUSED_PARAMETER") downloadFallback: Boolean = false,
+        acceptUrl: suspend (String) -> Boolean = { true },
     ): LxMusicUrl {
         ensureSynced()
         val candidates = mutex.withLock { scripts.toList() }
@@ -205,10 +234,13 @@ class LxScriptRepository(
         }
 
         val failures = mutableListOf<String>()
+        val failuresMutex = Mutex()
         val downloadAttempts = mutableListOf<Triple<LxQuality, LxScriptEngine, String>>()
-        for (script in candidates) {
+        val availability = coroutineScope {
+            candidates.map { async { it.ensureLoaded(crypto, httpClient, requestTimeoutMs) } }.awaitAll()
+        }
+        for ((script, loaded) in candidates.zip(availability)) {
             // 懒加载：加载失败的脚本跳过并记录（不阻断其它脚本）
-            val loaded = script.ensureLoaded(crypto, httpClient, requestTimeoutMs)
             if (!loaded) {
                 failures += "${script.meta.name ?: script.scriptId}: ${script.loadError}"
                 continue
@@ -217,36 +249,50 @@ class LxScriptRepository(
             val declared = engine.sources?.get(platform) ?: continue
             if (!declared.supports(LxAction.MUSIC_URL)) continue
 
-            val qualities = if (downloadFallback) {
-                val requested = quality ?: LxQuality.DEFAULT
-                LxQuality.ordered().filter { it.rank <= requested.rank && declared.supports(it) }.reversed()
-            } else listOf(pickQuality(declared, quality))
-            if (downloadFallback) {
-                qualities.filterNotNull().forEach { effectiveQuality ->
+            val requested = quality ?: LxQuality.DEFAULT
+            LxQuality.ordered().filter { it.rank <= requested.rank && declared.supports(it) }
+                .forEach { effectiveQuality ->
                     downloadAttempts += Triple(effectiveQuality, engine, script.meta.name ?: script.scriptId)
                 }
-                continue
-            }
-            for (effectiveQuality in qualities) {
-                try {
-                    return engine.getMusicUrl(platform, effectiveQuality, musicInfoJson).copy(quality = effectiveQuality)
-                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                catch (e: Exception) {
-                    failures += "${script.meta.name ?: script.scriptId}: ${e.message}"
-                }
+            // local 源不声明音质，保留原有无档位解析能力。
+            if (platform == "local" && declared.qualitys.isEmpty()) {
+                val result = engine.getMusicUrl(platform, null, musicInfoJson)
+                if (acceptUrl(result.url)) return result
             }
         }
 
-        // 下载优先保住音质：同档位跨脚本尝试完后，才降到最近的可用低档。
-        // 相同档位保留脚本原有优先顺序，不升到用户所选档位以上。
-        for ((effectiveQuality, engine, name) in downloadAttempts.sortedByDescending { it.first.rank }) {
-            try {
-                return engine.getMusicUrl(platform, effectiveQuality, musicInfoJson).copy(quality = effectiveQuality)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                failures += "$name: ${e.message}"
+        // 同档位并行解析并探测；赢家确定后取消其余候选，避免继续消耗接口与流量。
+        for ((_, attempts) in downloadAttempts.groupBy { it.first }.toList().sortedByDescending { it.first.rank }) {
+            val winner = coroutineScope {
+                val results = Channel<LxMusicUrl?>(Channel.UNLIMITED)
+                val jobs = attempts.map { (effectiveQuality, engine, name) ->
+                    launch(Dispatchers.Default) {
+                        var result: LxMusicUrl? = null
+                        try {
+                            result = withTimeoutOrNull(requestTimeoutMs) {
+                                engine.getMusicUrl(platform, effectiveQuality, musicInfoJson)
+                                    .takeIf { acceptUrl(it.url) }
+                                    ?.copy(quality = effectiveQuality)
+                            }
+                        } catch (e: CancellationException) { throw e }
+                        catch (e: Exception) {
+                            failuresMutex.withLock { failures += "$name: ${e.message}" }
+                        } finally {
+                            results.trySend(result)
+                        }
+                    }
+                }
+                try {
+                    repeat(attempts.size) {
+                        results.receive()?.let { return@coroutineScope it }
+                    }
+                    null
+                } finally {
+                    jobs.forEach { it.cancel() }
+                    results.close()
+                }
             }
+            if (winner != null) return winner
         }
 
         throw LxResolveException(
@@ -325,28 +371,6 @@ class LxScriptRepository(
                 }
             },
         )
-    }
-
-    /**
-     * 音质选择：请求档位可用则用之；否则**就近回退**。
-     *
-     * 回退方向规则：优先**向下**（更低档位体积更小、兼容性更好，不会让用户在移动网络上
-     * 意外被切到上百 MB 的母带文件）；只有当没有更低可用档时才**向上**取最低可用档。
-     *
-     * 返回 null 表示脚本对该源未声明任何音质（上层按 `type=null` 传递，
-     * 由脚本自身的 `mapQuality` 兜底）。
-     */
-    private fun pickQuality(
-        declared: LxSourceDeclaration,
-        requested: LxQuality?,
-    ): LxQuality? {
-        val start = requested ?: LxQuality.DEFAULT
-        if (declared.supports(start)) return start
-        val available = LxQuality.ordered().filter { declared.supports(it) }
-        if (available.isEmpty()) return null
-        return available.lastOrNull { it.rank < start.rank }
-            ?: available.firstOrNull { it.rank > start.rank }
-            ?: available.first()
     }
 
     fun close() {

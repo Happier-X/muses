@@ -25,12 +25,35 @@ class FileLxScriptStore(
      * （实测崩溃：initPlatformDirs 未初始化就调用 appDataDir）。
      */
     private val rootDirProvider: () -> File = { File(PlatformDirs.appDataDir(), "lxscripts") },
+    private val bundledScriptsProvider: () -> List<BundledLxScript> = { BundledLxScripts.load() },
 ) : LxScriptStore {
 
     /** 便捷构造：直接指定目录（测试/显式路径场景） */
-    constructor(rootDir: File) : this(rootDirProvider = { rootDir })
+    constructor(rootDir: File) : this(rootDirProvider = { rootDir }, bundledScriptsProvider = { emptyList() })
 
     private val rootDir: File by lazy(rootDirProvider)
+    private val bundledIds: Set<String> by lazy { bundledScriptsProvider().map { it.id }.toSet() }
+
+    override fun builtinIds(): Set<String> = bundledIds + rootDir.listFiles().orEmpty()
+        .filter { it.name.endsWith(".bundled") }.map { it.name.removeSuffix(".bundled") }
+
+    // 每个内置脚本只安装一次；标记保留后，用户删除或禁用不会在重启时被撤销。
+    private val bundledInstalled: Unit by lazy {
+        bundledScriptsProvider().forEach { bundled ->
+            ensureRoot()
+            val marker = File(rootDir, "${bundled.id}.bundled")
+            if (!marker.exists()) {
+                val existing = rootDir.listFiles { file -> file.name.endsWith(EXT_SCRIPT) }
+                    .orEmpty().any { file ->
+                        runCatching { file.readText(Charsets.UTF_8) == bundled.source }.getOrDefault(false)
+                    }
+                if (!existing && !scriptFile(bundled.id).exists()) {
+                    save(bundled.id, bundled.source, enabled = true, sourceUrl = bundled.sourceUrl)
+                }
+                marker.writeText(fingerprint(bundled.source), Charsets.UTF_8)
+            }
+        }
+    }
 
     private companion object {
         const val EXT_SCRIPT = ".js"
@@ -38,7 +61,8 @@ class FileLxScriptStore(
         const val EXT_URL = ".url"
     }
 
-    override fun list(): List<LxStoredScript> {
+    @Synchronized override fun list(): List<LxStoredScript> {
+        bundledInstalled
         val dir = rootDir.takeIf { it.isDirectory } ?: return emptyList()
         val files = (dir.listFiles { f -> f.isFile && f.name.endsWith(EXT_SCRIPT) } ?: return emptyList())
             .sortedBy { it.lastModified() }
@@ -56,13 +80,14 @@ class FileLxScriptStore(
                 importedAt = file.lastModified(),
                 enabled = !disabledMarker(id).exists(),
                 sourceUrl = runCatching { sourceUrlFile(id).readText(Charsets.UTF_8) }.getOrNull(),
+                isBuiltin = File(rootDir, "$id.bundled").exists(),
             )
         }
     }
 
     override fun get(id: String): LxStoredScript? = list().firstOrNull { it.id == id }
 
-    override fun save(id: String, source: String, enabled: Boolean, sourceUrl: String?): LxStoredScript {
+    @Synchronized override fun save(id: String, source: String, enabled: Boolean, sourceUrl: String?): LxStoredScript {
         ensureRoot()
         scriptFile(id).writeText(source, Charsets.UTF_8)
         if (enabled) disabledMarker(id).delete() else disabledMarker(id).writeText("", Charsets.UTF_8)
@@ -81,14 +106,14 @@ class FileLxScriptStore(
         )
     }
 
-    override fun setEnabled(id: String, enabled: Boolean): Boolean {
+    @Synchronized override fun setEnabled(id: String, enabled: Boolean): Boolean {
         val file = scriptFile(id)
         if (!file.exists()) return false
         if (enabled) disabledMarker(id).delete() else disabledMarker(id).writeText("", Charsets.UTF_8)
         return true
     }
 
-    override fun delete(id: String): Boolean {
+    @Synchronized override fun delete(id: String): Boolean {
         val removed = scriptFile(id).delete()
         disabledMarker(id).delete()
         sourceUrlFile(id).delete()
@@ -98,6 +123,26 @@ class FileLxScriptStore(
     private fun ensureRoot() {
         if (!rootDir.isDirectory) rootDir.mkdirs()
     }
+
+    /** 只替换仍由应用管理的原文，编辑过或删除过的脚本不自动覆盖。 */
+    @Synchronized fun updateBuiltin(id: String, expectedSource: String, source: String, sourceUrl: String): Boolean {
+        val current = get(id) ?: return false
+        if (!current.isBuiltin || current.source != expectedSource) return false
+        val marker = File(rootDir, "$id.bundled")
+        val baseline = marker.readText(Charsets.UTF_8)
+        val unchanged = baseline == fingerprint(current.source) ||
+            (baseline == "1" && bundledScriptsProvider().any { it.id == id && it.source == current.source })
+        if (!unchanged) return false
+        val temporary = File(rootDir, "$id.js.update")
+        temporary.writeText(source, Charsets.UTF_8)
+        java.nio.file.Files.move(temporary.toPath(), scriptFile(id).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        sourceUrlFile(id).writeText(sourceUrl, Charsets.UTF_8)
+        marker.writeText(fingerprint(source), Charsets.UTF_8)
+        return true
+    }
+
+    private fun fingerprint(source: String): String = java.security.MessageDigest.getInstance("SHA-256")
+        .digest(source.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
     private fun scriptFile(id: String) = File(rootDir, "$id$EXT_SCRIPT")
 

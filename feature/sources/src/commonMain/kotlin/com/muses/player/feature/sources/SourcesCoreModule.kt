@@ -11,7 +11,7 @@ import org.koin.dsl.module
 val sourcesCoreModule = module {
     viewModel { WebDavBrowseViewModel(get()) }
     // 洛雪自定义音源脚本管理页（脚本增删/启禁用/导入预检）
-    viewModel { LxScriptsViewModel(get(), get(), get()) }
+    viewModel { LxScriptsViewModel(get(), get(), get(), get()) }
     // 在线搜索页（多平台并行搜索 + 点结果直接播放）
     viewModel {
         val port: PlaybackPort = get()
@@ -24,6 +24,8 @@ val sourcesCoreModule = module {
             get(), get(), get(), get(), get(),
             get(), get(), get(), get(),
             get(),
+            lxScriptStore = get(),
+            lxScriptRepository = get(),
             onRemoveFromQueue = port::removeFromQueue,
         )
     }

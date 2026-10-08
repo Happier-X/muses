@@ -55,5 +55,5 @@ fun desktopLyricsText(snapshot: DesktopLyricsSnapshot, positionMs: Long, showTra
         }
     } else emptyList()
     return DesktopLyricsText(primary, secondary, words, if (words.isEmpty()) 0 else positionMs,
-        words.isNotEmpty() && isPlaying)
+        isPlaying)
 }

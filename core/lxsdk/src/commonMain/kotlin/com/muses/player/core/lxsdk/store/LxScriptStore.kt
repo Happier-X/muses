@@ -17,6 +17,7 @@ data class LxStoredScript(
     val enabled: Boolean = true,
     /** 通过 URL 导入脚本时使用的地址。 */
     val sourceUrl: String? = null,
+    val isBuiltin: Boolean = false,
 )
 
 /**
@@ -27,6 +28,9 @@ data class LxStoredScript(
  * 完成脚本的增删查改。
  */
 interface LxScriptStore {
+    /** 内置音源的稳定 ID，供界面区分内置与用户添加的音源。 */
+    fun builtinIds(): Set<String> = list().filter { it.isBuiltin }.map { it.id }.toSet()
+
     /** 列出全部已导入脚本（按导入时间升序） */
     fun list(): List<LxStoredScript>
 

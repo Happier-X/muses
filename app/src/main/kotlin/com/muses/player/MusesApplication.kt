@@ -39,6 +39,7 @@ class MusesApplication : Application(), Configuration.Provider {
         }
         // crash handler 必须最先安装，install 内部已 try-catch，不会把正常启动变成崩溃
         CrashHandler.install(this, errorLogCrashPersistence)
+        BuiltinLxUpdateWorker.schedule(this)
     }
 
     override val workManagerConfiguration: Configuration

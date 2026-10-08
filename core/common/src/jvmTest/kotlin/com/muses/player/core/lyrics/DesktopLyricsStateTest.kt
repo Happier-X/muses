@@ -45,6 +45,14 @@ class DesktopLyricsStateTest {
             timedLine.copy(text = "别的歌词")), 1500, true).words)
     }
 
+    @Test fun 普通歌词与无歌词也保留真实播放状态() {
+        for (current in listOf(snapshot, snapshot.copy(document = null))) {
+            assertEquals(true, desktopLyricsText(current, 1500, true, true).isPlaying)
+            assertEquals(false, desktopLyricsText(current, 1500, true, false).isPlaying)
+            assertEquals(emptyList<DesktopLyricsWord>(), desktopLyricsText(current, 1500, true, true).words)
+        }
+    }
+
     @Test fun 零时长即时完成负时长丢弃() {
         val line = timedLine.copy(syllables = listOf(LyricSyllable("你", 1000, 1000), LyricSyllable("好！", 2000, 1500)))
         val words = desktopLyricsText(timedSnapshot(line), 1000, true).words

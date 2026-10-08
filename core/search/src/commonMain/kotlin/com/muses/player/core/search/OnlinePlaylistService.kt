@@ -23,7 +23,7 @@ data class OnlinePlaylist(
 class OnlinePlaylistService(private val http: SearchHttp = SearchHttp()) {
     suspend fun featured(): List<OnlinePlaylist> {
         val root = http.parseObject(http.getText(
-            "https://music.163.com/api/playlist/highquality/list?limit=8",
+            "https://music.163.com/api/playlist/highquality/list?limit=30",
             referer = "https://music.163.com/",
         ))
         check(root.long("code") == 200L) { "精选歌单暂时不可用，请稍后重试" }
@@ -40,6 +40,6 @@ class OnlinePlaylistService(private val http: SearchHttp = SearchHttp()) {
                 description = item.str("description"),
                 trackCount = item.long("trackCount")?.toInt(),
             )
-        }.distinctBy { it.id }.take(8)
+        }.distinctBy { it.id }.take(30)
     }
 }

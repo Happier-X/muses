@@ -173,11 +173,12 @@ class HomeViewModel(
                     _state.value = _state.value.copy(featured = _state.value.featured.copy(items = cached.items.take(3)))
                     if (!forceRefresh && cached.isFresh()) return@launch
                 }
-                val items = playlistService.featured().take(3)
+                val selectionDay = localRecommendDay()
+                val items = playlistService.featured().distinctBy { it.id }.shuffled().take(3)
                 check(items.isNotEmpty()) { "暂时没有可用歌单" }
                 _state.value = _state.value.copy(featured = FeaturedPlaylistState(items))
                 try {
-                    playlistCacheStore.save(items)
+                    playlistCacheStore.save(items, selectionDay)
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (_: Exception) {

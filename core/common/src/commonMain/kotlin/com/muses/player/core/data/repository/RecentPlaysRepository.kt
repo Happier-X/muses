@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -29,6 +31,14 @@ import kotlinx.serialization.json.jsonObject
  * 存储替换 localStorage → DataStore；事件广播 → StateFlow。
  */
 class RecentPlaysRepository constructor(private val dataStore: DataStore<Preferences>) {
+    private val mutex = Mutex()
+
+    /** 合并历史，按同曲最近时间去重，不删除本机记录。 */
+    suspend fun merge(entries: List<RecentPlayEntry>) = mutex.withLock {
+        val merged = retainRecent(decode(dataStore.data.first()[KEY]) + entries, platformNowMs())
+            .sortedByDescending { it.playedAt }.distinctBy { it.songId }
+        write(merged)
+    }
 
     companion object {
         /** Web RECENT_STORAGE_KEY = 'muses:recent' */
@@ -84,11 +94,11 @@ class RecentPlaysRepository constructor(private val dataStore: DataStore<Prefere
     }
 
     /** 清理并读取最近半年记录。 */
-    private suspend fun readAndPrune(): List<RecentPlayEntry> {
+    private suspend fun readAndPrune(): List<RecentPlayEntry> = mutex.withLock {
         val entries = decode(dataStore.data.first()[KEY])
         val retained = retainRecent(entries, platformNowMs())
         if (retained.size != entries.size) write(retained)
-        return retained
+        retained
     }
 
     suspend fun load(): List<RecentPlayEntry> = readAndPrune()
@@ -102,7 +112,7 @@ class RecentPlaysRepository constructor(private val dataStore: DataStore<Prefere
     /**
      * 播放时登记：清理半年外记录，同曲移到最前。
      */
-    suspend fun record(entry: RecentPlayEntry) {
+    suspend fun record(entry: RecentPlayEntry) = mutex.withLock {
         val cutoff = platformNowMs() - RETENTION_MS
         val plays = decode(dataStore.data.first()[KEY])
             .filter { it.playedAt >= cutoff }
@@ -113,14 +123,14 @@ class RecentPlaysRepository constructor(private val dataStore: DataStore<Prefere
     }
 
     /** 清空记录 */
-    suspend fun clear() {
-        if (decode(dataStore.data.first()[KEY]).isEmpty()) return
+    suspend fun clear() = mutex.withLock {
+        if (decode(dataStore.data.first()[KEY]).isEmpty()) return@withLock
         write(emptyList())
     }
 
     /** 删除指定歌曲的最近播放记录（删源时清理，避免底部栏残留已删歌曲信息） */
-    suspend fun removeSongs(songIds: Set<String>) {
-        if (songIds.isEmpty()) return
+    suspend fun removeSongs(songIds: Set<String>) = mutex.withLock {
+        if (songIds.isEmpty()) return@withLock
         val filtered = retainRecent(decode(dataStore.data.first()[KEY]), platformNowMs())
             .filter { it.songId !in songIds }
         write(filtered)

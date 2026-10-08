@@ -4,6 +4,8 @@ import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.repository.SourceRepository
+import com.muses.player.core.data.log.ErrorLogStore
+import com.muses.player.core.media.scanner.DownloadAudioQuality
 import com.muses.player.core.download.DownloadQueueStore
 import com.muses.player.core.lxsdk.LxQuality
 import com.muses.player.core.lxsdk.LxScriptRepository
@@ -24,7 +26,6 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.serialization.json.*
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -49,12 +50,21 @@ class DownloadManager(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     private val client: OkHttpClient = OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).callTimeout(10, TimeUnit.MINUTES).build(),
     private val runningChanged: (Boolean) -> Unit = {},
+    private val urlProbe: com.muses.player.core.model.online.OnlinePlayableUrlProbe? = null,
+    private val errorLog: ErrorLogStore? = null,
     private val resolveAudio: suspend (OnlineTrackRef, LxQuality) -> com.muses.player.core.lxsdk.LxMusicUrl = { ref, quality ->
-        lx.resolveMusicUrlInfo(ref.platform, ref.musicInfoJson, quality, downloadFallback = true)
+        lx.resolveMusicUrlInfo(ref.platform, ref.musicInfoJson, quality, downloadFallback = true,
+            acceptUrl = { url -> urlProbe == null || withTimeoutOrNull(4_000) { urlProbe.canOpen(url) } == true })
     },
 ) {
     // WebDAV 使用 HTTP/1.1，提高部分 Android / 代理组合上传时的连接兼容性。
-    private val webDavClient = client.newBuilder().protocols(listOf(Protocol.HTTP_1_1)).build()
+    private val webDavClient = client.newBuilder().protocols(listOf(Protocol.HTTP_1_1))
+        // PUT 可能已经落盘，断连后先核验；禁止底层在未确认结果时自动重发。
+        .retryOnConnectionFailure(false)
+        // 网盘网关接收完请求体后还需完成上游保存；慢速网盘写入可能超过 5 分钟。
+        // 保留整个请求的 15 分钟上限，避免先于网关取消仍在进行的上传。
+        .readTimeout(15, TimeUnit.MINUTES).writeTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(15, TimeUnit.MINUTES).build()
     private val ready = scope.async { store.recoverInterrupted() }
     val tasks = store.tasks.stateIn(scope, SharingStarted.Eagerly, emptyList())
     val availableSources = sources.observeSources().stateIn(scope, SharingStarted.Eagerly, emptyList())
@@ -74,9 +84,12 @@ class DownloadManager(
         when {
             existing == null -> enqueueNew(song)
             existing.status != DownloadStatus.COMPLETED -> MusesSnackbar.show("歌曲已在下载队列中")
-            savedDownloadStillExists(existing) -> MusesSnackbar.show("这首歌已经下载过了")
+            savedDownloadStillExists(existing) &&
+                (LxQuality.fromKey(settings.downloadPreferredQuality.first())?.rank ?: 0) <=
+                (LxQuality.fromKey(existing.quality)?.rank ?: 0) ->
+                MusesSnackbar.show("这首歌已经下载过了")
             else -> {
-                // 目标文件已被用户或系统清理：丢掉旧记录再入队，否则 store 会按歌曲 id 去重挡住
+                // 文件已不存在或用户选择了更高档位，重新入队；是否能升级仍以实际文件音质为准。
                 store.update { list -> list.filterNot { task -> task.id == existing.id } }
                 enqueueNew(song)
             }
@@ -168,15 +181,14 @@ class DownloadManager(
     private suspend fun execute(task: DownloadTask) {
         try {
             change(task.id) { it.copy(status = DownloadStatus.PREPARING,
-                transferredBytes = 0, transferTotalBytes = null, warnings = emptyList(), error = null) }
+                transferredBytes = 0, transferTotalBytes = null, warnings = emptyList(), error = null, failureStage = null, skippedExisting = false) }
             val ref = OnlineTrackRef.parse(task.track.reference) ?: error("在线歌曲信息无效，请重新加入队列")
             val requested = LxQuality.fromKey(task.quality) ?: LxQuality.DEFAULT
             val directory = File(storage.cacheDirectory, task.id).apply { mkdirs() }
             val scratch = File(directory, "audio.part")
-            val resolved = downloadAudio(task.id, ref, requested, scratch)
+            downloadAudio(task.id, ref, requested, scratch)
             val extension = detectAudioExtension(scratch) ?: error("返回内容不是支持的音频格式，未保存到目标")
-            // 文件名带任务短 ID：同一首歌重复下载不会互相覆盖，也不会撞上用户已有文件。
-            val base = downloadBaseName(task.track) + " - " + task.id.take(8)
+            val base = downloadBaseName(task.track)
             val audio = File(directory, "$base.$extension")
             scratch.copyTo(audio, overwrite = true)
             change(task.id) { it.copy(status = DownloadStatus.METADATA) }
@@ -184,27 +196,22 @@ class DownloadManager(
             val (lyrics, cover) = collectMetadata(task, ref, warnings)
             val tags = JaudiotaggerTagPort.writeTags(audio, ScrapeChanges(title = task.track.title,
                 artist = task.track.artist, album = task.track.album, lyrics = lyrics), cover)
-            if (!tags.ok) warnings += "内嵌信息写入失败，已附带同名信息文件"
-            val files = mutableListOf(audio)
-            if (!lyrics.isNullOrBlank()) files += File(directory, "$base.lrc").apply { writeText(lyrics) }
-            if (cover != null) files += File(directory, "$base.cover.${coverExtension(cover)}").apply { writeBytes(cover) }
-            files += File(directory, "$base.metadata.json").apply { writeText(buildJsonObject {
-                put("title", task.track.title); put("artist", task.track.artist); put("album", task.track.album)
-                put("durationMs", task.track.durationMs); put("requestedQuality", resolved.quality?.key)
-                put("lyrics", lyrics); put("warnings", JsonArray(warnings.map(::JsonPrimitive)))
-            }.toString()) }
+            check(tags.ok) { "歌曲信息内嵌失败，音频尚未保存，请重试或更换音质" }
+            val files = listOf(audio)
             val target = task.target ?: error("请先选择保存位置")
             val total = files.sumOf { it.length() }
             change(task.id) { it.copy(status = if (target.kind == DownloadTargetKind.WEBDAV) DownloadStatus.UPLOADING else DownloadStatus.SAVING,
                 transferredBytes = 0, transferTotalBytes = total, warnings = warnings) }
-            val uploaded = if (target.kind == DownloadTargetKind.WEBDAV) upload(files, target, task.id) else null
+            val recoverUpload = task.target == target && task.transferTotalBytes != null &&
+                task.transferredBytes >= audio.length()
+            val uploaded = if (target.kind == DownloadTargetKind.WEBDAV) upload(files, target, task.id, recoverUpload) else null
             // 提交阶段不可取消：否则暂停会留下已落盘的音频，却把任务标成失败。
             withContext(NonCancellable) {
                 val saved = uploaded ?: storage.save(files, target) { bytes, size ->
                     change(task.id) { it.copy(transferredBytes = bytes, transferTotalBytes = size) }
                 }
                 warnings.addAll(saved.warnings)
-                syncLibrary(target, saved, task, lyrics, warnings)
+                if (!saved.skippedExisting) syncLibrary(target, saved, task, lyrics, warnings)
                 change(task.id) {
                     it.copy(
                         status = DownloadStatus.COMPLETED,
@@ -212,6 +219,7 @@ class DownloadManager(
                         warnings = warnings,
                         transferredBytes = total,
                         resumeValidator = null,
+                        skippedExisting = saved.skippedExisting,
                     )
                 }
             }
@@ -222,14 +230,25 @@ class DownloadManager(
             withContext(NonCancellable) { change(task.id) { if (it.status == DownloadStatus.COMPLETED) it else it.copy(status = DownloadStatus.PAUSED, error = null) } }
             throw e
         } catch (e: Exception) {
+            val stage = store.load().firstOrNull { it.id == task.id }?.status
             val message = when (e) {
                 is java.net.SocketTimeoutException -> "连接超时，请重试"
                 is java.net.UnknownHostException -> "网络不可用，请检查连接后重试"
-                is javax.net.ssl.SSLException -> "安全连接中断，请检查网络或代理后重试"
+                is javax.net.ssl.SSLException -> if (stage == DownloadStatus.UPLOADING)
+                    "WebDAV 上传连接中断，尚未确认远端文件完整，请重试" else
+                    "安全连接中断，请检查网络或代理后重试"
                 is java.io.IOException -> "网络或文件写入失败，请检查连接和保存权限"
                 else -> downloadFailureMessage(e)
             }
-            change(task.id) { it.copy(status = DownloadStatus.FAILED, error = message) }
+            // 不记录地址、认证信息或脚本响应，只记录异常类型和调用位置。
+            val diagnostic = generateSequence(e as Throwable) { it.cause }.joinToString("\n") { cause ->
+                val detail = if (cause is javax.net.ssl.SSLException || cause is java.net.SocketTimeoutException)
+                    cause.message.orEmpty().replace(Regex("https?://\\S+"), "[地址已隐藏]") else ""
+                cause.javaClass.name + (if (detail.isNotBlank()) ": $detail\n" else "\n") +
+                    cause.stackTrace.joinToString("\n") { "    at $it" }
+            }
+            errorLog?.log(ErrorLogStore.Level.ERROR, "Download", "阶段=$stage；$message\n$diagnostic")
+            change(task.id) { it.copy(status = DownloadStatus.FAILED, error = message, failureStage = stage) }
         }
     }
 
@@ -409,7 +428,7 @@ class DownloadManager(
         return lyrics to cover
     }
 
-    private suspend fun upload(files: List<File>, target: DownloadTarget, taskId: String): SavedDownload {
+    private suspend fun upload(files: List<File>, target: DownloadTarget, taskId: String, recoverUpload: Boolean): SavedDownload {
         val source = target.sourceId?.let { sources.getSource(it) } ?: error("WebDAV 音源已不存在")
         val base = source.url?.toHttpUrl() ?: error("WebDAV 地址无效")
         check(source.type == SourceType.WEBDAV) { "保存目标不是 WebDAV 音源" }
@@ -429,8 +448,42 @@ class DownloadManager(
             try {
             val url = directory.newBuilder().addPathSegment(file.name).build()
             val head = Request.Builder().url(url).header("Authorization", authorization).head().build()
-            network(head, webDavClient) { response -> check(response.code == 404) { if (response.isSuccessful) "目标文件已存在，未覆盖" else "无法检查目标文件：HTTP ${response.code}" } }
+            val existing = network(head, webDavClient) { response ->
+                check(response.code == 404 || response.isSuccessful) { "无法检查目标文件：HTTP ${response.code}" }
+                if (response.isSuccessful) RemoteDownloadFile(url, response.header("ETag"), response.header("Last-Modified")) else null
+            }
+            if (existing != null && index == 0 && recoverUpload && confirmUploadedFile(url, authorization, file)) {
+                transferred += file.length()
+                audioLocation = url.toString()
+                reportTransferred(taskId, transferred)
+                warnings += "已核验上次上传的音频"
+                continue
+            }
+            val collisions = mutableListOf<RemoteDownloadFile>()
+            existing?.let { collisions += it }
+            // 同一歌手和歌名的不同音频格式也属于同名歌曲，不能另存一份低音质版本。
+            for (extension in listOf("mp3", "flac", "m4a", "wav", "aac", "ogg", "opus", "ape", "aiff", "wma")) {
+                if (extension == file.extension.lowercase()) continue
+                val alternate = directory.newBuilder().addPathSegment("${file.nameWithoutExtension}.$extension").build()
+                val found = network(Request.Builder().url(alternate).header("Authorization", authorization).head().build(), webDavClient) {
+                    check(it.code == 404 || it.isSuccessful) { "无法检查同名文件：HTTP ${it.code}" }
+                    if (it.isSuccessful) RemoteDownloadFile(alternate, it.header("ETag"), it.header("Last-Modified")) else null
+                }
+                found?.let { collisions += it }
+            }
+            if (collisions.isNotEmpty()) {
+                val incoming = DownloadAudioQuality.read(file)
+                for (collision in collisions) {
+                    val previous = remoteAudioQuality(collision, authorization, file.parentFile)
+                    if (incoming == null || previous == null || !incoming.higherThan(previous)) {
+                        val reason = if (incoming == null || previous == null) "无法确认音质" else "已有文件音质相同、更高或无法确认升级"
+                        return SavedDownload(collision.url.toString(), warnings = listOf("同名歌曲已存在，$reason，已跳过上传"), skippedExisting = true)
+                    }
+                }
+                warnings += "发现同名歌曲，新文件音质更高，已替换"
+            }
             val completedBytes = transferred
+            var bodyWritten = false
             val body = object : RequestBody() {
                 override fun contentType() = "application/octet-stream".toMediaType()
                 override fun contentLength() = file.length()
@@ -450,10 +503,47 @@ class DownloadManager(
                         }
                     }
                     runBlocking { reportTransferred(taskId, completedBytes + fileTransferred) }
+                    sink.flush()
+                    bodyWritten = true
                 }
             }
-            network(Request.Builder().url(url).header("Authorization", authorization).header("If-None-Match", "*").put(body).build(), webDavClient) {
-                check(it.isSuccessful) { "上传失败：HTTP ${it.code}，已保存的文件不会被删除" }
+            try {
+                val put = Request.Builder().url(url).header("Authorization", authorization).apply {
+                    if (existing == null) header("If-None-Match", "*")
+                    else {
+                        existing.etag?.let { header("If-Match", it) }
+                        existing.lastModified?.let { header("If-Unmodified-Since", it) }
+                    }
+                }.put(body).build()
+                network(put, webDavClient) {
+                    check(it.isSuccessful) { "上传失败：HTTP ${it.code}，已保存的文件不会被删除" }
+                }
+            } catch (e: java.io.IOException) {
+                // PUT 已发送完但响应断连时，读回文件逐字节核验；不能仅凭大小认定成功，也不能盲目重传。
+                val confirmed = bodyWritten && withTimeoutOrNull(90_000) {
+                    confirmAfterDisconnect(url, authorization, file)
+                } == true
+                if (!confirmed) throw e
+                warnings += "上传响应中断，已核验远端文件完整"
+            }
+            // 用户授权的跨格式升级：仅在新音频完整保存后清理对应的低音质旧文件。
+            for (collision in collisions.filter { it.url != url }) {
+                try {
+                    val unchanged = network(Request.Builder().url(collision.url).header("Authorization", authorization).head().build(), webDavClient) {
+                        it.isSuccessful && when {
+                            collision.etag != null -> it.header("ETag") == collision.etag
+                            collision.lastModified != null -> it.header("Last-Modified") == collision.lastModified
+                            else -> false
+                        }
+                    }
+                    check(unchanged) { "无法确认旧文件仍未变化" }
+                    val remove = Request.Builder().url(collision.url).header("Authorization", authorization).apply {
+                        collision.etag?.let { header("If-Match", it) }
+                        collision.lastModified?.let { header("If-Unmodified-Since", it) }
+                    }.delete().build()
+                    network(remove, webDavClient) { check(it.isSuccessful || it.code == 404) { "旧文件替换失败" } }
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { warnings += "高音质文件已保存，低音质旧文件未移除，请检查同名文件" }
             }
             transferred = completedBytes + file.length()
             if (index == 0) audioLocation = url.toString()
@@ -467,6 +557,90 @@ class DownloadManager(
             }
         }
         return SavedDownload(audioLocation, warnings = warnings)
+    }
+
+    private data class RemoteDownloadFile(val url: HttpUrl, val etag: String?, val lastModified: String?)
+
+    private suspend fun remoteAudioQuality(remote: RemoteDownloadFile, authorization: String, directory: File): DownloadAudioQuality? {
+        val extension = remote.url.pathSegments.last().substringAfterLast('.')
+        val temporary = File.createTempFile("existing-quality-", ".$extension", directory)
+        return try {
+            network(Request.Builder().url(remote.url).header("Authorization", authorization).get().build(), webDavClient) {
+                if (it.code != 200 || (remote.etag != null && it.header("ETag") != null && it.header("ETag") != remote.etag)) return@network null
+                val stream = it.body?.byteStream() ?: return@network null
+                stream.use { input -> temporary.outputStream().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var bytes = 0L
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        bytes += count
+                        check(bytes <= 4L * 1024 * 1024 * 1024) { "已有音频超过支持的大小" }
+                        output.write(buffer, 0, count)
+                    }
+                } }
+                DownloadAudioQuality.read(temporary)
+            }
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { null }
+        finally { temporary.delete() }
+    }
+
+    private suspend fun confirmAfterDisconnect(url: HttpUrl, authorization: String, file: File): Boolean {
+        // 只重查，不重传：OpenList 等网关的上游保存可能尚未完成。
+        repeat(3) { attempt ->
+            if (attempt > 0) delay(3_000)
+            try {
+                if (confirmUploadedFile(url, authorization, file)) return true
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (e: Exception) {
+                val detail = if (e is javax.net.ssl.SSLException || e is java.net.SocketTimeoutException)
+                    e.message.orEmpty().replace(Regex("https?://\\S+"), "[地址已隐藏]") else ""
+                errorLog?.log(ErrorLogStore.Level.WARN, "Download",
+                    "上传后第 ${attempt + 1} 次核验连接失败：${e.javaClass.simpleName} $detail")
+            }
+        }
+        return false
+    }
+
+    private suspend fun confirmUploadedFile(url: HttpUrl, authorization: String, file: File): Boolean {
+        val request = Request.Builder().url(url).header("Authorization", authorization)
+            .header("Accept-Encoding", "identity").get().build()
+        return network(request, webDavClient) { response ->
+            if (response.code != 200) {
+                errorLog?.log(ErrorLogStore.Level.WARN, "Download", "上传后核验返回 HTTP ${response.code}")
+                return@network false
+            }
+            val body = response.body ?: return@network false
+            if (body.contentLength() >= 0 && body.contentLength() != file.length()) {
+                errorLog?.log(ErrorLogStore.Level.WARN, "Download",
+                    "上传后核验大小不一致：远端 ${body.contentLength()}，本地 ${file.length()}")
+                return@network false
+            }
+            val job = currentCoroutineContext().job
+            body.byteStream().use { remote -> file.inputStream().use { local ->
+                val expected = ByteArray(64 * 1024)
+                val actual = ByteArray(expected.size)
+                while (true) {
+                    job.ensureActive()
+                    val count = local.read(expected)
+                    if (count < 0) return@network remote.read() == -1
+                    var offset = 0
+                    while (offset < count) {
+                        val read = remote.read(actual, offset, count - offset)
+                        if (read < 0) return@network false
+                        offset += read
+                    }
+                    for (i in 0 until count) if (expected[i] != actual[i]) {
+                        errorLog?.log(ErrorLogStore.Level.WARN, "Download", "上传后核验内容不一致")
+                        return@network false
+                    }
+                }
+                @Suppress("UNREACHABLE_CODE")
+                false
+            } }
+        }
     }
 
     /**
@@ -513,13 +687,6 @@ internal fun downloadFailureMessage(e: Exception): String {
         .lastOrNull()
     val detail = (root ?: e::class.simpleName.orEmpty()).replace(Regex("\\s+"), " ").trim()
     return if (detail.isBlank()) "下载失败，请检查音源与保存位置后重试" else "下载失败：${detail.take(160)}"
-}
-
-private fun coverExtension(bytes: ByteArray): String = when {
-    bytes.size >= 8 && bytes[0] == 0x89.toByte() && bytes.copyOfRange(1, 4).decodeToString() == "PNG" -> "png"
-    bytes.size >= 12 && bytes.copyOfRange(0, 4).decodeToString() == "RIFF" && bytes.copyOfRange(8, 12).decodeToString() == "WEBP" -> "webp"
-    bytes.size >= 6 && bytes.copyOfRange(0, 3).decodeToString() == "GIF" -> "gif"
-    else -> "jpg"
 }
 
 internal fun detectAudioExtension(file: File): String? {

@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -19,6 +22,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 
 /** 单日听歌统计（key 为设备本地日，ISO `yyyy-MM-dd`，由调用方按平台时区算好传入） */
+@Serializable
 data class DailyPlayStat(
     /** 当日实际播放时长（毫秒，不含暂停时段） */
     val listenMs: Long = 0L,
@@ -27,6 +31,7 @@ data class DailyPlayStat(
 )
 
 /** 单曲累计统计（高频歌曲榜；元数据为入库时快照，曲目从曲库删除后仍可展示） */
+@Serializable
 data class SongPlayStat(
     val songId: String,
     val title: String,
@@ -49,6 +54,7 @@ data class MonthlyListenStats(
  * [totalListenMs]/[totalPlayCount] 为独立累计值，不随 [days] 明细裁剪而丢失；
  * [days]/[songs] 是可裁剪明细（上限见 [PlayStatsRepository.MAX_DAYS]/[PlayStatsRepository.MAX_SONGS]）。
  */
+@Serializable
 data class PlayStats(
     val days: Map<String, DailyPlayStat> = emptyMap(),
     val songs: Map<String, SongPlayStat> = emptyMap(),
@@ -102,6 +108,7 @@ class PlayStatsRepository constructor(private val dataStore: DataStore<Preferenc
     companion object {
         /** 统计快照 key（与 recent_plays / playback_state 同 DataStore，key 各自独立） */
         private val KEY = stringPreferencesKey("play_stats")
+        private val REMOTE_KEY = stringPreferencesKey("sync_remote_play_stats")
         private const val SNAPSHOT_VERSION = 1
 
         /** 逐日明细上限（约三年）：超出按日期裁掉最旧的，累计值不受影响 */
@@ -120,10 +127,32 @@ class PlayStatsRepository constructor(private val dataStore: DataStore<Preferenc
     val updated: StateFlow<Long> = _updated
 
     /** 加载统计快照 */
-    suspend fun load(): PlayStats = decode(dataStore.data.first()[KEY])
+    suspend fun load(): PlayStats = aggregate(dataStore.data.first())
+
+    /** 同步只发布本设备贡献，避免再次上传已合并的远端统计。 */
+    suspend fun loadLocalContribution(): PlayStats = decode(dataStore.data.first()[KEY])
+
+    /** 本机基线丢失时恢复自己的贡献；已有新增统计时不覆盖。 */
+    suspend fun restoreLocalContributionIfEmpty(contribution: PlayStats) = mutex.withLock {
+        if (decode(dataStore.data.first()[KEY]) == PlayStats.Empty) write(contribution)
+    }
+
+    suspend fun replaceRemoteContributions(contributions: Map<String, PlayStats>) {
+        mutex.withLock {
+            dataStore.edit { it[REMOTE_KEY] = Json.encodeToString(contributions) }
+            _updated.value += 1
+        }
+    }
+
+    private fun aggregate(prefs: Preferences): PlayStats {
+        val remote = runCatching {
+            Json.decodeFromString<Map<String, PlayStats>>(prefs[REMOTE_KEY] ?: "{}")
+        }.getOrDefault(emptyMap())
+        return mergePlayStats(listOf(decode(prefs[KEY])) + remote.values)
+    }
 
     /** 响应式读取（统计页消费） */
-    fun observe(): Flow<PlayStats> = dataStore.data.map { decode(it[KEY]) }
+    fun observe(): Flow<PlayStats> = dataStore.data.map { aggregate(it) }
 
     /**
      * 登记一次播放（歌曲开始播放时调用）：当日次数 +1、该曲累计次数 +1。
@@ -265,6 +294,29 @@ class PlayStatsRepository constructor(private val dataStore: DataStore<Preferenc
     }.getOrDefault(PlayStats.Empty)
 }
 
+/** 按设备贡献求和；同一设备的快照由同步层替换，不重复追加。 */
+fun mergePlayStats(contributions: Collection<PlayStats>): PlayStats {
+    fun addLong(a: Long, b: Long): Long = if (Long.MAX_VALUE - a < b) Long.MAX_VALUE else a + b
+    fun addInt(a: Int, b: Int): Int = (a.toLong() + b).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    val days = mutableMapOf<String, DailyPlayStat>()
+    val songs = mutableMapOf<String, SongPlayStat>()
+    for (stats in contributions) {
+        stats.days.forEach { (day, value) ->
+            val old = days[day] ?: DailyPlayStat()
+            days[day] = DailyPlayStat(addLong(old.listenMs, value.listenMs), addInt(old.playCount, value.playCount))
+        }
+        stats.songs.forEach { (id, value) ->
+            songs[id] = value.copy(playCount = addInt(songs[id]?.playCount ?: 0, value.playCount))
+        }
+    }
+    return PlayStats(
+        days = days.keys.sorted().takeLast(PlayStatsRepository.MAX_DAYS).associateWith { days.getValue(it) },
+        songs = songs.values.sortedByDescending { it.playCount }.take(PlayStatsRepository.MAX_SONGS).associateBy { it.songId },
+        totalListenMs = contributions.fold(0L) { sum, it -> addLong(sum, it.totalListenMs) },
+        totalPlayCount = contributions.fold(0) { sum, it -> addInt(sum, it.totalPlayCount) },
+    )
+}
+
 private fun JsonObject.long(key: String): Long =
     (this[key] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L
 
@@ -272,4 +324,3 @@ private fun JsonObject.int(key: String): Int = long(key).toInt()
 
 private fun JsonObject.str(key: String): String? =
     (this[key] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.content
-

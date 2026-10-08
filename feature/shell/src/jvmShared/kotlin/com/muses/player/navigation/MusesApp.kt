@@ -374,16 +374,18 @@ class MainViewModel constructor(
  */
 @Composable
 @OptIn(ExperimentalSharedTransitionApi::class)
-fun MusesApp() {
+fun MusesApp(openSettingsRequest: Long = 0L) {
+    val builtinUpdater = org.koin.compose.koinInject<com.muses.player.core.lxsdk.store.BuiltinLxSourceUpdater>()
+    LaunchedEffect(builtinUpdater) { builtinUpdater.runPeriodicChecks() }
     SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalPlayerSharedTransitionScope provides this) {
-            MusesAppContent()
+            MusesAppContent(openSettingsRequest)
         }
     }
 }
 
 @Composable
-private fun MusesAppContent() {
+private fun MusesAppContent(openSettingsRequest: Long) {
         // miuix-nav 返回栈（类型化路由，存栈恢复经 kotlinx.serialization；替代 CMP Navigation）
         // 启动落地首页（探索 = 排行榜 + 猜你喜欢）
         val backStack = rememberNavBackStack<MusesRoute>(MusesRoute.Home)
@@ -449,6 +451,12 @@ private fun MusesAppContent() {
         fun closePlayer() {
             showPlayerOverlay = false
             animatePlayerTo(target = false)
+        }
+        LaunchedEffect(openSettingsRequest) {
+            if (openSettingsRequest > 0L) {
+                closePlayer()
+                backStack.pushUnique(MusesRoute.Settings)
+            }
         }
         fun settlePlayer(collapse: Boolean, releasedFraction: Float) {
             val target = !collapse
@@ -1148,10 +1156,14 @@ private fun AppNavHost(
             SettingsScreen(
                 onBack = { backStack.pop() },
                 onOpenAiSettings = { backStack.pushUnique(MusesRoute.AiSettings) },
+                onOpenSyncSettings = { backStack.pushUnique(MusesRoute.SyncSettings) },
             )
         }
         entry<MusesRoute.AiSettings>(swipeDismiss = NavSwipeDirection.LeftToRight) {
             AiSettingsScreen(onBack = { backStack.pop() })
+        }
+        entry<MusesRoute.SyncSettings>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+            com.muses.player.sync.SyncSettingsScreen(onBack = { backStack.pop() })
         }
     }
 }

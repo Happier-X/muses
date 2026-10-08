@@ -37,6 +37,8 @@ fun main() = application {
             onNext = playerHook::next,
             onPrevious = playerHook::previous,
             onExit = ::exitApplication,
+            onLyricsSettings = DesktopLyricsInteraction::openSettings,
+            lyricsVisible = DesktopLyricsInteraction.visible,
         )
     }
     // SMTC 元数据：曲库列表 × 当前曲目（播放状态/进度由 controller 内部订阅，见 install）

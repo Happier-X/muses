@@ -110,4 +110,7 @@ sealed interface MusesRoute : NavKey {
     /** AI 服务配置二级页（设置页「AI 推荐」→ 箭头进入：地址/模型/Key） */
     @Serializable
     data object AiSettings : MusesRoute
+
+    @Serializable
+    data object SyncSettings : MusesRoute
 }

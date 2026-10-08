@@ -69,7 +69,10 @@ fun HomeScreen(
 ) {
     val scheme = MiuixTheme.colorScheme
     val state by viewModel.state.collectAsState()
-    LaunchedEffect(viewModel) { viewModel.loadFeaturedPlaylists() }
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    LaunchedEffect(viewModel, lifecycleState) {
+        if (lifecycleState == Lifecycle.State.RESUMED) viewModel.loadFeaturedPlaylists()
+    }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = scheme.surface,

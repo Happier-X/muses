@@ -21,6 +21,58 @@ import kotlin.test.assertTrue
  */
 class LxScriptRepositoryTest {
 
+    private fun racingScript(name: String, qualities: String, delayMs: Int = 0) = """
+        lx.on('request', ({info}) => new Promise(resolve => {
+          const finish = () => resolve('https://cdn.test/$name/' + info.type);
+          if ($delayMs > 0) setTimeout(finish, $delayMs); else finish();
+        }));
+        lx.send('inited', {sources: {kw: {actions: ['musicUrl'], qualitys: $qualities}}});
+    """.trimIndent()
+
+    @Test fun `播放优先跨脚本寻找所选档位`() = kotlinx.coroutines.runBlocking {
+        val repo = repository()
+        repo.register("low", racingScript("low", "['320k']"))
+        repo.register("high", racingScript("high", "['flac']"))
+        val result = repo.resolveMusicUrlInfo("kw", "{}", LxQuality.FLAC)
+        assertEquals(LxQuality.FLAC, result.quality)
+        assertTrue(result.url.contains("/high/"))
+    }
+
+    @Test fun `同档选择响应最快并且被取消的脚本仍可复用`() = kotlinx.coroutines.runBlocking {
+        val repo = repository()
+        repo.register("slow", racingScript("slow", "['flac']", 1_000))
+        repo.register("fast", racingScript("fast", "['flac']"))
+        assertTrue(repo.resolveMusicUrlInfo("kw", "{}", LxQuality.FLAC).url.contains("/fast/"))
+        repo.unregister("fast")
+        assertTrue(repo.resolveMusicUrlInfo("kw", "{}", LxQuality.FLAC).url.contains("/slow/"))
+    }
+
+    @Test fun `同档坏地址不阻止其他脚本且不提前降档`() = kotlinx.coroutines.runBlocking {
+        val repo = repository()
+        repo.register("bad", racingScript("bad", "['320k','flac']"))
+        repo.register("good", racingScript("good", "['flac']", 100))
+        val probed = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val result = repo.resolveMusicUrlInfo("kw", "{}", LxQuality.FLAC, acceptUrl = {
+            probed += it
+            it.contains("/good/")
+        })
+        assertEquals(LxQuality.FLAC, result.quality)
+        assertTrue(probed.none { it.endsWith("320k") })
+    }
+
+    @Test fun `同档地址全部不可用才降低档位`() = kotlinx.coroutines.runBlocking {
+        val repo = repository()
+        repo.register("first", racingScript("first", "['320k','flac']"))
+        repo.register("second", racingScript("second", "['flac']"))
+        val probed = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val result = repo.resolveMusicUrlInfo("kw", "{}", LxQuality.FLAC, acceptUrl = {
+            probed += it
+            it.endsWith("320k")
+        })
+        assertEquals(LxQuality.Q_320K, result.quality)
+        assertEquals(2, probed.takeWhile { it.endsWith("flac") }.size)
+    }
+
     @Test fun `原平台返回无法访问的地址也会换源`() = kotlinx.coroutines.runBlocking {
         val repo = repository()
         repo.register("both", scriptFor("wy", "kw"))
@@ -333,21 +385,22 @@ class LxScriptRepositoryTest {
     }
 
     @Test
-    fun `无更低可用档时才向上回退`() = runTest {
+    fun `所选档位缺失时使用更低可用档`() = runTest {
         val repo = repository()
-        // 只声明 128k：请求 320k 无更低档（128k 更低，应优先）——此处验证确实取到 128k
+        // 所选档位不存在时，只向下寻找。
         repo.register("s1", scriptWithQualities("['128k']"))
         val url = repo.resolveMusicUrl("kw", "{}", LxQuality.Q_320K)
         assertTrue(url.contains("q=128k"), "实际：$url")
     }
 
     @Test
-    fun `仅声明更高档时向上回退`() = runTest {
+    fun `仅声明更高档时不擅自提升所选音质`() = runTest {
         val repo = repository()
-        // 只声明 master：请求 320k 没有更低可用档，只能向上取 master
+        // 按所选音质择优，不擅自升级到体积更大的母带。
         repo.register("s1", scriptWithQualities("['master']"))
-        val url = repo.resolveMusicUrl("kw", "{}", LxQuality.Q_320K)
-        assertTrue(url.contains("q=master"), "实际：$url")
+        assertFailsWith<LxResolveException> {
+            repo.resolveMusicUrl("kw", "{}", LxQuality.Q_320K)
+        }
     }
 
     @Test

@@ -9,6 +9,9 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -28,6 +31,42 @@ import kotlin.test.assertTrue
  * - 错误路径（未注册源、脚本抛错、初始化失败）。
  */
 class LxScriptEngineTest {
+    @Test
+    fun `多个引擎同时初始化仍可独立解析`() = runBlocking {
+        coroutineScope {
+            (1..18).map { index -> async(Dispatchers.Default) {
+                val engine = engineWith(sampleScript("并行音源 $index"))
+                try {
+                    engine.load()
+                    assertNotNull(engine.getMusicUrl("kw", LxQuality.Q_320K, "{}").url)
+                } finally { engine.close() }
+            } }.awaitAll()
+        }
+        Unit
+    }
+
+    @Test
+    fun `脚本可读取原文且收到第三个回调参数`() = runTest {
+        val script = """
+            /** @name 原文回调测试 */
+            if (!lx.currentScriptInfo.rawScript.includes('@name 原文回调测试')) throw new Error('缺少原文');
+            lx.on('request', () => new Promise((resolve, reject) => {
+              lx.request('https://api.test/url', {}, (err, response, body) => {
+                if (err) return reject(err);
+                if (body !== response.body) return reject(new Error('正文参数不一致'));
+                resolve(body.url);
+              });
+            }));
+            lx.send('inited', { sources: { kw: { actions: ['musicUrl'], qualitys: ['320k'] } } });
+        """.trimIndent()
+        val engine = engineWith(script)
+        try {
+            engine.load()
+            assertEquals("http://cdn.test/default.mp3", engine.getMusicUrl("kw", LxQuality.Q_320K, "{}").url)
+        } finally {
+            engine.close()
+        }
+    }
 
     /** 测试脚本：模拟洛雪标准写法（含 request 回调包装、Promise 链、qualitys 映射） */
     private fun sampleScript(name: String = "测试音乐源") = """

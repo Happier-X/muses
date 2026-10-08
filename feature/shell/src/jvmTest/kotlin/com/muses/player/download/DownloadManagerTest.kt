@@ -21,7 +21,10 @@ import kotlin.test.*
 
 class DownloadManagerTest {
     /** [resolveTimeoutMs] 与生产默认一致；「引擎卡死」用例传更小的值来压缩等待 */
-    private class Harness(private val resolveTimeoutMs: Long = 120_000L) : java.io.Closeable {
+    private class Harness(
+        private val resolveTimeoutMs: Long = 120_000L,
+        private val client: okhttp3.OkHttpClient = okhttp3.OkHttpClient.Builder().build(),
+    ) : java.io.Closeable {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val root = Files.createTempDirectory("muses-download-test").toFile()
         val server = MockWebServer().apply { start() }
@@ -57,7 +60,7 @@ class DownloadManagerTest {
         val manager = DownloadManager(store, settings, sources, credentials, songs, lx,
             NoOpOnlineTrackMetadataResolver, null, object : DownloadStorage by createDownloadStorage(settings) {
                 override val cacheDirectory = File(root, "cache")
-            }, resolveTimeoutMs = resolveTimeoutMs, scope = scope, resolveAudio = { _, quality ->
+            }, resolveTimeoutMs = resolveTimeoutMs, scope = scope, client = client, resolveAudio = { _, quality ->
                 resolves++
                 resolveOverride?.invoke(quality) ?: LxMusicUrl(server.url("/audio").toString(), LxQuality.Q_128K)
             })
@@ -81,17 +84,26 @@ class DownloadManagerTest {
         }
     }
 
-    @Test fun startSavesAudioLyricsMetadataAndAddsOnlyOneLibrarySong() = runBlocking {
+    @Test fun startEmbedsMetadataAndSavesOnlyAudio() = runBlocking {
         Harness().use { h ->
+            val coverBytes = java.util.Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWZ0AAAAASUVORK5CYII=")
+            val cover = File(h.root, "cover.png").apply { writeBytes(coverBytes) }
             h.server.enqueue(MockResponse().setBody(Buffer().write(wav())))
-            h.manager.enqueue(h.song()).join()
+            h.manager.enqueue(h.song().copy(coverUri = cover.toPath().toUri().toString())).join()
             h.manager.start(setOf(h.store.load().single().id), h.target).join()
             val completed = h.await(DownloadStatus.COMPLETED)
             assertEquals("128k", completed.requestedQuality)
             val directory = File(h.target.directory)
-            assertTrue(directory.listFiles().orEmpty().any { it.extension == "wav" })
-            assertTrue(directory.listFiles().orEmpty().any { it.extension == "lrc" && it.readText().contains("测试歌词") })
-            assertTrue(directory.listFiles().orEmpty().any { it.extension == "json" && it.readText().contains("测试歌手") })
+            val audio = directory.listFiles().orEmpty().single()
+            assertEquals("wav", audio.extension)
+            assertEquals("测试歌手 - 测试歌曲.wav", audio.name)
+            val tags = com.muses.player.core.scrape.ports.JaudiotaggerTagPort.readTags(audio)!!
+            assertEquals("测试歌曲", tags.title)
+            assertEquals("测试歌手", tags.artist)
+            assertEquals("测试专辑", tags.album)
+            assertTrue(tags.lyrics!!.contains("测试歌词"))
+            assertContentEquals(coverBytes, tags.cover)
             assertEquals(1, h.added.size)
             assertEquals(com.muses.player.core.media.scanner.WebDavLibraryScanner.stableSongId("local", completed.savedLocation!!), h.added.single().id)
             assertEquals(1, h.server.requestCount)
@@ -165,7 +177,7 @@ class DownloadManagerTest {
         }
     }
 
-    @Test fun uploadStreamsAudioAndSidecarsWithoutOverwritingExistingFiles() = runBlocking {
+    @Test fun uploadStreamsOnlyAudioWithoutOverwritingExistingFiles() = runBlocking {
         Harness().use { h ->
             h.server.dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest) = when (request.method) {
@@ -181,9 +193,90 @@ class DownloadManagerTest {
             assertTrue(done.savedLocation!!.contains("/dav/Music/"))
             val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
             val puts = requests.filter { it.method == "PUT" }
-            assertEquals(3, puts.size)
+            assertEquals(1, puts.size)
             assertTrue(puts.all { it.getHeader("If-None-Match") == "*" && it.bodySize > 0 })
             assertEquals(1, h.added.size)
+        }
+    }
+
+    @Test fun uploadWaitsForGatewayCommitBeyondDownloadReadTimeout() = runBlocking {
+        val client = okhttp3.OkHttpClient.Builder().readTimeout(50, TimeUnit.MILLISECONDS).build()
+        Harness(client = client).use { h ->
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = when (request.method) {
+                    "GET" -> MockResponse().setBody(Buffer().write(wav()))
+                    "HEAD" -> MockResponse().setResponseCode(404)
+                    "PUT" -> MockResponse().setResponseCode(201).setHeadersDelay(300, TimeUnit.MILLISECONDS)
+                    else -> MockResponse().setResponseCode(405)
+                }
+            }
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id),
+                DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
+            assertEquals(DownloadStatus.COMPLETED, h.await(DownloadStatus.COMPLETED).status)
+            val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
+            assertEquals(1, requests.count { it.method == "PUT" })
+        }
+    }
+
+    @Test fun uploadResponseDisconnectConfirmsRemoteContentWithoutRepeatingPut() = runBlocking {
+        Harness().use { h ->
+            var uploaded: ByteArray? = null
+            var audioPuts = 0
+            var checks = 0
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse = when {
+                    request.method == "HEAD" -> MockResponse().setResponseCode(404)
+                    request.method == "GET" && request.path == "/audio" -> MockResponse().setBody(Buffer().write(wav()))
+                    request.method == "GET" -> if (++checks == 1) MockResponse().setResponseCode(404)
+                        else MockResponse().setBody(Buffer().write(uploaded!!))
+                    request.method == "PUT" && request.path!!.endsWith(".wav") -> {
+                        audioPuts++
+                        uploaded = request.body.readByteArray()
+                        MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
+                    }
+                    else -> MockResponse().setResponseCode(201)
+                }
+            }
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id),
+                DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertEquals(1, audioPuts)
+            assertEquals(2, checks)
+            assertTrue(done.warnings.any { it.contains("已核验") })
+            assertEquals(1, h.added.size)
+        }
+    }
+
+    @Test fun uploadResponseDisconnectDoesNotAcceptDifferentContentOfSameSize() = runBlocking {
+        Harness().use { h ->
+            var uploaded: ByteArray? = null
+            var recover = false
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse = when {
+                    request.method == "HEAD" && recover && request.path!!.endsWith(".wav") -> MockResponse().setResponseCode(200)
+                    request.method == "HEAD" -> MockResponse().setResponseCode(404)
+                    request.method == "GET" && request.path == "/audio" -> MockResponse().setBody(Buffer().write(wav()))
+                    request.method == "GET" && recover -> MockResponse().setBody(Buffer().write(uploaded!!))
+                    request.method == "GET" -> MockResponse().setBody(Buffer().write(uploaded!!.copyOf().apply { this[0] = 0 }))
+                    request.method == "PUT" && recover -> MockResponse().setResponseCode(201)
+                    else -> {
+                        uploaded = request.body.readByteArray()
+                        MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
+                    }
+                }
+            }
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id),
+                DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
+            val failed = h.await(DownloadStatus.FAILED)
+            assertEquals(DownloadStatus.UPLOADING, failed.failureStage)
+            assertTrue(h.added.isEmpty())
+            recover = true
+            h.manager.start(setOf(failed.id), failed.target!!).join()
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertTrue(done.warnings.any { it.contains("上次上传") })
         }
     }
 
@@ -211,7 +304,7 @@ class DownloadManagerTest {
                 val done = h.await(DownloadStatus.COMPLETED)
                 val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
                 val puts = requests.filter { it.method == "PUT" }
-                assertEquals(6, puts.size)
+            assertEquals(2, puts.size)
                 assertTrue(progress.isNotEmpty())
                 assertTrue(progress.all { it.transferredBytes <= it.transferTotalBytes!! })
                 assertEquals(puts.filter { it.path!!.startsWith("/received/") }.sumOf { it.bodySize }, done.transferTotalBytes)
@@ -263,11 +356,11 @@ class DownloadManagerTest {
         assertEquals("_CON", downloadBaseName(track.copy(title = "CON", artist = null)))
     }
 
-    private fun wav(size: Int = 16384): ByteArray {
+    private fun wav(size: Int = 16384, sampleRate: Int = 44100): ByteArray {
         val bytes = ByteArray(size)
         val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         buffer.put("RIFF".toByteArray()); buffer.putInt(size - 8); buffer.put("WAVEfmt ".toByteArray())
-        buffer.putInt(16); buffer.putShort(1); buffer.putShort(1); buffer.putInt(44100); buffer.putInt(88200)
+        buffer.putInt(16); buffer.putShort(1); buffer.putShort(1); buffer.putInt(sampleRate); buffer.putInt(sampleRate * 2)
         buffer.putShort(2); buffer.putShort(16); buffer.put("data".toByteArray()); buffer.putInt(size - 44)
         return bytes
     }
@@ -276,7 +369,7 @@ class DownloadManagerTest {
         Harness().use { h ->
             h.manager.enqueue(h.song()).join(); val task = h.store.load().single()
             val directory = File(h.target.directory).apply { mkdirs() }
-            val existing = File(directory, downloadBaseName(task.track) + " - " + task.id.take(8) + ".wav").apply { writeText("用户已有文件") }
+            val existing = File(directory, downloadBaseName(task.track) + ".wav").apply { writeText("用户已有文件") }
             h.server.enqueue(MockResponse().setBody(Buffer().write(wav())))
             h.manager.start(setOf(task.id), h.target).join(); h.await(DownloadStatus.FAILED)
             assertEquals("用户已有文件", existing.readText())
@@ -284,20 +377,121 @@ class DownloadManagerTest {
         }
     }
 
-    @Test fun webdavExistingAudioIsNeverPut() = runBlocking {
-        Harness().use { h ->
-            h.server.enqueue(MockResponse().setBody(Buffer().write(wav())))
-            h.server.enqueue(MockResponse().setResponseCode(200))
+    @Test fun webdavSameQualityIsMarkedAndSkipped() = runBlocking {
+        for (existingRate in listOf(44100, 48000)) Harness().use { h ->
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = when {
+                    request.method == "HEAD" -> MockResponse().setResponseCode(if (request.path!!.endsWith(".wav")) 200 else 404)
+                    request.method == "GET" -> MockResponse().setBody(Buffer().write(wav(sampleRate = if (request.path == "/audio") 44100 else existingRate)))
+                    else -> MockResponse().setResponseCode(405)
+                }
+            }
             h.manager.enqueue(h.song()).join()
             h.manager.start(setOf(h.store.load().single().id), DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
-            h.await(DownloadStatus.FAILED)
-            assertEquals(2, h.server.requestCount)
-            assertEquals("GET", h.server.takeRequest().method); assertEquals("HEAD", h.server.takeRequest().method)
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertTrue(done.skippedExisting)
+            assertTrue(done.warnings.any { it.contains("同名") })
+            val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
+            assertTrue(requests.none { it.method == "PUT" || it.method == "DELETE" })
             assertTrue(h.added.isEmpty())
         }
     }
 
-    @Test fun sidecarUploadFailurePreservesCompletedAudioWithWarning() = runBlocking {
+    @Test fun webdavHigherActualQualityOverwritesSameFile() = runBlocking {
+        Harness().use { h ->
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = when {
+                    request.method == "HEAD" -> MockResponse().setResponseCode(if (request.path!!.endsWith(".wav")) 200 else 404).setHeader("ETag", "\"old\"")
+                    request.method == "GET" -> MockResponse().setBody(Buffer().write(wav(sampleRate = if (request.path == "/audio") 44100 else 22050)))
+                    request.method == "PUT" -> MockResponse().setResponseCode(201)
+                    else -> MockResponse().setResponseCode(405)
+                }
+            }
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id), DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertFalse(done.skippedExisting)
+            val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
+            val put = requests.single { it.method == "PUT" }
+            assertEquals("\"old\"", put.getHeader("If-Match"))
+            assertNull(put.getHeader("If-None-Match"))
+            assertEquals(1, h.added.size)
+        }
+    }
+
+    @Test fun completedSongCanBeRequeuedForHigherRequestedQuality() = runBlocking {
+        Harness().use { h ->
+            h.server.enqueue(MockResponse().setBody(Buffer().write(wav())))
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id), h.target).join()
+            val completed = h.await(DownloadStatus.COMPLETED)
+            h.settings.setDownloadPreferredQuality("flac")
+            h.manager.enqueue(h.song()).join()
+            val queued = h.store.load().single()
+            assertEquals(DownloadStatus.WAITING, queued.status)
+            assertEquals("flac", queued.quality)
+            assertNotEquals(completed.id, queued.id)
+            assertTrue(File(completed.savedLocation!!).isFile)
+        }
+    }
+
+    @Test fun crossedLosslessMetricsAndDifferentLossyCodecsDoNotAutoUpgrade() {
+        val lossless = com.muses.player.core.media.scanner.DownloadAudioQuality(true, 16, 96000, 1000, "flac")
+        assertFalse(lossless.copy(bitDepth = 24, sampleRate = 44100).higherThan(lossless))
+        assertFalse(lossless.copy(bitDepth = 0).higherThan(lossless))
+        val lossy = lossless.copy(lossless = false, codec = "mp3", bitrate = 320)
+        assertFalse(lossy.copy(codec = "aac", bitrate = 512).higherThan(lossy))
+        assertTrue(lossless.higherThan(lossy))
+    }
+
+    @Test fun webdavUnknownExistingQualityIsSkipped() = runBlocking {
+        Harness().use { h ->
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = when {
+                    request.method == "HEAD" -> MockResponse().setResponseCode(if (request.path!!.endsWith(".wav")) 200 else 404)
+                    request.path == "/audio" -> MockResponse().setBody(Buffer().write(wav()))
+                    request.method == "GET" -> MockResponse().setBody("无法读取的音频")
+                    else -> MockResponse().setResponseCode(405)
+                }
+            }
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id), DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
+            assertTrue(h.await(DownloadStatus.COMPLETED).skippedExisting)
+            val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
+            assertTrue(requests.none { it.method == "PUT" || it.method == "DELETE" })
+        }
+    }
+
+    @Test fun crossFormatUpgradeRemovesOldFileOnlyAfterSuccessfulPut() = runBlocking {
+        for (putSucceeds in listOf(false, true)) Harness().use { h ->
+            var saved = false
+            val old = ByteBuffer.allocate(128).order(ByteOrder.BIG_ENDIAN).apply {
+                put("fLaC".toByteArray()); put(0x80.toByte()); put(0); put(0); put(34)
+                putShort(4096); putShort(4096); put(ByteArray(6))
+                putLong((22050L shl 44) or (15L shl 36) or 16384L)
+                put(ByteArray(16))
+            }.array()
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = when {
+                    request.method == "HEAD" -> MockResponse().setResponseCode(if (request.path!!.endsWith(".flac")) 200 else 404).setHeader("ETag", "\"old\"")
+                    request.method == "GET" && request.path == "/audio" -> MockResponse().setBody(Buffer().write(wav()))
+                    request.method == "GET" -> MockResponse().setBody(Buffer().write(old)).setHeader("ETag", "\"old\"")
+                    request.method == "PUT" -> { saved = putSucceeds; MockResponse().setResponseCode(if (putSucceeds) 201 else 500) }
+                    request.method == "DELETE" -> { assertTrue(saved); MockResponse().setResponseCode(204) }
+                    else -> MockResponse().setResponseCode(405)
+                }
+            }
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id), DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
+            val result = h.await(if (putSucceeds) DownloadStatus.COMPLETED else DownloadStatus.FAILED)
+            assertFalse(result.skippedExisting)
+            val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
+            assertEquals(if (putSucceeds) 1 else 0, requests.count { it.method == "DELETE" })
+            if (putSucceeds) assertEquals("\"old\"", requests.single { it.method == "DELETE" }.getHeader("If-Match"))
+        }
+    }
+
+    @Test fun webdavReceivesEmbeddedLyricsWithoutSidecars() = runBlocking {
         Harness().use { h ->
             h.server.dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest) = when (request.method) {
@@ -310,7 +504,12 @@ class DownloadManagerTest {
             h.manager.enqueue(h.song()).join()
             h.manager.start(setOf(h.store.load().single().id), DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
             val done = h.await(DownloadStatus.COMPLETED)
-            assertTrue(done.warnings.any { it.contains("附属信息上传失败") })
+            val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
+            val put = requests.filter { it.method == "PUT" }.single()
+            val received = File(h.root, "received.wav").apply { writeBytes(put.body.readByteArray()) }
+            val tags = com.muses.player.core.scrape.ports.JaudiotaggerTagPort.readTags(received)!!
+            assertEquals("测试歌曲", tags.title)
+            assertTrue(tags.lyrics!!.contains("测试歌词"))
             assertTrue(done.savedLocation!!.endsWith(".wav")); assertEquals(1, h.added.size)
         }
     }
@@ -375,7 +574,7 @@ class DownloadManagerTest {
             h.manager.start(setOf(h.store.load().single().id), DownloadTarget()).join()
             h.await(DownloadStatus.COMPLETED)
             assertTrue(custom.listFiles().orEmpty().any { it.extension == "wav" })
-            assertTrue(custom.listFiles().orEmpty().any { it.extension == "json" })
+            assertEquals("wav", custom.listFiles().orEmpty().single().extension)
             // 自定义目录不是音源，不写入曲库
             assertTrue(h.added.isEmpty())
         }

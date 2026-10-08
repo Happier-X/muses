@@ -54,9 +54,15 @@ class LxScriptEngine(
      */
     private val onScriptLog: ((level: String, message: String) -> Unit)? = null,
 ) {
+    private companion object {
+        // QuickJS JNI 初始化会替换进程共享的 Java 类引用，多个 runtime 同时创建会触发
+        // DeleteGlobalRef 崩溃。仅串行创建，脚本加载和网络解析仍可并行。
+        val runtimeCreationMutex = Mutex()
+    }
 
     private var js: QuickJs? = null
     private var descriptor: LxScriptDescriptor? = null
+    private val initialized = CompletableDeferred<LxScriptDescriptor>()
     private var closed = false
 
     /** QuickJS 实例互斥：同 runtime 不可并发 evaluate */
@@ -81,15 +87,27 @@ class LxScriptEngine(
         checkNotClosed()
         if (descriptor != null) return descriptor!!
 
-        val instance = QuickJs.create(Dispatchers.Default)
+        val instance = runtimeCreationMutex.withLock { QuickJs.create(Dispatchers.Default) }
+        instance.evaluationTimeoutMillis = requestTimeoutMs
         js = instance
         try {
             installBindings(instance)
             instance.evaluate<Any?>(LxBridge.BOOTSTRAP)
             instance.evaluate<Any?>(LxBridge.currentScriptInfoScript(metaToJson()))
-            // 脚本本体为全局作用域执行（洛雪规范）
-            instance.evaluate<Any?>(scriptSource, filename = "lx-source.js")
+            withTimeout(requestTimeoutMs) {
+                // 脚本本体为全局作用域执行；兼容延迟或网络配置后初始化。
+                instance.evaluate<Any?>(scriptSource, filename = "lx-source.js")
+                initialized.await()
+            }
         } catch (e: LxException) {
+            runCatching { instance.close() }
+            js = null
+            throw e
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            runCatching { instance.close() }
+            js = null
+            throw LxException.ScriptInitFailed("脚本初始化超时，未收到 inited 事件。", e)
+        } catch (e: kotlinx.coroutines.CancellationException) {
             runCatching { instance.close() }
             js = null
             throw e
@@ -99,7 +117,7 @@ class LxScriptEngine(
             throw LxException.ScriptInitFailed("脚本执行失败：${e.message}", e)
         }
 
-        // inited 在脚本同步执行期应已送达；未送达即初始化失败
+        // 初始化事件送达后才向调用方返回声明。
         val inited = descriptor
             ?: run {
                 runCatching { instance.close() }
@@ -227,6 +245,7 @@ class LxScriptEngine(
                 val payloadJson = args.getOrNull(1) as? String
                 if (eventName == "inited") {
                     descriptor = parseInited(payloadJson)
+                    initialized.complete(descriptor!!)
                 }
                 null
             }
@@ -334,7 +353,12 @@ class LxScriptEngine(
         }
 
     /** 元信息 → JSON 字符串（注入 lx.currentScriptInfo） */
-    private fun metaToJson(): String = json.encodeToString(LxScriptMeta.serializer(), meta)
+    private fun metaToJson(): String = buildJsonObject {
+        json.encodeToJsonElement(LxScriptMeta.serializer(), meta).jsonObject.forEach { (key, value) ->
+            put(key, value)
+        }
+        put("rawScript", scriptSource)
+    }.toString()
 
     private fun checkNotClosed() {
         if (closed) throw LxException.Closed()

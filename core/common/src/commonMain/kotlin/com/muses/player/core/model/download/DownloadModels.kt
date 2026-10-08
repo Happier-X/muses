@@ -51,6 +51,8 @@ data class DownloadTask(
     val warnings: List<String> = emptyList(),
     val savedLocation: String? = null,
     val resumeValidator: String? = null,
+    val failureStage: DownloadStatus? = null,
+    val skippedExisting: Boolean = false,
 )
 
 /** 仅形成文件名，不允许音源歌曲元数据成为目录路径。 */

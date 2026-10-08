@@ -34,6 +34,9 @@ kotlin {
         }
         jvmMain.get().dependsOn(jvmShared)
         androidMain.get().dependsOn(jvmShared)
+        // 显式打包 Java 资源，Android 与桌面使用同一份内置音源。
+        jvmMain.get().resources.srcDir("src/jvmShared/resources")
+        androidMain.get().resources.srcDir("src/jvmShared/resources")
 
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
@@ -55,6 +58,7 @@ kotlin {
         // 引擎集成测试放 jvmTest：真实 QuickJS native 库 + Ktor MockEngine（纯 JVM 环境）
         jvmTest.dependencies {
             implementation(kotlin("test"))
+            implementation(libs.datastore.preferences)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
         }
