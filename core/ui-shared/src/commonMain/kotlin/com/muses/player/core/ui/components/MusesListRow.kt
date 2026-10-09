@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
+import com.muses.player.core.ui.components.MarqueeText as Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -51,9 +51,16 @@ fun MusesListRow(
     subtitleColor: Color? = null,
     titleFontWeight: FontWeight? = null,
     qualityBadgeLabel: String? = null,
+    songLayout: Boolean = false,
+    songId: String? = null,
+    marqueeEnabled: Boolean? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
 
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalTextMarqueeEnabled provides (marqueeEnabled ?: if (songLayout) LocalSongMarqueeState.current.matches(songId)
+            else LocalTextMarqueeEnabled.current),
+    ) {
     Column(modifier = modifier) {
         // clickable 仅挂 Row：LazyColumn 通过 Column 子树外的拖拽检测手势滚动
         Row(
@@ -70,15 +77,17 @@ fun MusesListRow(
                         )
                     } else Modifier,
                 )
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                .padding(horizontal = if (songLayout) SongListLayout.horizontalPadding else 16.dp,
+                    vertical = if (songLayout) SongListLayout.verticalPadding else 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (leading != null) leading()
-            Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
+            Column(modifier = Modifier.weight(1f).padding(end = if (songLayout) SongListLayout.actionGap else 4.dp)) {
                 Text(
                     text = title,
-                    style = MiuixTheme.textStyles.main,
-                    lineHeight = (17f * 1.35f).sp,
+                    style = if (songLayout) MiuixTheme.textStyles.body2.copy(fontSize = SongListLayout.titleSize)
+                        else MiuixTheme.textStyles.main,
+                    lineHeight = if (songLayout) SongListLayout.titleLineHeight else (17f * 1.35f).sp,
                     color = titleColor ?: scheme.onBackground,
                     fontWeight = titleFontWeight,
                     maxLines = 1,
@@ -88,14 +97,17 @@ fun MusesListRow(
                 if (qualityBadgeLabel != null) {
                     androidx.compose.foundation.layout.Box(Modifier.padding(top = 2.dp)) {
                         SongSubtitleWithQuality(subtitle.orEmpty(), qualityBadgeLabel,
-                            style = MiuixTheme.textStyles.footnote1.copy(lineHeight = (13f * 1.35f).sp),
+                            style = if (songLayout) MiuixTheme.textStyles.footnote1.copy(fontSize = SongListLayout.subtitleSize,
+                                lineHeight = SongListLayout.subtitleLineHeight)
+                                else MiuixTheme.textStyles.footnote1.copy(lineHeight = (13f * 1.35f).sp),
                             color = subtitleColor ?: scheme.onBackgroundVariant)
                     }
                 } else if (subtitle != null) {
                     Text(
                         text = subtitle,
-                        style = MiuixTheme.textStyles.footnote1,
-                        lineHeight = (13f * 1.35f).sp,
+                        style = if (songLayout) MiuixTheme.textStyles.footnote1.copy(fontSize = SongListLayout.subtitleSize)
+                            else MiuixTheme.textStyles.footnote1,
+                        lineHeight = if (songLayout) SongListLayout.subtitleLineHeight else (13f * 1.35f).sp,
                         color = subtitleColor ?: scheme.onBackgroundVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -122,5 +134,6 @@ fun MusesListRow(
             }
         }
         if (dividers) HorizontalDivider()
+    }
     }
 }

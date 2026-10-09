@@ -43,7 +43,7 @@ data class SongItem(
     val albumTitle: String? = null,
     /**
      * 封面（远程 URL 或本地 URI）。
-     * null = **不渲染封面位**，保持纯文字行的既有视觉（曲库列表未传时不受影响）。
+     * null = 显示共用占位；调用方仍可通过 showCover 关闭封面位。
      */
     val coverUri: String? = null,
     val qualityLabel: String? = null,
@@ -53,8 +53,8 @@ data class SongItem(
  * 跨平台曲目行组件（U5 曲目列表共用化）。
  *
  * 视觉契约（对照桌面 LibraryScreen SongRow + SaltListItem 风格）：
- * - 行高自适应，内缩 padding 12dp;
- * - 标题：scheme.onBackground / 14sp，当前曲 primary 色 + SemiBold;
+ * - 行高自适应，44dp 封面与上下各 10dp 留白，常规行约 64dp;
+ * - 标题：scheme.onBackground / 15sp，当前曲 primary 色 + SemiBold;
  * - 副标题：artist - albumTitle，scheme.onBackgroundVariant / 12sp，单行省略;
  * - 当前行：primary 10% 高亮底 + primary 色标题 + 尾部播放图标；
  *   非当前行透明底，直接透出页面底（surface 灰），无斑马纹；
@@ -76,7 +76,7 @@ fun SongListItem(
     trailingContent: (@Composable () -> Unit)? = null,
     titleBadgeLabel: String? = null,
     qualityBadgeLabel: String? = song.qualityLabel,
-    showCover: Boolean = song.coverUri != null,
+    showCover: Boolean = true,
 ) {
     val scheme = MiuixTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
@@ -88,6 +88,9 @@ fun SongListItem(
         else -> Color.Transparent
     }
 
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalTextMarqueeEnabled provides LocalSongMarqueeState.current.matches(song.id),
+    ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -111,18 +114,18 @@ fun SongListItem(
                     )
                 },
             )
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = SongListLayout.horizontalPadding, vertical = SongListLayout.verticalPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 封面列表保留稳定占位，纯文字列表仍可不显示封面。
         if (showCover) {
             MusesCover(
                 uri = song.coverUri,
-                size = 44.dp,
+                size = SongListLayout.coverSize,
                 radius = MusesCoverRadius.SM,
                 contentDescription = null,
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(SongListLayout.coverGap))
         }
 
         // 文字区：标题 + 副标题
@@ -133,23 +136,25 @@ fun SongListItem(
                 title = song.title,
                 label = titleBadgeLabel,
                 color = if (isCurrent) scheme.primary else scheme.onBackground,
-                style = MiuixTheme.textStyles.body2,
+                style = MiuixTheme.textStyles.body2.copy(fontSize = SongListLayout.titleSize,
+                    lineHeight = SongListLayout.titleLineHeight),
                 fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
             )
             val subtitle = listOfNotNull(song.artist, song.albumTitle)
                 .filter { it.isNotBlank() }
                 .joinToString(" - ")
             if (subtitle.isNotBlank() || qualityBadgeLabel != null) {
+                Spacer(Modifier.size(SongListLayout.textGap))
                 SongSubtitleWithQuality(
                     subtitle = subtitle,
                     label = qualityBadgeLabel,
                     color = if (isCurrent) scheme.primary else scheme.onBackgroundVariant,
-                    style = MiuixTheme.textStyles.footnote1,
+                    style = MiuixTheme.textStyles.footnote1.copy(fontSize = SongListLayout.subtitleSize,
+                        lineHeight = SongListLayout.subtitleLineHeight),
                 )
             }
         }
 
-        trailingContent?.invoke()
         // 当前曲播放指示器
         if (isCurrent) {
             Icon(
@@ -161,5 +166,10 @@ fun SongListItem(
                     .size(16.dp),
             )
         }
+        if (trailingContent != null) {
+            Spacer(Modifier.width(SongListLayout.actionGap))
+            trailingContent()
+        }
+    }
     }
 }

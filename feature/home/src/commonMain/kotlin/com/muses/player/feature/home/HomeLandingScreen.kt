@@ -1,6 +1,5 @@
 package com.muses.player.feature.home
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -37,33 +36,23 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.size.Precision
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
-import com.muses.player.feature.home.resources.Res
-import com.muses.player.feature.home.resources.home_classical
-import com.muses.player.feature.home.resources.home_pop
-import com.muses.player.feature.home.resources.home_soft
-import org.jetbrains.compose.resources.DrawableResource
-import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.Text
+import com.muses.player.core.ui.components.MarqueeText as Text
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.SinkFeedback
 import top.yukonga.miuix.kmp.utils.pressable
 
-/** 首页只展示横幅与六个入口，歌曲和榜单在各自页面中打开。 */
+/** 首页展示精选歌单、猜你喜欢与排行榜，歌曲在各自页面中打开。 */
 @Composable
 fun HomeScreen(
     onOpenRecommendations: () -> Unit,
     onOpenCharts: () -> Unit,
-    onSearch: (String) -> Unit,
     onOpenPlaylist: (platform: String, playlistId: String, title: String) -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
 ) {
@@ -104,19 +93,6 @@ fun HomeScreen(
                     DiscoveryCard("排行榜", "此刻热门", TablerIcons.Chart,
                         listOf(Color(0xFFE7EEF7), Color(0xFFF3F7FC)), Color(0xFF537BA3),
                         Modifier.weight(1f), compact, onOpenCharts)
-                    DiscoveryCard("随心听", "随机漫游", TablerIcons.PlayFill,
-                        listOf(Color(0xFFF7EBDD), Color(0xFFFCF7EF)), Color(0xFFA8794C),
-                        Modifier.weight(1f), compact, viewModel::playRandom)
-                }
-            }
-            item(key = "genres") {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    GenreCard("古典", "聆听经典\n让时光慢下来", Res.drawable.home_classical,
-                        listOf(Color(0xFFF8D9ED), Color(0xFFFFF1F9)), Modifier.weight(1f), compact) { onSearch("古典音乐") }
-                    GenreCard("轻音乐", "温柔旋律\n陪你放松片刻", Res.drawable.home_soft,
-                        listOf(Color(0xFFFFE4BF), Color(0xFFFFF4E5)), Modifier.weight(1f), compact) { onSearch("轻音乐") }
-                    GenreCard("流行", "好心情\n从一首歌开始", Res.drawable.home_pop,
-                        listOf(Color(0xFFFFDCC8), Color(0xFFFFF1E9)), Modifier.weight(1f), compact) { onSearch("流行音乐") }
                 }
             }
         }
@@ -164,21 +140,20 @@ private fun FeaturedPlaylistCarousel(
     val dragged by pager.interactionSource.collectIsDraggedAsState()
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val interactionActive by rememberUpdatedState(dragged || pressed)
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
-    LaunchedEffect(pager, lifecycle, state.items.size) {
-        if (state.items.size <= 1 || lifecycle != Lifecycle.State.RESUMED) return@LaunchedEffect
-        while (isActive) {
-            delay(5_000)
-            if (!interactionActive && !pager.isScrollInProgress) {
-                // 翻页过程中 currentPage 会提前变化，不能用它重启并取消动画。
-                // 手动拖动只取消当前翻页子任务，下一轮自动轮播仍继续。
-                coroutineScope {
-                    launch {
-                        pager.animateScrollToPage((pager.settledPage + 1) % pager.pageCount)
-                    }.join()
-                }
-            }
+    val readDurations = remember(state.items) { mutableStateMapOf<String, Long>() }
+    fun durationFor(playlist: OnlinePlaylist): Long = maxOf(
+        5_000L, readDurations["${playlist.platform}:${playlist.id}:title"] ?: 0,
+        readDurations["${playlist.platform}:${playlist.id}:creator"] ?: 0,
+    )
+    val settledPage = pager.settledPage
+    val dwellMillis = durationFor(state.items[settledPage.coerceIn(state.items.indices)])
+    LaunchedEffect(pager, lifecycle, settledPage, dwellMillis, dragged, pressed) {
+        if (state.items.size <= 1 || lifecycle != Lifecycle.State.RESUMED || dragged || pressed) return@LaunchedEffect
+        delay(dwellMillis)
+        if (!pager.isScrollInProgress) {
+            // 使用 settledPage，避免翻页中 currentPage 提前变化而取消动画。
+            pager.animateScrollToPage((settledPage + 1) % pager.pageCount)
         }
     }
     Box(Modifier.fillMaxWidth().height(height)) {
@@ -187,7 +162,15 @@ private fun FeaturedPlaylistCarousel(
             modifier = Modifier.fillMaxSize(),
             key = { "${state.items[it].platform}:${state.items[it].id}" },
         ) { index ->
-            FeaturedPlaylistCard(state.items[index], compact, interaction) { onOpenPlaylist(state.items[index]) }
+            val playlist = state.items[index]
+            val timingKey = "${playlist.platform}:${playlist.id}"
+            FeaturedPlaylistCard(
+                playlist, compact, interaction, durationFor(playlist),
+                marqueeRunning = index == settledPage && lifecycle == Lifecycle.State.RESUMED && !dragged && !pressed,
+                onTitleReadDuration = { readDurations["$timingKey:title"] = it },
+                onCreatorReadDuration = { readDurations["$timingKey:creator"] = it },
+                onClick = { onOpenPlaylist(playlist) },
+            )
         }
         Row(
             Modifier.align(Alignment.BottomCenter).padding(bottom = if (compact) 9.dp else 14.dp),
@@ -204,7 +187,9 @@ private fun FeaturedPlaylistCarousel(
 
 @Composable
 private fun FeaturedPlaylistCard(
-    playlist: OnlinePlaylist, compact: Boolean, interaction: MutableInteractionSource, onClick: () -> Unit,
+    playlist: OnlinePlaylist, compact: Boolean, interaction: MutableInteractionSource, displayDurationMillis: Long,
+    marqueeRunning: Boolean, onTitleReadDuration: (Long) -> Unit, onCreatorReadDuration: (Long) -> Unit,
+    onClick: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
     val imageContext = LocalPlatformContext.current
@@ -240,10 +225,14 @@ private fun FeaturedPlaylistCard(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(playlist.title, fontSize = if (compact) 17.sp else 21.sp,
+                        displayDurationMillis = displayDurationMillis, marqueeRunning = marqueeRunning,
+                        onReadDurationChanged = onTitleReadDuration,
                         lineHeight = if (compact) 23.sp else 28.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                         fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                     Spacer(Modifier.height(4.dp))
                     Text(playlist.creator ?: playlist.trackCount?.let { "$it 首歌曲" } ?: "精选音乐",
+                        displayDurationMillis = displayDurationMillis, marqueeRunning = marqueeRunning,
+                        onReadDurationChanged = onCreatorReadDuration,
                         fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         color = scheme.onSurface.copy(alpha = 0.55f))
                     Spacer(Modifier.height(if (compact) 8.dp else 16.dp))
@@ -285,27 +274,5 @@ private fun DiscoveryCard(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Icon(icon, null, Modifier.size(24.dp), tint = iconColor)
         }
-    }
-}
-
-@Composable
-private fun GenreCard(
-    title: String, subtitle: String, artwork: DrawableResource, colors: List<Color>,
-    modifier: Modifier, compact: Boolean, onClick: () -> Unit,
-) {
-    val scheme = MiuixTheme.colorScheme
-    Column(
-        modifier.squircleClip(20.dp).homeCardClick(onClick)
-            .background(Brush.linearGradient(homeCardColors(colors)))
-            .padding(horizontal = if (compact) 14.dp else 12.dp, vertical = if (compact) 6.dp else 15.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Image(painterResource(artwork), null,
-            Modifier.fillMaxWidth().aspectRatio(1f).squircleClip(14.dp), contentScale = ContentScale.Crop)
-        Spacer(Modifier.height(if (compact) 8.dp else 14.dp))
-        Text(title, fontSize = if (compact) 14.sp else 16.sp, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-        Spacer(Modifier.height(if (compact) 4.dp else 8.dp))
-        Text(subtitle, fontSize = if (compact) 10.sp else 11.sp, lineHeight = if (compact) 14.sp else 18.sp,
-            color = scheme.onSurface.copy(alpha = 0.55f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }

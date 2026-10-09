@@ -27,7 +27,7 @@ import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.components.MusesCheckbox
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import com.muses.player.core.ui.components.MusesTextField
-import top.yukonga.miuix.kmp.basic.Text
+import com.muses.player.core.ui.components.MarqueeText as Text
 import top.yukonga.miuix.kmp.basic.Card
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect

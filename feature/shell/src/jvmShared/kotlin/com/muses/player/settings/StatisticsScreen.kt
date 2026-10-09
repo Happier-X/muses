@@ -45,7 +45,7 @@ import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.Text
+import com.muses.player.core.ui.components.MarqueeText as Text
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -276,8 +276,11 @@ private fun StatisticRow(label: String, value: String, divider: Boolean = true) 
 @Composable
 private fun TopSongRow(rank: Int, song: SongPlayStat) {
     val scheme = MiuixTheme.colorScheme
+    val marqueeEnabled = com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches(song.songId)
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(
+            horizontal = com.muses.player.core.ui.components.SongListLayout.horizontalPadding,
+            vertical = com.muses.player.core.ui.components.SongListLayout.verticalPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -290,14 +293,17 @@ private fun TopSongRow(rank: Int, song: SongPlayStat) {
         )
         MusesCover(
             uri = song.coverUri,
-            size = 40.dp,
+            size = com.muses.player.core.ui.components.SongListLayout.coverSize,
             radius = MusesCoverRadius.SM,
             modifier = Modifier.padding(start = 6.dp),
         )
-        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+        Column(modifier = Modifier.weight(1f).padding(start = com.muses.player.core.ui.components.SongListLayout.coverGap)) {
             Text(
                 text = song.title,
-                style = MiuixTheme.textStyles.body1,
+                marqueeEnabled = marqueeEnabled,
+                style = MiuixTheme.textStyles.body2.copy(
+                    fontSize = com.muses.player.core.ui.components.SongListLayout.titleSize,
+                    lineHeight = com.muses.player.core.ui.components.SongListLayout.titleLineHeight),
                 color = scheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -305,7 +311,10 @@ private fun TopSongRow(rank: Int, song: SongPlayStat) {
             if (song.subtitle.isNotBlank()) {
                 Text(
                     text = song.subtitle,
-                    style = MiuixTheme.textStyles.footnote1,
+                    marqueeEnabled = marqueeEnabled,
+                    style = MiuixTheme.textStyles.footnote1.copy(
+                        fontSize = com.muses.player.core.ui.components.SongListLayout.subtitleSize,
+                        lineHeight = com.muses.player.core.ui.components.SongListLayout.subtitleLineHeight),
                     color = scheme.onBackgroundVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

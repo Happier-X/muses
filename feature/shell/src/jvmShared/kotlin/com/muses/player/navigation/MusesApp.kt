@@ -201,6 +201,8 @@ class MainViewModel constructor(
     /** 当前歌词行文本（null = 无歌词或开关关闭） */
     private val _currentLyricLine = MutableStateFlow<String?>(null)
     val currentLyricLine: StateFlow<String?> = _currentLyricLine.asStateFlow()
+    private val _currentLyricMarquee = MutableStateFlow<com.muses.player.core.ui.components.TimedTextMarquee?>(null)
+    val currentLyricMarquee = _currentLyricMarquee.asStateFlow()
 
     /** 已解析歌词文档（切歌时更新） */
     private var lyricsDocument: LyricsDocument? = null
@@ -277,15 +279,35 @@ class MainViewModel constructor(
     /** 歌词进度轮询：~100ms，根据播放位置查找当前歌词行；关闭时降频到 1s */
     private fun startLyricPositionPolling() {
         viewModelScope.launch {
+            var lastLineKey: String? = null
+            var lastPosition = 0L
+            var wasPlaying = false
             while (true) {
                 val enabled = miniPlayerLyricsEnabled.value
                 if (enabled) {
                     val doc = lyricsDocument
                     val pos = playback.currentPosition()
                     val index = doc?.highlightedIndex(pos)
-                    _currentLyricLine.value = index?.let { doc?.lines?.getOrNull(it)?.text }
+                    val line = index?.let { doc?.lines?.getOrNull(it) }
+                    val playing = playback.isPlaying.value
+                    val lineKey = line?.let { "${playback.currentSongId.value}:$index:${it.timeMs}" }
+                    _currentLyricLine.value = line?.text
+                    if (line == null) {
+                        _currentLyricMarquee.value = null
+                    } else if (lineKey != lastLineKey || (playing && !wasPlaying) || kotlin.math.abs(pos - lastPosition) > 1_500) {
+                        val end = doc?.lines?.getOrNull(index!! + 1)?.timeMs
+                            ?: (line.timeMs + (line.durationMs ?: 5_000L))
+                        _currentLyricMarquee.value = com.muses.player.core.ui.components.TimedTextMarquee(
+                            durationMillis = (end - pos).coerceAtLeast(1), key = "$lineKey:$pos",
+                        )
+                    }
+                    lastLineKey = lineKey
+                    lastPosition = pos
+                    wasPlaying = playing
                 } else {
                     _currentLyricLine.value = null
+                    _currentLyricMarquee.value = null
+                    lastLineKey = null
                 }
                 delay(if (enabled) 100 else 1000)
             }
@@ -394,6 +416,9 @@ private fun MusesAppContent(openSettingsRequest: Long) {
 
         // 底部迷你条和导航胶囊在手机、平板上共用。
         val viewModel: MainViewModel = koinViewModel()
+        androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+            viewModel.connectPlayer()
+        }
 
         // 连接播放服务
         LaunchedEffect(Unit) {
@@ -509,6 +534,7 @@ private fun MusesAppContent(openSettingsRequest: Long) {
         val isPlaying by viewModel.isPlaying.collectAsState()
         val miniPlayerLyricsEnabled by viewModel.miniPlayerLyricsEnabled.collectAsState()
         val currentLyricLine by viewModel.currentLyricLine.collectAsState()
+        val currentLyricMarquee by viewModel.currentLyricMarquee.collectAsState()
 
         // ── 滚动融合（借鉴 Halcyon 的 BottomDockMode）──
         // 列表向下滚（内容上滑）→ 紧凑；向上滚 → 展开；不消费滚动（返回 Offset.Zero）。
@@ -567,6 +593,8 @@ private fun MusesAppContent(openSettingsRequest: Long) {
                 bottomBarElevation.value = with(shellDensity) { bounds.top.toDp() }
             }
             CompositionLocalProvider(
+                com.muses.player.core.ui.components.LocalSongMarqueeState provides
+                    com.muses.player.core.ui.components.SongMarqueeState(currentSongId, isPlaying),
                 com.muses.player.core.ui.components.LocalDownloadSong provides { song -> downloadManager.enqueue(song); Unit },
                 com.muses.player.core.ui.theme.LocalBottomChromeElevation provides bottomBarElevation,
             ) {
@@ -632,6 +660,7 @@ private fun MusesAppContent(openSettingsRequest: Long) {
                     MiniPlayerBar(
                         title = nowPlaying?.title ?: "空空如也~",
                         subtitle = miniSubtitle,
+                        subtitleMarquee = if (lyricLine != null) currentLyricMarquee else null,
                         coverUri = nowPlaying?.coverUri,
                         isPlaying = isPlaying,
                         hasSong = nowPlaying != null,
@@ -729,6 +758,7 @@ private fun MusesAppContent(openSettingsRequest: Long) {
                         miniBarBounds = miniBarBounds,
                         miniPlayerLyricsEnabled = miniPlayerLyricsEnabled,
                         currentLyricLine = currentLyricLine,
+                        currentLyricMarquee = currentLyricMarquee,
                         nowPlaying = nowPlaying,
                         isPlaying = isPlaying,
                         onClose = { closePlayer() },
@@ -777,6 +807,7 @@ private fun ImmersivePlayerOverlay(
     miniBarBounds: Rect?,
     miniPlayerLyricsEnabled: Boolean,
     currentLyricLine: String?,
+    currentLyricMarquee: com.muses.player.core.ui.components.TimedTextMarquee?,
     nowPlaying: NowPlayingUiState?,
     isPlaying: Boolean,
     onClose: () -> Unit,
@@ -857,6 +888,7 @@ private fun ImmersivePlayerOverlay(
                     MiniPlayerBar(
                         title = nowPlaying?.title ?: "空空如也~",
                         subtitle = transitionSubtitle,
+                        subtitleMarquee = if (miniPlayerLyricsEnabled && currentLyricLine != null) currentLyricMarquee else null,
                         coverUri = nowPlaying?.coverUri,
                         isPlaying = isPlaying,
                         hasSong = nowPlaying != null,
@@ -1082,7 +1114,6 @@ private fun AppNavHost(
                 onOpenPlaylist = { platform, playlistId, title ->
                     backStack.pushUnique(MusesRoute.PlaylistDetail(platform, playlistId, title))
                 },
-                onSearch = { keyword -> backStack.pushUnique(MusesRoute.OnlineSearch(keyword)) },
             )
         }
         entry<MusesRoute.HomeCollection>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->

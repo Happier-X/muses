@@ -450,30 +450,6 @@ class HomeViewModel(
         playResults(results, index, results[index].platform, shuffle = true)
     }
 
-    /** 随心听：优先从曲库随机播放，曲库为空时使用今日推荐。 */
-    fun playRandom() {
-        viewModelScope.launch {
-            val library = songRepository.observeSongs().first()
-            if (library.isNotEmpty()) {
-                playback.play(library.random().id, library)
-                playback.setShuffleEnabled(true)
-                return@launch
-            }
-            if (_state.value.recommend.result == null) {
-                refreshRecommend()
-                recommendJob?.join()
-            }
-            val tracks = _state.value.recommend.result?.tracks.orEmpty()
-            if (tracks.isNotEmpty()) {
-                val results = tracks.map { it.result }
-                val index = results.indices.random()
-                playResults(results, index, results[index].platform, shuffle = true)
-            } else {
-                MusesSnackbar.show("还没有可播放的歌曲，请先添加曲库歌曲或生成每日推荐")
-            }
-        }
-    }
-
     // ── 内部 ──
 
     /**

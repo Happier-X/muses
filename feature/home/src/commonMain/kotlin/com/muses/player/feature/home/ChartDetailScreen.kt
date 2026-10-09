@@ -141,6 +141,7 @@ fun ChartDetailScreen(
                     key = { _, song -> "${song.platform}-${song.songId}" },
                 ) { index, song ->
                     SongListItem(
+                        showCover = true,
                         song = SongItem(
                             id = "${song.platform}-${song.songId}",
                             title = song.name,

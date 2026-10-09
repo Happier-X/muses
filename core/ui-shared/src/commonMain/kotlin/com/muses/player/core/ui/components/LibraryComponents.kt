@@ -25,7 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
+import com.muses.player.core.ui.components.MarqueeText as Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -212,11 +212,12 @@ fun LibrarySongList(
         LazyColumn(
             modifier = modifier.fillMaxSize(),
             contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             items(songs, key = { it.id }) { song ->
                 SongListItem(
                     song = song,
+                    showCover = true,
                     isCurrent = song.id == currentSongId,
                     onClick = { onPlay(song.id) },
                     onLongClick = onLongClick?.let { cb -> { cb(song.id) } },

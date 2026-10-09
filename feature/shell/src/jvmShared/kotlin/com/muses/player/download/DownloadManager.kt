@@ -26,6 +26,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.selects.select
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -56,14 +57,18 @@ class DownloadManager(
         lx.resolveMusicUrlInfo(ref.platform, ref.musicInfoJson, quality, downloadFallback = true,
             acceptUrl = { url -> urlProbe == null || withTimeoutOrNull(4_000) { urlProbe.canOpen(url) } == true })
     },
+    private val uploadConfirmDelayMs: Long = 30_000L,
 ) {
     // WebDAV 使用 HTTP/1.1，提高部分 Android / 代理组合上传时的连接兼容性。
     private val webDavClient = client.newBuilder().protocols(listOf(Protocol.HTTP_1_1))
         // PUT 可能已经落盘，断连后先核验；禁止底层在未确认结果时自动重发。
         .retryOnConnectionFailure(false)
-        // 网盘网关接收完请求体后还需完成上游保存；慢速网盘写入可能超过 5 分钟。
-        // 保留整个请求的 15 分钟上限，避免先于网关取消仍在进行的上传。
-        .readTimeout(15, TimeUnit.MINUTES).writeTimeout(60, TimeUnit.SECONDS)
+        // 文件查询与核验不沿用上传的长等待，避免一次 HEAD / GET 阻塞队列 15 分钟。
+        .readTimeout(60, TimeUnit.SECONDS).writeTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS).build()
+    private val webDavUploadClient = webDavClient.newBuilder()
+        // 网关接收完请求体后仍需完成上游保存，单独保留 PUT 的长等待。
+        .readTimeout(15, TimeUnit.MINUTES)
         .callTimeout(15, TimeUnit.MINUTES).build()
     private val ready = scope.async { store.recoverInterrupted() }
     val tasks = store.tasks.stateIn(scope, SharingStarted.Eagerly, emptyList())
@@ -181,7 +186,7 @@ class DownloadManager(
     private suspend fun execute(task: DownloadTask) {
         try {
             change(task.id) { it.copy(status = DownloadStatus.PREPARING,
-                transferredBytes = 0, transferTotalBytes = null, warnings = emptyList(), error = null, failureStage = null, skippedExisting = false) }
+                transferredBytes = 0, transferTotalBytes = null, warnings = emptyList(), error = null, failureStage = null, skippedExisting = false, transferMessage = null) }
             val ref = OnlineTrackRef.parse(task.track.reference) ?: error("在线歌曲信息无效，请重新加入队列")
             val requested = LxQuality.fromKey(task.quality) ?: LxQuality.DEFAULT
             val directory = File(storage.cacheDirectory, task.id).apply { mkdirs() }
@@ -201,7 +206,8 @@ class DownloadManager(
             val target = task.target ?: error("请先选择保存位置")
             val total = files.sumOf { it.length() }
             change(task.id) { it.copy(status = if (target.kind == DownloadTargetKind.WEBDAV) DownloadStatus.UPLOADING else DownloadStatus.SAVING,
-                transferredBytes = 0, transferTotalBytes = total, warnings = warnings) }
+                transferredBytes = 0, transferTotalBytes = total, warnings = warnings,
+                transferMessage = if (target.kind == DownloadTargetKind.WEBDAV) "检查目标文件" else null) }
             val recoverUpload = task.target == target && task.transferTotalBytes != null &&
                 task.transferredBytes >= audio.length()
             val uploaded = if (target.kind == DownloadTargetKind.WEBDAV) upload(files, target, task.id, recoverUpload) else null
@@ -220,6 +226,7 @@ class DownloadManager(
                         transferredBytes = total,
                         resumeValidator = null,
                         skippedExisting = saved.skippedExisting,
+                        transferMessage = null,
                     )
                 }
             }
@@ -232,7 +239,8 @@ class DownloadManager(
         } catch (e: Exception) {
             val stage = store.load().firstOrNull { it.id == task.id }?.status
             val message = when (e) {
-                is java.net.SocketTimeoutException -> "连接超时，请重试"
+                is java.net.SocketTimeoutException -> if (stage == DownloadStatus.UPLOADING)
+                    "WebDAV 响应超时，尚未确认远端保存结果，请稍后重试" else "连接超时，请重试"
                 is java.net.UnknownHostException -> "网络不可用，请检查连接后重试"
                 is javax.net.ssl.SSLException -> if (stage == DownloadStatus.UPLOADING)
                     "WebDAV 上传连接中断，尚未确认远端文件完整，请重试" else
@@ -452,7 +460,10 @@ class DownloadManager(
                 check(response.code == 404 || response.isSuccessful) { "无法检查目标文件：HTTP ${response.code}" }
                 if (response.isSuccessful) RemoteDownloadFile(url, response.header("ETag"), response.header("Last-Modified")) else null
             }
-            if (existing != null && index == 0 && recoverUpload && confirmUploadedFile(url, authorization, file)) {
+            if (existing != null && index == 0 && recoverUpload && withTimeoutOrNull(90_000) {
+                    reportTransferMessage(taskId, "核验上次上传")
+                    confirmUploadedFile(url, authorization, file)
+                } == true) {
                 transferred += file.length()
                 audioLocation = url.toString()
                 reportTransferred(taskId, transferred)
@@ -483,11 +494,12 @@ class DownloadManager(
                 warnings += "发现同名歌曲，新文件音质更高，已替换"
             }
             val completedBytes = transferred
-            var bodyWritten = false
+            val bodySent = CompletableDeferred<Unit>()
             val body = object : RequestBody() {
                 override fun contentType() = "application/octet-stream".toMediaType()
                 override fun contentLength() = file.length()
                 override fun writeTo(sink: BufferedSink) {
+                    runBlocking { reportTransferMessage(taskId, null) }
                     var last = 0L
                     // 重定向或网络重试会再次写入同一个请求体，只统计本次文件位置。
                     var fileTransferred = 0L
@@ -504,7 +516,8 @@ class DownloadManager(
                     }
                     runBlocking { reportTransferred(taskId, completedBytes + fileTransferred) }
                     sink.flush()
-                    bodyWritten = true
+                    bodySent.complete(Unit)
+                    runBlocking { reportTransferMessage(taskId, "等待服务器保存") }
                 }
             }
             try {
@@ -515,12 +528,46 @@ class DownloadManager(
                         existing.lastModified?.let { header("If-Unmodified-Since", it) }
                     }
                 }.put(body).build()
-                network(put, webDavClient) {
-                    check(it.isSuccessful) { "上传失败：HTTP ${it.code}，已保存的文件不会被删除" }
+                val verified = supervisorScope {
+                    val uploading = async {
+                        network(put, webDavUploadClient) {
+                            check(it.isSuccessful) {
+                                if (it.code == 423) "服务器锁定了目标文件（HTTP 423），请等待服务器任务结束后重试"
+                                else "上传失败：HTTP ${it.code}，已保存的文件不会被删除"
+                            }
+                        }
+                        false
+                    }
+                    val verifying = async {
+                        bodySent.await()
+                        while (true) {
+                            delay(uploadConfirmDelayMs)
+                            reportTransferMessage(taskId, "核验服务器保存结果")
+                            val confirmed = try {
+                                withTimeoutOrNull(90_000) { confirmUploadedFile(url, authorization, file) } == true
+                            } catch (e: CancellationException) { throw e }
+                            catch (_: Exception) { false }
+                            if (confirmed) return@async true
+                            reportTransferMessage(taskId, "等待服务器保存")
+                        }
+                        @Suppress("UNREACHABLE_CODE")
+                        false
+                    }
+                    try {
+                        select<Boolean> {
+                            uploading.onAwait { it }
+                            verifying.onAwait { it }
+                        }
+                    } finally {
+                        uploading.cancel()
+                        verifying.cancel()
+                    }
                 }
+                if (verified) warnings += "服务器响应较慢，已核验远端文件完整"
             } catch (e: java.io.IOException) {
+                reportTransferMessage(taskId, "核验远端文件")
                 // PUT 已发送完但响应断连时，读回文件逐字节核验；不能仅凭大小认定成功，也不能盲目重传。
-                val confirmed = bodyWritten && withTimeoutOrNull(90_000) {
+                val confirmed = bodySent.isCompleted && withTimeoutOrNull(90_000) {
                     confirmAfterDisconnect(url, authorization, file)
                 } == true
                 if (!confirmed) throw e
@@ -656,12 +703,23 @@ class DownloadManager(
         }
     }
 
+    private suspend fun reportTransferMessage(taskId: String, message: String?) {
+        try { change(taskId) { it.copy(transferMessage = message) } }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) { }
+    }
+
     private suspend fun <T> network(request: Request, httpClient: OkHttpClient = client, block: suspend (Response) -> T): T = coroutineScope {
         val call = httpClient.newCall(request)
         val watcher = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             try { awaitCancellation() } finally { call.cancel() }
         }
         try { withContext(Dispatchers.IO) { call.execute().use { block(it) } } }
+        catch (e: java.io.IOException) {
+            // call.cancel() 导致的断连保留协程取消语义，避免完成核验后误走失败恢复。
+            currentCoroutineContext().ensureActive()
+            throw e
+        }
         finally { watcher.cancel() }
     }
 }

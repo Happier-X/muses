@@ -59,10 +59,10 @@ import com.muses.player.core.model.Song
 import com.muses.player.core.model.libraryQualityLabel
 import com.muses.player.core.ui.components.MusesSongActionsSheet
 import com.muses.player.core.ui.components.MusesCover
+import com.muses.player.core.ui.components.SongListLayout
 import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
-import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesListRow
 import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.ui.components.MusesTextButton
@@ -371,6 +371,8 @@ fun SongsPage(
                     // 当前播放曲：标题用 primary 色区分（多选时以选中态为准，不叠加）
                     val isCurrent = !isMultiSelect && song.id == currentSongId
                     MusesListRow(
+                        songLayout = true,
+                        songId = song.id,
                         modifier = Modifier.background(
                             // Web .songs-page__row.is-selected：rgba(var(--m-primary-rgb), .08)
                             color = if (checked) scheme.primary.copy(alpha = 0.08f) else Color.Transparent,
@@ -393,7 +395,7 @@ fun SongsPage(
                             val metaAlbum = if (useMetaAlbum) currentMeta?.album?.trim()?.takeIf { it.isNotEmpty() } else null
                             "${metaArtist ?: song.artist ?: "未知艺术家"} - ${metaAlbum ?: song.album ?: "未知专辑"}"
                         },
-                        // Web .songs-page :deep(.m-list-item)：72dp 行高/16-12px 字号/紧凑 after
+                        // 歌曲行与榜单、歌单共用紧凑尺寸。
                         onClick = {
                             if (isMultiSelect) {
                                 selectedIds =
@@ -440,44 +442,19 @@ fun SongsPage(
                             } else {
                                 val useMetaCover = song.id == currentSongId && song.metaSources?.cover == null && song.tagsVersion < com.muses.player.core.data.db.SongTags.TAGS_VERSION
                                 val displayCover = if (useMetaCover) currentMeta?.coverUri ?: song.coverUri else song.coverUri
-                                if (displayCover != null) {
                                     MusesCover(
                                         uri = displayCover,
-                                        size = 54.dp,
+                                        size = SongListLayout.coverSize,
                                         radius = MusesCoverRadius.SM,
                                     )
-                                    // Web .m-list-item__inner padding-left:12px —— 封面-标题间距对齐椒盐
-                                    Spacer(Modifier.width(12.dp))
-                                } else {
-                                // Web .songs-page__cover 无封面覆盖：m-cover 容器仍恒定 54dp，灰槽底 + 内部居中 32dp 占位图标；
-                                // 灰槽保证与有封面行左缘一致（工具栏/封面左对齐的基准，见 bottomContent 16dp）。
-                                Box(
-                                    Modifier
-                                        .size(54.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(scheme.surfaceContainerHigh),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        TablerIcons.MusicNote,
-                                        contentDescription = null,
-                                        tint = scheme.onBackground.copy(alpha = 0.45f),
-                                        modifier = Modifier.size(32.dp),
-                                    )
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                }
+                                    Spacer(Modifier.width(SongListLayout.coverGap))
                             }
                         },
                         after = {
                             if (!isMultiSelect) {
-                                // 椒盐式实心三点菜单
-                                MusesIconButton(
-                                    size = MusesIconButtonSize.SM,
+                                com.muses.player.core.ui.components.SongMoreButton(
                                     onClick = { actionSong = song },
-                                ) {
-                                    Icon(TablerIcons.MoreVert, contentDescription = "更多歌曲操作")
-                                }
+                                )
                             }
                         },
                         // Web 版 <m-list :dividers="false">：椒盐歌曲列表无行间分割线

@@ -53,6 +53,7 @@ data class DownloadTask(
     val resumeValidator: String? = null,
     val failureStage: DownloadStatus? = null,
     val skippedExisting: Boolean = false,
+    val transferMessage: String? = null,
 )
 
 /** 仅形成文件名，不允许音源歌曲元数据成为目录路径。 */

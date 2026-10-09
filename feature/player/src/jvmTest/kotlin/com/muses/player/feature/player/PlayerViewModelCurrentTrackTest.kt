@@ -60,6 +60,40 @@ import kotlin.test.assertTrue
  */
 class PlayerViewModelCurrentTrackTest {
     @Test
+    fun 歌词结束后播放进度仍继续更新() = runBlocking {
+        val entity = SongEntity(id = "progress", sourceId = "s1", sourceType = SourceType.LOCAL.name,
+            path = "/music/progress.mp3", title = "测试歌曲", lyrics = ttml)
+        val port = FakePort()
+        val vm = PlayerViewModel(port, FakeSongDao(mapOf(entity.id to entity)), FakeMetadataResolver(), null, null)
+        try {
+            port.setCurrentSong(entity.id)
+            port.setPlaying(true)
+            awaitUntil { vm.lyricsDocument.value != null }
+            port.positionMs = 10_000
+            awaitUntil { vm.position.value == 10_000L }
+            port.positionMs = 11_000
+            awaitUntil { vm.position.value == 11_000L }
+            assertTrue(vm.lyricPosition.value <= 2_000L)
+        } finally { vm.viewModelScope.cancel() }
+    }
+
+    @Test
+    fun 返回前台清除中断的拖动且继续轮询() = runBlocking {
+        val port = FakePort()
+        val vm = PlayerViewModel(port, FakeSongDao(), FakeMetadataResolver(), null, null)
+        try {
+            port.setPlaying(true)
+            vm.onSeekStart()
+            port.positionMs = 30_000
+            vm.onPlaybackUiResumed()
+            assertEquals(false, vm.isSeeking.value)
+            assertEquals(30_000L, vm.position.value)
+            port.positionMs = 31_000
+            awaitUntil { vm.position.value == 31_000L }
+        } finally { vm.viewModelScope.cancel() }
+    }
+
+    @Test
     fun 曲库缺少译文时不向在线歌词源补取() = runBlocking {
         for (sourceType in listOf(SourceType.LOCAL, SourceType.WEBDAV)) {
             val entity = SongEntity(
@@ -124,6 +158,8 @@ class PlayerViewModelCurrentTrackTest {
     // ── 测试替身 ──────────────────────────────────────────
 
     private class FakePort : PlaybackPort {
+        @Volatile var positionMs = 0L
+        fun setPlaying(value: Boolean) { _isPlaying.value = value }
         override val playbackState: StateFlow<Int> = MutableStateFlow(PlaybackStates.STATE_READY)
         override val playbackError: StateFlow<String?> = MutableStateFlow(null)
         override val playerConfig: StateFlow<PlayerConfig> = MutableStateFlow(PlayerConfig())
@@ -161,7 +197,7 @@ class PlayerViewModelCurrentTrackTest {
         override fun clearQueueItems() = Unit
         override fun skipToNext() = Unit
         override fun skipToPrevious() = Unit
-        override fun currentPosition(): Long = 0L
+        override fun currentPosition(): Long = positionMs
         override fun clearPlaybackError() = Unit
         override fun resetRecovery() = Unit
     }

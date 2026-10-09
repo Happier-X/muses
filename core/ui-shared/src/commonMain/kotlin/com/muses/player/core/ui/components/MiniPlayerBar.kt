@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import top.yukonga.miuix.kmp.basic.Text
+import com.muses.player.core.ui.components.MarqueeText as Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -119,6 +119,7 @@ fun MiniPlayerBar(
     onNext: (() -> Unit)? = null,
     /** 右滑 → 上一曲（null = 不支持滑动切歌） */
     onPrevious: (() -> Unit)? = null,
+    subtitleMarquee: TimedTextMarquee? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
     // 与悬浮底栏同材质：squircle 50dp 胶囊（官方 FloatingNavigationBar 同值）
@@ -281,6 +282,9 @@ fun MiniPlayerBar(
                 )
                 Text(
                     text = subtitle, // 「{artist} - {album}」由调用方拼装
+                    displayDurationMillis = subtitleMarquee?.durationMillis,
+                    marqueeKey = subtitleMarquee?.key ?: subtitle,
+                    marqueeRunning = subtitleMarquee == null || isPlaying,
                     style = MiuixTheme.textStyles.footnote1,
                     lineHeight = (13f * 1.3f).sp,
                     color = scheme.onBackgroundVariant,

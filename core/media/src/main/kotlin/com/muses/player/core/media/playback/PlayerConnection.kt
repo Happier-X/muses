@@ -184,23 +184,40 @@ class PlayerConnection constructor(
     }
 
     override fun connect() {
-        if (controller != null) return
+        if (android.os.Looper.myLooper() != mainHandler.looper) {
+            mainHandler.post { connect() }
+            return
+        }
+        controller?.takeIf { it.isConnected }?.let { syncState(it); return }
+        if (controllerFuture?.isDone == false) return
+        val previous = controllerFuture
+        controllerFuture = null
+        controller?.removeListener(playerListener)
+        controller = null
+        previous?.let { MediaController.releaseFuture(it) }
         val sessionToken = SessionToken(
             context,
             ComponentName(context, PlaybackService::class.java),
         )
-        controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
+        val future = MediaController.Builder(context, sessionToken).buildAsync()
+        controllerFuture = future
         // MediaController 所有方法必须在主线程调用：Future 回调也需投递主线程，
         // 否则 syncState 里的 isPlaying 等直接抛 IllegalStateException（MuMu 实测崩溃）
-        controllerFuture?.addListener(
-            { mainHandler.post { connectOnMainThread() } },
-            java.util.concurrent.Executors.newSingleThreadExecutor(),
+        future.addListener(
+            { connectOnMainThread(future) },
+            java.util.concurrent.Executor { mainHandler.post(it) },
         )
     }
 
-    private fun connectOnMainThread() {
-        val future = controllerFuture ?: return // disconnect 已发生，丢弃迟到回调
-        val connected = runCatching { future.get() }.getOrNull() ?: return
+    private fun connectOnMainThread(future: ListenableFuture<MediaController>) {
+        if (controllerFuture !== future) return // 丢弃旧连接的迟到回调。
+        val connected = runCatching { future.get() }.getOrNull()
+        if (connected == null || !connected.isConnected) {
+            controllerFuture = null
+            MediaController.releaseFuture(future)
+            errorLogStore.log(ErrorLogStore.Level.WARN, "Playback", "播放连接未建立，返回前台时将重新连接")
+            return
+        }
         controller = connected.also { player ->
             player.addListener(playerListener)
             syncState(player)
@@ -209,9 +226,10 @@ class PlayerConnection constructor(
 
     override fun disconnect() {
         controller?.removeListener(playerListener)
-        controllerFuture?.cancel(true)
+        val previous = controllerFuture
         controller = null
         controllerFuture = null
+        previous?.let { MediaController.releaseFuture(it) }
     }
 
     /** 从歌曲列表中选择 songId 开始播放（WebDAV 直接 HTTP 流播，标签由 ExoPlayer 解析回退显示） */

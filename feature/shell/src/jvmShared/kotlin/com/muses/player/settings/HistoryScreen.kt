@@ -70,6 +70,8 @@ fun HistoryScreen(onBack: () -> Unit) {
                     }
                     items(entries, key = RecentPlayEntry::songId) { entry ->
                         MusesListRow(
+                            songLayout = true,
+                            songId = entry.songId,
                             title = entry.title,
                             subtitle = "${entry.subtitle.ifBlank { "未知艺术家" }} · ${formatPlayedAt(entry.playedAt)}",
                             onClick = {
@@ -86,8 +88,9 @@ fun HistoryScreen(onBack: () -> Unit) {
                             leading = {
                                 MusesCover(
                                     uri = entry.coverUri,
-                                    size = 48.dp,
-                                    modifier = Modifier.padding(end = 12.dp),
+                                    size = com.muses.player.core.ui.components.SongListLayout.coverSize,
+                                    radius = com.muses.player.core.ui.components.MusesCoverRadius.SM,
+                                    modifier = Modifier.padding(end = com.muses.player.core.ui.components.SongListLayout.coverGap),
                                 )
                             },
                         )

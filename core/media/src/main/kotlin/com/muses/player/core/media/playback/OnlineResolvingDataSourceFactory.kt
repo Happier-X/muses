@@ -8,6 +8,8 @@ import com.muses.player.core.model.online.OnlineTrackRef
 import com.muses.player.core.model.online.OnlineTrackResolver
 import com.muses.player.core.model.online.OnlinePlaybackHttp
 import java.io.IOException
+import java.io.InterruptedIOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -43,6 +45,12 @@ class OnlineResolvingDataSourceFactory(
             val ref = OnlineTrackRef.parse(trackUri) ?: return@ResolvingDataSource dataSpec
             val resolved = try {
                 runBlocking { withTimeoutOrNull(resolveTimeoutMs) { resolver.resolve(ref) } }
+            } catch (e: InterruptedException) {
+                // Media3 取消加载会中断线程；保留中断语义，不作为音源故障上报。
+                Thread.currentThread().interrupt()
+                throw InterruptedIOException("在线直链加载已中断").apply { initCause(e) }
+            } catch (e: CancellationException) {
+                throw InterruptedIOException("在线直链加载已取消").apply { initCause(e) }
             } catch (e: Exception) {
                 onResolveError(trackUri, e)
                 throw IOException("在线音源直链解析失败：${e.message ?: "未知错误"}", e)

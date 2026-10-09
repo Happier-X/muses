@@ -24,6 +24,7 @@ class DownloadManagerTest {
     private class Harness(
         private val resolveTimeoutMs: Long = 120_000L,
         private val client: okhttp3.OkHttpClient = okhttp3.OkHttpClient.Builder().build(),
+        private val uploadConfirmDelayMs: Long = 30_000L,
     ) : java.io.Closeable {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val root = Files.createTempDirectory("muses-download-test").toFile()
@@ -63,7 +64,7 @@ class DownloadManagerTest {
             }, resolveTimeoutMs = resolveTimeoutMs, scope = scope, client = client, resolveAudio = { _, quality ->
                 resolves++
                 resolveOverride?.invoke(quality) ?: LxMusicUrl(server.url("/audio").toString(), LxQuality.Q_128K)
-            })
+            }, uploadConfirmDelayMs = uploadConfirmDelayMs)
         fun song(id: String = "online:kw:1") = Song(id, "online", OnlineTrackRef("kw", "{}", "online").encode(),
             "测试歌曲", "测试歌手", "测试专辑", 1000, 1, lyrics = "[00:00.00]测试歌词", sourceType = SourceType.ONLINE)
         suspend fun await(status: DownloadStatus): DownloadTask = withTimeout(15_000) {
@@ -216,6 +217,76 @@ class DownloadManagerTest {
             assertEquals(DownloadStatus.COMPLETED, h.await(DownloadStatus.COMPLETED).status)
             val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
             assertEquals(1, requests.count { it.method == "PUT" })
+        }
+    }
+
+    @Test fun slowUploadResponseIsConfirmedWithoutRepeatingPut() = runBlocking {
+        Harness(uploadConfirmDelayMs = 100).use { h ->
+            val uploaded = java.util.concurrent.atomic.AtomicReference<ByteArray>()
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse = when {
+                    request.method == "HEAD" -> MockResponse().setResponseCode(404)
+                    request.method == "GET" && request.path == "/audio" -> MockResponse().setBody(Buffer().write(wav()))
+                    request.method == "GET" -> MockResponse().setBody(Buffer().write(uploaded.get()))
+                    request.method == "PUT" -> {
+                        uploaded.set(request.body.readByteArray())
+                        MockResponse().setResponseCode(201).setHeadersDelay(2, TimeUnit.SECONDS)
+                    }
+                    else -> MockResponse().setResponseCode(405)
+                }
+            }
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id),
+                DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertTrue(done.warnings.any { it.contains("响应较慢") }, done.warnings.toString())
+            assertNull(done.transferMessage)
+            val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
+            assertEquals(1, requests.count { it.method == "PUT" })
+        }
+    }
+
+    @Test fun waitingForUploadCommitCanBePaused() = runBlocking {
+        Harness().use { h ->
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = when (request.method) {
+                    "GET" -> MockResponse().setBody(Buffer().write(wav()))
+                    "HEAD" -> MockResponse().setResponseCode(404)
+                    "PUT" -> MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+                    else -> MockResponse().setResponseCode(405)
+                }
+            }
+            h.manager.enqueue(h.song()).join()
+            val id = h.store.load().single().id
+            h.manager.start(setOf(id), DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
+            withTimeout(5000) {
+                h.manager.tasks.first { tasks -> tasks.any { it.transferMessage == "等待服务器保存" } }
+                h.manager.pause(id).join()
+            }
+            assertEquals(DownloadStatus.PAUSED, h.store.load().single().status)
+        }
+    }
+
+    @Test fun lockedUploadHasClearErrorWithoutRepeatingPut() = runBlocking {
+        Harness().use { h ->
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = when (request.method) {
+                    "GET" -> MockResponse().setBody(Buffer().write(wav()))
+                    "HEAD" -> MockResponse().setResponseCode(404)
+                    "PUT" -> MockResponse().setResponseCode(423)
+                    else -> MockResponse().setResponseCode(405)
+                }
+            }
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id),
+                DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
+            val failed = h.await(DownloadStatus.FAILED)
+            assertTrue(failed.error.orEmpty().contains("HTTP 423"))
+            assertTrue(failed.error.orEmpty().contains("锁定"))
+            assertEquals(DownloadStatus.UPLOADING, failed.failureStage)
+            val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
+            assertEquals(1, requests.count { it.method == "PUT" })
+            assertTrue(h.added.isEmpty())
         }
     }
 

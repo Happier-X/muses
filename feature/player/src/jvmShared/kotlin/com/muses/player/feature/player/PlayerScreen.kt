@@ -33,7 +33,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import com.muses.player.core.playback.PlaybackStates
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
+import com.muses.player.core.ui.components.MarqueeText as Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -149,6 +149,9 @@ fun PlayerScreen(
     initialCoverUri: String? = null,
 ) {
     val settingsRepository = koinInject<SettingsRepository>()
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        viewModel.onPlaybackUiResumed()
+    }
     val coverContentColorEnabled by settingsRepository.coverContentColorEnabled.collectAsStateWithLifecycle(initialValue = true)
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val position by viewModel.position.collectAsStateWithLifecycle()
@@ -1202,6 +1205,7 @@ fun QueueScreen(
 ) {
     val queue by viewModel.queueRows.collectAsStateWithLifecycle()
     val currentId by viewModel.currentSongId.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val currentIndex = queue.indexOfFirst { it.songId == currentId }
     var showClearConfirmation by remember { mutableStateOf(false) }
     val scheme = MiuixTheme.colorScheme
@@ -1289,6 +1293,9 @@ fun QueueScreen(
                         itemsIndexed(queue, key = { _, item -> item.songId }, contentType = { _, _ -> "queue" }) { index, item ->
                             val isCurrent = index == currentIndex
                             MusesListRow(
+                                songLayout = true,
+                                songId = item.songId,
+                                marqueeEnabled = isCurrent && isPlaying,
                                 title = item.title,
                                 subtitle = "${item.artist ?: "未知艺术家"} - ${item.album ?: "未知专辑"}",
                                 titleColor = if (isCurrent) scheme.primary else null,
@@ -1296,8 +1303,8 @@ fun QueueScreen(
                                 dividers = false,
                                 onClick = { viewModel.playAtIndex(index) },
                                 leading = {
-                                    MusesCover(uri = item.coverUri, size = 54.dp, radius = MusesCoverRadius.SM)
-                                    Spacer(Modifier.width(12.dp))
+                                    MusesCover(uri = item.coverUri, size = com.muses.player.core.ui.components.SongListLayout.coverSize, radius = MusesCoverRadius.SM)
+                                    Spacer(Modifier.width(com.muses.player.core.ui.components.SongListLayout.coverGap))
                                 },
                                 after = {
                                     MusesIconButton(

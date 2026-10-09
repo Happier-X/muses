@@ -183,10 +183,10 @@ class PlayerViewModel constructor(
                 val playing = playback.isPlaying.value
                 if (!_isSeeking.value) {
                     tick++
-                    val pos = playback.currentPosition().coerceAtMost(lastLineEndMs)
+                    val pos = playback.currentPosition().coerceAtLeast(0L)
                     if (tick % 5 == 0) _position.value = pos
                     if (playing || _lyricPosition.value == 0L || pos != _lyricPosition.value) {
-                        _lyricPosition.value = pos
+                        _lyricPosition.value = pos.coerceAtMost(lastLineEndMs)
                     }
                 }
                 delay(if (playing) 100 else 1000)
@@ -234,6 +234,14 @@ class PlayerViewModel constructor(
 
     fun onSeekStart() {
         _isSeeking.value = true
+    }
+
+    /** 回到前台时清除被中断的拖动，立即同步真实播放进度。 */
+    fun onPlaybackUiResumed() {
+        _isSeeking.value = false
+        val position = playback.currentPosition().coerceAtLeast(0L)
+        _position.value = position
+        _lyricPosition.value = position.coerceAtMost(lastLineEndMs)
     }
 
     fun onSeekEnd(positionMs: Long) {

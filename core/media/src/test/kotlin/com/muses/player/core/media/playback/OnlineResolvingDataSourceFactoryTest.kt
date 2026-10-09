@@ -9,6 +9,16 @@ import com.muses.player.core.model.online.OnlinePlaybackHttp
 import com.muses.player.core.model.online.OnlineTrackRef
 import com.muses.player.core.model.online.OnlineTrackResolver
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
+import org.junit.Assert.fail
+import java.io.IOException
+import java.io.InterruptedIOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.CancellationException
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -43,11 +53,79 @@ class OnlineResolvingDataSourceFactoryTest {
         source.close()
     }
 
-    private fun factory(upstream: RecordingDataSource) = OnlineResolvingDataSourceFactory(
+    @Test
+    fun `加载线程中断不记为解析失败且保留中断语义`() {
+        val entered = CountDownLatch(1)
+        val failure = AtomicReference<Throwable>()
+        val interrupted = AtomicReference(false)
+        val errors = mutableListOf<Throwable?>()
+        val source = factory(RecordingDataSource(), resolveTrack = {
+            entered.countDown()
+            awaitCancellation()
+        }, onError = { _, error -> errors += error }).createDataSource()
+        val worker = Thread {
+            try { source.open(onlineSpec()) }
+            catch (e: Throwable) { failure.set(e) }
+            finally { interrupted.set(Thread.interrupted()) }
+        }
+        worker.start()
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            worker.interrupt()
+            worker.join(5000)
+            assertFalse(worker.isAlive)
+            assertTrue(failure.get() is InterruptedIOException)
+            assertTrue(failure.get().cause is InterruptedException)
+            assertTrue(interrupted.get())
+            assertTrue(errors.isEmpty())
+        } finally {
+            worker.interrupt()
+            worker.join(5000)
+        }
+    }
+
+    @Test
+    fun `协程取消不记为音源失败`() {
+        val errors = mutableListOf<Throwable?>()
+        val source = factory(RecordingDataSource(), resolveTrack = { throw CancellationException("取消") },
+            onError = { _, error -> errors += error }).createDataSource()
+        try {
+            source.open(onlineSpec())
+            fail("取消后应停止加载")
+        } catch (e: InterruptedIOException) {
+            assertTrue(e.cause is CancellationException)
+        }
+        assertTrue(errors.isEmpty())
+    }
+
+    @Test
+    fun `真实解析失败仍上报错误`() {
+        val failure = IOException("网络失败")
+        val errors = mutableListOf<Throwable?>()
+        val source = factory(RecordingDataSource(), resolveTrack = { throw failure },
+            onError = { _, error -> errors += error }).createDataSource()
+        try {
+            source.open(onlineSpec())
+            fail("解析失败应抛出异常")
+        } catch (e: IOException) {
+            assertTrue(e.cause is IOException)
+            assertEquals("网络失败", e.cause?.message)
+        }
+        assertEquals(1, errors.size)
+        assertTrue(errors.single() is IOException)
+        assertEquals("网络失败", errors.single()?.message)
+    }
+
+    private fun onlineSpec() = DataSpec.Builder().setUri(OnlineTrackRef("wy", "{}", "script").encode()).build()
+
+    private fun factory(upstream: RecordingDataSource,
+        resolveTrack: suspend (OnlineTrackRef) -> OnlinePlayableUrl = { OnlinePlayableUrl("https://cdn.test/audio") },
+        onError: (String, Throwable?) -> Unit = { _, _ -> }) = OnlineResolvingDataSourceFactory(
         upstreamFactory = DataSource.Factory { upstream },
         resolver = object : OnlineTrackResolver {
-            override suspend fun resolve(ref: OnlineTrackRef) = OnlinePlayableUrl("https://cdn.test/audio")
+            override suspend fun resolve(ref: OnlineTrackRef) = resolveTrack(ref)
         },
+        onResolveError = onError,
     )
 
     private class RecordingDataSource : BaseDataSource(false) {

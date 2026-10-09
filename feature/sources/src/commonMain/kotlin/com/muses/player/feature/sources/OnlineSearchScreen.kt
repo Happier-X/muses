@@ -40,6 +40,7 @@ import com.muses.player.core.ui.components.SongTitleWithBadge
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
+import com.muses.player.core.ui.components.SongListLayout
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesTopBar
@@ -51,7 +52,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.SearchBar
-import top.yukonga.miuix.kmp.basic.Text
+import com.muses.player.core.ui.components.MarqueeText as Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -175,7 +176,7 @@ fun OnlineSearchScreen(
                             end = 16.dp,
                             bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         item(key = "library-title") { SearchSectionTitle("曲库") }
                         if (libraryResults.keyword == state.searchedKeyword) {
@@ -183,7 +184,8 @@ fun OnlineSearchScreen(
                             if (songs.isNotEmpty()) {
                                 item(key = "songs-title") { SearchSectionTitle("歌曲") }
                                 items(songs, key = { "song-${it.id}" }) { song ->
-                                    LibraryResultRow(song.title, song.artist.orEmpty(), "播放", coverUri = song.coverUri, showCover = true) {
+                                    LibraryResultRow(song.title, song.artist.orEmpty(), "播放", coverUri = song.coverUri, showCover = true,
+                                        marqueeEnabled = com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches(song.id)) {
                                         viewModel.playLibrarySong(song.id, songs)
                                     }
                                 }
@@ -306,23 +308,28 @@ private fun SearchSectionTitle(title: String) {
 
 @Composable
 private fun LibraryResultRow(title: String, subtitle: String, detail: String,
-    coverUri: String? = null, showCover: Boolean = false, onClick: () -> Unit) {
+    coverUri: String? = null, showCover: Boolean = false, marqueeEnabled: Boolean = true, onClick: () -> Unit) {
     val scheme = MiuixTheme.colorScheme
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = SongListLayout.horizontalPadding, vertical = SongListLayout.verticalPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showCover) {
-                MusesCover(uri = coverUri, size = 44.dp, radius = MusesCoverRadius.SM)
-                Spacer(Modifier.width(12.dp))
+                MusesCover(uri = coverUri, size = SongListLayout.coverSize, radius = MusesCoverRadius.SM)
+                Spacer(Modifier.width(SongListLayout.coverGap))
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, fontSize = SongListLayout.titleSize, lineHeight = SongListLayout.titleLineHeight,
+                    marqueeEnabled = marqueeEnabled,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (subtitle.isNotBlank()) {
+                    Spacer(Modifier.height(SongListLayout.textGap))
                     Text(
                         subtitle,
-                        fontSize = 12.sp,
+                        marqueeEnabled = marqueeEnabled,
+                        fontSize = SongListLayout.subtitleSize,
+                        lineHeight = SongListLayout.subtitleLineHeight,
                         color = scheme.onSurfaceVariantSummary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -407,27 +414,34 @@ private fun SearchResultRow(
     onClick: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.muses.player.core.ui.components.LocalTextMarqueeEnabled provides
+            com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches("${result.platform}-${result.songId}"),
+    ) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = SongListLayout.horizontalPadding, vertical = SongListLayout.verticalPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MusesCover(uri = result.coverUrl, size = 44.dp, radius = MusesCoverRadius.SM)
-            Spacer(Modifier.width(12.dp))
+            MusesCover(uri = result.coverUrl, size = SongListLayout.coverSize, radius = MusesCoverRadius.SM)
+            Spacer(Modifier.width(SongListLayout.coverGap))
             Column(modifier = Modifier.weight(1f)) {
                 SongTitleWithBadge(
                     title = result.name,
                     label = result.performanceLabel,
-                    style = MiuixTheme.textStyles.body2.copy(fontSize = 15.sp),
+                    style = MiuixTheme.textStyles.body2.copy(fontSize = SongListLayout.titleSize,
+                        lineHeight = SongListLayout.titleLineHeight),
                 )
                 val sub = listOfNotNull(result.artist, result.album)
                     .filter { it.isNotBlank() }
                     .joinToString(" · ")
                 if (sub.isNotBlank() || result.qualityLabel != null) {
+                    Spacer(Modifier.height(SongListLayout.textGap))
                     SongSubtitleWithQuality(
                         subtitle = sub,
                         label = result.qualityLabel,
-                        style = MiuixTheme.textStyles.footnote1.copy(fontSize = 12.sp),
+                        style = MiuixTheme.textStyles.footnote1.copy(fontSize = SongListLayout.subtitleSize,
+                            lineHeight = SongListLayout.subtitleLineHeight),
                         color = scheme.onSurfaceVariantSummary,
                     )
                 }
@@ -444,8 +458,10 @@ private fun SearchResultRow(
                 modifier = Modifier.size(17.dp),
                 tint = scheme.primary,
             )
+            Spacer(Modifier.width(SongListLayout.actionGap))
             com.muses.player.core.ui.components.OnlineSongDownloadAction(result.toSong("online"))
         }
+    }
     }
 }
 

@@ -36,7 +36,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.Text
+import com.muses.player.core.ui.components.MarqueeText as Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -114,6 +114,7 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                     ) {
                         Text(
                             task.track.title,
+                            marqueeEnabled = com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches(task.track.id),
                             style = MiuixTheme.textStyles.title4,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -144,12 +145,15 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                         Text(
                             (if (failedTransfer) {
                                 if (task.target?.kind == DownloadTargetKind.WEBDAV) "上传失败" else "保存失败"
-                            } else if (task.skippedExisting) "同名歌曲，已跳过" else statusLabel(task.status)) +
+                            } else if (task.skippedExisting) "同名歌曲，已跳过"
+                            else if (task.status == DownloadStatus.UPLOADING) task.transferMessage ?: statusLabel(task.status)
+                            else statusLabel(task.status)) +
                                 if (bytes > 0) " · ${formatBytes(bytes)}" + (total?.let { " / ${formatBytes(it)}" } ?: "") else "",
                         )
                         if (task.status.active) {
                             LinearProgressIndicator(
-                                progress = if (task.status == DownloadStatus.PREPARING || task.status == DownloadStatus.METADATA) {
+                                progress = if (task.status == DownloadStatus.PREPARING || task.status == DownloadStatus.METADATA ||
+                                    (task.status == DownloadStatus.UPLOADING && task.transferMessage != null)) {
                                     null
                                 } else {
                                     total?.takeIf { it > 0 }?.let { (bytes.toFloat() / it).coerceIn(0f, 1f) }

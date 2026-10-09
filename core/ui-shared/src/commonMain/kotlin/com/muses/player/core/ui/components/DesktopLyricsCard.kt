@@ -69,7 +69,7 @@ fun DesktopLyricsCard(primary: String, secondary: String?, onClose: () -> Unit, 
                 style = MiuixTheme.textStyles.main.copy(fontSize = fontSize.sp, lineHeight = (fontSize + 6).sp, fontWeight = FontWeight.SemiBold,
                     color = Color.White, shadow = shadow, textAlign = TextAlign.Center), accentColor = vivid)
             secondary?.let {
-                Text(it, modifier = Modifier.fillMaxWidth(),
+                MarqueeText(it, modifier = Modifier.fillMaxWidth(),
                     style = MiuixTheme.textStyles.body2.copy(fontSize = (fontSize * 0.64f).sp, lineHeight = (fontSize * 0.64f + 6).sp,
                         color = vivid ?: Color.White, shadow = shadow, textAlign = TextAlign.Center),
                     color = vivid ?: Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -78,7 +78,7 @@ fun DesktopLyricsCard(primary: String, secondary: String?, onClose: () -> Unit, 
         if (controlsVisible) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    MarqueeText(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically) {
                     onLock?.let { lock ->
@@ -158,13 +158,13 @@ private fun DesktopWordLyrics(text: String, words: List<DesktopLyricsWord>, posi
             }
         }
     }
-    Box(Modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxWidth().autoMarquee()) {
         Text(text, modifier = Modifier.fillMaxWidth(), style = style,
             color = if (words.isEmpty()) accentColor ?: Color.White else Color.White.copy(alpha = 0.45f),
-            maxLines = 2, overflow = TextOverflow.Ellipsis, onTextLayout = { layout = it })
+            maxLines = 1, softWrap = false, overflow = TextOverflow.Clip, onTextLayout = { layout = it })
         if (words.isNotEmpty()) {
-            Text(text, style = style.copy(shadow = null), color = accentColor ?: Color(0xFF7FD4FF), maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+            Text(text, style = style.copy(shadow = null), color = accentColor ?: Color(0xFF7FD4FF), maxLines = 1,
+                softWrap = false, overflow = TextOverflow.Clip,
                 modifier = Modifier.fillMaxWidth().clearAndSetSemantics { }.drawWithContent {
                     val path = Path()
                     for ((word, characters) in masks) {

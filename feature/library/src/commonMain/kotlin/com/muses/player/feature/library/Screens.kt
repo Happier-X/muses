@@ -152,12 +152,13 @@ fun SongListItem(
     )
 }
 
-/** 安卓 Song → 跨平台 SongItem 映射（曲库主页共用化；标题/艺术家/专辑三字段） */
+/** 曲库歌曲列表展示数据，保留封面与音质。 */
 fun Song.toSongItem() = SongItem(
     id = id,
     title = title,
     artist = artist,
     albumTitle = album,
+    coverUri = coverUri,
     qualityLabel = libraryQualityLabel,
 )
 
