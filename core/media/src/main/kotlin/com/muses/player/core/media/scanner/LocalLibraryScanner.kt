@@ -2,6 +2,7 @@ package com.muses.player.core.media.scanner
 
 import android.content.ContentUris
 import android.content.Context
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.provider.MediaStore
 import com.muses.player.core.media.metadata.TagReader
@@ -9,11 +10,17 @@ import com.muses.player.core.model.Song
 import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 
 /**
  * 本地库扫描器（MediaStore → jaudiotagger，去 Capacitor 化）。
@@ -45,7 +52,28 @@ class LocalLibraryScanner constructor(
         val prefixNormalized = pathPrefix?.let { "$it/" }
 
         progressInternal.value = ScanProgress()
-        val items = queryMediaStore(prefixNormalized)
+        val indexedItems = queryMediaStore(prefixNormalized)
+        // 先为源目录中尚未被系统索引的音频补建媒体索引，再查询新歌曲。
+        // 不重复扫描已有文件，避免每次下拉都触发整库媒体分析。
+        val knownPaths = indexedItems.mapTo(HashSet()) { it.data }
+        val scanContext = coroutineContext
+        val newFiles = pathPrefix?.let { directory ->
+            File(directory).takeIf { it.isDirectory }?.walkTopDown()?.filter { file ->
+                scanContext.ensureActive()
+                file.isFile && isSupportedAudio(file.name) && file.absolutePath !in knownPaths
+            }?.map { it.absolutePath }?.toList()
+        }.orEmpty()
+        if (newFiles.isNotEmpty()) {
+            withTimeoutOrNull(60_000) {
+                suspendCancellableCoroutine<Unit> { continuation ->
+                    val pending = AtomicInteger(newFiles.size)
+                    MediaScannerConnection.scanFile(context, newFiles.toTypedArray(), null) { _, _ ->
+                        if (pending.decrementAndGet() == 0 && continuation.isActive) continuation.resume(Unit)
+                    }
+                }
+            } ?: error("媒体索引超时，请稍后重试")
+        }
+        val items = if (newFiles.isEmpty()) indexedItems else queryMediaStore(prefixNormalized)
         var index = 0
         val songs = ArrayList<Song>(items.size)
 

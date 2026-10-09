@@ -23,6 +23,18 @@ data class CachedFeaturedPlaylists(
     ): Boolean = items.isNotEmpty() && now >= updatedAt && day == today
 }
 
+/** 当天保留已选歌单及顺序，只更新信息；隔天从不同候选中重新选择。 */
+internal fun selectDailyFeaturedPlaylists(
+    candidates: List<OnlinePlaylist>,
+    cached: CachedFeaturedPlaylists?,
+    today: String,
+): List<OnlinePlaylist> {
+    val unique = candidates.distinctBy { it.id }
+    return if (cached != null && cached.day == today && cached.items.isNotEmpty()) {
+        cached.items.take(3).map { selected -> unique.firstOrNull { it.id == selected.id } ?: selected }
+    } else unique.shuffled().take(3)
+}
+
 /** 网络不可用时继续展示上次加载的真实歌单。 */
 class FeaturedPlaylistCacheStore(private val dataStore: DataStore<Preferences>) {
     private val key = stringPreferencesKey("featured_playlists_v1")

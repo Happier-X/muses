@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesTopBar
+import com.muses.player.core.ui.components.MusesRefreshableContent
+import com.muses.player.core.ui.components.MusesRefreshablePlaceholder
 import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /**
@@ -65,6 +67,7 @@ fun AlbumsPage(
     /** 作为「曲库」Tab 的内容嵌入时为 false（顶栏交由外部容器提供） */
     showTopBar: Boolean = true,
     viewModel: AlbumCardsViewModel = koinViewModel(),
+    onScanSources: suspend () -> Unit = {},
 ) {
     val scheme = MiuixTheme.colorScheme
     val cards by viewModel.cards.collectAsState()
@@ -76,16 +79,16 @@ fun AlbumsPage(
             MusesTopBar(title = "专辑", visible = showTopBar)
         },
     ) { padding ->
+        MusesRefreshableContent(onRefresh = {
+            onScanSources()
+            viewModel.refresh()
+        }, modifier = Modifier.padding(padding)) {
         // __grid：顶栏停靠后内容自顶栏下方起排（玻璃下穿 + 真磨砂随自绘 navbar 退役）
         if (cards.isEmpty()) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
+            MusesRefreshablePlaceholder {
                 MusesEmpty(
                     title = "空空如也~",
+                    modifier = Modifier.fillMaxSize(),
                     bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                 )
             }
@@ -98,7 +101,7 @@ fun AlbumsPage(
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
-                    top = padding.calculateTopPadding(),
+                    top = 0.dp,
                     // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
                     bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                 ),
@@ -155,6 +158,7 @@ fun AlbumsPage(
                 }
             }
         }
+        }
     }
 }
 
@@ -169,6 +173,7 @@ fun ArtistsPage(
     /** 作为「曲库」Tab 的内容嵌入时为 false（顶栏交由外部容器提供） */
     showTopBar: Boolean = true,
     viewModel: ArtistCardsViewModel = koinViewModel(),
+    onScanSources: suspend () -> Unit = {},
 ) {
     val scheme = MiuixTheme.colorScheme
     val cards by viewModel.cards.collectAsState()
@@ -180,15 +185,15 @@ fun ArtistsPage(
             MusesTopBar(title = "艺术家", visible = showTopBar)
         },
     ) { padding ->
+        MusesRefreshableContent(onRefresh = {
+            onScanSources()
+            viewModel.refresh()
+        }, modifier = Modifier.padding(padding)) {
         if (cards.isEmpty()) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
+            MusesRefreshablePlaceholder {
                 MusesEmpty(
                     title = "空空如也~",
+                    modifier = Modifier.fillMaxSize(),
                     bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                 )
             }
@@ -201,7 +206,7 @@ fun ArtistsPage(
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
-                    top = padding.calculateTopPadding(),
+                    top = 0.dp,
                     // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
                     bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                 ),
@@ -257,6 +262,7 @@ fun ArtistsPage(
                     }
                 }
             }
+        }
         }
     }
 }

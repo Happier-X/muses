@@ -124,6 +124,7 @@ class OnlineSearchViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibrarySearchResults())
 
     private var searchJob: Job? = null
+    private var searchSeq = 0L
 
     /**
      * 当前首选音质（DataStore 持久化；key 见 [LxQuality]）。
@@ -180,13 +181,25 @@ class OnlineSearchViewModel(
 
     /** 发起搜索（覆盖式）：重置全部平台状态后并行搜索 */
     fun search() {
-        val keyword = _state.value.keyword.trim()
+        search(_state.value.keyword.trim())
+    }
+
+    /** 重查已经提交的关键词，保留输入框里的未提交修改和平台筛选。 */
+    suspend fun refresh() {
+        val keyword = _state.value.searchedKeyword
+        if (keyword.isBlank()) return
+        search(keyword)
+        searchJob?.join()
+    }
+
+    private fun search(keyword: String) {
         if (keyword.isEmpty()) {
             _state.value = _state.value.copy(message = "请输入搜索关键词")
             return
         }
         submittedKeyword.value = keyword
         refreshAvailableQualities()
+        val requestSeq = ++searchSeq
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             _state.value = _state.value.copy(
@@ -203,6 +216,7 @@ class OnlineSearchViewModel(
                 },
             )
             val outcomes = searchService.searchAll(keyword, platforms = listOf("wy"), page = 1, pageSize = DEFAULT_PAGE_SIZE)
+            if (requestSeq != searchSeq) return@launch
             applyOutcomes(outcomes, page = 1)
             _state.value = _state.value.copy(searching = false)
         }
@@ -214,6 +228,7 @@ class OnlineSearchViewModel(
         if (keyword.isEmpty()) return
         val current = _state.value.platforms.firstOrNull { it.platform == platform } ?: return
         if (current.loading || current.loadingMore || !current.hasMore) return
+        val requestSearch = searchJob
 
         viewModelScope.launch {
             updatePlatform(platform) { it.copy(loadingMore = true) }
@@ -221,6 +236,8 @@ class OnlineSearchViewModel(
             val outcome = runCatching {
                 searchService.search(platform, keyword, page = nextPage, pageSize = DEFAULT_PAGE_SIZE)
             }
+            // 刷新或切换关键词后，不让旧分页结果拼进新的首屏。
+            if (searchJob !== requestSearch) return@launch
             applyOutcomes(
                 listOf(
                     outcome.fold(

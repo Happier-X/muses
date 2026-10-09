@@ -69,6 +69,7 @@ fun WebDavBrowseSheet(
                 onConfirmSingle = { onConfirm(listOf(it)) },
                 onConfirmMultiple = onConfirm,
                 onNavigatePath = { viewModel.navigateTo(it) },
+                onRefresh = viewModel::refresh,
                 modifier = Modifier.weight(1f),
                 errorText = browseState.errorMessage,
                 onDismissError = viewModel::dismissError,

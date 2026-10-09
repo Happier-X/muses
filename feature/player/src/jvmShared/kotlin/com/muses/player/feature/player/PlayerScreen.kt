@@ -87,6 +87,7 @@ import com.muses.player.core.ui.components.PlayerProgress
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesListRow
+import com.muses.player.core.ui.components.SongListLayout
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.feature.player.backdrop.FlowingLightBackdrop
@@ -1130,7 +1131,7 @@ private fun TabletBottomBar(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 MusesIconButton(onClick = onOpenQueue, imageVector = TablerIcons.QueueMusic, contentDescription = "播放队列", tint = contentColor.copy(alpha = 0.8f))
-                MusesIconButton(onClick = onOpenEditMeta, imageVector = TablerIcons.MoreVert, contentDescription = "更多", tint = contentColor.copy(alpha = 0.8f))
+                MusesIconButton(onClick = onOpenEditMeta, imageVector = TablerIcons.MoreHorizontal, contentDescription = "更多", tint = contentColor.copy(alpha = 0.8f))
             }
         }
     }
@@ -1288,7 +1289,12 @@ fun QueueScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         state = listState,
-                        contentPadding = PaddingValues(bottom = 16.dp),
+                        contentPadding = PaddingValues(
+                            start = SongListLayout.contentHorizontalPadding,
+                            end = SongListLayout.contentHorizontalPadding,
+                            bottom = 16.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(SongListLayout.itemSpacing),
                     ) {
                         itemsIndexed(queue, key = { _, item -> item.songId }, contentType = { _, _ -> "queue" }) { index, item ->
                             val isCurrent = index == currentIndex

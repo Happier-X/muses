@@ -47,6 +47,27 @@ class WebDavBrowseSessionTest {
     }
 
     @Test
+    fun `下拉重读当前目录且保留已选目录`() = workflow { vm, client ->
+        val requested = mutableListOf<String>()
+        client.read = { url ->
+            requested += url
+            listOf(WebDavItem("目录 ${requested.size}", "https://example.com/music/child", true))
+        }
+        vm.init("multiple", "/music", "https://example.com", "user", "fake", listOf("/saved"))
+        runCurrent()
+        vm.toggleSelection("/draft")
+        vm.refresh()
+        runCurrent()
+
+        assertEquals(2, requested.size)
+        assertEquals(requested.first(), requested.last())
+        assertEquals("/music", vm.browseState.value.currentPath)
+        assertEquals(setOf("/saved", "/draft"), vm.browseState.value.selectedPaths)
+        assertEquals("目录 2", vm.browseState.value.directories.single().basename)
+        assertFalse(vm.browseState.value.isLoading)
+    }
+
+    @Test
     fun `取消后重开只预选表单目录不保留临时勾选`() = workflow { vm, _ ->
         vm.init("multiple", "/", "https://example.com", "user", "fake", listOf("/saved"))
         runCurrent()

@@ -5,6 +5,8 @@ import androidx.compose.ui.unit.sp
 
 /** 歌曲列表共用尺寸，适用于曲库、歌单、榜单、搜索、队列和历史。 */
 object SongListLayout {
+    val contentHorizontalPadding = 12.dp
+    val itemSpacing = 2.dp
     val coverSize = 44.dp
     val coverGap = 12.dp
     val horizontalPadding = 12.dp

@@ -25,8 +25,11 @@ import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.MusesTopBar
+import com.muses.player.core.ui.components.MusesPullToRefresh
+import com.muses.player.core.ui.components.MusesRefreshablePlaceholder
 import com.muses.player.core.ui.components.SongItem
 import com.muses.player.core.ui.components.SongListItem
+import com.muses.player.core.ui.components.SongListLayout
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import org.koin.compose.viewmodel.koinViewModel
@@ -96,45 +99,39 @@ fun ChartDetailScreen(
             )
         },
     ) { padding ->
-        when {
-            state.loading && state.songs.isEmpty() -> Box(
-                Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
-
-            state.error != null && state.songs.isEmpty() -> Box(
-                Modifier.fillMaxSize().padding(padding).padding(horizontal = 24.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                androidx.compose.foundation.layout.Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(state.error.orEmpty(), color = scheme.onSurfaceVariantSummary)
-                    MusesTextButton(onClick = viewModel::retry, text = "重试")
+        MusesPullToRefresh(
+            isRefreshing = state.loading || state.refreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.padding(padding),
+        ) {
+            if (state.songs.isEmpty()) {
+                MusesRefreshablePlaceholder {
+                    Box(Modifier.fillMaxSize().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+                        when {
+                            state.loading -> CircularProgressIndicator()
+                            state.error != null -> androidx.compose.foundation.layout.Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text(state.error.orEmpty(), color = scheme.onSurfaceVariantSummary)
+                                MusesTextButton(onClick = viewModel::retry, text = "重试")
+                            }
+                            else -> MusesEmpty(
+                                modifier = Modifier.fillMaxSize(),
+                                bottomInset = LocalBottomChromePadding.current,
+                            )
+                        }
+                    }
                 }
-            }
-
-            state.songs.isEmpty() -> Box(
-                Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                MusesEmpty(
-                    modifier = Modifier.fillMaxSize(),
-                    bottomInset = LocalBottomChromePadding.current,
-                )
-            }
-
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
+            } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = 12.dp,
-                    end = 12.dp,
+                    start = SongListLayout.contentHorizontalPadding,
+                    end = SongListLayout.contentHorizontalPadding,
                     bottom = 16.dp + LocalBottomChromePadding.current,
                 ),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(SongListLayout.itemSpacing),
             ) {
                 itemsIndexed(
                     items = state.songs,
@@ -165,6 +162,7 @@ fun ChartDetailScreen(
                     }
                 }
             }
+        }
         }
     }
 }

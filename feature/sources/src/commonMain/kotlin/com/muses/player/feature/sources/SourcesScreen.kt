@@ -51,6 +51,8 @@ import com.muses.player.core.ui.components.MusesActionItem
 import com.muses.player.core.ui.components.SharedSourceItem
 import com.muses.player.core.ui.components.SourceListItem
 import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesRefreshableContent
+import com.muses.player.core.ui.components.MusesRefreshablePlaceholder
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesTopBar
@@ -104,38 +106,26 @@ fun SourcesScreen(
     ) { padding ->
         // overlay 层：与原外层 Box 严格对应（对话框/浮层挂载域，层级 1:1）
         Box(Modifier.fillMaxSize()) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
+            MusesRefreshableContent(
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.padding(padding),
             ) {
-                    if (sources.isEmpty()) {
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            MusesEmpty(
-                                title = "空空如也~",
-                                modifier = Modifier.fillMaxWidth(),
-                                bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
-                            )
-                        }
-                    } else {
-                        SourceCardList(
-                            sources = sources,
-                            modifier = Modifier
-                                .fillMaxSize(),
-                            onMoreActions = { sourceActionsTarget = it },
+                if (sources.isEmpty()) {
+                    MusesRefreshablePlaceholder {
+                        MusesEmpty(
+                            title = "空空如也~",
+                            modifier = Modifier.fillMaxSize(),
+                            bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                         )
                     }
+                } else {
+                    SourceCardList(
+                        sources = sources,
+                        modifier = Modifier.fillMaxSize(),
+                        onMoreActions = { sourceActionsTarget = it },
+                    )
                 }
             }
-            // 顶栏已上收 Scaffold topBar 槽（原生大标题）
         }
     }
 

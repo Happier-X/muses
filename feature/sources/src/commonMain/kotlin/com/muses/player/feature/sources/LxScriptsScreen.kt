@@ -35,6 +35,8 @@ import com.muses.player.core.ui.components.MusesBottomSheet
 import com.muses.player.core.ui.components.MusesButton
 import com.muses.player.core.ui.components.MusesDialog
 import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesPullToRefresh
+import com.muses.player.core.ui.components.MusesRefreshablePlaceholder
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesTextField
@@ -117,7 +119,12 @@ fun LxScriptsScreen(
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        MusesPullToRefresh(
+            isRefreshing = loading,
+            onRefresh = { if (!loading) viewModel.refresh() },
+            modifier = Modifier.padding(padding),
+        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             if (loading && items.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -127,14 +134,16 @@ fun LxScriptsScreen(
                     CircularProgressIndicator()
                 }
             } else if (items.isEmpty()) {
+                MusesRefreshablePlaceholder {
                 Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     MusesEmpty(
                         title = "空空如也~",
                         bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                     )
+                }
                 }
             } else {
                 LazyColumn(
@@ -159,6 +168,7 @@ fun LxScriptsScreen(
                     }
                 }
             }
+        }
         }
     }
 
@@ -285,7 +295,7 @@ private fun LxScriptCard(
                 Switch(checked = item.enabled, onCheckedChange = onToggle)
                 MusesIconButton(
                     onClick = onMore,
-                    imageVector = TablerIcons.MoreVert,
+                    imageVector = TablerIcons.MoreHorizontal,
                     contentDescription = "更多操作",
                     size = MusesIconButtonSize.SM,
                 )

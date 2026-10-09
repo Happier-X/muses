@@ -83,7 +83,7 @@ fun SourceListItem(
             }
             MusesIconButton(
                 onClick = onMoreActions,
-                imageVector = TablerIcons.MoreVert,
+                imageVector = TablerIcons.MoreHorizontal,
                 contentDescription = "${item.name}的操作",
                 modifier = Modifier.padding(start = 8.dp),
             )

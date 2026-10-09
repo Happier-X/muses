@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muses.player.core.util.RefreshableState
 import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.PlaybackStateRepository
@@ -26,12 +27,10 @@ import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -57,16 +56,23 @@ class SourcesViewModel constructor(
     private val recentPlaysRepository: RecentPlaysRepository,
     private val lxScriptStore: LxScriptStore,
     private val lxScriptRepository: LxScriptRepository,
+    private val libraryScanner: LibraryRefreshScanner,
     /** 删除音源时的播放队列清理（双端接 PlaybackPort.removeFromQueue；可缺省空实现） */
     private val onRemoveFromQueue: (Set<String>) -> Unit = {},
 ) : ViewModel() {
 
-    val sources: StateFlow<List<Source>> = sourceRepository.observeSources()
-        .map { sources ->
+    private val sourceState = RefreshableState(
+        sourceRepository.observeSources().map { sources ->
             val builtinIds = withContext(Dispatchers.IO) { lxScriptStore.builtinIds() }
             sources.filterNot { it.type == SourceType.ONLINE && it.id in builtinIds }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        },
+        viewModelScope,
+        emptyList(),
+    )
+    val sources: StateFlow<List<Source>> = sourceState.state
+
+    /** 只重读音源列表，不扫描文件、不重新导入脚本。 */
+    suspend fun refresh() = sourceState.refresh()
 
     init {
         // 音源列表只登记用户脚本；内置音源由设置中的统一开关管理。
@@ -213,8 +219,7 @@ class SourcesViewModel constructor(
                 scanPort.progressFor(source.type).collect { _scanProgress.value = it }
             }
             try {
-                val songs = scanPort.scan(source, readTags = scanReadTags)
-                val result = songRepository.replaceSourceSongs(source.id, songs)
+                val result = libraryScanner.scan(source, readTags = scanReadTags)
                 scanMergeResult = result
                 scanResultMessage = scanResultText(result)
                 // M3 自动补缺：扫描后把无标签歌曲排进刮削队列（开关默认关）

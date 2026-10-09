@@ -78,6 +78,9 @@ class DesktopLibraryScanPort(
     private val webDavScanner: com.muses.player.core.media.scanner.WebDavLibraryScanner,
 ) : com.muses.player.feature.sources.LibraryScanPort {
 
+    override fun supports(type: com.muses.player.core.model.SourceType) =
+        type == com.muses.player.core.model.SourceType.WEBDAV
+
     private val localIdle = kotlinx.coroutines.flow.MutableStateFlow(
         com.muses.player.core.media.scanner.ScanProgress(),
     )

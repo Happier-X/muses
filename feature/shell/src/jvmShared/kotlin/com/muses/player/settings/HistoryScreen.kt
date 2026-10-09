@@ -1,6 +1,7 @@
 package com.muses.player.settings
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -22,6 +23,10 @@ import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesListRow
 import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.ui.components.MusesTopBar
+import com.muses.player.core.ui.components.SongListLayout
+import com.muses.player.core.ui.components.MusesRefreshableContent
+import com.muses.player.core.ui.components.MusesRefreshablePlaceholder
+import com.muses.player.core.util.RefreshableState
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,10 +42,12 @@ fun HistoryScreen(onBack: () -> Unit) {
     val recentPlaysRepository = koinInject<RecentPlaysRepository>()
     val songRepository = koinInject<SongRepository>()
     val playback = koinInject<PlaybackPort>()
-    val history by remember(recentPlaysRepository) { recentPlaysRepository.observe() }
-        .collectAsState(initial = emptyList())
-    val historyGroups = remember(history) { history.groupBy { dayKey(it.playedAt) } }
     val scope = rememberCoroutineScope()
+    val historyState = remember(recentPlaysRepository, scope) {
+        RefreshableState(recentPlaysRepository.observe(), scope, emptyList())
+    }
+    val history by historyState.state.collectAsState()
+    val historyGroups = remember(history) { history.groupBy { dayKey(it.playedAt) } }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -53,16 +60,24 @@ fun HistoryScreen(onBack: () -> Unit) {
             )
         },
     ) { padding ->
+        MusesRefreshableContent(onRefresh = historyState::refresh, modifier = Modifier.padding(padding)) {
         if (history.isEmpty()) {
+            MusesRefreshablePlaceholder {
             MusesEmpty(
                 title = "空空如也~",
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 bottomInset = LocalBottomChromePadding.current,
             )
+            }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(bottom = 16.dp + LocalBottomChromePadding.current),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = SongListLayout.contentHorizontalPadding,
+                    end = SongListLayout.contentHorizontalPadding,
+                    bottom = 16.dp + LocalBottomChromePadding.current,
+                ),
+                verticalArrangement = Arrangement.spacedBy(SongListLayout.itemSpacing),
             ) {
                 historyGroups.forEach { (key, entries) ->
                     item(key = "day-$key") {
@@ -71,6 +86,7 @@ fun HistoryScreen(onBack: () -> Unit) {
                     items(entries, key = RecentPlayEntry::songId) { entry ->
                         MusesListRow(
                             songLayout = true,
+                            dividers = false,
                             songId = entry.songId,
                             title = entry.title,
                             subtitle = "${entry.subtitle.ifBlank { "未知艺术家" }} · ${formatPlayedAt(entry.playedAt)}",
@@ -97,6 +113,7 @@ fun HistoryScreen(onBack: () -> Unit) {
                     }
                 }
             }
+        }
         }
     }
 

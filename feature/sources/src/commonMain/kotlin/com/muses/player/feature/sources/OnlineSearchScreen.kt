@@ -38,6 +38,7 @@ import com.muses.player.core.search.qualityLabel
 import com.muses.player.core.ui.components.SongSubtitleWithQuality
 import com.muses.player.core.ui.components.SongTitleWithBadge
 import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesRefreshableContent
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.SongListLayout
@@ -169,14 +170,15 @@ fun OnlineSearchScreen(
                     }
                 }
                 else -> {
+                    MusesRefreshableContent(onRefresh = viewModel::refresh) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
-                            start = 16.dp,
-                            end = 16.dp,
+                            start = SongListLayout.contentHorizontalPadding,
+                            end = SongListLayout.contentHorizontalPadding,
                             bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalArrangement = Arrangement.spacedBy(SongListLayout.itemSpacing),
                     ) {
                         item(key = "library-title") { SearchSectionTitle("曲库") }
                         if (libraryResults.keyword == state.searchedKeyword) {
@@ -288,6 +290,7 @@ fun OnlineSearchScreen(
                                 }
                             }
                         }
+                    }
                     }
                 }
             }

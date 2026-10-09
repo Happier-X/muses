@@ -2,6 +2,7 @@ package com.muses.player.feature.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muses.player.core.util.RefreshableState
 import kotlinx.coroutines.launch
 import com.muses.player.core.data.db.AlbumWithSongs
 import com.muses.player.core.data.db.ArtistWithSongs
@@ -14,7 +15,6 @@ import com.muses.player.core.model.Artist
 import com.muses.player.core.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 
 /** 歌曲列表 ViewModel */
 class SongsViewModel constructor(
@@ -34,11 +33,16 @@ class SongsViewModel constructor(
 
     // 数据库搜索流：防抖后走 Room 模糊匹配，大库不全量进内存过滤
     @OptIn(FlowPreview::class)
-    val songs: StateFlow<List<Song>> = _searchQuery
-        .debounce(300).distinctUntilChanged()
-        .flatMapLatest { query -> songRepository.observeSongs(query) }
-        .flowOn(Dispatchers.Default).distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val songState = RefreshableState(
+        _searchQuery.debounce(300).distinctUntilChanged()
+            .flatMapLatest { query -> songRepository.observeSongs(query) }
+            .flowOn(Dispatchers.Default).distinctUntilChanged(),
+        viewModelScope,
+        emptyList(),
+    )
+    val songs: StateFlow<List<Song>> = songState.state
+
+    suspend fun refresh() = songState.refresh()
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
@@ -73,13 +77,21 @@ class AlbumsViewModel constructor(
     albumDao: com.muses.player.core.data.dao.AlbumDao,
 ) : ViewModel() {
 
-    val albums: StateFlow<List<Album>> = albumRepository.observeAlbums()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val albumState = RefreshableState(albumRepository.observeAlbums(), viewModelScope, emptyList())
+    val albums: StateFlow<List<Album>> = albumState.state
 
     /** 专辑封面（albumId → 首个可用 coverUri），供网格卡片使用 */
-    val covers: StateFlow<Map<String, String>> = albumDao.observeAlbumCovers()
-        .map { list -> list.associate { it.albumId to it.coverUri } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    private val coverState = RefreshableState(
+        albumDao.observeAlbumCovers().map { list -> list.associate { it.albumId to it.coverUri } },
+        viewModelScope,
+        emptyMap(),
+    )
+    val covers: StateFlow<Map<String, String>> = coverState.state
+
+    suspend fun refresh() {
+        albumState.refresh()
+        coverState.refresh()
+    }
 }
 
 /** 专辑详情 ViewModel */
@@ -89,13 +101,17 @@ class AlbumDetailViewModel constructor(
 
     private val _albumId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
-    val albumWithSongs: StateFlow<AlbumWithSongs?> = _albumId
-        .flatMapLatest { id ->
+    private val albumState = RefreshableState(
+        _albumId.flatMapLatest { id ->
             if (id == null) kotlinx.coroutines.flow.flowOf(null)
             else albumRepository.observeAlbumWithSongs(id)
-        }
-        .distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        }.distinctUntilChanged(),
+        viewModelScope,
+        null,
+    )
+    val albumWithSongs: StateFlow<AlbumWithSongs?> = albumState.state
+
+    suspend fun refresh() = albumState.refresh()
 
     fun bind(albumId: String) {
         if (_albumId.value != albumId) {
@@ -110,13 +126,21 @@ class ArtistsViewModel constructor(
     artistDao: com.muses.player.core.data.dao.ArtistDao,
 ) : ViewModel() {
 
-    val artists: StateFlow<List<Artist>> = artistRepository.observeArtists()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val artistState = RefreshableState(artistRepository.observeArtists(), viewModelScope, emptyList())
+    val artists: StateFlow<List<Artist>> = artistState.state
 
     /** 艺术家封面（artistId → 首个可用 coverUri） */
-    val covers: StateFlow<Map<String, String>> = artistDao.observeArtistCovers()
-        .map { list -> list.associate { it.artistId to it.coverUri } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    private val coverState = RefreshableState(
+        artistDao.observeArtistCovers().map { list -> list.associate { it.artistId to it.coverUri } },
+        viewModelScope,
+        emptyMap(),
+    )
+    val covers: StateFlow<Map<String, String>> = coverState.state
+
+    suspend fun refresh() {
+        artistState.refresh()
+        coverState.refresh()
+    }
 }
 
 /** 艺术家详情 ViewModel */
@@ -126,13 +150,17 @@ class ArtistDetailViewModel constructor(
 
     private val _artistId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
-    val artistWithSongs: StateFlow<ArtistWithSongs?> = _artistId
-        .flatMapLatest { id ->
+    private val artistState = RefreshableState(
+        _artistId.flatMapLatest { id ->
             if (id == null) kotlinx.coroutines.flow.flowOf(null)
             else artistRepository.observeArtistWithSongs(id)
-        }
-        .distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        }.distinctUntilChanged(),
+        viewModelScope,
+        null,
+    )
+    val artistWithSongs: StateFlow<ArtistWithSongs?> = artistState.state
+
+    suspend fun refresh() = artistState.refresh()
 
     fun bind(artistId: String) {
         if (_artistId.value != artistId) {
@@ -150,13 +178,17 @@ class AlbumCardsViewModel constructor(
     albumDao: com.muses.player.core.data.dao.AlbumDao,
 ) : ViewModel() {
     // ViewModel 间禁止互注入：这里自行组合专辑列表与封面（数据口径同 AlbumsViewModel）
-    val cards: StateFlow<List<AlbumCard>> = combine(
-        albumRepository.observeAlbums(),
-        albumDao.observeAlbumCovers(),
-    ) { albums, covers ->
-        val coverMap = covers.associate { it.albumId to it.coverUri }
-        albums.map { AlbumCard(it, coverMap[it.id]) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val cardState = RefreshableState(
+        combine(albumRepository.observeAlbums(), albumDao.observeAlbumCovers()) { albums, covers ->
+            val coverMap = covers.associate { it.albumId to it.coverUri }
+            albums.map { AlbumCard(it, coverMap[it.id]) }
+        },
+        viewModelScope,
+        emptyList(),
+    )
+    val cards: StateFlow<List<AlbumCard>> = cardState.state
+
+    suspend fun refresh() = cardState.refresh()
 }
 
 data class ArtistCard(val artist: Artist, val coverUri: String?)
@@ -165,11 +197,15 @@ class ArtistCardsViewModel constructor(
     artistRepository: ArtistRepository,
     artistDao: com.muses.player.core.data.dao.ArtistDao,
 ) : ViewModel() {
-    val cards: StateFlow<List<ArtistCard>> = combine(
-        artistRepository.observeArtists(),
-        artistDao.observeArtistCovers(),
-    ) { artists, covers ->
-        val coverMap = covers.associate { it.artistId to it.coverUri }
-        artists.map { ArtistCard(it, coverMap[it.id]) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val cardState = RefreshableState(
+        combine(artistRepository.observeArtists(), artistDao.observeArtistCovers()) { artists, covers ->
+            val coverMap = covers.associate { it.artistId to it.coverUri }
+            artists.map { ArtistCard(it, coverMap[it.id]) }
+        },
+        viewModelScope,
+        emptyList(),
+    )
+    val cards: StateFlow<List<ArtistCard>> = cardState.state
+
+    suspend fun refresh() = cardState.refresh()
 }

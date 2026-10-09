@@ -29,6 +29,7 @@ import com.muses.player.core.model.download.DownloadTargetKind
 import com.muses.player.core.ui.components.MusesActionItem
 import com.muses.player.core.ui.components.MusesActionsSheet
 import com.muses.player.core.ui.components.MusesTopBar
+import com.muses.player.core.ui.components.MusesRefreshableContent
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.Button
@@ -65,8 +66,9 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = { MusesTopBar(title = "下载", onBack = onBack) },
     ) { padding ->
+        MusesRefreshableContent(onRefresh = manager::refresh, modifier = Modifier.padding(padding)) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 12.dp,
                 end = 12.dp,
@@ -194,6 +196,7 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                     }
                 }
             }
+        }
         }
     }
 

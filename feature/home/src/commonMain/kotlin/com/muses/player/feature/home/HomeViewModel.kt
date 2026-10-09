@@ -174,7 +174,9 @@ class HomeViewModel(
                     if (!forceRefresh && cached.isFresh()) return@launch
                 }
                 val selectionDay = localRecommendDay()
-                val items = playlistService.featured().distinctBy { it.id }.shuffled().take(3)
+                val candidates = playlistService.featured()
+                // 下拉更新当天已选歌单的信息，保留当天三个歌单的选择与顺序。
+                val items = selectDailyFeaturedPlaylists(candidates, cached, selectionDay)
                 check(items.isNotEmpty()) { "暂时没有可用歌单" }
                 _state.value = _state.value.copy(featured = FeaturedPlaylistState(items))
                 try {
@@ -232,6 +234,7 @@ class HomeViewModel(
                         platformNames = chartService.platformNames,
                         selectedPlatform = selected,
                         charts = chartsByPlatform[selected].orEmpty(),
+                        refreshingCharts = forceRefresh,
                     ),
                 )
             } else {
@@ -321,11 +324,11 @@ class HomeViewModel(
     // ── 猜你喜欢 ──
 
     /** 每日只生成一次；失败可重试，切换日期后自动重新生成。 */
-    fun refreshRecommend() {
+    fun refreshRecommend(forceRefresh: Boolean = false) {
         val today = localRecommendDay()
         val current = _state.value.recommend
         if (recommendJob?.isActive == true) return
-        if (current.day == today && (current.result != null || current.error != null)) return
+        if (!forceRefresh && current.day == today && (current.result != null || current.error != null)) return
         recommendJob = viewModelScope.launch {
             _state.value = _state.value.copy(
                 recommend = _state.value.recommend.copy(loading = true, error = null),
@@ -336,7 +339,7 @@ class HomeViewModel(
             val cachedToday = DailyRecommendSnapshot.decode(settingsRepository.aiDailyRecommend.first(), today)
             if (cachedToday != null) {
                 _state.value = _state.value.copy(recommend = _state.value.recommend.copy(
-                    loading = false, configured = true, result = cachedToday, day = today, error = null))
+                    configured = true, result = cachedToday, day = today, error = null))
                 val filtered = cachedToday.excludingOwnedSongs(profileBuilder.build())
                 val updated = if (filtered.tracks.any { it.result.platform == "wy" && it.result.coverUrl.isNullOrBlank() }) {
                     val songs = songVersionService.enrich(filtered.tracks.map { it.result })
@@ -432,7 +435,7 @@ class HomeViewModel(
         if (_state.value.recommend.result == null) {
             _state.value = _state.value.copy(recommend = _state.value.recommend.copy(day = null, error = null))
         }
-        refreshRecommend()
+        refreshRecommend(forceRefresh = true)
     }
 
     fun playRecommend(index: Int) {

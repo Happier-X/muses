@@ -75,7 +75,7 @@ class WebDavSyncManager(
             "更换地址或账号后，请重新填写密码"
         }
         if (password.isNotEmpty()) credentials.savePassword(CREDENTIAL_ID, password)
-        require(!credentials.getPassword(CREDENTIAL_ID).isNullOrEmpty()) { "请输入 WebDAV 密码或应用密码" }
+        require(!credentials.getPassword(CREDENTIAL_ID).isNullOrEmpty()) { "请输入 WebDAV 密码" }
         dataStore.edit {
             it[CONFIG] = json.encodeToString(config.copy(url = config.url.trim(), username = config.username.trim(), directory = config.directory.trim()))
             if (old != config) it[LAST_SYNC] = 0L

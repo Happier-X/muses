@@ -996,9 +996,13 @@ private fun AppNavHost(
             val playback = org.koin.compose.koinInject<com.muses.player.core.playback.PlaybackPort>()
             // M3：刮削队列入队（ScrapeQueueStore 为 @Singleton，经 koinViewModel 载体注入）
             val scrapeQueueVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = koinViewModel()
+            val libraryScanner = org.koin.compose.koinInject<com.muses.player.feature.sources.LibraryRefreshScanner>()
             LibraryScreen(
                 playback = playback,
                 onEnqueueScrape = { ids -> scrapeQueueVm.enqueue(ids) },
+                onScanSources = {
+                    com.muses.player.core.ui.components.MusesSnackbar.show(libraryScanner.refresh())
+                },
                 onAlbumClick = { albumId -> backStack.pushUnique(MusesRoute.AlbumDetail(albumId)) },
                 onArtistClick = { artistId -> backStack.pushUnique(MusesRoute.ArtistDetail(artistId)) },
             )

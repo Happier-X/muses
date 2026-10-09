@@ -20,6 +20,7 @@ import com.muses.player.core.model.online.OnlineTrackRef
 import com.muses.player.core.model.scrape.ScrapeChanges
 import com.muses.player.core.scrape.ports.JaudiotaggerTagPort
 import com.muses.player.core.ui.components.MusesSnackbar
+import com.muses.player.core.util.RefreshableState
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
@@ -71,10 +72,19 @@ class DownloadManager(
         .readTimeout(15, TimeUnit.MINUTES)
         .callTimeout(15, TimeUnit.MINUTES).build()
     private val ready = scope.async { store.recoverInterrupted() }
-    val tasks = store.tasks.stateIn(scope, SharingStarted.Eagerly, emptyList())
-    val availableSources = sources.observeSources().stateIn(scope, SharingStarted.Eagerly, emptyList())
+    private val taskState = RefreshableState(store.tasks, scope, emptyList(), SharingStarted.Eagerly)
+    val tasks = taskState.state
+    private val sourceState = RefreshableState(sources.observeSources(), scope, emptyList(), SharingStarted.Eagerly)
+    val availableSources = sourceState.state
     val defaultTarget = store.defaultTarget.stateIn(scope, SharingStarted.Eagerly, DownloadTarget())
     fun setDefaultTarget(target: DownloadTarget) = scope.launch { store.setDefaultTarget(target) }
+
+    /** 只重读队列和保存位置，不启动、暂停或恢复下载。 */
+    suspend fun refresh() {
+        ready.await()
+        taskState.refresh()
+        sourceState.refresh()
+    }
     private var batch: Job? = null
     private var active: Job? = null
     private var activeId: String? = null

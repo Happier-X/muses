@@ -50,6 +50,7 @@ class ChartDetailViewModel(
     )
     private var page = 0
     private var loadJob: Job? = null
+    private var loadSeq = 0L
 
     init { loadPage(1, append = false) }
 
@@ -58,11 +59,12 @@ class ChartDetailViewModel(
     fun refresh() = loadPage(1, append = false, forceRefresh = true)
 
     fun loadMore() {
-        if (!_state.value.hasMore || _state.value.loadingMore || _state.value.loading) return
+        if (!_state.value.hasMore || _state.value.loadingMore || _state.value.loading || _state.value.refreshing) return
         loadPage(page + 1, append = true)
     }
 
     private fun loadPage(targetPage: Int, append: Boolean, forceRefresh: Boolean = false) {
+        val requestSeq = ++loadSeq
         loadJob?.cancel()
         _state.value = _state.value.copy(
             loading = !append && _state.value.songs.isEmpty(),
@@ -78,12 +80,13 @@ class ChartDetailViewModel(
                 updateInfo = runCatching {
                     chartCacheStore.loadCatalogs()[platform]?.charts?.firstOrNull { it.chartId == chartId }?.updateInfo
                 }.getOrNull()
+                if (requestSeq != loadSeq) return@launch
                 if (cached != null) {
                     page = cached.page
                     _state.value = _state.value.copy(
                         songs = cached.songs,
                         loading = false,
-                        refreshing = false,
+                        refreshing = forceRefresh || !chartCacheStore.isSongsFresh(cached.updatedAt, updateInfo),
                         hasMore = cached.hasMore,
                         error = null,
                     )
@@ -100,6 +103,7 @@ class ChartDetailViewModel(
             runCatching {
                 chartService.chartSongs(platform, chartId, page = targetPage, pageSize = PAGE_SIZE)
             }.onSuccess { result ->
+                if (requestSeq != loadSeq) return@launch
                 page = targetPage
                 val hasMore = result.hasMore ?: (result.results.size >= PAGE_SIZE)
                 val songs = if (append) _state.value.songs + result.results else result.results
@@ -111,6 +115,7 @@ class ChartDetailViewModel(
                         CachedChartSongs(songs, targetPage, hasMore, updatedAt),
                     )
                 }
+                if (requestSeq != loadSeq) return@launch
                 _state.value = _state.value.copy(
                     songs = songs,
                     loading = false,
@@ -120,6 +125,8 @@ class ChartDetailViewModel(
                     error = null,
                 )
             }.onFailure { failure ->
+                if (failure is kotlinx.coroutines.CancellationException) throw failure
+                if (requestSeq != loadSeq) return@launch
                 val message = failure.message ?: "排行榜歌曲加载失败，请稍后重试"
                 _state.value = _state.value.copy(
                     loading = false,

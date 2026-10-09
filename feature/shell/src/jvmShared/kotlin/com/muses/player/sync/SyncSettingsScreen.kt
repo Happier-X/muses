@@ -63,8 +63,8 @@ fun SyncSettingsScreen(onBack: () -> Unit) {
             Card(Modifier.padding(horizontal = 12.dp)) {
                 SourceFormInput("WebDAV 地址", url, readOnly = blocked, onValueChange = { url = it })
                 SourceFormInput("账号", username, readOnly = blocked, onValueChange = { username = it })
-                SourceFormInput("密码或应用密码", password, isPassword = true, readOnly = blocked,
-                    info = "留空保留已保存密码", onValueChange = { password = it })
+                SourceFormInput("密码", password, isPassword = true, readOnly = blocked,
+                    onValueChange = { password = it })
                 SourceFormInput("同步目录", directory, readOnly = blocked, onValueChange = { directory = it })
                 Row(Modifier.padding(14.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     MusesButton(modifier = Modifier.weight(1f), enabled = !blocked, onClick = { run { manager.testConnection() } }) {

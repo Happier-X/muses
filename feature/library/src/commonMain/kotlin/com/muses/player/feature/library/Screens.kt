@@ -227,6 +227,7 @@ fun AlbumDetailScreen(
         pageTitle = albumWithSongs?.album?.title ?: "专辑",
         showSearch = false,
         onBack = onBack,
+        onRefresh = viewModel::refresh,
     )
 }
 
@@ -276,6 +277,7 @@ fun ArtistDetailScreen(
         pageTitle = artistWithSongs?.artist?.name ?: "艺术家",
         showSearch = false,
         onBack = onBack,
+        onRefresh = viewModel::refresh,
     )
 }
 

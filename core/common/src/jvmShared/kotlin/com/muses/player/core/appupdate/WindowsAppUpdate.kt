@@ -18,7 +18,7 @@ import java.io.File
  * 发版约定（见 .github/workflows/release.yml）：每个 tag 附带 `Muses-v<version>.msi`
  *（jpackage 打包，upgradeUuid 固定，msiexec /i 可覆盖升级）。更新流程：
  * 检查 [fetchWindowsRelease] → 下载 [downloadWindowsInstaller]（进度回调）→
- * 启动安装 [launchWindowsInstaller]（msiexec /i /passive， detached，调用方提示用户按向导完成）。
+ * 启动安装 [launchWindowsInstaller]（msiexec /i /passive /norestart，调用方提示用户按向导完成）。
  */
 data class WindowsReleaseInfo(
     /** 如 "v0.5.6" */

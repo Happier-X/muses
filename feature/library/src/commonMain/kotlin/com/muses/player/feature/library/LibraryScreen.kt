@@ -58,6 +58,7 @@ fun LibraryScreen(
     onAlbumClick: (String) -> Unit,
     onArtistClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onScanSources: suspend () -> Unit = {},
 ) {
     val scheme = MiuixTheme.colorScheme
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -168,14 +169,20 @@ fun LibraryScreen(
                         onEnqueueScrape = onEnqueueScrape,
                         showTopBar = false,
                         viewModel = songsViewModel,
+                        onRefresh = {
+                            onScanSources()
+                            songsViewModel.refresh()
+                        },
                     )
                     1 -> AlbumsPage(
                         onAlbumClick = onAlbumClick,
                         showTopBar = false,
+                        onScanSources = onScanSources,
                     )
                     else -> ArtistsPage(
                         onArtistClick = onArtistClick,
                         showTopBar = false,
+                        onScanSources = onScanSources,
                     )
                 }
             }

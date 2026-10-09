@@ -32,6 +32,8 @@ import com.muses.player.core.ui.components.MusesBottomSheet
 import com.muses.player.core.ui.components.MusesButton
 import com.muses.player.core.ui.components.MusesCheckbox
 import com.muses.player.core.ui.components.MusesEmpty
+import com.muses.player.core.ui.components.MusesRefreshableContent
+import com.muses.player.core.ui.components.MusesRefreshablePlaceholder
 import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.ScrapeProgressBar
@@ -80,7 +82,9 @@ fun ScrapeScreen(
                 }
             }
             when (val page = state) {
-                ScrapePageState.Queue -> QueueContent(queueIds, titles, viewModel)
+                ScrapePageState.Queue -> MusesRefreshableContent(onRefresh = { viewModel.reloadQueue().join() }) {
+                    QueueContent(queueIds, titles, viewModel)
+                }
                 is ScrapePageState.Matching -> ScrapeProgressBar(
                     current = page.current, total = page.total, currentItem = page.currentItem,
                     title = "已完成 ${page.current} / ${page.total} 首",
@@ -114,9 +118,11 @@ fun ScrapeScreen(
 private fun QueueContent(ids: List<String>, titles: Map<String, String>, viewModel: ScrapeViewModel) {
     if (ids.isEmpty()) {
         // 空队列用全应用统一的空状态占位，不再单独写引导文案
+        MusesRefreshablePlaceholder {
         MusesEmpty(
             modifier = Modifier.fillMaxSize(), bottomInset = LocalBottomChromePadding.current,
         )
+        }
         return
     }
     Column(Modifier.fillMaxSize()) {

@@ -205,6 +205,19 @@ compose.desktop {
     }
 }
 
+// jpackage 生成 MSI 后写入禁止重启策略，应用外手动安装也受保护。
+tasks.matching { it.name == "packageMsi" || it.name == "packageReleaseMsi" }.configureEach {
+    doLast {
+        providers.exec {
+            commandLine(
+                "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", rootProject.file("scripts/suppress-msi-reboot.ps1").absolutePath,
+                "-Directory", layout.buildDirectory.dir("compose/binaries").get().asFile.absolutePath,
+            )
+        }.result.get().assertNormalExitValue()
+    }
+}
+
 // KMP jvm 资源任务挂生成依赖（资源目录经 srcDir 已声明，此处补任务级依赖）
 // 修复 U23：任务实名 jvmProcessResources（原 processJvmMainResources 永不匹配，
 // 隐式依赖在 Gradle 9.6.1 校验下直接 FAIL）

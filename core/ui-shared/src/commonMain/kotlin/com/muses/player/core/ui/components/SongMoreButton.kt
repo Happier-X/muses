@@ -9,7 +9,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun SongMoreButton(onClick: () -> Unit) {
     MusesIconButton(
         onClick = onClick,
-        imageVector = TablerIcons.MoreVert,
+        imageVector = TablerIcons.MoreHorizontal,
         contentDescription = "更多歌曲操作",
         size = SongListLayout.actionButtonSize,
         tint = MiuixTheme.colorScheme.onBackgroundVariant,

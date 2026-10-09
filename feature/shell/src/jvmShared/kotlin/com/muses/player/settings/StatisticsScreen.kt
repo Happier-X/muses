@@ -19,6 +19,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +31,9 @@ import androidx.compose.ui.unit.dp
 import com.muses.player.core.data.repository.DailyPlayStat
 import com.muses.player.core.data.repository.PlayStats
 import com.muses.player.core.data.repository.PlayStatsRepository
+import com.muses.player.core.util.RefreshableState
+import com.muses.player.core.ui.components.MusesRefreshableContent
+import com.muses.player.core.ui.components.MusesRefreshablePlaceholder
 import com.muses.player.core.data.repository.SongPlayStat
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesCoverRadius
@@ -73,9 +77,10 @@ private val WeekdayLabels = listOf("一", "二", "三", "四", "五", "六", "�
 @Composable
 fun StatisticsScreen(onBack: () -> Unit) {
     val repository = koinInject<PlayStatsRepository>()
-    val stats by remember(repository) { repository.observe() }
-        .collectAsState(initial = PlayStats.Empty)
-    val today = remember { LocalDate.now() }
+    val scope = rememberCoroutineScope()
+    val statsState = remember(repository, scope) { RefreshableState(repository.observe(), scope, PlayStats.Empty) }
+    val stats by statsState.state.collectAsState()
+    var today by remember { mutableStateOf(LocalDate.now()) }
     val currentMonth = remember(today) { YearMonth.from(today) }
     var month by remember { mutableStateOf(currentMonth) }
 
@@ -85,12 +90,18 @@ fun StatisticsScreen(onBack: () -> Unit) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = { MusesTopBar(title = "统计", onBack = onBack) },
     ) { padding ->
+        MusesRefreshableContent(
+            onRefresh = { statsState.refresh(); today = LocalDate.now() },
+            modifier = Modifier.padding(padding),
+        ) {
         if (stats.totalPlayCount <= 0) {
+            MusesRefreshablePlaceholder {
             MusesEmpty(
                 title = "空空如也~",
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 bottomInset = LocalBottomChromePadding.current,
             )
+            }
         } else {
             // 月份左边界：最早有记录的那个月（明细最多保留约三年）
             val earliestMonth = remember(stats.earliestMonth) {
@@ -104,7 +115,6 @@ fun StatisticsScreen(onBack: () -> Unit) {
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(padding)
                     .padding(top = 8.dp),
             ) {
                 MonthSwitcherCard(
@@ -150,6 +160,7 @@ fun StatisticsScreen(onBack: () -> Unit) {
 
                 Spacer(Modifier.height(16.dp + LocalBottomChromePadding.current))
             }
+        }
         }
     }
 }

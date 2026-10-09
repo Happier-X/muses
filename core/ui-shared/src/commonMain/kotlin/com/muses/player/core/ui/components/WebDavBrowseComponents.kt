@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -81,6 +82,7 @@ fun WebDavBrowseList(
     onConfirmSingle: (String) -> Unit,
     onConfirmMultiple: (List<String>) -> Unit,
     onNavigatePath: (String) -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     errorText: String? = null,
     onDismissError: (() -> Unit)? = null,
@@ -105,11 +107,12 @@ fun WebDavBrowseList(
 
         Spacer(Modifier.height(8.dp))
 
+        MusesPullToRefresh(isRefreshing = isLoading, onRefresh = onRefresh, modifier = Modifier.weight(1f)) {
         if (isLoading) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
@@ -123,10 +126,11 @@ fun WebDavBrowseList(
             }
         } else {
             if (directories.isEmpty()) {
+                MusesRefreshablePlaceholder {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
@@ -140,9 +144,10 @@ fun WebDavBrowseList(
                         color = scheme.onBackgroundVariant,
                     )
                 }
+                }
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                     // 末项避让底部悬浮件（悬浮件高度见 BottomChrome）
                     contentPadding = PaddingValues(
@@ -161,6 +166,8 @@ fun WebDavBrowseList(
                 }
 
             }
+        }
+
         }
 
         if (!isLoading && selectedPaths.isNotEmpty()) {

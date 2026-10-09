@@ -199,7 +199,7 @@ fun LibrarySongList(
     onPlay: (String) -> Unit,
     modifier: Modifier = Modifier,
     onLongClick: ((String) -> Unit)? = null,
-    contentPadding: PaddingValues = PaddingValues(0.dp),
+    contentPadding: PaddingValues = PaddingValues(horizontal = SongListLayout.contentHorizontalPadding),
 ) {
     if (songs.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -212,7 +212,7 @@ fun LibrarySongList(
         LazyColumn(
             modifier = modifier.fillMaxSize(),
             contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(SongListLayout.itemSpacing),
         ) {
             items(songs, key = { it.id }) { song ->
                 SongListItem(

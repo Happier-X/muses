@@ -49,9 +49,11 @@ import com.muses.player.core.search.OnlineChart
 import com.muses.player.core.ui.components.MusesButton
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesTopBar
+import com.muses.player.core.ui.components.MusesPullToRefresh
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.SongItem
 import com.muses.player.core.ui.components.SongListItem
+import com.muses.player.core.ui.components.SongListLayout
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import org.koin.compose.viewmodel.koinViewModel
@@ -181,14 +183,21 @@ fun HomeCollectionScreen(
             )
         },
     ) { padding ->
+        MusesPullToRefresh(
+            isRefreshing = if (showRecommendations) recommend.loading else chart.loadingCharts || chart.refreshingCharts,
+            onRefresh = {
+                if (showRecommendations) viewModel.retryRecommend() else viewModel.loadCharts(forceRefresh = true)
+            },
+            modifier = Modifier.padding(padding),
+        ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                start = if (showRecommendations) 12.dp else 16.dp,
-                end = if (showRecommendations) 12.dp else 16.dp,
+                start = if (showRecommendations) SongListLayout.contentHorizontalPadding else 16.dp,
+                end = if (showRecommendations) SongListLayout.contentHorizontalPadding else 16.dp,
                 bottom = 16.dp + LocalBottomChromePadding.current,
             ),
-            verticalArrangement = Arrangement.spacedBy(if (showRecommendations) 2.dp else 14.dp),
+            verticalArrangement = Arrangement.spacedBy(if (showRecommendations) SongListLayout.itemSpacing else 14.dp),
         ) {
             // 一次性提示（如「该平台没有可用音源脚本」）
             state.message?.let { message ->
@@ -243,9 +252,6 @@ fun HomeCollectionScreen(
                         onAction = onOpenAiConfig,
                     )
                 }
-                recommend.loading && recommend.result == null -> item(key = "rec-loading") {
-                    LoadingRow()
-                }
                 recommend.error != null && recommend.result == null -> item(key = "rec-error") {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         HomeBanner(text = recommend.error, onClose = null)
@@ -288,6 +294,7 @@ fun HomeCollectionScreen(
 
             }
             item(key = "bottom-space") { Spacer(Modifier.height(8.dp)) }
+        }
         }
     }
 }

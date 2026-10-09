@@ -1,8 +1,6 @@
 package com.muses.player.feature.library
 
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -21,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import top.yukonga.miuix.kmp.basic.FabPosition
 import top.yukonga.miuix.kmp.basic.Icon
@@ -42,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -67,6 +63,8 @@ import com.muses.player.core.ui.components.MusesListRow
 import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.ui.components.MusesTextButton
 import com.muses.player.core.ui.components.MusesTopBar
+import com.muses.player.core.ui.components.MusesRefreshableContent
+import com.muses.player.core.ui.components.MusesRefreshablePlaceholder
 
 /**
  * 歌曲页 —— SongsPage.vue 一比一翻译。
@@ -74,11 +72,11 @@ import com.muses.player.core.ui.components.MusesTopBar
  * 结构对照（BEM 类名见各段注释）：
  * - `.songs-page__navbar`：MusesTopBar(title=歌曲, right=搜索) + bottomContent
  *   （工具条 ↔ 搜索栏二选一，同一块玻璃无分界线）
- * - 工具条 `.songs-page__toolbar-left`：随机播放按钮 + 歌曲总数；多选时加计数
+ * - 工具条 `.songs-page__toolbar-left`：随机播放按钮 + 歌曲总数
  * - 列表行：MusesListRow(title, subtitle="artist - album",
- *   leading=封面 54/radius-sm 或多选 checkbox，after=⋮ 三点菜单)
- * - 行点击：多选切换选择；否则全列表入队播放该曲
- * - 空态 m-empty；多选底部操作条 multibar；⋮ 动作单 m-actions
+ *   leading=封面，after=⋮ 三点菜单)
+ * - 行点击：全列表入队播放该曲
+ * - 空态 m-empty；⋮ 动作单 m-actions
  */
 @Composable
 fun SongsPage(
@@ -95,6 +93,7 @@ fun SongsPage(
     pageTitle: String = "歌曲",
     onBack: (() -> Unit)? = null,
     showSearch: Boolean = true,
+    onRefresh: suspend () -> Unit = { viewModel.refresh() },
 ) {
     val scheme = MiuixTheme.colorScheme
     var searchQuery by remember { mutableStateOf("") }
@@ -109,16 +108,6 @@ fun SongsPage(
             }
         }
     }
-    val deleteErrors by viewModel.deleteErrors.collectAsState()
-
-    // 批量删除部分失败时提示（消费后清零，避免重组重复提示）
-    LaunchedEffect(deleteErrors) {
-        if (deleteErrors > 0) {
-            com.muses.player.core.ui.components.MusesSnackbar.show("${deleteErrors} 首删除失败，请重试")
-            viewModel.consumeDeleteErrors()
-        }
-    }
-
     // ---- 跳转到当前播放（SongsPage.vue scrollToCurrentSong/jump-fab 组）----
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -162,8 +151,6 @@ fun SongsPage(
 
     // ---- 页面状态 ----
     var isSearching by remember { mutableStateOf(false) }
-    var isMultiSelect by remember { mutableStateOf(false) }
-    var selectedIds by remember { mutableStateOf(emptySet<String>()) }
     var actionSong by remember { mutableStateOf<Song?>(null) }
 
     fun exitSearch() {
@@ -172,20 +159,10 @@ fun SongsPage(
         if (scopedSongs == null) viewModel.updateSearchQuery("")
     }
 
-    fun exitMultiSelect() {
-        isMultiSelect = false
-        selectedIds = emptySet()
-    }
-
     // 阶段二顶栏换原生：自绘 MusesNavbar 玻璃退役，haze 局部态随之下线；
     // FAB 改吃 TabsLayout 全局 Haze（环境值直达，无需中转）。
-    fun doEnqueue(ids: List<String>) {
-        if (ids.isEmpty()) return
-        onEnqueueScrape(ids)
-        com.muses.player.core.ui.components.MusesSnackbar.show("添加成功")
-    }
     // 阶段二槽位化：顶栏进 Scaffold topBar（原生大标题折叠），列表进 content，
-    // FAB 进 floatingActionButton 槽（自动避让停靠迷你条），多选条见下方 E5 浮层。
+    // FAB 进 floatingActionButton 槽（自动避让停靠迷你条）。
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.surface,
@@ -201,7 +178,6 @@ fun SongsPage(
                         MusesIconButton(onClick = {
                             isSearching = true
                             searchQuery = ""
-                            if (isMultiSelect) exitMultiSelect()
                         }) {
                             Icon(TablerIcons.Search, contentDescription = "搜索歌曲")
                         }
@@ -246,14 +222,6 @@ fun SongsPage(
                                         text = songs.size.toString(),
                                         style = MiuixTheme.textStyles.body1,
                                         color = scheme.onBackground,
-                                    )
-                                }
-                                if (isMultiSelect) {
-                                    Text(
-                                        text = "已选中 ${selectedIds.size} 项",
-                                        style = MiuixTheme.textStyles.body1,
-                                        color = scheme.onBackgroundVariant,
-                                        modifier = Modifier.padding(start = 12.dp),
                                     )
                                 }
                             }
@@ -312,16 +280,13 @@ fun SongsPage(
                 // 其展开态 chrome 顶 + 少量呼吸）。不用节点总高 / 距屏底口径：FAB slot
                 // 自带内缩（实测 12dp，与 WindowInsets 无关），距屏底口径会多空一截。
                 // 列表 contentPadding 仍恒定（防滚动死角，见 BottomChrome）；
-                // 多选条位置恒定 → 仍按恒定口径 + 64dp。
                 var fabSlotBottom by remember { mutableStateOf(0f) }
                 Box(
                     Modifier.fillMaxSize().onGloballyPositioned { coords ->
                         fabSlotBottom = coords.boundsInWindow().bottom
                     },
                 ) {
-                    val fabClearance = if (isMultiSelect) {
-                        com.muses.player.core.ui.theme.LocalBottomChromePadding.current + 64.dp
-                    } else {
+                    val fabClearance = run {
                         val chromeTop = com.muses.player.core.ui.theme.LocalBottomChromeElevation.current.value
                         val slotBottom = with(LocalDensity.current) { fabSlotBottom.toDp() }
                         // 首帧 slot 还没上报时退回恒定口径，避免 clearance 归零压住 chrome
@@ -343,17 +308,18 @@ fun SongsPage(
         },
         floatingActionButtonPosition = FabPosition.End,
     ) { padding ->
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(padding),
+        MusesRefreshableContent(
+            onRefresh = onRefresh,
+            modifier = Modifier.padding(padding),
         ) {
             if (songs.isEmpty()) {
+                MusesRefreshablePlaceholder {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     MusesEmpty(
                         title = "空空如也~",
                         bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                     )
+                }
                 }
             } else {
                 LazyColumn(
@@ -362,22 +328,19 @@ fun SongsPage(
                     state = listState,
                     // 末项避让底部悬浮件（悬浮件高度见 BottomChrome；空态分支不受影响）
                     contentPadding = PaddingValues(
-                        bottom = (if (isMultiSelect) 64.dp else 16.dp) +
+                        start = SongListLayout.contentHorizontalPadding,
+                        end = SongListLayout.contentHorizontalPadding,
+                        bottom = 16.dp +
                             com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                     ),
+                    verticalArrangement = Arrangement.spacedBy(SongListLayout.itemSpacing),
                 ) {
                 itemsIndexed(songs, key = { _, song -> song.id }, contentType = { _, _ -> "song" }) { _, song ->
-                    val checked = isMultiSelect && song.id in selectedIds
-                    // 当前播放曲：标题用 primary 色区分（多选时以选中态为准，不叠加）
-                    val isCurrent = !isMultiSelect && song.id == currentSongId
+                    // 当前播放曲：标题用 primary 色区分。
+                    val isCurrent = song.id == currentSongId
                     MusesListRow(
                         songLayout = true,
                         songId = song.id,
-                        modifier = Modifier.background(
-                            // Web .songs-page__row.is-selected：rgba(var(--m-primary-rgb), .08)
-                            color = if (checked) scheme.primary.copy(alpha = 0.08f) else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp),
-                        ),
                         titleColor = if (isCurrent) scheme.primary else null,
                         subtitleColor = if (isCurrent) scheme.primary else null,
                         qualityBadgeLabel = song.libraryQualityLabel,
@@ -396,66 +359,21 @@ fun SongsPage(
                             "${metaArtist ?: song.artist ?: "未知艺术家"} - ${metaAlbum ?: song.album ?: "未知专辑"}"
                         },
                         // 歌曲行与榜单、歌单共用紧凑尺寸。
-                        onClick = {
-                            if (isMultiSelect) {
-                                selectedIds =
-                                    if (song.id in selectedIds) selectedIds - song.id
-                                    else selectedIds + song.id
-                            } else {
-                                playback?.play(song.id, songs)
-                            }
-                        },
-                        onLongClick = if (!isMultiSelect) {
-                            {
-                                isMultiSelect = true
-                                selectedIds = setOf(song.id)
-                            }
-                        } else {
-                            null
-                        },
+                        onClick = { playback?.play(song.id, songs) },
                         leading = {
-                            if (isMultiSelect) {
-                                // .songs-page__select-box：多选选择框
-                                Box(
-                                    Modifier
-                                        .size(22.dp)
-                                        .background(
-                                            color = if (checked) scheme.primary else scheme.surfaceVariant,
-                                            shape = RoundedCornerShape(6.dp),
-                                        )
-                                        .border(
-                                            width = 1.5.dp,
-                                            color = if (checked) scheme.primary else scheme.onBackgroundVariant,
-                                            shape = RoundedCornerShape(6.dp),
-                                        ),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    if (checked) {
-                                        Icon(
-                                            TablerIcons.Check,
-                                            contentDescription = null,
-                                            tint = scheme.onPrimary,
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    }
-                                }
-                            } else {
-                                val useMetaCover = song.id == currentSongId && song.metaSources?.cover == null && song.tagsVersion < com.muses.player.core.data.db.SongTags.TAGS_VERSION
-                                val displayCover = if (useMetaCover) currentMeta?.coverUri ?: song.coverUri else song.coverUri
-                                    MusesCover(
-                                        uri = displayCover,
-                                        size = SongListLayout.coverSize,
-                                        radius = MusesCoverRadius.SM,
-                                    )
-                                    Spacer(Modifier.width(SongListLayout.coverGap))
-                            }
+                            val useMetaCover = song.id == currentSongId && song.metaSources?.cover == null && song.tagsVersion < com.muses.player.core.data.db.SongTags.TAGS_VERSION
+                            val displayCover = if (useMetaCover) currentMeta?.coverUri ?: song.coverUri else song.coverUri
+                            MusesCover(
+                                uri = displayCover,
+                                size = SongListLayout.coverSize,
+                                radius = MusesCoverRadius.SM,
+                            )
+                            Spacer(Modifier.width(SongListLayout.coverGap))
                         },
                         after = {
-                            if (!isMultiSelect) {
-                                com.muses.player.core.ui.components.SongMoreButton(
-                                    onClick = { actionSong = song },
-                                )
-                            }
+                            com.muses.player.core.ui.components.SongMoreButton(
+                                onClick = { actionSong = song },
+                            )
                         },
                         // Web 版 <m-list :dividers="false">：椒盐歌曲列表无行间分割线
                         dividers = false,
@@ -482,34 +400,6 @@ fun SongsPage(
         },
     )
 
-    // ---- 多选底部操作条（.songs-page__multibar）：内容层底部浮层，位于停靠迷你条之上 ----
-    if (isMultiSelect) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(bottom = com.muses.player.core.ui.theme.LocalBottomChromePadding.current),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-        MultiselectBottomBar(
-            selectedCount = selectedIds.size,
-            onDeleteSelected = {
-                viewModel.deleteByIds(selectedIds)
-                exitMultiSelect()
-            },
-            onPlaySelected = {
-                val picked = songs.filter { it.id in selectedIds }
-                if (picked.isNotEmpty()) playback?.play(picked.first().id, picked)
-                exitMultiSelect()
-            },
-            onEnqueueScrape = {
-                val ids = selectedIds.toList()
-                if (ids.isNotEmpty()) doEnqueue(ids)
-                exitMultiSelect()
-            },
-            onCancel = { exitMultiSelect() },
-        )
-        }
-    }
     }
 }
 
@@ -540,31 +430,5 @@ private fun JumpToCurrentFab(
             tint = scheme.onBackgroundVariant,
             modifier = Modifier.size(20.dp),
         )
-    }
-}
-
-/** 多选底部操作条：clear 按钮横排，danger 红 */
-@Composable
-private fun MultiselectBottomBar(
-    selectedCount: Int,
-    onDeleteSelected: () -> Unit,
-    onPlaySelected: () -> Unit,
-    onCancel: () -> Unit,
-    onEnqueueScrape: () -> Unit = {},
-) {
-    val scheme = MiuixTheme.colorScheme
-    val disabled = selectedCount == 0
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(scheme.surface)
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-    ) {
-        MusesTextButton(text = "永久删除", destructive = true, enabled = !disabled, onClick = onDeleteSelected)
-        // M3：批量加入待刮削队列（刮削页统一处理）
-        MusesTextButton(text = "添加到刮削队列", enabled = !disabled, onClick = onEnqueueScrape)
-        MusesTextButton(text = "播放选中队列", enabled = !disabled, onClick = onPlaySelected)
-        MusesTextButton(text = "取消", onClick = onCancel)
     }
 }

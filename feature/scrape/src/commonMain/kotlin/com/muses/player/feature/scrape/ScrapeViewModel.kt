@@ -60,8 +60,7 @@ class ScrapeViewModel(
         viewModelScope.launch { queueStore.updated.collect { reloadQueue() } }
     }
 
-    fun reloadQueue() {
-        viewModelScope.launch {
+    fun reloadQueue() = viewModelScope.launch {
             try {
                 val ids = queueStore.load().map { it.songId }
                 _queueSongIds.value = ids
@@ -71,7 +70,6 @@ class ScrapeViewModel(
             } catch (_: Exception) {
                 _errorMessage.value = "读取待刮削歌曲失败，请返回页面重试"
             }
-        }
     }
 
     fun removeFromQueue(songIds: List<String>) {

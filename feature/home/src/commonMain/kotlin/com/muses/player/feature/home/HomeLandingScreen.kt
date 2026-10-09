@@ -37,6 +37,7 @@ import coil3.request.ImageRequest
 import coil3.size.Precision
 import kotlinx.coroutines.delay
 import com.muses.player.core.ui.components.MusesTopBar
+import com.muses.player.core.ui.components.MusesPullToRefresh
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import org.koin.compose.viewmodel.koinViewModel
@@ -68,7 +69,12 @@ fun HomeScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = { MusesTopBar(title = "探索") },
     ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+        MusesPullToRefresh(
+            isRefreshing = state.featured.loading,
+            onRefresh = { viewModel.loadFeaturedPlaylists(forceRefresh = true) },
+            modifier = Modifier.padding(padding),
+        ) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
         val compact = maxHeight - LocalBottomChromePadding.current < 540.dp
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -95,6 +101,7 @@ fun HomeScreen(
                         Modifier.weight(1f), compact, onOpenCharts)
                 }
             }
+        }
         }
         }
     }

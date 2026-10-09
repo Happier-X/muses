@@ -104,6 +104,13 @@ class WebDavBrowseViewModel constructor(
         }
     }
 
+    /** 重读当前目录，保留路径和用户已勾选的目录。 */
+    fun refresh() {
+        if (initialized.get() && !_browseState.value.isLoading) {
+            loadDirectories(_browseState.value.currentPath)
+        }
+    }
+
     /** 从面包屑跳转到指定层级。 */
     fun navigateTo(path: String) {
         val normalizedPath = normalizeWebDavPath(path)

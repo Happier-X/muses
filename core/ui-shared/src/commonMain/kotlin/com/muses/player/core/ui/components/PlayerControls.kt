@@ -104,7 +104,7 @@ fun PlayerModeBar(
         )
         MusesIconButton(
             onClick = onOpenEditMeta,
-            imageVector = TablerIcons.MoreVert,
+            imageVector = TablerIcons.MoreHorizontal,
             contentDescription = "更多",
             tint = contentColor.copy(alpha = 0.8f),
         )
