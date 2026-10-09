@@ -19,6 +19,7 @@ import com.muses.player.core.model.online.OnlineTrackMetadataResolver
 import com.muses.player.core.model.online.OnlineTrackRef
 import com.muses.player.core.model.scrape.ScrapeChanges
 import com.muses.player.core.scrape.ports.JaudiotaggerTagPort
+import com.muses.player.core.scrape.ports.TagPort
 import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.util.RefreshableState
 import java.io.File
@@ -59,6 +60,8 @@ class DownloadManager(
             acceptUrl = { url -> urlProbe == null || withTimeoutOrNull(4_000) { urlProbe.canOpen(url) } == true })
     },
     private val uploadConfirmDelayMs: Long = 30_000L,
+    private val uploadCommitTimeoutMs: Long = 120_000L,
+    private val tagPort: TagPort = JaudiotaggerTagPort,
 ) {
     // WebDAV 使用 HTTP/1.1，提高部分 Android / 代理组合上传时的连接兼容性。
     private val webDavClient = client.newBuilder().protocols(listOf(Protocol.HTTP_1_1))
@@ -209,9 +212,16 @@ class DownloadManager(
             change(task.id) { it.copy(status = DownloadStatus.METADATA) }
             val warnings = mutableListOf<String>()
             val (lyrics, cover) = collectMetadata(task, ref, warnings)
-            val tags = JaudiotaggerTagPort.writeTags(audio, ScrapeChanges(title = task.track.title,
-                artist = task.track.artist, album = task.track.album, lyrics = lyrics), cover)
-            check(tags.ok) { "歌曲信息内嵌失败，音频尚未保存，请重试或更换音质" }
+            val tagsWritten = try {
+                tagPort.writeTags(audio, ScrapeChanges(title = task.track.title,
+                    artist = task.track.artist, album = task.track.album, lyrics = lyrics), cover).ok
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { false }
+            if (!tagsWritten) {
+                // 写标签可能已经部分改动文件，失败时恢复完整原始音频再保存。
+                scratch.copyTo(audio, overwrite = true)
+                warnings += "歌曲信息内嵌失败，已跳过，可稍后刮削"
+            }
             val files = listOf(audio)
             val target = task.target ?: error("请先选择保存位置")
             val total = files.sumOf { it.length() }
@@ -227,7 +237,7 @@ class DownloadManager(
                     change(task.id) { it.copy(transferredBytes = bytes, transferTotalBytes = size) }
                 }
                 warnings.addAll(saved.warnings)
-                if (!saved.skippedExisting) syncLibrary(target, saved, task, lyrics, warnings)
+                if (!saved.skippedExisting) syncLibrary(target, saved, task, if (tagsWritten) lyrics else null, warnings)
                 change(task.id) {
                     it.copy(
                         status = DownloadStatus.COMPLETED,
@@ -249,6 +259,7 @@ class DownloadManager(
         } catch (e: Exception) {
             val stage = store.load().firstOrNull { it.id == task.id }?.status
             val message = when (e) {
+                is UploadCommitTimeoutException -> e.message.orEmpty()
                 is java.net.SocketTimeoutException -> if (stage == DownloadStatus.UPLOADING)
                     "WebDAV 响应超时，尚未确认远端保存结果，请稍后重试" else "连接超时，请重试"
                 is java.net.UnknownHostException -> "网络不可用，请检查连接后重试"
@@ -470,10 +481,12 @@ class DownloadManager(
                 check(response.code == 404 || response.isSuccessful) { "无法检查目标文件：HTTP ${response.code}" }
                 if (response.isSuccessful) RemoteDownloadFile(url, response.header("ETag"), response.header("Last-Modified")) else null
             }
-            if (existing != null && index == 0 && recoverUpload && withTimeoutOrNull(90_000) {
+            if (existing != null && index == 0 && recoverUpload) {
+                val confirmed = withTimeoutOrNull(90_000) {
                     reportTransferMessage(taskId, "核验上次上传")
                     confirmUploadedFile(url, authorization, file)
-                } == true) {
+                } == true
+                check(confirmed) { "上次上传的文件未通过完整性核验，已保留远端文件，请检查网盘保存结果后重试" }
                 transferred += file.length()
                 audioLocation = url.toString()
                 reportTransferred(taskId, transferred)
@@ -563,14 +576,22 @@ class DownloadManager(
                         @Suppress("UNREACHABLE_CODE")
                         false
                     }
+                    // 从请求体发送完毕开始计时，不压缩大文件实际传输的时间。
+                    val commitDeadline = async<Boolean> {
+                        bodySent.await()
+                        delay(uploadCommitTimeoutMs)
+                        throw UploadCommitTimeoutException()
+                    }
                     try {
                         select<Boolean> {
                             uploading.onAwait { it }
                             verifying.onAwait { it }
+                            commitDeadline.onAwait { it }
                         }
                     } finally {
                         uploading.cancel()
                         verifying.cancel()
+                        commitDeadline.cancel()
                     }
                 }
                 if (verified) warnings += "服务器响应较慢，已核验远端文件完整"
@@ -736,6 +757,10 @@ class DownloadManager(
 
 /** 音源脚本生态约定的 UA；用 okhttp 默认 UA 会被网易 CDN 直接拒绝 */
 private const val AUDIO_USER_AGENT = "lx-music"
+
+private class UploadCommitTimeoutException : IllegalStateException(
+    "等待服务器保存超时，尚未确认远端文件完整。下载缓存已保留，请稍后重试；重试会先核验已上传文件",
+)
 
 private class DownloadQualityUnavailable(message: String) : Exception(message)
 

@@ -303,7 +303,7 @@ class PlayerConnection constructor(
 
         // 在线曲目：搜索结果自带的远程封面直接作为通知/锁屏/系统卡片封面（**零额外请求**）。
         // 此处**不**调脚本 `pic` 预解析：入队时逐首解析会让出声迟到数十秒
-        // （见 OnlineResolvingDataSourceFactory 注释）；脚本 pic 是播放页/迷你条的展示层增强。
+        // （见 OnlineResolvingDataSourceFactory 注释）；播放后解析的 pic 经 updateArtwork 同步到媒体会话。
         if (song.sourceType == SourceType.ONLINE) {
             song.coverUri
                 ?.takeIf { it.startsWith("http", ignoreCase = true) }
@@ -445,6 +445,15 @@ class PlayerConnection constructor(
             coverUri = meta.artworkUri?.toString(),
         )
         syncQueue(player)
+    }
+
+    override fun updateArtwork(songId: String, coverUri: String) {
+        portScope.launch(Dispatchers.Main.immediate) {
+            val player = controller ?: return@launch
+            val updated = PlaybackMetadataUpdates.artwork(player.currentMediaItem, songId, coverUri)
+                ?: return@launch
+            player.replaceMediaItem(player.currentMediaItemIndex, updated)
+        }
     }
 
     private fun syncQueue(player: Player) {

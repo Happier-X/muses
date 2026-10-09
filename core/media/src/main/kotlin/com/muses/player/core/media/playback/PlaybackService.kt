@@ -594,10 +594,7 @@ class PlaybackService : MediaSessionService() {
         // 标题位=歌词行，副标题位（通知 content text / 车机 ARTIST）按非空值拼接；
         // 前奏/间奏无匹配行：保持上一次的歌词行，不闪回歌名
         if (lyricLine != null) {
-            val metadata = androidx.media3.common.MediaMetadata.Builder()
-                .setTitle(lyricLine)
-                .setArtist(originalTrackLabel)
-                .build()
+            val metadata = PlaybackMetadataUpdates.notificationText(player.mediaMetadata, lyricLine, originalTrackLabel)
             // 相同值跳过：媒体元数据没变就不反复 replaceMediaItem（每轮 Timeline 变更都会触发
             // 持久化保存），车机端同值 setMetadata 也少一次通知刷新。
             val now = android.os.SystemClock.elapsedRealtime()
@@ -633,10 +630,7 @@ class PlaybackService : MediaSessionService() {
     private fun restoreNotificationMetadata(player: Player) {
         val origTitle = originalTitle ?: return
         val origArtist = originalArtist
-        val metadata = androidx.media3.common.MediaMetadata.Builder()
-            .setTitle(origTitle)
-            .setArtist(origArtist)
-            .build()
+        val metadata = PlaybackMetadataUpdates.notificationText(player.mediaMetadata, origTitle, origArtist)
         val current = player.currentMediaItem ?: return
         player.replaceMediaItem(
             player.currentMediaItemIndex,

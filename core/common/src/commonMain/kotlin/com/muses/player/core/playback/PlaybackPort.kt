@@ -67,6 +67,9 @@ interface PlaybackPort : PlayerPort {
      */
     fun addToQueue(songs: List<Song>)
 
+    /** 将异步解析的封面同步到当前曲目元数据；过期曲目结果应忽略。 */
+    fun updateArtwork(songId: String, coverUri: String) {}
+
     /** 暂停/继续（语义同安卓 PlayerConnection.playPause） */
     fun playPause()
 

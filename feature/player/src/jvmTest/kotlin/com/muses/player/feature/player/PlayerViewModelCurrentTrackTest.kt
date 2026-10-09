@@ -158,6 +158,10 @@ class PlayerViewModelCurrentTrackTest {
     // ── 测试替身 ──────────────────────────────────────────
 
     private class FakePort : PlaybackPort {
+        val publishedArtwork = mutableListOf<Pair<String, String>>()
+        override fun updateArtwork(songId: String, coverUri: String) {
+            publishedArtwork += songId to coverUri
+        }
         @Volatile var positionMs = 0L
         fun setPlaying(value: Boolean) { _isPlaying.value = value }
         override val playbackState: StateFlow<Int> = MutableStateFlow(PlaybackStates.STATE_READY)
@@ -315,6 +319,7 @@ class PlayerViewModelCurrentTrackTest {
         assertEquals(2, line?.syllables?.size)
         // 脚本封面优先于搜索结果封面
         assertEquals("http://cdn.test/script-cover.jpg", viewModel.stickyCover.value)
+        assertTrue(song.id to "http://cdn.test/script-cover.jpg" in port.publishedArtwork)
 
         viewModel.viewModelScope.cancel()
     }

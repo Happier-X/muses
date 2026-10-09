@@ -394,7 +394,8 @@ class PlayerViewModel constructor(
     }
 
     /**
-     * 在线曲目：不落库，封面/歌词**先问洛雪脚本、再回退 Muses 匹配系统**，仅在内存态展示
+     * 在线曲目：不落库，封面/歌词**先问洛雪脚本、再回退 Muses 匹配系统**，在内存态展示，
+     * 已解析封面同步到媒体会话供通知栏使用
      * （切歌重新取，不做持久化；与「在线曲目不入库」的整体设计一致）。
      *
      * 封面优先级：脚本 `pic` → 搜索结果自带的远程封面（[Song.coverUri]）→ 封面六源匹配
@@ -422,7 +423,7 @@ class PlayerViewModel constructor(
         applyLyricsDocument(document)
         // 已知封面（脚本 pic / 搜索结果）**立即上屏**，不等重试：搜索结果的远程封面本就现成，
         // 让它跟歌词一起等 1.5s 会白闪一下默认底
-        cover?.let { _stickyCover.value = it }
+        cover?.let { publishOnlineCover(song.id, it) }
 
         // ② 脚本缓存要等 musicUrl（打开媒体时）才写入 → 延迟重试补齐
         // 触发条件看「还在意的东西缺不缺」：歌词想要逐字（行级算缺），或封面还没着落
@@ -442,7 +443,7 @@ class PlayerViewModel constructor(
                 }
                 if (cover.isNullOrBlank() && !retry.cover.isNullOrBlank()) {
                     cover = retry.cover
-                    _stickyCover.value = retry.cover
+                    publishOnlineCover(song.id, retry.cover)
                 }
                 if (lyricsSettled && !cover.isNullOrBlank()) break
             }
@@ -451,7 +452,13 @@ class PlayerViewModel constructor(
         // ③ 封面仍未拿到 → 六源匹配（慢，放最后，不拖住歌词上屏）
         if (cover.isNullOrBlank()) cover = matchOnlineCover(song)
         val effectiveCover = cover?.takeIf { it.isNotBlank() } ?: metadataArtwork
-        if (!effectiveCover.isNullOrBlank()) _stickyCover.value = effectiveCover
+        if (!effectiveCover.isNullOrBlank()) publishOnlineCover(song.id, effectiveCover)
+    }
+
+    private fun publishOnlineCover(songId: String, coverUri: String) {
+        if (playback.currentSongId.value != songId || coverUri.isBlank()) return
+        _stickyCover.value = coverUri
+        playback.updateArtwork(songId, coverUri)
     }
 
     /**
