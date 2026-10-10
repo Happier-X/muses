@@ -24,10 +24,14 @@ class KgProvider(private val http: ScrapeHttp) : TextMetaProvider {
 
     override val id: OnlineTextSource = OnlineTextSource.KG
 
-    override suspend fun search(query: OnlineTextQuery): TextMetaHit? {
+    override suspend fun search(query: OnlineTextQuery): TextMetaHit? = pickBestHit(loadHits(query), query)
+
+    override suspend fun searchCandidates(query: OnlineTextQuery): List<TextMetaHit> = loadHits(query.copy(album = null))
+
+    private suspend fun loadHits(query: OnlineTextQuery): List<TextMetaHit> {
         val keyword = buildKeyword(query)
         if (keyword.isEmpty()) {
-            return null
+            return emptyList()
         }
 
         // kg.ts URL：全参数串原样保留（clientver 为空串参数）
@@ -52,6 +56,6 @@ class KgProvider(private val http: ScrapeHttp) : TextMetaProvider {
             )
         }.filter { it.artist != null || it.album != null }
 
-        return pickBestHit(hits, query)
+        return hits
     }
 }

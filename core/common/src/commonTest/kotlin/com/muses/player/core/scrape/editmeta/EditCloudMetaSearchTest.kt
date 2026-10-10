@@ -8,9 +8,12 @@ import com.muses.player.core.scrape.cover.OnlineCoverQuery
 import com.muses.player.core.scrape.cover.OnlineCoverSource
 import com.muses.player.core.scrape.text.TextMetaProvider
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 /** 规格 = src/features/editMeta/searchEditCloudMeta.ts 编排主流程（fake provider 注入） */
 class EditCloudMetaSearchTest {
@@ -49,6 +52,97 @@ class EditCloudMetaSearchTest {
     }
 
     private fun query() = EditCloudMetaQuery(songId = "s1", title = "Love Story", artist = "Taylor")
+
+    @Test fun `同源多个版本保留且传递时长`() = runTest {
+        val provider = object : TextMetaProvider {
+            override val id = OnlineTextSource.WY
+            override suspend fun search(query: OnlineTextQuery): TextMetaHit? = error("审核不能走单候选接口")
+            override suspend fun searchCandidates(query: OnlineTextQuery): List<TextMetaHit> {
+                assertEquals(180.0, query.durationSec)
+                return listOf("Love Story", "Love Story (Live)").map {
+                    TextMetaHit(it, "Taylor", "Fearless", id)
+                }
+            }
+        }
+        val result = EditCloudMetaSearch(listOf(provider), emptyList()).search(query().copy(durationSec = 180.0))
+        assertEquals(2, result.text.items.size)
+    }
+
+    @Test fun `部分来源失败保留成功候选和失败来源`() = runTest {
+        val result = EditCloudMetaSearch(
+            listOf(FakeText(OnlineTextSource.WY) { TextMetaHit("Love Story", source = OnlineTextSource.WY) },
+                FakeText(OnlineTextSource.KW) { error("请求失败") }),
+            listOf(FakeCover(OnlineCoverSource.TX) { error("请求失败") }),
+            listOf(FakeLyrics("amll") { error("请求失败") }, FakeLyrics("wy") { LyricsHit("歌词", "lrc") }),
+        ).search(query())
+        assertEquals(EditDimStatus.OK, result.text.status)
+        assertEquals(1, result.text.items.size)
+        assertEquals(listOf("kw"), result.text.failedSources)
+        assertEquals(listOf("tx"), result.cover.failedSources)
+        assertEquals(listOf("amll"), result.lyrics.failedSources)
+        assertEquals(1, result.lyrics.items.size)
+    }
+
+    @Test fun `普通取消在三个维度均向上传播`() = runTest {
+        val searches = listOf(
+            EditCloudMetaSearch(listOf(FakeText(OnlineTextSource.WY) { throw CancellationException() }), emptyList()),
+            EditCloudMetaSearch(emptyList(), listOf(FakeCover(OnlineCoverSource.WY) { throw CancellationException() })),
+            EditCloudMetaSearch(emptyList(), emptyList(), listOf(FakeLyrics("amll") { throw CancellationException() })),
+            EditCloudMetaSearch(emptyList(), emptyList(), listOf(FakeLyrics("wy") { throw CancellationException() })),
+        )
+        for (search in searches) assertFailsWith<CancellationException> { search.search(query()) }
+    }
+
+    @Test fun `来源超时后继续其他来源并记录缺失`() = runTest {
+        val slow = object : TextMetaProvider {
+            override val id = OnlineTextSource.KW
+            override suspend fun search(query: OnlineTextQuery): TextMetaHit? { delay(60_000); return null }
+        }
+        val good = FakeText(OnlineTextSource.WY) { TextMetaHit("Love Story", source = OnlineTextSource.WY) }
+        val result = EditCloudMetaSearch(listOf(slow, good), emptyList()).search(query())
+        assertEquals(1, result.text.items.size)
+        assertEquals(listOf("kw"), result.text.failedSources)
+    }
+
+    @Test fun `封面和歌词无命中时去掉本地专辑重试`() = runTest {
+        val cover = FakeCover(OnlineCoverSource.WY) { if (it.album == null) "https://example.com/cover.jpg" else null }
+        val lyrics = FakeLyrics("wy") { if (it.album == null) LyricsHit("歌词", "lrc") else null }
+        val result = EditCloudMetaSearch(emptyList(), listOf(cover), listOf(lyrics)).search(query().copy(album = "我的音乐"))
+        assertEquals(2, cover.calls)
+        assertEquals(2, lyrics.calls)
+        assertEquals(1, result.cover.items.size)
+        assertEquals(1, result.lyrics.items.size)
+    }
+
+    @Test fun `歌词前段相同但后段或译文不同仍保留`() = runTest {
+        val prefix = "歌词".repeat(100)
+        val ports = listOf(
+            FakeLyrics("wy") { LyricsHit(prefix + "结尾一", "lrc", "译文一") },
+            FakeLyrics("wy") { LyricsHit(prefix + "结尾二", "lrc", "译文一") },
+            FakeLyrics("wy") { LyricsHit(prefix + "结尾一", "lrc", "译文二") },
+        )
+        assertEquals(3, EditCloudMetaSearch(emptyList(), emptyList(), ports).search(query()).lyrics.items.size)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `三维搜索并行等待而非耗时相加`() = runTest {
+        val search = EditCloudMetaSearch(
+            listOf(object : TextMetaProvider {
+                override val id = OnlineTextSource.WY
+                override suspend fun search(query: OnlineTextQuery): TextMetaHit? { delay(1000); return null }
+            }),
+            listOf(object : CoverProvider {
+                override val id = OnlineCoverSource.WY
+                override suspend fun searchCoverUrl(query: OnlineCoverQuery): String? { delay(1000); return null }
+            }),
+            listOf(object : LyricsSearchPort {
+                override val id = "wy"
+                override suspend fun searchLyrics(query: EditCloudMetaQuery): LyricsHit? { delay(1000); return null }
+            }),
+        )
+        search.search(query())
+        assertEquals(1000L, testScheduler.currentTime)
+    }
 
     @Test
     fun `title或songId为空_三维全空no-match`() = runTest {
@@ -128,7 +222,7 @@ class EditCloudMetaSearchTest {
     }
 
     @Test
-    fun `歌词维度_重复候选按source_format_前120字去重`() = runTest {
+    fun `歌词维度_完全相同内容去重且保留跨来源候选`() = runTest {
         val sameText = "[00:01.00]same line"
         // 同源同格式同前缀 → 去重
         val p1 = FakeLyrics("wy") { LyricsHit(text = sameText, format = "lrc") }

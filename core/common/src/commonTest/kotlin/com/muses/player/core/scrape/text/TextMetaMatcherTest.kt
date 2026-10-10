@@ -198,10 +198,12 @@ class TextMetaMatcherTest {
     }
 
     @Test
-    fun `kw响应非JSON返回null不抛错`() = runTest {
+    fun `kw响应非JSON归网络失败且不写负缓存`() = runTest {
         val h = Harness(ok("<html>oops</html>"))
         val provider = KwProvider(h.http)
-        assertNull(provider.search(query(title = "Love Story")))
+        val matcher = TextMetaMatcher(listOf(provider))
+        assertEquals(OnlineTextMatchResult.Fail(OnlineTextMatchFailReason.NETWORK), matcher.match(query(title = "Love Story")))
+        assertNull(matcher.negativeCache.get(query(title = "Love Story").songId))
     }
 
     @Test

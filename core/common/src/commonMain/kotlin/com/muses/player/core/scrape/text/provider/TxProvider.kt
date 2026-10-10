@@ -24,10 +24,14 @@ class TxProvider(private val http: ScrapeHttp) : TextMetaProvider {
 
     override val id: OnlineTextSource = OnlineTextSource.TX
 
-    override suspend fun search(query: OnlineTextQuery): TextMetaHit? {
+    override suspend fun search(query: OnlineTextQuery): TextMetaHit? = pickBestHit(loadHits(query), query)
+
+    override suspend fun searchCandidates(query: OnlineTextQuery): List<TextMetaHit> = loadHits(query.copy(album = null))
+
+    private suspend fun loadHits(query: OnlineTextQuery): List<TextMetaHit> {
         val keyword = buildKeyword(query)
         if (keyword.isEmpty()) {
-            return null
+            return emptyList()
         }
 
         // tx.ts URL：全参数串原样保留
@@ -54,6 +58,6 @@ class TxProvider(private val http: ScrapeHttp) : TextMetaProvider {
             )
         }.filter { it.artist != null || it.album != null }
 
-        return pickBestHit(hits, query)
+        return hits
     }
 }

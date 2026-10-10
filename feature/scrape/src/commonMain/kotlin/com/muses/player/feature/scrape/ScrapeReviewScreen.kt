@@ -257,6 +257,19 @@ private fun ReviewContent(
         ) {
             // 歌曲头：本地标题/歌手/专辑 + 封面小图
             item(key = "song-head") { SongHead(state) }
+            val failedSources = (state.text.failedSources + state.cover.failedSources + state.lyrics.failedSources).distinct()
+            if (failedSources.isNotEmpty()) {
+                item(key = "search-failures") {
+                    Column {
+                        Text(
+                            "${failedSources.joinToString("、") { scrapeSourceLabel(it) }} 请求失败，当前结果可能不全，已有候选仍可使用。",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = scheme.onBackgroundVariant,
+                        )
+                        MusesTextButton(text = "重新搜索", onClick = viewModel::search)
+                    }
+                }
+            }
             item(key = "ai-match") {
                 AiMatchCard(
                     state = aiState,

@@ -52,8 +52,10 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class ScrapeAiViewModelTest {
     private class MemoryStore : DataStore<Preferences> {
+        var failUpdates = false
         override val data = MutableStateFlow(emptyPreferences())
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+            check(!failUpdates) { "写回记录保存失败" }
             val updated = transform(data.value).toPreferences()
             data.value = updated
             return updated
@@ -77,6 +79,7 @@ class ScrapeAiViewModelTest {
         var behavior: suspend (AiScrapeInput) -> AiScrapeDecision = { decision(1, 1) }
         var requests = 0
         val writes = mutableListOf<ScrapeChanges>()
+        val journalStore = MemoryStore()
         lateinit var vm: ScrapeReviewViewModel
 
         fun create() {
@@ -100,7 +103,7 @@ class ScrapeAiViewModelTest {
             )
             vm = ScrapeReviewViewModel(
                 "song", null, search, repo,
-                WritebackOrchestrator(repo, RollbackJournalStore(MemoryStore()), AudioTagFileWriter { _, changes, _ ->
+                WritebackOrchestrator(repo, RollbackJournalStore(journalStore), AudioTagFileWriter { _, changes, _ ->
                     writes.add(changes)
                     FileWriteResult(true)
                 }),
@@ -149,6 +152,18 @@ class ScrapeAiViewModelTest {
         assertEquals(1, f.writes.size)
         assertEquals(expectedAlbum, f.writes.single().album)
         assertEquals(expectedLyrics, f.writes.single().lyrics)
+    }
+
+    @Test fun `写回记录异常仍保留候选和人工编辑`() = workflow { f ->
+        f.vm.updateEditTitle("手动标题")
+        f.vm.selectLyrics(1)
+        val review = f.review()
+        f.journalStore.failUpdates = true
+        f.vm.apply()
+        advanceUntilIdle()
+        assertEquals(review, f.review())
+        assertTrue(f.writes.isEmpty())
+        assertEquals(0, f.repo.updates)
     }
 
     @Test

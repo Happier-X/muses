@@ -36,10 +36,14 @@ class KwProvider(private val http: ScrapeHttp) : TextMetaProvider {
 
     override val id: OnlineTextSource = OnlineTextSource.KW
 
-    override suspend fun search(query: OnlineTextQuery): TextMetaHit? {
+    override suspend fun search(query: OnlineTextQuery): TextMetaHit? = pickBestHit(loadHits(query), query)
+
+    override suspend fun searchCandidates(query: OnlineTextQuery): List<TextMetaHit> = loadHits(query.copy(album = null))
+
+    private suspend fun loadHits(query: OnlineTextQuery): List<TextMetaHit> {
         val keyword = buildKeyword(query)
         if (keyword.isEmpty()) {
-            return null
+            return emptyList()
         }
 
         // kw.ts：httpGetText + UA Mozilla/5.0
@@ -51,12 +55,8 @@ class KwProvider(private val http: ScrapeHttp) : TextMetaProvider {
             ),
         )
 
-        // kw.ts：JSON.parse 失败 catch 后返回 null（其余源由 matcher 归为 network）
-        val body: JsonObject = try {
-            Json.parseToJsonElement(raw).jsonObject
-        } catch (_: Exception) {
-            return null
-        }
+        // 格式错误属于请求失败，不能伪装成没有匹配。
+        val body: JsonObject = Json.parseToJsonElement(raw).jsonObject
         val list = body["abslist"].asArrayOrNull()
 
         val hits = (list ?: emptyList()).mapNotNull { element ->
@@ -69,6 +69,6 @@ class KwProvider(private val http: ScrapeHttp) : TextMetaProvider {
             )
         }.filter { it.artist != null || it.album != null }
 
-        return pickBestHit(hits, query)
+        return hits
     }
 }

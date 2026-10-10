@@ -107,6 +107,7 @@ class ScrapeHttp(
         /** 默认 CIO 客户端（原 `OkHttpClient()` 默认 10s 连接/读超时对齐）。 */
         fun defaultScrapeHttpClient(): HttpClient = HttpClient(CIO) {
             install(HttpTimeout) {
+                requestTimeoutMillis = 15_000L
                 connectTimeoutMillis = 10_000L
                 socketTimeoutMillis = 10_000L
             }

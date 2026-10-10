@@ -308,10 +308,10 @@ class ScrapeReviewViewModel constructor(
         val lyrics = result.lyrics
         val hasAny = text.items.isNotEmpty() || cover.items.isNotEmpty() || lyrics.items.isNotEmpty()
         if (!hasAny) {
-            val throttled = text.status == EditDimStatus.NETWORK ||
+            val networkFailure = text.status == EditDimStatus.NETWORK ||
                 cover.status == EditDimStatus.NETWORK ||
                 lyrics.status == EditDimStatus.NETWORK
-            return ScrapeReviewState.Empty(if (throttled) "触发限流，稍后重试" else "暂无匹配")
+            return ScrapeReviewState.Empty(if (networkFailure) "部分来源请求失败，请检查网络后重试" else "暂无匹配")
         }
         val review = ScrapeReviewState.Review(
             song = song,
@@ -478,7 +478,8 @@ class ScrapeReviewViewModel constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.value = ScrapeReviewState.Empty("写回失败，请重试")
+                _state.value = s
+                MusesSnackbar.show(e.message ?: "写回失败，请重试")
             }
         }
     }

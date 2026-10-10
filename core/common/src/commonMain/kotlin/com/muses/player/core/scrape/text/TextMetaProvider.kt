@@ -11,4 +11,7 @@ interface TextMetaProvider {
     val id: OnlineTextSource
 
     suspend fun search(query: OnlineTextQuery): TextMetaHit?
+
+    /** 审核页保留多条候选；旧实现仍可提供单条命中。 */
+    suspend fun searchCandidates(query: OnlineTextQuery): List<TextMetaHit> = listOfNotNull(search(query))
 }
