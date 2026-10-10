@@ -28,8 +28,13 @@
 -dontwarn coil3.**
 -dontwarn androidx.media3.**
 
-# jaudiotagger/JNA：桌面与安卓共用，避免 stripped 本地方法名
--keep class net.jthink.** { *; }
+# jaudiotagger 的 Maven 组名是 net.jthink，实际类包名是 org.jaudiotagger。
+# ID3 帧通过拼接 FrameBody + 帧名反射创建，标签复制也反射调用构造器；
+# 须保留 ID3 类名、构造器和成员，
+# 否则正式版的 TIT2 等帧会变成不支持的帧，导致刮削标签写入失败。
+-keep class org.jaudiotagger.tag.id3.** { *; }
+
+# JNA：避免移除或改名本地方法
 -keep class com.sun.jna.** { *; }
 
 # jaudiotagger 桌面分支引用（StandardArtwork.getImage 经 java.awt 解码；

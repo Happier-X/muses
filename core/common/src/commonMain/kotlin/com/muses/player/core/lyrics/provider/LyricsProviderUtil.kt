@@ -1,6 +1,9 @@
 package com.muses.player.core.lyrics.provider
 
 import com.muses.player.core.model.lyrics.OnlineLyricsQuery
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * provider 搜索辅助（规格书 = src/features/lyrics/providers/util.ts，逐函数翻译）。
@@ -19,6 +22,31 @@ interface ScoreableHit {
     val title: String?
     val artist: String?
     val album: String?
+    val durationSec: Double? get() = null
+}
+
+/** 仅使用同平台引用里的原歌曲 ID，不能拿别的平台 ID 请求歌词。 */
+fun OnlineLyricsQuery.platformId(platform: String, vararg fields: String): String? {
+    val ref = trackRef?.takeIf { it.platform == platform } ?: return null
+    val json = runCatching { Json.parseToJsonElement(ref.musicInfoJson) as? JsonObject }.getOrNull() ?: return null
+    return fields.firstNotNullOfOrNull { field ->
+        (json[field] as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() && it != "null" }
+    }
+}
+
+private fun normalized(value: String): String = value.lowercase().filter { it.isLetterOrDigit() }
+
+private fun matchesSong(hit: ScoreableHit, query: OnlineLyricsQuery): Boolean {
+    val title = normalized(hit.title.orEmpty())
+    if (title.isEmpty() || title != normalized(query.title)) return false
+    val expectedDuration = query.durationSec?.takeIf { it > 0 }
+    val actualDuration = hit.durationSec?.takeIf { it > 0 }
+    if (expectedDuration != null && actualDuration != null &&
+        kotlin.math.abs(expectedDuration - actualDuration) > 10) return false
+    val artist = query.artist?.takeIf { it.isNotBlank() } ?: return true
+    fun names(value: String) = value.split(Regex("[/、,，&;；]+"))
+        .map(::normalized).filter { it.isNotEmpty() }.toSet()
+    return names(hit.artist.orEmpty()) == names(artist)
 }
 
 private fun scoreSearchHit(hit: ScoreableHit, query: OnlineLyricsQuery): Int {
@@ -39,7 +67,7 @@ private fun scoreSearchHit(hit: ScoreableHit, query: OnlineLyricsQuery): Int {
 /** 打分取最优候选（util.ts pickBest；stable 排序对齐 JS sort 语义） */
 fun <T : ScoreableHit> pickBest(items: List<T>, query: OnlineLyricsQuery): T? {
     if (items.isEmpty()) return null
-    return items.sortedByDescending { scoreSearchHit(it, query) }.first()
+    return items.filter { matchesSong(it, query) }.maxByOrNull { scoreSearchHit(it, query) }
 }
 
 /** lrclist → 标准 LRC（util.ts linesToLrc） */

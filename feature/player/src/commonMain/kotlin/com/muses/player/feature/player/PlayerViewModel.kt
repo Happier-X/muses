@@ -503,6 +503,7 @@ class PlayerViewModel constructor(
             album = song.album,
             durationMs = song.durationMs,
             durationSec = song.durationSec,
+            songPath = song.path,
         )
 
     /** Muses 在线封面匹配（六源）；未命中/失败返回 null（负缓存由 matcher 自管） */

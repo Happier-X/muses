@@ -273,6 +273,7 @@ class MainViewModel constructor(
             album = song.album,
             durationMs = song.durationMs,
             durationSec = song.durationSec,
+            songPath = song.path,
         )
     }
 

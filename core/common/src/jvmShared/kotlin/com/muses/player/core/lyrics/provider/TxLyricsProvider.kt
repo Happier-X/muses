@@ -132,7 +132,12 @@ private suspend fun fetchTxLrcByMid(http: LyricsHttp, songmid: String): String? 
 
 /** tx 搜索主流程（tx.ts searchTxLyrics）；失败返回 null 由链上下一源承接 */
 suspend fun searchTxLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLyricsProviderHit? {
-    val hit = searchTxHit(http, query) ?: return null
+    val originalMid = query.platformId("tx", "songmid", "mid", "id")
+    val hit = if (originalMid != null) TxHit(
+        mid = originalMid,
+        songId = query.platformId("tx", "songid", "songId")?.toLongOrNull(),
+        title = query.title, artist = query.artist, album = query.album,
+    ) else searchTxHit(http, query) ?: return null
 
     if (hit.songId != null) {
         fetchTxQrc(http, hit.songId)?.let { qrc ->

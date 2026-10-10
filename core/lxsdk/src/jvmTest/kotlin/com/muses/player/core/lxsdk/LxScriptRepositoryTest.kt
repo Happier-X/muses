@@ -90,8 +90,14 @@ class LxScriptRepositoryTest {
             assertEquals(listOf("kw"), platforms)
             listOf(ref.copy(platform = "kw", musicInfoJson = """{"songmid":"MUSIC_9"}"""))
         })
-        val result = resolver.resolve(OnlineTrackRef("wy", """{"id":"1","name":"晴天","singer":"周杰伦"}""", "online", "320k"))
-        assertTrue(result.url.contains("/kw"))
+        val original = OnlineTrackRef("wy", """{"id":"1","name":"晴天","singer":"周杰伦"}""", "online", "320k")
+        try {
+            val result = resolver.resolve(original)
+            assertTrue(result.url.contains("/kw"))
+            val actual = com.muses.player.core.model.online.OnlineTrackSession.resolvedReference(original)
+            assertEquals("kw", actual.platform)
+            assertEquals("""{"songmid":"MUSIC_9"}""", actual.musicInfoJson)
+        } finally { com.muses.player.core.model.online.OnlineTrackSession.clear() }
     }
 
     @Test fun `原平台解析失败后继续尝试同曲候选`() = kotlinx.coroutines.runBlocking {

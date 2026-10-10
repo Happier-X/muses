@@ -27,6 +27,19 @@ class LyricsMatcher(
             return OnlineLyricsMatchResult.Fail(OnlineLyricsFailReason.NO_MATCH)
         }
 
+        // 已知平台和歌曲 ID 时先取该版本歌词，再考虑其他歌词来源。
+        val native = query.trackRef?.platform?.let { platform ->
+            fallbackProviders.firstOrNull { it.id.wire == platform }
+        }
+        if (native != null) {
+            val hit = try { native.searchLyrics(query) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { null }
+            if (!hit?.text.isNullOrBlank()) return OnlineLyricsMatchResult.Ok(
+                text = hit!!.text, format = hit.format, source = native.id, translationText = hit.translationText,
+            )
+        }
+
         val amll = amllClient.match(
             com.muses.player.core.model.lyrics.AmllMatchQuery(
                 songId = songId,
@@ -54,6 +67,7 @@ class LyricsMatcher(
         val sawParse = amll.reason == com.muses.player.core.model.lyrics.AmllFailReason.PARSE
 
         for (provider in fallbackProviders) {
+            if (provider === native) continue
             try {
                 val hit = provider.searchLyrics(query)
                 val text = hit?.text?.trim()
@@ -66,6 +80,8 @@ class LyricsMatcher(
                         translationText = translationText?.takeIf { it.isNotEmpty() },
                     )
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (_: Exception) {
                 sawNetwork = true
             }

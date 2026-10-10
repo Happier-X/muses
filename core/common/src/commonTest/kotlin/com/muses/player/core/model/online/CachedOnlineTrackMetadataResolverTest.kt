@@ -8,6 +8,21 @@ import kotlin.test.assertNull
 /** [CachedOnlineTrackMetadataResolver] 测试：命中/不缓存失败/有界 LRU 三条语义 */
 class CachedOnlineTrackMetadataResolverTest {
 
+    @Test fun `跨平台回退后不用原平台已缓存的歌词`() = runTest {
+        OnlineTrackSession.clear()
+        try {
+            val fake = FakeResolver()
+            val cached = CachedOnlineTrackMetadataResolver(fake)
+            val original = OnlineTrackRef("wy", "original", "s1")
+            val actual = OnlineTrackRef("tx", "actual", "s1")
+            cached.resolveLyrics(original)
+            OnlineTrackSession.rememberResolution(original, actual)
+            fake.lyrics = OnlineTrackLyrics(lyric = "[00:01]实际音频歌词")
+            assertEquals("[00:01]实际音频歌词", cached.resolveLyrics(original)?.lyric)
+            assertEquals(listOf("original", "actual"), fake.lyricCalls)
+        } finally { OnlineTrackSession.clear() }
+    }
+
     private class FakeResolver : OnlineTrackMetadataResolver {
         val coverCalls = mutableListOf<String>()
         val lyricCalls = mutableListOf<String>()

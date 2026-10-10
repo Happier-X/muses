@@ -39,6 +39,22 @@ import kotlinx.coroutines.flow.update
 object OnlineTrackSession {
 
     private val songs = MutableStateFlow<Map<String, Song>>(emptyMap())
+    private val resolvedReferences = MutableStateFlow<Map<String, OnlineTrackRef>>(emptyMap())
+
+    /** 保留原队列 ID，但元数据请求必须跟随真正解析成功的平台版本。 */
+    fun rememberResolution(original: OnlineTrackRef, resolved: OnlineTrackRef) {
+        resolvedReferences.update { current ->
+            current.mapValues { (_, value) -> if (value == original) resolved else value } +
+                (original.encode() to resolved)
+        }
+        if (original.platform == resolved.platform && original.musicInfoJson == resolved.musicInfoJson) return
+        songs.update { current -> current.mapValues { (_, song) ->
+            if (OnlineTrackRef.parse(song.path) == original) song.copy(path = resolved.encode(), lyrics = null)
+            else song
+        } }
+    }
+
+    fun resolvedReference(ref: OnlineTrackRef): OnlineTrackRef = resolvedReferences.value[ref.encode()] ?: ref
 
     /** 全量快照流（供需要自行组合的调用方） */
     val snapshot: StateFlow<Map<String, Song>> = songs.asStateFlow()
@@ -52,6 +68,9 @@ object OnlineTrackSession {
     fun remember(candidates: List<Song>) {
         val online = candidates.filter { it.sourceType == SourceType.ONLINE }
         if (online.isEmpty()) return
+        // 新一轮入队不能在解析成功前沿用上次播放的跨平台引用。
+        val incomingRefs = online.mapNotNull { OnlineTrackRef.parse(it.path)?.encode() }.toSet()
+        resolvedReferences.update { current -> current - incomingRefs }
         songs.update { current -> current + online.associateBy { it.id } }
     }
 
@@ -79,5 +98,6 @@ object OnlineTrackSession {
     /** 清空（切换音源/退出在线搜索时调用，避免陈旧条目长期占用） */
     suspend fun clear() {
         songs.value = emptyMap()
+        resolvedReferences.value = emptyMap()
     }
 }

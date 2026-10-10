@@ -64,7 +64,7 @@ private data class LrcCandidate(
     override val artist: String?,
     override val album: String?,
     /** 原始时长（秒）；缺失为 null */
-    val durationSec: Double?,
+    override val durationSec: Double?,
     val synced: String,
 ) : ScoreableHit
 
@@ -105,7 +105,8 @@ private suspend fun searchFallback(http: LyricsHttp, query: OnlineLyricsQuery): 
         val withDelta = candidates.map { c ->
             c to (c.durationSec?.let { Math.abs(it - target) } ?: Double.POSITIVE_INFINITY)
         }.sortedBy { it.second }
-        withDelta.firstOrNull { it.second <= 3 }?.let { return it.first.synced }
+        withDelta.firstOrNull { it.second <= 3 && pickBest(listOf(it.first), query) != null }
+            ?.let { return it.first.synced }
     }
 
     val best = pickBest(candidates, query)

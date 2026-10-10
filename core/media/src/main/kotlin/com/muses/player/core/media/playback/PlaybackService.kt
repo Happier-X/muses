@@ -388,7 +388,7 @@ class PlaybackService : MediaSessionService() {
                                             resolveLyrics = { resolver?.resolveLyrics(it) },
                                             matchLyrics = {
                                                 matcher?.matchDocument(songId = it.id, title = it.title, artist = it.artist,
-                                                    album = it.album, durationMs = it.durationMs, durationSec = it.durationSec)
+                                                    album = it.album, durationMs = it.durationMs, durationSec = it.durationSec, songPath = it.path)
                                             },
                                         )
                                         loader.load(song) { selected ->
@@ -550,7 +550,7 @@ class PlaybackService : MediaSessionService() {
                 resolveLyrics = { resolver?.resolveLyrics(it) },
                 matchLyrics = {
                     matcher?.matchDocument(songId = it.id, title = it.title, artist = it.artist,
-                        album = it.album, durationMs = it.durationMs, durationSec = it.durationSec)
+                        album = it.album, durationMs = it.durationMs, durationSec = it.durationSec, songPath = it.path)
                 },
             )
             onlineNotificationLyricsJob = serviceScope.launch {

@@ -3,6 +3,7 @@ package com.muses.player.core.lxsdk
 import com.muses.player.core.model.online.OnlinePlayableUrl
 import com.muses.player.core.model.online.OnlineResolveException
 import com.muses.player.core.model.online.OnlineTrackRef
+import com.muses.player.core.model.online.OnlineTrackSession
 import com.muses.player.core.model.online.OnlineTrackResolver
 import com.muses.player.core.model.online.OnlineTrackCandidateProvider
 import com.muses.player.core.model.online.OnlinePlayableUrlProbe
@@ -28,7 +29,7 @@ class LxOnlineTrackResolver(
 ) : OnlineTrackResolver {
 
     override suspend fun resolve(ref: OnlineTrackRef): OnlinePlayableUrl {
-        if (candidateProvider == null) return resolveDirect(ref)
+        if (candidateProvider == null) return resolveDirect(ref).also { OnlineTrackSession.rememberResolution(ref, ref) }
         return withTimeoutOrNull(50_000) { resolveWithFallback(ref) }
             ?: throw OnlineResolveException("寻找可播放音源超时，请稍后重试")
     }
@@ -40,7 +41,10 @@ class LxOnlineTrackResolver(
         var failure: Exception? = null
         if (ref.platform in platforms) {
             try {
-                withTimeoutOrNull(12_000) { resolveDirect(ref) }?.let { return it }
+                withTimeoutOrNull(12_000) { resolveDirect(ref) }?.let {
+                    OnlineTrackSession.rememberResolution(ref, ref)
+                    return it
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -50,7 +54,10 @@ class LxOnlineTrackResolver(
         val candidates = candidateProvider!!.candidates(ref, platforms)
         for (candidate in candidates.take(4)) {
             try {
-                withTimeoutOrNull(7_000) { resolveDirect(candidate) }?.let { return it }
+                withTimeoutOrNull(7_000) { resolveDirect(candidate) }?.let {
+                    OnlineTrackSession.rememberResolution(ref, candidate)
+                    return it
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

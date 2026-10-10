@@ -16,6 +16,20 @@ import org.junit.Test
 /** 规格 = src/features/lyrics/match.ts matchOnlineLyrics 主流程 */
 class LyricsMatcherTest {
 
+    @Test fun `已知平台优先使用该平台歌曲歌词`() = runTest {
+        val wrong = FakeProvider(OnlineLyricsSource.KW) {
+            OnlineLyricsProviderHit("[00:01]其他平台", OnlineLyricsFormat.LRC)
+        }
+        val original = FakeProvider(OnlineLyricsSource.WY) {
+            OnlineLyricsProviderHit("[00:01]原平台", OnlineLyricsFormat.LRC)
+        }
+        val result = LyricsMatcher(FakeAmll(), listOf(wrong, original)).match(
+            OnlineLyricsQuery("track", "嗜好", "颜人中", trackRef =
+                com.muses.player.core.model.online.OnlineTrackRef("wy", """{"songmid":123}""", "source")))
+        assertEquals(OnlineLyricsSource.WY, (result as OnlineLyricsMatchResult.Ok).source)
+        assertEquals(0, wrong.calls)
+    }
+
     private class FakeAmll(
         var result: com.muses.player.core.model.lyrics.AmllMatchResult =
             com.muses.player.core.model.lyrics.AmllMatchResult.Fail(com.muses.player.core.model.lyrics.AmllFailReason.NO_MATCH),

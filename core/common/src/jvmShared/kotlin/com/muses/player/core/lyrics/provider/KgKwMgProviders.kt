@@ -56,6 +56,9 @@ private suspend fun searchKgTrack(http: LyricsHttp, query: OnlineLyricsQuery): K
         override val artist: String?,
         override val album: String?,
     ) : ScoreableHit
+    {
+        override val durationSec: Double get() = durationMs / 1000.0
+    }
 
     val list = items.mapNotNull { item ->
         val hash = item.str("FileHash")?.trim()?.takeUnless { h -> h.isEmpty() } ?: return@mapNotNull null
@@ -74,7 +77,10 @@ private suspend fun searchKgTrack(http: LyricsHttp, query: OnlineLyricsQuery): K
 
 /** kg 搜索主流程（kg.ts searchKgLyrics）；失败返回 null 由链上下一源承接 */
 suspend fun searchKgLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLyricsProviderHit? {
-    val track = searchKgTrack(http, query) ?: return null
+    val originalHash = query.platformId("kg", "hash", "songmid", "id")
+    val track = if (originalHash != null) KgTrack(originalHash,
+        ((query.durationSec ?: 0.0) * 1000).toLong(), buildKeyword(query))
+    else searchKgTrack(http, query) ?: return null
 
     val searchUrl = "http://lyrics.kugou.com/search?ver=1&man=yes&client=pc" +
         "&keyword=${enc(track.keyword)}" +
@@ -145,7 +151,8 @@ private suspend fun searchKwMusicId(http: LyricsHttp, query: OnlineLyricsQuery):
 
 /** kw 搜索主流程（kw.ts searchKwLyrics） */
 suspend fun searchKwLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLyricsProviderHit? {
-    val musicId = searchKwMusicId(http, query) ?: return null
+    val musicId = extractId(query.platformId("kw", "songmid", "songId", "id"))
+        ?: searchKwMusicId(http, query) ?: return null
 
     val lyricUrl = "https://www.kuwo.cn/openapi/v1/www/lyric/getlyric?musicId=${enc(musicId)}"
     val body = try {
@@ -206,6 +213,7 @@ private data class MiguItem(
     override val album: String?,
     val lrcUrl: String?,
     val lyrics: String?,
+    val copyrightId: String?,
 ) : ScoreableHit
 
 /** mg 搜索主流程（mg.ts searchMgLyrics） */
@@ -229,10 +237,13 @@ suspend fun searchMgLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLy
             album = item.str("albumName"),
             lrcUrl = item.str("lrcUrl"),
             lyrics = item.str("lyrics"),
+            copyrightId = item.str("copyrightId"),
         )
     }
 
-    val best = pickBest(list, query) ?: return null
+    val originalId = query.platformId("mg", "copyrightId", "songmid", "id")
+    val best = (if (originalId != null) list.firstOrNull { it.copyrightId == originalId }
+        else pickBest(list, query)) ?: return null
 
     // 内嵌歌词优先
     best.lyrics?.trim()?.let { lyrics ->

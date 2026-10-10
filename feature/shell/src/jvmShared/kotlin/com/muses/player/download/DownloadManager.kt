@@ -580,7 +580,7 @@ class DownloadManager(
             val script = raw?.let { LxLyricParser.parse(it.lyric, it.tlyric, it.rlyric, it.lxlyric) }
             val doc = if (script?.lines?.any { it.syllables.isNotEmpty() } == true) script else
                 withTimeoutOrNull(20_000) { lyricsMatcher?.matchDocument(task.track.id, task.track.title,
-                    task.track.artist, task.track.album, task.track.durationMs) } ?: script
+                    task.track.artist, task.track.album, task.track.durationMs, songPath = ref.encode()) } ?: script
             if (doc != null) lyrics = doc.lines.filter { it.timeMs >= 0 }.joinToString("\n") { line ->
                 val time = "[%02d:%02d.%02d]".format(line.timeMs / 60000, line.timeMs / 1000 % 60, line.timeMs / 10 % 100)
                 time + line.text + (line.translation?.takeIf { it.isNotBlank() }?.let { "\n$time$it" } ?: "")

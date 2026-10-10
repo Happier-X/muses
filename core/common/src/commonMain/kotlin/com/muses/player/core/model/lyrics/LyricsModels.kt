@@ -19,6 +19,8 @@ data class OnlineLyricsQuery(
     val album: String? = null,
     /** 秒；LRCLIB 等可用 */
     val durationSec: Double? = null,
+    /** 正在播放的实际平台曲目；平台 ID 不得用于其他平台。 */
+    val trackRef: com.muses.player.core.model.online.OnlineTrackRef? = null,
 )
 
 /** ttml=amll；lrc=行级；yrc/qrc=平台逐字（AMLL lyric 解析器可解析）；wire 与 Web 一致 */

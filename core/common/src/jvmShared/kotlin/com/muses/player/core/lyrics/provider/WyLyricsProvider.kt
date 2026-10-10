@@ -103,7 +103,8 @@ private suspend fun searchWySongId(http: LyricsHttp, query: OnlineLyricsQuery): 
     } ?: return null
     // 搜索返回结构兼容：老结构 result.songs.songs（对象包数组）与新结构 result.songs（直接数组）
     val songs = body.obj("result")?.arrCompat("songs").orEmpty()
-    data class WySong(val id: Long, override val title: String?, override val artist: String?, override val album: String?) : ScoreableHit
+    data class WySong(val id: Long, override val title: String?, override val artist: String?,
+        override val album: String?, override val durationSec: Double?) : ScoreableHit
     val list = songs.mapNotNull { s ->
         val idPrimitive = s["id"] as? JsonPrimitive ?: return@mapNotNull null
         val id = idPrimitive.content.toDoubleOrNull()?.toLong() ?: return@mapNotNull null
@@ -112,8 +113,9 @@ private suspend fun searchWySongId(http: LyricsHttp, query: OnlineLyricsQuery): 
             id = id,
             title = s.str("name"),
             artist = s.get("artists")?.asObjArray().orEmpty()
-                .mapNotNull { it.str("name")?.takeIf(String::isNotEmpty) }.joinToString(" "),
+                .mapNotNull { it.str("name")?.takeIf(String::isNotEmpty) }.joinToString(" / "),
             album = s.obj("album")?.str("name"),
+            durationSec = s.str("duration")?.toDoubleOrNull()?.div(1000),
         )
     }
     return pickBest(list, query)?.id
@@ -144,7 +146,8 @@ private suspend fun fetchWyPublicLyric(http: LyricsHttp, id: Long): JsonObject? 
 
 /** wy 搜索主流程（wy.ts searchWyLyrics）；失败返回 null 由链上下一源承接 */
 suspend fun searchWyLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLyricsProviderHit? {
-    val id = searchWySongId(http, query) ?: return null
+    val id = query.platformId("wy", "songmid", "songId", "id")?.toLongOrNull()
+        ?: searchWySongId(http, query) ?: return null
 
     fetchWyEapiLyric(http, id)?.let { body ->
         pickFromBody(body)?.let { return it }

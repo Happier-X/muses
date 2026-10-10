@@ -33,6 +33,7 @@ suspend fun LyricsMatcher.matchDocument(
     album: String? = null,
     durationMs: Long = 0L,
     durationSec: Long = 0L,
+    songPath: String? = null,
 ): LyricsDocument? {
     val result = match(
         OnlineLyricsQuery(
@@ -40,6 +41,9 @@ suspend fun LyricsMatcher.matchDocument(
             title = title,
             artist = artist,
             album = album,
+            trackRef = com.muses.player.core.model.online.OnlineTrackRef.parse(songPath)?.let {
+                com.muses.player.core.model.online.OnlineTrackSession.resolvedReference(it)
+            },
             durationSec = durationSec.takeIf { it > 0 }?.toDouble()
                 ?: durationMs.takeIf { it > 0 }?.let { it / 1000.0 },
         ),

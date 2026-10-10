@@ -33,19 +33,21 @@ class CachedOnlineTrackMetadataResolver(
     private val coverCache = LinkedHashMap<String, String>()
 
     override suspend fun resolveCover(ref: OnlineTrackRef): String? {
-        val key = keyOf(ref)
+        val actual = OnlineTrackSession.resolvedReference(ref)
+        val key = keyOf(actual)
         mutex.withLock { touch(coverCache, key) }?.let { return it }
 
-        val value = delegate.resolveCover(ref)?.takeIf { it.isNotBlank() } ?: return null
+        val value = delegate.resolveCover(actual)?.takeIf { it.isNotBlank() } ?: return null
         mutex.withLock { put(coverCache, key, value) }
         return value
     }
 
     override suspend fun resolveLyrics(ref: OnlineTrackRef): OnlineTrackLyrics? {
-        val key = keyOf(ref)
+        val actual = OnlineTrackSession.resolvedReference(ref)
+        val key = keyOf(actual)
         mutex.withLock { touch(lyricsCache, key) }?.let { return it }
 
-        val value = delegate.resolveLyrics(ref)?.takeIf { !it.isEmpty } ?: return null
+        val value = delegate.resolveLyrics(actual)?.takeIf { !it.isEmpty } ?: return null
         mutex.withLock { put(lyricsCache, key, value) }
         return value
     }
