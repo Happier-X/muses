@@ -1,6 +1,7 @@
 package com.muses.player.core.model.download
 
 import com.muses.player.core.model.Song
+import com.muses.player.core.model.Source
 import com.muses.player.core.model.SourceType
 import kotlinx.serialization.Serializable
 
@@ -58,6 +59,18 @@ data class DownloadTask(
     val localAudioHash: String? = null,
     val localLyrics: String? = null,
 )
+
+/**
+ * 保存位置对应的音源是否还在。
+ *
+ * 设备下载目录永远可用；本地/WebDAV 保存位置依赖音源本身，音源被删除（或 id 对应的类型变了）后就失效，
+ * 队列里存下来的旧保存位置需要回退到当前可用的位置。
+ */
+fun downloadTargetAvailable(target: DownloadTarget, sources: List<Source>): Boolean = when (target.kind) {
+    DownloadTargetKind.DEVICE -> true
+    DownloadTargetKind.LOCAL -> sources.any { it.id == target.sourceId && it.type == SourceType.LOCAL }
+    DownloadTargetKind.WEBDAV -> sources.any { it.id == target.sourceId && it.type == SourceType.WEBDAV }
+}
 
 /** 仅形成文件名，不允许音源歌曲元数据成为目录路径。 */
 fun downloadBaseName(track: DownloadTrack): String {

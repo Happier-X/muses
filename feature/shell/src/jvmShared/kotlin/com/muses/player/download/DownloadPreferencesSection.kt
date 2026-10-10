@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.lxsdk.LxQuality
+import com.muses.player.core.model.download.downloadTargetAvailable
 import com.muses.player.core.ui.components.MusesActionItem
 import com.muses.player.core.ui.components.MusesActionsSheet
 import com.muses.player.core.ui.components.SettingsBlockTitle
@@ -49,7 +50,9 @@ fun DownloadPreferencesSection() {
     Card(modifier = Modifier.padding(horizontal = 12.dp)) {
         ArrowPreference(
             title = "保存位置",
-            summary = defaultTarget.displayLabel(sources),
+            // 保存位置指向已删除的音源时，提示下载会自动回退到设备下载目录
+            summary = defaultTarget.displayLabel(sources) +
+                if (downloadTargetAvailable(defaultTarget, sources)) "" else "（音源已删除）",
             onClick = { sheet = DownloadSettingSheet.TARGET },
         )
         ArrowPreference(

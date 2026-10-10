@@ -290,6 +290,26 @@ class DownloadManager(
         it.map { task -> if (task.id == id) transform(task) else task }
     }
 
+    /**
+     * 任务保存位置在该音源被删除（或改成别的类型）后就失效了，
+     * 典型场景：队列里存的是旧 WebDAV 音源，用户已把默认保存位置改成新加的本地音源。
+     *
+     * 真正保存前统一解析：优先任务自己的保存位置，失效则回退当前默认保存位置，再失效则回退设备下载目录，
+     * 避免用户重选保存位置后任务仍然报「WebDAV 音源已不存在」。
+     */
+    private suspend fun effectiveTarget(preferred: DownloadTarget?): DownloadTarget {
+        // 音源列表还没加载出来时先刷新，否则会把有效目标误判成失效
+        if (availableSources.value.isEmpty()) sourceState.refresh()
+        val available = availableSources.value
+        val configured = this.defaultTarget.value
+        val chosen = preferred ?: configured
+        return when {
+            downloadTargetAvailable(chosen, available) -> chosen
+            downloadTargetAvailable(configured, available) -> configured
+            else -> DownloadTarget()
+        }
+    }
+
     private suspend fun execute(task: DownloadTask) {
         try {
             change(task.id) { it.copy(status = DownloadStatus.PREPARING,
@@ -338,12 +358,18 @@ class DownloadManager(
                 scratch.delete()
             }
             val files = listOf(audio)
-            val target = task.target ?: error("请先选择保存位置")
+            val previousTarget = task.target
+            val target = effectiveTarget(previousTarget)
+            if (previousTarget != null && target != previousTarget) {
+                // 保存位置失效后静默换目标会让用户找不到文件，必须留痕
+                warnings += "原保存位置「${previousTarget.label}」已不存在，本次保存到「${target.label}」"
+                change(task.id) { it.copy(target = target) }
+            }
             val total = files.sumOf { it.length() }
             change(task.id) { it.copy(status = if (target.kind == DownloadTargetKind.WEBDAV) DownloadStatus.UPLOADING else DownloadStatus.SAVING,
                 transferredBytes = 0, transferTotalBytes = total, warnings = warnings,
                 transferMessage = if (target.kind == DownloadTargetKind.WEBDAV) "检查目标文件" else null) }
-            val recoverUpload = task.target == target && task.transferTotalBytes != null &&
+            val recoverUpload = previousTarget == target && task.transferTotalBytes != null &&
                 task.transferredBytes >= audio.length()
             val uploaded = if (target.kind == DownloadTargetKind.WEBDAV) upload(files, target, task.id, recoverUpload) else null
             // 提交阶段不可取消：否则暂停会留下已落盘的音频，却把任务标成失败。
@@ -578,7 +604,7 @@ class DownloadManager(
     }
 
     private suspend fun upload(files: List<File>, target: DownloadTarget, taskId: String, recoverUpload: Boolean): SavedDownload {
-        val source = target.sourceId?.let { sources.getSource(it) } ?: error("WebDAV 音源已不存在")
+        val source = target.sourceId?.let { sources.getSource(it) } ?: error("保存位置的 WebDAV 音源已被删除，请重新选择保存位置")
         val base = source.url?.toHttpUrl() ?: error("WebDAV 地址无效")
         check(source.type == SourceType.WEBDAV) { "保存目标不是 WebDAV 音源" }
         val authorization = Credentials.basic(source.username.orEmpty(), credentials.getPassword(source.id) ?: error("WebDAV 密码不存在，请重新配置该音源"))

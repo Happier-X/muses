@@ -37,9 +37,12 @@ class DownloadManagerTest {
         val added = mutableListOf<Song>()
         val target = DownloadTarget(DownloadTargetKind.LOCAL, "local", File(root, "target").absolutePath, "测试目录")
         val source = Source("webdav", "测试 WebDAV", SourceType.WEBDAV, server.url("/dav/").toString(), "/Music", createdAt = 0, updatedAt = 0)
+        val localSource = Source("local", "新增本地音源", SourceType.LOCAL, null, target.directory, createdAt = 0, updatedAt = 0)
+        /** 保存位置失效判定依赖音源列表，测试里可增删后再 [DownloadManager.refresh] */
+        val sourceList = mutableListOf(source, localSource)
         val sources = object : SourceRepository {
-            override fun observeSources() = flowOf(listOf(source))
-            override suspend fun getSource(id: String) = source.takeIf { id == it.id }
+            override fun observeSources() = flow { emit(sourceList.toList()) }
+            override suspend fun getSource(id: String) = sourceList.firstOrNull { it.id == id }
             override suspend fun upsert(source: Source) = Unit
             override suspend fun deleteById(id: String) = Unit
         }
@@ -178,6 +181,45 @@ class DownloadManagerTest {
             assertEquals(42, recreated.load().single().downloadedBytes)
             assertEquals(h.target, recreated.defaultTarget.first())
             assertEquals(0, h.server.requestCount)
+        }
+    }
+
+    @Test fun deletedSourceTargetFallsBackToConfiguredTarget() = runBlocking {
+        Harness().use { h ->
+            h.server.enqueue(MockResponse().setBody(Buffer().write(wav())))
+            h.manager.enqueue(h.song()).join()
+            val id = h.store.load().single().id
+            // 队列里存着旧 WebDAV 音源，之后该音源被删；用户已在设置里把保存位置改成新加的本地音源
+            h.manager.configure(id, target = DownloadTarget(DownloadTargetKind.WEBDAV, h.source.id, "/Music", "旧 WebDAV")).join()
+            h.manager.setDefaultTarget(h.target).join()
+            h.sourceList.removeAll { it.id == h.source.id }
+            h.manager.refresh()
+            h.manager.start(setOf(id), h.target).join()
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertTrue(File(h.target.directory, "测试歌手 - 测试歌曲.wav").isFile, done.error.orEmpty())
+            assertEquals(h.target, done.target)
+            assertTrue(done.warnings.any { it.contains("原保存位置") }, done.warnings.toString())
+            // 不应再请求已删的 WebDAV 音源（GET 音频一次，无上传）
+            val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
+            assertTrue(requests.none { it.method == "PUT" }, requests.map { it.method }.toString())
+        }
+    }
+
+    @Test fun downloadFallsBackToDeviceDirectoryWhenEverySourceIsGone() = runBlocking {
+        Harness().use { h ->
+            val device = File(h.root, "device")
+            h.settings.setDownloadDeviceDirectory(device.absolutePath)
+            h.server.enqueue(MockResponse().setBody(Buffer().write(wav())))
+            h.manager.enqueue(h.song()).join()
+            val id = h.store.load().single().id
+            h.manager.configure(id, target = DownloadTarget(DownloadTargetKind.WEBDAV, h.source.id, "/Music")).join()
+            h.manager.setDefaultTarget(h.target).join()
+            h.sourceList.clear()
+            h.manager.refresh()
+            h.manager.start(setOf(id), h.target).join()
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertTrue(File(device, "测试歌手 - 测试歌曲.wav").isFile, done.error.orEmpty())
+            assertEquals(DownloadTargetKind.DEVICE, done.target!!.kind)
         }
     }
 

@@ -26,6 +26,7 @@ import com.muses.player.core.model.decodeWebDavSourcePaths
 import com.muses.player.core.model.download.DownloadStatus
 import com.muses.player.core.model.download.DownloadTarget
 import com.muses.player.core.model.download.DownloadTargetKind
+import com.muses.player.core.model.download.downloadTargetAvailable
 import com.muses.player.core.ui.components.MusesActionItem
 import com.muses.player.core.ui.components.MusesActionsSheet
 import com.muses.player.core.ui.components.MusesTopBar
@@ -165,9 +166,12 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                                 "$label → ${qualityLabel(requested)}（已降低请求档位）" else label,
                             color = scheme.onSurfaceVariantSummary,
                         )
+                        // 音源被删除后旧保存位置已失效，标出来让用户知道要重新选（开始下载时会自动回退）
+                        val taskTarget = task.target ?: defaultTarget
+                        val targetAvailable = downloadTargetAvailable(taskTarget, sources)
                         Text(
-                            (task.target ?: defaultTarget).displayLabel(sources),
-                            color = scheme.onSurfaceVariantSummary,
+                            taskTarget.displayLabel(sources) + if (targetAvailable) "" else "（音源已删除）",
+                            color = if (targetAvailable) scheme.onSurfaceVariantSummary else scheme.error,
                         )
                         // 旧队列没有失败阶段，用已有传输总量兼容判断。
                         val failedTransfer = task.status == DownloadStatus.FAILED &&
