@@ -477,15 +477,18 @@ class JvmPlayerPort(
         // 回传的文件标签快照同步发布 currentMeta，对齐安卓 ExoPlayer 内嵌标签解析后
         // onMediaMetadataChanged 回流的展示口径——未刮削歌曲重播时用上文件侧更新数据）
         val localFile = (target as? PlayTarget.LocalFile)?.file
-        if (localFile != null) onPlaybackStarted?.let { hook ->
+        if (localFile != null || ref.sourceType == SourceType.WEBDAV) onPlaybackStarted?.let { hook ->
             val songId = ref.id
             scope.launch {
-                val tags = runCatching { hook(songId, localFile) }
-                    .onFailure { e ->
-                        if (e is CancellationException) throw e
-                        errorLog("JvmPlayerPort", "懒扫描钩子失败 songId=$songId", e)
-                    }
-                    .getOrNull()
+                val probe = if (localFile == null) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    webDavStreamProxy.tagFile(ref.path)
+                } else null
+                val file = localFile ?: probe ?: return@launch
+                val tags = try { hook(songId, file) } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    errorLog("JvmPlayerPort", "懒扫描钩子失败 songId=$songId", e)
+                    null
+                } finally { probe?.delete() }
                 if (tags != null && _currentSongId.value == songId) {
                     _currentMeta.value = PlaybackMeta(
                         title = tags.title,
@@ -522,7 +525,6 @@ class JvmPlayerPort(
             return PlayTarget.RemoteUrl(resolved.url)
         }
         if (ref.sourceType == SourceType.WEBDAV) {
-            audioCache.getCachedFile(ref.path)?.let { return PlayTarget.LocalFile(it) }
             val source = sourceLookup(ref.sourceId)
             val password = passwordLookup(ref.sourceId)
             if (source?.username == null || password == null) {
@@ -531,6 +533,9 @@ class JvmPlayerPort(
             val credentials = "${source.username}:$password"
             val basic = "Basic " + java.util.Base64.getEncoder()
                 .encodeToString(credentials.toByteArray(Charsets.UTF_8))
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                webDavStreamProxy.validatedCache(ref.path, basic)
+            }?.let { return PlayTarget.LocalFile(it) }
             return PlayTarget.RemoteUrl(webDavStreamProxy.open(ref.path, basic))
         }
         val file = File(ref.path)

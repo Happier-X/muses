@@ -459,6 +459,12 @@ class ScrapeReviewViewModel constructor(
                     checkedIds = setOf(song.id),
                     changesMap = mapOf(song.id to changes),
                 )
+                val row = result.results.singleOrNull()
+                if (row?.status != com.muses.player.core.model.scrape.WritebackStatus.SUCCESS) {
+                    _state.value = s
+                    MusesSnackbar.show(row?.fileResult?.message ?: row?.error ?: "文件未保存，请重试")
+                    return@launch
+                }
                 lastWrittenSongId = song.id
                 // 写回成功即出队（与批量 confirmWriteback 语义一致，避免队列残留已处理歌曲）
                 try {
@@ -468,11 +474,7 @@ class ScrapeReviewViewModel constructor(
                 } catch (_: Exception) {
                     // 出队失败不阻断成功态（队列页 reloadQueue 有懒清理）
                 }
-                val row = result.results.singleOrNull()
-                _state.value = ScrapeReviewState.Success(nextSongId,
-                    if (row?.fileResult?.code == "pending_upload") "本地已保存，待上传。可到下载页手动补传。"
-                    else if (row?.fileResult?.ok == false) row.fileResult.message ?: "曲库已更新，文件写入失败"
-                    else "已更新")
+                _state.value = ScrapeReviewState.Success(nextSongId, "文件标签已保存，曲库已更新")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

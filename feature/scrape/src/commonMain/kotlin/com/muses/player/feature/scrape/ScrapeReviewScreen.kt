@@ -307,7 +307,7 @@ private fun ReviewContent(
                         ),
                         enabled = state.resolvedTitle() != null,
                         onCheckedChange = { viewModel.toggleField("title") },
-                        sourceBadge = hit?.source?.wire,
+                        sourceBadge = hit?.source?.wire?.let(::scrapeSourceLabel),
                         recommended = recommended,
                     )
                     ScrapeReviewFieldRow(
@@ -320,7 +320,7 @@ private fun ReviewContent(
                         ),
                         enabled = state.resolvedArtist() != null,
                         onCheckedChange = { viewModel.toggleField("artist") },
-                        sourceBadge = hit?.source?.wire,
+                        sourceBadge = hit?.source?.wire?.let(::scrapeSourceLabel),
                         recommended = recommended,
                     )
                     ScrapeReviewFieldRow(
@@ -333,7 +333,7 @@ private fun ReviewContent(
                         ),
                         enabled = state.resolvedAlbum() != null,
                         onCheckedChange = { viewModel.toggleField("album") },
-                        sourceBadge = hit?.source?.wire,
+                        sourceBadge = hit?.source?.wire?.let(::scrapeSourceLabel),
                         recommended = recommended,
                     )
                     TextFieldEditOverrides(state = state, viewModel = viewModel)
@@ -550,7 +550,7 @@ private fun TextCandidateStrip(state: ScrapeReviewState.Review, viewModel: Scrap
                     onClick = { viewModel.selectTextCandidate(index) },
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(hit.source.wire, style = MiuixTheme.textStyles.footnote2, color = scheme.primary, fontWeight = FontWeight.SemiBold)
+                        Text(scrapeSourceLabel(hit.source.wire), style = MiuixTheme.textStyles.footnote2, color = scheme.primary, fontWeight = FontWeight.SemiBold)
                         if (index == aiRecommendedIndex || (aiRecommendedIndex == null && index == state.text.defaultIndex)) {
                             Spacer(Modifier.width(4.dp))
                             Text(if (index == aiRecommendedIndex) "AI 推荐" else "推荐", style = MiuixTheme.textStyles.footnote2, color = scheme.onBackgroundVariant)
@@ -627,7 +627,7 @@ private fun CoverSection(
                         },
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(candidate.source.wire, style = MiuixTheme.textStyles.footnote2, color = if (selected) scheme.primary else scheme.onBackgroundVariant)
+                    Text(scrapeSourceLabel(candidate.source.wire), style = MiuixTheme.textStyles.footnote2, color = if (selected) scheme.primary else scheme.onBackgroundVariant)
                 }
             }
         }
@@ -669,7 +669,7 @@ private fun LyricsSection(state: ScrapeReviewState.Review, viewModel: ScrapeRevi
     previewLyrics?.let { candidate ->
         MusesBottomSheet(onDismiss = { previewLyrics = null }, title = "歌词预览") {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-                Text("${candidate.source} · ${candidate.format}", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
+                Text("${scrapeSourceLabel(candidate.source)} · ${candidate.format}", style = MiuixTheme.textStyles.footnote1, color = scheme.onBackgroundVariant)
                 Spacer(Modifier.height(12.dp))
                 SelectionContainer {
                     Text(
@@ -701,7 +701,7 @@ private fun LyricsCandidateRow(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("${index + 1}", style = MiuixTheme.textStyles.footnote2, color = if (selected) scheme.primary else scheme.onBackgroundVariant, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(6.dp))
-            ScrapeBadgeBox(text = candidate.source)
+            ScrapeBadgeBox(text = scrapeSourceLabel(candidate.source))
             Spacer(Modifier.size(4.dp))
             ScrapeBadgeBox(text = candidate.format)
             if (aiRecommended) {

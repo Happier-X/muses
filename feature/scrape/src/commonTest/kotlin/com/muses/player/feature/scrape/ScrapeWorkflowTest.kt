@@ -250,14 +250,17 @@ class ScrapeWorkflowTest {
         advanceUntilIdle()
         val result = f.vm.pageState.value as ScrapePageState.Result
         assertEquals(listOf("a"), f.writes.map { it.first })
+        assertEquals("https://example.com/a.jpg", f.repo.songs.getValue("a").coverUri)
+
         assertEquals("歌曲 a", result.titles["a"])
         assertEquals(listOf("b", "c"), f.vm.queueSongIds.value)
         assertFalse("a" in f.vm.queueTitles.value)
     }
 
     @Test
-    fun `文件失败留在队列并沿用原变更重试`() = workflow { f ->
+    fun `文件失败留在队列且曲库保持原值可重试`() = workflow { f ->
         f.writeResult = { FileWriteResult(false, message = "模拟文件写入失败") }
+
         f.vm.startMatching()
         advanceUntilIdle()
         f.vm.toggleField("a", "cover")
@@ -266,7 +269,9 @@ class ScrapeWorkflowTest {
         val result = f.vm.pageState.value as ScrapePageState.Result
         assertEquals(WritebackStatus.FILE_FAILED, result.results.single().status)
         assertTrue(f.queue.contains("a"))
-        assertEquals("https://example.com/a.jpg", f.repo.songs.getValue("a").coverUri)
+        // 文件未保存时不改曲库：封面地址也不落库，重试沿用同一份变更
+        assertEquals(null, f.repo.songs.getValue("a").coverUri)
+
         f.vm.reviewWritebackFailure("a")
         assertEquals(setOf("cover"), f.preview().items.first().checkedFields)
         f.writeResult = { FileWriteResult(true) }

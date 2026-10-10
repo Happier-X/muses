@@ -30,7 +30,28 @@ class AmllScoreTest {
     }
 
     @Test
+    fun `歌手写法不同时按唯一同名回退匹配`() {
+        val index = listOf(entry("晴天", artists = listOf("周杰伦")), entry("别的歌"))
+        // 本地歌手为英文写法：严格匹配失败，同名唯一时回退命中
+        val query = AmllMatchQuery(songId = "s1", title = "晴天", artist = "Jay Chou")
+        assertNull(findBestMatch(query, index))
+        assertEquals("晴天.ttml", findBestMatchAllowingArtistVariants(query, index)?.entry?.rawLyricFile)
+        // 歌手一致时走严格匹配，不进入回退
+        assertEquals("晴天.ttml", findBestMatchAllowingArtistVariants(
+            AmllMatchQuery(songId = "s1", title = "晴天", artist = "周杰伦"), index)?.entry?.rawLyricFile)
+
+    }
+
+    @Test
+    fun `同名候选不唯一时不回退歌手`() {
+        val index = listOf(entry("Hello", artists = listOf("Adele")), entry("Hello", artists = listOf("Lionel Richie")))
+        val query = AmllMatchQuery(songId = "s1", title = "Hello", artist = "不存在的歌手")
+        assertNull(findBestMatchAllowingArtistVariants(query, index))
+    }
+
+    @Test
     fun `classifyMatch_时长偏差超5秒降low`() {
+
         val q = AmllMatchQuery(songId = "s1", title = "Song", artist = "A B", durationSec = 200.0)
         val e = entry("Song", artists = listOf("A B"), duration = 210.0) // 偏差 10s
         val tm = scoreTitle("Song", "Song")

@@ -24,6 +24,58 @@ internal class DesktopWebDavStreamProxy(private val cache: DesktopWebDavAudioCac
 
     fun lastFailureStatus(): Int? = failureStatus.get()
 
+    /** 已有缓存只在远端版本相符时复用；没有版本信息时走实时播放。 */
+    fun validatedCache(url: String, authorization: String): File? {
+        val file = cache.getCachedFile(url) ?: return null
+        val connection = (URI(url).toURL().openConnection() as HttpURLConnection).apply {
+            requestMethod = "HEAD"
+            connectTimeout = 8_000
+            readTimeout = 8_000
+            setRequestProperty("Authorization", authorization)
+        }
+        try {
+            if (connection.responseCode !in 200..299) return null
+            val meta = cache.getCachedMeta(url)
+            val etag = connection.getHeaderField("ETag")?.takeIf { it.isNotBlank() }
+            val modified = connection.getHeaderField("Last-Modified")?.takeIf { it.isNotBlank() }
+            if (etag != null && etag == meta?.eTag) return file
+            if (etag == null && modified != null && modified == meta?.lastModified &&
+                connection.getHeaderFieldLong("Content-Length", -1) == file.length()) return file
+            return null
+        } catch (_: Exception) {
+            // 离线时仍允许已有完整音频播放，不把不可达当作标签变化。
+            return file
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /** 单独探测标签，不等待整首歌曲缓存完成。 */
+    fun tagFile(expectedUrl: String): File? {
+        val stream = active.get()?.takeIf { it.url == expectedUrl } ?: return null
+        fun fetch(limit: Int): ByteArray {
+            val connection = (URI(stream.url).toURL().openConnection() as HttpURLConnection).apply {
+                connectTimeout = 8_000; readTimeout = 15_000
+                setRequestProperty("Authorization", stream.authorization)
+                setRequestProperty("Range", "bytes=0-${limit - 1}")
+            }
+            try {
+                check(connection.responseCode in 200..299)
+                return connection.inputStream.use { it.readNBytes(limit) }
+            } finally { connection.disconnect() }
+        }
+        return runCatching {
+            var bytes = fetch(64 * 1024)
+            if (bytes.size >= 10 && String(bytes, 0, 3, Charsets.US_ASCII) == "ID3") {
+                val size = (6..9).fold(0) { total, i -> (total shl 7) or (bytes[i].toInt() and 0x7f) } + 10
+                if (size > bytes.size && size <= 4 * 1024 * 1024) bytes = fetch(size)
+            }
+            val extension = stream.url.substringBefore('?').substringAfterLast('.', "mp3")
+                .takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) } ?: "mp3"
+            File.createTempFile("muses-tag-probe-", ".$extension").apply { writeBytes(bytes) }
+        }.getOrNull()
+    }
+
     @Synchronized
     fun open(url: String, authorization: String): String {
         val http = server ?: HttpServer.create(
@@ -115,7 +167,8 @@ internal class DesktopWebDavStreamProxy(private val cache: DesktopWebDavAudioCac
                 }
             }
             if (cacheFile != null && copied == length && active.get() == stream) {
-                runCatching { cache.putToCache(stream.url, cacheFile) }
+                runCatching { cache.putToCache(stream.url, cacheFile, upstream.getHeaderField("ETag"),
+                    upstream.getHeaderField("Last-Modified")) }
             }
         } catch (_: Exception) {
             // VLC 关闭旧连接或切歌时会主动断开；错误由 VLC 的 error 事件处理。

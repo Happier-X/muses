@@ -107,15 +107,7 @@ class SourcesViewModel constructor(
     var pendingEdit by mutableStateOf<Source?>(null)
         private set
 
-    // ── 扫描流程（对齐 Web SourcesPage.vue openScanSettings/closeScanSettings/startScan）──
-
-    /** m-dialog「扫描设置」目标音源（非空 = 弹窗打开） */
-    var pendingScanSource by mutableStateOf<Source?>(null)
-        private set
-
-    /** 扫描设置：读取音乐标签（Web 同款默认——WebDAV 不逐文件读 ID3/Vorbis） */
-    var scanReadTags by mutableStateOf(true)
-        private set
+    // ── 扫描流程 ──────────────────────────────
 
     /** m-dialog「扫描进度」开关 */
     var isScanProgressOpen by mutableStateOf(false)
@@ -167,27 +159,6 @@ class SourcesViewModel constructor(
 
     // ── 扫描流程方法 ──────────────────────────────
 
-    /** 打开「扫描设置」弹窗；WebDAV 无选项（标签改由播放懒扫描）直接开扫，仅本地源弹窗 */
-    fun openScanSettings(source: Source) {
-        if (source.type == SourceType.ONLINE) return
-        pendingScanSource = source
-        if (source.type == SourceType.WEBDAV) {
-            startScan()
-            return
-        }
-        scanReadTags = true
-    }
-
-    /** 关闭「扫描设置」弹窗 */
-    fun closeScanSettings() {
-        pendingScanSource = null
-    }
-
-    /** 更新「读取音乐标签」开关 */
-    fun updateScanReadTags(value: Boolean) {
-        scanReadTags = value
-    }
-
     /** 关闭「扫描进度」弹窗（扫描进行中禁止关闭，双保险） */
     fun dismissScanProgress() {
         if (isScanning) return
@@ -202,11 +173,9 @@ class SourcesViewModel constructor(
         scanResultMessage = null
     }
 
-    /** 开始扫描：关设置开进度 → 端口按音源类型分派扫描器 → replaceSourceSongs → 结果汇总/异常入状态 */
-    fun startScan() {
-        val source = pendingScanSource ?: return
-        if (isScanning) return
-        closeScanSettings()
+    /** 直接扫描：本地读取标签，WebDAV 发现文件后由播放懒扫描补充标签。 */
+    fun startScan(source: Source) {
+        if (source.type == SourceType.ONLINE || isScanning) return
         isScanProgressOpen = true
         isScanning = true
         scanError = null
@@ -219,7 +188,7 @@ class SourcesViewModel constructor(
                 scanPort.progressFor(source.type).collect { _scanProgress.value = it }
             }
             try {
-                val result = libraryScanner.scan(source, readTags = scanReadTags)
+                val result = libraryScanner.scan(source, readTags = source.type == SourceType.LOCAL)
                 scanMergeResult = result
                 scanResultMessage = scanResultText(result)
                 // M3 自动补缺：扫描后把无标签歌曲排进刮削队列（开关默认关）

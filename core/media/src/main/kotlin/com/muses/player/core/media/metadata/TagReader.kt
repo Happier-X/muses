@@ -89,8 +89,13 @@ object TagReader {
 
     private fun extractEmbeddedLyrics(value: String?): String? {
         val trimmed = value?.trim()?.takeIf { it.isNotBlank() } ?: return null
-        return trimmed.takeIf { it.contains("[") && it.contains("]") }
+        // AMLL 歌词以内嵌 TTML 保存，没有 LRC 的方括号时间戳。
+        return trimmed.takeIf {
+            (it.contains("[") && it.contains("]")) || TTML_ROOT.containsMatchIn(it)
+        }
     }
+
+    private val TTML_ROOT = Regex("""<(?:[a-z][\w.-]*:)?tt(?:\s|>)""", RegexOption.IGNORE_CASE)
 
     private fun normalizeFieldId(value: String?): String =
         value.orEmpty().trim().lowercase().replace("_", "").replace("-", "")

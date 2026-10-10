@@ -56,6 +56,7 @@ data class PendingScrapeMetadata(
     val album: String? = null,
     val coverUri: String? = null,
     val lyrics: String? = null,
+    val lyricsFormat: String? = null,
 )
 
 fun interface UploadedAudioInvalidator { fun invalidate(path: String) }

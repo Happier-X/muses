@@ -137,7 +137,26 @@ fun scoreEntry(
     return title.score + artistScore + albumScore
 }
 
+/**
+ * 严格匹配失败时按「唯一精确同名」再匹配一次（不带歌手信息）。
+ *
+ * 场景：本地歌手写法与库内不同（如 Jay Chou / 周杰伦），或库内只登记了另一种语言的歌手名。
+ * 仅在精确同名候选唯一时采用，避免同名不同歌被误配。
+ */
+fun findBestMatchAllowingArtistVariants(
+    query: com.muses.player.core.model.lyrics.AmllMatchQuery,
+    index: List<AmllIndexEntry>,
+    options: FindBestMatchOptions = FindBestMatchOptions(),
+): BestMatch? {
+    findBestMatch(query, index, options)?.let { return it }
+    if (query.artist.isNullOrBlank()) return null
+    val exactTitle = index.filter { scoreTitle(query.title, it.musicName).level == TitleMatchLevel.EXACT }
+    if (exactTitle.size != 1) return null
+    return findBestMatch(query.copy(artist = null), exactTitle, options)
+}
+
 /** 最佳匹配结果（score.ts BestMatch） */
+
 data class BestMatch(
     val entry: AmllIndexEntry,
     val score: Int,

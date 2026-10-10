@@ -86,7 +86,20 @@ class LocalAudioTagFileWriter(
 ) : AudioTagFileWriter {
     override suspend fun write(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult =
         withContext(Dispatchers.IO) {
-            tagPort.writeTags(File(song.path), changes, coverBytes)
+            val path = if (song.path.startsWith("file://")) java.net.URI(song.path).path else song.path
+            val original = File(path)
+            if (!original.isFile) return@withContext FileWriteResult(false, "write_failed", "本地音频文件不存在。")
+            val staged = File.createTempFile(".muses-tags-", ".${original.extension}", original.absoluteFile.parentFile)
+            try {
+                original.copyTo(staged, overwrite = true)
+                val result = tagPort.writeAndVerify(staged, changes, coverBytes)
+                if (!result.ok) return@withContext result
+                java.nio.file.Files.move(staged.toPath(), original.toPath(),
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                tagPort.verifyTags(original, changes, coverBytes)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { FileWriteResult(false, "write_failed", "本地文件保存失败：${e.message}") }
+            finally { staged.delete() }
         }
 }
 
@@ -205,7 +218,7 @@ class WebDavAudioTagFileWriter(
             }
 
             val originalHash = withContext(Dispatchers.IO) { audioFileHash(tempFile) }
-            val tagResult = withContext(Dispatchers.IO) { tagPort.writeTags(tempFile, changes, coverBytes) }
+            val tagResult = withContext(Dispatchers.IO) { tagPort.writeAndVerify(tempFile, changes, coverBytes) }
             safeLogW("WebDavWrite", "tagWrite ok=${tagResult.ok} code=${tagResult.code} msg=${tagResult.message} changes=$changes")
             if (!tagResult.ok) {
                 return FileWriteResult(ok = false, code = tagResult.code, message = tagResult.message)
@@ -214,7 +227,7 @@ class WebDavAudioTagFileWriter(
             val pending = pendingUploads.prepare(song.id, source.id, serverUrl, url,
                 changes.title ?: song.title, tempFile, originalHash,
                 PendingScrapeMetadata(changes.title, changes.artist, changes.album,
-                    changes.coverUri ?: changes.coverRemoteUrl, changes.lyrics))
+                    changes.coverUri ?: changes.coverRemoteUrl, changes.lyrics, changes.lyricsFormat?.wire))
             if (!pendingUploads.upload(pending, client)) return FileWriteResult(false,
                 "pending_upload", "本地已保存，待上传。可到下载页手动补传。")
             return FileWriteResult(ok = true)

@@ -18,7 +18,7 @@ val shellModule = module {
         runningChanged = { com.muses.player.download.keepDownloadsRunning(it) },
         urlProbe = getOrNull(), errorLog = getOrNull(),
         scrapeUploads = com.muses.player.core.scrape.writeback.PendingScrapeUploads.shared,
-        scrapeUploadClient = getOrNull(), uploadedAudioInvalidator = getOrNull()) }
+        scrapeUploadClient = getOrNull(), uploadedAudioInvalidator = getOrNull(), scrapeQueueStore = getOrNull()) }
     viewModel {
         // 在线曲目歌词端口与匹配器可选：宿主未装配时回落空实现（迷你条照常工作）
         MainViewModel(

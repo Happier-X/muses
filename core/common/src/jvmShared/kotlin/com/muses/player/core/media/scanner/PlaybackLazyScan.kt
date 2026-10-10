@@ -8,15 +8,14 @@ import com.muses.player.core.model.Song
  * 播放时懒扫描编排（U26 上收自安卓 PlaybackService.onEvents，android/desktop 双端共用）。
  *
  * 契约（与安卓侧逐字对齐）：
- * - 仅对 tagsVersion < TAGS_VERSION（文件名建库占位 0）执行；
- * - 已刮削字段（metaSources 非空标记）不得被文件旧标签覆盖（重刮削后播放旧值回归根因）；
- * - 歌词有 scrape/embedded 标记（lyricsSource 非空且 lyrics 非空）同样跳过；
- * - 无实际更新仍抬升 tagsVersion，避免下次重复探测；
+ * - 调用方核对缓存有效性后提供文件快照，版本已齐也允许更新；
+ * - 数据库只缓存文件实际标签，旧刮削标记不能阻挡刷新；
+ * - 空字段表示文件中没有该标签，读取失败则传 null 并保留数据库；
  * - 入库走 SongRepository.upsert 唯一路径（同步重建派生索引）。
  *
  * @param tags 文件标签快照（调用方负责读取：安卓经 AudioTagReader Range 探测，
  *   桌面经 JaudiotaggerTagPort 读本地缓存文件）；null = 读取失败，本次跳过（下次重试）。
- * @return 融合后的 Song（需入库），或 null（无需处理：版本已齐 / 标签读取失败）。
+ * @return 更新后的 Song（需入库），或 null（快照未变化 / 标签读取失败）。
  */
 object PlaybackLazyScan {
 
@@ -54,44 +53,29 @@ object PlaybackLazyScan {
 
     fun merge(song: Song, tags: FileTags?): Song? {
         if (tags == null) return null
-        if (song.tagsVersion >= SongTags.TAGS_VERSION) {
-            return tags.audioQuality?.takeIf { it != song.audioQuality }?.let { song.copy(audioQuality = it) }
-        }
-
-        val entity = song
-        val ms = song.metaSources
-        // 已刮削字段跳过覆盖，未标记字段才允许用文件标签补齐
-        val resolvedTitle =
-            if (ms?.title != null) song.title else tags.title?.takeIf { it.isNotBlank() } ?: song.title
-        val resolvedArtist = if (ms?.artist != null) song.artist else tags.artist ?: song.artist
-        val resolvedAlbum = if (ms?.album != null) song.album else tags.album ?: song.album
-        val resolvedCover = if (ms?.cover != null) song.coverUri else tags.coverUri ?: song.coverUri
-        // 歌词：有 scrape/embedded 标记时同样跳过（lyricsSource 非空视为已刮削）
-        val resolvedLyrics =
-            if (song.lyricsSource != null && !song.lyrics.isNullOrBlank()) song.lyrics else tags.lyrics ?: song.lyrics
-        val hasUpdate = resolvedTitle != entity.title ||
-            resolvedArtist != entity.artist ||
-            resolvedAlbum != entity.album ||
-            resolvedCover != entity.coverUri ||
-            resolvedLyrics != entity.lyrics ||
-            tags.durationMs > entity.durationMs || (tags.audioQuality != null && tags.audioQuality != entity.audioQuality)
-        return if (hasUpdate) {
-            song.copy(
-                title = resolvedTitle,
-                artist = resolvedArtist,
-                album = resolvedAlbum,
-                lyrics = resolvedLyrics,
-                coverUri = resolvedCover,
-                durationMs = tags.durationMs.coerceAtLeast(entity.durationMs),
-                durationSec = (tags.durationMs / 1000).coerceAtLeast(entity.durationSec),
-                tagsVersion = SongTags.TAGS_VERSION,
-                audioQuality = tags.audioQuality ?: song.audioQuality,
-            )
-        } else {
-            // 无实际更新：仍抬升 tagsVersion 以避免重复探测
-            // （守卫已保证不覆盖刮削值；无标签文件亦按原契约抬升，下次显示文件名不重复探测）
-            song.copy(tagsVersion = SongTags.TAGS_VERSION)
-        }
+        // 输入是成功读取的文件快照；版本只表示解析器版本，不能阻止刷新。
+        // 旧 SCRAPE 标记曾表示仅库内修改，不可永久盖住文件真实值。
+        val resolved = song.copy(
+            title = tags.title?.takeIf { it.isNotBlank() }
+                ?: song.path.substringBefore('?').substringAfterLast('/').substringBeforeLast('.').let {
+                    if (song.path.startsWith("content://") || it.isBlank()) song.title else
+                        runCatching { java.net.URLDecoder.decode(it.replace("+", "%2B"), "UTF-8") }.getOrDefault(it)
+                },
+            artist = tags.artist?.takeIf { it.isNotBlank() },
+            album = tags.album?.takeIf { it.isNotBlank() },
+            lyrics = tags.lyrics?.takeIf { it.isNotBlank() },
+            lyricsFormat = if (tags.lyrics == song.lyrics) song.lyricsFormat else null,
+            lyricsSource = tags.lyrics?.takeIf { it.isNotBlank() }?.let {
+                com.muses.player.core.model.scrape.LyricsSource.EMBEDDED
+            },
+            metaSources = null,
+            coverUri = tags.coverUri,
+            durationMs = tags.durationMs.takeIf { it > 0 } ?: song.durationMs,
+            durationSec = tags.durationMs.takeIf { it > 0 }?.div(1000) ?: song.durationSec,
+            tagsVersion = SongTags.TAGS_VERSION,
+            audioQuality = tags.audioQuality ?: song.audioQuality,
+        )
+        return resolved.takeIf { it != song }
     }
 }
 

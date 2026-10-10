@@ -131,7 +131,7 @@ class WritebackOrchestratorTest {
     }
 
     @Test
-    fun `写文件失败_status_file_failed但库已更新并标记scrape`() = runTest {
+    fun `写文件失败保留曲库原值`() = runTest {
         val repo = InMemorySongRepository(listOf(song("s1")))
         val writer = FakeWriter { FileWriteResult(ok = false, code = "write_failed", message = "boom") }
         val orch = orchestrator(repo, writer)
@@ -142,8 +142,34 @@ class WritebackOrchestratorTest {
         )
 
         assertEquals(WritebackStatus.FILE_FAILED, result.results.single().status)
-        assertTrue(result.results.single().libraryUpdated)
-        assertEquals(MetaFieldSource.SCRAPE, repo.songs.getValue("s1").metaSources?.artist)
+        assertTrue(!result.results.single().libraryUpdated)
+        assertEquals(song("s1"), repo.songs.getValue("s1"))
+    }
+
+    @Test
+    fun `待补传结果不覆盖已保存曲库`() = runTest {
+        val original = song("s1", SourceType.WEBDAV)
+        val repo = InMemorySongRepository(listOf(original))
+        val orch = orchestrator(repo, FakeWriter { FileWriteResult(false, "pending_upload", "待上传") })
+        val result = orch.applyScrapeChanges(candidates(original), setOf(original.id),
+            mapOf(original.id to ScrapeChanges(title = "待上传标题", lyrics = "待上传歌词")))
+        assertEquals(original, repo.songs.getValue(original.id))
+        assertTrue(!result.results.single().libraryUpdated)
+    }
+
+    @Test
+    fun `恢复标签失败也不只还原数据库`() = runTest {
+        val original = song("s1")
+        val repo = InMemorySongRepository(listOf(original))
+        val writer = FakeWriter { FileWriteResult(true) }
+        val orch = orchestrator(repo, writer)
+        val applied = orch.applyScrapeChanges(candidates(original), setOf(original.id),
+            mapOf(original.id to ScrapeChanges(title = "已保存标题")))
+        writer.behavior = { FileWriteResult(false, "write_failed") }
+        val result = orch.revertScrapeJournal(applied.journalId)
+        assertEquals(1, result.failed)
+        assertEquals("已保存标题", repo.songs.getValue(original.id).title)
+        assertNotNull(orch.getCurrentRollbackJournal())
     }
 
     @Test
@@ -291,5 +317,51 @@ class WritebackOrchestratorTest {
         assertTrue(captured.single().second != null)
         // 库内 coverUri 保留远端地址（非清空）
         assertEquals("https://remote/c.jpg", repo.songs.getValue("s1").coverUri)
+        assertEquals(MetaFieldSource.EMBEDDED, repo.songs.getValue("s1").metaSources?.cover)
+    }
+
+    @Test
+    fun `封面取不到仍保存文本标签并标记待内嵌`() = runTest {
+        val original = song("s1")
+        val repo = InMemorySongRepository(listOf(original))
+        val captured = mutableListOf<Pair<ScrapeChanges, ByteArray?>>()
+        val writer = AudioTagFileWriter { _, changes, coverBytes ->
+            captured.add(changes to coverBytes); FileWriteResult(ok = true)
+        }
+        // 封面抓取失败：写回不因此中断，文件只需保存文本标签。
+        val orch = WritebackOrchestrator(repo, newJournalStore(), writer,
+            coverBytesFetcher = CoverBytesFetcher { null })
+        val result = orch.applyScrapeChanges(candidates(original), setOf(original.id),
+            mapOf(original.id to ScrapeChanges(title = "新标题", coverRemoteUrl = "https://remote/c.jpg")))
+
+        assertEquals(WritebackStatus.SUCCESS, result.results.single().status)
+        assertEquals("新标题", repo.songs.getValue(original.id).title)
+        assertEquals("https://remote/c.jpg", repo.songs.getValue(original.id).coverUri)
+        assertEquals(MetaFieldSource.SCRAPE, repo.songs.getValue(original.id).metaSources?.cover)
+        assertEquals(MetaFieldSource.EMBEDDED, repo.songs.getValue(original.id).metaSources?.title)
+        // 传给文件写入器的请求里没有封面，避免写入端因缺封面字节失败。
+        assertEquals(null, captured.single().first.coverRemoteUrl)
+        assertEquals(null, captured.single().second)
+    }
+
+    @Test
+    fun `显式清空封面照常写入且不依赖封面字节`() = runTest {
+        val original = song("s1").copy(coverUri = "https://old/c.jpg")
+        val repo = InMemorySongRepository(listOf(original))
+        val captured = mutableListOf<Pair<ScrapeChanges, ByteArray?>>()
+        val writer = AudioTagFileWriter { _, changes, coverBytes ->
+            captured.add(changes to coverBytes); FileWriteResult(ok = true)
+        }
+        val orch = WritebackOrchestrator(repo, newJournalStore(), writer,
+            coverBytesFetcher = CoverBytesFetcher { null })
+        orch.applyScrapeChanges(candidates(original), setOf(original.id),
+            mapOf(original.id to ScrapeChanges(coverUri = "")))
+
+        // 清空请求原样传给写入器（写入端依 coverUri=="" 删除封面）
+        assertEquals("", captured.single().first.coverUri)
+        assertEquals(null, repo.songs.getValue(original.id).coverUri)
+        assertEquals(MetaFieldSource.EMBEDDED, repo.songs.getValue(original.id).metaSources?.cover)
     }
 }
+
+

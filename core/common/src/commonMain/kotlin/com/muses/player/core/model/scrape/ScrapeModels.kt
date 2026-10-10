@@ -138,7 +138,7 @@ data class RollbackJournal(
     val entries: List<RollbackEntry>,
 )
 
-/** 写回状态：success=文件+库均成功；file-failed=库已更新但文件写入失败；failed=整体异常 */
+/** 写回状态：success=文件与库均成功；file-failed=文件未保存，曲库保留原值；failed=整体异常。 */
 enum class WritebackStatus(val wire: String) {
     SUCCESS("success"),
     FILE_FAILED("file-failed"),

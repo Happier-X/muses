@@ -134,7 +134,15 @@ class RoomSongRepository constructor(
      *   （metaCover / lyricsSource 非空表示用户已选过，不复用扫描值）；
      * - tagsVersion 取两者较大值，不回退。
      */
-    private fun mergeScanned(old: SongEntity, scanned: SongEntity): SongEntity = old.copy(
+    private fun mergeScanned(old: SongEntity, scanned: SongEntity): SongEntity {
+        // 本地完整扫描已成功读取文件标签，刷新缓存（含文件中已移除的字段）。
+        // WebDAV 的文件名发现结果没有标签，继续保留缓存，播放时核对文件版本。
+        if (scanned.tagsVersion >= SongTags.TAGS_VERSION) return scanned.copy(
+            durationMs = scanned.durationMs.takeIf { it > 0 } ?: old.durationMs,
+            durationSec = scanned.durationSec.takeIf { it > 0 } ?: old.durationSec,
+            missing = false,
+        )
+        return old.copy(
         path = scanned.path.ifBlank { old.path },
         // 标题：仅当旧行仍是文件名占位（未读标签、未刮削）时才允许用本次扫描结果刷新
         title = if (old.tagsVersion < SongTags.TAGS_VERSION && old.metaTitle == null && scanned.title.isNotBlank()) {
@@ -157,7 +165,8 @@ class RoomSongRepository constructor(
         tagsVersion = maxOf(old.tagsVersion, scanned.tagsVersion),
         missing = false,
         audioQuality = scanned.audioQuality ?: old.audioQuality,
-    )
+        )
+    }
 
     /**
      * 空结果 / 锐减保护：库内已有歌时，扫描发现 0 首、或不足既有可见数一半，

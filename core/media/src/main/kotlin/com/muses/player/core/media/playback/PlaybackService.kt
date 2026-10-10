@@ -806,12 +806,10 @@ class PlaybackService : MediaSessionService() {
                                 playStatsTracker.onPlaybackState(currentId, playingNow)
                             }
                         }
-                        // 播放时懒扫描：补齐 tagsVersion<1 的歌曲信息，Room Flow 自动刷新列表
+                        // 播放时核对文件版本并读取有效缓存，文件变化后刷新曲库。
                         // 编排收口 U26 共用 [PlaybackLazyScan]；本处只负责读标签（AudioTagReader Range 探测）+ 入库
                         // 封面缺失同样进入（版本已齐也不跳过）：后补内嵌/首次漏读可经 coverBackfill 回填
-                        val needsCover = entity != null &&
-                            entity.metaCover == null && entity.coverUri.isNullOrBlank()
-                        if (entity != null && (entity.tagsVersion < LocalLibraryScanner.TAGS_VERSION || needsCover || entity.audioQuality == null)) {
+                        if (entity != null && entity.sourceType != com.muses.player.core.model.SourceType.ONLINE.name) {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
                                     val tagData = audioTagReader.readTagForUpdate(entity.path, entity.id)

@@ -142,7 +142,8 @@ open class AmllTtmlDbClient(
 
         val searchIndex = indexRepository.currentSearchIndex() ?: createSearchIndex(index)
         val candidates = searchIndex.selectCandidates(query.title)
-        val best = findBestMatch(query, candidates)
+        val best = findBestMatchAllowingArtistVariants(query, candidates)
+
 
         if (best == null) {
             setNegative(AmllFailReason.NO_MATCH)

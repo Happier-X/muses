@@ -330,7 +330,7 @@ private fun ResultContent(state: ScrapePageState.Result, remaining: Int, undoing
             item {
                 ScrapeSummary(
                     "本次更新完成",
-                    "成功 $success 首 · 仅曲库更新 $partial 首 · 失败 $failed 首\n失败歌曲仍保留在队列中，可核对本次变更后重试。",
+                    "成功 $success 首 · 文件未保存 $partial 首 · 失败 $failed 首\n未保存歌曲仍保留在队列中，可重试；待上传文件可到下载页补传。",
                 )
             }
             items(state.results, key = { it.songId }) { result ->
@@ -359,14 +359,14 @@ private fun ResultContent(state: ScrapePageState.Result, remaining: Int, undoing
             }
             item {
                 Text(
-                    "恢复仅还原本次修改前的曲库信息，不会还原已写入的音频文件。",
+                    "恢复会重新写入音频标签，保存成功后同步更新曲库；WebDAV 文件需要重新上传。",
                     style = MiuixTheme.textStyles.footnote1, color = MiuixTheme.colorScheme.onBackgroundVariant,
                 )
             }
         }
         ScrapeActions {
             MusesTextButton(
-                text = if (undoing) "正在恢复…" else "恢复曲库",
+                text = if (undoing) "正在恢复…" else "恢复标签",
                 enabled = !undoing, onClick = viewModel::undoLastWriteback, modifier = Modifier.weight(1f),
             )
             MusesButton(onClick = viewModel::backToQueue, enabled = !undoing, modifier = Modifier.weight(2f)) {

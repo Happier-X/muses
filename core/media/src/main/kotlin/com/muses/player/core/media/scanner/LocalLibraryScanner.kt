@@ -90,15 +90,19 @@ class LocalLibraryScanner constructor(
                 id = stableSongId(sourceId, item.data),
                 sourceId = sourceId,
                 path = item.uri.toString(),
-                title = tags.title ?: item.titleFromStore ?: item.displayName.substringBeforeLast('.'),
-                artist = tags.artist ?: item.artist,
-                album = tags.album ?: item.album,
+                title = tags.title ?: if (tags.readSuccessful) item.displayName.substringBeforeLast('.')
+                    else item.titleFromStore ?: item.displayName.substringBeforeLast('.'),
+                artist = if (tags.readSuccessful) tags.artist else item.artist,
+                album = if (tags.readSuccessful) tags.album else item.album,
                 durationMs = item.durationMs ?: 0L,
                 durationSec = (item.durationMs ?: 0L) / 1000L,
                 coverUri = tags.coverBytes?.let { CoverCacheWriter.write(context, stableSongId(sourceId, item.data), it) },
                 lyrics = tags.lyrics,
+                lyricsSource = tags.lyrics?.takeIf { it.isNotBlank() }?.let {
+                    com.muses.player.core.model.scrape.LyricsSource.EMBEDDED
+                },
                 sourceType = SourceType.LOCAL,
-                tagsVersion = if (readTags) TAGS_VERSION else FILENAME_TAGS_VERSION,
+                tagsVersion = if (tags.readSuccessful) TAGS_VERSION else FILENAME_TAGS_VERSION,
                 audioQuality = tags.audioQuality,
             )
             songs.add(song)
@@ -180,9 +184,10 @@ class LocalLibraryScanner constructor(
         val lyrics: String?,
         val coverBytes: ByteArray?,
         val audioQuality: String? = null,
+        val readSuccessful: Boolean = true,
     ) {
         companion object {
-            val empty = TagReaderResult(null, null, null, null, null)
+            val empty = TagReaderResult(null, null, null, null, null, readSuccessful = false)
         }
     }
 

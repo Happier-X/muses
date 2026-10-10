@@ -298,7 +298,11 @@ class ScrapeViewModel(
         _undoing.value = true
         viewModelScope.launch {
             try {
-                writebackOrchestrator.revertScrapeJournal(state.journalId)
+                val result = writebackOrchestrator.revertScrapeJournal(state.journalId)
+                if (result.failed > 0) {
+                    _errorMessage.value = "已恢复 ${result.reverted} 首，${result.failed} 首文件未保存，可重试或到下载页补传"
+                    return@launch
+                }
                 lastJournalId = null
                 _pageState.value = ScrapePageState.Queue
                 reloadQueue()

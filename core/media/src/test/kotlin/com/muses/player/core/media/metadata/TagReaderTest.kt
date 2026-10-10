@@ -48,4 +48,25 @@ class TagReaderTest {
         assertNull(tags.artist)
         assertNull(tags.album)
     }
+
+    @Test
+    fun `内嵌 AMLL TTML 不因缺少方括号被丢弃`() {
+        val lyrics = """<tt xmlns="http://www.w3.org/ns/ttml"><body><div><p begin="00:00:01.000" end="00:00:02.000">测试歌词</p></div></body></tt>"""
+        val tag = ID3v24Tag().apply {
+            setField(org.jaudiotagger.tag.FieldKey.LYRICS, lyrics)
+        }
+        val actual = TagReader.parse(tag).lyrics
+        assertEquals(lyrics, actual)
+        val document = com.muses.player.feature.player.lyric.LyricsParser.parseDocument(actual)
+        assertEquals("测试歌词", document?.lines?.single()?.text)
+    }
+
+    @Test
+    fun `Vorbis 内嵌带命名空间的 TTML 可以读取`() {
+        val lyrics = """<?xml version="1.0"?><ttml:tt xmlns:ttml="http://www.w3.org/ns/ttml"></ttml:tt>"""
+        val tag = VorbisCommentTag().apply {
+            setField(org.jaudiotagger.tag.FieldKey.LYRICS, lyrics)
+        }
+        assertEquals(lyrics, TagReader.parse(tag).lyrics)
+    }
 }

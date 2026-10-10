@@ -56,7 +56,22 @@ object JaudiotaggerTagPort : TagPort {
         } catch (e: CancellationException) {
             throw e
         } catch (_: Throwable) {
-            null
+            // WebDAV 头部探测可能没有完整音频帧，直接解析完整的 ID3 标签。
+            runCatching {
+                if (file.length() > 4L * 1024 * 1024) return@runCatching null
+                val bytes = file.readBytes()
+                if (bytes.size < 10 || String(bytes, 0, 3, Charsets.US_ASCII) != "ID3") return@runCatching null
+                val size = (6..9).fold(0) { total, i -> (total shl 7) or (bytes[i].toInt() and 0x7f) }
+                if (bytes.size < size + 10) return@runCatching null
+                val buffer = java.nio.ByteBuffer.wrap(bytes)
+                val tag = when (bytes[3].toInt()) {
+                    4 -> org.jaudiotagger.tag.id3.ID3v24Tag(buffer)
+                    3 -> org.jaudiotagger.tag.id3.ID3v23Tag(buffer)
+                    else -> return@runCatching null
+                }
+                TagPortTags(title = tag.getFirst(FieldKey.TITLE), artist = tag.getFirst(FieldKey.ARTIST),
+                    album = tag.getFirst(FieldKey.ALBUM), lyrics = tag.getFirst(FieldKey.LYRICS), cover = readCoverSafely(tag))
+            }.getOrNull()
         }
     }
 
@@ -180,7 +195,7 @@ object JaudiotaggerTagPort : TagPort {
 
     private fun setFieldIfPresent(tag: Tag, key: FieldKey, value: String?) {
         if (value == null) return
-        if (value.isBlank()) return
+        if (value.isBlank()) { tag.deleteField(key); return }
         tag.setField(key, value)
     }
 

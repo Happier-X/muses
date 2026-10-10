@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.muses.player.core.ui.components.MusesDialog
@@ -38,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
@@ -56,7 +54,6 @@ import com.muses.player.core.ui.components.MusesRefreshablePlaceholder
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
 import com.muses.player.core.ui.components.MusesTopBar
-import top.yukonga.miuix.kmp.basic.Switch
 import com.muses.player.core.model.SourceType
 
 // ── 主入口 ──────────────────────────────────────────
@@ -182,7 +179,7 @@ fun SourcesScreen(
                 if (source.type != SourceType.ONLINE) {
                     add(MusesActionItem(label = "扫描") {
                         sourceActionsTarget = null
-                        viewModel.openScanSettings(source)
+                        viewModel.startScan(source)
                     })
                 }
             },
@@ -234,41 +231,6 @@ fun SourcesScreen(
                     onValueChange = { editPath = it },
                     singleLine = true,
                     label = "目录",
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            },
-        )
-    }
-
-    // ---- m-dialog：扫描设置（对照 SourcesPage.vue scanSettings 弹窗）----
-    // KDoc：内容区对应 .sources-page__hint-text；确认按钮对应 .sources-page__scan-start-btn
-    viewModel.pendingScanSource?.let {
-        MusesDialog(
-            onDismiss = { viewModel.closeScanSettings() },
-            title = "扫描设置",
-            confirmText = "开始扫描",
-            onConfirm = { viewModel.startScan() },
-            dismissText = "取消",
-            content = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("读取音乐标签", style = MiuixTheme.textStyles.body1, color = scheme.onBackground)
-                    Spacer(Modifier.width(12.dp))
-                    Switch(
-                        checked = viewModel.scanReadTags,
-                        onCheckedChange = { viewModel.updateScanReadTags(it) },
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "开启后会逐个文件读取标题、歌手、专辑和时长；读取失败会回退为文件名。",
-                    style = MiuixTheme.textStyles.footnote1,
-                    lineHeight = 18.sp,
-                    color = scheme.onBackgroundVariant,
-                    textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
             },

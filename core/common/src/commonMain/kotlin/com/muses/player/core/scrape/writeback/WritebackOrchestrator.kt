@@ -23,9 +23,9 @@ import kotlinx.coroutines.coroutineScope
  *
  * 1. 写前快照旧值到回滚 journal（上限 200 条）
  * 2. 写文件（本地并行 / WebDAV 串行）
- * 3. 写库（upsertSong，来源按文件结果标记 embedded/scrape）
+ * 3. 文件保存核验成功后写库，失败不覆盖已保存标签
  * 4. 逐行返回成功/失败状态（success / file-failed / failed）
- * 5. 撤销恢复曲库旧值（文件不可逆）
+ * 5. 恢复同样先写文件，保存成功后同步曲库
  *
  * W3 上收 commonMain（任务 09-05-scrape-kmp R4）：三仓库依赖直连 commonMain
  * SongRepository；文件写入经 [AudioTagFileWriter]（TagPort 收口）；日志经 safeLogW。
@@ -68,23 +68,30 @@ class WritebackOrchestrator(
 
     // ── 步骤 3：写库 ─────────────────────────────────────
 
-    /** 对齐 updateSongInLibrary：来源按文件结果标记 embedded/scrape；返回库是否更新 */
+    /** 已保存文件的标签同步到曲库；返回库是否更新。 */
     private suspend fun updateSongInLibrary(
         songId: String,
         changes: ScrapeChanges,
         fileOk: Boolean,
+        coverWritten: Boolean,
     ): Boolean {
+        // 曲库只缓存已保存的文件标签；候选与待上传数据由各自队列保存。
+        if (!fileOk) return false
+
         val song = songRepository.getSong(songId) ?: return false
         val metaSources = song.metaSources ?: com.muses.player.core.model.scrape.MetaSources()
-        // 文件写入成功 → embedded（已入文件）；失败 → scrape（仅库内展示，值得重刮）
-        val fieldSource = if (fileOk) MetaFieldSource.EMBEDDED else MetaFieldSource.SCRAPE
+        val fieldSource = MetaFieldSource.EMBEDDED
         val effectiveCoverUri = changes.coverUri ?: changes.coverRemoteUrl
         val newMetaSources = com.muses.player.core.model.scrape.MetaSources(
             title = if (changes.title != null) fieldSource else metaSources.title,
             artist = if (changes.artist != null) fieldSource else metaSources.artist,
             album = if (changes.album != null) fieldSource else metaSources.album,
-            cover = if (effectiveCoverUri != null) fieldSource else metaSources.cover,
+            // 封面取不到字节时只保留展示地址并标记待内嵌，后续可重新刮削；显式清空按已写入处理。
+            cover = if (effectiveCoverUri != null) {
+                if (coverWritten) fieldSource else com.muses.player.core.model.scrape.MetaFieldSource.SCRAPE
+            } else metaSources.cover,
         )
+
         songRepository.upsert(
             song.copy(
                 title = changes.title ?: song.title,
@@ -99,8 +106,7 @@ class WritebackOrchestrator(
                 lyrics = changes.lyrics ?: song.lyrics,
                 lyricsFormat = changes.lyricsFormat ?: song.lyricsFormat,
                 lyricsSource = if (changes.lyrics != null) {
-                    if (fileOk) com.muses.player.core.model.scrape.LyricsSource.EMBEDDED
-                    else com.muses.player.core.model.scrape.LyricsSource.SCRAPE
+                    com.muses.player.core.model.scrape.LyricsSource.EMBEDDED
                 } else {
                     song.lyricsSource
                 },
@@ -115,8 +121,19 @@ class WritebackOrchestrator(
     // ── 远程封面内嵌（ensureLocalCover 语义）─────────────
 
     private suspend fun fetchCoverBytes(changes: ScrapeChanges): ByteArray? {
-        val remoteUrl = changes.coverRemoteUrl ?: return null
+        val remoteUrl = changes.coverRemoteUrl
+            ?: changes.coverUri?.takeIf { it.startsWith("file://") || java.io.File(it).isFile }
+            ?: return null
+        if (!remoteUrl.startsWith("http://") && !remoteUrl.startsWith("https://")) {
+            val path = if (remoteUrl.startsWith("file://")) {
+                runCatching { java.net.URI(remoteUrl).path }.getOrNull()
+            } else {
+                remoteUrl
+            }
+            return path?.let { file -> runCatching { java.io.File(file).readBytes() }.getOrNull() }
+        }
         return try {
+
             coverBytesFetcher?.fetch(remoteUrl)
         } catch (e: CancellationException) {
             throw e
@@ -205,7 +222,9 @@ class WritebackOrchestrator(
         suspend fun writeOne(candidate: ScrapeCandidate): WritebackResult {
             val changes = changesMap[candidate.songId] ?: ScrapeChanges()
             return try {
-                val fileResult = writeSingleFile(candidate.song, changes)
+                val outcome = writeSingleFile(candidate.song, changes)
+                val fileResult = outcome.result
+
                 safeLogW(
                     "Writeback",
                     "writeOne ${candidate.songId} fileOk=${fileResult.ok} code=${fileResult.code} msg=${fileResult.message} changes=$changes",
@@ -218,7 +237,9 @@ class WritebackOrchestrator(
                         // 缓存失效失败不影响主流程
                     }
                 }
-                val libraryUpdated = updateSongInLibrary(candidate.songId, changes, fileResult.ok)
+                val libraryUpdated = updateSongInLibrary(candidate.songId, changes, fileResult.ok, outcome.coverWritten)
+
+
                 WritebackResult(
                     songId = candidate.songId,
                     status = if (fileResult.ok) WritebackStatus.SUCCESS else WritebackStatus.FILE_FAILED,
@@ -244,6 +265,10 @@ class WritebackOrchestrator(
             localResults + webdavResults
         }
 
+        // 仅已保存的歌曲可以恢复；未保存任务保持在候选或补传队列。
+        val savedIds = results.filter { it.status == WritebackStatus.SUCCESS }.map { it.songId }.toSet()
+        journalStore.write(RollbackJournal(version = 1, journalId = journalId,
+            entries = entries.filter { it.songId in savedIds }))
         // 旁路落历史（确认写回与重试都经过此处，不漏记；失败不阻断主流程）
         try {
             historySink(buildHistoryEntries(candidates, results, changesMap, journalId))
@@ -254,16 +279,37 @@ class WritebackOrchestrator(
         return ApplyResult(journalId = journalId, results = results)
     }
 
-    /** 单曲文件写入（含远程封面字节获取） */
-    private suspend fun writeSingleFile(song: Song, changes: ScrapeChanges): FileWriteResult {
-        val coverBytes = fetchCoverBytes(changes)
-        return fileWriter.write(song, changes, coverBytes)
+    /** coverWritten 表示文件中封面状态已按本次请求落地（含显式清空）。 */
+    private data class FileWriteOutcome(val result: FileWriteResult, val coverWritten: Boolean)
+
+    /**
+     * 单曲文件写入（含封面字节获取）。
+     * 内嵌封面失败只跳过封面：文本标签照常保存并上传，封面保留展示地址待后续重刮
+     * （对齐 ensureLocalCover「失败返回 null 跳过内嵌，不阻断写回」语义）；
+     * 显式清空封面（coverUri = ""）不依赖封面字节，照常写入。
+     */
+    private suspend fun writeSingleFile(song: Song, changes: ScrapeChanges): FileWriteOutcome {
+        val coverCleared = changes.coverUri == ""
+        val coverRequested = !coverCleared && (changes.coverUri != null || changes.coverRemoteUrl != null)
+        val coverBytes = if (coverCleared) null else fetchCoverBytes(changes)
+        val coverEmbedded = coverRequested && coverBytes?.isNotEmpty() == true
+        val coverWritten = coverCleared || !coverRequested || coverEmbedded
+        val writable = if (coverRequested && !coverEmbedded) {
+            changes.copy(coverUri = null, coverRemoteUrl = null)
+        } else {
+            changes
+        }
+        return FileWriteOutcome(
+            result = fileWriter.write(song, writable, if (coverEmbedded) coverBytes else null),
+            coverWritten = coverWritten,
+        )
     }
 
     // ── 撤销 ─────────────────────────────────────────────
 
+
     /**
-     * 撤销：恢复曲库旧值（文件不可逆，UI 明示）。
+     * 恢复：先写回旧标签并核验，再同步数据库；失败条目保留以便重试。
      * journalId 不匹配当前 journal → 不动作（对齐 revertScrapeJournal 防御）。
      */
     suspend fun revertScrapeJournal(journalId: String): RevertResult {
@@ -273,10 +319,22 @@ class WritebackOrchestrator(
         }
 
         var reverted = 0
+        val remaining = mutableListOf<com.muses.player.core.model.scrape.RollbackEntry>()
         for (entry in journal.entries) {
             val song = songRepository.getSong(entry.songId) ?: continue
-            reverted += 1
             val before = entry.songBefore
+            val changes = ScrapeChanges(title = before.title, artist = before.artist.orEmpty(),
+                album = before.album.orEmpty(), lyrics = before.lyrics.orEmpty(),
+                lyricsFormat = before.lyricsFormat, coverUri = before.coverUri.orEmpty(),
+                coverRemoteUrl = before.coverUri?.takeIf { it.startsWith("http://") || it.startsWith("https://") })
+            val bytes = if (changes.coverRemoteUrl != null) fetchCoverBytes(changes) else
+                before.coverUri?.takeIf { it.isNotBlank() }?.let { path ->
+                    runCatching { java.io.File(if (path.startsWith("file://")) java.net.URI(path).path else path).readBytes() }.getOrNull()
+                }
+            val result = fileWriter.write(song, changes, bytes)
+            if (!result.ok) { remaining.add(entry); continue }
+            audioTagCacheInvalidator?.invoke(song.path)
+            reverted += 1
             songRepository.upsert(
                 song.copy(
                     title = before.title,
@@ -291,17 +349,16 @@ class WritebackOrchestrator(
             )
         }
 
-        if (reverted > 0) {
-            journalStore.clear()
-        }
-        return RevertResult(reverted = reverted)
+        if (remaining.isEmpty()) journalStore.clear()
+        else journalStore.write(journal.copy(entries = remaining))
+        return RevertResult(reverted = reverted, failed = remaining.size)
     }
 
     /** 读取当前回滚 journal（UI 显示用） */
     suspend fun getCurrentRollbackJournal(): RollbackJournal? = journalStore.read()
 
     /** revertScrapeJournal 返回值（Web：{ reverted }） */
-    data class RevertResult(val reverted: Int)
+    data class RevertResult(val reverted: Int, val failed: Int = 0)
 
     companion object {
         /** Web MAX_ROLLBACK_ENTRIES = 200 */

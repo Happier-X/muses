@@ -32,9 +32,9 @@ class PlaybackLazyScanTest {
     )
 
     @Test
-    fun skips_when_tagsVersion_ready() {
+    fun `解析器版本已齐仍刷新文件标签`() {
         val song = filenameSong().copy(tagsVersion = SongTags.TAGS_VERSION)
-        assertNull(PlaybackLazyScan.merge(song, fullTags()))
+        assertEquals("周杰伦", PlaybackLazyScan.merge(song, fullTags())?.artist)
     }
 
     @Test
@@ -53,7 +53,7 @@ class PlaybackLazyScanTest {
     }
 
     @Test
-    fun protects_scraped_fields() {
+    fun `旧刮削数据库值不能覆盖文件真实标签`() {
         val song = filenameSong().copy(
             title = "刮削标题",
             artist = "刮削歌手",
@@ -61,8 +61,8 @@ class PlaybackLazyScanTest {
         )
         val merged = PlaybackLazyScan.merge(song, fullTags())!!
         // 已刮削字段不受文件旧标签覆盖
-        assertEquals("刮削标题", merged.title)
-        assertEquals("刮削歌手", merged.artist)
+        assertEquals("夜曲", merged.title)
+        assertEquals("周杰伦", merged.artist)
         // 未标记字段仍补齐
         assertEquals("十一月的萧邦", merged.album)
     }
@@ -79,7 +79,7 @@ class PlaybackLazyScanTest {
     fun keeps_existing_when_tag_blank() {
         val song = filenameSong().copy(title = "库标题")
         val merged = PlaybackLazyScan.merge(song, PlaybackLazyScan.FileTags(title = "  "))!!
-        assertEquals("库标题", merged.title)
+        assertEquals("夜曲", merged.title)
     }
 
     // ── coverBackfill：封面回填脱离版本门禁 ──
@@ -88,7 +88,7 @@ class PlaybackLazyScanTest {
     fun backfills_cover_when_version_ready_but_missing() {
         // 版本已齐（merge 必返回 null），库内无封面 → 文件封面回填
         val song = filenameSong().copy(tagsVersion = SongTags.TAGS_VERSION)
-        assertNull(PlaybackLazyScan.merge(song, fullTags().copy(coverUri = "file:///covers/x.jpg")))
+        assertEquals("file:///covers/x.jpg", PlaybackLazyScan.merge(song, fullTags().copy(coverUri = "file:///covers/x.jpg"))?.coverUri)
         val backfilled = PlaybackLazyScan.coverBackfill(song, "file:///covers/x.jpg")!!
         assertEquals("file:///covers/x.jpg", backfilled.coverUri)
         // 只动封面：其余字段与版本原样保留

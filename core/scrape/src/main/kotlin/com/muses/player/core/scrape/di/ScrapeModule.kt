@@ -145,7 +145,7 @@ val scrapeModule = module {
             tagPort = tagPort,
             tempDir = File(androidContext().cacheDir, "scrape-writeback").apply { mkdirs() },
         )
-        val localWriter = LocalAudioTagFileWriter(tagPort)
+        val localWriter = com.muses.player.core.scrape.writeback.AndroidLocalAudioTagFileWriter(androidContext(), tagPort)
         AudioTagFileWriter { song, changes, coverBytes ->
             when (song.sourceType) {
                 SourceType.WEBDAV -> webdavWriter.write(song, changes, coverBytes)

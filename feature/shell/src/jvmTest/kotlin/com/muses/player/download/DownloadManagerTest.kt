@@ -335,8 +335,8 @@ class DownloadManagerTest {
             val queue = com.muses.player.core.scrape.writeback.PendingScrapeUploads(File(h.root, "scrape-uploads"))
             val task = queue.prepare("library-song", h.source.id, h.source.url!!, h.server.url("/dav/song.mp3").toString(),
                 "新标题", prepared, com.muses.player.core.scrape.writeback.audioFileHash(original),
-                com.muses.player.core.scrape.writeback.PendingScrapeMetadata(title = "新标题", lyrics = "内嵌歌词"))
-            var song = Song("library-song", h.source.id, task.url, "新标题", lyrics = "内嵌歌词",
+                com.muses.player.core.scrape.writeback.PendingScrapeMetadata(title = "新标题", lyrics = "内嵌歌词", lyricsFormat = "ttml"))
+            var song = Song("library-song", h.source.id, task.url, "旧标题", lyrics = "旧歌词",
                 sourceType = SourceType.WEBDAV,
                 metaSources = com.muses.player.core.model.scrape.MetaSources(title = com.muses.player.core.model.scrape.MetaFieldSource.SCRAPE),
                 lyricsSource = com.muses.player.core.model.scrape.LyricsSource.SCRAPE)
@@ -366,6 +366,9 @@ class DownloadManagerTest {
                 uploadedAudioInvalidator = com.muses.player.core.scrape.writeback.UploadedAudioInvalidator { invalidated = it })
             manager.retryScrapeUploads(setOf(task.id)).join()
             assertTrue(queue.tasks.value.isEmpty())
+            assertEquals("新标题", song.title)
+            assertEquals("内嵌歌词", song.lyrics)
+            assertEquals(com.muses.player.core.model.scrape.LyricsFormat.TTML, song.lyricsFormat)
             assertEquals(com.muses.player.core.model.scrape.MetaFieldSource.EMBEDDED, song.metaSources?.title)
             assertEquals(com.muses.player.core.model.scrape.LyricsSource.EMBEDDED, song.lyricsSource)
             assertEquals(task.url, invalidated)

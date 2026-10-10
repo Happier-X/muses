@@ -25,6 +25,7 @@ class AudioTagReader constructor(
     }
 
     private val tagCache = mutableMapOf<String, AudioTags>()
+    private val tagRevisions = mutableMapOf<String, String>()
 
     /**
      * 读取音频标签
@@ -33,13 +34,13 @@ class AudioTagReader constructor(
      * @return 解析出的标签信息，失败返回 null
      */
     fun readTags(source: String): AudioTags? {
-        // 命中内存缓存直接返回
-        tagCache[source]?.let { return it }
-
         return try {
             val file = resolveFile(source)
+            val revision = "${file.lastModified()}:${file.length()}"
+            if (tagRevisions[source] == revision) tagCache[source]?.let { return it }
             val tags = parseTags(file)
             tagCache[source] = tags
+            tagRevisions[source] = revision
             tags
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
@@ -84,14 +85,34 @@ class AudioTagReader constructor(
         val hash = uriString.hashCode().toString(16)
         val rawSuffix = uriString.substringAfterLast('/').substringAfterLast(':').take(30)
         val safeSuffix = rawSuffix.replace(Regex("[^A-Za-z0-9._-]"), "_").ifEmpty { "audio" }
-        val target = File(cacheDir, "content_${hash}_${safeSuffix}.tmp")
-        if (target.exists() && target.length() > 0) return target
         val uri = Uri.parse(uriString)
+        val extension = runCatching {
+            context.contentResolver.query(uri, arrayOf(android.provider.MediaStore.Audio.Media.DISPLAY_NAME),
+                null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0)?.substringAfterLast('.', "") else null
+            }
+        }.getOrNull()?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) } ?: "tmp"
+        // jaudiotagger 按扩展名选择解析器；.tmp 会导致 FLAC/M4A 等格式无法读取。
+        val target = File(cacheDir, "content_${hash}_${safeSuffix}.$extension")
+        val revision = runCatching {
+            context.contentResolver.query(uri, arrayOf(android.provider.MediaStore.Audio.Media.DATE_MODIFIED,
+                android.provider.MediaStore.Audio.Media.SIZE, android.provider.MediaStore.Audio.Media.DATA), null, null, null)?.use {
+                if (it.moveToFirst()) {
+                    val physical = it.getString(2)?.let(::File)
+                    if (physical?.isFile == true) "${physical.lastModified()}:${physical.length()}"
+                    else "${it.getLong(0)}:${it.getLong(1)}"
+                } else null
+            }
+        }.getOrNull()
+        val revisionFile = File(cacheDir, "${target.name}.revision")
+        if (revision != null && target.exists() && target.length() > 0 &&
+            revisionFile.exists() && revisionFile.readText() == revision) return target
         context.contentResolver.openInputStream(uri)?.use { input ->
             FileOutputStream(target).use { output ->
                 input.copyTo(output)
             }
         } ?: throw java.io.FileNotFoundException("无法打开 content URI: $uriString")
+        revisionFile.writeText(revision.orEmpty())
         return target
     }
 
@@ -106,6 +127,19 @@ class AudioTagReader constructor(
      */
     private fun downloadFile(url: String): File {
         val cacheFile = getCacheFile(url)
+        val revisionFile = File(cacheFile.parentFile, "${cacheFile.name}.revision")
+        // 每次播放只探测文件版本；服务器不提供版本时重新读取标签头部。
+        val revision = okHttpClient.newCall(Request.Builder().url(url).head().build()).execute().use {
+            if (!it.isSuccessful) null else it.header("ETag")?.takeIf(String::isNotBlank)
+                ?: it.header("Last-Modified")?.takeIf(String::isNotBlank)?.let { modified ->
+                    "$modified:${it.header("Content-Length").orEmpty()}"
+                }
+        }
+        if (revision == null || !revisionFile.exists() || revisionFile.readText() != revision) {
+            tagCache.remove(url)
+            tagRevisions.remove(url)
+            cacheFile.delete()
+        }
 
         // 缓存文件存在且有效，直接返回；ID3v2 缓存若短于标签声明大小（旧版 256KB 截断）删除重下
         if (cacheFile.exists() && cacheFile.length() > 0) {
@@ -127,6 +161,7 @@ class AudioTagReader constructor(
             // Range 失败：全量下载
             cacheFile.delete()
             downloadFullFile(url, cacheFile)
+            revisionFile.writeText(revision.orEmpty())
             return cacheFile
         }
 
@@ -139,6 +174,7 @@ class AudioTagReader constructor(
                 downloadRange(url, cacheFile, 0, needed - 1)
             }
         }
+        revisionFile.writeText(revision.orEmpty())
         return cacheFile
     }
 
@@ -253,6 +289,8 @@ class AudioTagReader constructor(
             ) {
                 return null
             }
+            val declared = (6..9).fold(0) { size, index -> (size shl 7) or (bytes[index].toInt() and 0x7f) }
+            if (bytes.size < declared + 10) return null
             when (bytes[3]) {
                 4.toByte() -> org.jaudiotagger.tag.id3.ID3v24Tag(java.nio.ByteBuffer.wrap(bytes))
                 3.toByte() -> org.jaudiotagger.tag.id3.ID3v23Tag(java.nio.ByteBuffer.wrap(bytes))
@@ -321,10 +359,13 @@ class AudioTagReader constructor(
      */
     fun invalidate(source: String) {
         tagCache.remove(source)
+        tagRevisions.remove(source)
         try {
             when {
                 source.startsWith("http://") || source.startsWith("https://") -> {
-                    getCacheFile(source).takeIf { it.exists() }?.delete()
+                    val file = getCacheFile(source)
+                    file.takeIf { it.exists() }?.delete()
+                    File(file.parentFile, "${file.name}.revision").delete()
                 }
                 source.startsWith("content://") -> {
                     val hash = source.hashCode().toString(16)
@@ -354,6 +395,12 @@ class AudioTagReader constructor(
      */
     fun readTagForUpdate(path: String, songId: String): TagUpdateData? {
         val tags = readTags(path) ?: return null
+        val title = tags.title?.takeIf { it.isNotBlank() } ?: if (path.startsWith("content://")) {
+            runCatching {
+                context.contentResolver.query(Uri.parse(path), arrayOf(android.provider.MediaStore.Audio.Media.DISPLAY_NAME),
+                    null, null, null)?.use { if (it.moveToFirst()) it.getString(0)?.substringBeforeLast('.') else null }
+            }.getOrNull()
+        } else null
         
         // 提取封面到本地文件
         val coverPath = tags.cover?.let { coverBytes ->
@@ -369,7 +416,7 @@ class AudioTagReader constructor(
         }
         
         return TagUpdateData(
-            title = tags.title,
+            title = title,
             artist = tags.artist,
             album = tags.album,
             lyrics = tags.lyrics,

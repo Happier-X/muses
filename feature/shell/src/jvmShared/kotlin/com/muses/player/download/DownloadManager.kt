@@ -66,6 +66,7 @@ class DownloadManager(
     private val scrapeUploads: com.muses.player.core.scrape.writeback.PendingScrapeUploads? = null,
     private val scrapeUploadClient: com.muses.player.core.webdav.WebDavClient? = null,
     private val uploadedAudioInvalidator: com.muses.player.core.scrape.writeback.UploadedAudioInvalidator? = null,
+    private val scrapeQueueStore: com.muses.player.core.scrape.queue.ScrapeQueueStore? = null,
 ) {
     val pendingScrapeUploads = scrapeUploads?.tasks ?: MutableStateFlow(emptyList<com.muses.player.core.scrape.writeback.PendingScrapeUpload>())
     val uploadingScrapeId = scrapeUploads?.uploading ?: MutableStateFlow<String?>(null)
@@ -113,14 +114,23 @@ class DownloadManager(
             val changes = task.metadata
             val previous = song.metaSources ?: com.muses.player.core.model.scrape.MetaSources()
             val embedded = com.muses.player.core.model.scrape.MetaFieldSource.EMBEDDED
-            songs.upsert(song.copy(metaSources = previous.copy(
-                title = if (changes.title != null && song.title == changes.title) embedded else previous.title,
-                artist = if (changes.artist != null && song.artist == changes.artist) embedded else previous.artist,
-                album = if (changes.album != null && song.album == changes.album) embedded else previous.album,
-                cover = if (changes.coverUri != null && song.coverUri == changes.coverUri?.takeIf { it.isNotEmpty() }) embedded else previous.cover,
-            ), lyricsSource = if (changes.lyrics != null && song.lyrics == changes.lyrics)
+            songs.upsert(song.copy(
+                title = changes.title ?: song.title,
+                artist = changes.artist ?: song.artist,
+                album = changes.album ?: song.album,
+                coverUri = if (changes.coverUri != null) changes.coverUri?.takeIf { it.isNotEmpty() } else song.coverUri,
+                lyrics = changes.lyrics ?: song.lyrics,
+                lyricsFormat = if (changes.lyrics != null) com.muses.player.core.model.scrape.LyricsFormat.entries
+                    .firstOrNull { it.wire == changes.lyricsFormat } else song.lyricsFormat,
+                metaSources = previous.copy(
+                title = if (changes.title != null) embedded else previous.title,
+                artist = if (changes.artist != null) embedded else previous.artist,
+                album = if (changes.album != null) embedded else previous.album,
+                cover = if (changes.coverUri != null) embedded else previous.cover,
+            ), lyricsSource = if (changes.lyrics != null)
                 com.muses.player.core.model.scrape.LyricsSource.EMBEDDED else song.lyricsSource))
             uploadedAudioInvalidator?.invalidate(song.path)
+            scrapeQueueStore?.remove(listOf(song.id))
         }
     }
 
