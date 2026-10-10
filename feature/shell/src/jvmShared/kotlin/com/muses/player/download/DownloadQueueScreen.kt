@@ -51,12 +51,14 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
     val tasks by manager.tasks.collectAsState()
     val sources by manager.availableSources.collectAsState()
     val defaultTarget by manager.defaultTarget.collectAsState()
+    val scrapeUploads by manager.pendingScrapeUploads.collectAsState()
+    val uploadingScrapeId by manager.uploadingScrapeId.collectAsState()
     var targetPickerId by remember { mutableStateOf<String?>(null) }
     var targetPickerOpen by remember { mutableStateOf(false) }
     var actionsId by remember { mutableStateOf<String?>(null) }
     var qualityId by remember { mutableStateOf<String?>(null) }
     val pending = tasks.filter { !it.status.active && it.status != DownloadStatus.COMPLETED }
-    val active = tasks.any { it.status.active }
+    val active = tasks.any { it.status.active } || uploadingScrapeId != null
     val scheme = MiuixTheme.colorScheme
     val targets = remember(sources) { downloadTargetOptions(sources) }
 
@@ -93,6 +95,36 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                             colors = ButtonDefaults.buttonColorsPrimary(),
                         ) {
                             Text("全部下载")
+                        }
+                    }
+                }
+            }
+
+            if (tasks.any { it.status == DownloadStatus.PENDING_UPLOAD } || scrapeUploads.isNotEmpty()) {
+                item("upload-controls") {
+                    Card {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("本地已保存，待上传", style = MiuixTheme.textStyles.title4)
+                            Text("上传失败的音频会保留在本机。补传直接使用已保存的文件，也可以导出后自行上传。", color = scheme.onSurfaceVariantSummary)
+                            Button(onClick = {
+                                manager.start(tasks.filter { it.status == DownloadStatus.PENDING_UPLOAD }.map { it.id }.toSet(), defaultTarget)
+                                manager.retryScrapeUploads(scrapeUploads.map { it.id }.toSet())
+                            }, enabled = !active && uploadingScrapeId == null) { Text("全部补传") }
+                        }
+                    }
+                }
+            }
+            items(scrapeUploads, key = { "scrape-${it.id}" }) { task ->
+                Card {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(task.title, style = MiuixTheme.textStyles.title4)
+                        Text(if (uploadingScrapeId == task.id) "刮削 · 上传与核验中" else "刮削 · 本地已保存，待上传")
+                        task.error?.let { Text(it, color = scheme.error) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(onClick = { manager.exportScrapeUpload(task.id) }, enabled = uploadingScrapeId != task.id,
+                                modifier = Modifier.weight(1f)) { Text("导出到本地") }
+                            Button(onClick = { manager.retryScrapeUploads(setOf(task.id)) }, enabled = uploadingScrapeId == null,
+                                modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColorsPrimary()) { Text("补传") }
                         }
                     }
                 }
@@ -141,7 +173,7 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                         val failedTransfer = task.status == DownloadStatus.FAILED &&
                             (task.failureStage == DownloadStatus.UPLOADING || task.failureStage == DownloadStatus.SAVING ||
                                 (task.failureStage == null && task.transferTotalBytes != null))
-                        val transfer = task.status == DownloadStatus.UPLOADING || task.status == DownloadStatus.SAVING || failedTransfer
+                        val transfer = task.status == DownloadStatus.UPLOADING || task.status == DownloadStatus.SAVING || task.status == DownloadStatus.PENDING_UPLOAD || failedTransfer
                         val bytes = if (transfer) task.transferredBytes else task.downloadedBytes
                         val total = if (transfer) task.transferTotalBytes else task.totalBytes
                         Text(
@@ -185,6 +217,7 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                                     Text(
                                         when {
                                             task.status.active -> "暂停"
+                                            task.status == DownloadStatus.PENDING_UPLOAD -> "补传"
                                             task.status == DownloadStatus.FAILED -> "重试"
                                             task.status == DownloadStatus.PAUSED -> "继续"
                                             else -> "下载"
@@ -208,7 +241,8 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
         items = buildList {
             if (selected != null && !selected.status.active && selected.status != DownloadStatus.COMPLETED) {
                 add(MusesActionItem("更改保存位置") { targetPickerId = selected.id; actionsId = null; targetPickerOpen = true })
-                add(MusesActionItem("更改下载品质") { qualityId = selected.id; actionsId = null })
+                if (selected.localAudioPath == null) add(MusesActionItem("更改下载品质") { qualityId = selected.id; actionsId = null })
+                if (selected.localAudioPath != null) add(MusesActionItem("导出到本地") { manager.exportDownload(selected.id); actionsId = null })
             }
             selected?.let { task -> add(MusesActionItem("移出队列") { manager.remove(task.id); actionsId = null }) }
         },
@@ -275,6 +309,7 @@ internal fun formatBytes(bytes: Long): String =
     if (bytes < 1024 * 1024) "${bytes / 1024} KB" else "%.1f MB".format(bytes / (1024.0 * 1024))
 
 internal fun statusLabel(status: DownloadStatus): String = when (status) {
+    DownloadStatus.PENDING_UPLOAD -> "本地已保存，待上传"
     DownloadStatus.WAITING -> "待下载"
     DownloadStatus.PREPARING -> "准备下载"
     DownloadStatus.DOWNLOADING -> "下载中"

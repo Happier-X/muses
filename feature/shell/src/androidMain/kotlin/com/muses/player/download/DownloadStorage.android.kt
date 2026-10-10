@@ -25,6 +25,7 @@ private class AndroidDownloadStorage(
     private val settings: SettingsRepository,
 ) : DownloadStorage {
     override val cacheDirectory = File(context.cacheDir, "downloads")
+    override val stagingDirectory = File(context.filesDir, "pending-downloads")
     private val resolver get() = context.contentResolver
 
     override suspend fun exists(task: DownloadTask): Boolean {

@@ -331,8 +331,13 @@ object NeteaseLyricParser {
         val result = MutableList<LyricLine?>(primary.size) { null }
         var cursor = 0
         for ((index, target) in primary.withIndex()) {
+            // 跳过已经早于当前行的注释；未来的译文不能被署名、前奏或缺译文行消耗。
+            while (cursor < adjusted.size && adjusted[cursor].timeMs < target.timeMs - ANNOTATION_TOLERANCE_MS) {
+                cursor++
+            }
+            if (cursor >= adjusted.size) break
             while (cursor + 1 < adjusted.size &&
-                kotlin.math.abs(adjusted[cursor + 1].timeMs - target.timeMs) <=
+                kotlin.math.abs(adjusted[cursor + 1].timeMs - target.timeMs) <
                 kotlin.math.abs(adjusted[cursor].timeMs - target.timeMs)
             ) {
                 cursor++
@@ -340,8 +345,8 @@ object NeteaseLyricParser {
             val candidate = adjusted[cursor]
             if (kotlin.math.abs(candidate.timeMs - target.timeMs) <= ANNOTATION_TOLERANCE_MS) {
                 result[index] = candidate
+                cursor++
             }
-            if (cursor < adjusted.lastIndex) cursor++
         }
         return result
     }

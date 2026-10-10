@@ -54,7 +54,7 @@ class PlatformSearchProviderTest {
         {"ARTISTPIC":"","HIT":"2249","TOTAL":"2249","PN":"0","RN":"3","abslist":[
         {"ALBUM":"","ALBUMID":"0","ARTIST":"薛之谦&赵英俊","DC_TARGETID":"193507024",
          "DURATION":"22","MUSICRID":"MUSIC_193507024","NAME":"丑八怪",
-         "SONGNAME":"丑八怪 (Live)","web_albumpic_short":"120/240/abc.jpg","SUBList":[]}]}
+         "SONGNAME":"丑八怪 (Live)","N_MINFO":"level:ff,bitrate:2000,format:flac,size:23.87Mb","web_albumpic_short":"120/240/abc.jpg","SUBList":[]}]}
     """.trimIndent()
 
     @Test
@@ -67,6 +67,7 @@ class PlatformSearchProviderTest {
         // MUSICRID 需剥掉 MUSIC_ 前缀（脚本侧要纯数字）
         assertEquals("193507024", r.songId)
         assertEquals("丑八怪 (Live)", r.name)
+        assertEquals("SQ", r.qualityLabel)
         assertEquals("薛之谦&赵英俊", r.artist)
         assertEquals(22_000L, r.durationMs)
         assertNotNull(r.coverUrl)
@@ -105,7 +106,7 @@ class PlatformSearchProviderTest {
         {"code":0,"req":{"code":0,"data":{"body":{"song":{"totalnum":"100","list":[
         {"id":409068462,"mid":"001TQYtM47BGjK","name":"花海","title":"花海","interval":254,
          "singer":[{"id":4623547,"mid":"002P80KI41I05l","name":"周杰伦"}],
-         "album":{"id":0,"mid":"","name":"叶惠美"}}]}}}}}
+         "album":{"id":0,"mid":"","name":"叶惠美"},"file":{"size_hires":0,"size_flac":18000000}}]}}}}}
     """.trimIndent()
 
     @Test
@@ -115,6 +116,7 @@ class PlatformSearchProviderTest {
         assertEquals("tx", r.platform)
         assertEquals("001TQYtM47BGjK", r.songId)
         assertEquals("花海", r.name)
+        assertEquals("SQ", r.qualityLabel)
         assertEquals("周杰伦", r.artist)
         assertEquals("叶惠美", r.album)
         assertEquals(254_000L, r.durationMs)
@@ -175,6 +177,7 @@ class PlatformSearchProviderTest {
         // 优先取无损 hash（音质更好）
         assertEquals("0A69169202DE95AAF24A9944CCF0730D", r.songId)
         assertEquals("晴天", r.name)
+        assertEquals("SQ", r.qualityLabel)
         assertEquals("周杰伦", r.artist)
         assertEquals("叶惠美", r.album)
         assertEquals(269_000L, r.durationMs)
@@ -208,6 +211,7 @@ class PlatformSearchProviderTest {
         {"id":"1140505222","copyrightId":"60054704965","name":"圣诞星（feat. 杨瑞代）",
          "singers":[{"id":"112","name":"周杰伦"}],
          "albums":[{"id":"1140505221","name":"圣诞星","type":"1"}],
+         "newRateFormats":[{"formatType":"HQ","size":"8000000"}],
          "imgItems":[{"imgSizeType":"01","img":"https://d.musicapp.migu.cn/data/oss/cover.jpg"}]}]}}
     """.trimIndent()
 
@@ -219,6 +223,7 @@ class PlatformSearchProviderTest {
         // 脚本侧通用标识是 copyrightId
         assertEquals("60054704965", r.songId)
         assertEquals("圣诞星（feat. 杨瑞代）", r.name)
+        assertEquals("HQ", r.qualityLabel)
         assertEquals("周杰伦", r.artist)
         assertEquals("圣诞星", r.album)
         assertNotNull(r.coverUrl)

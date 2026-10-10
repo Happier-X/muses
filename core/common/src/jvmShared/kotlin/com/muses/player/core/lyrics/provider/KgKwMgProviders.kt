@@ -154,11 +154,42 @@ suspend fun searchKwLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLy
         return null
     }
     val rows = body.obj("data")?.arrCompat("lrclist").orEmpty()
-    val lrc = linesToLrc(
-        rows.map { row -> LrcLine(time = row.str("time")?.toDoubleOrNull() ?: row.str("time"), text = row.str("lineLyric")) },
-    )
+    return parseKwLyricRows(rows.map { row ->
+        LrcLine(time = row.str("time")?.toDoubleOrNull() ?: row.str("time"), text = row.str("lineLyric"))
+    })
+}
+
+/** 酷我翻译列表中的译文时间有时是原文结束时间；按明确的双语配对还原到原文起点。 */
+internal fun parseKwLyricRows(rows: List<LrcLine>): OnlineLyricsProviderHit? {
+    val latin = Regex("[A-Za-z]")
+    val han = Regex("[\\u3400-\\u9FFF]")
+    val content = rows.filter { !it.text.isNullOrBlank() }
+    val marker = content.indexOfFirst { it.text?.contains("以下歌词翻译") == true }
+    // 部分版本只有空白翻译声明；必须整段满足连续双语配对与结束时间结构才处理。
+    val startIndex = if (marker >= 0) marker + 1 else content.indices.firstOrNull { index ->
+        val original = content[index]
+        val next = content.getOrNull(index + 1)
+        (original.time?.toString()?.toDoubleOrNull() ?: 0.0) > 0 &&
+            latin.containsMatchIn(original.text.orEmpty()) && !han.containsMatchIn(original.text.orEmpty()) &&
+            next != null && han.containsMatchIn(next.text.orEmpty())
+    } ?: content.size
+    val bilingual = content.drop(startIndex)
+    val pairs = bilingual.chunked(2)
+    val paired = pairs.size >= 3 && pairs.all { pair ->
+        pair.size == 2 && latin.containsMatchIn(pair[0].text.orEmpty()) &&
+            !han.containsMatchIn(pair[0].text.orEmpty()) && han.containsMatchIn(pair[1].text.orEmpty())
+    } && pairs.withIndex().all { (index, pair) ->
+        val start = pair[0].time?.toString()?.toDoubleOrNull()
+        val end = pair[1].time?.toString()?.toDoubleOrNull()
+        val next = pairs.getOrNull(index + 1)?.first()?.time?.toString()?.toDoubleOrNull()
+        start != null && start.isFinite() && end != null && end.isFinite() &&
+            end >= start && (end == start || next == null || end == next)
+    }
+    val originals = if (paired) content.take(if (marker >= 0) marker else startIndex) + pairs.map { it[0] } else rows
+    val lrc = linesToLrc(originals)
     if (lrc.isBlank()) return null
-    return OnlineLyricsProviderHit(text = lrc, format = OnlineLyricsFormat.LRC)
+    val translation = if (paired) linesToLrc(pairs.map { it[1].copy(time = it[0].time) }) else null
+    return OnlineLyricsProviderHit(text = lrc, format = OnlineLyricsFormat.LRC, translationText = translation)
 }
 
 // ── 咪咕（mg.ts）：移动搜索结果的歌词 URL 或内嵌歌词；失败返回 null 由链上下一源承接 ──

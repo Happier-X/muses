@@ -53,6 +53,28 @@ class DesktopWebDavClient(
     private val rateLimiter: WebDavRateLimiter = WebDavRateLimiter(),
     private val errorLogStore: ErrorLogStore? = null,
 ) : WebDavClient {
+    override fun newSession(): WebDavClient = DesktopWebDavClient(httpClient, rateLimiter, errorLogStore)
+    override suspend fun strongETag(url: String): String? {
+        rateLimiter.acquire()
+        val response = httpClient.request(encodeUrl(url)) {
+            method = HttpMethod.Head
+            effectiveAuthHeader(url)?.let { header("Authorization", it) }
+        }
+        if (response.status.value == 401 || response.status.value == 403) throw WebDavAuthException("WebDAV 认证失败")
+        return response.headers["ETag"]?.takeIf { response.status.isSuccess() && it.startsWith("\"") && it.endsWith("\"") }
+    }
+    override suspend fun putIfMatch(url: String, source: File, eTag: String?) {
+        rateLimiter.acquire()
+        val response = httpClient.request(encodeUrl(url)) {
+            method = HttpMethod.Put
+            effectiveAuthHeader(url)?.let { header("Authorization", it) }
+            eTag?.let { header("If-Match", it) }
+            setBody(ByteArrayContent(source.readBytes(), ContentType.Application.OctetStream))
+        }
+        response.bodyAsText()
+        if (response.status.value == 412) throw WebDavRequestException(412, "远端文件已经变化，已停止补传")
+        if (!response.status.isSuccess()) throw WebDavRequestException(response.status.value, "上传失败（HTTP ${response.status.value}）")
+    }
 
     /** 显式认证头（authenticate 设置）；空则回落 registry 按 URL 前缀匹配（预留，桌面当前无 registry） */
     @Volatile

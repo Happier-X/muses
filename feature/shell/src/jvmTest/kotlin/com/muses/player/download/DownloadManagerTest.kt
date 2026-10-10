@@ -63,6 +63,7 @@ class DownloadManagerTest {
         val manager = DownloadManager(store, settings, sources, credentials, songs, lx,
             NoOpOnlineTrackMetadataResolver, null, object : DownloadStorage by createDownloadStorage(settings) {
                 override val cacheDirectory = File(root, "cache")
+                override val stagingDirectory = File(root, "cache")
             }, resolveTimeoutMs = resolveTimeoutMs, scope = scope, client = client, resolveAudio = { _, quality ->
                 resolves++
                 resolveOverride?.invoke(quality) ?: LxMusicUrl(server.url("/audio").toString(), LxQuality.Q_128K)
@@ -265,7 +266,7 @@ class DownloadManagerTest {
                 h.manager.tasks.first { tasks -> tasks.any { it.transferMessage == "等待服务器保存" } }
                 h.manager.pause(id).join()
             }
-            assertEquals(DownloadStatus.PAUSED, h.store.load().single().status)
+            assertEquals(DownloadStatus.PENDING_UPLOAD, h.store.load().single().status)
         }
     }
 
@@ -286,13 +287,88 @@ class DownloadManagerTest {
             h.manager.enqueue(h.song("second").copy(title = "下一首歌曲")).join()
             h.manager.start(h.store.load().map { it.id }.toSet(),
                 DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
-            val failed = h.await(DownloadStatus.FAILED)
+            val failed = h.await(DownloadStatus.PENDING_UPLOAD)
             assertEquals(DownloadStatus.UPLOADING, failed.failureStage)
             assertTrue(failed.error.orEmpty().contains("等待服务器保存超时"))
             assertEquals(failed.transferTotalBytes, failed.transferredBytes)
             assertEquals(DownloadStatus.COMPLETED, h.await(DownloadStatus.COMPLETED).status)
             assertEquals(2, puts.get())
             assertEquals(1, h.added.size)
+        }
+    }
+
+    @Test fun pendingUploadSurvivesNewManagerAndDoesNotResolveAgain() = runBlocking {
+        Harness().use { h ->
+            var uploadAllowed = false
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = when (request.method) {
+                    "GET" -> MockResponse().setBody(Buffer().write(wav()))
+                    "HEAD" -> MockResponse().setResponseCode(404)
+                    "PUT" -> MockResponse().setResponseCode(if (uploadAllowed) 201 else 503)
+                    else -> MockResponse().setResponseCode(405)
+                }
+            }
+            h.manager.enqueue(h.song()).join()
+            val target = DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")
+            h.manager.start(h.store.load().map { it.id }.toSet(), target).join()
+            val pending = h.await(DownloadStatus.PENDING_UPLOAD)
+            uploadAllowed = true
+            val restored = DownloadManager(h.store, h.settings, h.sources, h.credentials, h.songs, h.lx,
+                NoOpOnlineTrackMetadataResolver, null, object : DownloadStorage by createDownloadStorage(h.settings) {
+                    override val cacheDirectory = File(h.root, "cache")
+                    override val stagingDirectory = File(h.root, "cache")
+                }, scope = h.scope, resolveAudio = { _, _ -> error("补传不能重新解析或下载") })
+            restored.start(setOf(pending.id), target).join()
+            val completed = withTimeout(5000) {
+                restored.tasks.first { it.singleOrNull()?.status == DownloadStatus.COMPLETED }.single()
+            }
+            assertNull(completed.localAudioPath)
+            assertEquals(1, h.resolves)
+            assertEquals(1, h.added.size)
+        }
+    }
+
+    @Test fun successfulScrapeRetryUpdatesEmbeddedMarkers() = runBlocking {
+        Harness().use { h ->
+            val original = File(h.root, "original.mp3").apply { writeText("原始音频") }
+            val prepared = File(h.root, "prepared.mp3").apply { writeText("已内嵌的音频") }
+            val queue = com.muses.player.core.scrape.writeback.PendingScrapeUploads(File(h.root, "scrape-uploads"))
+            val task = queue.prepare("library-song", h.source.id, h.source.url!!, h.server.url("/dav/song.mp3").toString(),
+                "新标题", prepared, com.muses.player.core.scrape.writeback.audioFileHash(original),
+                com.muses.player.core.scrape.writeback.PendingScrapeMetadata(title = "新标题", lyrics = "内嵌歌词"))
+            var song = Song("library-song", h.source.id, task.url, "新标题", lyrics = "内嵌歌词",
+                sourceType = SourceType.WEBDAV,
+                metaSources = com.muses.player.core.model.scrape.MetaSources(title = com.muses.player.core.model.scrape.MetaFieldSource.SCRAPE),
+                lyricsSource = com.muses.player.core.model.scrape.LyricsSource.SCRAPE)
+            val repository = object : SongRepository by h.songs {
+                override suspend fun getSong(id: String) = song
+                override suspend fun upsert(value: Song) { song = value }
+            }
+            val remote = object : com.muses.player.core.webdav.WebDavClient {
+                var bytes = original.readBytes()
+                override fun authenticate(username: String, password: String) = Unit
+                override suspend fun probe(baseUrl: String) = true
+                override suspend fun list(url: String) = emptyList<com.muses.player.core.webdav.WebDavItem>()
+                override suspend fun get(url: String, dest: File) = dest.apply { writeBytes(bytes) }
+                override suspend fun strongETag(url: String) = "\"original\""
+                override suspend fun put(url: String, source: File) { bytes = source.readBytes() }
+                override suspend fun putIfMatch(url: String, source: File, eTag: String?) {
+                    assertEquals("\"original\"", eTag); put(url, source)
+                }
+                override suspend fun delete(url: String) = error("禁止删除")
+                override suspend fun move(source: String, dest: String) = error("禁止移动")
+                override suspend fun getString(url: String): String? = null
+            }
+            var invalidated: String? = null
+            val manager = DownloadManager(h.store, h.settings, h.sources, h.credentials, repository, h.lx,
+                NoOpOnlineTrackMetadataResolver, null, createDownloadStorage(h.settings), scope = h.scope,
+                scrapeUploads = queue, scrapeUploadClient = remote,
+                uploadedAudioInvalidator = com.muses.player.core.scrape.writeback.UploadedAudioInvalidator { invalidated = it })
+            manager.retryScrapeUploads(setOf(task.id)).join()
+            assertTrue(queue.tasks.value.isEmpty())
+            assertEquals(com.muses.player.core.model.scrape.MetaFieldSource.EMBEDDED, song.metaSources?.title)
+            assertEquals(com.muses.player.core.model.scrape.LyricsSource.EMBEDDED, song.lyricsSource)
+            assertEquals(task.url, invalidated)
         }
     }
 
@@ -335,7 +411,7 @@ class DownloadManagerTest {
             h.manager.enqueue(h.song()).join()
             h.manager.start(setOf(h.store.load().single().id),
                 DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
-            val failed = h.await(DownloadStatus.FAILED)
+            val failed = h.await(DownloadStatus.PENDING_UPLOAD)
             assertTrue(failed.error.orEmpty().contains("HTTP 423"))
             assertTrue(failed.error.orEmpty().contains("锁定"))
             assertEquals(DownloadStatus.UPLOADING, failed.failureStage)
@@ -396,7 +472,7 @@ class DownloadManagerTest {
             h.manager.enqueue(h.song()).join()
             h.manager.start(setOf(h.store.load().single().id),
                 DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
-            val failed = h.await(DownloadStatus.FAILED)
+            val failed = h.await(DownloadStatus.PENDING_UPLOAD)
             assertEquals(DownloadStatus.UPLOADING, failed.failureStage)
             assertTrue(h.added.isEmpty())
             recover = true
@@ -428,11 +504,11 @@ class DownloadManagerTest {
             }
             h.manager.enqueue(h.song()).join()
             h.manager.start(h.store.load().map { it.id }.toSet(), DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
-            val first = h.await(DownloadStatus.FAILED)
+            val first = h.await(DownloadStatus.PENDING_UPLOAD)
             recovering.set(true)
             h.manager.start(setOf(first.id), first.target!!).join()
             val retry = withTimeout(5000) {
-                h.manager.tasks.first { tasks -> tasks.any { it.status == DownloadStatus.FAILED && it.error.orEmpty().contains("未通过完整性核验") } }
+                h.manager.tasks.first { tasks -> tasks.any { it.status == DownloadStatus.PENDING_UPLOAD && it.error.orEmpty().contains("未通过完整性核验") } }
                     .single()
             }
             assertFalse(retry.skippedExisting)
@@ -474,7 +550,7 @@ class DownloadManagerTest {
         }
     }
 
-    @Test fun stalePartialAudioIsReDownloadedInsteadOfFailingWith416() = runBlocking {
+    @Test fun pendingUploadReusesPreparedAudioWithoutDownloadingAgain() = runBlocking {
         Harness().use { h ->
             val payload = wav()
             var uploadAllowed = false
@@ -496,17 +572,20 @@ class DownloadManagerTest {
             h.manager.enqueue(h.song()).join()
             val id = h.store.load().single().id
             h.manager.start(setOf(id), target).join()
-            h.await(DownloadStatus.FAILED)
-            // 上传阶段失败后，音频分片与续传校验器都还留着，这正是重试发 416 的场景
+            val pending = h.await(DownloadStatus.PENDING_UPLOAD)
+            assertNotNull(pending.localAudioPath)
+            // 已完成的音频持久保留，不再留下重复的下载分片和续传校验器。
             val part = File(File(h.root, "cache"), id + File.separator + "audio.part")
-            assertEquals(payload.size.toLong(), part.length())
+            assertFalse(part.exists())
+            assertTrue(File(pending.localAudioPath!!).isFile)
             // 音源直链必须带音源生态 UA：okhttp 默认 UA 会被网易 CDN 403
             assertTrue(seenAgent.any { it == "lx-music" } && seenAgent.none { it.startsWith("okhttp") })
-            assertNotNull(h.store.load().single().resumeValidator)
+            assertNull(h.store.load().single().resumeValidator)
 
             uploadAllowed = true
             h.manager.start(setOf(id), target).join()
             assertEquals(DownloadStatus.COMPLETED, h.await(DownloadStatus.COMPLETED).status)
+            assertEquals(1, h.resolves)
         }
     }
 
@@ -644,7 +723,7 @@ class DownloadManagerTest {
             }
             h.manager.enqueue(h.song()).join()
             h.manager.start(setOf(h.store.load().single().id), DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")).join()
-            val result = h.await(if (putSucceeds) DownloadStatus.COMPLETED else DownloadStatus.FAILED)
+            val result = h.await(if (putSucceeds) DownloadStatus.COMPLETED else DownloadStatus.PENDING_UPLOAD)
             assertFalse(result.skippedExisting)
             val requests = (1..h.server.requestCount).map { h.server.takeRequest(2, TimeUnit.SECONDS)!! }
             assertEquals(if (putSucceeds) 1 else 0, requests.count { it.method == "DELETE" })

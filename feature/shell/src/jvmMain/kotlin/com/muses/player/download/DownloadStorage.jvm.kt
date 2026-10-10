@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.first
 
 actual fun createDownloadStorage(settings: SettingsRepository): DownloadStorage = object : DownloadStorage {
     override val cacheDirectory = File(System.getProperty("java.io.tmpdir"), "muses-downloads")
+    override val stagingDirectory = File(com.muses.player.core.data.platform.PlatformDirs.appDataDir(), "pending-downloads")
     override suspend fun exists(task: DownloadTask): Boolean {
         val location = task.savedLocation ?: return false
         return File(location).isFile

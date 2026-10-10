@@ -128,6 +128,10 @@ val scrapeModule = module {
 
     // W3 写回链 KMP 化：jaudiotagger 标签端口双端实现（:core:common jvmShared，core/media TagWriter 逻辑上收）
     single<TagPort> { JaudiotaggerTagPort }
+    single<com.muses.player.core.scrape.writeback.UploadedAudioInvalidator> {
+        val reader: AudioTagReader = get()
+        com.muses.player.core.scrape.writeback.UploadedAudioInvalidator { reader.invalidate(it) }
+    }
 
     // 写回按来源分流（Web writeback.ts writeFile 分派语义，与桌面 DesktopScrapeGraph 同构）：
     // WEBDAV → 下载-写标签-上传；其余（LOCAL 等）→ 本地直写。

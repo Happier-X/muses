@@ -69,16 +69,16 @@ internal fun wyCatalogQualityLabel(song: JsonObject): String? {
 }
 
 val OnlineSearchResult.qualityLabel: String?
-    get() = if (platform != "wy") null else runCatching {
+    get() = runCatching {
         Json.parseToJsonElement(musicInfoJson).jsonObject.str("catalogQuality")
             ?.takeIf { it in setOf("Hi-Res", "SQ", "HQ", "标准") }
     }.getOrNull()
 
 /** 仅标记平台确认的原唱，翻唱和未知不展示，不从歌名文字推断。 */
 val OnlineSearchResult.performanceLabel: String?
-    get() = if (platform != "wy") null else when (runCatching {
-        Json.parseToJsonElement(musicInfoJson).jsonObject.long("originCoverType")
-    }.getOrNull()) {
-        1L -> "原唱"
-        else -> null
-    }
+    get() = runCatching {
+        val info = Json.parseToJsonElement(musicInfoJson).jsonObject
+        if ((platform == "wy" && info.long("originCoverType") == 1L) ||
+            info.str("catalogPerformance") == "original"
+        ) "原唱" else null
+    }.getOrNull()

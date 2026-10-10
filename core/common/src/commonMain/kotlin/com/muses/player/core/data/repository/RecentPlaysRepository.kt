@@ -27,7 +27,7 @@ import kotlinx.serialization.json.jsonObject
  * 最近播放记录（任务 08-25-native-playback-persistence / P2）。
  *
  * 播放一首歌即记录、同曲去重置顶，仅持久保留最近半年的记录；
- * 仅存展示所需元数据（title/subtitle/coverUri），点击播放时按 songId 从曲库解析。
+ * 保存展示元数据和在线曲目引用；在线歌曲无需入库即可从历史再次播放。
  * 存储替换 localStorage → DataStore；事件广播 → StateFlow。
  */
 class RecentPlaysRepository constructor(private val dataStore: DataStore<Preferences>) {
@@ -68,6 +68,9 @@ class RecentPlaysRepository constructor(private val dataStore: DataStore<Prefere
                 subtitle = str("subtitle") ?: "",
                 coverUri = str("coverUri"),
                 playedAt = str("playedAt")?.toLongOrNull() ?: return@mapNotNull null,
+                onlineTrack = o["onlineTrack"]?.let { value -> runCatching {
+                    Json.decodeFromJsonElement(com.muses.player.core.model.playback.RecentOnlineTrack.serializer(), value)
+                }.getOrNull() },
             )
         }
     }.getOrDefault(emptyList())
@@ -83,6 +86,9 @@ class RecentPlaysRepository constructor(private val dataStore: DataStore<Prefere
                         put("subtitle", JsonPrimitive(e.subtitle))
                         e.coverUri?.let { put("coverUri", JsonPrimitive(it)) }
                         put("playedAt", JsonPrimitive(e.playedAt.toString()))
+                        e.onlineTrack?.let { track ->
+                            put("onlineTrack", Json.encodeToJsonElement(com.muses.player.core.model.playback.RecentOnlineTrack.serializer(), track))
+                        }
                     })
                 }
             })

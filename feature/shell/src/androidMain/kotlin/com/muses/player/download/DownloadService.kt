@@ -6,6 +6,7 @@ import android.os.IBinder
 import com.muses.player.core.model.download.DownloadStatus
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import org.koin.core.context.GlobalContext
 
 actual fun keepDownloadsRunning(running: Boolean) {
@@ -24,14 +25,16 @@ class DownloadService : Service() {
         notifications.createNotificationChannel(NotificationChannel(CHANNEL, "歌曲下载", NotificationManager.IMPORTANCE_LOW))
         startForeground(ID, notification("准备下载"))
         scope.launch {
-            manager.tasks.collect { tasks ->
+            combine(manager.tasks, manager.pendingScrapeUploads, manager.uploadingScrapeId) { tasks, uploads, uploadId ->
                 val task = tasks.firstOrNull { it.status.active }
                 val text = task?.let { when (it.status) {
                     DownloadStatus.UPLOADING -> "上传中 · ${it.track.title}"
                     DownloadStatus.SAVING -> "保存中 · ${it.track.title}"
                     DownloadStatus.METADATA -> "保存歌曲信息 · ${it.track.title}"
                     else -> "下载中 · ${it.track.title}"
-                } } ?: "准备下载"
+                } } ?: uploads.firstOrNull { it.id == uploadId }?.let { "刮削补传中 · ${it.title}" } ?: "准备下载"
+                text
+            }.collect { text ->
                 notifications.notify(ID, notification(text))
             }
         }

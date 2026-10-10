@@ -121,6 +121,7 @@ fun ScrapeReviewScreen(
             ScrapeReviewState.Writing -> WritingContent()
 
             is ScrapeReviewState.Success -> SuccessContent(
+                message = s.message,
                 nextSongId = s.nextSongId,
                 // 成功页返回同样视为结束连续审核（清待审队列；队列由「应用并下一首」推进）
                 onBack = { onManualBack(); onBack() },
@@ -165,6 +166,7 @@ private fun WritingContent() {
 
 @Composable
 private fun SuccessContent(
+    message: String,
     nextSongId: String?,
     onBack: () -> Unit,
     onNext: (String) -> Unit,
@@ -172,7 +174,7 @@ private fun SuccessContent(
     val scheme = MiuixTheme.colorScheme
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("已更新", style = MiuixTheme.textStyles.body1, color = scheme.primary, fontWeight = FontWeight.SemiBold)
+            Text(message, style = MiuixTheme.textStyles.body1, color = scheme.primary, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))
             if (nextSongId != null) {
                 // S3 批量模式：应用并下一首

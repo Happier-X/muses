@@ -6,6 +6,7 @@ import com.muses.player.core.data.repository.PlaybackStateRepository
 import com.muses.player.core.data.repository.PlayStatsRepository
 import com.muses.player.core.data.repository.PlayStatsSessionTracker
 import com.muses.player.core.data.repository.RecentPlaysRepository
+import com.muses.player.core.model.playback.toRecentPlayEntry
 import com.muses.player.core.data.store.createDataStore
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.model.online.OnlineTrackRef
@@ -425,15 +426,11 @@ class JvmPlayerPort(
             startPlayback(ref, target, startPositionMs)
             // 最近播放登记（同曲去重置顶/上限50，对齐 RecentPlaysRepository 语义）
             runCatching {
-                val subtitle = listOfNotNull(ref.artist, ref.album).joinToString(" - ")
                 recentPlaysRepository.record(
-                    com.muses.player.core.model.playback.RecentPlayEntry(
-                        songId = ref.id,
-                        title = ref.title,
-                        subtitle = subtitle,
-                        coverUri = ref.coverUri,
-                        playedAt = System.currentTimeMillis(),
-                    ),
+                    com.muses.player.core.model.Song(
+                        id = ref.id, sourceId = ref.sourceId, path = ref.path, title = ref.title,
+                        artist = ref.artist, album = ref.album, coverUri = ref.coverUri, sourceType = ref.sourceType,
+                    ).toRecentPlayEntry(System.currentTimeMillis()),
                 )
             }.onFailure { e ->
                 if (e is CancellationException) throw e

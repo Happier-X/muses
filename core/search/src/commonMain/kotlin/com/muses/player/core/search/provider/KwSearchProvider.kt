@@ -74,6 +74,7 @@ class KwSearchProvider(
                     singer = artist,
                     album = album,
                     durationSec = durationSec,
+                    extra = catalogMetadata(platform, item),
                 ),
             )
         }

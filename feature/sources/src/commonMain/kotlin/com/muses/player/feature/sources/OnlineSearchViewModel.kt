@@ -96,7 +96,7 @@ class OnlineSearchViewModel(
 
     private val _state = MutableStateFlow(
         OnlineSearchUiState(
-            platforms = listOf("wy").map {
+            platforms = searchService.platforms.map {
                 PlatformSearchState(platform = it, displayName = searchService.platformNames.getValue(it))
             },
         ),
@@ -207,7 +207,7 @@ class OnlineSearchViewModel(
                 searched = true,
                 searchedKeyword = keyword,
                 message = null,
-                platforms = listOf("wy").map { p ->
+                platforms = searchService.platforms.map { p ->
                     PlatformSearchState(
                         platform = p,
                         displayName = searchService.platformNames.getValue(p),
@@ -215,7 +215,7 @@ class OnlineSearchViewModel(
                     )
                 },
             )
-            val outcomes = searchService.searchAll(keyword, platforms = listOf("wy"), page = 1, pageSize = DEFAULT_PAGE_SIZE)
+            val outcomes = searchService.searchAll(keyword, page = 1, pageSize = DEFAULT_PAGE_SIZE)
             if (requestSeq != searchSeq) return@launch
             applyOutcomes(outcomes, page = 1)
             _state.value = _state.value.copy(searching = false)

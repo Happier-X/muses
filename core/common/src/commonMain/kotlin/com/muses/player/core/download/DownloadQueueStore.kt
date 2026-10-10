@@ -38,6 +38,10 @@ class DownloadQueueStore(private val dataStore: DataStore<Preferences>) {
 
     /** 进程中断后保留任务；必须由用户手动继续，不自动开始待下载项。 */
     suspend fun recoverInterrupted() = update { tasks -> tasks.map {
-        if (it.status.active) it.copy(status = DownloadStatus.PAUSED, error = "上次下载已中断，点击继续") else it
+        if (it.status.active) it.copy(
+            status = if (it.localAudioPath != null && it.target?.kind == com.muses.player.core.model.download.DownloadTargetKind.WEBDAV)
+                DownloadStatus.PENDING_UPLOAD else DownloadStatus.PAUSED,
+            error = if (it.localAudioPath != null) "本地文件已保留，点击继续" else "上次下载已中断，点击继续",
+        ) else it
     } }
 }

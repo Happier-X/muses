@@ -104,7 +104,7 @@ sealed interface ScrapeReviewState {
      * 写回成功。
      * @param nextSongId 批量模式下一首（S3 接线「应用并下一首」；单曲模式 null）
      */
-    data class Success(val nextSongId: String? = null) : ScrapeReviewState
+    data class Success(val nextSongId: String? = null, val message: String = "已更新") : ScrapeReviewState
 }
 
 /** 搜索词（title/artist/album 三输入，默认预填本地值） */
@@ -454,7 +454,7 @@ class ScrapeReviewViewModel constructor(
         viewModelScope.launch {
             _state.value = ScrapeReviewState.Writing
             try {
-                writebackOrchestrator.applyScrapeChanges(
+                val result = writebackOrchestrator.applyScrapeChanges(
                     candidates = listOf(ScrapeCandidate(songId = song.id, song = song)),
                     checkedIds = setOf(song.id),
                     changesMap = mapOf(song.id to changes),
@@ -468,7 +468,11 @@ class ScrapeReviewViewModel constructor(
                 } catch (_: Exception) {
                     // 出队失败不阻断成功态（队列页 reloadQueue 有懒清理）
                 }
-                _state.value = ScrapeReviewState.Success(nextSongId)
+                val row = result.results.singleOrNull()
+                _state.value = ScrapeReviewState.Success(nextSongId,
+                    if (row?.fileResult?.code == "pending_upload") "本地已保存，待上传。可到下载页手动补传。"
+                    else if (row?.fileResult?.ok == false) row.fileResult.message ?: "曲库已更新，文件写入失败"
+                    else "已更新")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

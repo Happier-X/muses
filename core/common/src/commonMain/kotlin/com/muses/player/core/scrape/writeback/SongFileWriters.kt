@@ -109,9 +109,13 @@ class WebDavAudioTagFileWriter(
     private val tagPort: TagPort,
     /** 下载临时目录（cache 目录，由装配方提供） */
     private val tempDir: File,
+    private val pendingUploads: PendingScrapeUploads = PendingScrapeUploads.shared,
 ) : AudioTagFileWriter {
 
     override suspend fun write(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult {
+        pendingUploads.forSong(song.id)?.let {
+            error("这首歌曲已有待上传的刮削文件，请到下载页补传后再进行新的刮削。")
+        }
         safeLogW("WebDavWrite", "write start songId=${song.id} path=${song.path} sourceId=${song.sourceId} title=${song.title}")
         // 确保临时目录存在（系统可能清理 cache）
         if (!tempDir.exists()) tempDir.mkdirs()
@@ -134,7 +138,7 @@ class WebDavAudioTagFileWriter(
                 return FileWriteResult(ok = false, code = "no_password", message = "WebDAV 密码未配置，请到音源设置补全后重试。")
             }
 
-        val client = webDavClientFactory()
+        val client = webDavClientFactory().newSession()
         client.authenticate(username = source.username ?: "", password = password)
 
         // 3. 完整文件地址：历史数据中 song.path 可能为完整 URL（WebDavLibraryScanner 存 item.url）或相对路径，需兼容
@@ -200,25 +204,19 @@ class WebDavAudioTagFileWriter(
                 )
             }
 
+            val originalHash = withContext(Dispatchers.IO) { audioFileHash(tempFile) }
             val tagResult = withContext(Dispatchers.IO) { tagPort.writeTags(tempFile, changes, coverBytes) }
             safeLogW("WebDavWrite", "tagWrite ok=${tagResult.ok} code=${tagResult.code} msg=${tagResult.message} changes=$changes")
             if (!tagResult.ok) {
                 return FileWriteResult(ok = false, code = tagResult.code, message = tagResult.message)
             }
 
-            try {
-                client.put(url, tempFile)
-                safeLogW("WebDavWrite", "put ok url=$url size=${tempFile.length()}")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                safeLogE("WebDavWrite", "put_failed url=$url", e)
-                return FileWriteResult(
-                    ok = false,
-                    code = "put_failed",
-                    message = e.message ?: "上传 WebDAV 音频失败。",
-                )
-            }
+            val pending = pendingUploads.prepare(song.id, source.id, serverUrl, url,
+                changes.title ?: song.title, tempFile, originalHash,
+                PendingScrapeMetadata(changes.title, changes.artist, changes.album,
+                    changes.coverUri ?: changes.coverRemoteUrl, changes.lyrics))
+            if (!pendingUploads.upload(pending, client)) return FileWriteResult(false,
+                "pending_upload", "本地已保存，待上传。可到下载页手动补传。")
             return FileWriteResult(ok = true)
         } finally {
             tempFile.delete()

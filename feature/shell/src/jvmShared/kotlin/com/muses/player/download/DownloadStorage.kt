@@ -10,6 +10,7 @@ data class SavedDownload(val location: String, val physicalPath: String? = null,
 /** 下载先在私有目录完整写入标签，再提交到目标；目标端禁止覆盖已有文件。 */
 interface DownloadStorage {
     val cacheDirectory: File
+    val stagingDirectory: File get() = cacheDirectory
     suspend fun save(files: List<File>, target: DownloadTarget, progress: suspend (Long, Long) -> Unit): SavedDownload
 
     /**

@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.model.playback.RecentPlayEntry
+import com.muses.player.core.model.playback.onlineSong
 import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.MusesEmpty
@@ -93,11 +94,13 @@ fun HistoryScreen(onBack: () -> Unit) {
                             onClick = {
                                 scope.launch {
                                     val songsById = songRepository.getSongs(history.map { it.songId })
-                                    val song = songsById[entry.songId]
+                                    val sessionSongs = com.muses.player.core.model.online.OnlineTrackSession.findAll(history.map { it.songId })
+                                    val queue = history.mapNotNull { songsById[it.songId] ?: sessionSongs[it.songId] ?: it.onlineSong() }
+                                    val song = queue.firstOrNull { it.id == entry.songId }
                                     if (song == null) {
                                         MusesSnackbar.show("歌曲已不在曲库中")
                                     } else {
-                                        playback.play(song.id, history.mapNotNull { songsById[it.songId] })
+                                        playback.play(song.id, queue)
                                     }
                                 }
                             },

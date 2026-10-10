@@ -26,6 +26,7 @@ import com.muses.player.core.data.repository.PlaybackStateRepository
 import com.muses.player.core.data.repository.PlayStatsRepository
 import com.muses.player.core.data.repository.PlayStatsSessionTracker
 import com.muses.player.core.data.repository.RecentPlaysRepository
+import com.muses.player.core.model.playback.toRecentPlayEntry
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.tag.AudioTagReader
 import com.muses.player.core.lyrics.matchDocument
@@ -787,16 +788,9 @@ class PlaybackService : MediaSessionService() {
                     val playingNow = player.isPlaying
                     if (currentId != null) serviceScope.launch {
                         val entity = songDao.getById(currentId)
-                        entity?.toDomain()?.let { song ->
+                        (entity?.toDomain() ?: com.muses.player.core.model.online.OnlineTrackSession.find(currentId))?.let { song ->
                             recentPlaysRepository.record(
-                                com.muses.player.core.model.playback.RecentPlayEntry(
-                                    songId = song.id,
-                                    title = song.title,
-                                    subtitle = listOfNotNull(song.artist, song.album)
-                                        .filter { it.isNotBlank() }.joinToString(" - "),
-                                    coverUri = song.coverUri,
-                                    playedAt = System.currentTimeMillis(),
-                                ),
+                                song.toRecentPlayEntry(System.currentTimeMillis()),
                             )
                             if (playRequested) {
                                 playStatsTracker.onSongStarted(

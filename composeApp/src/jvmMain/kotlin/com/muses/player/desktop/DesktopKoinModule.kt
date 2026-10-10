@@ -119,6 +119,9 @@ class DesktopLibraryScanPort(
  * AppVersionProvider（DesktopRuntime 构建期资源版本）。
  */
 fun desktopLibraryModule(): Module = module {
+    single<com.muses.player.core.scrape.writeback.UploadedAudioInvalidator> {
+        com.muses.player.core.scrape.writeback.UploadedAudioInvalidator { DesktopContainer.audioCache().invalidate(it) }
+    }
     // U12：端口绑定——共享 PlayerViewModel 经 PlaybackPort 消费桌面播放栈
     single<com.muses.player.core.playback.PlaybackPort> { DesktopRuntime.playerHook() }
     single { DesktopContainer.database().songDao() }

@@ -346,7 +346,7 @@ private fun ResultContent(state: ScrapePageState.Result, remaining: Int, undoing
                             },
                             statusWire = when (result.status) {
                                 WritebackStatus.SUCCESS -> "已更新"
-                                WritebackStatus.FILE_FAILED -> "文件未更新"
+                                WritebackStatus.FILE_FAILED -> if (result.fileResult.code == "pending_upload") "本地已保存，待上传" else "文件未更新"
                                 WritebackStatus.FAILED -> "更新失败"
                             },
                             detail = if (result.status == WritebackStatus.SUCCESS) null else

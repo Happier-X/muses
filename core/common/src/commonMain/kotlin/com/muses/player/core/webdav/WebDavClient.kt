@@ -30,6 +30,14 @@ class WebDavRequestException(val code: Int, message: String) : Exception(message
  * WebDavAudioCache/写回链路调用面零改动）。
  */
 interface WebDavClient {
+    /** 共享连接池但隔离显式认证，避免并发操作不同音源时串用密码。 */
+    fun newSession(): WebDavClient = this
+    /** 服务端没有强 ETag 时返回 null，调用方仍须核验完整内容。 */
+    suspend fun strongETag(url: String): String? = null
+    suspend fun putIfMatch(url: String, source: File, eTag: String?) {
+        check(eTag == null) { "此 WebDAV 客户端不支持条件上传" }
+        put(url, source)
+    }
     /** 设置 Basic Auth 凭据（内存持有，不持久化密码到网络层） */
     fun authenticate(username: String, password: String)
 

@@ -87,6 +87,7 @@ class TxSearchProvider(
                     singer = singer,
                     album = album,
                     durationSec = interval,
+                    extra = catalogMetadata(platform, item),
                 ),
             )
         }
@@ -165,6 +166,7 @@ class KgSearchProvider(
                     durationSec = durationSec,
                     // 各音质 hash 与专辑 id 显式给出（酷狗脚本按音质取对应 hash）
                     extra = buildMap {
+                        putAll(catalogMetadata(platform, item))
                         item.str("SQFileHash")?.takeIf { it.isNotBlank() && it != "0" }
                             ?.let { put("sqhash", it); put("SQFileHash", it) }
                         item.str("HQFileHash")?.takeIf { it.isNotBlank() && it != "0" }
@@ -319,6 +321,7 @@ class MgSearchProvider(
                     name = name,
                     singer = artist,
                     album = album,
+                    extra = catalogMetadata(platform, item),
                 ),
             )
         }

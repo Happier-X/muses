@@ -31,7 +31,7 @@ data class DownloadTarget(
 
 @Serializable
 enum class DownloadStatus {
-    WAITING, PREPARING, DOWNLOADING, METADATA, SAVING, UPLOADING, PAUSED, FAILED, COMPLETED;
+    WAITING, PREPARING, DOWNLOADING, METADATA, SAVING, UPLOADING, PENDING_UPLOAD, PAUSED, FAILED, COMPLETED;
     val active: Boolean get() = this in listOf(PREPARING, DOWNLOADING, METADATA, SAVING, UPLOADING)
 }
 
@@ -54,6 +54,9 @@ data class DownloadTask(
     val failureStage: DownloadStatus? = null,
     val skippedExisting: Boolean = false,
     val transferMessage: String? = null,
+    val localAudioPath: String? = null,
+    val localAudioHash: String? = null,
+    val localLyrics: String? = null,
 )
 
 /** 仅形成文件名，不允许音源歌曲元数据成为目录路径。 */

@@ -278,6 +278,7 @@ fun OnlineSearchScreen(
                                 val index = platform.results.indexOf(result)
                                 SearchResultRow(
                                     result = result,
+                                    sourceName = platformLabel(result.platform, platform.displayName),
                                     onClick = { viewModel.playResult(platform.platform, index) },
                                 )
                             }
@@ -414,6 +415,7 @@ private fun PlatformSectionHeader(platform: PlatformSearchState) {
 @Composable
 private fun SearchResultRow(
     result: OnlineSearchResult,
+    sourceName: String,
     onClick: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
@@ -435,7 +437,7 @@ private fun SearchResultRow(
                     style = MiuixTheme.textStyles.body2.copy(fontSize = SongListLayout.titleSize,
                         lineHeight = SongListLayout.titleLineHeight),
                 )
-                val sub = listOfNotNull(result.artist, result.album)
+                val sub = listOfNotNull(sourceName, result.artist, result.album)
                     .filter { it.isNotBlank() }
                     .joinToString(" · ")
                 if (sub.isNotBlank() || result.qualityLabel != null) {

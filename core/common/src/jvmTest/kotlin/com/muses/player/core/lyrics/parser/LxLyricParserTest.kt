@@ -17,6 +17,29 @@ import org.junit.Test
  * 行级 LRC 回退、以及逐字时间回退的单调修正。
  */
 class LxLyricParserTest {
+    @Test
+    fun `开头署名和缺译文行不消耗之后的译文`() {
+        val doc = LxLyricParser.parse(
+            lyric = "[00:00.00]标题\n[00:01.00]作者\n[00:02.62]制作\n[00:06.37]歌曲署名\n[00:46.66]First line\n[00:50.16]Second line\n[00:52.95]Untranslated line\n[00:56.51]Fourth line",
+            tlyric = "[00:46.66]第一行译文\n[00:50.16]第二行译文\n[00:56.51]第四行译文",
+        )!!
+        doc.lines.take(4).forEach { assertNull(it.translation) }
+        assertEquals("第一行译文", doc.lines[4].translation)
+        assertEquals("第二行译文", doc.lines[5].translation)
+        assertNull(doc.lines[6].translation)
+        assertEquals("第四行译文", doc.lines[7].translation)
+    }
+
+    @Test
+    fun `末条译文不重复分配给邻近下一行`() {
+        val doc = LxLyricParser.parse(
+            lyric = "[00:01.00]First line\n[00:02.00]Second line\n[00:03.00]Last line",
+            tlyric = "[00:01.00]第一行译文\n[00:02.00]第二行译文",
+        )!!
+        assertEquals("第一行译文", doc.lines[0].translation)
+        assertEquals("第二行译文", doc.lines[1].translation)
+        assertNull(doc.lines[2].translation)
+    }
 
     @Test
     fun `逐字绝对基准（酷我酷狗形态）逐字切分正确`() {

@@ -16,7 +16,9 @@ val shellModule = module {
         getOrNull<OnlineTrackMetadataResolver>() ?: NoOpOnlineTrackMetadataResolver,
         getOrNull<LyricsMatcher>(), com.muses.player.download.createDownloadStorage(get()),
         runningChanged = { com.muses.player.download.keepDownloadsRunning(it) },
-        urlProbe = getOrNull(), errorLog = getOrNull()) }
+        urlProbe = getOrNull(), errorLog = getOrNull(),
+        scrapeUploads = com.muses.player.core.scrape.writeback.PendingScrapeUploads.shared,
+        scrapeUploadClient = getOrNull(), uploadedAudioInvalidator = getOrNull()) }
     viewModel {
         // 在线曲目歌词端口与匹配器可选：宿主未装配时回落空实现（迷你条照常工作）
         MainViewModel(

@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.sync.withLock
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -62,7 +63,89 @@ class DownloadManager(
     private val uploadConfirmDelayMs: Long = 30_000L,
     private val uploadCommitTimeoutMs: Long = 120_000L,
     private val tagPort: TagPort = JaudiotaggerTagPort,
+    private val scrapeUploads: com.muses.player.core.scrape.writeback.PendingScrapeUploads? = null,
+    private val scrapeUploadClient: com.muses.player.core.webdav.WebDavClient? = null,
+    private val uploadedAudioInvalidator: com.muses.player.core.scrape.writeback.UploadedAudioInvalidator? = null,
 ) {
+    val pendingScrapeUploads = scrapeUploads?.tasks ?: MutableStateFlow(emptyList<com.muses.player.core.scrape.writeback.PendingScrapeUpload>())
+    val uploadingScrapeId = scrapeUploads?.uploading ?: MutableStateFlow<String?>(null)
+    private val scrapeRetryLock = kotlinx.coroutines.sync.Mutex()
+    @Volatile private var scrapeRunning = false
+    private val scrapeJobs = java.util.concurrent.ConcurrentHashMap.newKeySet<Job>()
+
+    fun retryScrapeUploads(ids: Set<String>) = scope.launch {
+        val job = currentCoroutineContext().job
+        scrapeJobs.add(job)
+        try {
+            scrapeRetryLock.withLock {
+                val queue = scrapeUploads ?: return@launch
+                val client = scrapeUploadClient?.newSession() ?: return@launch
+                try { runningChanged(true) } catch (_: Exception) {
+                    MusesSnackbar.show("无法启动后台上传，请保持应用在前台后重试"); return@launch
+                }
+                scrapeRunning = true
+                try {
+                    for (task in queue.tasks.value.filter { it.id in ids }) {
+                        try {
+                            val source = sources.getSource(task.sourceId)
+                            check(source?.type == SourceType.WEBDAV && source.url == task.sourceUrl) {
+                                "WebDAV 音源已变更，请核对原上传目标；本地文件已保留"
+                            }
+                            val password = credentials.getPassword(task.sourceId) ?: error("WebDAV 密码未配置")
+                            client.authenticate(source.username.orEmpty(), password)
+                            if (queue.upload(task, client, ::completeScrapeUpload)) MusesSnackbar.show("${task.title} 已上传")
+                        } catch (e: CancellationException) { throw e }
+                        catch (e: Exception) { queue.reportError(task.id, e.message ?: "上传失败，本地文件已保留") }
+                    }
+                } finally {
+                    scrapeRunning = false
+                    if (batch?.isActive != true) runningChanged(false)
+                }
+            }
+        } finally {
+            scrapeJobs.remove(job)
+        }
+    }
+
+    private suspend fun completeScrapeUpload(task: com.muses.player.core.scrape.writeback.PendingScrapeUpload) {
+        val song = songs.getSong(task.songId)
+        if (song != null && song.sourceId == task.sourceId) {
+            val changes = task.metadata
+            val previous = song.metaSources ?: com.muses.player.core.model.scrape.MetaSources()
+            val embedded = com.muses.player.core.model.scrape.MetaFieldSource.EMBEDDED
+            songs.upsert(song.copy(metaSources = previous.copy(
+                title = if (changes.title != null && song.title == changes.title) embedded else previous.title,
+                artist = if (changes.artist != null && song.artist == changes.artist) embedded else previous.artist,
+                album = if (changes.album != null && song.album == changes.album) embedded else previous.album,
+                cover = if (changes.coverUri != null && song.coverUri == changes.coverUri?.takeIf { it.isNotEmpty() }) embedded else previous.cover,
+            ), lyricsSource = if (changes.lyrics != null && song.lyrics == changes.lyrics)
+                com.muses.player.core.model.scrape.LyricsSource.EMBEDDED else song.lyricsSource))
+            uploadedAudioInvalidator?.invalidate(song.path)
+        }
+    }
+
+    fun exportScrapeUpload(id: String) = scope.launch {
+        val queue = scrapeUploads ?: return@launch
+        val task = queue.tasks.value.firstOrNull { it.id == id } ?: return@launch
+        try {
+            val file = queue.file(task)
+            check(file.isFile && com.muses.player.core.scrape.writeback.audioFileHash(file) == task.preparedHash) { "本地音频完整性核验失败" }
+            storage.save(listOf(file), DownloadTarget()) { _, _ -> }
+            MusesSnackbar.show("已保存到设备下载目录，待上传任务仍保留")
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { MusesSnackbar.show("导出失败，请检查保存位置、空间和权限") }
+    }
+
+    fun exportDownload(id: String) = scope.launch {
+        val task = store.load().firstOrNull { it.id == id } ?: return@launch
+        try {
+            val audio = task.localAudioPath?.let(::File) ?: error("没有待上传音频")
+            check(audio.isFile && com.muses.player.core.scrape.writeback.audioFileHash(audio) == task.localAudioHash) { "本地音频完整性核验失败" }
+            storage.save(listOf(audio), DownloadTarget()) { _, _ -> }
+            MusesSnackbar.show("已保存到设备下载目录，待上传任务仍保留")
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { MusesSnackbar.show("导出失败，请检查保存位置、空间和权限") }
+    }
     // WebDAV 使用 HTTP/1.1，提高部分 Android / 代理组合上传时的连接兼容性。
     private val webDavClient = client.newBuilder().protocols(listOf(Protocol.HTTP_1_1))
         // PUT 可能已经落盘，断连后先核验；禁止底层在未确认结果时自动重发。
@@ -151,11 +234,11 @@ class DownloadManager(
                         val snapshot = store.load()
                         val next = synchronized(schedulerLock) {
                             val id = pendingStarts.firstOrNull()
-                            if (id == null) { batch = null; runningChanged(false); null }
+                            if (id == null) { batch = null; if (!scrapeRunning) runningChanged(false); null }
                             else {
                                 pendingStarts.remove(id)
                                 val task = snapshot.firstOrNull { it.id == id && !it.status.active && it.status != DownloadStatus.COMPLETED }
-                                val job = launch(start = CoroutineStart.LAZY) { if (task != null) execute(task) }
+                                val job = launch(start = CoroutineStart.LAZY) { if (task != null) scrapeRetryLock.withLock { execute(task) } }
                                 activeId = id
                                 active = job
                                 job
@@ -172,12 +255,13 @@ class DownloadManager(
 
     fun pause(id: String? = null) = scope.launch {
         ready.await()
+        if (id == null) scrapeJobs.toList().forEach { it.cancel() }
         val stopping = synchronized(schedulerLock) {
             if (id == null) pendingStarts.clear() else pendingStarts.remove(id)
             if (id == null || activeId == id) active?.also { it.cancel() } else null
         }
         stopping?.join()
-        store.update { list -> list.map { if ((id == null || it.id == id) && it.status != DownloadStatus.COMPLETED && it.status != DownloadStatus.FAILED)
+        store.update { list -> list.map { if ((id == null || it.id == id) && it.status != DownloadStatus.COMPLETED && it.status != DownloadStatus.FAILED && it.status != DownloadStatus.PENDING_UPLOAD)
             it.copy(status = DownloadStatus.PAUSED) else it } }
     }
 
@@ -189,7 +273,7 @@ class DownloadManager(
     fun configure(id: String, target: DownloadTarget? = null, quality: String? = null) = scope.launch {
         ready.await()
         store.update { it.map { task -> if (task.id == id && !task.status.active && task.status != DownloadStatus.COMPLETED)
-            task.copy(target = target ?: task.target, quality = quality ?: task.quality) else task } }
+            task.copy(target = target ?: task.target, quality = if (task.localAudioPath == null) quality ?: task.quality else task.quality) else task } }
     }
 
     private suspend fun change(id: String, transform: (DownloadTask) -> DownloadTask) = store.update {
@@ -200,27 +284,48 @@ class DownloadManager(
         try {
             change(task.id) { it.copy(status = DownloadStatus.PREPARING,
                 transferredBytes = 0, transferTotalBytes = null, warnings = emptyList(), error = null, failureStage = null, skippedExisting = false, transferMessage = null) }
-            val ref = OnlineTrackRef.parse(task.track.reference) ?: error("在线歌曲信息无效，请重新加入队列")
-            val requested = LxQuality.fromKey(task.quality) ?: LxQuality.DEFAULT
-            val directory = File(storage.cacheDirectory, task.id).apply { mkdirs() }
+            val directory = File(storage.stagingDirectory, task.id).apply { mkdirs() }
             val scratch = File(directory, "audio.part")
-            downloadAudio(task.id, ref, requested, scratch)
-            val extension = detectAudioExtension(scratch) ?: error("返回内容不是支持的音频格式，未保存到目标")
-            val base = downloadBaseName(task.track)
-            val audio = File(directory, "$base.$extension")
-            scratch.copyTo(audio, overwrite = true)
-            change(task.id) { it.copy(status = DownloadStatus.METADATA) }
-            val warnings = mutableListOf<String>()
-            val (lyrics, cover) = collectMetadata(task, ref, warnings)
-            val tagsWritten = try {
-                tagPort.writeTags(audio, ScrapeChanges(title = task.track.title,
-                    artist = task.track.artist, album = task.track.album, lyrics = lyrics), cover).ok
-            } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { false }
-            if (!tagsWritten) {
-                // 写标签可能已经部分改动文件，失败时恢复完整原始音频再保存。
+            val warnings = task.warnings.toMutableList()
+            val audio: File
+            val embeddedLyrics: String?
+            if (task.localAudioPath != null) {
+                audio = File(task.localAudioPath)
+                check(audio.isFile && audio.length() > 0 && audio.canonicalFile.parentFile == directory.canonicalFile) {
+                    "已保存的本地音频不存在，请检查本地文件"
+                }
+                check(task.localAudioHash != null && com.muses.player.core.scrape.writeback.audioFileHash(audio) == task.localAudioHash) {
+                    "本地音频完整性核验失败，已停止上传"
+                }
+                embeddedLyrics = task.localLyrics
+            } else {
+                val ref = OnlineTrackRef.parse(task.track.reference) ?: error("在线歌曲信息无效，请重新加入队列")
+                val requested = LxQuality.fromKey(task.quality) ?: LxQuality.DEFAULT
+                downloadAudio(task.id, ref, requested, scratch)
+                val extension = detectAudioExtension(scratch) ?: error("返回内容不是支持的音频格式，未保存到目标")
+                val base = downloadBaseName(task.track)
+                audio = File(directory, "$base.$extension")
                 scratch.copyTo(audio, overwrite = true)
-                warnings += "歌曲信息内嵌失败，已跳过，可稍后刮削"
+                change(task.id) { it.copy(status = DownloadStatus.METADATA) }
+                warnings.clear()
+                val (lyrics, cover) = collectMetadata(task, ref, warnings)
+                val tagsWritten = try {
+                    tagPort.writeTags(audio, ScrapeChanges(title = task.track.title,
+                        artist = task.track.artist, album = task.track.album, lyrics = lyrics), cover).ok
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { false }
+                if (!tagsWritten) {
+                    // 写标签可能已经部分改动文件，失败时恢复完整原始音频再保存。
+                    scratch.copyTo(audio, overwrite = true)
+                    warnings += "歌曲信息内嵌失败，已跳过，可稍后刮削"
+                }
+                embeddedLyrics = if (tagsWritten) lyrics else null
+                // 音频处理完成后先持久记录，补传不再解析音源、下载或重新写标签。
+                java.io.RandomAccessFile(audio, "rw").use { it.fd.sync() }
+                change(task.id) { it.copy(localAudioPath = audio.absolutePath,
+                    localAudioHash = com.muses.player.core.scrape.writeback.audioFileHash(audio),
+                    localLyrics = embeddedLyrics, warnings = warnings.toList(), resumeValidator = null) }
+                scratch.delete()
             }
             val files = listOf(audio)
             val target = task.target ?: error("请先选择保存位置")
@@ -237,7 +342,7 @@ class DownloadManager(
                     change(task.id) { it.copy(transferredBytes = bytes, transferTotalBytes = size) }
                 }
                 warnings.addAll(saved.warnings)
-                if (!saved.skippedExisting) syncLibrary(target, saved, task, if (tagsWritten) lyrics else null, warnings)
+                if (!saved.skippedExisting) syncLibrary(target, saved, task, embeddedLyrics, warnings)
                 change(task.id) {
                     it.copy(
                         status = DownloadStatus.COMPLETED,
@@ -247,6 +352,9 @@ class DownloadManager(
                         resumeValidator = null,
                         skippedExisting = saved.skippedExisting,
                         transferMessage = null,
+                        localAudioPath = null,
+                        localAudioHash = null,
+                        localLyrics = null,
                     )
                 }
             }
@@ -254,7 +362,8 @@ class DownloadManager(
             scratch.delete()
             files.forEach { it.delete() }
         } catch (e: CancellationException) {
-            withContext(NonCancellable) { change(task.id) { if (it.status == DownloadStatus.COMPLETED) it else it.copy(status = DownloadStatus.PAUSED, error = null) } }
+            withContext(NonCancellable) { change(task.id) { if (it.status == DownloadStatus.COMPLETED) it else it.copy(
+                status = if (it.localAudioPath != null && it.target?.kind == DownloadTargetKind.WEBDAV) DownloadStatus.PENDING_UPLOAD else DownloadStatus.PAUSED, error = null) } }
             throw e
         } catch (e: Exception) {
             val stage = store.load().firstOrNull { it.id == task.id }?.status
@@ -277,7 +386,8 @@ class DownloadManager(
                     cause.stackTrace.joinToString("\n") { "    at $it" }
             }
             errorLog?.log(ErrorLogStore.Level.ERROR, "Download", "阶段=$stage；$message\n$diagnostic")
-            change(task.id) { it.copy(status = DownloadStatus.FAILED, error = message, failureStage = stage) }
+            change(task.id) { it.copy(status = if (it.localAudioPath != null && it.target?.kind == DownloadTargetKind.WEBDAV)
+                DownloadStatus.PENDING_UPLOAD else DownloadStatus.FAILED, error = message, failureStage = stage) }
         }
     }
 

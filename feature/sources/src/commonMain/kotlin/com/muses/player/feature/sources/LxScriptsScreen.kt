@@ -440,12 +440,12 @@ internal fun LxScriptImportSheet(
 }
 
 /** 源 key → 中文展示名（对齐洛雪平台命名） */
-internal fun platformLabel(key: String): String = when (key) {
+internal fun platformLabel(key: String, displayName: String? = null): String = when (key) {
     "kw" -> "酷我"
     "kg" -> "酷狗"
-    "tx" -> "QQ音乐"
+    "tx" -> "QQ 音乐"
     "wy" -> "网易云"
     "mg" -> "咪咕"
     "local" -> "本地"
-    else -> key
+    else -> displayName?.takeIf { it.isNotBlank() } ?: key
 }
