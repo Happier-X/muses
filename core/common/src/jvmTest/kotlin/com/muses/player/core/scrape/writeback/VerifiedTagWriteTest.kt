@@ -36,6 +36,24 @@ class VerifiedTagWriteTest {
         } finally { file.delete() }
     }
 
+    @Test fun `原子替换被拒时回退为原地覆盖写入`() = runTest {
+        val file = audio()
+        try {
+            // 安卓外部存储（SAF 授权目录）不允许 rename 不是自己创建的文件，报 EPERM；
+            // 此时必须改写目标文件本身，否则本地文件音源的刮削回写全部失败。
+            val writer = LocalAudioTagFileWriter(JaudiotaggerTagPort) { _, _ ->
+                throw java.io.IOException("Operation not permitted")
+            }
+            val result = writer.write(
+                Song("test", "local", file.absolutePath, "旧标题"),
+                ScrapeChanges(title = "新标题", artist = "测试歌手"), null)
+            assertTrue(result.ok, result.message)
+            val actual = JaudiotaggerTagPort.readTags(file)!!
+            assertEquals("新标题", actual.title)
+            assertEquals("测试歌手", actual.artist)
+        } finally { file.delete() }
+    }
+
     @Test fun `封面不可用时不修改原音频`() = runTest {
         val file = audio()
         try {

@@ -10,6 +10,7 @@ import com.muses.player.core.scrape.http.ScrapeHttp
 import com.muses.player.core.scrape.ports.TagPort
 import com.muses.player.core.webdav.WebDavClient
 import java.io.File
+import java.io.FileOutputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -80,9 +81,18 @@ internal fun buildWebDavUrl(serverUrl: String, path: String): String =
 /**
  * 本地写路径：直接对 song.path 指向的物理文件经 [TagPort] 写入。
  * 文件不存在/格式不支持均由 TagPort 实现折叠为 write_failed 结果（对齐 file-failed 分类）。
+ *
+ * 保存方式优先「同目录临时文件 + 原子替换」，因为写标签失败时原文件零风险；
+ * 但安卓外部存储（/storage/emulated/0 下的 SAF 授权目录）不允许应用 rename 不是自己创建的文件，
+ * 原子替换会返回 EPERM，所以必须回退为对原文件原地覆盖写入。
  */
 class LocalAudioTagFileWriter(
     private val tagPort: TagPort,
+    /** 原子替换实现；默认同目录 rename，单测可注入失败以覆盖外部存储回退路径 */
+    private val atomicReplace: (File, File) -> Unit = { staged, original ->
+        java.nio.file.Files.move(staged.toPath(), original.toPath(),
+            java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+    },
 ) : AudioTagFileWriter {
     override suspend fun write(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult =
         withContext(Dispatchers.IO) {
@@ -94,13 +104,41 @@ class LocalAudioTagFileWriter(
                 original.copyTo(staged, overwrite = true)
                 val result = tagPort.writeAndVerify(staged, changes, coverBytes)
                 if (!result.ok) return@withContext result
-                java.nio.file.Files.move(staged.toPath(), original.toPath(),
-                    java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                if (!replaceAtomically(staged, original, atomicReplace)) overwriteInPlace(staged, original)
                 tagPort.verifyTags(original, changes, coverBytes)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { FileWriteResult(false, "write_failed", "本地文件保存失败：${e.message}") }
             finally { staged.delete() }
         }
+}
+
+/** 原子替换失败（安卓外部存储 EPERM）时改写回退路径；返回是否替换成功。 */
+private fun replaceAtomically(staged: File, original: File, atomicReplace: (File, File) -> Unit): Boolean = try {
+    atomicReplace(staged, original); true
+} catch (e: CancellationException) { throw e }
+catch (_: Exception) { false }
+
+/**
+ * 原地覆盖写入：SAF 授权目录下允许改写已有文件，只是不允许 rename 替换。
+ * 覆盖前先备份原文件，写入失败时回滚，避免半截文件盖掉原音频。
+ */
+private fun overwriteInPlace(staged: File, original: File) {
+    val parent = original.absoluteFile.parentFile
+    val backup = File.createTempFile(".muses-backup-", ".${original.extension}", parent)
+    original.copyTo(backup, overwrite = true)
+    try {
+        copyOver(staged, original)
+    } catch (e: Exception) {
+        runCatching { copyOver(backup, original) }
+        throw e
+    } finally { backup.delete() }
+}
+
+private fun copyOver(source: File, target: File) {
+    FileOutputStream(target).use { output ->
+        source.inputStream().use { it.copyTo(output) }
+        output.fd.sync()
+    }
 }
 
 /**
