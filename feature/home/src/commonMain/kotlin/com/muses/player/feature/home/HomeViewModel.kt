@@ -12,6 +12,7 @@ import com.muses.player.core.ai.DailyRecommendSnapshot
 import com.muses.player.core.ai.LibraryProfileBuilder
 import com.muses.player.core.ai.excludingOwnedSongs
 import com.muses.player.core.ai.localRecommendDay
+import com.muses.player.core.ai.personalized
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.repository.SettingsRepository
@@ -337,15 +338,16 @@ class HomeViewModel(
             try {
             withTimeout(90_000) {
             val cachedToday = DailyRecommendSnapshot.decode(settingsRepository.aiDailyRecommend.first(), today)
-            if (cachedToday != null) {
+            if (!forceRefresh && cachedToday != null) {
                 _state.value = _state.value.copy(recommend = _state.value.recommend.copy(
                     configured = true, result = cachedToday, day = today, error = null))
-                val filtered = cachedToday.excludingOwnedSongs(profileBuilder.build())
+                val filtered = cachedToday.personalized(profileBuilder.build())
                 val updated = if (filtered.tracks.any { it.result.platform == "wy" && it.result.coverUrl.isNullOrBlank() }) {
                     val songs = songVersionService.enrich(filtered.tracks.map { it.result })
                     filtered.copy(tracks = filtered.tracks.mapIndexed { index, track -> track.copy(result = songs[index]) })
                 } else filtered
-                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(result = updated))
+                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(result = updated,
+                    error = if (updated.tracks.isEmpty()) "今日推荐歌曲已在曲库中或最近听过，可重试" else null))
                 if (updated != cachedToday) {
                     settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(today, updated))
                 }
@@ -379,7 +381,7 @@ class HomeViewModel(
                 onSuccess = { result ->
                     if (result.allUnmatched) throw AiException("推荐歌曲暂时无法在各平台匹配，请稍后重试")
                     val latestProfile = profileBuilder.build()
-                    val filteredResult = result.excludingOwnedSongs(latestProfile)
+                    val filteredResult = result.personalized(latestProfile)
                     if (localRecommendDay() == today) {
                         runCatching {
                             settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(today, filteredResult))
@@ -391,7 +393,7 @@ class HomeViewModel(
                             result = filteredResult,
                             day = today,
                             error = if (filteredResult.tracks.isEmpty() && result.tracks.isNotEmpty()) {
-                                "今日推荐歌曲已全部存在于曲库中"
+                                "今日推荐歌曲已在曲库中或最近听过，可重试"
                             } else if (filteredResult.allUnmatched) {
                                 "AI 推荐的歌都没能在平台上匹配到，可点重试"
                             } else {
@@ -429,7 +431,7 @@ class HomeViewModel(
         }
     }
 
-    /** 失败后允许用户手动重试；当天已有结果时继续使用缓存。 */
+    /** 推荐失败或无可用结果时允许重试，不复用当天缓存。 */
     fun retryRecommend() {
         if (recommendJob?.isActive == true) return
         if (_state.value.recommend.result == null) {

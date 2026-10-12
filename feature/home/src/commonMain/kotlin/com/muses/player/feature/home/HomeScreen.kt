@@ -107,11 +107,6 @@ fun HomeCollectionScreen(
                 title = if (showRecommendations) "猜你喜欢" else "排行榜",
                 onBack = onBack,
                 actions = {
-                    if (showRecommendations) {
-                        MusesIconButton(onClick = viewModel::retryRecommend,
-                            imageVector = TablerIcons.Refresh, contentDescription = "刷新推荐",
-                            enabled = !recommend.loading)
-                    }
                     if (!showRecommendations && chart.platforms.size > 1) {
                         Box(contentAlignment = Alignment.CenterEnd) {
                             IconButton(
@@ -183,13 +178,7 @@ fun HomeCollectionScreen(
             )
         },
     ) { padding ->
-        MusesPullToRefresh(
-            isRefreshing = if (showRecommendations) recommend.loading else chart.loadingCharts || chart.refreshingCharts,
-            onRefresh = {
-                if (showRecommendations) viewModel.retryRecommend() else viewModel.loadCharts(forceRefresh = true)
-            },
-            modifier = Modifier.padding(padding),
-        ) {
+        val pageContent: @Composable () -> Unit = {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
@@ -244,6 +233,9 @@ fun HomeCollectionScreen(
             // ── 猜你喜欢 ──
             if (showRecommendations) {
             when {
+                recommend.loading && recommend.result == null -> item(key = "rec-loading") {
+                    LoadingRow()
+                }
                 !recommend.configured -> item(key = "rec-unconfigured") {
                     AiHintCard(
                         title = "配置 AI 服务",
@@ -265,8 +257,9 @@ fun HomeCollectionScreen(
                         item(key = "rec-empty") {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 MusesEmpty(
-                                    title = "空空如也~",
+                                    title = recommend.error ?: "暂时没有合适的推荐",
                                 )
+                                MusesButton(onClick = viewModel::retryRecommend, enabled = !recommend.loading) { Text("重试") }
                             }
                         }
                     } else {
@@ -295,6 +288,16 @@ fun HomeCollectionScreen(
             }
             item(key = "bottom-space") { Spacer(Modifier.height(8.dp)) }
         }
+        }
+        if (showRecommendations) {
+            Box(Modifier.fillMaxSize().padding(padding)) { pageContent() }
+        } else {
+            MusesPullToRefresh(
+                isRefreshing = chart.loadingCharts || chart.refreshingCharts,
+                onRefresh = { viewModel.loadCharts(forceRefresh = true) },
+                modifier = Modifier.padding(padding),
+                content = pageContent,
+            )
         }
     }
 }

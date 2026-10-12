@@ -9,6 +9,10 @@ import com.muses.player.core.model.playback.PlayerConfig
 import com.muses.player.core.model.playback.QueueItem
 import com.muses.player.core.model.playback.QueueSnapshotData
 import com.muses.player.core.model.playback.RepeatMode
+import com.muses.player.core.model.playback.SavedOnlineSong
+import com.muses.player.core.model.playback.RecentPlayEntry
+import com.muses.player.core.model.playback.onlineSong
+import com.muses.player.core.model.Song
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -47,7 +51,15 @@ class PlaybackStateRepository constructor(private val dataStore: DataStore<Prefe
         val currentIndex: Int = -1,
         val positionMs: Long = 0L,
         val currentSongId: String? = null,
-    )
+        val onlineSongs: List<SavedOnlineSong> = emptyList(),
+    ) {
+        /** 新快照优先；旧版仅 ID 快照从播放历史补救已播放过的在线歌曲。 */
+        fun restoreOnlineSongs(recent: List<RecentPlayEntry> = emptyList()): List<Song> {
+            val queued = items.map { it.songId }.toSet()
+            return (onlineSongs.mapNotNull { it.toSong() } + recent.mapNotNull { it.onlineSong() })
+                .filter { it.id in queued }.distinctBy { it.id }
+        }
+    }
 
     // ── JSON 编解码 ───────────────────────────────────────
 
@@ -78,6 +90,12 @@ class PlaybackStateRepository constructor(private val dataStore: DataStore<Prefe
             put("currentIndex", JsonPrimitive(snapshot.currentIndex.toString()))
             put("positionMs", JsonPrimitive(snapshot.positionMs.toString()))
             snapshot.currentSongId?.let { put("currentSongId", JsonPrimitive(it)) }
+            put("onlineSongs", buildJsonArray {
+                val queued = snapshot.items.map { it.songId }.toSet()
+                snapshot.onlineSongs.filter { it.id in queued && it.toSong() != null }.distinctBy { it.id }.forEach {
+                    add(json.encodeToJsonElement(SavedOnlineSong.serializer(), it))
+                }
+            })
         }
         return json.encodeToString(JsonObject.serializer(), body)
     }
@@ -96,6 +114,9 @@ class PlaybackStateRepository constructor(private val dataStore: DataStore<Prefe
             currentIndex = root.int("currentIndex") ?: -1,
             positionMs = (root.long("positionMs") ?: 0L).coerceAtLeast(0),
             currentSongId = root.str("currentSongId")?.takeIf(String::isNotEmpty),
+            onlineSongs = (root["onlineSongs"] as? JsonArray)?.mapNotNull {
+                runCatching { json.decodeFromJsonElement(SavedOnlineSong.serializer(), it) }.getOrNull()
+            }.orEmpty(),
         )
     }.getOrNull()
 
@@ -126,7 +147,7 @@ class PlaybackStateRepository constructor(private val dataStore: DataStore<Prefe
         val currentDeleted = currentId != null && currentId in songIds
         val newCurrentIndex = if (currentDeleted) -1 else snapshot.currentIndex.let { idx ->
             // 若删除的是当前项之前的歌曲，索引前移；否则保持
-            val deletedBefore = snapshot.items.take(idx).count { it.songId in songIds }
+            val deletedBefore = snapshot.items.take(idx.coerceAtLeast(0)).count { it.songId in songIds }
             (idx - deletedBefore).coerceAtLeast(-1)
         }
         val newPosition = if (currentDeleted) 0L else snapshot.positionMs
@@ -144,6 +165,7 @@ class PlaybackStateRepository constructor(private val dataStore: DataStore<Prefe
                 currentIndex = newCurrentIndex.coerceIn(-1, newItems.size - 1),
                 positionMs = newPosition,
                 currentSongId = newCurrentId,
+                onlineSongs = snapshot.onlineSongs.filter { it.id !in songIds },
             ),
         )
     }

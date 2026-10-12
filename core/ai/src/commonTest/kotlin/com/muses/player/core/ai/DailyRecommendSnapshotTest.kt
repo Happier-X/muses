@@ -31,6 +31,14 @@ class DailyRecommendSnapshotTest {
     }
 
     @Test
+    fun 旧算法缓存失效但当前算法当天缓存可恢复() {
+        val snapshot = DailyRecommendSnapshot.encode("2026-10-07", AiRecommendResult(listOf(track("晴天", "周杰伦")), 1, emptyList()))
+        assertEquals(1, DailyRecommendSnapshot.decode(snapshot, "2026-10-07")?.matched)
+        assertNull(DailyRecommendSnapshot.decode(snapshot.replace("\"algorithmVersion\":2", "\"algorithmVersion\":1"), "2026-10-07"))
+        assertNull(DailyRecommendSnapshot.decode(snapshot.replace(",\"algorithmVersion\":2", ""), "2026-10-07"))
+    }
+
+    @Test
     fun 当天缓存恢复播放字段并排除刚入库歌曲() {
         val result = AiRecommendResult(
             listOf(

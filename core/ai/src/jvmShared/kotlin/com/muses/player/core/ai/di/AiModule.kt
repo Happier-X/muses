@@ -19,7 +19,7 @@ fun aiModule() = module {
     single { AiChatClient() }
     single<AiScrapeMatcher> { AiScrapeMatchService(get()) }
     // SongDao 在 :core:data 的 databaseModule 里是 factory：这里取一次由 builder 长持
-    single { LibraryProfileBuilder(get()) }
+    single { LibraryProfileBuilder(get(), recentPlays = get(), playStats = get()) }
     // 匹配器复用搜索聚合服务（含并发限流）
     single { AiSuggestionMatcher(get()) }
     single { AiRecommendService(get(), get()) }

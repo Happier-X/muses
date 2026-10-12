@@ -20,6 +20,48 @@ import okio.Buffer
 import kotlin.test.*
 
 class DownloadManagerTest {
+    @Test fun losslessRequestCannotHideActualMp3AndResultSurvivesReload() = runBlocking {
+        Harness().use { h ->
+            h.settings.setDownloadPreferredQuality("flac")
+            h.resolveOverride = { LxMusicUrl(h.server.url("/audio").toString(), LxQuality.FLAC) }
+            val bytes = javaClass.getResourceAsStream("/audio/sine.mp3")!!.use { it.readBytes() }
+            h.server.enqueue(MockResponse().setBody(Buffer().write(bytes)))
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id), h.target).join()
+            val completed = h.await(DownloadStatus.COMPLETED)
+            assertEquals("flac", completed.requestedQuality)
+            assertTrue(completed.actualQualityLabel!!.startsWith("MP3 · 有损"))
+            assertTrue(completed.qualityWarning!!.contains("音质未达到所选「无损」"))
+            assertTrue(completed.qualityWarning in completed.warnings)
+            assertEquals("mp3", File(completed.savedLocation!!).extension)
+            val restored = DownloadQueueStore(h.dataStore).load().single()
+            assertEquals(completed.actualQualityLabel, restored.actualQualityLabel)
+            assertEquals(completed.qualityWarning, restored.qualityWarning)
+        }
+    }
+
+    @Test fun realFlacIsVerifiedWithoutLosslessWarning() = runBlocking {
+        Harness().use { h ->
+            h.settings.setDownloadPreferredQuality("flac")
+            h.resolveOverride = { LxMusicUrl(h.server.url("/audio").toString(), LxQuality.FLAC) }
+            val bytes = javaClass.getResourceAsStream("/audio/sine.flac")!!.use { it.readBytes() }
+            h.server.enqueue(MockResponse().setBody(Buffer().write(bytes)))
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id), h.target).join()
+            val completed = h.await(DownloadStatus.COMPLETED)
+            assertTrue(completed.actualQualityLabel!!.startsWith("FLAC · 无损"))
+            assertNull(completed.qualityWarning)
+        }
+    }
+
+    @Test fun qualityReportDoesNotTreatUnknownOrSixteenBitAsRequestedQuality() {
+        assertTrue(downloadQualityReport(LxQuality.FLAC, "flac", null).label.contains("未核实"))
+        assertNotNull(downloadQualityReport(LxQuality.FLAC, "flac", null).warning)
+        val sixteenBit = com.muses.player.core.media.scanner.DownloadAudioQuality(true, 16, 44100, 900, "flac")
+        assertNotNull(downloadQualityReport(LxQuality.FLAC_24BIT, "flac", sixteenBit).warning)
+        assertNull(downloadQualityReport(LxQuality.FLAC, "flac", sixteenBit).warning)
+    }
+
     /** [resolveTimeoutMs] 与生产默认一致；「引擎卡死」用例传更小的值来压缩等待 */
     private class Harness(
         private val resolveTimeoutMs: Long = 120_000L,
@@ -341,10 +383,12 @@ class DownloadManagerTest {
 
     @Test fun pendingUploadSurvivesNewManagerAndDoesNotResolveAgain() = runBlocking {
         Harness().use { h ->
+            h.settings.setDownloadPreferredQuality("flac")
+            val payload = javaClass.getResourceAsStream("/audio/sine.mp3")!!.use { it.readBytes() }
             var uploadAllowed = false
             h.server.dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest) = when (request.method) {
-                    "GET" -> MockResponse().setBody(Buffer().write(wav()))
+                    "GET" -> MockResponse().setBody(Buffer().write(payload))
                     "HEAD" -> MockResponse().setResponseCode(404)
                     "PUT" -> MockResponse().setResponseCode(if (uploadAllowed) 201 else 503)
                     else -> MockResponse().setResponseCode(405)
@@ -354,6 +398,8 @@ class DownloadManagerTest {
             val target = DownloadTarget(DownloadTargetKind.WEBDAV, "webdav", "/Music")
             h.manager.start(h.store.load().map { it.id }.toSet(), target).join()
             val pending = h.await(DownloadStatus.PENDING_UPLOAD)
+            assertNotNull(pending.qualityWarning)
+            assertTrue(pending.actualQualityLabel!!.startsWith("MP3 · 有损"))
             uploadAllowed = true
             val restored = DownloadManager(h.store, h.settings, h.sources, h.credentials, h.songs, h.lx,
                 NoOpOnlineTrackMetadataResolver, null, object : DownloadStorage by createDownloadStorage(h.settings) {
@@ -365,6 +411,9 @@ class DownloadManagerTest {
                 restored.tasks.first { it.singleOrNull()?.status == DownloadStatus.COMPLETED }.single()
             }
             assertNull(completed.localAudioPath)
+            assertEquals(pending.actualQualityLabel, completed.actualQualityLabel)
+            assertEquals(pending.qualityWarning, completed.qualityWarning)
+            assertTrue(completed.qualityWarning in completed.warnings)
             assertEquals(1, h.resolves)
             assertEquals(1, h.added.size)
         }

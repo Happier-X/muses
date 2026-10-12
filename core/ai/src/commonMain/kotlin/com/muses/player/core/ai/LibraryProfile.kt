@@ -2,6 +2,11 @@ package com.muses.player.core.ai
 
 import com.muses.player.core.data.dao.SongDao
 import com.muses.player.core.data.db.SongEntity
+import com.muses.player.core.data.repository.RecentPlaysRepository
+import com.muses.player.core.data.repository.PlayStatsRepository
+import com.muses.player.core.data.repository.PlayStats
+import com.muses.player.core.data.store.platformNowMs
+import kotlinx.coroutines.CancellationException
 import kotlin.random.Random
 
 /**
@@ -24,6 +29,10 @@ data class LibraryProfile(
     val sampleTracks: List<String>,
     /** 本地与 WebDAV 全量歌曲，仅供本地过滤，不进入提示词。 */
     val ownedSongs: Map<String, Set<String>> = emptyMap(),
+    /** 本机专用行为索引，不进入 toPromptText。 */
+    val artistWeights: Map<String, Double> = emptyMap(),
+    val knownArtists: Set<String> = emptySet(),
+    val recentSongs: Map<String, Set<String>> = emptyMap(),
 ) {
     val isEmpty: Boolean get() = totalSongs == 0
 
@@ -59,6 +68,8 @@ class LibraryProfileBuilder(
     private val songDao: SongDao,
     /** 抽样随机源（测试注入固定 seed 以获得确定性） */
     private val random: Random = Random.Default,
+    private val recentPlays: RecentPlaysRepository? = null,
+    private val playStats: PlayStatsRepository? = null,
 ) {
 
     suspend fun build(
@@ -66,11 +77,10 @@ class LibraryProfileBuilder(
         albumLimit: Int = 12,
         sampleSize: Int = 60,
     ): LibraryProfile {
-        val songs = runCatching { songDao.getAll() }.getOrDefault(emptyList())
-        if (songs.isEmpty()) {
-            return LibraryProfile(0, emptyList(), emptyList(), emptyList(), emptyList())
-        }
-
+        val songs = optionalData(emptyList()) { songDao.getAll() }.filterNot { it.missing }
+        val recent = optionalData(emptyList()) { recentPlays?.load().orEmpty() }
+        val stats = optionalData(PlayStats.Empty) { playStats?.load() ?: PlayStats.Empty }
+        val listening = buildLocalListeningTaste(songs, recent, stats, platformNowMs())
         // 歌手/专辑按出现次数降序；空值与「未知」类占位不参与（避免污染画像）
         val artists = songs.asSequence()
             .mapNotNull { it.artist?.trim()?.takeIf { name -> name.isNotEmpty() && !name.isUnknownArtist() } }
@@ -117,6 +127,10 @@ class LibraryProfileBuilder(
             topAlbums = albums,
             sampleTracks = sampleTracks,
             ownedSongs = buildOwnedSongIndex(songs),
+            artistWeights = listening.artistWeights,
+            knownArtists = songs.mapNotNull { it.artist?.takeUnless { name -> name.isUnknownArtist() } }
+                .map { it.normalizeForMatch() }.filter { it.isNotEmpty() }.toSet() + listening.artistWeights.keys,
+            recentSongs = listening.recentSongs,
         )
     }
 }
@@ -153,9 +167,17 @@ private fun String.toDisplaySource(): String = when (this) {
 }
 
 /** 常见「无歌手」占位值：参与画像只会让 AI 推荐失焦 */
-private fun String.isUnknownArtist(): Boolean {
+internal fun String.isUnknownArtist(): Boolean {
     val normalized = trim().lowercase()
     return normalized in UNKNOWN_ARTISTS
+}
+
+private suspend fun <T> optionalData(fallback: T, read: suspend () -> T): T = try {
+    read()
+} catch (error: CancellationException) {
+    throw error
+} catch (_: Exception) {
+    fallback
 }
 
 private val UNKNOWN_ARTISTS = setOf(

@@ -27,6 +27,7 @@ import com.muses.player.core.data.repository.PlayStatsRepository
 import com.muses.player.core.data.repository.PlayStatsSessionTracker
 import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.model.playback.toRecentPlayEntry
+import com.muses.player.core.model.playback.toSavedOnlineSong
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.tag.AudioTagReader
 import com.muses.player.core.lyrics.matchDocument
@@ -654,14 +655,19 @@ class PlaybackService : MediaSessionService() {
         val snapshot = playbackStateRepository.readSnapshot() ?: return
         if (snapshot.items.isEmpty()) return
 
-        val resolved = snapshot.items.mapNotNull { songDao.getById(it.songId)?.toDomain() }
+        val online = snapshot.restoreOnlineSongs(recentPlaysRepository.load())
+        val onlineById = online.associateBy { it.id }
+        val resolved = snapshot.items.mapNotNull { songDao.getById(it.songId)?.toDomain() ?: onlineById[it.songId] }
         if (resolved.isEmpty()) return
 
         val startIndex = resolved.indexOfFirst { it.id == snapshot.currentSongId }
             .let { if (it >= 0) it else 0 }
         val mediaItems = resolved.map { song -> buildRestoreMediaItem(song) }
         onMain {
-            player.setMediaItems(mediaItems, startIndex, snapshot.positionMs.coerceAtLeast(0))
+            if (player.mediaItemCount != 0) return@onMain
+            com.muses.player.core.model.online.OnlineTrackSession.remember(online)
+            val position = if (resolved[startIndex].id == snapshot.currentSongId) snapshot.positionMs.coerceAtLeast(0) else 0L
+            player.setMediaItems(mediaItems, startIndex, position)
             player.prepare()
         }
     }
@@ -693,9 +699,12 @@ class PlaybackService : MediaSessionService() {
         val items = (0 until player.mediaItemCount).map {
             com.muses.player.core.model.playback.QueueItem(player.getMediaItemAt(it).mediaId)
         }
+        val onlineSongs = com.muses.player.core.model.online.OnlineTrackSession.findAll(items.map { it.songId })
+            .values.mapNotNull { it.toSavedOnlineSong() }
         playbackStateRepository.writeSnapshot(
             PlaybackStateRepository.PlaybackSnapshot(
                 items = items,
+                onlineSongs = onlineSongs,
                 originalOrder = items,
                 shuffleOrder = null, // shuffle 序由 Media3 内部管理，恢复时按开关重洗
                 currentIndex = player.currentMediaItemIndex,

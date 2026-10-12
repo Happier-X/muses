@@ -158,12 +158,17 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                             listOfNotNull(task.track.artist, task.track.album).joinToString(" · "),
                             color = scheme.onSurfaceVariantSummary,
                         )
-                        // 实际请求档位与队列里选的档位不一致时，写明已经降档，避免用户以为拿到了原档位
+                        // 同时展示所选档位与实际音频头结果，不能用脚本请求档位冒充实际音质。
                         val label = qualityLabel(task.quality)
                         val requested = task.requestedQuality
                         Text(
-                            text = if (requested != null && requested != task.quality)
-                                "$label → ${qualityLabel(requested)}（已降低请求档位）" else label,
+                            text = "所选：$label" + when {
+                                task.actualQualityLabel != null -> " · 实际：${task.actualQualityLabel}"
+                                requested != null && requested != task.quality ->
+                                    " · 请求：${qualityLabel(requested)}（已降低请求档位，实际音质待核实）"
+                                task.status == DownloadStatus.COMPLETED -> " · 实际音质未核实"
+                                else -> ""
+                            },
                             color = scheme.onSurfaceVariantSummary,
                         )
                         // 音源被删除后旧保存位置已失效，标出来让用户知道要重新选（开始下载时会自动回退）
@@ -200,7 +205,8 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
                             )
                         }
                         task.error?.let { Text(it, color = scheme.error) }
-                        task.warnings.forEach { Text(it, color = scheme.onSurfaceVariantSummary) }
+                        task.qualityWarning?.let { Text(it, color = scheme.error) }
+                        task.warnings.filter { it != task.qualityWarning }.forEach { Text(it, color = scheme.onSurfaceVariantSummary) }
                         if (task.status == DownloadStatus.COMPLETED && !task.skippedExisting) {
                             Text("保存成功", color = scheme.primary)
                         }

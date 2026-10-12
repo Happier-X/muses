@@ -7,6 +7,7 @@ import com.muses.player.core.data.repository.PlayStatsRepository
 import com.muses.player.core.data.repository.PlayStatsSessionTracker
 import com.muses.player.core.data.repository.RecentPlaysRepository
 import com.muses.player.core.model.playback.toRecentPlayEntry
+import com.muses.player.core.model.playback.toSavedOnlineSong
 import com.muses.player.core.data.store.createDataStore
 import com.muses.player.core.model.SourceType
 import com.muses.player.core.model.online.OnlineTrackRef
@@ -196,6 +197,11 @@ class JvmPlayerPort(
         attemptedSongIds.clear()
         // 新曲解析或 WebDAV 下载期间，VLC 中仍可能保留上一首媒体。
         if (_playbackState.value == JvmPlaybackStates.STATE_BUFFERING) return
+        // 冷启动只恢复了队列，没有给 VLC 加载媒体；首次播放须按保存进度重新解析。
+        if (_playbackState.value == JvmPlaybackStates.STATE_IDLE && currentRef != null) {
+            playSongId(currentRef!!.id, _positionMs.value)
+            return
+        }
         val p = player ?: run {
             ensurePlayer()
             player
@@ -789,10 +795,13 @@ class JvmPlayerPort(
 
     private suspend fun persistSnapshotNow() {
         val cur = queue.state()
+        val onlineSongs = com.muses.player.core.model.online.OnlineTrackSession.findAll(cur.snapshot.items.map { it.songId })
+            .values.mapNotNull { it.toSavedOnlineSong() }
         playbackStateRepository.writeSnapshot(
             PlaybackStateRepository.PlaybackSnapshot(
                 items = cur.snapshot.items,
                 originalOrder = cur.snapshot.originalOrder,
+                onlineSongs = onlineSongs,
                 shuffleOrder = cur.snapshot.shuffleOrder,
                 currentIndex = cur.currentIndex,
                 positionMs = _positionMs.value.coerceAtLeast(0L),
@@ -811,6 +820,9 @@ class JvmPlayerPort(
             return
         }
         if (snapshot.items.isEmpty()) return
+        val online = snapshot.restoreOnlineSongs(recentPlaysRepository.load())
+        com.muses.player.core.model.online.OnlineTrackSession.remember(online)
+        val onlineById = online.associateBy { it.id }
         // 批量存在性：一次查全量替代 N 次逐条（无批量口径时回退逐条）
         val resolvedIds = mutableListOf<String>()
         var resolvedCurrentId = snapshot.currentSongId
@@ -821,11 +833,11 @@ class JvmPlayerPort(
         }
         if (batch != null) {
             val order = snapshot.items.map { it.songId }
-            resolvedIds.addAll(order.filter { it in batch })
+            resolvedIds.addAll(order.filter { it in batch || it in onlineById })
         } else {
             for (item in snapshot.items) {
             val exists = try {
-                songLookup(item.songId) != null
+                songLookup(item.songId) != null || item.songId in onlineById
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -849,14 +861,16 @@ class JvmPlayerPort(
             val wanted = items[startIndex].songId
             songsLookup?.let { fn ->
                 runCatching { fn(listOf(wanted))[wanted] }.getOrNull()
-            } ?: songLookup(wanted)
+            } ?: songLookup(wanted) ?: onlineById[wanted]?.let { song ->
+                SongRef(song.id, song.sourceId, song.path, song.title, song.artist, song.album, song.coverUri, song.sourceType)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             null
         }
         _currentSongId.value = currentRef?.id
-        _positionMs.value = snapshot.positionMs.coerceAtLeast(0L)
+        _positionMs.value = if (resolvedCurrentId != null) snapshot.positionMs.coerceAtLeast(0L) else 0L
         _playbackState.value = JvmPlaybackStates.STATE_IDLE
         // 只恢复不自动播放（对齐安卓侧 playWhenReady=false）
     }

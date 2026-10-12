@@ -47,16 +47,15 @@ class AiRecommendService(
         }
 
         // 每日一次生成即可，匹配不足时展示已有结果，避免反复补齐导致数分钟等待。
-        val content = chat.complete(config, SYSTEM_PROMPT, buildUserPrompt(profile, count))
+        // 一次生成适量候选，留出平台未命中和同歌手筛选的余量，不反复补齐请求。
+        val candidateCount = (count + count / 2).coerceIn(1, 30)
+        val content = chat.complete(config, SYSTEM_PROMPT, buildUserPrompt(profile, candidateCount))
         val suggestions = parseSuggestions(content).deduplicate()
-            .filter { it.name.normalizeForMatch().isNotEmpty() && !profile.containsSong(it.name, it.artist) }
-            .take(count)
-        if (suggestions.isEmpty()) throw AiException("AI 未返回曲库之外的可用歌曲建议")
+            .filter { it.name.normalizeForMatch().isNotEmpty() && !profile.excludesRecommendation(it.name, it.artist) }
+            .take(candidateCount)
+        if (suggestions.isEmpty()) throw AiException("AI 未返回曲库之外且近期未听过的可用歌曲建议")
         val batch = matcher.match(suggestions)
-        return batch.copy(tracks = batch.tracks
-            .filterNot { profile.containsSong(it.result.name, it.result.artist) }
-            .distinctBy { it.result.name.normalizeForMatch() to it.result.artist.normalizeForMatch() }
-            .take(count))
+        return batch.personalized(profile, count)
     }
 
     companion object {
@@ -73,7 +72,8 @@ class AiRecommendService(
             2. 每个元素固定三个字段：name（歌名，必填）、artist（歌手，必填）、reason（推荐理由，12 字以内）。
             3. 推荐歌曲必须真实存在且有正式发行，歌名与歌手名要写准确——系统会去音乐平台核对，核对不到的直接丢弃。
             4. 不要推荐画像「抽样曲目」里已出现过的歌。
-            5. 优先同歌手的其它作品、同流派/同年代/相似听感的歌，可少量跨界拓展，但不要离题太远。
+            5. 兼顾口味与发现：约七成选择画像中熟悉歌手的其它作品，约三成选择画像中未出现过的歌手，但流派、年代或听感要相近，避免毫无依据的跨界。
+            6. 每位歌手最多推荐三首，分散歌手和专辑；推荐理由应说明相似点，不能只说“猜你喜欢”。
         """.trimIndent()
 
         internal fun buildUserPrompt(profile: LibraryProfile, count: Int): String = buildString {
@@ -94,6 +94,21 @@ fun LibraryProfile.containsSong(name: String, artist: String?): Boolean {
 /** 从已生成的结果中剔除后来进入曲库的歌曲。 */
 fun AiRecommendResult.excludingOwnedSongs(profile: LibraryProfile): AiRecommendResult =
     copy(tracks = tracks.filterNot { profile.containsSong(it.result.name, it.result.artist) })
+
+/** 最近听过的作品不继续推荐；行为判断只在本机完成。 */
+internal fun LibraryProfile.excludesRecommendation(name: String, artist: String?): Boolean {
+    if (containsSong(name, artist)) return true
+    val artists = recentSongs[name.normalizeForMatch()] ?: return false
+    val target = artist.normalizeForMatch()
+    return target.isEmpty() || artists.any { it.isEmpty() || it == target }
+}
+
+/** 新生成和每日缓存均走同一套本机筛选与排序。 */
+fun AiRecommendResult.personalized(profile: LibraryProfile, count: Int = AiRecommendService.DEFAULT_COUNT): AiRecommendResult {
+    val eligible = tracks.filterNot { profile.excludesRecommendation(it.result.name, it.result.artist) }
+        .distinctBy { it.result.name.normalizeForMatch() to it.result.artist.normalizeForMatch() }
+    return copy(tracks = balanceRecommendations(eligible, profile, count))
+}
 
 /**
  * 建议 → 平台真实曲目 的匹配器。

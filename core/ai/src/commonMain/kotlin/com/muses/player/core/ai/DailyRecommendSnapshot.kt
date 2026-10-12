@@ -35,12 +35,14 @@ private data class StoredDay(
     val tracks: List<StoredTrack>,
     val suggested: Int,
     val unmatched: List<StoredSuggestion>,
+    val algorithmVersion: Int = 1,
 )
 
 object DailyRecommendSnapshot {
     fun encode(day: String, result: AiRecommendResult): String = Json.encodeToString(
         StoredDay(
             day = day,
+            algorithmVersion = 2,
             tracks = result.tracks.map { track ->
                 val song = track.result
                 StoredTrack(
@@ -56,12 +58,12 @@ object DailyRecommendSnapshot {
 
     fun decode(snapshot: String, day: String, profile: LibraryProfile? = null): AiRecommendResult? {
         val stored = runCatching { Json.decodeFromString<StoredDay>(snapshot) }.getOrNull() ?: return null
-        if (stored.day != day) return null
+        if (stored.day != day || stored.algorithmVersion != 2) return null
         val result = AiRecommendResult(
             tracks = stored.tracks.map { it.toTrack() },
             suggested = stored.suggested,
             unmatched = stored.unmatched.map { AiSongSuggestion(it.name, it.artist, it.reason) },
         )
-        return if (profile != null) result.excludingOwnedSongs(profile) else result
+        return if (profile != null) result.personalized(profile) else result
     }
 }

@@ -48,6 +48,9 @@ data class DownloadTask(
     val transferredBytes: Long = 0,
     val transferTotalBytes: Long? = null,
     val requestedQuality: String? = null,
+    /** 从下载文件音频头核验的结果，不使用脚本请求档位代替。 */
+    val actualQualityLabel: String? = null,
+    val qualityWarning: String? = null,
     val error: String? = null,
     val warnings: List<String> = emptyList(),
     val savedLocation: String? = null,

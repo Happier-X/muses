@@ -313,7 +313,9 @@ class DownloadManager(
     private suspend fun execute(task: DownloadTask) {
         try {
             change(task.id) { it.copy(status = DownloadStatus.PREPARING,
-                transferredBytes = 0, transferTotalBytes = null, warnings = emptyList(), error = null, failureStage = null, skippedExisting = false, transferMessage = null) }
+                transferredBytes = 0, transferTotalBytes = null, warnings = if (task.localAudioPath != null) task.warnings else emptyList(), error = null, failureStage = null, skippedExisting = false, transferMessage = null,
+                actualQualityLabel = if (task.localAudioPath != null) task.actualQualityLabel else null,
+                qualityWarning = if (task.localAudioPath != null) task.qualityWarning else null) }
             val directory = File(storage.stagingDirectory, task.id).apply { mkdirs() }
             val scratch = File(directory, "audio.part")
             val warnings = task.warnings.toMutableList()
@@ -328,6 +330,14 @@ class DownloadManager(
                     "本地音频完整性核验失败，已停止上传"
                 }
                 embeddedLyrics = task.localLyrics
+                // 旧版本留下的待补传音频也要核验，不能继续只显示所选档位。
+                if (task.actualQualityLabel == null) {
+                    val report = downloadQualityReport(LxQuality.fromKey(task.quality) ?: LxQuality.DEFAULT,
+                        audio.extension, DownloadAudioQuality.read(audio))
+                    report.warning?.let { warnings += it }
+                    change(task.id) { it.copy(actualQualityLabel = report.label,
+                        qualityWarning = report.warning, warnings = warnings.toList()) }
+                }
             } else {
                 val ref = OnlineTrackRef.parse(task.track.reference) ?: error("在线歌曲信息无效，请重新加入队列")
                 val requested = LxQuality.fromKey(task.quality) ?: LxQuality.DEFAULT
@@ -338,6 +348,10 @@ class DownloadManager(
                 scratch.copyTo(audio, overwrite = true)
                 change(task.id) { it.copy(status = DownloadStatus.METADATA) }
                 warnings.clear()
+                val qualityReport = downloadQualityReport(requested, extension, DownloadAudioQuality.read(audio))
+                qualityReport.warning?.let { warnings += it }
+                change(task.id) { it.copy(actualQualityLabel = qualityReport.label,
+                    qualityWarning = qualityReport.warning, warnings = warnings.toList()) }
                 val (lyrics, cover) = collectMetadata(task, ref, warnings)
                 val tagsWritten = try {
                     tagPort.writeTags(audio, ScrapeChanges(title = task.track.title,

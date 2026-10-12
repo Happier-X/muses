@@ -63,12 +63,14 @@ fun ChartDetailScreen(
                 title = chartName,
                 onBack = onBack,
                 actions = {
-                    MusesIconButton(
-                        onClick = viewModel::refresh,
-                        imageVector = TablerIcons.Refresh,
-                        contentDescription = if (isPlaylist) "刷新歌单" else "刷新榜单",
-                        enabled = !state.loading && !state.refreshing,
-                    )
+                    if (isPlaylist) {
+                        MusesIconButton(
+                            onClick = viewModel::refresh,
+                            imageVector = TablerIcons.Refresh,
+                            contentDescription = "刷新歌单",
+                            enabled = !state.loading && !state.refreshing,
+                        )
+                    }
                 },
                 bottomContent = {
                     if (state.songs.isNotEmpty()) {
