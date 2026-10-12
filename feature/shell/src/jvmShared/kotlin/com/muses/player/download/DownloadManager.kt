@@ -17,6 +17,7 @@ import com.muses.player.core.model.SourceType
 import com.muses.player.core.model.download.*
 import com.muses.player.core.model.online.OnlineTrackMetadataResolver
 import com.muses.player.core.model.online.OnlineTrackRef
+import com.muses.player.core.model.online.OnlineTrackCandidateProvider
 import com.muses.player.core.model.scrape.ScrapeChanges
 import com.muses.player.core.scrape.ports.JaudiotaggerTagPort
 import com.muses.player.core.scrape.ports.TagPort
@@ -56,9 +57,11 @@ class DownloadManager(
     private val runningChanged: (Boolean) -> Unit = {},
     private val urlProbe: com.muses.player.core.model.online.OnlinePlayableUrlProbe? = null,
     private val errorLog: ErrorLogStore? = null,
+    private val candidateProvider: OnlineTrackCandidateProvider? = null,
     private val resolveAudio: suspend (OnlineTrackRef, LxQuality) -> com.muses.player.core.lxsdk.LxMusicUrl = { ref, quality ->
         lx.resolveMusicUrlInfo(ref.platform, ref.musicInfoJson, quality, downloadFallback = true,
-            acceptUrl = { url -> urlProbe == null || withTimeoutOrNull(4_000) { urlProbe.canOpen(url) } == true })
+            acceptUrl = { url -> urlProbe == null || withTimeoutOrNull(4_000) { urlProbe.canOpen(url) } == true },
+            exactQuality = candidateProvider != null)
     },
     private val uploadConfirmDelayMs: Long = 30_000L,
     private val uploadCommitTimeoutMs: Long = 120_000L,
@@ -341,7 +344,8 @@ class DownloadManager(
             } else {
                 val ref = OnlineTrackRef.parse(task.track.reference) ?: error("在线歌曲信息无效，请重新加入队列")
                 val requested = LxQuality.fromKey(task.quality) ?: LxQuality.DEFAULT
-                downloadAudio(task.id, ref, requested, scratch)
+                val audioRef = if (candidateProvider != null) downloadAcrossPlatforms(task.id, ref, requested, scratch)
+                    else { downloadAudio(task.id, ref, requested, scratch); ref }
                 val extension = detectAudioExtension(scratch) ?: error("返回内容不是支持的音频格式，未保存到目标")
                 val base = downloadBaseName(task.track)
                 audio = File(directory, "$base.$extension")
@@ -352,7 +356,7 @@ class DownloadManager(
                 qualityReport.warning?.let { warnings += it }
                 change(task.id) { it.copy(actualQualityLabel = qualityReport.label,
                     qualityWarning = qualityReport.warning, warnings = warnings.toList()) }
-                val (lyrics, cover) = collectMetadata(task, ref, warnings)
+                val (lyrics, cover) = collectMetadata(task, audioRef, warnings)
                 val tagsWritten = try {
                     tagPort.writeTags(audio, ScrapeChanges(title = task.track.title,
                         artist = task.track.artist, album = task.track.album, lyrics = lyrics), cover).ok
@@ -441,8 +445,104 @@ class DownloadManager(
         }
     }
 
+    /** 各平台的同档位资源全部不可用后才降档，歌词与封面使用最终下载的曲目引用。 */
+    private suspend fun downloadAcrossPlatforms(
+        taskId: String,
+        ref: OnlineTrackRef,
+        requested: LxQuality,
+        scratch: File,
+    ): OnlineTrackRef {
+        var alternatives: List<OnlineTrackRef>? = null
+        var lastError: Exception? = null
+        val fallback = File(scratch.parentFile, "audio.fallback")
+        var fallbackRef: OnlineTrackRef? = null
+        var fallbackUrl: com.muses.player.core.lxsdk.LxMusicUrl? = null
+        var fallbackQuality: DownloadAudioQuality? = null
+        val fetched = mutableSetOf<String>()
+        var attemptedDownload = false
+        fun restoreFallback(): OnlineTrackRef {
+            fallback.copyTo(scratch, overwrite = true)
+            return checkNotNull(fallbackRef)
+        }
+        try {
+            for (quality in LxQuality.ordered().filter { it.rank <= requested.rank }.sortedByDescending { it.rank }) {
+                var index = 0
+                while (true) {
+                    val candidate = if (index == 0) ref else {
+                        if (alternatives == null) {
+                            val platforms = lx.loadAll().filter { it.loadError == null }
+                                .flatMap { it.sources.filterValues { source ->
+                                    source.supports(com.muses.player.core.lxsdk.LxAction.MUSIC_URL)
+                                }.keys }.distinct()
+                            alternatives = try {
+                                withTimeoutOrNull(15_000) { candidateProvider!!.candidates(ref, platforms) }
+                                    .orEmpty().filter { it.platform in platforms }
+                                    .distinctBy { it.platform to it.musicInfoJson }
+                                    .filter { it.platform != ref.platform || it.musicInfoJson != ref.musicInfoJson }
+                            } catch (e: CancellationException) { throw e }
+                            catch (_: Exception) { emptyList() }
+                        }
+                        alternatives.getOrNull(index - 1) ?: break
+                    }
+                    index++
+                    try {
+                        val url = withTimeout(resolveTimeoutMs) { resolveAudio(candidate, quality) }
+                        // 解析器不得提前降档，必须留给外层在全部平台同档失败后决定。
+                        if (url.quality != null && url.quality != quality) continue
+                        if (url.url in fetched) continue
+                        // 换平台或档位时不能沿用前一资源的分片与续传校验值。
+                        if (attemptedDownload || candidate != ref || quality != requested) {
+                            scratch.delete()
+                            change(taskId) { it.copy(downloadedBytes = 0, totalBytes = null, resumeValidator = null) }
+                        }
+                        attemptedDownload = true
+                        change(taskId) { it.copy(requestedQuality = url.quality?.key, status = DownloadStatus.DOWNLOADING) }
+                        fetchAudio(taskId, url, scratch)
+                        fetched += url.url
+                        // 脚本声称无损但实际返回有损时，继续寻找其他平台的同档资源。
+                        val extension = detectAudioExtension(scratch) ?: throw DownloadQualityUnavailable("返回内容不是支持的音频格式")
+                        val probe = File(scratch.parentFile, "quality-probe.$extension")
+                        val actual = try {
+                            scratch.copyTo(probe, overwrite = true)
+                            DownloadAudioQuality.read(probe)
+                        } finally { probe.delete() }
+                        if (downloadQualityReport(quality, extension, actual).warning != null) {
+                            if (fallbackRef == null || (actual != null &&
+                                    (fallbackQuality == null || actual.higherThan(fallbackQuality)))) {
+                                scratch.copyTo(fallback, overwrite = true)
+                                fallbackRef = candidate
+                                fallbackUrl = url
+                                fallbackQuality = actual
+                            }
+                            continue
+                        }
+                        if (fallbackQuality != null && actual != null && fallbackQuality.higherThan(actual)) {
+                            val chosen = restoreFallback()
+                            change(taskId) { it.copy(requestedQuality = fallbackUrl?.quality?.key,
+                                downloadedBytes = scratch.length(), totalBytes = scratch.length(), resumeValidator = null) }
+                            return chosen
+                        }
+                        return candidate
+                    } catch (e: TimeoutCancellationException) {
+                        currentCoroutineContext().ensureActive()
+                        lastError = IllegalStateException("音源无响应（等待超时），请稍后重试或更换音源脚本")
+                    } catch (e: CancellationException) { throw e }
+                    catch (e: com.muses.player.core.lxsdk.LxResolveException) { lastError = e }
+                    catch (e: DownloadQualityUnavailable) { lastError = e }
+                }
+            }
+            if (fallbackRef != null) {
+                val chosen = restoreFallback()
+                change(taskId) { it.copy(requestedQuality = fallbackUrl?.quality?.key,
+                    downloadedBytes = scratch.length(), totalBytes = scratch.length(), resumeValidator = null) }
+                return chosen
+            }
+            throw lastError ?: IllegalStateException("各平台均没有可用的下载档位")
+        } finally { fallback.delete() }
+    }
+
     /**
-     * 逐档抓取音频：先按用户在队列里选定的档位，地址失效或内容不是音频时**只向更低档位**回退。
+     * 未装配跨平台搜索时逐档抓取音频，地址失效或内容不是音频时只向更低档位回退。
      * 不静默升档——更高档位可能返回加密容器或远超预期的体积。
      */
     private suspend fun downloadAudio(
@@ -587,8 +687,10 @@ class DownloadManager(
     }
 
     private suspend fun collectMetadata(task: DownloadTask, ref: OnlineTrackRef, warnings: MutableList<String>): Pair<String?, ByteArray?> {
-        var lyrics = task.track.lyrics
-        var coverUrl = task.track.coverUri
+        val original = OnlineTrackRef.parse(task.track.reference)
+        val sameTrack = original?.platform == ref.platform && original.musicInfoJson == ref.musicInfoJson
+        var lyrics = task.track.lyrics.takeIf { sameTrack }
+        var coverUrl = task.track.coverUri.takeIf { sameTrack }
         try {
             val raw = withTimeoutOrNull(12_000) { metadata.resolveLyrics(ref) }
             val script = raw?.let { LxLyricParser.parse(it.lyric, it.tlyric, it.rlyric, it.lxlyric) }

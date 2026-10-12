@@ -8,11 +8,10 @@ import com.muses.player.core.ai.AiServiceUrlException
 import com.muses.player.core.ai.AiRecommendConfig
 import com.muses.player.core.ai.AiRecommendResult
 import com.muses.player.core.ai.AiRecommendService
-import com.muses.player.core.ai.DailyRecommendSnapshot
+import com.muses.player.core.ai.RecommendPool
+import com.muses.player.core.ai.RecommendPoolSnapshot
 import com.muses.player.core.ai.LibraryProfileBuilder
-import com.muses.player.core.ai.excludingOwnedSongs
 import com.muses.player.core.ai.localRecommendDay
-import com.muses.player.core.ai.personalized
 import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.repository.SettingsRepository
@@ -34,13 +33,18 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.delay
+import com.muses.player.core.download.DownloadQueueStore
+import com.muses.player.core.model.download.DownloadStatus
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -64,7 +68,6 @@ data class RecommendSectionState(
     val configured: Boolean = false,
     val loading: Boolean = false,
     val result: AiRecommendResult? = null,
-    val day: String? = null,
     val error: String? = null,
 ) {
     /** 首次进入且尚未取过结果 */
@@ -109,6 +112,7 @@ class HomeViewModel(
     private val songVersionService: OnlineSongVersionService,
     /** 在线曲目归属的音源标识（与在线搜索页同值，仅作标识） */
     private val onlineSourceId: String = "online",
+    private val downloadQueueStore: DownloadQueueStore? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
@@ -118,6 +122,10 @@ class HomeViewModel(
     private val chartsByPlatform = mutableMapOf<String, List<OnlineChart>>()
     private val catalogUpdatedAt = mutableMapOf<String, Long>()
     private var recommendJob: Job? = null
+    private val poolMutex = Mutex()
+    private var pool = RecommendPool()
+    private var poolLoaded = false
+    private var pendingRefill = false
 
     /** 首选音质（与在线搜索页共用同一设置项） */
     private val preferredQuality: StateFlow<String> = settingsRepository.onlinePreferredQuality
@@ -126,31 +134,81 @@ class HomeViewModel(
     init {
         viewModelScope.launch {
             songRepository.observeSongs().drop(1).collect {
-                val current = _state.value.recommend
-                val result = current.result ?: return@collect
-                val profile = runCatching { profileBuilder.build() }.getOrNull() ?: return@collect
-                val filtered = result.excludingOwnedSongs(profile)
-                if (filtered.tracks.size == result.tracks.size) return@collect
-                _state.value = _state.value.copy(
-                    recommend = current.copy(
-                        result = filtered,
-                        error = if (filtered.tracks.isEmpty()) "今日推荐歌曲已全部存在于曲库中" else current.error,
-                    ),
-                )
-                if (current.day == localRecommendDay()) {
-                    runCatching {
-                        settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(current.day, filtered))
+                if (!poolLoaded) return@collect
+                try {
+                    val profile = profileBuilder.build()
+                    val removed = poolMutex.withLock {
+                        val updated = pool.merge(RecommendPool().result, profile)
+                        val changed = updated.result.tracks.size < pool.result.tracks.size
+                        if (updated != pool) savePool(updated)
+                        changed
                     }
-                }
+                    if (removed && recommendJob?.isActive == true) pendingRefill = true
+                    refreshRecommend(forceRefresh = removed)
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { _state.value = _state.value.copy(message = "更新推荐列表失败，请重试") }
             }
         }
         viewModelScope.launch {
-            while (true) {
-                delay(60_000)
-                if (_state.value.recommend.day != null && _state.value.recommend.day != localRecommendDay()) {
-                    refreshRecommend()
+            downloadQueueStore?.tasks?.map { tasks -> tasks.filter { it.status == DownloadStatus.COMPLETED } }
+                ?.distinctUntilChanged()?.collect {
+                if (!poolLoaded) return@collect
+                try {
+                    val removed = applyCompletedDownloads()
+                    if (removed && recommendJob?.isActive == true) pendingRefill = true
+                    refreshRecommend(forceRefresh = removed)
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { _state.value = _state.value.copy(message = "保存下载喜好失败，请重试") }
+            }
+        }
+    }
+
+    private suspend fun savePool(updated: RecommendPool) {
+        settingsRepository.setAiDailyRecommend(RecommendPoolSnapshot.encode(updated))
+        pool = updated
+        _state.value = _state.value.copy(recommend = _state.value.recommend.copy(result = pool.result))
+    }
+
+    private suspend fun applyCompletedDownloads(): Boolean {
+        val completed = downloadQueueStore?.load().orEmpty().filter { it.status == DownloadStatus.COMPLETED }
+        return poolMutex.withLock {
+            var updated = pool
+            completed.forEach { task ->
+                if (updated.feedback.none { it.liked && it.name == task.track.title && it.artist == task.track.artist }) {
+                    updated = updated.respond(task.track.title, task.track.artist, liked = true)
                 }
             }
+            val removed = updated.result.tracks.size < pool.result.tracks.size
+            if (updated != pool) savePool(updated)
+            removed
+        }
+    }
+
+    /** 旧缓存缺少封面时补元数据，按当前池合并，避免放回已处理歌曲。 */
+    private suspend fun enrichRecommendCovers() {
+        val tracks = poolMutex.withLock { pool.result.tracks }
+        if (tracks.none { it.result.platform == "wy" && it.result.coverUrl.isNullOrBlank() }) return
+        val songs = try {
+            songVersionService.enrich(tracks.map { it.result })
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { return }
+        val byId = songs.associateBy { it.platform to it.songId }
+        poolMutex.withLock {
+            val updated = pool.copy(result = pool.result.copy(tracks = pool.result.tracks.map { track ->
+                byId[track.result.platform to track.result.songId]?.let { track.copy(result = it) } ?: track
+            }))
+            if (updated != pool) savePool(updated)
+        }
+    }
+
+    fun dismissRecommend(track: com.muses.player.core.ai.AiRecommendedTrack) {
+        viewModelScope.launch {
+            try {
+                poolMutex.withLock { savePool(pool.respond(track.result.name, track.result.artist, liked = false)) }
+                if (recommendJob?.isActive == true) pendingRefill = true
+                refreshRecommend(forceRefresh = true)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { _state.value = _state.value.copy(message = "保存无感反馈失败，请重试") }
         }
     }
 
@@ -324,121 +382,64 @@ class HomeViewModel(
 
     // ── 猜你喜欢 ──
 
-    /** 每日只生成一次；失败可重试，切换日期后自动重新生成。 */
+    /** 保留推荐池，只补足空位；重试也不会替换尚未处理的歌曲。 */
     fun refreshRecommend(forceRefresh: Boolean = false) {
-        val today = localRecommendDay()
-        val current = _state.value.recommend
         if (recommendJob?.isActive == true) return
-        if (!forceRefresh && current.day == today && (current.result != null || current.error != null)) return
+        if (poolLoaded && pool.result.tracks.size >= AiRecommendService.DEFAULT_COUNT) return
+        if (!forceRefresh && _state.value.recommend.error != null) return
         recommendJob = viewModelScope.launch {
-            _state.value = _state.value.copy(
-                recommend = _state.value.recommend.copy(loading = true, error = null),
-            )
-
+            _state.value = _state.value.copy(recommend = _state.value.recommend.copy(loading = true, error = null))
             try {
-            withTimeout(90_000) {
-            val cachedToday = DailyRecommendSnapshot.decode(settingsRepository.aiDailyRecommend.first(), today)
-            if (!forceRefresh && cachedToday != null) {
-                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(
-                    configured = true, result = cachedToday, day = today, error = null))
-                val filtered = cachedToday.personalized(profileBuilder.build())
-                val updated = if (filtered.tracks.any { it.result.platform == "wy" && it.result.coverUrl.isNullOrBlank() }) {
-                    val songs = songVersionService.enrich(filtered.tracks.map { it.result })
-                    filtered.copy(tracks = filtered.tracks.mapIndexed { index, track -> track.copy(result = songs[index]) })
-                } else filtered
-                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(result = updated,
-                    error = if (updated.tracks.isEmpty()) "今日推荐歌曲已在曲库中或最近听过，可重试" else null))
-                if (updated != cachedToday) {
-                    settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(today, updated))
+                withTimeout(180_000) {
+                    if (!poolLoaded) poolMutex.withLock {
+                        pool = RecommendPoolSnapshot.decode(settingsRepository.aiDailyRecommend.first())
+                        poolLoaded = true
+                        _state.value = _state.value.copy(recommend = _state.value.recommend.copy(result = pool.result, configured = true))
+                    }
+                    applyCompletedDownloads()
+                    val base = profileBuilder.build()
+                    poolMutex.withLock { savePool(pool.merge(RecommendPool().result, base)) }
+                    enrichRecommendCovers()
+                    if (pool.result.tracks.size >= AiRecommendService.DEFAULT_COUNT) return@withTimeout
+                    val config = readAiConfig()
+                    if (!config.isUsable) {
+                        _state.value = _state.value.copy(recommend = _state.value.recommend.copy(configured = false))
+                        return@withTimeout
+                    }
+                    _state.value = _state.value.copy(recommend = _state.value.recommend.copy(configured = true))
+                    if (base.isEmpty) throw AiException("曲库还没有歌曲：先扫描本地/WebDAV 音源后再试")
+                    // 有限轮次补齐，防止重复候选或接口故障导致无限请求。
+                    repeat(3) {
+                        val missing = AiRecommendService.DEFAULT_COUNT - pool.result.tracks.size
+                        if (missing <= 0) return@withTimeout
+                        val profile = poolMutex.withLock { pool.profile(profileBuilder.build()) }
+                        val batch = recommendService.recommend(profile, config, missing)
+                        val latest = profileBuilder.build()
+                        poolMutex.withLock { savePool(pool.merge(batch, latest)) }
+                    }
+                    if (pool.result.tracks.size < AiRecommendService.DEFAULT_COUNT && !pendingRefill) {
+                        throw AiException("新歌曲暂时不足，已保留现有推荐，可重试补齐")
+                    }
                 }
-                return@withTimeout
-            }
-            val config = readAiConfig()
-            if (!config.isUsable) {
-                _state.value = _state.value.copy(
-                    recommend = _state.value.recommend.copy(configured = false, loading = false, result = null, day = null, error = null),
-                )
-                return@withTimeout
-            }
-
-            _state.value = _state.value.copy(
-                recommend = _state.value.recommend.copy(configured = true),
-            )
-
-            val profile = profileBuilder.build()
-            if (profile.isEmpty) {
-                _state.value = _state.value.copy(
-                    recommend = _state.value.recommend.copy(
-                        loading = false,
-                        day = today,
-                        error = "曲库还没有歌曲：先扫描本地/WebDAV 音源后再试",
-                    ),
-                )
-                return@withTimeout
-            }
-
-            runCatching { recommendService.recommend(profile, config) }.fold(
-                onSuccess = { result ->
-                    if (result.allUnmatched) throw AiException("推荐歌曲暂时无法在各平台匹配，请稍后重试")
-                    val latestProfile = profileBuilder.build()
-                    val filteredResult = result.personalized(latestProfile)
-                    if (localRecommendDay() == today) {
-                        runCatching {
-                            settingsRepository.setAiDailyRecommend(DailyRecommendSnapshot.encode(today, filteredResult))
-                        }
-                    }
-                    _state.value = _state.value.copy(
-                        recommend = _state.value.recommend.copy(
-                            loading = false,
-                            result = filteredResult,
-                            day = today,
-                            error = if (filteredResult.tracks.isEmpty() && result.tracks.isNotEmpty()) {
-                                "今日推荐歌曲已在曲库中或最近听过，可重试"
-                            } else if (filteredResult.allUnmatched) {
-                                "AI 推荐的歌都没能在平台上匹配到，可点重试"
-                            } else {
-                                null
-                            },
-                        ),
-                    )
-                },
-                onFailure = { e ->
-                    if (e is CancellationException) throw e
-                    if (e is AiServiceUrlException) {
-                        MusesSnackbar.show(e.message.orEmpty())
-                        _state.value = _state.value.copy(
-                            recommend = _state.value.recommend.copy(loading = false, configured = false, result = null, error = null),
-                        )
-                        return@fold
-                    }
-                    _state.value = _state.value.copy(
-                        recommend = _state.value.recommend.copy(loading = false, day = today, error = aiErrorMessage(e)),
-                    )
-                },
-            )
-            }
             } catch (e: TimeoutCancellationException) {
-                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(
-                    day = today, error = "推荐请求超时，请稍后点击重试"))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Throwable) {
-                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(
-                    day = today, error = aiErrorMessage(e)))
+                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(error = "补充推荐超时，已保留现有歌曲，请重试"))
+            } catch (e: CancellationException) { throw e }
+            catch (e: AiServiceUrlException) {
+                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(configured = false, error = aiErrorMessage(e)))
+            }
+            catch (e: Exception) {
+                _state.value = _state.value.copy(recommend = _state.value.recommend.copy(error = aiErrorMessage(e)))
             } finally {
                 _state.value = _state.value.copy(recommend = _state.value.recommend.copy(loading = false))
+                recommendJob = null
+                val refill = pendingRefill
+                pendingRefill = false
+                if (refill && _state.value.recommend.error == null) refreshRecommend()
             }
         }
     }
 
-    /** 推荐失败或无可用结果时允许重试，不复用当天缓存。 */
-    fun retryRecommend() {
-        if (recommendJob?.isActive == true) return
-        if (_state.value.recommend.result == null) {
-            _state.value = _state.value.copy(recommend = _state.value.recommend.copy(day = null, error = null))
-        }
-        refreshRecommend(forceRefresh = true)
-    }
+    fun retryRecommend() = refreshRecommend(forceRefresh = true)
 
     fun playRecommend(index: Int) {
         val tracks = _state.value.recommend.result?.tracks.orEmpty()

@@ -233,10 +233,10 @@ fun HomeCollectionScreen(
             // ── 猜你喜欢 ──
             if (showRecommendations) {
             when {
-                recommend.loading && recommend.result == null -> item(key = "rec-loading") {
+                recommend.loading && recommend.result?.tracks.isNullOrEmpty() -> item(key = "rec-loading") {
                     LoadingRow()
                 }
-                !recommend.configured -> item(key = "rec-unconfigured") {
+                !recommend.configured && recommend.result?.tracks.isNullOrEmpty() -> item(key = "rec-unconfigured") {
                     AiHintCard(
                         title = "配置 AI 服务",
                         description = "填写服务地址、模型和 API Key",
@@ -253,6 +253,17 @@ fun HomeCollectionScreen(
                 }
                 recommend.result != null -> {
                     val result = recommend.result
+                    if (!recommend.configured) item(key = "rec-configure-fill") {
+                        AiHintCard(title = "配置 AI 服务", description = "配置完成后继续补充推荐",
+                            actionLabel = "去配置", onAction = onOpenAiConfig)
+                    }
+                    if (recommend.loading) item(key = "rec-filling") { LoadingRow() }
+                    if (recommend.error != null && result.tracks.isNotEmpty()) item(key = "rec-fill-error") {
+                        Column {
+                            HomeBanner(text = recommend.error, onClose = null)
+                            MusesButton(onClick = viewModel::retryRecommend, enabled = !recommend.loading) { Text("重试补齐") }
+                        }
+                    }
                     if (result.tracks.isEmpty()) {
                         item(key = "rec-empty") {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -277,7 +288,8 @@ fun HomeCollectionScreen(
                                 qualityBadgeLabel = song.qualityLabel,
                                 onClick = { viewModel.playRecommend(index) },
                                 trailingContent = {
-                                    com.muses.player.core.ui.components.OnlineSongDownloadAction(song.toSong("online"))
+                                    com.muses.player.core.ui.components.OnlineSongDownloadAction(
+                                        song.toSong("online"), onDismissRecommendation = { viewModel.dismissRecommend(track) })
                                 },
                             )
                         }

@@ -20,7 +20,7 @@ class BundledLxScriptsTest {
     fun `内置脚本在真实引擎中声明可播放平台`() = runBlocking {
         val failures = mutableListOf<String>()
         val bundled = BundledLxScripts.load()
-        assertEquals(18, bundled.size)
+        assertEquals(19, bundled.size)
         for (script in bundled) {
             val client = HttpClient(MockEngine {
                 respond(

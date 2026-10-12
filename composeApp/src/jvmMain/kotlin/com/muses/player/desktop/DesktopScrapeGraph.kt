@@ -21,6 +21,9 @@ import com.muses.player.core.scrape.editmeta.AmllLyricsPort
 import com.muses.player.core.scrape.editmeta.EditCloudMetaSearch
 import com.muses.player.core.scrape.editmeta.ProviderLyricsPort
 import com.muses.player.core.scrape.http.ScrapeHttp
+import com.muses.player.core.scrape.gdstudio.*
+import com.muses.player.core.data.repository.DataStoreSettingsRepository
+import kotlinx.coroutines.flow.first
 import com.muses.player.core.scrape.ports.JaudiotaggerTagPort
 import com.muses.player.core.scrape.ports.TagPort
 import com.muses.player.core.scrape.queue.ScrapeHistoryStore
@@ -85,6 +88,10 @@ internal object DesktopScrapeGraph {
     private val rateLimiter: WebDavRateLimiter by lazy { WebDavRateLimiter() }
 
     private val http: ScrapeHttp by lazy { ScrapeHttp(rateLimiter = rateLimiter) }
+    private val gdClient by lazy {
+        val settings = DataStoreSettingsRepository(DesktopContainer.settingsStore)
+        GdScrapeClient(http, enabled = { settings.builtinLxSourcesEnabled.first() })
+    }
 
     // ── 歌词域（09-05-lyrics-kmp X4；与安卓 lyricsModule 同构，手动装配） ──
 
@@ -120,8 +127,8 @@ internal object DesktopScrapeGraph {
     /** 编辑页全链云搜（多候选 + 粗排）；桌面批量匹配与单曲重搜共用 */
     val editSearch: EditCloudMetaSearch by lazy {
         EditCloudMetaSearch(
-            textProviders = TextMetaMatcher.defaultProviders(http),
-            coverProviders = CoverMatcher.defaultProviders(http),
+            textProviders = TextMetaMatcher.defaultProviders(http) + GdTextProvider(gdClient),
+            coverProviders = CoverMatcher.defaultProviders(http) + GdCoverProvider(gdClient),
             // 歌词端口：AMLL 始终参与 + 平台五源 + LRCLIB（match.ts 组合顺序，对齐安卓 ScrapeModule）
             lyricsPorts = buildList {
                 add(AmllLyricsPort(amllClient))
@@ -129,6 +136,7 @@ internal object DesktopScrapeGraph {
                     add(ProviderLyricsPort(p))
                 }
                 add(ProviderLyricsPort(lrclibProvider))
+                add(GdLyricsPort(gdClient))
             },
         )
     }
@@ -137,11 +145,11 @@ internal object DesktopScrapeGraph {
 
     // U14：共享 ScrapeViewModel 的双 matcher（装配口径对齐安卓 ScrapeModule：文本五源 + 负缓存 / 封面默认六源）
     val textMetaMatcher: TextMetaMatcher by lazy {
-        TextMetaMatcher(providers = TextMetaMatcher.defaultProviders(http), negativeCache = NegativeCache())
+        TextMetaMatcher(providers = TextMetaMatcher.defaultProviders(http) + GdTextProvider(gdClient), negativeCache = NegativeCache())
     }
 
     val coverMatcher: CoverMatcher by lazy {
-        CoverMatcher.withDefaultProviders(http)
+        CoverMatcher(CoverMatcher.defaultProviders(http) + GdCoverProvider(gdClient))
     }
 
     /** 桌面 WebDAV 客户端（写回上传/下载 + 未来浏览复用；限流与刮削共享同桶） */

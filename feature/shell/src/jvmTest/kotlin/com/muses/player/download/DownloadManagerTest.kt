@@ -20,6 +20,97 @@ import okio.Buffer
 import kotlin.test.*
 
 class DownloadManagerTest {
+    @Test fun `其他平台有无损时原平台不可用或假无损均不提前降档`() = runBlocking {
+        for (mode in listOf("解析失败", "地址失效", "假无损")) {
+            val metadataPlatforms = mutableListOf<String>()
+            val resolver = object : OnlineTrackMetadataResolver by NoOpOnlineTrackMetadataResolver {
+                override suspend fun resolveCover(ref: OnlineTrackRef): String? {
+                    metadataPlatforms += ref.platform
+                    return null
+                }
+            }
+            Harness(candidateProvider = OnlineTrackCandidateProvider { ref, platforms ->
+                assertTrue("tx" in platforms)
+                listOf(ref.copy(platform = "tx", musicInfoJson = "{\"id\":2}"))
+            }, metadataResolver = resolver).use { h ->
+                h.lx.register("测试多平台", """
+                    const { EVENT_NAMES, send } = globalThis.lx
+                    send(EVENT_NAMES.inited, { sources: { tx: {
+                        name: '测试', type: 'music', actions: ['musicUrl'], qualitys: ['flac','320k']
+                    } } })
+                """.trimIndent())
+                val requests = mutableListOf<Pair<String, LxQuality>>()
+                h.resolveTrackOverride = { ref, quality ->
+                    requests += ref.platform to quality
+                    if (ref.platform == "kw" && mode == "解析失败") throw LxResolveException("无损不可用")
+                    LxMusicUrl(h.server.url("/${ref.platform}/${quality.key}").toString(), quality)
+                }
+                val flac = javaClass.getResourceAsStream("/audio/sine.flac")!!.use { it.readBytes() }
+                val mp3 = javaClass.getResourceAsStream("/audio/sine.mp3")!!.use { it.readBytes() }
+                h.server.dispatcher = object : Dispatcher() {
+                    override fun dispatch(request: RecordedRequest): MockResponse = when {
+                        request.path!!.startsWith("/tx/") -> {
+                            assertNull(request.getHeader("Range"))
+                            assertNull(request.getHeader("If-Range"))
+                            MockResponse().setBody(Buffer().write(flac))
+                        }
+                        mode == "地址失效" -> MockResponse().setResponseCode(403)
+                        else -> MockResponse().setHeader("ETag", "\"123\"").setBody(Buffer().write(mp3))
+                    }
+                }
+                h.settings.setDownloadPreferredQuality("flac")
+                h.manager.enqueue(h.song()).join()
+                h.manager.start(setOf(h.store.load().single().id), h.target).join()
+                val done = h.await(DownloadStatus.COMPLETED)
+                assertEquals(listOf("kw" to LxQuality.FLAC, "tx" to LxQuality.FLAC), requests)
+                assertTrue(done.actualQualityLabel!!.startsWith("FLAC · 无损"))
+                assertNull(done.qualityWarning)
+                assertEquals(listOf("tx"), metadataPlatforms)
+                assertEquals("flac", File(done.savedLocation!!).extension)
+            }
+        }
+    }
+
+    @Test fun `全部平台同档失败后才降档且不会升档`() = runBlocking {
+        Harness(candidateProvider = OnlineTrackCandidateProvider { ref, _ -> listOf(ref.copy(platform = "tx")) }).use { h ->
+            h.lx.register("测试多平台", """
+                const { EVENT_NAMES, send } = globalThis.lx
+                send(EVENT_NAMES.inited, { sources: { tx: {
+                    name: '测试', type: 'music', actions: ['musicUrl'], qualitys: ['flac','320k']
+                } } })
+            """.trimIndent())
+            val requests = mutableListOf<Pair<String, LxQuality>>()
+            h.resolveTrackOverride = { ref, quality ->
+                requests += ref.platform to quality
+                if (quality == LxQuality.FLAC) throw LxResolveException("无损不可用")
+                LxMusicUrl(h.server.url("/audio").toString(), quality)
+            }
+            h.settings.setDownloadPreferredQuality("flac")
+            h.server.enqueue(MockResponse().setBody(Buffer().write(wav())))
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id), h.target).join()
+            h.await(DownloadStatus.COMPLETED)
+            assertEquals(listOf("kw" to LxQuality.FLAC, "tx" to LxQuality.FLAC, "kw" to LxQuality.Q_320K), requests)
+        }
+    }
+
+    @Test fun `各平台实际文件均未达标时保留可用音频并显示真实音质`() = runBlocking {
+        Harness(candidateProvider = OnlineTrackCandidateProvider { _, _ -> emptyList() }).use { h ->
+            h.settings.setDownloadPreferredQuality("flac")
+            h.resolveTrackOverride = { _, quality -> LxMusicUrl(h.server.url("/audio").toString(), quality) }
+            val bytes = javaClass.getResourceAsStream("/audio/sine.mp3")!!.use { it.readBytes() }
+            h.server.enqueue(MockResponse().setBody(Buffer().write(bytes)))
+            h.manager.enqueue(h.song()).join()
+            h.manager.start(setOf(h.store.load().single().id), h.target).join()
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertEquals(1, h.server.requestCount)
+            assertTrue(done.actualQualityLabel!!.startsWith("MP3 · 有损"))
+            assertNotNull(done.qualityWarning)
+            assertEquals("flac", done.requestedQuality)
+            assertTrue(h.root.walkTopDown().none { it.name == "audio.fallback" || it.name.startsWith("quality-probe.") })
+        }
+    }
+
     @Test fun losslessRequestCannotHideActualMp3AndResultSurvivesReload() = runBlocking {
         Harness().use { h ->
             h.settings.setDownloadPreferredQuality("flac")
@@ -69,6 +160,8 @@ class DownloadManagerTest {
         private val uploadConfirmDelayMs: Long = 30_000L,
         private val uploadCommitTimeoutMs: Long = 120_000L,
         private val tagPort: com.muses.player.core.scrape.ports.TagPort = com.muses.player.core.scrape.ports.JaudiotaggerTagPort,
+        private val candidateProvider: OnlineTrackCandidateProvider? = null,
+        private val metadataResolver: OnlineTrackMetadataResolver = NoOpOnlineTrackMetadataResolver,
     ) : java.io.Closeable {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val root = Files.createTempDirectory("muses-download-test").toFile()
@@ -105,14 +198,17 @@ class DownloadManagerTest {
         val lx = LxScriptRepository(LxCryptoJvm())
         /** 覆盖直链解析行为（默认恒定成功），用于模拟音源后端超时/拒绝 */
         var resolveOverride: (suspend (LxQuality) -> LxMusicUrl)? = null
+        var resolveTrackOverride: (suspend (OnlineTrackRef, LxQuality) -> LxMusicUrl)? = null
         val manager = DownloadManager(store, settings, sources, credentials, songs, lx,
-            NoOpOnlineTrackMetadataResolver, null, object : DownloadStorage by createDownloadStorage(settings) {
+            metadataResolver, null, object : DownloadStorage by createDownloadStorage(settings) {
                 override val cacheDirectory = File(root, "cache")
                 override val stagingDirectory = File(root, "cache")
-            }, resolveTimeoutMs = resolveTimeoutMs, scope = scope, client = client, resolveAudio = { _, quality ->
+            }, resolveTimeoutMs = resolveTimeoutMs, scope = scope, client = client, resolveAudio = { ref, quality ->
                 resolves++
-                resolveOverride?.invoke(quality) ?: LxMusicUrl(server.url("/audio").toString(), LxQuality.Q_128K)
-            }, uploadConfirmDelayMs = uploadConfirmDelayMs, uploadCommitTimeoutMs = uploadCommitTimeoutMs, tagPort = tagPort)
+                resolveTrackOverride?.invoke(ref, quality) ?: resolveOverride?.invoke(quality)
+                    ?: LxMusicUrl(server.url("/audio").toString(), LxQuality.Q_128K)
+            }, uploadConfirmDelayMs = uploadConfirmDelayMs, uploadCommitTimeoutMs = uploadCommitTimeoutMs,
+                tagPort = tagPort, candidateProvider = candidateProvider)
         fun song(id: String = "online:kw:1") = Song(id, "online", OnlineTrackRef("kw", "{}", "online").encode(),
             "测试歌曲", "测试歌手", "测试专辑", 1000, 1, lyrics = "[00:00.00]测试歌词", sourceType = SourceType.ONLINE)
         suspend fun await(status: DownloadStatus): DownloadTask = withTimeout(15_000) {

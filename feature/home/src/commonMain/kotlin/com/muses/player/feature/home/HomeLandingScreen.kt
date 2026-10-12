@@ -93,7 +93,7 @@ fun HomeScreen(
             }
             item(key = "discovery") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    DiscoveryCard("猜你喜欢", "每日精选", TablerIcons.Sparkles,
+                    DiscoveryCard("猜你喜欢", "发现喜欢的歌", TablerIcons.Sparkles,
                         listOf(Color(0xFFEEEAF8), Color(0xFFF7F5FC)), Color(0xFF7A68A0),
                         Modifier.weight(1f), compact, onOpenRecommendations)
                     DiscoveryCard("排行榜", "此刻热门", TablerIcons.Chart,

@@ -219,13 +219,14 @@ class LxScriptRepository(
         quality: LxQuality? = null,
     ): String = resolveMusicUrlInfo(platform, musicInfoJson, quality).url
 
-    /** 返回实际请求档位。播放和下载均只降档，同档位返回最先通过可用性检查的地址。 */
+    /** 返回实际请求档位。默认只降档；跨平台逐档调用时用 [exactQuality] 禁止内部提前降档。 */
     suspend fun resolveMusicUrlInfo(
         platform: String,
         musicInfoJson: String,
         quality: LxQuality? = null,
         @Suppress("UNUSED_PARAMETER") downloadFallback: Boolean = false,
         acceptUrl: suspend (String) -> Boolean = { true },
+        exactQuality: Boolean = false,
     ): LxMusicUrl {
         ensureSynced()
         val candidates = mutex.withLock { scripts.toList() }
@@ -250,7 +251,9 @@ class LxScriptRepository(
             if (!declared.supports(LxAction.MUSIC_URL)) continue
 
             val requested = quality ?: LxQuality.DEFAULT
-            LxQuality.ordered().filter { it.rank <= requested.rank && declared.supports(it) }
+            LxQuality.ordered().filter {
+                (if (exactQuality) it == requested else it.rank <= requested.rank) && declared.supports(it)
+            }
                 .forEach { effectiveQuality ->
                     downloadAttempts += Triple(effectiveQuality, engine, script.meta.name ?: script.scriptId)
                 }

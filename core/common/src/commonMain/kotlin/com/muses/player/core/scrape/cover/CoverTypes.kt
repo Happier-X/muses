@@ -18,6 +18,7 @@ enum class OnlineCoverSource(val wire: String) {
     KG("kg"),
     TX("tx"),
     WY("wy"),
+    GD("gdstudio"),
 }
 
 /** 封面匹配失败原因；wire 值对齐 Web 字符串（types.ts OnlineCoverMatchFail） */

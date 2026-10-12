@@ -156,6 +156,16 @@ class LxScriptRepositoryTest {
         assertTrue(result.url.contains("q=flac"))
     }
 
+    @Test fun `跨平台逐档解析禁止仓库提前降档`() = runTest {
+        val repo = repository()
+        repo.register("低档源", scriptWithQualities("['320k']"))
+        assertFailsWith<LxResolveException> {
+            repo.resolveMusicUrlInfo("kw", "{}", LxQuality.FLAC, exactQuality = true)
+        }
+        assertEquals(LxQuality.Q_320K,
+            repo.resolveMusicUrlInfo("kw", "{}", LxQuality.Q_320K, exactQuality = true).quality)
+    }
+
     @Test fun `下载解析失败会尝试下一档`() = runTest {
         val repo = repository()
         repo.register("download", """

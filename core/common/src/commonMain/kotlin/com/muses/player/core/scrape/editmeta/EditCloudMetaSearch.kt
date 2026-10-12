@@ -24,12 +24,12 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /** 云端元信息来源平台（MusicTag 式选择） */
 enum class CloudPlatformId(val wire: String) {
-    ALL("all"), WY("wy"), TX("tx"), KG("kg"), KW("kw"), MG("mg"), ITUNES("itunes"),
+    ALL("all"), WY("wy"), TX("tx"), KG("kg"), KW("kw"), MG("mg"), ITUNES("itunes"), GD("gdstudio"),
 }
 
 /** 云端歌词来源平台（无 iTunes，有 LRCLIB） */
 enum class CloudLyricsPlatformId(val wire: String) {
-    ALL("all"), WY("wy"), TX("tx"), KG("kg"), KW("kw"), MG("mg"), LRCLIB("lrclib"),
+    ALL("all"), WY("wy"), TX("tx"), KG("kg"), KW("kw"), MG("mg"), LRCLIB("lrclib"), GD("gdstudio"),
 }
 
 /** 云端搜索维度 */
@@ -141,6 +141,7 @@ class EditCloudMetaSearch(
         CloudPlatformId.KW to listOf("kw"),
         CloudPlatformId.MG to listOf("mg"),
         CloudPlatformId.ITUNES to emptyList(),
+        CloudPlatformId.GD to listOf("gdstudio"),
     )
 
     /** 平台 → 封面 provider id */
@@ -151,6 +152,7 @@ class EditCloudMetaSearch(
         CloudPlatformId.KW to listOf("kw"),
         CloudPlatformId.MG to listOf("mg"),
         CloudPlatformId.ITUNES to listOf("itunes"),
+        CloudPlatformId.GD to listOf("gdstudio"),
     )
 
     /** 平台 → 歌词 provider id（tx 含 qrc；lrclib 独立） */
@@ -161,6 +163,7 @@ class EditCloudMetaSearch(
         CloudLyricsPlatformId.KW to listOf("kw"),
         CloudLyricsPlatformId.MG to listOf("mg"),
         CloudLyricsPlatformId.LRCLIB to listOf("lrclib"),
+        CloudLyricsPlatformId.GD to listOf("gdstudio"),
     )
 
     private fun throwIfAborted(signal: AbortSignal?) {

@@ -33,6 +33,8 @@ data class LibraryProfile(
     val artistWeights: Map<String, Double> = emptyMap(),
     val knownArtists: Set<String> = emptySet(),
     val recentSongs: Map<String, Set<String>> = emptyMap(),
+    /** 推荐池和最近反馈中的歌名、歌手，提醒模型避免重复点名。 */
+    val recommendationExclusions: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean get() = totalSongs == 0
 
@@ -53,6 +55,10 @@ data class LibraryProfile(
             appendLine()
             appendLine("【曲库抽样曲目】")
             sampleTracks.forEach { appendLine("- $it") }
+        }
+        if (recommendationExclusions.isNotEmpty()) {
+            appendLine("【不要推荐：已展示或已反馈的作品】")
+            recommendationExclusions.forEach { appendLine("- $it") }
         }
     }.trimEnd()
 }

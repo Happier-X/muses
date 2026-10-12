@@ -28,6 +28,7 @@ enum class OnlineTextSource(val wire: String) {
     WY("wy"),
     KG("kg"),
     MG("mg"),
+    GD("gdstudio"),
 }
 
 /** 元数据字段来源标记（library/types.ts FieldSource 四值对齐） */

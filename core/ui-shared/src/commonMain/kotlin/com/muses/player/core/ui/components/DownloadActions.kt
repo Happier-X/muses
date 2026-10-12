@@ -7,10 +7,14 @@ import com.muses.player.core.model.Song
 val LocalDownloadSong = staticCompositionLocalOf<((Song) -> Unit)?> { null }
 
 @Composable
-fun OnlineSongDownloadAction(song: Song) {
-    val enqueue = LocalDownloadSong.current ?: return
+fun OnlineSongDownloadAction(song: Song, onDismissRecommendation: (() -> Unit)? = null) {
+    val enqueue = LocalDownloadSong.current
+    if (enqueue == null && onDismissRecommendation == null) return
     var opened by remember { mutableStateOf(false) }
     SongMoreButton(onClick = { opened = true })
     MusesActionsSheet(opened = opened, onDismiss = { opened = false }, label = "歌曲操作",
-        items = listOf(MusesActionItem("添加到下载队列", onClick = { enqueue(song); opened = false })))
+        items = buildList {
+            if (enqueue != null) add(MusesActionItem("添加到下载队列", onClick = { enqueue(song); opened = false }))
+            if (onDismissRecommendation != null) add(MusesActionItem("无感", onClick = { onDismissRecommendation(); opened = false }))
+        })
 }

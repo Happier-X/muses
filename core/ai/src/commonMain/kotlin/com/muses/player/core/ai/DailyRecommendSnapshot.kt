@@ -39,6 +39,11 @@ private data class StoredDay(
 )
 
 object DailyRecommendSnapshot {
+    /** 迁移旧版每日缓存时保留原列表，不因日期变化丢弃。 */
+    fun decodePersistent(snapshot: String): AiRecommendResult? {
+        val stored = runCatching { Json.decodeFromString<StoredDay>(snapshot) }.getOrNull() ?: return null
+        return decode(snapshot, stored.day)
+    }
     fun encode(day: String, result: AiRecommendResult): String = Json.encodeToString(
         StoredDay(
             day = day,

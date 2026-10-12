@@ -46,8 +46,7 @@ class AiRecommendService(
             return AiRecommendResult(emptyList(), suggested = 0, unmatched = emptyList())
         }
 
-        // 每日一次生成即可，匹配不足时展示已有结果，避免反复补齐导致数分钟等待。
-        // 一次生成适量候选，留出平台未命中和同歌手筛选的余量，不反复补齐请求。
+        // 每轮生成适量候选，推荐池按空位调用并限制补齐轮次。
         val candidateCount = (count + count / 2).coerceIn(1, 30)
         val content = chat.complete(config, SYSTEM_PROMPT, buildUserPrompt(profile, candidateCount))
         val suggestions = parseSuggestions(content).deduplicate()

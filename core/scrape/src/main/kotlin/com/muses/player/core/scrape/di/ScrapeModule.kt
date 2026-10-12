@@ -14,6 +14,8 @@ import com.muses.player.core.scrape.editmeta.AmllLyricsPort
 import com.muses.player.core.scrape.editmeta.EditCloudMetaSearch
 import com.muses.player.core.scrape.editmeta.ProviderLyricsPort
 import com.muses.player.core.scrape.http.ScrapeHttp
+import com.muses.player.core.scrape.gdstudio.*
+import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.scrape.queue.ScrapeHistoryStore
 import com.muses.player.core.scrape.queue.ScrapeQueueStore
 import com.muses.player.core.scrape.text.NegativeCache
@@ -54,6 +56,10 @@ val scrapeModule = module {
 
     /** 共享限流器：复用 core:webdav 的 WebDavRateLimiter 单例（08-27-webdav-playback-429），刮削与播放共享 4 rps */
     single { ScrapeHttp(rateLimiter = get<WebDavRateLimiter>()) }
+    single {
+        val settings: SettingsRepository = get()
+        GdScrapeClient(get(), enabled = { settings.builtinLxSourcesEnabled.first() })
+    }
 
     /** 默认文本五源链 kw→tx→wy→kg→mg（metadata/match.ts defaultProviders） */
     single {
@@ -65,6 +71,7 @@ val scrapeModule = module {
                 WyProvider(http),
                 KgProvider(http),
                 MgProvider(http),
+                GdTextProvider(get()),
             ),
             negativeCache = NegativeCache(),
         )
@@ -73,7 +80,7 @@ val scrapeModule = module {
     /** 默认封面六源链 iTunes→kw→tx→wy→kg→mg（cover/match.ts） */
     single {
         val http: ScrapeHttp = get()
-        CoverMatcher.withDefaultProviders(http)
+        CoverMatcher(CoverMatcher.defaultProviders(http) + GdCoverProvider(get()))
     }
 
     // ── editMeta 歌词维度端口（L3 接线）───────────────────
@@ -90,9 +97,10 @@ val scrapeModule = module {
             WyProvider(http),
             KgProvider(http),
             MgProvider(http),
+            GdTextProvider(get()),
         )
         // 封面六源链（cover/match.ts defaultProviders）
-        val coverProviders = CoverMatcher.defaultProviders(http)
+        val coverProviders = CoverMatcher.defaultProviders(http) + GdCoverProvider(get())
         // 歌词端口：AMLL 始终参与 + 平台五源 + LRCLIB（match.ts 组合顺序）
         val lyricsPorts = buildList {
             add(AmllLyricsPort(amllClient))
@@ -100,6 +108,7 @@ val scrapeModule = module {
                 add(ProviderLyricsPort(p))
             }
             add(ProviderLyricsPort(lrclibProvider))
+            add(GdLyricsPort(get()))
         }
         EditCloudMetaSearch(
             textProviders = textProviders,

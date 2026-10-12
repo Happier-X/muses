@@ -30,6 +30,7 @@ val homeCoreModule = module {
             playlistService = get(),
             playlistCacheStore = get(),
             songVersionService = get(),
+            downloadQueueStore = get(),
         )
     }
     viewModel { params ->
