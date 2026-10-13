@@ -185,18 +185,88 @@ class DownloadManager(
         sourceState.refresh()
     }
     private var batch: Job? = null
+    private val favoriteBatchLock = kotlinx.coroutines.sync.Mutex()
+    private val favoriteBatchState = MutableStateFlow(false)
+    val preparingFavoriteDownloads = favoriteBatchState.asStateFlow()
+
+    /** 一次点击只启动未入库的喜欢歌曲，复用已有未完成任务，跨平台同曲不重复排队。 */
+    fun downloadFavorites(favorites: com.muses.player.core.data.repository.FavoriteSongsStore) = scope.launch {
+        if (!favoriteBatchLock.tryLock()) return@launch
+        favoriteBatchState.value = true
+        try {
+            ready.await()
+            val missing = favorites.snapshot().missingOnlineSongs
+            if (missing.isEmpty()) {
+                MusesSnackbar.show("喜欢的歌曲都已在曲库中")
+                return@launch
+            }
+            val quality = settings.downloadPreferredQuality.first()
+            val ids = mutableSetOf<String>()
+            store.update { queue ->
+                val updated = queue.toMutableList()
+                for (song in missing) {
+                    val existing = updated.firstOrNull { com.muses.player.core.model.sameSong(it.track.toSong(), song) }
+                    if (existing != null && existing.status != DownloadStatus.COMPLETED) {
+                        if (!existing.status.active) ids.add(existing.id)
+                    } else {
+                        updated.removeAll { com.muses.player.core.model.sameSong(it.track.toSong(), song) }
+                        val task = DownloadTask(UUID.randomUUID().toString(), DownloadTrack.from(song), quality)
+                        updated.add(task)
+                        ids.add(task.id)
+                    }
+                }
+                updated
+            }
+            if (ids.isEmpty()) MusesSnackbar.show("喜欢的歌曲正在下载中")
+            else {
+                start(ids, store.defaultTarget.first()).join()
+                MusesSnackbar.show("已开始下载 ${ids.size} 首喜欢的歌曲")
+            }
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { MusesSnackbar.show("下载喜欢歌曲失败，请重试") }
+        finally {
+            favoriteBatchState.value = false
+            favoriteBatchLock.unlock()
+        }
+    }
     private var active: Job? = null
     private var activeId: String? = null
     private val pendingStarts = mutableSetOf<String>()
     private val schedulerLock = Any()
+    private val duplicatePromptLock = kotlinx.coroutines.sync.Mutex()
+    private val duplicatePromptState = MutableStateFlow<DownloadLibraryDuplicate?>(null)
+    val libraryDuplicatePrompt = duplicatePromptState.asStateFlow()
+    private val duplicateResponses = java.util.concurrent.ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
+
+    fun respondToLibraryDuplicate(id: String, proceed: Boolean) {
+        duplicateResponses[id]?.complete(proceed)
+    }
+
+    private suspend fun confirmLibraryDuplicate(song: Song, quality: String): Boolean = duplicatePromptLock.withLock {
+        val library = try { songs.observeSongs().first() }
+        catch (e: CancellationException) { throw e }
+        catch (e: Exception) { throw IllegalStateException("曲库查重失败，下载未开始，请重试", e) }
+        val matches = matchingLibrarySongs(song, library)
+        if (matches.isEmpty()) return@withLock true
+        val prompt = DownloadLibraryDuplicate(UUID.randomUUID().toString(), song, quality, matches)
+        val response = CompletableDeferred<Boolean>()
+        duplicateResponses[prompt.id] = response
+        duplicatePromptState.value = prompt
+        try { response.await() }
+        finally {
+            duplicatePromptState.value = null
+            duplicateResponses.remove(prompt.id)
+        }
+    }
 
     fun enqueue(song: Song) = scope.launch {
         ready.await()
         if (OnlineTrackRef.parse(song.path) == null) { MusesSnackbar.show("仅支持下载 LX 音源歌曲"); return@launch }
         // 已经下过、且文件还在的曲子不再重复入队；文件已被删掉则替换旧记录重新下
         val existing = store.load().firstOrNull { it.track.id == song.id }
+        val quality = settings.downloadPreferredQuality.first()
         when {
-            existing == null -> enqueueNew(song)
+            existing == null -> enqueueNew(song, quality)
             existing.status != DownloadStatus.COMPLETED -> MusesSnackbar.show("歌曲已在下载队列中")
             savedDownloadStillExists(existing) &&
                 (LxQuality.fromKey(settings.downloadPreferredQuality.first())?.rank ?: 0) <=
@@ -205,14 +275,14 @@ class DownloadManager(
             else -> {
                 // 文件已不存在或用户选择了更高档位，重新入队；是否能升级仍以实际文件音质为准。
                 store.update { list -> list.filterNot { task -> task.id == existing.id } }
-                enqueueNew(song)
+                enqueueNew(song, quality)
             }
         }
     }
 
-    private suspend fun enqueueNew(song: Song) {
-        store.enqueue(DownloadTask(UUID.randomUUID().toString(), DownloadTrack.from(song), settings.downloadPreferredQuality.first()))
-        MusesSnackbar.show("添加成功")
+    private suspend fun enqueueNew(song: Song, quality: String) {
+        val added = store.enqueue(DownloadTask(UUID.randomUUID().toString(), DownloadTrack.from(song), quality))
+        MusesSnackbar.show(if (added) "添加成功" else "歌曲已在下载队列中")
     }
 
     /** 已完成任务的产物是否还在；WebDAV 用一次 HEAD 问远端。 */
@@ -319,6 +389,10 @@ class DownloadManager(
                 transferredBytes = 0, transferTotalBytes = null, warnings = if (task.localAudioPath != null) task.warnings else emptyList(), error = null, failureStage = null, skippedExisting = false, transferMessage = null,
                 actualQualityLabel = if (task.localAudioPath != null) task.actualQualityLabel else null,
                 qualityWarning = if (task.localAudioPath != null) task.qualityWarning else null) }
+            if (task.localAudioPath == null && !confirmLibraryDuplicate(task.track.toSong(), task.quality)) {
+                change(task.id) { it.copy(status = DownloadStatus.PAUSED, error = "已取消下载：曲库中已存在这首歌") }
+                return
+            }
             val directory = File(storage.stagingDirectory, task.id).apply { mkdirs() }
             val scratch = File(directory, "audio.part")
             val warnings = task.warnings.toMutableList()

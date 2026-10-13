@@ -77,6 +77,7 @@ fun SongListItem(
     titleBadgeLabel: String? = null,
     qualityBadgeLabel: String? = song.qualityLabel,
     showCover: Boolean = true,
+    isLiked: Boolean = false,
 ) {
     val scheme = MiuixTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
@@ -123,7 +124,6 @@ fun SongListItem(
                 uri = song.coverUri,
                 size = SongListLayout.coverSize,
                 radius = MusesCoverRadius.SM,
-                contentDescription = null,
             )
             Spacer(Modifier.width(SongListLayout.coverGap))
         }
@@ -168,7 +168,14 @@ fun SongListItem(
         }
         if (trailingContent != null) {
             Spacer(Modifier.width(SongListLayout.actionGap))
+            if (isLiked) {
+                SongFavoriteMark()
+                Spacer(Modifier.width(6.dp))
+            }
             trailingContent()
+        } else if (isLiked) {
+            Spacer(Modifier.width(SongListLayout.actionGap))
+            SongFavoriteMark()
         }
     }
     }

@@ -153,6 +153,77 @@ class DownloadManagerTest {
         assertNull(downloadQualityReport(LxQuality.FLAC, "flac", sixteenBit).warning)
     }
 
+    @Test fun favoriteMarksPersistAndLibrarySongsAreLikedByDefaultAcrossPlatforms() = runBlocking {
+        Harness().use { h ->
+            val online = h.song()
+            val library = kotlinx.coroutines.flow.MutableStateFlow(emptyList<Song>())
+            val repository = object : SongRepository by h.songs {
+                override fun observeSongs() = library
+            }
+            val favorites = com.muses.player.core.data.repository.FavoriteSongsStore(h.dataStore, repository, h.scope)
+            assertTrue(favorites.setLiked(online, false))
+            assertFalse(favorites.snapshot().isLiked(online))
+            library.value = listOf(online.copy(
+                id = "local:1", path = "/music/test.mp3", sourceType = SourceType.LOCAL))
+            assertTrue(favorites.snapshot().isLiked(online))
+            assertTrue(favorites.snapshot().missingOnlineSongs.isEmpty())
+            assertFalse(favorites.setLiked(online, false))
+            val restored = com.muses.player.core.data.repository.FavoriteSongsStore(h.dataStore, repository, h.scope)
+            assertTrue(restored.snapshot().isLiked(online))
+            favorites.setLiked(online, true)
+            assertTrue(restored.snapshot().isLiked(online.copy(id = "online:wy:2")))
+            library.value = emptyList()
+            assertEquals(online.path, restored.snapshot().missingOnlineSongs.single().path)
+            favorites.setLiked(online.copy(id = "online:wy:2"), true)
+            assertEquals(1, restored.snapshot().missingOnlineSongs.size)
+            assertFalse(restored.snapshot().isLiked(online.copy(id = "online:wy:3", title = "测试歌曲 (Live)")))
+            assertFalse(restored.snapshot().isLiked(online.copy(id = "online:wy:4", artist = "其他歌手")))
+            assertTrue(favorites.setLiked(online, false))
+            assertFalse(restored.snapshot().isLiked(online))
+            assertTrue(restored.snapshot().missingOnlineSongs.isEmpty())
+        }
+    }
+
+    @Test fun favoriteDownloadExcludesExistingLibraryAndReusesCrossPlatformQueueTask() = runBlocking {
+        Harness().use { h ->
+            val existing = h.song().copy(id = "online:wy:existing", title = "已入库歌曲")
+            h.librarySongs += existing.copy(id = "local:existing", path = "/music/old.mp3", sourceType = SourceType.LOCAL)
+            val favorites = com.muses.player.core.data.repository.FavoriteSongsStore(h.dataStore, h.songs, h.scope)
+            favorites.setLiked(existing, true)
+            favorites.setLiked(h.song().copy(id = "online:wy:liked"), true)
+            h.manager.enqueue(h.song()).join()
+            val queuedId = h.store.load().single().id
+            h.store.setDefaultTarget(h.target)
+            h.server.enqueue(MockResponse().setBody(Buffer().write(wav())))
+            h.manager.downloadFavorites(favorites).join()
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertEquals(queuedId, done.id)
+            assertEquals(1, h.store.load().size)
+            assertEquals(1, h.resolves)
+            assertEquals(1, h.server.requestCount)
+            assertNull(h.manager.libraryDuplicatePrompt.value)
+            assertFalse(h.manager.preparingFavoriteDownloads.value)
+        }
+    }
+
+    @Test fun favoriteDownloadCreatesOnlyMissingTasksAndRepeatedClickDoesNotDuplicateDownload() = runBlocking {
+        Harness().use { h ->
+            val favorites = com.muses.player.core.data.repository.FavoriteSongsStore(h.dataStore, h.songs, h.scope)
+            favorites.setLiked(h.song(), true)
+            favorites.setLiked(h.song().copy(id = "online:wy:2"), true)
+            h.store.setDefaultTarget(h.target)
+            h.server.enqueue(MockResponse().setBody(Buffer().write(wav())).setBodyDelay(250, TimeUnit.MILLISECONDS))
+            h.manager.downloadFavorites(favorites).join()
+            withTimeout(5_000) { h.manager.tasks.first { it.any { task -> task.status == DownloadStatus.DOWNLOADING } } }
+            h.manager.downloadFavorites(favorites).join()
+            val completed = h.await(DownloadStatus.COMPLETED)
+            assertEquals(h.target, completed.target)
+            assertEquals(1, h.store.load().size)
+            assertEquals(1, h.resolves)
+            assertEquals(1, h.server.requestCount)
+        }
+    }
+
     /** [resolveTimeoutMs] 与生产默认一致；「引擎卡死」用例传更小的值来压缩等待 */
     private class Harness(
         private val resolveTimeoutMs: Long = 120_000L,
@@ -170,6 +241,7 @@ class DownloadManagerTest {
         val store = DownloadQueueStore(dataStore)
         val settings = DataStoreSettingsRepository(dataStore)
         val added = mutableListOf<Song>()
+        val librarySongs = mutableListOf<Song>()
         val target = DownloadTarget(DownloadTargetKind.LOCAL, "local", File(root, "target").absolutePath, "测试目录")
         val source = Source("webdav", "测试 WebDAV", SourceType.WEBDAV, server.url("/dav/").toString(), "/Music", createdAt = 0, updatedAt = 0)
         val localSource = Source("local", "新增本地音源", SourceType.LOCAL, null, target.directory, createdAt = 0, updatedAt = 0)
@@ -182,7 +254,7 @@ class DownloadManagerTest {
             override suspend fun deleteById(id: String) = Unit
         }
         val songs = object : SongRepository {
-            override fun observeSongs() = flowOf(emptyList<Song>())
+            override fun observeSongs() = flowOf(librarySongs.toList())
             override suspend fun replaceSourceSongs(sourceId: String, songs: List<Song>): ScanMergeResult = error("不能全源替换")
             override suspend fun deleteSourceSongs(sourceId: String) = error("不能删除曲库")
             override suspend fun rebuildDerivedIndexes() = Unit
@@ -226,6 +298,61 @@ class DownloadManagerTest {
             h.settings.setDownloadPreferredQuality("flac")
             h.manager.enqueue(h.song("online:kw:2")).join()
             assertEquals(listOf("320k", "flac"), h.store.load().map { it.quality })
+        }
+    }
+
+    @Test fun existingMp3IsQueuedWithoutPromptButConfirmedBeforeDownloadingFlac() = runBlocking {
+        Harness().use { h ->
+            h.librarySongs += h.song().copy(id = "local:mp3", path = "/Music/song.mp3", sourceId = "local", sourceType = SourceType.LOCAL, audioQuality = "HQ")
+            h.settings.setDownloadPreferredQuality("flac")
+            h.manager.enqueue(h.song()).join()
+            val task = h.store.load().single()
+            assertNull(h.manager.libraryDuplicatePrompt.value)
+            assertEquals(DownloadStatus.WAITING, task.status)
+            h.manager.start(setOf(task.id), h.target).join()
+            val prompt = withTimeout(5_000) { h.manager.libraryDuplicatePrompt.first { it != null }!! }
+            assertEquals(0, h.resolves)
+            assertEquals(0, h.server.requestCount)
+            assertTrue(prompt.message(mapOf("local" to "本地音源")).contains("MP3"))
+            assertTrue(prompt.message(emptyMap()).contains("FLAC"))
+            h.manager.respondToLibraryDuplicate(prompt.id, false)
+            h.await(DownloadStatus.PAUSED)
+            assertEquals(1, h.store.load().size)
+            assertNull(h.manager.libraryDuplicatePrompt.value)
+
+            h.server.enqueue(MockResponse().setBody(Buffer().write(wav())))
+            h.manager.start(setOf(task.id), h.target).join()
+            val confirmed = withTimeout(5_000) { h.manager.libraryDuplicatePrompt.first { it != null }!! }
+            h.settings.setDownloadPreferredQuality("128k")
+            assertEquals("flac", confirmed.quality)
+            h.manager.respondToLibraryDuplicate(confirmed.id, true)
+            h.await(DownloadStatus.COMPLETED)
+            assertEquals(1, h.resolves)
+        }
+    }
+
+    @Test fun libraryDuplicateMatchingPreservesVersionsAndArtistsAcrossSources() {
+        val incoming = Song("online:1", "online", "", "歌曲（Live）", "甲 / 乙", sourceType = SourceType.ONLINE)
+        val same = incoming.copy(id = "webdav:1", path = "https://example.com/song.mp3", artist = "乙、甲", sourceType = SourceType.WEBDAV)
+        assertEquals(listOf(same), matchingLibrarySongs(incoming, listOf(same,
+            same.copy(id = "other", artist = "丙"), same.copy(id = "studio", title = "歌曲"), incoming)))
+        assertTrue(matchingLibrarySongs(incoming.copy(artist = null), listOf(same)).isEmpty())
+    }
+
+    @Test fun cancelDownloadKeepsQueuedTaskAndOldLibraryFile() = runBlocking {
+        Harness().use { h ->
+            val oldFile = File(h.root, "old.mp3").apply { writeText("原音频") }
+            h.manager.enqueue(h.song()).join()
+            val task = h.store.load().single()
+            // 入队之后曲库新增同曲，开始下载时仍能查到。
+            h.librarySongs += h.song().copy(id = "local:old", path = oldFile.absolutePath, sourceType = SourceType.LOCAL)
+            h.manager.start(setOf(task.id), h.target).join()
+            val prompt = withTimeout(5_000) { h.manager.libraryDuplicatePrompt.first { it != null }!! }
+            h.manager.respondToLibraryDuplicate(prompt.id, false)
+            h.await(DownloadStatus.PAUSED)
+            assertEquals(task.id, h.store.load().single().id)
+            assertEquals("原音频", oldFile.readText())
+            assertEquals(0, h.resolves)
         }
     }
 

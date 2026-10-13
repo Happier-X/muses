@@ -7,24 +7,35 @@ import androidx.compose.runtime.Composable
 fun MusesSongActionsSheet(
     songId: String?,
     onDismiss: () -> Unit,
-    onEnqueueScrape: (List<String>) -> Unit,
+    /** 仅能在曲库中查到、可回写元数据的歌曲提供刮削入口。 */
+    onEnqueueScrape: ((List<String>) -> Unit)?,
     /** 追加到播放队列（PlaybackPort.addToQueue）；提示文案由调用方给出，空列表不算成功。 */
     onAddToQueue: (String) -> Unit,
     onEnqueueDownload: (() -> Unit)? = null,
+    favoriteSong: com.muses.player.core.model.Song? = null,
 ) {
+    val favorites = LocalFavoriteSongs.current
+    val setLiked = LocalSetSongLiked.current
     MusesActionsSheet(
         opened = songId != null,
         onDismiss = onDismiss,
         label = "歌曲操作",
         items = listOfNotNull(
+            favoriteSong?.takeIf { favorites.loaded && setLiked != null && !favorites.isInLibrary(it) }?.let { song ->
+                val liked = favorites.isLiked(song)
+                MusesActionItem(if (liked) "取消我喜欢" else "标记我喜欢", onClick = {
+                    setLiked?.invoke(song, !liked)
+                    onDismiss()
+                })
+            },
             onEnqueueDownload?.let { enqueue -> MusesActionItem("添加到下载队列", onClick = { enqueue(); onDismiss() }) },
-            MusesActionItem(label = "添加到刮削队列", onClick = {
+            onEnqueueScrape?.let { enqueueScrape -> MusesActionItem(label = "添加到刮削队列", onClick = {
                 songId?.let {
-                    onEnqueueScrape(listOf(it))
+                    enqueueScrape(listOf(it))
                     MusesSnackbar.show("添加成功")
                 }
                 onDismiss()
-            }),
+            }) },
             MusesActionItem(label = "添加到播放队列", onClick = {
                 songId?.let(onAddToQueue)
                 onDismiss()

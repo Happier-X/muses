@@ -39,8 +39,6 @@ import com.muses.player.core.ui.components.SongSubtitleWithQuality
 import com.muses.player.core.ui.components.SongTitleWithBadge
 import com.muses.player.core.ui.components.MusesEmpty
 import com.muses.player.core.ui.components.MusesRefreshableContent
-import com.muses.player.core.ui.components.MusesCover
-import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.SongListLayout
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.MusesIconButtonSize
@@ -187,6 +185,7 @@ fun OnlineSearchScreen(
                                 item(key = "songs-title") { SearchSectionTitle("歌曲") }
                                 items(songs, key = { "song-${it.id}" }) { song ->
                                     LibraryResultRow(song.title, song.artist.orEmpty(), "播放", coverUri = song.coverUri, showCover = true,
+                                        isLiked = com.muses.player.core.ui.components.LocalFavoriteSongs.current.isLiked(song),
                                         marqueeEnabled = com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches(song.id)) {
                                         viewModel.playLibrarySong(song.id, songs)
                                     }
@@ -312,7 +311,7 @@ private fun SearchSectionTitle(title: String) {
 
 @Composable
 private fun LibraryResultRow(title: String, subtitle: String, detail: String,
-    coverUri: String? = null, showCover: Boolean = false, marqueeEnabled: Boolean = true, onClick: () -> Unit) {
+    coverUri: String? = null, showCover: Boolean = false, isLiked: Boolean = false, marqueeEnabled: Boolean = true, onClick: () -> Unit) {
     val scheme = MiuixTheme.colorScheme
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
@@ -320,7 +319,8 @@ private fun LibraryResultRow(title: String, subtitle: String, detail: String,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showCover) {
-                MusesCover(uri = coverUri, size = SongListLayout.coverSize, radius = MusesCoverRadius.SM)
+                com.muses.player.core.ui.components.MusesCover(uri = coverUri, size = SongListLayout.coverSize,
+                    radius = com.muses.player.core.ui.components.MusesCoverRadius.SM)
                 Spacer(Modifier.width(SongListLayout.coverGap))
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -339,6 +339,10 @@ private fun LibraryResultRow(title: String, subtitle: String, detail: String,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+            if (isLiked) {
+                com.muses.player.core.ui.components.SongFavoriteMark()
+                Spacer(Modifier.width(6.dp))
             }
             Text(detail, fontSize = 12.sp, color = scheme.onSurfaceVariantSummary)
         }
@@ -428,7 +432,11 @@ private fun SearchResultRow(
             modifier = Modifier.fillMaxWidth().padding(horizontal = SongListLayout.horizontalPadding, vertical = SongListLayout.verticalPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MusesCover(uri = result.coverUrl, size = SongListLayout.coverSize, radius = MusesCoverRadius.SM)
+            com.muses.player.core.ui.components.MusesCover(
+                uri = result.coverUrl,
+                size = SongListLayout.coverSize,
+                radius = com.muses.player.core.ui.components.MusesCoverRadius.SM,
+            )
             Spacer(Modifier.width(SongListLayout.coverGap))
             Column(modifier = Modifier.weight(1f)) {
                 SongTitleWithBadge(
@@ -464,6 +472,10 @@ private fun SearchResultRow(
                 tint = scheme.primary,
             )
             Spacer(Modifier.width(SongListLayout.actionGap))
+            if (com.muses.player.core.ui.components.LocalFavoriteSongs.current.isLiked(result.toSong("online"))) {
+                com.muses.player.core.ui.components.SongFavoriteMark()
+                Spacer(Modifier.width(6.dp))
+            }
             com.muses.player.core.ui.components.OnlineSongDownloadAction(result.toSong("online"))
         }
     }

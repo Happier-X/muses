@@ -54,7 +54,6 @@ import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.libraryQualityLabel
 import com.muses.player.core.ui.components.MusesSongActionsSheet
-import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.components.SongListLayout
 import com.muses.player.core.ui.components.MusesCoverRadius
 import com.muses.player.core.ui.components.MusesEmpty
@@ -339,6 +338,7 @@ fun SongsPage(
                     // 当前播放曲：标题用 primary 色区分。
                     val isCurrent = song.id == currentSongId
                     MusesListRow(
+                        isLiked = com.muses.player.core.ui.components.LocalFavoriteSongs.current.isLiked(song),
                         songLayout = true,
                         songId = song.id,
                         titleColor = if (isCurrent) scheme.primary else null,
@@ -363,7 +363,7 @@ fun SongsPage(
                         leading = {
                             val useMetaCover = song.id == currentSongId && song.metaSources?.cover == null && song.tagsVersion < com.muses.player.core.data.db.SongTags.TAGS_VERSION
                             val displayCover = if (useMetaCover) currentMeta?.coverUri ?: song.coverUri else song.coverUri
-                            MusesCover(
+                            com.muses.player.core.ui.components.MusesCover(
                                 uri = displayCover,
                                 size = SongListLayout.coverSize,
                                 radius = MusesCoverRadius.SM,
@@ -387,6 +387,7 @@ fun SongsPage(
     // ---- ⋮ 动作单（m-actions）----
     MusesSongActionsSheet(
         songId = actionSong?.id,
+        favoriteSong = actionSong,
         onDismiss = { actionSong = null },
         onEnqueueScrape = onEnqueueScrape,
         onAddToQueue = { id ->

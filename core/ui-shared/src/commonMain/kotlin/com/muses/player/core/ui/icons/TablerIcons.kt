@@ -27,6 +27,8 @@ object TablerIcons {
 
     // 音乐相关
     val MusicNote: ImageVector = Tabler.Outline.Music
+    val Heart: ImageVector = Tabler.Outline.Heart
+    val HeartFill: ImageVector = Tabler.Filled.Heart
     val MusicNoteOutlined: ImageVector = Tabler.Outline.Music
     val QueueMusic: ImageVector = Tabler.Outline.Playlist
 

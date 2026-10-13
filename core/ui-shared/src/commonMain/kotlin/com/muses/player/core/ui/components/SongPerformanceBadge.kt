@@ -60,7 +60,7 @@ fun SongTitleWithBadge(
     }
 }
 
-/** 音质小标放在艺术家与专辑信息前，副标题变长时只省略文字。 */
+/** 音质小标放在艺术家与专辑信息前。 */
 @Composable
 fun SongSubtitleWithQuality(
     subtitle: String,

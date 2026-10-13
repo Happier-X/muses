@@ -14,10 +14,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -30,6 +32,10 @@ import com.muses.player.core.ui.components.MusesRefreshablePlaceholder
 import com.muses.player.core.ui.components.SongItem
 import com.muses.player.core.ui.components.SongListItem
 import com.muses.player.core.ui.components.SongListLayout
+import com.muses.player.core.ui.components.LocalSongMarqueeState
+import com.muses.player.core.ui.components.SongListJumpFab
+import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.FabPosition
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import org.koin.compose.viewmodel.koinViewModel
@@ -53,6 +59,13 @@ fun ChartDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val scheme = MiuixTheme.colorScheme
+    val currentSongId = LocalSongMarqueeState.current.songId
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val currentSongIndex = remember(currentSongId, state.songs) {
+        state.songs.indexOfFirst { it.toSong("online").id == currentSongId }
+    }
+
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -100,6 +113,12 @@ fun ChartDetailScreen(
                 },
             )
         },
+        floatingActionButton = {
+            SongListJumpFab(listState, currentSongId.takeIf { currentSongIndex >= 0 }) {
+                scope.launch { listState.animateScrollToItem(currentSongIndex) }
+            }
+        },
+        floatingActionButtonPosition = FabPosition.End,
     ) { padding ->
         MusesPullToRefresh(
             isRefreshing = state.loading || state.refreshing,
@@ -127,6 +146,7 @@ fun ChartDetailScreen(
                 }
             } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     start = SongListLayout.contentHorizontalPadding,
@@ -137,22 +157,24 @@ fun ChartDetailScreen(
             ) {
                 itemsIndexed(
                     items = state.songs,
-                    key = { _, song -> "${song.platform}-${song.songId}" },
+                    key = { _, song -> song.toSong("online").id },
                 ) { index, song ->
+                    val playableSong = song.toSong("online")
                     SongListItem(
+                        isLiked = com.muses.player.core.ui.components.LocalFavoriteSongs.current.isLiked(playableSong),
                         showCover = true,
                         song = SongItem(
-                            id = "${song.platform}-${song.songId}",
+                            id = playableSong.id,
                             title = song.name,
                             artist = song.artist,
                             albumTitle = song.album,
                             coverUri = song.coverUrl,
                         ),
-                        isCurrent = false,
+                        isCurrent = playableSong.id == currentSongId,
                         titleBadgeLabel = song.performanceLabel,
                         qualityBadgeLabel = song.qualityLabel,
                         onClick = { viewModel.play(index) },
-                        trailingContent = { com.muses.player.core.ui.components.OnlineSongDownloadAction(song.toSong("online")) },
+                        trailingContent = { com.muses.player.core.ui.components.OnlineSongDownloadAction(playableSong) },
                     )
                 }
                 if (state.hasMore) {

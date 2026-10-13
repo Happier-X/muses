@@ -514,11 +514,27 @@ private fun MusesAppContent(openSettingsRequest: Long) {
         val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
         val currentSongId by playerVm.currentSongId.collectAsState()
         val downloadManager = org.koin.compose.koinInject<com.muses.player.download.DownloadManager>()
+        val favoritesStore = org.koin.compose.koinInject<com.muses.player.core.data.repository.FavoriteSongsStore>()
+        val favorites by favoritesStore.state.collectAsState()
+        val downloadDuplicate by downloadManager.libraryDuplicatePrompt.collectAsState()
         val onlineSongs by com.muses.player.core.model.online.OnlineTrackSession.snapshot.collectAsState()
         val downloadSong = onlineSongs[playerActionSongId]
+        val isOnlineActionSong = playerActionSongId?.startsWith("online:") == true
         val playbackPort = org.koin.compose.koinInject<com.muses.player.core.playback.PlaybackPort>()
         val songRepository = org.koin.compose.koinInject<com.muses.player.core.data.repository.SongRepository>()
         val actionScope = rememberCoroutineScope()
+        val setSongLiked: (Song, Boolean) -> Unit = { song, liked ->
+            actionScope.launch {
+                try {
+                    val changed = favoritesStore.setLiked(song, liked)
+                    com.muses.player.core.ui.components.MusesSnackbar.show(
+                        if (!changed) "曲库歌曲固定为我喜欢"
+                        else if (liked) "已标记我喜欢" else "已取消我喜欢")
+                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (_: Exception) { com.muses.player.core.ui.components.MusesSnackbar.show("保存喜欢标记失败，请重试") }
+            }
+            Unit
+        }
         val scrapeQueueVm: com.muses.player.feature.scrape.ScrapeQueueAccessViewModel = koinViewModel()
 
         // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
@@ -597,6 +613,8 @@ private fun MusesAppContent(openSettingsRequest: Long) {
                 com.muses.player.core.ui.components.LocalSongMarqueeState provides
                     com.muses.player.core.ui.components.SongMarqueeState(currentSongId, isPlaying),
                 com.muses.player.core.ui.components.LocalDownloadSong provides { song -> downloadManager.enqueue(song); Unit },
+                com.muses.player.core.ui.components.LocalFavoriteSongs provides favorites,
+                com.muses.player.core.ui.components.LocalSetSongLiked provides setSongLiked,
                 com.muses.player.core.ui.theme.LocalBottomChromeElevation provides bottomBarElevation,
             ) {
             Scaffold(
@@ -726,7 +744,7 @@ private fun MusesAppContent(openSettingsRequest: Long) {
             ) {
             // 子页面系统返回 → 上一级；主页（栈深 1）不消费，留在本页。
             // overlay 打开时不抢返回：沉浸页/队列各自消费（沉浸页见下方 ShellBackHandler，队列由 sheet 自行消费）。
-            ShellBackHandler(enabled = backStack.size > 1 && !playerOpen && !showQueueOverlay) {
+            ShellBackHandler(enabled = backStack.size > 1 && !playerOpen && !showQueueOverlay && downloadDuplicate == null) {
                 backStack.pop()
             }
             TabsLayout {
@@ -739,11 +757,18 @@ private fun MusesAppContent(openSettingsRequest: Long) {
             if (showQueueOverlay && !playerOverlayMounted) {
                 QueueScreen(onClose = { showQueueOverlay = false })
             }
+            if (!playerOverlayMounted) {
+                com.muses.player.download.DownloadLibraryDuplicateDialog(downloadManager)
+            }
             }
         }
             } // CompositionLocalProvider 闭合：包住整个 Scaffold（FAB 槽也在内）
         } // BoxWithConstraints 关（主屏常驻，动画中不位移/不淡化）
         if (playerOverlayMounted) {
+            CompositionLocalProvider(
+                com.muses.player.core.ui.components.LocalFavoriteSongs provides favorites,
+                com.muses.player.core.ui.components.LocalSetSongLiked provides setSongLiked,
+            ) {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -755,7 +780,7 @@ private fun MusesAppContent(openSettingsRequest: Long) {
                     ImmersivePlayerOverlay(
                         playerProgress = playerProgress,
                         readPlayerProgress = { playerProgressState.value },
-                        sheetOpen = playerActionSongId != null || showQueueOverlay,
+                        sheetOpen = playerActionSongId != null || showQueueOverlay || downloadDuplicate != null,
                         miniBarBounds = miniBarBounds,
                         miniPlayerLyricsEnabled = miniPlayerLyricsEnabled,
                         currentLyricLine = currentLyricLine,
@@ -777,8 +802,9 @@ private fun MusesAppContent(openSettingsRequest: Long) {
                     }
                     com.muses.player.core.ui.components.MusesSongActionsSheet(
                         songId = playerActionSongId,
+                        favoriteSong = downloadSong ?: favorites.library.firstOrNull { it.id == playerActionSongId },
                         onDismiss = { playerActionSongId = null },
-                        onEnqueueScrape = scrapeQueueVm::enqueue,
+                        onEnqueueScrape = if (isOnlineActionSong) null else scrapeQueueVm::enqueue,
                         onAddToQueue = { id ->
                             actionScope.launch {
                                 // 在线曲目不入库，查库落空时回落到会话登记表
@@ -795,7 +821,9 @@ private fun MusesAppContent(openSettingsRequest: Long) {
                         },
                         onEnqueueDownload = downloadSong?.let { song -> { downloadManager.enqueue(song); Unit } },
                     )
+                    com.muses.player.download.DownloadLibraryDuplicateDialog(downloadManager)
                 }
+            }
             }
         }
 }

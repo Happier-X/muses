@@ -198,6 +198,7 @@ fun LyricsPanel(
     onInterfaceVisibilityChange: (Boolean) -> Unit = {},
     active: Boolean = true,
     externalDocument: com.muses.player.core.lyrics.model.LyricsDocument? = null,
+    onAtTopChange: (Boolean) -> Unit = {},
 ) {
     androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier) {
         AppleMusicLyricsPanel(
@@ -208,6 +209,7 @@ fun LyricsPanel(
             onInterfaceVisibilityChange,
             active,
             externalDocument = externalDocument,
+            onAtTopChange = onAtTopChange,
         )
     }
 }

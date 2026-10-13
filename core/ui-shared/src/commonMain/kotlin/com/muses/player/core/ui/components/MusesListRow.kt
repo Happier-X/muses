@@ -54,6 +54,7 @@ fun MusesListRow(
     songLayout: Boolean = false,
     songId: String? = null,
     marqueeEnabled: Boolean? = null,
+    isLiked: Boolean = false,
 ) {
     val scheme = MiuixTheme.colorScheme
 
@@ -122,6 +123,10 @@ fun MusesListRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                if (isLiked) {
+                    SongFavoriteMark()
+                    androidx.compose.foundation.layout.Spacer(Modifier.width(2.dp))
+                }
                 after()
             }
             if (chevron) {

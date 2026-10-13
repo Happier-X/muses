@@ -11,6 +11,7 @@ fun LyricsPanel(
     isPlaying: Boolean,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    onAtTopChange: (Boolean) -> Unit = {},
 ) {
     val state = PlaybackUiState(
         mediaId = null,
@@ -28,5 +29,6 @@ fun LyricsPanel(
         modifier = modifier,
         active = true,
         externalDocument = document,
+        onAtTopChange = onAtTopChange,
     )
 }

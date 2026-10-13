@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +60,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -81,6 +83,7 @@ internal fun AppleMusicLyricsPanel(
     onInterfaceVisibilityChange: (Boolean) -> Unit = {},
     active: Boolean = true,
     externalDocument: LyricsDocument? = null,
+    onAtTopChange: (Boolean) -> Unit = {},
 ) {
     val settingsRepository = koinInject<SettingsRepository>()
     val showLyricTranslation by settingsRepository.lyricTranslationEnabled.collectAsStateWithLifecycle(initialValue = true)
@@ -96,6 +99,12 @@ internal fun AppleMusicLyricsPanel(
         ),
     )
     val density = LocalDensity.current
+    val latestAtTopChange = rememberUpdatedState(onAtTopChange)
+    LaunchedEffect(listState) {
+        snapshotFlow { !listState.canScrollBackward }.distinctUntilChanged().collect {
+            latestAtTopChange.value(it)
+        }
+    }
     val mediaId = state.mediaId
 
     val automaticLyricSelectionEnabled = SettingsRuntime.automaticLyricSelectionEnabled

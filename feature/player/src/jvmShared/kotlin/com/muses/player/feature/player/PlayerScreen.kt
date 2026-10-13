@@ -36,6 +36,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import com.muses.player.core.ui.components.MarqueeText as Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -54,6 +55,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
@@ -65,6 +67,7 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,6 +82,8 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.ui.components.PlayerControls
+import com.muses.player.core.ui.components.LocalFavoriteSongs
+import com.muses.player.core.ui.components.SongFavoriteButton
 import com.muses.player.core.ui.components.PlayerCoverHero
 import com.muses.player.core.ui.components.LocalPlayerArtworkMorph
 import com.muses.player.core.ui.components.LocalPlayerContentColor
@@ -182,6 +187,9 @@ fun PlayerScreen(
     // 「是否被刮削过」的非空判断，见 mergeNowPlaying）。此前误把标记当名字展示，
     // 刮削完艺术家会显示成 "embedded"。
     val nowPlayingMeta by viewModel.nowPlayingMeta.collectAsStateWithLifecycle()
+    val favoriteSongId by viewModel.currentSongId.collectAsStateWithLifecycle()
+    val onlineSongs by com.muses.player.core.model.online.OnlineTrackSession.snapshot.collectAsStateWithLifecycle()
+    val favoriteSong = onlineSongs[favoriteSongId] ?: LocalFavoriteSongs.current.library.firstOrNull { it.id == favoriteSongId }
     val title = nowPlayingMeta?.title?.trim()?.takeIf { it.isNotEmpty() } ?: ""
     val artist = nowPlayingMeta?.artist ?: ""
     val hasSong = nowPlayingMeta != null && title.isNotEmpty()
@@ -191,7 +199,9 @@ fun PlayerScreen(
     var isDraggingVertically by remember { mutableStateOf(false) }
     // 歌词面板是否激活：垂直下滑仅 info-panel 生效（对齐 canStartVerticalDismiss → isLyricPanelTarget）
     var isLyricPanelActive by remember { mutableStateOf(false) }
-    var isLyricAtTop by remember { mutableStateOf(true) }
+    var lyricBounds by remember { mutableStateOf<Rect?>(null) }
+    var isLyricAtTop by remember { mutableStateOf(false) }
+    var dismissCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     // 回弹动画：0.22s easeOut（motion-v easeOut ≈ CubicBezier(0,0,0.58,1)）
@@ -217,7 +227,10 @@ fun PlayerScreen(
 
     // 外层：m-popup 背景透明（对齐 .player-page__popup background: transparent !important）——
     // 无 scrim 黑化，drag-layer 下滑时直接漏出底下列表（原版 1:1）
-    CompositionLocalProvider(LocalPlayerContentColor provides if (coverContentColorEnabled) contentColor else Color.White) {
+    CompositionLocalProvider(
+        LocalPlayerContentColor provides if (coverContentColorEnabled) contentColor else Color.White,
+        LocalImmersiveFavoriteSong provides favoriteSong,
+    ) {
         BoxWithConstraints(
         // clipToBounds：宿主在转场中平移整页，这里裁掉视口外内容，避免屏外绘制。
         modifier = modifier.fillMaxSize().clipToBounds(),
@@ -241,16 +254,19 @@ fun PlayerScreen(
                 // 触发全窗口重绘 → 下滑暴露的新区域必然重绘底层主页面列表；
                 // graphicsLayer 纯位移只做合成、暴露区不重绘（露窗口底色，绿屏实验证实）
                 .offset { IntOffset(0, dragOffsetY.roundToInt()) }
+                .onGloballyPositioned { dismissCoordinates = it }
                 .then(
-                    // 歌词未滚到顶时保留歌词列表自己的纵向滚动；其他页面区域由外层在 Initial
-                    // pass 观察手势，避免子级 Pager/进度条先消费事件导致下拉识别被取消。
-                    if (isLyricPanelActive && !isLyricAtTop) Modifier
-                    else Modifier.pointerInput(isTabletLayout, dismissThresholdPx) {
+                    // 手势开始时歌词未到顶部则整次交给列表；顶部下滑与标题、封面下滑可收起。
+                    Modifier.pointerInput(isTabletLayout, dismissThresholdPx) {
                         val bottomExclusionPx = with(density) { 180.dp.toPx() }
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                            // 底部模式/控制区（约 180dp）不参与下拉关闭，避免与控制按钮冲突。
-                            if (down.position.y <= size.height - bottomExclusionPx) {
+                            val coordinates = dismissCoordinates
+                            val inLyrics = (isTabletLayout || isLyricPanelActive) &&
+                                coordinates?.isAttached == true &&
+                                lyricBounds?.contains(coordinates.localToWindow(down.position)) == true
+                            // 按下时确定归属，滚到顶部途中不抢走当前歌词滚动。
+                            if ((!inLyrics || isLyricAtTop) && down.position.y <= size.height - bottomExclusionPx) {
                                 var totalX = 0f
                                 var totalY = 0f
                                 var accumulatedY = 0f
@@ -375,6 +391,7 @@ fun PlayerScreen(
                     isNarrowHeight = isNarrowHeight,
                     maxWidth = screenWidth,
                     maxHeight = screenHeight,
+                    onLyricBoundsChange = { lyricBounds = it },
                     onLyricAtTopChange = { isLyricAtTop = it },
                     transitionProgress = transitionProgress,
                     collapseOffsetY = collapseOffsetY,
@@ -414,6 +431,7 @@ fun PlayerScreen(
                     dragOffsetY = dragOffsetY,
                     isDragging = isDraggingVertically,
                     onActivePanelChange = { activePanel = it },
+                    onLyricBoundsChange = { lyricBounds = it },
                     onLyricAtTopChange = { isLyricAtTop = it },
                     transitionProgress = transitionProgress,
                     collapseOffsetY = collapseOffsetY,
@@ -563,6 +581,7 @@ private fun PhoneImmersiveLayout(
     dragOffsetY: Float,
     isDragging: Boolean,
     onActivePanelChange: (Int) -> Unit = {},
+    onLyricBoundsChange: (Rect) -> Unit = {},
     onLyricAtTopChange: (Boolean) -> Unit = {},
     /** 转场进度（见 [PlayerScreen]）：驱动「非封面内容」渐隐 */
     transitionProgress: () -> Float = { 1f },
@@ -652,8 +671,10 @@ private fun PhoneImmersiveLayout(
                     positionMs = lyricPosition,
                     isPlaying = isPlaying,
                     onSeek = onSeek,
+                    onAtTopChange = onLyricAtTopChange,
                     // 歌词面板整体都是「非封面内容」，直接整块渐隐
-                    modifier = Modifier.padding(horizontal = 24.dp).graphicsLayer {
+                    modifier = Modifier.onGloballyPositioned { onLyricBoundsChange(it.boundsInWindow()) }
+                        .padding(horizontal = 24.dp).graphicsLayer {
                         translationY = collapseOffsetY()
                         alpha = contentAlphaFor(transitionProgress())
                     },
@@ -693,6 +714,7 @@ private fun TabletImmersiveLayout(
     isNarrowHeight: Boolean,
     maxWidth: Dp,
     maxHeight: Dp,
+    onLyricBoundsChange: (Rect) -> Unit = {},
     onLyricAtTopChange: (Boolean) -> Unit = {},
     /** 转场进度（见 [PlayerScreen]）：驱动「非封面内容」渐隐 */
     transitionProgress: () -> Float = { 1f },
@@ -749,6 +771,7 @@ private fun TabletImmersiveLayout(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
+                    .onGloballyPositioned { onLyricBoundsChange(it.boundsInWindow()) }
                     .graphicsLayer {
                         translationY = collapseOffsetY()
                         alpha = contentAlphaFor(transitionProgress())
@@ -760,6 +783,7 @@ private fun TabletImmersiveLayout(
                     positionMs = lyricPosition,
                     isPlaying = isPlaying,
                     onSeek = onSeek,
+                    onAtTopChange = onLyricAtTopChange,
                 )
             }
         }
@@ -791,6 +815,8 @@ private fun TabletImmersiveLayout(
 
 // ---------- 固定头部：player-page__song-head--fixed / --in-panel ----------
 
+private val LocalImmersiveFavoriteSong = staticCompositionLocalOf<com.muses.player.core.model.Song?> { null }
+
 @Composable
 private fun FixedSongHead(
     title: String,
@@ -798,30 +824,35 @@ private fun FixedSongHead(
     modifier: Modifier = Modifier,
 ) {
     val contentColor = LocalPlayerContentColor.current
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.Start,
-    ) {
-        Text(
-            text = title,
-            color = contentColor.copy(alpha = 0.95f),
-            style = MiuixTheme.textStyles.title3,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.2.sp, // 0.01em × 20px
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            lineHeight = 26.sp,
-        )
-        if (artist.isNotEmpty()) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.Start,
+        ) {
             Text(
-                text = artist,
-                color = contentColor.copy(alpha = 0.6f),
-                style = MiuixTheme.textStyles.footnote1,
+                text = title,
+                color = contentColor.copy(alpha = 0.95f),
+                style = MiuixTheme.textStyles.title3,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.2.sp, // 0.01em × 20px
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                lineHeight = 18.sp,
-                modifier = Modifier.padding(top = 2.dp),
+                lineHeight = 26.sp,
             )
+            if (artist.isNotEmpty()) {
+                Text(
+                    text = artist,
+                    color = contentColor.copy(alpha = 0.6f),
+                    style = MiuixTheme.textStyles.footnote1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
+        LocalImmersiveFavoriteSong.current?.let { song ->
+            SongFavoriteButton(song, likedTint = contentColor, unlikedTint = contentColor.copy(alpha = 0.6f))
         }
     }
 }

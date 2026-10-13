@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,9 +55,12 @@ import com.muses.player.core.ui.components.MusesPullToRefresh
 import com.muses.player.core.ui.components.MusesIconButton
 import com.muses.player.core.ui.components.SongItem
 import com.muses.player.core.ui.components.SongListItem
+import com.muses.player.core.ui.components.SongListJumpFab
 import com.muses.player.core.ui.components.SongListLayout
+import com.muses.player.core.ui.components.LocalSongMarqueeState
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -65,6 +70,7 @@ import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.FabPosition
 import com.muses.player.core.ui.components.MarqueeText as Text
 import top.yukonga.miuix.kmp.window.WindowListPopup
 import top.yukonga.miuix.kmp.squircle.squircleClip
@@ -88,11 +94,19 @@ fun HomeCollectionScreen(
     viewModel: HomeViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val currentSongId = LocalSongMarqueeState.current.songId
     val scheme = MiuixTheme.colorScheme
     val chart = state.chart
     val recommend = state.recommend
     val platformNames = chart.platformNames
     var showPlatformPopup by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val tracks = recommend.result?.tracks.orEmpty()
+    val currentTrackIndex = remember(currentSongId, tracks) {
+        tracks.indexOfFirst { it.result.toSong("online").id == currentSongId }
+    }
+    val currentTrackKey = tracks.getOrNull(currentTrackIndex)?.result?.let { "rec-${it.platform}-${it.songId}" }
 
     LaunchedEffect(showRecommendations) {
         if (showRecommendations) viewModel.refreshRecommend() else viewModel.loadCharts()
@@ -177,10 +191,22 @@ fun HomeCollectionScreen(
                 },
             )
         },
+        floatingActionButton = {
+            SongListJumpFab(listState, currentTrackKey.takeIf { showRecommendations }) {
+                // 推荐列表前可能有提示、配置或补歌状态，跳转时计入这些行。
+                val headerCount = (if (state.message != null) 1 else 0) +
+                    (if (!recommend.configured) 1 else 0) +
+                    (if (recommend.loading) 1 else 0) +
+                    (if (recommend.error != null) 1 else 0)
+                scope.launch { listState.animateScrollToItem(headerCount + currentTrackIndex) }
+            }
+        },
+        floatingActionButtonPosition = FabPosition.End,
     ) { padding ->
         val pageContent: @Composable () -> Unit = {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
+            state = listState,
             contentPadding = PaddingValues(
                 start = if (showRecommendations) SongListLayout.contentHorizontalPadding else 16.dp,
                 end = if (showRecommendations) SongListLayout.contentHorizontalPadding else 16.dp,
@@ -279,17 +305,19 @@ fun HomeCollectionScreen(
                             key = { _, track: AiRecommendedTrack -> "rec-${track.result.platform}-${track.result.songId}" },
                         ) { index, track ->
                             val song = track.result
+                            val playableSong = song.toSong("online")
                             SongListItem(
-                                song = SongItem(id = "${song.platform}-${song.songId}", title = song.name,
+                                isLiked = com.muses.player.core.ui.components.LocalFavoriteSongs.current.isLiked(playableSong),
+                                song = SongItem(id = playableSong.id, title = song.name,
                                     artist = song.artist, albumTitle = song.album, coverUri = song.coverUrl),
-                                isCurrent = false,
+                                isCurrent = playableSong.id == currentSongId,
                                 showCover = true,
                                 titleBadgeLabel = song.performanceLabel,
                                 qualityBadgeLabel = song.qualityLabel,
                                 onClick = { viewModel.playRecommend(index) },
                                 trailingContent = {
                                     com.muses.player.core.ui.components.OnlineSongDownloadAction(
-                                        song.toSong("online"), onDismissRecommendation = { viewModel.dismissRecommend(track) })
+                                        playableSong, onDismissRecommendation = { viewModel.dismissRecommend(track) })
                                 },
                             )
                         }
@@ -301,16 +329,15 @@ fun HomeCollectionScreen(
             item(key = "bottom-space") { Spacer(Modifier.height(8.dp)) }
         }
         }
-        if (showRecommendations) {
-            Box(Modifier.fillMaxSize().padding(padding)) { pageContent() }
-        } else {
-            MusesPullToRefresh(
-                isRefreshing = chart.loadingCharts || chart.refreshingCharts,
-                onRefresh = { viewModel.loadCharts(forceRefresh = true) },
-                modifier = Modifier.padding(padding),
-                content = pageContent,
-            )
-        }
+        MusesPullToRefresh(
+            isRefreshing = if (showRecommendations) recommend.loading else chart.loadingCharts || chart.refreshingCharts,
+            onRefresh = {
+                if (showRecommendations) viewModel.retryRecommend()
+                else viewModel.loadCharts(forceRefresh = true)
+            },
+            modifier = Modifier.padding(padding),
+            content = pageContent,
+        )
     }
 }
 
