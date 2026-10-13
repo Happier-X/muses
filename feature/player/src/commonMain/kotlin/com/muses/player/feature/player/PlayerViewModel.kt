@@ -326,6 +326,9 @@ class PlayerViewModel constructor(
 
     private fun currentTrackFlow(songId: String?): Flow<CurrentTrack?> {
         if (songId == null) return flowOf(null)
+        if (OnlineTrackSession.snapshot.value[songId] != null) {
+            return OnlineTrackSession.observe(songId).map { song -> song?.let { CurrentTrack.Online(it) } }
+        }
         return combine(
             songDao.observeById(songId),
             OnlineTrackSession.observe(songId),

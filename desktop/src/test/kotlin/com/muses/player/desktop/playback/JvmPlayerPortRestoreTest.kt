@@ -28,6 +28,32 @@ class JvmPlayerPortRestoreTest {
             transform(data.value).also { data.value = it }
     }
 
+    @Test fun `查曲库挂起时立即发布所选歌曲和缓冲状态`() = runTest {
+        val store = MemoryStore()
+        val lookupStarted = CompletableDeferred<String>()
+        val port = JvmPlayerPort(
+            songLookup = { id -> lookupStarted.complete(id); awaitCancellation() },
+            playbackStateRepository = PlaybackStateRepository(store),
+            recentPlaysRepository = RecentPlaysRepository(store),
+            scope = backgroundScope,
+            factoryProvider = { error("等待查曲库时不应启动解码器") },
+            errorLog = { _, _, _ -> },
+        )
+        try {
+            port.restoreJob()!!.join()
+            port.enqueue(listOf("在线歌曲"), 0)
+            // 异步查询尚未执行，点选反馈已经发布。
+            assertEquals("在线歌曲", port.currentSongId.value)
+            assertEquals(JvmPlaybackStates.STATE_BUFFERING, port.playbackState.value)
+            assertFalse(port.isPlaying.value)
+            assertEquals("在线歌曲", lookupStarted.await())
+            assertEquals("在线歌曲", port.currentSongId.value)
+            port.enqueue(listOf("另一首在线歌曲"), 0)
+            assertEquals("另一首在线歌曲", port.currentSongId.value)
+            assertEquals(0L, port.positionMs.value)
+        } finally { port.release() }
+    }
+
     @Test fun `批量曲库为空仍恢复在线队列当前曲进度且不自动播放`() = runTest {
         val song = Song("在线曲", "脚本", OnlineTrackRef("脚本", "wy", """{"id":"123"}""").encode(),
             "嗜好", "颜人中", sourceType = SourceType.ONLINE)

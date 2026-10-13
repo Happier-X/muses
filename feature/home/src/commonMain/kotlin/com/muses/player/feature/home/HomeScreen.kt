@@ -193,10 +193,9 @@ fun HomeCollectionScreen(
         },
         floatingActionButton = {
             SongListJumpFab(listState, currentTrackKey.takeIf { showRecommendations }) {
-                // 推荐列表前可能有提示、配置或补歌状态，跳转时计入这些行。
+                // 推荐列表前可能有提示或配置，跳转时计入这些行。
                 val headerCount = (if (state.message != null) 1 else 0) +
                     (if (!recommend.configured) 1 else 0) +
-                    (if (recommend.loading) 1 else 0) +
                     (if (recommend.error != null) 1 else 0)
                 scope.launch { listState.animateScrollToItem(headerCount + currentTrackIndex) }
             }
@@ -259,9 +258,7 @@ fun HomeCollectionScreen(
             // ── 猜你喜欢 ──
             if (showRecommendations) {
             when {
-                recommend.loading && recommend.result?.tracks.isNullOrEmpty() -> item(key = "rec-loading") {
-                    LoadingRow()
-                }
+                recommend.loading && recommend.result?.tracks.isNullOrEmpty() -> Unit
                 !recommend.configured && recommend.result?.tracks.isNullOrEmpty() -> item(key = "rec-unconfigured") {
                     AiHintCard(
                         title = "配置 AI 服务",
@@ -283,7 +280,6 @@ fun HomeCollectionScreen(
                         AiHintCard(title = "配置 AI 服务", description = "配置完成后继续补充推荐",
                             actionLabel = "去配置", onAction = onOpenAiConfig)
                     }
-                    if (recommend.loading) item(key = "rec-filling") { LoadingRow() }
                     if (recommend.error != null && result.tracks.isNotEmpty()) item(key = "rec-fill-error") {
                         Column {
                             HomeBanner(text = recommend.error, onClose = null)

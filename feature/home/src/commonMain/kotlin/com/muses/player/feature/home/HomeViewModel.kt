@@ -16,7 +16,6 @@ import com.muses.player.core.data.repository.CredentialsRepository
 import com.muses.player.core.data.repository.SongRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.lxsdk.LxQuality
-import com.muses.player.core.lxsdk.LxAction
 import com.muses.player.core.lxsdk.LxScriptRepository
 import com.muses.player.core.model.Song
 import com.muses.player.core.model.online.OnlineTrackSession
@@ -443,9 +442,9 @@ class HomeViewModel(
 
     fun playRecommend(index: Int) {
         val tracks = _state.value.recommend.result?.tracks.orEmpty()
-        val target = tracks.getOrNull(index) ?: return
+        if (index !in tracks.indices) return
         val results = tracks.map { it.result }
-        playResults(results, index, target.result.platform)
+        playResults(results, index)
     }
 
     /** 随机播放当前推荐列表，与歌曲详情页工具条行为一致。 */
@@ -453,40 +452,20 @@ class HomeViewModel(
         val results = _state.value.recommend.result?.tracks.orEmpty().map { it.result }
         if (results.isEmpty()) return
         val index = results.indices.random()
-        playResults(results, index, results[index].platform, shuffle = true)
+        playResults(results, index, shuffle = true)
     }
 
     // ── 内部 ──
 
-    /**
-     * 统一播放入口：脚本可用性校验 → 队列整体登记会话 → 交给播放端口。
-     *
-     * 为什么先校验脚本：直链解析发生在播放链路内部，没有脚本时用户点下去毫无反馈，
-     * 体验上等同「坏了」；此处提前给出可操作提示（与在线搜索页同一取舍）。
-     */
-    private fun playResults(results: List<OnlineSearchResult>, index: Int, platform: String, shuffle: Boolean = false) {
+    /** 立即更新待播歌曲；脚本校验及解析错误统一交给播放链路。 */
+    private fun playResults(results: List<OnlineSearchResult>, index: Int, shuffle: Boolean = false) {
         val target = results.getOrNull(index) ?: return
         val quality = LxQuality.fromKey(preferredQuality.value)?.key
-        viewModelScope.launch {
-            if (!hasUsableScript(platform)) {
-                MusesSnackbar.show("还没有可用的在线音源脚本，请到「在线音源脚本」导入后再播放。")
-                return@launch
-            }
-            // 队列 = 当前列表全量（点哪首播哪首，后续按列表顺序走）
-            val songs: List<Song> = results.map { it.toSong(onlineSourceId, quality) }
-            OnlineTrackSession.remember(songs)
-            playback.play(target.toSong(onlineSourceId, quality).id, songs)
-            playback.setShuffleEnabled(shuffle)
-        }
+        val songs: List<Song> = results.map { it.toSong(onlineSourceId, quality) }
+        OnlineTrackSession.remember(songs)
+        playback.play(target.toSong(onlineSourceId, quality).id, songs)
+        playback.setShuffleEnabled(shuffle)
     }
-
-    /** 是否存在已加载且声明了该平台的脚本（与在线搜索页同判据） */
-    private suspend fun hasUsableScript(platform: String): Boolean =
-        runCatching {
-            scriptRepository.loadAll().any { script ->
-                script.loadError == null && script.sources.values.any { it.supports(LxAction.MUSIC_URL) }
-            }
-        }.getOrDefault(false)
 
     /** 现取现用 AI 配置：Key 从加密凭据库读，不常驻 VM 字段 */
     private suspend fun readAiConfig(): AiRecommendConfig {

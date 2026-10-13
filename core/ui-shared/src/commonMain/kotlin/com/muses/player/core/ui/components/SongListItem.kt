@@ -14,20 +14,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /**
@@ -54,10 +47,9 @@ data class SongItem(
  *
  * 视觉契约（对照桌面 LibraryScreen SongRow + SaltListItem 风格）：
  * - 行高自适应，44dp 封面与上下各 10dp 留白，常规行约 64dp;
- * - 标题：scheme.onBackground / 15sp，当前曲 primary 色 + SemiBold;
+ * - 标题：scheme.onBackground / 15sp，当前曲仅使用 primary 色，字重与曲库一致;
  * - 副标题：artist - albumTitle，scheme.onBackgroundVariant / 12sp，单行省略;
- * - 当前行：primary 10% 高亮底 + primary 色标题 + 尾部播放图标；
- *   非当前行透明底，直接透出页面底（surface 灰），无斑马纹；
+ * - 当前行：标题与副标题使用 primary 色；各行保持透明底，无额外播放图标；
  * - 按压态：官方 pressable(SinkFeedback) 下沉反馈 + surface 变色叠层；
  * - 纯 UI 组件，零平台依赖，所有业务逻辑经回调注入。
  *
@@ -84,7 +76,6 @@ fun SongListItem(
     val pressed by interactionSource.collectIsPressedAsState()
 
     val bgColor = when {
-        isCurrent -> scheme.primary.copy(alpha = 0.1f)
         pressed -> scheme.surface.copy(alpha = 0.5f)
         else -> Color.Transparent
     }
@@ -138,7 +129,6 @@ fun SongListItem(
                 color = if (isCurrent) scheme.primary else scheme.onBackground,
                 style = MiuixTheme.textStyles.body2.copy(fontSize = SongListLayout.titleSize,
                     lineHeight = SongListLayout.titleLineHeight),
-                fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
             )
             val subtitle = listOfNotNull(song.artist, song.albumTitle)
                 .filter { it.isNotBlank() }
@@ -155,17 +145,6 @@ fun SongListItem(
             }
         }
 
-        // 当前曲播放指示器
-        if (isCurrent) {
-            Icon(
-                imageVector = TablerIcons.PlayFill,
-                contentDescription = "正在播放",
-                tint = scheme.primary,
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .size(16.dp),
-            )
-        }
         if (trailingContent != null) {
             Spacer(Modifier.width(SongListLayout.actionGap))
             if (isLiked) {

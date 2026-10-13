@@ -183,6 +183,9 @@ class MainViewModel constructor(
         .flatMapLatest { (songId, meta, online) ->
             if (songId == null) {
                 flowOf(null)
+            } else if (online[songId] != null) {
+                // 在线歌曲已经登记，立即展示，不等待曲库查询。
+                flowOf(mergeNowPlaying(songId, null, meta, online[songId]))
             } else {
                 // 修复：改为 observeById Flow，使播放时回写后迷你条与列表一致（原 one-shot 不响应 DB 更新）
                 // 在线曲目不入库：同时订阅会话表快照，让「迟到登记」也能点亮迷你条标题/封面
@@ -513,6 +516,10 @@ private fun MusesAppContent(openSettingsRequest: Long) {
         var playerActionSongId by remember { mutableStateOf<String?>(null) }
         val playerVm: com.muses.player.feature.player.PlayerViewModel = koinViewModel()
         val currentSongId by playerVm.currentSongId.collectAsState()
+        val playbackError by playerVm.playbackError.collectAsState()
+        LaunchedEffect(playbackError) {
+            playbackError?.let { com.muses.player.core.ui.components.MusesSnackbar.show(it) }
+        }
         val downloadManager = org.koin.compose.koinInject<com.muses.player.download.DownloadManager>()
         val favoritesStore = org.koin.compose.koinInject<com.muses.player.core.data.repository.FavoriteSongsStore>()
         val favorites by favoritesStore.state.collectAsState()
@@ -549,6 +556,7 @@ private fun MusesAppContent(openSettingsRequest: Long) {
 
         val nowPlaying by viewModel.nowPlaying.collectAsState()
         val isPlaying by viewModel.isPlaying.collectAsState()
+        val isBuffering by playerVm.isBuffering.collectAsState()
         val miniPlayerLyricsEnabled by viewModel.miniPlayerLyricsEnabled.collectAsState()
         val currentLyricLine by viewModel.currentLyricLine.collectAsState()
         val currentLyricMarquee by viewModel.currentLyricMarquee.collectAsState()
@@ -649,6 +657,7 @@ private fun MusesAppContent(openSettingsRequest: Long) {
                             subtitle = nowPlaying?.artist ?: "未知艺术家",
                             coverUri = nowPlaying?.coverUri,
                             isPlaying = isPlaying,
+                            isBuffering = isBuffering,
                             hasSong = nowPlaying != null,
                             onExpand = { bottomDockCompact = false },
                             onOpenPlayer = { openPlayer() },
@@ -682,6 +691,7 @@ private fun MusesAppContent(openSettingsRequest: Long) {
                         subtitleMarquee = if (lyricLine != null) currentLyricMarquee else null,
                         coverUri = nowPlaying?.coverUri,
                         isPlaying = isPlaying,
+                        isBuffering = isBuffering,
                         hasSong = nowPlaying != null,
                         onOpenPlayer = { openPlayer() },
                         onTogglePlayback = { viewModel.playPause() },
@@ -787,6 +797,7 @@ private fun MusesAppContent(openSettingsRequest: Long) {
                         currentLyricMarquee = currentLyricMarquee,
                         nowPlaying = nowPlaying,
                         isPlaying = isPlaying,
+                        isBuffering = isBuffering,
                         onClose = { closePlayer() },
                         onOpenPlayer = { openPlayer() },
                         onTogglePlayback = { viewModel.playPause() },
@@ -839,6 +850,7 @@ private fun ImmersivePlayerOverlay(
     currentLyricMarquee: com.muses.player.core.ui.components.TimedTextMarquee?,
     nowPlaying: NowPlayingUiState?,
     isPlaying: Boolean,
+    isBuffering: Boolean,
     onClose: () -> Unit,
     onOpenPlayer: () -> Unit,
     onTogglePlayback: () -> Unit,
@@ -920,6 +932,7 @@ private fun ImmersivePlayerOverlay(
                         subtitleMarquee = if (miniPlayerLyricsEnabled && currentLyricLine != null) currentLyricMarquee else null,
                         coverUri = nowPlaying?.coverUri,
                         isPlaying = isPlaying,
+                        isBuffering = isBuffering,
                         hasSong = nowPlaying != null,
                         onOpenPlayer = onOpenPlayer,
                         onTogglePlayback = onTogglePlayback,
@@ -1248,6 +1261,7 @@ private fun CompactPlayerDock(
     subtitle: String,
     coverUri: String?,
     isPlaying: Boolean,
+    isBuffering: Boolean,
     hasSong: Boolean,
     onExpand: () -> Unit,
     onOpenPlayer: () -> Unit,
@@ -1288,6 +1302,7 @@ private fun CompactPlayerDock(
                 subtitle = subtitle,
                 coverUri = coverUri,
                 isPlaying = isPlaying,
+                isBuffering = isBuffering,
                 hasSong = hasSong,
                 coverSize = 38.dp,
                 onOpenPlayer = onOpenPlayer,

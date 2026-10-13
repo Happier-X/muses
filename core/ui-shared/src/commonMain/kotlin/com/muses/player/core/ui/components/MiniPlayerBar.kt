@@ -38,6 +38,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import kotlinx.coroutines.launch
 import com.muses.player.core.ui.icons.TablerIcons
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -120,6 +123,8 @@ fun MiniPlayerBar(
     /** 右滑 → 上一曲（null = 不支持滑动切歌） */
     onPrevious: (() -> Unit)? = null,
     subtitleMarquee: TimedTextMarquee? = null,
+    /** 所选歌曲正在解析或缓冲，显示加载反馈。 */
+    isBuffering: Boolean = false,
 ) {
     val scheme = MiuixTheme.colorScheme
     // 与悬浮底栏同材质：squircle 50dp 胶囊（官方 FloatingNavigationBar 同值）
@@ -308,7 +313,13 @@ fun MiniPlayerBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                MusesIconButton(
+                if (isBuffering && hasSong) {
+                    MusesIconButton(onClick = {}, enabled = false) {
+                        top.yukonga.miuix.kmp.basic.CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp).semantics { contentDescription = "正在加载歌曲" },
+                        )
+                    }
+                } else MusesIconButton(
                     onClick = onTogglePlayback,
                     imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill, // fill 风格播放/暂停
                     contentDescription = if (isPlaying) "暂停播放" else "继续播放",

@@ -263,6 +263,17 @@ class PlayerConnection constructor(
         if (index < 0) return
 
         player.setMediaItems(mediaItems, index, C.TIME_UNSET)
+        // 使用控制器本地的待播队列同步展示，无需等待服务进程完成音源解析。
+        _currentMediaItem.value = mediaItems[index]
+        _currentSongId.value = songId
+        _currentMeta.value = com.muses.player.core.playback.PlaybackMeta(
+            songs[index].title, songs[index].artist, songs[index].album, songs[index].coverUri,
+        )
+        _artworkUri.value = songs[index].coverUri
+        _position.value = 0L
+        _duration.value = songs[index].durationMs
+        _playbackState.value = Player.STATE_BUFFERING
+        _isPlaying.value = false
         player.prepare()
         player.playWhenReady = true
     }

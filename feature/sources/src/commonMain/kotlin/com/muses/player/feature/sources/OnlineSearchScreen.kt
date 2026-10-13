@@ -28,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,6 +73,7 @@ fun OnlineSearchScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val libraryResults by viewModel.libraryResults.collectAsState()
+    val lyricResults by viewModel.lyricResults.collectAsState()
     val availableQualities by viewModel.availableQualities.collectAsState()
     val preferredQuality by viewModel.preferredQuality.collectAsState()
     val scheme = MiuixTheme.colorScheme
@@ -113,12 +116,20 @@ fun OnlineSearchScreen(
                             onSearch = { viewModel.search() },
                             expanded = false,
                             onExpandedChange = {},
-                            label = "搜索曲库或在线",
+                            label = if (state.category == SearchCategory.LYRICS) "输入记得的一句歌词" else "搜索曲库或在线",
                         )
                     },
                     expanded = false,
                     onExpandedChange = {},
                 ) {}
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                PlatformPill("综合", state.category == SearchCategory.ALL, { viewModel.setCategory(SearchCategory.ALL) })
+                PlatformPill("歌词", state.category == SearchCategory.LYRICS, { viewModel.setCategory(SearchCategory.LYRICS) })
             }
 
             // 提示横幅（如「该平台无可用脚本」）：点按可关闭
@@ -162,9 +173,42 @@ fun OnlineSearchScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         MusesEmpty(
-                            title = "空空如也~",
+                            title = if (state.category == SearchCategory.LYRICS) "输入一句歌词，找到曲库里的歌" else "空空如也~",
                             bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
                         )
+                    }
+                }
+                state.category == SearchCategory.LYRICS -> {
+                    val loading = lyricResults.loading || lyricResults.keyword != state.searchedKeyword
+                    com.muses.player.core.ui.components.MusesPullToRefresh(
+                        isRefreshing = loading,
+                        onRefresh = viewModel::refreshLyrics,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        if (loading || lyricResults.matches.isEmpty()) {
+                            com.muses.player.core.ui.components.MusesRefreshablePlaceholder {
+                                if (!loading) MusesEmpty(
+                                    title = if (lyricResults.songsWithLyrics == 0) "曲库中还没有可搜索的歌词" else "没有找到匹配的歌词",
+                                    bottomInset = com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                                )
+                            }
+                        } else {
+                            val songs = lyricResults.matches.map { it.song }
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    start = SongListLayout.contentHorizontalPadding,
+                                    end = SongListLayout.contentHorizontalPadding,
+                                    bottom = 16.dp + com.muses.player.core.ui.theme.LocalBottomChromePadding.current,
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(SongListLayout.itemSpacing),
+                            ) {
+                                item(key = "lyric-count") { SearchSectionTitle("歌词 · ${songs.size} 首") }
+                                items(lyricResults.matches, key = { "lyric-${it.song.id}" }) { match ->
+                                    LyricResultRow(match) { viewModel.playLibrarySong(match.song.id, songs) }
+                                }
+                            }
+                        }
                     }
                 }
                 else -> {
@@ -295,6 +339,38 @@ fun OnlineSearchScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LyricResultRow(match: LibraryLyricMatch, onClick: () -> Unit) {
+    val scheme = MiuixTheme.colorScheme
+    val song = match.song
+    Column(Modifier.fillMaxWidth()) {
+        com.muses.player.core.ui.components.SongListItem(
+            song = com.muses.player.core.ui.components.SongItem(
+                id = song.id, title = song.title, artist = song.artist,
+                albumTitle = song.album, coverUri = song.coverUri, qualityLabel = song.audioQuality,
+            ),
+            isCurrent = com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches(song.id),
+            isLiked = com.muses.player.core.ui.components.LocalFavoriteSongs.current.isLiked(song),
+            onClick = onClick,
+        )
+        top.yukonga.miuix.kmp.basic.Text(
+            text = buildAnnotatedString {
+                append(match.snippet)
+                addStyle(SpanStyle(color = scheme.primary), match.matchStart, match.matchEnd)
+            },
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(
+                start = SongListLayout.horizontalPadding + SongListLayout.coverSize + SongListLayout.coverGap,
+                end = SongListLayout.horizontalPadding,
+                bottom = 8.dp,
+            ),
+            color = scheme.onSurfaceVariantSummary,
+            fontSize = SongListLayout.subtitleSize,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

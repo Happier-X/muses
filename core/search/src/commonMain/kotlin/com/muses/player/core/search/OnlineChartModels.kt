@@ -56,6 +56,25 @@ interface OnlineChartProvider {
      * @param page 1-based 页码
      */
     suspend fun chartSongs(chartId: String, page: Int, pageSize: Int): OnlineChartPage
+
+    /** 获取整榜；分页接口自动取齐，不向界面暴露分页。 */
+    suspend fun allChartSongs(chartId: String): List<OnlineSearchResult> {
+        val songs = mutableListOf<OnlineSearchResult>()
+        val seen = mutableSetOf<String>()
+        val pageSize = 100
+        var page = 1
+        while (true) {
+            val result = chartSongs(chartId, page, pageSize)
+            val fresh = result.results.filter { seen.add(it.songId) }
+            songs.addAll(fresh)
+            if (result.hasMore == false ||
+                (result.hasMore == null && result.results.size < pageSize)) return songs
+            if (fresh.isEmpty()) {
+                throw OnlineChartException(platform, "榜单未能完整获取，请稍后重试")
+            }
+            page++
+        }
+    }
 }
 
 /** 榜单失败（网络/解析/平台拒绝）；聚合层转成用户可读提示 */

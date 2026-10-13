@@ -10,7 +10,6 @@ import com.muses.player.core.data.repository.AlbumRepository
 import com.muses.player.core.data.repository.ArtistRepository
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.lxsdk.LxQuality
-import com.muses.player.core.lxsdk.LxAction
 import com.muses.player.core.lxsdk.LxScriptRepository
 import com.muses.player.core.model.online.OnlineTrackSession
 import com.muses.player.core.playback.PlaybackPort
@@ -18,6 +17,10 @@ import com.muses.player.core.search.OnlineSearchResult
 import com.muses.player.core.search.OnlineSearchService
 import com.muses.player.core.search.PlatformSearchOutcome
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,6 +29,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -44,6 +51,7 @@ data class PlatformSearchState(
 
 /** 在线搜索页状态 */
 data class OnlineSearchUiState(
+    val category: SearchCategory = SearchCategory.ALL,
     val keyword: String = "",
     val searching: Boolean = false,
     /** 已发起过搜索（用于区分「未搜」与「无结果」） */
@@ -104,6 +112,7 @@ class OnlineSearchViewModel(
     val state: StateFlow<OnlineSearchUiState> = _state.asStateFlow()
 
     private val submittedKeyword = MutableStateFlow("")
+    private val lyricSearchRevision = MutableStateFlow(0L)
     val libraryResults: StateFlow<LibrarySearchResults> = submittedKeyword.flatMapLatest { keyword ->
         if (keyword.isBlank()) flowOf(LibrarySearchResults())
         else combine(
@@ -122,6 +131,24 @@ class OnlineSearchViewModel(
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibrarySearchResults())
+
+    val lyricResults: StateFlow<LibraryLyricsResults> = combine(
+        submittedKeyword,
+        state.map { it.category }.distinctUntilChanged(),
+        lyricSearchRevision,
+    ) { keyword, category, _ -> keyword to category }.flatMapLatest { (keyword, category) ->
+        if (keyword.isBlank() || category != SearchCategory.LYRICS) flowOf(LibraryLyricsResults())
+        else songRepository.observeSongs().mapLatest { songs ->
+            withContext(Dispatchers.Default) {
+                val matches = songs.mapNotNull { song ->
+                    currentCoroutineContext().ensureActive()
+                    matchLibraryLyrics(song, keyword)
+                }
+                LibraryLyricsResults(keyword = keyword, matches = matches,
+                    songsWithLyrics = songs.count { !it.lyrics.isNullOrBlank() })
+            }
+        }.onStart { emit(LibraryLyricsResults(keyword = keyword, loading = true)) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryLyricsResults())
 
     private var searchJob: Job? = null
     private var searchSeq = 0L
@@ -184,6 +211,16 @@ class OnlineSearchViewModel(
         search(_state.value.keyword.trim())
     }
 
+    fun setCategory(category: SearchCategory) {
+        if (_state.value.category == category) return
+        _state.value = _state.value.copy(category = category)
+        if (_state.value.searched) search(_state.value.searchedKeyword)
+    }
+
+    fun refreshLyrics() {
+        if (_state.value.searchedKeyword.isNotBlank()) search(_state.value.searchedKeyword)
+    }
+
     /** 重查已经提交的关键词，保留输入框里的未提交修改和平台筛选。 */
     suspend fun refresh() {
         val keyword = _state.value.searchedKeyword
@@ -198,9 +235,16 @@ class OnlineSearchViewModel(
             return
         }
         submittedKeyword.value = keyword
-        refreshAvailableQualities()
         val requestSeq = ++searchSeq
         searchJob?.cancel()
+        if (_state.value.category == SearchCategory.LYRICS) {
+            lyricSearchRevision.value++
+            _state.value = _state.value.copy(
+                searching = false, searched = true, searchedKeyword = keyword, message = null,
+            )
+            return
+        }
+        refreshAvailableQualities()
         searchJob = viewModelScope.launch {
             _state.value = _state.value.copy(
                 searching = true,
@@ -267,33 +311,14 @@ class OnlineSearchViewModel(
         val target = platformState.results.getOrNull(index) ?: return
         val quality = currentQuality()?.key
         val songs: List<Song> = platformState.results.map { it.toSong(onlineSourceId, quality) }
-        viewModelScope.launch {
-            // 播放前校验：该平台是否有脚本能解析直链。
-            // 否则用户点播放后毫无反馈（直链解析在播放链路内异步失败），体验很差。
-            if (!hasUsableScript(platform)) {
-                _state.value = _state.value.copy(
-                    message = "还没有可用的在线音源脚本。" +
-                        "请到「在线音源脚本」导入脚本后再播放。",
-                )
-                return@launch
-            }
-            // 先登记再播放：桌面 songLookup 依赖此回退
-            OnlineTrackSession.remember(songs)
-            playback.play(target.toSong(onlineSourceId, quality).id, songs)
-        }
+        // 立即登记并切换所选歌曲；脚本加载和失败提示由播放解析链路处理。
+        OnlineTrackSession.remember(songs)
+        playback.play(target.toSong(onlineSourceId, quality).id, songs)
     }
 
     fun playLibrarySong(songId: String, songs: List<Song>) {
         playback.play(songId, songs)
     }
-
-    /** 是否存在已加载且声明了该平台的脚本 */
-    private suspend fun hasUsableScript(platform: String): Boolean =
-        runCatching {
-            scriptRepository.loadAll().any { script ->
-                script.loadError == null && script.sources.values.any { it.supports(LxAction.MUSIC_URL) }
-            }
-        }.getOrDefault(false)
 
     fun clearMessage() {
         _state.value = _state.value.copy(message = null)

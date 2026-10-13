@@ -374,6 +374,11 @@ class JvmPlayerPort(
 
     private fun playSongId(songId: String, startPositionMs: Long) {
         prepareJob?.cancel()
+        // 点选即时发布，查库及音源解析都可能挂起，界面不应在此期间仍显示旧曲。
+        _currentMeta.value = null
+        _currentSongId.value = songId
+        _durationMs.value = 0L
+        _positionMs.value = startPositionMs.coerceAtLeast(0L)
         // 立即进入准备态，阻止紧接而来的 play() 播放 VLC 中的旧媒体。
         _playbackState.value = JvmPlaybackStates.STATE_BUFFERING
         _isPlaying.value = false

@@ -70,6 +70,13 @@ class OnlineChartService(
             ?: throw OnlineChartException(platform, "不支持的榜单平台：$platform")
         return provider.chartSongs(chartId, page, pageSize)
     }
+
+    /** 一次加载完整榜单，保持平台排名顺序。 */
+    suspend fun allChartSongs(platform: String, chartId: String): List<OnlineSearchResult> {
+        val provider = providers.firstOrNull { it.platform == platform }
+            ?: throw OnlineChartException(platform, "不支持的榜单平台：$platform")
+        return provider.allChartSongs(chartId)
+    }
 }
 
 /** 单平台榜单列表结局 */

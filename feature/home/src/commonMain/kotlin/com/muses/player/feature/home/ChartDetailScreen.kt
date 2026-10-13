@@ -100,7 +100,7 @@ fun ChartDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 MusesIconButton(onClick = viewModel::shuffle) {
-                                    Icon(TablerIcons.Shuffle, contentDescription = "随机播放已加载歌曲")
+                                    Icon(TablerIcons.Shuffle, contentDescription = "随机播放全部歌曲")
                                 }
                                 Text(
                                     text = state.songs.size.toString(),
@@ -176,14 +176,6 @@ fun ChartDetailScreen(
                         onClick = { viewModel.play(index) },
                         trailingContent = { com.muses.player.core.ui.components.OnlineSongDownloadAction(playableSong) },
                     )
-                }
-                if (state.hasMore) {
-                    item(key = "load-more") {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            if (state.loadingMore) CircularProgressIndicator()
-                            else MusesTextButton(onClick = viewModel::loadMore, text = "加载更多")
-                        }
-                    }
                 }
             }
         }

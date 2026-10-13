@@ -30,6 +30,10 @@ class WyChartProvider(
     override val platform: String = PLATFORM_WY
     override val displayName: String = "网易云音乐"
 
+    // 详情接口本来就返回全量，直接保留全部歌曲，避免重复请求后再拼接。
+    override suspend fun allChartSongs(chartId: String): List<OnlineSearchResult> =
+        chartSongs(chartId, page = 1, pageSize = Int.MAX_VALUE).results.distinctBy { it.songId }
+
     override suspend fun charts(): List<OnlineChart> {
         val text = try {
             http.getText("https://music.163.com/api/toplist", referer = "https://music.163.com/")
