@@ -4,3 +4,6 @@ import java.text.Normalizer
 
 internal actual fun normalizeSongIdentity(value: String): String =
     Normalizer.normalize(value, Normalizer.Form.NFKC).lowercase().filter { it.isLetterOrDigit() }
+
+internal actual fun normalizeArtistIdentityText(value: String): String =
+    Normalizer.normalize(value, Normalizer.Form.NFKC)
