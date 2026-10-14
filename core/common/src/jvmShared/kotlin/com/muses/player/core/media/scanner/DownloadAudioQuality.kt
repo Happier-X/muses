@@ -20,6 +20,14 @@ data class DownloadAudioQuality(
     }
 
     companion object {
+        /** 完整文件核验，不受远程头部范围和 M4A 尾部元数据位置限制。 */
+        fun durationMs(file: File): Long? = try {
+            AudioFileIO.read(file).audioHeader.trackLength.toLong().takeIf { it > 0 }?.times(1000)
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException || e is InterruptedException) throw e
+            null
+        }
+
         fun read(file: File): DownloadAudioQuality? = try {
             val header = AudioFileIO.read(file).audioHeader
             val result = DownloadAudioQuality(header.isLossless,

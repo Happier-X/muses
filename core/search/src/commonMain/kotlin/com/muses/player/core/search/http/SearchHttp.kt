@@ -16,6 +16,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.readAvailable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -32,17 +33,29 @@ class SearchHttp(
     private val json: Json = SearchJson,
 ) {
 
-    suspend fun canOpenAudio(url: String): Boolean {
+    suspend fun canOpenAudio(url: String, expectedDurationMs: Long? = null): Boolean {
+        val inspectDuration = expectedDurationMs != null && expectedDurationMs >= 90_000
         return client.prepareGet(url) {
-            header(HttpHeaders.Range, "bytes=0-0")
+            header(HttpHeaders.Range, if (inspectDuration) "bytes=0-65535" else "bytes=0-0")
             header(HttpHeaders.UserAgent, OnlinePlaybackHttp.USER_AGENT)
         }.execute { response ->
+            val channel = response.bodyAsChannel()
             try {
-                response.status.isSuccess() &&
-                    response.contentType()?.contentType != "text" &&
-                    response.contentType()?.contentSubtype != "json"
+                if (!response.status.isSuccess() || response.contentType()?.contentType == "text" ||
+                    response.contentType()?.contentSubtype == "json") return@execute false
+                if (!inspectDuration) return@execute true
+                // 即使服务器忽略 Range，也只读取最多 64 KiB，随后取消响应。
+                val prefix = ByteArray(65_536)
+                var count = 0
+                while (count < prefix.size) {
+                    val read = channel.readAvailable(prefix, count, prefix.size - count)
+                    if (read < 0) break
+                    count += read
+                }
+                val actual = audioHeaderDurationMs(prefix.copyOf(count))
+                !isTruncatedAudio(actual, expectedDurationMs)
             } finally {
-                response.bodyAsChannel().cancel(null)
+                channel.cancel(null)
             }
         }
     }

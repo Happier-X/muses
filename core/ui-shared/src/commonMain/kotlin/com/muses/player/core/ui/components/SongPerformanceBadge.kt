@@ -60,16 +60,21 @@ fun SongTitleWithBadge(
     }
 }
 
-/** 音质小标放在艺术家与专辑信息前。 */
+/** 副标题依次展示喜欢标记、音质小标、艺术家与专辑。 */
 @Composable
 fun SongSubtitleWithQuality(
     subtitle: String,
     label: String?,
     style: TextStyle = MiuixTheme.textStyles.footnote1,
     color: Color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+    isLiked: Boolean = false,
 ) {
-    if (subtitle.isBlank() && label == null) return
+    if (subtitle.isBlank() && label == null && !isLiked) return
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (isLiked) {
+            SongFavoriteMark()
+            if (label != null || subtitle.isNotBlank()) Spacer(Modifier.width(5.dp))
+        }
         if (label != null) {
             SongQualityBadge(label)
             if (subtitle.isNotBlank()) Spacer(Modifier.width(5.dp))
@@ -87,23 +92,20 @@ fun SongSubtitleWithQuality(
 @Composable
 private fun SongQualityBadge(label: String) {
     val dark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
-    // 颜色只按确认的音质分档，格式相同的文件可能具有不同音质。
-    val (lightForeground, lightBackground) = when (label) {
-        "HQ" -> Color(0xFF9C6538) to Color(0xFFF3E9E0)
-        "SQ" -> Color(0xFF2D7AA8) to Color(0xFFE0F2F3)
-        "Hi-Res" -> Color.Black to Color(0xFFFFE793)
-        else -> Color(0xFF62666C) to Color(0xFFE7E9EC)
+    // 保留 QQ 音乐的绿色、橙色与金色分档，使用柔和色块底，不加描边。
+    val foreground = when (label) {
+        "HQ" -> if (dark) Color(0xFF45D99A) else Color(0xFF20BC78)
+        "SQ" -> if (dark) Color(0xFFFFB15C) else Color(0xFFFF8A16)
+        "Hi-Res" -> if (dark) Color(0xFFEAC66D) else Color(0xFFAB812B)
+        else -> if (dark) Color(0xFFAEB2B8) else Color(0xFF777C83)
     }
-    val foreground = if (dark) {
-        if (label == "Hi-Res") Color(0xFFF9F9F9) else lightBackground
-    } else lightForeground
-    val background = if (dark) {
-        if (label == "HQ" || label == "SQ") lightForeground else Color(0xFF3C4047)
-    } else lightBackground
     val fill = if (label == "Hi-Res") {
-        Brush.linearGradient(if (dark) listOf(Color(0xFFE7BA1C), Color(0xFFE4AC0F))
+        Brush.linearGradient(if (dark) listOf(Color(0xFF665022), Color(0xFF54421E))
             else listOf(Color(0xFFFFE793), Color(0xFFF6CE5B)))
-    } else Brush.linearGradient(listOf(background, background))
+    } else {
+        val background = foreground.copy(alpha = if (dark) 0.22f else 0.13f)
+        Brush.linearGradient(listOf(background, background))
+    }
     Box(
         // 副标题的可见字形略低于行框中心，字标随之下移以保持视觉居中。
         modifier = Modifier.offset(y = 1.dp).clip(RoundedCornerShape(2.dp))

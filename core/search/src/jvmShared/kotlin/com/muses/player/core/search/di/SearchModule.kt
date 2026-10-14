@@ -46,7 +46,11 @@ fun searchModule() = module {
     single<OnlineTrackCandidateProvider> { CrossPlatformTrackMatcher(get()) }
     single<OnlinePlayableUrlProbe> {
         val http: SearchHttp = get()
-        OnlinePlayableUrlProbe { http.canOpenAudio(it) }
+        object : OnlinePlayableUrlProbe {
+            override suspend fun canOpen(url: String) = http.canOpenAudio(url)
+            override suspend fun canOpen(url: String, expectedDurationMs: Long?) =
+                http.canOpenAudio(url, expectedDurationMs)
+        }
     }
 
     // 榜单：与搜索共享 SearchHttp（同 UA/超时/宽松解析口径）

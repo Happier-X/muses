@@ -95,13 +95,13 @@ fun MusesListRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (qualityBadgeLabel != null) {
+                if (qualityBadgeLabel != null || isLiked) {
                     androidx.compose.foundation.layout.Box(Modifier.padding(top = 2.dp)) {
                         SongSubtitleWithQuality(subtitle.orEmpty(), qualityBadgeLabel,
                             style = if (songLayout) MiuixTheme.textStyles.footnote1.copy(fontSize = SongListLayout.subtitleSize,
                                 lineHeight = SongListLayout.subtitleLineHeight)
                                 else MiuixTheme.textStyles.footnote1.copy(lineHeight = (13f * 1.35f).sp),
-                            color = subtitleColor ?: scheme.onBackgroundVariant)
+                            color = subtitleColor ?: scheme.onBackgroundVariant, isLiked = isLiked)
                     }
                 } else if (subtitle != null) {
                     Text(
@@ -123,10 +123,6 @@ fun MusesListRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                if (isLiked) {
-                    SongFavoriteMark()
-                    androidx.compose.foundation.layout.Spacer(Modifier.width(2.dp))
-                }
                 after()
             }
             if (chevron) {

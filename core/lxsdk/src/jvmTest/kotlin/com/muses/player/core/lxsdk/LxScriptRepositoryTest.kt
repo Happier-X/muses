@@ -20,6 +20,31 @@ import kotlin.test.assertTrue
  * [LxScriptRepository] 集成测试：多脚本管理、按 platform 路由、音质回退、懒加载。
  */
 class LxScriptRepositoryTest {
+    @Test fun `试听地址被拒绝后携带原曲时长继续跨平台解析`() = kotlinx.coroutines.runBlocking {
+        val repo = repository()
+        repo.register("both", scriptFor("wy", "kw"))
+        val durations = java.util.concurrent.CopyOnWriteArrayList<Long?>()
+        val resolver = LxOnlineTrackResolver(repo,
+            candidateProvider = com.muses.player.core.model.online.OnlineTrackCandidateProvider { ref, _ ->
+                listOf(ref.copy(platform = "kw"))
+            },
+            urlProbe = object : com.muses.player.core.model.online.OnlinePlayableUrlProbe {
+                override suspend fun canOpen(url: String): Boolean = error("必须核验时长")
+                override suspend fun canOpen(url: String, expectedDurationMs: Long?): Boolean {
+                    durations += expectedDurationMs
+                    return url.contains("/kw")
+                }
+            },
+        )
+        try {
+            for (info in listOf("""{"interval":240}""", """{"interval":"04:00"}""",
+                """{"interval":"无效","duration":240}""")) {
+                assertTrue(resolver.resolve(OnlineTrackRef("wy", info, "online", "320k")).url.contains("/kw"))
+            }
+            assertTrue(durations.size >= 6)
+            assertTrue(durations.all { it == 240_000L })
+        } finally { com.muses.player.core.model.online.OnlineTrackSession.clear() }
+    }
 
     private fun racingScript(name: String, qualities: String, delayMs: Int = 0) = """
         lx.on('request', ({info}) => new Promise(resolve => {

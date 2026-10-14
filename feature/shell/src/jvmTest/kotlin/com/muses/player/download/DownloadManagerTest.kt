@@ -20,6 +20,100 @@ import okio.Buffer
 import kotlin.test.*
 
 class DownloadManagerTest {
+    @Test fun `不断变化的试听签名地址不会让下载无限重试`() = runBlocking {
+        for (crossPlatform in listOf(false, true)) {
+            Harness(useDefaultResolver = true,
+                candidateProvider = if (crossPlatform) OnlineTrackCandidateProvider { _, _ -> emptyList() } else null).use { h ->
+                val url = h.server.url("/trial").toString()
+                h.lx.register("变化地址", """
+                    let serial = 0;
+                    lx.on('request', () => Promise.resolve('$url?serial=' + (++serial)));
+                    lx.send('inited', {sources: {kw: {actions: ['musicUrl'], qualitys: ['128k']}}});
+                """.trimIndent())
+                h.server.dispatcher = object : Dispatcher() {
+                    override fun dispatch(request: RecordedRequest) = MockResponse()
+                        .setBody(Buffer().write(wav(44 + 8000 * 2 * 60, 8000)))
+                }
+                h.settings.setDownloadPreferredQuality("128k")
+                h.manager.enqueue(h.song().copy(durationMs = 120_000, durationSec = 120)).join()
+                h.manager.start(setOf(h.store.load().single().id), h.target).join()
+                val failed = h.await(DownloadStatus.FAILED)
+                assertEquals(3, h.server.requestCount)
+                assertTrue(failed.error.orEmpty().contains("试听或截短片段"))
+                assertTrue(h.added.isEmpty())
+            }
+        }
+    }
+    @Test fun `完整文件核验失败后排除试听地址并尝试同平台同档其他脚本`() = runBlocking {
+        Harness(useDefaultResolver = true).use { h ->
+            for ((name, delay) in listOf("trial" to 0, "full" to 200)) {
+                val url = h.server.url("/$name").toString()
+                h.lx.register(name, """
+                    lx.on('request', () => new Promise(resolve => setTimeout(() => resolve('$url'), $delay)));
+                    lx.send('inited', {sources: {kw: {actions: ['musicUrl'], qualitys: ['320k']}}});
+                """.trimIndent())
+            }
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = MockResponse()
+                    .setBody(Buffer().write(wav(44 + 8000 * 2 * if (request.path == "/trial") 60 else 120, 8000)))
+            }
+            h.manager.enqueue(h.song().copy(durationMs = 120_000, durationSec = 120)).join()
+            h.manager.start(setOf(h.store.load().single().id), h.target).join()
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertEquals(2, h.server.requestCount)
+            assertEquals(120_000L, com.muses.player.core.media.scanner.DownloadAudioQuality.durationMs(File(done.savedLocation!!)))
+            assertEquals("320k", done.requestedQuality)
+        }
+    }
+    @Test fun `下载完成核验试听片段后同档换源且只保存完整歌曲`() = runBlocking {
+        Harness(candidateProvider = OnlineTrackCandidateProvider { ref, _ -> listOf(ref.copy(platform = "tx")) }).use { h ->
+            h.lx.register("测试多平台", """
+                lx.send('inited', {sources: {tx: {actions: ['musicUrl'], qualitys: ['320k']}}});
+            """.trimIndent())
+            val requested = mutableListOf<Pair<String, LxQuality>>()
+            h.resolveTrackOverride = { ref, quality ->
+                requested += ref.platform to quality
+                LxMusicUrl(h.server.url("/${ref.platform}/audio").toString(), quality)
+            }
+            h.server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse = MockResponse()
+                    .setHeader("ETag", "\"test\"")
+                    .setBody(Buffer().write(wav(44 + 8000 * 2 * if (request.path!!.startsWith("/kw/")) 60 else 120, 8000)))
+            }
+            h.manager.enqueue(h.song().copy(durationMs = 120_000, durationSec = 120)).join()
+            h.manager.start(setOf(h.store.load().single().id), h.target).join()
+            val done = h.await(DownloadStatus.COMPLETED)
+            assertEquals(listOf("kw" to LxQuality.Q_320K, "tx" to LxQuality.Q_320K), requested)
+            assertEquals(120_000L, com.muses.player.core.media.scanner.DownloadAudioQuality.durationMs(File(done.savedLocation!!)))
+            assertEquals(1, h.added.size)
+            assertTrue(h.root.walkTopDown().none { it.name == "audio.part" || it.name.startsWith("duration-probe.") })
+        }
+    }
+
+    @Test fun `全部是试听片段时失败并且不会保存上传或入库`() = runBlocking {
+        for (crossPlatform in listOf(false, true)) {
+            Harness(candidateProvider = if (crossPlatform) OnlineTrackCandidateProvider { _, _ -> emptyList() } else null).use { h ->
+                h.resolveTrackOverride = { _, quality -> LxMusicUrl(h.server.url("/audio/${quality.key}").toString(), quality) }
+                h.server.dispatcher = object : Dispatcher() {
+                    override fun dispatch(request: RecordedRequest) = MockResponse()
+                        .setBody(Buffer().write(wav(44 + 8000 * 2 * 60, 8000)))
+                }
+                // 曲目对象缺少时长时，仍使用歌曲引用内的原曲时长核验。
+                val song = h.song().copy(durationMs = 0, durationSec = 0,
+                    path = OnlineTrackRef("kw", """{"interval":"02:00"}""", "online").encode())
+                h.manager.enqueue(song).join()
+                h.manager.start(setOf(h.store.load().single().id), h.target).join()
+                val failed = h.await(DownloadStatus.FAILED)
+                assertTrue(failed.error.orEmpty().contains("试听或截短片段"))
+                assertNull(failed.savedLocation)
+                assertNull(failed.localAudioPath)
+                assertTrue(h.added.isEmpty())
+                assertTrue(!File(h.target.directory).exists() || File(h.target.directory).listFiles()!!.isEmpty())
+                assertTrue(h.root.walkTopDown().none { it.name == "audio.part" || it.name == "audio.fallback" || it.name.startsWith("duration-probe.") })
+            }
+        }
+    }
+
     @Test fun `其他平台有无损时原平台不可用或假无损均不提前降档`() = runBlocking {
         for (mode in listOf("解析失败", "地址失效", "假无损")) {
             val metadataPlatforms = mutableListOf<String>()
@@ -233,6 +327,7 @@ class DownloadManagerTest {
         private val tagPort: com.muses.player.core.scrape.ports.TagPort = com.muses.player.core.scrape.ports.JaudiotaggerTagPort,
         private val candidateProvider: OnlineTrackCandidateProvider? = null,
         private val metadataResolver: OnlineTrackMetadataResolver = NoOpOnlineTrackMetadataResolver,
+        private val useDefaultResolver: Boolean = false,
     ) : java.io.Closeable {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val root = Files.createTempDirectory("muses-download-test").toFile()
@@ -275,7 +370,7 @@ class DownloadManagerTest {
             metadataResolver, null, object : DownloadStorage by createDownloadStorage(settings) {
                 override val cacheDirectory = File(root, "cache")
                 override val stagingDirectory = File(root, "cache")
-            }, resolveTimeoutMs = resolveTimeoutMs, scope = scope, client = client, resolveAudio = { ref, quality ->
+            }, resolveTimeoutMs = resolveTimeoutMs, scope = scope, client = client, resolveAudio = if (useDefaultResolver) null else { ref, quality ->
                 resolves++
                 resolveTrackOverride?.invoke(ref, quality) ?: resolveOverride?.invoke(quality)
                     ?: LxMusicUrl(server.url("/audio").toString(), LxQuality.Q_128K)

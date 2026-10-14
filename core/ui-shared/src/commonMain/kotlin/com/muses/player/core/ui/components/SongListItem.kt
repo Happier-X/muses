@@ -133,11 +133,12 @@ fun SongListItem(
             val subtitle = listOfNotNull(song.artist, song.albumTitle)
                 .filter { it.isNotBlank() }
                 .joinToString(" - ")
-            if (subtitle.isNotBlank() || qualityBadgeLabel != null) {
+            if (subtitle.isNotBlank() || qualityBadgeLabel != null || isLiked) {
                 Spacer(Modifier.size(SongListLayout.textGap))
                 SongSubtitleWithQuality(
                     subtitle = subtitle,
                     label = qualityBadgeLabel,
+                    isLiked = isLiked,
                     color = if (isCurrent) scheme.primary else scheme.onBackgroundVariant,
                     style = MiuixTheme.textStyles.footnote1.copy(fontSize = SongListLayout.subtitleSize,
                         lineHeight = SongListLayout.subtitleLineHeight),
@@ -147,14 +148,7 @@ fun SongListItem(
 
         if (trailingContent != null) {
             Spacer(Modifier.width(SongListLayout.actionGap))
-            if (isLiked) {
-                SongFavoriteMark()
-                Spacer(Modifier.width(6.dp))
-            }
             trailingContent()
-        } else if (isLiked) {
-            Spacer(Modifier.width(SongListLayout.actionGap))
-            SongFavoriteMark()
         }
     }
     }

@@ -9,6 +9,7 @@ import com.muses.player.core.model.online.OnlineTrackCandidateProvider
 import com.muses.player.core.model.online.OnlinePlayableUrlProbe
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
+import com.muses.player.core.model.online.expectedDurationMs
 
 /**
  * 把 [LxScriptRepository] 适配为播放链路的 [OnlineTrackResolver] 端口。
@@ -69,13 +70,14 @@ class LxOnlineTrackResolver(
 
     private suspend fun resolveDirect(ref: OnlineTrackRef): OnlinePlayableUrl {
         val quality = ref.quality?.let(LxQuality::fromKey) ?: defaultQuality
+        val expectedDurationMs = ref.expectedDurationMs()
         return try {
             val result = repository.resolveMusicUrlInfo(
                 platform = ref.platform,
                 musicInfoJson = ref.musicInfoJson,
                 quality = quality,
                 acceptUrl = { url ->
-                    urlProbe == null || withTimeoutOrNull(4_000) { urlProbe.canOpen(url) } == true
+                    urlProbe == null || withTimeoutOrNull(4_000) { urlProbe.canOpen(url, expectedDurationMs) } == true
                 },
             )
             OnlinePlayableUrl(url = result.url, quality = result.quality?.key)

@@ -1157,6 +1157,9 @@ private fun AppNavHost(
             HomeScreen(
                 onOpenRecommendations = { backStack.pushUnique(MusesRoute.HomeCollection(true)) },
                 onOpenCharts = { backStack.pushUnique(MusesRoute.HomeCollection(false)) },
+                onOpenChart = { platform, chartId, title ->
+                    backStack.pushUnique(MusesRoute.ChartDetail(platform, chartId, title))
+                },
                 onOpenPlaylist = { platform, playlistId, title ->
                     backStack.pushUnique(MusesRoute.PlaylistDetail(platform, playlistId, title))
                 },

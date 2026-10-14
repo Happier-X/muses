@@ -314,9 +314,18 @@ fun MiniPlayerBar(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 if (isBuffering && hasSong) {
-                    MusesIconButton(onClick = {}, enabled = false) {
+                    Box(
+                        modifier = Modifier.size(MusesIconButtonSize.MD.touchSize)
+                            .semantics { contentDescription = "正在加载歌曲" },
+                        contentAlignment = Alignment.Center,
+                    ) {
                         top.yukonga.miuix.kmp.basic.CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp).semantics { contentDescription = "正在加载歌曲" },
+                            size = 18.dp,
+                            strokeWidth = 2.dp,
+                            colors = top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults.progressIndicatorColors(
+                                foregroundColor = scheme.onBackground,
+                                backgroundColor = scheme.onBackground.copy(alpha = 0.15f),
+                            ),
                         )
                     }
                 } else MusesIconButton(

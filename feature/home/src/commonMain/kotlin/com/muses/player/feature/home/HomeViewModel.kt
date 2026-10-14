@@ -117,6 +117,11 @@ class HomeViewModel(
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
+    /** 首页只读取已有推荐预览，不触发生成、换曲或补齐请求。 */
+    val recommendationPreview: StateFlow<List<OnlineSearchResult>> = settingsRepository.aiDailyRecommend
+        .map { raw -> RecommendPoolSnapshot.decode(raw).result.tracks.map { it.result }.take(6) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** 各平台榜单缓存：目录有独立更新时间，切平台无需重复请求。 */
     private val chartsByPlatform = mutableMapOf<String, List<OnlineChart>>()
     private val catalogUpdatedAt = mutableMapOf<String, Long>()
@@ -215,7 +220,7 @@ class HomeViewModel(
         _state.value = _state.value.copy(message = null)
     }
 
-    fun loadFeaturedPlaylists(forceRefresh: Boolean = false) {
+    fun loadRecommendedPlaylists(forceRefresh: Boolean = false) {
         if (_state.value.featured.loading) return
         _state.value = _state.value.copy(featured = _state.value.featured.copy(loading = true, error = null))
         viewModelScope.launch {
@@ -228,17 +233,14 @@ class HomeViewModel(
                     null
                 }
                 if (cached != null) {
-                    _state.value = _state.value.copy(featured = _state.value.featured.copy(items = cached.items.take(3)))
+                    _state.value = _state.value.copy(featured = _state.value.featured.copy(items = cached.items))
                     if (!forceRefresh && cached.isFresh()) return@launch
                 }
-                val selectionDay = localRecommendDay()
-                val candidates = playlistService.featured()
-                // 下拉更新当天已选歌单的信息，保留当天三个歌单的选择与顺序。
-                val items = selectDailyFeaturedPlaylists(candidates, cached, selectionDay)
+                val items = playlistService.recommended()
                 check(items.isNotEmpty()) { "暂时没有可用歌单" }
                 _state.value = _state.value.copy(featured = FeaturedPlaylistState(items))
                 try {
-                    playlistCacheStore.save(items, selectionDay)
+                    playlistCacheStore.save(items)
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (_: Exception) {

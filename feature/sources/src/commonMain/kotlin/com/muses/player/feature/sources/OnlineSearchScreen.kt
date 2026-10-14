@@ -37,6 +37,7 @@ import com.muses.player.core.lxsdk.LxQuality
 import com.muses.player.core.search.OnlineSearchResult
 import com.muses.player.core.search.performanceLabel
 import com.muses.player.core.search.qualityLabel
+import com.muses.player.core.model.libraryQualityLabel
 import com.muses.player.core.ui.components.SongSubtitleWithQuality
 import com.muses.player.core.ui.components.SongTitleWithBadge
 import com.muses.player.core.ui.components.MusesEmpty
@@ -229,6 +230,7 @@ fun OnlineSearchScreen(
                                 item(key = "songs-title") { SearchSectionTitle("歌曲") }
                                 items(songs, key = { "song-${it.id}" }) { song ->
                                     LibraryResultRow(song.title, song.artist.orEmpty(), "播放", coverUri = song.coverUri, showCover = true,
+                                        qualityBadgeLabel = song.libraryQualityLabel,
                                         isLiked = com.muses.player.core.ui.components.LocalFavoriteSongs.current.isLiked(song),
                                         marqueeEnabled = com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches(song.id)) {
                                         viewModel.playLibrarySong(song.id, songs)
@@ -387,7 +389,8 @@ private fun SearchSectionTitle(title: String) {
 
 @Composable
 private fun LibraryResultRow(title: String, subtitle: String, detail: String,
-    coverUri: String? = null, showCover: Boolean = false, isLiked: Boolean = false, marqueeEnabled: Boolean = true, onClick: () -> Unit) {
+    coverUri: String? = null, showCover: Boolean = false, isLiked: Boolean = false, qualityBadgeLabel: String? = null,
+    marqueeEnabled: Boolean = true, onClick: () -> Unit) {
     val scheme = MiuixTheme.colorScheme
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
@@ -403,22 +406,21 @@ private fun LibraryResultRow(title: String, subtitle: String, detail: String,
                 Text(title, fontSize = SongListLayout.titleSize, lineHeight = SongListLayout.titleLineHeight,
                     marqueeEnabled = marqueeEnabled,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (subtitle.isNotBlank()) {
+                if (subtitle.isNotBlank() || qualityBadgeLabel != null || isLiked) {
                     Spacer(Modifier.height(SongListLayout.textGap))
-                    Text(
-                        subtitle,
-                        marqueeEnabled = marqueeEnabled,
-                        fontSize = SongListLayout.subtitleSize,
-                        lineHeight = SongListLayout.subtitleLineHeight,
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        com.muses.player.core.ui.components.LocalTextMarqueeEnabled provides marqueeEnabled,
+                    ) {
+                    SongSubtitleWithQuality(
+                        subtitle = subtitle,
+                        label = qualityBadgeLabel,
+                        isLiked = isLiked,
+                        style = MiuixTheme.textStyles.footnote1.copy(fontSize = SongListLayout.subtitleSize,
+                            lineHeight = SongListLayout.subtitleLineHeight),
                         color = scheme.onSurfaceVariantSummary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
+                    }
                 }
-            }
-            if (isLiked) {
-                com.muses.player.core.ui.components.SongFavoriteMark()
-                Spacer(Modifier.width(6.dp))
             }
             Text(detail, fontSize = 12.sp, color = scheme.onSurfaceVariantSummary)
         }
@@ -499,6 +501,7 @@ private fun SearchResultRow(
     onClick: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
+    val isLiked = com.muses.player.core.ui.components.LocalFavoriteSongs.current.isLiked(result.toSong("online"))
     androidx.compose.runtime.CompositionLocalProvider(
         com.muses.player.core.ui.components.LocalTextMarqueeEnabled provides
             com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches("${result.platform}-${result.songId}"),
@@ -524,11 +527,12 @@ private fun SearchResultRow(
                 val sub = listOfNotNull(sourceName, result.artist, result.album)
                     .filter { it.isNotBlank() }
                     .joinToString(" · ")
-                if (sub.isNotBlank() || result.qualityLabel != null) {
+                if (sub.isNotBlank() || result.qualityLabel != null || isLiked) {
                     Spacer(Modifier.height(SongListLayout.textGap))
                     SongSubtitleWithQuality(
                         subtitle = sub,
                         label = result.qualityLabel,
+                        isLiked = isLiked,
                         style = MiuixTheme.textStyles.footnote1.copy(fontSize = SongListLayout.subtitleSize,
                             lineHeight = SongListLayout.subtitleLineHeight),
                         color = scheme.onSurfaceVariantSummary,
@@ -548,10 +552,6 @@ private fun SearchResultRow(
                 tint = scheme.primary,
             )
             Spacer(Modifier.width(SongListLayout.actionGap))
-            if (com.muses.player.core.ui.components.LocalFavoriteSongs.current.isLiked(result.toSong("online"))) {
-                com.muses.player.core.ui.components.SongFavoriteMark()
-                Spacer(Modifier.width(6.dp))
-            }
             com.muses.player.core.ui.components.OnlineSongDownloadAction(result.toSong("online"))
         }
     }
