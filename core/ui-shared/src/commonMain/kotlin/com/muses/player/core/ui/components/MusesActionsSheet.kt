@@ -1,6 +1,7 @@
 package com.muses.player.core.ui.components
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -30,23 +31,27 @@ fun MusesActionsSheet(
     onDismiss: () -> Unit,
     label: String,
     items: List<MusesActionItem>,
+    songInfo: MusesActionSongInfo? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
     OverlayBottomSheet(
         show = opened,
-        title = label,
+        title = if (songInfo == null) label else null,
         onDismissRequest = onDismiss,
         content = {
-            Card(modifier = Modifier.padding(bottom = 16.dp)) {
-                items.forEach { item ->
-                    if (item.destructive) {
-                        BasicComponent(
-                            title = item.label,
-                            titleColor = BasicComponentColors(color = scheme.error, disabledColor = scheme.error),
-                            onClick = item.onClick,
-                        )
-                    } else {
-                        BasicComponent(title = item.label, onClick = item.onClick)
+            Column {
+                songInfo?.let { MusesActionSongHeader(it) }
+                Card(modifier = Modifier.padding(bottom = 16.dp)) {
+                    items.forEach { item ->
+                        if (item.destructive) {
+                            BasicComponent(
+                                title = item.label,
+                                titleColor = BasicComponentColors(color = scheme.error, disabledColor = scheme.error),
+                                onClick = item.onClick,
+                            )
+                        } else {
+                            BasicComponent(title = item.label, onClick = item.onClick)
+                        }
                     }
                 }
             }

@@ -15,6 +15,7 @@ fun OnlineSongDownloadAction(song: Song, onDismissRecommendation: (() -> Unit)? 
     var opened by remember { mutableStateOf(false) }
     SongMoreButton(onClick = { opened = true })
     MusesActionsSheet(opened = opened, onDismiss = { opened = false }, label = "歌曲操作",
+        songInfo = MusesActionSongInfo(song.title, song.artist, song.album, song.coverUri),
         items = buildList {
             if (setLiked != null && favorites.loaded && !favorites.isInLibrary(song)) {
                 val liked = favorites.isLiked(song)

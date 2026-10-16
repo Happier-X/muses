@@ -12,7 +12,9 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
-import kotlinx.io.IOException
+import com.muses.player.core.network.ProviderHttpException
+import com.muses.player.core.network.ProviderRequestGate
+import com.muses.player.core.network.observeProviderRequest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
@@ -32,6 +34,7 @@ class LyricsHttp(
     private val client: HttpClient = defaultLyricsHttpClient(),
     private val connectTimeoutMs: Long = DEFAULT_CONNECT_TIMEOUT_MS,
     private val readTimeoutMs: Long = DEFAULT_READ_TIMEOUT_MS,
+    private val requestGate: ProviderRequestGate = ProviderRequestGate.Shared,
 ) {
 
     suspend fun getText(url: String, headers: Map<String, String> = emptyMap()): String =
@@ -42,13 +45,14 @@ class LyricsHttp(
         execText(url, headers, timeoutSec * 1000L)
 
     suspend fun getJson(url: String, headers: Map<String, String> = emptyMap()): JsonElement =
-        Json.parseToJsonElement(getText(url, headers))
+        observeProviderRequest(url) { Json.parseToJsonElement(getText(url, headers)) }
 
     suspend fun getJson(url: String, headers: Map<String, String> = emptyMap(), timeoutSec: Long): JsonElement =
-        Json.parseToJsonElement(getText(url, headers, timeoutSec))
+        observeProviderRequest(url) { Json.parseToJsonElement(getText(url, headers, timeoutSec)) }
 
     /** POST 已序列化 body 字符串（如 form / raw json），返回文本 */
-    suspend fun postText(url: String, body: String, headers: Map<String, String> = emptyMap()): String {
+    suspend fun postText(url: String, body: String, headers: Map<String, String> = emptyMap()): String = requestGate.withSource(url) {
+        beforeRequest()
         val response = client.post(url) {
             headers.forEach { (name, value) -> header(name, value) }
             headers["Content-Type"]?.let { contentType(ContentType.parse(it)) }
@@ -58,14 +62,16 @@ class LyricsHttp(
             }
             setBody(body)
         }
-        if (!response.status.isSuccess()) throw IOException("http ${response.status.value}")
-        return response.bodyAsText()
+        val text = response.bodyAsText()
+        if (!response.status.isSuccess()) throw ProviderHttpException(response.status.value)
+        text
     }
 
     suspend fun postJson(url: String, body: String, headers: Map<String, String> = emptyMap()): JsonElement =
-        Json.parseToJsonElement(postText(url, body, headers))
+        observeProviderRequest(url) { Json.parseToJsonElement(postText(url, body, headers)) }
 
-    private suspend fun execText(url: String, headers: Map<String, String>, timeoutMs: Long): String {
+    private suspend fun execText(url: String, headers: Map<String, String>, timeoutMs: Long): String = requestGate.withSource(url) {
+        beforeRequest()
         val response = client.get(url) {
             headers.forEach { (name, value) -> header(name, value) }
             timeout {
@@ -73,8 +79,9 @@ class LyricsHttp(
                 socketTimeoutMillis = timeoutMs
             }
         }
-        if (!response.status.isSuccess()) throw IOException("http ${response.status.value}")
-        return response.bodyAsText()
+        val text = response.bodyAsText()
+        if (!response.status.isSuccess()) throw ProviderHttpException(response.status.value)
+        text
     }
 
     companion object {

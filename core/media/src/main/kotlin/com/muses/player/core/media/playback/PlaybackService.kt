@@ -178,15 +178,29 @@ class PlaybackService : MediaSessionService() {
         // 通知卡片点击回应用：Media3 通知的 contentIntent 取自 sessionActivity，
         // 缺省 null 即点击无反应（小米等：别家点卡片回应用，我方无反应即此缺口）。
         // 本版 setSessionActivity 不接受 null，取不到启动意图时保持缺省（行为不变，不崩溃）。
-        val sessionBuilder = MediaSession.Builder(this, player)
+        val notificationActions = MediaNotificationActions(this, serviceScope, getKoin().get(), songRepository, settingsRepository)
+        val sessionBuilder = MediaSession.Builder(this, player).setCallback(notificationActions)
         buildSessionActivity()?.let { sessionBuilder.setSessionActivity(it) }
         mediaSession = sessionBuilder.build()
+        notificationActions.bind(checkNotNull(mediaSession))
 
         // 09-07 定案：媒体通知口径 = 上面标题、下面艺术家，专辑不进通知（与迷你条窄屏形态一致）；
         // media3 1.11 默认行为相同，此处显式锁定防止后续升级改默认值。MediaMetadata.albumTitle
         // 保留不删——蓝牙/车载（AVRCP）仍需要专辑名。
         // 口径 provider：标题/艺术家显式锁定（与迷你条窄屏形态一致，防升级改默认值）
         val baseProvider = object : DefaultMediaNotificationProvider(this) {
+            override fun getMediaButtons(
+                session: MediaSession,
+                playerCommands: Player.Commands,
+                mediaButtonPreferences: com.google.common.collect.ImmutableList<androidx.media3.session.CommandButton>,
+                showPauseButton: Boolean,
+            ): com.google.common.collect.ImmutableList<androidx.media3.session.CommandButton> {
+                val buttons = super.getMediaButtons(session, playerCommands, mediaButtonPreferences, showPauseButton)
+                val like = buttons.filter { it.sessionCommand?.customAction == MediaNotificationActions.ACTION_LIKE }
+                val lyrics = buttons.filter { it.sessionCommand?.customAction == MediaNotificationActions.ACTION_LYRICS }
+                val playback = buttons.filter { it.sessionCommand?.customAction !in setOf(MediaNotificationActions.ACTION_LIKE, MediaNotificationActions.ACTION_LYRICS) }
+                return com.google.common.collect.ImmutableList.copyOf(like + playback + lyrics)
+            }
             override fun getNotificationContentTitle(
                 mediaMetadata: androidx.media3.common.MediaMetadata,
             ): CharSequence = mediaMetadata.title ?: ""

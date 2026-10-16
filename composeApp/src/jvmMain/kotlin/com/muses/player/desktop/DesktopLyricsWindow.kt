@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
@@ -39,6 +40,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import java.awt.Toolkit
+import kotlin.math.roundToInt
 
 /**
  * 桌面悬浮歌词：直接拖动，单击展开播放与样式控制面板。
@@ -65,9 +68,14 @@ fun DesktopLyricsWindow() {
     val fontSize by settings.desktopLyricsFontSize.collectAsState(22L)
     val selectedColor by settings.desktopLyricsColor.collectAsState(0L)
     var controlsVisible by remember { mutableStateOf(false) }
+    var editingStyle by remember { mutableStateOf(false) }
+    var contentHeight by remember { mutableStateOf(0) }
+    var anchorY by remember { mutableStateOf<Int?>(null) }
+    var dragX by remember { mutableStateOf(0f) }
+    var dragY by remember { mutableStateOf(0f) }
     var hideJob by remember { mutableStateOf<Job?>(null) }
     val showing = enabled && songId != null && snapshot.songId == songId
-    LaunchedEffect(showing, locked) { if (!showing || locked) { controlsVisible = false; hideJob?.cancel() } }
+    LaunchedEffect(showing, locked) { if (!showing || locked) { controlsVisible = false; editingStyle = false; hideJob?.cancel() } }
     LaunchedEffect(showing) { DesktopLyricsInteraction.setVisible(showing) }
     DisposableEffect(Unit) { onDispose { DesktopLyricsInteraction.setVisible(false) } }
     val accent by produceState<Color?>(null, songId, artwork, coverAccentEnabled, enabled) {
@@ -87,15 +95,19 @@ fun DesktopLyricsWindow() {
     if (showing) {
         val text = desktopLyricsText(snapshot, position, translation, playing)
         val close = { scope.launch { settings.setDesktopLyricsEnabled(false) }; Unit }
+        fun scheduleHide() {
+            hideJob?.cancel()
+            if (controlsVisible && !editingStyle) hideJob = scope.launch { delay(8000); controlsVisible = false }
+        }
         fun showControls() {
             controlsVisible = !controlsVisible
-            hideJob?.cancel()
-            if (controlsVisible) hideJob = scope.launch { delay(5000); controlsVisible = false }
+            editingStyle = false
+            scheduleHide()
         }
         fun interact(action: () -> Unit) {
             hideJob?.cancel()
             action()
-            hideJob = scope.launch { delay(5000); controlsVisible = false }
+            scheduleHide()
         }
         Window(
             onCloseRequest = close,
@@ -108,6 +120,20 @@ fun DesktopLyricsWindow() {
             focusable = false,
         ) {
             val density = LocalDensity.current
+            LaunchedEffect(contentHeight) {
+                if (contentHeight <= 0) return@LaunchedEffect
+                while (!window.isShowing) delay(16)
+                val configuration = window.graphicsConfiguration
+                val bounds = configuration.bounds
+                val insets = Toolkit.getDefaultToolkit().getScreenInsets(configuration)
+                val desiredY = anchorY ?: window.y.also { anchorY = it }
+                val top = bounds.y + insets.top
+                val bottom = bounds.y + bounds.height - insets.bottom
+                windowState.position = with(density) {
+                    WindowPosition.Absolute(window.x.toDp(), desiredY.coerceIn(top, (bottom - contentHeight).coerceAtLeast(top)).toDp())
+                }
+                windowState.size = with(density) { DpSize(window.width.toDp(), contentHeight.toDp()) }
+            }
             LaunchedEffect(window, locked) {
                 if (Platform.isWindows()) {
                     while (!window.isDisplayable) delay(16)
@@ -119,27 +145,36 @@ fun DesktopLyricsWindow() {
                 }
             }
             fun move(dx: Float, dy: Float) {
+                dragX += dx
+                dragY += dy
+                anchorY = dragY.roundToInt()
                 windowState.position = with(density) {
-                    WindowPosition.Absolute((window.x + dx.toInt()).toDp(), (window.y + dy.toInt()).toDp())
+                    WindowPosition.Absolute(dragX.roundToInt().toDp(), dragY.roundToInt().toDp())
                 }
             }
             MusesTheme {
                 DesktopLyricsCard(text.primary, text.secondary, close,
                     modifier = Modifier.pointerInput(locked) {
-                        if (!locked) detectDragGestures(onDragStart = { hideJob?.cancel() },
+                        if (!locked) detectDragGestures(onDragStart = {
+                            hideJob?.cancel()
+                            dragX = window.x.toFloat()
+                            dragY = window.y.toFloat()
+                        },
                             onDragEnd = { if (controlsVisible) interact {} },
-                            onDragCancel = {}) { change, delta -> change.consume(); move(delta.x, delta.y) }
+                            onDragCancel = { if (controlsVisible) scheduleHide() }) { change, delta -> change.consume(); move(delta.x, delta.y) }
                     },
                     words = text.words, positionMs = text.positionMs, isPlaying = text.isPlaying,
                     accentColor = accent, controlsVisible = controlsVisible,
                     onTap = { showControls() },
-                    onLock = { controlsVisible = false; scope.launch { settings.setDesktopLyricsLocked(true) } },
+                    onLock = { controlsVisible = false; editingStyle = false; hideJob?.cancel(); scope.launch { settings.setDesktopLyricsLocked(true) } },
                     title = snapshot.title, fontSize = fontSize.toInt(), selectedColor = selectedColor.takeIf { it != 0L }?.let { Color(it.toInt()) },
                     onPrevious = { interact { playback.previous() } },
                     onPlayPause = { interact { playback.togglePlayPause() } },
                     onNext = { interact { playback.next() } },
                     onColor = { color -> interact { scope.launch { settings.setDesktopLyricsColor(color) } } },
-                    onFontSize = { size -> interact { scope.launch { settings.setDesktopLyricsFontSize(size.toLong()) } } })
+                    onFontSize = { size -> interact { scope.launch { settings.setDesktopLyricsFontSize(size.toLong()) } } },
+                    onEditingStyleChanged = { editingStyle = it; scheduleHide() },
+                    onContentHeightChanged = { contentHeight = it })
             }
         }
     }

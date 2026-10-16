@@ -29,6 +29,8 @@ enum class OnlineTextSource(val wire: String) {
     KG("kg"),
     MG("mg"),
     GD("gdstudio"),
+    ITUNES("itunes"),
+    MUSICBRAINZ("musicbrainz"),
 }
 
 /** 元数据字段来源标记（library/types.ts FieldSource 四值对齐） */
@@ -87,6 +89,14 @@ data class TextMetaHit(
     val artist: String? = null,
     val album: String? = null,
     val source: OnlineTextSource,
+    val durationSec: Double? = null,
+    /** 仅存真实录音实体 ID，含来源命名空间；歌曲目录条目 ID 不能替代录音 ID。 */
+    val recordingId: String? = null,
+    val releaseId: String? = null,
+    /** 目录候选标识，用于保留同名同专辑的不同条目。 */
+    val candidateId: String? = null,
+    /** 来源提供的录音版本说明，不作为标题直接写回。 */
+    val versionInfo: String? = null,
 )
 
 /** 匹配失败原因 */
@@ -130,6 +140,18 @@ data class RollbackEntry(
     val songBefore: RollbackSongSnapshot,
     /** ISO 时间 */
     val createdAt: String,
+    /** null 为旧记录，沿用整组恢复；新记录只恢复本次触及的字段。 */
+    val changedFields: Set<String>? = null,
+    /** 封面仅更新展示地址而未写入文件时，撤销只恢复曲库地址。 */
+    val coverWritten: Boolean = true,
+    /** 写前快照尚未确认保存时为 false，禁止自动恢复；旧记录默认已确认。 */
+    val fileSaved: Boolean = true,
+    /** null = 未取得封面快照；空串 = 确认无图；其他值 = 主封面内容摘要。 */
+    val coverSnapshot: String? = null,
+    /** 文本是否从实际文件读取，旧记录默认为曲库快照。 */
+    val fileSnapshotKnown: Boolean = false,
+    /** 已尝试字节快照的新记录，读取未知时禁止退回地址或清空。 */
+    val coverSnapshotRequired: Boolean = false,
 )
 
 /** 回滚 journal 持久化 snapshot（version=1，上限 200 条由存储层保证） */
@@ -161,6 +183,8 @@ data class WritebackResult(
     val fileResult: FileWriteResult,
     /** 库是否更新 */
     val libraryUpdated: Boolean,
+    /** 请求了封面但未写入文件（下载失败或超出大小限制）；文本标签照常保存 */
+    val coverSkipped: Boolean = false,
     /** 错误信息 */
     val error: String? = null,
 )
@@ -182,6 +206,8 @@ data class ScrapeChanges(
 data class ScrapeCandidate(
     val songId: String,
     val song: com.muses.player.core.model.Song,
+    /** 开始审核时可读取的本地文件版本；未知时不宣称具有审核期间保护。 */
+    val expectedFileRevision: String? = null,
 )
 
 data class ScrapeQueueItem(

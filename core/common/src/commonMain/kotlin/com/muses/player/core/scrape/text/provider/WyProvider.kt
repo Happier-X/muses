@@ -50,6 +50,8 @@ class WyProvider(private val http: ScrapeHttp) : TextMetaProvider {
                 artist = artist?.ifEmpty { null },
                 album = item.path("album", "name").asStringOrNull()?.trim()?.ifEmpty { null },
                 source = OnlineTextSource.WY,
+                durationSec = item["duration"].asStringOrNull()?.toDoubleOrNull()?.div(1000.0)?.takeIf { it.isFinite() && it > 0 },
+                candidateId = item["id"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() && it != "0" }?.let { "wy:$it" },
             )
         }.filter { it.artist != null || it.album != null }
 

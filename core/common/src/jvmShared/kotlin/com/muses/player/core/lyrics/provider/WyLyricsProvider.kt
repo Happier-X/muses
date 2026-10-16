@@ -5,6 +5,7 @@ import com.muses.player.core.lyrics.http.LyricsHttp
 import com.muses.player.core.model.lyrics.OnlineLyricsFormat
 import com.muses.player.core.model.lyrics.OnlineLyricsProviderHit
 import com.muses.player.core.model.lyrics.OnlineLyricsQuery
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -98,6 +99,8 @@ private suspend fun searchWySongId(http: LyricsHttp, query: OnlineLyricsQuery): 
         "&type=1&offset=0&total=true&limit=10"
     val body = try {
         http.getJson(url, WY_HEADERS) as? JsonObject
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         return null
     } ?: return null
@@ -132,6 +135,8 @@ private suspend fun fetchWyEapiLyric(http: LyricsHttp, id: Long): JsonObject? {
             "params=$params",
             WY_EAPI_HEADERS,
         ) as? JsonObject
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         null
     }
@@ -140,6 +145,8 @@ private suspend fun fetchWyEapiLyric(http: LyricsHttp, id: Long): JsonObject? {
 private suspend fun fetchWyPublicLyric(http: LyricsHttp, id: Long): JsonObject? = try {
     val url = "https://music.163.com/api/song/lyric?id=$id&lv=-1&kv=-1&tv=-1&rv=-1&yv=1"
     http.getJson(url, WY_HEADERS) as? JsonObject
+} catch (e: CancellationException) {
+    throw e
 } catch (_: Exception) {
     null
 }

@@ -5,6 +5,7 @@ import com.muses.player.core.lyrics.provider.qrc.QrcDecoder
 import com.muses.player.core.model.lyrics.OnlineLyricsFormat
 import com.muses.player.core.model.lyrics.OnlineLyricsProviderHit
 import com.muses.player.core.model.lyrics.OnlineLyricsQuery
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -56,6 +57,8 @@ private suspend fun searchTxHit(http: LyricsHttp, query: OnlineLyricsQuery): TxH
 
     val body = try {
         http.getJson(url, TX_HEADERS) as? JsonObject ?: return null
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         return null
     }
@@ -95,6 +98,8 @@ private suspend fun fetchTxQrc(http: LyricsHttp, songId: Long): String? {
         if (req.str("code") != "0") return null
         val hex = req.obj("data")?.str("lyric")?.trim()?.takeUnless { it.isEmpty() } ?: return null
         QrcDecoder.decryptToPlain(hex)
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         null
     }
@@ -107,6 +112,8 @@ private suspend fun fetchTxLrcByMid(http: LyricsHttp, songmid: String): String? 
 
     val raw = try {
         http.getText(url, TX_HEADERS)
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         return null
     }

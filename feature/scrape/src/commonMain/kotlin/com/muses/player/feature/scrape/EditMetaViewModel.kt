@@ -7,6 +7,8 @@ import com.muses.player.core.model.Song
 import com.muses.player.core.scrape.editmeta.EditCloudMetaResult
 import com.muses.player.core.scrape.editmeta.EditCloudMetaSearch
 import com.muses.player.core.scrape.editmeta.EditCloudMetaQuery
+import com.muses.player.core.scrape.writeback.WritebackInProgressException
+import com.muses.player.core.ui.components.MusesSnackbar
 import com.muses.player.core.scrape.writeback.WritebackOrchestrator
 import com.muses.player.core.model.scrape.ScrapeCandidate
 import com.muses.player.core.model.scrape.ScrapeChanges
@@ -121,11 +123,15 @@ class EditMetaViewModel constructor(
                 lyrics = state.result?.lyrics?.takeIf { it.status == com.muses.player.core.scrape.editmeta.EditDimStatus.OK }
                     ?.items?.firstOrNull()?.text?.takeIf { it != song.lyrics },
             )
-            writebackOrchestrator.applyScrapeChanges(
-                candidates = listOf(ScrapeCandidate(songId = song.id, song = song)),
-                checkedIds = setOf(song.id),
-                changesMap = mapOf(song.id to changes),
-            )
+            try {
+                writebackOrchestrator.applyScrapeChanges(
+                    candidates = listOf(ScrapeCandidate(songId = song.id, song = song)),
+                    checkedIds = setOf(song.id),
+                    changesMap = mapOf(song.id to changes),
+                )
+            } catch (e: WritebackInProgressException) {
+                MusesSnackbar.show(e.message.orEmpty())
+            }
         }
     }
 }

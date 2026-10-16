@@ -16,6 +16,8 @@ internal fun scrapeSourceLabel(source: String?): String = when (source?.trim()?.
     "kw" -> "酷我"
     "mg" -> "咪咕"
     "itunes" -> "iTunes"
+    "musicbrainz" -> "MusicBrainz"
+    "lrcapi" -> "LrcApi"
     "gdstudio" -> "GD 音乐台"
     else -> source
 }

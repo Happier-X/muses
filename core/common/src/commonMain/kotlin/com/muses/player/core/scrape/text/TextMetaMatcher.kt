@@ -97,6 +97,8 @@ class TextMetaMatcher(
             WyProvider(http),
             KgProvider(http),
             MgProvider(http),
+            com.muses.player.core.scrape.international.ItunesTextProvider(http),
+            com.muses.player.core.scrape.international.MusicBrainzTextProvider(com.muses.player.core.scrape.international.MusicBrainzClient(http)),
         )
 
         /** 默认装配：默认链 + 默认负缓存 */

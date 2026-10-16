@@ -55,6 +55,9 @@ class TxProvider(private val http: ScrapeHttp) : TextMetaProvider {
                 artist = artist?.ifEmpty { null },
                 album = item["albumname"].asStringOrNull()?.trim()?.ifEmpty { null },
                 source = OnlineTextSource.TX,
+                durationSec = item["interval"].asStringOrNull()?.toDoubleOrNull()?.div(1.0)?.takeIf { it.isFinite() && it > 0 },
+                candidateId = item["songmid"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() && it != "0" }?.let { "tx:$it" },
+                releaseId = item["albummid"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() && it != "0" }?.let { "tx:$it" },
             )
         }.filter { it.artist != null || it.album != null }
 

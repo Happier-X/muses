@@ -16,11 +16,16 @@ import com.muses.player.core.scrape.cover.OnlineCoverMatchResult
 import com.muses.player.core.scrape.cover.OnlineCoverQuery
 import com.muses.player.core.scrape.queue.ScrapeQueueStore
 import com.muses.player.core.scrape.text.TextMetaMatcher
+import com.muses.player.core.scrape.writeback.WritebackInProgressException
 import com.muses.player.core.scrape.writeback.WritebackOrchestrator
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +42,8 @@ class ScrapeViewModel(
     val queueSongIds: StateFlow<List<String>> = _queueSongIds.asStateFlow()
     private val _queueTitles = MutableStateFlow<Map<String, String>>(emptyMap())
     val queueTitles: StateFlow<Map<String, String>> = _queueTitles.asStateFlow()
+    private val _queueSongs = MutableStateFlow<Map<String, Song>>(emptyMap())
+    val queueSongs: StateFlow<Map<String, Song>> = _queueSongs.asStateFlow()
     private val _pageState = MutableStateFlow<ScrapePageState>(ScrapePageState.Queue)
     val pageState: StateFlow<ScrapePageState> = _pageState.asStateFlow()
     private val _throttleMessage = MutableStateFlow<String?>(null)
@@ -45,9 +52,17 @@ class ScrapeViewModel(
     val throttledIds: StateFlow<List<String>> = _throttledIds.asStateFlow()
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+    private val _rollbackHistory = MutableStateFlow<List<com.muses.player.core.model.scrape.RollbackJournal>>(emptyList())
+    val rollbackHistory = _rollbackHistory.asStateFlow()
+    private val _historyPreview = MutableStateFlow<WritebackOrchestrator.HistoryPreview?>(null)
+    val historyPreview = _historyPreview.asStateFlow()
+    private var historyPreviewSeq = 0
     private val _undoing = MutableStateFlow(false)
+    private val _pendingUndo = MutableStateFlow<ScrapeUndoInfo?>(null)
+    val pendingUndo: StateFlow<ScrapeUndoInfo?> = _pendingUndo.asStateFlow()
     val undoing: StateFlow<Boolean> = _undoing.asStateFlow()
     private var matchingJob: Job? = null
+    private var writebackJob: Job? = null
     private var interruptedPreview = ScrapePageState.Preview(emptyList())
     private var resultPreview = ScrapePageState.Preview(emptyList())
     private val reviewTracker = ReviewQueueTracker()
@@ -64,8 +79,20 @@ class ScrapeViewModel(
             try {
                 val ids = queueStore.load().map { it.songId }
                 _queueSongIds.value = ids
-                _queueTitles.value = songRepository.getSongs(ids).mapValues { it.value.title }
-            } catch (e: CancellationException) {
+                val songs = songRepository.getSongs(ids)
+                _queueSongs.value = songs
+                _queueTitles.value = songs.mapValues { it.value.title }
+
+                _rollbackHistory.value = writebackOrchestrator.getRollbackHistory()
+                _pendingUndo.value = writebackOrchestrator.getCurrentRollbackJournal()
+                    ?.takeIf { it.entries.isNotEmpty() }
+                    ?.let { journal ->
+                        ScrapeUndoInfo(
+                            journalId = journal.journalId,
+                            songCount = journal.entries.size,
+                            unconfirmedCount = journal.entries.count { !it.fileSaved },
+                        )
+                    }            } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 _errorMessage.value = "读取待刮削歌曲失败，请返回页面重试"
@@ -152,8 +179,10 @@ class ScrapeViewModel(
                     _pageState.value = ScrapePageState.Matching(index, ids.size, _queueTitles.value[songId] ?: "正在读取歌曲…")
                     // 读取异常不能当成歌曲已删除，外层给出错误并保留已完成结果。
                     val song = songRepository.getSong(songId)
+                    currentCoroutineContext().ensureActive()
                     if (song == null) {
                         queueStore.remove(listOf(songId))
+                        currentCoroutineContext().ensureActive()
                         items.removeAll { it.songId == songId }
                         noMatch.remove(songId)
                         networkFailed.remove(songId)
@@ -166,6 +195,7 @@ class ScrapeViewModel(
                         coverMatcher.invalidateNegativeCache(songId)
                     }
                     val (text, cover) = matchTextAndCover(song)
+                    currentCoroutineContext().ensureActive()
                     val hit = (text as? OnlineTextMatchResult.Ok)?.hit
                     val coverUrl = (cover as? OnlineCoverMatchResult.Ok)?.remoteUrl
                     val textNetwork = text is OnlineTextMatchResult.Fail && text.reason == OnlineTextMatchFailReason.NETWORK
@@ -208,6 +238,7 @@ class ScrapeViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+                currentCoroutineContext().ensureActive()
                 _errorMessage.value = "匹配中断，已完成的结果已保留；返回队列可重新匹配"
             }
             _pageState.value = interruptedPreview
@@ -237,6 +268,11 @@ class ScrapeViewModel(
 
     fun dismissError() { _errorMessage.value = null }
 
+    /** 写回中停止：已确认保存的歌曲保留在撤销记录中，未开始的歌曲不再写入。 */
+    fun cancelWriteback() {
+        if (_pageState.value !is ScrapePageState.Writing) return
+        writebackJob?.cancel()
+    }
     fun confirmWriteback() {
         val state = _pageState.value as? ScrapePageState.Preview ?: return
         val selected = state.items.map { it.copy(checkedFields = it.checkedFields.intersect(it.availableFields())) }
@@ -244,7 +280,7 @@ class ScrapeViewModel(
         if (selected.isEmpty()) return
         _errorMessage.value = null
         _pageState.value = ScrapePageState.Writing(selected.size)
-        viewModelScope.launch {
+        writebackJob = viewModelScope.launch {
             try {
                 val songs = songRepository.getSongs(selected.map { it.songId })
                 val changes = selected.filter { it.songId in songs }.associate { item ->
@@ -284,34 +320,116 @@ class ScrapeViewModel(
                 } catch (e: CancellationException) { throw e }
                 catch (_: Exception) { _errorMessage.value = "更新已完成，但队列刷新失败，请返回队列重试" }
             } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                _errorMessage.value = "应用失败，请检查文件或 WebDAV 连接后重试"
+                // 停止后回到候选页：已确认保存的歌曲保留在撤销记录中，未写入的仍在队列。
+                val confirmed = withContext(NonCancellable) {
+                    writebackOrchestrator.getCurrentRollbackJournal()?.entries?.count { it.fileSaved } ?: 0
+                }
                 _pageState.value = state
+                _errorMessage.value = if (confirmed > 0) {
+                    "已停止写回；已保存 $confirmed 首仍可恢复标签，其余歌曲未写入"
+                } else {
+                    "已停止写回，本次没有歌曲写入文件"
+                }
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = if (e is WritebackInProgressException) e.message else "应用失败，请检查文件或 WebDAV 连接后重试"
+                _pageState.value = state
+            } finally {
+                writebackJob = null
             }
         }
     }
 
     fun undoLastWriteback() {
         val state = _pageState.value as? ScrapePageState.Result ?: return
-        if (_undoing.value) return
+        if (_undoing.value || state.journalId.isBlank()) return
         _undoing.value = true
         viewModelScope.launch {
             try {
                 val result = writebackOrchestrator.revertScrapeJournal(state.journalId)
                 if (result.failed > 0) {
-                    _errorMessage.value = "已恢复 ${result.reverted} 首，${result.failed} 首文件未保存，可重试或到下载页补传"
+                    _errorMessage.value = undoFailureMessage(result)
                     return@launch
                 }
                 lastJournalId = null
                 _pageState.value = ScrapePageState.Queue
                 reloadQueue()
             } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { _errorMessage.value = "恢复曲库失败，请重试" }
+            catch (e: Exception) { _errorMessage.value = if (e is WritebackInProgressException) e.message else "恢复曲库失败，请重试" }
             finally { _undoing.value = false }
         }
     }
 
+    /** 队列页入口：恢复上次写回；撤销记录跨重启保留，未确认条目由恢复流程跳过并保留重试。 */
+    fun undoPendingJournal() {
+        val info = _pendingUndo.value ?: return
+        if (_undoing.value) return
+        _undoing.value = true
+        viewModelScope.launch {
+            try {
+                val result = writebackOrchestrator.revertScrapeJournal(info.journalId)
+                if (result.failed > 0) _errorMessage.value = undoFailureMessage(result) else lastJournalId = null
+                reloadQueue()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = if (e is WritebackInProgressException) e.message else "恢复曲库失败，请重试"
+            } finally {
+                _undoing.value = false
+            }
+        }
+    }
+
+    fun previewHistory(journalId: String, songId: String) {
+        if (_undoing.value) return
+        val seq = ++historyPreviewSeq
+        viewModelScope.launch {
+            try {
+                val preview = writebackOrchestrator.previewHistoricalEntry(journalId, songId)
+                if (seq == historyPreviewSeq) _historyPreview.value = preview
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { if (seq == historyPreviewSeq) _errorMessage.value = e.message ?: "历史预览失败，请重试" }
+        }
+    }
+
+    fun closeHistoryPreview() { if (!_undoing.value) { historyPreviewSeq++; _historyPreview.value = null } }
+
+    fun restoreHistory() {
+        val preview = _historyPreview.value ?: return
+        if (_undoing.value || _pageState.value !is ScrapePageState.Queue) return
+        _undoing.value = true
+        viewModelScope.launch {
+            try {
+                val result = writebackOrchestrator.restoreHistoricalEntry(preview)
+                _errorMessage.value = if (result.failed > 0) "历史恢复未完成，记录已保留；请核对文件后重试" else "已恢复标签，恢复前状态已保存为新版本"
+                _historyPreview.value = null
+                reloadQueue()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { _errorMessage.value = e.message ?: "历史恢复失败，原记录已保留" }
+            finally { _undoing.value = false }
+        }
+    }
+
+    /** 放弃无法恢复的撤销记录（界面已确认后调用）。 */
+    fun discardPendingUndo() {
+        val info = _pendingUndo.value ?: return
+        viewModelScope.launch {
+            try {
+                writebackOrchestrator.discardRollbackJournal(info.journalId)
+                reloadQueue()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = if (e is WritebackInProgressException) e.message else "放弃撤销记录失败，请重试"
+            }
+        }
+    }
+    private fun undoFailureMessage(result: WritebackOrchestrator.RevertResult): String =
+        if (result.unconfirmed > 0) {
+            "已恢复 ${result.reverted} 首，${result.failed} 首未能恢复，其中 ${result.unconfirmed} 首写入状态未确认，请先核对文件；撤销记录已保留"
+        } else {
+            "已恢复 ${result.reverted} 首，${result.failed} 首未能恢复，已保留撤销记录，请稍后重试"
+        }
     fun backToQueue() {
         if (_pageState.value is ScrapePageState.Writing || _undoing.value) return
         matchingJob?.cancel()

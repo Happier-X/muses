@@ -154,6 +154,7 @@ fun desktopLibraryModule(): Module = module {
 
     // ── U14 刮削共享 VM 依赖（实例来自 DesktopScrapeGraph，引擎装配与安卓 ScrapeModule 同口径）──
     single { com.muses.player.desktop.DesktopScrapeGraph.queueStore }
+    single { com.muses.player.desktop.DesktopScrapeGraph.lrcApiSettings }
     single { com.muses.player.desktop.DesktopScrapeGraph.textMetaMatcher }
     single { com.muses.player.desktop.DesktopScrapeGraph.coverMatcher }
     // 在线曲目歌词回退（脚本 `lyric` 取不到时）：与安卓 lyricsModule 同口径的 LyricsMatcher

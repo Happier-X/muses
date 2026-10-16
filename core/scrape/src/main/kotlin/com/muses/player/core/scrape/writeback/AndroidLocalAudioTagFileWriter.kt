@@ -16,8 +16,37 @@ import kotlinx.coroutines.withContext
 
 /** 本地歌曲优先通过已授权的目录文档地址写回，暂存内嵌后提交并回读。 */
 class AndroidLocalAudioTagFileWriter(private val context: Context, private val tagPort: TagPort) : AudioTagFileWriter {
+    override suspend fun captureSnapshot(song: Song): com.muses.player.core.scrape.ports.AudioFileSnapshot? = withContext(Dispatchers.IO) {
+        var temporary: File? = null
+        try {
+            val physical = if (!song.path.startsWith("content:", true)) {
+                if (song.path.startsWith("file:", true)) File(java.net.URI(song.path)) else File(song.path)
+            } else null
+            if (physical?.canRead() == true) return@withContext tagPort.readSnapshot(physical)
+            val uri = physical?.let { findAuthorizedFile(it) } ?: Uri.parse(song.path)
+            val name = physical?.name ?: context.contentResolver.query(uri, arrayOf(MediaStore.Audio.Media.DISPLAY_NAME), null, null, null)?.use {
+                if (it.moveToFirst()) it.getString(0) else null
+            }
+            val extension = name?.substringAfterLast('.', "")?.takeIf { it.isNotBlank() } ?: return@withContext null
+            temporary = File.createTempFile("tag-snapshot-", ".$extension", context.cacheDir)
+            context.contentResolver.openInputStream(uri)?.use { input -> temporary.outputStream().use { input.copyTo(it) } } ?: return@withContext null
+            tagPort.readSnapshot(temporary)
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { null }
+        finally { temporary?.delete() }
+    }
+
     override suspend fun write(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult =
+        writeLocal(song, changes, coverBytes, null)
+
+    override suspend fun writeReviewed(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?, expectedRevision: String): FileWriteResult =
+        writeLocal(song, changes, coverBytes, expectedRevision)
+
+    private suspend fun writeLocal(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?, expectedRevision: String?): FileWriteResult =
         withContext(Dispatchers.IO) {
+            suspend fun reviewUnchanged() = expectedRevision == null || readLocalAudioRevision(song) == expectedRevision
+            fun reviewConflict() = FileWriteResult(false, "review_changed", "审核期间音频文件已变化，已停止保存，请重新读取后再审核。")
+            if (!reviewUnchanged()) return@withContext reviewConflict()
             val resolver = context.contentResolver
             val sourceUri = Uri.parse(song.path)
             val physical = if (!song.path.startsWith("content://")) {
@@ -29,7 +58,10 @@ class AndroidLocalAudioTagFileWriter(private val context: Context, private val t
             }.getOrNull()
             val authorizedUri = physical?.let { findAuthorizedFile(it) }
             if (authorizedUri == null && physical?.isFile == true && physical.canWrite()) {
-                return@withContext LocalAudioTagFileWriter(tagPort).write(song.copy(path = physical.absolutePath), changes, coverBytes)
+                val writer = LocalAudioTagFileWriter(tagPort)
+                val target = song.copy(path = physical.absolutePath)
+                return@withContext if (expectedRevision == null) writer.write(target, changes, coverBytes)
+                    else writer.writeReviewed(target, changes, coverBytes, expectedRevision)
             }
             if (authorizedUri == null && !song.path.startsWith("content://")) {
                 return@withContext FileWriteResult(false, "write_failed", "本地目录没有写入权限，请在音源设置中重新选择歌曲所在目录后重试。")
@@ -49,6 +81,10 @@ class AndroidLocalAudioTagFileWriter(private val context: Context, private val t
                 resolver.openInputStream(uri)?.use { input ->
                     FileOutputStream(original).use { output -> input.copyTo(output); output.fd.sync() }
                 } ?: return@withContext FileWriteResult(false, "write_failed", "无法读取本地音频。")
+                if (!reviewUnchanged() || (expectedRevision != null && !matchesReviewedAudioCopy(original, expectedRevision))) {
+                    original.delete()
+                    return@withContext reviewConflict()
+                }
                 original.copyTo(prepared, overwrite = true)
                 val result = tagPort.writeAndVerify(prepared, changes, coverBytes)
                 if (!result.ok) return@withContext result
@@ -66,6 +102,10 @@ class AndroidLocalAudioTagFileWriter(private val context: Context, private val t
                         }
                     }
                     try {
+                        if (!reviewUnchanged()) {
+                            original.delete()
+                            return@withContext reviewConflict()
+                        }
                         commit(prepared)
                         resolver.openInputStream(uri)?.use { input ->
                             FileOutputStream(prepared).use { input.copyTo(it) }

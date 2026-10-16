@@ -13,6 +13,7 @@ import com.muses.player.core.scrape.cover.CoverMatcher
 import com.muses.player.core.scrape.editmeta.AmllLyricsPort
 import com.muses.player.core.scrape.editmeta.EditCloudMetaSearch
 import com.muses.player.core.scrape.editmeta.ProviderLyricsPort
+import com.muses.player.core.scrape.international.*
 import com.muses.player.core.scrape.http.ScrapeHttp
 import com.muses.player.core.scrape.gdstudio.*
 import com.muses.player.core.data.repository.SettingsRepository
@@ -61,6 +62,9 @@ val scrapeModule = module {
         GdScrapeClient(get(), enabled = { settings.builtinLxSourcesEnabled.first() })
     }
 
+    single { MusicBrainzClient(get()) }
+    single { LrcApiSettingsStore(get<DataStore<Preferences>>()) }
+
     /** 默认文本五源链 kw→tx→wy→kg→mg（metadata/match.ts defaultProviders） */
     single {
         val http: ScrapeHttp = get()
@@ -72,6 +76,8 @@ val scrapeModule = module {
                 KgProvider(http),
                 MgProvider(http),
                 GdTextProvider(get()),
+                ItunesTextProvider(http),
+                MusicBrainzTextProvider(get()),
             ),
             negativeCache = NegativeCache(),
         )
@@ -80,7 +86,7 @@ val scrapeModule = module {
     /** 默认封面六源链 iTunes→kw→tx→wy→kg→mg（cover/match.ts） */
     single {
         val http: ScrapeHttp = get()
-        CoverMatcher(CoverMatcher.defaultProviders(http) + GdCoverProvider(get()))
+        CoverMatcher(CoverMatcher.defaultProviders(http) + listOf(GdCoverProvider(get()), MusicBrainzCoverProvider(get()), LrcApiCoverProvider(http, get<LrcApiSettingsStore>()::readBaseUrl)))
     }
 
     // ── editMeta 歌词维度端口（L3 接线）───────────────────
@@ -98,9 +104,11 @@ val scrapeModule = module {
             KgProvider(http),
             MgProvider(http),
             GdTextProvider(get()),
+            ItunesTextProvider(http),
+            MusicBrainzTextProvider(get()),
         )
         // 封面六源链（cover/match.ts defaultProviders）
-        val coverProviders = CoverMatcher.defaultProviders(http) + GdCoverProvider(get())
+        val coverProviders = CoverMatcher.defaultProviders(http) + listOf(GdCoverProvider(get()), MusicBrainzCoverProvider(get()), LrcApiCoverProvider(http, get<LrcApiSettingsStore>()::readBaseUrl))
         // 歌词端口：AMLL 始终参与 + 平台五源 + LRCLIB（match.ts 组合顺序）
         val lyricsPorts = buildList {
             add(AmllLyricsPort(amllClient))
@@ -109,8 +117,10 @@ val scrapeModule = module {
             }
             add(ProviderLyricsPort(lrclibProvider))
             add(GdLyricsPort(get()))
+            add(LrcApiLyricsPort(http, get<LrcApiSettingsStore>()::readBaseUrl))
         }
         EditCloudMetaSearch(
+            diagnosticCoverProbe = { http.verifyImage(it) },
             textProviders = textProviders,
             coverProviders = coverProviders,
             lyricsPorts = lyricsPorts,
@@ -155,7 +165,15 @@ val scrapeModule = module {
             tempDir = File(androidContext().cacheDir, "scrape-writeback").apply { mkdirs() },
         )
         val localWriter = com.muses.player.core.scrape.writeback.AndroidLocalAudioTagFileWriter(androidContext(), tagPort)
-        AudioTagFileWriter { song, changes, coverBytes ->
+        object : AudioTagFileWriter {
+            override suspend fun captureSnapshot(song: com.muses.player.core.model.Song) =
+                if (song.sourceType == SourceType.LOCAL) localWriter.captureSnapshot(song) else null
+            override suspend fun writeReviewed(song: com.muses.player.core.model.Song, changes: com.muses.player.core.model.scrape.ScrapeChanges,
+                coverBytes: ByteArray?, expectedRevision: String): com.muses.player.core.model.scrape.FileWriteResult =
+                localWriter.writeReviewed(song, changes, coverBytes, expectedRevision)
+
+            override suspend fun write(song: com.muses.player.core.model.Song, changes: com.muses.player.core.model.scrape.ScrapeChanges,
+                coverBytes: ByteArray?): com.muses.player.core.model.scrape.FileWriteResult =
             when (song.sourceType) {
                 SourceType.WEBDAV -> webdavWriter.write(song, changes, coverBytes)
                 // 在线音源曲目无本地文件，不支持标签写回（返回失败而非误走本地写入）
@@ -176,6 +194,7 @@ val scrapeModule = module {
             songRepository = get(),
             journalStore = get(),
             fileWriter = get(),
+            coverSnapshotStore = com.muses.player.core.scrape.writeback.CoverSnapshotStore(File(androidContext().filesDir, "scrape-cover-snapshots")),
             coverBytesFetcher = get(),
             historySink = { entries -> historyStore.append(entries) },
             nowMs = { System.currentTimeMillis() },

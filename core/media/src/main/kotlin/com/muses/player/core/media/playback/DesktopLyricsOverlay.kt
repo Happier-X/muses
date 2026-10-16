@@ -9,6 +9,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.muses.player.core.lyrics.DesktopLyricsText
 import com.muses.player.core.ui.components.DesktopLyricsCard
 import com.muses.player.core.ui.theme.MusesTheme
+import kotlin.math.roundToInt
 
 /** 由播放服务持有，不获取焦点；关闭或服务停止时立即移除窗口。 */
 class DesktopLyricsOverlay(private val context: Context, private val onClose: () -> Unit,
@@ -46,7 +48,12 @@ class DesktopLyricsOverlay(private val context: Context, private val onClose: ()
     private val selectedColor = mutableStateOf<Color?>(null)
     private val title = mutableStateOf("Muses")
     private val handler = Handler(Looper.getMainLooper())
-    private val hideControls = Runnable { controlsVisible.value = false; resizeWindow() }
+    private var editingStyle = false
+    private var contentHeightPx = 0
+    private var anchorY = 0
+    private var dragX = 0f
+    private var dragY = 0f
+    private val hideControls = Runnable { controlsVisible.value = false; editingStyle = false }
     private val passThroughAlpha: Float
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
             context.getSystemService(InputManager::class.java).maximumObscuringOpacityForTouch else 0.8f
@@ -59,33 +66,44 @@ class DesktopLyricsOverlay(private val context: Context, private val onClose: ()
     }
     fun setTitle(value: String) { title.value = value }
     private fun windowHeight(): Int {
+        if (contentHeightPx > 0) return contentHeightPx
         val metrics = context.resources.displayMetrics
-        return ((fontSize.value * 2.64f + 24) * metrics.scaledDensity +
-            (if (controlsVisible.value) 156 else 12) * metrics.density).toInt()
+        return ((fontSize.value + 6 + (if (text.value.secondary != null) fontSize.value * 0.64f + 6 else 0f)) *
+            metrics.scaledDensity + 12 * metrics.density).roundToInt()
     }
     private fun resizeWindow() {
         val layout = params ?: return
         layout.height = windowHeight()
-        layout.y = layout.y.coerceIn(0, (context.resources.displayMetrics.heightPixels - layout.height).coerceAtLeast(0))
+        // 展开时临时避让底边，收起后回到用户拖放的位置。
+        layout.y = anchorY.coerceIn(0, (context.resources.displayMetrics.heightPixels - layout.height).coerceAtLeast(0))
         view?.let { manager.updateViewLayout(it, layout) }
+    }
+    private fun scheduleHide() {
+        handler.removeCallbacks(hideControls)
+        if (!controlsVisible.value || editingStyle) return
+        val timeout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+            context.getSystemService(AccessibilityManager::class.java).getRecommendedTimeoutMillis(8000,
+                AccessibilityManager.FLAG_CONTENT_CONTROLS or AccessibilityManager.FLAG_CONTENT_TEXT or AccessibilityManager.FLAG_CONTENT_ICONS)
+        else 8000
+        handler.postDelayed(hideControls, timeout.toLong())
     }
     private fun interact(action: () -> Unit) {
         handler.removeCallbacks(hideControls)
         action()
-        if (controlsVisible.value) handler.postDelayed(hideControls, 5000)
+        scheduleHide()
     }
 
     private fun toggleControls() {
         controlsVisible.value = !controlsVisible.value
-        handler.removeCallbacks(hideControls)
-        if (controlsVisible.value) handler.postDelayed(hideControls, 5000)
-        resizeWindow()
+        editingStyle = false
+        scheduleHide()
     }
 
     fun setLocked(value: Boolean) {
         if (locked.value == value) return
         locked.value = value
         controlsVisible.value = false
+        editingStyle = false
         handler.removeCallbacks(hideControls)
         params?.let { layout ->
             layout.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -97,15 +115,18 @@ class DesktopLyricsOverlay(private val context: Context, private val onClose: ()
     }
 
     private fun endDrag() {
-        params?.let { preferences.edit().putInt("x", it.x).putInt("y", it.y).apply() }
-        if (controlsVisible.value) handler.postDelayed(hideControls, 5000)
+        params?.let { preferences.edit().putInt("x", it.x).putInt("y", anchorY).apply() }
+        scheduleHide()
     }
 
     private fun moveBy(dx: Float, dy: Float) {
         val layout = params ?: return
         val display = context.resources.displayMetrics
-        layout.x = (layout.x + dx.toInt()).coerceIn(0, (display.widthPixels - layout.width).coerceAtLeast(0))
-        layout.y = (layout.y + dy.toInt()).coerceIn(0, (display.heightPixels - layout.height).coerceAtLeast(0))
+        dragX = (dragX + dx).coerceIn(0f, (display.widthPixels - layout.width).coerceAtLeast(0).toFloat())
+        dragY = (dragY + dy).coerceIn(0f, (display.heightPixels - layout.height).coerceAtLeast(0).toFloat())
+        layout.x = dragX.roundToInt()
+        layout.y = dragY.roundToInt()
+        anchorY = layout.y
         view?.let { manager.updateViewLayout(it, layout) }
     }
 
@@ -124,7 +145,7 @@ class DesktopLyricsOverlay(private val context: Context, private val onClose: ()
                     layout.width = width
                     layout.height = windowHeight
                     layout.x = layout.x.coerceIn(0, maxX)
-                    layout.y = layout.y.coerceIn(0, maxY)
+                    layout.y = anchorY.coerceIn(0, maxY)
                     manager.updateViewLayout(current, layout)
                 }
             }
@@ -140,6 +161,7 @@ class DesktopLyricsOverlay(private val context: Context, private val onClose: ()
             x = preferences.getInt("x", (12 * metrics.density).toInt()).coerceIn(0, (metrics.widthPixels - width).coerceAtLeast(0))
             y = preferences.getInt("y", (metrics.heightPixels * 0.18f).toInt()).coerceIn(0, (metrics.heightPixels - windowHeight).coerceAtLeast(0))
         }
+        anchorY = layout.y
         val lifecycleOwner = OverlayOwner()
         val content = ComposeView(context).apply {
             setViewTreeLifecycleOwner(lifecycleOwner)
@@ -149,7 +171,11 @@ class DesktopLyricsOverlay(private val context: Context, private val onClose: ()
                 MusesTheme {
                     DesktopLyricsCard(text.value.primary, text.value.secondary, onClose,
                         Modifier.pointerInput(Unit) {
-                            detectDragGestures(onDragStart = { handler.removeCallbacks(hideControls) },
+                            detectDragGestures(onDragStart = {
+                                handler.removeCallbacks(hideControls)
+                                dragX = params?.x?.toFloat() ?: 0f
+                                dragY = params?.y?.toFloat() ?: 0f
+                            },
                                 onDragEnd = { endDrag() }, onDragCancel = { endDrag() }) { change, delta ->
                                 change.consume()
                                 moveBy(delta.x, delta.y)
@@ -160,7 +186,14 @@ class DesktopLyricsOverlay(private val context: Context, private val onClose: ()
                         title = title.value, fontSize = fontSize.value, selectedColor = selectedColor.value,
                         onPrevious = { interact(onPrevious) }, onPlayPause = { interact(onPlayPause) }, onNext = { interact(onNext) },
                         onColor = { color -> interact { onColor(color) } },
-                        onFontSize = { size -> interact { onFontSize(size) } })
+                        onFontSize = { size -> interact { onFontSize(size) } },
+                        onEditingStyleChanged = { editingStyle = it; scheduleHide() },
+                        onContentHeightChanged = { height ->
+                            if (contentHeightPx != height) {
+                                contentHeightPx = height
+                                handler.post { resizeWindow() }
+                            }
+                        })
                 }
             }
         }
@@ -185,6 +218,8 @@ class DesktopLyricsOverlay(private val context: Context, private val onClose: ()
         owner = null
         params = null
         controlsVisible.value = false
+        editingStyle = false
+        contentHeightPx = 0
     }
 
 

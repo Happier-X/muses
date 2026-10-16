@@ -9,6 +9,11 @@ import com.muses.player.core.scrape.http.ScrapeHttp
 import com.muses.player.core.webdav.WebDavRateLimiter
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockEngineConfig
+import com.muses.player.core.network.ProviderRequestGate
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.currentCoroutineContext
+import kotlin.coroutines.ContinuationInterceptor
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
 import kotlinx.coroutines.test.runTest
@@ -27,15 +32,19 @@ class GdScrapeProvidersTest {
         block: suspend (GdScrapeClient, List<HttpRequestData>) -> Unit,
     ) {
         val requests = mutableListOf<HttpRequestData>()
-        val http = HttpClient(MockEngine { request ->
+        val dispatcher = currentCoroutineContext()[ContinuationInterceptor] as CoroutineDispatcher
+        val http = HttpClient(MockEngine(MockEngineConfig().apply {
+            this.dispatcher = dispatcher
+            addHandler { request ->
             requests += request
             respond(when (request.url.parameters["types"]) {
                 "search" -> searchBody
                 "pic" -> """{"url":"https://cdn.test/封面.jpg"}"""
                 else -> """{"lyric":"[00:01.00]原文","tlyric":"[00:01.00]译文"}"""
             })
-        })
-        try { block(GdScrapeClient(ScrapeHttp(http, rateLimiter = WebDavRateLimiter.Unlimited), enabled), requests) }
+            }
+        }))
+        try { block(GdScrapeClient(ScrapeHttp(http, rateLimiter = WebDavRateLimiter.Unlimited, requestGate = ProviderRequestGate(0)), enabled), requests) }
         finally { http.close() }
     }
 

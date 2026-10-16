@@ -103,6 +103,8 @@ data class AmllMatchQuery(
     val album: String? = null,
     /** 查询曲目时长（秒）；可选，参与匹配质量时长约束（child4） */
     val durationSec: Double? = null,
+    /** 人工刮削查询跳过失败缓存的读写，允许立即重试；播放查询默认保留缓存策略。 */
+    val bypassNegativeCache: Boolean = false,
 )
 
 enum class AmllFailReason {

@@ -4,6 +4,7 @@ import com.muses.player.core.lyrics.http.LyricsHttp
 import com.muses.player.core.model.lyrics.OnlineLyricsFormat
 import com.muses.player.core.model.lyrics.OnlineLyricsProviderHit
 import com.muses.player.core.model.lyrics.OnlineLyricsQuery
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -44,6 +45,8 @@ private suspend fun searchKgTrack(http: LyricsHttp, query: OnlineLyricsQuery): K
 
     val root = try {
         http.getJson(url, KG_HEADERS) as? JsonObject ?: return null
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         return null
     }
@@ -89,6 +92,8 @@ suspend fun searchKgLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLy
 
     val searchBody = try {
         http.getJson(searchUrl, KG_LYRIC_HEADERS) as? JsonObject ?: return null
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         return null
     }
@@ -103,6 +108,8 @@ suspend fun searchKgLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLy
 
     val dl = try {
         http.getJson(dlUrl, KG_LYRIC_HEADERS) as? JsonObject ?: return null
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         return null
     }
@@ -137,6 +144,8 @@ private suspend fun searchKwMusicId(http: LyricsHttp, query: OnlineLyricsQuery):
 
     val body = try {
         http.getJson(url, KW_HEADERS) as? JsonObject ?: return null
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         return null
     }
@@ -157,6 +166,8 @@ suspend fun searchKwLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLy
     val lyricUrl = "https://www.kuwo.cn/openapi/v1/www/lyric/getlyric?musicId=${enc(musicId)}"
     val body = try {
         http.getJson(lyricUrl, KW_HEADERS) as? JsonObject ?: return null
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         return null
     }
@@ -226,6 +237,8 @@ suspend fun searchMgLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLy
 
     val root = try {
         http.getJson(searchUrl, MIGU_HEADERS) as? JsonObject ?: return null
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         return null
     }
@@ -259,6 +272,8 @@ suspend fun searchMgLyrics(http: LyricsHttp, query: OnlineLyricsQuery): OnlineLy
             if (text.isNotEmpty() && Regex("\\[\\d+:\\d+").containsMatchIn(text)) {
                 return OnlineLyricsProviderHit(text = text, format = OnlineLyricsFormat.LRC)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             return null
         }

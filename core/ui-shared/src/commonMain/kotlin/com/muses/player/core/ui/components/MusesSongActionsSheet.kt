@@ -20,6 +20,7 @@ fun MusesSongActionsSheet(
         opened = songId != null,
         onDismiss = onDismiss,
         label = "歌曲操作",
+        songInfo = favoriteSong?.let { MusesActionSongInfo(it.title, it.artist, it.album, it.coverUri) },
         items = listOfNotNull(
             favoriteSong?.takeIf { favorites.loaded && setLiked != null && !favorites.isInLibrary(it) }?.let { song ->
                 val liked = favorites.isLiked(song)

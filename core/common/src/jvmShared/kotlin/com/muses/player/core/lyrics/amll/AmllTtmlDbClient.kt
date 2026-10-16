@@ -5,6 +5,7 @@ import com.muses.player.core.model.lyrics.AmllMatchQuery
 import com.muses.player.core.model.lyrics.AmllMatchResult
 import com.muses.player.core.lyrics.http.LyricsHttp
 import com.muses.player.core.lyrics.provider.enc
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -14,7 +15,7 @@ import kotlinx.serialization.json.JsonPrimitive
 /**
  * AMLL TTML 聚合库查询（规格书 = src/features/lyrics/amllTtmlDb.ts matchAmllTtmlLyrics）。
  * - 索引内存缓存；TTML 按 songId 缓存（容量 256）；负缓存短时（TTL 5min）
- * - 失败不抛到 UI 层，统一返回 Fail(reason)
+ * - 普通失败返回 Fail(reason)，协程取消向上传播且不写入负缓存
  */
 open class AmllTtmlDbClient(
     private val http: LyricsHttp,
@@ -86,6 +87,8 @@ open class AmllTtmlDbClient(
             } else {
                 TtmlFetch.Ok(text)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             TtmlFetch.Err(AmllFailReason.NETWORK)
         }
@@ -100,10 +103,11 @@ open class AmllTtmlDbClient(
             return AmllMatchResult.Fail(AmllFailReason.NO_MATCH)
         }
 
+        val diagnosing = kotlin.coroutines.coroutineContext[com.muses.player.core.network.ProviderDiagnosticContext.Key] != null
         val queryKey = createQueryKey(query)
 
         // TTML 正缓存：queryKey 一致才命中，否则删除旧条目
-        synchronized(ttmlBySongId) {
+        if (!diagnosing) synchronized(ttmlBySongId) {
             ttmlBySongId[songId]?.let { cached ->
                 if (cached.queryKey == queryKey) {
                     return AmllMatchResult.Ok(
@@ -117,11 +121,12 @@ open class AmllTtmlDbClient(
         }
 
         // 负缓存短路
-        getNegative(songId, queryKey)?.let { negative ->
+        getNegative(songId, queryKey)?.takeUnless { query.bypassNegativeCache || diagnosing }?.let { negative ->
             return AmllMatchResult.Fail(negative.reason)
         }
 
         fun setNegative(reason: AmllFailReason) {
+            if (query.bypassNegativeCache || diagnosing) return
             synchronized(negativeBySongId) {
                 boundedPut(
                     negativeBySongId,
@@ -135,6 +140,8 @@ open class AmllTtmlDbClient(
         // 索引加载（单飞）
         val index = try {
             indexRepository.ensureIndex()
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             setNegative(AmllFailReason.NETWORK)
             return AmllMatchResult.Fail(AmllFailReason.NETWORK)
@@ -157,10 +164,10 @@ open class AmllTtmlDbClient(
             }
             is TtmlFetch.Ok -> {
                 val hit = TtmlCacheEntry(queryKey, fetch.text, best.entry.rawLyricFile, best.score)
-                synchronized(ttmlBySongId) {
+                if (!diagnosing) synchronized(ttmlBySongId) {
                     boundedPut(ttmlBySongId, songId, hit, SONG_CACHE_MAX_SIZE)
                 }
-                synchronized(negativeBySongId) { negativeBySongId.remove(songId) }
+                if (!diagnosing) synchronized(negativeBySongId) { negativeBySongId.remove(songId) }
                 AmllMatchResult.Ok(
                     ttml = hit.ttml,
                     rawLyricFile = hit.rawLyricFile,

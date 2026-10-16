@@ -15,12 +15,9 @@ internal fun ScrapeReviewState.Review.withAiSelection(decision: AiScrapeDecision
     decision.text.index?.let { index ->
         val hit = text.items.getOrNull(index) ?: return@let
         if (listOf(hit.title, hit.artist, hit.album).all { it.isNullOrBlank() }) return@let
-        val fields = buildSet {
-            if (!hit.title.isNullOrBlank() && hit.title != song.title) add("title")
-            if (!hit.artist.isNullOrBlank() && hit.artist != song.artist) add("artist")
-            if (!hit.album.isNullOrBlank() && hit.album != song.album) add("album")
-        }
+        val fields = defaultTextCheckedFields(song, hit, keyword)
         val editedFields = buildSet {
+            addAll(textFieldIndices.keys.map { it.key })
             if (editTitle != null) add("title")
             if (editArtist != null) add("artist")
             if (editAlbum != null) add("album")

@@ -40,6 +40,17 @@ object JaudiotaggerTagPort : TagPort {
      * 早有同款 runCatching 先例。封面失败只丢封面，不得拖累文本/歌词整体返回 null——
      * 否则调用方（懒扫描/刮削）会误判整曲无标签。
      */
+    override fun readSnapshot(file: File): AudioFileSnapshot? {
+        val tags = readTags(file) ?: return null
+        return try {
+            val tag = AudioFileIO.read(file).tag
+            val artwork = tag?.firstArtwork
+            val bytes = artwork?.binaryData
+            AudioFileSnapshot(tags.copy(cover = bytes), artwork == null || bytes?.isNotEmpty() == true)
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { AudioFileSnapshot(tags, false) }
+    }
+
     override fun readTags(file: File): TagPortTags? {
         return try {
             val audioFile = AudioFileIO.read(file)
@@ -136,6 +147,11 @@ object JaudiotaggerTagPort : TagPort {
      * 注意：捕获 Throwable 以兜底 NoClassDefFoundError（如 ImageIO）、LinkageError 等 Error。
      */
     fun write(file: File, request: TagWriteRequest): WriteResult {
+        // 在读取或修改音频前拒绝错误页、文本和无法识别的封面数据。
+        if (!request.clearCover && request.coverBytes?.isNotEmpty() == true &&
+            sniffImageMime(request.coverBytes) == null) {
+            return WriteResult.failure("cover_failed", "封面数据格式无法识别，文件未更新。")
+        }
         return try {
             val audioFile = AudioFileIO.read(file)
             // 无标签时创建并挂上容器默认标签（Mp3→ID3v2.4 等）
@@ -175,7 +191,7 @@ object JaudiotaggerTagPort : TagPort {
         }
     }
 
-    /** 由字节签名构造 Artwork（jpg/png）；Android 安全实现，绕开 javax.imageio */
+    /** 由字节签名构造 Artwork；Android 安全实现，绕开 javax.imageio */
     private fun createArtwork(bytes: ByteArray): Artwork {
         val artwork = AndroidSafeArtwork()
         artwork.binaryData = bytes
@@ -186,11 +202,19 @@ object JaudiotaggerTagPort : TagPort {
         return artwork
     }
 
-    private fun sniffImageMime(bytes: ByteArray): String? = when {
-        bytes.size >= 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> "image/jpeg"
-        bytes.size >= 4 && bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte()
-            && bytes[2] == 0x4E.toByte() && bytes[3] == 0x47.toByte() -> "image/png"
-        else -> null
+    /** 格式签名检查不等同于完整图片解码。 */
+    private fun sniffImageMime(bytes: ByteArray): String? {
+        fun matches(offset: Int, vararg signature: Int) = bytes.size >= offset + signature.size &&
+            signature.indices.all { bytes[offset + it].toInt() and 0xff == signature[it] }
+        return when {
+            matches(0, 0xff, 0xd8, 0xff) -> "image/jpeg"
+            matches(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a) -> "image/png"
+            matches(0, 0x47, 0x49, 0x46, 0x38, 0x37, 0x61) ||
+                matches(0, 0x47, 0x49, 0x46, 0x38, 0x39, 0x61) -> "image/gif"
+            matches(0, 0x52, 0x49, 0x46, 0x46) && matches(8, 0x57, 0x45, 0x42, 0x50) -> "image/webp"
+            bytes.size >= 14 && matches(0, 0x42, 0x4d) -> "image/bmp"
+            else -> null
+        }
     }
 
     private fun setFieldIfPresent(tag: Tag, key: FieldKey, value: String?) {

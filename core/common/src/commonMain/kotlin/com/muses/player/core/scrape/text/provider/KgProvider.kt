@@ -53,6 +53,9 @@ class KgProvider(private val http: ScrapeHttp) : TextMetaProvider {
                 artist = item["SingerName"].asStringOrNull()?.trim()?.ifEmpty { null },
                 album = item["AlbumName"].asStringOrNull()?.trim()?.ifEmpty { null },
                 source = OnlineTextSource.KG,
+                durationSec = item["Duration"].asStringOrNull()?.toDoubleOrNull()?.div(1.0)?.takeIf { it.isFinite() && it > 0 },
+                candidateId = item["FileHash"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() && it != "0" }?.let { "kg:$it" },
+                releaseId = item["AlbumID"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() && it != "0" }?.let { "kg:$it" },
             )
         }.filter { it.artist != null || it.album != null }
 

@@ -11,6 +11,7 @@ import org.koin.dsl.module
 /** 刮削页 ViewModel 装配（P2a Hilt→Koin；miuix-nav 无 SavedStateHandle，
  * ScrapeReviewViewModel 改路由直传（songId/queueCsv 经 parametersOf 供给）。 */
 val scrapeFeatureModule = module {
+    single { ScrapeReviewDraftStore(get()) }
     viewModel { ScrapeViewModel(get(), get(), get(), get(), get()) }
     viewModel { params ->
         val settings = get<SettingsRepository>()
@@ -23,6 +24,8 @@ val scrapeFeatureModule = module {
             writebackOrchestrator = get(),
             queueStore = get(),
             aiMatcher = get(),
+            draftStore = get(),
+            lrcApiSettings = get(),
             readAiConfig = {
                 AiRecommendConfig(
                     baseUrl = settings.aiBaseUrl.first(), model = settings.aiModel.first(),

@@ -2,6 +2,7 @@ package com.muses.player.core.scrape.writeback
 
 import com.muses.player.core.webdav.WebDavClient
 import com.muses.player.core.webdav.WebDavItem
+import com.muses.player.core.webdav.WebDavRequestException
 import java.io.File
 import java.nio.file.Files
 import kotlinx.coroutines.runBlocking
@@ -10,12 +11,18 @@ import kotlin.test.*
 class PendingScrapeUploadsTest {
     private class Server(var bytes: ByteArray, var failPut: Boolean = false, var version: String? = "\"version\"") : WebDavClient {
         var puts = 0
+        var conditionalPuts = 0
+        var beforePut: (() -> Unit)? = null
+        var afterPut: (() -> Unit)? = null
         override fun authenticate(username: String, password: String) = Unit
         override suspend fun probe(baseUrl: String) = true
         override suspend fun list(url: String) = emptyList<WebDavItem>()
         override suspend fun strongETag(url: String) = version
         override suspend fun putIfMatch(url: String, source: File, eTag: String?) {
             assertEquals("\"version\"", eTag)
+            conditionalPuts++
+            beforePut?.invoke()
+            if (eTag != version) throw WebDavRequestException(412, "远端文件已经变化，已停止补传")
             put(url, source)
         }
         override suspend fun get(url: String, dest: File): File = dest.apply { writeBytes(bytes) }
@@ -23,6 +30,7 @@ class PendingScrapeUploadsTest {
             puts++
             if (failPut) error("服务器写入失败")
             bytes = source.readBytes()
+            afterPut?.invoke()
         }
         override suspend fun delete(url: String) = error("禁止删除远端文件")
         override suspend fun move(source: String, dest: String) = error("禁止移动远端文件")
@@ -99,6 +107,54 @@ class PendingScrapeUploadsTest {
             assertEquals(0, server.puts)
             assertContentEquals(prepared.readBytes(), store.file(task).readBytes())
             assertTrue(store.tasks.value.single().error.orEmpty().contains("导出"))
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun `检查后上传前版本变化时不覆盖远端并持久保留本地副本`() = runBlocking {
+        val root = Files.createTempDirectory("pending-conflict-test").toFile()
+        try {
+            val original = File(root, "original.mp3").apply { writeText("原始音频") }
+            val prepared = File(root, "prepared.mp3").apply { writeText("新的标签音频") }
+            val directory = File(root, "persistent")
+            val store = PendingScrapeUploads(directory)
+            val task = store.prepare("song", "source", "https://example.test", "https://example.test/song.mp3",
+                "歌曲", prepared, audioFileHash(original))
+            val external = "其他设备的新音频".toByteArray()
+            val server = Server(original.readBytes()).apply {
+                beforePut = { bytes = external; version = "\"new-version\"" }
+            }
+            var completed = false
+            assertFalse(store.upload(task, server) { completed = true })
+            assertFalse(completed)
+            assertEquals(1, server.conditionalPuts)
+            assertEquals(0, server.puts)
+            assertContentEquals(external, server.bytes)
+            val restored = PendingScrapeUploads(directory)
+            val retained = restored.tasks.value.single()
+            assertTrue(retained.error.orEmpty().contains("远端文件已经变化"))
+            assertContentEquals(prepared.readBytes(), restored.file(retained).readBytes())
+            assertFalse(restored.upload(retained, server))
+            assertEquals(1, server.conditionalPuts)
+            assertContentEquals(external, server.bytes)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun `上传返回成功但回读内容不同仍保留任务且不回调成功`() = runBlocking {
+        val root = Files.createTempDirectory("pending-verify-test").toFile()
+        try {
+            val original = File(root, "original.flac").apply { writeText("原始音频") }
+            val prepared = File(root, "prepared.flac").apply { writeText("已处理的音频") }
+            val store = PendingScrapeUploads(File(root, "persistent"))
+            val task = store.prepare("song", "source", "https://example.test", "https://example.test/song.flac",
+                "歌曲", prepared, audioFileHash(original))
+            val server = Server(original.readBytes()).apply { afterPut = { bytes = "回读不一致".toByteArray() } }
+            var completed = false
+            assertFalse(store.upload(task, server) { completed = true })
+            assertFalse(completed)
+            assertEquals(1, server.puts)
+            assertEquals(1, store.tasks.value.size)
+            assertTrue(store.tasks.value.single().error.orEmpty().contains("尚未确认"))
+            assertContentEquals(prepared.readBytes(), store.file(task).readBytes())
         } finally { root.deleteRecursively() }
     }
 }

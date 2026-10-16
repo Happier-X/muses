@@ -23,12 +23,17 @@ interface TagPort {
     /** 读取音频文件标签（文件 → 标签字段）；解析失败返回 null */
     fun readTags(file: File): TagPortTags?
 
+    /** 独立读取主封面状态，异常不能伪装为无图。 */
+    fun readSnapshot(file: File): AudioFileSnapshot? = readTags(file)?.let { AudioFileSnapshot(it, false) }
+
     /**
      * 写入刮削变更到音频文件（文件 + ScrapeChanges + 远程封面字节 → 写结果）。
      * @param coverBytes 远程封面原始字节（编排层经 CoverBytesFetcher 获取）；null/空 = 不写封面
      */
     fun writeTags(file: File, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult
 }
+
+data class AudioFileSnapshot(val tags: TagPortTags, val coverKnown: Boolean)
 
 /** 标签字段快照（readTags 返回值；与 AudioTags 字段对齐，commonMain 无安卓依赖） */
 data class TagPortTags(

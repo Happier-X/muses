@@ -85,6 +85,14 @@ object WritebackJson {
                     add(buildJsonObject {
                         put("songId", JsonPrimitive(entry.songId))
                         put("createdAt", JsonPrimitive(entry.createdAt))
+                        entry.changedFields?.let { fields ->
+                            put("changedFields", buildJsonArray { fields.forEach { add(JsonPrimitive(it)) } })
+                        }
+                        put("coverWritten", JsonPrimitive(entry.coverWritten))
+                        put("fileSaved", JsonPrimitive(entry.fileSaved))
+                        entry.coverSnapshot?.let { put("coverSnapshot", JsonPrimitive(it)) }
+                        put("fileSnapshotKnown", JsonPrimitive(entry.fileSnapshotKnown))
+                        put("coverSnapshotRequired", JsonPrimitive(entry.coverSnapshotRequired))
                         put("songBefore", buildJsonObject {
                             entry.songBefore.title.let { put("title", JsonPrimitive(it)) }
                             entry.songBefore.artist?.let { put("artist", JsonPrimitive(it)) }
@@ -127,6 +135,15 @@ object WritebackJson {
                             metaSources = metaSourcesOf(before.obj("metaSources")),
                         ),
                         createdAt = o.str("createdAt") ?: "",
+                        changedFields = if ("changedFields" in o) {
+                            val fields = o.arr("changedFields") ?: return@mapNotNull null
+                            fields.mapNotNull { (it as? JsonPrimitive)?.content }.toSet()
+                        } else null,
+                        coverWritten = "coverWritten" !in o || (o["coverWritten"] as? JsonPrimitive)?.content == "true",
+                        fileSaved = "fileSaved" !in o || (o["fileSaved"] as? JsonPrimitive)?.content == "true",
+                        coverSnapshot = o.str("coverSnapshot"),
+                        fileSnapshotKnown = (o["fileSnapshotKnown"] as? JsonPrimitive)?.content == "true",
+                        coverSnapshotRequired = (o["coverSnapshotRequired"] as? JsonPrimitive)?.content == "true",
                     )
                 },
             )

@@ -20,6 +20,7 @@ import com.muses.player.core.scrape.cover.CoverMatcher
 import com.muses.player.core.scrape.editmeta.AmllLyricsPort
 import com.muses.player.core.scrape.editmeta.EditCloudMetaSearch
 import com.muses.player.core.scrape.editmeta.ProviderLyricsPort
+import com.muses.player.core.scrape.international.*
 import com.muses.player.core.scrape.http.ScrapeHttp
 import com.muses.player.core.scrape.gdstudio.*
 import com.muses.player.core.data.repository.DataStoreSettingsRepository
@@ -124,11 +125,22 @@ internal object DesktopScrapeGraph {
         )
     }
 
+    private val musicBrainzClient by lazy { MusicBrainzClient(http) }
+    val lrcApiSettings by lazy { LrcApiSettingsStore(DesktopContainer.settingsStore) }
+    private val reviewTextProviders by lazy {
+        TextMetaMatcher.defaultProviders(http).filter { it.id != com.muses.player.core.model.scrape.OnlineTextSource.MUSICBRAINZ } +
+            listOf(GdTextProvider(gdClient), MusicBrainzTextProvider(musicBrainzClient))
+    }
+    private val reviewCoverProviders by lazy {
+        CoverMatcher.defaultProviders(http) + listOf(GdCoverProvider(gdClient), MusicBrainzCoverProvider(musicBrainzClient), LrcApiCoverProvider(http, lrcApiSettings::readBaseUrl))
+    }
+
     /** 编辑页全链云搜（多候选 + 粗排）；桌面批量匹配与单曲重搜共用 */
     val editSearch: EditCloudMetaSearch by lazy {
         EditCloudMetaSearch(
-            textProviders = TextMetaMatcher.defaultProviders(http) + GdTextProvider(gdClient),
-            coverProviders = CoverMatcher.defaultProviders(http) + GdCoverProvider(gdClient),
+            diagnosticCoverProbe = { http.verifyImage(it) },
+            textProviders = reviewTextProviders,
+            coverProviders = reviewCoverProviders,
             // 歌词端口：AMLL 始终参与 + 平台五源 + LRCLIB（match.ts 组合顺序，对齐安卓 ScrapeModule）
             lyricsPorts = buildList {
                 add(AmllLyricsPort(amllClient))
@@ -137,6 +149,7 @@ internal object DesktopScrapeGraph {
                 }
                 add(ProviderLyricsPort(lrclibProvider))
                 add(GdLyricsPort(gdClient))
+                add(LrcApiLyricsPort(http, lrcApiSettings::readBaseUrl))
             },
         )
     }
@@ -145,11 +158,11 @@ internal object DesktopScrapeGraph {
 
     // U14：共享 ScrapeViewModel 的双 matcher（装配口径对齐安卓 ScrapeModule：文本五源 + 负缓存 / 封面默认六源）
     val textMetaMatcher: TextMetaMatcher by lazy {
-        TextMetaMatcher(providers = TextMetaMatcher.defaultProviders(http) + GdTextProvider(gdClient), negativeCache = NegativeCache())
+        TextMetaMatcher(providers = reviewTextProviders, negativeCache = NegativeCache())
     }
 
     val coverMatcher: CoverMatcher by lazy {
-        CoverMatcher(CoverMatcher.defaultProviders(http) + GdCoverProvider(gdClient))
+        CoverMatcher(reviewCoverProviders)
     }
 
     /** 桌面 WebDAV 客户端（写回上传/下载 + 未来浏览复用；限流与刮削共享同桶） */
@@ -177,7 +190,15 @@ internal object DesktopScrapeGraph {
     }
 
     /** 按来源分流（Web writeback.ts writeFile 分派语义）；失败由各 writer 折叠为 FileWriteResult */
-    private val fileWriter: AudioTagFileWriter = AudioTagFileWriter { song, changes, coverBytes ->
+    private val fileWriter: AudioTagFileWriter = object : AudioTagFileWriter {
+        override suspend fun captureSnapshot(song: com.muses.player.core.model.Song) =
+            if (song.sourceType == SourceType.LOCAL) localWriter.captureSnapshot(song) else null
+        override suspend fun writeReviewed(song: com.muses.player.core.model.Song, changes: com.muses.player.core.model.scrape.ScrapeChanges,
+            coverBytes: ByteArray?, expectedRevision: String): com.muses.player.core.model.scrape.FileWriteResult =
+            localWriter.writeReviewed(song, changes, coverBytes, expectedRevision)
+
+        override suspend fun write(song: com.muses.player.core.model.Song, changes: com.muses.player.core.model.scrape.ScrapeChanges,
+            coverBytes: ByteArray?): com.muses.player.core.model.scrape.FileWriteResult =
         when (song.sourceType) {
             SourceType.WEBDAV -> webdavWriter.write(song, changes, coverBytes)
             // 在线音源曲目无本地文件，不支持标签写回（返回失败而非误走本地写入）
@@ -194,6 +215,7 @@ internal object DesktopScrapeGraph {
         WritebackOrchestrator(
             songRepository = songRepository,
             journalStore = journalStore,
+            coverSnapshotStore = com.muses.player.core.scrape.writeback.CoverSnapshotStore(File(PlatformDirs.appDataDir(), "scrape-cover-snapshots")),
             fileWriter = fileWriter,
             coverBytesFetcher = HttpCoverBytesFetcher(http),
             historySink = { entries -> historyStore.append(entries) },

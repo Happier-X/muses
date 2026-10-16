@@ -7,6 +7,7 @@ import com.muses.player.core.lyrics.provider.pickBest
 import com.muses.player.core.model.lyrics.OnlineLyricsFormat
 import com.muses.player.core.model.lyrics.OnlineLyricsProviderHit
 import com.muses.player.core.model.lyrics.OnlineLyricsQuery
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -54,6 +55,8 @@ private suspend fun getExact(http: LyricsHttp, query: OnlineLyricsQuery): String
     val url = "https://lrclib.net/api/get?$params"
     return try {
         extractSynced(http.getJson(url, LRCLIB_HEADERS) as? JsonObject)
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         null
     }
@@ -81,6 +84,8 @@ private suspend fun searchFallback(http: LyricsHttp, query: OnlineLyricsQuery): 
     val url = "https://lrclib.net/api/search?$params"
     val array = try {
         http.getJson(url, LRCLIB_HEADERS) as? JsonArray ?: return null
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         return null
     }

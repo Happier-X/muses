@@ -1,6 +1,7 @@
 package com.muses.player.download
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
@@ -31,15 +34,17 @@ import com.muses.player.core.model.download.downloadTargetAvailable
 import com.muses.player.core.ui.components.MusesActionItem
 import com.muses.player.core.ui.components.MusesActionsSheet
 import com.muses.player.core.ui.components.MusesIconButton
+import com.muses.player.core.ui.components.MusesListRow
+import com.muses.player.core.ui.components.MusesIconButtonSize
+import com.muses.player.core.ui.components.SongListLayout
+import com.muses.player.core.ui.components.MusesCover
 import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.components.MusesTopBar
 import com.muses.player.core.ui.components.MusesRefreshableContent
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import org.koin.compose.koinInject
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import com.muses.player.core.ui.components.MarqueeText as Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -61,6 +66,7 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
     var targetPickerOpen by remember { mutableStateOf(false) }
     var actionsId by remember { mutableStateOf<String?>(null) }
     var qualityId by remember { mutableStateOf<String?>(null) }
+    var expandedTasks by remember { mutableStateOf(emptySet<String>()) }
     val pending = tasks.filter { !it.status.active && it.status != DownloadStatus.COMPLETED }
     val active = tasks.any { it.status.active } || uploadingScrapeId != null
     val scheme = MiuixTheme.colorScheme
@@ -77,235 +83,112 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
         topBar = { MusesTopBar(title = "下载", onBack = onBack) },
     ) { padding ->
         MusesRefreshableContent(onRefresh = manager::refresh, modifier = Modifier.padding(padding)) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 12.dp,
-                end = 12.dp,
-                top = 8.dp,
-                bottom = 16.dp + LocalBottomChromePadding.current,
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item("controls") {
-                Card {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            listOfNotNull(
-                                "共 ${tasks.size} 首",
-                                tasks.count { it.status.active }.takeIf { it > 0 }?.let { "进行中 $it" },
-                                pending.size.takeIf { it > 0 }?.let { "待处理 $it" },
-                                tasks.count { it.status == DownloadStatus.COMPLETED }.takeIf { it > 0 }?.let { "已完成 $it" },
-                            ).joinToString(" · "),
-                            style = MiuixTheme.textStyles.footnote1,
-                            color = scheme.onSurfaceVariantSummary,
-                            marqueeEnabled = false,
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Button(onClick = { manager.pause() }, enabled = active, modifier = Modifier.weight(1f)) {
-                                Text("全部暂停")
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                LazyColumn(
+                    modifier = Modifier.widthIn(max = 840.dp).fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = 16.dp + LocalBottomChromePadding.current,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    item("controls") {
+                        Row(Modifier.fillMaxWidth().padding(start = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("全部任务 · ${tasks.size + scrapeUploads.size}", modifier = Modifier.weight(1f),
+                                style = MiuixTheme.textStyles.footnote1, color = scheme.onSurfaceVariantSummary)
+                            MusesIconButton(contentDescription = if (active) "全部暂停" else "全部下载",
+                                imageVector = if (active) TablerIcons.Pause else TablerIcons.Download,
+                                enabled = active || pending.isNotEmpty(), tint = scheme.primary,
+                                onClick = {
+                                    if (active) manager.pause()
+                                    else manager.start(pending.map { it.id }.toSet(), defaultTarget)
+                                })
+                        }
+                    }
+                    item("favorites") {
+                        MusesListRow(title = "下载我喜欢", subtitle = when {
+                            preparingFavorites -> "正在准备…"
+                            !favorites.loaded -> "正在读取…"
+                            missingFavorites.isEmpty() -> "已全部入库"
+                            else -> "${missingFavorites.size} 首未入库"
+                        }, leading = {
+                            Icon(TablerIcons.Heart, null, Modifier.padding(end = 12.dp).size(24.dp),
+                                tint = scheme.onBackgroundVariant)
+                        }, after = {
+                            MusesIconButton(onClick = { manager.downloadFavorites(favoritesStore) },
+                                imageVector = TablerIcons.Download, contentDescription = "下载未入库的喜欢歌曲",
+                                enabled = favorites.loaded && missingFavorites.isNotEmpty() && !preparingFavorites,
+                                tint = scheme.primary)
+                        }, dividers = false)
+                        top.yukonga.miuix.kmp.basic.HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                    }
+
+                    if (tasks.any { it.status == DownloadStatus.PENDING_UPLOAD } || scrapeUploads.isNotEmpty()) {
+                        item("upload-controls") {
+                            Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("待补传 · ${tasks.count { it.status == DownloadStatus.PENDING_UPLOAD } + scrapeUploads.size}",
+                                    modifier = Modifier.weight(1f), style = MiuixTheme.textStyles.footnote1, color = scheme.onSurfaceVariantSummary)
+                                MusesIconButton(onClick = {
+                                    manager.start(tasks.filter { it.status == DownloadStatus.PENDING_UPLOAD }.map { it.id }.toSet(), defaultTarget)
+                                    manager.retryScrapeUploads(scrapeUploads.map { it.id }.toSet())
+                                }, enabled = !active, imageVector = TablerIcons.Upload, contentDescription = "全部补传", tint = scheme.primary)
                             }
-                            Button(
-                                onClick = { manager.start(pending.map { it.id }.toSet(), defaultTarget) },
-                                enabled = pending.isNotEmpty(),
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColorsPrimary(),
-                            ) {
-                                Text("全部下载")
-                            }
                         }
                     }
-                }
-            }
-
-            item("favorites") {
-                Card {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("我喜欢", style = MiuixTheme.textStyles.title4)
-                        Text(
-                            if (!favorites.loaded) "正在读取喜欢的歌曲…"
-                            else if (missingFavorites.isEmpty()) "喜欢的歌曲都已在曲库中"
-                            else "${missingFavorites.size} 首在线歌曲尚未入库，下载时自动排除曲库已有歌曲。",
-                            style = MiuixTheme.textStyles.footnote1,
-                            color = scheme.onSurfaceVariantSummary,
-                            marqueeEnabled = false,
-                        )
-                        Button(
-                            onClick = { manager.downloadFavorites(favoritesStore) },
-                            enabled = favorites.loaded && missingFavorites.isNotEmpty() && !preparingFavorites,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColorsPrimary(),
-                        ) { Text(if (preparingFavorites) "正在准备下载…" else "一键下载未入库歌曲") }
-                    }
-                }
-            }
-
-            if (tasks.any { it.status == DownloadStatus.PENDING_UPLOAD } || scrapeUploads.isNotEmpty()) {
-                item("upload-controls") {
-                    Card {
-                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("本地已保存，待上传", style = MiuixTheme.textStyles.title4)
-                            Text("上传失败的音频会保留在本机。补传直接使用已保存的文件，也可以导出后自行上传。", color = scheme.onSurfaceVariantSummary)
-                            Button(onClick = {
-                                manager.start(tasks.filter { it.status == DownloadStatus.PENDING_UPLOAD }.map { it.id }.toSet(), defaultTarget)
-                                manager.retryScrapeUploads(scrapeUploads.map { it.id }.toSet())
-                            }, enabled = !active && uploadingScrapeId == null) { Text("全部补传") }
+                    items(scrapeUploads, key = { "scrape-${it.id}" }) { task ->
+                        Column {
+                            MusesListRow(title = task.title,
+                                subtitle = if (uploadingScrapeId == task.id) "刮削 · 上传与核验中" else "刮削 · 本地已保存，待上传",
+                                songLayout = true,
+                                after = {
+                                    MusesIconButton(onClick = { manager.exportScrapeUpload(task.id) }, enabled = uploadingScrapeId != task.id,
+                                        imageVector = TablerIcons.Download, contentDescription = "导出到本地", size = MusesIconButtonSize.SM)
+                                    MusesIconButton(onClick = { manager.retryScrapeUploads(setOf(task.id)) }, enabled = uploadingScrapeId == null,
+                                        imageVector = TablerIcons.Upload, contentDescription = "补传", size = MusesIconButtonSize.SM, tint = scheme.primary)
+                                })
+                            task.error?.let { Text(it, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                style = MiuixTheme.textStyles.footnote1, color = scheme.error) }
                         }
                     }
-                }
-            }
-            items(scrapeUploads, key = { "scrape-${it.id}" }) { task ->
-                Card {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(task.title, style = MiuixTheme.textStyles.title4)
-                        Text(if (uploadingScrapeId == task.id) "刮削 · 上传与核验中" else "刮削 · 本地已保存，待上传")
-                        task.error?.let { Text(it, color = scheme.error) }
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(onClick = { manager.exportScrapeUpload(task.id) }, enabled = uploadingScrapeId != task.id,
-                                modifier = Modifier.weight(1f)) { Text("导出到本地") }
-                            Button(onClick = { manager.retryScrapeUploads(setOf(task.id)) }, enabled = uploadingScrapeId == null,
-                                modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColorsPrimary()) { Text("补传") }
+
+                    if (tasks.isEmpty() && scrapeUploads.isEmpty()) {
+                        item("empty") {
+                            Text("还没有下载任务", modifier = Modifier.fillMaxWidth().padding(vertical = 64.dp),
+                                style = MiuixTheme.textStyles.footnote1, color = scheme.onSurfaceVariantSummary,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
                     }
-                }
-            }
 
-            if (tasks.isEmpty()) {
-                item("empty") {
-                    Text(
-                        text = "在歌曲操作里添加到下载队列，再到这里开始下载。保存位置与下载品质在「设置 → 下载」中调整。",
-                        modifier = Modifier.padding(16.dp),
-                        color = scheme.onSurfaceVariantSummary,
+                    val groups = listOf(
+                        "进行中" to tasks.filter { it.status.active },
+                        "待处理" to tasks.filter { !it.status.active && it.status != DownloadStatus.COMPLETED },
+                        "已完成" to tasks.filter { it.status == DownloadStatus.COMPLETED },
                     )
-                }
-            }
-
-            items(tasks, key = { it.id }) { task ->
-                Card {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(
-                                    task.track.title,
-                                    marqueeEnabled = com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches(task.track.id),
-                                    style = MiuixTheme.textStyles.title4,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                val subtitle = listOfNotNull(task.track.artist, task.track.album).filter { it.isNotBlank() }.joinToString(" · ")
-                                if (subtitle.isNotBlank()) Text(
-                                    subtitle,
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    color = scheme.onSurfaceVariantSummary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    marqueeEnabled = com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches(task.track.id),
-                                )
+                    groups.filter { it.second.isNotEmpty() }.forEach { (title, entries) ->
+                        item("section-$title") {
+                            Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(title, style = MiuixTheme.textStyles.footnote1, color = scheme.onSurfaceVariantSummary)
+                                Text(entries.size.toString(), style = MiuixTheme.textStyles.footnote1,
+                                    color = scheme.onSurfaceVariantSummary)
                             }
-                            MusesIconButton(
-                                onClick = { actionsId = task.id },
-                                imageVector = TablerIcons.MoreVert,
-                                contentDescription = "${task.track.title}的更多下载操作",
-                            )
                         }
-                        // 同时展示所选档位与实际音频头结果，不能用脚本请求档位冒充实际音质。
-                        val label = qualityLabel(task.quality)
-                        val requested = task.requestedQuality
-                        Text(
-                            text = "所选：$label" + when {
-                                task.actualQualityLabel != null -> " · 实际：${task.actualQualityLabel}"
-                                requested != null && requested != task.quality ->
-                                    " · 请求：${qualityLabel(requested)}（已降低请求档位，实际音质待核实）"
-                                task.status == DownloadStatus.COMPLETED -> " · 实际音质未核实"
-                                else -> ""
-                            },
-                            color = scheme.onSurfaceVariantSummary,
-                            style = MiuixTheme.textStyles.footnote1,
-                            marqueeEnabled = false,
-                        )
-                        // 音源被删除后旧保存位置已失效，标出来让用户知道要重新选（开始下载时会自动回退）
-                        val taskTarget = task.target ?: defaultTarget
-                        val targetAvailable = downloadTargetAvailable(taskTarget, sources)
-                        Text(
-                            "保存到：" + taskTarget.displayLabel(sources) + if (targetAvailable) "" else "（音源已删除）",
-                            color = if (targetAvailable) scheme.onSurfaceVariantSummary else scheme.error,
-                            style = MiuixTheme.textStyles.footnote1,
-                            marqueeEnabled = false,
-                        )
-                        // 旧队列没有失败阶段，用已有传输总量兼容判断。
-                        val failedTransfer = task.status == DownloadStatus.FAILED &&
-                            (task.failureStage == DownloadStatus.UPLOADING || task.failureStage == DownloadStatus.SAVING ||
-                                (task.failureStage == null && task.transferTotalBytes != null))
-                        val transfer = task.status == DownloadStatus.UPLOADING || task.status == DownloadStatus.SAVING || task.status == DownloadStatus.PENDING_UPLOAD || failedTransfer
-                        val bytes = if (transfer) task.transferredBytes else task.downloadedBytes
-                        val total = if (transfer) task.transferTotalBytes else task.totalBytes
-                        val statusText =
-                            (if (failedTransfer) {
-                                if (task.target?.kind == DownloadTargetKind.WEBDAV) "上传失败" else "保存失败"
-                            } else if (task.skippedExisting) "同名歌曲，已跳过"
-                            else if (task.status == DownloadStatus.UPLOADING) task.transferMessage ?: statusLabel(task.status)
-                            else statusLabel(task.status)) +
-                                if (bytes > 0) " · ${formatBytes(bytes)}" + (total?.let { " / ${formatBytes(it)}" } ?: "") else ""
-                        if (task.status.active) {
-                            LinearProgressIndicator(
-                                progress = if (task.status == DownloadStatus.PREPARING || task.status == DownloadStatus.METADATA ||
-                                    (task.status == DownloadStatus.UPLOADING && task.transferMessage != null)) {
-                                    null
-                                } else {
-                                    total?.takeIf { it > 0 }?.let { (bytes.toFloat() / it).coerceIn(0f, 1f) }
+                        items(entries, key = { it.id }) { task ->
+                            DownloadTaskRow(task, defaultTarget, sources,
+                                expanded = task.id in expandedTasks,
+                                onToggleDetails = { expandedTasks = if (task.id in expandedTasks) expandedTasks - task.id else expandedTasks + task.id },
+                                onAction = {
+                                    if (task.status.active) manager.pause(task.id)
+                                    else manager.start(setOf(task.id), defaultTarget)
                                 },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                        task.error?.let { Text(it, color = scheme.error, style = MiuixTheme.textStyles.footnote1, marqueeEnabled = false) }
-                        task.qualityWarning?.let { Text(it, color = scheme.error, style = MiuixTheme.textStyles.footnote1, marqueeEnabled = false) }
-                        task.warnings.filter { it != task.qualityWarning }.forEach { Text(it, color = scheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.footnote1, marqueeEnabled = false) }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                statusText,
-                                modifier = Modifier.weight(1f),
-                                style = MiuixTheme.textStyles.footnote1,
-                                color = when {
-                                    task.status == DownloadStatus.FAILED -> scheme.error
-                                    task.status.active || task.status == DownloadStatus.COMPLETED -> scheme.primary
-                                    else -> scheme.onSurfaceVariantSummary
-                                },
-                                marqueeEnabled = false,
-                            )
-                            if (task.status != DownloadStatus.COMPLETED) {
-                                Button(
-                                    onClick = {
-                                        if (task.status.active) manager.pause(task.id)
-                                        else manager.start(setOf(task.id), defaultTarget)
-                                    },
-                                    colors = ButtonDefaults.buttonColorsPrimary(),
-                                ) {
-                                    Text(
-                                        when {
-                                            task.status.active -> "暂停"
-                                            task.status == DownloadStatus.PENDING_UPLOAD -> "补传"
-                                            task.status == DownloadStatus.FAILED -> "重试"
-                                            task.status == DownloadStatus.PAUSED -> "继续"
-                                            else -> "下载"
-                                        },
-                                    )
-                                }
-                            }
+                                onMore = { actionsId = task.id })
                         }
                     }
                 }
             }
-        }
         }
     }
 
@@ -314,7 +197,14 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
         opened = selected != null,
         onDismiss = { actionsId = null },
         label = "下载任务",
+        songInfo = selected?.track?.let { com.muses.player.core.ui.components.MusesActionSongInfo(it.title, it.artist, it.album, it.coverUri) },
         items = buildList {
+            selected?.let { task ->
+                add(MusesActionItem(if (task.id in expandedTasks) "收起详情" else "查看详情") {
+                    expandedTasks = if (task.id in expandedTasks) expandedTasks - task.id else expandedTasks + task.id
+                    actionsId = null
+                })
+            }
             if (selected != null && !selected.status.active && selected.status != DownloadStatus.COMPLETED) {
                 add(MusesActionItem("更改保存位置") { targetPickerId = selected.id; actionsId = null; targetPickerOpen = true })
                 if (selected.localAudioPath == null) add(MusesActionItem("更改下载品质") { qualityId = selected.id; actionsId = null })
@@ -345,6 +235,113 @@ fun DownloadQueueScreen(onBack: () -> Unit, manager: DownloadManager = koinInjec
             }
         },
     )
+}
+
+/** 先展示歌曲和进度，品质与保存位置作为次要信息，异常单独保留。 */
+@Composable
+private fun DownloadTaskRow(
+    task: com.muses.player.core.model.download.DownloadTask,
+    defaultTarget: DownloadTarget,
+    sources: List<Source>,
+    expanded: Boolean,
+    onToggleDetails: () -> Unit,
+    onAction: () -> Unit,
+    onMore: () -> Unit,
+) {
+    val scheme = MiuixTheme.colorScheme
+    val failedTransfer = task.status == DownloadStatus.FAILED &&
+        (task.failureStage == DownloadStatus.UPLOADING || task.failureStage == DownloadStatus.SAVING ||
+            (task.failureStage == null && task.transferTotalBytes != null))
+    val transfer = task.status == DownloadStatus.UPLOADING || task.status == DownloadStatus.SAVING ||
+        task.status == DownloadStatus.PENDING_UPLOAD || failedTransfer
+    val bytes = if (transfer) task.transferredBytes else task.downloadedBytes
+    val total = if (transfer) task.transferTotalBytes else task.totalBytes
+    val progress = if (task.status == DownloadStatus.PREPARING || task.status == DownloadStatus.METADATA ||
+        (task.status == DownloadStatus.UPLOADING && task.transferMessage != null)) null
+        else total?.takeIf { it > 0 }?.let { (bytes.toFloat() / it).coerceIn(0f, 1f) }
+    val status = when {
+        failedTransfer -> if (task.target?.kind == DownloadTargetKind.WEBDAV) "上传失败" else "保存失败"
+        task.skippedExisting -> "同名歌曲，已跳过"
+        task.status == DownloadStatus.UPLOADING -> task.transferMessage ?: statusLabel(task.status)
+        else -> statusLabel(task.status)
+    }
+    val statusColor = when {
+        task.status == DownloadStatus.FAILED -> scheme.error
+        task.status.active || task.status == DownloadStatus.COMPLETED -> scheme.primary
+        else -> scheme.onSurfaceVariantSummary
+    }
+    val marquee = com.muses.player.core.ui.components.LocalSongMarqueeState.current.matches(task.track.id)
+    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+        val subtitle = listOfNotNull(task.track.artist, task.track.album).filter { it.isNotBlank() }.joinToString(" · ")
+        MusesListRow(title = task.track.title, subtitle = subtitle, songLayout = true,
+            songId = task.track.id, marqueeEnabled = marquee, dividers = false,
+            onClick = onToggleDetails,
+            leading = {
+                MusesCover(task.track.coverUri, size = SongListLayout.coverSize,
+                    modifier = Modifier.padding(end = SongListLayout.coverGap), contentDescription = task.track.title + "封面")
+            }, after = {
+                if (task.status != DownloadStatus.COMPLETED) {
+                    val action = when {
+                        task.status.active -> "暂停"
+                        task.status == DownloadStatus.PENDING_UPLOAD -> "补传"
+                        task.status == DownloadStatus.FAILED -> "重试"
+                        task.status == DownloadStatus.PAUSED -> "继续"
+                        else -> "下载"
+                    }
+                    MusesIconButton(onClick = onAction, size = MusesIconButtonSize.SM,
+                        imageVector = when {
+                            task.status.active -> TablerIcons.Pause
+                            task.status == DownloadStatus.FAILED || task.status == DownloadStatus.PENDING_UPLOAD -> TablerIcons.Refresh
+                            else -> TablerIcons.Download
+                        }, tint = scheme.primary, contentDescription = "$action ${task.track.title}")
+                }
+                MusesIconButton(onClick = onMore, imageVector = TablerIcons.MoreVert, size = MusesIconButtonSize.SM,
+                    contentDescription = "${task.track.title}的更多下载操作")
+            })
+        Column(Modifier.fillMaxWidth().padding(start = 68.dp, end = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                val quality = task.actualQualityLabel ?: if (task.status == DownloadStatus.COMPLETED) "音质未核实"
+                    else "所选${qualityLabel(task.quality)}"
+                Text("$status · $quality", style = MiuixTheme.textStyles.footnote1,
+                    color = statusColor, marqueeEnabled = false)
+                val amount = if (bytes > 0) formatBytes(bytes) + (total?.let { " / ${formatBytes(it)}" } ?: "") else ""
+                if (amount.isNotEmpty()) Text(amount + if (task.status.active && progress != null) " · ${(progress * 100).toInt()}%" else "",
+                    style = MiuixTheme.textStyles.footnote1, color = scheme.onSurfaceVariantSummary,
+                    marqueeEnabled = false)
+            }
+            if (task.status.active) LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
+            if (expanded) {
+                val requested = task.requestedQuality
+                Text("所选：${qualityLabel(task.quality)}" + when {
+                    task.actualQualityLabel != null -> " · 实际：${task.actualQualityLabel}"
+                    requested != null && requested != task.quality ->
+                        " · 请求：${qualityLabel(requested)}（已降档，实际音质待核实）"
+                    task.status == DownloadStatus.COMPLETED -> " · 实际音质未核实"
+                    else -> ""
+                }, style = MiuixTheme.textStyles.footnote1, color = scheme.onSurfaceVariantSummary,
+                    marqueeEnabled = false)
+                val target = task.target ?: defaultTarget
+                val available = downloadTargetAvailable(target, sources)
+                Text("保存到：${target.displayLabel(sources)}" + if (available) "" else "（音源已删除）",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = if (available) scheme.onSurfaceVariantSummary else scheme.error,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis, marqueeEnabled = false)
+            } else {
+                val target = task.target ?: defaultTarget
+                val available = downloadTargetAvailable(target, sources)
+                Text("保存到：${target.displayLabel(sources)}" + if (available) "" else "（已失效）",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = if (available) scheme.onSurfaceVariantSummary else scheme.error,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, marqueeEnabled = false)
+            }
+            task.error?.let { Text(it, color = scheme.error, style = MiuixTheme.textStyles.footnote1, marqueeEnabled = false) }
+            task.qualityWarning?.let { Text(it, color = scheme.error, style = MiuixTheme.textStyles.footnote1, marqueeEnabled = false) }
+            task.warnings.filter { it != task.qualityWarning }.forEach {
+                Text(it, color = scheme.onSurfaceVariantSummary, style = MiuixTheme.textStyles.footnote1, marqueeEnabled = false)
+            }
+        }
+    }
 }
 
 /**

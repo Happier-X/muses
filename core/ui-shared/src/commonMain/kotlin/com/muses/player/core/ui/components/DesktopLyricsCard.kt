@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +28,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -56,56 +60,83 @@ fun DesktopLyricsCard(primary: String, secondary: String?, onClose: () -> Unit, 
     onLock: (() -> Unit)? = null, onTap: (() -> Unit)? = null,
     title: String = "Muses", fontSize: Int = 22, selectedColor: Color? = null,
     onPrevious: () -> Unit = {}, onPlayPause: () -> Unit = {}, onNext: () -> Unit = {},
-    onColor: (Long) -> Unit = {}, onFontSize: (Int) -> Unit = {}) {
+    onColor: (Long) -> Unit = {}, onFontSize: (Int) -> Unit = {},
+    onContentHeightChanged: (Int) -> Unit = {}, onEditingStyleChanged: (Boolean) -> Unit = {}) {
     val shadow = Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 0.75f), 3f)
     val vivid = selectedColor ?: accentColor?.let(::vividLyricColor)
     val interaction = remember { MutableInteractionSource() }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+    var editingStyle by remember(controlsVisible) { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = true)
+        .onSizeChanged { onContentHeightChanged(it.height) }.padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(modifier.fillMaxWidth().then(if (onTap != null) Modifier.clickable(
-            interactionSource = interaction, indication = null, onClickLabel = "显示歌词操作", onClick = onTap) else Modifier),
+            interactionSource = interaction, indication = null,
+            onClickLabel = if (controlsVisible) "收起歌词操作" else "显示歌词操作", onClick = onTap) else Modifier),
             horizontalAlignment = Alignment.CenterHorizontally) {
             DesktopWordLyrics(primary, words, positionMs, isPlaying,
                 style = MiuixTheme.textStyles.main.copy(fontSize = fontSize.sp, lineHeight = (fontSize + 6).sp, fontWeight = FontWeight.SemiBold,
                     color = Color.White, shadow = shadow, textAlign = TextAlign.Center), accentColor = vivid)
             secondary?.let {
-                MarqueeText(it, modifier = Modifier.fillMaxWidth(),
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                MarqueeText(it, textAlign = TextAlign.Center,
                     style = MiuixTheme.textStyles.body2.copy(fontSize = (fontSize * 0.64f).sp, lineHeight = (fontSize * 0.64f + 6).sp,
                         color = vivid ?: Color.White, shadow = shadow, textAlign = TextAlign.Center),
                     color = vivid ?: Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
         if (controlsVisible) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    MarqueeText(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    onLock?.let { lock ->
-                        MusesIconButton(onClick = lock, imageVector = TablerIcons.Lock, contentDescription = "锁定歌词并穿透",
-                            modifier = Modifier.size(40.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        MarqueeText(title, modifier = Modifier.weight(1f).padding(start = 8.dp),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MusesIconButton(onClick = onClose, imageVector = TablerIcons.Close,
+                            contentDescription = "关闭桌面歌词", size = MusesIconButtonSize.SM)
                     }
-                    MusesIconButton(onClick = onPrevious, imageVector = TablerIcons.SkipPreviousFill, contentDescription = "上一首")
-                    MusesIconButton(onClick = onPlayPause, imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill,
-                        contentDescription = if (isPlaying) "暂停" else "播放")
-                    MusesIconButton(onClick = onNext, imageVector = TablerIcons.SkipNextFill, contentDescription = "下一首")
-                }
-                }
-            }
-            Card(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    listOf(0xFF007AFFL to "蓝色", 0xFF00C853L to "绿色", 0xFFE53935L to "红色", 0xFFFFFFFFL to "白色").forEach { (argb, label) ->
-                        MusesIconButton(onClick = { onColor(argb) }, contentDescription = "歌词颜色：$label") {
-                            Box(Modifier.size(24.dp).background(Color(argb.toInt()), CircleShape)
-                                .border(1.dp, MiuixTheme.colorScheme.onBackground.copy(alpha = 0.15f), CircleShape))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        onLock?.let { lock ->
+                            MusesIconButton(onClick = lock, imageVector = TablerIcons.Lock, contentDescription = "锁定歌词并穿透",
+                                modifier = Modifier.size(40.dp))
+                        }
+                        MusesIconButton(onClick = onPrevious, imageVector = TablerIcons.SkipPreviousFill, contentDescription = "上一首")
+                        MusesIconButton(onClick = onPlayPause, imageVector = if (isPlaying) TablerIcons.PauseFill else TablerIcons.PlayFill,
+                            contentDescription = if (isPlaying) "暂停" else "播放")
+                        MusesIconButton(onClick = onNext, imageVector = TablerIcons.SkipNextFill, contentDescription = "下一首")
+                        MusesIconButton(onClick = {
+                            editingStyle = !editingStyle
+                            onEditingStyleChanged(editingStyle)
+                        }, imageVector = TablerIcons.Settings, contentDescription = if (editingStyle) "收起歌词样式" else "调整歌词样式",
+                            tint = if (editingStyle) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onBackground)
+                    }
+                    if (editingStyle) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            listOf(0xFF007AFFL to "蓝色", 0xFF00C853L to "绿色", 0xFFE53935L to "红色", 0xFFFFFFFFL to "白色").forEach { (argb, label) ->
+                                val chosen = selectedColor == Color(argb.toInt())
+                                MusesIconButton(onClick = { onColor(argb) }, contentDescription = "歌词颜色：$label",
+                                    modifier = Modifier.semantics { selected = chosen }) {
+                                    Box(Modifier.size(30.dp).border(if (chosen) 2.dp else 0.dp,
+                                        if (chosen) MiuixTheme.colorScheme.primary else Color.Transparent, CircleShape)
+                                        .padding(4.dp).background(Color(argb.toInt()), CircleShape)
+                                        .border(1.dp, MiuixTheme.colorScheme.onBackground.copy(alpha = 0.15f), CircleShape))
+                                }
+                            }
+                            MusesIconButton(onClick = { onColor(0L) }, imageVector = TablerIcons.Refresh, contentDescription = "跟随自动配色",
+                                modifier = Modifier.semantics { selected = selectedColor == null },
+                                tint = if (selectedColor == null) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onBackground)
+                        }
+                        Row(Modifier.fillMaxWidth().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (selectedColor == null) "自动配色" else "自选颜色", modifier = Modifier.weight(1f),
+                                style = MiuixTheme.textStyles.body2)
+                            MusesIconButton(onClick = { onFontSize(fontSize - 2) }, imageVector = TablerIcons.Remove,
+                                contentDescription = "缩小歌词", enabled = fontSize > 14)
+                            Text("$fontSize", style = MiuixTheme.textStyles.body2)
+                            MusesIconButton(onClick = { onFontSize(fontSize + 2) }, imageVector = TablerIcons.Add,
+                                contentDescription = "放大歌词", enabled = fontSize < 40)
                         }
                     }
-                    MusesIconButton(onClick = { onColor(0L) }, imageVector = TablerIcons.Refresh, contentDescription = "恢复自动配色")
-                    MusesIconButton(onClick = { onFontSize(fontSize - 2) }, imageVector = TablerIcons.Remove,
-                        contentDescription = "缩小歌词", enabled = fontSize > 14)
-                    MusesIconButton(onClick = { onFontSize(fontSize + 2) }, imageVector = TablerIcons.Add,
-                        contentDescription = "放大歌词", enabled = fontSize < 40)
                 }
             }
         }
@@ -158,7 +189,9 @@ private fun DesktopWordLyrics(text: String, words: List<DesktopLyricsWord>, posi
             }
         }
     }
-    Box(Modifier.fillMaxWidth().autoMarquee()) {
+    // 滚动内容按自然宽度测量，短歌词由外层居中，长歌词仍占满可用宽度滚动。
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+    Box(Modifier.autoMarquee()) {
         Text(text, modifier = Modifier.fillMaxWidth(), style = style,
             color = if (words.isEmpty()) accentColor ?: Color.White else Color.White.copy(alpha = 0.45f),
             maxLines = 1, softWrap = false, overflow = TextOverflow.Clip, onTextLayout = { layout = it })
@@ -184,5 +217,6 @@ private fun DesktopWordLyrics(text: String, words: List<DesktopLyricsWord>, posi
                     clipPath(path) { this@drawWithContent.drawContent() }
                 })
         }
+    }
     }
 }

@@ -97,6 +97,17 @@ class AiScrapeMatchTest {
         assertTrue(prompt.length < 25_000)
     }
 
+    @Test fun `比较请求提供候选时长与真实录音发行证据且保留原始候选ID`() {
+        val prompt = buildAiScrapePrompt(input.copy(textCandidates = listOf(input.textCandidates.first().copy(
+            durationSec = 180.123, recordingId = "musicbrainz:录音", releaseId = "musicbrainz:发行", versionInfo = "Live at Wembley"))))
+        assertTrue(prompt.contains("180.123"))
+        assertTrue(prompt.contains("Live at Wembley"))
+        assertTrue(prompt.contains("musicbrainz:录音"))
+        assertTrue(prompt.contains("musicbrainz:发行"))
+        assertTrue(prompt.contains("text-0"))
+        assertFalse(prompt.contains("/private/music/secret.mp3"))
+    }
+
     @Test
     fun `未发送的候选不能由模型选择`() {
         val many = input.copy(textCandidates = List(14) { input.textCandidates.first() })

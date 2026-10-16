@@ -11,8 +11,11 @@ import com.muses.player.core.scrape.ports.TagPort
 import com.muses.player.core.webdav.WebDavClient
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 /**
@@ -29,6 +32,11 @@ import kotlinx.coroutines.withContext
  */
 fun interface AudioTagFileWriter {
     suspend fun write(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult
+    suspend fun captureSnapshot(song: Song): com.muses.player.core.scrape.ports.AudioFileSnapshot? = null
+
+    /** 已提供审核基准时，未实现条件检查的写入器必须停止，不能静默退为普通写入。 */
+    suspend fun writeReviewed(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?, expectedRevision: String): FileWriteResult =
+        FileWriteResult(false, "review_check_unsupported", "当前写入方式无法核对审核时的文件版本，请重新读取后再审核。")
 }
 
 /** 远程封面字节获取（对齐 Web ensureLocalCover：失败返回 null 跳过内嵌，不阻断写回） */
@@ -94,22 +102,107 @@ class LocalAudioTagFileWriter(
             java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
     },
 ) : AudioTagFileWriter {
+    override suspend fun captureSnapshot(song: Song) = withContext(Dispatchers.IO) {
+        try {
+            val file = if (song.path.startsWith("file:", true)) File(java.net.URI(song.path)) else File(song.path)
+            tagPort.readSnapshot(file)
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { null }
+    }
+
     override suspend fun write(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?): FileWriteResult =
+        writeLocal(song, changes, coverBytes, null)
+
+    override suspend fun writeReviewed(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?, expectedRevision: String): FileWriteResult =
+        writeLocal(song, changes, coverBytes, expectedRevision)
+
+    private suspend fun writeLocal(song: Song, changes: ScrapeChanges, coverBytes: ByteArray?, expectedRevision: String?): FileWriteResult =
         withContext(Dispatchers.IO) {
-            val path = if (song.path.startsWith("file://")) java.net.URI(song.path).path else song.path
+            val path = if (song.path.startsWith("file:", true)) File(java.net.URI(song.path)).path else song.path
             val original = File(path)
-            if (!original.isFile) return@withContext FileWriteResult(false, "write_failed", "本地音频文件不存在。")
+            if (!original.isFile) return@withContext if (expectedRevision != null)
+                FileWriteResult(false, "review_changed", "审核后的音频文件已不可用，请重新读取后再审核。")
+                else FileWriteResult(false, "write_failed", "本地音频文件不存在。")
             val staged = File.createTempFile(".muses-tags-", ".${original.extension}", original.absoluteFile.parentFile)
             try {
+                val revision = localFileRevision(original)
+                if (expectedRevision != null && revisionToken(original, revision) != expectedRevision) {
+                    return@withContext FileWriteResult(false, "review_changed", "审核期间音频文件已变化，已停止保存，请重新读取后再审核。")
+                }
                 original.copyTo(staged, overwrite = true)
+                if (!revision.digest.contentEquals(fileDigest(staged))) throw LocalFileChangedException()
                 val result = tagPort.writeAndVerify(staged, changes, coverBytes)
                 if (!result.ok) return@withContext result
-                if (!replaceAtomically(staged, original, atomicReplace)) overwriteInPlace(staged, original)
+                ensureLocalFileUnchanged(original, revision)
+                if (!replaceAtomically(staged, original, atomicReplace)) overwriteInPlace(staged, original, revision)
                 tagPort.verifyTags(original, changes, coverBytes)
             } catch (e: CancellationException) { throw e }
+            catch (_: LocalFileChangedException) {
+                FileWriteResult(false, "file_changed", "保存期间音频文件已被其他程序修改，已停止覆盖，请重新读取后再审核。")
+            }
             catch (e: Exception) { FileWriteResult(false, "write_failed", "本地文件保存失败：${e.message}") }
             finally { staged.delete() }
         }
+}
+
+private class LocalFileChangedException : java.io.IOException()
+
+private data class LocalFileRevision(val length: Long, val modified: Long, val digest: ByteArray)
+
+/** 流式计算内容摘要，检测同长度、同时间戳下的外部修改，并响应取消。 */
+private suspend fun fileDigest(file: File): ByteArray {
+    val digest = MessageDigest.getInstance("SHA-256")
+    file.inputStream().buffered().use { input ->
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            currentCoroutineContext().ensureActive()
+            val count = input.read(buffer)
+            if (count < 0) break
+            digest.update(buffer, 0, count)
+        }
+    }
+    return digest.digest()
+}
+
+private suspend fun localFileRevision(file: File): LocalFileRevision {
+    val length = file.length()
+    val modified = file.lastModified()
+    val digest = fileDigest(file)
+    if (!file.isFile || file.length() != length || file.lastModified() != modified) throw LocalFileChangedException()
+    return LocalFileRevision(length, modified, digest)
+}
+
+/** 授权目录读取到的暂存副本也必须与审核内容一致，不能只核对物理路径。 */
+suspend fun matchesReviewedAudioCopy(file: File, expectedRevision: String): Boolean =
+    fileDigest(file).joinToString("") { "%02x".format(it) } == expectedRevision.substringAfterLast('\n')
+
+private fun revisionToken(file: File, revision: LocalFileRevision): String =
+    listOf(file.canonicalPath, revision.length, revision.modified,
+        revision.digest.joinToString("") { "%02x".format(it) }).joinToString("\n")
+
+/** 审核及草稿跨启动核对本地文件内容；不可直接读取的 URI 和远端文件返回未知。 */
+suspend fun readLocalAudioRevision(song: Song): String? = withContext(Dispatchers.IO) {
+    if (song.sourceType != SourceType.LOCAL || song.path.startsWith("content:", true)) return@withContext null
+    try {
+        val file = if (song.path.startsWith("file:", true)) File(java.net.URI(song.path)) else File(song.path)
+        if (!file.isFile) return@withContext null
+        val revision = localFileRevision(file)
+        revisionToken(file, revision)
+    } catch (e: CancellationException) { throw e }
+    catch (_: Exception) { null }
+}
+
+/** 乐观检查只覆盖当前保存过程，不能代替跨进程的条件替换或审核时的版本快照。 */
+private suspend fun ensureLocalFileUnchanged(file: File, expected: LocalFileRevision) {
+    try {
+        val current = localFileRevision(file)
+        if (current.length != expected.length || current.modified != expected.modified ||
+            !current.digest.contentEquals(expected.digest)) throw LocalFileChangedException()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        throw LocalFileChangedException()
+    }
 }
 
 /** 原子替换失败（安卓外部存储 EPERM）时改写回退路径；返回是否替换成功。 */
@@ -122,15 +215,19 @@ catch (_: Exception) { false }
  * 原地覆盖写入：SAF 授权目录下允许改写已有文件，只是不允许 rename 替换。
  * 覆盖前先备份原文件，写入失败时回滚，避免半截文件盖掉原音频。
  */
-private fun overwriteInPlace(staged: File, original: File) {
+private suspend fun overwriteInPlace(staged: File, original: File, revision: LocalFileRevision) {
     val parent = original.absoluteFile.parentFile
     val backup = File.createTempFile(".muses-backup-", ".${original.extension}", parent)
-    original.copyTo(backup, overwrite = true)
     try {
-        copyOver(staged, original)
-    } catch (e: Exception) {
-        runCatching { copyOver(backup, original) }
-        throw e
+        original.copyTo(backup, overwrite = true)
+        // 检查发生在备份之后、破坏性写入之前；冲突时不能把备份覆盖到外部新内容上。
+        ensureLocalFileUnchanged(original, revision)
+        try {
+            copyOver(staged, original)
+        } catch (e: Exception) {
+            runCatching { copyOver(backup, original) }
+            throw e
+        }
     } finally { backup.delete() }
 }
 

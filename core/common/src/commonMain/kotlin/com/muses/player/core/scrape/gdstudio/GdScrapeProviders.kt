@@ -11,6 +11,7 @@ import com.muses.player.core.scrape.editmeta.EditCloudMetaQuery
 import com.muses.player.core.scrape.editmeta.LyricsHit
 import com.muses.player.core.scrape.editmeta.LyricsSearchPort
 import com.muses.player.core.scrape.http.ScrapeHttp
+import com.muses.player.core.network.ProviderHttpException
 import com.muses.player.core.scrape.text.TextMetaProvider
 import com.muses.player.core.scrape.text.normalizeNfkc
 import com.muses.player.core.scrape.text.pickBestHit
@@ -36,7 +37,7 @@ class GdScrapeClient(
         budgetMutex.withLock {
             val time = now()
             while (requestTimes.firstOrNull()?.let { it <= time - 300_000 } == true) requestTimes.removeFirst()
-            check(requestTimes.size < 50) { "GD 音乐台请求频率已达上限，请稍后重试" }
+            if (requestTimes.size >= 50) throw ProviderHttpException(429)
             requestTimes.addLast(time)
         }
         return http.getJson("https://music-api.gdstudio.xyz/api.php?source=netease&$parameters")

@@ -4,8 +4,14 @@ import com.muses.player.core.model.scrape.OnlineTextQuery
 import com.muses.player.core.model.scrape.TextMetaHit
 import com.muses.player.core.scrape.cover.CoverProvider
 import com.muses.player.core.scrape.text.normalizeNfkc
-import com.muses.player.core.scrape.text.scoreTextHit
+import com.muses.player.core.scrape.text.evaluateTextMatch
+import com.muses.player.core.network.ProviderFailureKind
+import com.muses.player.core.network.ProviderHttpException
+import com.muses.player.core.network.ProviderTimeoutException
+import com.muses.player.core.network.providerFailureKind
+import com.muses.player.core.network.captureProviderFailures
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
@@ -24,12 +30,12 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /** 云端元信息来源平台（MusicTag 式选择） */
 enum class CloudPlatformId(val wire: String) {
-    ALL("all"), WY("wy"), TX("tx"), KG("kg"), KW("kw"), MG("mg"), ITUNES("itunes"), GD("gdstudio"),
+    ALL("all"), WY("wy"), TX("tx"), KG("kg"), KW("kw"), MG("mg"), ITUNES("itunes"), GD("gdstudio"), MUSICBRAINZ("musicbrainz"), LRCAPI("lrcapi"),
 }
 
 /** 云端歌词来源平台（无 iTunes，有 LRCLIB） */
 enum class CloudLyricsPlatformId(val wire: String) {
-    ALL("all"), WY("wy"), TX("tx"), KG("kg"), KW("kw"), MG("mg"), LRCLIB("lrclib"), GD("gdstudio"),
+    ALL("all"), WY("wy"), TX("tx"), KG("kg"), KW("kw"), MG("mg"), LRCLIB("lrclib"), GD("gdstudio"), LRCAPI("lrcapi"),
 }
 
 /** 云端搜索维度 */
@@ -57,7 +63,13 @@ data class EditDimResult<T>(
     val defaultIndex: Int = 0,
     /** 成功候选仍可使用；这些来源请求失败，可以重试。 */
     val failedSources: List<String> = emptyList(),
+    val sourceFailures: List<EditSourceFailure> = emptyList(),
 )
+
+data class EditSourceFailure(val source: String, val kind: ProviderFailureKind, val httpStatus: Int? = null)
+
+private fun sourceFailure(source: String, error: Exception) =
+    EditSourceFailure(source, providerFailureKind(error), (error as? ProviderHttpException)?.status)
 
 data class EditCoverCandidate(
     val remoteUrl: String,
@@ -123,6 +135,7 @@ class EditCloudMetaSearch(
      * AMLL 聚合库（TTML）应作为独立端口注入，始终参与、不随平台过滤。
      */
     private val lyricsPorts: List<LyricsSearchPort> = emptyList(),
+    private val diagnosticCoverProbe: (suspend (String) -> Unit)? = null,
 ) {
 
     companion object {
@@ -140,7 +153,9 @@ class EditCloudMetaSearch(
         CloudPlatformId.KG to listOf("kg"),
         CloudPlatformId.KW to listOf("kw"),
         CloudPlatformId.MG to listOf("mg"),
-        CloudPlatformId.ITUNES to emptyList(),
+        CloudPlatformId.ITUNES to listOf("itunes"),
+        CloudPlatformId.MUSICBRAINZ to listOf("musicbrainz"),
+        CloudPlatformId.LRCAPI to emptyList(),
         CloudPlatformId.GD to listOf("gdstudio"),
     )
 
@@ -152,6 +167,8 @@ class EditCloudMetaSearch(
         CloudPlatformId.KW to listOf("kw"),
         CloudPlatformId.MG to listOf("mg"),
         CloudPlatformId.ITUNES to listOf("itunes"),
+        CloudPlatformId.MUSICBRAINZ to listOf("musicbrainz"),
+        CloudPlatformId.LRCAPI to listOf("lrcapi"),
         CloudPlatformId.GD to listOf("gdstudio"),
     )
 
@@ -163,8 +180,74 @@ class EditCloudMetaSearch(
         CloudLyricsPlatformId.KW to listOf("kw"),
         CloudLyricsPlatformId.MG to listOf("mg"),
         CloudLyricsPlatformId.LRCLIB to listOf("lrclib"),
+        CloudLyricsPlatformId.LRCAPI to listOf("lrcapi"),
         CloudLyricsPlatformId.GD to listOf("gdstudio"),
     )
+
+    /** 仅列出实际装配的能力，缺失的维度不作为来源故障。 */
+    fun diagnosticTargets(options: SearchOptions = SearchOptions()): List<SourceDiagnosticTarget> = buildList {
+        if (EditDimKey.TEXT in options.dimensions) textProviders.filter {
+            options.platform == CloudPlatformId.ALL || it.id.wire in platformTextIds[options.platform].orEmpty()
+        }.forEach { add(SourceDiagnosticTarget(it.id.wire, EditDimKey.TEXT)) }
+        if (EditDimKey.COVER in options.dimensions) coverProviders.filter {
+            options.platform == CloudPlatformId.ALL || it.id.wire in platformCoverIds[options.platform].orEmpty()
+        }.forEach { add(SourceDiagnosticTarget(it.id.wire, EditDimKey.COVER)) }
+        if (EditDimKey.LYRICS in options.dimensions) lyricsPorts.filter {
+            it.id == AMLL_PORT_ID || options.lyricsPlatform == CloudLyricsPlatformId.ALL ||
+                it.id in platformLyricsIds[options.lyricsPlatform].orEmpty()
+        }.forEach { add(SourceDiagnosticTarget(it.id, EditDimKey.LYRICS)) }
+    }.distinct()
+
+    /** 独立查询诊断，不更新审核候选；逐行执行，取消会阻止尚未开始的请求。 */
+    suspend fun diagnose(
+        query: EditCloudMetaQuery,
+        options: SearchOptions = SearchOptions(),
+        nowMs: () -> Long = { System.nanoTime() / 1_000_000 },
+        onResult: (SourceDiagnosticResult) -> Unit,
+    ) = kotlinx.coroutines.withContext(com.muses.player.core.network.ProviderDiagnosticContext) {
+        require(query.title.isNotBlank() && query.songId.isNotBlank())
+        for (target in diagnosticTargets(options)) {
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            val started = nowMs()
+            var checkingImage = false
+            val row = try {
+                val result = requestSource {
+                    val engine = EditCloudMetaSearch(
+                        textProviders.filter { target.dimension == EditDimKey.TEXT && it.id.wire == target.source },
+                        coverProviders.filter { target.dimension == EditDimKey.COVER && it.id.wire == target.source },
+                        lyricsPorts.filter { target.dimension == EditDimKey.LYRICS && it.id == target.source },
+                    )
+                    val all = engine.search(query, SearchOptions(maxCandidates = 50, dimensions = setOf(target.dimension)))
+                    val dim = when (target.dimension) {
+                        EditDimKey.TEXT -> all.text
+                        EditDimKey.COVER -> all.cover
+                        EditDimKey.LYRICS -> all.lyrics
+                    }
+                    var status = when (dim.status) {
+                        EditDimStatus.OK -> SourceDiagnosticStatus.OK
+                        EditDimStatus.NO_MATCH -> SourceDiagnosticStatus.NO_MATCH
+                        else -> SourceDiagnosticStatus.FAILED
+                    }
+                    if (target.dimension == EditDimKey.COVER && all.cover.items.isNotEmpty()) {
+                        val probe = diagnosticCoverProbe
+                        if (probe == null) status = SourceDiagnosticStatus.UNVERIFIED
+                        else {
+                            checkingImage = true
+                            all.cover.items.forEach { probe(it.remoteUrl) }
+                        }
+                    }
+                    SourceDiagnosticResult(target, status, 0, dim.items.size, dim.sourceFailures.firstOrNull(), checkingImage)
+                }
+                result
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                SourceDiagnosticResult(target, SourceDiagnosticStatus.FAILED, 0, failure = sourceFailure(target.source, e), imageChecked = checkingImage)
+            }
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            onResult(row.copy(elapsedMs = (nowMs() - started).coerceAtLeast(0)))
+        }
+    }
 
     private fun throwIfAborted(signal: AbortSignal?) {
         if (signal != null && signal.isAborted()) {
@@ -176,21 +259,21 @@ class EditCloudMetaSearch(
 
     /** 只折叠本次来源请求的超时，外层重搜取消仍正常传播。 */
     private suspend fun <T> requestSource(block: suspend () -> T): T {
-        val response = withTimeoutOrNull(30_000L) { SourceResponse(block()) }
-            ?: throw kotlinx.io.IOException("来源请求超时")
+        val response = withTimeoutOrNull(30_000L) { SourceResponse(captureProviderFailures(block)) }
+            ?: throw ProviderTimeoutException()
         return response.value
     }
 
     private fun <T> emptyDim(): EditDimResult<T> = EditDimResult(EditDimStatus.NO_MATCH, emptyList())
 
-    private fun <T> finalizeDim(items: List<T>, sawNetwork: Boolean, aborted: Boolean, failedSources: List<String>): EditDimResult<T> =
+    private fun <T> finalizeDim(items: List<T>, sawNetwork: Boolean, aborted: Boolean, failures: List<EditSourceFailure>): EditDimResult<T> =
         when {
             aborted && items.isEmpty() -> EditDimResult(EditDimStatus.ABORTED, emptyList())
             items.isNotEmpty() -> EditDimResult(EditDimStatus.OK, items)
             aborted -> EditDimResult(EditDimStatus.ABORTED, emptyList())
             sawNetwork -> EditDimResult(EditDimStatus.NETWORK, emptyList())
             else -> EditDimResult(EditDimStatus.NO_MATCH, emptyList())
-        }.copy(failedSources = failedSources.distinct())
+        }.copy(failedSources = failures.map { it.source }.distinct(), sourceFailures = failures.distinct())
 
     // ── 文本维度 ──────────────────────────────────────────
 
@@ -200,12 +283,19 @@ class EditCloudMetaSearch(
             normalizeNfkc(hit.artist.orEmpty()).trim().lowercase(),
             normalizeNfkc(hit.album.orEmpty()).trim().lowercase(),
             hit.source.wire,
+            hit.recordingId.orEmpty(), hit.releaseId.orEmpty(), hit.candidateId.orEmpty(), hit.versionInfo.orEmpty(),
+            com.muses.player.core.scrape.text.validTextDuration(hit.durationSec)?.toString().orEmpty(),
         ).joinToString("\u0001")
 
     private fun rankAndCapText(hits: List<TextMetaHit>, query: OnlineTextQuery, max: Int): List<TextMetaHit> {
         val seen = mutableSetOf<String>()
         val unique = hits.filter { seen.add(textDedupKey(it)) }
-        return unique.sortedByDescending { scoreTextHit(it, query) }.take(max)
+        return unique.map { it to evaluateTextMatch(it, query) }.sortedWith(
+            compareBy<Pair<TextMetaHit, com.muses.player.core.scrape.text.TextMatchEvidence>> { it.second.requiresReview }
+                .thenByDescending { it.second.identityScore }
+                .thenByDescending { it.second.releaseScore ?: -1 }
+                .thenByDescending { it.second.completeness },
+        ).map { it.first }.take(max)
     }
 
     private suspend fun searchTextDimension(
@@ -217,7 +307,7 @@ class EditCloudMetaSearch(
         val collected = mutableListOf<TextMetaHit>()
         var sawNetwork = false
         var aborted = false
-        val failedSources = mutableListOf<String>()
+        val failedSources = mutableListOf<EditSourceFailure>()
 
         loop@ for (provider in providers) {
             try {
@@ -234,9 +324,9 @@ class EditCloudMetaSearch(
                 break@loop
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 sawNetwork = true
-                failedSources += provider.id.wire
+                failedSources += sourceFailure(provider.id.wire, e)
             }
         }
 
@@ -261,7 +351,7 @@ class EditCloudMetaSearch(
         val seenUrls = mutableSetOf<String>()
         var sawNetwork = false
         var aborted = false
-        val failedSources = mutableListOf<String>()
+        val failedSources = mutableListOf<EditSourceFailure>()
 
         loop@ for (provider in providers) {
             if (collected.size >= max) break@loop
@@ -284,9 +374,9 @@ class EditCloudMetaSearch(
                 break@loop
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 sawNetwork = true
-                failedSources += provider.id.wire
+                failedSources += sourceFailure(provider.id.wire, e)
             }
         }
 
@@ -306,7 +396,7 @@ class EditCloudMetaSearch(
         val seen = mutableSetOf<String>()
         var sawNetwork = false
         var aborted = false
-        val failedSources = mutableListOf<String>()
+        val failedSources = mutableListOf<EditSourceFailure>()
 
         fun pushHit(item: LyricsHit, source: String) {
             val text = item.text.trim()
@@ -336,9 +426,9 @@ class EditCloudMetaSearch(
                 aborted = true
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 sawNetwork = true
-                failedSources += amllPort.id
+                failedSources += sourceFailure(amllPort.id, e)
             }
         }
 
@@ -360,9 +450,9 @@ class EditCloudMetaSearch(
                     break@loop
                 } catch (e: CancellationException) {
                     throw e
-                } catch (_: Exception) {
+                } catch (e: Exception) {
                     sawNetwork = true
-                    failedSources += port.id
+                    failedSources += sourceFailure(port.id, e)
                 }
             }
         }
@@ -379,6 +469,34 @@ class EditCloudMetaSearch(
     }
 
     // ── 公开入口 ──────────────────────────────────────────
+
+    /** 只重查失败的来源与维度，成功候选按原顺序保留，避免审核选择的下标变化。 */
+    suspend fun retryFailed(
+        query: EditCloudMetaQuery,
+        previous: EditCloudMetaResult,
+        signal: AbortSignal? = null,
+    ): EditCloudMetaResult {
+        val retry = EditCloudMetaSearch(
+            textProviders.filter { it.id.wire in previous.text.failedSources },
+            coverProviders.filter { it.id.wire in previous.cover.failedSources },
+            lyricsPorts.filter { it.id in previous.lyrics.failedSources },
+        ).search(query, signal = signal)
+        return EditCloudMetaResult(
+            appendRetryResults(previous.text, retry.text),
+            appendRetryResults(previous.cover, retry.cover),
+            appendRetryResults(previous.lyrics, retry.lyrics),
+        )
+    }
+
+    private fun <T> appendRetryResults(previous: EditDimResult<T>, retry: EditDimResult<T>): EditDimResult<T> {
+        if (previous.failedSources.isEmpty()) return previous
+        val items = (previous.items + retry.items).distinct()
+        return retry.copy(
+            status = if (items.isNotEmpty()) EditDimStatus.OK else retry.status,
+            items = items,
+            defaultIndex = if (previous.items.isNotEmpty()) previous.defaultIndex else retry.defaultIndex,
+        )
+    }
 
     /**
      * 并行拉取文本 / 封面 / 歌词多候选（编辑强制搜）。

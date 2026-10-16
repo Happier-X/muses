@@ -64,7 +64,7 @@ internal fun buildAiScrapePrompt(input: AiScrapeInput): String = buildJsonObject
         put("title", input.song.title.take(200))
         put("artist", input.song.artist.orEmpty().take(200))
         put("album", input.song.album.orEmpty().take(200))
-        put("durationSec", input.song.durationSec)
+        put("durationSec", input.song.durationMs.takeIf { it > 0 }?.div(1000.0) ?: input.song.durationSec.toDouble())
         put("titleSource", input.song.metaSources?.title?.wire ?: "unknown")
         put("artistSource", input.song.metaSources?.artist?.wire ?: "unknown")
         put("albumSource", input.song.metaSources?.album?.wire ?: "unknown")
@@ -83,6 +83,10 @@ internal fun buildAiScrapePrompt(input: AiScrapeInput): String = buildJsonObject
                 put("artist", hit.artist.orEmpty().take(200))
                 put("album", hit.album.orEmpty().take(200))
                 put("source", hit.source.wire)
+                com.muses.player.core.scrape.text.validTextDuration(hit.durationSec)?.let { put("durationSec", it) }
+                hit.recordingId?.let { put("recordingId", it.take(200)) }
+                hit.releaseId?.let { put("releaseId", it.take(200)) }
+                hit.versionInfo?.let { put("versionInfo", it.take(200)) }
             })
         }
     })

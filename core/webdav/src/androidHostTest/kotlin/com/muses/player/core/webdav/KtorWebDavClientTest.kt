@@ -84,6 +84,37 @@ class KtorWebDavClientTest {
     private fun throttled() = MockResp(429, "", mapOf("Retry-After" to "0"))
 
     @Test
+    fun `版本探测只接受强ETag`() = runTest {
+        val h = Harness(MockResp(200, headers = mapOf("ETag" to "\"v1\"")),
+            MockResp(200, headers = mapOf("ETag" to "W/\"v1\"")), MockResp(200))
+        assertEquals("\"v1\"", h.client.strongETag("https://example.com/song.mp3"))
+        assertEquals(null, h.client.strongETag("https://example.com/song.mp3"))
+        assertEquals(null, h.client.strongETag("https://example.com/song.mp3"))
+        assertTrue(h.requests.all { it.method.value == "HEAD" })
+    }
+
+    @Test
+    fun `条件上传发送版本头且412冲突不降级为普通上传`() = runTest {
+        val h = Harness(MockResp(412))
+        val audio = java.io.File.createTempFile("conditional-put-", ".mp3")
+        try {
+            audio.writeText("待上传音频")
+            var rejected = false
+            try {
+                h.client.putIfMatch("https://example.com/song.mp3", audio, "\"v1\"")
+            } catch (e: WebDavRequestException) {
+                assertEquals(412, e.code)
+                rejected = true
+            }
+            assertTrue(rejected)
+            assertEquals(1, h.requests.size)
+            assertEquals("PUT", h.requests.single().method.value)
+            assertEquals("\"v1\"", h.requests.single().headers["If-Match"])
+            assertEquals("待上传音频", audio.readText())
+        } finally { audio.delete() }
+    }
+
+    @Test
     fun probe_returns_true_on_success() = runTest {
         val h = Harness(multistatus(propfindRootResponse))
         assertTrue(h.client.probe("https://example.com/dav/"))

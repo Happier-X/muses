@@ -66,6 +66,8 @@ class KwProvider(private val http: ScrapeHttp) : TextMetaProvider {
                 artist = item["ARTIST"].asStringOrNull()?.trim()?.ifEmpty { null },
                 album = item["ALBUM"].asStringOrNull()?.trim()?.ifEmpty { null },
                 source = OnlineTextSource.KW,
+                durationSec = item["DURATION"].asStringOrNull()?.toDoubleOrNull()?.div(1.0)?.takeIf { it.isFinite() && it > 0 },
+                candidateId = item["MUSICRID"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() && it != "0" }?.let { "kw:$it" },
             )
         }.filter { it.artist != null || it.album != null }
 

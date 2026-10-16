@@ -2,13 +2,20 @@ package com.muses.player.core.scrape.http
 
 import com.muses.player.core.data.store.platformNowMs
 import com.muses.player.core.webdav.WebDavRateLimiter
+import com.muses.player.core.network.ProviderRequestGate
+import com.muses.player.core.network.ProviderHttpException
+import com.muses.player.core.network.observeProviderRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.request.get
+import io.ktor.client.request.prepareGet
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
-import io.ktor.client.statement.readRawBytes
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.utils.io.readAvailable
+import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -36,6 +43,7 @@ class ScrapeHttp(
     private val client: HttpClient = defaultScrapeHttpClient(),
     private val rateLimiter: WebDavRateLimiter = WebDavRateLimiter(),
     private val nowMs: () -> Long = { platformNowMs() },
+    private val requestGate: ProviderRequestGate = ProviderRequestGate.Shared,
 ) {
 
     /** 跨端文本 GET：非 2xx 抛 IOException("http <status>")，429 自动退避重试 1 次 */
@@ -46,19 +54,76 @@ class ScrapeHttp(
     suspend fun getJson(url: String, headers: Map<String, String> = emptyMap()): JsonElement {
         val text = getText(url, headers)
         // 响应结构不稳定，调用方用 JsonElement 松散解析，不做强类型映射
-        return Json.parseToJsonElement(text)
+        return observeProviderRequest(url) { Json.parseToJsonElement(text) }
     }
 
-    /** 二进制 GET（远程封面字节）；非 2xx 抛 IOException，429 同 getText 退避重试 1 次 */
-    suspend fun getBytes(url: String, headers: Map<String, String> = emptyMap()): ByteArray =
-        executeWithRetry(url, headers) { readRawBytes() }
+    /** 动态封面端点先验证状态和图片头；按块读取并及时关闭响应，不完整下载大图。 */
+    suspend fun verifyImage(url: String) = executeWithRetry(url, emptyMap()) {
+        val channel = bodyAsChannel()
+        try {
+            if ((this.headers["Content-Length"]?.toLongOrNull() ?: 0L) > MAX_COVER_BYTES) {
+                throw com.muses.player.core.network.ProviderResponseException()
+            }
+            val prefix = ByteArray(16)
+            var size = 0
+            while (size < prefix.size) {
+                val count = channel.readAvailable(prefix, size, prefix.size - size)
+                if (count < 0) break
+                size += count
+            }
+            fun bytes(vararg values: Int) = size >= values.size && values.indices.all { (prefix[it].toInt() and 255) == values[it] }
+            val mime = this.headers["Content-Type"]?.substringBefore(';')?.lowercase()
+            val valid = bytes(0xff, 0xd8, 0xff) || bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a) ||
+                bytes(0x47, 0x49, 0x46, 0x38) || bytes(0x42, 0x4d) ||
+                (bytes(0x52, 0x49, 0x46, 0x46) && size >= 12 && prefix.copyOfRange(8, 12).decodeToString() == "WEBP")
+            if (!valid || (mime != null && !mime.startsWith("image/") && mime != "application/octet-stream")) {
+                throw com.muses.player.core.network.ProviderResponseException()
+            }
+        } finally { channel.cancel(null) }
+    }
+
+    /** 封面按块读取；声明长度与实际读取量均受限，避免先完整缓冲再检查。 */
+    suspend fun getBytes(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+        maxBytes: Int = MAX_COVER_BYTES,
+    ): ByteArray {
+        require(maxBytes > 0) { "封面大小上限必须大于零" }
+        return executeWithRetry(url, headers) {
+            val channel = bodyAsChannel()
+            try {
+                if ((this.headers["Content-Length"]?.toLongOrNull() ?: 0L) > maxBytes.toLong()) {
+                    throw java.io.IOException("封面数据超过大小上限")
+                }
+                val output = ByteArrayOutputStream(min(maxBytes, 8192))
+                val buffer = ByteArray(min(maxBytes, 8192))
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    // 最多多读取一个字节，用于识别恰好达到上限与实际超限。
+                    val requested = min(buffer.size.toLong(), maxBytes.toLong() - output.size() + 1L).toInt()
+                    val count = channel.readAvailable(buffer, 0, requested)
+                    if (count < 0) break
+                    if (count > maxBytes - output.size()) throw java.io.IOException("封面数据超过大小上限")
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
+            } finally {
+                channel.cancel(null)
+            }
+        }
+    }
+
+    private sealed interface RequestAttempt<out T> {
+        data class Success<T>(val value: T) : RequestAttempt<T>
+        data class Retry(val delayMs: Long?) : RequestAttempt<Nothing>
+    }
 
     /** 共享的 429 感知重试骨架：限流 acquire + Retry-After 退避 + 最多 1 次重试。 */
     private suspend fun <T> executeWithRetry(
         url: String,
         headers: Map<String, String>,
         onSuccess: suspend io.ktor.client.statement.HttpResponse.() -> T,
-    ): T {
+    ): T = requestGate.withSource(url) {
         try {
             rateLimiter.acquire()
         } catch (e: CancellationException) {
@@ -66,20 +131,26 @@ class ScrapeHttp(
         }
         var attempt = 0
         while (true) {
-            val response = client.get(url) {
+            beforeRequest()
+            val outcome = client.prepareGet(url) {
                 headers.forEach { (name, value) -> header(name, value) }
-            }
-            if (response.status.value != 429) {
-                if (!response.status.isSuccess()) {
-                    throw kotlinx.io.IOException("http ${response.status.value}")
+            }.execute { response ->
+                if (response.status.value == 429) {
+                    // 不读取错误响应体，作用域退出时释放响应。
+                    response.bodyAsChannel().cancel(null)
+                    RequestAttempt.Retry(parseRetryAfterMs(response.headers["Retry-After"], nowMs))
+                } else {
+                    if (!response.status.isSuccess()) {
+                        response.bodyAsChannel().cancel(null)
+                        throw ProviderHttpException(response.status.value)
+                    }
+                    RequestAttempt.Success(response.onSuccess())
                 }
-                return response.onSuccess()
             }
-            val retryAfterMs = parseRetryAfterMs(response.headers["Retry-After"], nowMs)
-            // 429 空体消费后关闭复用连接（MockEngine/真实引擎均安全）
-            runCatching { response.bodyAsText() }
+            if (outcome is RequestAttempt.Success) return@withSource outcome.value
+            val retryAfterMs = (outcome as RequestAttempt.Retry).delayMs
             if (attempt >= 1) {
-                throw kotlinx.io.IOException("http 429")
+                throw ProviderHttpException(429)
             }
             val delayMs = retryAfterMs?.let { min(it, MAX_RETRY_AFTER_MS) } ?: DEFAULT_429_DELAY_MS
             val clamped = delayMs.coerceIn(0L, MAX_RETRY_AFTER_MS)
@@ -95,9 +166,14 @@ class ScrapeHttp(
             }
             attempt++
         }
+        @Suppress("UNREACHABLE_CODE")
+        error("请求循环意外结束")
     }
 
     companion object {
+        /** 单张下载封面最多 20 MiB；不依赖服务器提供长度。 */
+        const val MAX_COVER_BYTES: Int = 20 * 1024 * 1024
+
         /** 二次 429 退避上限 8s（design.md）。 */
         const val MAX_RETRY_AFTER_MS: Long = 8000L
 

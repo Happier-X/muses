@@ -19,6 +19,8 @@ enum class OnlineCoverSource(val wire: String) {
     TX("tx"),
     WY("wy"),
     GD("gdstudio"),
+    MUSICBRAINZ("musicbrainz"),
+    LRCAPI("lrcapi"),
 }
 
 /** 封面匹配失败原因；wire 值对齐 Web 字符串（types.ts OnlineCoverMatchFail） */

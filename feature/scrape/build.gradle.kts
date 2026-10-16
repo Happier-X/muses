@@ -8,6 +8,7 @@
 plugins {
     alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose.multiplatform)
 }
@@ -30,6 +31,8 @@ kotlin {
             // SavedStateHandle 随 lifecycle-viewmodel 2.8+ KMP 工件（ScrapeReviewViewModel 构造）
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.datastore.preferences)
             // P2a Koin（统一 4.2.0；KMP sourceSets 不支持 platform(BOM)，toml bundles 已收敛版本）
             implementation(libs.bundles.koin.kmp)
         }

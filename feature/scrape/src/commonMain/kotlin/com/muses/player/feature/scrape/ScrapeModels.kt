@@ -3,6 +3,14 @@ package com.muses.player.feature.scrape
 import com.muses.player.core.model.scrape.WritebackResult
 
 /** 页面四态（对照 ScrapePage.vue pageState: queue/matching/preview/result） */
+
+/** 队列页的写回恢复入口信息（撤销记录已持久化，重启后仍可恢复）。 */
+data class ScrapeUndoInfo(
+    val journalId: String,
+    val songCount: Int,
+    val unconfirmedCount: Int,
+)
+
 sealed interface ScrapePageState {
     /** 待刮削队列 */
     data object Queue : ScrapePageState
