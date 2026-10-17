@@ -40,7 +40,6 @@ import com.muses.player.core.ui.icons.TablerIcons
 import com.muses.player.core.ui.theme.LocalBottomChromePadding
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
@@ -129,7 +128,8 @@ fun ChartDetailScreen(
                 MusesRefreshablePlaceholder {
                     Box(Modifier.fillMaxSize().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
                         when {
-                            state.loading -> CircularProgressIndicator()
+                            // 首屏加载已由下拉刷新头展示，避免再叠一个蓝色进度圈。
+                            state.loading -> Unit
                             state.error != null -> androidx.compose.foundation.layout.Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
