@@ -73,7 +73,7 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
         containerColor = scheme.surface,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = { MusesTopBar(title = "探索") },
+        topBar = { MusesTopBar(title = "首页") },
     ) { padding ->
         MusesPullToRefresh(
             isRefreshing = state.featured.loading || state.chart.loadingCharts || state.chart.refreshingCharts,

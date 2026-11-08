@@ -13,7 +13,6 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.ViewModel
-import com.muses.player.core.appupdate.checkLatestRelease
 import com.muses.player.core.data.log.ErrorLogStore
 import com.muses.player.core.data.repository.SettingsRepository
 import com.muses.player.core.ui.components.SettingsAboutFeedbackContent
@@ -22,7 +21,6 @@ import com.muses.player.core.ui.components.SettingsScreen
 import com.muses.player.feature.shell.platform.AppVersionProvider
 import com.muses.player.feature.shell.platform.InAppUpdateSection
 import com.muses.player.feature.shell.platform.rememberShellPlatformActions
-import com.muses.player.feature.shell.platform.supportsInAppUpdate
 
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -141,23 +139,19 @@ fun SettingsScreen(
                 }
                 AiRecommendSettingSection(onOpenAiSettings = onOpenAiSettings)
 
-                // ---- 应用更新（Windows 应用内更新卡片；安卓空实现，走共享外链检查项） ----
-                if (supportsInAppUpdate) {
-                    InAppUpdateSection(
-                        versionName = versionProvider.versionName,
-                        onOpenUrl = actions.openUrl,
-                    )
-                }
+                // ---- 应用更新（双端应用内更新：检查 → 下载 → 安装） ----
+                InAppUpdateSection(
+                    versionName = versionProvider.versionName,
+                    onOpenUrl = actions.openUrl,
+                )
 
                 // ---- 关于 ----
                 SettingsAboutFeedbackContent(
                     versionName = versionProvider.versionName,
                     onOpenUrl = actions.openUrl,
                     onCopyToClipboard = actions.copyToClipboard,
-                    onCheckUpdate = { current -> checkLatestRelease(current) },
 
                     onDumpLogs = { viewModel.dumpLogs() },
-                    showCheckUpdate = !supportsInAppUpdate,
                 )
             },
         )

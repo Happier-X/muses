@@ -23,6 +23,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- 应用内更新：下载 Release 里的 APK 后拉起系统安装器（运行时还需用户允许「未知来源」） -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!-- 在线音源必须开放明文 HTTP：
          各平台解析出的播放直链普遍是 http://（如 car-er.kuwo.cn、
          isure.stream.qqmusic.qq.com、fsandroid.tx.kugou.com、freetyst.nf.migu.cn），
@@ -48,6 +51,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 应用内更新：PackageInstaller 会话装好后回调（确认/失败提示） -->
+        <receiver
+            android:name="com.muses.player.feature.shell.platform.UpdateInstallReceiver"
+            android:exported="false" />
 
         <!-- WorkManager 按需初始化：默认 Initializer 移除，改由 MusesApplication.Configuration.Provider 手动初始化 -->
         <provider

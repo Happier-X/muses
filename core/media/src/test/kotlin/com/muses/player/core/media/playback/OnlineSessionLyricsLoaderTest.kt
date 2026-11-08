@@ -9,6 +9,9 @@ import com.muses.player.core.model.SourceType
 import com.muses.player.core.model.online.OnlineTrackLyrics
 import com.muses.player.core.model.online.OnlineTrackRef
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
@@ -20,6 +23,22 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OnlineSessionLyricsLoaderTest {
+    @Test
+    fun 服务不等待逐字匹配就发布已有行歌词() = runBlocking {
+        val matchReady = CompletableDeferred<Unit>()
+        val published = CompletableDeferred<LyricsDocument>()
+        val loader = OnlineSessionLyricsLoader(
+            resolveLyrics = { OnlineTrackLyrics(lyric = "[00:01.000]立即显示") },
+            matchLyrics = { matchReady.await(); null },
+            sharedLyrics = { null },
+        )
+        val job = launch { loader.load(song()) { published.complete(it) } }
+        try {
+            assertEquals("立即显示", withTimeout(2000) { published.await() }.lines.single().text)
+            assertFalse(matchReady.isCompleted)
+        } finally { job.cancelAndJoin() }
+    }
+
     private fun song() = Song(id = "online:wy:1", sourceId = "script",
         path = OnlineTrackRef("wy", "{}", "script").encode(), title = "测试歌",
         sourceType = SourceType.ONLINE)

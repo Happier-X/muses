@@ -29,6 +29,7 @@ import com.muses.player.core.playback.PlaybackPort
 import com.muses.player.core.playback.PlaybackStates
 import com.muses.player.core.model.scrape.MatchConfidence
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -269,6 +270,69 @@ class PlayerViewModelCurrentTrackTest {
     }
 
     // ── 用例 ──────────────────────────────────────────────
+
+    @Test
+    fun 封面和匹配请求未完成时先显示脚本行歌词() = runBlocking {
+        val coverReady = CompletableDeferred<Unit>()
+        val matchReady = CompletableDeferred<Unit>()
+        val song = onlineSong()
+        OnlineTrackSession.remember(listOf(song))
+        val resolver = object : OnlineTrackMetadataResolver {
+            override suspend fun resolveCover(ref: OnlineTrackRef): String {
+                coverReady.await()
+                return "https://cover.test/ready.jpg"
+            }
+            override suspend fun resolveLyrics(ref: OnlineTrackRef) =
+                OnlineTrackLyrics(lyric = "[00:01.000]先显示的歌词")
+        }
+        val provider = object : LyricsProvider {
+            override val id = OnlineLyricsSource.KW
+            override suspend fun searchLyrics(query: OnlineLyricsQuery): OnlineLyricsProviderHit {
+                matchReady.await()
+                return OnlineLyricsProviderHit("[00:01.000]匹配后的歌词", com.muses.player.core.model.lyrics.OnlineLyricsFormat.LRC)
+            }
+        }
+        val port = FakePort()
+        val vm = PlayerViewModel(port, FakeSongDao(), resolver, LyricsMatcher(FakeAmll(), listOf(provider)), null)
+        try {
+            port.setCurrentSong(song.id)
+            awaitUntil { vm.lyricsDocument.value?.lines?.firstOrNull()?.text == "先显示的歌词" }
+            assertTrue(!coverReady.isCompleted && !matchReady.isCompleted)
+            assertEquals(song.coverUri, vm.stickyCover.value)
+            matchReady.complete(Unit)
+            awaitUntil { vm.lyricsDocument.value?.lines?.firstOrNull()?.text == "匹配后的歌词" }
+            coverReady.complete(Unit)
+            awaitUntil { vm.stickyCover.value == "https://cover.test/ready.jpg" }
+        } finally { vm.viewModelScope.cancel() }
+    }
+
+    @Test
+    fun 匹配请求未完成时脚本仍可重试并显示逐字歌词() = runBlocking {
+        val matchReady = CompletableDeferred<Unit>()
+        val song = onlineSong()
+        OnlineTrackSession.remember(listOf(song))
+        val resolver = object : OnlineTrackMetadataResolver {
+            var requests = 0
+            override suspend fun resolveCover(ref: OnlineTrackRef) = song.coverUri
+            override suspend fun resolveLyrics(ref: OnlineTrackRef): OnlineTrackLyrics? =
+                if (++requests == 1) null else OnlineTrackLyrics(lxlyric = "[00:01.000]<1000,200>脚<1200,200>本")
+        }
+        val provider = object : LyricsProvider {
+            override val id = OnlineLyricsSource.KW
+            override suspend fun searchLyrics(query: OnlineLyricsQuery): OnlineLyricsProviderHit? {
+                matchReady.await()
+                return null
+            }
+        }
+        val port = FakePort()
+        val vm = PlayerViewModel(port, FakeSongDao(), resolver, LyricsMatcher(FakeAmll(), listOf(provider)), null)
+        try {
+            port.setCurrentSong(song.id)
+            awaitUntil { vm.lyricsDocument.value?.lines?.firstOrNull()?.text == "脚本" }
+            assertTrue(!matchReady.isCompleted)
+            assertEquals(2, vm.lyricsDocument.value?.lines?.first()?.syllables?.size)
+        } finally { vm.viewModelScope.cancel() }
+    }
 
     @Test
     fun `在线曲目 脚本无歌词时回退 Muses 匹配并把歌词送上屏`() = runBlocking {

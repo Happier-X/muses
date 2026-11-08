@@ -101,6 +101,10 @@ interface SettingsRepository {
     suspend fun setAiModel(model: String)
 
     suspend fun setAiDailyRecommend(snapshot: String)
+
+    /** 上次自动检查应用更新的日期（epoch day，-1 = 从未检查）：同一天只自动查一次。 */
+    val lastUpdateCheckDay: Flow<Long>
+    suspend fun setLastUpdateCheckDay(day: Long)
 }
 
 class DataStoreSettingsRepository constructor(
@@ -235,6 +239,12 @@ class DataStoreSettingsRepository constructor(
         dataStore.edit { prefs -> prefs[AI_DAILY_RECOMMEND] = snapshot }
     }
 
+    override val lastUpdateCheckDay: Flow<Long>
+        get() = dataStore.data.map { it[LAST_UPDATE_CHECK_DAY] ?: -1L }
+    override suspend fun setLastUpdateCheckDay(day: Long) {
+        dataStore.edit { it[LAST_UPDATE_CHECK_DAY] = day }
+    }
+
     private companion object {
         val AUDIO_FOCUS_ENABLED = booleanPreferencesKey("audio_focus_enabled")
         val BUILTIN_LX_SOURCES_ENABLED = booleanPreferencesKey("builtin_lx_sources_enabled")
@@ -256,6 +266,7 @@ class DataStoreSettingsRepository constructor(
         val AI_BASE_URL = stringPreferencesKey("ai_base_url")
         val AI_MODEL = stringPreferencesKey("ai_model")
         val AI_DAILY_RECOMMEND = stringPreferencesKey("ai_daily_recommend")
+        val LAST_UPDATE_CHECK_DAY = longPreferencesKey("last_update_check_day")
 
         /** 默认 320k：全平台可用、体积与兼容性最稳（高音质档由用户显式选择） */
         const val DEFAULT_ONLINE_QUALITY = "320k"

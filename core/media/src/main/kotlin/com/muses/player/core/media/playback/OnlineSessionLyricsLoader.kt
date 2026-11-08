@@ -42,6 +42,7 @@ internal class OnlineSessionLyricsLoader(
             val script = withContext(Dispatchers.Default) {
                 raw?.let { LxLyricParser.parse(it.lyric, it.tlyric, it.rlyric, it.lxlyric) }
             }?.takeIf { it.lines.isNotEmpty() }
+            if (selected == null && script != null && !script.hasPreciseDesktopLyrics()) publish(script)
             if (script?.hasPreciseDesktopLyrics() == true) selected = script
             else if (attempt == 0) {
                 val matched = if (selected?.hasPreciseDesktopLyrics() == true) null else try {

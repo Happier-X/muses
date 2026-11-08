@@ -22,7 +22,7 @@ enum class NavDestination(
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
 ) {
     // ---- 探索（U27 新增：搜索框 + 排行榜 + 猜你喜欢，启动默认页）----
-    Home(MusesRoute.Home, "探索", TablerIcons.Compass),
+    Home(MusesRoute.Home, "首页", TablerIcons.Compass),
     Search(MusesRoute.OnlineSearch(), "搜索", TablerIcons.Search),
 
     // ---- 主菜单（曲库）：primaryNavItems = navItems.slice(0, 4) ----
@@ -56,11 +56,4 @@ enum class NavDestination(
             key is MusesRoute.ScrapeReview
     }
 
-    companion object {
-        /** 主导航组（探索、搜索与曲库）。 */
-        val Primary: List<NavDestination> = listOf(Home, Search, Songs, Albums, Artists)
-
-        /** 工具与我的入口 */
-        val Secondary: List<NavDestination> = listOf(Scrape, Mine)
-    }
 }

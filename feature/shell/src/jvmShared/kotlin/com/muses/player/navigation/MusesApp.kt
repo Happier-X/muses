@@ -98,8 +98,10 @@ import com.muses.player.core.ui.components.LocalPlayerArtworkMorph
 import com.muses.player.core.ui.components.PlayerArtworkMorph
 import com.muses.player.core.ui.components.LocalPlayerSharedTransitionScope
 import com.muses.player.core.ui.components.MusesSnackbarHostContent
+import com.muses.player.feature.shell.platform.AppVersionProvider
 import com.muses.player.feature.shell.platform.PermissionsEffect
 import com.muses.player.feature.shell.platform.ShellBackHandler
+import com.muses.player.feature.shell.platform.StartupUpdatePrompt
 import com.muses.player.feature.library.AlbumDetailScreen
 import com.muses.player.feature.library.AlbumsPage
 import com.muses.player.feature.library.ArtistDetailScreen
@@ -546,6 +548,8 @@ private fun MusesAppContent(openSettingsRequest: Long) {
 
         // 全局短提示宿主状态（MusesApp 作用域持有，跨重组保持；消费见 MusesSnackbar）
         val snackbarHostState = remember { SnackbarHostState() }
+        // 应用版本号（启动静默检查更新用）
+        val appVersion = org.koin.compose.koinInject<AppVersionProvider>()
 
         // 手机和平板共用「探索 / 曲库 / 我的」三个底部入口。
         val bottomItems = listOf(
@@ -770,6 +774,8 @@ private fun MusesAppContent(openSettingsRequest: Long) {
             if (!playerOverlayMounted) {
                 com.muses.player.download.DownloadLibraryDuplicateDialog(downloadManager)
             }
+            // 启动静默检查更新：有新版弹窗展示更新日志，可直接下载安装（每次启动查一次）
+            StartupUpdatePrompt(versionName = appVersion.versionName)
             }
         }
             } // CompositionLocalProvider 闭合：包住整个 Scaffold（FAB 槽也在内）
